@@ -422,6 +422,33 @@ def test_conditions(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
+# Both cases fail today because the relation is read the other way round.
+READS_CONDITION_TO_CONCLUSION = pytest.mark.xfail(
+    strict=True,
+    reason="Kern: the relation of a condition reads from the condition map "
+    "to the conclusion map",
+)
+
+
+@pytest.mark.parametrize(
+    ("relation", "expected"),
+    [
+        pytest.param("contains", DAILY, marks=READS_CONDITION_TO_CONCLUSION),
+        pytest.param("during", [], marks=READS_CONDITION_TO_CONCLUSION),
+    ],
+)
+def test_condition_relation_reads_condition_to_conclusion(
+    vector_series, relation, expected
+):
+    """A wide map contains the aa maps that lie within it; the aa maps
+    contain no wide map. The condition maps are the wide maps, so the
+    conclusion maps are the aa maps within them."""
+    expression = f"if({{{relation}}}, td(wide) > 0, aa)"
+    name = run_algebra(vector_series.session, expression)
+    rows = list_maps(vector_series.session, name)
+    assert [(row["start_time"], row["end_time"]) for row in rows or []] == expected
+
+
 def test_condition_with_overlay_result_maps(vector_series):
     """The overlay in the then-branch of a condition produces areas"""
     result = counts(vector_series.session, 'if(start_date(aa) < "2001-01-03", aa & ab)')

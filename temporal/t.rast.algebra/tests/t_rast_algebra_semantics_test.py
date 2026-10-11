@@ -7,6 +7,8 @@ thought of. The datasets are described in the algebra fixture.
 """
 
 import itertools
+import random
+import re
 
 import pytest
 
@@ -243,3 +245,555 @@ def test_merge_warns_about_identical_maps(algebra, monkeypatch, expression, coun
         assert f"keeps {count} maps of both operands only once" in warnings[0]
     else:
         assert not warnings
+
+
+def fresh_triples(algebra, expression, **kwargs):
+    """algebra.triples() with result maps that no earlier test has used"""
+    return algebra.triples(expression, basename=fresh_basename(), **kwargs)
+
+
+def fresh_values(algebra, expression, **kwargs):
+    """algebra.values() with result maps that no earlier test has used"""
+    return algebra.values(expression, basename=fresh_basename(), **kwargs)
+
+
+# The tests from here on state the rules that the planned rewrite of the
+# algebra core must meet. A case that the current code does not meet is
+# marked later("Kern", ...); the reasons below name the rule in words.
+WRONG_DIRECTION = (
+    "the relation of a condition reads from the condition map to the conclusion map"
+)
+AGGREGATE_WITH_OR = (
+    "the relation takes an aggregation, {during,|} joins the conditions of "
+    "the condition maps of one conclusion map with or"
+)
+AGGREGATE_WITH_AND = (
+    "the relation takes an aggregation, {during,&} joins the conditions of "
+    "the condition maps of one conclusion map with and"
+)
+ONE_RESULT_PER_CONCLUSION = (
+    "a conditional gives one result per conclusion map and joins the "
+    "conditions of its condition maps with and"
+)
+SELECT_WITH_PARTNER_EXTENT = (
+    "a selection with the temporal operator r gives one map per related "
+    "map with the extent of the related map, like the operator +"
+)
+
+TEMPORAL_OPERATORS = ["l", "r", "u", "i", "d"]
+RELATION_SETS = [
+    "equal", "during", "contains", "overlaps|overlapped",
+    "starts|finishes|started|finished", "follows|precedes",
+]  # fmt: skip
+# Pairs and relations for which the selection and the operator + give no map
+# at all. They are left out of test_select_has_the_time_stamps_of_the_operator,
+# because comparing two empty lists proves nothing. Measured 2026-10-11 by
+# running both dry for every pair, relation and temporal operator: the
+# temporal operator does not change which maps are empty.
+EMPTY_SELECTIONS = {
+    ("A", "B", "contains"),
+    ("A", "B", "equal"),
+    ("A", "B", "overlaps|overlapped"),
+    ("B", "A", "during"),
+    ("B", "A", "equal"),
+    ("B", "A", "overlaps|overlapped"),
+    ("HB", "HA", "during"),
+    ("HB", "HA", "equal"),
+    ("HB", "HA", "overlaps|overlapped"),
+}
+# Cases of test_select_has_the_time_stamps_of_the_operator that differ today
+# (measured 2026-10-11 in the same run): all use the temporal operator r.
+SELECT_EXTENT_DIFFERS = {
+    ("B", "A", "contains", "r"),
+    ("B", "A", "starts|finishes|started|finished", "r"),
+    ("HB", "HA", "contains", "r"),
+    ("HB", "HA", "starts|finishes|started|finished", "r"),
+    ("HB", "HA", "follows|precedes", "r"),
+}
+
+
+def select_extent_cases():
+    cases = []
+    for (left, right), relations, temporal in itertools.product(
+        [("A", "B"), ("B", "A"), ("HB", "HA"), ("rel", "ref")],
+        RELATION_SETS,
+        TEMPORAL_OPERATORS,
+    ):
+        if (left, right, relations) in EMPTY_SELECTIONS:
+            continue
+        marks = []
+        if (left, right, relations, temporal) in SELECT_EXTENT_DIFFERS:
+            marks.append(later("Kern", SELECT_WITH_PARTNER_EXTENT))
+        cases.append(pytest.param(left, right, relations, temporal, marks=marks))
+    return cases
+
+
+@pytest.mark.parametrize(
+    ("left", "right", "relations", "temporal"), select_extent_cases()
+)
+def test_select_has_the_time_stamps_of_the_operator(
+    algebra, left, right, relations, temporal
+):
+    """X {:,R,t} Y has the time stamps of X {+,R,t} Y"""
+    selected = algebra.dry_times(f"{left} {{:,{relations},{temporal}}} {right}")
+    assert selected
+    assert selected == algebra.dry_times(f"{left} {{+,{relations},{temporal}}} {right}")
+
+
+@later("Kern", SELECT_WITH_PARTNER_EXTENT)
+def test_select_with_right_reference_gives_one_map_per_pair(algebra):
+    """Each map of B contains two maps of A: two results per map of B, with
+    the values of B and the time stamps of A"""
+    assert fresh_triples(algebra, "B {:,contains,r} A") == [
+        (1, 2, 5), (2, 3, 5), (3, 4, 6), (4, 5, 6),
+    ]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "temporal",
+    [
+        pytest.param(
+            temporal,
+            marks=later(
+                "Kern",
+                "an inverse selection with a temporal operator other than l is "
+                "a syntax error, because its maps have no related map",
+            ),
+        )
+        for temporal in ["r", "u", "i", "d"]
+    ],
+)
+def test_inverse_select_rejects_temporal_operators(algebra, temporal):
+    """Maps without partner have no extent to combine with"""
+    with pytest.raises(SyntaxError, match="temporal operator"):
+        algebra.parse(f"A {{!:,during,{temporal}}} B")
+
+
+# ref R probe: the probes that the reference has the relation to, derived
+# from PROBES (probe R ref) by inverting the relation.
+REF_RELATION_PROBES = {
+    "equal": [1], "contains": [2, 4, 6], "during": [3, 5, 7],
+    "starts": [5], "started": [4], "finishes": [7], "finished": [6],
+    "precedes": [9], "follows": [8], "overlaps": [11], "overlapped": [10],
+}  # fmt: skip
+INVERSE = {
+    "equal": "equal", "contains": "during", "during": "contains",
+    "starts": "started", "started": "starts", "finishes": "finished",
+    "finished": "finishes", "precedes": "follows", "follows": "precedes",
+    "overlaps": "overlapped", "overlapped": "overlaps",
+}  # fmt: skip
+
+
+def probes(algebra, expression):
+    return sorted(int(value) for value in fresh_values(algebra, expression))
+
+
+@pytest.mark.parametrize("relation", RELATIONS)
+def test_reference_table_agrees_with_selection(algebra, relation):
+    """The oracle of the direction tests, checked against the selection"""
+    assert (
+        probes(algebra, f"rel {{:,{INVERSE[relation]}}} ref")
+        == REF_RELATION_PROBES[relation]
+    )
+
+
+# "equal" is its own inverse, so the wrong direction gives the right result.
+TEMPORAL_DIRECTION_RELATIONS = [
+    relation
+    if relation == "equal"
+    else pytest.param(relation, marks=later("Kern", WRONG_DIRECTION))
+    for relation in RELATIONS
+]
+
+
+@pytest.mark.parametrize("relation", TEMPORAL_DIRECTION_RELATIONS)
+@pytest.mark.parametrize(
+    "condition", ["td(ref) > 0", 'start_date(ref) == "2001-01-10"']
+)
+def test_temporal_condition_relation_reads_condition_to_conclusion(
+    algebra, relation, condition
+):
+    """if({R}, c, X) keeps the maps x of X for which c R x holds"""
+    assert (
+        probes(algebra, f"if({{{relation}}}, {condition}, rel)")
+        == REF_RELATION_PROBES[relation]
+    )
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4
+        pytest.param(
+            "if({during}, start_day(A) > 1, B)",
+            [(3, 5, 6)],
+            marks=later("Kern", WRONG_DIRECTION),
+        ),
+        pytest.param(
+            "if({during,&}, start_day(A) > 1, B)",
+            [(3, 5, 6)],
+            marks=later("Kern", AGGREGATE_WITH_AND),
+        ),
+        pytest.param(
+            "if({during,|}, start_day(A) > 1, B)",
+            [(1, 3, 5), (3, 5, 6)],
+            marks=later("Kern", AGGREGATE_WITH_OR),
+        ),
+        pytest.param(
+            "if({during}, start_day(A) > 1, B, 0)",
+            [(1, 3, 0), (3, 5, 6)],
+            marks=later("Kern", WRONG_DIRECTION),
+        ),
+        pytest.param(
+            "if({during,|}, start_day(A) > 2, B, 0)",
+            [(1, 3, 0), (3, 5, 6)],
+            marks=later("Kern", AGGREGATE_WITH_OR),
+        ),
+        # The manual example of t.select with A, B and C of this fixture: the
+        # buffered maps of A are [k-1, k+2], all three days long. b1 [1,3] is
+        # contained (finished, started) by the buffers of a1 and a2, b2 [3,5]
+        # by those of a3 and a4: then. c1 [2,4] by those of a2 and a3, so
+        # its condition is true and the else part gives nothing.
+        pytest.param(
+            'if({contains}, td(buff_t(A, "1 days")) == 3, B, C)',
+            [(1, 3, 5), (3, 5, 6)],
+            marks=later("Kern", WRONG_DIRECTION),
+        ),
+    ],
+)
+def test_temporal_condition_aggregates_per_conclusion(algebra, expression, expected):
+    """One result per conclusion map; the conditions of its condition maps
+    are joined with & (default) or |"""
+    assert fresh_triples(algebra, expression) == expected
+
+
+@later(
+    "Kern",
+    WRONG_DIRECTION + "; the conditions of all condition maps of equal time "
+    "belong to one conclusion map",
+)
+def test_equal_time_conditions_are_broadcast_to_one_conclusion(algebra):
+    """The four instants of E lie in b1; as one conclusion map b1 gets all
+    of them"""
+    assert fresh_triples(algebra, "if({during}, start_day(E) == 1, B)") == [(1, 3, 5)]
+
+
+def test_relation_condition_in_relative_time(algebra):
+    """Relative time behaves as absolute time"""
+
+    def relative_values(expression):
+        # triples() reads days of the month, which relative time has not
+        rows = algebra.run(expression, fresh_basename())
+        assert all(row.min == row.max for row in rows)
+        return [row.min for row in rows]
+
+    assert relative_values("if({equal}, td(RT) == 1, RT)") == [1, 2, 3]
+    assert relative_values("if({during}, td(RT) == 1, RT)") == []
+
+
+@pytest.mark.parametrize("relation", RELATIONS)
+@pytest.mark.parametrize("condition", ["ref > 0", "ref > 0 && td(ref) > 0"])
+def test_map_condition_relation_reads_condition_to_conclusion(
+    algebra, relation, condition
+):
+    """The same direction as temporal conditions"""
+    assert (
+        probes(algebra, f"if({{{relation}}}, {condition}, rel)")
+        == REF_RELATION_PROBES[relation]
+    )
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        pytest.param(
+            "if({during}, A > 1, B)",
+            # b1 has a1 > 1 false and a2 > 1 true: false with &. A false map
+            # value condition gives 0 without else, so b1 has a result.
+            [(1, 3, 0), (3, 5, 6)],
+            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
+        ),
+        pytest.param(
+            "if({during,|}, A > 1, B)",
+            [(1, 3, 5), (3, 5, 6)],
+            marks=later("Kern", AGGREGATE_WITH_OR),
+        ),
+        pytest.param(
+            "if({during}, A > 1, B, 0)",
+            [(1, 3, 0), (3, 5, 6)],
+            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
+        ),
+        pytest.param(
+            "if({during,|}, A > 2, B, 0)",
+            [(1, 3, 0), (3, 5, 6)],
+            marks=later("Kern", AGGREGATE_WITH_OR),
+        ),
+        pytest.param(
+            "if({during}, A > 1 || start_day(A) == 1, B)",
+            [(1, 3, 5), (3, 5, 6)],
+            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
+        ),
+    ],
+)
+def test_map_condition_aggregates_per_conclusion(algebra, expression, expected):
+    assert fresh_triples(algebra, expression) == expected
+
+
+@pytest.mark.parametrize(
+    "aggregate",
+    [
+        pytest.param("", marks=later("Kern", WRONG_DIRECTION)),
+        pytest.param(",|", marks=later("Kern", AGGREGATE_WITH_OR)),
+    ],
+)
+def test_both_paths_agree_on_aggregation(algebra, aggregate):
+    """A > 1 and start_day(A) > 1 are true for the same maps of A"""
+    assert fresh_triples(algebra, f"if({{during{aggregate}}}, A > 1, B, 0)") == (
+        fresh_triples(algebra, f"if({{during{aggregate}}}, start_day(A) > 1, B, 0)")
+    )
+
+
+@later("Kern", ONE_RESULT_PER_CONCLUSION)
+def test_equal_time_map_conditions_are_broadcast(algebra):
+    """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
+    are false, so b1 gets the 0 of a false map value condition with &, and
+    the value of b1 with |"""
+    assert fresh_triples(algebra, "if({during}, E > 2, B)") == [(1, 3, 0)]
+    assert fresh_triples(algebra, "if({during,|}, E > 2, B)") == [(1, 3, 5)]
+
+
+@pytest.mark.parametrize(
+    "condition",
+    [
+        "B > 0",
+        pytest.param("start_day(B) > 0", marks=later("Kern", WRONG_DIRECTION)),
+        "B > 0 && start_day(B) > 0",
+    ],
+)
+def test_instants_within_intervals(algebra, condition):
+    """An instant lies in [start, end) of an interval; i1 and i2 in b1 [1,3],
+    i3 in b2 [3,5]"""
+    assert fresh_values(algebra, f"if({{contains}}, {condition}, I)") == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    ("relations", "expected"),
+    [
+        # spa2 [20,50] contains spb3 [25,40]
+        ("equal|contain", [3]),
+        # spb2 [20,50] contains spa3 [25,40]
+        ("equal|in", [2]),
+    ],
+)
+def test_spatial_conditions_do_not_pair_by_order(
+    algebra, large_region, relations, expected
+):
+    """With spatial topology the maps of equal time are told apart by space,
+    so only the spatially related conclusion maps get a result"""
+    assert (
+        fresh_values(algebra, f"if({{{relations}}}, SA > 0, SB)", spatial=True)
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["if({during}, A > 1, ref)", "if({during}, start_day(A) > 1, ref)"],
+)
+def test_condition_without_related_map_gives_empty_result(algebra, expression):
+    """No traceback, an empty result dataset"""
+    assert algebra.run(expression, fresh_basename()) == []
+
+
+THEN_ELSE_OF_EQUAL_TIME = (
+    "a condition on map values chooses per cell between then and else, so "
+    "it stops with an error unless both have the same time stamps"
+)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        pytest.param(expression, marks=later("Kern", THEN_ELSE_OF_EQUAL_TIME))
+        for expression in [
+            "if({equal|during}, A > 2, B, A)",
+            "if(A > 2, if(A > 3, A, N), B)",
+            "if(A > 2, A, D)",
+        ]
+    ],
+)
+def test_map_condition_needs_then_and_else_of_equal_time(algebra, expression):
+    with pytest.raises(algebra.errors, match="equal time stamps"):
+        algebra.run(expression, fresh_basename())
+
+
+@pytest.mark.parametrize(
+    ("expression", "values"),
+    [
+        ("if(A > 2, A, N)", [11, 12, 3, 4]),
+        ("if(E > 2, E, E * 10)", [3, 4, 10, 20]),
+        ("if(A > 2, A, 0)", [0, 0, 3, 4]),
+        ("if(A > 2, null(), N)", [11, 12]),
+    ],
+)
+def test_map_condition_with_matching_then_and_else(algebra, expression, values):
+    assert fresh_values(algebra, expression) == values
+
+
+@later(
+    "Kern",
+    WRONG_DIRECTION + "; then and else of a condition on time stamps need no "
+    "common time",
+)
+def test_temporal_condition_takes_then_and_else_independently(algebra):
+    """For temporal conditions then and else need no common time.
+
+    then B: b2 (start day 3) is true, b1 false. else A: a1 and a2 lie in
+    b1 (false), so they are taken; a3 and a4 lie in b2 (true), so not.
+    """
+    assert fresh_triples(
+        algebra, "if({equal|contains}, start_day(B) > 2, B, A)"
+    ) == [
+        (1, 2, 1), (2, 3, 2), (3, 5, 6),
+    ]  # fmt: skip
+
+
+# Atom name -> (temporal condition, map condition); both are true for the
+# maps of T whose bit is set, see the T, PA, PB, PC datasets.
+ATOMS = {
+    "a": ("start_month(T) == 2", "PA == 1"),
+    "b": ("start_day(T) == 2", "PB == 1"),
+    "c": ("start_hour(T) == 12", "PC == 1"),
+}
+NEGATED = {
+    "a": ("start_month(T) != 2", "PA != 1"),
+    "b": ("start_day(T) != 2", "PB != 1"),
+    "c": ("start_hour(T) != 12", "PC != 1"),
+}
+PARENTHESES = "conditions can be grouped with parentheses"
+PRECEDENCE = "&& binds stronger than || in conditions of time stamps"
+
+
+def bits(number):
+    return {
+        "a": bool(number >> 2 & 1),
+        "b": bool(number >> 1 & 1),
+        "c": bool(number & 1),
+    }
+
+
+def selected(python_formula):
+    """The maps of T for which the formula is true; Python gives `and` a
+    higher precedence than `or`, like the specification of && and ||"""
+    return [k for k in range(8) if eval(python_formula, {}, bits(k))]  # noqa: S307
+
+
+def expected_values(python_formula, has_map_condition):
+    """The cell values of if(condition, T) for the formula
+
+    A condition of time stamps keeps only the selected maps. A condition on
+    map values chooses per cell, and r.mapcalc gives 0 where it is false, so
+    all maps stay (checked 2026-10-11 with `if(PB == 1, T)`, see
+    test_truth_table_datasets). The map T0 has the value 0 anyway, so for map
+    value conditions it cannot be told apart from "false"; the expected list
+    holds 0 for it in both cases and the tests only see the other seven maps.
+    """
+    chosen = selected(python_formula)
+    if not has_map_condition:
+        return chosen
+    return [k if k in chosen else 0 for k in range(8)]
+
+
+def groups_with_parentheses(condition):
+    """True if the condition has parentheses other than those of a function"""
+    return "(" in re.sub(r"\w+\(T\)", "", condition)
+
+
+def render(rng, depth, kind):
+    """Return (algebra condition, Python formula, has a map atom) of a random
+    formula
+
+    kind is "time", "map" or "mixed" (each atom picks one at random).
+    """
+    if depth == 0 or rng.random() < 0.3:
+        name = rng.choice("abc")
+        negated = rng.random() < 0.3
+        pick = kind if kind != "mixed" else rng.choice(["time", "map"])
+        text = (NEGATED if negated else ATOMS)[name][pick == "map"]
+        return text, f"(not {name})" if negated else name, pick == "map"
+    operator = rng.choice(["&&", "||"])
+    left = render(rng, depth - 1, kind)
+    right = render(rng, depth - 1, kind)
+    algebra_text = f"{left[0]} {operator} {right[0]}"
+    python_text = f"{left[1]} {'and' if operator == '&&' else 'or'} {right[1]}"
+    if rng.random() < 0.4:
+        algebra_text, python_text = f"({algebra_text})", f"({python_text})"
+    return algebra_text, python_text, left[2] or right[2]
+
+
+FORMULAS = [
+    ("{a} || {b} && {c}", "a or (b and c)"),
+    ("{a} && {b} || {c}", "(a and b) or c"),
+    ("({a} || {b}) && {c}", "(a or b) and c"),
+    ("{a} || ({b} && {c})", "a or (b and c)"),
+    ("{a} && ({b} || {c})", "a and (b or c)"),
+    ("{a} || {b} || {c}", "a or b or c"),
+    ("{a} && {b} && {c}", "a and b and c"),
+    ("({a} || {b}) && ({c} || {a})", "(a or b) and (c or a)"),
+]
+# For each kind the atoms a, b, c are conditions of time stamps or of map values.
+KINDS = {
+    "time": ("time", "time", "time"), "map": ("map", "map", "map"),
+    "mixed1": ("time", "map", "time"), "mixed2": ("map", "time", "map"),
+}  # fmt: skip
+
+
+def truth_table_cases():
+    cases = []
+    for (condition, formula), kind in itertools.product(FORMULAS, KINDS):
+        marks = []
+        if "(" in condition:
+            marks.append(later("Kern", PARENTHESES))
+        elif kind == "time" and condition == "{a} || {b} && {c}":
+            # The map conditions are left to the precedence of r.mapcalc. The
+            # case "a && b || c" of time stamps passes today by chance:
+            # evaluated from left to right it gives the same maps.
+            marks.append(later("Kern", PRECEDENCE))
+        cases.append(pytest.param(condition, formula, kind, marks=marks))
+    return cases
+
+
+@pytest.mark.parametrize(("condition", "formula", "kind"), truth_table_cases())
+def test_precedence_truth_table(algebra, condition, formula, kind):
+    """&& before ||, parentheses group, in every kind of condition"""
+    texts = {
+        name: ATOMS[name][choice == "map"]
+        for name, choice in zip("abc", KINDS[kind], strict=True)
+    }
+    expression = f"if({condition.format(**texts)}, T)"
+    assert fresh_values(algebra, expression) == expected_values(formula, kind != "time")
+
+
+def random_condition(seed):
+    """(algebra condition, Python formula, has a map atom) of a seed"""
+    rng = random.Random(seed)
+    return render(rng, 3, rng.choice(["time", "map", "mixed"]))
+
+
+def random_cases():
+    cases = []
+    for seed in range(40):
+        marks = []
+        if groups_with_parentheses(random_condition(seed)[0]):
+            marks.append(later("Kern", PARENTHESES))
+        cases.append(pytest.param(seed, marks=marks))
+    return cases
+
+
+@pytest.mark.parametrize("seed", random_cases())
+def test_random_conditions_match_python(algebra, seed):
+    """Random formulas of temporal, map and mixed conditions"""
+    condition, formula, has_map = random_condition(seed)
+    assert fresh_values(algebra, f"if({condition}, T)") == expected_values(
+        formula, has_map
+    ), condition

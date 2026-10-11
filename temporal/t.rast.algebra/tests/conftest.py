@@ -380,3 +380,24 @@ def algebra(tmp_path_factory):
             yield fixture
         finally:
             tgis.set_raise_on_error(previous)
+
+
+@pytest.fixture
+def large_region(algebra):
+    """Region that covers all the maps of the spatial datasets SA and SB
+
+    Restores the region afterwards: a run with spatial=True leaves the region
+    set to the extent of the maps it used (checked 2026-10-11), which would
+    make the following runs of the module compute in the wrong region.
+    """
+    tools = Tools(session=algebra.session)
+    original = tools.g_region(flags="g").keyval
+    tools.g_region(n=60, s=0, e=60, w=0, res=10)
+    yield
+    tools.g_region(
+        n=original["n"],
+        s=original["s"],
+        e=original["e"],
+        w=original["w"],
+        res=original["nsres"],
+    )

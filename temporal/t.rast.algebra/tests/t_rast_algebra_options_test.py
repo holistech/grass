@@ -193,22 +193,6 @@ def test_granularity_flag_does_not_change_regular_results(
     assert values(tool, "OPT_GRAN2") == expected
 
 
-@pytest.fixture
-def large_region(algebra):
-    """Region that covers all the maps of the spatial datasets SA and SB"""
-    tools = Tools(session=algebra.session)
-    original = tools.g_region(flags="g").keyval
-    tools.g_region(n=60, s=0, e=60, w=0, res=10)
-    yield
-    tools.g_region(
-        n=original["n"],
-        s=original["s"],
-        e=original["e"],
-        w=original["w"],
-        res=original["nsres"],
-    )
-
-
 @pytest.mark.parametrize(
     ("relations", "flags", "expected"),
     [
