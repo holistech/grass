@@ -57,13 +57,16 @@ def extent_from(temporal_extent, unit):
     """Return a temporal extent object of grass.temporal as Extent
 
     None, which the extent methods return for an empty intersection, stays
-    None.
+    None. An interval whose end equals its start is an instant and gets
+    end None: union and intersection of grass.temporal return such
+    intervals, e.g. for two equal instants or for [1, 3] and [3, 5]
+    (observed 2026-10-11), while as_map() rejects them for relative time.
     """
     if temporal_extent is None:
         return None
-    return Extent(
-        temporal_extent.get_start_time(), temporal_extent.get_end_time(), unit
-    )
+    start = temporal_extent.get_start_time()
+    end = temporal_extent.get_end_time()
+    return Extent(start, None if end == start else end, unit)
 
 
 def space_of(map_):

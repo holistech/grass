@@ -6,6 +6,7 @@ map contains; building a series computes no maps.
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce
+from .operations import pairs, select
 from .relations import (
     Relation,
     contains,
@@ -44,8 +45,10 @@ __all__ = [
     "inverse",
     "overlapped",
     "overlaps",
+    "pairs",
     "precedes",
     "relation",
+    "select",
     "started",
     "starts",
 ]

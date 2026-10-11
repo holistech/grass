@@ -283,6 +283,16 @@ def test_adapter_round_trip(extent):
 
 
 @pytest.mark.parametrize(
+    "extent", [Extent(datetime.datetime(2001, 1, 2), None), Extent(2, None, "days")]
+)
+def test_extent_from_turns_an_empty_interval_into_an_instant(extent):
+    """The union of two equal instants is [t, t] in grass.temporal"""
+    union = as_map(extent).temporal_union(as_map(extent))
+    assert union.get_start_time() == union.get_end_time()
+    assert extent_from(union, extent.unit) == extent
+
+
+@pytest.mark.parametrize(
     "extent",
     [Extent(0.2, 0.8, "seconds"), Extent(1, 2.5, "days"), Extent(0.5, None, "days")],
 )
