@@ -292,3 +292,21 @@ def test_invalid_names_stop_before_computing(core_session, name, basename):
     with pytest.raises(ValueError, match="must not contain"):
         ta.materialize(ta.source("A") * 1, name, basename=basename)
     assert tools.g_list(type="raster").stdout == before
+
+
+def test_choose_equals_where_of_the_lifted_condition(core_session, make_series):
+    """Without registration of empty maps both kinds of conditions keep the
+    same maps, also for a null condition"""
+    a = ta.source("A")
+    k = make_series("k", (1, 2), (2, 3), (3, 4), (4, 5), values=[1, 0, None, 1])
+    ta.materialize(ta.choose(k, a) * 1, "chosen", overwrite=True)
+    ta.materialize(ta.where(k, a), "where_lifted", overwrite=True)
+    assert registered("chosen") == registered("where_lifted")
+    assert [row[2] for row in registered("chosen")] == [1, 4]
+
+
+def test_where_of_equal_branches(core_session):
+    """where(c, X, X) == X where c is not null; A > 2 has no null cell"""
+    a = ta.source("A")
+    ta.materialize(ta.where(a > 2, a, a), "same", overwrite=True)
+    assert [row[2] for row in registered("same")] == [1, 2, 3, 4]
