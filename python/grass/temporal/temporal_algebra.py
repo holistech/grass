@@ -2505,10 +2505,15 @@ class TemporalAlgebraParser:
     def _register_map(self, map_i, resultstds, dbif) -> None:
         """Store a new map in the temporal database and register it in the dataset.
 
-        Maps which are not new exist in the database already.
+        Maps which are not new exist in the database already, but a selected
+        map of another mapset only in the database of its own mapset.
         """
-        if hasattr(map_i, "is_new") and not self._store_new_map(map_i, dbif):
-            return
+        if hasattr(map_i, "is_new"):
+            if not self._store_new_map(map_i, dbif):
+                return
+        elif self.dry_run is False and not map_i.is_in_db(dbif, mapset=self.mapset):
+            # Reference the map instead of copying it, as t.register does.
+            map_i.insert(dbif)
         if resultstds is not None and not resultstds.register_map(map_i, dbif):
             self.msgr.warning(
                 _("Unable to register map layers in STDS {name}").format(

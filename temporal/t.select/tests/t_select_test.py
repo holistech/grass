@@ -462,14 +462,20 @@ def test_select_from_dataset_in_other_mapset_needs_mapset_name(series):
     select_fails(series.session, "A : X", match="not found")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N9: maps of another mapset cannot be selected, the result "
-    "registration fails with 'Only a map that was inserted in the temporal database'",
-)
 def test_select_from_other_mapset_on_the_left(series):
     """Maps of another mapset can be the selected maps."""
     assert run_select(series.session, "X@other {:, precedes} A") == [("x1", 10, 20)]
+
+
+def test_selected_map_of_other_mapset_is_referenced(series):
+    """The result registers the map of the other mapset like t.register does,
+    it is not copied into the current mapset."""
+    tools = Tools(session=series.session, overwrite=True)
+    tools.t_select(expression="referenced = X@other {:, precedes} A")
+    listing = tools.t_rast_list(input="referenced", columns="id", format="json")
+    assert [row["id"] for row in listing["data"]] == ["x1@other"]
+    current = tools.g_list(type="raster", mapset="PERMANENT", format="json")
+    assert "x1" not in [item["name"] for item in current]
 
 
 def test_select_with_relation_to_dataset_in_other_mapset(series):
