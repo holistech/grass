@@ -304,12 +304,16 @@ def gather(
     :param missing: a target without related slot is dropped ("drop"),
         gets a null content ("null") or stays as it is ("keep")
     :param extent: the time stamp of a result slot: that of the target, or
-        its union, intersection or disjoint union with the related slots
+        its union, intersection or disjoint union with the related slots; a
+        target whose combined time stamp is empty (an intersection without
+        overlap) is left out whatever missing says
     :param equal_times: "all" relates every map of a time to a target,
         "pairwise" pairs maps of equal time stamps one to one; without effect
         if space takes part in the relation
     :param nulls: "propagate" makes a cell null if a related cell is null,
         "skip" passes over null cells
+    :raises ValueError: for missing="keep" with a reducer whose result has
+        another sort than the target
     """
     _check_option("missing", missing, MISSING)
     _check_option("extent", extent, GATHER_EXTENTS)
@@ -317,6 +321,13 @@ def gather(
     _check_option("nulls", nulls, NULLS)
     reducers.check(reduce, nulls)
     _check_comparable(target, other)
+    sort = reducers.sort_of(reduce, target.sort, other.sort)
+    if missing == "keep" and sort != target.sort:
+        msg = (
+            f'missing="keep" with reduce={reduce!r} would mix kept {target.sort} '
+            f"maps with {sort} values"
+        )
+        raise ValueError(msg)
     matches = related_indices(target.slots, relation, other.slots)
     if equal_times == "pairwise" and relation.spatial is None:
         matches = _pair_equal_times(target.slots, matches, other.slots)
@@ -336,6 +347,5 @@ def gather(
             reduce, slot.content, [partner.content for partner in partners], nulls
         )
         slots.append(Slot(time, value, slot.space, _origin(value, time, slot)))
-    sort = reducers.sort_of(reduce, target.sort, other.sort)
     spatial = target.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), target.kind, sort, spatial)

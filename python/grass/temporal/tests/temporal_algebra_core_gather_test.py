@@ -227,3 +227,28 @@ def test_gather_without_related_slots_keeps_or_nulls_the_target(a):
     assert nulled.times() == a.times()
     assert gather(a, equal, Series(), reduce="sum", missing="keep").slots == a.slots
     assert gather(Series(), equal, a, reduce="sum", missing="null").slots == ()
+
+
+@pytest.mark.parametrize("reduce", ["all", "any"])
+@pytest.mark.parametrize("nulls", ["propagate", "skip"])
+def test_truth_reducers_of_one_map_are_0_or_1(a, c, reduce, nulls):
+    result = gather(a, during, c, reduce=reduce, nulls=nulls, missing="drop")
+    one_map = Call("!=", (ref("c1"), Const(0)))
+    assert contents(result) == [one_map, one_map]
+
+
+def test_keep_rejects_count(a, c):
+    with pytest.raises(ValueError, match=r"missing=\"keep\".*'count'"):
+        gather(a, during, c, reduce="count", missing="keep")
+
+
+def test_keep_rejects_a_scalar_reduction_of_a_field(a, make_series):
+    s = make_series("s", (2, 4), values=[7])
+    with pytest.raises(ValueError, match=r"missing=\"keep\".*'first'"):
+        gather(a, during, s, reduce="first", missing="keep")
+
+
+def test_keep_works_with_a_reducer_that_keeps_the_sort(a, c):
+    result = gather(a, during, c, reduce="sum", missing="keep")
+    assert result.sort == "field"
+    assert contents(result) == [ref("a1"), ref("c1"), ref("c1"), ref("a4")]

@@ -61,6 +61,14 @@ def _truth(related):
     return [call("!=", content, Const(0)) for content in related]
 
 
+def _every(function, related):
+    # A single map would pass through unchanged, so a cell value 5 would stay
+    # 5 while two maps give 0 or 1. Its truth value keeps the result boolean.
+    if len(related) == 1:
+        return _truth(related)[0]
+    return chain(function, related)
+
+
 def _mean(related):
     return call("/", chain("+", related), Const(float(len(related))))
 
@@ -71,8 +79,8 @@ _PROPAGATE = {
     "min": lambda related: _extreme("min", related),
     "max": lambda related: _extreme("max", related),
     "mean": _mean,
-    "all": lambda related: chain("&&", related),
-    "any": lambda related: chain("||", related),
+    "all": lambda related: _every("&&", related),
+    "any": lambda related: _every("||", related),
 }
 
 # nmin and nmax of r.mapcalc skip null cells in one call, sum and mean need
