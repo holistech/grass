@@ -208,10 +208,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             overwrite,
         )
 
-    # ------------------------------------------------------------------
-    # Helpers shared by the grammar rules
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _command_of(map_i):
         """Return the r.mapcalc command of a map, or its id if it has none"""
@@ -314,10 +310,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             map_new.cmd_list = reference
             resultlist.append(map_new)
         return resultlist
-
-    # ------------------------------------------------------------------
-    # Spatio-temporal topology and command strings
-    # ------------------------------------------------------------------
 
     def build_command_string(self, map_i, relmap, operator=None, cmd_type=None):
         """This function build the r.mapcalc command string for conditionals,
@@ -702,10 +694,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             )
         self._debug_commands(t[0])
 
-    # ------------------------------------------------------------------
-    # Computation and registration of the result
-    # ------------------------------------------------------------------
-
     # Result maps are numbered from 0
     _first_result_number = 0
 
@@ -800,10 +788,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
         map_i.select(dbif=self.dbif)
         map_i.cmd_list = "(%s)" % (map_i.get_map_id())
         return map_i.cmd_list
-
-    # ------------------------------------------------------------------
-    # Arithmetic
-    # ------------------------------------------------------------------
 
     def p_arith1_operation(self, t) -> None:
         # A % B
@@ -1100,10 +1084,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
 
         self._trace(t[3])
 
-    # ------------------------------------------------------------------
-    # Conditions on cell values
-    # ------------------------------------------------------------------
-
     def p_s_var_expr_1(self, t) -> None:
         #   isnull(A)
         """
@@ -1187,10 +1167,6 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             t[1], t[3], relations, temporal, function, aggregate, convert=False
         )
         self._debug_commands(t[0])
-
-    # ------------------------------------------------------------------
-    # Conditional statements
-    # ------------------------------------------------------------------
 
     def p_s_expr_condition_if(self, t) -> None:
         #   if(s_var_expr, B)
