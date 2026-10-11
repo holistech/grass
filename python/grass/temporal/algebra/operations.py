@@ -8,6 +8,7 @@ need series of equal time stamps and never align them silently.
 from dataclasses import replace
 
 from ._adapters import as_map, extent_from
+from .content import NULL, Call, Const, MapRef, SeriesReduce, call
 from .relations import related as related_indices
 from .series import Series, Slot
 
@@ -127,3 +128,112 @@ def pairs(left, relation, other, *, extent="left", content=None):
     sort = left.sort if content is None else _joined_sort(left, other)
     spatial = left.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), left.kind, sort, spatial)
+
+
+def _describe(extent):
+    if extent is None:
+        return "no slot"
+    if extent.end is None:
+        return f"{extent.start}"
+    return f"{extent.start} .. {extent.end}"
+
+
+def _check_aligned(first, second, name):
+    """Stop unless both series have the same time stamps in the same order"""
+    times = [slot.extent for slot in first.slots]
+    others = [slot.extent for slot in second.slots]
+    if times == others:
+        return
+    # Series of different length differ at the first slot one of them lacks.
+    index = next(
+        (
+            i
+            for i, (one, two) in enumerate(zip(times, others, strict=False))
+            if one != two
+        ),
+        min(len(times), len(others)),
+    )
+    msg = (
+        f"{name}() needs series with equal time stamps; they differ at slot "
+        f"{index}: {_describe(times[index] if index < len(times) else None)} and "
+        f"{_describe(others[index] if index < len(others) else None)}. Relate "
+        "the series with gather() or pairs() first."
+    )
+    raise ValueError(msg)
+
+
+def _content_at(operand, index):
+    if isinstance(operand, Series):
+        return operand.slots[0 if operand.timeless else index].content
+    if operand is None:
+        return NULL
+    if isinstance(operand, (Const, MapRef, Call, SeriesReduce)):
+        return operand
+    return Const(operand)
+
+
+def _apply(function, operands, name):
+    timed = [
+        operand
+        for operand in operands
+        if isinstance(operand, Series) and not operand.timeless
+    ]
+    if not timed:
+        msg = f"{name}() needs a series with time stamps"
+        raise ValueError(msg)
+    first = timed[0]
+    for operand in timed[1:]:
+        _check_aligned(first, operand, name)
+    series = [operand for operand in operands if isinstance(operand, Series)]
+    if len({part.kind for part in series}) > 1:
+        msg = f"{name}() cannot combine series of different map types"
+        raise ValueError(msg)
+    sort = _joined_sort(*series)
+    slots = []
+    for index, slot in enumerate(first.slots):
+        value = call(function, *(_content_at(operand, index) for operand in operands))
+        if sort == "scalar" and not isinstance(value, Const):
+            msg = f"{function}() cannot be computed for scalar values"
+            raise ValueError(msg)
+        partners = (operand.slots[index] for operand in timed)
+        slots.append(
+            Slot(slot.extent, value, slot.space, _origin(value, slot.extent, *partners))
+        )
+    spatial = any(part.spatial for part in series)
+    return Series(tuple(slots), first.kind, sort, spatial)
+
+
+def apply(function, *operands):
+    """Apply an operator or a function of the raster algebra slot by slot
+
+    All series operands need the same time stamps in the same order. Numbers
+    and maps without time stamp are used in every slot, None is null. There
+    is no implicit alignment: relate series with gather() or pairs() first.
+    The result is a field if any operand is a field; a scalar result is
+    computed in Python.
+
+    :raises ValueError: if the time stamps differ, naming the first slot that
+        differs, or if a scalar result cannot be computed in Python
+    """
+    return _apply(function, operands, function)
+
+
+def lift(series):
+    """Turn a scalar series into a field that is constant in each map"""
+    return replace(series, sort="field")
+
+
+def cell_offset(series, *offset):
+    """Read each map at a cell offset (row, column), as A[1,0] does
+
+    r.mapcalc knows offsets of maps only, so the slots must hold maps, not
+    expressions.
+    """
+    slots = []
+    for slot in series.slots:
+        if not isinstance(slot.content, MapRef):
+            msg = "Only a map can be read at a cell offset, not an expression"
+            raise ValueError(msg)
+        content = MapRef(slot.content.ident, tuple(offset))
+        slots.append(Slot(slot.extent, content, slot.space))
+    return replace(series, slots=tuple(slots))

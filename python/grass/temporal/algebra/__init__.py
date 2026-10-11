@@ -6,7 +6,7 @@ map contains; building a series computes no maps.
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce
-from .operations import pairs, select
+from .operations import apply, cell_offset, lift, pairs, select
 from .relations import (
     Relation,
     contains,
@@ -36,6 +36,8 @@ __all__ = [
     "SeriesReduce",
     "Slot",
     "Space",
+    "apply",
+    "cell_offset",
     "contains",
     "during",
     "equal",
@@ -43,6 +45,7 @@ __all__ = [
     "finishes",
     "follows",
     "inverse",
+    "lift",
     "overlapped",
     "overlaps",
     "pairs",

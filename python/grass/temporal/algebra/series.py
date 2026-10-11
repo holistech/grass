@@ -70,8 +70,11 @@ class Series:
     its slots, meaning that the regions of the maps matter and not only
     their time, as with the spatial flag of t.rast.algebra.
 
-    Equality is by identity, so comparing two series by mistake cannot pass
-    for a comparison of contents; compare their slots to compare contents.
+    The operators build new series (see apply()), and that includes ==, !=
+    and the ordering operators: a == b is a series of comparisons, not a
+    bool. So bool(series) raises, so that "assert a == b" cannot pass for a
+    comparison of contents, and a series is not hashable because it has no
+    value-based equality to hash; compare their slots to compare contents.
     """
 
     slots: tuple[Slot, ...] = ()
@@ -129,3 +132,78 @@ class Series:
     def __bool__(self):
         msg = "The truth value of a series is ambiguous; use len()"
         raise TypeError(msg)
+
+    def _apply(self, function, *operands):
+        # Imported here: operations imports this module.
+        from .operations import apply
+
+        return apply(function, *operands)
+
+    def __add__(self, other):
+        return self._apply("+", self, other)
+
+    def __radd__(self, other):
+        return self._apply("+", other, self)
+
+    def __sub__(self, other):
+        return self._apply("-", self, other)
+
+    def __rsub__(self, other):
+        return self._apply("-", other, self)
+
+    def __mul__(self, other):
+        return self._apply("*", self, other)
+
+    def __rmul__(self, other):
+        return self._apply("*", other, self)
+
+    def __truediv__(self, other):
+        return self._apply("/", self, other)
+
+    def __rtruediv__(self, other):
+        return self._apply("/", other, self)
+
+    def __mod__(self, other):
+        return self._apply("%", self, other)
+
+    def __rmod__(self, other):
+        return self._apply("%", other, self)
+
+    def __neg__(self):
+        return self._apply("neg", self)
+
+    def __eq__(self, other):
+        return self._apply("==", self, other)
+
+    def __ne__(self, other):
+        return self._apply("!=", self, other)
+
+    def __lt__(self, other):
+        return self._apply("<", self, other)
+
+    def __le__(self, other):
+        return self._apply("<=", self, other)
+
+    def __gt__(self, other):
+        return self._apply(">", self, other)
+
+    def __ge__(self, other):
+        return self._apply(">=", self, other)
+
+    def __and__(self, other):
+        return self._apply("&&", self, other)
+
+    def __rand__(self, other):
+        return self._apply("&&", other, self)
+
+    def __or__(self, other):
+        return self._apply("||", self, other)
+
+    def __ror__(self, other):
+        return self._apply("||", other, self)
+
+    def __invert__(self):
+        return self._apply("!", self)
+
+    # Defining __eq__ would set this implicitly; stated because it is a decision.
+    __hash__ = None
