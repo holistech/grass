@@ -2588,7 +2588,20 @@ class TemporalAlgebraParser:
                     ).format(name=map_i.get_map_id())
                 )
             if self.dry_run is False:
-                map_i.update_all(dbif)
+                stored = map_i.get_new_instance(map_i.get_id())
+                stored.select(dbif)
+                if stored.get_temporal_type() == map_i.get_temporal_type():
+                    map_i.update_all(dbif)
+                else:
+                    # Measured 2026-10-11 (A + N, then RT * 2, same names):
+                    # update_all() sets the new type in the base table, but
+                    # its UPDATE of the time table of the new type matches no
+                    # row, so the maps get no time, while the row of the old
+                    # type stays behind. Delete() is called on the stored
+                    # copy because it resets the instance, which would
+                    # discard the time of map_i.
+                    stored.delete(dbif)
+                    map_i.insert(dbif)
         elif self.dry_run is False:
             map_i.insert(dbif)
         return True

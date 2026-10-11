@@ -5,6 +5,8 @@ that call the library. The datasets are described in the algebra fixture in
 conftest.py.
 """
 
+import datetime
+
 import pytest
 
 import grass.temporal as tgis
@@ -347,6 +349,33 @@ def test_result_map_without_command_and_without_raster_is_fatal(algebra):
     missing = tgis.RasterDataset("no_such_map@PERMANENT")
     with pytest.raises(algebra.errors, match="no_such_map"):
         parser._mapcalc_expression(missing)
+
+
+@pytest.mark.parametrize(
+    ("basename", "first", "second", "count", "start"),
+    [
+        ("typeswitch_rel", "A + N", "RT * 2", 3, 0),
+        ("typeswitch_abs", "RT * 2", "A + N", 4, datetime.datetime(2001, 1, 1)),
+    ],
+)
+def test_overwrite_result_maps_of_other_temporal_type(
+    algebra, basename, first, second, count, start
+):
+    """Result maps registered with the other temporal type are replaced
+
+    Each case has its own basename. With a shared one the second case would
+    find the maps of the first and could pass on them.
+    """
+    algebra.run(first, basename=basename)
+    rows = algebra.run(second, basename=basename)
+    assert len(rows) == count
+    starts = []
+    for number in range(count):
+        stored = tgis.RasterDataset(f"{basename}_{number}@PERMANENT")
+        stored.select()
+        assert stored.is_time_absolute() is isinstance(start, datetime.datetime)
+        starts.append(stored.temporal_extent.get_start_time())
+    assert min(starts) == start
 
 
 def run_with_debug(algebra, expression, run):

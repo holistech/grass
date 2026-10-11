@@ -128,7 +128,6 @@ def test_result_is_reproducible(algebra, expression):
 
 
 @pytest.mark.parametrize("expression", ["RT * 2", "if(RT > 1, RT)"])
-@later("Befund", "a relative result written over absolute result maps is empty")
 def test_relative_result_replaces_absolute_result_maps(algebra, expression):
     """A relative result written over absolute result maps of the same names"""
     basename = fresh_basename()
