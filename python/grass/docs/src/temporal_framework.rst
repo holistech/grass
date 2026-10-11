@@ -419,9 +419,13 @@ algebra as Python functions on series of maps: ``source``, ``source_map``,
 ``select``, ``pairs``, ``gather``, ``apply``, ``choose``, ``where``,
 ``merge``, ``retime``, ``neighbour``, ``timevar``, ``granules``, ``plan`` and
 ``materialize``.
-Every decision that the algebra syntax takes implicitly, such as how several
-related maps are combined, is a parameter with a documented default. Raster
-maps are supported; see the docstring of the package for an example.
+Every decision that the algebra syntax takes implicitly is an explicit
+parameter, with a documented default where one is sensible; how several
+related maps are combined must always be named (``reduce`` of ``gather``).
+Raster maps are supported; see the docstring of the package for an example.
+``source``, ``source_map`` and ``materialize`` need a GRASS session with an
+initialised temporal database (``tgis.init()``); the other functions need
+none.
 
 References
 ----------

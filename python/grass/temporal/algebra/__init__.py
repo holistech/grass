@@ -4,7 +4,9 @@ A series is an immutable, time ordered sequence of planned or existing maps.
 Each map is a slot with a time stamp and a content tree that says what the
 map contains; building a series computes no maps. The operations are pure
 functions on series; only materialize() computes maps and registers them,
-and plan() shows what it would do.
+and plan() shows what it would do. source(), source_map() and materialize()
+need a GRASS session with an initialised temporal database (tgis.init()); the
+other functions need none.
 
 Example: the monthly sum of precipitation on days warmer than 5 degrees:
 
