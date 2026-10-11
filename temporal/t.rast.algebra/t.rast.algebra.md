@@ -247,7 +247,7 @@ map of B that contains two maps of A becomes the sum of these three maps,
 and the maps of A outside of B are kept unchanged:
 
 ```sh
-C = merge(if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A), A {!:,during} B)
+C = merge(if({equal|contains}, B {#,contains} A == 2, B {+,contains,l} A, A), A {!:,during} B)
 ```
 
 Several maps with equal time stamps cannot be told apart by their time.
@@ -360,6 +360,10 @@ This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.  
 A list of integers (scalars) corresponding to the maps of A that contain
 maps from B will be returned.
+
+The result keeps the time stamps of the maps of A. The temporal operators
+`r`, `u`, `i` and `d` have no meaning for the count and are rejected with
+a syntax error; `l` is the default.
 
 ```sh
 C = if({equal}, A {#, contains} B > 2, A {:, contains} B)

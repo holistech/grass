@@ -443,10 +443,10 @@ def test_conditions_with_relation_and_hash(
 def test_else_branch_for_false_condition(series_3d):
     """if(cond, then, else) returns the else maps where the condition is false.
 
-    W {#,contains,r} A > 2 is false for both W maps (each contains two maps
+    W {#,contains} A > 2 is false for both W maps (each contains two maps
     of A), so the result consists of the four maps of A, which lie in W.
     """
-    expression = "if({equal|contains}, W {#,contains,r} A > 2, W {+,contains,l} A, A)"
+    expression = "if({equal|contains}, W {#,contains} A > 2, W {+,contains,l} A, A)"
     assert values(series_3d.session, expression) == [1, 2, 3, 4]
 
 

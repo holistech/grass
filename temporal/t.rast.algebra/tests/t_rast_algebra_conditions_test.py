@@ -398,11 +398,9 @@ def test_conditions_with_unavailable_dataset_fail(algebra):
         algebra.parse("if(NotThere > 1, A)")
 
 
-CONDITION_HB = (
-    "if({equal|contains}, HB {#,contains,r} HA == 2, HB {+,contains,l} HA, HA)"
-)
+CONDITION_HB = "if({equal|contains}, HB {#,contains} HA == 2, HB {+,contains,l} HA, HA)"
 CONDITION_HB_RIGHT = (
-    "if({equal|contains|during}, HB {#,contains,r} HA == 2, HB {+,contains,r} HA, HA)"
+    "if({equal|contains|during}, HB {#,contains} HA == 2, HB {+,contains,r} HA, HA)"
 )
 # The maps of HA outside of HB: they have no condition map.
 OUTSIDE_HB = "HA {!:,during} HB"

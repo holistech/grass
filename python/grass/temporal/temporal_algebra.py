@@ -2765,7 +2765,14 @@ class TemporalAlgebraParser:
         """
         if self.run:
             with self._reporting_syntax_errors():
-                topolist = self.eval_toperator(t[2], optype="hash")[0]
+                topolist, temporal = self.eval_toperator(t[2], optype="hash")[:2]
+                if temporal != "l":
+                    msg = (
+                        f"The hash operator {t[2]} counts the related maps of each "
+                        "left map and keeps its time stamp, a temporal operator "
+                        f"'{temporal}' is not supported"
+                    )
+                    raise SyntaxError(msg)
                 t[0] = self._count_related(t[1], t[3], topolist)
 
     def p_t_hash_paren(self, t) -> None:

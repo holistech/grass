@@ -162,3 +162,20 @@ def test_one_result_per_conclusion_map(algebra, expression, conclusion):
     times = algebra.dry_times(expression, register_null=True)
     assert len(times) == len(set(times))
     assert set(times) <= set(algebra.dry_times(conclusion))
+
+
+@pytest.mark.parametrize(
+    "operator", ["{#,contains,r}", "{#,contains,u}", "{#,contains,i}",
+                 "{#,contains,d}", "{#,contains,right}"],
+)  # fmt: skip
+def test_hash_rejects_temporal_operators(algebra, operator):
+    """The count keeps the time stamps of the left maps, r, u, i and d have
+    no meaning for it"""
+    with pytest.raises(SyntaxError, match="temporal operator"):
+        algebra.parse(f"B {operator} A")
+
+
+@pytest.mark.parametrize("operator", ["{#,contains}", "{#,contains,l}"])
+def test_hash_keeps_the_left_time_stamps(algebra, operator):
+    """b1 and b2 each contain two maps of A (started and finished)"""
+    assert algebra.triples(f"B {operator} A") == [(1, 3, 2), (3, 5, 2)]

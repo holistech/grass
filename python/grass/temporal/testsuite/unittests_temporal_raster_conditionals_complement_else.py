@@ -78,7 +78,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
     def test_temporal_conditional_complement(self) -> None:
         """Test the complement of a conditional expression
 
-        R = merge(if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A),
+        R = merge(if({equal|contains}, B {#,contains} A == 2, B {+,contains,l} A, A),
                   A {!:,during} B)
 
         IF B contains two maps from A
@@ -94,7 +94,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         """
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
-            expression="R = merge(if({equal|contains}, B {#,contains,r} A == 2, "
+            expression="R = merge(if({equal|contains}, B {#,contains} A == 2, "
             "B {+,contains,l} A, A), A {!:,during} B)",
             basename="r",
             overwrite=True,
@@ -115,7 +115,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         """Test the complement of a conditional expression with the right side
         time stamps
 
-        R = merge(if({equal|contains|during}, B {#,contains,r} A == 2, B {+,contains,r} A, A),
+        R = merge(if({equal|contains|during}, B {#,contains} A == 2, B {+,contains,r} A, A),
                   A {!:,during} B)
 
         IF B contains two maps from A
@@ -132,7 +132,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         """
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
-            expression="R = merge(if({equal|contains|during}, B {#,contains,r} A == 2, "
+            expression="R = merge(if({equal|contains|during}, B {#,contains} A == 2, "
             "B {+,contains,r} A, A), A {!:,during} B)",
             basename="r",
             overwrite=True,
