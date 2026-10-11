@@ -170,6 +170,32 @@ def test_relative_buffer(make_series):
     assert buffered.times() == [(1, 6)]
 
 
+@pytest.mark.parametrize(
+    ("series", "buffer"),
+    [
+        ("absolute", "-1 day"),
+        ("absolute", "-2 hours"),
+        ("relative", -1),
+        ("relative", "-1"),
+    ],
+)
+def test_negative_buffer_is_rejected(make_series, series, buffer):
+    """grass.temporal would make the interval end before it starts, which
+    fails with an AttributeError outside a session and prints an error and
+    returns inconsistent times inside one"""
+    unit = "days" if series == "relative" else None
+    x = make_series("x", (1, 2), (3, 6), unit=unit)
+    with pytest.raises(ValueError, match="must not be negative"):
+        retime(x, buffer=buffer)
+
+
+def test_zero_buffer_changes_nothing(make_series):
+    x = make_series("x", (1, 2), (3, 6), unit="days")
+    assert retime(x, buffer=0).times() == x.times()
+    y = make_series("y", (1, 2))
+    assert retime(y, buffer="0 days").times() == y.times()
+
+
 def test_a_map_without_time_stamp_cannot_be_moved():
     timeless = Series((Slot(None, MapRef("m@PERMANENT")),))
     with pytest.raises(ValueError, match="without time stamp"):

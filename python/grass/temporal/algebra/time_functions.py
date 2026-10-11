@@ -114,7 +114,8 @@ def retime(series, *, shift=None, buffer=None, snap=False):
 
     :param shift: e.g. "1 day" for absolute time, a number of the time unit
         for relative time
-    :param buffer: the same, taken off the start and added to the end
+    :param buffer: the same, taken off the start and added to the end; it
+        must not be negative
     :param snap: set the end of each map to the start of the next one
     """
     if [shift is not None, buffer is not None, bool(snap)].count(True) != 1:
@@ -130,6 +131,10 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         shift = _checked_increment(series, shift)
     if buffer is not None:
         buffer = _checked_increment(series, buffer)
+        # temporal_buffer() would let the end fall before the start.
+        if str(buffer).strip().startswith("-"):
+            msg = f"The buffer must not be negative, got {buffer!r}"
+            raise ValueError(msg)
     maps = [as_map(slot.extent) for slot in series.slots]
     if shift is not None:
         maps = AbstractSpaceTimeDataset.shift_map_list(maps, shift)
