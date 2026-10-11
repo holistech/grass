@@ -17,6 +17,7 @@ from .operations import (
     select,
     where,
 )
+from .materialize import ProcessChain, plan
 from .reducers import fold
 from .relations import (
     Relation,
@@ -43,6 +44,7 @@ __all__ = [
     "Const",
     "Extent",
     "MapRef",
+    "ProcessChain",
     "Relation",
     "Series",
     "SeriesReduce",
@@ -67,6 +69,7 @@ __all__ = [
     "overlapped",
     "overlaps",
     "pairs",
+    "plan",
     "precedes",
     "relation",
     "retime",
