@@ -5,8 +5,8 @@ from dataclasses import replace
 
 from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
 from grass.temporal.datetime_math import (
+    check_datetime_string,
     increment_datetime_by_string,
-    string_to_datetime,
     time_delta_to_relative_time,
 )
 from grass.temporal.temporal_granularity import check_granularity_string
@@ -79,9 +79,18 @@ def _is_number(increment):
 def _checked_increment(series, increment):
     """Return the increment in the form the map objects take
 
-    The map objects fail late and obscurely for increments they cannot read
-    (an AttributeError from a missing message interface, a truncated
-    fraction, None from shift_map_list()), so they are checked here.
+    The map objects fail late and obscurely for increments they cannot read,
+    so they are checked here. Measured 2026-10-11 with a throw-away script
+    that called shift_map_list() and temporal_buffer() on map objects made
+    by as_map(), in a plain Python process without session:
+
+    - "a while" on absolute time: shift_map_list() returns None,
+      temporal_buffer() raises an AttributeError (missing message interface);
+    - the number 5 on absolute time: temporal_buffer() raises an
+      AttributeError;
+    - "1 day" on relative time: shift_map_list() returns None;
+    - 0.5 on relative time: shift_map_list() leaves [2, 5] unchanged and
+      temporal_buffer() gives [1, 5], so the fraction is truncated.
     """
     if series.temporal_type == "relative":
         if not _is_number(increment):
@@ -111,6 +120,7 @@ def retime(series, *, shift=None, buffer=None, snap=False):
     if [shift is not None, buffer is not None, bool(snap)].count(True) != 1:
         msg = "retime() needs exactly one of shift, buffer and snap"
         raise ValueError(msg)
+    # Without slots the temporal type is unknown, so no increment can be checked.
     if not series.slots:
         return series
     if series.timeless:
@@ -152,11 +162,25 @@ def neighbour(series, offset):
 def _datetime(value):
     if isinstance(value, datetime.datetime):
         return value
-    result = string_to_datetime(value)
-    if result is None:
+    # check_datetime_string() reports an unreadable string as its return
+    # value; string_to_datetime() sends it to a message interface that
+    # exists only in a session and raises an AttributeError without one.
+    result = check_datetime_string(value) if isinstance(value, str) else None
+    if not isinstance(result, datetime.datetime):
         msg = f"Cannot read {value!r} as date and time"
         raise ValueError(msg)
     return result
+
+
+def _whole_number(value, what):
+    # Relative time is integral, and as_map() rejects a fractional stamp.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        msg = f"The {what} of relative granules must be a whole number, not {value!r}"
+        raise ValueError(msg)
+    if int(value) != value:
+        msg = f"The {what} of relative granules must be a whole number, not {value!r}"
+        raise ValueError(msg)
+    return int(value)
 
 
 def granules(
@@ -171,24 +195,29 @@ def granules(
     slots = []
     if temporal_type == "absolute":
         current, stop = _datetime(start), _datetime(end)
+        if not check_granularity_string(granularity, "absolute"):
+            msg = f'Cannot read {granularity!r} as a time step, use e.g. "1 day"'
+            raise ValueError(msg)
+        if increment_datetime_by_string(current, granularity) <= current:
+            msg = f"The granularity {granularity!r} must be positive"
+            raise ValueError(msg)
         while current < stop:
             following = increment_datetime_by_string(current, granularity)
-            if following <= current:
-                msg = f"The granularity {granularity!r} must be positive"
-                raise ValueError(msg)
             slots.append(Slot(Extent(current, following), NULL))
             current = following
     elif temporal_type == "relative":
         if unit is None:
             msg = "Relative granules need a unit"
             raise ValueError(msg)
-        if granularity <= 0:
+        current = _whole_number(start, "start")
+        stop = _whole_number(end, "end")
+        step = _whole_number(granularity, "granularity")
+        if step <= 0:
             msg = f"The granularity {granularity!r} must be positive"
             raise ValueError(msg)
-        current = start
-        while current < end:
-            slots.append(Slot(Extent(current, current + granularity, unit), NULL))
-            current += granularity
+        while current < stop:
+            slots.append(Slot(Extent(current, current + step, unit), NULL))
+            current += step
     else:
         msg = f"temporal_type must be absolute or relative, got {temporal_type!r}"
         raise ValueError(msg)

@@ -238,6 +238,45 @@ def test_granules_need_a_positive_step():
         granules(0, 6, 0, temporal_type="relative", unit="days")
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "granularity", "message"),
+    [
+        ("xx", "2001-01-04", "1 day", "Cannot read 'xx'"),
+        ("2001-01-01", "xx", "1 day", "Cannot read 'xx'"),
+        (5, "2001-01-04", "1 day", "Cannot read 5"),
+        ("2001-01-01", "2001-01-04", "a while", "Cannot read 'a while'"),
+        ("2001-01-01", "2001-01-04", "1 fortnight", "Cannot read '1 fortnight'"),
+        ("2001-01-01", "2001-01-04", 5, "Cannot read 5"),
+        ("2001-01-01", "2001-01-04", "0 days", "positive"),
+        ("2001-01-01", "2001-01-01", "-1 day", "positive"),
+    ],
+)
+def test_unreadable_absolute_granules(start, end, granularity, message):
+    with pytest.raises(ValueError, match=message):
+        granules(start, end, granularity)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "granularity", "message"),
+    [
+        (0, 6, "2", "whole number"),
+        (0, 6, 1.5, "whole number"),
+        (0.5, 6, 2, "whole number"),
+        (0, 6.5, 2, "whole number"),
+        ("0", 6, 2, "whole number"),
+        (0, 6, -2, "positive"),
+    ],
+)
+def test_unreadable_relative_granules(start, end, granularity, message):
+    with pytest.raises(ValueError, match=message):
+        granules(start, end, granularity, temporal_type="relative", unit="days")
+
+
+def test_whole_floats_are_fine_for_relative_granules():
+    steps = granules(0.0, 4.0, 2.0, temporal_type="relative", unit="days")
+    assert steps.times() == [(0, 2), (2, 4)]
+
+
 def test_relative_granules_need_a_unit():
     with pytest.raises(ValueError, match="unit"):
         granules(0, 6, 2, temporal_type="relative")
