@@ -411,6 +411,18 @@ Temporal shifting
     dbif.close()
 
 
+Algebra core
+------------
+
+The package ``grass.temporal.algebra`` offers the operations of the temporal
+algebra as Python functions on series of maps: ``source``, ``source_map``,
+``select``, ``pairs``, ``gather``, ``apply``, ``choose``, ``where``,
+``merge``, ``retime``, ``neighbour``, ``timevar``, ``granules``, ``plan`` and
+``materialize``.
+Every decision that the algebra syntax takes implicitly, such as how several
+related maps are combined, is a parameter with a documented default. Raster
+maps are supported; see the docstring of the package for an example.
+
 References
 ----------
 

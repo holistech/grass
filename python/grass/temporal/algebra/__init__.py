@@ -2,7 +2,29 @@
 
 A series is an immutable, time ordered sequence of planned or existing maps.
 Each map is a slot with a time stamp and a content tree that says what the
-map contains; building a series computes no maps.
+map contains; building a series computes no maps. The operations are pure
+functions on series; only materialize() computes maps and registers them,
+and plan() shows what it would do.
+
+Example: the monthly sum of precipitation on days warmer than 5 degrees:
+
+.. code-block:: python
+
+    import grass.temporal.algebra as ta
+
+    precip = ta.source("precipitation_daily")
+    temp = ta.source("temperature_daily")
+    months = ta.granules("2020-01-01", "2021-01-01", "1 month")
+
+    warm = ta.where(temp > 5, precip, 0)
+    monthly = ta.gather(months, ta.contains, warm, reduce="sum", nulls="skip")
+    ta.materialize(monthly, "precip_warm_monthly", basename="pwm")
+
+Relations read "l R x" for the slots l of the first and x of the second
+series, as the selection L {:,R} X of t.rast.algebra does. Series are
+related only by select(), pairs() and gather(); apply() and where() need
+equal time stamps and never align series silently, and choose() judges each
+slot by the condition of its own time stamp.
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce
