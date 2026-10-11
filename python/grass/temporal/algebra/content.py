@@ -1,8 +1,7 @@
 """Content of the slots of a series: immutable expression trees
 
-A tree says what a map contains, not how it is computed; the backend of the
-map type turns it into module calls when a series is materialized. Scalar
-values, one value per slot such as the length of an interval, are folded
+A tree says what a map contains, not how it is computed, so it is independent
+of the module that could compute it. Scalar values, one value per slot such as the length of an interval, are folded
 into constants while a tree is built, so a tree without map references can
 be decided in Python.
 """
@@ -39,8 +38,8 @@ class Call:
 class SeriesReduce:
     """A reduction over maps that passes over null cells
 
-    r.mapcalc has no sum or mean that skips null cells, so the backend
-    computes this node with r.series.
+    r.mapcalc has no sum or mean that skips null cells, so this node is kept
+    apart from Call; r.series is the module that computes it.
     """
 
     method: str
@@ -144,6 +143,9 @@ def call(function, *args):
     null operand is null, as in r.mapcalc. Other calls whose arguments are
     all constants are folded into a constant where Python can compute them.
     """
+    if function == "if" and len(args) < 2:
+        msg = f"if() needs a condition and a value, got {len(args)} arguments"
+        raise ValueError(msg)
     if function == "if" and len(args) == 2:
         args = (*args, NULL)
     if function == "if" and isinstance(args[0], Const):
@@ -160,7 +162,13 @@ def call(function, *args):
 
 
 def chain(function, contents):
-    """Join contents from left to right: ((c1 f c2) f c3) ..."""
+    """Join contents from left to right: ((c1 f c2) f c3) ...
+
+    :raises ValueError: if contents is empty
+    """
+    if not contents:
+        msg = f"chain({function!r}) needs at least one content"
+        raise ValueError(msg)
     result = contents[0]
     for content in contents[1:]:
         result = call(function, result, content)

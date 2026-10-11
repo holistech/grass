@@ -14,6 +14,7 @@ from grass.temporal.algebra.content import (
     SeriesReduce,
     call,
     chain,
+    evaluate,
     series_reduce,
 )
 
@@ -83,3 +84,20 @@ def test_series_reduce_folds_constants_and_skips_null():
     assert series_reduce("average", [Const(1), NULL, Const(3)]) == Const(2.0)
     assert series_reduce("sum", [NULL, NULL]) == NULL
     assert series_reduce("sum", [A, B]) == SeriesReduce("sum", (A, B))
+
+
+def test_if_needs_a_condition_and_a_value():
+    with pytest.raises(ValueError, match="if"):
+        call("if")
+    with pytest.raises(ValueError, match="if"):
+        call("if", A)
+
+
+def test_chain_needs_contents():
+    with pytest.raises(ValueError, match="at least one"):
+        chain("+", [])
+
+
+def test_evaluate_rejects_function_without_scalar_implementation():
+    with pytest.raises(ValueError, match="sin"):
+        evaluate("sin", [0])

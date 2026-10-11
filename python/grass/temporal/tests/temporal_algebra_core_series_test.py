@@ -81,3 +81,8 @@ def test_fixture_builds_maps_and_scalars(make_series):
     scalars = make_series("s", (1, 2), values=[5])
     assert scalars.sort == "scalar"
     assert scalars.slots[0].origin is None
+
+
+def test_times_of_a_timeless_series_is_an_error():
+    with pytest.raises(ValueError, match="without time stamps"):
+        Series((Slot(None, MapRef("m@PERMANENT")),)).times()

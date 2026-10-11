@@ -1,8 +1,8 @@
 """A small core for the spatio-temporal algebra
 
 A series is an immutable, time ordered sequence of planned or existing maps.
-The operations are pure functions on series; only materialize() computes
-maps and registers them.
+Each map is a slot with a time stamp and a content tree that says what the
+map contains; building a series computes no maps.
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce

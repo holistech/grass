@@ -46,8 +46,9 @@ class Slot:
     """A planned or existing map of a series
 
     extent is None for a map without time stamp, which can be combined with
-    every slot of another series. origin is the identifier of the registered map whose content and
-    time stamp the slot has unchanged, None for a computed slot.
+    every slot of another series. origin is the identifier of the registered
+    map whose content and time stamp the slot has unchanged, None for a
+    computed slot.
     """
 
     extent: Extent | None
@@ -66,11 +67,11 @@ class Series:
 
     kind is the map type, sort is "field" (one value per cell) or "scalar"
     (one value per slot). spatial is True once a spatial relation related
-    its slots; the raster backend then computes in the union of the regions
-    of the maps, as the spatial flag of t.rast.algebra does.
+    its slots, meaning that the regions of the maps matter and not only
+    their time, as with the spatial flag of t.rast.algebra.
 
-    A series is compared by identity, because == is reserved for the cell
-    wise comparison of two series; compare their slots to compare contents.
+    Equality is by identity, so comparing two series by mistake cannot pass
+    for a comparison of contents; compare their slots to compare contents.
     """
 
     slots: tuple[Slot, ...] = ()
@@ -93,8 +94,8 @@ class Series:
         if len(units) > 1:
             msg = "The slots of a series need one temporal type and unit"
             raise ValueError(msg)
-        # sorted() is stable: slots of equal time keep their order, so maps
-        # of equal time can later be paired one to one.
+        # sorted() is stable: slots of equal time keep their input order,
+        # which is the only tie-breaker slots of equal time have.
         object.__setattr__(self, "slots", tuple(sorted(slots, key=_slot_key)))
 
     @property
@@ -110,7 +111,13 @@ class Series:
         return len(self.slots) == 1 and self.slots[0].extent is None
 
     def times(self):
-        """The (start, end) of each slot"""
+        """The (start, end) of each slot
+
+        :raises ValueError: for a series without time stamps
+        """
+        if self.timeless:
+            msg = "A series without time stamps has no times"
+            raise ValueError(msg)
         return [(slot.extent.start, slot.extent.end) for slot in self.slots]
 
     def __len__(self):
