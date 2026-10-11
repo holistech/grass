@@ -12,6 +12,7 @@ from grass.temporal.datetime_math import (
 from grass.temporal.temporal_granularity import check_granularity_string
 
 from ._adapters import as_map, extent_of
+from ._checks import check_int, check_series
 from .content import NULL, Const
 from .series import Extent, Series, Slot
 
@@ -57,6 +58,7 @@ def timevar(series, name):
     calendar variables for relative time, td and the end variables for an
     instant.
     """
+    check_series(series)
     if name not in TIMEVARS:
         msg = f"Unknown temporal variable {name!r}, use one of {', '.join(TIMEVARS)}"
         raise ValueError(msg)
@@ -118,6 +120,7 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         must not be negative
     :param snap: set the end of each map to the start of the next one
     """
+    check_series(series)
     if [shift is not None, buffer is not None, bool(snap)].count(True) != 1:
         msg = "retime() needs exactly one of shift, buffer and snap"
         raise ValueError(msg)
@@ -156,6 +159,8 @@ def neighbour(series, offset):
     Slots without such a neighbour are left out, as A[1] and A[-1] of the
     algebra do.
     """
+    check_series(series)
+    check_int(offset, "offset")
     slots = []
     for index, slot in enumerate(series.slots):
         other = index + offset

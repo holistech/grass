@@ -14,6 +14,13 @@ from grass.temporal.core import get_tgis_message_interface
 
 from . import reducers
 from ._adapters import as_map, extent_from
+from ._checks import (
+    check_callable,
+    check_int,
+    check_operands,
+    check_relation,
+    check_series,
+)
 from .content import NULL, Call, Const, MapRef, SeriesReduce, call
 from .relations import related as related_indices
 from .series import Series, Slot
@@ -91,6 +98,9 @@ def select(left, relation, other, *, related=True):
     Content and time stamps stay as they are. select(L, R, X) and
     select(L, R, X, related=False) are disjoint and together are L.
     """
+    check_series(left, "left")
+    check_relation(relation)
+    check_series(other, "other")
     _check_comparable(left, other)
     matches = related_indices(left.slots, relation, other.slots)
     slots = tuple(
@@ -112,6 +122,11 @@ def pairs(left, relation, other, *, extent="left", content=None):
     :param content: function of the contents of l and x that returns the
         content of the slot; the default keeps the content of l
     """
+    check_series(left, "left")
+    check_relation(relation)
+    check_series(other, "other")
+    if content is not None:
+        check_callable(content, "content")
     _check_option("extent", extent, PAIR_EXTENTS)
     _check_comparable(left, other)
     matches = related_indices(left.slots, relation, other.slots)
@@ -179,6 +194,7 @@ def _content_at(operand, index):
 
 
 def _apply(function, operands, name):
+    check_operands(function, operands)
     timed = [
         operand
         for operand in operands
@@ -218,6 +234,8 @@ def apply(function, *operands):
     The result is a field if any operand is a field; a scalar result is
     computed in Python.
 
+    :raises TypeError: for an operand that is not a Series, a number, a bool,
+        None or a content node
     :raises ValueError: if the time stamps differ, naming the first slot that
         differs, or if a scalar result cannot be computed in Python
     """
@@ -226,6 +244,7 @@ def apply(function, *operands):
 
 def lift(series):
     """Turn a scalar series into a field that is constant in each map"""
+    check_series(series)
     return replace(series, sort="field")
 
 
@@ -235,6 +254,9 @@ def cell_offset(series, *offset):
     r.mapcalc knows offsets of maps only, so the slots must hold maps, not
     expressions.
     """
+    check_series(series)
+    for step in offset:
+        check_int(step, "offset")
     slots = []
     for slot in series.slots:
         if not isinstance(slot.content, MapRef):
@@ -319,6 +341,9 @@ def gather(
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     """
+    check_series(target, "target")
+    check_relation(relation)
+    check_series(other, "other")
     _check_option("missing", missing, MISSING)
     _check_option("extent", extent, GATHER_EXTENTS)
     _check_option("equal_times", equal_times, EQUAL_TIMES)
@@ -383,6 +408,10 @@ def choose(condition, then, otherwise=None):
         number of slots in a branch, if a timed condition meets a branch map
         without time stamp, or if the series cannot be related
     """
+    check_series(condition, "condition")
+    check_series(then, "then")
+    if otherwise is not None:
+        check_series(otherwise, "otherwise")
     if condition.sort != "scalar":
         msg = "choose() needs a scalar condition; use where() for one per cell"
         raise TypeError(msg)
@@ -431,6 +460,7 @@ def where(condition, then, otherwise=None):
     condition is lifted to a constant field. condition, then and otherwise
     need equal time stamps; numbers are used in every slot.
     """
+    check_series(condition, "condition")
     if condition.sort == "scalar":
         condition = lift(condition)
     return _apply("if", (condition, then, otherwise), "where")
@@ -449,6 +479,8 @@ def merge(*series):
     if not series:
         msg = "merge() needs at least one series"
         raise ValueError(msg)
+    for number, part in enumerate(series, start=1):
+        check_series(part, f"series {number}")
     first = series[0]
     for part in series[1:]:
         if part.sort != first.sort:
