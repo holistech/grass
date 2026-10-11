@@ -31,18 +31,53 @@ class ModuleCall:
     parameters: dict
 
 
+# CELL is a 32 bit integer whose lowest value is null in GRASS (measured
+# 2026-10-11 with r.mapcalc: -2147483648 gives a map of null cells).
+_CELL_MIN = -(2**31) + 1
+_CELL_MAX = 2**31 - 1
+
+
+def _float_literal(value):
+    # r.mapcalc reads "1e-05" as the map name "1e" followed by "-05": its
+    # scanner needs a dot in the mantissa (measured 2026-10-11).
+    text = repr(value)
+    mantissa, marker, exponent = text.partition("e")
+    if marker and "." not in mantissa:
+        mantissa += ".0"
+    return f"{mantissa}{marker}{exponent}"
+
+
 def _literal(value):
     if value is None:
         return "null()"
     if isinstance(value, bool):
         return str(int(value))
     if isinstance(value, int):
-        return str(value)
+        if _CELL_MIN <= value <= _CELL_MAX:
+            return str(value)
+        # r.mapcalc wraps larger integers around or reads them as null
+        # (3000000000 gave -1294967296, 2147483648 gave null, measured
+        # 2026-10-11), so they are written as floats: the value is kept and
+        # the result map becomes DCELL.
+        try:
+            value = float(value)
+        except OverflowError:
+            msg = f"The integer {value} is too large for a raster map expression"
+            raise ValueError(msg) from None
     # nan and inf would reach r.mapcalc as the names of maps.
     if isinstance(value, float) and math.isfinite(value):
-        return repr(value)
+        return _float_literal(value)
     msg = f"The value {value!r} cannot be part of a raster map expression"
     raise TypeError(msg)
+
+
+def _quote(name):
+    """Quote a map name: GRASS allows names that r.mapcalc would read as an
+    expression, such as a-b or 5 (measured 2026-10-11)"""
+    if '"' in name:
+        msg = f"The map name {name!r} contains a quote and cannot be used in r.mapcalc"
+        raise ValueError(msg)
+    return f'"{name}"'
 
 
 class RasterBackend:
@@ -68,9 +103,9 @@ class RasterBackend:
         """
         match content:
             case MapRef(ident=ident, offset=offset) if offset:
-                return f"{ident}[{','.join(str(step) for step in offset)}]"
+                return f"{_quote(ident)}[{','.join(str(step) for step in offset)}]"
             case MapRef(ident=ident):
-                return ident
+                return _quote(ident)
             case Const(value=value):
                 return _literal(value)
             case Call(function=function, args=args):
@@ -97,6 +132,10 @@ class RasterBackend:
             # own parentheses.
             operand = f"({parts[0]})" if parts[0].startswith("-") else parts[0]
             return f"({_PREFIX[function]}{operand})"
+        if function == "if" and len(parts) < 3:
+            # if(c, t) is 0 where c is false, not null.
+            msg = f"if() needs three arguments, got {len(parts)}"
+            raise ValueError(msg)
         if function in _FUNCTIONS:
             return f"{function}({', '.join(parts)})"
         msg = f"{function!r} is neither an operator nor a function of r.mapcalc"
@@ -104,7 +143,7 @@ class RasterBackend:
 
     @staticmethod
     def _mapcalc(output, expression, spatial):
-        parameters = {"expression": f"{output}={expression}"}
+        parameters = {"expression": f"{_quote(output)}={expression}"}
         if spatial:
             parameters["region"] = "union"
         # One process per call: how many calls run at once is up to whoever
@@ -113,9 +152,10 @@ class RasterBackend:
         return ModuleCall("r.mapcalc", parameters)
 
     def plan(self, content, output, *, spatial=False):
-        """Return the module calls that compute the content into the map
-        output, in the order to run them, and the temporary maps to remove
-        afterwards
+        """Plan the computation of the map output from the content
+
+        Return the module calls in the order to run them, and the temporary
+        maps to remove afterwards.
 
         One r.mapcalc call computes the map, unless reductions that skip
         null cells need r.series; their inputs that are expressions are

@@ -22,30 +22,38 @@ A2 = MapRef("a2@PERMANENT")
 @pytest.mark.parametrize(
     ("content", "expected"),
     [
-        (A1, "a1@PERMANENT"),
-        (MapRef("a1@PERMANENT", (1, 0)), "a1@PERMANENT[1,0]"),
+        (A1, '"a1@PERMANENT"'),
+        (MapRef("a1@PERMANENT", (1, 0)), '"a1@PERMANENT"[1,0]'),
         (Const(5), "5"),
         (Const(2.0), "2.0"),
+        (Const(1e-05), "1.0e-05"),
+        (Const(1e16), "1.0e+16"),
+        (Const(1.5e-07), "1.5e-07"),
+        (Const(2**31 - 1), "2147483647"),
+        (Const(-(2**31) + 1), "-2147483647"),
+        (Const(2**31), "2147483648.0"),
+        (Const(-(2**31)), "-2147483648.0"),
+        (Const(3000000000), "3000000000.0"),
         (Const(True), "1"),
         (NULL, "null()"),
-        (Call("+", (A1, Const(1))), "(a1@PERMANENT + 1)"),
+        (Call("+", (A1, Const(1))), '("a1@PERMANENT" + 1)'),
         (
             Call("*", (Call("+", (A1, A2)), Const(2))),
-            "((a1@PERMANENT + a2@PERMANENT) * 2)",
+            '(("a1@PERMANENT" + "a2@PERMANENT") * 2)',
         ),
-        (Call("neg", (A1,)), "(-a1@PERMANENT)"),
-        (Call("neg", (Call("neg", (A1,)),)), "(-(-a1@PERMANENT))"),
+        (Call("neg", (A1,)), '(-"a1@PERMANENT")'),
+        (Call("neg", (Call("neg", (A1,)),)), '(-(-"a1@PERMANENT"))'),
         (Call("neg", (Const(-1),)), "(-(-1))"),
-        (Call("-", (A1, Const(-1))), "(a1@PERMANENT - -1)"),
-        (Call("!", (A1,)), "(!a1@PERMANENT)"),
-        (Call("!=", (A1, Const(0))), "(a1@PERMANENT != 0)"),
-        (Call("&&", (A1, A2)), "(a1@PERMANENT && a2@PERMANENT)"),
-        (Call("||", (A1, A2)), "(a1@PERMANENT || a2@PERMANENT)"),
-        (Call("if", (A1, A2, NULL)), "if(a1@PERMANENT, a2@PERMANENT, null())"),
-        (Call("isnull", (A1,)), "isnull(a1@PERMANENT)"),
-        (Call("nmin", (A1, A2)), "nmin(a1@PERMANENT, a2@PERMANENT)"),
-        (Call("nmax", (A1, A2)), "nmax(a1@PERMANENT, a2@PERMANENT)"),
-        (Call("abs", (A1,)), "abs(a1@PERMANENT)"),
+        (Call("-", (A1, Const(-1))), '("a1@PERMANENT" - -1)'),
+        (Call("!", (A1,)), '(!"a1@PERMANENT")'),
+        (Call("!=", (A1, Const(0))), '("a1@PERMANENT" != 0)'),
+        (Call("&&", (A1, A2)), '("a1@PERMANENT" && "a2@PERMANENT")'),
+        (Call("||", (A1, A2)), '("a1@PERMANENT" || "a2@PERMANENT")'),
+        (Call("if", (A1, A2, NULL)), 'if("a1@PERMANENT", "a2@PERMANENT", null())'),
+        (Call("isnull", (A1,)), 'isnull("a1@PERMANENT")'),
+        (Call("nmin", (A1, A2)), 'nmin("a1@PERMANENT", "a2@PERMANENT")'),
+        (Call("nmax", (A1, A2)), 'nmax("a1@PERMANENT", "a2@PERMANENT")'),
+        (Call("abs", (A1,)), 'abs("a1@PERMANENT")'),
     ],
 )
 def test_expression(content, expected):
@@ -82,13 +90,71 @@ def test_unrenderable_function_is_rejected_when_planning(make_series):
         plan(Series((Slot(a.slots[0].extent, Call("frobnicate", (A1,))),)), "R")
 
 
+def test_negative_literal_outside_int32_keeps_its_sign():
+    assert RasterBackend().expression(Call("neg", (Const(3000000000),))) == (
+        "(-3000000000.0)"
+    )
+    assert RasterBackend().expression(Call("neg", (Const(-3000000000),))) == (
+        "(-(-3000000000.0))"
+    )
+
+
+def test_if_without_else_is_rejected():
+    with pytest.raises(ValueError, match="three arguments"):
+        RasterBackend().expression(Call("if", (A1, A2)))
+
+
+def test_names_with_operator_characters_are_quoted(make_series):
+    odd = Series(
+        (
+            Slot(
+                make_series("a", (1, 2)).slots[0].extent,
+                Call("+", (MapRef("a-b@PERMANENT", (0, 1)), MapRef("5@PERMANENT"))),
+            ),
+        )
+    )
+    (call,) = plan(odd, "my-res").processes
+    assert call.parameters["expression"] == (
+        '"my-res_0"=("a-b@PERMANENT"[0,1] + "5@PERMANENT")'
+    )
+
+
+def test_temporary_maps_of_an_odd_name_are_quoted_in_expressions_only(make_series):
+    a = make_series("a", (1, 2), (2, 3))
+    b = make_series("b", (1, 3))
+    reduced = gather(b, contains, a * 2, reduce="sum", nulls="skip")
+    chain = plan(reduced + 1, "my-res")
+    assert [call.name for call in chain.processes] == [
+        "r.mapcalc",
+        "r.mapcalc",
+        "r.series",
+        "r.mapcalc",
+    ]
+    assert chain.processes[0].parameters["expression"] == (
+        '"my-res_0_tmp0"=("a1@PERMANENT" * 2)'
+    )
+    assert chain.processes[2].parameters == {
+        "input": "my-res_0_tmp0,my-res_0_tmp1",
+        "output": "my-res_0_tmp2",
+        "method": "sum",
+    }
+    assert chain.processes[3].parameters["expression"] == (
+        '"my-res_0"=("my-res_0_tmp2" + 1)'
+    )
+    assert chain.remove == ("my-res_0_tmp0", "my-res_0_tmp1", "my-res_0_tmp2")
+
+
 def test_one_mapcalc_call_per_map(make_series):
     a = make_series("a", (1, 2), (2, 3))
     chain = plan(a + 1, "R")
     assert [m.name for m in chain.maps] == ["R_0", "R_1"]
     assert chain.processes == [
-        ModuleCall("r.mapcalc", {"expression": "R_0=(a1@PERMANENT + 1)", "nprocs": 1}),
-        ModuleCall("r.mapcalc", {"expression": "R_1=(a2@PERMANENT + 1)", "nprocs": 1}),
+        ModuleCall(
+            "r.mapcalc", {"expression": '"R_0"=("a1@PERMANENT" + 1)', "nprocs": 1}
+        ),
+        ModuleCall(
+            "r.mapcalc", {"expression": '"R_1"=("a2@PERMANENT" + 1)', "nprocs": 1}
+        ),
     ]
     assert chain.register == [
         ("R_0", datetime.datetime(2001, 1, 1), datetime.datetime(2001, 1, 2)),
@@ -154,16 +220,16 @@ def test_skip_reduction_of_expressions_uses_temporary_maps(make_series):
     chain = plan(reduced + 1, "R")
     assert chain.processes == [
         ModuleCall(
-            "r.mapcalc", {"expression": "R_0_tmp0=(a1@PERMANENT * 2)", "nprocs": 1}
+            "r.mapcalc", {"expression": '"R_0_tmp0"=("a1@PERMANENT" * 2)', "nprocs": 1}
         ),
         ModuleCall(
-            "r.mapcalc", {"expression": "R_0_tmp1=(a2@PERMANENT * 2)", "nprocs": 1}
+            "r.mapcalc", {"expression": '"R_0_tmp1"=("a2@PERMANENT" * 2)', "nprocs": 1}
         ),
         ModuleCall(
             "r.series",
             {"input": "R_0_tmp0,R_0_tmp1", "output": "R_0_tmp2", "method": "average"},
         ),
-        ModuleCall("r.mapcalc", {"expression": "R_0=(R_0_tmp2 + 1)", "nprocs": 1}),
+        ModuleCall("r.mapcalc", {"expression": '"R_0"=("R_0_tmp2" + 1)', "nprocs": 1}),
     ]
     assert chain.remove == ("R_0_tmp0", "R_0_tmp1", "R_0_tmp2")
 
@@ -172,7 +238,7 @@ def test_skip_reduction_of_a_map_at_an_offset_uses_a_temporary_map():
     reduced = SeriesReduce("sum", (MapRef("a1@PERMANENT", (1, 0)), A2))
     calls, temporaries = RasterBackend().plan(reduced, "R_0")
     assert [call.name for call in calls] == ["r.mapcalc", "r.series"]
-    assert calls[0].parameters["expression"] == "R_0_tmp0=a1@PERMANENT[1,0]"
+    assert calls[0].parameters["expression"] == '"R_0_tmp0"="a1@PERMANENT"[1,0]'
     assert calls[1].parameters["input"] == "R_0_tmp0,a2@PERMANENT"
     assert temporaries == ["R_0_tmp0"]
 
@@ -186,8 +252,8 @@ def test_nested_condition_stays_one_call_per_map(make_series):
     chain = plan(where(gather(b, contains, condition, reduce="any"), b, 0), "C")
     assert [call.name for call in chain.processes] == ["r.mapcalc", "r.mapcalc"]
     assert chain.processes[0].parameters["expression"] == (
-        "C_0=if((((a1@PERMANENT > 1) && 1) || ((a2@PERMANENT > 1) && 0)), "
-        "b1@PERMANENT, 0)"
+        '"C_0"=if(((("a1@PERMANENT" > 1) && 1) || (("a2@PERMANENT" > 1) && 0)), '
+        '"b1@PERMANENT", 0)'
     )
 
 
@@ -249,3 +315,8 @@ def test_unknown_time_suffix(make_series):
 def test_reduction_node_inside_expression_is_not_rendered_directly():
     with pytest.raises(ValueError, match=r"r\.series"):
         RasterBackend().expression(SeriesReduce("sum", (A1, A2)))
+
+
+def test_map_name_with_a_quote_is_rejected():
+    with pytest.raises(ValueError, match="quote"):
+        RasterBackend().expression(MapRef('a"b@PERMANENT'))
