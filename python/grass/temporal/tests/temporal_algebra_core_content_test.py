@@ -75,8 +75,59 @@ def test_if_without_else_is_null_where_false():
 
 def test_chain_joins_from_left_to_right():
     c = MapRef("c1@PERMANENT")
-    assert chain("-", [A, B, c]) == Call("-", (Call("-", (A, B)), c))
+    assert chain("-", [A, B, c]) == Call("-", (A, B, c))
     assert chain("+", [A]) == A
+
+
+def test_chain_of_a_right_associative_operator_keeps_its_nesting():
+    """r.mapcalc reads a ^ b ^ c as a ^ (b ^ c), so a flat call would change
+    the meaning of the chain ((a ^ b) ^ c)"""
+    c = MapRef("c1@PERMANENT")
+    assert chain("^", [A, B, c]) == Call("^", (Call("^", (A, B)), c))
+
+
+@pytest.mark.parametrize("function", ["min", "max", "nmin", "nmax"])
+def test_chain_of_a_variadic_function_is_one_call(function):
+    c = MapRef("c1@PERMANENT")
+    assert chain(function, [A, B, c]) == Call(function, (A, B, c))
+
+
+def test_chain_of_a_function_that_is_not_associative_nests():
+    c = MapRef("c1@PERMANENT")
+    assert chain("median", [A, B, c]) == Call("median", (Call("median", (A, B)), c))
+
+
+def test_chain_folds_leading_constants_and_null():
+    assert chain("+", [Const(1), Const(2), A]) == Call("+", (Const(3), A))
+    assert chain("+", [A, NULL, B]) == NULL
+
+
+def test_chain_of_many_contents_is_not_deep():
+    """A left-deep tree of 1000 maps would exhaust the stack of repr(), hash()
+    and ==, and of every walk over the tree"""
+    maps = [MapRef(f"m{i}@PERMANENT") for i in range(1000)]
+    result = chain("+", maps)
+    assert result.args == tuple(maps)
+    assert result == chain("+", maps)
+    assert hash(result) == hash(chain("+", maps))
+    assert "m999@PERMANENT" in repr(result)
+
+
+@pytest.mark.parametrize(
+    ("function", "values", "expected"),
+    [
+        ("-", [10, 3, 2], 5),
+        ("/", [100, 5, 2], 10),
+        ("/", [100, 0, 2], None),
+        ("-", [10, None, 2], None),
+        ("<", [1, 2, 3], 1),
+        ("&&", [1, 1, 0], 0),
+        ("min", [3, 1, 2], 1),
+    ],
+)
+def test_evaluate_n_ary_operators_left_to_right(function, values, expected):
+    assert evaluate(function, values) == expected
+    assert call(function, *(Const(v) for v in values)) == Const(expected)
 
 
 def test_series_reduce_folds_constants_and_skips_null():

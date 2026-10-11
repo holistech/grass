@@ -9,6 +9,7 @@ import datetime
 import pytest
 
 from grass.temporal.algebra.content import NULL, Call, Const, MapRef, SeriesReduce
+from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, select
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import contains, during, equal, relation
@@ -53,8 +54,8 @@ def test_sum_of_related_maps_without_the_target(a, b):
 
 def test_fold_starts_with_the_target(a, b):
     assert contents(gather(b, contains, a, reduce=fold("-"))) == [
-        Call("-", (Call("-", (ref("b1"), ref("a1"))), ref("a2"))),
-        Call("-", (Call("-", (ref("b2"), ref("a3"))), ref("a4"))),
+        Call("-", (ref("b1"), ref("a1"), ref("a2"))),
+        Call("-", (ref("b2"), ref("a3"), ref("a4"))),
     ]
 
 
@@ -252,3 +253,52 @@ def test_keep_works_with_a_reducer_that_keeps_the_sort(a, c):
     result = gather(a, during, c, reduce="sum", missing="keep")
     assert result.sort == "field"
     assert contents(result) == [ref("a1"), ref("c1"), ref("c1"), ref("a4")]
+
+
+def test_fold_of_a_right_associative_operator_keeps_its_nesting(make_series):
+    """r.mapcalc reads a ^ b ^ c as a ^ (b ^ c), but fold is defined from left
+    to right"""
+    x = make_series("x", (1, 2))
+    y = make_series("y", (1, 2), (1, 2))
+    (content,) = contents(gather(x, equal, y, reduce=fold("^")))
+    assert content == Call("^", (Call("^", (ref("x1"), ref("y1"))), ref("y2")))
+    (call,) = plan(gather(x, equal, y, reduce=fold("^")), "R").processes
+    assert call.parameters["expression"] == (
+        '"R_0"=(("x1@PERMANENT" ^ "y1@PERMANENT") ^ "y2@PERMANENT")'
+    )
+
+
+MANY = 1000
+Y = [f'"y{i}@PERMANENT"' for i in range(1, MANY + 1)]
+
+
+def joined(operator, names):
+    return "(" + f" {operator} ".join(names) + ")"
+
+
+@pytest.mark.parametrize(
+    ("reduce", "expected"),
+    [
+        ("sum", joined("+", Y)),
+        ("prod", joined("*", Y)),
+        ("mean", f"({joined('+', Y)} / 1000.0)"),
+        ("all", joined("&&", Y)),
+        ("any", joined("||", Y)),
+        ("min", f"min({', '.join(Y)})"),
+        (fold("-"), joined("-", ['"x1@PERMANENT"', *Y])),
+    ],
+)
+def test_reducing_many_related_maps_does_not_recurse_deeply(
+    make_series, reduce, expected
+):
+    """A left-deep tree of 1000 maps overflowed the stack in plan(), repr(),
+    hash() and ==; one flat call per reduction does not"""
+    x = make_series("x", (1, 2))
+    y = make_series("y", *[(1, 2)] * MANY)
+    result = gather(x, equal, y, reduce=reduce)
+    (slot,) = result.slots
+    assert slot == gather(x, equal, y, reduce=reduce).slots[0]
+    assert isinstance(hash(slot), int)
+    assert "y1000@PERMANENT" in repr(slot)
+    (call,) = plan(result, "R").processes
+    assert call.parameters["expression"] == f'"R_0"={expected}'

@@ -3,13 +3,8 @@
 import math
 from dataclasses import dataclass
 
-from .content import Call, Const, MapRef, SeriesReduce
+from .content import LEFT_ASSOCIATIVE, Call, Const, MapRef, SeriesReduce
 
-# Operators of r.mapcalc, written between two operands.
-_INFIX = frozenset(
-    {"+", "-", "*", "/", "%", "^", "==", "!=", ">", ">=", "<", "<=", "&&", "||"}
-    | {"&&&", "|||", "&", "|", "<<", ">>", ">>>"}
-)
 # Operators of r.mapcalc written before one operand; the content tree names
 # the negation "neg" so that it cannot be mistaken for the subtraction.
 _PREFIX = {"neg": "-", "!": "!", "~": "~"}
@@ -87,6 +82,14 @@ class RasterBackend:
     r.series has no region option and computes in the current region, also
     for a series whose maps were related in space; r.mapcalc computes those
     in the union of the regions.
+
+    One r.mapcalc expression travels as one argument of the process, which
+    the operating system limits in size: on Linux an expression of 131000
+    bytes ran and one of 131071 bytes failed (measured 2026-10-11 with
+    r.mapcalc expression="out = ..." of "m" + "m" + ... in grass
+    --tmp-project XY), which is a few thousand related maps in a reduction
+    with nulls="propagate". With nulls="skip" the maps are listed in the
+    input of r.series, which is not limited this way.
     """
 
     kind = "raster"
@@ -118,11 +121,22 @@ class RasterBackend:
 
     @staticmethod
     def _call(function, parts):
-        if function in _INFIX:
-            if len(parts) != 2:
-                msg = f"The operator {function} needs two operands, got {len(parts)}"
+        if function in LEFT_ASSOCIATIVE:
+            # Written flat: r.mapcalc parses "(a - b - c)" like "((a - b) - c)".
+            if len(parts) < 2:
+                msg = (
+                    f"The operator {function} needs at least two operands, "
+                    f"got {len(parts)}"
+                )
                 raise ValueError(msg)
-            return f"({parts[0]} {function} {parts[1]})"
+            return f"({f' {function} '.join(parts)})"
+        if function == "^":
+            # Right-associative in r.mapcalc, so a call with three operands
+            # would not mean what its order says.
+            if len(parts) != 2:
+                msg = f"The operator ^ needs two operands, got {len(parts)}"
+                raise ValueError(msg)
+            return f"({parts[0]} ^ {parts[1]})"
         if function in _PREFIX:
             if len(parts) != 1:
                 msg = f"The operator {function} needs one operand, got {len(parts)}"

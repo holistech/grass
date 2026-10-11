@@ -49,6 +49,15 @@ A2 = MapRef("a2@PERMANENT")
         (Call("!=", (A1, Const(0))), '("a1@PERMANENT" != 0)'),
         (Call("&&", (A1, A2)), '("a1@PERMANENT" && "a2@PERMANENT")'),
         (Call("||", (A1, A2)), '("a1@PERMANENT" || "a2@PERMANENT")'),
+        (
+            Call("-", (A1, A2, Const(1))),
+            '("a1@PERMANENT" - "a2@PERMANENT" - 1)',
+        ),
+        (
+            Call("min", (A1, A2, Const(1))),
+            'min("a1@PERMANENT", "a2@PERMANENT", 1)',
+        ),
+        (Call("^", (A1, A2)), '("a1@PERMANENT" ^ "a2@PERMANENT")'),
         (Call("if", (A1, A2, NULL)), 'if("a1@PERMANENT", "a2@PERMANENT", null())'),
         (Call("isnull", (A1,)), 'isnull("a1@PERMANENT")'),
         (Call("nmin", (A1, A2)), 'nmin("a1@PERMANENT", "a2@PERMANENT")'),
@@ -72,11 +81,14 @@ def test_value_without_raster_form_is_rejected(value):
     ("content", "message"),
     [
         (Call("frobnicate", (A1,)), "neither an operator nor a function"),
-        (Call("+", (A1, A2, A1)), "needs two operands"),
+        # ^ is right-associative in r.mapcalc, so it is never written as one
+        # flat call.
+        (Call("^", (A1, A2, A1)), "needs two operands"),
+        (Call("+", (A1,)), "at least two operands"),
         (Call("neg", (A1, A2)), "needs one operand"),
         # A unary minus is spelled neg, so that no reader takes it for a
         # subtraction with a missing operand.
-        (Call("-", (A1,)), "needs two operands"),
+        (Call("-", (A1,)), "at least two operands"),
     ],
 )
 def test_function_without_raster_form_is_rejected(content, message):

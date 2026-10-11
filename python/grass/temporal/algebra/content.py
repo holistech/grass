@@ -1,9 +1,9 @@
 """Content of the slots of a series: immutable expression trees
 
 A tree says what a map contains, not how it is computed, so it is independent
-of the module that could compute it. Scalar values, one value per slot such as the length of an interval, are folded
-into constants while a tree is built, so a tree without map references can
-be decided in Python.
+of the module that could compute it. Scalar values, one value per slot such
+as the length of an interval, are folded into constants while a tree is
+built, so a tree without map references can be decided in Python.
 """
 
 import math
@@ -119,8 +119,28 @@ _NULL_AWARE = {
 }
 
 
+# The operators that r.mapcalc parses from left to right (mapcalc.y), so that
+# "a - b - c" is "(a - b) - c". A chain of one of them is one call with all
+# operands: a left-deep tree of binary calls is as deep as the chain is long,
+# and reducing many maps overflowed the stack of repr(), hash(), == and of
+# every walk over the tree (measured 2026-10-11 with gather(reduce="sum") of
+# n related maps followed by plan(), repr() and hash(): n=400 ran, n=500
+# raised RecursionError).
+# ^ is missing on purpose: r.mapcalc reads "a ^ b ^ c" as "a ^ (b ^ c)".
+LEFT_ASSOCIATIVE = frozenset(
+    {"+", "-", "*", "/", "%", "==", "!=", ">", ">=", "<", "<=", "&&", "||"}
+    | {"&&&", "|||", "&", "|", "<<", ">>", ">>>"}
+)
+
+# Functions of r.mapcalc that take any number of operands and give the same
+# result for min(min(a, b), c) as for min(a, b, c).
+_VARIADIC = frozenset({"min", "max", "nmin", "nmax"})
+
+
 def evaluate(function, values):
     """Compute an operator or a function of r.mapcalc on scalar values
+
+    An operator with more than two operands is applied from left to right.
 
     :raises ValueError: if the function has no scalar implementation
     """
@@ -129,6 +149,11 @@ def evaluate(function, values):
     if function not in _SCALAR:
         msg = f"{function}() cannot be computed for scalar values"
         raise ValueError(msg)
+    if function in LEFT_ASSOCIATIVE and len(values) > 2:
+        result = values[0]
+        for value in values[1:]:
+            result = evaluate(function, [result, value])
+        return result
     if any(value is None for value in values):
         return None
     return _SCALAR[function](*values)
@@ -164,15 +189,29 @@ def call(function, *args):
 def chain(function, contents):
     """Join contents from left to right: ((c1 f c2) f c3) ...
 
+    An operator that r.mapcalc applies from left to right, and min, max, nmin
+    and nmax, give one call with all contents, so that the tree stays flat;
+    leading constants are folded. Any other function nests to the left.
+
     :raises ValueError: if contents is empty
     """
     if not contents:
         msg = f"chain({function!r}) needs at least one content"
         raise ValueError(msg)
-    result = contents[0]
-    for content in contents[1:]:
-        result = call(function, result, content)
-    return result
+    if function not in LEFT_ASSOCIATIVE and function not in _VARIADIC:
+        result = contents[0]
+        for content in contents[1:]:
+            result = call(function, result, content)
+        return result
+    contents = list(contents)
+    constants = 0
+    while constants < len(contents) and isinstance(contents[constants], Const):
+        constants += 1
+    if constants > 1:
+        contents[:constants] = [call(function, *contents[:constants])]
+    if len(contents) == 1:
+        return contents[0]
+    return call(function, *contents)
 
 
 def series_reduce(method, contents):
