@@ -342,6 +342,10 @@ which are during the time intervals of maps from space time dataset A.
 A list of integers (scalars) corresponding to the maps of A that contain
 maps from B will be returned.
 
+The result keeps the time stamps of the maps of A. The temporal operators
+`r`, `u`, `i` and `d` have no meaning for the count and are rejected with
+a syntax error; `l` is the default.
+
 ```sh
 C = if({equal}, A {#, contains} B > 2, A {:, contains} B)
 ```

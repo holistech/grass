@@ -338,6 +338,10 @@ space time dataset A.<br>
 A list of integers (scalars) corresponding to the maps of A
 that contain maps from B will be returned.
 <p>
+The result keeps the time stamps of the maps of A. The temporal operators
+<code>r</code>, <code>u</code>, <code>i</code> and <code>d</code> have no meaning for the
+count and are rejected with a syntax error; <code>l</code> is the default.
+<p>
 
 <div class="code"><pre>
 C = if({equal}, A {#, contains} B &gt; 2, A {:, contains} B)

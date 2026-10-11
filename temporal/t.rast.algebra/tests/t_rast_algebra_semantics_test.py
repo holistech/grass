@@ -944,10 +944,6 @@ def manual_cases():
         )
         if missing:
             marks.append(pytest.mark.skip(reason=f"maps not in the fixture: {missing}"))
-        elif assignment.count('"') % 2:
-            marks.append(
-                later("Befund", "the manual example ends with a stray double quote")
-            )
         cases.append(pytest.param(assignment, marks=marks))
     return cases
 

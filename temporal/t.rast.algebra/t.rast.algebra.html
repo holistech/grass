@@ -395,6 +395,26 @@ tshift(A, size)         Shift STDS A with granule ("1 month" or 5)
 tsnap(A)                Snap time instances and intervals of STDS A
 </pre></div>
 
+<h4>Merge function</h4>
+
+The function <code>merge()</code> returns the union of the maps of two space
+time datasets or of two expressions. The datatype of both operands must be
+the same.
+
+<div class="code"><pre>
+C = merge(A, B)
+</pre></div>
+
+A map that occurs in both operands identically, that is with the same map
+name, the same time stamps and the same computation, is kept once in the
+result and the algebra prints a warning. This happens, for example, if two
+selections of one dataset overlap. Maps of equal time stamps that were
+computed differently are both kept:
+
+<div class="code"><pre>
+C = merge(A + 1, A + 2)
+</pre></div>
+
 <h4>Single map with temporal extent</h4>
 
 The temporal algebra can also handle single maps with time stamps in the
@@ -616,7 +636,7 @@ C = if({equal}, B {#,contains} A &gt; 1, (B {+,contains,l} A {-,equal,l} B) {/,e
 Compute the DOY for all maps from STRDS A where conditions are met at three
 consecutive time intervals (e.g. temperature &gt; 0):
 <div class="code"><pre>
-B = if(A &gt; 0.0 &amp;&amp; A[-1] &gt; 0.0 &amp;&amp; A[-2] &gt; 0.0, start_doy(A, -1), 0)"
+B = if(A &gt; 0.0 &amp;&amp; A[-1] &gt; 0.0 &amp;&amp; A[-2] &gt; 0.0, start_doy(A, -1), 0)
 </pre></div>
 
 
