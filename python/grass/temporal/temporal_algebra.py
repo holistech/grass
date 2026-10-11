@@ -443,7 +443,6 @@ from typing import Literal
 
 import copy
 import os
-from datetime import datetime
 
 import grass.pygrass.modules as pymod
 
@@ -613,7 +612,7 @@ class TemporalAlgebraLexer:
 
     # Read time string and convert it into a date object
     def t_DATETIME(self, t):
-        r'"\d\d\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[ T](0[0-9]|1(0-9)|2[0-4]):(0[0-9]|[1-5][0-9]|60):(0[0-9]|[1-5][0-9]|60)"'  # noqa: E501
+        r'"\d\d\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[ T](0[0-9]|1[0-9]|2[0-4]):(0[0-9]|[1-5][0-9]|60):(0[0-9]|[1-5][0-9]|60)"'  # noqa: E501
         # t.value = int(t.value)
         return t
 
@@ -1426,6 +1425,7 @@ class TemporalAlgebraParser:
         .. code-block:: pycon
 
             >>> # Example with two lists of maps
+            >>> from datetime import datetime
             >>> import grass.temporal as tgis
             >>> tgis.init(True)
             >>> l = tgis.TemporalAlgebraParser()
@@ -2054,51 +2054,26 @@ class TemporalAlgebraParser:
             "END_TIME": None,
         }
 
-        # Compute temporal function only for maps with absolute time reference.
-        if map.is_time_absolute:
-            # Get datetime of map.
-            start, end = map.get_absolute_time()
-            # Compute DOY via time deltas.
-            yearstart = datetime(start.year, 1, 1)
-            yearend = datetime(end.year, 1, 1)
-            deltastart = start - yearstart
-            deltaend = end - yearend
-
-            # Evaluate datetime objects and fill in into dict.
-            tvardict["START_DOY"] = deltastart.days + 1
-            tvardict["START_DOW"] = start.isoweekday()
-            tvardict["START_YEAR"] = start.year
-            tvardict["START_MONTH"] = start.month
-            tvardict["START_WEEK"] = start.isocalendar()[1]
-            tvardict["START_DAY"] = start.day
-            tvardict["START_HOUR"] = start.hour
-            tvardict["START_MINUTE"] = start.minute
-            tvardict["START_SECOND"] = start.second
-            tvardict["END_DOY"] = deltaend.days + 1
-            tvardict["END_DOW"] = end.isoweekday()
-            tvardict["END_YEAR"] = end.year
-            tvardict["END_MONTH"] = end.month
-            tvardict["END_WEEK"] = end.isocalendar()[1]
-            tvardict["END_DAY"] = end.day
-            tvardict["END_HOUR"] = end.hour
-            tvardict["END_MINUTE"] = end.minute
-            tvardict["END_SECOND"] = end.second
-            tvardict["START_DATE"] = start.date()
-            tvardict["START_DATETIME"] = start
-            tvardict["START_TIME"] = start.time()
-            tvardict["END_DATE"] = end.date()
-            tvardict["END_DATETIME"] = end
-            tvardict["END_TIME"] = end.time()
-
-        if not map.is_time_absolute:
-            tvardict["START_DATE"] = start.date()
-            tvardict["START_DATETIME"] = start
-            tvardict["START_TIME"] = start.time()
-            tvardict["END_DATE"] = end.date()
-            tvardict["END_DATETIME"] = end
-            tvardict["END_TIME"] = end.time()
-            # core.fatal(_("The temporal functions for map <%s> only "
-            #              "supported for absolute time." % (str(map.get_id()))))
+        # The functions are defined for absolute time only. Values which cannot
+        # be computed (relative time, end of a time instance) stay None.
+        if not map.is_time_absolute():
+            return tvardict
+        start, end = map.get_absolute_time()
+        for prefix, timestamp in (("START", start), ("END", end)):
+            if timestamp is None:
+                continue
+            tvardict[f"{prefix}_DOY"] = timestamp.timetuple().tm_yday
+            tvardict[f"{prefix}_DOW"] = timestamp.isoweekday()
+            tvardict[f"{prefix}_YEAR"] = timestamp.year
+            tvardict[f"{prefix}_MONTH"] = timestamp.month
+            tvardict[f"{prefix}_WEEK"] = timestamp.isocalendar()[1]
+            tvardict[f"{prefix}_DAY"] = timestamp.day
+            tvardict[f"{prefix}_HOUR"] = timestamp.hour
+            tvardict[f"{prefix}_MINUTE"] = timestamp.minute
+            tvardict[f"{prefix}_SECOND"] = timestamp.second
+            tvardict[f"{prefix}_DATE"] = timestamp.date()
+            tvardict[f"{prefix}_DATETIME"] = timestamp
+            tvardict[f"{prefix}_TIME"] = timestamp.time()
         return tvardict
 
     def compare_values(self, left, comp, right):
@@ -2147,19 +2122,24 @@ class TemporalAlgebraParser:
             tfunc = gvar.tfunc.upper()
             # Get value for function name from dictionary.
             tfuncval = tfuncdict[tfunc]
-            # Check if value has to be transferred to datetime object for comparison.
-            if tfunc in {
-                "START_DATE",
-                "END_DATE",
-                "START_TIME",
-                "END_TIME",
-                "START_DATETIME",
-                "END_DATETIME",
-            }:
-                timeobj = string_to_datetime(value.replace('"', ""))
-                value = timeobj.date()
-            # value is already an int/float here (from t_INT/t_FLOAT) or a date
-            # from the branch above, so it is compared without coercion.
+            if tfuncval is None:
+                self.msgr.fatal(
+                    _(
+                        "Temporal function {func}() is not available for map <{map}>."
+                        " It requires absolute time, end time functions also an end"
+                        " time."
+                    ).format(func=gvar.tfunc, map=map_i.get_id())
+                )
+            # The literal has to have the same type as the function value,
+            # otherwise the comparison fails or, for ==, is always False.
+            if tfunc in {"START_DATETIME", "END_DATETIME"}:
+                value = string_to_datetime(value.replace('"', ""))
+            elif tfunc in {"START_DATE", "END_DATE"}:
+                value = string_to_datetime(value.replace('"', "")).date()
+            elif tfunc in {"START_TIME", "END_TIME"}:
+                value = string_to_datetime(value.replace('"', "")).time()
+            # Otherwise, value is already an int/float (from t_INT/t_FLOAT), so it
+            # is compared without coercion.
             boolname = self.compare_values(tfuncval, comp_op, value)
             # Add conditional boolean value to the map.
             if "condition_value" in dir(map_i):
