@@ -6,11 +6,14 @@ Ferguson 1994 which grass.temporal.temporal_extent cites. during includes
 starts and finishes, contains includes started and finished.
 """
 
+import datetime
 import random
 
 import pytest
 
 from grass.temporal.algebra import relations
+from grass.temporal.algebra._adapters import as_map, extent_from, extent_of, space_of
+from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.relations import (
     Relation,
     during,
@@ -19,7 +22,7 @@ from grass.temporal.algebra.relations import (
     related,
     relation,
 )
-from grass.temporal.algebra.series import Space
+from grass.temporal.algebra.series import Extent, Slot, Space
 
 PROBES = {
     "equal": (10, 20),
@@ -102,6 +105,20 @@ def test_relation_text_and_union():
     assert str(relation("starts|equal")) == "equal|starts"
 
 
+def test_spatial_name_alone_is_not_a_relation():
+    with pytest.raises(ValueError, match=r"spatial relation.*equal\|overlap"):
+        relation("overlap")
+
+
+def test_relation_rejects_wrong_types():
+    with pytest.raises(TypeError):
+        equal | "during"
+    with pytest.raises(TypeError):
+        Relation("equal")
+    with pytest.raises(TypeError):
+        Relation(frozenset({"equal"}), "in")
+
+
 def test_unknown_relation_is_rejected():
     with pytest.raises(ValueError, match="Unknown relations: inside"):
         relation("inside")
@@ -180,9 +197,97 @@ def test_spatial_relation_needs_spatial_extents(make_series):
 
 
 def test_map_without_time_stamp_has_no_relation(make_series):
-    from grass.temporal.algebra.content import MapRef
-    from grass.temporal.algebra.series import Slot
-
     timeless = Slot(None, MapRef("m@PERMANENT"))
     with pytest.raises(ValueError, match="without time stamp"):
         related([timeless], equal, make_series("a", (1, 2)).slots)
+
+
+def boxes(count, rng):
+    """Boxes on a grid of 0 to 6, so that edges often coincide"""
+    result = []
+    for _ in range(count):
+        west, south = rng.randint(0, 4), rng.randint(0, 4)
+        result.append(
+            Space(rng.randint(south + 1, 6), south, rng.randint(west + 1, 6), west)
+        )
+    return result
+
+
+@pytest.mark.parametrize("name", ["equivalent", "in", "contain", "overlap", "meet"])
+def test_spatial_inverse_law(make_series, name):
+    """l R x if and only if x inverse(R) l, for the spatial names except
+    cover and covered (see test_cover_is_not_antisymmetric)"""
+    rng = random.Random(name)
+    left = [make_series("l", (1, 2), space=space).slots[0] for space in boxes(25, rng)]
+    other = [make_series("x", (1, 2), space=space).slots[0] for space in boxes(25, rng)]
+    rel = relation(f"equal|{name}")
+    forward = {
+        (i, j) for i, found in enumerate(related(left, rel, other)) for j in found
+    }
+    backward = {
+        (i, j)
+        for j, found in enumerate(related(other, inverse(rel), left))
+        for i in found
+    }
+    assert forward
+    assert forward == backward
+
+
+def test_spatial_direction(make_series):
+    """The small box is in the big one and the big one contains it"""
+    small = make_series("s", (1, 2), space=Space(4, 2, 4, 2))
+    big = make_series("b", (1, 2), space=Space(9, 0, 9, 0))
+    assert related(small.slots, relation("equal|in"), big.slots) == [[0]]
+    assert related(small.slots, relation("equal|contain"), big.slots) == [[]]
+    assert related(big.slots, relation("equal|contain"), small.slots) == [[0]]
+
+
+def test_cover_is_not_antisymmetric(make_series):
+    """Measured 2026-10-11: the spatial classification of grass.temporal
+    reports "covered" in both directions for these boxes, although only the
+    second box is covered by the first. The pair is pinned so that a fix of
+    the classification shows up here; inverse() does not hold for cover
+    and covered until then."""
+    first = make_series("a", (1, 2), space=Space(9, 8, 7, 5))
+    second = make_series("b", (1, 2), space=Space(9, 6, 7, 6))
+    covered = relation("equal|covered")
+    assert related(first.slots, covered, second.slots) == [[0]]
+    assert related(second.slots, covered, first.slots) == [[0]]
+
+
+def test_relative_time(make_series):
+    a = make_series("a", (1, 2), (2, 3), unit="days")
+    b = make_series("b", (1, 3), unit="days")
+    assert related(b.slots, relation("contains"), a.slots) == [[0, 1]]
+    assert related(a.slots, relation("precedes"), a.slots) == [[1], []]
+
+
+@pytest.mark.parametrize(
+    "extent",
+    [
+        Extent(datetime.datetime(2001, 1, 1), None),
+        Extent(
+            datetime.datetime(2001, 1, 1),
+            datetime.datetime(2001, 1, 3),
+        ),
+        Extent(3, None, "days"),
+        Extent(1, 3, "seconds"),
+    ],
+)
+def test_adapter_round_trip(extent):
+    map_ = as_map(extent, Space(10, 0, 9, 1, 5, 2))
+    assert extent_of(map_) == extent
+    assert space_of(map_) == Space(10, 0, 9, 1, 5, 2)
+    assert extent_from(map_.temporal_extent, extent.unit) == extent
+    assert extent_from(None, extent.unit) is None
+
+
+@pytest.mark.parametrize(
+    "extent",
+    [Extent(0.2, 0.8, "seconds"), Extent(1, 2.5, "days"), Extent(0.5, None, "days")],
+)
+def test_fractional_relative_time_is_rejected(extent):
+    """Relative time of grass.temporal is integral; truncating would make
+    [0.2, 0.8] and [0.5, 0.9] equal"""
+    with pytest.raises(ValueError, match="integral"):
+        as_map(extent)

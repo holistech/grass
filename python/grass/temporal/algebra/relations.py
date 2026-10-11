@@ -62,15 +62,19 @@ _INVERSE = {
 class Relation:
     """A set of temporal relations, and of spatial relations if space counts
 
-    spatial is None if only time relates two slots. Otherwise two slots must
-    also touch or overlap in space and, if the set is not empty, have one of
-    its spatial relations.
+    A temporal relation is required, a spatial one cannot stand alone. spatial
+    is None if only time relates two slots. Otherwise two slots must also
+    touch or overlap in space and, if the set is not empty, have one of its
+    spatial relations.
     """
 
     temporal: frozenset
     spatial: frozenset | None = None
 
     def __post_init__(self):
+        if isinstance(self.temporal, str) or isinstance(self.spatial, str):
+            msg = "The names of a relation are a set of strings, not a string"
+            raise TypeError(msg)
         object.__setattr__(self, "temporal", frozenset(self.temporal))
         if self.spatial is not None:
             object.__setattr__(self, "spatial", frozenset(self.spatial))
@@ -81,10 +85,18 @@ class Relation:
             msg = f"Unknown relations: {', '.join(sorted(unknown))}"
             raise ValueError(msg)
         if not self.temporal:
-            msg = "A relation needs at least one temporal relation"
+            if self.spatial:
+                msg = (
+                    f"{'|'.join(sorted(self.spatial))} is a spatial relation and "
+                    "needs a temporal one, as in equal|overlap"
+                )
+            else:
+                msg = "A relation needs at least one temporal relation"
             raise ValueError(msg)
 
     def __or__(self, other):
+        if not isinstance(other, Relation):
+            return NotImplemented
         if self.spatial is None and other.spatial is None:
             spatial = None
         else:
@@ -98,7 +110,8 @@ class Relation:
 def relation(text, *, spatial=False):
     """Return the relation of names joined with |, e.g. "during|starts"
 
-    Spatial names in the text, or spatial=True, make space count.
+    Spatial names in the text, or spatial=True, make space count. The text
+    needs at least one temporal name.
     """
     names = {name.strip().lower() for name in text.split("|") if name.strip()}
     temporal = names & set(TEMPORAL_RELATIONS)
@@ -109,7 +122,14 @@ def relation(text, *, spatial=False):
 
 
 def inverse(relation_):
-    """Return the relation R' with "x R' l" exactly where "l R x" holds"""
+    """Return the relation R' with "x R' l" exactly where "l R x" holds
+
+    This holds for every temporal name and for the spatial names except
+    cover and covered. The spatial classification of grass.temporal is not
+    antisymmetric for them: for the boxes N9 S8 E7 W5 and N9 S6 E7 W6 it
+    reports the same name in both directions (measured 2026-10-11).
+    related() does not compensate for that.
+    """
     spatial = relation_.spatial
     return Relation(
         frozenset(_INVERSE[name] for name in relation_.temporal),

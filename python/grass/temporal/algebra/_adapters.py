@@ -20,12 +20,20 @@ _MAPSET = "slot"
 
 
 def as_map(extent, space=None, ident="slot"):
-    """Return a map object with the time stamp and the spatial extent"""
+    """Return a map object with the time stamp and the spatial extent
+
+    Relative time of grass.temporal is integral. A fractional stamp raises
+    ValueError, because the map object would truncate it silently and
+    relate [0.2, 0.8] as equal to [0.5, 0.9].
+    """
     map_ = RasterDataset(f"{ident}@{_MAPSET}")
     if extent.unit is None:
         map_.set_absolute_time(extent.start, extent.end)
     else:
         map_.set_relative_time(extent.start, extent.end, extent.unit)
+        if map_.get_temporal_extent_as_tuple() != (extent.start, extent.end):
+            msg = f"Relative time must be integral, not {extent.start}, {extent.end}"
+            raise ValueError(msg)
     if space is not None:
         map_.set_spatial_extent_from_values(
             north=space.north,
