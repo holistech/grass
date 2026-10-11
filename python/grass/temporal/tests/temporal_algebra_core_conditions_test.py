@@ -6,7 +6,7 @@ from grass.temporal.algebra import operations
 from grass.temporal.algebra.content import NULL, Call, Const, MapRef
 from grass.temporal.algebra.operations import choose, gather, merge, where
 from grass.temporal.algebra.relations import equal
-from grass.temporal.algebra.series import Series
+from grass.temporal.algebra.series import Series, Slot
 
 
 def ref(name):
@@ -97,6 +97,24 @@ def test_choose_does_not_mix_temporal_types(a, make_series):
         choose(k, a)
 
 
+@pytest.mark.parametrize("truth", [1, 0, None])
+def test_choose_decides_every_slot_by_a_timeless_condition(a, n, truth):
+    """A timeless condition applies to all slots, as in where()"""
+    k = Series((Slot(None, Const(truth)),), sort="scalar")
+    chosen = choose(k, a, n)
+    per_cell = where(k, a, n)
+    assert contents(chosen) == [c for c in contents(per_cell) if c != NULL]
+    assert len(chosen) == (0 if truth is None else 4)
+    assert chosen.slots == ((a if truth else n).slots if truth is not None else ())
+
+
+def test_choose_by_a_timed_condition_needs_timed_maps(a, make_series):
+    k = make_series("k", (1, 2), values=[1])
+    timeless = Series((Slot(None, ref("m")),))
+    with pytest.raises(ValueError, match="without time stamp by a timed condition"):
+        choose(k, timeless)
+
+
 def test_choose_of_empty_series(a):
     empty = Series(sort="scalar")
     assert choose(empty, Series()).slots == ()
@@ -159,7 +177,7 @@ def test_merge_keeps_identical_slots_once_with_a_warning(a, messages):
 
 def test_merge_warns_through_python_before_init(a, monkeypatch):
     monkeypatch.setattr(operations, "get_tgis_message_interface", lambda: None)
-    with pytest.warns(UserWarning, match="4 maps") as caught:
+    with pytest.warns(UserWarning, match="4 duplicate") as caught:
         assert merge(a, a).slots == a.slots
     assert caught[0].filename == __file__
 

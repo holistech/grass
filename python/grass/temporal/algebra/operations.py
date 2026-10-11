@@ -375,11 +375,13 @@ def choose(condition, then, otherwise=None):
     with a null one, is left out, as gather() with missing="drop" leaves it
     out. Several conditions of one time stamp are paired one to one, in
     order, with the slots of that time stamp, as equal_times="pairwise"
-    builds them.
+    builds them. A condition without time stamp decides for every slot of
+    every branch, as a map without time stamp does in apply().
 
     :raises TypeError: if the condition is not a scalar series
     :raises ValueError: if a time stamp has several conditions and another
-        number of slots in a branch, or if the series cannot be related
+        number of slots in a branch, if a timed condition meets a branch map
+        without time stamp, or if the series cannot be related
     """
     if condition.sort != "scalar":
         msg = "choose() needs a scalar condition; use where() for one per cell"
@@ -402,7 +404,11 @@ def _chosen(branch, values, wanted):
     seen = Counter()
     chosen = []
     for slot in branch.slots:
-        conditions = values.get(slot.extent, [])
+        if slot.extent is None and values and None not in values:
+            msg = "choose() cannot select a map without time stamp by a timed condition"
+            raise ValueError(msg)
+        # A timeless condition is the only one and decides for every slot.
+        conditions = values.get(slot.extent) or values.get(None, [])
         if len(conditions) > 1 and len(conditions) != counts[slot.extent]:
             msg = (
                 f"choose() cannot pair {len(conditions)} conditions with "
@@ -460,10 +466,6 @@ def merge(*series):
             seen.add(slot)
             slots.append(slot)
     if duplicates:
-        _warn(
-            _("merge() keeps {count} maps of the series only once").format(
-                count=duplicates
-            )
-        )
+        _warn(_("merge() dropped {count} duplicate slot(s)").format(count=duplicates))
     spatial = any(part.spatial for part in series)
     return Series(tuple(slots), first.kind, first.sort, spatial)
