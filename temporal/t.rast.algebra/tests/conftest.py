@@ -116,6 +116,14 @@ def _create_datasets(tools, directory):
     }  # fmt: skip
     values.update({f"p{value}": value for value in PROBES})
     values.update({f"ha{number}": number for number in range(1, 7)})
+    # Truth table series, map k = 4a + 2b + c: T has the value k, PA, PB and
+    # PC the bits a, b and c. The time stamp encodes the bits as well, so that
+    # temporal conditions can test them: month 1 + a, day 1 + b, hour 12 * c.
+    for number in range(8):
+        values[f"pt{number}"] = number
+        values[f"pa{number}"] = number >> 2 & 1
+        values[f"pb{number}"] = number >> 1 & 1
+        values[f"pc{number}"] = number & 1
     script = directory / "maps.txt"
     script.write_text("".join(f"{name} = {value}\n" for name, value in values.items()))
     tools.r_mapcalc(file=script)
@@ -170,6 +178,22 @@ def _create_datasets(tools, directory):
     tgis.register_maps_in_space_time_dataset(
         "raster", "E", "e1,e2,e3,e4", start="2001-01-01"
     )
+    for name in ["T", "PA", "PB", "PC"]:
+        create(name)
+    lines = {"T": [], "PA": [], "PB": [], "PC": []}
+    for number in range(8):
+        start = datetime.datetime(
+            2001, 1 + (number >> 2 & 1), 1 + (number >> 1 & 1), 12 * (number & 1)
+        )
+        end = start + datetime.timedelta(hours=1)
+        for dataset, prefix in [("T", "pt"), ("PA", "pa"), ("PB", "pb"), ("PC", "pc")]:
+            lines[dataset].append(f"{prefix}{number}|{start}|{end}\n")
+    for dataset, rows in lines.items():
+        register_file = directory / f"{dataset}.txt"
+        register_file.write_text("".join(rows))
+        tgis.register_maps_in_space_time_dataset(
+            "raster", dataset, file=str(register_file)
+        )
     tgis.register_maps_in_space_time_dataset(
         "raster", "ref", "ref1", start="2001-01-10", end="2001-01-20"
     )
@@ -236,6 +260,16 @@ class Algebra:
         self.remove("R")
         parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, **kwargs)
         return parser.parse(f"R = {expression}", basename, True)
+
+    def dry_times(self, expression, **kwargs):
+        """Return the sorted (start, end) strings of the maps that "R =
+        <expression>" would register, without computing any map
+
+        Much faster than run(); use it to compare the time stamps of many
+        expressions.
+        """
+        chain = self.parse(expression, dry_run=True, **kwargs)
+        return sorted((start, end) for _name, start, end in chain["register"])
 
     @staticmethod
     def remove(name):
@@ -312,6 +346,9 @@ def algebra(tmp_path_factory):
     rel      p1..p13: value = probe number, see PROBES
     HA       ha1..ha6 (1..6), daily intervals [1,2] .. [6,7]
     HB       hb1 (7) [2,4], hb2 (8) [4,6]
+    T        pt0..pt7 (0..7), map k = 4a + 2b + c is one hour long and starts
+             in month 1 + a, on day 1 + b, at hour 12 * c of 2001
+    PA,PB,PC pa0..7, pb0..7, pc0..7: the bits a, b, c of k, times as T
     SA, SB   spa1..4 / spb1..4 (value 1..4), instants at day 1 with
              the spatial extents described in _create_datasets
     =======  ==========================================================
