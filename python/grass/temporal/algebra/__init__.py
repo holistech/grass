@@ -17,7 +17,7 @@ from .operations import (
     select,
     where,
 )
-from .materialize import ProcessChain, plan
+from .materialize import ProcessChain, materialize, plan
 from .reducers import fold
 from .relations import (
     Relation,
@@ -36,6 +36,7 @@ from .relations import (
     starts,
 )
 from .series import Extent, Series, Slot, Space
+from .sources import source, source_map
 from .time_functions import granules, neighbour, retime, timevar
 
 __all__ = [
@@ -64,6 +65,7 @@ __all__ = [
     "granules",
     "inverse",
     "lift",
+    "materialize",
     "merge",
     "neighbour",
     "overlapped",
@@ -74,6 +76,8 @@ __all__ = [
     "relation",
     "retime",
     "select",
+    "source",
+    "source_map",
     "started",
     "starts",
     "timevar",

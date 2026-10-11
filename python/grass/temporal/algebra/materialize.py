@@ -2,11 +2,21 @@
 
 from dataclasses import dataclass
 
+from grass.exceptions import FatalError
+from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
+from grass.temporal.core import (
+    get_current_mapset,
+    get_tgis_message_interface,
+    init_dbif,
+)
 from grass.temporal.datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
     create_time_suffix,
 )
+from grass.temporal.factory import dataset_factory
+from grass.temporal.open_stds import open_new_stds
+from grass.temporal.space_time_datasets import RasterDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
@@ -119,3 +129,151 @@ def plan(series, name, *, basename=None, time_suffix=None):
         tuple(maps),
         tuple(remove),
     )
+
+
+def _check_absent(chain, mapset, dbif):
+    """Stop before anything is computed if a result exists
+
+    :raises FatalError: if the dataset or a result map exists
+    """
+    dataset = dataset_factory(chain.stds_type, f"{chain.name}@{mapset}")
+    if dataset.is_in_db(dbif):
+        raise FatalError(
+            _("Space time dataset <{name}> exists. Use the overwrite flag.").format(
+                name=dataset.get_id()
+            )
+        )
+    for planned in chain.maps:
+        map_ = RasterDataset(f"{planned.name}@{mapset}")
+        if map_.map_exists():
+            raise FatalError(
+                _("Map <{name}> exists. Use the overwrite flag.").format(
+                    name=map_.get_id()
+                )
+            )
+
+
+def _module(call, overwrite):
+    module = Module(call.name, run_=False, **call.parameters)
+    module.flags["overwrite"].value = overwrite
+    return module
+
+
+def _run(chain, overwrite, nprocs):
+    """Compute the maps in parallel; the calls of one map run in order"""
+    queue = ParallelModuleQueue(nprocs=int(nprocs))
+    for planned in chain.maps:
+        modules = [_module(call, overwrite) for call in planned.calls]
+        queue.put(modules[0] if len(modules) == 1 else MultiModule(modules, sync=False))
+    queue.wait()
+
+
+def _set_time(map_, extent):
+    if extent.unit is None:
+        map_.set_absolute_time(extent.start, extent.end)
+    else:
+        map_.set_relative_time(extent.start, extent.end, extent.unit)
+
+
+def _store(map_, overwrite, dbif):
+    """Insert the map into the temporal database or update it"""
+    if not map_.is_in_db(dbif):
+        map_.insert(dbif)
+        return
+    if not overwrite:
+        raise FatalError(
+            _(
+                "Map <{name}> exists in the temporal database. Use the overwrite flag."
+            ).format(name=map_.get_map_id())
+        )
+    stored = RasterDataset(map_.get_id())
+    stored.select(dbif)
+    if stored.get_temporal_type() == map_.get_temporal_type():
+        map_.update_all(dbif)
+        return
+    # update_all() sets the new type in the base table, but its UPDATE of the
+    # time table of the new type matches no row, so the map gets no time
+    # while the row of the old type stays behind (measured 2026-10-11 with
+    # t.rast.algebra, see _store_new_map() in temporal_algebra.py). delete()
+    # runs on the stored copy because it resets the object, which would
+    # discard the time of map_.
+    stored.delete(dbif)
+    map_.insert(dbif)
+
+
+def _remove(names):
+    if names:
+        Module("g.remove", flags="f", type="raster", name=",".join(names), quiet=True)
+
+
+def materialize(
+    series,
+    name,
+    *,
+    basename=None,
+    overwrite=False,
+    register_null=False,
+    nprocs=1,
+    time_suffix=None,
+):
+    """Compute the maps of a series and register them in a new space time
+    dataset
+
+    Needs a GRASS session and a temporal database. Maps without any valid
+    cell are removed and not registered unless register_null is True; if
+    that leaves no map, the dataset stays empty and a warning says so.
+    Result maps registered with the other temporal type are replaced when
+    overwriting.
+
+    :raises FatalError: if the dataset or a result map exists and overwrite
+        is False; nothing is computed then
+    :raises ValueError: as plan()
+    :return: the space time dataset
+    """
+    chain = plan(series, name, basename=basename, time_suffix=time_suffix)
+    mapset = get_current_mapset()
+    dbif, connection_state_changed = init_dbif(None)
+    try:
+        if not overwrite:
+            _check_absent(chain, mapset, dbif)
+        _run(chain, overwrite, nprocs)
+        dataset = open_new_stds(
+            name,
+            chain.stds_type,
+            chain.temporal_type,
+            name,
+            name,
+            "mean",
+            dbif,
+            overwrite=overwrite,
+        )
+        empty = []
+        for planned in chain.maps:
+            map_ = RasterDataset(f"{planned.name}@{mapset}")
+            if not map_.load():
+                raise FatalError(
+                    _("Map <{name}> was not computed").format(name=map_.get_id())
+                )
+            _set_time(map_, planned.extent)
+            if (
+                not register_null
+                and map_.metadata.get_min() is None
+                and map_.metadata.get_max() is None
+            ):
+                empty.append(planned.name)
+                continue
+            _store(map_, overwrite, dbif)
+            dataset.register_map(map_, dbif)
+        dataset.update_from_registered_maps(dbif)
+        if len(empty) == len(chain.maps):
+            get_tgis_message_interface().warning(
+                _(
+                    "Empty result space time dataset. No map has been registered "
+                    "in {name}"
+                ).format(name=name)
+            )
+        _remove([*chain.remove, *empty])
+    finally:
+        if connection_state_changed:
+            dbif.close()
+    return dataset
