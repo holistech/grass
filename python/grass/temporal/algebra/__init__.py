@@ -6,6 +6,22 @@ map contains; building a series computes no maps.
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce
+from .relations import (
+    Relation,
+    contains,
+    during,
+    equal,
+    finished,
+    finishes,
+    follows,
+    inverse,
+    overlapped,
+    overlaps,
+    precedes,
+    relation,
+    started,
+    starts,
+)
 from .series import Extent, Series, Slot, Space
 
 __all__ = [
@@ -14,8 +30,22 @@ __all__ = [
     "Const",
     "Extent",
     "MapRef",
+    "Relation",
     "Series",
     "SeriesReduce",
     "Slot",
     "Space",
+    "contains",
+    "during",
+    "equal",
+    "finished",
+    "finishes",
+    "follows",
+    "inverse",
+    "overlapped",
+    "overlaps",
+    "precedes",
+    "relation",
+    "started",
+    "starts",
 ]

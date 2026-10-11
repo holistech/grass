@@ -1,0 +1,188 @@
+"""Tests for the relations of the algebra core
+
+The oracle is a table of probe intervals around the reference [10, 20] of
+January 2001, one per relation "probe R reference", as in Allen and
+Ferguson 1994 which grass.temporal.temporal_extent cites. during includes
+starts and finishes, contains includes started and finished.
+"""
+
+import random
+
+import pytest
+
+from grass.temporal.algebra import relations
+from grass.temporal.algebra.relations import (
+    Relation,
+    during,
+    equal,
+    inverse,
+    related,
+    relation,
+)
+from grass.temporal.algebra.series import Space
+
+PROBES = {
+    "equal": (10, 20),
+    "during": (12, 18),
+    "contains": (5, 25),
+    "starts": (10, 15),
+    "started": (10, 25),
+    "finishes": (15, 20),
+    "finished": (5, 20),
+    "precedes": (5, 10),
+    "follows": (20, 25),
+    "overlaps": (5, 15),
+    "overlapped": (15, 25),
+    "before": (1, 3),
+    "after": (27, 30),
+}
+EXPECTED = {
+    "equal": {"equal"},
+    "during": {"during", "starts", "finishes"},
+    "contains": {"contains", "started", "finished"},
+    "starts": {"starts"},
+    "started": {"started"},
+    "finishes": {"finishes"},
+    "finished": {"finished"},
+    "precedes": {"precedes"},
+    "follows": {"follows"},
+    "overlaps": {"overlaps"},
+    "overlapped": {"overlapped"},
+}
+
+
+@pytest.fixture
+def probes(make_series):
+    return make_series("p", *PROBES.values())
+
+
+@pytest.mark.parametrize("name", relations.TEMPORAL_RELATIONS)
+def test_relation_table(make_series, probes, name):
+    """The series sorts its slots by time, so each hit is named by the
+    number in the identifier of its map (p1@PERMANENT is the first probe)"""
+    reference = make_series("ref", (10, 20))
+    found = related(probes.slots, relation(name), reference.slots)
+    names = list(PROBES)
+    hits = {
+        names[int(probes.slots[i].origin.split("@")[0][1:]) - 1]
+        for i, hit in enumerate(found)
+        if hit
+    }
+    assert hits == EXPECTED[name]
+
+
+def test_instants(make_series):
+    """Measured 2026-10-11 with the topology builder: an instant inside an
+    interval is during it, one at its end follows it"""
+    reference = make_series("ref", (10, 20))
+    inside, at_end = make_series("i", 15, 20).slots
+    assert related([inside], during, reference.slots) == [[0]]
+    assert related([at_end], relation("follows"), reference.slots) == [[0]]
+
+
+def test_indices_are_in_the_order_of_the_other_series(make_series):
+    a = make_series("a", (1, 2), (2, 3), (3, 4), (4, 5))
+    b = make_series("b", (1, 3), (3, 5))
+    assert related(b.slots, relation("contains"), a.slots) == [[0, 1], [2, 3]]
+    assert related(a.slots, during, b.slots) == [[0], [0], [1], [1]]
+
+
+def test_empty_series_relate_nothing(make_series):
+    a = make_series("a", (1, 2))
+    assert related(a.slots, equal, ()) == [[]]
+    assert related((), equal, a.slots) == []
+
+
+def test_relation_text_and_union():
+    assert relation("during|starts") == Relation(frozenset({"during", "starts"}))
+    assert (equal | during).temporal == frozenset({"equal", "during"})
+    assert relation("equal|overlap").spatial == frozenset({"overlap"})
+    assert relation("equal", spatial=True).spatial == frozenset()
+    assert relation("equal").spatial is None
+    assert str(relation("starts|equal")) == "equal|starts"
+
+
+def test_unknown_relation_is_rejected():
+    with pytest.raises(ValueError, match="Unknown relations: inside"):
+        relation("inside")
+
+
+def test_inverse():
+    assert inverse(relation("during|precedes")) == relation("contains|follows")
+    assert inverse(relation("equal|in")).spatial == frozenset({"contain"})
+
+
+def random_series(make_series, name, rng, count=40):
+    spans = []
+    for _ in range(count):
+        start = rng.randint(1, 26)
+        spans.append(
+            (start, rng.randint(start + 1, 28)) if rng.random() < 0.8 else start
+        )
+    return make_series(name, *spans)
+
+
+@pytest.mark.parametrize("name", relations.TEMPORAL_RELATIONS)
+def test_inverse_law(make_series, name):
+    """l R x if and only if x inverse(R) l"""
+    rng = random.Random(name)
+    left = random_series(make_series, "l", rng)
+    other = random_series(make_series, "x", rng)
+    forward = {
+        (i, j)
+        for i, found in enumerate(related(left.slots, relation(name), other.slots))
+        for j in found
+    }
+    backward = {
+        (i, j)
+        for j, found in enumerate(
+            related(other.slots, inverse(relation(name)), left.slots)
+        )
+        for i in found
+    }
+    assert forward == backward
+
+
+def test_random_series_meet_most_relations(make_series):
+    """The inverse law is only as strong as the pairs it sees; with 40 maps
+    of whole days in January most relations occur"""
+    rng = random.Random("coverage")
+    left = random_series(make_series, "l", rng)
+    other = random_series(make_series, "x", rng)
+    seen = {
+        name
+        for name in relations.TEMPORAL_RELATIONS
+        if any(related(left.slots, relation(name), other.slots))
+    }
+    assert len(seen) >= 8, seen
+
+
+def test_spatial_relations(make_series):
+    square = Space(10, 0, 10, 0)
+    near = Space(15, 5, 15, 5)
+    far = Space(30, 20, 30, 20)
+    a = make_series("a", (1, 2), space=square)
+    others = [
+        make_series("e", (1, 2), space=square).slots[0],
+        make_series("n", (1, 2), space=near).slots[0],
+        make_series("f", (1, 2), space=far).slots[0],
+    ]
+    assert related(a.slots, equal, others) == [[0, 1, 2]]
+    assert related(a.slots, relation("equal", spatial=True), others) == [[0, 1]]
+    assert related(a.slots, relation("equal|overlap"), others) == [[1]]
+    assert related(a.slots, relation("equal|equivalent"), others) == [[0]]
+
+
+def test_spatial_relation_needs_spatial_extents(make_series):
+    a = make_series("a", (1, 2))
+    with pytest.raises(ValueError, match="spatial extent"):
+        related(a.slots, relation("equal", spatial=True), a.slots)
+
+
+def test_map_without_time_stamp_has_no_relation(make_series):
+    from grass.temporal.algebra.content import MapRef
+    from grass.temporal.algebra.series import Slot
+
+    timeless = Slot(None, MapRef("m@PERMANENT"))
+    with pytest.raises(ValueError, match="without time stamp"):
+        related([timeless], equal, make_series("a", (1, 2)).slots)
