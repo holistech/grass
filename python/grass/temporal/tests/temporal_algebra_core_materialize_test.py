@@ -236,7 +236,59 @@ def test_empty_series_creates_an_empty_dataset_with_a_warning(
     assert len(warnings) == 1
 
 
+# Running a map as a sequence of calls in the background forks a process,
+# and Python 3.12 warns about forking while other threads exist (the
+# messenger of grass.temporal runs in a process, pytest in threads); the
+# calls are independent processes of GRASS, so there is no lock to deadlock.
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded:DeprecationWarning"
+)
 def test_parallel_processes_give_the_same_result(core_session):
     a = ta.source("A")
     ta.materialize(a * 3, "parallel", overwrite=True, nprocs=2)
     assert [row[2] for row in registered("parallel")] == [3, 6, 9, 12]
+    b, z = ta.source("B"), ta.source("Z")
+    reduced = ta.gather(b, ta.contains, z * 2, reduce="sum", nulls="skip")
+    ta.materialize(reduced, "parallel_series", overwrite=True, nprocs=2)
+    assert registered("parallel_series") == [(day(1), day(3), 4)]
+
+
+def test_removed_empty_maps_leave_no_row_in_the_temporal_database(core_session):
+    a = ta.source("A")
+    ta.materialize(a * 1, "stale", overwrite=True)
+    assert tgis.RasterDataset("stale_0@PERMANENT").is_in_db()
+    ta.materialize(ta.where(a > 10, a), "stale", overwrite=True)
+    assert registered("stale") == []
+    assert not tgis.RasterDataset("stale_0@PERMANENT").is_in_db()
+    # The names are free again, also without overwrite.
+    ta.materialize(a * 1, "stale2", basename="stale")
+    assert [row[2] for row in registered("stale2")] == [1, 2, 3, 4]
+
+
+def test_map_only_in_the_temporal_database_stops_before_computing(core_session):
+    tools = Tools(session=core_session)
+    tools.r_mapcalc(expression="ghost_0 = 1")
+    tools.t_register(maps="ghost_0", start="2001-01-01", end="2001-01-02")
+    tools.g_remove(type="raster", name="ghost_0", flags="f")
+    assert tgis.RasterDataset("ghost_0@PERMANENT").is_in_db()
+    with pytest.raises(FatalError, match="ghost_0"):
+        ta.materialize(ta.source("A") * 1, "ghosts", basename="ghost")
+    assert tools.g_list(type="raster", pattern="ghost_*") is None
+
+
+@pytest.mark.parametrize(
+    ("name", "basename"),
+    [
+        ("a.b", None),
+        ("a.b.c", None),
+        ("a@PERMANENT", None),
+        ("ok", "a.b"),
+        ("ok", "a@b"),
+    ],
+)
+def test_invalid_names_stop_before_computing(core_session, name, basename):
+    tools = Tools(session=core_session)
+    before = tools.g_list(type="raster").stdout
+    with pytest.raises(ValueError, match="must not contain"):
+        ta.materialize(ta.source("A") * 1, name, basename=basename)
+    assert tools.g_list(type="raster").stdout == before

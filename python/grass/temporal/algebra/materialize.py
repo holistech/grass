@@ -99,6 +99,21 @@ def _map_names(series, basename, time_suffix):
     return names
 
 
+def _check_name(label, value, stds_type):
+    """Reject names that grass.temporal would split into several parts
+
+    _parse_id() in open_stds.py takes "a.b" of a raster dataset for the
+    name "a" with the semantic label "b", exits the process for "a.b.c", and
+    reads "@" as the mapset; materialize() would find out only after
+    computing the maps.
+    """
+    forbidden = "@." if stds_type == "strds" else "@"
+    for character in forbidden:
+        if character in value:
+            msg = f"The {label} must not contain {character!r}, got {value!r}"
+            raise ValueError(msg)
+
+
 def plan(series, name, *, basename=None, time_suffix=None):
     """Return the process chain of materialize() without running anything
 
@@ -106,9 +121,14 @@ def plan(series, name, *, basename=None, time_suffix=None):
     :param basename: the prefix of the map names, by default the name
     :param time_suffix: None for numbered maps, "gran" or "time" for a
         suffix from the start time (absolute time only)
-    :raises ValueError: for a map without time stamp, an unknown
-        time_suffix, or maps that would get the same name
+    :raises ValueError: for a map without time stamp, a name or basename with
+        "@" (or "." for a raster dataset), an unknown time_suffix, or maps
+        that would get the same name
     """
+    stds_type = STDS_TYPES[series.kind]
+    _check_name("name", name, stds_type)
+    if basename is not None:
+        _check_name("basename", basename, stds_type)
     if series.timeless:
         msg = "A map without time stamp cannot be registered in a space time dataset"
         raise ValueError(msg)
@@ -124,7 +144,7 @@ def plan(series, name, *, basename=None, time_suffix=None):
         remove.extend(temporaries)
     return ProcessChain(
         name,
-        STDS_TYPES[series.kind],
+        stds_type,
         series.temporal_type or "absolute",
         tuple(maps),
         tuple(remove),
@@ -145,7 +165,8 @@ def _check_absent(chain, mapset, dbif):
         )
     for planned in chain.maps:
         map_ = RasterDataset(f"{planned.name}@{mapset}")
-        if map_.map_exists():
+        # A row can outlive its map, e.g. after g.remove.
+        if map_.map_exists() or map_.is_in_db(dbif):
             raise FatalError(
                 _("Map <{name}> exists. Use the overwrite flag.").format(
                     name=map_.get_id()
@@ -160,7 +181,15 @@ def _module(call, overwrite):
 
 
 def _run(chain, overwrite, nprocs):
-    """Compute the maps in parallel; the calls of one map run in order"""
+    """Compute the maps, in parallel for nprocs > 1; the calls of one map run
+    in order"""
+    if int(nprocs) == 1:
+        # No queue and no forked process: both are only needed to overlap
+        # calls.
+        for planned in chain.maps:
+            for call in planned.calls:
+                _module(call, overwrite).run()
+        return
     queue = ParallelModuleQueue(nprocs=int(nprocs))
     for planned in chain.maps:
         modules = [_module(call, overwrite) for call in planned.calls]
@@ -206,6 +235,12 @@ def _remove(names):
         Module("g.remove", flags="f", type="raster", name=",".join(names), quiet=True)
 
 
+def _forget(ident, dbif):
+    """Delete a map from the temporal database, which also unregisters it
+    from the datasets"""
+    RasterDataset(ident).delete(dbif)
+
+
 def materialize(
     series,
     name,
@@ -221,13 +256,17 @@ def materialize(
 
     Needs a GRASS session and a temporal database. Maps without any valid
     cell are removed and not registered unless register_null is True; if
-    that leaves no map, the dataset stays empty and a warning says so.
+    that leaves no map, the dataset stays empty and a warning says so. Their
+    entries in the temporal database are deleted as well.
     Result maps registered with the other temporal type are replaced when
     overwriting.
 
     :raises FatalError: if the dataset or a result map exists and overwrite
         is False; nothing is computed then
     :raises ValueError: as plan()
+    Callers that need exceptions instead of a process exit for unforeseen
+    database errors call ``tgis.init(raise_fatal_error=True)``.
+
     :return: the space time dataset
     """
     chain = plan(series, name, basename=basename, time_suffix=time_suffix)
@@ -261,6 +300,8 @@ def materialize(
                 and map_.metadata.get_max() is None
             ):
                 empty.append(planned.name)
+                # An earlier run may have registered a map of this name.
+                _forget(map_.get_id(), dbif)
                 continue
             _store(map_, overwrite, dbif)
             dataset.register_map(map_, dbif)
