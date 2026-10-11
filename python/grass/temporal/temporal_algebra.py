@@ -1226,6 +1226,7 @@ class TemporalAlgebraParser:
         temporal="l",
         bool_op="and",
         combine=None,
+        pair_equal_times: bool = False,
     ):
         """Change temporal extent of map list based on temporal relations to
             other map list and given temporal operator.
@@ -1242,21 +1243,25 @@ class TemporalAlgebraParser:
         :param combine: Optional ``combine(map_new, map_i, map_j)``, called after
             the extent of map_j was combined into the result map map_new of
             map_i. Subclasses use it to attach the commands of the operation.
+        :param pair_equal_times: Pair maps of equal time one to one instead of
+            relating each of them to all others, see ``_equal_time_partners``.
 
         :return: Map list with specified temporal extent.
         """
         topolist = ("EQUAL",) if topolist is None else topolist
         temporal_topo_list, spatial_topo_list = self._check_topology(topolist=topolist)
         resultdict = {}
+        positions = self._equal_time_positions(maplist) if pair_equal_times else None
 
         for map_i in maplist:
             # Generate an intermediate map for the result map list.
             map_new = self._new_result_map(map_i)
+            related = self._related_maps(map_i, temporal_topo_list, spatial_topo_list)
+            if positions is not None:
+                related = self._equal_time_partners(map_i, related, positions)
             # Combine temporal and spatial extents of the intermediate map with
             # the related maps, until one of them does not combine.
-            for map_j in self._related_maps(
-                map_i, temporal_topo_list, spatial_topo_list
-            ):
+            for map_j in related:
                 if temporal == "r":
                     # Every related map gets its own result map.
                     map_new = self._new_result_map(map_i)
@@ -1269,6 +1274,57 @@ class TemporalAlgebraParser:
                     combine(map_new, map_i, map_j)
                 resultdict[map_new.get_id()] = map_new
         return sorted(resultdict.values(), key=AbstractDatasetComparisonKeyStartTime)
+
+    @staticmethod
+    def _equal_time_positions(maplist):
+        """Return the position of each map among the maps of its time.
+
+        :return: dict from ``id(map)`` to (position, number of maps of that time)
+        """
+        groups = {}
+        for map_i in maplist:
+            groups.setdefault(map_i.get_temporal_extent_as_tuple(), []).append(map_i)
+        return {
+            id(map_i): (position, len(group))
+            for group in groups.values()
+            for position, map_i in enumerate(group)
+        }
+
+    def _equal_time_partners(self, map_i, related, positions):
+        """Restrict the related maps of map_i to its partners of equal time.
+
+        Maps of equal time cannot be told apart by their time, so relating
+        each to all would pair every map of a time with every other. Instead,
+        like broadcasting in numpy: a single map on one side is paired with all
+        maps of a time on the other, n maps with n maps one to one in the order
+        of the datasets. Different numbers of several maps cannot be paired.
+
+        :param positions: The result of ``_equal_time_positions`` for the list
+            of map_i
+        """
+        position, count = positions[id(map_i)]
+        groups = {}
+        for map_j in related:
+            groups.setdefault(map_j.get_temporal_extent_as_tuple(), []).append(map_j)
+        partners = []
+        for group in groups.values():
+            if count == 1 or len(group) == 1:
+                partners.extend(group)
+            elif len(group) == count:
+                partners.append(group[position])
+            else:
+                self.msgr.fatal(
+                    _(
+                        "Unable to pair {count} maps with {number} maps of equal "
+                        "time stamps: <{map}> and <{maps}>"
+                    ).format(
+                        count=count,
+                        number=len(group),
+                        map=map_i.get_id(),
+                        maps=",".join(map_j.get_id() for map_j in group),
+                    )
+                )
+        return partners
 
     def _new_result_map(self, map_i):
         """Create the result map of an overlay for map_i: a copy of its extent.

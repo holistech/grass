@@ -7,6 +7,8 @@ in the algebra fixture in conftest.py.
 
 import pytest
 
+import grass.temporal as tgis
+
 
 def test_complex_operator_aggregates_all_equal_maps(algebra):
     """E {+,equal,l} E sums all four maps into every result: e<i> + (1 + 2 + 3 + 4)
@@ -43,11 +45,33 @@ def test_neighbour_of_maps_with_equal_time(algebra):
     assert algebra.values("E[1]") == [2, 3, 4]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new: if/then with several maps of equal time stamps pairs every "
-    "condition map with every conclusion map",
-)
 def test_condition_on_maps_with_equal_time(algebra):
-    """if(E > 2, E, null()) keeps e3 and e4"""
+    """if(E > 2, E, null()) keeps e3 and e4: n condition maps of equal time
+    are paired with n conclusion maps of that time in dataset order"""
     assert algebra.values("if(E > 2, E, null())") == [3, 4]
+
+
+def test_condition_without_else_on_maps_with_equal_time(algebra):
+    """if(E > 2, E) gives one map per condition map, 0 where it is false"""
+    assert algebra.values("if(E > 2, E)") == [0, 0, 3, 4]
+
+
+def test_then_and_else_on_maps_with_equal_time(algebra):
+    """The then and else maps of equal time are paired the same way"""
+    assert algebra.values("if(E > 2, E, E * 10)") == [3, 4, 10, 20]
+
+
+def test_single_condition_map_is_broadcast(algebra):
+    """One condition map applies to every conclusion map of its time"""
+    assert algebra.values("if(tmap(sinst) > 50, E, null())") == [1, 2, 3, 4]
+
+
+def test_condition_on_unequal_numbers_of_equal_maps_fails(algebra):
+    """Four condition maps and two conclusion maps of the same time cannot
+    be paired"""
+    tgis.open_new_stds("E2", "strds", "absolute", "E2", "E2", "mean", overwrite=True)
+    tgis.register_maps_in_space_time_dataset(
+        "raster", "E2", "e1,e2", start="2001-01-01"
+    )
+    with pytest.raises(algebra.errors, match="maps of equal time stamps"):
+        algebra.parse("if(E > 2, E2, null())")

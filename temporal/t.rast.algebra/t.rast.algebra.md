@@ -250,6 +250,13 @@ and the maps of A outside of B are kept unchanged:
 C = merge(if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A), A {!:,during} B)
 ```
 
+Several maps with equal time stamps cannot be told apart by their time.
+An arithmetic operator aggregates them (`E + E` adds all maps of a time
+to each map of E), a conditional pairs them: a single condition map
+applies to all conclusion maps of its time, n condition maps of a time
+are paired with n conclusion maps of that time in the order of the
+datasets. Different numbers of several maps of one time are an error.
+
 #### Logical operators
 
 ```sh

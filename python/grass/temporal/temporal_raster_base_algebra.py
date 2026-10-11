@@ -504,8 +504,14 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
                 map_i, map_j, operator=operator, cmd_type=cmd_type
             )
 
+        # An operator aggregates all related maps of equal time (E + E), a
+        # conditional must choose one of them.
         return super().set_temporal_extent_list(
-            maplist, topolist, temporal, combine=combine if cmd_bool else None
+            maplist,
+            topolist,
+            temporal,
+            combine=combine if cmd_bool else None,
+            pair_equal_times=cmd_type in {"condition", "conclusion"},
         )
 
     def build_condition_cmd_list(
