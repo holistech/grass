@@ -10,6 +10,8 @@ import itertools
 
 import pytest
 
+import grass.temporal as tgis
+
 RELATIONS = [
     "equal", "during", "contains", "starts", "started", "finishes",
     "finished", "precedes", "follows", "overlaps", "overlapped",
@@ -179,3 +181,65 @@ def test_hash_rejects_temporal_operators(algebra, operator):
 def test_hash_keeps_the_left_time_stamps(algebra, operator):
     """b1 and b2 each contain two maps of A (started and finished)"""
     assert algebra.triples(f"B {operator} A") == [(1, 3, 2), (3, 5, 2)]
+
+
+@pytest.mark.parametrize(
+    "expression", ["merge(A, A)", "merge(A {:,during} B, A)", "merge(A, A : A)"]
+)
+def test_merge_keeps_one_of_identical_maps(algebra, expression):
+    assert algebra.values(expression) == [1, 2, 3, 4]
+
+
+def test_merge_of_overlapping_selections(algebra):
+    """A {:,during} B selects all maps of A (a1, a3 start, a2, a4 finish a
+    map of B), A {:,during} C selects a2 and a3 (start and finish c1)"""
+    assert algebra.values("merge(A {:,during} B, A {:,during} C)") == [1, 2, 3, 4]
+
+
+def test_merged_maps_are_not_counted_twice(algebra):
+    """Without the deduplication of merge(), n2 + a2 + a2 = 16 and n3 + a3 + a3 = 19"""
+    assert algebra.values("N {+,equal} merge(A {:,during} B, A {:,during} C)") == [
+        12,
+        14,
+        16,
+        18,
+    ]
+
+
+def test_merge_keeps_different_maps_of_equal_time(algebra):
+    """Computed maps of equal time are different maps"""
+    assert algebra.values("merge(A + 1, A + 2)") == [2, 3, 3, 4, 4, 5, 5, 6]
+
+
+@pytest.mark.parametrize("relation", RELATIONS)
+def test_merge_of_select_and_inverse_select_is_the_dataset(algebra, relation):
+    """Holds without the deduplication of merge() as well, selection and
+    inverse selection are disjoint; it guards that the deduplication removes
+    nothing else"""
+    assert algebra.dry_times(
+        f"merge(A {{:,{relation}}} B, A {{!:,{relation}}} B)"
+    ) == algebra.dry_times("A : A")
+
+
+@pytest.mark.parametrize(
+    ("expression", "count"),
+    [
+        ("merge(A, A)", 4),
+        ("merge(A {:,during} B, A {:,during} C)", 2),
+        ("merge(A {:,during} B, A {!:,during} B)", 0),
+    ],
+)
+def test_merge_warns_about_identical_maps(algebra, monkeypatch, expression, count):
+    """capfd stays empty although the warning shows in the captured stderr of
+    the report (observed 2026-10-11); probably the messenger, a process wide
+    singleton, keeps the stderr of the first test that used it. The test
+    records the calls instead"""
+    warnings = []
+    messenger = tgis.get_tgis_message_interface()
+    monkeypatch.setattr(messenger, "warning", warnings.append)
+    algebra.run(expression)
+    if count:
+        assert len(warnings) == 1
+        assert f"keeps {count} maps of both operands only once" in warnings[0]
+    else:
+        assert not warnings

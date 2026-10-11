@@ -2716,7 +2716,11 @@ class TemporalAlgebraParser:
         self._trace("merge(", t[3], ",", t[5], ")")
 
     def _merge(self, maplistA, maplistB):
-        """Join two map lists of the same data type"""
+        """Return the union of two map lists of the same data type
+
+        A map which occurs identically in both lists is kept once and a warning
+        reports how many were left out.
+        """
         if not maplistA and not maplistB:
             self.msgr.warning(_("Merging empty map lists"))
             return []
@@ -2737,7 +2741,32 @@ class TemporalAlgebraParser:
             raise FatalError(
                 _("Space time datasets to merge must have the same data type")
             )
-        return maplistA + maplistB
+        merged = list(maplistA)
+        known = {self._merge_key(map_i) for map_i in maplistA}
+        duplicates = 0
+        for map_i in maplistB:
+            key = self._merge_key(map_i)
+            if key in known:
+                duplicates += 1
+            else:
+                known.add(key)
+                merged.append(map_i)
+        if duplicates:
+            self.msgr.warning(
+                _("merge() keeps {count} maps of both operands only once").format(
+                    count=duplicates
+                )
+            )
+        return merged
+
+    @staticmethod
+    def _merge_key(map_i):
+        """Maps with equal key are the same map: same map, time and command"""
+        return (
+            map_i.get_id(),
+            map_i.get_temporal_extent_as_tuple(),
+            getattr(map_i, "cmd_list", None),
+        )
 
     def p_t_hash(self, t) -> None:
         """

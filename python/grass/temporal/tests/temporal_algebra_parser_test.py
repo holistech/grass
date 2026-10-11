@@ -255,7 +255,7 @@ def test_selection(session, expression, expected):
         ("R = merge(A, EMPTY)", ["a1", "a2", "a3", "a4"]),
         ("R = merge(EMPTY, EMPTY)", []),
         ("R = merge(A : B, A !: B)", ["a1", "a2", "a3", "a4"]),
-        ("R = merge(A, A : B)", ["a1", "a2", "a2", "a3", "a3", "a4"]),
+        ("R = merge(A, A : B)", ["a1", "a2", "a3", "a4"]),
         ("R = merge(A : B, C)", ["a2", "a3", "c1", "c2"]),
         ("R = merge(A, B) : A", ["a1", "a2", "a3", "a4", "b2", "b3"]),
     ],
