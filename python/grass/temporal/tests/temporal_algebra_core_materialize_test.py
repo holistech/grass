@@ -301,6 +301,32 @@ def test_basename_may_contain_a_dot(core_session):
     assert tgis.RasterDataset("a.b_0@PERMANENT").is_in_db()
 
 
+@pytest.mark.parametrize(
+    ("reduce", "expected"),
+    [("sum", 10), ("prod", 24), ("mean", 2.5), ("min", 1), ("max", 4), ("all", 1)],
+)
+def test_reduction_of_more_than_two_maps_is_computed_by_r_mapcalc(
+    core_session, reduce, expected
+):
+    """The flat call (a + b + c + d) is read by r.mapcalc like the nested one"""
+    a = ta.source("A")
+    target = ta.granules("2001-01-01", "2001-01-05", "4 days")
+    reduced = ta.gather(target, ta.contains, a, reduce=reduce)
+    ta.materialize(reduced, "flat", overwrite=True)
+    assert registered("flat") == [(day(1), day(5), expected)]
+
+
+def test_subtraction_of_more_than_two_maps_is_computed_from_left_to_right(
+    core_session,
+):
+    """b1 contains a1 and a2: 5 - 1 - 2 is 2, while 5 - (1 - 2) would be 6"""
+    reduced = ta.gather(
+        ta.source("B"), ta.contains, ta.source("A"), reduce=ta.fold("-")
+    )
+    ta.materialize(reduced, "flat_minus", overwrite=True)
+    assert [row[2] for row in registered("flat_minus")] == [2, -1]
+
+
 def test_temporary_maps_are_removed_in_chunks_of_100(monkeypatch):
     """One g.remove call with every name could exceed the size of the argument
     list"""
