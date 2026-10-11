@@ -8,6 +8,7 @@ conclusion map gets one result, and a condition without else gives null.
 
 import datetime
 import random
+from collections import Counter
 
 import pytest
 
@@ -126,9 +127,21 @@ def test_merge_is_idempotent_and_associative(a, b, make_series, monkeypatch):
     assert ta.merge(ta.merge(a, b), c).slots == ta.merge(a, ta.merge(b, c)).slots
 
 
+def test_merge_is_commutative_up_to_the_order_of_equal_times(a, b, make_series):
+    assert ta.merge(a, b).slots == ta.merge(b, a).slots
+    # Slots of equal time keep the order of the arguments.
+    same = make_series("s", (1, 2), (2, 3))
+    first, second = ta.merge(a, same), ta.merge(same, a)
+    assert first.times() == second.times()
+    assert Counter(first.slots) == Counter(second.slots)
+    assert first.slots != second.slots
+
+
 def test_choose_is_a_subset(a, make_series):
     k = make_series("k", (1, 2), (2, 3), (3, 4), (4, 5), values=[1, 0, None, 1])
-    assert set(ta.choose(k, a).slots) <= set(a.slots)
+    chosen = ta.choose(k, a)
+    assert chosen.slots
+    assert set(chosen.slots) <= set(a.slots)
 
 
 def test_where_of_true_is_then(a, make_series):
@@ -168,6 +181,17 @@ def test_one_result_per_conclusion_map(a, b):
                 (Call(">", (ref("a1"), Const(1))), Call(">", (ref("a2"), Const(1)))),
             ),
             ref("b1"),
+            NULL,
+        ),
+    )
+    assert contents(result)[1] == Call(
+        "if",
+        (
+            Call(
+                "&&",
+                (Call(">", (ref("a3"), Const(1))), Call(">", (ref("a4"), Const(1)))),
+            ),
+            ref("b2"),
             NULL,
         ),
     )

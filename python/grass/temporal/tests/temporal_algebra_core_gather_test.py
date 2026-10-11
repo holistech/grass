@@ -12,7 +12,14 @@ from grass.temporal.algebra.content import NULL, Call, Const, MapRef, SeriesRedu
 from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, select
 from grass.temporal.algebra.reducers import fold
-from grass.temporal.algebra.relations import contains, during, equal, relation
+from grass.temporal.algebra.relations import (
+    contains,
+    during,
+    equal,
+    overlaps,
+    precedes,
+    relation,
+)
 from grass.temporal.algebra.series import Series, Space
 
 
@@ -86,6 +93,13 @@ def test_reducers_propagating_null(a, b, reduce, expected):
 @pytest.mark.parametrize(
     ("reduce", "expected"),
     [
+        (
+            "any",
+            Call(
+                "nmax",
+                (Call("!=", (ref("a1"), Const(0))), Call("!=", (ref("a2"), Const(0)))),
+            ),
+        ),
         ("sum", SeriesReduce("sum", (ref("a1"), ref("a2")))),
         ("mean", SeriesReduce("average", (ref("a1"), ref("a2")))),
         ("min", Call("nmin", (ref("a1"), ref("a2")))),
@@ -102,6 +116,20 @@ def test_reducers_propagating_null(a, b, reduce, expected):
 def test_reducers_skipping_null(a, b, reduce, expected):
     result = gather(b, contains, a, reduce=reduce, nulls="skip")
     assert contents(result)[0] == expected
+
+
+@pytest.mark.parametrize("nulls", ["propagate", "skip"])
+def test_min_over_one_related_map_is_that_map(a, c, nulls):
+    result = gather(a, during, c, reduce="min", nulls=nulls)
+    assert contents(result) == [ref("c1"), ref("c1")]
+
+
+def test_mean_over_one_related_map(a, c):
+    assert contents(gather(a, during, c, reduce="mean"))[0] == Call(
+        "/", (ref("c1"), Const(1.0))
+    )
+    skipping = gather(a, during, c, reduce="mean", nulls="skip")
+    assert contents(skipping)[0] == SeriesReduce("average", (ref("c1"),))
 
 
 @pytest.mark.parametrize("reduce", [fold("+"), "prod"])
@@ -122,6 +150,37 @@ def test_scalar_reduction_in_python(b, make_series):
         Const(7),
     ]
     assert contents(gather(b, contains, s, reduce="sum")) == [NULL, Const(7)]
+
+
+# b1 = [1, 3] contains the first two values and b2 = [3, 5] the last two.
+SCALARS = [
+    # reduce, values, propagating null, skipping null
+    ("sum", [1, None, 3, 4], [None, 7], [1, 7]),
+    ("mean", [1, None, 3, 4], [None, 3.5], [1.0, 3.5]),
+    ("min", [1, None, 3, 4], [None, 3], [1, 3]),
+    ("max", [1, None, 3, 4], [None, 4], [1, 4]),
+    ("all", [1, None, 3, 4], [None, 1], [1, 1]),
+    ("any", [1, None, 3, 4], [None, 1], [1, 1]),
+    ("all", [0, None, 3, 0], [None, 0], [0, 0]),
+    ("any", [0, None, 3, 0], [None, 1], [0, 1]),
+    ("all", [2, 5, 3, 0], [1, 0], [1, 0]),
+    ("any", [0, 0, 0, 0], [0, 0], [0, 0]),
+]
+
+
+@pytest.mark.parametrize(("reduce", "values", "propagate", "skip"), SCALARS)
+def test_scalars_are_reduced_in_python(a, b, reduce, values, propagate, skip):
+    s = Series(
+        tuple(
+            slot.__class__(slot.extent, Const(value))
+            for slot, value in zip(a.slots, values, strict=True)
+        ),
+        sort="scalar",
+    )
+    for nulls, expected in (("propagate", propagate), ("skip", skip)):
+        result = gather(b, contains, s, reduce=reduce, nulls=nulls)
+        assert result.sort == "scalar"
+        assert contents(result) == [Const(value) for value in expected], nulls
 
 
 @pytest.mark.parametrize(
@@ -174,6 +233,13 @@ def test_pairwise_broadcasts_a_single_map(make_series):
         ref("z1"),
         ref("z1"),
     ]
+
+
+def test_pairwise_broadcasts_a_single_target_map(make_series):
+    x = make_series("x", (1, 2))
+    y = make_series("y", (1, 2), (1, 2), (1, 2))
+    result = gather(x, equal, y, reduce="sum", equal_times="pairwise")
+    assert contents(result) == [Call("+", (ref("y1"), ref("y2"), ref("y3")))]
 
 
 def test_pairwise_rejects_other_counts(make_series):
@@ -302,3 +368,43 @@ def test_reducing_many_related_maps_does_not_recurse_deeply(
     assert "y1000@PERMANENT" in repr(slot)
     (call,) = plan(result, "R").processes
     assert call.parameters["expression"] == f'"R_0"={expected}'
+
+
+def test_extent_of_the_result(make_series):
+    """x = [1, 3] overlaps y = [2, 5]"""
+    x = make_series("x", (1, 3))
+    y = make_series("y", (2, 5))
+    times = {
+        mode: gather(x, overlaps, y, reduce="first", extent=mode).times()
+        for mode in ("target", "union", "intersection", "disjoint")
+    }
+    assert times == {
+        "target": [(day(1), day(3))],
+        "union": [(day(1), day(5))],
+        "intersection": [(day(2), day(3))],
+        "disjoint": [(day(1), day(5))],
+    }
+
+
+def test_intersection_of_adjacent_maps_is_an_instant(make_series):
+    x = make_series("x", (1, 2))
+    y = make_series("y", (2, 3))
+    result = gather(x, precedes, y, reduce="first", extent="intersection")
+    assert result.times() == [(day(2), None)]
+
+
+@pytest.mark.parametrize(
+    ("option", "value"),
+    [
+        ("missing", "ignore"),
+        ("missing", None),
+        ("extent", "left"),
+        ("extent", "right"),
+        ("equal_times", "first"),
+        ("nulls", "ignore"),
+        ("nulls", True),
+    ],
+)
+def test_invalid_option_values(a, b, option, value):
+    with pytest.raises(ValueError, match=option):
+        gather(b, contains, a, reduce="sum", **{option: value})

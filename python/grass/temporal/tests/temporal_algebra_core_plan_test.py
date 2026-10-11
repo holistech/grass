@@ -127,6 +127,22 @@ def test_if_with_more_than_four_arguments_is_rejected_by_the_backend():
         RasterBackend().expression(Call("if", (A1, A2, A2, A2, A2)))
 
 
+def test_integer_too_large_for_a_float_is_rejected(make_series):
+    with pytest.raises(ValueError, match="too large"):
+        RasterBackend().expression(Const(10**400))
+    a = make_series("a", (1, 2))
+    with pytest.raises(ValueError, match="too large"):
+        plan(a + 10**400, "R")
+
+
+@pytest.mark.parametrize("keyword", [{}, {"basename": 'b"c'}])
+def test_output_name_with_a_double_quote_is_rejected(make_series, keyword):
+    """The expression is "name"=..., so a quote in the name would end it"""
+    a = make_series("a", (1, 2))
+    with pytest.raises(ValueError, match="quote"):
+        plan(a * 1, 'a"b', **keyword)
+
+
 def test_names_with_operator_characters_are_quoted(make_series):
     odd = Series(
         (
