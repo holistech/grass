@@ -2737,7 +2737,7 @@ class TemporalAlgebraParser:
                 )
             )
             return maplistA
-        if maplistA[0].metadata.get_datatype() != maplistB[0].metadata.get_datatype():
+        if self._datatype(maplistA[0]) != self._datatype(maplistB[0]):
             raise FatalError(
                 _("Space time datasets to merge must have the same data type")
             )
@@ -2760,13 +2760,24 @@ class TemporalAlgebraParser:
         return merged
 
     @staticmethod
+    def _datatype(map_i):
+        """The data type of a raster map, None for a vector map
+
+        Vector maps have no data type, so any two of them can be merged.
+        """
+        get_datatype = getattr(map_i.metadata, "get_datatype", None)
+        return get_datatype() if get_datatype else None
+
+    @staticmethod
     def _merge_key(map_i):
         """Maps with equal key are the same map: same map, time and command"""
-        return (
-            map_i.get_id(),
-            map_i.get_temporal_extent_as_tuple(),
-            getattr(map_i, "cmd_list", None),
-        )
+        commands = getattr(map_i, "cmd_list", None)
+        if isinstance(commands, list):
+            # The vector algebra keeps a list of modules, which is not hashable.
+            # Modules compare by identity, which suffices: each module writes
+            # its own temporary map, and that map is already the id.
+            commands = tuple(commands)
+        return (map_i.get_id(), map_i.get_temporal_extent_as_tuple(), commands)
 
     def p_t_hash(self, t) -> None:
         """

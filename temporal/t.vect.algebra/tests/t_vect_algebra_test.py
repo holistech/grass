@@ -449,12 +449,6 @@ def test_condition_relation_reads_condition_to_conclusion(
     assert [(row["start_time"], row["end_time"]) for row in rows or []] == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AttributeError,
-    reason="Befund: merge() of vector datasets fails, VectorMetadata has no "
-    "get_datatype",
-)
 def test_merge_of_vector_datasets(vector_series):
     """merge() is the union of the maps of both operands: aa and ab have
     different maps at the same days, so all six stay"""
@@ -464,6 +458,14 @@ def test_merge_of_vector_datasets(vector_series):
         DAILY + DAILY
     )
     assert [row["areas"] for row in rows] == [1] * 6
+
+
+def test_merge_of_overlay_results(vector_series):
+    """Overlay results carry their commands into merge(): the two overlays of
+    aa & ab (aa3 and ab3 do not overlap) join the three maps of aa"""
+    assert timeline(vector_series.session, "merge(aa & ab, aa)") == sorted(
+        days((1, 2), (2, 3)) + DAILY
+    )
 
 
 def test_condition_with_overlay_result_maps(vector_series):
