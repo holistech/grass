@@ -9,10 +9,14 @@ thought of. The datasets are described in the algebra fixture.
 import itertools
 import random
 import re
+from pathlib import Path
 
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.temporal_algebra import TemporalAlgebraParser
+from grass.temporal.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
+from grass.tools import Tools
 
 RELATIONS = [
     "equal", "during", "contains", "starts", "started", "finishes",
@@ -797,3 +801,168 @@ def test_random_conditions_match_python(algebra, seed):
     assert fresh_values(algebra, f"if({condition}, T)") == expected_values(
         formula, has_map
     ), condition
+
+
+# Conditions of time stamps, of map values, with || and with parentheses.
+CONDITIONS = [
+    "start_month(T) == 2", "PA == 1", "start_day(T) == 2 || PC == 1",
+    "(PB == 1 && start_hour(T) == 12)",
+]  # fmt: skip
+
+
+PRECEDENCE_MIXED = (
+    "&& binds stronger than || in conditions that mix time stamps and map values"
+)
+
+
+def law_pairs(operator):
+    """Pairs of CONDITIONS joined by operator, marked for what the current
+    code cannot do yet
+
+    A pair passes without a mark where the missing precedence cannot change
+    the result, e.g. when both conditions contain ||.
+    """
+    pairs = []
+    for first, second in itertools.product(CONDITIONS, repeat=2):
+        marks = []
+        if first.startswith("(") or second.startswith("("):
+            marks.append(later("Kern", PARENTHESES))
+        elif operator == "&&" and ("||" in first) != ("||" in second):
+            marks.append(later("Kern", PRECEDENCE_MIXED))
+        pairs.append(pytest.param(first, second, marks=marks))
+    return pairs
+
+
+def has_map_value(condition):
+    """True if the condition compares the values of maps (PA, PB or PC)"""
+    return re.search(r"\bP[ABC]\b", condition) is not None
+
+
+def kept(values):
+    """The values of the maps that a condition keeps
+
+    A map in the result of a condition of time stamps is a map the condition
+    is true for. A condition on map values gives 0 instead where it is false
+    (pinned by test_time_stamp_conditions_select_and_map_conditions_give_zero).
+    The result of a nested if therefore lacks the maps that the
+    condition of time stamps leaves out, while the && of both has them with
+    the value 0. Only the nonzero values are comparable then. This cannot hide
+    a wrong value: the values of T are distinct, only T0 is 0.
+    """
+    return [value for value in values if value]
+
+
+@pytest.mark.parametrize(("first", "second"), law_pairs("&&"))
+def test_nested_if_is_conjunction(algebra, first, second):
+    """if(c1, if(c2, X)) == if(c1 && c2, X)
+
+    The maps are compared exactly, except where exactly one of the conditions
+    consists of time stamps only and the other uses map values (see kept()).
+    """
+    nested = fresh_values(algebra, f"if({first}, if({second}, T))")
+    conjunction = fresh_values(algebra, f"if({first} && {second}, T)")
+    if has_map_value(first) != has_map_value(second):
+        nested, conjunction = kept(nested), kept(conjunction)
+    assert nested == conjunction
+
+
+def test_time_stamp_conditions_select_and_map_conditions_give_zero(algebra):
+    """A condition of time stamps leaves a false map out of the result; one on
+    map values keeps it with the value 0; in the && of both a map that is
+    false for the time stamps is there with the value 0, in the nested if
+    it is not (the rule that kept() relies on)"""
+    temporal, on_map = "start_day(T) == 2", "PA == 1"
+    assert fresh_values(algebra, f"if({temporal}, T)") == [2, 3, 6, 7]
+    assert fresh_values(algebra, f"if({on_map}, T)") == [0, 0, 0, 0, 4, 5, 6, 7]
+    assert fresh_values(algebra, f"if({temporal} && {on_map}, T)") == [0] * 6 + [6, 7]
+    assert fresh_values(algebra, f"if({temporal}, if({on_map}, T))") == [0, 0, 6, 7]
+
+
+def commute_cases():
+    return [
+        pytest.param(operator, *pair.values, marks=pair.marks)
+        for operator in ["&&", "||"]
+        for pair in law_pairs(operator)
+    ]
+
+
+@pytest.mark.parametrize(("operator", "first", "second"), commute_cases())
+def test_conditions_commute(algebra, operator, first, second):
+    assert fresh_values(algebra, f"if({first} {operator} {second}, T)") == fresh_values(
+        algebra, f"if({second} {operator} {first}, T)"
+    )
+
+
+@later("Befund", "a spatial run leaves the computational region at the map extent")
+def test_spatial_run_keeps_the_region(algebra):
+    """The region of the session is the same before and after the run
+
+    Measured 2026-10-11 with `SA + SB` and spatial=True from the 3 x 3 region
+    of the fixture: the region became n=60 s=20 w=20 e=60 at resolution 10.
+    """
+    tools = Tools(session=algebra.session)
+    before = tools.g_region(flags="g").keyval
+    try:
+        fresh_values(algebra, "SA + SB", spatial=True)
+        after = tools.g_region(flags="g").keyval
+    finally:
+        # Later tests compute in this region, whatever the run did to it.
+        tools.g_region(
+            n=before["n"],
+            s=before["s"],
+            e=before["e"],
+            w=before["w"],
+            res=before["nsres"],
+        )
+    assert after == before
+
+
+MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
+
+
+def manual_expressions():
+    """Assignments 'X = ...' in the sh code blocks of the manual"""
+    blocks = re.findall(r"```sh\n(.*?)```", MANUAL.read_text(), flags=re.DOTALL)
+    return [
+        line.strip()
+        for block in blocks
+        for line in block.splitlines()
+        if re.match(r"^[A-Za-z_]\w* = ", line.strip())
+    ]
+
+
+# Single maps of the fixture; map() and tmap() of any other map cannot run.
+FIXTURE_SINGLE_MAPS = {"singletmap", "sinst", "singlemap"}
+
+
+def manual_cases():
+    cases = []
+    for assignment in manual_expressions():
+        marks = []
+        missing = sorted(
+            set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
+        )
+        if missing:
+            marks.append(pytest.mark.skip(reason=f"maps not in the fixture: {missing}"))
+        elif assignment.count('"') % 2:
+            marks.append(
+                later("Befund", "the manual example ends with a stray double quote")
+            )
+        cases.append(pytest.param(assignment, marks=marks))
+    return cases
+
+
+@pytest.mark.parametrize("assignment", manual_cases())
+def test_manual_example_runs(algebra, assignment):
+    """Every example of the manual on datasets of the fixture parses and plans
+    (dry run)"""
+    _name, expression = assignment.split(" = ", 1)
+    # The default lexer does not know the arithmetic operators of the raster
+    # algebra.
+    names = TemporalAlgebraParser._stds_names_in(
+        expression, TemporalRasterAlgebraLexer()
+    )
+    missing = [name for name in names if not algebra.exists(name)]
+    if missing:
+        pytest.skip(f"datasets not in the fixture: {missing}")
+    algebra.dry_times(expression)

@@ -450,6 +450,22 @@ def test_else_branch_for_false_condition(series_3d):
     assert values(series_3d.session, expression) == [1, 2, 3, 4]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Kern: the relation of a condition reads from the condition map to "
+    "the conclusion map",
+)
+def test_condition_relation_reads_condition_to_conclusion(series_3d):
+    """if({contains}, c(W), A): the maps of A within a map of W
+
+    The selection A {:,during} W is the reference: it keeps the maps of A that
+    lie in a map of W (checked 2026-10-11 to give all four maps of A).
+    """
+    assert values(series_3d.session, "A {:,during} W") == [1, 2, 3, 4]
+    assert values(series_3d.session, "if({contains}, td(W) > 0, A)") == [1, 2, 3, 4]
+    assert values(series_3d.session, "if({during}, td(W) > 0, A)") == []
+
+
 # Neighborhood
 
 
