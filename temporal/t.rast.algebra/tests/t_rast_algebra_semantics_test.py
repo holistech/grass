@@ -63,24 +63,25 @@ def test_dry_times_tell_temporal_operators_apart(algebra):
     )
 
 
-@pytest.mark.parametrize(
-    ("bit", "dataset", "condition"),
-    [
-        (2, "PA", "start_month(T) == 2"),
-        (1, "PB", "start_day(T) == 2"),
-        (0, "PC", "start_hour(T) == 12"),
-    ],
-)
+# Bit of the number of a map of T, the dataset that holds the bit as value,
+# and the condition of time stamps that is true for the bit.
+TRUTH_TABLE_BITS = [
+    (2, "PA", "start_month(T) == 2"),
+    (1, "PB", "start_day(T) == 2"),
+    (0, "PC", "start_hour(T) == 12"),
+]
+
+
+@pytest.mark.parametrize(("bit", "dataset", "condition"), TRUTH_TABLE_BITS)
 def test_truth_table_datasets(algebra, bit, dataset, condition):
     """The bits of the truth table maps are readable by value and by time"""
-    selected = [number for number in range(8) if number >> bit & 1]
     assert algebra.values("T * 1") == list(range(8))
-    # r.mapcalc gives 0 where the condition is false, so a map value
-    # condition keeps all maps; a time condition keeps only the selected ones.
-    assert algebra.values(f"if({dataset} == 1, T)") == [
-        number if number in selected else 0 for number in range(8)
+    assert algebra.values(f"{dataset} * 1") == [
+        number >> bit & 1 for number in range(8)
     ]
-    assert algebra.values(f"if({condition}, T)") == selected
+    assert algebra.values(f"if({condition}, T)") == [
+        number for number in range(8) if number >> bit & 1
+    ]
 
 
 @pytest.mark.parametrize("relation", RELATIONS)
@@ -266,6 +267,11 @@ def fresh_values(algebra, expression, **kwargs):
 # marked later("Kern", ...); the reasons below name the rule in words.
 WRONG_DIRECTION = (
     "the relation of a condition reads from the condition map to the conclusion map"
+)
+NULL_WITHOUT_ELSE = (
+    "an if without else gives null where a condition on map values is false, "
+    "so a map that is false everywhere is left out as with a condition of "
+    "time stamps"
 )
 AGGREGATE_WITH_OR = (
     "the relation takes an aggregation, {during,|} joins the conditions of "
@@ -512,10 +518,10 @@ def test_map_condition_relation_reads_condition_to_conclusion(
     [
         pytest.param(
             "if({during}, A > 1, B)",
-            # b1 has a1 > 1 false and a2 > 1 true: false with &. A false map
-            # value condition gives 0 without else, so b1 has a result.
-            [(1, 3, 0), (3, 5, 6)],
-            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
+            # b1 has a1 > 1 false and a2 > 1 true: false with &. Without else
+            # b1 is null then and left out.
+            [(3, 5, 6)],
+            marks=later("Kern", f"{ONE_RESULT_PER_CONCLUSION}; {NULL_WITHOUT_ELSE}"),
         ),
         pytest.param(
             "if({during,|}, A > 1, B)",
@@ -557,12 +563,12 @@ def test_both_paths_agree_on_aggregation(algebra, aggregate):
     )
 
 
-@later("Kern", ONE_RESULT_PER_CONCLUSION)
+@later("Kern", f"{ONE_RESULT_PER_CONCLUSION}; {NULL_WITHOUT_ELSE}")
 def test_equal_time_map_conditions_are_broadcast(algebra):
     """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
-    are false, so b1 gets the 0 of a false map value condition with &, and
-    the value of b1 with |"""
-    assert fresh_triples(algebra, "if({during}, E > 2, B)") == [(1, 3, 0)]
+    are false, so b1 is null and left out with &, and has the value of b1
+    with |"""
+    assert fresh_triples(algebra, "if({during}, E > 2, B)") == []
     assert fresh_triples(algebra, "if({during,|}, E > 2, B)") == [(1, 3, 5)]
 
 
@@ -692,20 +698,15 @@ def selected(python_formula):
     return [k for k in range(8) if eval(python_formula, {}, bits(k))]  # noqa: S307
 
 
-def expected_values(python_formula, has_map_condition):
-    """The cell values of if(condition, T) for the formula
+def null_without_else(python_formula, has_map_condition):
+    """The mark of a case that the null rule decides
 
-    A condition of time stamps keeps only the selected maps. A condition on
-    map values chooses per cell, and r.mapcalc gives 0 where it is false, so
-    all maps stay (checked 2026-10-11 with `if(PB == 1, T)`, see
-    test_truth_table_datasets). The map T0 has the value 0 anyway, so for map
-    value conditions it cannot be told apart from "false"; the expected list
-    holds 0 for it in both cases and the tests only see the other seven maps.
+    Today a condition on map values gives 0 where it is false and keeps all
+    eight maps, so such a case fails unless the formula is true for all maps.
     """
-    chosen = selected(python_formula)
-    if not has_map_condition:
-        return chosen
-    return [k if k in chosen else 0 for k in range(8)]
+    if has_map_condition and selected(python_formula) != list(range(8)):
+        return [later("Kern", NULL_WITHOUT_ELSE)]
+    return []
 
 
 def groups_with_parentheses(condition):
@@ -755,7 +756,7 @@ KINDS = {
 def truth_table_cases():
     cases = []
     for (condition, formula), kind in itertools.product(FORMULAS, KINDS):
-        marks = []
+        marks = null_without_else(formula, kind != "time")
         if "(" in condition:
             marks.append(later("Kern", PARENTHESES))
         elif kind == "time" and condition == "{a} || {b} && {c}":
@@ -775,7 +776,7 @@ def test_precedence_truth_table(algebra, condition, formula, kind):
         for name, choice in zip("abc", KINDS[kind], strict=True)
     }
     expression = f"if({condition.format(**texts)}, T)"
-    assert fresh_values(algebra, expression) == expected_values(formula, kind != "time")
+    assert fresh_values(algebra, expression) == selected(formula)
 
 
 def random_condition(seed):
@@ -787,8 +788,9 @@ def random_condition(seed):
 def random_cases():
     cases = []
     for seed in range(40):
-        marks = []
-        if groups_with_parentheses(random_condition(seed)[0]):
+        condition, formula, has_map = random_condition(seed)
+        marks = null_without_else(formula, has_map)
+        if groups_with_parentheses(condition):
             marks.append(later("Kern", PARENTHESES))
         cases.append(pytest.param(seed, marks=marks))
     return cases
@@ -797,10 +799,8 @@ def random_cases():
 @pytest.mark.parametrize("seed", random_cases())
 def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
-    condition, formula, has_map = random_condition(seed)
-    assert fresh_values(algebra, f"if({condition}, T)") == expected_values(
-        formula, has_map
-    ), condition
+    condition, formula, _has_map = random_condition(seed)
+    assert fresh_values(algebra, f"if({condition}, T)") == selected(formula), condition
 
 
 # Conditions of time stamps, of map values, with || and with parentheses.
@@ -838,44 +838,39 @@ def has_map_value(condition):
     return re.search(r"\bP[ABC]\b", condition) is not None
 
 
-def kept(values):
-    """The values of the maps that a condition keeps
+def conjunction_pairs():
+    """law_pairs("&&"), with the null rule where only one condition uses map
+    values: today the nested if lacks the maps that the condition of time
+    stamps leaves out, while the && of both has them with the value 0"""
+    pairs = []
+    for pair in law_pairs("&&"):
+        first, second = pair.values
+        marks = list(pair.marks)
+        if has_map_value(first) != has_map_value(second):
+            marks.append(later("Kern", NULL_WITHOUT_ELSE))
+        pairs.append(pytest.param(first, second, marks=marks))
+    return pairs
 
-    A map in the result of a condition of time stamps is a map the condition
-    is true for. A condition on map values gives 0 instead where it is false
-    (pinned by test_time_stamp_conditions_select_and_map_conditions_give_zero).
-    The result of a nested if therefore lacks the maps that the
-    condition of time stamps leaves out, while the && of both has them with
-    the value 0. Only the nonzero values are comparable then. This cannot hide
-    a wrong value: the values of T are distinct, only T0 is 0.
-    """
-    return [value for value in values if value]
 
-
-@pytest.mark.parametrize(("first", "second"), law_pairs("&&"))
+@pytest.mark.parametrize(("first", "second"), conjunction_pairs())
 def test_nested_if_is_conjunction(algebra, first, second):
-    """if(c1, if(c2, X)) == if(c1 && c2, X)
-
-    The maps are compared exactly, except where exactly one of the conditions
-    consists of time stamps only and the other uses map values (see kept()).
-    """
+    """if(c1, if(c2, X)) == if(c1 && c2, X)"""
     nested = fresh_values(algebra, f"if({first}, if({second}, T))")
     conjunction = fresh_values(algebra, f"if({first} && {second}, T)")
-    if has_map_value(first) != has_map_value(second):
-        nested, conjunction = kept(nested), kept(conjunction)
     assert nested == conjunction
 
 
-def test_time_stamp_conditions_select_and_map_conditions_give_zero(algebra):
-    """A condition of time stamps leaves a false map out of the result; one on
-    map values keeps it with the value 0; in the && of both a map that is
-    false for the time stamps is there with the value 0, in the nested if
-    it is not (the rule that kept() relies on)"""
-    temporal, on_map = "start_day(T) == 2", "PA == 1"
-    assert fresh_values(algebra, f"if({temporal}, T)") == [2, 3, 6, 7]
-    assert fresh_values(algebra, f"if({on_map}, T)") == [0, 0, 0, 0, 4, 5, 6, 7]
-    assert fresh_values(algebra, f"if({temporal} && {on_map}, T)") == [0] * 6 + [6, 7]
-    assert fresh_values(algebra, f"if({temporal}, if({on_map}, T))") == [0, 0, 6, 7]
+@later("Kern", NULL_WITHOUT_ELSE)
+@pytest.mark.parametrize(
+    ("dataset", "condition"),
+    [(dataset, condition) for _bit, dataset, condition in TRUTH_TABLE_BITS],
+)
+def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, condition):
+    """A condition on map values and one of time stamps that are true for the
+    same maps select the same maps"""
+    assert fresh_values(algebra, f"if({dataset} == 1, T)") == fresh_values(
+        algebra, f"if({condition}, T)"
+    )
 
 
 def commute_cases():
