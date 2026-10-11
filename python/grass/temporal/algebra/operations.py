@@ -1,12 +1,16 @@
 """The operations of the algebra core: pure functions on series
 
 No operation changes a series; each returns a new one. Series are related
-only through select(), pairs() and gather(); apply() and the conditions
-need series of equal time stamps and never align them silently.
+only through select(), pairs() and gather(); apply() and where() need
+series of equal time stamps and never align them silently. choose() judges
+each slot by the condition of its own time stamp.
 """
 
-from collections import defaultdict
+import warnings
+from collections import Counter, defaultdict
 from dataclasses import replace
+
+from grass.temporal.core import get_tgis_message_interface
 
 from . import reducers
 from ._adapters import as_map, extent_from
@@ -349,3 +353,117 @@ def gather(
         slots.append(Slot(time, value, slot.space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), target.kind, sort, spatial)
+
+
+def _warn(message):
+    """Warn through grass.temporal, or through Python before tgis.init()"""
+    # The messenger of grass.temporal exists only after init(), but the
+    # operations on series need no session.
+    messenger = get_tgis_message_interface()
+    if messenger is None:
+        warnings.warn(message, stacklevel=3)
+    else:
+        messenger.warning(message)
+
+
+def choose(condition, then, otherwise=None):
+    """Select whole slots by a scalar condition
+
+    A slot of then is kept where the condition of its time stamp is true, a
+    slot of otherwise where it is false, so then and otherwise may have
+    different time stamps. A slot without a condition of its time stamp, or
+    with a null one, is left out, as gather() with missing="drop" leaves it
+    out. Several conditions of one time stamp are paired one to one, in
+    order, with the slots of that time stamp, as equal_times="pairwise"
+    builds them.
+
+    :raises TypeError: if the condition is not a scalar series
+    :raises ValueError: if a time stamp has several conditions and another
+        number of slots in a branch, or if the series cannot be related
+    """
+    if condition.sort != "scalar":
+        msg = "choose() needs a scalar condition; use where() for one per cell"
+        raise TypeError(msg)
+    values = defaultdict(list)
+    for slot in condition.slots:
+        values[slot.extent].append(slot.content.value)
+    branches = [then] if otherwise is None else [then, otherwise]
+    slots = []
+    for branch, wanted in zip(branches, (True, False), strict=False):
+        _check_comparable(condition, branch)
+        slots.extend(_chosen(branch, values, wanted))
+    spatial = any(part.spatial for part in (condition, *branches))
+    return Series(tuple(slots), then.kind, _joined_sort(*branches), spatial)
+
+
+def _chosen(branch, values, wanted):
+    """The slots of branch whose condition has the truth value wanted"""
+    counts = Counter(slot.extent for slot in branch.slots)
+    seen = Counter()
+    chosen = []
+    for slot in branch.slots:
+        conditions = values.get(slot.extent, [])
+        if len(conditions) > 1 and len(conditions) != counts[slot.extent]:
+            msg = (
+                f"choose() cannot pair {len(conditions)} conditions with "
+                f"{counts[slot.extent]} maps of {_describe(slot.extent)}"
+            )
+            raise ValueError(msg)
+        if not conditions:
+            continue
+        value = conditions[seen[slot.extent] if len(conditions) > 1 else 0]
+        seen[slot.extent] += 1
+        if value is not None and bool(value) is wanted:
+            chosen.append(slot)
+    return chosen
+
+
+def where(condition, then, otherwise=None):
+    """Choose per cell: if(condition, then, otherwise)
+
+    Without otherwise a cell is null where the condition is false. A scalar
+    condition is lifted to a constant field. condition, then and otherwise
+    need equal time stamps; numbers are used in every slot.
+    """
+    if condition.sort == "scalar":
+        condition = lift(condition)
+    return _apply("if", (condition, then, otherwise), "where")
+
+
+def merge(*series):
+    """The union of series
+
+    Identical slots, the same map with the same time stamp and content, are
+    kept once with a warning, so that a later reduction does not count a map
+    twice. Different maps of equal time are all kept.
+
+    :raises ValueError: if no series is given, or the series differ in sort,
+        map type, temporal type or unit
+    """
+    if not series:
+        msg = "merge() needs at least one series"
+        raise ValueError(msg)
+    first = series[0]
+    for part in series[1:]:
+        if part.sort != first.sort:
+            msg = "merge() needs series of one sort, fields or scalars"
+            raise ValueError(msg)
+        _check_comparable(first, part)
+    seen = set()
+    slots = []
+    duplicates = 0
+    for part in series:
+        for slot in part.slots:
+            if slot in seen:
+                duplicates += 1
+                continue
+            seen.add(slot)
+            slots.append(slot)
+    if duplicates:
+        _warn(
+            _("merge() keeps {count} maps of the series only once").format(
+                count=duplicates
+            )
+        )
+    spatial = any(part.spatial for part in series)
+    return Series(tuple(slots), first.kind, first.sort, spatial)
