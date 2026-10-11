@@ -76,26 +76,26 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         cls.del_temp_region()
 
     def test_temporal_conditional_complement(self) -> None:
-        """Test the conditional expression that evaluate if then else statements
-        so that the else statement is a complement operation
+        """Test the complement of a conditional expression
 
-        R = if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A)
+        R = merge(if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A),
+                  A {!:,during} B)
 
         IF B contains two maps from A
         THEN add maps from A and B that fulfill the B contains A condition using implicit aggregation
-        ELSE copy the maps from A
-
-        The connection between the if then else statements are the topological relations equal and contains
+        The maps of A outside of B have no condition map, so the if statement
+        gives no result for them: merge adds them unchanged.
 
         r0 = a1            # 1
         r1 = b1 + a2 + a3  # 12
-        r2 = b2 + a4 + a5  # 16
+        r2 = b2 + a4 + a5  # 17
         r4 = a6            # 6
 
         """
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
-            expression="R = if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A)",
+            expression="R = merge(if({equal|contains}, B {#,contains,r} A == 2, "
+            "B {+,contains,l} A, A), A {!:,during} B)",
             basename="r",
             overwrite=True,
         )
@@ -104,7 +104,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         R.select()
         self.assertEqual(R.metadata.get_number_of_maps(), 4)
         self.assertEqual(R.metadata.get_min_min(), 1)
-        self.assertEqual(R.metadata.get_max_max(), 16)
+        self.assertEqual(R.metadata.get_max_max(), 17)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 7))
@@ -112,29 +112,28 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         self.assertEqual(R.get_granularity(), "1 day")
 
     def test_temporal_conditional_complement_right_side_timestamps(self) -> None:
-        """Test the conditional expression that evaluate if then else statements
-        so that the else statement is a complement operation
+        """Test the complement of a conditional expression with the right side
+        time stamps
 
-        R = if({equal|contains|during}, B {#,contains,r} A == 2, B {+,contains,r} A, A)
+        R = merge(if({equal|contains|during}, B {#,contains,r} A == 2, B {+,contains,r} A, A),
+                  A {!:,during} B)
 
         IF B contains two maps from A
         THEN add maps from A and B that fulfill the B contains A condition using the right side timestamps
-        ELSE copy the maps from A
-
-        The connection between the if then else statements are the
-        topological relations equal, contains and during
+        The maps of A outside of B are added with merge.
 
         r0 = a1            # 1
         r1 = b1 + a2 + a3  # 12
         r2 = b1 + a2 + a3  # 12
-        r3 = b2 + a4 + a5  # 16
-        r4 = b2 + a4 + a5  # 16
+        r3 = b2 + a4 + a5  # 17
+        r4 = b2 + a4 + a5  # 17
         r5 = a6            # 6
 
         """
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(
-            expression="R = if({equal|contains|during}, B {#,contains,r} A == 2, B {+,contains,r} A, A)",
+            expression="R = merge(if({equal|contains|during}, B {#,contains,r} A == 2, "
+            "B {+,contains,r} A, A), A {!:,during} B)",
             basename="r",
             overwrite=True,
         )
@@ -143,7 +142,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         R.select()
         self.assertEqual(R.metadata.get_number_of_maps(), 6)
         self.assertEqual(R.metadata.get_min_min(), 1)
-        self.assertEqual(R.metadata.get_max_max(), 16)
+        self.assertEqual(R.metadata.get_max_max(), 17)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 7))

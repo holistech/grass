@@ -398,27 +398,28 @@ def test_conditions_with_unavailable_dataset_fail(algebra):
         algebra.parse("if(NotThere > 1, A)")
 
 
-ELSE_COMPLEMENT = (
+CONDITION_HB = (
     "if({equal|contains}, HB {#,contains,r} HA == 2, HB {+,contains,l} HA, HA)"
 )
-ELSE_COMPLEMENT_RIGHT = (
+CONDITION_HB_RIGHT = (
     "if({equal|contains|during}, HB {#,contains,r} HA == 2, HB {+,contains,r} HA, HA)"
 )
+# The maps of HA outside of HB: they have no condition map.
+OUTSIDE_HB = "HA {!:,during} HB"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H2: undecided semantics, the legacy tests contradict each other: "
-    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
-    "outside the condition time (a6) in the result, "
-    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
-    "expects the same case (d3) not to be there",
-)
-def test_else_complement(algebra):
+def test_else_part_needs_a_condition_map(algebra):
     """HB holds hb1 (7) [2,4] and hb2 (8) [4,6], HA has ha1..ha6 (1..6) of one
-    day. THEN: hb1 + ha2 + ha3 = 12 and hb2 + ha4 + ha5 = 17 where HB contains
-    two maps of HA. ELSE: the other maps of HA, ha1 = 1 and ha6 = 6"""
-    assert algebra.triples(ELSE_COMPLEMENT) == [
+    day. hb1 + ha2 + ha3 = 12 and hb2 + ha4 + ha5 = 17 where HB contains two
+    maps of HA. ha1 and ha6 lie outside of HB: without a condition map there
+    is no result for them, also not from the else part."""
+    assert algebra.triples(CONDITION_HB) == [(2, 4, 12), (4, 6, 17)]
+
+
+def test_complement_with_merge(algebra):
+    """The manual example: maps without condition map are added with merge()
+    and the inverse select operator"""
+    assert algebra.triples(f"merge({CONDITION_HB}, {OUTSIDE_HB})") == [
         (1, 2, 1),
         (2, 4, 12),
         (4, 6, 17),
@@ -426,29 +427,13 @@ def test_else_complement(algebra):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H2: undecided semantics, the legacy tests contradict each other: "
-    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
-    "outside the condition time (a6) in the result, "
-    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
-    "expects the same case (d3) not to be there",
-)
-def test_else_complement_with_right_reference(algebra):
+def test_complement_with_merge_and_right_reference(algebra):
     """As above with the time stamps of HA: one map per day"""
-    assert algebra.triples(ELSE_COMPLEMENT_RIGHT) == [
+    assert algebra.triples(f"merge({CONDITION_HB_RIGHT}, {OUTSIDE_HB})") == [
         (1, 2, 1),
         (2, 3, 12),
         (3, 4, 12),
         (4, 5, 17),
         (5, 6, 17),
         (6, 7, 6),
-    ]
-
-
-def test_then_part_of_complement_works(algebra):
-    """The THEN maps of the complement expressions are created correctly"""
-    assert [row for row in algebra.triples(ELSE_COMPLEMENT) if row[2] in (12, 17)] == [
-        (2, 4, 12),
-        (4, 6, 17),
     ]

@@ -239,6 +239,17 @@ space time datasets. Specific values of temporal variables are compared
 by logical operators and evaluated for each map of the STRDS.  
 **Important:** The conditions are evaluated from left to right.
 
+A map gets a result only if it has a condition map in the given temporal
+relation: the else part is taken where the condition is false, not where
+there is no condition. To keep the maps without condition map, add them
+with `merge()` and the inverse select operator. In this expression each
+map of B that contains two maps of A becomes the sum of these three maps,
+and the maps of A outside of B are kept unchanged:
+
+```sh
+C = merge(if({equal|contains}, B {#,contains,r} A == 2, B {+,contains,l} A, A), A {!:,during} B)
+```
+
 #### Logical operators
 
 ```sh

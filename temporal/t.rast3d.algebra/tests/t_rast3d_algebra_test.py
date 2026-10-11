@@ -436,17 +436,15 @@ def test_conditions_with_relation_and_hash(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="H2: undecided semantics, the legacy tests contradict each other: "
-    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
-    "outside the condition time (a6) in the result, "
-    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
-    "expects the same case (d3) not to be there",
+    reason="new: a temporal variable condition (here #) evaluates the relation "
+    "as 'conclusion contains condition', the manual and the map conditions "
+    "as 'condition contains conclusion'",
 )
-def test_else_branch_complement(series_3d):
+def test_else_branch_for_false_condition(series_3d):
     """if(cond, then, else) returns the else maps where the condition is false.
 
     W {#,contains,r} A > 2 is false for both W maps (each contains two maps
-    of A), so the result consists of the four maps of A (the complement).
+    of A), so the result consists of the four maps of A, which lie in W.
     """
     expression = "if({equal|contains}, W {#,contains,r} A > 2, W {+,contains,l} A, A)"
     assert values(series_3d.session, expression) == [1, 2, 3, 4]
