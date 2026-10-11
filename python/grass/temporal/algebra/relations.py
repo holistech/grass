@@ -108,7 +108,7 @@ class Relation:
 
 
 def relation(text, *, spatial=False):
-    """Return the relation of names joined with |, e.g. "during|starts"
+    """Return the relation of names joined with ``|``, e.g. ``during|starts``
 
     Spatial names in the text, or spatial=True, make space count. The text
     needs at least one temporal name.

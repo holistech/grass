@@ -282,7 +282,6 @@ def test_map_only_in_the_temporal_database_stops_before_computing(core_session):
         ("a.b", None),
         ("a.b.c", None),
         ("a@PERMANENT", None),
-        ("ok", "a.b"),
         ("ok", "a@b"),
     ],
 )
@@ -292,6 +291,68 @@ def test_invalid_names_stop_before_computing(core_session, name, basename):
     with pytest.raises(ValueError, match="must not contain"):
         ta.materialize(ta.source("A") * 1, name, basename=basename)
     assert tools.g_list(type="raster").stdout == before
+
+
+def test_basename_may_contain_a_dot(core_session):
+    """Only the dataset name is split at a dot (as name.semantic_label); map
+    names may contain one"""
+    ta.materialize(ta.source("A") * 1, "dotted", basename="a.b", overwrite=True)
+    assert [row[2] for row in registered("dotted")] == [1, 2, 3, 4]
+    assert tgis.RasterDataset("a.b_0@PERMANENT").is_in_db()
+
+
+def test_temporary_maps_are_removed_in_chunks_of_100(monkeypatch):
+    """One g.remove call with every name could exceed the size of the argument
+    list"""
+    calls = []
+    monkeypatch.setattr(
+        materialize_module,
+        "Module",
+        lambda *args, **parameters: calls.append((args, parameters)),
+    )
+    names = [f"R_{number}_tmp0" for number in range(250)]
+    materialize_module._remove(names)
+    assert [len(parameters["name"].split(",")) for _, parameters in calls] == [
+        100,
+        100,
+        50,
+    ]
+    assert ",".join(parameters["name"] for _, parameters in calls) == ",".join(names)
+    calls.clear()
+    materialize_module._remove([])
+    assert calls == []
+
+
+def test_temporary_maps_are_removed_when_a_call_fails(core_session, monkeypatch):
+    """r.series is made to fail after r.mapcalc has written the temporary
+    maps of its inputs"""
+    tools = Tools(session=core_session)
+    b, a = ta.source("B"), ta.source("A")
+    reduced = ta.gather(b, ta.contains, a * 2, reduce="sum", nulls="skip")
+    run_module = materialize_module._module
+
+    def failing_module(call, overwrite):
+        module = run_module(call, overwrite)
+        if call.name == "r.series":
+
+            def fail():
+                msg = "forced failure"
+                raise RuntimeError(msg)
+
+            module.run = fail
+        return module
+
+    monkeypatch.setattr(materialize_module, "_module", failing_module)
+    # Without the cleanup the temporary maps stay: the check can see them.
+    with monkeypatch.context() as context:
+        context.setattr(materialize_module, "_remove", lambda names: None)
+        with pytest.raises(RuntimeError, match="forced failure"):
+            ta.materialize(reduced, "failing", overwrite=True)
+        assert tools.g_list(type="raster", pattern="failing_*_tmp*") is not None
+    tools.g_remove(type="raster", pattern="failing_*", flags="f")
+    with pytest.raises(RuntimeError, match="forced failure"):
+        ta.materialize(reduced, "failing", overwrite=True)
+    assert tools.g_list(type="raster", pattern="failing_*_tmp*") is None
 
 
 def test_choose_equals_where_of_the_lifted_condition(core_session, make_series):

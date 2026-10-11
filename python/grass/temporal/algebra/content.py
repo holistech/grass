@@ -51,6 +51,11 @@ Content = MapRef | Const | Call | SeriesReduce
 NULL = Const(None)
 
 
+# The null rules and the integer arithmetic below follow r.mapcalc. Checked
+# 2026-10-11 with r.mapcalc expression="out = <expression>" in grass
+# --tmp-project XY and r.stats -n: 5/2 gave 2, -7/2 gave -3, 5.0/2 gave 2.5,
+# -7 % 2 gave -1, 5/0 and 5 % 0 gave null, and 5 + null() and 1 && null()
+# gave null.
 def _divide(left, right):
     if right == 0:
         return None
@@ -73,9 +78,17 @@ def _compare(function):
     return lambda left, right: int(function(left, right))
 
 
-def _if(condition, then, otherwise=None):
+def _if(condition, then, otherwise=None, *negative):
     if condition is None:
         return None
+    if negative:
+        # if(x, a, b, c) is a where x > 0, b where x == 0, c where x < 0
+        # (r.mapcalc.md; checked 2026-10-11 with r.mapcalc expression=
+        # "out = if(x, 10, 20, 30)": x = 3 gave 10, x = 0 gave 20 and
+        # x = -2 gave 30).
+        if condition > 0:
+            return then
+        return otherwise if condition == 0 else negative[0]
     return then if condition else otherwise
 
 
@@ -87,8 +100,8 @@ def _skipping(function):
     return reduce
 
 
-# Scalar implementations of r.mapcalc operators. As in r.mapcalc,
-# comparisons give 1 or 0 and a null operand gives null.
+# Scalar implementations of r.mapcalc operators. As in r.mapcalc (see the
+# check above), comparisons give 1 or 0 and a null operand gives null.
 _SCALAR = {
     "+": operator.add,
     "-": operator.sub,
@@ -164,12 +177,17 @@ def call(function, *args):
 
     An if without else gets null as else: a cell or map for which the
     condition is false is null, not the 0 of r.mapcalc. An if with a
-    constant condition is replaced by the chosen branch. An operator with a
-    null operand is null, as in r.mapcalc. Other calls whose arguments are
-    all constants are folded into a constant where Python can compute them.
+    constant condition is replaced by the chosen branch; with four arguments
+    the branches are for a condition above zero, zero and below zero. An
+    operator with a null operand is null, as in r.mapcalc. Other calls whose
+    arguments are all constants are folded into a constant where Python can
+    compute them.
+
+    :raises ValueError: for an if with fewer than two or more than four
+        arguments
     """
-    if function == "if" and len(args) < 2:
-        msg = f"if() needs a condition and a value, got {len(args)} arguments"
+    if function == "if" and not 2 <= len(args) <= 4:
+        msg = f"if() takes two to four arguments, got {len(args)}"
         raise ValueError(msg)
     if function == "if" and len(args) == 2:
         args = (*args, NULL)
@@ -177,6 +195,10 @@ def call(function, *args):
         condition = args[0].value
         if condition is None:
             return NULL
+        if len(args) == 4:
+            if condition > 0:
+                return args[1]
+            return args[2] if condition == 0 else args[3]
         return args[1] if condition else args[2]
     if function in _SCALAR and NULL in args:
         return NULL

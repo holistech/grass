@@ -139,6 +139,16 @@ def test_message_shows_an_instant_without_end(a, make_series):
     assert "None" not in str(info.value)
 
 
+def test_message_shows_the_unit_of_relative_time(make_series):
+    days = make_series("d", (1, 2), unit="days")
+    hours = make_series("h", (1, 2), unit="hours")
+    with pytest.raises(ValueError, match=r"1 \.\. 2 days and 1 \.\. 2 hours\. Relate"):
+        apply("+", days, hours)
+    instant = make_series("i", 1, unit="days")
+    with pytest.raises(ValueError, match=r"slot 0: 1 \.\. 2 days and 1 days\. Relate"):
+        apply("+", days, instant)
+
+
 def test_series_of_different_map_types_are_rejected(a):
     vector = Series((Slot(a.slots[0].extent, ref("v")),), kind="vector")
     with pytest.raises(ValueError, match="different map types"):

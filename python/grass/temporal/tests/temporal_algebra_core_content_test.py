@@ -73,6 +73,24 @@ def test_if_without_else_is_null_where_false():
     )
 
 
+def test_if_with_three_branches_decides_by_the_sign_of_the_condition():
+    """r.mapcalc.md: if(x, a, b, c) is a where x > 0, b where x is zero and c
+    where x < 0, null where x is null"""
+    c = MapRef("c1@PERMANENT")
+    assert call("if", Const(3), A, B, c) == A
+    assert call("if", Const(0), A, B, c) == B
+    assert call("if", Const(-2), A, B, c) == c
+    assert call("if", NULL, A, B, c) == NULL
+    assert call("if", Const(-0.5), Const(1), Const(2), Const(3)) == Const(3)
+    unknown = MapRef("k@PERMANENT")
+    assert call("if", unknown, A, B, c) == Call("if", (unknown, A, B, c))
+
+
+def test_if_with_more_than_four_arguments_is_rejected():
+    with pytest.raises(ValueError, match="if"):
+        call("if", A, A, A, A, A)
+
+
 def test_chain_joins_from_left_to_right():
     c = MapRef("c1@PERMANENT")
     assert chain("-", [A, B, c]) == Call("-", (A, B, c))

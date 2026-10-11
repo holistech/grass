@@ -200,7 +200,9 @@ def granules(
 
     For absolute time start and end are datetime objects or strings such as
     "2001-01-01", and granularity is e.g. "1 month". For relative time they
-    are numbers and the granularity is a number of the unit.
+    are whole numbers and the granularity is a whole number of the unit. The
+    last granule may end after end: granules are added while their start is
+    before end, so the last one covers end.
     """
     slots = []
     if temporal_type == "absolute":

@@ -59,8 +59,11 @@ def extent_from(temporal_extent, unit):
     None, which the extent methods return for an empty intersection, stays
     None. An interval whose end equals its start is an instant and gets
     end None: union and intersection of grass.temporal return such
-    intervals, e.g. for two equal instants or for [1, 3] and [3, 5]
-    (observed 2026-10-11), while as_map() rejects them for relative time.
+    intervals, while as_map() rejects them for relative time. Observed
+    2026-10-11 by calling temporal_union() and temporal_intersection() on
+    map objects made by as_map() in a plain Python process: the union of two
+    equal instants gave start == end == 2 January, and the intersection of
+    [1, 3] and [3, 5] gave 3 .. 3 for absolute and for relative time.
     """
     if temporal_extent is None:
         return None

@@ -154,9 +154,12 @@ def pairs(left, relation, other, *, extent="left", content=None):
 def _describe(extent):
     if extent is None:
         return "no slot"
+    # The unit tells apart relative times that read alike, e.g. series in
+    # days and in hours.
+    unit = "" if extent.unit is None else f" {extent.unit}"
     if extent.end is None:
-        return f"{extent.start}"
-    return f"{extent.start} .. {extent.end}"
+        return f"{extent.start}{unit}"
+    return f"{extent.start} .. {extent.end}{unit}"
 
 
 def _check_aligned(first, second, name):
@@ -469,9 +472,10 @@ def where(condition, then, otherwise=None):
 def merge(*series):
     """The union of series
 
-    Identical slots, the same map with the same time stamp and content, are
-    kept once with a warning, so that a later reduction does not count a map
-    twice. Different maps of equal time are all kept.
+    Identical slots are kept once with a warning, so that a later reduction
+    does not count a map twice. Slots are identical if they agree in time
+    stamp, content, space and origin. Different maps of equal time are all
+    kept.
 
     :raises ValueError: if no series is given, or the series differ in sort,
         map type, temporal type or unit

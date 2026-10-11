@@ -72,9 +72,9 @@ class Series:
 
     The operators build new series (see apply()), and that includes ==, !=
     and the ordering operators: a == b is a series of comparisons, not a
-    bool. So bool(series) raises, so that "assert a == b" cannot pass for a
-    comparison of contents, and a series is not hashable because it has no
-    value-based equality to hash; compare their slots to compare contents.
+    bool. Therefore bool(series) raises, so that "assert a == b" cannot pass
+    for a comparison of contents, and a series is not hashable because it has
+    no value-based equality to hash; compare the slots to compare contents.
     """
 
     slots: tuple[Slot, ...] = ()

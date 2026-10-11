@@ -107,7 +107,8 @@ def _check_name(label, value, stds_type):
     reads "@" as the mapset; materialize() would find out only after
     computing the maps.
     """
-    forbidden = "@." if stds_type == "strds" else "@"
+    # A map name may contain a dot, only the name of the dataset is split.
+    forbidden = "@." if label == "name" and stds_type == "strds" else "@"
     for character in forbidden:
         if character in value:
             msg = f"The {label} must not contain {character!r}, got {value!r}"
@@ -122,8 +123,8 @@ def plan(series, name, *, basename=None, time_suffix=None):
     :param time_suffix: None for numbered maps, "gran" or "time" for a
         suffix from the start time (absolute time only)
     :raises ValueError: for a map without time stamp, a name or basename with
-        "@" (or "." for a raster dataset), an unknown time_suffix, or maps
-        that would get the same name
+        "@" (or a name with "." for a raster dataset), an unknown time_suffix,
+        or maps that would get the same name
     """
     stds_type = STDS_TYPES[series.kind]
     _check_name("name", name, stds_type)
@@ -230,9 +231,15 @@ def _store(map_, overwrite, dbif):
     map_.insert(dbif)
 
 
+# Names per g.remove call, so that the list of arguments of the process stays
+# small however many maps a series has; the same chunk size as t.rast.algebra.
+_REMOVE_CHUNK = 100
+
+
 def _remove(names):
-    if names:
-        Module("g.remove", flags="f", type="raster", name=",".join(names), quiet=True)
+    for start in range(0, len(names), _REMOVE_CHUNK):
+        chunk = names[start : start + _REMOVE_CHUNK]
+        Module("g.remove", flags="f", type="raster", name=",".join(chunk), quiet=True)
 
 
 def _forget(ident, dbif):
@@ -261,12 +268,12 @@ def materialize(
     Result maps registered with the other temporal type are replaced when
     overwriting.
 
-    :raises FatalError: if the dataset or a result map exists and overwrite
-        is False; nothing is computed then
-    :raises ValueError: as plan()
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
+    :raises FatalError: if the dataset or a result map exists and overwrite
+        is False; nothing is computed then
+    :raises ValueError: as plan()
     :return: the space time dataset
     """
     chain = plan(series, name, basename=basename, time_suffix=time_suffix)
@@ -275,7 +282,13 @@ def materialize(
     try:
         if not overwrite:
             _check_absent(chain, mapset, dbif)
-        _run(chain, overwrite, nprocs)
+        try:
+            _run(chain, overwrite, nprocs)
+        finally:
+            # Also when a call fails part-way: its temporary maps would
+            # otherwise stay in the mapset. g.remove ignores names that were
+            # never written.
+            _remove(chain.remove)
         dataset = open_new_stds(
             name,
             chain.stds_type,
@@ -313,7 +326,7 @@ def materialize(
                     "in {name}"
                 ).format(name=name)
             )
-        _remove([*chain.remove, *empty])
+        _remove(empty)
     finally:
         if connection_state_changed:
             dbif.close()

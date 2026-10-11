@@ -146,9 +146,9 @@ class RasterBackend:
             # own parentheses.
             operand = f"({parts[0]})" if parts[0].startswith("-") else parts[0]
             return f"({_PREFIX[function]}{operand})"
-        if function == "if" and len(parts) < 3:
+        if function == "if" and not 3 <= len(parts) <= 4:
             # if(c, t) is 0 where c is false, not null.
-            msg = f"if() needs three arguments, got {len(parts)}"
+            msg = f"if() needs three or four arguments, got {len(parts)}"
             raise ValueError(msg)
         if function in _FUNCTIONS:
             return f"{function}({', '.join(parts)})"

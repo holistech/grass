@@ -112,8 +112,19 @@ def test_negative_literal_outside_int32_keeps_its_sign():
 
 
 def test_if_without_else_is_rejected():
-    with pytest.raises(ValueError, match="three arguments"):
+    with pytest.raises(ValueError, match="three or four arguments"):
         RasterBackend().expression(Call("if", (A1, A2)))
+
+
+def test_if_with_three_branches_is_written_as_it_is():
+    assert RasterBackend().expression(Call("if", (A1, A2, Const(0), NULL))) == (
+        'if("a1@PERMANENT", "a2@PERMANENT", 0, null())'
+    )
+
+
+def test_if_with_more_than_four_arguments_is_rejected_by_the_backend():
+    with pytest.raises(ValueError, match="three or four arguments"):
+        RasterBackend().expression(Call("if", (A1, A2, A2, A2, A2)))
 
 
 def test_names_with_operator_characters_are_quoted(make_series):
@@ -267,6 +278,13 @@ def test_nested_condition_stays_one_call_per_map(make_series):
         '"C_0"=if(((("a1@PERMANENT" > 1) && 1) || (("a2@PERMANENT" > 1) && 0)), '
         '"b1@PERMANENT", 0)'
     )
+
+
+def test_a_dot_is_rejected_in_the_name_but_not_in_the_basename(make_series):
+    a = make_series("a", (1, 2))
+    assert [m.name for m in plan(a * 1, "R", basename="a.b").maps] == ["a.b_0"]
+    with pytest.raises(ValueError, match=r"name must not contain '\.'"):
+        plan(a * 1, "a.b")
 
 
 def test_time_suffix(make_series):
