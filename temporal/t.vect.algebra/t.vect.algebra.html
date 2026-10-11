@@ -32,8 +32,17 @@ up conditions. These operations can be assigned to space time datasets
 or to the results of operations between space time datasets.
 
 <p> As default, topological relationships between space time datasets
-will be evaluated only temporal. Use the <b>s</b> flag to activate the
-additionally spatial topology evaluation. <p> The expression option
+will be evaluated only temporal.
+The <b>-s</b> flag additionally activates the evaluation of the spatial
+topology of the maps. It applies wherever the algebra evaluates the
+topology of maps: in selections, in the hash operator, in the conditions
+of if statements and in comparison operators. Two temporally related
+maps are then only used together if they are also spatially related,
+that is the spatial extents of the maps are equivalent, one covers or is
+covered by the other, they overlap, one lies in the other, one contains
+the other, or they meet (the spatial relations <em>equivalent</em>,
+<em>cover</em>, <em>covered</em>, <em>overlap</em>, <em>in</em>,
+<em>contain</em> and <em>meet</em>). <p> The expression option
 must be passed as <b>quoted</b> expression, for example: <br>
 
 <div class="code"><pre>
@@ -54,7 +63,7 @@ functions that will be presented in the following section. <p>
 Several temporal topology relations between registered maps of space
 time datasets are supported: <br>
 <div class="code"><pre>
-equals            A ------
+equal             A ------
                   B ------
 
 during            A  ----
@@ -87,12 +96,20 @@ overlapped        A   ------
 overlaps          A ------
                   B   ------
 
-over              booth overlaps and overlapped
+over              both overlaps and overlapped
 </pre></div>
 
-The relations must be read as: A is related to B, like - A equals B - A is
+The relations must be read as: A is related to B, like - A is equal to B - A is
 during B - A contains B <p>
 Topological relations must be specified in {} parentheses. <br>
+<p>
+The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b>
+also selects maps that start or finish together with the related map (the
+relations <b>starts</b> and <b>finishes</b>), and <b>contains</b> also selects
+maps with the relations <b>started</b> and <b>finished</b>. The relations
+<b>precedes</b> and <b>follows</b> only apply to maps that touch each other,
+that is the end of one map is the start of the other. Maps that are separated
+by a gap have no relation.
 
 <h3>TEMPORAL OPERATORS</h3>
 
@@ -153,15 +170,15 @@ comma and surrounded by curly braces:
 
 Examples:
 <div class="code"><pre>
-C = A {:, equals} B
-C = A {!:, equals} B
+C = A {:, equal} B
+C = A {!:, equal} B
 </pre></div>
 
 We can now define arbitrary topological relations using the OR operator "|"
 to connect them:
 
 <div class="code"><pre>
-C = A {:,equals|during|overlaps} B
+C = A {:,equal|during|overlaps} B
 </pre></div>
 
 Select all parts of A that are equal to B, during B or overlaps B. <br>
@@ -312,6 +329,9 @@ conditional statements with the hash (#) operator. <br>
 A{#, contains}B
 </pre></div>
 
+The hash operator can only be used in the condition of an if statement.
+<p>
+
 This expression computes the number of maps from space
 time dataset B which are during the time intervals of maps from
 space time dataset A.<br>
@@ -323,7 +343,7 @@ that contain maps from B will be returned.
 C = if({equal}, A {#, contains} B &gt; 2, A {:, contains} B)
 </pre></div>
 
-This expression selects all maps from A that temporally contains at least 2
+This expression selects all maps from A that temporally contains more than 2
 maps from B and stores them in space time dataset C. The leading equal statement
 in the if condition specifies the temporal relation between the if and then part
 of the if expression. This is very important, so we do not need to specify a
@@ -437,7 +457,7 @@ buffered space time dataset A with a map interval of three days, else
 select maps from C and store them in space time dataset D.
 
 <div class="code"><pre>
-D = if(contains, td(buff_t(A, "1 days")) == 3, B, C)
+D = if({contains}, td(buff_t(A, "1 days")) == 3, B, C)
 </pre></div>
 
 <h2>SEE ALSO</h2>

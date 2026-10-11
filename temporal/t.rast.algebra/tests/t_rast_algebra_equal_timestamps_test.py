@@ -14,19 +14,11 @@ def test_complex_operator_aggregates_all_equal_maps(algebra):
     assert algebra.values("E {+,equal,l} E") == [11, 12, 13, 14]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H1: simple + aggregates only the last of several maps with equal time",
-)
 def test_simple_operator_equals_complex_operator(algebra):
     """The manual: E + E is the same as E {+,equal,l} E"""
     assert algebra.values("E + E") == [11, 12, 13, 14]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H1: simple + aggregates only the last of several maps with equal time",
-)
 def test_single_map_with_simple_operator(algebra):
     """tmap(sinst) + E sums the single map with all four maps: 100 + 10"""
     assert algebra.values("tmap(sinst) + E") == [110]

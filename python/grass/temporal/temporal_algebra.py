@@ -439,12 +439,14 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from typing import Literal
-
 import copy
 import os
+from contextlib import contextmanager
+from operator import eq, ge, gt, le, lt, ne
+from typing import Literal
 
 import grass.pygrass.modules as pymod
+from grass.exceptions import FatalError
 
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
 from .abstract_map_dataset import AbstractMapDataset
@@ -584,11 +586,11 @@ class TemporalAlgebraLexer:
     )
 
     # Regular expression rules for simple tokens
-    t_T_SELECT_OPERATOR = r"\{[!]?[:][,]?[a-zA-Z\| ]*([,])?([lrudi]|left|right|union|disjoint|intersect)?\}"  # noqa: E501
-    t_T_HASH_OPERATOR = (
-        r"\{[#][,]?[a-zA-Z\| ]*([,])?([lrudi]|left|right|union|disjoint|intersect)?\}"  # noqa: E501
-    )
-    t_T_COMP_OPERATOR = r"\{(\|\||&&)[,][a-zA-Z\| ]*[,]?[\|&]?([,])?([lrudi]|left|right|union|disjoint|intersect)?\}"  # noqa: E501
+    # The temporal operator may follow the relations after a comma and blanks.
+    _OPERATOR_TAIL = r"([,][ ]*)?([lrudi]|left|right|union|disjoint|intersect)?\}"
+    t_T_SELECT_OPERATOR = r"\{[!]?[:][,]?[a-zA-Z\| ]*" + _OPERATOR_TAIL
+    t_T_HASH_OPERATOR = r"\{[#][,]?[a-zA-Z\| ]*" + _OPERATOR_TAIL
+    t_T_COMP_OPERATOR = r"\{(\|\||&&)[,][a-zA-Z\| ]*([,][ ]*[\|&])?" + _OPERATOR_TAIL
     t_T_REL_OPERATOR = r"\{([a-zA-Z\| ])+\}"
     t_T_SELECT = r":"
     t_T_NOT_SELECT = r"!:"
@@ -607,73 +609,59 @@ class TemporalAlgebraLexer:
     t_AND = r"[&]"
     t_QUOTE = r"[\"\']"
 
-    # These are the things that should be ignored.
-    t_ignore = " \t\n"
+    # Newlines are not ignored so that t_newline can count the lines.
+    t_ignore = " \t"
 
-    # Read time string and convert it into a date object
+    # Regular expression parts shared by the literals below. Hours end at 23
+    # and minutes and seconds at 59, since the literals are converted with
+    # string_to_datetime, which rejects hour 24 and the 60th minute or second.
+    _DATE_PATTERN = r"\d\d\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])"
+    _TIME_PATTERN = r"(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]"
+
+    # A date and a time of day, separated by a blank or a T
+    @lex.TOKEN(r'"' + _DATE_PATTERN + r"[ T]" + _TIME_PATTERN + r'"')
     def t_DATETIME(self, t):
-        r'"\d\d\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[ T](0[0-9]|1[0-9]|2[0-4]):(0[0-9]|[1-5][0-9]|60):(0[0-9]|[1-5][0-9]|60)"'  # noqa: E501
-        # t.value = int(t.value)
         return t
 
-    # Read date string and convert it into a date object
-
+    @lex.TOKEN(r'"' + _DATE_PATTERN + r'"')
     def t_DATE(self, t):
-        r'"\d\d\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])"'
-        # t.value = int(t.value)
         return t
 
-    # Read time string and convert it into a date object
+    @lex.TOKEN(r'"' + _TIME_PATTERN + r'"')
     def t_TIME(self, t):
-        r'"(0[0-9]|1[0-9]|2[0-4]):(0[0-9]|[1-5][0-9]|60):(0[0-9]|[1-5][0-9]|60)"'
-        # t.value = int(t.value)
         return t
 
-    # Read in a float.  This rule has to be done before the int rule.
+    # This rule has to be defined before the int rule.
     def t_FLOAT(self, t):
         r"-?\d+\.\d*(e-?\d+)?"
         t.value = float(t.value)
         return t
 
-    # Read in an int.
     def t_INT(self, t):
         r"-?\d+"
         t.value = int(t.value)
         return t
 
-    # Read in a list of maps.
-
-    def t_LIST(self, t):
-        r"[\[][.]*[\]]"
-        t.value = list(t.value)
-        return t
-
-    # Ignore comments.
-    #    def t_comment(self, t):
-    #        r'^[#][^\n]*'
-    #        pass
-
-    # Track line numbers.
     def t_newline(self, t) -> None:
         r"\n+"
-        t.lineno += len(t.value)
+        t.lexer.lineno += len(t.value)
 
     def t_NAME(self, t):
         r"[a-zA-Z_][a-zA-Z_0-9\@]*"
-        self.temporal_symbol(t)
-        return t
+        return self.temporal_symbol(t)
 
-    # Parse symbols
+    # Names of the class attributes with the reserved words (word to token type);
+    # the lexers of the other algebras extend it.
+    _reserved_tables = ("time_functions", "datetime_functions", "conditional_functions")
+
     def temporal_symbol(self, t):
-        # Check for reserved words
-        if t.value in TemporalAlgebraLexer.time_functions.keys():
-            t.type = TemporalAlgebraLexer.time_functions.get(t.value)
-        elif t.value in TemporalAlgebraLexer.datetime_functions.keys():
-            t.type = TemporalAlgebraLexer.datetime_functions.get(t.value)
-        elif t.value in TemporalAlgebraLexer.conditional_functions.keys():
-            t.type = TemporalAlgebraLexer.conditional_functions.get(t.value)
-        else:
-            t.type = "NAME"
+        """Set the token type of a name: a reserved word or NAME"""
+        for table in self._reserved_tables:
+            reserved = getattr(self, table)
+            if t.value in reserved:
+                t.type = reserved[t.value]
+                return t
+        t.type = "NAME"
         return t
 
     # Handle errors.
@@ -685,11 +673,14 @@ class TemporalAlgebraLexer:
 
     # Build the lexer
     def build(self, **kwargs) -> None:
+        """Build the PLY lexer of this class; kwargs go to ``lex.lex``."""
         self.lexer = lex.lex(module=self, debug=0, **kwargs)
 
-    # Just for testing
     def test(self, data) -> None:
-        self.name_list = {}
+        """Print the data and the tokens it is split into.
+
+        The doctests of this module show the tokens of expressions with it.
+        """
         print(data)
         self.lexer.input(data)
         while True:
@@ -718,6 +709,7 @@ class GlobalTemporalVar:
         self.td = None
 
     def get_type(self) -> Literal["global", "boolean", "operator", "timediff"] | None:
+        """Return which kind of expression this variable holds, None if empty."""
         if (
             self.tfunc is not None
             and self.compop is not None
@@ -732,6 +724,7 @@ class GlobalTemporalVar:
             return "timediff"
 
     def get_type_value(self):
+        """Return the values of this variable as a list, depending on its type."""
         typename = self.get_type()
         valuelist = []
         if typename == "global":
@@ -750,12 +743,27 @@ class GlobalTemporalVar:
         return str(self.tfunc) + str(self.compop) + str(self.value)
 
 
-class FatalError(Exception):
-    def __init__(self, msg) -> None:
-        self.value = msg
+# LR tables per parser class, see TemporalAlgebraParser._build_parser
+_PARSER_TEMPLATES: dict = {}
 
-    def __str__(self) -> str:
-        return self.value
+_COMPARISONS = {"<": lt, ">": gt, "==": eq, "<=": le, ">=": ge, "!=": ne}
+
+# The fields of a time stamp which the temporal functions of the algebra
+# (start_doy(), end_date(), ...) return. The week is the ISO week.
+_TIME_FIELDS = {
+    "DOY": lambda timestamp: timestamp.timetuple().tm_yday,
+    "DOW": lambda timestamp: timestamp.isoweekday(),
+    "YEAR": lambda timestamp: timestamp.year,
+    "MONTH": lambda timestamp: timestamp.month,
+    "WEEK": lambda timestamp: timestamp.isocalendar()[1],
+    "DAY": lambda timestamp: timestamp.day,
+    "HOUR": lambda timestamp: timestamp.hour,
+    "MINUTE": lambda timestamp: timestamp.minute,
+    "SECOND": lambda timestamp: timestamp.second,
+    "DATE": lambda timestamp: timestamp.date(),
+    "DATETIME": lambda timestamp: timestamp,
+    "TIME": lambda timestamp: timestamp.time(),
+}
 
 
 class TemporalAlgebraParser:
@@ -777,6 +785,54 @@ class TemporalAlgebraParser:
         ("left", "AND", "OR", "T_COMP_OPERATOR"),  # 2
     )
 
+    # PLY takes the rule with the lowest line number as start symbol if none is
+    # given. The line numbers of inherited rules come from several files, so
+    # the subclasses would depend on where their own rules stand.
+    start = "statement"
+
+    temporal_topology_list = [
+        "EQUAL",
+        "FOLLOWS",
+        "PRECEDES",
+        "OVERLAPS",
+        "OVERLAPPED",
+        "DURING",
+        "STARTS",
+        "FINISHES",
+        "CONTAINS",
+        "STARTED",
+        "FINISHED",
+    ]
+    spatial_topology_list = [
+        "EQUIVALENT",
+        "COVER",
+        "COVERED",
+        "OVERLAP",
+        "IN",
+        "CONTAIN",
+        "MEET",
+    ]
+
+    # Map type of AbstractMapDataset.get_type() as g.remove and g.copy write it
+    _G_MODULE_TYPES = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}
+
+    # Dimensions of the spatial topology per type of space time dataset
+    _SPATIAL_DIMENSIONS = {"strds": "2D", "stvds": "2D", "str3ds": "3D"}
+
+    # Maps the operator letters of the algebra to the methods of a map that
+    # compute the spatial and the temporal extent of two related maps
+    _SPATIAL_OVERLAY = {
+        "and": "spatial_intersection",
+        "or": "spatial_union",
+        "xor": "spatial_union",
+        "disor": "spatial_disjoint_union",
+    }
+    _TEMPORAL_OVERLAY = {
+        "i": "temporal_intersection",
+        "u": "temporal_union",
+        "d": "temporal_disjoint_union",
+    }
+
     def __init__(
         self,
         pid: int | None = None,
@@ -791,21 +847,17 @@ class TemporalAlgebraParser:
         self.run = run
         # Compute the processes and output but Do not start the processes
         self.dry_run = dry_run
-        # This dictionary stores all processes, as well as the maps to register and
-        # remove
-        self.process_chain_dict = {}
-        # The mapcalc and v.patch module calls
-        self.process_chain_dict["processes"] = []
-        # Maps that must be registered/updated or inserted in a new STDS
-        self.process_chain_dict["register"] = []
-        self.process_chain_dict["remove"] = []  # The g.remove module calls
-        self.process_chain_dict["STDS"] = {}  # The STDS that must be created
-
+        # All processes, the maps to register and remove and the STDS to create
+        self.process_chain_dict = {
+            "processes": [],  # The mapcalc and v.patch module calls
+            "register": [],  # Maps to register, update or insert in a new STDS
+            "remove": [],  # The g.remove module calls
+            "STDS": {},  # The STDS that must be created
+        }
         self.debug = debug
         self.pid = pid
-        # Intermediate vector map names
+        # Intermediate map names
         self.names = {}
-        # Count map names
         self.spatial = spatial
         self.mapset = get_current_mapset()
         self.temporaltype = None
@@ -814,34 +866,24 @@ class TemporalAlgebraParser:
         self.dbif.connect()
         self.register_null = register_null
         self.removable_maps = {}
-        self.m_mremove = pymod.Module("g.remove")
-        self.m_copy = pymod.Module("g.copy")
+        self.m_mremove = self._new_module("g.remove")
+        self.m_copy = self._new_module("g.copy")
         self.nprocs = nprocs
         self.use_granularity = False
+        self.granularity = None
         self.time_suffix = time_suffix
-
-        # Topology lists
-        self.temporal_topology_list = [
-            "EQUAL",
-            "FOLLOWS",
-            "PRECEDES",
-            "OVERLAPS",
-            "OVERLAPPED",
-            "DURING",
-            "STARTS",
-            "FINISHES",
-            "CONTAINS",
-            "STARTED",
-            "FINISHED",
-        ]
-        self.spatial_topology_list = [
-            "EQUIVALENT",
-            "COVER",
-            "OVERLAP",
-            "IN",
-            "CONTAIN",
-            "MEET",
-        ]
+        self._reported_errors = []
+        # Set by parse(), listed here so that the helper methods also work on
+        # a parser which was never asked to parse
+        self.lexer = None
+        self.parser = None
+        self.count = 0
+        self.stdstype = "strds"
+        self.maptype = "rast"
+        self.mapclass = RasterDataset
+        self.basename = None
+        self.overwrite = False
+        self.expression = ""
 
     def __del__(self) -> None:
         if self.dbif.connected:
@@ -869,10 +911,7 @@ class TemporalAlgebraParser:
 
         :return: True if successful, False otherwise
         """
-        lx = lexer
-        # Split the expression to ignore the left part
-        expressions = expression.split("=")[1:]
-        expression = " ".join(expressions)
+        expression = " ".join(expression.split("=")[1:])
 
         # Check if spatio-temporal operators are present in the expression
         if "{" in expression or "}" in expression:
@@ -884,38 +923,11 @@ class TemporalAlgebraParser:
             )
             return False
 
-        # detect all STDS
-        if lx is None:
-            lx = TemporalAlgebraLexer()
-        lx.build()
-        lx.lexer.input(expression)
-
-        name_list = []
-        tokens = []
-
-        count = 0
-        while True:
-            tok = lx.lexer.token()
-            if not tok:
-                break
-
-            # Ignore map layer
-            tokens.append(tok.type)
-            ignore = False
-            if count > 1:
-                if tokens[count - 2] == "MAP" or tokens[count - 2] == "TMAP":
-                    ignore = True
-
-            if tok.type == "NAME" and ignore is False:
-                name_list.append(tok.value)
-            count += 1
-
-        grans = []
+        dbif, _connection_state_changed = init_dbif(self.dbif)
+        granularities = []
         start_times = []
-        ttypes = {}
-        dbif, connection_state_changed = init_dbif(self.dbif)
-
-        for name in name_list:
+        temporal_types = set()
+        for name in self._stds_names_in(expression, lexer):
             stds = open_old_stds(name, stdstype, dbif)
             # We need valid temporal topology
             if stds.check_temporal_topology() is False:
@@ -927,28 +939,48 @@ class TemporalAlgebraParser:
                 )
                 return False
 
-            grans.append(stds.get_granularity())
+            granularities.append(stds.get_granularity())
             start_times.append(stds.get_temporal_extent_as_tuple()[0])
-            ttypes[stds.get_temporal_type()] = stds.get_temporal_type()
+            temporal_types.add(stds.get_temporal_type())
 
         # Only one temporal type is allowed
-        if len(ttypes) > 1:
+        if len(temporal_types) > 1:
             self.msgr.error(
                 _("All input space time datasets must have the same temporal type.")
             )
             return False
 
-        # Compute the common granularity
-        if "absolute" in ttypes.keys():
+        if "absolute" in temporal_types:
             self.granularity = compute_common_absolute_time_granularity(
-                grans, start_times
+                granularities, start_times
             )
         else:
-            self.granularity = compute_common_relative_time_granularity(grans)
+            self.granularity = compute_common_relative_time_granularity(granularities)
 
         self.use_granularity = True
 
         return True
+
+    @staticmethod
+    def _stds_names_in(expression, lexer=None):
+        """Return the names of the space time datasets used in the expression.
+
+        The argument of ``map()`` and ``tmap()`` is a single map, not a dataset.
+
+        :param lexer: The lexer used to split the expression, default is
+                      TemporalAlgebraLexer
+        """
+        lexer = TemporalAlgebraLexer() if lexer is None else lexer
+        lexer.build()
+        lexer.lexer.input(expression)
+        names = []
+        # The types of the preceding two tokens
+        previous = [None, None]
+        for token in iter(lexer.lexer.token, None):
+            if token.type == "NAME" and previous[0] not in {"MAP", "TMAP"}:
+                names.append(token.value)
+            previous = [previous[1], token.type]
+        return names
 
     def parse(
         self,
@@ -967,11 +999,49 @@ class TemporalAlgebraParser:
         :param mapclass:
         :param basename:
         :param overwrite:
-        :return: The process chain dictionary is dry-run was enabled, None otherwise
+        :return: The process chain dictionary: the processes, the maps to register
+            and remove and the space time dataset to create. With ``dry_run`` it is
+            filled but nothing is run.
         """
-        self.lexer = TemporalAlgebraLexer()
+        return self._parse(
+            TemporalAlgebraLexer(),
+            expression,
+            stdstype,
+            maptype,
+            mapclass,
+            basename,
+            overwrite,
+        )
+
+    @staticmethod
+    def _reject_dataset_type_tokens(lexer, expression) -> None:
+        """Refuse strds(), str3ds() and stvds(), which select the dataset type in
+        the temporal algebra of the base class; the other algebras fix it.
+
+        :param lexer: The not yet built lexer object of the algebra
+        :raises SyntaxError: if the expression contains one of them
+        """
+        lexer.build()
+        lexer.lexer.input(expression)
+        for token in iter(lexer.lexer.token, None):
+            if token.type in {"STVDS", "STRDS", "STR3DS"}:
+                msg = f"Syntax error near '{token.type}'"
+                raise SyntaxError(msg)
+
+    def _parse(
+        self, lexer, expression, stdstype, maptype, mapclass, basename, overwrite
+    ):
+        """Set up the lexer, the parser and the state of the run, then parse.
+
+        Shared by the ``parse`` methods of all algebras, which differ in the
+        lexer and in the type of the datasets and maps they handle.
+
+        :param lexer: The not yet built lexer object of the algebra
+        :return: The process chain dictionary
+        """
+        self.lexer = lexer
         self.lexer.build()
-        self.parser = yacc.yacc(module=self, debug=self.debug)
+        self.parser = self._build_parser()
 
         self.overwrite = overwrite
         self.count = 0
@@ -980,9 +1050,65 @@ class TemporalAlgebraParser:
         self.mapclass = mapclass
         self.basename = basename
         self.expression = expression
-        self.parser.parse(expression)
+        self._run_parser(expression)
 
         return self.process_chain_dict
+
+    @staticmethod
+    def _new_module(name, **kwargs):
+        """Return the module, prepared but not run: callers copy it, set the
+        parameters and run it themselves or put it into a process queue."""
+        return pymod.Module(name, run_=False, **kwargs)
+
+    def _build_parser(self):
+        """Return an LR parser for the grammar of this class bound to this instance.
+
+        Building the LALR tables takes about 0.75 s (measured 2026-10-11 with
+        cProfile on t.rast.algebra), so they are built once per class and
+        shared. Only the rule callables and the error function are bound anew,
+        because they are methods of the instance.
+        """
+        template = _PARSER_TEMPLATES.get(type(self))
+        if template is None:
+            template = yacc.yacc(module=self, debug=False)
+            # The rule callables are bound methods of this instance. The cached
+            # template must not keep the instance (and its database connection)
+            # alive, so only the tables stay in it.
+            for prod in template.productions:
+                prod.callable = None
+            template.errorfunc = None
+            _PARSER_TEMPLATES[type(self)] = template
+        parser = copy.copy(template)
+        parser.productions = [copy.copy(prod) for prod in template.productions]
+        for prod in parser.productions:
+            if prod.func:
+                prod.callable = getattr(self, prod.func)
+        parser.errorfunc = self.p_error
+        return parser
+
+    def _report_error(self, message: str) -> None:
+        """Record a syntax error found in a grammar rule.
+
+        PLY swallows a SyntaxError raised inside a ``p_*`` rule, so rules
+        report instead; ``_run_parser`` raises the first report afterwards.
+        """
+        self._reported_errors.append(message)
+
+    def _run_parser(self, expression: str) -> None:
+        """Parse the expression with ``self.parser`` and ``self.lexer``.
+
+        :raises SyntaxError: for the first error reported by a grammar rule
+            (see ``_report_error``), also if a later rule failed on the
+            result of the faulty one
+        """
+        self._reported_errors = []
+        try:
+            self.parser.parse(expression, lexer=self.lexer.lexer)
+        except Exception:
+            if not self._reported_errors:
+                raise
+        if self._reported_errors:
+            raise SyntaxError(self._reported_errors[0])
 
     def generate_map_name(self):
         """Generate an unique  map name and register it in the objects map list
@@ -1050,66 +1176,57 @@ class TemporalAlgebraParser:
                copied to mapA
         :return: 0 if there is no overlay
         """
-        returncode = 1
         if copy:
-            map_extent_temporal = mapB.get_temporal_extent()
-            map_extent_spatial = mapB.get_spatial_extent()
-            # Set initial map extend of new vector map.
-            mapA.set_spatial_extent(map_extent_spatial)
-            mapA.set_temporal_extent(map_extent_temporal)
-            if "cmd_list" in dir(mapB):
-                mapA.cmd_list = mapB.cmd_list
-            if "condition_value" in dir(mapB):
-                mapA.condition_value = mapB.condition_value
+            mapA.set_spatial_extent(mapB.get_spatial_extent())
+            mapA.set_temporal_extent(mapB.get_temporal_extent())
+            for attribute in ("cmd_list", "condition_value"):
+                if hasattr(mapB, attribute):
+                    setattr(mapA, attribute, getattr(mapB, attribute))
+            return 1
+        spatial_overlay = self._overlay_spatial_extent(mapA, mapB, bool_op)
+        temporal_overlay = self._overlay_temporal_extent(mapA, mapB, temp_op)
+        return 1 if spatial_overlay and temporal_overlay else 0
+
+    def _overlay_spatial_extent(self, mapA, mapB, bool_op) -> bool:
+        """Set the spatial extent of mapA to the result of the boolean operator.
+
+        :return: False if the extents of both maps do not combine
+        """
+        method = self._SPATIAL_OVERLAY.get(bool_op)
+        if method is None:
+            return True
+        extent = getattr(mapA, method)(mapB)
+        if extent is None:
+            return False
+        mapA.set_spatial_extent(extent)
+        return True
+
+    def _overlay_temporal_extent(self, mapA, mapB, temp_op) -> bool:
+        """Set the temporal extent of mapA according to the temporal operator.
+
+        The left reference (``l``) keeps the extent of mapA.
+
+        :return: False if the extents of both maps do not combine
+        """
+        if temp_op == "r":
+            extent = mapB.get_temporal_extent()
+        elif temp_op in self._TEMPORAL_OVERLAY:
+            extent = getattr(mapA, self._TEMPORAL_OVERLAY[temp_op])(mapB)
         else:
-            # Calculate spatial extent for different overlay operations.
-            if bool_op == "and":
-                overlay_ext = mapA.spatial_intersection(mapB)
-                if overlay_ext is not None:
-                    mapA.set_spatial_extent(overlay_ext)
-                else:
-                    returncode = 0
-            elif bool_op in {"or", "xor"}:
-                overlay_ext = mapA.spatial_union(mapB)
-                if overlay_ext is not None:
-                    mapA.set_spatial_extent(overlay_ext)
-                else:
-                    returncode = 0
-            elif bool_op == "disor":
-                overlay_ext = mapA.spatial_disjoint_union(mapB)
-                if overlay_ext is not None:
-                    mapA.set_spatial_extent(overlay_ext)
-                else:
-                    returncode = 0
+            return True
+        if extent is None:
+            return False
+        mapA.set_temporal_extent(extent)
+        return True
 
-            # Calculate temporal extent for different temporal operators.
-            if temp_op == "i":
-                temp_ext = mapA.temporal_intersection(mapB)
-                if temp_ext is not None:
-                    mapA.set_temporal_extent(temp_ext)
-                else:
-                    returncode = 0
-            elif temp_op == "u":
-                temp_ext = mapA.temporal_union(mapB)
-                if temp_ext is not None:
-                    mapA.set_temporal_extent(temp_ext)
-                else:
-                    returncode = 0
-            elif temp_op == "d":
-                temp_ext = mapA.temporal_disjoint_union(mapB)
-                if temp_ext is not None:
-                    mapA.set_temporal_extent(temp_ext)
-                else:
-                    returncode = 0
-            elif temp_op == "r":
-                temp_ext = mapB.get_temporal_extent()
-                if temp_ext is not None:
-                    mapA.set_temporal_extent(temp_ext)
-                else:
-                    returncode = 0
-        return returncode
-
-    def set_temporal_extent_list(self, maplist, topolist=["EQUAL"], temporal="l"):
+    def set_temporal_extent_list(
+        self,
+        maplist,
+        topolist=("EQUAL",),
+        temporal="l",
+        bool_op="and",
+        combine=None,
+    ):
         """Change temporal extent of map list based on temporal relations to
             other map list and given temporal operator.
 
@@ -1119,83 +1236,76 @@ class TemporalAlgebraParser:
         :param temporal: The temporal operator specifying the temporal
                                         extent operation (intersection, union, disjoint
                                         union, right reference, left reference).
+        :param bool_op: The spatial extent operation: "and" intersects the
+            extents, anything else takes the extent covering both maps. Only
+            the intersection can be empty, so only "and" drops maps.
+        :param combine: Optional ``combine(map_new, map_i, map_j)``, called after
+            the extent of map_j was combined into the result map map_new of
+            map_i. Subclasses use it to attach the commands of the operation.
 
         :return: Map list with specified temporal extent.
         """
-        resultdict = {}
+        topolist = ("EQUAL",) if topolist is None else topolist
         temporal_topo_list, spatial_topo_list = self._check_topology(topolist=topolist)
+        resultdict = {}
 
         for map_i in maplist:
-            # Loop over temporal related maps and create overlay modules.
-            tbrelations = map_i.get_temporal_relations()
             # Generate an intermediate map for the result map list.
-            map_new = self.generate_new_map(
-                base_map=map_i, bool_op="and", copy=True, rename=True
-            )
-            # Combine temporal and spatial extents of intermediate map with related
-            # maps.
-            for topo in topolist:
-                if topo in tbrelations.keys():
-                    for map_j in tbrelations[topo]:
-                        if (
-                            self._check_spatial_topology_relation(
-                                spatial_topo_list, map_i, map_j
-                            )
-                            is True
-                        ):
-                            if temporal == "r":
-                                # Generate an intermediate map for the result map list.
-                                map_new = self.generate_new_map(
-                                    base_map=map_i,
-                                    bool_op="and",
-                                    copy=True,
-                                    rename=True,
-                                )
-                            # Create overlaid map extent.
-                            returncode = self.overlay_map_extent(
-                                map_new, map_j, "and", temp_op=temporal
-                            )
-                            if self.debug:
-                                print(map_new.get_id(), map_j.get_id())
-                            # Stop the loop if no temporal or spatial relationship
-                            # exist.
-                            if returncode == 0:
-                                break
-                            # Append map to result map list.
-                            if returncode == 1:
-                                # resultlist.append(map_new)
-                                resultdict[map_new.get_id()] = map_new
+            map_new = self._new_result_map(map_i)
+            # Combine temporal and spatial extents of the intermediate map with
+            # the related maps, until one of them does not combine.
+            for map_j in self._related_maps(
+                map_i, temporal_topo_list, spatial_topo_list
+            ):
+                if temporal == "r":
+                    # Every related map gets its own result map.
+                    map_new = self._new_result_map(map_i)
+                if not self.overlay_map_extent(
+                    map_new, map_j, bool_op, temp_op=temporal
+                ):
+                    # No overlap: the result would be empty.
+                    break
+                if combine is not None:
+                    combine(map_new, map_i, map_j)
+                resultdict[map_new.get_id()] = map_new
+        return sorted(resultdict.values(), key=AbstractDatasetComparisonKeyStartTime)
 
-                            # Create r.mapcalc expression string for the operation.
-                            # cmdstring = self.build_command_string(
-                            # s_expr_a = map_new, s_expr_b = map_j, operator = function)
-                            # Conditional append of module command.
-                            # map_new.cmd_list = cmdstring
-                    if returncode == 0:
-                        break
-            # Append map to result map list.
-            # if returncode == 1:
-            #    resultlist.append(map_new)
-        # Get sorted map objects as values from result dictionary.
-        resultlist = resultdict.values()
-        return sorted(resultlist, key=AbstractDatasetComparisonKeyStartTime)
+    def _new_result_map(self, map_i):
+        """Create the result map of an overlay for map_i: a copy of its extent.
+
+        Hook: the vector algebra keeps the id of map_i instead (see there).
+        """
+        return self.generate_new_map(
+            base_map=map_i, bool_op="and", copy=True, rename=True
+        )
+
+    def _related_maps(self, map_i, temporal_topo_list, spatial_topo_list):
+        """Yield the maps which have one of the temporal relations to map_i.
+
+        If spatial relations are given, a related map must also have one of
+        them to map_i. The topology of the maps must have been built before.
+        """
+        temporal_relations = map_i.get_temporal_relations()
+        for topology in temporal_topo_list:
+            for map_j in temporal_relations.get(topology.upper(), ()):
+                if self._check_spatial_topology_relation(
+                    spatial_topo_list, map_i, map_j
+                ):
+                    yield map_j
 
     def remove_maps(self) -> None:
         """Removes empty or intermediate maps of different type."""
 
-        map_names = {}
-        map_names["raster"] = []
-        map_names["raster3d"] = []
-        map_names["vector"] = []
+        map_names = {"raster": [], "raster3d": [], "vector": []}
+        for map_i in self.removable_maps.values():
+            map_names[map_i.get_type()].append(map_i.get_name())
 
-        if self.removable_maps:
-            for map in self.removable_maps.values():
-                map_names[map.get_type()].append(map.get_name())
-
-        for key, value in map_names.items():
-            if value:
-                self.msgr.message(_("Removing un-needed or empty %s maps") % (key))
-                self._remove_maps(value, key)
+        for map_type, names in map_names.items():
+            if names:
+                self.msgr.message(
+                    _("Removing un-needed or empty {type} maps").format(type=map_type)
+                )
+                self._remove_maps(names, self._G_MODULE_TYPES[map_type])
 
     def _remove_maps(self, namelist, map_type) -> None:
         """Remove maps of specific type
@@ -1203,21 +1313,20 @@ class TemporalAlgebraParser:
         :param namelist: List of map names to be removed
         :param map_type: The type of the maps  (raster, raster_3d or vector)
         """
-        max = 100
-        chunklist = [namelist[i : i + max] for i in range(0, len(namelist), max)]
+        chunk_size = 100
+        chunklist = [
+            namelist[i : i + chunk_size] for i in range(0, len(namelist), chunk_size)
+        ]
         for chunk in chunklist:
-            stringlist = ",".join(chunk)
-
             if self.run:
-                m = copy.deepcopy(self.m_mremove)
-                m.inputs["type"].value = map_type
-                m.inputs["name"].value = stringlist
-                m.flags["f"].value = True
-                # print(m.get_bash())
-                self.process_chain_dict["remove"].append(m.get_dict())
+                module = copy.deepcopy(self.m_mremove)
+                module.inputs["type"].value = map_type
+                module.inputs["name"].value = ",".join(chunk)
+                module.flags["f"].value = True
+                self.process_chain_dict["remove"].append(module.get_dict())
 
                 if self.dry_run is False:
-                    m.run()
+                    module.run()
 
     def check_stds(
         self, input, clear: bool = False, stds_type=None, check_type: bool = True
@@ -1226,113 +1335,92 @@ class TemporalAlgebraParser:
 
         :param input: Name of space time data set as string or list of maps.
         :param clear: Reset the stored conditional values to empty list.
-        :param check_type: Check the type of the space time dataset to match the global
-                           stds type
+        :param check_type: Ignored, only kept for compatibility. The type of the
+                           space time dataset is not checked here.
         :param stds_type: The type of the space time dataset to be opened, if not
                           provided then self.stdstype will be used
 
         :return: List of maps.
         """
         if isinstance(input, str):
-            # Check for mapset in given stds input.
-            id_input = input if input.find("@") >= 0 else input + "@" + self.mapset
-            # Create empty spacetime dataset.
-            if stds_type:
-                stds = dataset_factory(stds_type, id_input)
-            else:
-                stds = dataset_factory(self.stdstype, id_input)
-            # Check for occurrence of space time dataset.
-            if stds.is_in_db(dbif=self.dbif) is False:
-                raise FatalError(
-                    _("Space time %s dataset <%s> not found")
-                    % (stds.get_new_map_instance(None).get_type(), id_input)
-                )
-            # Select temporal dataset entry from database.
-            stds.select(dbif=self.dbif)
-            if self.use_granularity:
-                # We create the maplist out of the map array from none-gap objects
-                maplist = []
-                map_array = stds.get_registered_maps_as_objects_by_granularity(
-                    gran=self.granularity, dbif=self.dbif
-                )
-                for entry in map_array:
-                    # Ignore gap objects
-                    if entry[0].get_id() is not None:
-                        maplist.append(entry[0])
-            else:
-                maplist = stds.get_registered_maps_as_objects(dbif=self.dbif)
-            # Create map_value as empty list item.
-            for map_i in maplist:
-                if "map_value" not in dir(map_i):
-                    map_i.map_value = []
-                if "condition_value" not in dir(map_i):
-                    map_i.condition_value = []
-                # Set and check global temporal type variable and map.
-                if map_i.is_time_absolute() and self.temporaltype is None:
-                    self.temporaltype = "absolute"
-                elif map_i.is_time_relative() and self.temporaltype is None:
-                    self.temporaltype = "relative"
-                elif (map_i.is_time_absolute() and self.temporaltype == "relative") or (
-                    map_i.is_time_relative() and self.temporaltype == "absolute"
-                ):
-                    self.msgr.fatal(
-                        _(
-                            "Wrong temporal type of space time dataset "
-                            "<%s> <%s> time is required"
-                        )
-                        % (id_input, self.temporaltype)
-                    )
+            maplist = self._maplist_of_stds(input, stds_type)
         elif isinstance(input, self.mapclass):
-            # Check if the input is a single map and return it as list with one entry.
+            # A single map is returned as list with one entry.
             maplist = [input]
-
         elif isinstance(input, list):
             maplist = input
-            # Create map_value as empty list item.
             for map_i in maplist:
-                if ("map_value" not in dir(map_i)) or clear:
-                    map_i.map_value = []
-                if ("condition_value" not in dir(map_i)) or clear:
-                    map_i.condition_value = []
+                self._init_map_values(map_i, clear)
+        elif self._reported_errors:
+            # A faulty rule left None as its value. Its own message is the
+            # cause; complaining about the type here would hide it.
+            raise SyntaxError(self._reported_errors[0])
         else:
             self.msgr.fatal(_("Wrong type of input {input}").format(input=input))
 
         # We generate a unique map id that will be used
         # in the topology analysis, since the maplist can
         # contain maps with equal map ids
-        for map in maplist:
-            map.uid = self.generate_map_name()
+        for map_i in maplist:
+            map_i.uid = self.generate_map_name()
             if self.debug:
-                print(map.get_name(), map.uid, map.get_temporal_extent_as_tuple())
+                print(map_i.get_name(), map_i.uid, map_i.get_temporal_extent_as_tuple())
 
         return maplist
 
-    def _check_spatial_topology_entries(self, spatial_topo_list, spatial_relations):
-        """Check the spatial topology entries in the spatial relation list
+    def _maplist_of_stds(self, name, stds_type=None):
+        """Return the registered maps of the space time dataset with this name.
 
-        Return True if no spatial relation list is provided or if one spatial relation
-        was found
-
-        :param spatial_topo_list: The spatial relations that were defined in the
-                                  expression
-        :param spatial_relations: The spatial relations of a single map object
-
-        :return: True if a spatial  topological relation was found, False if not
+        :param stds_type: The type of the dataset, default is self.stdstype
+        :raises FatalError: if the dataset does not exist
         """
-
-        # Check spatial topology
-        spatial_topo_check = False
-        if len(spatial_topo_list) == 0:
-            spatial_topo_check = True
+        # Check for mapset in given stds input.
+        id_input = name if "@" in name else f"{name}@{self.mapset}"
+        stds = dataset_factory(stds_type or self.stdstype, id_input)
+        if stds.is_in_db(dbif=self.dbif) is False:
+            raise FatalError(
+                _("Space time {type} dataset <{id}> not found").format(
+                    type=stds.get_new_map_instance(None).get_type(), id=id_input
+                )
+            )
+        stds.select(dbif=self.dbif)
+        if self.use_granularity:
+            # We create the maplist out of the map array from none-gap objects
+            granules = stds.get_registered_maps_as_objects_by_granularity(
+                gran=self.granularity, dbif=self.dbif
+            )
+            maplist = [entry[0] for entry in granules if entry[0].get_id() is not None]
         else:
-            for spatial_topology in spatial_topo_list:
-                if spatial_topology in spatial_relations.keys():
-                    spatial_topo_check = True
+            maplist = stds.get_registered_maps_as_objects(dbif=self.dbif)
+        for map_i in maplist:
+            self._init_map_values(map_i)
+            self._check_temporal_type(map_i, id_input)
+        return maplist
 
-        if self.debug:
-            print("Spatial topology list", spatial_topo_list, spatial_topo_check)
+    @staticmethod
+    def _init_map_values(map_i, clear: bool = False) -> None:
+        """Give the map empty lists for the values the algebra attaches to it"""
+        for attribute in ("map_value", "condition_value"):
+            if clear or not hasattr(map_i, attribute):
+                setattr(map_i, attribute, [])
 
-        return spatial_topo_check
+    def _check_temporal_type(self, map_i, id_input) -> None:
+        """Set the temporal type of the expression or check the map against it"""
+        if map_i.is_time_absolute():
+            map_type = "absolute"
+        elif map_i.is_time_relative():
+            map_type = "relative"
+        else:
+            return
+        if self.temporaltype is None:
+            self.temporaltype = map_type
+        elif self.temporaltype != map_type:
+            self.msgr.fatal(
+                _(
+                    "Wrong temporal type of space time dataset "
+                    "<{stds}> <{type}> time is required"
+                ).format(stds=id_input, type=self.temporaltype)
+            )
 
     def _check_spatial_topology_relation(self, spatial_topo_list, map_a, map_b):
         """Check if map_b has one of the spatial topological relations to map_a that is
@@ -1343,23 +1431,14 @@ class TemporalAlgebraParser:
         :param map_b:
         :return:
         """
-
-        # Check spatial topology
-        spatial_topo_check = False
-        if len(spatial_topo_list) == 0:
-            spatial_topo_check = True
-        else:
-            map_a_sr = map_a.get_spatial_relations()
-
-            for spatial_topology in spatial_topo_list:
-                if spatial_topology in map_a_sr.keys():
-                    if map_b in map_a_sr[spatial_topology]:
-                        spatial_topo_check = True
-
-        if self.debug:
-            print("Spatial topology list", spatial_topo_list, spatial_topo_check)
-
-        return spatial_topo_check
+        if not spatial_topo_list:
+            return True
+        spatial_relations = map_a.get_spatial_relations()
+        return any(
+            map_b in spatial_relations[topology]
+            for topology in spatial_topo_list
+            if topology in spatial_relations
+        )
 
     def _check_topology(self, topolist):
         """Check the topology definitions of the expression
@@ -1374,21 +1453,15 @@ class TemporalAlgebraParser:
         """
         temporal_topo_list = []
         spatial_topo_list = []
-        # Check if given temporal relation are valid.
         for topo in topolist:
-            if (
-                topo.upper() not in self.temporal_topology_list
-                and topo.upper() not in self.spatial_topology_list
-            ):
-                raise SyntaxError(
-                    "Unpermitted topological relation name '" + topo + "'"
-                )
-
-            if topo.upper() in self.spatial_topology_list:
-                spatial_topo_list.append(topo.upper())
-
-            if topo.upper() in self.temporal_topology_list:
-                temporal_topo_list.append(topo.upper())
+            name = topo.upper()
+            if name in self.temporal_topology_list:
+                temporal_topo_list.append(name)
+            elif name in self.spatial_topology_list:
+                spatial_topo_list.append(name)
+            else:
+                msg = f"Unpermitted topological relation name '{topo}'"
+                raise SyntaxError(msg)
 
         return temporal_topo_list, spatial_topo_list
 
@@ -1396,12 +1469,15 @@ class TemporalAlgebraParser:
         self,
         maplistA,
         maplistB=None,
-        topolist=["EQUAL"],
+        topolist=("EQUAL",),
         assign_val: bool = False,
         count_map: bool = False,
         compare_bool: bool = False,
+        compare_cmd: bool = False,
         compop=None,
         aggregate=None,
+        convert: bool = False,
+        operator_cmd: bool = False,
     ):
         """Build spatio-temporal topology for two space time data sets, copy map objects
         for given relation into map list.
@@ -1416,8 +1492,15 @@ class TemporalAlgebraParser:
                           should be returned.
         :param compare_bool: Boolean for comparing boolean map values based on
                              related map list and comparison operator.
-        :param compop: Comparison operator, && or ||.
+        :param compare_cmd: Boolean for comparing command list values (hook
+                    ``compare_cmd_value``, implemented by the raster algebra).
+        :param compop: Comparison operator, && or ||; with ``operator_cmd`` the
+                    operator of the algebra.
         :param aggregate: Aggregation operator for relation map list, & or \\|.
+        :param convert: Boolean if conditional values should be converted to
+                    command strings (``compare_cmd``).
+        :param operator_cmd: Boolean for aggregating the commands of the related
+                    maps with the operator ``compop`` (hook ``operator_cmd_value``).
 
         :return: List of maps from maplistA that fulfil the topological relationships
                  to maplistB specified in topolist.
@@ -1571,20 +1654,15 @@ class TemporalAlgebraParser:
         """
         # Check the topology definitions and return the list of temporal and spatial
         # topological relations that must be fulfilled
+        topolist = ("EQUAL",) if topolist is None else topolist
         temporal_topo_list, spatial_topo_list = self._check_topology(topolist=topolist)
+        if self.spatial and not spatial_topo_list:
+            # Select only spatially related maps, whatever the relation is
+            spatial_topo_list = list(self.spatial_topology_list)
+
+        self._build_topology(maplistA, maplistB, bool(spatial_topo_list))
 
         resultdict = {}
-
-        # Create spatio-temporal topology for maplistA to maplistB.
-        tb = SpatioTemporalTopologyBuilder()
-        if len(spatial_topo_list) > 0:
-            # Dictionary with different spatial variables used for topology builder.
-            spatialdict = {"strds": "2D", "stvds": "2D", "str3ds": "3D"}
-            tb.build(maplistA, maplistB, spatial=spatialdict[self.stdstype])
-        else:
-            tb.build(maplistA, maplistB)
-        # Iterate through maps in maplistA and search for relationships given
-        # in topolist.
         for map_i in maplistA:
             if assign_val:
                 self.assign_bool_value(map_i, temporal_topo_list, spatial_topo_list)
@@ -1592,37 +1670,47 @@ class TemporalAlgebraParser:
                 self.compare_bool_value(
                     map_i, compop, aggregate, temporal_topo_list, spatial_topo_list
                 )
+            elif compare_cmd:
+                self.compare_cmd_value(
+                    map_i,
+                    compop,
+                    aggregate,
+                    temporal_topo_list,
+                    spatial_topo_list,
+                    convert,
+                )
+            elif operator_cmd:
+                self.operator_cmd_value(
+                    map_i, compop, temporal_topo_list, spatial_topo_list
+                )
 
-            temporal_relations = map_i.get_temporal_relations()
-            spatial_relations = map_i.get_spatial_relations()
-
-            for temporal_topology in temporal_topo_list:
-                if temporal_topology.upper() in temporal_relations.keys():
-                    if (
-                        self._check_spatial_topology_entries(
-                            spatial_topo_list, spatial_relations
-                        )
-                        is True
-                    ):
-                        if count_map:
-                            relationmaplist = temporal_relations[
-                                temporal_topology.upper()
-                            ]
-                            gvar = GlobalTemporalVar()
-                            gvar.td = len(relationmaplist)
-                            if "map_value" in dir(map_i):
-                                map_i.map_value.append(gvar)
-                            else:
-                                map_i.map_value = gvar
-                        # Use unique identifier, since map names may be equal
-                        resultdict[map_i.uid] = map_i
-        resultlist = resultdict.values()
+            related = list(
+                self._related_maps(map_i, temporal_topo_list, spatial_topo_list)
+            )
+            if not related:
+                continue
+            if count_map:
+                gvar = GlobalTemporalVar()
+                gvar.td = len(related)
+                self._add_map_value(map_i, gvar)
+            # Use unique identifier, since map names may be equal
+            resultdict[map_i.uid] = map_i
 
         # Sort list of maps chronological.
-        return sorted(resultlist, key=AbstractDatasetComparisonKeyStartTime)
+        return sorted(resultdict.values(), key=AbstractDatasetComparisonKeyStartTime)
+
+    def _build_topology(self, maplistA, maplistB, spatial: bool) -> None:
+        """Build the temporal and, if requested, the spatial topology of the maps"""
+        builder = SpatioTemporalTopologyBuilder()
+        if spatial:
+            builder.build(
+                maplistA, maplistB, spatial=self._SPATIAL_DIMENSIONS[self.stdstype]
+            )
+        else:
+            builder.build(maplistA, maplistB)
 
     def assign_bool_value(
-        self, map_i, temporal_topo_list=["EQUAL"], spatial_topo_list=[]
+        self, map_i, temporal_topo_list=("EQUAL",), spatial_topo_list=()
     ) -> bool:
         """Function to assign boolean map value based on the map_values from the
         compared map list by topological relationships.
@@ -1635,40 +1723,27 @@ class TemporalAlgebraParser:
                         relation maps that fulfil the topological relationships to
                         maplistB specified in temporal_topo_list.
         """
+        result = all(
+            self._condition_booleans(map_i, temporal_topo_list, spatial_topo_list)
+        )
+        map_i.condition_value = [result]
 
-        temporal_relations = map_i.get_temporal_relations()
-        condition_value_list = []
-        for topo in temporal_topo_list:
-            if topo.upper() in temporal_relations.keys():
-                relationmaplist = temporal_relations[topo.upper()]
-                for relationmap in relationmaplist:
-                    if (
-                        self._check_spatial_topology_relation(
-                            spatial_topo_list, map_i, relationmap
-                        )
-                        is True
-                    ):
-                        for boolean in relationmap.condition_value:
-                            if isinstance(boolean, bool):
-                                condition_value_list.append(boolean)
-                        if self.debug:
-                            print(
-                                "assign_bool_value",
-                                str(relationmap.get_temporal_extent_as_tuple())
-                                + str(boolean),
-                            )
-        resultbool = bool(all(condition_value_list))
-        map_i.condition_value = [resultbool]
+        return result
 
-        return resultbool
+    def _condition_booleans(self, map_i, temporal_topo_list, spatial_topo_list):
+        """Yield the booleans among the condition values of the related maps"""
+        for related in self._related_maps(map_i, temporal_topo_list, spatial_topo_list):
+            for value in related.condition_value:
+                if isinstance(value, bool):
+                    yield value
 
     def compare_bool_value(
         self,
         map_i,
         compop,
         aggregate,
-        temporal_topo_list=["EQUAL"],
-        spatial_topo_list=[],
+        temporal_topo_list=("EQUAL",),
+        spatial_topo_list=(),
     ):
         """Function to evaluate two map lists with boolean values by boolean
           comparison operator.
@@ -1682,61 +1757,58 @@ class TemporalAlgebraParser:
         :return: Map object with conditional value that has been evaluated by
                       comparison operators.
         """
-
-        temporal_relations = map_i.get_temporal_relations()
-
-        # Build conditional list with elements from related maps and given relation
-        # operator.
-        leftbool = map_i.condition_value[0]
-        # The seed value and every value appended in the loop below must be a
-        # bool, so the joined string contains only bool literals and grammar
-        # tokens (see the eval justification below).
-        if not isinstance(leftbool, bool):
-            msg = "Condition value must be a bool, got {}".format(type(leftbool))
+        left = map_i.condition_value[0]
+        if not isinstance(left, bool):
+            msg = f"Condition value must be a bool, got {type(left)}"
             raise TypeError(msg)
-        condition_value_list = [leftbool]
-        count = 0
-        for topo in temporal_topo_list:
-            if topo.upper() in temporal_relations.keys():
-                relationmaplist = temporal_relations[topo.upper()]
-                for relationmap in relationmaplist:
-                    if (
-                        self._check_spatial_topology_relation(
-                            spatial_topo_list, map_i, relationmap
-                        )
-                        is True
-                    ):
-                        if count == 0:
-                            condition_value_list.extend((compop[0], "("))
-                        for boolean in relationmap.condition_value:
-                            if isinstance(boolean, bool):
-                                if count > 0:
-                                    condition_value_list.append(aggregate)
-                                condition_value_list.append(boolean)
-                                count += 1
+        related = list(
+            self._condition_booleans(map_i, temporal_topo_list, spatial_topo_list)
+        )
+        # Without related maps nothing is combined with the value of the map
+        if related:
+            left = self._combine_booleans(
+                compop, [left, self._combine_booleans(aggregate, related)]
+            )
+        map_i.condition_value = [left]
 
-                        if self.debug:
-                            print(
-                                "compare_bool_value",
-                                map_i.get_id(),
-                                relationmap.get_id(),
-                            )
-        if count > 0:
-            condition_value_list.append(")")
-        # Convert conditional list to concatenated string and evaluate booleans.
-        condition_value_str = "".join(map(str, condition_value_list))
-        if self.debug:
-            print(condition_value_str)
-        # condition_value_str is built above solely from bool values (the seed
-        # and loop values are all checked to be bool) joined with grammar
-        # tokens, so evaluating it does not run arbitrary input.
-        resultbool = eval(condition_value_str)  # nosec B307
-        if self.debug:
-            print(resultbool)
-        # Add boolean value to result list.
-        map_i.condition_value = [resultbool]
+        return left
 
-        return resultbool
+    def compare_cmd_value(
+        self,
+        map_i,
+        compop,
+        aggregate,
+        temporal_topo_list=None,
+        spatial_topo_list=None,
+        convert: bool = False,
+    ):
+        """Hook of ``build_spatio_temporal_topology_list``: compare the command
+        list values of map_i with those of its related maps.
+
+        Only the algebras which build commands for the maps (raster) implement it.
+        """
+        raise NotImplementedError
+
+    def operator_cmd_value(
+        self, map_i, operator, temporal_topo_list=None, spatial_topo_list=None
+    ):
+        """Hook of ``build_spatio_temporal_topology_list``: aggregate the commands
+        of the maps related to map_i with the operator.
+
+        Only the algebras which build commands for the maps (raster, vector)
+        implement it.
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def _combine_booleans(operator, values) -> bool:
+        """Combine booleans with the operator & (and) or | (or), also as && and ||"""
+        if operator in {"&", "&&"}:
+            return all(values)
+        if operator in {"|", "||"}:
+            return any(values)
+        msg = f"Unknown boolean operator: {operator}"
+        raise ValueError(msg)
 
     def eval_toperator(self, operator, optype="relation"):
         """This function evaluates a string containing temporal operations.
@@ -1758,7 +1830,13 @@ class TemporalAlgebraParser:
 
         """
         p = TemporalOperatorParser()
-        p.parse(operator, optype)
+        try:
+            p.parse(operator, optype)
+        except SyntaxError as error:
+            # Called from grammar rules, where PLY swallows the SyntaxError;
+            # unknown relation names would otherwise be ignored silently.
+            self._report_error(str(error))
+            raise
         p.relations = [rel.upper() for rel in p.relations]
 
         return (p.relations, p.temporal, p.function, p.aggregate)
@@ -1767,7 +1845,7 @@ class TemporalAlgebraParser:
         self,
         maplistA,
         maplistB,
-        topolist=["EQUAL"],
+        topolist=("EQUAL",),
         inverse: bool = False,
         assign_val: bool = False,
     ):
@@ -1835,28 +1913,16 @@ class TemporalAlgebraParser:
             Map a4 has no equal relation to mapset mapsB
 
         """
-        if not inverse:
-            topolist = self.build_spatio_temporal_topology_list(
-                maplistA, maplistB, topolist, assign_val=assign_val
-            )
-            resultlist = topolist
-
-        else:
-            topolist = self.build_spatio_temporal_topology_list(
-                maplistA, maplistB, topolist, assign_val=assign_val
-            )
-            resultlist = []
-            for map_i in maplistA:
-                if map_i not in topolist:
-                    resultlist.append(map_i)
-                    # if assign_val:
-                    #   if "condition_value" in dir(map_i):
-                    #        map_i.condition_value.append(False)
+        selected = self.build_spatio_temporal_topology_list(
+            maplistA, maplistB, topolist, assign_val=assign_val
+        )
+        if inverse:
+            selected = [map_i for map_i in maplistA if map_i not in selected]
 
         # Sort list of maps chronological.
-        return sorted(resultlist, key=AbstractDatasetComparisonKeyStartTime)
+        return sorted(selected, key=AbstractDatasetComparisonKeyStartTime)
 
-    def set_granularity(self, maplistA, maplistB, toperator="l", topolist=["EQUAL"]):
+    def set_granularity(self, maplistA, maplistB, toperator="l", topolist=("EQUAL",)):
         """This function sets the temporal extends of a list of maps based on
            another map list.
 
@@ -1907,93 +1973,53 @@ class TemporalAlgebraParser:
 
         :raises SyntaxError: If an unpermitted temporal relation name is used in ``topolist``
         """
-        topologylist = [
-            "EQUAL",
-            "FOLLOWS",
-            "PRECEDES",
-            "OVERLAPS",
-            "OVERLAPPED",
-            "DURING",
-            "STARTS",
-            "FINISHES",
-            "CONTAINS",
-            "STARTED",
-            "FINISHED",
-        ]
-
         for topo in topolist:
-            if topo.upper() not in topologylist:
-                raise SyntaxError("Unpermitted temporal relation name '" + topo + "'")
+            if topo.upper() not in self.temporal_topology_list:
+                msg = f"Unpermitted temporal relation name '{topo}'"
+                raise SyntaxError(msg)
 
-        # Create temporal topology for maplistA to maplistB.
-        tb = SpatioTemporalTopologyBuilder()
-        # Dictionary with different spatial variables used for topology builder.
-        spatialdict = {"strds": "2D", "stvds": "2D", "str3ds": "3D"}
-        # Build spatial temporal topology for maplistB to maplistB.
-        if self.spatial:
-            tb.build(maplistA, maplistB, spatial=spatialdict[self.stdstype])
-        else:
-            tb.build(maplistA, maplistB)
+        self._build_topology(maplistA, maplistB, self.spatial)
+
         resultdict = {}
-
-        # Iterate through maps in maplistA and search for relationships given
-        # in topolist.
         for map_i in maplistA:
             tbrelations = map_i.get_temporal_relations()
-            map_extent = map_i.get_temporal_extent()
-            map_start = map_extent.get_start_time()
-            map_end = map_extent.get_end_time()
-            unchanged = True
             for topo in topolist:
-                if topo.upper() in tbrelations.keys():
-                    relationmaplist = tbrelations[topo.upper()]
-                    for relationmap in relationmaplist:
-                        newextent = None
-                        if toperator == "i":
-                            newextent = map_i.temporal_intersection(relationmap)
-                        elif toperator == "u":
-                            newextent = map_i.temporal_union(relationmap)
-                        elif toperator == "d":
-                            newextent = map_i.temporal_disjoint_union(relationmap)
-                        elif toperator == "l":
-                            newextent = map_i.get_temporal_extent()
-                        elif toperator == "r":
-                            newextent = relationmap.get_temporal_extent()
-                        if newextent is not None:
-                            start = newextent.get_start_time()
-                            end = newextent.get_end_time()
-                            # print(map_i.get_id() + " - start: " + str(start)
-                            #     + " end: " + str(end))
-                            # Track changes in temporal extents of maps.
-                            if map_start != start or map_end != end:
-                                unchanged = False
-                            if map_i.is_time_absolute():
-                                map_i.set_absolute_time(start, end)
-                            else:
-                                relunit = map_i.get_relative_time_unit()
-                                map_i.set_relative_time(int(start), int(end), relunit)
-                            resultdict[map_i.get_id()] = map_i
-                else:
-                    if self.debug:
-                        print("Topologic relation: " + topo.upper() + " not found.")
+                if topo.upper() not in tbrelations:
+                    # The map keeps its extent
                     resultdict[map_i.get_id()] = map_i
-            if unchanged is True:
-                if self.debug:
-                    print(
-                        "Leave temporal extend of result map: "
-                        + map_i.get_map_id()
-                        + " unchanged."
-                    )
+                    continue
+                for relationmap in tbrelations[topo.upper()]:
+                    extent = self._extent_by_operator(map_i, relationmap, toperator)
+                    if extent is not None:
+                        self._set_temporal_extent(map_i, extent)
+                        resultdict[map_i.get_id()] = map_i
 
-        resultlist = resultdict.values()
-        # Sort list of maps chronological.
-        # Get relations to maplistB per map in A.
-        # Loop over all relations from list
-        # temporal extent = map.temporal_intersection(map)
-        # if temporal extend is None = delete map.
-        return sorted(resultlist, key=AbstractDatasetComparisonKeyStartTime)
+        return sorted(resultdict.values(), key=AbstractDatasetComparisonKeyStartTime)
 
-    def get_temporal_func_dict(self, map):
+    def _extent_by_operator(self, map_i, relationmap, toperator):
+        """Return the temporal extent of map_i after applying the temporal operator
+        (l, r, i, u, d) with the related map, or None for an unknown operator"""
+        if toperator == "l":
+            return map_i.get_temporal_extent()
+        if toperator == "r":
+            return relationmap.get_temporal_extent()
+        if toperator in self._TEMPORAL_OVERLAY:
+            return getattr(map_i, self._TEMPORAL_OVERLAY[toperator])(relationmap)
+        return None
+
+    @staticmethod
+    def _set_temporal_extent(map_i, extent) -> None:
+        """Set the extent of the map in the time type and unit of the map"""
+        start = extent.get_start_time()
+        end = extent.get_end_time()
+        if map_i.is_time_absolute():
+            map_i.set_absolute_time(start, end)
+        else:
+            map_i.set_relative_time(
+                int(start), int(end), map_i.get_relative_time_unit()
+            )
+
+    def get_temporal_func_dict(self, map):  # noqa: A002 (name of the public API)
         """This function creates a dictionary containing temporal functions for a
            map dataset with time stamp.
 
@@ -2027,71 +2053,31 @@ class TemporalAlgebraParser:
             2000-01-01 00:00:00
 
         """
+        map_i = map
         tvardict = {
-            "START_DOY": None,
-            "START_DOW": None,
-            "START_YEAR": None,
-            "START_MONTH": None,
-            "START_WEEK": None,
-            "START_DAY": None,
-            "START_HOUR": None,
-            "START_MINUTE": None,
-            "START_SECOND": None,
-            "END_DOY": None,
-            "END_DOW": None,
-            "END_YEAR": None,
-            "END_MONTH": None,
-            "END_WEEK": None,
-            "END_DAY": None,
-            "END_HOUR": None,
-            "END_MINUTE": None,
-            "END_SECOND": None,
-            "START_DATE": None,
-            "START_DATETIME": None,
-            "START_TIME": None,
-            "END_DATE": None,
-            "END_DATETIME": None,
-            "END_TIME": None,
+            f"{side}_{field}": None
+            for side in ("START", "END")
+            for field in _TIME_FIELDS
         }
 
         # The functions are defined for absolute time only. Values which cannot
         # be computed (relative time, end of a time instance) stay None.
-        if not map.is_time_absolute():
+        if not map_i.is_time_absolute():
             return tvardict
-        start, end = map.get_absolute_time()
-        for prefix, timestamp in (("START", start), ("END", end)):
+        start, end = map_i.get_absolute_time()
+        for side, timestamp in (("START", start), ("END", end)):
             if timestamp is None:
                 continue
-            tvardict[f"{prefix}_DOY"] = timestamp.timetuple().tm_yday
-            tvardict[f"{prefix}_DOW"] = timestamp.isoweekday()
-            tvardict[f"{prefix}_YEAR"] = timestamp.year
-            tvardict[f"{prefix}_MONTH"] = timestamp.month
-            tvardict[f"{prefix}_WEEK"] = timestamp.isocalendar()[1]
-            tvardict[f"{prefix}_DAY"] = timestamp.day
-            tvardict[f"{prefix}_HOUR"] = timestamp.hour
-            tvardict[f"{prefix}_MINUTE"] = timestamp.minute
-            tvardict[f"{prefix}_SECOND"] = timestamp.second
-            tvardict[f"{prefix}_DATE"] = timestamp.date()
-            tvardict[f"{prefix}_DATETIME"] = timestamp
-            tvardict[f"{prefix}_TIME"] = timestamp.time()
+            for field, getter in _TIME_FIELDS.items():
+                tvardict[f"{side}_{field}"] = getter(timestamp)
         return tvardict
 
     def compare_values(self, left, comp, right):
         """Compare two values with the given comparison operator."""
-        if comp == "<":
-            return left < right
-        if comp == ">":
-            return left > right
-        if comp == "==":
-            return left == right
-        if comp == "<=":
-            return left <= right
-        if comp == ">=":
-            return left >= right
-        if comp == "!=":
-            return left != right
-        msg = "Unknown comparison operator: {}".format(comp)
-        raise ValueError(msg)
+        if comp not in _COMPARISONS:
+            msg = f"Unknown comparison operator: {comp}"
+            raise ValueError(msg)
+        return _COMPARISONS[comp](left, right)
 
     def eval_datetime_str(self, tfuncval, comp, value):
         """Compare two values with the given comparison operator.
@@ -2110,18 +2096,9 @@ class TemporalAlgebraParser:
 
         :return: List of maps from maplist with added conditional boolean values.
         """
-        # Loop over maps of input map list.
+        tfunc = gvar.tfunc.upper()
         for map_i in maplist:
-            # Get dictionary with temporal variables for the map.
-            tfuncdict = self.get_temporal_func_dict(map_i)
-            # Get value from global variable.
-            value = gvar.value
-            # Get comparison operator from global variable, like <, >, <=, >=, ==, !=
-            comp_op = gvar.compop
-            # Get temporal function name for global variable.
-            tfunc = gvar.tfunc.upper()
-            # Get value for function name from dictionary.
-            tfuncval = tfuncdict[tfunc]
+            tfuncval = self.get_temporal_func_dict(map_i)[tfunc]
             if tfuncval is None:
                 self.msgr.fatal(
                     _(
@@ -2132,23 +2109,43 @@ class TemporalAlgebraParser:
                 )
             # The literal has to have the same type as the function value,
             # otherwise the comparison fails or, for ==, is always False.
-            if tfunc in {"START_DATETIME", "END_DATETIME"}:
-                value = string_to_datetime(value.replace('"', ""))
-            elif tfunc in {"START_DATE", "END_DATE"}:
-                value = string_to_datetime(value.replace('"', "")).date()
-            elif tfunc in {"START_TIME", "END_TIME"}:
-                value = string_to_datetime(value.replace('"', "")).time()
-            # Otherwise, value is already an int/float (from t_INT/t_FLOAT), so it
-            # is compared without coercion.
-            boolname = self.compare_values(tfuncval, comp_op, value)
-            # Add conditional boolean value to the map.
-            if "condition_value" in dir(map_i):
-                map_i.condition_value.append(boolname)
-            else:
-                map_i.condition_value = boolname
+            value = self._literal_like(tfunc, gvar.value)
+            self._add_condition_value(
+                map_i, self.compare_values(tfuncval, gvar.compop, value)
+            )
         return maplist
 
-    def eval_map_list(self, maplist, thenlist, topolist=["EQUAL"]):
+    @staticmethod
+    def _literal_like(tfunc, value):
+        """Convert the string literal of a date, time or datetime function.
+
+        Numbers (from the INT and FLOAT tokens) are used as they are.
+        """
+        if tfunc.endswith("_DATETIME"):
+            return string_to_datetime(value.replace('"', ""))
+        if tfunc.endswith("_DATE"):
+            return string_to_datetime(value.replace('"', "")).date()
+        if tfunc.endswith("_TIME"):
+            return string_to_datetime(value.replace('"', "")).time()
+        return value
+
+    @staticmethod
+    def _add_condition_value(map_i, value) -> None:
+        """Append the boolean to the condition values of the map"""
+        if hasattr(map_i, "condition_value"):
+            map_i.condition_value.append(value)
+        else:
+            map_i.condition_value = value
+
+    @staticmethod
+    def _add_map_value(map_i, value) -> None:
+        """Append the value to the map values of the map"""
+        if hasattr(map_i, "map_value"):
+            map_i.map_value.append(value)
+        else:
+            map_i.map_value = value
+
+    def eval_map_list(self, maplist, thenlist, topolist=("EQUAL",)):
         """This function transfers boolean values from temporal expression
            from one map list to another by their topology. These boolean
            values are added to the maps as condition_value.
@@ -2159,19 +2156,13 @@ class TemporalAlgebraParser:
 
         :return: List of maps from thenlist with added conditional boolean values.
         """
-        # Get topology of then statement map list in relation to the other maplist
-        # and assign boolean values of the maplist to the thenlist.
-        # Inverse selection of maps from thenlist and assigning False values.
-        # excludelist = self.perform_temporal_selection(thenlist, maplist,
-        #                                              assign_val = True,
-        #                                              inverse = True,
-        #                                              topolist = topolist)
-        # Combining the selection and inverse selection list.
+        # The topology of the then list to the maps with conditions gives the
+        # boolean values of the maplist to the maps of the thenlist.
         return self.perform_temporal_selection(
             thenlist, maplist, assign_val=True, topolist=topolist
         )
 
-    def build_condition_list(self, tvarexpr, thenlist, topolist=["EQUAL"]):
+    def build_condition_list(self, tvarexpr, thenlist, topolist=("EQUAL",)):
         """This function evaluates temporal variable expressions of a conditional
         expression in two steps.
         At first it combines stepwise the single conditions by their relations with
@@ -2202,48 +2193,18 @@ class TemporalAlgebraParser:
         :return: Map list with conditional values for all temporal expressions.
 
         """
-
-        # Evaluate the temporal variable expression and compute the temporal combination
-        # of conditions.
-
-        # Check if the input expression is a valid single global variable.
         if isinstance(tvarexpr, GlobalTemporalVar) and tvarexpr.get_type() == "global":
-            # Use method eval_global_var to evaluate expression.
             resultlist = self.eval_global_var(tvarexpr, thenlist)
-        # Check if a given list is a list of maps.
-        elif all(issubclass(type(ele), AbstractMapDataset) for ele in tvarexpr):
-            # Use method eval_map_list to evaluate map_list in comparison to thenlist.
+        elif isinstance(tvarexpr, list) and all(
+            isinstance(ele, AbstractMapDataset) for ele in tvarexpr
+        ):
             resultlist = self.eval_map_list(tvarexpr, thenlist, topolist)
-        elif len(tvarexpr) % 2 != 0:
-            # Define variables for map list comparisons.
-            # self.msgr.fatal("Condition list is not complete. Elements missing")
-            for iter in range(len(tvarexpr)):
-                expr = tvarexpr[iter]
-                relexpr = tvarexpr[iter + 2]
-                if all(issubclass(type(ele), list) for ele in [expr, relexpr]):
-                    resultlist = self.build_spatio_temporal_topology_list(expr, relexpr)
-            # Loop through the list, search for map lists or global variables.
-            for expr in tvarexpr:
-                if isinstance(expr, list):
-                    if all(issubclass(type(ele), AbstractMapDataset) for ele in expr):
-                        # Use method eval_map_list to evaluate map_list
-                        resultlist = self.eval_map_list(expr, thenlist, topolist)
-                    else:
-                        # Recursive function call to look into nested list elements.
-                        self.build_condition_list(expr, thenlist)
-
-                elif isinstance(expr, GlobalTemporalVar):
-                    # Use according functions for different global variable types.
-                    if expr.get_type() == "operator":
-                        if all("condition_value" in dir(map_i) for map_i in thenlist):
-                            # Add operator string to the condition list.
-                            [
-                                map_i.condition_value.extend(expr.get_type_value())
-                                for map_i in thenlist
-                            ]
-                    if expr.get_type() == "global":
-                        # Use method eval_global_var to evaluate expression.
-                        resultlist = self.eval_global_var(expr, thenlist)
+        else:
+            msg = (
+                "A condition must be a global temporal variable or a list of "
+                "maps with condition values"
+            )
+            raise ValueError(msg)
 
         # Sort resulting list of maps chronological.
         return sorted(resultlist, key=AbstractDatasetComparisonKeyStartTime)
@@ -2269,48 +2230,35 @@ class TemporalAlgebraParser:
         :param inverse:
         :return: Map list with conditional values evaluated
         """
-
-        def recurse_compare(conditionlist):
-            for ele in conditionlist:
-                if ele == "||":
-                    ele_index = conditionlist.index(ele)
-                    right = conditionlist.pop(ele_index)
-                    left = conditionlist.pop(ele_index - 2)
-                    result = bool(any([left, right]))
-                    conditionlist[ele_index - 2] = result
-                    recurse_compare(conditionlist)
-                if ele == "&&":
-                    ele_index = conditionlist.index(ele)
-                    right = conditionlist.pop(ele_index)
-                    left = conditionlist.pop(ele_index - 2)
-                    result = bool(all([left, right]))
-                    conditionlist[ele_index - 2] = result
-                    recurse_compare(conditionlist)
-
-            return conditionlist
-
-        resultlist = []
-        inverselist = []
-
-        # Loop through map list and evaluate conditional values.
+        selected = []
+        rejected = []
         for map_i in maplist:
-            if "condition_value" in dir(map_i):
-                # Get condition values from map object.
-                conditionlist = map_i.condition_value
-                # Evaluate conditions in list with recursive function.
-                resultbool = recurse_compare(conditionlist)
-                # Set conditional value of map to resulting boolean.
-                map_i.condition_value = resultbool
-                # Add all maps that fulfill the conditions to result list.
-                if resultbool[0]:
-                    resultlist.append(map_i)
-                    if self.debug:
-                        print(map_i.get_map_id() + " " + str(map_i.condition_value))
-                else:
-                    inverselist.append(map_i)
-        if inverse:
-            return inverselist
-        return resultlist
+            if not hasattr(map_i, "condition_value"):
+                continue
+            result = self._evaluate_conditions(map_i.condition_value)
+            map_i.condition_value = [result]
+            (selected if result else rejected).append(map_i)
+        return rejected if inverse else selected
+
+    @staticmethod
+    def _evaluate_conditions(conditions) -> bool:
+        """Evaluate [value, operator, value, ...] from left to right.
+
+        && and || have the same precedence. The values are booleans.
+        """
+        if len(conditions) % 2 == 0:
+            msg = f"Incomplete list of conditions: {conditions}"
+            raise ValueError(msg)
+        result = conditions[0]
+        for operator, value in zip(conditions[1::2], conditions[2::2], strict=True):
+            if operator == "&&":
+                result = result and value
+            elif operator == "||":
+                result = result or value
+            else:
+                msg = f"Unknown boolean operator: {operator}"
+                raise ValueError(msg)
+        return result
 
     def p_statement_assign(self, t) -> None:
         # The expression should always return a list of maps
@@ -2320,229 +2268,269 @@ class TemporalAlgebraParser:
         statement : stds EQUALS expr
 
         """
+        t[0] = t[3]
+        if self.run and isinstance(t[3], list):
+            self._create_result(t[1], t[3])
+        self._trace(t[1], "=", t[3])
 
-        if self.run:
-            dbif, connection_state_changed = init_dbif(self.dbif)
-            map_type = None
-            if isinstance(t[3], list):
-                num = len(t[3])
-                count = 0
-                register_list = []
-                if num > 0:
-                    # Compute the granularity for suffix creation
-                    granularity = None
-                    if len(t[3]) > 0 and self.time_suffix == "gran":
-                        map_i = t[3][0]
-                        if map_i.is_time_absolute() is True:
-                            granularity = compute_absolute_time_granularity(t[3])
+    def _create_result(self, stds_name, maps):
+        """Make the maps of the expression real and register them in a new dataset.
 
-                    # compute the size of the numerical suffix
-                    num = len(t[3])
-                    leadzero = len(str(num))
+        The steps are hooks which the algebras override where they differ in
+        what a result map is: ``_needs_new_map`` and ``_materialize_maps``
+        (copy, mapcalc, overlay), ``_handle_empty_result`` and the names via
+        ``_first_result_number``. Naming, the check for existing maps, the
+        registration and the removal of intermediate maps are shared.
 
-                    if self.dry_run is False:
-                        process_queue = pymod.ParallelModuleQueue(int(self.nprocs))
-
-                    for map_i in t[3]:
-                        # Check if the map type and stds type are compatible
-                        if count == 0:
-                            maps_stds_type = map_i.get_new_stds_instance(
-                                None
-                            ).get_type()
-                            map_type = map_i.get_type()
-                            if maps_stds_type != self.stdstype:
-                                self.msgr.warning(
-                                    _(
-                                        "The resulting space time dataset type <%(a)s> "
-                                        "is different from the requested type <%(b)s>"
-                                    )
-                                    % ({"a": maps_stds_type, "b": self.stdstype})
-                                )
-                        else:
-                            map_type_2 = map_i.get_type()
-                            if map_type != map_type_2:
-                                self.msgr.fatal(
-                                    _(
-                                        "Maps that should be registered in the "
-                                        "resulting space time dataset have different "
-                                        "types."
-                                    )
-                                )
-                        count += 1
-
-                        # Test if temporal extents was been modified by temporal
-                        # relation operators (i|r).
-                        # If it was modified, then the map will be copied
-                        map_a_extent = map_i.get_temporal_extent_as_tuple()
-                        map_b = map_i.get_new_instance(map_i.get_id())
-                        map_b.select(dbif)
-                        map_b_extent = map_b.get_temporal_extent_as_tuple()
-                        if map_a_extent != map_b_extent:
-                            # Create new map with basename
-                            newident = create_numeric_suffix(
-                                self.basename, count, "%0" + str(leadzero)
-                            )
-
-                            if (
-                                map_i.is_time_absolute() is True
-                                and self.time_suffix
-                                and granularity is not None
-                                and self.time_suffix == "gran"
-                            ):
-                                suffix = create_suffix_from_datetime(
-                                    map_i.temporal_extent.get_start_time(), granularity
-                                )
-                                newident = "{ba}_{su}".format(
-                                    ba=self.basename, su=suffix
-                                )
-                            # If set use the time suffix to create the map name
-                            elif (
-                                map_i.is_time_absolute() is True
-                                and self.time_suffix
-                                and self.time_suffix == "time"
-                            ):
-                                suffix = create_time_suffix(map_i)
-                                newident = "{ba}_{su}".format(
-                                    ba=self.basename, su=suffix
-                                )
-
-                            map_result = map_i.get_new_instance(
-                                newident + "@" + self.mapset
-                            )
-
-                            if map_result.map_exists() and self.overwrite is False:
-                                self.msgr.fatal(
-                                    "Error raster maps with basename %s exist. "
-                                    "Use --o flag to overwrite existing file"
-                                    % map_i.get_id()
-                                )
-
-                            map_result.set_temporal_extent(map_i.get_temporal_extent())
-                            map_result.set_spatial_extent(map_i.get_spatial_extent())
-                            # Attention we attach a new attribute
-                            map_result.is_new = True
-                            register_list.append(map_result)
-
-                            # Copy the map
-                            m = copy.deepcopy(self.m_copy)
-                            m.flags["overwrite"].value = self.overwrite
-
-                            if map_i.get_type() == "raster":
-                                m.inputs["raster"].value = map_i.get_id(), newident
-                            elif map_i.get_type() == "raster3d":
-                                m.inputs["raster_3d"].value = map_i.get_id(), newident
-                            elif map_i.get_type() == "vector":
-                                m.inputs["vector"].value = map_i.get_id(), newident
-
-                            # Add the process description to the dict
-                            self.process_chain_dict["processes"].append(m.get_dict())
-
-                            if self.dry_run is False:
-                                process_queue.put(m)
-                        else:
-                            register_list.append(map_i)
-
-                    # Wait for running processes
-                    if self.dry_run is False:
-                        process_queue.wait()
-
-                    # Open connection to temporal database.
-                    # Create result space time dataset based on the map stds type
-                    if self.dry_run is False:
-                        resultstds = open_new_stds(
-                            t[1],
-                            maps_stds_type,
-                            "absolute",
-                            t[1],
-                            t[1],
-                            "mean",
-                            self.dbif,
-                            overwrite=self.overwrite,
-                        )
-
-                    for map_i in register_list:
-                        # Get meta data from grass database.
-                        map_i.load()
-
-                        # Put the map into the process dictionary
-                        start, end = map_i.get_temporal_extent_as_tuple()
-                        self.process_chain_dict["register"].append(
-                            (map_i.get_name(), str(start), str(end))
-                        )
-
-                        if hasattr(map_i, "is_new") is True:
-                            # Do not register empty maps if not required
-                            # In case of a null map continue, do not register null maps
-
-                            if (
-                                map_i.get_type() == "raster"
-                                or map_i.get_type() == "raster3d"
-                            ):
-                                if (
-                                    map_i.metadata.get_min() is None
-                                    and map_i.metadata.get_max() is None
-                                ):
-                                    if not self.register_null:
-                                        self.removable_maps[map_i.get_name()] = map_i
-                                        continue
-
-                            if map_i.is_in_db(dbif) and self.overwrite:
-                                # Update map in temporal database.
-                                if self.dry_run is False:
-                                    map_i.update_all(dbif)
-                            elif map_i.is_in_db(dbif) and self.overwrite is False:
-                                # Raise error if map exists and no overwrite flag is
-                                # given.
-                                self.msgr.fatal(
-                                    "Error map %s exist in temporal database. "
-                                    "Use overwrite flag." % map_i.get_map_id()
-                                )
-                            elif self.dry_run is False:
-                                # Insert map into temporal database.
-                                map_i.insert(dbif)
-
-                        # Register map in result space time dataset.
-                        if self.dry_run is False:
-                            success = resultstds.register_map(map_i, dbif)
-                            if not success:
-                                self.msgr.warning(
-                                    "Unabe to register map layers in STDS %s" % (t[1])
-                                )
-
-                    if self.dry_run is False:
-                        resultstds.update_from_registered_maps(dbif)
-
-                    self.process_chain_dict["STDS"]["name"] = t[1]
-                    self.process_chain_dict["STDS"]["stdstype"] = self.stdstype
-                    self.process_chain_dict["STDS"]["temporal_type"] = "absolute"
-
-                elif num == 0:
-                    self.msgr.warning(
-                        "Empty result space time dataset. "
-                        "No map has been registered in %s" % (t[1])
-                    )
-                    # Open connection to temporal database.
-                    # Create result space time dataset.
-                    if self.dry_run is False:
-                        resultstds = open_new_stds(
-                            t[1],
-                            self.stdstype,
-                            "absolute",
-                            t[1],
-                            t[1],
-                            "mean",
-                            dbif,
-                            overwrite=self.overwrite,
-                        )
-
+        :param stds_name: Name of the result dataset
+        :param maps: The maps of the expression, possibly with commands
+        :return: The list of result maps
+        """
+        dbif, connection_state_changed = init_dbif(self.dbif)
+        try:
+            names = self._result_map_names(maps, stds_name)
+            needs_new = [self._needs_new_map(map_i, dbif) for map_i in maps]
+            # All names are checked before any map is created, so that no
+            # result is partly overwritten.
+            self._check_result_maps_absent(
+                [name for name, new in zip(names, needs_new, strict=True) if new]
+            )
+            result_maps = self._materialize_maps(maps, names, needs_new)
+            if result_maps:
+                self._register_result_maps(stds_name, result_maps, dbif)
+            else:
+                self._handle_empty_result(stds_name)
+            self.remove_maps()
+        finally:
             if connection_state_changed:
                 dbif.close()
-            t[0] = t[3]
-        else:
-            t[0] = t[3]
+        return result_maps
 
-        if self.debug:
-            print(t[1], "=", t[3])
+    def _handle_empty_result(self, stds_name) -> None:
+        """Hook: warn about a result without maps and create the empty dataset."""
+        self.msgr.warning(
+            _(
+                "Empty result space time dataset. No map has been registered in {name}"
+            ).format(name=stds_name)
+        )
+        if self.dry_run is False:
+            resultstds = self._open_result_stds(
+                stds_name, self.stdstype, self._result_temporal_type([])
+            )
+            # Without it the metadata of the empty dataset stay None, not 0
+            resultstds.update_from_registered_maps(self.dbif)
+
+    def _result_temporal_type(self, maps):
+        """Return the temporal type of the result: the type of its maps, or of
+        the datasets read so far if there is no map."""
+        if maps:
+            return "absolute" if maps[0].is_time_absolute() else "relative"
+        return self.temporaltype or "absolute"
+
+    def _needs_new_map(self, map_i, dbif) -> bool:
+        """Hook: tell if the result needs a new map for map_i.
+
+        Here: only if its temporal extent differs from the stored one, which
+        the temporal operators, the buffer, shift and snap functions cause. The
+        original maps stay untouched then.
+        """
+        stored = map_i.get_new_instance(map_i.get_id())
+        stored.select(dbif)
+        return map_i.get_temporal_extent_as_tuple() != (
+            stored.get_temporal_extent_as_tuple()
+        )
+
+    def _materialize_maps(self, maps, names, needs_new):
+        """Hook: create the new maps and return the maps to register.
+
+        Here: the maps flagged in needs_new are copied under their names, the
+        others are registered as they are.
+
+        :param names: The result name of each map
+        :param needs_new: Per map, the answer of ``_needs_new_map``
+        """
+        queue = None
+        if self.dry_run is False:
+            queue = pymod.ParallelModuleQueue(int(self.nprocs))
+        result_maps = [
+            self._copy_map(map_i, name, queue) if new else map_i
+            for map_i, name, new in zip(maps, names, needs_new, strict=True)
+        ]
+        if queue is not None:
+            queue.wait()
+        return result_maps
+
+    def _time_granularity(self, maps):
+        """Return the granularity for the time suffix "gran", else None"""
+        if maps and self.time_suffix == "gran" and maps[0].is_time_absolute():
+            return compute_absolute_time_granularity(maps)
+        return None
+
+    # Number of the first result map in the numeric suffix of the names
+    _first_result_number = 1
+
+    def _result_map_names(self, maps, stds_name):
+        """Return the names (without mapset) of the result maps: the basename
+        (default: the name of the result dataset) with a number or, as
+        requested by ``time_suffix``, a time suffix."""
+        granularity = self._time_granularity(maps)
+        digits = len(str(len(maps)))
+        basename = self.basename or stds_name
+        return [
+            self._result_map_name(basename, map_i, number, digits, granularity)
+            for number, map_i in enumerate(maps, start=self._first_result_number)
+        ]
+
+    def _result_map_name(self, basename, map_i, number, digits, granularity):
+        """Return the name of a result map: basename plus numeric or time suffix"""
+        absolute = map_i.is_time_absolute()
+        if absolute and self.time_suffix == "gran" and granularity:
+            suffix = create_suffix_from_datetime(
+                map_i.temporal_extent.get_start_time(), granularity
+            )
+        elif absolute and self.time_suffix == "time":
+            suffix = create_time_suffix(map_i)
+        else:
+            return create_numeric_suffix(basename, number, "%0" + str(digits))
+        return f"{basename}_{suffix}"
+
+    def _check_result_maps_absent(self, names) -> None:
+        """Stop if a result map exists and overwriting is not enabled"""
+        if self.overwrite:
+            return
+        for name in names:
+            ident = f"{name}@{self.mapset}"
+            if self.mapclass(ident).map_exists():
+                self.msgr.fatal(
+                    _(
+                        "Error maps with basename {name} exist. "
+                        "Use --o flag to overwrite existing file"
+                    ).format(name=ident)
+                )
+
+    def _open_result_stds(self, name, stds_type, temporal_type):
+        """Create the space time dataset with the result of the expression"""
+        return open_new_stds(
+            name,
+            stds_type,
+            temporal_type,
+            name,
+            name,
+            "mean",
+            self.dbif,
+            overwrite=self.overwrite,
+        )
+
+    def _register_result_maps(self, stds_name, maplist, dbif) -> None:
+        """Register the result maps in a new dataset of the temporal type of the maps"""
+        stds_type = self._check_result_maps(maplist)
+        temporal_type = self._result_temporal_type(maplist)
+
+        resultstds = None
+        if self.dry_run is False:
+            resultstds = self._open_result_stds(stds_name, stds_type, temporal_type)
+
+        for map_i in maplist:
+            if self.dry_run is False:
+                map_i.load()
+            start, end = map_i.get_temporal_extent_as_tuple()
+            self.process_chain_dict["register"].append(
+                (map_i.get_name(), str(start), str(end))
+            )
+            self._register_map(map_i, resultstds, dbif)
+
+        if resultstds is not None:
+            resultstds.update_from_registered_maps(dbif)
+
+        self.process_chain_dict["STDS"]["name"] = stds_name
+        self.process_chain_dict["STDS"]["stdstype"] = self.stdstype
+        self.process_chain_dict["STDS"]["temporal_type"] = temporal_type
+
+    def _register_map(self, map_i, resultstds, dbif) -> None:
+        """Store a new map in the temporal database and register it in the dataset.
+
+        Maps which are not new exist in the database already.
+        """
+        if hasattr(map_i, "is_new") and not self._store_new_map(map_i, dbif):
+            return
+        if resultstds is not None and not resultstds.register_map(map_i, dbif):
+            self.msgr.warning(
+                _("Unable to register map layers in STDS {name}").format(
+                    name=resultstds.get_name()
+                )
+            )
+
+    def _check_result_maps(self, maplist):
+        """Check that the maps are of one type and return the STDS type for them"""
+        stds_type = maplist[0].get_new_stds_instance(None).get_type()
+        if stds_type != self.stdstype:
+            self.msgr.warning(
+                _(
+                    "The resulting space time dataset type <{result}> "
+                    "is different from the requested type <{requested}>"
+                ).format(result=stds_type, requested=self.stdstype)
+            )
+        map_type = maplist[0].get_type()
+        if any(map_i.get_type() != map_type for map_i in maplist[1:]):
+            self.msgr.fatal(
+                _(
+                    "Maps that should be registered in the "
+                    "resulting space time dataset have different "
+                    "types."
+                )
+            )
+        return stds_type
+
+    def _copy_map(self, map_i, name, process_queue):
+        """Copy the map under the name, the copy gets the extent of the map.
+
+        :return: The new map object, marked with the attribute ``is_new``
+        """
+        map_result = map_i.get_new_instance(f"{name}@{self.mapset}")
+        map_result.set_temporal_extent(map_i.get_temporal_extent())
+        map_result.set_spatial_extent(map_i.get_spatial_extent())
+        map_result.is_new = True
+
+        module = copy.deepcopy(self.m_copy)
+        module.flags["overwrite"].value = self.overwrite
+        module.inputs[self._G_MODULE_TYPES[map_i.get_type()]].value = (
+            map_i.get_id(),
+            name,
+        )
+        self.process_chain_dict["processes"].append(module.get_dict())
+        if process_queue is not None:
+            process_queue.put(module)
+        return map_result
+
+    def _store_new_map(self, map_i, dbif) -> bool:
+        """Insert or update a new map in the temporal database.
+
+        :return: False if the map is empty and must not be registered
+        """
+        # Do not register empty (null) maps if not required
+        # A dry run computes nothing, so the maps cannot be empty there.
+        if (
+            self.dry_run is False
+            and map_i.get_type() in {"raster", "raster3d"}
+            and map_i.metadata.get_min() is None
+            and map_i.metadata.get_max() is None
+            and not self.register_null
+        ):
+            self.removable_maps[map_i.get_name()] = map_i
+            return False
+
+        if map_i.is_in_db(dbif):
+            if not self.overwrite:
+                self.msgr.fatal(
+                    _(
+                        "Map <{name}> exists in the temporal database. Use the overwrite flag."
+                    ).format(name=map_i.get_map_id())
+                )
+            if self.dry_run is False:
+                map_i.update_all(dbif)
+        elif self.dry_run is False:
+            map_i.insert(dbif)
+        return True
 
     def p_stds_1(self, t) -> None:
         # Definition of a space time dataset
@@ -2567,12 +2555,13 @@ class TemporalAlgebraParser:
         """
         expr : STRDS LPAREN stds RPAREN
         """
+        t[0] = self._typed_stds(t[3], "strds")
+
+    def _typed_stds(self, name, stds_type):
+        """The maps of the dataset of this type, or a placeholder if not running"""
         if self.run:
-            t[0] = self.check_stds(t[3], stds_type="strds", check_type=False)
-        else:
-            t[0] = t[3]
-            if self.debug:
-                print("Opening STRDS: ", t[0])
+            return self.check_stds(name, stds_type=stds_type, check_type=False)
+        return name
 
     def p_expr_str3ds_function(self, t) -> None:
         # Explicitly specify a space time raster dataset
@@ -2580,12 +2569,7 @@ class TemporalAlgebraParser:
         """
         expr : STR3DS LPAREN stds RPAREN
         """
-        if self.run:
-            t[0] = self.check_stds(t[3], stds_type="str3ds", check_type=False)
-        else:
-            t[0] = t[3]
-            if self.debug:
-                print("Opening STR3DS: ", t[0])
+        t[0] = self._typed_stds(t[3], "str3ds")
 
     def p_expr_stvds_function(self, t) -> None:
         # Explicitly specify a space time vector dataset
@@ -2593,14 +2577,7 @@ class TemporalAlgebraParser:
         """
         expr : STVDS LPAREN stds RPAREN
         """
-        if self.run:
-            if self.debug:
-                print(t[3])
-            t[0] = self.check_stds(t[3], stds_type="stvds", check_type=False)
-        else:
-            t[0] = t[3]
-            if self.debug:
-                print("Opening STVDS: ", t[0])
+        t[0] = self._typed_stds(t[3], "stvds")
 
     def p_expr_tmap_function(self, t):
         # Add a single map.
@@ -2612,36 +2589,40 @@ class TemporalAlgebraParser:
         expr : TMAP LPAREN stds RPAREN
         """
         if self.run:
-            # Check input map.
-            input = t[3]
-            if not isinstance(input, list):
-                # Check for mapset in given stds input.
-                id_input = input if input.find("@") >= 0 else input + "@" + self.mapset
-                # Create empty map dataset.
-                map_i = dataset_factory(self.maptype, id_input)
-                # Check for occurrence of space time dataset.
-                if map_i.map_exists() is False:
-                    raise FatalError(
-                        _("%s map <%s> not found in GRASS spatial database")
-                        % (map_i.get_type(), id_input)
-                    )
-
-                # Select dataset entry from database.
-                map_i.select(dbif=self.dbif)
-            else:
-                raise FatalError(
-                    _(
-                        "Wrong map type. TMAP only supports single "
-                        "maps that are registered in the temporal GRASS database"
-                    )
-                )
-            # Return map object.
-            t[0] = [map_i]
+            t[0] = [self._open_single_map(t[3])]
         else:
-            t[0] = "tmap(", t[3], ")"
+            t[0] = f"tmap({t[3]})"
+        self._trace("tmap(", t[3], ")")
 
-        if self.debug:
-            print("tmap(", t[3], ")")
+    def _open_single_map(self, name):
+        """Open a map of the map type of the expression.
+
+        The map need not be registered in the temporal database: then its time
+        stamp is read from the GRASS database.
+
+        :raises FatalError: if the map does not exist or has no time stamp
+        """
+        id_input = name if "@" in name else f"{name}@{self.mapset}"
+        map_i = dataset_factory(self.maptype, id_input)
+        if map_i.map_exists() is False:
+            raise FatalError(
+                _("{type} map <{id}> not found in GRASS spatial database").format(
+                    type=map_i.get_type(), id=id_input
+                )
+            )
+        if map_i.is_in_db(dbif=self.dbif):
+            map_i.select(dbif=self.dbif)
+        else:
+            map_i.load()
+            map_i.read_timestamp_from_grass()
+        if map_i.get_temporal_extent_as_tuple()[0] is None:
+            raise FatalError(
+                _(
+                    "Map <{id}> has no time stamp and is not registered in the "
+                    "temporal database"
+                ).format(id=id_input)
+            )
+        return map_i
 
     def p_expr_tmerge_function(self, t):
         # Merge two maplists of same STDS type into a result map list.
@@ -2655,52 +2636,34 @@ class TemporalAlgebraParser:
              | MERGE LPAREN expr COMMA expr RPAREN
         """
         if self.run:
-            # Check input map.
-            maplistA = self.check_stds(t[3])
-            maplistB = self.check_stds(t[5])
-
-            # Check empty lists.
-            if len(maplistA) == 0 and len(maplistB) == 0:
-                self.msgr.warning(_("Merging empty map lists"))
-                resultlist = maplistA + maplistB
-            elif len(maplistA) == 0:
-                self.msgr.message(
-                    _(
-                        "First Map list is empty, can't merge it. "
-                        "Return only last map list"
-                    )
-                )
-                resultlist = maplistB
-            elif len(maplistB) == 0:
-                self.msgr.message(
-                    _(
-                        "Second Map list is empty, can't merge it. "
-                        "Return only first map list"
-                    )
-                )
-                resultlist = maplistA
-            else:
-                # Check for identical data types in map lists.
-                typeA = maplistA[0].metadata.get_datatype()
-                typeB = maplistB[0].metadata.get_datatype()
-
-                if typeA != typeB:
-                    raise FatalError(
-                        _(
-                            "Space time datasets to merge must have "
-                            "the same temporal type"
-                        )
-                    )
-
-                resultlist = maplistA + maplistB
-
-            # Return map list.
-            t[0] = resultlist
+            t[0] = self._merge(self.check_stds(t[3]), self.check_stds(t[5]))
         else:
-            t[0] = "merge(", t[3], ",", t[5], ")"
+            t[0] = f"merge({t[3]},{t[5]})"
+        self._trace("merge(", t[3], ",", t[5], ")")
 
-        if self.debug:
-            print("merge(", t[3], ",", t[5], ")")
+    def _merge(self, maplistA, maplistB):
+        """Join two map lists of the same data type"""
+        if not maplistA and not maplistB:
+            self.msgr.warning(_("Merging empty map lists"))
+            return []
+        if not maplistA:
+            self.msgr.message(
+                _("First Map list is empty, can't merge it. Return only last map list")
+            )
+            return maplistB
+        if not maplistB:
+            self.msgr.message(
+                _(
+                    "Second Map list is empty, can't merge it. "
+                    "Return only first map list"
+                )
+            )
+            return maplistA
+        if maplistA[0].metadata.get_datatype() != maplistB[0].metadata.get_datatype():
+            raise FatalError(
+                _("Space time datasets to merge must have the same data type")
+            )
+        return maplistA + maplistB
 
     def p_t_hash(self, t) -> None:
         """
@@ -2709,14 +2672,15 @@ class TemporalAlgebraParser:
                    | stds HASH expr
                    | expr HASH expr
         """
-
         if self.run:
-            maplistA = self.check_stds(t[1])
-            maplistB = self.check_stds(t[3])
-            resultlist = self.build_spatio_temporal_topology_list(
-                maplistA, maplistB, count_map=True
-            )
-            t[0] = resultlist
+            t[0] = self._count_related(t[1], t[3])
+
+    def _count_related(self, left, right, topolist=("EQUAL",)):
+        """Count for each map of the left side the maps of the right side which
+        have one of the relations to it. Maps without such a map are dropped."""
+        return self.build_spatio_temporal_topology_list(
+            self.check_stds(left), self.check_stds(right), topolist, count_map=True
+        )
 
     def p_t_hash2(self, t) -> None:
         """
@@ -2725,15 +2689,10 @@ class TemporalAlgebraParser:
                    | expr T_HASH_OPERATOR stds
                    | expr T_HASH_OPERATOR expr
         """
-
         if self.run:
-            maplistA = self.check_stds(t[1])
-            maplistB = self.check_stds(t[3])
-            topolist = self.eval_toperator(t[2], optype="hash")[0]
-            resultlist = self.build_spatio_temporal_topology_list(
-                maplistA, maplistB, topolist, count_map=True
-            )
-            t[0] = resultlist
+            with self._reporting_syntax_errors():
+                topolist = self.eval_toperator(t[2], optype="hash")[0]
+                t[0] = self._count_related(t[1], t[3], topolist)
 
     def p_t_hash_paren(self, t) -> None:
         """
@@ -2749,27 +2708,31 @@ class TemporalAlgebraParser:
         if self.run:
             maplist = self.check_stds(t[3])
             for map_i in maplist:
-                if map_i.is_time_absolute:
-                    start, end = map_i.get_absolute_time()
-                    if end is not None:
-                        td = time_delta_to_relative_time(end - start)
-                else:
-                    start, end, unit = map_i.get_relative_time()
-                    if end is not None:
-                        td = end - start
-                if "map_value" in dir(map_i):
-                    gvar = GlobalTemporalVar()
-                    gvar.td = td
-                    map_i.map_value.append(gvar)
-                else:
-                    map_i.map_value = gvar
-
+                gvar = GlobalTemporalVar()
+                gvar.td = self._time_difference(map_i)
+                self._add_map_value(map_i, gvar)
             t[0] = maplist
         else:
-            t[0] = "td(" + str(t[3]) + ")"
+            t[0] = f"td({t[3]})"
+        self._trace("td(" + str(t[3]) + ")")
 
-        if self.debug:
-            print("td(" + str(t[3]) + ")")
+    def _time_difference(self, map_i):
+        """The size of the temporal extent of the map: days for absolute time,
+        the time unit for relative time"""
+        if map_i.is_time_absolute():
+            start, end = map_i.get_absolute_time()
+        else:
+            start, end, _unit = map_i.get_relative_time()
+        if end is None:
+            self.msgr.fatal(
+                _(
+                    "Function td() requires a time interval, but map <{map}> is a "
+                    "time instance."
+                ).format(map=map_i.get_id())
+            )
+        if map_i.is_time_absolute():
+            return time_delta_to_relative_time(end - start)
+        return end - start
 
     def p_t_time_var(self, t) -> None:
         # Temporal variables that return a double or integer value
@@ -2818,29 +2781,27 @@ class TemporalAlgebraParser:
         """
         if self.run:
             maplist = self.check_stds(t[1])
-            comp_op = t[2]
-            # t[3] is already an int/float from the lexer (t_INT/t_FLOAT).
-            value = t[3]
             for map_i in maplist:
-                # Evaluate time differences and hash operator statements for each map.
-                try:
-                    td = map_i.map_value[0].td
-                    boolname = self.compare_values(td, comp_op, value)
-                    # Add conditional boolean value to the map.
-                    if "condition_value" in dir(map_i):
-                        map_i.condition_value.append(boolname)
-                    else:
-                        map_i.condition_value = boolname
-                except (IndexError, AttributeError, TypeError):
-                    self.msgr.fatal(
-                        "Error: the given expression does not contain a correct time "
-                        "difference object."
-                    )
-
+                # t[3] is already an int/float from the lexer (t_INT/t_FLOAT).
+                self._add_condition_value(
+                    map_i,
+                    self.compare_values(self._counted_value(map_i), t[2], t[3]),
+                )
             t[0] = maplist
+        self._trace(t[1], t[2], t[3])
 
-        if self.debug:
-            print(t[1], t[2], t[3])
+    def _counted_value(self, map_i):
+        """The time difference or number of related maps of a map, as stored by
+        td() and the hash operator"""
+        try:
+            return map_i.map_value[0].td
+        except (IndexError, AttributeError, TypeError):
+            self.msgr.fatal(
+                _(
+                    "Error: the given expression does not contain a correct time "
+                    "difference object."
+                )
+            )
 
     def p_t_var_expr_number(self, t) -> None:
         # Examples:
@@ -2851,33 +2812,27 @@ class TemporalAlgebraParser:
         t_var_expr : t_var LPAREN stds RPAREN comp_op number
                    | t_var LPAREN expr RPAREN comp_op number
         """
-        # TODO:  Implement comparison operator for map lists.
-        # | t_var LPAREN stds RPAREN comp_op t_var LPAREN stds RPAREN
-        # | t_var LPAREN stds RPAREN comp_op t_var LPAREN expr RPAREN
-        # | t_var LPAREN expr RPAREN comp_op t_var LPAREN expr RPAREN
-        # | t_var LPAREN expr RPAREN comp_op t_var LPAREN stds RPAREN
-        # TODO:  Implement statement in backward direction:
-        # number comp_op t_var LPAREN stds RPAREN
+        # Not implemented: comparing the functions of two map lists with each
+        # other, and the backward direction (number before the function).
         if self.run:
-            maplist = self.check_stds(t[3])
-            gvar = GlobalTemporalVar()
-            gvar.tfunc = t[1]
-            gvar.compop = t[5]
-            gvar.value = t[6]
-            # Evaluate temporal variable for given maplist.
-            resultlist = self.eval_global_var(gvar, maplist)
-            t[0] = resultlist
+            t[0] = self._eval_time_condition(t[1], t[3], t[5], t[6])
+        self._trace(t[1], t[3], t[5], t[6])
 
-        if self.debug:
-            print(t[1], t[3], t[5], t[6])
+    def _eval_time_condition(self, tfunc, stds, compop, value):
+        """Evaluate a temporal function of the maps against a value: the
+        condition values of the maps are set and the maps returned."""
+        gvar = GlobalTemporalVar()
+        gvar.tfunc = tfunc
+        gvar.compop = compop
+        gvar.value = value
+        return self.eval_global_var(gvar, self.check_stds(stds))
 
     def p_t_var_expr_time(self, t) -> None:
         # Examples:
         #   start_time(A) == "12:30:00"
         #   start_date(B) <= "2001-01-01"
         #   start_datetime(C) > "2001-01-01 12:30:00"
-        # TODO:  Implement statement in backward direction:
-        # TIME comp_op START_TIME LPAREN stds RPAREN
+        # Not implemented: the backward direction (value before the function).
         """
         t_var_expr : START_TIME     LPAREN stds RPAREN comp_op TIME
                    | START_DATE     LPAREN stds RPAREN comp_op DATE
@@ -2893,20 +2848,8 @@ class TemporalAlgebraParser:
                    | END_DATETIME   LPAREN expr RPAREN comp_op DATETIME
         """
         if self.run:
-            # Check input maplist.
-            maplist = self.check_stds(t[3])
-            # Build global temporal variable.
-            gvar = GlobalTemporalVar()
-            gvar.tfunc = t[1]
-            gvar.compop = t[5]
-            gvar.value = t[6]
-            # Evaluate temporal variable for given maplist.
-            resultlist = self.eval_global_var(gvar, maplist)
-
-            t[0] = resultlist
-
-        if self.debug:
-            print(t[1], t[3], t[5], t[6])
+            t[0] = self._eval_time_condition(t[1], t[3], t[5], t[6])
+        self._trace(t[1], t[3], t[5], t[6])
 
     def p_t_var_expr_comp(self, t) -> None:
         """
@@ -2914,61 +2857,47 @@ class TemporalAlgebraParser:
                    | t_var_expr OR OR t_var_expr
         """
         if self.run:
-            # Check input maplists and operators.
-            tvarexprA = t[1]
-            tvarexprB = t[4]
-            relations = ["EQUAL"]
-            temporal = "l"
-            function = t[2] + t[3]
-            aggregate = t[2]
-            # Build conditional values based on topological relationships.
-            complist = self.build_spatio_temporal_topology_list(
-                tvarexprA,
-                tvarexprB,
-                topolist=relations,
-                compare_bool=True,
-                compop=function[0],
-                aggregate=aggregate,
+            # && and || combine the conditions of maps with equal time
+            t[0] = self._combine_conditions(
+                t[1], t[4], ["EQUAL"], "l", t[2] + t[3], t[2]
             )
-            # Set temporal extent based on topological relationships.
-            resultlist = self.set_temporal_extent_list(
-                complist, topolist=relations, temporal=temporal
-            )
+        self._trace(t[1], t[2] + t[3], t[4])
 
-            t[0] = resultlist
+    def _combine_conditions(
+        self, left, right, relations, temporal, function, aggregate
+    ):
+        """Combine the boolean conditions of two map lists.
 
-        if self.debug:
-            print(t[1], t[2] + t[3], t[4])
+        :param function: The boolean operator & or | (also as && or ||) which
+            joins the condition of a map with the aggregate of the related maps
+        :param aggregate: The boolean operator which joins the conditions of
+            several related maps
+        """
+        complist = self.build_spatio_temporal_topology_list(
+            left,
+            right,
+            topolist=relations,
+            compare_bool=True,
+            compop=function[0],
+            aggregate=aggregate,
+        )
+        return self.set_temporal_extent_list(
+            complist, topolist=relations, temporal=temporal
+        )
 
     def p_t_var_expr_comp_op(self, t) -> None:
         """
         t_var_expr : t_var_expr T_COMP_OPERATOR t_var_expr
         """
         if self.run:
-            tvarexprA = t[1]
-            tvarexprB = t[3]
-            # Evaluate temporal comparison operator.
-            relations, temporal, function, aggregate = self.eval_toperator(
-                t[2], optype="boolean"
-            )
-            # Build conditional values based on topological relationships.
-            complist = self.build_spatio_temporal_topology_list(
-                tvarexprA,
-                tvarexprB,
-                topolist=relations,
-                compare_bool=True,
-                compop=function[0],
-                aggregate=aggregate,
-            )
-            # Set temporal extent based on topological relationships.
-            resultlist = self.set_temporal_extent_list(
-                complist, topolist=relations, temporal=temporal
-            )
-
-            t[0] = resultlist
-
-        if self.debug:
-            print(t[1], t[2], t[3])
+            with self._reporting_syntax_errors():
+                relations, temporal, function, aggregate = self.eval_toperator(
+                    t[2], optype="boolean"
+                )
+                t[0] = self._combine_conditions(
+                    t[1], t[3], relations, temporal, function, aggregate
+                )
+        self._trace(t[1], t[2], t[3])
 
     def p_expr_t_select(self, t) -> None:
         # Temporal equal selection
@@ -2982,20 +2911,17 @@ class TemporalAlgebraParser:
              | expr T_SELECT expr
         """
         if self.run:
-            # Setup database connection.
-
-            # Check input stds.
-            maplistA = self.check_stds(t[1])
-            maplistB = self.check_stds(t[3])
-            # Perform selection.
-            selectlist = self.perform_temporal_selection(maplistA, maplistB)
-            # Return map list.
-            t[0] = selectlist
+            t[0] = self.perform_temporal_selection(
+                self.check_stds(t[1]), self.check_stds(t[3])
+            )
         else:
-            t[0] = t[1] + "*"
+            t[0] = self._placeholder(t[1])
+        self._trace(str(t[1]), "* = ", t[1], t[2], t[3])
 
-        if self.debug:
-            print(str(t[1]), "* = ", t[1], t[2], t[3])
+    @staticmethod
+    def _placeholder(operand) -> str:
+        """The value of an expression which is only parsed, not evaluated"""
+        return f"{operand}*"
 
     def p_expr_t_not_select(self, t) -> None:
         # Temporal equal selection
@@ -3009,20 +2935,12 @@ class TemporalAlgebraParser:
              | expr T_NOT_SELECT expr
         """
         if self.run:
-            # Check input stds.
-            maplistA = self.check_stds(t[1])
-            maplistB = self.check_stds(t[3])
-            # Perform negative selection.
-            selectlist = self.perform_temporal_selection(
-                maplistA, maplistB, inverse=True
+            t[0] = self.perform_temporal_selection(
+                self.check_stds(t[1]), self.check_stds(t[3]), inverse=True
             )
-            # Return map list.
-            t[0] = selectlist
         else:
-            t[0] = t[1] + "*"
-
-        if self.debug:
-            print(t[1] + "* = ", t[1], t[2], t[3])
+            t[0] = self._placeholder(t[1])
+        self._trace(f"{t[1]}* = ", t[1], t[2], t[3])
 
     def p_expr_t_select_operator(self, t) -> None:
         # Temporal equal selection
@@ -3044,27 +2962,30 @@ class TemporalAlgebraParser:
              | expr T_SELECT_OPERATOR expr
         """
         if self.run:
-            # Check input stds.
-            maplistA = self.check_stds(t[1])
-            maplistB = self.check_stds(t[3])
-            # Evaluate temporal operator.
-            operators = self.eval_toperator(t[2], optype="select")
-            # Check for negative selection.
-            negation = operators[2] == "!:"
-            # Perform selection.
-            selectlist = self.perform_temporal_selection(
-                maplistA, maplistB, topolist=operators[0], inverse=negation
-            )
-            selectlist = self.set_granularity(
-                selectlist, maplistB, operators[1], operators[0]
-            )
-            # Return map list.
-            t[0] = selectlist
+            with self._reporting_syntax_errors():
+                maplistA = self.check_stds(t[1])
+                maplistB = self.check_stds(t[3])
+                relations, temporal, function, _aggregate = self.eval_toperator(
+                    t[2], optype="select"
+                )
+                selected = self.perform_temporal_selection(
+                    maplistA, maplistB, topolist=relations, inverse=function == "!:"
+                )
+                t[0] = self.set_granularity(selected, maplistB, temporal, relations)
         else:
-            t[0] = t[1] + "*"
+            t[0] = self._placeholder(t[1])
+        self._trace(f"{t[1]}* = ", t[1], t[2], t[3])
 
-        if self.debug:
-            print(t[1] + "* = ", t[1], t[2], t[3])
+    @contextmanager
+    def _reporting_syntax_errors(self):
+        """Report a SyntaxError raised in the block instead of raising it.
+
+        PLY swallows a SyntaxError raised in a grammar rule, see _report_error.
+        """
+        try:
+            yield
+        except SyntaxError as error:
+            self._report_error(str(error))
 
     def p_expr_condition_if(self, t) -> None:
         # Examples
@@ -3074,21 +2995,33 @@ class TemporalAlgebraParser:
              | IF LPAREN t_var_expr COMMA expr RPAREN
         """
         if self.run:
-            # Get stds/map list of then statement.
-            thenlist = self.check_stds(t[5])
-            # Get temporal conditional statement.
-            tvarexpr = t[3]
-            thencond = self.build_condition_list(tvarexpr, thenlist)
-            thenresult = self.eval_condition_list(thencond)
-            # Clear the map and conditional values of the map list.
-            resultlist = self.check_stds(thenresult, clear=True)
-            # Return resulting map list.
-            t[0] = resultlist
+            t[0] = self._evaluate_if(t[3], t[5])
         else:
-            t[0] = t[5] + "*"
+            t[0] = self._placeholder(t[5])
+        self._trace(str(t[5]) + "* = ", "if condition", str(t[3]), " then ", str(t[5]))
 
-        if self.debug:
-            print(str(t[5]) + "* = ", "if condition", str(t[3]), " then ", str(t[5]))
+    def _evaluate_if(self, tvarexpr, then_arg, else_arg=None, topolist=("EQUAL",)):
+        """Evaluate a conditional statement.
+
+        :param tvarexpr: The condition, a map list with condition values
+        :param then_arg: The maps (or a dataset name) taken where the condition
+            is true
+        :param else_arg: The maps (or a dataset name) taken where it is false
+        :param topolist: The temporal relations between condition and conclusions
+        :return: The selected maps, sorted by time, without condition values
+        """
+        thenlist = self.check_stds(then_arg)
+        condition = self.build_condition_list(tvarexpr, thenlist, topolist)
+        selected = self.eval_condition_list(condition)
+        if else_arg is not None:
+            elselist = self.check_stds(else_arg)
+            condition = self.build_condition_list(tvarexpr, elselist, topolist)
+            selected = sorted(
+                selected + self.eval_condition_list(condition, inverse=True),
+                key=AbstractDatasetComparisonKeyStartTime,
+            )
+        # Clear the map and conditional values of the map list.
+        return self.check_stds(selected, clear=True)
 
     def p_expr_condition_if_relation(self, t) -> None:
         # Examples
@@ -3098,30 +3031,14 @@ class TemporalAlgebraParser:
              | IF LPAREN T_REL_OPERATOR COMMA t_var_expr COMMA expr RPAREN
         """
         if self.run:
-            # Get stds/map list of then statement.
-            thenlist = self.check_stds(t[7])
-            # Get temporal conditional statement.
-            tvarexpr = t[5]
-            topolist = self.eval_toperator(t[3], optype="relation")[0]
-            thencond = self.build_condition_list(tvarexpr, thenlist, topolist)
-            thenresult = self.eval_condition_list(thencond)
-            # Clear the map and conditional values of the map list.
-            resultlist = self.check_stds(thenresult, clear=True)
-            # Return resulting map list.
-            t[0] = resultlist
+            with self._reporting_syntax_errors():
+                topolist = self.eval_toperator(t[3], optype="relation")[0]
+                t[0] = self._evaluate_if(t[5], t[7], topolist=topolist)
         else:
-            t[0] = t[7] + "*"
-
-        if self.debug:
-            print(
-                "result* = ",
-                "if ",
-                str(t[3]),
-                "condition",
-                str(t[5]),
-                " then ",
-                str(t[7]),
-            )
+            t[0] = self._placeholder(t[7])
+        self._trace(
+            "result* = ", "if ", str(t[3]), "condition", str(t[5]), " then ", str(t[7])
+        )
 
     def p_expr_condition_elif(self, t) -> None:
         # Examples
@@ -3133,36 +3050,18 @@ class TemporalAlgebraParser:
              | IF LPAREN t_var_expr COMMA expr COMMA expr RPAREN
         """
         if self.run:
-            # Get stds/map list of then statement.
-            thenlist = self.check_stds(t[5])
-            elselist = self.check_stds(t[7])
-            # Get temporal conditional statement for then and else expressions.
-            tvarexpr = t[3]
-            thencond = self.build_condition_list(tvarexpr, thenlist)
-            thenresult = self.eval_condition_list(thencond)
-            elsecond = self.build_condition_list(tvarexpr, elselist)
-            elseresult = self.eval_condition_list(elsecond, inverse=True)
-
-            # Combine and sort else and then statement to result map list.
-            combilist = thenresult + elseresult
-            resultlist = sorted(combilist, key=AbstractDatasetComparisonKeyStartTime)
-            # Clear the map and conditional values of the map list.
-            resultlist = self.check_stds(resultlist, clear=True)
-            # Return resulting map list.
-            t[0] = resultlist
+            t[0] = self._evaluate_if(t[3], t[5], t[7])
         else:
-            t[0] = t[5] + "*"
-
-        if self.debug:
-            print(
-                str(t[5]) + "* = ",
-                "if condition",
-                str(t[3]),
-                " then ",
-                str(t[5]),
-                " else ",
-                str(t[7]),
-            )
+            t[0] = self._placeholder(t[5])
+        self._trace(
+            str(t[5]) + "* = ",
+            "if condition",
+            str(t[3]),
+            " then ",
+            str(t[5]),
+            " else ",
+            str(t[7]),
+        )
 
     def p_expr_condition_elif_relation(self, t) -> None:
         # Examples
@@ -3177,52 +3076,21 @@ class TemporalAlgebraParser:
              | IF LPAREN T_REL_OPERATOR COMMA t_var_expr COMMA expr COMMA expr RPAREN
         """
         if self.run:
-            # Get stds/map list of then statement.
-            thenlist = self.check_stds(t[7])
-            elselist = self.check_stds(t[9])
-            # Get temporal conditional statement.
-            tvarexpr = t[5]
-            topolist = self.eval_toperator(t[3], optype="relation")[0]
-            thencond = self.build_condition_list(tvarexpr, thenlist, topolist)
-            thenresult = self.eval_condition_list(thencond)
-            elsecond = self.build_condition_list(tvarexpr, elselist, topolist)
-            elseresult = self.eval_condition_list(elsecond, inverse=True)
-
-            # Combine and sort else and then statement to result map list.
-            combilist = thenresult + elseresult
-            resultlist = sorted(combilist, key=AbstractDatasetComparisonKeyStartTime)
-            # Clear the map and conditional values of the map list.
-            resultlist = self.check_stds(resultlist, clear=True)
-            # Return resulting map list.
-            t[0] = resultlist
-        elif t[5]:
-            t[0] = str(t[7])
+            with self._reporting_syntax_errors():
+                topolist = self.eval_toperator(t[3], optype="relation")[0]
+                t[0] = self._evaluate_if(t[5], t[7], t[9], topolist)
         else:
-            t[0] = str(t[9])
-
-        if self.debug:
-            if t[5]:
-                print(
-                    str(t[7]),
-                    "* = ",
-                    "if condition",
-                    str(t[5]),
-                    " then ",
-                    str(t[7]),
-                    " else ",
-                    str(t[9]),
-                )
-            else:
-                print(
-                    str(t[9]),
-                    "* = ",
-                    "if condition",
-                    str(t[5]),
-                    " then ",
-                    str(t[7]),
-                    " else ",
-                    str(t[9]),
-                )
+            t[0] = self._placeholder(t[7])
+        self._trace(
+            str(t[7] if t[5] else t[9]),
+            "* = ",
+            "if condition",
+            str(t[5]),
+            " then ",
+            str(t[7]),
+            " else ",
+            str(t[9]),
+        )
 
     def p_expr_t_buff(self, t) -> None:
         # Examples
@@ -3236,34 +3104,65 @@ class TemporalAlgebraParser:
              | BUFF_T LPAREN expr COMMA number RPAREN
         """
         if self.run:
-            # Check input stds.
-            bufflist = self.check_stds(t[3])
-            for map in bufflist:
-                # Get increment format.
-                if len(t) == 10:
-                    increment = str(t[6]) + " " + t[7]
-                elif len(t) == 7:
-                    increment = str(t[5])
-                # Perform buffering.
-                map.temporal_buffer(increment)
-            t[0] = bufflist
+            t[0] = self.check_stds(t[3])
+            with self._reporting_syntax_errors():
+                self._check_increment("buff_t", t[0], self._increment(t))
+                for map_i in t[0]:
+                    # Relative time is buffered by a number of time units
+                    map_i.temporal_buffer(
+                        self._increment(t, as_number=map_i.is_time_relative())
+                    )
         else:
-            t[0] = t[3] + "*"
+            t[0] = self._placeholder(t[3])
+        self._trace_increment("buff_t", t)
 
+    def _trace(self, *parts) -> None:
+        """Print the parts of a parsed rule when debugging (documented in the
+        doctests of this module)"""
         if self.debug:
-            if len(t) == 10:
-                print(
-                    str(t[3]) + "* = buff_t(",
-                    str(t[3]),
-                    ",",
-                    '"',
-                    str(t[6]),
-                    str(t[7]),
-                    '"',
-                    ")",
-                )
-            elif len(t) == 7:
-                print(str(t[3]) + "* = buff_t(", str(t[3]), ",", str(t[5]), ")")
+            print(*parts)
+
+    def _trace_increment(self, function, t) -> None:
+        """Print the buff_t() or tshift() rule that was parsed, when debugging"""
+        if len(t) == 10:
+            self._trace(
+                f"{t[3]}* = {function}(",
+                str(t[3]),
+                ",",
+                '"',
+                str(t[6]),
+                str(t[7]),
+                '"',
+                ")",
+            )
+        else:
+            self._trace(f"{t[3]}* = {function}(", str(t[3]), ",", str(t[5]), ")")
+
+    @staticmethod
+    def _increment(t, as_number: bool = False):
+        """The increment of buff_t() and tshift(): "10 minutes" (a quoted number
+        and a unit) or, without a unit, a number"""
+        if len(t) == 10:
+            return f"{t[6]} {t[7]}"
+        return int(t[5]) if as_number else str(t[5])
+
+    @staticmethod
+    def _check_increment(function, maplist, increment) -> None:
+        """Refuse a number without a unit as increment of absolute time maps.
+
+        Without it temporal_buffer() fails with a bare Exception, which the
+        tools do not catch.
+
+        :raises SyntaxError: if a map has absolute time and no unit is given
+        """
+        if str(increment).strip().lstrip("-").isdigit() and any(
+            map_i.is_time_absolute() for map_i in maplist
+        ):
+            msg = (
+                "Function {function}() needs a time unit for absolute time, "
+                'e.g. "{increment} days", but got {increment}'
+            ).format(function=function, increment=increment)
+            raise SyntaxError(msg)
 
     def p_expr_t_snap(self, t) -> None:
         # Examples
@@ -3273,16 +3172,10 @@ class TemporalAlgebraParser:
              | TSNAP LPAREN expr RPAREN
         """
         if self.run:
-            # Check input stds.
-            maplist = self.check_stds(t[3])
-            # Perform snapping.
-            snaplist = AbstractSpaceTimeDataset.snap_map_list(maplist)
-            t[0] = snaplist
+            t[0] = AbstractSpaceTimeDataset.snap_map_list(self.check_stds(t[3]))
         else:
-            t[0] = t[3] + "*"
-
-        if self.debug:
-            print(str(t[3]) + "* = tsnap(", str(t[3]), ")")
+            t[0] = self._placeholder(t[3])
+        self._trace(str(t[3]) + "* = tsnap(", str(t[3]), ")")
 
     def p_expr_t_shift(self, t) -> None:
         # Examples
@@ -3295,33 +3188,15 @@ class TemporalAlgebraParser:
              | TSHIFT LPAREN expr COMMA number RPAREN
         """
         if self.run:
-            # Check input stds.
             maplist = self.check_stds(t[3])
-            # Get increment format.
-            if len(t) == 10:
-                increment = str(t[6]) + " " + t[7]
-            elif len(t) == 7:
-                increment = str(t[5])
-            # Perform shifting.
-            shiftlist = AbstractSpaceTimeDataset.shift_map_list(maplist, increment)
-            t[0] = shiftlist
-        else:
-            t[0] = t[3] + "*"
-
-        if self.debug:
-            if len(t) == 10:
-                print(
-                    str(t[3]) + "* = tshift(",
-                    str(t[3]),
-                    ",",
-                    '"',
-                    str(t[6]),
-                    str(t[7]),
-                    '"',
-                    ")",
+            with self._reporting_syntax_errors():
+                self._check_increment("tshift", maplist, self._increment(t))
+                t[0] = AbstractSpaceTimeDataset.shift_map_list(
+                    maplist, self._increment(t)
                 )
-            elif len(t) == 7:
-                print(str(t[3]) + "* = tshift(", str(t[3]), ",", str(t[5]), ")")
+        else:
+            t[0] = self._placeholder(t[3])
+        self._trace_increment("tshift", t)
 
     def p_expr_time_const(self, t) -> None:
         # Examples
@@ -3332,37 +3207,30 @@ class TemporalAlgebraParser:
         expr : t_var LPAREN NAME COMMA INT RPAREN
         """
         if self.run:
-            # Check input stds.
-            map_list = self.check_stds(t[3])
-            result_list = []
+            t[0] = self._neighbour_constants(t[1], t[3], int(t[5]))
+        else:
+            t[0] = self._placeholder(t[3])
+        self._trace(str(t[3]), "* = ", str(t[0]), "(", str(t[3]), ",", str(t[4]), ")")
 
-            # Get increment format.
-            t_neighbour = int(t[5])
+    def _neighbour_constants(self, function, stds, offset):
+        """Give each map the value of a temporal function of its neighbour.
 
-            max_index = len(map_list)
-            for map_i in map_list:
-                # Get map index and temporal extent.
-                map_index = map_list.index(map_i)
-                new_index = map_index + t_neighbour
-                if 0 <= new_index < max_index:
-                    # Get neighbouring map and set temporal extent.
-                    map_n = map_list[new_index]
-                    map_i_t_extent = map_i.get_temporal_extent()
-                    # Create r.mapcalc expression string for the operation.
-                    tfuncdict = self.get_temporal_func_dict(map_n)
-                    # Generate an intermediate map for the result map list.
-                    map_new = self.generate_new_map(map_n, bool_op="and", copy=True)
-                    map_new.set_temporal_extent(map_i_t_extent)
-                    # Set new command list for map.
-                    map_new.cmd_list = str(tfuncdict[t[1].upper()])
-
-                    # Append map with updated command list to result list.
-                    result_list.append(map_new)
-
-            t[0] = result_list
-
-        if self.debug:
-            print(str(t[3]), "* = ", str(t[0]), "(", str(t[3]), ",", str(t[4]), ")")
+        The neighbour is the map ``offset`` positions away in the time series;
+        maps without such a neighbour are dropped. The new maps have the
+        temporal extent of the original and carry the value as ``cmd_list``.
+        """
+        map_list = self.check_stds(stds)
+        result_list = []
+        for index, map_i in enumerate(map_list):
+            neighbour_index = index + offset
+            if not 0 <= neighbour_index < len(map_list):
+                continue
+            map_n = map_list[neighbour_index]
+            map_new = self.generate_new_map(map_n, bool_op="and", copy=True)
+            map_new.set_temporal_extent(map_i.get_temporal_extent())
+            map_new.cmd_list = str(self.get_temporal_func_dict(map_n)[function.upper()])
+            result_list.append(map_new)
+        return result_list
 
     def p_error(self, t):
         # Handle errors.

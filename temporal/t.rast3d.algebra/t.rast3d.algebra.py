@@ -65,6 +65,7 @@
 import sys
 
 import grass.script as gs
+from grass.exceptions import FatalError
 
 
 def main():
@@ -87,15 +88,20 @@ def main():
         register_null=register_null,
     )
 
-    if granularity:
-        if not p.setup_common_granularity(
+    try:
+        if granularity and not p.setup_common_granularity(
             expression=expression,
             stdstype="str3ds",
             lexer=tgis.TemporalRasterAlgebraLexer(),
         ):
             gs.fatal(_("Unable to process the expression in granularity algebra mode"))
 
-    p.parse(expression, basename, gs.overwrite())
+        pc = p.parse(expression, basename, gs.overwrite())
+    except (SyntaxError, FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
+
+    if not (pc or {}).get("register"):
+        gs.warning(_("The expression produced no map, the result is empty"))
 
 
 if __name__ == "__main__":

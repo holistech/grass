@@ -32,9 +32,20 @@ In addition the algebra provides a subset of the spatial operations from
 or to the map lists resulting of operations between STRDS.
 
 By default, only temporal topological relations among space time
-datasets (STDS) are evaluated. The **-s** flag can be used to
-additionally activate the evaluation of the spatial topology based on
-the spatial extent of maps.
+datasets (STDS) are evaluated.
+The **-s** flag additionally activates the evaluation of the spatial
+topology of the maps. It applies wherever the algebra evaluates the
+topology of maps: in selections, in the hash operator, in the conditions
+of if statements, in comparison operators and in the spatial operators.
+Two temporally related maps are then only used together if they are also
+spatially related, that is the spatial extents of the maps are
+equivalent, one covers or is covered by the other, they overlap, one
+lies in the other, one contains the other, or they meet (the spatial
+relations *equivalent*, *cover*, *covered*, *overlap*, *in*, *contain*
+and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
+*contain* and *meet* can also be named in the curly brackets of a
+spatial operator, for example `{+,equal|overlap}`; the maps then need
+this spatial relation in addition to the temporal one.
 
 The expression option must be passed as **quoted** expression, for
 example:
@@ -62,7 +73,7 @@ Several temporal topology relations are supported between maps
 registered in space time datasets:
 
 ```sh
-equals            A ------
+equal             A ------
                   B ------
 
 during            A  ----
@@ -98,10 +109,18 @@ overlaps          A ------
 over              both overlaps and overlapped
 ```
 
-The relations must be read as: A is related to B, like - A equals B - A
+The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 
 Topological relations must be specified with curly brackets {}.
+
+The relations **during** and **contains** are inclusive: **during** also
+selects maps that start or finish together with the related map (the
+relations **starts** and **finishes**), and **contains** also selects maps
+with the relations **started** and **finished**. The relations **precedes**
+and **follows** only apply to maps that touch each other, that is the end of
+one map is the start of the other. Maps that are separated by a gap have no
+relation.
 
 ### TEMPORAL OPERATORS
 
@@ -155,15 +174,15 @@ selection operator", "topological relations", "temporal operator"}.
 **Examples:**
 
 ```sh
-C = A {:,equals} B
-C = A {!:,equals} B
+C = A {:,equal} B
+C = A {!:,equal} B
 ```
 
 We can now define arbitrary topological relations using the OR operator
 "\|" to connect them:
 
 ```sh
-C = A {:,equals|during|overlaps} B
+C = A {:,equal|during|overlaps} B
 ```
 
 Select all parts of A that are equal to B, during B or overlaps B.  
@@ -317,6 +336,8 @@ in conditional statements with the hash (#) operator.
 A {#, contains} B
 ```
 
+The hash operator can only be used in the condition of an if statement.
+
 This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.  
 A list of integers (scalars) corresponding to the maps of A that contain
@@ -326,7 +347,7 @@ maps from B will be returned.
 C = if({equal}, A {#, contains} B > 2, A {:, contains} B)
 ```
 
-This expression selects all maps from A that temporally contain at least
+This expression selects all maps from A that temporally contain more than
 2 maps from B and stores them in space time dataset C. The leading equal
 statement in the if condition specifies the temporal relation between
 the if and then part of the if expression. This is very important, so we
@@ -384,7 +405,6 @@ int(x)                  convert x to integer [ truncates ]
 log(x)                  natural log of x
 sqrt(x)                 square root of x
 tan(x)                  tangent of x (x is in degrees)
-round(x)                round x to nearest integer
 sin(x)                  sine of x (x is in degrees)
 isnull(x)               check if x = NULL
 isntnull(x)             check if x is not NULL
@@ -445,8 +465,8 @@ map for a1 of A:
 
 The neighbourhood modifier of *r.mapcalc* is extended for the temporal
 raster algebra with the temporal dimension. The format is
-strds\[t,r,c\], where t is the temporal offset, r is the row offset and
-c is the column offset. A single neighborhood modifier is interpreted as
+strds\[r,c,t\], where r is the row offset, c is the column offset and
+t is the temporal offset. A single neighborhood modifier is interpreted as
 temporal offset \[t\], while two neighborhood modifiers are interpreted
 as row and column offsets \[r,c\].
 
@@ -464,14 +484,14 @@ refers to the cell one row below and two columns to the right of the
 current cell in the current map.
 
 ```code
-strds[1,-2,-1]
+strds[-2,-1,1]
 ```
 
 refers to the cell two rows above and one column to the left of the
 current cell of the first successor map.
 
 ```code
-strds[-2,0,1]
+strds[0,1,-2]
 ```
 
 refers to the cell one column to the right of the current cell in the
@@ -528,10 +548,10 @@ C = if(A > 100 && A < 1600 && td(A) > 30, B)
 ### Selection of raster cells with temporal topology relation
 
 Same expression with explicit definition of the temporal topology
-relation and temporal operators:
+relation between the condition and the then part:
 
 ```sh
-C = if({equal}, A > 100 && A < 1600 {&&,equal} td(A) > 30, B)
+C = if({equal}, A > 100 && A < 1600 && td(A) > 30, B)
 ```
 
 ### Conditional computation
@@ -564,7 +584,7 @@ interval of B, use A otherwise. The resulting time intervals are either
 from B or A:
 
 ```sh
-C = if(B {#,contain} A > 1, (B {+,contain,l} A - B) / (B {#,contain} A), A)
+C = if(B {#,contains} A > 1, (B {+,contains,l} A - B) / (B {#,contains} A), A)
 ```
 
 ### Computation with time intervals with temporal topology relation
@@ -573,7 +593,7 @@ Same expression with explicit definition of the temporal topology
 relation and temporal operators:
 
 ```sh
-C = if({equal}, B {#,contain} A > 1, (B {+,contain,l} A {-,equal,l} B) {equal,=/} (B {#,contain} A), A)
+C = if({equal}, B {#,contains} A > 1, (B {+,contains,l} A {-,equal,l} B) {/,equal,l} (B {#,contains} A), A)
 ```
 
 ### Compute DOY for spatio-temporal conditions

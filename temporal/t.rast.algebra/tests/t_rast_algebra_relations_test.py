@@ -8,12 +8,6 @@ D are described in the algebra fixture.
 
 import pytest
 
-NO_RELATION_BUG = pytest.mark.xfail(
-    strict=True,
-    reason="doc: {:} and {!:} without relation are documented as equal to : and !: "
-    "but produce no result at all",
-)
-
 
 def probes(algebra, expression):
     """Return the sorted probe numbers selected by an expression on rel"""
@@ -69,25 +63,25 @@ def test_precedes_and_follows_need_adjacent_maps(algebra, relation):
     assert 13 not in selected
 
 
-@pytest.mark.xfail(
-    strict=True, reason="doc: manual writes {:,equals}, only equal works"
-)
-def test_equals_spelling_of_the_manual(algebra):
-    """The manual selects with {:,equals}"""
-    assert probes(algebra, "rel {:,equals} ref") == [1]
+def test_equals_is_not_a_relation(algebra):
+    """Only equal is a relation; the spelling equals is reported"""
+    with pytest.raises(SyntaxError, match="equals"):
+        algebra.parse("rel {:,equals} ref")
 
 
 @pytest.mark.parametrize(
-    "expression",
-    ["rel {:,nonsense} ref", "rel {:,equal|nonsense} ref", "rel {+,nonsense} ref"],
-)
-@pytest.mark.xfail(
-    strict=True, reason="new: unknown relation is silently ignored, no output at all"
+    "expression", ["rel {:,nonsense} ref", "rel {:,equal|nonsense} ref"]
 )
 def test_unknown_relation_is_an_error(algebra, expression):
     """A misspelled relation must not silently produce nothing"""
-    with pytest.raises(algebra.errors):
+    with pytest.raises(SyntaxError, match="nonsense"):
         algebra.parse(expression)
+
+
+def test_unknown_relation_of_arithmetic_operator_is_an_error(algebra):
+    """{+,nonsense} must be reported like the relations of the selection"""
+    with pytest.raises(SyntaxError, match="nonsense"):
+        algebra.parse("rel {+,nonsense} ref")
 
 
 @pytest.mark.parametrize(
@@ -97,7 +91,6 @@ def test_unknown_relation_is_an_error(algebra, expression):
         pytest.param(
             "rel {!:} ref",
             [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
-            marks=NO_RELATION_BUG,
         ),
         ("rel {!:,equal} ref", [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
         ("rel {!:,equal,l} ref", [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]),
@@ -117,7 +110,7 @@ def test_not_select_is_the_complement(algebra, expression, expected):
     "expression",
     [
         "rel : ref",
-        pytest.param("rel {:} ref", marks=NO_RELATION_BUG),
+        pytest.param("rel {:} ref"),
         "rel {:,equal} ref",
         "rel {:,equal,l} ref",
     ],
@@ -131,7 +124,7 @@ def test_default_select_is_equal(algebra, expression):
     "expression",
     [
         "A : D",
-        pytest.param("A {:} D", marks=NO_RELATION_BUG),
+        pytest.param("A {:} D"),
         "A {:,equal} D",
         "A {:,equal,l} D",
     ],
@@ -286,9 +279,6 @@ def test_hash_counts_related_maps(algebra, expression, expected):
 @pytest.mark.parametrize(
     ("relation", "expected"),
     [("equal|during", 4), ("precedes|follows", 2), ("overlaps|overlapped", 2)],
-)
-@pytest.mark.xfail(
-    strict=True, reason="new: hash operator counts only the last of several relations"
 )
 def test_hash_with_several_relations(algebra, relation, expected):
     """ref has one equal map and is during three probes; the count of

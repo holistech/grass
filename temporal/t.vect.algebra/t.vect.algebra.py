@@ -46,6 +46,7 @@
 import sys
 
 import grass.script as gs
+from grass.exceptions import FatalError
 
 
 def main():
@@ -58,7 +59,13 @@ def main():
 
     tgis.init(True)
     p = tgis.TemporalVectorAlgebraParser(run=True, debug=False, spatial=spatial)
-    p.parse(expression, basename, gs.overwrite())
+    try:
+        pc = p.parse(expression, basename, gs.overwrite())
+    except (SyntaxError, FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
+
+    if not (pc or {}).get("register"):
+        gs.warning(_("The expression produced no map, the result is empty"))
 
 
 if __name__ == "__main__":

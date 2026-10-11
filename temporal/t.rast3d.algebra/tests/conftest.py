@@ -102,5 +102,12 @@ def series_3d(tmp_path_factory):
         )
         tools.t_register(type="raster_3d", maps="single", start=days[1], end=days[2])
 
-        tgis.init(True)
-        yield SimpleNamespace(session=session, tools=tools)
+        previous = tgis.get_raise_on_error()
+        tgis.init()
+        # The messenger is created once per process with the mode of the first
+        # init(); other test modules may have set it to exit on fatal errors.
+        tgis.set_raise_on_error(True)
+        try:
+            yield SimpleNamespace(session=session, tools=tools)
+        finally:
+            tgis.set_raise_on_error(previous)

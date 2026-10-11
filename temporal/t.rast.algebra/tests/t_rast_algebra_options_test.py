@@ -7,6 +7,7 @@ conftest.py.
 
 import pytest
 
+import grass.temporal as tgis
 from grass.tools import ToolError, Tools
 
 
@@ -232,6 +233,29 @@ def test_spatial_topology(algebra, tool, large_region, relations, flags, expecte
 
 
 @pytest.mark.parametrize(
+    ("spatial", "expected"),
+    [
+        (False, [4, 4, 4, 4]),
+        # spa1: spb1, spb2, spb3; spa2: all four; spa3: spb1, spb2, spb3
+        # (spb4 touches it only at the corner 40,40); spa4: spb2, spb4
+        # (spb3 touches it only at the corner). SpatialExtent.meet_2d() is False
+        # and disjoint_2d() True for both corner pairs, so the topology builder
+        # is right (checked 2026-10-11). Equal time stamps: sorted by value.
+        (True, [2, 3, 3, 4]),
+    ],
+)
+def test_spatial_option_counts_only_spatially_related_maps(
+    algebra, large_region, spatial, expected
+):
+    """With spatial=True the temporal relation alone is not enough: the maps
+    must also be related in space, even if no spatial relation is given.
+
+    The expected counts are 2, 3, 3, 4 and not 3, 3, 4, 4: maps that touch
+    only at a corner are not related, see the comment at the parameters."""
+    assert algebra.values("SA # SB", spatial=spatial) == expected
+
+
+@pytest.mark.parametrize(
     "expression",
     [
         "OPT_ERR == A + A",
@@ -275,9 +299,6 @@ def test_missing_expression_fails(algebra, tool):
         tool.t_rast_algebra(basename="x")
 
 
-@pytest.mark.xfail(
-    strict=True, reason="M8: errors end in a Python traceback instead of a message"
-)
 @pytest.mark.parametrize("expression", ["OPT_ERR = 1 + 1", "OPT_ERR = A +"])
 def test_syntax_error_is_reported_without_traceback(algebra, tool, expression):
     """Users get a GRASS error message, not a Python traceback"""
@@ -286,9 +307,6 @@ def test_syntax_error_is_reported_without_traceback(algebra, tool, expression):
     assert "Traceback" not in error.value.stderr
 
 
-@pytest.mark.xfail(
-    strict=True, reason="M8: errors end in a Python traceback instead of a message"
-)
 def test_overwrite_error_is_reported_without_traceback(algebra, tool):
     """The request to use --overwrite is a plain message"""
     tool.t_rast_algebra(expression="OPT_OW3 = A * 2", basename="opt_ow3")
@@ -297,9 +315,6 @@ def test_overwrite_error_is_reported_without_traceback(algebra, tool):
     assert "Traceback" not in error.value.stderr
 
 
-@pytest.mark.xfail(
-    strict=True, reason="M8: an empty result is created silently with exit code 0"
-)
 def test_empty_result_gives_a_warning(algebra, tool):
     """A result without any map is reported (warning or error)"""
     try:
@@ -307,3 +322,49 @@ def test_empty_result_gives_a_warning(algebra, tool):
     except ToolError:
         return
     assert "WARNING" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["A + A", "A {+,equal,l} A", "(A + A) * 2", "if(A > 1, A)", "A[1]", "A : B"],
+)
+def test_parse_without_run_creates_nothing(algebra, expression):
+    """With run=False the expression is only checked, no dataset is created"""
+    algebra.remove("R")
+    parser = tgis.TemporalRasterAlgebraParser(run=False, debug=False)
+    parser.parse(f"R = {expression}", "r", True)
+    assert not algebra.exists("R")
+
+
+def test_result_map_without_command_and_without_raster_is_fatal(algebra):
+    """A result map that has no mapcalc command and no raster is an error
+
+    Before, the message was only printed and the dataset was registered with a
+    missing map (review H5). The state cannot be produced by an expression, so
+    the step is called directly.
+    """
+    parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+    missing = tgis.RasterDataset("no_such_map@PERMANENT")
+    with pytest.raises(algebra.errors, match="no_such_map"):
+        parser._mapcalc_expression(missing)
+
+
+def run_with_debug(algebra, expression, run):
+    """Parse "R = <expression>" with debug=True and the given run"""
+    algebra.remove("R")
+    parser = tgis.TemporalRasterAlgebraParser(run=run, debug=True, dry_run=True)
+    parser.parse(f"R = {expression}", "r", True)
+
+
+def test_debug_output_of_a_run(algebra, capsys):
+    """debug=True prints the mapcalc commands and the resulting statement"""
+    run_with_debug(algebra, "(A + A) * 2", run=True)
+    output = capsys.readouterr().out
+    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
+    assert "R = [" in output
+
+
+def test_debug_output_without_run(algebra, capsys):
+    """With run=False debug=True prints the statement with the placeholder name"""
+    run_with_debug(algebra, "(A + A) * 2", run=False)
+    assert "R = A**" in capsys.readouterr().out

@@ -25,19 +25,6 @@ A_EXTENTS = {"a1": (0, 10), "a2": (10, 20), "a3": (20, 30), "a4": (30, 40)}
 
 result_counter = itertools.count(1)
 
-N4 = pytest.mark.xfail(
-    strict=True,
-    reason="new finding N4: a SyntaxError raised in a grammar rule is swallowed by "
-    "PLY error recovery; t.select ends without error and creates no result",
-)
-
-N7 = pytest.mark.xfail(
-    strict=True,
-    reason="new finding N7: 'A {:} B' and 'A {!:} B' create no result and report no "
-    "error (t.select.md: same as 'A : B'); the default relation list contains "
-    "'equivalent', which perform_temporal_selection rejects",
-)
-
 
 def day_offset(text):
     """Day offset from 2001-01-01 of a time stamp string"""
@@ -151,11 +138,6 @@ def test_select_by_all_relations(series):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N1: 'over' first in a relation list yields a nested list "
-    "and t.select dies with AttributeError ('list' has no attribute 'upper')",
-)
 def test_select_by_relation_list_starting_with_over(series):
     """'over|equal' selects the same maps as 'equal|over'."""
     assert selected_names(series.session, "A {:, over|equal} B") == ["a2", "a3", "a4"]
@@ -173,7 +155,7 @@ def test_select_without_matching_relation_is_empty(series):
     "operator",
     [
         ":",
-        pytest.param("{:}", marks=N7),
+        "{:}",
         "{:,equal}",
         "{:,equal,l}",
     ],
@@ -185,7 +167,7 @@ def test_select_default_forms_are_equal(series, operator):
 
 @pytest.mark.parametrize(
     "operator",
-    ["!:", pytest.param("{!:}", marks=N7), "{!:,equal}", "{!:,equal,l}"],
+    ["!:", "{!:}", "{!:,equal}", "{!:,equal,l}"],
 )
 def test_not_select_default_forms_are_complement_of_equal(series, operator):
     """The shorthand forms of the inverse selection are the complement of equal."""
@@ -294,15 +276,16 @@ def test_temporal_operator_keeps_cell_values(series):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N6: maps with a changed extent are copied to maps named "
-    "None_1, None_2, ... because t.select passes no basename",
-)
 def test_temporal_operator_result_map_names(series):
-    """The copies made for a changed extent are not named after 'None'."""
-    names = selected_names(series.session, "A {:,during,r} D")
-    assert not any(name.startswith("None") for name in names)
+    """The copies made for a changed extent are named after the result dataset."""
+    tools = Tools(session=series.session, overwrite=True)
+    tools.t_select(expression="copies = A {:,during,r} D")
+    listing = tools.t_rast_list(input="copies", columns="name", format="json")
+    assert [row["name"] for row in listing["data"]] == [
+        "copies_1",
+        "copies_2",
+        "copies_3",
+    ]
 
 
 def test_unchanged_extent_keeps_map_names(series):
@@ -497,11 +480,6 @@ def test_select_with_relation_to_dataset_in_other_mapset(series):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N10: tmap() of a raster map with time stamp crashes with "
-    "TypeError in the topology builder (start time None)",
-)
 def test_select_single_map_with_time_stamp(series):
     """tmap() makes a single map with a time stamp usable as right side."""
     tools = Tools(session=series.session, overwrite=True)
@@ -522,11 +500,6 @@ def test_select_without_spatial_flag_ignores_location(series):
     assert selected_names(series.session, "A : S") == ["a2", "a3"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N11: flag -s has no effect on 'A : S'; s1 outside the "
-    "region of A is still selected",
-)
 def test_select_with_spatial_flag_checks_location(series):
     """With -s the map s1 outside the region of the A maps is not related."""
     assert selected_names(series.session, "A : S", flags="s") == ["a3"]
@@ -590,6 +563,16 @@ def test_existing_result_is_replaced_with_overwrite(series):
 # Errors
 
 
+@pytest.mark.parametrize("expression", ["A :", "A : Z", "A {:, equal, x} B"])
+def test_errors_are_reported_without_traceback(series, expression):
+    """Users get a GRASS error message, not a Python traceback."""
+    tools = Tools(session=series.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_select(expression=f"failing = {expression}")
+    assert "Traceback" not in error.value.stderr
+    assert "ERROR" in error.value.stderr
+
+
 @pytest.mark.parametrize(
     "expression",
     [
@@ -641,9 +624,9 @@ def test_dataset_of_other_type_fails(series):
         "{:, equal, x}",
         "{=, equal}",
         "{:, equal, l, r}",
-        pytest.param("{:, foo}", marks=N4),
-        pytest.param("{:, equal | }", marks=N4),
-        pytest.param("{:, equivalent}", marks=N4),
+        "{:, foo}",
+        "{:, equal | }",
+        "{:, equivalent}",
     ],
 )
 def test_invalid_temporal_operator_fails(series, operator):
@@ -651,11 +634,6 @@ def test_invalid_temporal_operator_fails(series, operator):
     select_fails(series.session, "A %s B" % operator)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N8: the expression lexer accepts no blank after the second "
-    "comma, '{:, during, r}' fails while '{:, during,r}' (t.select.md) works",
-)
 def test_blank_before_temporal_operator(series):
     """Blanks around the temporal operator are allowed."""
     rows = run_select(series.session, "A {:, during, r} D")

@@ -46,6 +46,7 @@
 import sys
 
 import grass.script as gs
+from grass.exceptions import FatalError
 
 ############################################################################
 
@@ -63,7 +64,14 @@ def main():
     p = tgis.TemporalAlgebraParser(
         run=True, debug=False, spatial=spatial, dry_run=dry_run
     )
-    pc = p.parse(expression, stdstype, overwrite=gs.overwrite())
+    # Maps whose temporal extent is changed by the expression are copied. t.select
+    # has no basename option, so the copies are named after the result dataset;
+    # without a basename they would be called None_1, None_2, ...
+    basename = expression.partition("=")[0].strip().partition("@")[0]
+    try:
+        pc = p.parse(expression, stdstype, basename=basename, overwrite=gs.overwrite())
+    except (SyntaxError, FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
 
     if dry_run is True:
         import pprint

@@ -2,15 +2,11 @@
 
 Dataset RT holds x1..x3 (values 1..3) with the relative intervals [0, 1],
 [1, 2] and [2, 3] days. The datasets are described in the algebra fixture in
-conftest.py. Every test in this file fails because the result dataset is
-always created with absolute time (review finding M5).
+conftest.py. The result dataset has the temporal type of its inputs (review
+finding M5).
 """
 
 import pytest
-
-pytestmark = pytest.mark.xfail(
-    strict=True, reason="M5: the result dataset is created absolute for relative input"
-)
 
 
 def relative_maps(algebra, expression):

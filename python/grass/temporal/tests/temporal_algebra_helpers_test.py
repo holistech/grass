@@ -19,7 +19,9 @@ Time lines used throughout (one month per cell, 2001):
     C     c1------  c3------
 """
 
+import gc
 import os
+import weakref
 from datetime import datetime
 
 import pytest
@@ -256,7 +258,8 @@ def test_topology_list_count_map_appends_to_map_value(parser):
 
 
 def test_topology_list_count_map_with_several_relations(parser):
-    """The count of every relation is stored separately, in order"""
+    """The count covers the maps related by any of the relations (hash operator
+    with several relations, as in A {#,equal|precedes} B)"""
     maps_a = series_a()
     for map_object in maps_a:
         map_object.map_value = []
@@ -269,7 +272,7 @@ def test_topology_list_count_map_with_several_relations(parser):
     }
     # a2 is equal to b2 and precedes b3; a3 is equal to b3 only; a1 and a4
     # precede one map each
-    assert counts == {"a1": [1], "a2": [1, 1], "a3": [1], "a4": [1]}
+    assert counts == {"a1": [1], "a2": [2], "a3": [1], "a4": [1]}
 
 
 def test_topology_list_spatial_relation_requires_spatial_neighbour(parser):
@@ -808,20 +811,18 @@ def test_build_condition_list_relation_between_condition_and_then(parser):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review M2: tvarexpr[iter + 2] runs past the end of every list handled "
-    "by the odd-length branch (IndexError)",
-)
-def test_build_condition_list_odd_length_list(parser):
-    """A list of condition lists and operators is combined stepwise"""
+def test_build_condition_list_unsupported_structure(parser):
+    """Only a global variable or a list of maps with conditions is a condition.
+
+    The branch for lists of condition lists and operators never worked
+    (Review M2) and was removed; the grammar cannot produce such a list.
+    """
     left = with_condition(series_a(), [True] * 4)
-    right = with_condition(series_a(), [True, False, True, False])
     operator = GlobalTemporalVar()
     operator.relationop = "&&"
     operator.topology = ["EQUAL"]
-    result = parser.build_condition_list([left, operator, right], series_a(), ["EQUAL"])
-    assert isinstance(result, list)
+    with pytest.raises(ValueError, match="condition must be"):
+        parser.build_condition_list([left, operator, left], series_a(), ["EQUAL"])
 
 
 CONDITION_CASES = [
@@ -834,41 +835,11 @@ CONDITION_CASES = [
     ([True, "||", False], True),
     ([True, "&&", True, "&&", True], True),
     ([False, "&&", True, "&&", True], False),
-    pytest.param(
-        [False, "&&", True],
-        False,
-        marks=pytest.mark.xfail(
-            strict=True, reason="Review M1: recurse_compare pops the operator"
-        ),
-    ),
-    pytest.param(
-        [False, "||", False],
-        False,
-        marks=pytest.mark.xfail(
-            strict=True, reason="Review M1: recurse_compare pops the operator"
-        ),
-    ),
-    pytest.param(
-        [True, "||", False, "&&", False],
-        False,
-        marks=pytest.mark.xfail(
-            strict=True, reason="Review M1: docstring example gives True"
-        ),
-    ),
-    pytest.param(
-        [True, "&&", False, "&&", True],
-        False,
-        marks=pytest.mark.xfail(
-            strict=True, reason="Review M1: docstring example gives True"
-        ),
-    ),
-    pytest.param(
-        [False, "||", True, "||", False],
-        True,
-        marks=pytest.mark.xfail(
-            strict=True, reason="Review M1: docstring example gives False"
-        ),
-    ),
+    ([False, "&&", True], False),
+    ([False, "||", False], False),
+    ([True, "||", False, "&&", False], False),
+    ([True, "&&", False, "&&", True], False),
+    ([False, "||", True, "||", False], True),
     ([True, "||", False, "&&", True], True),
 ]
 
@@ -942,13 +913,9 @@ def test_check_stds_wrong_type_aborts(parser, value):
         parser.check_stds(value)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: count, stdstype and mapclass are set by parse() only, so the "
-    "helpers fail with AttributeError on a freshly constructed parser",
-)
 def test_check_stds_on_fresh_parser(raw_parser):
-    """Helpers work without parse() having been called"""
+    """Helpers work without parse() having been called (count, stdstype and
+    mapclass are initialized by the constructor)"""
     assert len(raw_parser.check_stds(series_a())) == 4
 
 
@@ -1099,14 +1066,9 @@ def test_set_temporal_extent_list_unknown_relation(parser):
         parser.set_temporal_extent_list(series_a(), ["BOGUS"], "l")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review M3: returncode is only assigned in the innermost loop; when "
-    "the spatial check rejects every related map it is read unassigned "
-    "(UnboundLocalError)",
-)
 def test_set_temporal_extent_list_spatial_relation_missing(parser):
-    """If the related maps fail the spatial check the map is simply dropped"""
+    """If the related maps fail the spatial check the map is simply dropped
+    (Review M3: this used to end in UnboundLocalError)"""
     maps_a, maps_c = series_a(), series_c()
     parser.build_spatio_temporal_topology_list(maps_a, maps_c, ["DURING"])
     assert parser.set_temporal_extent_list(maps_a, ["DURING", "COVER"], "l") == []
@@ -1133,12 +1095,6 @@ def test_eval_toperator(parser, operator, optype, expected):
     assert parser.eval_toperator(operator, optype) == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: the SyntaxError for a wrong operator type is raised inside a "
-    "grammar rule of TemporalOperatorParser and swallowed by PLY, so "
-    "eval_toperator fails later with TypeError",
-)
 def test_eval_toperator_wrong_type(parser):
     """A hash operator is not valid as a select operator"""
     with pytest.raises(SyntaxError):
@@ -1177,6 +1133,7 @@ def test_known_relation_names(parser):
     assert parser.spatial_topology_list == [
         "EQUIVALENT",
         "COVER",
+        "COVERED",
         "OVERLAP",
         "IN",
         "CONTAIN",
@@ -1234,3 +1191,149 @@ def test_new_parser_state(raw_parser):
     assert raw_parser.temporaltype is None
     assert raw_parser.removable_maps == {}
     assert raw_parser.names == {}
+
+
+# --- spatial relations ----------------------------------------------------------------------
+
+
+def spatial_pair_maps():
+    """x1 (Jan, BOX) against y1 (Jan, FAR) and y2 (Feb, BOX).
+
+    x1 is equal in time to y1 only and equivalent in space to y2 only.
+    """
+    left = [make_map("x1", month(1), month(2))]
+    right = [
+        make_map("y1", month(1), month(2), box=FAR),
+        make_map("y2", month(2), month(3)),
+    ]
+    return left, right
+
+
+def test_topology_list_spatial_relation_belongs_to_the_related_map(parser):
+    """The map with the temporal relation must also have the spatial relation;
+    a spatial relation to another map does not count"""
+    left, right = spatial_pair_maps()
+    result = parser.build_spatio_temporal_topology_list(
+        left, right, ["EQUAL", "EQUIVALENT"]
+    )
+    assert names(result) == []
+
+
+def test_topology_list_spatial_flag_requires_any_spatial_relation(parser):
+    """With the spatial flag only spatially related maps are selected,
+    whichever spatial relation they have"""
+    parser.spatial = True
+    left, right = spatial_pair_maps()
+    assert names(parser.build_spatio_temporal_topology_list(left, right)) == []
+    near = [make_map("y3", month(1), month(2))]
+    assert names(parser.build_spatio_temporal_topology_list(left, near)) == ["x1"]
+
+
+def test_topology_list_without_spatial_flag_ignores_space(parser):
+    """Without the flag only time counts"""
+    left, right = spatial_pair_maps()
+    assert names(parser.build_spatio_temporal_topology_list(left, right)) == ["x1"]
+
+
+# --- helpers of the grammar rules -------------------------------------------------------------
+
+
+def test_neighbour_constants_with_equal_maps(parser):
+    """Neighbours are found by position, also if the list holds maps which
+    compare equal (Review M4: list.index found the first of them)"""
+    maps_a = [make_map("a", month(1), month(2)) for _ in range(2)]
+    maps_b = [make_map("b", month(3), month(4))]
+    parser.check_stds = lambda stds: maps_a + maps_b
+    result = parser._neighbour_constants("start_month", "ignored", 1)
+    assert [m.cmd_list for m in result] == ["1", "3"]
+    assert extents(result) == [(1, 2), (1, 2)]
+
+
+def test_remove_maps_names_3d_raster_type_for_g_remove(parser):
+    """g.remove calls the type of 3D rasters raster_3d, not raster3d"""
+    parser.run = True
+    parser.dry_run = True
+    voxel = tgis.Raster3DDataset("cube@PERMANENT")
+    parser.removable_maps["cube"] = voxel
+    parser.remove_maps()
+    assert parser.process_chain_dict["remove"][0]["inputs"][0] == (
+        "type",
+        ["raster_3d"],
+    )
+
+
+def test_parser_tables_do_not_keep_the_first_instance_alive(project_session):
+    """The cached tables are shared by the instances of a class, but must not
+    hold the instance which built them (and with it its database connection)"""
+
+    class Fresh(TemporalAlgebraParser):
+        """Own class, so that no table of another test is reused"""
+
+    first = Fresh()
+    first.parser = first._build_parser()
+    reference = weakref.ref(first)
+    second = Fresh()
+    second.parser = second._build_parser()
+    del first
+    gc.collect()
+    assert reference() is None
+    assert second.parser.productions[1].callable is not None
+
+
+def test_add_map_value_sets_then_appends(parser):
+    """The first map value is stored as it is, later ones are appended"""
+    map_a = make_map("m", month(1), month(2))
+    parser._add_map_value(map_a, "first")
+    assert map_a.map_value == "first"
+    map_a.map_value = ["first"]
+    parser._add_map_value(map_a, "second")
+    assert map_a.map_value == ["first", "second"]
+
+
+def test_set_temporal_extent_list_calls_combine_for_each_related_map(parser):
+    """The hook of the algebras sees the result map, the map and its related map"""
+    maps_a, maps_b = series_a(), series_b()
+    related = parser.build_spatio_temporal_topology_list(maps_a, maps_b)
+    seen = []
+    parser.set_temporal_extent_list(
+        related,
+        combine=lambda new, map_i, map_j: seen.append(
+            (map_i.get_name(), map_j.get_name())
+        ),
+    )
+    assert seen == [("a2", "b2"), ("a3", "b3")]
+
+
+def test_set_temporal_extent_list_bool_op_disor_keeps_disjoint_maps(parser):
+    """The disjoint union of two far apart maps exists, their intersection not"""
+    far = {"north": 30, "south": 20, "east": 30, "west": 20, "top": 0, "bottom": 0}
+    maps_a = [make_map("a1", month(1), month(2))]
+    maps_b = [make_map("b1", month(1), month(2), box=far)]
+    related = parser.build_spatio_temporal_topology_list(maps_a, maps_b)
+    assert parser.set_temporal_extent_list(related, bool_op="and") == []
+    result = parser.set_temporal_extent_list(related, bool_op="disor")
+    assert len(result) == 1
+
+
+@pytest.mark.parametrize(
+    ("time_suffix", "expected"),
+    [
+        (None, ["r_1", "r_2"]),
+        ("time", ["r_2001_01_01T00_00_00", "r_2001_02_01T00_00_00"]),
+        ("gran", ["r_2001_01", "r_2001_02"]),
+    ],
+)
+def test_result_map_names(parser, time_suffix, expected):
+    """Result names: basename plus number, start time or time rounded to the
+    granularity, numbering from the first number of the algebra"""
+    parser.time_suffix = time_suffix
+    parser.basename = "r"
+    maps = [make_map("x", month(1), month(2)), make_map("y", month(2), month(3))]
+    assert parser._result_map_names(maps, "stds") == expected
+
+
+def test_result_map_names_default_to_the_dataset_name(parser):
+    """Without basename the name of the result dataset is the basename"""
+    parser.basename = None
+    maps = [make_map("x", month(1), month(2))]
+    assert parser._result_map_names(maps, "stds") == ["stds_1"]

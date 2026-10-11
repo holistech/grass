@@ -31,10 +31,6 @@ def test_td_in_arithmetic(algebra, expression, expected):
 
 
 @pytest.mark.parametrize("expression", ["E + td(E)", "I + td(I)"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="new: td() of time instants crashes with UnboundLocalError",
-)
 def test_td_of_time_instants_is_reported(algebra, expression):
     """Instants have no length; this must be reported by the algebra"""
     with pytest.raises(algebra.errors):

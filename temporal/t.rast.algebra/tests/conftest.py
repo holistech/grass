@@ -10,7 +10,6 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.ply import yacc
 from grass.temporal.temporal_algebra import FatalError as TemporalAlgebraFatalError
 from grass.tools import Tools
 
@@ -289,34 +288,6 @@ class Algebra:
         return [value for _, _, value in self.triples(expression, **kwargs)]
 
 
-@pytest.fixture(scope="session", autouse=True)
-def cached_parser_tables():
-    """Build the LALR tables of each grammar only once per test session
-
-    The parsers of the temporal algebra build their tables again in every
-    parse() call. Measured with cProfile on 2026-10-11 (3 runs of "A + A"):
-    0.75 s of the 1.0 s per run. The cache is keyed on the productions and
-    precedences, so a changed grammar is never served an old table. The
-    callables are bound anew for every parser, as in yacc().
-    """
-    original = yacc.LRTable
-    tables = {}
-
-    def cached(grammar, log=None):
-        key = (
-            tuple(str(production) for production in grammar.Productions),
-            tuple(sorted(grammar.Precedence.items())),
-            grammar.Start,
-        )
-        if key not in tables:
-            tables[key] = original(grammar, log)
-        return tables[key]
-
-    with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(yacc, "LRTable", cached)
-        yield
-
-
 @pytest.fixture(scope="module")
 def algebra(tmp_path_factory):
     """Algebra runner on a session with the datasets of the test series
@@ -360,8 +331,15 @@ def algebra(tmp_path_factory):
         for key, value in session.env.items():
             if os.environ.get(key) != value:
                 monkeypatch.setenv(key, value)
+        previous = tgis.get_raise_on_error()
         tgis.init(True)
-        _create_datasets(Tools(session=session), tmp_path_factory.mktemp("maps"))
-        fixture = Algebra(session)
-        fixture.tools = Tools(session=session, overwrite=True)
-        yield fixture
+        # The messenger is created once per process with the mode of the first
+        # init(); other test modules may have set it to exit on fatal errors.
+        tgis.set_raise_on_error(True)
+        try:
+            _create_datasets(Tools(session=session), tmp_path_factory.mktemp("maps"))
+            fixture = Algebra(session)
+            fixture.tools = Tools(session=session, overwrite=True)
+            yield fixture
+        finally:
+            tgis.set_raise_on_error(previous)

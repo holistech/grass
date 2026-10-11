@@ -24,6 +24,8 @@ E     e1 (9) 2001-01-15 .. 2001-02-15
 H     h1 (11), h2 (12), h3 (13): one month each with times of day
       06:10:20, 15:20:30 and 23:40:50, starting 2001-01-01, 02-01, 03-01
 I     i1 (7) 2001-01-15, i2 (8) 2001-03-10 (time instances)
+(none) event (6) 2001-01-06 .. 2001-02-15, time stamped with r.timestamp,
+      registered in no dataset
 EMPTY no maps
 REL   r1 (1), r2 (2), r3 (3): relative time 0-1, 1-2, 2-3 days
 ====  ====================================================================
@@ -38,6 +40,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.temporal_algebra import (
     FatalError,
+    TemporalAlgebraLexer,
     TemporalAlgebraParser,
 )
 from grass.tools import Tools
@@ -67,6 +70,7 @@ EXTENT = {
     "h3": (stamp("2001-03-01", "23:40:50"), stamp("2001-04-01", "23:40:50")),
     "i1": (stamp("2001-01-15"), "None"),
     "i2": (stamp("2001-03-10"), "None"),
+    "event": (stamp("2001-01-06"), stamp("2001-02-15")),
     "r1": ("0", "1"),
     "r2": ("1", "2"),
     "r3": ("2", "3"),
@@ -119,6 +123,9 @@ def session(tmp_path_factory):
         tools.g_region(n=103, s=100, e=103, w=100, res=1)
         tools.r_mapcalc(expression="far = 5")
         tools.g_region(n=3, s=0, e=3, w=0, res=1)
+        # a time stamped map which is in no space time dataset
+        tools.r_mapcalc(expression="event = 6")
+        tools.r_timestamp(map="event", date="6 Jan 2001 / 15 Feb 2001")
 
         for name in ("A", "B", "C", "D", "E", "H", "I", "EMPTY"):
             tools.t_create(output=name, type="strds", title=name, description=name)
@@ -270,24 +277,24 @@ def test_merge(session, expression, expected):
         ("R = A {:,overlaps,l} E", [("a1", *EXTENT["a1"])]),
         (
             "R = A {:,overlaps,u} E",
-            [("None_1", stamp("2001-01-01"), stamp("2001-02-15"))],
+            [("R_1", stamp("2001-01-01"), stamp("2001-02-15"))],
         ),
         (
             "R = A {:,overlaps,i} E",
-            [("None_1", stamp("2001-01-15"), stamp("2001-02-01"))],
+            [("R_1", stamp("2001-01-15"), stamp("2001-02-01"))],
         ),
-        ("R = A {:,overlaps,r} E", [("None_1", *EXTENT["e1"])]),
+        ("R = A {:,overlaps,r} E", [("R_1", *EXTENT["e1"])]),
         (
             "R = A {:,overlaps,union} E",
-            [("None_1", stamp("2001-01-01"), stamp("2001-02-15"))],
+            [("R_1", stamp("2001-01-01"), stamp("2001-02-15"))],
         ),
         (
             "R = A {:,overlaps,right} E",
-            [("None_1", *EXTENT["e1"])],
+            [("R_1", *EXTENT["e1"])],
         ),
         (
             "R = A {:,overlaps,intersect} E",
-            [("None_1", stamp("2001-01-15"), stamp("2001-02-01"))],
+            [("R_1", stamp("2001-01-15"), stamp("2001-02-01"))],
         ),
     ],
 )
@@ -295,7 +302,7 @@ def test_temporal_extent_operator_names_copies(session, expression, expected):
     """Extent operators change the extent of the selected maps.
 
     The result map is a copy, named by the basename and a counter. t.select
-    passes no basename, hence "None_1": see test_extent_operator_copies_have_
+    passes no basename, hence "R_1": see test_extent_operator_copies_have_
     no_none_name for the reason this is wrong.
     """
     assert dry_register(expression) == expected
@@ -319,10 +326,10 @@ def test_extent_operators_taking_the_reference_extent(session, operator):
     jan_mar = (stamp("2001-01-01"), stamp("2001-03-01"))
     mar_may = (stamp("2001-03-01"), stamp("2001-05-01"))
     assert dry_register(f"R = A {{:,during,{operator}}} C") == [
-        ("None_1", *jan_mar),
-        ("None_2", *jan_mar),
-        ("None_3", *mar_may),
-        ("None_4", *mar_may),
+        ("R_1", *jan_mar),
+        ("R_2", *jan_mar),
+        ("R_3", *mar_may),
+        ("R_4", *mar_may),
     ]
 
 
@@ -336,11 +343,6 @@ def test_extent_operator_with_basename(session):
     assert len(chain["processes"]) == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: without basename (as t.select calls parse) copies of maps "
-    "with a changed extent are named None_1, None_2, ...",
-)
 def test_extent_operator_copies_have_no_none_name(session):
     """Result maps must not be named after the Python value None"""
     entries = dry_register("R = A {:,overlaps,u} E")
@@ -380,11 +382,6 @@ def test_td_and_hash_conditions(session, expression, expected):
     assert dry_register(expression) == maps(*expected)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: p_t_td_var tests the bound method map.is_time_absolute (always "
-    "true) like K3 did, so relative time ends in UnboundLocalError for td",
-)
 def test_td_on_relative_time(session):
     """td() of relative time intervals is end minus start, in time units"""
     assert dry_register("R = if(td(REL) == 1, REL)") == maps("r1", "r2", "r3")
@@ -604,11 +601,6 @@ def test_buff_t_of_expression(session):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: buff_t(REL, 1) passes the increment as str, but "
-    "temporal_buffer needs an int for relative time (TypeError)",
-)
 def test_buff_t_relative(session):
     """buff_t with a number buffers relative time (documented as buff_t(A, 5))"""
     entries = dry_register("R = buff_t(REL, 1)")
@@ -847,11 +839,6 @@ def test_run_time_instances(session):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review M5: the result dataset is always created with temporal type "
-    "absolute, so registering relative maps aborts",
-)
 def test_run_relative_time(session):
     """Selecting from a relative dataset yields a relative result dataset"""
     TemporalAlgebraParser(run=True).parse("sel8 = REL : REL", "strds", overwrite=True)
@@ -867,6 +854,50 @@ def test_dry_run_creates_nothing(session):
     assert names_of(chain["register"]) == ["a2", "a3"]
     result = session.tools.t_list(type="strds", format="json")
     assert "drynot" not in str(result)
+
+
+def test_tmap_reads_time_stamp_of_unregistered_map(session):
+    """tmap() takes the time stamp from the GRASS database for a map which is
+    not in the temporal database. As the temporal database does not know the
+    time, the map is registered as a copy."""
+    assert dry_register("R = tmap(event)") == [("R_1", *EXTENT["event"])]
+
+
+def test_tmap_with_relation(session):
+    """event [Jan 6, Feb 15] starts before a2 [Feb 1, Mar 1] and ends inside"""
+    assert dry_register("R = tmap(event) {:,overlaps} A") == [("R_1", *EXTENT["event"])]
+    assert dry_register("R = A {:,overlapped} tmap(event)") == maps("a2")
+
+
+@pytest.mark.parametrize(
+    ("condition", "expected"),
+    [
+        # a1 and a4 precede one map of B, a2 is equal to b2 and precedes b3
+        ("A {#,equal|precedes} B == 2", ["a2"]),
+        ("A {#,equal|precedes} B == 1", ["a1", "a3", "a4"]),
+        ("A {#,precedes|equal} B == 2", ["a2"]),
+        ("A {#,equal|follows} B == 2", ["a3"]),
+        ("A {#,precedes|follows} B == 1", ["a1", "a2", "a3"]),
+        ("A {#,precedes|follows} B == 2", ["a4"]),
+    ],
+)
+def test_hash_counts_the_maps_of_all_relations(session, condition, expected):
+    """The hash operator counts the maps related by any of the relations"""
+    assert dry_register(f"R = if({condition}, A)") == maps(*expected)
+
+
+@pytest.mark.parametrize("condition", ["td(I) > 1", "td(I) == 0", "end_doy(I) > 1"])
+def test_time_instance_has_no_time_difference(session, condition):
+    """td() needs an interval: for a time instance it is a fatal error naming
+    the map, not an UnboundLocalError"""
+    with pytest.raises(SystemExit):
+        dry_register(f"R = if({condition}, I)")
+
+
+def test_copy_name_defaults_to_the_result_name(session):
+    """Copies of maps with a changed extent are named after the result
+    dataset, since t.select has no basename"""
+    assert names_of(dry_register("res = A {:,overlaps,u} E")) == ["res_1"]
 
 
 # --- run=False ------------------------------------------------------------
@@ -904,11 +935,6 @@ def test_run_false_parses_without_error(session, expression):
     assert chain == {"processes": [], "register": [], "remove": [], "STDS": {}}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: with run=False merge() and tmap() yield tuples, and rules which "
-    "append '*' to their operand then fail with TypeError",
-)
 @pytest.mark.parametrize(
     "expression",
     [
@@ -1020,11 +1046,6 @@ def test_mixed_temporal_types_abort(session, expression):
         TemporalAlgebraParser(run=True, dry_run=True).parse(expression, "strds")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: a SyntaxError raised inside a grammar rule is swallowed by PLY's "
-    "error recovery, so an unknown relation yields an empty, successful run",
-)
 @pytest.mark.parametrize(
     "expression",
     ["R = A {:,bogus} B", "R = A {:,equal|bogus} B", "R = A {!:,nothing} B"],
@@ -1044,13 +1065,6 @@ def test_select_operator_equals_plain_select(session, operator):
     assert dry_register(f"R = A {operator} B") == maps("a2", "a3")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: {:} expands to the relations equal and equivalent; the "
-    "spatial name makes set_granularity raise SyntaxError inside a grammar "
-    "rule, PLY swallows it and the result is empty, but t.select.md says "
-    "A : B and A {:} B are exactly the same",
-)
 @pytest.mark.parametrize("operator", ["{:}", "{!:}"])
 def test_default_select_operator_equals_plain_select(session, operator):
     """`A {:} B` selects like `A : B` and `A {!:} B` like `A !: B`"""
@@ -1058,16 +1072,75 @@ def test_default_select_operator_equals_plain_select(session, operator):
     assert dry_register(f"R = A {operator} B") == dry_register(f"R = A {plain} B")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: the spatial flag has no effect on A : B; the help text of "
-    "t.select -s says only spatially related maps are selected",
-)
 def test_spatial_flag_filters_plain_select(session):
     """D's map is far from all maps of A, so `A : D` selects nothing with -s"""
     assert dry_register("R = A : D", spatial=True) == []
 
 
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "R = if(A {#} D == 1, A)",
+        "R = if({equal}, start_doy(D) > 0, A)",
+        "R = if(td(D) > 1, A)",
+    ],
+)
+def test_spatial_flag_applies_to_hash_and_conditions(session, expression):
+    """The manual describes -s as evaluating the spatial topology of the
+    expression, so it also restricts the maps counted or compared by hash and
+    if conditions: D is far from A, so nothing is related and nothing selected"""
+    assert dry_register(expression) == maps("a2")
+    assert dry_register(expression, spatial=True) == []
+
+
 def test_plain_select_ignores_space_without_flag(session):
     """Without -s only time counts: a2 is selected although D is far away"""
     assert dry_register("R = A : D") == maps("a2")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["R = A {:,foo} B : C", "R = (A {:,foo} B) : C", "R = A : (B {:,foo} C)"],
+)
+def test_first_reported_error_wins(session, expression):
+    """A faulty operator is reported itself, not as a follow-up error of the
+    rule which received nothing from it"""
+    with pytest.raises(SyntaxError, match="foo"):
+        dry_register(expression)
+
+
+@pytest.mark.parametrize("run", [True, False])
+def test_debug_output_shows_the_parsed_rules(session, capsys, run):
+    """debug=True prints the rules while parsing, with and without run"""
+    parser = TemporalAlgebraParser(run=run, dry_run=True, debug=True)
+    parser.parse("R = A : B", "strds", overwrite=True)
+    output = capsys.readouterr().out
+    assert "A" in output
+    assert "B" in output
+
+
+def test_debug_output_does_not_change_the_result(session, capsys):
+    """The registered maps are the same with and without debug"""
+    quiet = dry_register("R = A : B")
+    parser = TemporalAlgebraParser(run=True, dry_run=True, debug=True)
+    loud = parser.parse("R = A : B", "strds", overwrite=True)["register"]
+    capsys.readouterr()
+    assert loud == quiet
+
+
+@pytest.mark.parametrize("function", ["buff_t", "tshift"])
+def test_increment_without_unit_is_refused_for_absolute_time(session, function):
+    """A bare number is no increment for absolute time: a clear SyntaxError
+    instead of an exception of the datetime code"""
+    with pytest.raises(SyntaxError, match=f"{function}.*unit"):
+        dry_register(f"R = {function}(A, 1)")
+
+
+@pytest.mark.parametrize(
+    "expression", ["R = strds(A) : B", "R = A : str3ds(B)", "R = stvds(A)"]
+)
+def test_dataset_type_functions_are_refused_by_the_reject_helper(session, expression):
+    """The shared check refuses the functions which select the dataset type"""
+    parser = TemporalAlgebraParser(run=False)
+    with pytest.raises(SyntaxError, match="Syntax error near"):
+        parser._reject_dataset_type_tokens(TemporalAlgebraLexer(), expression)

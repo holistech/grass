@@ -136,11 +136,6 @@ def test_lexer_rejects_unknown_input(text):
         lex(text)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review (temporal_operator.py:203-207): dead regexes t_LEFTREF etc. ('^[l|left]') match a leading "
-    "'|' before t_OR, so '|' at position 0 is lexed as INTERSECT",
-)
 def test_lexer_or_at_start_of_input_is_or():
     """A '|' is the OR token wherever it stands, also at the start of the input."""
     assert lex("|") == [("OR", "|")]
@@ -187,11 +182,6 @@ def test_relation_operator_over_last_in_list():
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N1: p_relationlist appends the expansion of 'over' as a nested "
-    "list when 'over' comes first, giving [['overlaps', 'overlapped'], 'during']",
-)
 def test_relation_operator_over_first_in_list():
     """'over' at the start of a list is flattened like it is at the end."""
     assert parse("{over|during}", "relation")[0] == [
@@ -206,9 +196,9 @@ def test_relation_operator_over_first_in_list():
 
 @pytest.mark.parametrize("function", [":", "!:"])
 def test_select_operator_default_is_equal(function):
-    """A bare select operator selects temporally equal (or equivalent) maps."""
+    """A bare select operator selects temporally equal maps (t.select.md)."""
     assert parse("{%s}" % function, "select") == (
-        ["equal", "equivalent"],
+        ["equal"],
         "l",
         function,
         None,
@@ -324,13 +314,13 @@ def test_raster_operator_over_relation():
 # Parser: overlay operators
 
 
-@pytest.mark.parametrize("function", ["&", "|", "^", "~"])
+@pytest.mark.parametrize("function", ["&", "|", "^", "~", "+"])
 def test_overlay_operator_default_is_equal(function):
     """A bare overlay operator combines temporally equal maps."""
     assert parse("{%s}" % function, "overlay") == (["equal"], "l", function, None)
 
 
-@pytest.mark.parametrize("function", ["&", "|", "^", "~"])
+@pytest.mark.parametrize("function", ["&", "|", "^", "~", "+"])
 @pytest.mark.parametrize(
     ("suffix", "relations", "temporal"),
     [
@@ -351,11 +341,6 @@ def test_overlay_operator_forms(function, suffix, relations, temporal):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N2: '+' is lexed as ADD (t_ADD and t_DISOR have the same pattern), "
-    "so the overlay '+' (DISOR) of the grammar can never be parsed",
-)
 def test_overlay_operator_plus():
     """The overlay operator '+' (disjoint union of vector maps) parses."""
     assert parse("{+}", "overlay") == (["equal"], "l", "+", None)
@@ -415,10 +400,6 @@ def test_boolean_operator_with_aggregate_and_temporal_operator(
     ) == (relations, "r", function, aggregate)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N4: wrong-optype error is swallowed by PLY error recovery",
-)
 def test_boolean_operator_single_ampersand_function_is_rejected():
     """'&' alone is an overlay operator, not a boolean comparison operator."""
     with pytest.raises(SyntaxError):
@@ -463,6 +444,27 @@ def test_invalid_expressions_raise_syntax_error(expression, optype):
         parse(expression, optype)
 
 
+@pytest.mark.parametrize(
+    ("operator", "optype"),
+    [
+        ("{nonsense}", "relation"),
+        ("{equal|nonsense}", "relation"),
+        ("{:, nonsense}", "select"),
+        ("{:, equals}", "select"),
+        ("{#, contain|nonsense}", "hash"),
+        ("{+, nonsense}", "raster"),
+        ("{*, during|nonsense, r}", "raster"),
+        ("{&, nonsense}", "overlay"),
+        ("{+, equal | nonsense}", "overlay"),
+        ("{&&, nonsense}", "boolean"),
+    ],
+)
+def test_unknown_relation_name_raises_syntax_error(operator, optype):
+    """A relation name which is none of the known relations is reported by name"""
+    with pytest.raises(SyntaxError, match=r"near '(nonsense|equals)'"):
+        parse(operator, optype)
+
+
 def test_unknown_optype_raises_syntax_error():
     """An optype outside the supported list is rejected and named."""
     with pytest.raises(SyntaxError, match="Unknown optype rter"):
@@ -470,11 +472,6 @@ def test_unknown_optype_raises_syntax_error():
 
 
 @pytest.mark.parametrize("expression", ["", "{", "{:, during", "{:,", "{equal"])
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N3: input that ends early (p_error gets no token) raises "
-    "AttributeError instead of SyntaxError",
-)
 def test_truncated_expression_raises_syntax_error(expression):
     """Incomplete input raises SyntaxError like any other malformed input."""
     with pytest.raises(SyntaxError):
@@ -498,11 +495,6 @@ OPTYPE_EXAMPLES = {
     ("optype", "other"),
     [(optype, other) for optype, other in itertools.permutations(OPTYPE_EXAMPLES, 2)],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N4: 'Wrong optype' SyntaxErrors raised inside grammar rules are "
-    "swallowed by PLY error recovery; parse() returns normally with no attribute set",
-)
 def test_operator_of_other_type_is_rejected(optype, other):
     """An operator that does not belong to the requested optype raises SyntaxError."""
     with pytest.raises(SyntaxError):
@@ -518,38 +510,16 @@ def test_operator_of_other_type_is_rejected(optype, other):
         "{&&, during, |, l}",
     ],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N4: wrong-optype error is swallowed by PLY error recovery",
-)
 def test_boolean_operator_with_select_optype_is_rejected(expression):
     """All four boolean grammar rules refuse to run with a different optype."""
     with pytest.raises(SyntaxError):
         parse(expression, "select")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review (temporal_operator.py:447) plus N4: error text says "
-    "'must be \"relation\"' instead of 'must be \"boolean\"'",
-)
 def test_boolean_operator_error_names_boolean():
-    """The error of a wrong optype names the expected optype 'boolean'."""
-    with pytest.raises(SyntaxError, match='must be "boolean"'):
+    """The error of a wrong optype names the type of the operator."""
+    with pytest.raises(SyntaxError, match="it is a boolean operator"):
         parse("{&&, during, |, l}", "select")
-
-
-@pytest.mark.parametrize("optype", ["select", "hash", "raster", "overlay"])
-def test_wrong_optype_leaves_attributes_unset(optype):
-    """Current behavior: a mismatching operator fills no attribute.
-
-    This documents the effect of the swallowed error; when it is turned into
-    a SyntaxError (see test_operator_of_other_type_is_rejected), this test
-    has to go.
-    """
-    parser = TemporalOperatorParser()
-    parser.parse("{during}", optype=optype)
-    assert (parser.relations, parser.temporal, parser.function) == (None, None, None)
 
 
 # Parser: object state
@@ -578,11 +548,6 @@ def test_parser_can_be_reused_for_same_optype():
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new finding N5: aggregate is only set by boolean rules and never reset, "
-    "so a reused parser keeps the aggregate of the previous boolean parse",
-)
 def test_reused_parser_resets_aggregate():
     """Parsing a non-boolean operator after a boolean one leaves no aggregate."""
     parser = TemporalOperatorParser()
@@ -603,3 +568,12 @@ def test_default_optype_is_relation():
     parser = TemporalOperatorParser()
     parser.parse("{contains | starts}")
     assert parser.relations == ["contains", "starts"]
+
+
+def test_failed_parse_leaves_no_stale_attributes():
+    """After an error the attributes of the previous parse are gone."""
+    parser = TemporalOperatorParser()
+    parser.parse("{:, during, r}", optype="select")
+    with pytest.raises(SyntaxError):
+        parser.parse("{:, during, r}", optype="raster")
+    assert (parser.relations, parser.temporal, parser.function) == (None, None, None)

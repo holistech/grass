@@ -88,6 +88,12 @@ def test_simple_tokens(lexer, text, expected):
         ("{&&,equal|during}", "T_COMP_OPERATOR"),
         ("{||,equal,l}", "T_COMP_OPERATOR"),
         ("{&&,equal|during,union}", "T_COMP_OPERATOR"),
+        ("{:, during, r}", "T_SELECT_OPERATOR"),
+        ("{#, equal,  l}", "T_HASH_OPERATOR"),
+        ("{||, equal, u}", "T_COMP_OPERATOR"),
+        ("{&&, equal|contains, |, l}", "T_COMP_OPERATOR"),
+        ("{&&,contains, |, r}", "T_COMP_OPERATOR"),
+        ("{&&,equal,|,l}", "T_COMP_OPERATOR"),
         ("{equal}", "T_REL_OPERATOR"),
         ("{equal|during}", "T_REL_OPERATOR"),
         ("{ equal | during }", "T_REL_OPERATOR"),
@@ -256,39 +262,33 @@ def test_invalid_time_literals_are_no_literal(lexer, text):
     assert not types & {"DATE", "TIME", "DATETIME"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="New: minute 60 is accepted by the regex (0[0-9]|[1-5][0-9]|60) "
-    "although only a second can be 60 (leap second)",
+@pytest.mark.parametrize(
+    "text",
+    [
+        '"2001-01-01 10:60:00"',  # minute 60
+        '"2001-01-01 10:00:60"',  # second 60: string_to_datetime rejects it
+        '"2001-02-15 24:00:00"',  # hour 24
+        '"24:00:00"',
+    ],
 )
-def test_minute_60_is_no_literal(lexer):
-    """Minute 60 does not exist and must not form a literal"""
-    types = {t for t, _ in tokenize(lexer, '"2001-01-01 10:60:00"')}
-    assert not types & {"DATETIME"}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review K1a: hour 24 is accepted by the DATETIME/TIME regex "
-    "(2[0-4]) but is not a valid hour",
-)
-@pytest.mark.parametrize("text", ['"2001-02-15 24:00:00"', '"24:00:00"'])
-def test_hour_24_is_no_literal(lexer, text):
-    """Hour 24 is not a valid time of day and must not form a literal"""
+def test_fields_beyond_the_valid_range_are_no_literal(lexer, text):
+    """Hour 24 and the 60th minute or second do not exist for datetime"""
     types = {token_type for token_type, _ in tokenize(lexer, text)}
     assert not types & {"TIME", "DATETIME"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Review M6: t_LIST is a dead rule, LIST is not in the token list "
-    "and no grammar rule uses it, yet '[...]' lexes as junk",
-)
 @pytest.mark.parametrize("text", ["[...]", "[]"])
 def test_list_brackets_are_not_part_of_the_language(lexer, text):
     """Square brackets have no meaning in the algebra and must be rejected"""
     with pytest.raises(SyntaxError):
         tokenize(lexer, text)
+
+
+def test_line_numbers_are_counted(lexer):
+    """A newline advances the line number reported for later tokens"""
+    lexer.lexer.lineno = 1
+    lexer.lexer.input("A\n\nB")
+    assert [token.lineno for token in iter(lexer.lexer.token, None)] == [1, 3]
 
 
 def test_whitespace_is_ignored(lexer):

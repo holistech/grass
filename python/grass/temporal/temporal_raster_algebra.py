@@ -52,12 +52,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-import grass.pygrass.modules as pymod
-
-from .ply import yacc
-from .space_time_datasets import RasterDataset
 from .temporal_raster_base_algebra import (
-    TemporalRasterAlgebraLexer,
+    TemporalRasterAlgebraLexer,  # noqa: F401, used by the doctest above
     TemporalRasterBaseAlgebraParser,
 )
 
@@ -76,6 +72,8 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
         nprocs: int = 1,
         time_suffix=None,
     ) -> None:
+        """Create the parser; the defaults ``run=False, debug=True`` differ from
+        the base class and are kept for compatibility with existing callers"""
         TemporalRasterBaseAlgebraParser.__init__(
             self,
             pid=pid,
@@ -88,50 +86,6 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
             time_suffix=time_suffix,
         )
 
-        if spatial is True:
-            self.m_mapcalc = pymod.Module(
-                "r.mapcalc", region="union", nprocs=1, run_=False
-            )
-        else:
-            self.m_mapcalc = pymod.Module("r.mapcalc", nprocs=1, run_=False)
-        self.m_mremove = pymod.Module("g.remove")
-
-    def parse(self, expression, basename=None, overwrite: bool = False):
-        # Check for space time dataset type definitions from temporal algebra
-        lx = TemporalRasterAlgebraLexer()
-        lx.build()
-        lx.lexer.input(expression)
-
-        while True:
-            tok = lx.lexer.token()
-            if not tok:
-                break
-
-            if tok.type in {"STVDS", "STRDS", "STR3DS"}:
-                raise SyntaxError("Syntax error near '%s'" % (tok.type))
-
-        self.lexer = TemporalRasterAlgebraLexer()
-        self.lexer.build()
-        self.parser = yacc.yacc(module=self, debug=self.debug)
-
-        self.overwrite = overwrite
-        self.count = 0
-        self.stdstype = "strds"
-        self.maptype = "raster"
-        self.mapclass = RasterDataset
-        self.basename = basename
-        self.expression = expression
-        self.parser.parse(expression)
-
-        return self.process_chain_dict
-
-    def p_statement_assign(self, t) -> None:
-        # The expression should always return a list of maps.
-        """
-        statement : stds EQUALS expr
-        """
-        TemporalRasterBaseAlgebraParser.p_statement_assign(self, t)
-
     def p_ts_neighbour_operation(self, t) -> None:
         # Spatial and temporal neighbour operations via indexing
         # Examples:
@@ -143,57 +97,17 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
              | stds L_SPAREN number R_SPAREN
              | stds L_SPAREN number COMMA number COMMA number R_SPAREN
         """
-        # Check input stds.
-        maplist = self.check_stds(t[1])
-        row_neigbour = None
-        col_neigbour = None
+        if not self.run:
+            t[0] = self._dry_name(t[1])
+            return
+        # One index is the temporal, two are the row and column offset
         if len(t) == 5:
-            t_neighbour = t[3]
+            temporal_offset, spatial_offsets = t[3], ()
         elif len(t) == 7:
-            t_neighbour = 0
-            row_neigbour = t[3]
-            col_neigbour = t[5]
-        elif len(t) == 9:
-            t_neighbour = t[7]
-            row_neigbour = t[3]
-            col_neigbour = t[5]
-        if self.run:
-            resultlist = []
-            max_index = len(maplist)
-            for map_i in maplist:
-                # Get map index and temporal extent.
-                map_index = maplist.index(map_i)
-                new_index = map_index + t_neighbour
-                if 0 <= new_index < max_index:
-                    map_i_t_extent = map_i.get_temporal_extent()
-                    # Get neighbouring map and set temporal extent.
-                    map_n = maplist[new_index]
-                    # Generate an intermediate map for the result map list.
-                    map_new = self.generate_new_map(map_n, bool_op="and", copy=True)
-                    map_new.set_temporal_extent(map_i_t_extent)
-                    # Create r.mapcalc expression string for the operation.
-                    if "cmd_list" in dir(map_new) and len(t) == 5:
-                        cmdstring = "%s" % (map_new.cmd_list)
-                    elif "cmd_list" not in dir(map_new) and len(t) == 5:
-                        cmdstring = "%s" % (map_n.get_id())
-                    elif "cmd_list" in dir(map_new) and len(t) in {7, 9}:
-                        cmdstring = "%s[%s,%s]" % (
-                            map_new.cmd_list,
-                            row_neigbour,
-                            col_neigbour,
-                        )
-                    elif "cmd_list" not in dir(map_new) and len(t) in {7, 9}:
-                        cmdstring = "%s[%s,%s]" % (
-                            map_n.get_id(),
-                            row_neigbour,
-                            col_neigbour,
-                        )
-                    # Set new command list for map.
-                    map_new.cmd_list = cmdstring
-                    # Append map with updated command list to result list.
-                    resultlist.append(map_new)
-
-            t[0] = resultlist
+            temporal_offset, spatial_offsets = 0, (t[3], t[5])
+        else:
+            temporal_offset, spatial_offsets = t[7], (t[3], t[5])
+        t[0] = self._neighbour_maps(t[1], temporal_offset, spatial_offsets)
 
 
 if __name__ == "__main__":

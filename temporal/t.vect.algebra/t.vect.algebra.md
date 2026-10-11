@@ -30,8 +30,16 @@ up conditions. These operations can be assigned to space time datasets
 or to the results of operations between space time datasets.
 
 As default, topological relationships between space time datasets will
-be evaluated only temporal. Use the **s** flag to activate the
-additionally spatial topology evaluation.
+be evaluated only temporal.
+The **-s** flag additionally activates the evaluation of the spatial
+topology of the maps. It applies wherever the algebra evaluates the
+topology of maps: in selections, in the hash operator, in the conditions
+of if statements and in comparison operators. Two temporally related
+maps are then only used together if they are also spatially related,
+that is the spatial extents of the maps are equivalent, one covers or is
+covered by the other, they overlap, one lies in the other, one contains
+the other, or they meet (the spatial relations *equivalent*, *cover*,
+*covered*, *overlap*, *in*, *contain* and *meet*).
 
 The expression option must be passed as **quoted** expression, for
 example:  
@@ -55,7 +63,7 @@ Several temporal topology relations between registered maps of space
 time datasets are supported:  
 
 ```sh
-equals            A ------
+equal             A ------
                   B ------
 
 during            A  ----
@@ -88,13 +96,21 @@ overlapped        A   ------
 overlaps          A ------
                   B   ------
 
-over              booth overlaps and overlapped
+over              both overlaps and overlapped
 ```
 
-The relations must be read as: A is related to B, like - A equals B - A
+The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
 Topological relations must be specified in {} parentheses.  
+
+The relations **during** and **contains** are inclusive: **during** also
+selects maps that start or finish together with the related map (the
+relations **starts** and **finishes**), and **contains** also selects maps
+with the relations **started** and **finished**. The relations **precedes**
+and **follows** only apply to maps that touch each other, that is the end of
+one map is the start of the other. Maps that are separated by a gap have no
+relation.
 
 ### TEMPORAL OPERATORS
 
@@ -151,15 +167,15 @@ surrounded by curly braces:
 Examples:
 
 ```sh
-C = A {:, equals} B
-C = A {!:, equals} B
+C = A {:, equal} B
+C = A {!:, equal} B
 ```
 
 We can now define arbitrary topological relations using the OR operator
 "\|" to connect them:
 
 ```sh
-C = A {:,equals|during|overlaps} B
+C = A {:,equal|during|overlaps} B
 ```
 
 Select all parts of A that are equal to B, during B or overlaps B.  
@@ -306,6 +322,8 @@ conditional statements with the hash (#) operator.
 A{#, contains}B
 ```
 
+The hash operator can only be used in the condition of an if statement.
+
 This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.  
 A list of integers (scalars) corresponding to the maps of A that contain
@@ -315,8 +333,8 @@ maps from B will be returned.
 C = if({equal}, A {#, contains} B > 2, A {:, contains} B)
 ```
 
-This expression selects all maps from A that temporally contains at
-least 2 maps from B and stores them in space time dataset C. The leading
+This expression selects all maps from A that temporally contains more than
+2 maps from B and stores them in space time dataset C. The leading
 equal statement in the if condition specifies the temporal relation
 between the if and then part of the if expression. This is very
 important, so we do not need to specify a global time reference (a space
@@ -425,7 +443,7 @@ buffered space time dataset A with a map interval of three days, else
 select maps from C and store them in space time dataset D.
 
 ```sh
-D = if(contains, td(buff_t(A, "1 days")) == 3, B, C)
+D = if({contains}, td(buff_t(A, "1 days")) == 3, B, C)
 ```
 
 ## REFERENCES

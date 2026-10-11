@@ -13,9 +13,10 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.exceptions import FatalError
 from grass.tools import ToolError, Tools
 
-ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError)
+ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError, FatalError)
 _counter = itertools.count()
 
 
@@ -219,11 +220,6 @@ def test_overlay_operators_areas(vector_series, expression, expected_areas):
     assert result[:2] == expected_areas
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-1: pairs of maps with disjoint extents are dropped for |, ^, ~ "
-    "and + as well, but their union, difference and sum are not empty",
-)
 @pytest.mark.parametrize(
     ("expression", "expected_areas"),
     [
@@ -265,21 +261,11 @@ def test_overlay_patch(vector_series):
     assert result[:2] == [2, 2]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-1: pairs with disjoint bounding boxes are dropped for the "
-    "patch operator, too (pa1/pb1 do not overlap)",
-)
 def test_overlay_patch_points_with_disjoint_extents(vector_series):
     """Patching disjoint point maps keeps every pair"""
     assert counts(vector_series.session, "pa + pb", key="points") == [3, 4, 5]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-3: {+,relation,temporal} crashes with TypeError in "
-    "eval_toperator although + is documented as v.patch operator",
-)
 @pytest.mark.parametrize(
     "expression",
     ["aa {+,equal} ab", "aa {+,equal,l} ab", "aa {+,starts} wide"],
@@ -334,12 +320,6 @@ def test_overlay_three_operands(vector_series):
     assert counts(vector_series.session, "aa & ab & ac")[0] == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-2: overlay result maps are removed from the mapset after "
-    "registration (shared map object stays in removable_maps) while the "
-    "dataset still lists them",
-)
 @pytest.mark.parametrize("expression", ["aa & ab", "aa | ab", "aa {&,during} wide"])
 def test_overlay_result_maps_exist(vector_series, expression):
     """Every map registered in the result dataset exists in the mapset"""
@@ -419,12 +399,6 @@ def test_buffer_line_and_area_overlay_area_count(vector_series):
 # Conditions
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-4: all if() conditions fail with TypeError in assign_bool_value: "
-    "build_spatio_temporal_topology_list of the vector parser passes the "
-    "arguments in the old order",
-)
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -448,10 +422,6 @@ def test_conditions(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-4: if() conditions fail for vector datasets (see test_conditions)",
-)
 def test_condition_with_overlay_result_maps(vector_series):
     """The overlay in the then-branch of a condition produces areas"""
     result = counts(vector_series.session, 'if(start_date(aa) < "2001-01-03", aa & ab)')
@@ -500,11 +470,6 @@ def test_existing_result_maps_without_overwrite_give_clean_error(vector_series):
     assert "again_0" in str(error.value)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H4: the copy path checks the input map instead of the result map and "
-    "formats the undefined variable 'mapname' (NameError) when no overwrite is set",
-)
 def test_new_extent_without_overwrite(vector_series):
     """A selection with new extent works without --o if no result exists.
 
@@ -543,25 +508,15 @@ def test_empty_selection_creates_no_dataset(vector_series):
     assert list_maps(vector_series.session, name) is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="H5: v.overlay input without areas drops the result map silently; "
-    "the tool reports success and creates no result",
-)
 def test_overlay_of_maps_without_areas_reports_error(vector_series):
     """Overlay of point maps must fail with a message, not vanish silently"""
     with pytest.raises(ALGEBRA_ERRORS):
-        run_algebra(vector_series.session, "pa & pb")
+        run_algebra(vector_series.session, "pc & pc")
 
 
 # Errors
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-5: unknown relation names are silently ignored; the tool "
-    "reports success without result",
-)
 @pytest.mark.parametrize(
     "expression",
     ["aa {&,nonsense} ab", "aa {:,nonsense} ab", "aa {:,equals} ab"],
@@ -572,11 +527,6 @@ def test_unknown_relation_is_an_error(vector_series, expression):
         run_algebra(vector_series.session, expression)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-6: {:} and {!:} without relation crash with TypeError "
-    "(relations is None) although the manual says {:} equals :",
-)
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [("aa {:} ab", DAILY), ("aa {!:} tmap(ev)", days((1, 2), (3, 4)))],
@@ -586,11 +536,6 @@ def test_selection_without_relation_list(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-9: p_error reads t.lineno of a missing token when the expression "
-    "ends too early; AttributeError instead of SyntaxError",
-)
 @pytest.mark.parametrize("expression", ["res = aa &", "res = aa : ", "res = (aa : ab"])
 def test_truncated_expressions_raise_syntax_error(vector_series, expression):
     """An expression that ends in the middle of a construct is a syntax error"""
@@ -641,3 +586,55 @@ def test_inputs_unchanged_after_all_operations(vector_series):
         day(2),
         day(3),
     ]
+
+
+def test_result_of_relative_time_input_is_relative(vector_series):
+    """The result dataset takes over the temporal type of its input maps"""
+    name = run_algebra(vector_series.session, "buff_p(rel, 1)")
+    stds = tgis.open_old_stds(name, "stvds")
+    assert stds.get_temporal_type() == "relative"
+    assert [row["areas"] for row in list_maps(vector_series.session, name)] == [1, 2]
+
+
+def test_parse_returns_registered_maps(vector_series):
+    """parse() returns the process chain with the maps registered in the result"""
+    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
+    chain = parser.parse("chain = buff_p(pa, 1)", "chain", True)
+    assert [entry[0] for entry in chain["register"]] == [
+        "chain_0",
+        "chain_1",
+        "chain_2",
+    ]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "aa {&, equal, l} ab",
+        "aa {&,equal, l} ab",
+        "aa {&, equal,l} ab",
+        "aa {&, equal} ab",
+    ],
+)
+def test_blanks_in_overlay_operator(vector_series, expression):
+    """Blanks after the commas of an overlay operator are allowed"""
+    assert counts(vector_series.session, expression) == [1, 1]
+
+
+@pytest.mark.parametrize("run", [True, False])
+def test_debug_output(vector_series, capsys, run):
+    """With debug=True the parsed rules are printed, with or without running"""
+    parser = tgis.TemporalVectorAlgebraParser(run=run, debug=True)
+    parser.parse("dbg = aa & ab", "dbg", True)
+    assert "aa&ab" in capsys.readouterr().out
+
+
+def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
+    """overlay_cmd_value forwards to operator_cmd_value with the new arguments"""
+    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
+    calls = []
+    monkeypatch.setattr(
+        parser, "operator_cmd_value", lambda *args: calls.append(args) or ["cmd"]
+    )
+    assert parser.overlay_cmd_value("map", {}, "&", ["DURING"]) == ["cmd"]
+    assert calls == [("map", "&", ["DURING"])]

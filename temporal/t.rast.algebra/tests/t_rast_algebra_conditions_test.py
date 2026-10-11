@@ -276,32 +276,24 @@ def test_temporal_and_raster_conditions_combined(algebra, condition, values):
         ("td(A) == 1 && A == 2 || A == 3", [0, 2, 3, 0]),
     ],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="new: td() && raster condition || raster condition is true for all maps",
-)
 def test_td_and_raster_condition_chain(algebra, condition, values):
     """Evaluated from left to right: (td(A) == 1 && A == x) || A == 3"""
     assert algebra.triples(f"if({condition}, A)") == a_intervals(values)
 
 
 @pytest.mark.parametrize(
-    "expression",
+    ("expression", "values"),
     [
-        "if(start_day(A) == 2, A, 0)",
-        "if(td(A) == 1, A, 0)",
-        "if({during}, td(B) == 2, A, 0)",
+        ("if(start_day(A) == 2, A, 0)", [0, 2, 0, 0]),
+        ("if(td(A) == 1, A, 0)", [1, 2, 3, 4]),
+        ("if(td(A) == 2, A, 0)", [0, 0, 0, 0]),
+        ("if({during}, td(B) == 2, A, 0)", [1, 2, 3, 4]),
+        ("if({during}, td(B) == 1, A, 0)", [0, 0, 0, 0]),
     ],
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="new: temporal-only condition with a number as else branch is a syntax error",
-)
-def test_temporal_condition_with_number_as_else(algebra, expression):
-    """if(topologies, conditions, A, 0) with 0 for the maps not selected"""
-    result = algebra.values(expression)
-    assert len(result) == 4
-    assert 0 in result
+def test_temporal_condition_with_number_as_else(algebra, expression, values):
+    """if(topologies, conditions, A, 0) puts 0 where the condition is false"""
+    assert algebra.values(expression) == values
 
 
 def test_temporal_condition_with_else_expression(algebra):
@@ -340,27 +332,20 @@ def test_hash_condition_with_float_average(algebra):
     assert algebra.triples(expression) == [(1, 3, 1.5), (3, 5, 3.5)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="doc: the manual spells the relation {#,contain}, only contains works",
-)
-def test_manual_example_with_contain_spelling(algebra):
+def test_manual_example_with_contains_relation(algebra):
     """Example "Computation with time intervals" as written in the manual"""
     expression = (
-        "if(B {#,contain} A > 1, (B {+,contain,l} A - B) / (B {#,contain} A), A)"
+        "if(B {#,contains} A > 1, (B {+,contains,l} A - B) / (B {#,contains} A), A)"
     )
     assert algebra.triples(expression) == [(1, 3, 1), (3, 5, 3)]
 
 
-@pytest.mark.xfail(
-    strict=True, reason="doc: example with {equal,=/} is not valid syntax"
-)
 def test_manual_example_with_equal_slash_operator(algebra):
     """Example "Computation with time intervals with temporal topology
     relation" as written in the manual"""
     expression = (
-        "if({equal}, B {#,contain} A > 1, "
-        "(B {+,contain,l} A {-,equal,l} B) {equal,=/} (B {#,contain} A), A)"
+        "if({equal}, B {#,contains} A > 1, "
+        "(B {+,contains,l} A {-,equal,l} B) {/,equal,l} (B {#,contains} A), A)"
     )
     assert len(algebra.run(expression)) == 2
 
@@ -381,13 +366,9 @@ def test_manual_examples_with_conditions(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="doc: {&&,equal} followed by td() in the example is a syntax error",
-)
 def test_manual_example_selection_with_topology(algebra):
     """Manual example: selection of raster cells with temporal topology relation"""
-    expression = "if({equal}, A > 1 && A < 4 {&&,equal} td(A) > 0, N)"
+    expression = "if({equal}, A > 1 && A < 4 && td(A) > 0, N)"
     assert algebra.triples(expression) == a_intervals([0, 12, 13, 0])
 
 
@@ -426,7 +407,12 @@ ELSE_COMPLEMENT_RIGHT = (
 
 
 @pytest.mark.xfail(
-    strict=True, reason="H2: if-else does not create the complement maps"
+    strict=True,
+    reason="H2: undecided semantics, the legacy tests contradict each other: "
+    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
+    "outside the condition time (a6) in the result, "
+    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
+    "expects the same case (d3) not to be there",
 )
 def test_else_complement(algebra):
     """HB holds hb1 (7) [2,4] and hb2 (8) [4,6], HA has ha1..ha6 (1..6) of one
@@ -441,7 +427,12 @@ def test_else_complement(algebra):
 
 
 @pytest.mark.xfail(
-    strict=True, reason="H2: if-else does not create the complement maps"
+    strict=True,
+    reason="H2: undecided semantics, the legacy tests contradict each other: "
+    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
+    "outside the condition time (a6) in the result, "
+    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
+    "expects the same case (d3) not to be there",
 )
 def test_else_complement_with_right_reference(algebra):
     """As above with the time stamps of HA: one map per day"""

@@ -75,6 +75,7 @@ def vector_series(tmp_path_factory):
     ======== ==== ================================================
     pa       1-3  map i has i points (1, 2, 3 points)
     pb       1-3  map i has 2 points
+    pc       1-3  two points at (0, 0) and (10, 10), so the extent is a square
     aa       1-3  one square each at x=0, 20, 40 (y=0)
     ab       1-3  one square each at x=5, 25, 70 (y=0); the third
                   one does not overlap the third map of aa
@@ -83,6 +84,8 @@ def vector_series(tmp_path_factory):
     wide     1-4  aa/ab-like squares with a 2-day interval:
                   w1 = days 1-2 (x=5), w2 = days 3-4 (x=45)
     ======== ==== ================================================
+
+    rel      0-2  relative time, copies of pa1 and pa2 (days 0-1 and 1-2)
 
     The single map "ev" (square at x=2) has the time stamp 2001-01-02.
     """
@@ -118,6 +121,12 @@ def vector_series(tmp_path_factory):
             pb.append((f"pb{i}", day[i - 1], day[i]))
         create_stvds(tools, "pb", pb)
 
+        pc = []
+        for i in (1, 2, 3):
+            import_points(tools, tmp_path, f"pc{i}", [(0, 0), (10, 10)])
+            pc.append((f"pc{i}", day[i - 1], day[i]))
+        create_stvds(tools, "pc", pc)
+
         aa, ab, la = [], [], []
         for i, (xa, xb) in enumerate([(0, 5), (20, 25), (40, 70)], 1):
             import_square(tools, tmp_path, f"aa{i}", xa, 0)
@@ -150,8 +159,34 @@ def vector_series(tmp_path_factory):
             [("wide1", day[0], day[2]), ("wide2", day[2], day[4])],
         )
 
+        tools.g_copy(vector="pa1,rp1")
+        tools.g_copy(vector="pa2,rp2")
+        tools.t_create(
+            output="rel",
+            type="stvds",
+            temporaltype="relative",
+            title="rel",
+            description="rel",
+        )
+        tools.t_register(
+            input="rel",
+            type="vector",
+            maps="rp1,rp2",
+            start=0,
+            increment=1,
+            unit="days",
+            flags="i",
+        )
+
         import_square(tools, tmp_path, "ev", 2, 0)
         tools.t_register(type="vector", maps="ev", start=day[1], end=day[2])
 
-        tgis.init(True)
-        yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)
+        previous = tgis.get_raise_on_error()
+        tgis.init()
+        # The messenger is created once per process with the mode of the first
+        # init(); other test modules may have set it to exit on fatal errors.
+        tgis.set_raise_on_error(True)
+        try:
+            yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)
+        finally:
+            tgis.set_raise_on_error(previous)

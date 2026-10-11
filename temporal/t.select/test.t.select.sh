@@ -47,55 +47,55 @@ t.select  expression="A = test1 : test2" type="stvds"
 t.info type=stvds input=A
 t.select  expression="A = test1 !: test2" type="stvds"
 t.info type=stvds input=A
-t.select  expression="A = test2 {equal,:} test1" type="stvds"
+t.select  expression="A = test2 {:,equal} test1" type="stvds"
 t.info type=stvds input=A
 t.select  expression='A = test1 : buff_t(test2, "1 days")' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = test1 {during,:} buff_t(test2, "1 days")' type="stvds"
+t.select  expression='A = test1 {:,during} buff_t(test2, "1 days")' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = tsnap(test1 {during,:} buff_t(test2, "1 days"))' type="stvds"
+t.select  expression='A = tsnap(test1 {:,during} buff_t(test2, "1 days"))' type="stvds"
 t.info type=stvds input=A
 t.select  expression='A = if(td(test1) == 1, test2)' type="stvds"
 t.info type=stvds input=A
 t.select  expression='A = if(td(test1) == 2, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(start_year() == 2013, test2)' type="stvds"
+t.select  expression='A = if(start_year(test2) == 2013, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(start_year() == 2013 && start_day() < 20, test2)' type="stvds"
+t.select  expression='A = if(start_year(test2) == 2013 && start_day(test2) < 20, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(start_year() == 2013 && start_day() < 20 && start_day() > 15, test2)' type="stvds"
+t.select  expression='A = if(start_year(test2) == 2013 && start_day(test2) < 20 && start_day(test2) > 15, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(start_year() == 2013 || start_day() < 20 && start_day() > 15, test2)' type="stvds"
+t.select  expression='A = if(start_year(test2) == 2013 || start_day(test2) < 20 && start_day(test2) > 15, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(td(test1) == 1 || start_day() < 20 && start_day() > 15, test2)' type="stvds"
+t.select  expression='A = if(td(test1) == 1 || start_day(test2) < 20 && start_day(test2) > 15, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(td(test1) == 1 || start_day() < 20, test2)' type="stvds"
+t.select  expression='A = if(td(test1) == 1 || start_day(test2) < 20, test2)' type="stvds"
 t.info type=stvds input=A
-t.select  expression='A = if(td(test1) == 1, if(start_day() > 15, test2))' type="stvds"
+t.select  expression='A = if(td(test1) == 1, if(start_day(test2) > 15, test2))' type="stvds"
 t.vect.list input=A column=name,start_time
-t.select  expression='A = if(start_day() > 15, test2, test1)' type="stvds"
+t.select  expression='A = if(start_day(test2) > 15, test2, test1)' type="stvds"
 t.vect.list input=A column=name,start_time
-t.select  expression='A = if({during}, start_day() > 15, test2, test1)' type="stvds"
+t.select  expression='A = if({during}, start_day(test2) > 15, test2, test1)' type="stvds"
 t.vect.list input=A column=name,start_time
 t.select  expression='A = if({during}, td(test1) == 1, test2, test1)' type="stvds"
 t.vect.list input=A column=name,start_time
 t.select  expression='A = if(test1 {#} test2 == 1, test1)' type="stvds"
 t.vect.list input=A column=name,start_time
-t.select  expression='A = if(test3 {contains,#} test2 > 1, test3)' type="stvds"
+t.select  expression='A = if(test3 {#,contains} test2 > 1, test3)' type="stvds"
 t.vect.list input=A column=name,start_time
-t.select  expression='A = if({equal|during}, test3 {contains,#} test2 > 1, test3, test1)' type="stvds"
+t.select  expression='A = if({equal|during}, test3 {#,contains} test2 > 1, test3, test1)' type="stvds"
 t.vect.list input=A column=name,start_time
-t.select  expression="A = test1 {during,:} test3" type="stvds"
+t.select  expression="A = test1 {:,during} test3" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
-t.select  expression="A = test1 {during,:} test4" type="stvds"
+t.select  expression="A = test1 {:,during} test4" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
-t.select  expression="A = test1 {starts,:} test4" type="stvds"
+t.select  expression="A = test1 {:,starts} test4" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
-t.select  expression="A = test1 {finishes,:} test4" type="stvds"
+t.select  expression="A = test1 {:,finishes} test4" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
-t.select  expression="A = test4 {finished,:} test1" type="stvds"
+t.select  expression="A = test4 {:,finished} test1" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
-t.select  expression="A = test4 {started,:} test1" type="stvds"
+t.select  expression="A = test4 {:,started} test1" type="stvds"
 t.vect.list input=A column=name,start_time,end_time
 
 t.remove -rf type=stvds input=test1,test2,test3,test4,A

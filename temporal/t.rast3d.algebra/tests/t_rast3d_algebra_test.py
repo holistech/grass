@@ -12,9 +12,10 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.exceptions import FatalError
 from grass.tools import ToolError, Tools
 
-ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError)
+ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError, FatalError)
 _counter = itertools.count()
 
 
@@ -323,11 +324,6 @@ def test_selection(series_3d, expression, expected_values, expected_times):
     assert times(rows) == expected_times
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-6: A {:} B and A {!:} B (no relation list) select nothing; "
-    "the vector algebra even crashes. The manual defines them as : and !:",
-)
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [("A {:} B", [1, 2, 3, 4]), ("A {!:} tmap(single)", [1, 3, 4])],
@@ -440,8 +436,11 @@ def test_conditions_with_relation_and_hash(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="H2: the else branch does not produce the complement maps for time "
-    "stamps without condition hit",
+    reason="H2: undecided semantics, the legacy tests contradict each other: "
+    "unittests_temporal_raster_conditionals_complement_else.py expects a map "
+    "outside the condition time (a6) in the result, "
+    "unittests_temporal_conditionals.py (test_temporal_condition_else_1) "
+    "expects the same case (d3) not to be there",
 )
 def test_else_branch_complement(series_3d):
     """if(cond, then, else) returns the else maps where the condition is false.
@@ -584,11 +583,6 @@ def test_spatial_flag_with_equal_regions(series_3d):
     assert values(series_3d.session, "A + B", flags="s") == [11, 22, 33, 44]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-8: the -s flag has no effect on 3D rasters: A (x 0..3) and E "
-    "(x 10..13) are selected although they do not touch spatially",
-)
 def test_spatial_flag_excludes_spatially_unrelated_maps(series_3d):
     """With -s, maps whose 3D extents are disjoint are not related"""
     assert not result(series_3d.session, "A : E", flags="s")
@@ -606,21 +600,12 @@ def test_register_null_flag(series_3d):
     assert [(row[2], row[3]) for row in rows] == [(None, None), (2, 2), (3, 3), (4, 4)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-7: removing the null result maps crashes with ValueError "
-    "(type 'raster3d' is not a g.remove type; must be raster_3d)",
-)
 def test_null_maps_are_not_registered_without_n(series_3d):
     """Without -n a result map that is null everywhere is dropped"""
     rows = result(series_3d.session, "if(A > 1, A, null())")
     assert [(row[2], row[3]) for row in rows] == [(2, 2), (3, 3), (4, 4)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-7: removing null result maps crashes with ValueError (raster3d)",
-)
 def test_division_by_zero_gives_no_maps(series_3d):
     """A / 0 is null everywhere, so there is nothing to register"""
     assert not result(series_3d.session, "A / 0")
@@ -684,18 +669,17 @@ def test_inputs_are_not_modified(series_3d):
 # Errors
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="NEW-5: unknown relation names are silently ignored; the tool "
-    "reports success and creates an empty or no dataset",
-)
-@pytest.mark.parametrize(
-    "expression",
-    ["A {+,nonsense} B", "A {:,equals} B", "A {+,during|nonsense} W"],
-)
+@pytest.mark.parametrize("expression", ["A {:,equals} B"])
 def test_unknown_relation_is_an_error(series_3d, expression):
-    """A misspelled relation ends the tool with an error"""
-    with pytest.raises(ToolError):
+    """A misspelled relation of a selection is reported as syntax error"""
+    with pytest.raises(SyntaxError):
+        run_algebra(series_3d.session, expression)
+
+
+@pytest.mark.parametrize("expression", ["A {+,nonsense} B", "A {+,during|nonsense} W"])
+def test_unknown_relation_of_arithmetic_operator_is_an_error(series_3d, expression):
+    """A misspelled relation of an arithmetic operator is reported"""
+    with pytest.raises(SyntaxError):
         run_algebra(series_3d.session, expression)
 
 

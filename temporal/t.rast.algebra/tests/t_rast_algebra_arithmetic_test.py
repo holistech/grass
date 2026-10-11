@@ -99,12 +99,10 @@ def test_mapcalc_functions(algebra, expression, values):
     assert [value for _, _, value in result] == pytest.approx(values)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="doc: round() is in the manual but not in the lexer"
-)
-def test_round_function(algebra):
-    """round(x) rounds to the nearest integer as documented"""
-    assert algebra.values("round(float(A) + 0.2)") == [1, 2, 3, 4]
+def test_round_function_is_not_part_of_the_algebra(algebra):
+    """round() is not a function of the algebra (the manual no longer lists it)"""
+    with pytest.raises(SyntaxError):
+        algebra.parse("round(float(A) + 0.2)")
 
 
 def test_result_time_stamps_follow_the_input(algebra):
