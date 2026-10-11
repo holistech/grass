@@ -5,8 +5,10 @@ only through select(), pairs() and gather(); apply() and the conditions
 need series of equal time stamps and never align them silently.
 """
 
+from collections import defaultdict
 from dataclasses import replace
 
+from . import reducers
 from ._adapters import as_map, extent_from
 from .content import NULL, Call, Const, MapRef, SeriesReduce, call
 from .relations import related as related_indices
@@ -237,3 +239,103 @@ def cell_offset(series, *offset):
         content = MapRef(slot.content.ident, tuple(offset))
         slots.append(Slot(slot.extent, content, slot.space))
     return replace(series, slots=tuple(slots))
+
+
+GATHER_EXTENTS = ("target", "union", "intersection", "disjoint")
+MISSING = ("drop", "null", "keep")
+EQUAL_TIMES = ("all", "pairwise")
+NULLS = ("propagate", "skip")
+
+
+def _pair_equal_times(targets, matches, others):
+    """Pair maps of equal time stamps like numpy broadcasting
+
+    A single map on one side goes with all maps of its time on the other
+    side, n maps go with n maps one to one in the order of the series, and
+    other counts are an error.
+    """
+    positions = {}
+    counts = defaultdict(int)
+    for index, slot in enumerate(targets):
+        positions[index] = counts[slot.extent]
+        counts[slot.extent] += 1
+    paired = []
+    for index, found in enumerate(matches):
+        size = counts[targets[index].extent]
+        groups = defaultdict(list)
+        for other_index in found:
+            groups[others[other_index].extent].append(other_index)
+        chosen = []
+        for time, members in groups.items():
+            if size == 1 or len(members) == 1:
+                chosen.extend(members)
+            elif len(members) == size:
+                chosen.append(members[positions[index]])
+            else:
+                msg = (
+                    f"{size} maps of the time stamp {_describe(targets[index].extent)} "
+                    f"cannot be paired with {len(members)} maps of the time stamp "
+                    f"{_describe(time)}"
+                )
+                raise ValueError(msg)
+        paired.append(sorted(chosen))
+    return paired
+
+
+def gather(
+    target,
+    relation,
+    other,
+    *,
+    reduce,
+    missing="drop",
+    extent="target",
+    equal_times="all",
+    nulls="propagate",
+):
+    """For each slot t of target, reduce the slots x of other with "t R x"
+
+    The result has at most one slot per target slot.
+
+    :param reduce: how the related slots are combined: "sum", "prod", "min",
+        "max", "mean", "count", "all", "any", "first", "last", fold(op), or
+        None to keep the content of the target. Only fold() includes the
+        content of the target.
+    :param missing: a target without related slot is dropped ("drop"),
+        gets a null content ("null") or stays as it is ("keep")
+    :param extent: the time stamp of a result slot: that of the target, or
+        its union, intersection or disjoint union with the related slots
+    :param equal_times: "all" relates every map of a time to a target,
+        "pairwise" pairs maps of equal time stamps one to one; without effect
+        if space takes part in the relation
+    :param nulls: "propagate" makes a cell null if a related cell is null,
+        "skip" passes over null cells
+    """
+    _check_option("missing", missing, MISSING)
+    _check_option("extent", extent, GATHER_EXTENTS)
+    _check_option("equal_times", equal_times, EQUAL_TIMES)
+    _check_option("nulls", nulls, NULLS)
+    reducers.check(reduce, nulls)
+    _check_comparable(target, other)
+    matches = related_indices(target.slots, relation, other.slots)
+    if equal_times == "pairwise" and relation.spatial is None:
+        matches = _pair_equal_times(target.slots, matches, other.slots)
+    slots = []
+    for slot, found in zip(target.slots, matches, strict=True):
+        partners = [other.slots[index] for index in found]
+        if not partners:
+            if missing == "null":
+                slots.append(Slot(slot.extent, NULL, slot.space))
+            elif missing == "keep":
+                slots.append(slot)
+            continue
+        time = _combine(slot, partners, extent)
+        if time is None:
+            continue
+        value = reducers.reduce(
+            reduce, slot.content, [partner.content for partner in partners], nulls
+        )
+        slots.append(Slot(time, value, slot.space, _origin(value, time, slot)))
+    sort = reducers.sort_of(reduce, target.sort, other.sort)
+    spatial = target.spatial or other.spatial or relation.spatial is not None
+    return Series(tuple(slots), target.kind, sort, spatial)
