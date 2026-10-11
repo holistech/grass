@@ -7,8 +7,9 @@ PYDIR = $(ETC)/python
 GDIR = $(PYDIR)/grass
 DSTDIR = $(GDIR)/temporal
 DSTDIRPLY = $(DSTDIR)/ply
+DSTDIRALGEBRA = $(DSTDIR)/algebra
 
-MODULES = ply/__init__ ply/lex ply/yacc base core abstract_dataset abstract_map_dataset abstract_space_time_dataset space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity spatio_temporal_relationships aggregation stds_export stds_import extract mapcalc univar_statistics temporal_topology_dataset_connector spatial_topology_dataset_connector c_libraries_interface temporal_algebra temporal_vector_algebra temporal_raster_base_algebra temporal_raster_algebra temporal_raster3d_algebra temporal_operator
+MODULES = ply/__init__ ply/lex ply/yacc base core abstract_dataset abstract_map_dataset abstract_space_time_dataset space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity spatio_temporal_relationships aggregation stds_export stds_import extract mapcalc univar_statistics temporal_topology_dataset_connector spatial_topology_dataset_connector c_libraries_interface temporal_algebra temporal_vector_algebra temporal_raster_base_algebra temporal_raster_algebra temporal_raster3d_algebra temporal_operator algebra/__init__ algebra/content algebra/series
 
 CLEAN_SUBDIRS = ply
 
@@ -29,5 +30,8 @@ $(DSTDIR): | $(GDIR)
 $(DSTDIRPLY): | $(DSTDIR)
 	$(MKDIR) $@
 
-$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY)
+$(DSTDIRALGEBRA): | $(DSTDIR)
+	$(MKDIR) $@
+
+$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY) $(DSTDIRALGEBRA)
 	$(INSTALL_DATA) $< $@
