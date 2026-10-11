@@ -893,12 +893,12 @@ def test_conditions_commute(algebra, operator, first, second):
     )
 
 
-@later("Befund", "a spatial run leaves the computational region at the map extent")
 def test_spatial_run_keeps_the_region(algebra):
     """The region of the session is the same before and after the run
 
-    Measured 2026-10-11 with `SA + SB` and spatial=True from the 3 x 3 region
-    of the fixture: the region became n=60 s=20 w=20 e=60 at resolution 10.
+    A spatial run computes with r.mapcalc region=union, which must use the
+    union of the regions of the maps without writing it into the region of
+    the mapset.
     """
     tools = Tools(session=algebra.session)
     before = tools.g_region(flags="g").keyval

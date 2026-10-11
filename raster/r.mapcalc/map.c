@@ -26,7 +26,7 @@ struct Cell_head current_region2;
 
 void setup_region(void)
 {
-    G_get_window(&current_region2);
+    Rast_get_window(&current_region2);
 
     rows = Rast_window_rows();
     columns = Rast_window_cols();
@@ -871,7 +871,12 @@ void prepare_region_from_maps(expression **map_list, int type, int num_maps)
         G_debug(1, "Region was set to n %g s %g e %g w %g ns_res %g ew_res %g",
                 window.north, window.south, window.east, window.west,
                 window.ns_res, window.ew_res);
-        G_put_window(&window);
+        /* Only this process computes in the region, the region of the
+         * mapset (WIND) stays as it is. Both windows are needed: the raster
+         * library reads and writes the maps in its own, area() computes
+         * the cell area in the one of the gis library. */
+        Rast_set_window(&window);
+        G_set_window(&window);
     }
 }
 
