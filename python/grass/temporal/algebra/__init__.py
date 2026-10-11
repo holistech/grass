@@ -35,6 +35,7 @@ from .relations import (
     starts,
 )
 from .series import Extent, Series, Slot, Space
+from .time_functions import granules, neighbour, retime, timevar
 
 __all__ = [
     "NULL",
@@ -58,16 +59,20 @@ __all__ = [
     "fold",
     "follows",
     "gather",
+    "granules",
     "inverse",
     "lift",
     "merge",
+    "neighbour",
     "overlapped",
     "overlaps",
     "pairs",
     "precedes",
     "relation",
+    "retime",
     "select",
     "started",
     "starts",
+    "timevar",
     "where",
 ]
