@@ -1,8 +1,10 @@
 """Translation of the syntax tree onto the core operations
 
-Each node becomes the core call that the translation table of the algebra
-names. A value is a series, a content node (numbers, null() and expressions
-of numbers) or a text; a text stands only in comparisons with time functions
+Each node type has a method named after it that computes the value of the
+node from the values of its children with the core operations; the grammar
+only builds nodes, so the meaning of the syntax is all in this module. A
+value is a series, a content node (numbers, null() and expressions of
+numbers) or a text; a text stands only in comparisons with time functions
 and as the increment of tshift() and buff_t().
 """
 

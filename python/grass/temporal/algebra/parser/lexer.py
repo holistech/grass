@@ -48,7 +48,7 @@ TOKENS = (
     "RELATION",
 )
 
-# The first symbol in the braces decides the kind; "!:" comes before ":".
+# The first symbol in the braces decides the kind.
 _OPERATOR_KINDS = (
     ("!:", "SELECT_OP"),
     (":", "SELECT_OP"),

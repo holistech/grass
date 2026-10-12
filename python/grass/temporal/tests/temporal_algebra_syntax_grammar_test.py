@@ -127,8 +127,9 @@ def test_grammar_has_no_conflicts():
 def test_conflict_check_sees_a_missing_precedence(monkeypatch):
     """Negative control: build_parser reports the conflicts PLY finds"""
     # Only the level for NEGATIVE stays, so that %prec still resolves. The
-    # patch touches the class attribute only; parse() uses its own cached
-    # parser, built from the real table, and build_parser caches nothing.
+    # patch touches the class attribute only and is undone after the test;
+    # build_parser caches nothing, and the test does not call parse(), whose
+    # cached parser must not be built from the patched table.
     monkeypatch.setattr(Grammar, "precedence", (("right", "NEGATIVE"),))
     log = io.StringIO()
     build_parser(errorlog=yacc.PlyLogger(log))
