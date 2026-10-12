@@ -19,9 +19,11 @@ _FUNCTIONS = frozenset(
 
 
 # The overlays of vector maps: the content names the operator of v.overlay,
-# and "disor" is the name of the classic algebra for v.patch. They are not
-# r.mapcalc operators, so a vector content can never be read as an
-# expression of r.mapcalc.
+# and "disor" is the name of the classic algebra for v.patch. Only "and",
+# "or" and "disor" are no names of r.mapcalc; "xor" and "not" are, so the map
+# type of a series, not the name in its content, tells which backend reads
+# the content. None of the names is in LEFT_ASSOCIATIVE or variadic, so
+# chain() nests them to the left instead of flattening them into one call.
 OVERLAYS = {"and": "and", "or": "or", "xor": "xor", "not": "not"}
 PATCH = "disor"
 VECTOR_FUNCTIONS = frozenset({*OVERLAYS, PATCH})

@@ -225,3 +225,19 @@ def test_xor_of_raster_maps_is_the_function_of_r_mapcalc(make_series):
     a = make_series("a", (1, 2))
     b = make_series("b", (1, 2))
     assert (a ^ b).slots[0].content.function == "xor"
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        lambda a, scalar: a + 1,
+        lambda a, scalar: 1 - a,
+        lambda a, scalar: a + scalar,
+        lambda a, scalar: scalar + a,
+    ],
+)
+def test_overlays_combine_vector_maps_only(make_series, operation):
+    a = _vectors(make_series, "a", A_BOX)
+    scalar = make_series("s", (1, 2), values=[3], kind="vector")
+    with pytest.raises(ValueError, match="vector maps only"):
+        operation(a, scalar)

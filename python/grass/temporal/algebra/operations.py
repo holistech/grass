@@ -257,6 +257,16 @@ def _content_at(operand, index):
     return Const(operand)
 
 
+def _describe_operand(operand):
+    if isinstance(operand, Series):
+        return f"{operand.kind} {operand.sort} values"
+    if operand is None:
+        return "null"
+    if isinstance(operand, (int, float, bool)):
+        return "a number"
+    return "an expression"
+
+
 def _apply(function, operands, name):
     check_operands(function, operands)
     timed = [
@@ -275,13 +285,27 @@ def _apply(function, operands, name):
         msg = f"{name}() cannot combine series of different map types"
         raise ValueError(msg)
     sort = _joined_sort(*series)
-    if first.kind == "vector" and sort == "field" and function not in VECTOR_FUNCTIONS:
-        msg = (
-            f"{function}() is not an operation on vector maps; they are "
-            f"combined with {', '.join(sorted(VECTOR_FUNCTIONS))} and buffered "
-            "with buffer()"
-        )
-        raise ValueError(msg)
+    if first.kind == "vector" and sort == "field":
+        # An overlay of a number has no meaning in v.overlay or v.patch, and
+        # a scalar series is not a vector map, so none of them is an operand.
+        for operand in operands:
+            if not (
+                isinstance(operand, Series)
+                and operand.kind == "vector"
+                and operand.sort == "field"
+            ):
+                msg = (
+                    f"{name}() combines vector maps only, got "
+                    f"{_describe_operand(operand)}"
+                )
+                raise ValueError(msg)
+        if function not in VECTOR_FUNCTIONS:
+            msg = (
+                f"{function}() is not an operation on vector maps; they are "
+                f"combined with {', '.join(sorted(VECTOR_FUNCTIONS))} and buffered "
+                "with buffer()"
+            )
+            raise ValueError(msg)
     slots = []
     for index, slot in enumerate(first.slots):
         value = call(function, *(_content_at(operand, index) for operand in operands))
