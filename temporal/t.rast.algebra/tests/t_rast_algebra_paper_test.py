@@ -144,6 +144,8 @@ def outcome(paper, monkeypatch, name, algebra):
         rows = paper.run(expression, spatial=spatial, register_null=True)
     except (*paper.errors, SyntaxError, ValueError, TypeError) as error:
         return type(error).__name__
+    # The input maps are constant, so each result map must be as well.
+    assert all(row.min == row.max for row in rows)
     return [
         (
             f"{row.start:%m-%d}",

@@ -39,6 +39,7 @@ SAME = [
     "B {:,contains} A",
     "A + td(A)",
     "A {#,during} B",
+    "A # D",
     "if(A > 2, A, N)",
     "if(A > 2 && A < 4, A, 0)",
     "if(td(A) == 1, A)",
@@ -57,18 +58,40 @@ SAME = [
     "A + 1.5e1",
 ]
 
-# Each changed rule with the manual section that describes it.
+# Each changed rule with the manual section that describes it, and what the
+# core gives: "maps" for registered maps, which may be none, or the name of
+# the error. A crash of the core then does not pass for a difference.
 DIFFERENT = {
-    "B {:,contains,r} A": "a selection with r gives one map per related pair",
-    "if(A > 2, A)": "an if without else is null where a map condition is false",
-    "if({during}, A > 1, B)": "one result per conclusion map",
-    "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": "&& binds stronger than ||",
-    "if(A > 2, A, D)": "then and else of a map condition need equal time stamps",
-    "if(td(I) > 0, I)": "td() of a time instance is null",
-    "C {+,contains,r} A": "an operator with r gives each pair its own value",
-    "A {+,equal|overlap} N": "a spatial relation needs the spatial flag",
+    "B {:,contains,r} A": (
+        "maps",
+        "a selection with r gives one map per related pair",
+    ),
+    "if(A > 2, A)": (
+        "maps",
+        "an if without else is null where a map condition is false",
+    ),
+    "if({during}, A > 1, B, 0)": ("maps", "one result per conclusion map"),
+    "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": (
+        "maps",
+        "&& binds stronger than ||",
+    ),
+    "if(A > 2, A, D)": (
+        "ValueError",
+        "then and else of a map condition need equal time stamps",
+    ),
+    "if(td(I) > 0, I)": ("maps", "td() of a time instance is null"),
+    "C {+,contains,r} A": (
+        "maps",
+        "an operator with r gives each pair its own value",
+    ),
+    "A {+,equal|overlap} N": (
+        "ValueError",
+        "a spatial relation needs the spatial flag",
+    ),
+    # Both maps of HB are such maps, so the core registers none.
     "HB {:,follows|precedes,i} HA": (
-        "with i, a map whose partners have no common intersection is left out"
+        "maps",
+        "with i, a map whose partners have no common intersection is left out",
     ),
 }
 
@@ -80,8 +103,6 @@ EXTENDED = {
     # A / (A - 2) is null for a2, so that the maps differ.
     "isnull(A / (A - 2))": "if(isnull(A / (A - 2)), 1, 0)",
     "isntnull(A / (A - 2))": "if(isntnull(A / (A - 2)), 1, 0)",
-    # In a classic condition, exist() of a dataset is the dataset itself.
-    "exist(A)": "A * 1",
 }
 
 
@@ -105,9 +126,9 @@ def test_same_result(algebra, monkeypatch, expression):
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
 def test_listed_differences_still_differ(algebra, monkeypatch, expression):
     """A listed difference that no longer differs must leave the list"""
-    assert outcome(algebra, monkeypatch, expression, "core") != outcome(
-        algebra, monkeypatch, expression, "classic"
-    )
+    core = outcome(algebra, monkeypatch, expression, "core")
+    assert core != outcome(algebra, monkeypatch, expression, "classic")
+    assert ("maps" if isinstance(core, list) else core) == DIFFERENT[expression][0]
 
 
 @pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
@@ -162,11 +183,16 @@ def test_random_expressions(algebra, monkeypatch, expression):
 
 @pytest.mark.parametrize("expression", SAME)
 def test_no_more_mapcalc_calls(algebra, monkeypatch, expression):
-    """The core computes each result map with one r.mapcalc call"""
+    """The core computes each result map with one r.mapcalc call, and needs
+    no more calls than the classic algebra"""
 
-    def calls(parser):
+    def chain(parser):
         monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
-        chain = algebra.parse(expression, dry_run=True)
-        return sum(process["name"] == "r.mapcalc" for process in chain["processes"])
+        return algebra.parse(expression, dry_run=True)
 
-    assert calls("core") <= calls("classic")
+    def calls(processes):
+        return sum(process["name"] == "r.mapcalc" for process in processes)
+
+    core = chain("core")
+    assert calls(core["processes"]) == len(core["register"])
+    assert calls(core["processes"]) <= calls(chain("classic")["processes"])
