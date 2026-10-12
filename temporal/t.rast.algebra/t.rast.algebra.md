@@ -365,7 +365,9 @@ in conditional statements with the hash (#) operator.
 A {#, contains} B
 ```
 
-The hash operator can only be used in the condition of an if statement.
+The hash operator is mostly used in the condition of an if statement, but
+it can also stand alone or in arithmetic, where it has the precedence of
+`+` and `-`: `B {#,contains} A + B` adds the count to each map of B.
 
 This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.  
@@ -570,8 +572,9 @@ new algebra, and the flag takes precedence over the variable. In Python,
 same purpose. The granularity mode (**-g**) always uses the classic
 algebra.
 
-The two algebras differ in the following points. The examples use daily
-maps in A, maps of two days in B, and time instances in I.
+The two algebras differ in the following points. The examples use four
+daily maps in A with the values 1 to 4, two maps of two days in B that
+start with A, and time instances in I.
 
 1. **One result per conclusion map.** If a map of the conclusion of an
    `if` has several related condition maps, their conditions are joined
@@ -631,10 +634,9 @@ maps in A, maps of two days in B, and time instances in I.
 5. **if without else.** An `if` without else gives null where a condition
    on map values is false; the classic algebra gives 0 there, like the
    `if()` of *r.mapcalc* with two arguments. A map that is false everywhere
-   is not registered unless **-n** is set. If the values of A are 1 to 4,
-   this expression registers the maps of value 3 and 4, with **-n** also
-   the first two maps as null maps; the classic algebra registers four
-   maps, the first two with the value 0:
+   is not registered unless **-n** is set. This expression registers the
+   maps of value 3 and 4, with **-n** also the first two maps as null maps;
+   the classic algebra registers four maps, the first two with the value 0:
 
    ```sh
    C = if(A > 2, A)
@@ -683,19 +685,19 @@ maps in A, maps of two days in B, and time instances in I.
     operator `i`, a map whose related maps have no common intersection is
     left out. The classic algebra intersects the map with its related maps
     until the first one that has no common time with the result so far,
-    so that its result depends on the order of the related maps. If a map
-    of B lasts from day 2 to day 4, it follows the map of A of day 1 and
-    precedes the one of day 4; the intersections are the time instances of
-    day 2 and day 4, and the map is left out:
+    so that its result depends on the order of the related maps. If a
+    dataset H has a map from day 2 to day 4, this map follows the map of A
+    of day 1 and precedes the one of day 4; the intersections are the time
+    instances of day 2 and day 4, and the map is left out:
 
     ```sh
-    C = B {:,follows|precedes,i} A
+    C = H {:,follows|precedes,i} A
     ```
 
-In Python, the new algebra raises `SyntaxError` for an expression it cannot
-read and `ValueError` or `TypeError` for one it cannot compute, where the
-classic algebra raises `FatalError`. The tool stops with the error message
-in both algebras.
+In Python, both algebras raise `SyntaxError` for an expression they cannot
+read. For one they cannot compute, the new algebra raises `ValueError` or
+`TypeError`, where the classic algebra raises `FatalError`. The tool stops
+with the error message in both algebras.
 
 Two corrections apply to both algebras, so **-c** gives the rules of the
 previous algebra, not the results of a particular release. First,
@@ -713,8 +715,8 @@ as the figure shows, while GRASS 8.4 gives only the two maps of A:
 C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
 ```
 
-Results that rely on the previous reading direction need the GRASS version
-they were computed with.
+Results that rely on the previous reading direction or else rule need the
+GRASS version they were computed with.
 
 ## EXAMPLES
 

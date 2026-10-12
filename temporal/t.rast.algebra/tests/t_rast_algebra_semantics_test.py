@@ -852,7 +852,7 @@ MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 
 # The notes on the core and the classic algebra show expressions that only
 # the core reads, and one that the core rejects.
-CORE_NOTES = ("### Core and classic algebra", "\n## EXAMPLES")
+CORE_NOTES = "### Core and classic algebra"
 MANUAL_ERRORS = {"C = if(A > 2, A, B)": ValueError}
 
 
@@ -871,13 +871,33 @@ def manual_expressions(text):
 FIXTURE_SINGLE_MAPS = {"singletmap", "sinst", "singlemap"}
 
 
+def split_core_notes(text):
+    """Return the notes on the core and the classic algebra and the rest of
+    the manual
+
+    The notes end at the next heading of any level, so that a section added
+    after them runs with either algebra. Lines in code blocks are no
+    headings, though a shell comment starts with "#" as well.
+    """
+    lines = text.splitlines(keepends=True)
+    start = lines.index(CORE_NOTES + "\n")
+    end = start + 1
+    fenced = False
+    while end < len(lines):
+        if lines[end].lstrip().startswith("```"):
+            fenced = not fenced
+        elif not fenced and re.match(r"#{1,6} ", lines[end]):
+            break
+        end += 1
+    return "".join(lines[start:end]), "".join(lines[:start] + lines[end:])
+
+
 def manual_cases():
     """(assignment, classic): the examples of the notes on the core and the
     classic algebra run with the core, all others with either algebra"""
-    before, rest = MANUAL.read_text().split(CORE_NOTES[0], 1)
-    notes, after = rest.split(CORE_NOTES[1], 1)
+    notes, rest = split_core_notes(MANUAL.read_text())
     cases = []
-    for classic, text in [(None, before + after), (False, notes)]:
+    for classic, text in [(None, rest), (False, notes)]:
         for assignment in manual_expressions(text):
             marks = []
             missing = sorted(
@@ -914,7 +934,7 @@ def test_manual_example_runs(algebra, assignment, classic):
     """Every example of the manual on datasets of the fixture parses and plans
     (dry run), or raises the error that the manual describes"""
     names = dataset_names(parse(assignment).expression)
-    missing = [name for name in names if not algebra.exists(name)]
+    missing = sorted({name for name in names if not algebra.exists(name)})
     if missing:
         pytest.skip(f"datasets not in the fixture: {missing}")
     _name, expression = assignment.split(" = ", 1)
