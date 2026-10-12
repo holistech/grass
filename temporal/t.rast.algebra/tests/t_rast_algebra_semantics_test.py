@@ -231,7 +231,7 @@ def test_merge_warns_about_identical_maps(algebra, monkeypatch, expression, coun
     algebra.run(expression)
     if count:
         assert len(warnings) == 1
-        assert f"dropped {count} duplicate" in warnings[0]
+        assert f"dropped {count} duplicate map(s)" in warnings[0]
     else:
         assert not warnings
 

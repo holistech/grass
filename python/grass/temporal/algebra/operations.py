@@ -502,6 +502,6 @@ def merge(*series):
             seen.add(slot)
             slots.append(slot)
     if duplicates:
-        _warn(_("merge() dropped {count} duplicate slot(s)").format(count=duplicates))
+        _warn(_("merge() dropped {count} duplicate map(s)").format(count=duplicates))
     spatial = any(part.spatial for part in series)
     return Series(tuple(slots), first.kind, first.sort, spatial)
