@@ -328,8 +328,8 @@ def gather(
 
     :param reduce: how the related slots are combined: "sum", "prod", "min",
         "max", "mean", "count", "all", "any", "first", "last", fold(op), or
-        None to keep the content of the target. Only fold() includes the
-        content of the target.
+        None to keep the content of the target. The other reducers leave the
+        content of the target out, except fold(), which starts with it.
     :param missing: a target without related slot is dropped ("drop"),
         gets a null content ("null") or stays as it is ("keep")
     :param extent: the time stamp of a result slot: that of the target, or
