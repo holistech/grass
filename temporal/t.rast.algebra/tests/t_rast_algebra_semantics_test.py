@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal.temporal_algebra import TemporalAlgebraParser
-from grass.temporal.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
+from grass.temporal.algebra.parser import ast as syntax
+from grass.temporal.algebra.parser import parse
 from grass.tools import Tools
 
 RELATIONS = [
@@ -850,10 +850,15 @@ def test_spatial_run_keeps_the_region(algebra):
 
 MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 
+# The notes on the core and the classic algebra show expressions that only
+# the core reads, and one that the core rejects.
+CORE_NOTES = ("### Core and classic algebra", "\n## EXAMPLES")
+MANUAL_ERRORS = {"C = if(A > 2, A, B)": ValueError}
 
-def manual_expressions():
-    """Assignments 'X = ...' in the sh code blocks of the manual"""
-    blocks = re.findall(r"```sh\n(.*?)```", MANUAL.read_text(), flags=re.DOTALL)
+
+def manual_expressions(text):
+    """Assignments 'X = ...' in the sh code blocks of a manual text"""
+    blocks = re.findall(r"```sh\n(.*?)```", text, flags=re.DOTALL)
     return [
         line.strip()
         for block in blocks
@@ -867,29 +872,54 @@ FIXTURE_SINGLE_MAPS = {"singletmap", "sinst", "singlemap"}
 
 
 def manual_cases():
+    """(assignment, classic): the examples of the notes on the core and the
+    classic algebra run with the core, all others with either algebra"""
+    before, rest = MANUAL.read_text().split(CORE_NOTES[0], 1)
+    notes, after = rest.split(CORE_NOTES[1], 1)
     cases = []
-    for assignment in manual_expressions():
-        marks = []
-        missing = sorted(
-            set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
-        )
-        if missing:
-            marks.append(pytest.mark.skip(reason=f"maps not in the fixture: {missing}"))
-        cases.append(pytest.param(assignment, marks=marks))
+    for classic, text in [(None, before + after), (False, notes)]:
+        for assignment in manual_expressions(text):
+            marks = []
+            missing = sorted(
+                set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
+            )
+            if missing:
+                marks.append(
+                    pytest.mark.skip(reason=f"maps not in the fixture: {missing}")
+                )
+            cases.append(pytest.param(assignment, classic, marks=marks))
     return cases
 
 
-@pytest.mark.parametrize("assignment", manual_cases())
-def test_manual_example_runs(algebra, assignment):
+def dataset_names(node):
+    """Names of the space time datasets in a syntax tree
+
+    The argument of map() and tmap() is a single map, not a dataset.
+    """
+    if isinstance(node, syntax.Name):
+        return [node.ident]
+    if isinstance(node, syntax.Index):
+        return [node.name]
+    if isinstance(node, syntax.Negative):
+        return dataset_names(node.operand)
+    if isinstance(node, syntax.Binary):
+        return dataset_names(node.left) + dataset_names(node.right)
+    if isinstance(node, syntax.Function) and node.name not in {"map", "tmap"}:
+        return [name for argument in node.arguments for name in dataset_names(argument)]
+    return []
+
+
+@pytest.mark.parametrize(("assignment", "classic"), manual_cases())
+def test_manual_example_runs(algebra, assignment, classic):
     """Every example of the manual on datasets of the fixture parses and plans
-    (dry run)"""
-    _name, expression = assignment.split(" = ", 1)
-    # The default lexer does not know the arithmetic operators of the raster
-    # algebra.
-    names = TemporalAlgebraParser._stds_names_in(
-        expression, TemporalRasterAlgebraLexer()
-    )
+    (dry run), or raises the error that the manual describes"""
+    names = dataset_names(parse(assignment).expression)
     missing = [name for name in names if not algebra.exists(name)]
     if missing:
         pytest.skip(f"datasets not in the fixture: {missing}")
-    algebra.dry_times(expression)
+    _name, expression = assignment.split(" = ", 1)
+    if assignment in MANUAL_ERRORS:
+        with pytest.raises(MANUAL_ERRORS[assignment]):
+            algebra.dry_times(expression, classic=classic)
+    else:
+        algebra.dry_times(expression, classic=classic)

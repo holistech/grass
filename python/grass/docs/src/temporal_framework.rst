@@ -427,6 +427,13 @@ Raster maps are supported; see the docstring of the package for an example.
 initialised temporal database (``tgis.init()``); the other functions need
 none.
 
+The syntax of :program:`t.rast.algebra` is translated onto these functions
+by :func:`grass.temporal.algebra.parser.evaluate`, which also gives the
+process chain of a dry run::
+
+    from grass.temporal.algebra.parser import evaluate
+    chain = evaluate("C = A {+,during} B", dry_run=True)
+
 References
 ----------
 

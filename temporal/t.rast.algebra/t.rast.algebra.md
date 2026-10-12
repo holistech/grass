@@ -237,7 +237,10 @@ if statement                        decision option                        tempo
 The conditions are comparison expressions that are used to evaluate
 space time datasets. Specific values of temporal variables are compared
 by logical operators and evaluated for each map of the STRDS.  
-**Important:** The conditions are evaluated from left to right.
+**Important:** `&&` binds stronger than `||`, as in *r.mapcalc*, and
+conditions can be grouped with parentheses. The classic algebra (**-c**)
+evaluates conditions on temporal variables from left to right instead (see
+NOTES).
 
 The relation reads from the condition to the conclusion:
 `if({contains}, condition, A)` takes the maps of A that lie within a map
@@ -450,12 +453,17 @@ And raster functions:
 
 ```sh
 abs(x)                  return absolute value of x
-float(x)                convert x to foating point
+double(x)               convert x to double-precision floating point
+float(x)                convert x to floating point
 int(x)                  convert x to integer [ truncates ]
+exp(x)                  exponential function of x
 log(x)                  natural log of x
 sqrt(x)                 square root of x
 tan(x)                  tangent of x (x is in degrees)
 sin(x)                  sine of x (x is in degrees)
+cos(x)                  cosine of x (x is in degrees)
+asin(x)                 inverse sine of x (result is in degrees)
+acos(x)                 inverse cosine of x (result is in degrees)
 isnull(x)               check if x = NULL
 isntnull(x)             check if x is not NULL
 null                    set null value
@@ -546,6 +554,167 @@ strds[0,1,-2]
 
 refers to the cell one column to the right of the current cell in the
 second predecessor map.
+
+## NOTES
+
+### Core and classic algebra
+
+Since GRASS 8.6, *t.rast.algebra* computes its expressions with the
+functions of the Python package `grass.temporal.algebra`. The previous
+implementation stays available as the classic algebra, so that published
+results remain reproducible. The flag **-c** selects it for one call, the
+environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session
+or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the
+new algebra, and the flag takes precedence over the variable. In Python,
+`TemporalRasterAlgebraParser` takes the keyword `classic=True` for the
+same purpose. The granularity mode (**-g**) always uses the classic
+algebra.
+
+The two algebras differ in the following points. The examples use daily
+maps in A, maps of two days in B, and time instances in I.
+
+1. **One result per conclusion map.** If a map of the conclusion of an
+   `if` has several related condition maps, their conditions are joined
+   with and; written as `{during,|}`, the relation joins them with or. The
+   classic algebra gives one result for each pair of condition map and
+   conclusion map, so that a conclusion map can occur several times. The
+   first expression keeps the cells of B where both maps of A within the
+   map of B are greater than 1, the second where one of them is:
+
+   ```sh
+   C = if({during}, A > 1, B, 0)
+   C = if({during,|}, A > 1, B, 0)
+   ```
+
+2. **Equal time stamps for then and else.** With a condition on map
+   values, the then and the else part need equal time stamps; otherwise the
+   algebra stops with an error. The classic algebra computes only the maps
+   whose time stamp occurs in both parts and leaves out the others without
+   notice. This expression is therefore an error, where the classic
+   algebra gives an empty result:
+
+   ```sh
+   C = if(A > 2, A, B)
+   ```
+
+3. **Precedence.** `&&` binds stronger than `||`, and conditions can be
+   grouped with parentheses. The classic algebra evaluates conditions on
+   temporal variables from left to right and does not accept parentheses
+   around conditions. The first expression takes all maps of A, because
+   `td(A) == 1` is true for each of them; the classic algebra reads it as
+   the second expression and takes none:
+
+   ```sh
+   C = if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)
+   C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
+   ```
+
+4. **Right reference.** `A {:,R,r} B` and `A {op,R,r} B` give one map
+   per related pair, with the time stamp of the right map and, for an
+   operator, the value of this pair. The classic algebra keeps only the
+   last pair of a selection, and an operator combines the left map with
+   all of its related right maps in every result. The first expression gives
+   four maps, the time stamps of A with the values of B; the classic
+   algebra gives one map per map of B. If a map b1 contains the maps a1 and
+   a2, the second expression gives `b1 + a1` and `b1 + a2`, the classic
+   algebra `b1 + a1 + a2` for both:
+
+   ```sh
+   C = B {:,contains,r} A
+   C = B {+,contains,r} A
+   ```
+
+   The inverse selection `A {!:,R,t} B` takes only the temporal operator
+   `l`, because its maps have no related map to combine with; the classic
+   algebra accepts the other operators.
+
+5. **if without else.** An `if` without else gives null where a condition
+   on map values is false; the classic algebra gives 0 there, like the
+   `if()` of *r.mapcalc* with two arguments. A map that is false everywhere
+   is not registered unless **-n** is set. If the values of A are 1 to 4,
+   this expression registers the maps of value 3 and 4, with **-n** also
+   the first two maps as null maps; the classic algebra registers four
+   maps, the first two with the value 0:
+
+   ```sh
+   C = if(A > 2, A)
+   ```
+
+6. **td() of a time instance** is null instead of an error, so a condition
+   on it is neither true nor false. This expression gives no map; the
+   classic algebra stops with an error:
+
+   ```sh
+   C = if(td(I) > 0, I)
+   ```
+
+   A temporal variable that a map does not have, such as `end_doy()` of a
+   time instance or the calendar values of relative time, is an error in
+   both algebras.
+
+7. **Spatial relations need -s.** A spatial relation in an operator, such
+   as `{+,equal|overlap}`, needs the flag **-s**; without it, the algebra
+   stops with an error. The classic algebra gives an empty result.
+
+8. **More syntax.** Comparisons, temporal functions and the minus sign may
+   stand anywhere in an expression, and a dataset may have the name of a
+   function. The classic algebra reports a syntax error for each of these
+   expressions; the last one adds 1 to a dataset named `td`:
+
+   ```sh
+   C = A
+   C = -A + 10
+   C = A > 2
+   C = A + start_doy(A)
+   C = isnull(A)
+   C = td + 1
+   ```
+
+9. **Maps without time stamp in arithmetic.** An expression of maps
+   without time stamp, such as `map(L) + 1`, can be combined with space
+   time datasets. The soil-adjusted vegetation index of Gebbert, Leppelt
+   and Pebesma (2019) is a syntax error in the classic algebra:
+
+   ```sh
+   C = ((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))
+   ```
+
+10. **Intersection with several related maps.** With the temporal
+    operator `i`, a map whose related maps have no common intersection is
+    left out. The classic algebra intersects the map with its related maps
+    until the first one that has no common time with the result so far,
+    so that its result depends on the order of the related maps. If a map
+    of B lasts from day 2 to day 4, it follows the map of A of day 1 and
+    precedes the one of day 4; the intersections are the time instances of
+    day 2 and day 4, and the map is left out:
+
+    ```sh
+    C = B {:,follows|precedes,i} A
+    ```
+
+In Python, the new algebra raises `SyntaxError` for an expression it cannot
+read and `ValueError` or `TypeError` for one it cannot compute, where the
+classic algebra raises `FatalError`. The tool stops with the error message
+in both algebras.
+
+Two corrections apply to both algebras, so **-c** gives the rules of the
+previous algebra, not the results of a particular release. First,
+`if({R}, condition, conclusion)` reads "condition R conclusion" also for
+conditions on temporal variables, as it always did for conditions on map
+values. Second, with a temporal relation beyond `equal`, the else part of
+a condition on temporal variables also takes the maps that no condition
+map is related to (see CONDITIONAL STATEMENTS). Figure A3 of Gebbert,
+Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5
+and 5 to 7 of January 2001, B has daily maps from day 1 to 10, and this
+expression gives the first two maps of A and the maps of B from day 5 on,
+as the figure shows, while GRASS 8.4 gives only the two maps of A:
+
+```sh
+C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
+```
+
+Results that rely on the previous reading direction need the GRASS version
+they were computed with.
 
 ## EXAMPLES
 

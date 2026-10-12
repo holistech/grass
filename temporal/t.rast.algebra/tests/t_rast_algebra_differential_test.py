@@ -58,9 +58,10 @@ SAME = [
     "A + 1.5e1",
 ]
 
-# Each changed rule with the manual section that describes it, and what the
-# core gives: "maps" for registered maps, which may be none, or the name of
-# the error. A crash of the core then does not pass for a difference.
+# Each changed rule with a short form of its item in the list of differences
+# in the manual, and what the core gives: "maps" for registered maps, which
+# may be none, or the name of the error. A crash of the core then does not
+# pass for a difference.
 DIFFERENT = {
     "B {:,contains,r} A": (
         "maps",
