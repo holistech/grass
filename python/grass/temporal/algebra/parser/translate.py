@@ -34,6 +34,16 @@ _CELL_FUNCTIONS = (
     "sqrt",
     "tan",
 )
+_OTHER_FUNCTIONS = (
+    "buff_t",
+    "exist",
+    "if",
+    "isntnull",
+    "merge",
+    "null",
+    "tshift",
+    "tsnap",
+)
 _COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
 
 
@@ -234,6 +244,11 @@ class Translator:
         name = node.name
         if name in ("tmap", "map"):
             return self._single_map(node)
+        # The name is checked before the arguments are read, so that an
+        # unknown function is reported as such and reads no dataset.
+        if name not in (*_CELL_FUNCTIONS, *_OTHER_FUNCTIONS, *time_functions.TIMEVARS):
+            msg = f"Unknown function {name}()"
+            raise SyntaxError(msg)
         if node.relation is not None and name != "if":
             msg = f"{name}() takes no relation"
             raise SyntaxError(msg)
@@ -259,10 +274,8 @@ class Translator:
             series, increment = _exactly(name, arguments, 2)
             keyword = "shift" if name == "tshift" else "buffer"
             return time_functions.retime(series, **{keyword: _increment(increment)})
-        if name == "merge":
-            return operations.merge(*_exactly(name, arguments, 2))
-        msg = f"Unknown function {name}()"
-        raise SyntaxError(msg)
+        # merge is the only known name left.
+        return operations.merge(*_exactly(name, arguments, 2))
 
     def _single_map(self, node):
         arguments = node.arguments

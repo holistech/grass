@@ -17,6 +17,7 @@ from grass.temporal.algebra.relations import Relation, contains, during, equal
 from grass.temporal.algebra.series import Extent, Series, Slot, Space
 
 BOX = Space(north=10, south=0, east=10, west=0)
+SHIFTED = Space(north=15, south=5, east=15, west=5)
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def datasets(make_series):
         "RT": make_series("x", (0, 1), (1, 2), (2, 3), unit="days"),
         "SA": make_series("sa", (1, 2), space=BOX),
         "SB": make_series("sb", (1, 2), space=BOX),
+        "SC": make_series("sc", (1, 2), space=SHIFTED),
         "td": make_series("td", (1, 2)),
         "A@PERMANENT": make_series("a", (1, 2), (2, 3), (3, 4), (4, 5)),
     }
@@ -115,9 +117,12 @@ def test_expression_without_dataset_is_an_error(translator):
 
 @pytest.mark.parametrize("symbol", ["+", "-", "*", "/", "%"])
 def test_arithmetic_folds_the_related_maps(translator, datasets, symbol):
-    a, b = datasets["A"], datasets["B"]
-    expected = operations.gather(a, equal, b, reduce=fold(symbol))
-    assert run(translator, f"A {symbol} B").slots == expected.slots
+    # N has the time stamps of A, so that every map of A has a partner and
+    # the comparison cannot pass with two empty series.
+    a, n = datasets["A"], datasets["N"]
+    expected = operations.gather(a, equal, n, reduce=fold(symbol))
+    assert len(expected) == 4
+    assert run(translator, f"A {symbol} N").slots == expected.slots
 
 
 def test_arithmetic_with_numbers_and_maps_without_time(translator, datasets):
@@ -172,8 +177,10 @@ def test_operator_in_braces_needs_two_datasets(translator):
 
 
 def test_selection(translator, datasets):
-    a, b = datasets["A"], datasets["B"]
-    assert run(translator, "A : B").slots == operations.select(a, equal, b).slots
+    a, b, n = datasets["A"], datasets["B"], datasets["N"]
+    selected = run(translator, "A : N")
+    assert len(selected) == 4
+    assert selected.slots == operations.select(a, equal, n).slots
     assert (
         run(translator, "A {:,during} B").slots == operations.select(a, during, b).slots
     )
@@ -206,11 +213,10 @@ def test_inverse_selection_takes_only_l(translator, temporal):
 
 
 def test_hash_counts_related_maps(translator, datasets):
-    b, a = datasets["B"], datasets["A"]
-    assert (
-        run(translator, "A # B").slots
-        == operations.gather(a, equal, b, reduce="count").slots
-    )
+    a, n = datasets["A"], datasets["N"]
+    counted = run(translator, "A # N")
+    assert counted.slots == operations.gather(a, equal, n, reduce="count").slots
+    assert [slot.content for slot in counted] == [Const(1)] * 4
     counted = run(translator, "B {#,contains} A")
     assert counted.sort == "scalar"
     assert [slot.content for slot in counted] == [Const(2), Const(2)]
@@ -236,7 +242,7 @@ def test_cell_functions(translator, datasets):
     assert run(translator, "exist(A)") is a
 
 
-@pytest.mark.parametrize("text", ["foo(A)", "strds(A)", "min(A, N)"])
+@pytest.mark.parametrize("text", ["foo(A)", "strds(A)", "min(A, N)", "foo(missing)"])
 def test_unknown_functions(translator, text):
     with pytest.raises(SyntaxError, match="Unknown function"):
         run(translator, text)
@@ -306,8 +312,11 @@ def test_spatial_flag_adds_space_to_every_relation(translator, datasets):
     summed = run(translator, "SA + SB", spatial=True)
     assert summed.spatial
     assert summed.slots == operations.gather(sa, anywhere, sb, reduce=fold("+")).slots
-    named = Relation(frozenset({"equal"}), frozenset({"equivalent"}))
-    assert (
-        run(translator, "SA {+,equal|equivalent} SB", spatial=True).slots
-        == operations.gather(sa, named, sb, reduce=fold("+")).slots
-    )
+    # SC overlaps SA in space without being equivalent to it, so the spatial
+    # name decides whether the pair is related.
+    sc = datasets["SC"]
+    named = Relation(frozenset({"equal"}), frozenset({"overlap"}))
+    overlapping = run(translator, "SA {+,equal|overlap} SC", spatial=True)
+    assert len(overlapping) == 1
+    assert overlapping.slots == operations.gather(sa, named, sc, reduce=fold("+")).slots
+    assert not run(translator, "SA {+,equal|equivalent} SC", spatial=True).slots
