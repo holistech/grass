@@ -64,8 +64,8 @@ class Relation:
 
     A temporal relation is required, a spatial one cannot stand alone. spatial
     is None if only time relates two slots. Otherwise two slots must also
-    touch or overlap in space and, if the set is not empty, have one of its
-    spatial relations.
+    have a spatial relation, one of the set if it is not empty. Boxes that
+    share only a corner have none.
     """
 
     temporal: frozenset
@@ -180,10 +180,12 @@ def related(left, relation_, other):
     result = []
     for map_ in left_maps:
         found = _partners(map_.get_temporal_relations(), relation_.temporal, index)
-        # With spatial=True and no names the builder has already dropped the
-        # pairs that neither touch nor overlap, which is all that is asked.
-        if relation_.spatial:
-            found &= _partners(map_.get_spatial_relations(), relation_.spatial, index)
+        # The search of the builder also finds boxes that share only a corner,
+        # which have no spatial relation. Without names any spatial relation
+        # is required, as in the classic algebra.
+        if relation_.spatial is not None:
+            names = relation_.spatial or SPATIAL_RELATIONS
+            found &= _partners(map_.get_spatial_relations(), names, index)
         result.append(sorted(found))
     return result
 

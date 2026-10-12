@@ -190,6 +190,19 @@ def test_spatial_relations(make_series):
     assert related(a.slots, relation("equal|equivalent"), others) == [[0]]
 
 
+def test_space_without_names_needs_a_spatial_relation(make_series):
+    """Boxes that share only a corner have no spatial relation (they are
+    disjoint), although the search of the topology builder finds them; boxes
+    that share an edge meet. The classic algebra relates only the second."""
+    square = Space(10, 0, 10, 0)
+    others = [
+        make_series("c", (1, 2), space=Space(20, 10, 20, 10)).slots[0],
+        make_series("e", (1, 2), space=Space(20, 10, 10, 0)).slots[0],
+    ]
+    a = make_series("a", (1, 2), space=square)
+    assert related(a.slots, relation("equal", spatial=True), others) == [[1]]
+
+
 def test_spatial_relation_needs_spatial_extents(make_series):
     a = make_series("a", (1, 2))
     with pytest.raises(ValueError, match="spatial extent"):
