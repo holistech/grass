@@ -21,6 +21,8 @@ import pytest
 import grass.script as gs
 from grass.tools import ToolError, Tools
 
+ALGEBRA = "GRASS_TEMPORAL_ALGEBRA"
+
 
 @pytest.fixture(scope="module")
 def spatial_series(tmp_path_factory):
@@ -53,9 +55,14 @@ def spatial_series(tmp_path_factory):
         yield session
 
 
-def result_values(session, expression, flags=""):
-    """Run the tool and return the cell values of the result maps in time order"""
-    tools = Tools(session=session, overwrite=True)
+def result_values(session, expression, flags="", algebra=None):
+    """Run the tool and return the cell values of the result maps in time order
+
+    algebra sets GRASS_TEMPORAL_ALGEBRA for the tool; the flag c selects the
+    classic algebra whatever the variable says.
+    """
+    env = session.env if algebra is None else {**session.env, ALGEBRA: algebra}
+    tools = Tools(env=env, overwrite=True)
     tools.t_rast_algebra(expression=f"R = {expression}", basename="r", flags=flags)
     listing = tools.t_rast_list(input="R", columns="min,max", format="json")
     assert all(row["min"] == row["max"] for row in listing["data"])
@@ -69,8 +76,12 @@ def result_values(session, expression, flags=""):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
+        # The classic algebra builds no spatial topology without -s and
+        # ignores the spatial relation then; the core needs -s for it.
+        ("P {+,equal|overlap} Q", "c", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
+        ("P {+,equal|cover} Q", "c", []),
         ("P {+,equal|cover} Q", "s", []),
         # the hash operator counts the temporally related maps; the result of
         # the condition is P itself, so the disjoint pair shows up as p2
@@ -88,4 +99,4 @@ def test_spatial_relation_needs_the_spatial_flag(spatial_series, relations):
     """Without -s no spatial topology is built, so a spatial relation name
     is an error instead of an empty or unrestricted result"""
     with pytest.raises(ToolError, match="need the spatial flag"):
-        result_values(spatial_series, f"P {{+,{relations}}} Q")
+        result_values(spatial_series, f"P {{+,{relations}}} Q", algebra="core")

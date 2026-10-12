@@ -248,17 +248,15 @@ def test_aggregation_of_contained_maps_with_left_reference(algebra):
     assert algebra.triples("C {+,contains,l} A") == [(2, 4, 12)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "undecided: {+,contains,r} gives one map per related pair (c1 + a2, "
-        "c1 + a3); the classic algebra gives the sum of all related maps at "
-        "the time stamp of each"
-    ),
+@pytest.mark.parametrize(
+    ("classic", "expected"),
+    [(False, [(2, 3, 9), (3, 4, 10)]), (True, [(2, 3, 12), (3, 4, 12)])],
 )
-def test_aggregation_of_contained_maps_with_right_reference(algebra):
-    """With the right reference the aggregated sum gets the time stamps of A"""
-    assert algebra.triples("C {+,contains,r} A") == [(2, 3, 12), (3, 4, 12)]
+def test_aggregation_of_contained_maps_with_right_reference(algebra, classic, expected):
+    """A right reference gives one map per related pair, with the value of
+    that pair: c1 + a2 and c1 + a3. The classic algebra gives each of them
+    the sum of all related maps."""
+    assert algebra.triples("C {+,contains,r} A", classic=classic) == expected
 
 
 def test_relation_with_unrelated_datasets_gives_nothing(algebra):

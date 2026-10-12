@@ -40,6 +40,12 @@ def test_dry_run_gives_the_process_chain(algebra, core):
     assert not algebra.exists()
 
 
+def test_core_is_the_default(algebra, monkeypatch):
+    monkeypatch.delenv(VARIABLE, raising=False)
+    chain = algebra.parse("A * 2", dry_run=True)
+    assert '"r_0"' in expression_of(chain)
+
+
 def test_classic_selects_the_earlier_parser(algebra, classic):
     chain = algebra.parse("A * 2", dry_run=True)
     assert '"r_0"' not in expression_of(chain)

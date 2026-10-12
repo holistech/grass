@@ -7,12 +7,19 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import datetime
 import os
-import unittest
+from unittest import mock
 
 import grass.temporal as tgis
 from grass.gunittest.case import TestCase
 from grass.gunittest.gmodules import SimpleModule
 from grass.gunittest.main import test
+
+
+def core_algebra():
+    """Run t.rast.algebra on the core whatever GRASS_TEMPORAL_ALGEBRA says,
+    for tests whose result differs between the algebras; the flag c selects
+    the classic algebra in their classic variants"""
+    return mock.patch.dict(os.environ, {"GRASS_TEMPORAL_ALGEBRA": "core"})
 
 
 class TestTRastAlgebra(TestCase):
@@ -248,11 +255,32 @@ class TestTRastAlgebra(TestCase):
             flags="d",
             suffix="gran",
         )
-        print_module_run.run()
+        with core_algebra():
+            print_module_run.run()
 
         # Check expressions; they are fully parenthesized and the names quoted,
         # and pprint may split the long expression strings after a name
         ref_str = """...r_2001_01_01"=if(((...a1@...>=3)!=0),1,0)...r_2001_01_02"=if(((...a2@...>=3)!=0),2,0)...r_2001_01_03"=if(((...a3@...>=3)!=0),3,0)...r_2001_01_04"=if(((...a4@...>=3)!=0),4,0)..."""
+        print(str(print_module_run.outputs.stdout.replace("\n", "").replace(" ", "")))
+        self.assertLooksLike(
+            str(print_module_run.outputs.stdout.replace("\n", "").replace(" ", "")),
+            ref_str,
+        )
+
+    def test_simple_arithmetic_time_function_expressions_classic(self):
+        """The expressions of the classic algebra, without quotes"""
+
+        print_module_run = SimpleModule(
+            "t.rast.algebra",
+            expression="R = if(A >= 3, start_doy(A, 0), 0)",
+            basename="r",
+            flags="dc",
+            suffix="gran",
+        )
+        print_module_run.run()
+
+        # Check expressions
+        ref_str = "...r_2001_01_01=if(a1@...>=3,1,0)...r_2001_01_02=if(a2@...>=3,2,0)...r_2001_01_03=if(a3@...>=3,3,0)...r_2001_01_04=if(a4@...>=3,4,0)..."
         print(str(print_module_run.outputs.stdout.replace("\n", "").replace(" ", "")))
         self.assertLooksLike(
             str(print_module_run.outputs.stdout.replace("\n", "").replace(" ", "")),
@@ -473,15 +501,37 @@ class TestTRastAlgebra(TestCase):
         self.assertEqual(result_strds.check_temporal_topology(), True)
         self.assertEqual(result_strds.get_granularity(), "2 days")
 
-    # Undecided: {+,R,r} gives one map per related pair (b1 + a1 is 6), the
-    # classic algebra gives each related map the sum of all (b1 + a1 + a2 is
-    # 8).
-    @unittest.expectedFailure
     def test_raster_arithmetic_relation_4(self):
         """Arithmetic test with temporal intersection"""
 
+        with core_algebra():
+            self.assertModule(
+                "t.rast.algebra", expression="R = B {+,contains,r} A ", basename="r"
+            )
+
+        # A right reference gives one map per related pair, with the value of
+        # that pair: b1 + a1 is 6, b2 + a4 is 10.
+        result_strds = tgis.open_old_stds("R", type="strds")
+
+        self.assertEqual(result_strds.metadata.get_number_of_maps(), 4)
+        self.assertEqual(result_strds.metadata.get_min_min(), 6)
+        self.assertEqual(result_strds.metadata.get_max_max(), 10)
+        start, end = result_strds.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(result_strds.check_temporal_topology(), True)
+        self.assertEqual(result_strds.get_granularity(), "1 day")
+
+    # The classic algebra gives each related map of A the sum of its map of
+    # B and all maps of A that this map contains: b1 + a1 + a2 is 8.
+    def test_raster_arithmetic_relation_4_classic(self):
+        """Arithmetic test with temporal intersection"""
+
         self.assertModule(
-            "t.rast.algebra", expression="R = B {+,contains,r} A ", basename="r"
+            "t.rast.algebra",
+            expression="R = B {+,contains,r} A ",
+            basename="r",
+            flags="c",
         )
 
         result_strds = tgis.open_old_stds("R", type="strds")

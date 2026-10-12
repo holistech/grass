@@ -237,8 +237,9 @@ def _create_datasets(tools, directory):
 class Algebra:
     """Run the temporal raster algebra in the test session"""
 
-    # The algebra raises its own FatalError, other library code the one of
-    # grass.exceptions.
+    # The classic algebra raises its own FatalError, other library code the
+    # one of grass.exceptions. The core raises ValueError, TypeError or
+    # SyntaxError instead, which tests name where they expect them.
     errors = (FatalError, TemporalAlgebraFatalError)
 
     def __init__(self, session):

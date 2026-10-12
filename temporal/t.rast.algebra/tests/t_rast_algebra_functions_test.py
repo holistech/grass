@@ -34,9 +34,15 @@ def test_td_in_arithmetic(algebra, expression, expected):
 def test_td_of_time_instants_is_null(algebra, expression, count):
     """Instants have no length, so td() is null and so is the sum; such maps
     are registered only with register_null"""
-    assert algebra.run(expression) == []
-    rows = algebra.run(expression, register_null=True)
+    assert algebra.run(expression, classic=False) == []
+    rows = algebra.run(expression, register_null=True, classic=False)
     assert [row.min for row in rows] == [None] * count
+
+
+@pytest.mark.parametrize("expression", ["E + td(E)", "I + td(I)"])
+def test_td_of_time_instants_is_an_error_in_the_classic_algebra(algebra, expression):
+    with pytest.raises(algebra.errors, match="requires a time interval"):
+        algebra.parse(expression, classic=True)
 
 
 def test_buff_t_buffers_both_sides(algebra):
@@ -222,10 +228,18 @@ def test_temporal_neighbour(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-def test_temporal_neighbour_in_condition(algebra):
+@pytest.mark.parametrize(
+    ("classic", "expected"),
+    [
+        (False, [(3, 4, 3), (4, 5, 4)]),
+        (True, [(2, 3, 0), (3, 4, 3), (4, 5, 4)]),
+    ],
+)
+def test_temporal_neighbour_in_condition(algebra, classic, expected):
     """The neighbour modifier can be used in conditions; without else a2,
-    whose predecessor a1 is not greater than 1, is null and left out"""
-    assert algebra.triples("if(A[-1] > 1, A)") == [(3, 4, 3), (4, 5, 4)]
+    whose predecessor a1 is not greater than 1, is null and left out, 0 in
+    the classic algebra"""
+    assert algebra.triples("if(A[-1] > 1, A)", classic=classic) == expected
 
 
 @pytest.mark.parametrize(
