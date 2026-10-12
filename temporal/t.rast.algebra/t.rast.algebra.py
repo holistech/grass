@@ -71,7 +71,7 @@
 
 # %flag
 # % key: c
-# % description: Use the classic algebra, as computed before the algebra core
+# % description: Use the classic algebra instead of the algebra core
 # %end
 
 import sys

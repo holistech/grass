@@ -479,7 +479,7 @@ acos(x)                 inverse cosine of x (result is in degrees)
 isnull(x)               check if x = NULL
 isntnull(x)             check if x is not NULL
 null                    set null value
-exist(x)                Check if x is in the current mapset
+exist(x)                use the values of x as condition (non-zero is true)
 </pre></div>
 
 <h4>Single raster map </h4>
@@ -722,8 +722,9 @@ C = H {:,follows|precedes,i} A
 In Python, both algebras raise <code>SyntaxError</code> for an expression
 they cannot read. For one they cannot compute, the new algebra raises
 <code>ValueError</code> or <code>TypeError</code>, where the classic algebra
-raises <code>FatalError</code>. The tool stops with the error message in both
-algebras.
+raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
+missing dataset or map and, without overwrite, for an existing result dataset
+or map. The tool stops with the error message in both algebras.
 
 <p>
 Two corrections apply to both algebras, so <b>-c</b> gives the rules of the

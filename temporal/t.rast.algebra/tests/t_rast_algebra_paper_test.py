@@ -138,7 +138,7 @@ def outcome(paper, monkeypatch, name, algebra):
     """The maps of an example as (start, end, value), or the error name"""
     expression, spatial, _maps = EXAMPLES[name]
     monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
-    # A run with the spatial flag leaves the region at the extent of its maps.
+    # Each example starts in the base region of the fixture (PAPER_REGION).
     paper.tools.g_region(n=3, s=0, e=3, w=0, res=1)
     try:
         rows = paper.run(expression, spatial=spatial, register_null=True)
