@@ -658,17 +658,23 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
         if not self.run:
             t[0] = self._dry_name(*(t[i] for i in range(first_operand, len(t))))
             return
-        topolist = ["EQUAL"]
+        topolist = None
         if first_operand == 7:
             topolist = self.eval_toperator(t[3], optype="relation")[0]
         thenlist, number = self._conclusion_operands(t, first_operand)
-        condition = self.build_condition_list(t[first_operand - 2], thenlist, topolist)
+        condition = self.build_condition_list(
+            t[first_operand - 2], thenlist, topolist or ("EQUAL",)
+        )
         selected = self.eval_condition_list(condition)
         rejected = self.eval_condition_list(condition, inverse=True)
+        if self._else_takes_unrelated(topolist):
+            rejected += self._unrelated(thenlist, condition)
         for map_i in rejected:
             map_i.cmd_list = number
         for map_i in selected + rejected:
-            del map_i.condition_value
+            # Maps without related condition never got a condition value.
+            if hasattr(map_i, "condition_value"):
+                del map_i.condition_value
         t[0] = sorted(selected + rejected, key=AbstractDatasetComparisonKeyStartTime)
         self._debug_commands(t[0])
 

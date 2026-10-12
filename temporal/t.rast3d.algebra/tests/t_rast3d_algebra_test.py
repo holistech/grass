@@ -434,12 +434,6 @@ def test_conditions_with_relation_and_hash(
         assert times(rows) == expected_times
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="new: a temporal variable condition (here #) evaluates the relation "
-    "as 'conclusion contains condition', the manual and the map conditions "
-    "as 'condition contains conclusion'",
-)
 def test_else_branch_for_false_condition(series_3d):
     """if(cond, then, else) returns the else maps where the condition is false.
 
@@ -450,11 +444,6 @@ def test_else_branch_for_false_condition(series_3d):
     assert values(series_3d.session, expression) == [1, 2, 3, 4]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Kern: the relation of a condition reads from the condition map to "
-    "the conclusion map",
-)
 def test_condition_relation_reads_condition_to_conclusion(series_3d):
     """if({contains}, c(W), A): the maps of A within a map of W
 

@@ -421,8 +421,10 @@ class TestTemporalAlgebra(TestCase):
     def test_temporal_hash_operator2(self) -> None:
         """Testing the hash operator function in conditional statement."""
         temporal_algebra_parser = tgis.TemporalAlgebraParser(run=True, debug=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of C contain the maps of A.
         temporal_algebra_parser.parse(
-            expression="R = if({during}, C {#,contains} A == 2, A)",
+            expression="R = if({contains}, C {#,contains} A == 2, A)",
             stdstype="strds",
             basename="r",
             overwrite=True,

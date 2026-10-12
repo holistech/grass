@@ -379,8 +379,10 @@ class TestTemporalConditionals(TestCase):
     def test_temporal_conditional_13(self) -> None:
         """Testing the hash operator function in conditional statement."""
         ta = tgis.TemporalAlgebraParser(run=True, debug=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of B contain the maps of A.
         ta.parse(
-            expression="R = if({equal|during},td(B) == 2 {&&,contains} td(A) == 1, A)",
+            expression="R = if({equal|contains},td(B) == 2 {&&,contains} td(A) == 1, A)",
             basename="r",
             overwrite=True,
         )
@@ -440,20 +442,26 @@ class TestTemporalConditionals(TestCase):
     def test_temporal_condition_else_3(self) -> None:
         """Testing the temporal select operator with equal relations."""
         ta = tgis.TemporalAlgebraParser(run=True, debug=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of B contain the maps of A.
         ta.parse(
-            expression='R = if({during},td(B) == 2 {&&,contains} start_date(D) >= "2001-01-04", A, D)',
+            expression='R = if({contains},td(B) == 2 {&&,contains} start_date(D) >= "2001-01-04", A, D)',
             basename="r",
             overwrite=True,
         )
 
         D = tgis.open_old_stds("R", type="strds")
         D.select()
-        self.assertEqual(D.metadata.get_number_of_maps(), 2)
+        # d1 and d2 lie in b2, the condition is true for none of them. d3
+        # [5, 6] lies in no map of B: with a relation beyond equal else takes
+        # the maps that no condition is related to (Gebbert, Leppelt and
+        # Pebesma 2019, section 3.2.1).
+        self.assertEqual(D.metadata.get_number_of_maps(), 3)
         self.assertEqual(D.metadata.get_min_min(), 8)
-        self.assertEqual(D.metadata.get_max_max(), 9)
+        self.assertEqual(D.metadata.get_max_max(), 10)
         start, end = D.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 3))
-        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(end, datetime.datetime(2001, 1, 6))
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), "1 day")
 

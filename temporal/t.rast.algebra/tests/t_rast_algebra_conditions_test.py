@@ -96,13 +96,17 @@ def test_if_with_explicit_equal_relation(algebra, expression, values):
         # B contains A: b1 contains a1 and a2, b2 contains a3 and a4
         ("if({contains}, B > 5, A)", [0, 0, 3, 4]),
         ("if({contains}, B > 5, A, A * 10)", [10, 20, 3, 4]),
-        ("if({during}, td(B) == 2, A)", [1, 2, 3, 4]),
+        ("if({contains}, td(B) == 2, A)", [1, 2, 3, 4]),
     ],
 )
 def test_if_with_other_topology_between_condition_and_conclusion(
     algebra, expression, values
 ):
-    """The relation in braces connects the condition STRDS with the conclusion"""
+    """The relation in braces connects the condition STRDS with the conclusion.
+
+    It reads from the condition to the conclusion, for conditions on time
+    stamps as for conditions on map values: B contains A.
+    """
     assert algebra.triples(expression) == a_intervals(values)
 
 
@@ -287,12 +291,15 @@ def test_td_and_raster_condition_chain(algebra, condition, values):
         ("if(start_day(A) == 2, A, 0)", [0, 2, 0, 0]),
         ("if(td(A) == 1, A, 0)", [1, 2, 3, 4]),
         ("if(td(A) == 2, A, 0)", [0, 0, 0, 0]),
-        ("if({during}, td(B) == 2, A, 0)", [1, 2, 3, 4]),
-        ("if({during}, td(B) == 1, A, 0)", [0, 0, 0, 0]),
+        ("if({contains}, td(B) == 2, A, 0)", [1, 2, 3, 4]),
+        ("if({contains}, td(B) == 1, A, 0)", [0, 0, 0, 0]),
     ],
 )
 def test_temporal_condition_with_number_as_else(algebra, expression, values):
-    """if(topologies, conditions, A, 0) puts 0 where the condition is false"""
+    """if(topologies, conditions, A, 0) puts 0 where the condition is false
+
+    The relation reads from the condition to the conclusion: B contains A.
+    """
     assert algebra.values(expression) == values
 
 
@@ -406,12 +413,19 @@ CONDITION_HB_RIGHT = (
 OUTSIDE_HB = "HA {!:,during} HB"
 
 
-def test_else_part_needs_a_condition_map(algebra):
+def test_else_takes_the_maps_outside_of_the_condition_maps(algebra):
     """HB holds hb1 (7) [2,4] and hb2 (8) [4,6], HA has ha1..ha6 (1..6) of one
     day. hb1 + ha2 + ha3 = 12 and hb2 + ha4 + ha5 = 17 where HB contains two
-    maps of HA. ha1 and ha6 lie outside of HB: without a condition map there
-    is no result for them, also not from the else part."""
-    assert algebra.triples(CONDITION_HB) == [(2, 4, 12), (4, 6, 17)]
+    maps of HA. ha1 and ha6 lie outside of HB: no condition map is related to
+    them, so with a relation beyond equal the else part takes them, as the
+    paper that introduced the algebra defines it (Gebbert, Leppelt and
+    Pebesma 2019, section 3.2.1)."""
+    assert algebra.triples(CONDITION_HB) == [
+        (1, 2, 1),
+        (2, 4, 12),
+        (4, 6, 17),
+        (6, 7, 6),
+    ]
 
 
 def test_complement_with_merge(algebra):

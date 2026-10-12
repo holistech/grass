@@ -748,6 +748,30 @@ _PARSER_TEMPLATES: dict = {}
 
 _COMPARISONS = {"<": lt, ">": gt, "==": eq, "<=": le, ">=": ge, "!=": ne}
 
+# The inverse of each relation name. The relation of a condition reads from
+# the condition to the conclusion, the selection relates the conclusion
+# maps to the condition maps, see eval_map_list().
+_INVERSE_RELATIONS = {
+    "EQUAL": "EQUAL",
+    "FOLLOWS": "PRECEDES",
+    "PRECEDES": "FOLLOWS",
+    "OVERLAPS": "OVERLAPPED",
+    "OVERLAPPED": "OVERLAPS",
+    "DURING": "CONTAINS",
+    "CONTAINS": "DURING",
+    "STARTS": "STARTED",
+    "STARTED": "STARTS",
+    "FINISHES": "FINISHED",
+    "FINISHED": "FINISHES",
+    "EQUIVALENT": "EQUIVALENT",
+    "COVER": "COVERED",
+    "COVERED": "COVER",
+    "OVERLAP": "OVERLAP",
+    "IN": "CONTAIN",
+    "CONTAIN": "IN",
+    "MEET": "MEET",
+}
+
 # The fields of a time stamp which the temporal functions of the algebra
 # (start_doy(), end_date(), ...) return. The week is the ISO week.
 _TIME_FIELDS = {
@@ -2209,13 +2233,18 @@ class TemporalAlgebraParser:
         :param maplist:  List of map objects containing boolean map values.
         :param thenlist: List of map objects where the boolean values
                         should be added.
+        :param topolist: The relations of if({R}, condition, conclusion),
+                         which read "condition R conclusion"
 
         :return: List of maps from thenlist with added conditional boolean values.
         """
-        # The topology of the then list to the maps with conditions gives the
-        # boolean values of the maplist to the maps of the thenlist.
+        # The selection keeps the maps of thenlist that are related to a map
+        # of maplist, which reads from conclusion to condition.
         return self.perform_temporal_selection(
-            thenlist, maplist, assign_val=True, topolist=topolist
+            thenlist,
+            maplist,
+            assign_val=True,
+            topolist=[_INVERSE_RELATIONS[name.upper()] for name in topolist],
         )
 
     def build_condition_list(self, tvarexpr, thenlist, topolist=("EQUAL",)):
@@ -3121,28 +3150,51 @@ class TemporalAlgebraParser:
             t[0] = self._placeholder(t[5])
         self._trace(str(t[5]) + "* = ", "if condition", str(t[3]), " then ", str(t[5]))
 
-    def _evaluate_if(self, tvarexpr, then_arg, else_arg=None, topolist=("EQUAL",)):
+    def _evaluate_if(self, tvarexpr, then_arg, else_arg=None, topolist=None):
         """Evaluate a conditional statement.
 
         :param tvarexpr: The condition, a map list with condition values
         :param then_arg: The maps (or a dataset name) taken where the condition
             is true
         :param else_arg: The maps (or a dataset name) taken where it is false
-        :param topolist: The temporal relations between condition and conclusions
+        :param topolist: The relations between condition and conclusions as
+            written in braces, None without braces
         :return: The selected maps, sorted by time, without condition values
         """
+        takes_unrelated = self._else_takes_unrelated(topolist)
+        topolist = topolist or ("EQUAL",)
         thenlist = self.check_stds(then_arg)
         condition = self.build_condition_list(tvarexpr, thenlist, topolist)
         selected = self.eval_condition_list(condition)
         if else_arg is not None:
             elselist = self.check_stds(else_arg)
             condition = self.build_condition_list(tvarexpr, elselist, topolist)
-            selected = sorted(
-                selected + self.eval_condition_list(condition, inverse=True),
-                key=AbstractDatasetComparisonKeyStartTime,
-            )
+            selected += self.eval_condition_list(condition, inverse=True)
+            if takes_unrelated:
+                selected += self._unrelated(elselist, condition)
+            selected.sort(key=AbstractDatasetComparisonKeyStartTime)
         # Clear the map and conditional values of the map list.
         return self.check_stds(selected, clear=True)
+
+    def _else_takes_unrelated(self, topolist):
+        """True if else takes the maps that no condition is related to
+
+        The paper that introduced the algebra defines else as applying "if no
+        topological relation to the if statement exists or if they are false"
+        (Gebbert, Leppelt and Pebesma 2019, section 3.2.1). This holds for
+        temporal relations beyond equal only, so that if({equal}, ...) means
+        the same as if(...), whose condition speaks of maps of equal time.
+        """
+        return topolist is not None and any(
+            name.upper() in self.temporal_topology_list and name.upper() != "EQUAL"
+            for name in topolist
+        )
+
+    @staticmethod
+    def _unrelated(maplist, related):
+        """The maps of maplist that are not in related"""
+        uids = {map_i.uid for map_i in related}
+        return [map_i for map_i in maplist if map_i.uid not in uids]
 
     def p_expr_condition_if_relation(self, t) -> None:
         # Examples

@@ -254,8 +254,10 @@ class TestTemporalAlgebraMixedDatasets(TestCase):
     def test_temporal_hash_operator2(self) -> None:
         """Testing the hash operator function in conditional statement."""
         ta = tgis.TemporalAlgebraParser(run=True, debug=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of C contain the maps of A.
         ta.parse(
-            expression="R = if({during}, stvds(C) {#,contains} A == 2, A)",
+            expression="R = if({contains}, stvds(C) {#,contains} A == 2, A)",
             stdstype="str3ds",
             basename="r",
             overwrite=True,
@@ -275,8 +277,10 @@ class TestTemporalAlgebraMixedDatasets(TestCase):
     def test_different_stds_handling1(self) -> None:
         """Testing the handling of different stds types as output."""
         ta = tgis.TemporalAlgebraParser(run=True, debug=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of C contain the maps of A.
         ta.parse(
-            expression="R = if({during}, stvds(C) {#,contains} str3ds(A) == 2, str3ds(A))",
+            expression="R = if({contains}, stvds(C) {#,contains} str3ds(A) == 2, str3ds(A))",
             stdstype="strds",
             basename="r",
             overwrite=True,
@@ -296,8 +300,10 @@ class TestTemporalAlgebraMixedDatasets(TestCase):
     def test_different_stds_handling2(self) -> None:
         """Testing the handling of different stds types as output."""
         ta = tgis.TemporalAlgebraParser(run=True, debug=True, dry_run=True)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of C contain the maps of A.
         pc = ta.parse(
-            expression="R = if({during}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
+            expression="R = if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
             stdstype="strds",
             basename="r",
             overwrite=True,

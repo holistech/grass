@@ -505,9 +505,11 @@ class TestTRastAlgebra(TestCase):
     def test_temporal_hash_operator4(self):
         """Testing the temporal hash operator in the raster algebra."""
 
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of A lie during the maps of C.
         self.assertModule(
             "t.rast.algebra",
-            expression="R = if({contains},A # D == 1, C {#,contains} A)",
+            expression="R = if({during},A # D == 1, C {#,contains} A)",
             basename="r",
         )
 

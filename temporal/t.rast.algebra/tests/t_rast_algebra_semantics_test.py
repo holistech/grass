@@ -407,16 +407,7 @@ def test_reference_table_agrees_with_selection(algebra, relation):
     )
 
 
-# "equal" is its own inverse, so the wrong direction gives the right result.
-TEMPORAL_DIRECTION_RELATIONS = [
-    relation
-    if relation == "equal"
-    else pytest.param(relation, marks=later("Kern", WRONG_DIRECTION))
-    for relation in RELATIONS
-]
-
-
-@pytest.mark.parametrize("relation", TEMPORAL_DIRECTION_RELATIONS)
+@pytest.mark.parametrize("relation", RELATIONS)
 @pytest.mark.parametrize(
     "condition", ["td(ref) > 0", 'start_date(ref) == "2001-01-10"']
 )
@@ -434,11 +425,7 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
     ("expression", "expected"),
     [
         # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4
-        pytest.param(
-            "if({during}, start_day(A) > 1, B)",
-            [(3, 5, 6)],
-            marks=later("Kern", WRONG_DIRECTION),
-        ),
+        ("if({during}, start_day(A) > 1, B)", [(3, 5, 6)]),
         pytest.param(
             "if({during,&}, start_day(A) > 1, B)",
             [(3, 5, 6)],
@@ -449,11 +436,7 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
             [(1, 3, 5), (3, 5, 6)],
             marks=later("Kern", AGGREGATE_WITH_OR),
         ),
-        pytest.param(
-            "if({during}, start_day(A) > 1, B, 0)",
-            [(1, 3, 0), (3, 5, 6)],
-            marks=later("Kern", WRONG_DIRECTION),
-        ),
+        ("if({during}, start_day(A) > 1, B, 0)", [(1, 3, 0), (3, 5, 6)]),
         pytest.param(
             "if({during,|}, start_day(A) > 2, B, 0)",
             [(1, 3, 0), (3, 5, 6)],
@@ -464,11 +447,7 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
         # contained (finished, started) by the buffers of a1 and a2, b2 [3,5]
         # by those of a3 and a4: then. c1 [2,4] by those of a2 and a3, so
         # its condition is true and the else part gives nothing.
-        pytest.param(
-            'if({contains}, td(buff_t(A, "1 days")) == 3, B, C)',
-            [(1, 3, 5), (3, 5, 6)],
-            marks=later("Kern", WRONG_DIRECTION),
-        ),
+        ('if({contains}, td(buff_t(A, "1 days")) == 3, B, C)', [(1, 3, 5), (3, 5, 6)]),
     ],
 )
 def test_temporal_condition_aggregates_per_conclusion(algebra, expression, expected):
@@ -477,11 +456,6 @@ def test_temporal_condition_aggregates_per_conclusion(algebra, expression, expec
     assert fresh_triples(algebra, expression) == expected
 
 
-@later(
-    "Kern",
-    WRONG_DIRECTION + "; the conditions of all condition maps of equal time "
-    "belong to one conclusion map",
-)
 def test_equal_time_conditions_are_broadcast_to_one_conclusion(algebra):
     """The four instants of E lie in b1; as one conclusion map b1 gets all
     of them"""
@@ -576,7 +550,7 @@ def test_equal_time_map_conditions_are_broadcast(algebra):
     "condition",
     [
         "B > 0",
-        pytest.param("start_day(B) > 0", marks=later("Kern", WRONG_DIRECTION)),
+        "start_day(B) > 0",
         "B > 0 && start_day(B) > 0",
     ],
 )
@@ -650,11 +624,6 @@ def test_map_condition_with_matching_then_and_else(algebra, expression, values):
     assert fresh_values(algebra, expression) == values
 
 
-@later(
-    "Kern",
-    WRONG_DIRECTION + "; then and else of a condition on time stamps need no "
-    "common time",
-)
 def test_temporal_condition_takes_then_and_else_independently(algebra):
     """For temporal conditions then and else need no common time.
 
@@ -666,6 +635,32 @@ def test_temporal_condition_takes_then_and_else_independently(algebra):
     ) == [
         (1, 2, 1), (2, 3, 2), (3, 5, 6),
     ]  # fmt: skip
+
+
+def test_else_takes_maps_without_related_condition(algebra):
+    """With a relation beyond equal, else also takes the maps that no
+    condition is related to, as in figure A3 of the paper that introduced
+    the algebra (Gebbert, Leppelt and Pebesma 2019, section 3.2.1); then
+    leaves them out. d1 and d2 lie in b2 (true), d3 [5,6] is related to no
+    map of B."""
+    assert fresh_triples(algebra, "if({equal|contains}, start_day(B) > 2, B, D)") == [
+        (3, 5, 6),
+        (5, 6, 10),
+    ]
+    assert fresh_triples(algebra, "if({equal|contains}, start_day(B) > 2, D, 0)") == [
+        (3, 4, 8),
+        (4, 5, 9),
+        (5, 6, 0),
+    ]
+
+
+@pytest.mark.parametrize("relation", ["", "{equal}, "])
+def test_else_without_relation_beyond_equal_takes_no_unrelated_maps(algebra, relation):
+    """if({equal}, ...) means the same as if(...): the condition speaks of
+    maps of equal time only, and no map of D has the time of a map of B"""
+    assert fresh_triples(algebra, f"if({relation}start_day(B) > 2, B, D)") == [
+        (3, 5, 6)
+    ]
 
 
 # Atom name -> (temporal condition, map condition); both are true for the

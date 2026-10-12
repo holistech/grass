@@ -545,18 +545,19 @@ def test_logical_operators_have_equal_precedence(session, condition, expected):
         ("if(start_month(A) > 2, strds(A))", ["a3", "a4"]),
         ("if({equal}, start_month(B) == 3, A)", ["a3"]),
         ("if({equal}, start_month(B) == 3, A, A)", ["a2", "a3"]),
-        ("if({during}, start_month(C) == 1, A)", ["a1", "a2"]),
-        ("if({during}, start_month(C) == 1, A, A)", ["a1", "a2", "a3", "a4"]),
-        ("if({during}, start_month(C) == 3, A)", ["a3", "a4"]),
-        ("if({contains}, start_month(A) < 3, C)", ["c1"]),
-        ("if({precedes}, td(A) > 30, B)", ["b2"]),
-        ("if({precedes}, start_month(A) == 2, B)", []),
+        ("if({contains}, start_month(C) == 1, A)", ["a1", "a2"]),
+        ("if({contains}, start_month(C) == 1, A, A)", ["a1", "a2", "a3", "a4"]),
+        ("if({contains}, start_month(C) == 3, A)", ["a3", "a4"]),
+        ("if({during}, start_month(A) < 3, C)", ["c1"]),
+        ("if({follows}, td(A) > 30, B)", ["b2"]),
+        ("if({follows}, start_month(A) == 2, B)", []),
     ],
 )
 def test_if_then_else(session, expression, expected):
     """Conditions select maps of the then branch, else gets the others.
 
     The relation in braces connects condition and branches, equal by default.
+    It reads from the condition to the branch: C contains A, A is during C.
     """
     assert dry_register(f"R = {expression}") == maps(*expected)
 

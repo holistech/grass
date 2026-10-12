@@ -833,8 +833,10 @@ class TestTemporalRasterAlgebra(TestCase):
     def test_temporal_hash_operator4(self) -> None:
         """Testing the temporal hash operator in the raster algebra."""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        # The relation of the if() reads from the condition to the conclusion:
+        # the maps of A lie during the maps of C.
         tra.parse(
-            expression="R = if({contains},A # D == 1, C {#,contains} A)",
+            expression="R = if({during},A # D == 1, C {#,contains} A)",
             basename="r",
             overwrite=True,
         )

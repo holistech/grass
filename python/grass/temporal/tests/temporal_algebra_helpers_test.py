@@ -802,9 +802,13 @@ def test_build_condition_list_map_list(parser):
 
 
 def test_build_condition_list_relation_between_condition_and_then(parser):
-    """The relation list sets how conditions and then maps are related"""
+    """The relation list sets how conditions and then maps are related
+
+    It reads from the condition to the then map: the maps of A lie during
+    the maps of C.
+    """
     conditions = with_condition(series_a(), [True, True, False, True])
-    result = parser.build_condition_list(conditions, series_c(), ["CONTAINS"])
+    result = parser.build_condition_list(conditions, series_c(), ["DURING"])
     assert [(m.get_name(), m.condition_value) for m in result] == [
         ("c1", [True]),
         ("c3", [False]),

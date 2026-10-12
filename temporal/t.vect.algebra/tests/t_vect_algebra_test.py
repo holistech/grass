@@ -422,19 +422,11 @@ def test_conditions(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
-# Both cases fail today because the relation is read the other way round.
-READS_CONDITION_TO_CONCLUSION = pytest.mark.xfail(
-    strict=True,
-    reason="Kern: the relation of a condition reads from the condition map "
-    "to the conclusion map",
-)
-
-
 @pytest.mark.parametrize(
     ("relation", "expected"),
     [
-        pytest.param("contains", DAILY, marks=READS_CONDITION_TO_CONCLUSION),
-        pytest.param("during", [], marks=READS_CONDITION_TO_CONCLUSION),
+        ("contains", DAILY),
+        ("during", []),
     ],
 )
 def test_condition_relation_reads_condition_to_conclusion(
