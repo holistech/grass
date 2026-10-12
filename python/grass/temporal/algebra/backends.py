@@ -228,9 +228,9 @@ class Raster3DBackend(RasterBackend):
 
     - region=union is accepted by the parser of r3.mapcalc but fails with
       "Union or intersection of regions is not implemented" (same
-      measurement, region=intersect fails alike). Maps related in space
-      cannot be computed in the union of their regions, so a spatial series
-      is rejected instead of failing after other maps were computed.
+      measurement, region=intersect fails alike). Maps related in space are
+      therefore computed in the current 3D region, which is what the
+      classic algebra does as well.
     - There is no r3.series, so a reduction that skips null cells and
       needs r.series cannot be planned.
     """
@@ -238,21 +238,15 @@ class Raster3DBackend(RasterBackend):
     kind = "raster3d"
 
     def _mapcalc(self, output, expression, spatial):
-        call = super()._mapcalc(output, expression, spatial)
+        # No region option, whether or not the maps are related in space.
+        call = super()._mapcalc(output, expression, spatial=False)
         return ModuleCall("r3.mapcalc", call.parameters)
 
     def plan(self, content, output, *, spatial=False):
         """Plan the computation of the map output from the content
 
-        :raises ValueError: for a reduction that needs r.series, or for maps
-            related in space, which need the union of regions
+        :raises ValueError: for a reduction that needs r.series
         """
-        if spatial:
-            msg = (
-                "3D raster maps related in space cannot be computed: "
-                "r3.mapcalc does not implement region=union"
-            )
-            raise ValueError(msg)
         if _has_series_reduce(content):
             msg = (
                 "Skipping null cells in a sum or mean needs r.series, which has "

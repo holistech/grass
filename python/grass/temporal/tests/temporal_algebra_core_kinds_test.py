@@ -96,12 +96,13 @@ def test_raster3d_cell_offsets_reach_r3_mapcalc(make_series):
     assert call.parameters["expression"] == '"R_0"="a1@PERMANENT"[1,0,-1]'
 
 
-def test_spatial_raster3d_maps_cannot_use_the_union_of_regions(make_series):
+def test_spatial_raster3d_maps_are_computed_in_the_current_region(make_series):
     a = make_series("a", (1, 2), space=LOW, kind="raster3d")
     b = make_series("b", (1, 2), space=MIDDLE, kind="raster3d")
     series = gather(a, relation("equal", spatial=True), b, reduce=fold("+"))
-    with pytest.raises(ValueError, match="region=union"):
-        plan(series, "R")
+    [call] = plan(series, "R").processes
+    assert call.name == "r3.mapcalc"
+    assert "region" not in call.parameters
 
 
 def test_raster3d_reductions_cannot_skip_null_cells_with_r_series(make_series):
