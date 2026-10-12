@@ -234,6 +234,72 @@ def _create_datasets(tools, directory):
     )
 
 
+# Datasets of the figures and examples in Gebbert, Leppelt and Pebesma
+# (2019), Data 4(2), 86, rebuilt with constant 3x3 maps in January 2001:
+# name: (times, values), a time is an interval (first day, end day) or the
+# day of an instant.
+PAPER_DAILY = [(day, day + 1) for day in range(1, 11)]
+PAPER = {
+    "A1A": ([(1, 3), (3, 5), (5, 7), (7, 11)], [10, 20, 30, 40]),
+    "A1B": (PAPER_DAILY, list(range(1, 11))),
+    "A3A": ([(1, 3), (3, 5), (5, 7)], [10, 20, 30]),
+    "A4A": ([(1, 3), (3, 5), (5, 7), (7, 11)], [-1, 0, 1, 2]),
+    "A5A": ([(1, 6), (6, 11)], [1, 1]),
+    "A5B": (PAPER_DAILY, [1] * 10),
+    "A7A": ([(4, 8)], [1]),
+    "A7B": ([(1, 4), (8, 11)], [1, 1]),
+    "A8A": ([(4, 9)], [1]),
+    "A8B": ([(1, 6)], [1]),
+    "SA9A": ([1, 1, 8, 8], [1, 3, 2, 4]),
+    "SA9B": ([1, 1, 8, 8], [1, 3, 2, 4]),
+    "S2B08": ([1, 1, 8, 8], [0.8, 0.6, 0.7, 0.9]),
+    "S2B04": ([1, 1, 8, 8], [0.2, 0.2, 0.3, 0.1]),
+    "T": (PAPER_DAILY, [5, 15, 12, 8, 20, 11, 9, 14, 16, 7]),
+    "P": (PAPER_DAILY, list(range(1, 11))),
+    "D": ([(1, 11)], [0]),
+    "NIR": ([(1, 2), (2, 3), (3, 4)], [0.5, 0.6, 0.7]),
+    "RED": ([(1, 2), (2, 3), (3, 4)], [0.1, 0.2, 0.3]),
+}
+# The second and fourth map of these datasets lie east of the others, so
+# that two maps of equal time are related by their extent only.
+PAPER_EAST = ("SA9A", "SA9B", "S2B08", "S2B04")
+PAPER_REGION = {"n": 3, "s": 0, "e": 3, "w": 0, "res": 1}
+PAPER_EAST_REGION = {"n": 3, "s": 0, "e": 13, "w": 10, "res": 1}
+
+
+def _create_paper_datasets(tools, directory):
+    """Create the datasets of PAPER and the map L (0.5) without time stamp"""
+    expressions = {True: [], False: ["L = 0.5\n"]}
+    registers = {}
+    for name, (times, values) in PAPER.items():
+        rows = []
+        for number, (time, value) in enumerate(zip(times, values, strict=True), 1):
+            map_name = f"{name.lower()}_{number}"
+            east = name in PAPER_EAST and number % 2 == 0
+            expressions[east].append(f"{map_name} = {value}\n")
+            first, end = time if isinstance(time, tuple) else (time, None)
+            row = f"{map_name}|2001-01-{first:02d}"
+            if end is not None:
+                row += f"|2001-01-{end:02d}"
+            rows.append(row + "\n")
+        registers[name] = rows
+    # The base region comes last, so that it is the region of the tests.
+    for east, region in [(True, PAPER_EAST_REGION), (False, PAPER_REGION)]:
+        tools.g_region(**region)
+        script = directory / f"maps_{'east' if east else 'base'}.txt"
+        script.write_text("".join(expressions[east]))
+        tools.r_mapcalc(file=script)
+    for name, rows in registers.items():
+        tgis.open_new_stds(
+            name, "strds", "absolute", name, name, "mean", overwrite=True
+        )
+        register_file = directory / f"{name}.txt"
+        register_file.write_text("".join(rows))
+        tgis.register_maps_in_space_time_dataset(
+            "raster", name, file=str(register_file)
+        )
+
+
 class Algebra:
     """Run the temporal raster algebra in the test session"""
 
@@ -324,6 +390,34 @@ class Algebra:
         return [value for _, _, value in self.triples(expression, **kwargs)]
 
 
+def _algebra_session(tmp_path_factory, name, create):
+    """Yield an Algebra runner on a new project with the maps of create()"""
+    project = tmp_path_factory.mktemp(name) / "project"
+    gs.create_project(project)
+
+    # tgis reads the session from os.environ; see the comment in
+    # python/grass/temporal/tests/grass_temporal_gui_support_test.py.
+    with (
+        pytest.MonkeyPatch.context() as monkeypatch,
+        gs.setup.init(project, env=os.environ.copy()) as session,
+    ):
+        for key, value in session.env.items():
+            if os.environ.get(key) != value:
+                monkeypatch.setenv(key, value)
+        previous = tgis.get_raise_on_error()
+        tgis.init(True)
+        # The messenger is created once per process with the mode of the first
+        # init(); other test modules may have set it to exit on fatal errors.
+        tgis.set_raise_on_error(True)
+        try:
+            create(Tools(session=session), tmp_path_factory.mktemp(f"{name}_maps"))
+            fixture = Algebra(session)
+            fixture.tools = Tools(session=session, overwrite=True)
+            yield fixture
+        finally:
+            tgis.set_raise_on_error(previous)
+
+
 @pytest.fixture(scope="module")
 def algebra(tmp_path_factory):
     """Algebra runner on a session with the datasets of the test series
@@ -358,30 +452,13 @@ def algebra(tmp_path_factory):
     Single maps: singletmap (99) is time stamped [3,4] and sinst (100) is
     an instant at day 1, both in no dataset; singlemap (100) has no time stamp.
     """
-    project = tmp_path_factory.mktemp("algebra") / "project"
-    gs.create_project(project)
+    yield from _algebra_session(tmp_path_factory, "algebra", _create_datasets)
 
-    # tgis reads the session from os.environ; see the comment in
-    # python/grass/temporal/tests/grass_temporal_gui_support_test.py.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        previous = tgis.get_raise_on_error()
-        tgis.init(True)
-        # The messenger is created once per process with the mode of the first
-        # init(); other test modules may have set it to exit on fatal errors.
-        tgis.set_raise_on_error(True)
-        try:
-            _create_datasets(Tools(session=session), tmp_path_factory.mktemp("maps"))
-            fixture = Algebra(session)
-            fixture.tools = Tools(session=session, overwrite=True)
-            yield fixture
-        finally:
-            tgis.set_raise_on_error(previous)
+
+@pytest.fixture(scope="module")
+def paper(tmp_path_factory):
+    """Algebra runner on the datasets of PAPER and the map L (0.5)"""
+    yield from _algebra_session(tmp_path_factory, "paper", _create_paper_datasets)
 
 
 @pytest.fixture
