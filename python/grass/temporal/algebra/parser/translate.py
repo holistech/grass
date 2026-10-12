@@ -106,16 +106,18 @@ class Translator:
         return self._apply("neg", self.value(node.operand))
 
     def _index(self, node):
-        series = self._name(ast.Name(node.name))
+        # The count is checked before the dataset is read, so that a wrong
+        # count is reported even for a missing dataset.
         offsets = node.offsets
+        if len(offsets) not in (1, 2, 3):
+            msg = f"{node.name}[...] takes one, two or three offsets"
+            raise SyntaxError(msg)
+        series = self._name(ast.Name(node.name))
         if len(offsets) == 1:
             return time_functions.neighbour(series, offsets[0])
         if len(offsets) == 3:
             series = time_functions.neighbour(series, offsets[2])
-        if len(offsets) in (2, 3):
-            return operations.cell_offset(series, *offsets[:2])
-        msg = f"{node.name}[...] takes one, two or three offsets"
-        raise SyntaxError(msg)
+        return operations.cell_offset(series, *offsets[:2])
 
     def _binary(self, node):
         left, right = self.value(node.left), self.value(node.right)

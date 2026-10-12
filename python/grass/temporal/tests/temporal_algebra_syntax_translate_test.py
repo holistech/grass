@@ -299,6 +299,12 @@ def test_indices(translator, datasets):
         run(translator, "A[1,2,3,4]")
 
 
+def test_wrong_number_of_offsets_reads_no_dataset(translator):
+    # The resolver of the fixture raises KeyError for a dataset it lacks.
+    with pytest.raises(SyntaxError, match="one, two or three offsets"):
+        run(translator, "missing[1,2,3,4]")
+
+
 def test_spatial_relations_need_the_spatial_flag(translator):
     with pytest.raises(ValueError, match="need the spatial flag"):
         run(translator, "SA {+,equal|equivalent} SB")
