@@ -344,10 +344,34 @@ def test_comparisons_with_dates_and_times(translator):
     ]
     times = run(translator, 'start_time(A) == "00:00:00"')
     assert [slot.content for slot in times] == [Const(1)] * 4
-    with pytest.raises(ValueError, match="cannot be compared with times of day"):
-        run(translator, 'start_time(A) == "2001-01-01"')
     with pytest.raises(TypeError, match="time functions"):
         run(translator, 'A > "2001-01-01"')
+
+
+def test_text_takes_the_part_the_time_function_gives(translator, datasets):
+    """As in the classic algebra, start_time() takes the time of a date
+    with time, and the time 00:00 of a date alone"""
+    noon = run(translator, 'start_time(A) < "2001-01-01 12:00:00"')
+    assert [slot.content for slot in noon] == [Const(1)] * 4
+    assert (
+        noon.slots
+        == operations.apply(
+            "<",
+            time_functions.timevar(datasets["A"], "start_time"),
+            Const(datetime.time(12, 0)),
+        ).slots
+    )
+    midnight = run(translator, 'start_time(A) == "2001-01-01"')
+    assert [slot.content for slot in midnight] == [Const(1)] * 4
+
+
+@pytest.mark.parametrize(
+    "text", ['start_time(A) == "no time"', 'start_time(A) == "2001"']
+)
+def test_text_that_is_no_date_or_time(translator, text):
+    """2001 alone is relative time, not a date or the time 20:01"""
+    with pytest.raises(ValueError, match=r"is not a date or time"):
+        run(translator, text)
 
 
 @pytest.mark.parametrize("text", ['start_day(A) == "00:00:00"', 'td(A) < "2001-01-01"'])
@@ -520,6 +544,8 @@ def test_if_with_condition_without_time_stamp(translator, datasets):
         run(translator, "if(map(m) > 1, A)").slots
         == operations.where(condition, a).slots
     )
+    with pytest.raises(SyntaxError, match=r"relation of if\(\) needs a condition"):
+        run(translator, "if({during}, map(m) > 1, A)")
 
 
 def test_if_with_equal_time_conditions_of_different_count(translator):

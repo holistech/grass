@@ -16,6 +16,7 @@ from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
 from grass.temporal.algebra.sources import source, source_map
+from grass.temporal.datetime_math import check_datetime_string
 
 from . import ast
 from .operators import TemporalOperator
@@ -283,6 +284,9 @@ class Translator:
             msg = "The condition of if() needs a space time dataset"
             raise SyntaxError(msg)
         if condition.timeless:
+            if relation is not None:
+                msg = "The relation of if() needs a condition with time stamps"
+                raise SyntaxError(msg)
             return _where(condition, then, otherwise)
         first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
         if first is None:
@@ -478,8 +482,14 @@ def _sample(series):
 def _moment(text, other):
     """Read a date, a time or both for a comparison with a time function
 
-    The text takes the kind of the values it is compared with: a date for
-    start_date(), a time for start_time() and both for start_datetime().
+    The text is read as the time stamps of grass.temporal are, so with
+    dateutil installed also in formats other than ISO and as a time of day
+    alone. It then takes the kind of the values it is compared with, as the
+    classic algebra does: the date for start_date(), the time of day for
+    start_time() and both for start_datetime().
+
+    :raises TypeError: if other is not a series of dates or times
+    :raises ValueError: if the text is no date or time
     """
     if not (isinstance(other, Series) and other.sort == "scalar"):
         msg = (
@@ -497,21 +507,15 @@ def _moment(text, other):
             "start_datetime() give dates and times"
         )
         raise TypeError(msg)
-    try:
-        moment = datetime.datetime.fromisoformat(text)
-    except ValueError:
-        try:
-            moment = datetime.time.fromisoformat(text)
-        except ValueError:
-            msg = f"'{text}' is neither a date nor a time of day"
-            raise ValueError(msg) from None
-        if isinstance(sample, datetime.date):
-            msg = f"'{text}' is a time of day, which cannot be compared with dates"
-            raise ValueError(msg) from None
-        return Const(moment)
-    if isinstance(sample, datetime.time):
-        msg = f"'{text}' is a date, which cannot be compared with times of day"
+    # string_to_datetime() would report the error through the messenger of
+    # grass.temporal, which exists only after tgis.init().
+    moment = check_datetime_string(text)
+    if not isinstance(moment, datetime.datetime):
+        msg = f"'{text}' is not a date or time: {moment}"
         raise ValueError(msg)
+    if isinstance(sample, datetime.time):
+        return Const(moment.time())
+    # datetime is a subclass of date, so it is checked first.
     if sample is None or isinstance(sample, datetime.datetime):
         return Const(moment)
     return Const(moment.date())
