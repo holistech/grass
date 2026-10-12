@@ -26,9 +26,10 @@ def make_series():
     a2@PERMANENT with the intervals [1, 2] and [2, 3] of January 2001; a
     number alone is an instant. With values the series is scalar and holds
     these values instead of maps. With a unit the numbers are relative time.
+    kind is the map type of the series.
     """
 
-    def make(name, *spans, values=None, unit=None, space=None):
+    def make(name, *spans, values=None, unit=None, space=None, kind="raster"):
         slots = []
         for number, span in enumerate(spans, start=1):
             extent = _extent(span, unit)
@@ -37,6 +38,8 @@ def make_series():
                 slots.append(Slot(extent, MapRef(ident), space, ident))
             else:
                 slots.append(Slot(extent, Const(values[number - 1]), space))
-        return Series(tuple(slots), sort="field" if values is None else "scalar")
+        return Series(
+            tuple(slots), kind=kind, sort="field" if values is None else "scalar"
+        )
 
     return make

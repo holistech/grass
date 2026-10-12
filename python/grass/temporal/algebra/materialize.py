@@ -21,8 +21,8 @@ from grass.temporal.temporal_granularity import compute_absolute_time_granularit
 
 from ._adapters import as_map
 from .backends import backend_for
+from .maptypes import STDS_TYPES
 
-STDS_TYPES = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
 TIME_SUFFIXES = (None, "gran", "time")
 
 

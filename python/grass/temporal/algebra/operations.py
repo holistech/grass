@@ -22,6 +22,7 @@ from ._checks import (
     check_series,
 )
 from .content import NULL, Call, Const, MapRef, SeriesReduce, call
+from .maptypes import DIMENSIONS
 from .relations import related as related_indices
 from .series import Series, Slot
 
@@ -102,7 +103,9 @@ def select(left, relation, other, *, related=True):
     check_relation(relation)
     check_series(other, "other")
     _check_comparable(left, other)
-    matches = related_indices(left.slots, relation, other.slots)
+    matches = related_indices(
+        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
+    )
     slots = tuple(
         slot
         for slot, found in zip(left.slots, matches, strict=True)
@@ -129,7 +132,9 @@ def pairs(left, relation, other, *, extent="left", content=None):
         check_callable(content, "content")
     _check_option("extent", extent, PAIR_EXTENTS)
     _check_comparable(left, other)
-    matches = related_indices(left.slots, relation, other.slots)
+    matches = related_indices(
+        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
+    )
     slots = []
     for slot, found in zip(left.slots, matches, strict=True):
         for index in found:
@@ -251,15 +256,28 @@ def lift(series):
     return replace(series, sort="field")
 
 
-def cell_offset(series, *offset):
-    """Read each map at a cell offset (row, column), as A[1,0] does
+# r.mapcalc reads a map at a row and column offset, r3.mapcalc at a row,
+# column and depth offset; vector maps have no cells.
+_OFFSET_COUNTS = {"raster": 2, "raster3d": 3}
 
-    r.mapcalc knows offsets of maps only, so the slots must hold maps, not
-    expressions.
+
+def cell_offset(series, *offset):
+    """Read each map at a cell offset, as A[1,0] and A[1,0,-1] do
+
+    The offset is (row, column) for raster maps and (row, column, depth) for
+    3D raster maps. r.mapcalc and r3.mapcalc know offsets of maps only, so
+    the slots must hold maps, not expressions.
     """
     check_series(series)
     for step in offset:
         check_int(step, "offset")
+    expected = _OFFSET_COUNTS.get(series.kind)
+    if expected is None:
+        msg = f"{series.kind} maps have no cells to read at an offset"
+        raise ValueError(msg)
+    if len(offset) != expected:
+        msg = f"A {series.kind} map takes {expected} cell offsets, got {len(offset)}"
+        raise ValueError(msg)
     slots = []
     for slot in series.slots:
         if not isinstance(slot.content, MapRef):
@@ -360,7 +378,9 @@ def gather(
             f"maps with {sort} values"
         )
         raise ValueError(msg)
-    matches = related_indices(target.slots, relation, other.slots)
+    matches = related_indices(
+        target.slots, relation, other.slots, dimension=DIMENSIONS[target.kind]
+    )
     if equal_times == "pairwise" and relation.spatial is None:
         matches = _pair_equal_times(target.slots, matches, other.slots)
     slots = []

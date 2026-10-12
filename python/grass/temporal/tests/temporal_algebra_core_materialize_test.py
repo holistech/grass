@@ -125,9 +125,9 @@ def test_source_of_relative_time(core_session):
     assert ta.source("RT").slots[0].extent.unit == "days"
 
 
-def test_source_of_other_dataset_types_is_not_supported_yet(core_session):
-    with pytest.raises(NotImplementedError):
-        ta.source("A", stds_type="stvds")
+def test_source_of_an_unknown_dataset_type(core_session):
+    with pytest.raises(ValueError, match="stds_type"):
+        ta.source("A", stds_type="vector")
 
 
 def test_source_of_missing_dataset(core_session):

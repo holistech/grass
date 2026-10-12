@@ -4,11 +4,18 @@ from grass.exceptions import FatalError
 from grass.temporal.core import get_current_mapset
 from grass.temporal.factory import dataset_factory
 from grass.temporal.open_stds import open_old_stds
-from grass.temporal.space_time_datasets import RasterDataset
 
 from ._adapters import extent_of, space_of
 from .content import MapRef
+from .maptypes import KINDS_OF_STDS, MAP_CLASSES
 from .series import Series, Slot
+
+# The words of the messages of grass.temporal for a missing map.
+_MAP_WORDS = {
+    "raster": "Raster map",
+    "raster3d": "3D raster map",
+    "vector": "Vector map",
+}
 
 
 def _qualified(name):
@@ -25,12 +32,13 @@ def source(name, *, where=None, stds_type="strds"):
     Needs a GRASS session and a temporal database.
 
     :param where: an SQL condition on the registered maps, as in t.rast.list
+    :param stds_type: "strds", "str3ds" or "stvds"
     :raises FatalError: if the dataset does not exist
-    :raises NotImplementedError: for a stds_type other than "strds"
+    :raises ValueError: for another stds_type
     """
-    if stds_type != "strds":
-        msg = f"Reading {stds_type} datasets is not supported yet"
-        raise NotImplementedError(msg)
+    if stds_type not in KINDS_OF_STDS:
+        msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
+        raise ValueError(msg)
     ident = _qualified(name)
     # open_old_stds() reports a missing dataset with msgr.fatal(), which
     # exits the process unless the messenger raises on errors, which
@@ -39,30 +47,40 @@ def source(name, *, where=None, stds_type="strds"):
         raise FatalError(_("Space time dataset <{name}> not found").format(name=ident))
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
-    return Series(tuple(_slot_of(map_) for map_ in maps or []), "raster")
+    return Series(
+        tuple(_slot_of(map_) for map_ in maps or []), KINDS_OF_STDS[stds_type]
+    )
 
 
-def source_map(name, *, timestamp=True):
-    """A single raster map as series
+def source_map(name, *, timestamp=True, kind="raster"):
+    """A single map as series
 
     With timestamp, the map has its registered time stamp and must be
     registered in the temporal database. Without, it has none and apply()
     uses it in every slot.
 
+    :param kind: "raster", "raster3d" or "vector"
     :raises FatalError: if the map does not exist, or with timestamp if it is
         not registered
+    :raises ValueError: for another kind
     """
-    map_ = RasterDataset(_qualified(name))
+    if kind not in MAP_CLASSES:
+        msg = f"kind must be one of {', '.join(MAP_CLASSES)}, got {kind!r}"
+        raise ValueError(msg)
+    map_ = MAP_CLASSES[kind](_qualified(name))
+    what = _MAP_WORDS[kind]
     if not map_.map_exists():
-        raise FatalError(_("Raster map <{name}> not found").format(name=map_.get_id()))
+        raise FatalError(
+            _("{what} <{name}> not found").format(what=what, name=map_.get_id())
+        )
     if not timestamp:
         map_.load()
-        return Series((Slot(None, MapRef(map_.get_id()), space_of(map_)),), "raster")
+        return Series((Slot(None, MapRef(map_.get_id()), space_of(map_)),), kind)
     if not map_.is_in_db():
         raise FatalError(
-            _("Raster map <{name}> is not registered in the temporal database").format(
-                name=map_.get_id()
+            _("{what} <{name}> is not registered in the temporal database").format(
+                what=what, name=map_.get_id()
             )
         )
     map_.select()
-    return Series((_slot_of(map_),), "raster")
+    return Series((_slot_of(map_),), kind)

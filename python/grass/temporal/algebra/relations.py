@@ -151,12 +151,14 @@ def _partners(topology, names, index):
     }
 
 
-def related(left, relation_, other):
+def related(left, relation_, other, *, dimension="2D"):
     """Return, per slot l of left, the indices of the slots x of other with
     "l R x", in the order of other
 
     :param left: sequence of slots
     :param other: sequence of slots
+    :param dimension: "2D" relates the spatial extents as rectangles, "3D"
+        as boxes; only used if the relation has a spatial part
     """
     for slot in (*left, *other):
         if slot.extent is None:
@@ -175,7 +177,9 @@ def related(left, relation_, other):
     ]
     index = {map_.get_id(): j for j, map_ in enumerate(other_maps)}
     SpatioTemporalTopologyBuilder().build(
-        left_maps, other_maps, spatial=None if relation_.spatial is None else "2D"
+        left_maps,
+        other_maps,
+        spatial=None if relation_.spatial is None else dimension,
     )
     result = []
     for map_ in left_maps:
