@@ -31,6 +31,7 @@ def datasets(make_series):
         "I": make_series("i", 1, 2, 3),
         "E": make_series("e", 1, 1, 1, 1),
         "F": make_series("f", 1, 1),
+        "G": make_series("g", (1, 2), (1, 2)),
         "RT": make_series("x", (0, 1), (1, 2), (2, 3), unit="days"),
         "SA": make_series("sa", (1, 2), space=BOX),
         "SB": make_series("sb", (1, 2), space=BOX),
@@ -320,3 +321,250 @@ def test_spatial_flag_adds_space_to_every_relation(translator, datasets):
     assert len(overlapping) == 1
     assert overlapping.slots == operations.gather(sa, named, sc, reduce=fold("+")).slots
     assert not run(translator, "SA {+,equal|equivalent} SC", spatial=True).slots
+
+
+def test_comparisons(translator, datasets):
+    a, n = datasets["A"], datasets["N"]
+    assert run(translator, "A > 2").slots == operations.apply(">", a, 2).slots
+    assert run(translator, "2 < A").slots == operations.apply("<", 2, a).slots
+    assert run(translator, "A == N").slots == operations.apply("==", a, n).slots
+    with pytest.raises(ValueError, match="equal time stamps"):
+        run(translator, "A == B")
+
+
+def test_comparisons_with_dates_and_times(translator):
+    dates = run(translator, 'start_date(A) < "2001-01-03"')
+    assert [slot.content for slot in dates] == [Const(1), Const(1), Const(0), Const(0)]
+    datetimes = run(translator, 'start_datetime(A) >= "2001-01-02 00:00:00"')
+    assert [slot.content for slot in datetimes] == [
+        Const(0),
+        Const(1),
+        Const(1),
+        Const(1),
+    ]
+    times = run(translator, 'start_time(A) == "00:00:00"')
+    assert [slot.content for slot in times] == [Const(1)] * 4
+    with pytest.raises(ValueError, match="cannot be compared with times of day"):
+        run(translator, 'start_time(A) == "2001-01-01"')
+    with pytest.raises(TypeError, match="time functions"):
+        run(translator, 'A > "2001-01-01"')
+
+
+@pytest.mark.parametrize("text", ['start_day(A) == "00:00:00"', 'td(A) < "2001-01-01"'])
+def test_text_cannot_be_compared_with_numbers(translator, text):
+    with pytest.raises(TypeError, match=r"cannot be compared with numbers"):
+        run(translator, text)
+
+
+def test_logical_operators_relate_their_operands(translator, datasets):
+    a, b, n = datasets["A"], datasets["B"], datasets["N"]
+    left = operations.apply(">", a, 1)
+    # N has the time stamps of A, so that the expected series is not empty.
+    partners = time_functions.timevar(n, "td")
+    expected = operations.apply(
+        "&&",
+        operations.gather(left, equal, partners, reduce=None),
+        operations.gather(left, equal, partners, reduce="all"),
+    )
+    assert len(expected) == 4
+    assert run(translator, "A > 1 && td(N)").slots == expected.slots
+    right = time_functions.timevar(b, "td")
+    either = operations.apply(
+        "||",
+        operations.gather(left, during, right, reduce=None),
+        operations.gather(left, during, right, reduce="any"),
+    )
+    assert len(either) == 4
+    assert run(translator, "A > 1 {||,during} td(B)").slots == either.slots
+
+
+def test_or_without_braces_joins_with_or(translator, datasets):
+    """Two maps of G share the time stamp of the first map of A"""
+    left = operations.apply(">", datasets["A"], 1)
+    right = operations.apply(">", datasets["G"], 1)
+    expected = operations.apply(
+        "||",
+        operations.gather(left, equal, right, reduce=None),
+        operations.gather(left, equal, right, reduce="any"),
+    )
+    assert len(expected) == 1
+    assert run(translator, "A > 1 || G > 1").slots == expected.slots
+
+
+def test_logical_operator_with_right_reference_pairs(translator, datasets):
+    left = operations.apply(">", datasets["A"], 1)
+    right = time_functions.timevar(datasets["B"], "td")
+    expected = operations.pairs(
+        left,
+        during,
+        right,
+        extent="right",
+        content=lambda mine, theirs: call("&&", mine, theirs),
+    )
+    assert run(translator, "A > 1 {&&,during,r} td(B)").slots == expected.slots
+
+
+def test_precedence_of_conditions(translator):
+    """&& binds stronger than ||, and parentheses group conditions"""
+    assert len(run(translator, "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)")) == 4
+    assert len(run(translator, "if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)")) == 0
+
+
+def test_if_with_scalar_condition_chooses_whole_maps(translator, datasets):
+    b = datasets["B"]
+    assert days(run(translator, "if({during}, start_day(A) > 1, B)")) == [(3, 5)]
+    assert days(run(translator, "if({during,&}, start_day(A) > 1, B)")) == [(3, 5)]
+    assert days(run(translator, "if({during,|}, start_day(A) > 1, B)")) == [
+        (1, 3),
+        (3, 5),
+    ]
+    with_else = run(translator, "if({during}, start_day(A) > 1, B, 0)")
+    assert [slot.content for slot in with_else] == [Const(0), b.slots[1].content]
+
+
+def test_if_with_scalar_condition_takes_then_and_else_independently(translator):
+    result = run(translator, "if({equal|contains}, start_day(B) > 2, B, A)")
+    assert days(result) == [(1, 2), (2, 3), (3, 5)]
+    assert [slot.content for slot in result] == [
+        MapRef("a1@PERMANENT"),
+        MapRef("a2@PERMANENT"),
+        MapRef("b2@PERMANENT"),
+    ]
+
+
+def test_if_takes_else_maps_without_related_condition(translator):
+    """Else applies where the condition is false or where no condition is
+    related, as in figure A3 of the paper that introduced the algebra; then
+    leaves the maps without related condition out"""
+    result = run(translator, "if({equal|contains}, start_day(B) > 2, B, D)")
+    assert [slot.content for slot in result] == [
+        MapRef("b2@PERMANENT"),
+        MapRef("d3@PERMANENT"),
+    ]
+    result = run(translator, "if({equal|contains}, start_day(B) > 2, D, A)")
+    assert [slot.content for slot in result] == [
+        MapRef("a1@PERMANENT"),
+        MapRef("a2@PERMANENT"),
+        MapRef("d1@PERMANENT"),
+        MapRef("d2@PERMANENT"),
+    ]
+    result = run(translator, "if({equal|contains}, start_day(B) > 2, 0, D)")
+    assert [slot.content for slot in result] == [
+        Const(0),
+        Const(0),
+        MapRef("d3@PERMANENT"),
+    ]
+    # Without a relation beyond equal the condition speaks of maps of equal
+    # time only.
+    for text in ("if(start_day(B) > 2, B, D)", "if({equal}, start_day(B) > 2, B, D)"):
+        result = run(translator, text)
+        assert [slot.content for slot in result] == [MapRef("b2@PERMANENT")]
+
+
+def test_if_with_map_condition_is_where(translator, datasets):
+    a, b = datasets["A"], datasets["B"]
+    condition = operations.apply(">", a, 1)
+    k = operations.gather(
+        b, contains, condition, reduce="all", missing="null", equal_times="pairwise"
+    )
+    assert (
+        run(translator, "if({during}, A > 1, B)").slots == operations.where(k, b).slots
+    )
+    assert (
+        run(translator, "if({during}, A > 1, B, 0)").slots
+        == operations.where(k, b, 0).slots
+    )
+
+
+def test_if_with_map_condition_needs_then_and_else_of_equal_time(translator):
+    for text in [
+        "if(A > 2, A, D)",
+        "if({equal|during}, A > 2, B, A)",
+        "if(A > 2, if(A > 3, A, N), B)",
+    ]:
+        with pytest.raises(ValueError, match="equal time stamps"):
+            run(translator, text)
+
+
+def test_if_without_else_gives_null_for_map_conditions(translator, datasets):
+    a = datasets["A"]
+    k = operations.gather(
+        a,
+        equal,
+        operations.apply(">", a, 2),
+        reduce="all",
+        missing="null",
+        equal_times="pairwise",
+    )
+    result = run(translator, "if(A > 2, A)")
+    assert result.slots == operations.where(k, a).slots
+    assert all(slot.content.args[2] == NULL for slot in result)
+
+
+def test_if_with_numbers_only_takes_the_maps_of_the_condition(translator, datasets):
+    a = datasets["A"]
+    assert (
+        run(translator, "if(A > 1, 5, 0)").slots
+        == operations.where(operations.apply(">", a, 1), 5, 0).slots
+    )
+    chosen = run(translator, "if(td(A) == 1, 5)")
+    assert [slot.content for slot in chosen] == [Const(5)] * 4
+    with pytest.raises(SyntaxError, match="needs a space time dataset as then or else"):
+        run(translator, "if({during}, A > 1, 5)")
+
+
+def test_if_with_condition_without_time_stamp(translator, datasets):
+    a = datasets["A"]
+    condition = Series((Slot(None, call(">", MapRef("m@PERMANENT"), Const(1))),))
+    assert (
+        run(translator, "if(map(m) > 1, A)").slots
+        == operations.where(condition, a).slots
+    )
+
+
+def test_if_with_equal_time_conditions_of_different_count(translator):
+    """Four maps of one time cannot be paired with two"""
+    with pytest.raises(ValueError, match="cannot be paired"):
+        run(translator, "if(start_day(F) == 1, E)")
+
+
+def test_empty_series_pass_through(translator):
+    empty = run(translator, "if(td(A) > 5, A)")
+    assert len(empty) == 0
+    assert len(run(translator, "A + if(td(A) > 5, A)")) == 0
+    assert len(run(translator, "if(td(A) > 5, A, N)")) == 4
+
+
+def test_td_of_an_instant_is_null(translator):
+    assert len(run(translator, "if(td(I) > 0, I)")) == 0
+
+
+def test_relative_time_in_conditions(translator):
+    assert len(run(translator, "if(start_month(RT) == 1, RT)")) == 0
+    assert len(run(translator, 'if(start_date(RT) < "2001-01-01", RT)')) == 0
+
+
+def test_rfc_examples(translator, datasets):
+    a, b = datasets["A"], datasets["B"]
+    # C = if({contains}, td(B) == 2, A)
+    k = operations.gather(
+        a,
+        during,
+        operations.apply("==", time_functions.timevar(b, "td"), 2),
+        reduce="all",
+        missing="null",
+        equal_times="pairwise",
+    )
+    assert (
+        run(translator, "if({contains}, td(B) == 2, A)").slots
+        == operations.choose(k, a).slots
+    )
+    # C = if({during,|}, A > 1 && start_day(A) == 1, B, 0)
+    c = run(translator, "A > 1 && start_day(A) == 1")
+    k = operations.gather(
+        b, contains, c, reduce="any", missing="null", equal_times="pairwise"
+    )
+    assert (
+        run(translator, "if({during,|}, A > 1 && start_day(A) == 1, B, 0)").slots
+        == operations.where(k, b, 0).slots
+    )

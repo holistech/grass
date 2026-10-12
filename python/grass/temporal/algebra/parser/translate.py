@@ -8,10 +8,12 @@ and as the increment of tshift() and buff_t().
 
 from __future__ import annotations
 
+import datetime
+
 from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra.content import NULL, Const, call
 from grass.temporal.algebra.reducers import fold
-from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation
+from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
 from grass.temporal.algebra.sources import source, source_map
 
@@ -45,6 +47,9 @@ _OTHER_FUNCTIONS = (
     "tsnap",
 )
 _COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
+_AGGREGATES = {"&": "all", "|": "any"}
+# Marks an if() without else, which differs from an else of null().
+_ABSENT = object()
 
 
 def _timed(value):
@@ -229,16 +234,108 @@ class Translator:
         )
 
     def _compare(self, symbol, left, right):
-        msg = "conditions follow"
-        raise NotImplementedError(msg)
+        if isinstance(left, str):
+            left = _moment(left, right)
+        if isinstance(right, str):
+            right = _moment(right, left)
+        return self._apply(symbol, left, right)
 
     def _logical(self, symbol, left, right, operator):
-        msg = "conditions follow"
-        raise NotImplementedError(msg)
+        if not (_timed(left) and _timed(right)):
+            if operator is not None:
+                msg = (
+                    f"The temporal operator {{{symbol},...}} relates two space "
+                    "time datasets"
+                )
+                raise SyntaxError(msg)
+            return self._apply(symbol, left, right)
+        if operator is None:
+            operator = TemporalOperator(symbol, aggregate=symbol[0])
+        relation = self._relation(operator)
+        if operator.temporal == "r":
+            return operations.pairs(
+                left,
+                relation,
+                right,
+                extent="right",
+                content=lambda mine, theirs: call(symbol, mine, theirs),
+            )
+        extent = _EXTENTS[operator.temporal]
+        # The left maps that have related maps, and the joined conditions of
+        # those related maps; both have the same time stamps.
+        targets = operations.gather(left, relation, right, reduce=None, extent=extent)
+        others = operations.gather(
+            left,
+            relation,
+            right,
+            reduce=_AGGREGATES[operator.aggregate],
+            extent=extent,
+        )
+        return operations.apply(symbol, targets, others)
 
     def _if(self, arguments, relation):
-        msg = "conditions follow"
-        raise NotImplementedError(msg)
+        if len(arguments) not in (2, 3):
+            msg = "if() takes a condition, then and an optional else"
+            raise SyntaxError(msg)
+        condition, then = arguments[:2]
+        otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
+        if not isinstance(condition, Series):
+            msg = "The condition of if() needs a space time dataset"
+            raise SyntaxError(msg)
+        if condition.timeless:
+            return _where(condition, then, otherwise)
+        first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
+        if first is None:
+            # Only numbers or maps without time stamp: the maps of the
+            # condition are the result.
+            if relation is not None:
+                msg = "The relation of if() needs a space time dataset as then or else"
+                raise SyntaxError(msg)
+            if condition.sort == "field":
+                return _where(condition, then, otherwise)
+            return operations.choose(
+                condition,
+                _like(condition, then),
+                None if otherwise is _ABSENT else _like(condition, otherwise),
+            )
+        operator = relation or TemporalOperator(None)
+        conditions = self._conditions(first, condition, operator)
+        if conditions.sort == "field":
+            # A condition per cell chooses between then and else in each
+            # cell, so where() needs both with the same time stamps.
+            return _where(conditions, then, otherwise)
+        then_maps = then if _timed(then) else _like(first, then)
+        if otherwise is _ABSENT:
+            return operations.choose(conditions, then_maps)
+        settled = _settled(conditions, relation)
+        if not _timed(otherwise):
+            return operations.choose(settled, then_maps, _like(first, otherwise))
+        if not _timed(then):
+            return operations.choose(settled, then_maps, otherwise)
+        # Then and else have time stamps of their own; each map is judged by
+        # the conditions related to it.
+        others = self._conditions(otherwise, condition, operator)
+        return operations.merge(
+            operations.choose(conditions, then),
+            operations.choose(
+                operations.apply("!", _settled(others, relation)), otherwise
+            ),
+        )
+
+    def _conditions(self, target, condition, operator):
+        """The joined condition of each map of target
+
+        if({R}, c, X) reads "c R x", so the maps of X are related to the
+        conditions by the inverse of R.
+        """
+        return operations.gather(
+            target,
+            inverse(self._relation(operator)),
+            condition,
+            reduce=_AGGREGATES[operator.aggregate],
+            missing="null",
+            equal_times="pairwise",
+        )
 
     def _function(self, node):
         name = node.name
@@ -325,3 +422,96 @@ def _increment(value):
         '"1 month" or a whole number'
     )
     raise SyntaxError(msg)
+
+
+def _where(condition, then, otherwise):
+    if otherwise is _ABSENT:
+        return operations.where(condition, then)
+    return operations.where(condition, then, otherwise)
+
+
+def _settled(conditions, relation):
+    """The scalar conditions by which else chooses its maps
+
+    With a temporal relation beyond equal, else also takes the maps without
+    related condition, whose condition is null, as the paper that
+    introduced the algebra defines it (Gebbert, Leppelt and Pebesma 2019,
+    section 3.2.1); then leaves them out. Without such a relation the
+    condition speaks of maps of equal time only, so a map of other time
+    stays out of both branches, and if({equal}, ...) means the same as
+    if(...).
+    """
+    beyond_equal = set(TEMPORAL_RELATIONS) - {"equal"}
+    if relation is None or not set(relation.relations) & beyond_equal:
+        return conditions
+    return operations.apply("if", operations.apply("isnull", conditions), 0, conditions)
+
+
+def _like(series, value):
+    """A series with the time stamps of series and value as each content
+
+    value is a content node or a map without time stamp.
+    """
+    if isinstance(value, str):
+        msg = f"A text such as '{value}' cannot be a branch of if()"
+        raise TypeError(msg)
+    content = value.slots[0].content if isinstance(value, Series) else value
+    return Series(
+        tuple(Slot(slot.extent, content, slot.space) for slot in series),
+        kind=series.kind,
+        spatial=series.spatial,
+    )
+
+
+def _sample(series):
+    """The first value of a scalar series that is not null"""
+    return next(
+        (
+            slot.content.value
+            for slot in series
+            if isinstance(slot.content, Const) and slot.content.value is not None
+        ),
+        None,
+    )
+
+
+def _moment(text, other):
+    """Read a date, a time or both for a comparison with a time function
+
+    The text takes the kind of the values it is compared with: a date for
+    start_date(), a time for start_time() and both for start_datetime().
+    """
+    if not (isinstance(other, Series) and other.sort == "scalar"):
+        msg = (
+            f"A text such as '{text}' can only be compared with the time "
+            "functions, such as start_date()"
+        )
+        raise TypeError(msg)
+    sample = _sample(other)
+    # start_day() and td() are scalar too, but give numbers; a time of day
+    # would compare unequal to them without an error.
+    if sample is not None and not isinstance(sample, (datetime.date, datetime.time)):
+        msg = (
+            f"'{text}' cannot be compared with numbers such as those of "
+            "start_day() or td(); start_date(), start_time() and "
+            "start_datetime() give dates and times"
+        )
+        raise TypeError(msg)
+    try:
+        moment = datetime.datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            moment = datetime.time.fromisoformat(text)
+        except ValueError:
+            msg = f"'{text}' is neither a date nor a time of day"
+            raise ValueError(msg) from None
+        if isinstance(sample, datetime.date):
+            msg = f"'{text}' is a time of day, which cannot be compared with dates"
+            raise ValueError(msg) from None
+        return Const(moment)
+    if isinstance(sample, datetime.time):
+        msg = f"'{text}' is a date, which cannot be compared with times of day"
+        raise ValueError(msg)
+    if sample is None or isinstance(sample, datetime.datetime):
+        return Const(moment)
+    return Const(moment.date())
