@@ -10,7 +10,9 @@ from .content import MapRef
 from .maptypes import KINDS_OF_STDS, MAP_CLASSES
 from .series import Series, Slot
 
-# The words of the messages of grass.temporal for a missing map.
+# "Raster map" is the wording of the former raster-only message, "Vector map"
+# that of the classic vector algebra (temporal_vector_algebra.py) and "3D
+# raster map" that of the messages in space_time_datasets.py.
 _MAP_WORDS = {
     "raster": "Raster map",
     "raster3d": "3D raster map",
