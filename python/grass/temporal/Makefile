@@ -8,8 +8,9 @@ GDIR = $(PYDIR)/grass
 DSTDIR = $(GDIR)/temporal
 DSTDIRPLY = $(DSTDIR)/ply
 DSTDIRALGEBRA = $(DSTDIR)/algebra
+DSTDIRPARSER = $(DSTDIRALGEBRA)/parser
 
-MODULES = ply/__init__ ply/lex ply/yacc base core abstract_dataset abstract_map_dataset abstract_space_time_dataset space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity spatio_temporal_relationships aggregation stds_export stds_import extract mapcalc univar_statistics temporal_topology_dataset_connector spatial_topology_dataset_connector c_libraries_interface temporal_algebra temporal_vector_algebra temporal_raster_base_algebra temporal_raster_algebra temporal_raster3d_algebra temporal_operator algebra/__init__ algebra/content algebra/series algebra/_adapters algebra/relations algebra/reducers algebra/operations algebra/time_functions algebra/backends algebra/materialize algebra/sources algebra/_checks
+MODULES = ply/__init__ ply/lex ply/yacc base core abstract_dataset abstract_map_dataset abstract_space_time_dataset space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity spatio_temporal_relationships aggregation stds_export stds_import extract mapcalc univar_statistics temporal_topology_dataset_connector spatial_topology_dataset_connector c_libraries_interface temporal_algebra temporal_vector_algebra temporal_raster_base_algebra temporal_raster_algebra temporal_raster3d_algebra temporal_operator algebra/__init__ algebra/content algebra/series algebra/_adapters algebra/relations algebra/reducers algebra/operations algebra/time_functions algebra/backends algebra/materialize algebra/sources algebra/_checks algebra/parser/__init__ algebra/parser/operators
 
 CLEAN_SUBDIRS = ply
 
@@ -33,5 +34,8 @@ $(DSTDIRPLY): | $(DSTDIR)
 $(DSTDIRALGEBRA): | $(DSTDIR)
 	$(MKDIR) $@
 
-$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY) $(DSTDIRALGEBRA)
+$(DSTDIRPARSER): | $(DSTDIRALGEBRA)
+	$(MKDIR) $@
+
+$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY) $(DSTDIRALGEBRA) $(DSTDIRPARSER)
 	$(INSTALL_DATA) $< $@

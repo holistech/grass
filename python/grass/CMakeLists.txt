@@ -22,6 +22,7 @@ set(PYDIRS
     semantic_label
     temporal
     temporal/algebra
+    temporal/algebra/parser
     temporal/ply
     tools
     utils
