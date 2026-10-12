@@ -175,6 +175,22 @@ def _check_absent(chain, mapset, dbif):
             )
 
 
+def check_absent(chain):
+    """Stop if the dataset or a result map of a process chain exists
+
+    materialize() does this check itself when not overwriting; a dry run
+    calls it to fail where the run would fail.
+
+    :raises FatalError: if the dataset or a result map exists
+    """
+    dbif, connection_state_changed = init_dbif(None)
+    try:
+        _check_absent(chain, get_current_mapset(), dbif)
+    finally:
+        if connection_state_changed:
+            dbif.close()
+
+
 def _module(call, overwrite):
     module = Module(call.name, run_=False, **call.parameters)
     module.flags["overwrite"].value = overwrite

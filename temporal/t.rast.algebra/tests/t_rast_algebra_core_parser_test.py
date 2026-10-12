@@ -7,6 +7,7 @@ The environment variable GRASS_TEMPORAL_ALGEBRA selects "core" or
 import pytest
 
 import grass.temporal as tgis
+from grass.exceptions import FatalError
 
 VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
 
@@ -38,6 +39,27 @@ def test_dry_run_gives_the_process_chain(algebra, core):
     }
     assert chain["remove"] == []
     assert not algebra.exists()
+
+
+def test_dry_run_refuses_an_existing_result_as_the_run(algebra, core):
+    """Without overwrite a dry run stops where the run would stop: at the
+    existing dataset, and at an existing map of a new dataset"""
+    algebra.parse("A * 2", basename="r_dry")
+    parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
+    with pytest.raises(FatalError, match=r"<R@\w+> exists\. Use the overwrite"):
+        parser.parse("R = A * 2", "r_dry", False)
+    algebra.remove("R")
+    with pytest.raises(FatalError, match=r"<r_dry_0@\w+> exists\. Use the overwrite"):
+        parser.parse("R = A * 2", "r_dry", False)
+    assert parser.parse("R = A * 2", "r_dry_new", False)["register"]
+
+
+@pytest.mark.parametrize(("overwrite", "flags"), [(True, ["overwrite"]), (False, [])])
+def test_dry_run_flags_tell_overwrite(algebra, core, overwrite, flags):
+    algebra.remove("R")
+    parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
+    chain = parser.parse("R = A * 2", "r_flags", overwrite)
+    assert [process["flags"] for process in chain["processes"]] == [flags] * 4
 
 
 def test_core_is_the_default(algebra, monkeypatch):

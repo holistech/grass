@@ -8,7 +8,7 @@ do, and returns the same process chain dictionary.
 
 from __future__ import annotations
 
-from grass.temporal.algebra.materialize import materialize, plan
+from grass.temporal.algebra.materialize import check_absent, materialize, plan
 
 from .grammar import parse
 from .translate import Translator
@@ -35,14 +35,18 @@ def evaluate(
     """Parse, translate and compute "name = expression"
 
     Without run only the syntax is checked. With dry_run the maps are
-    planned but neither computed nor registered. debug prints the module
+    planned but neither computed nor registered; without overwrite it still
+    stops at an existing result, as the run would. debug prints the module
     calls.
 
     :return: the process chain of the parser classes: "processes" in the form
         of Module.get_dict(), "register" as (name, start, end) strings,
         "remove" and "STDS"
     :raises SyntaxError: for an error in the expression
-    :raises ValueError, TypeError: as the core operations
+    :raises ValueError, TypeError: as the core operations, for an expression
+        that cannot be computed
+    :raises FatalError: for a missing dataset or map, and without overwrite
+        for an existing result dataset or map
     """
     statement = parse(expression)
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
@@ -51,7 +55,7 @@ def evaluate(
     name, series = Translator(spatial=spatial).statement(statement)
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
     planned = plan(series, name, basename=basename, time_suffix=suffix)
-    chain["processes"] = [_module(call) for call in planned.processes]
+    chain["processes"] = [_module(call, overwrite) for call in planned.processes]
     chain["register"] = [
         (map_name, str(start), str(end)) for map_name, start, end in planned.register
     ]
@@ -72,7 +76,10 @@ def evaluate(
     if debug:
         for call in planned.processes:
             print(_command(call))
-    if not dry_run:
+    if dry_run:
+        if not overwrite:
+            check_absent(planned)
+    else:
         materialize(
             series,
             name,
@@ -85,14 +92,14 @@ def evaluate(
     return chain
 
 
-def _module(call):
+def _module(call, overwrite):
     """A planned call in the form of Module.get_dict()"""
     parameters = call.parameters.items()
     return {
         "name": call.name,
         "inputs": [(key, value) for key, value in parameters if key != "output"],
         "outputs": [(key, value) for key, value in parameters if key == "output"],
-        "flags": [],
+        "flags": ["overwrite"] if overwrite else [],
     }
 
 

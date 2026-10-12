@@ -157,6 +157,28 @@ def test_dry_run_creates_nothing(algebra, core_tool, flags, first, last):
     assert not core_tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
 
 
+@pytest.mark.parametrize(
+    ("flags", "message"), [("", "Use the overwrite"), ("c", "Use --o flag")]
+)
+def test_dry_run_requires_overwrite_as_the_real_run(algebra, core_tool, flags, message):
+    """-d fails without --overwrite where the run would fail"""
+    name, basename = f"OPT_DRY_OW{flags}", f"opt_dry_ow{flags}"
+    core_tool.t_rast_algebra(
+        expression=f"{name} = A * 2", basename=basename, flags=flags
+    )
+    with pytest.raises(ToolError, match=message):
+        core_tool.t_rast_algebra(
+            expression=f"{name} = A * 3", basename=basename, flags=f"d{flags}"
+        )
+    result = core_tool.t_rast_algebra(
+        expression=f"{name} = A * 3",
+        basename=basename,
+        flags=f"d{flags}",
+        overwrite=True,
+    )
+    assert "r.mapcalc" in result.stdout
+
+
 def test_classic_flag_selects_the_classic_algebra(algebra, core_tool):
     """A selection with r gives one map per related pair in the core and one
     map per left map in the classic algebra"""
