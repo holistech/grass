@@ -6,7 +6,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import datetime
-import unittest
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
@@ -901,13 +900,29 @@ class TestTemporalRasterAlgebra(TestCase):
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), "2 days")
 
-    # Undecided: {+,R,r} gives one map per related pair (b1 + a1 is 6), the
-    # classic algebra gives each related map the sum of all (b1 + a1 + a2 is
-    # 8).
-    @unittest.expectedFailure
     def test_raster_arithmetic_relation_4(self) -> None:
         """Arithmetic test with temporal intersection"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False, classic=False)
+        tra.parse(expression="R = B {+,contains,r} A ", basename="r", overwrite=True)
+
+        # A right reference gives one map per related pair, with the value of
+        # that pair: b1 + a1 is 6, b2 + a4 is 10.
+        D = tgis.open_old_stds("R", type="strds")
+        D.select()
+        self.assertEqual(D.metadata.get_number_of_maps(), 4)
+        self.assertEqual(D.metadata.get_min_min(), 6)
+        self.assertEqual(D.metadata.get_max_max(), 10)
+        start, end = D.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(D.check_temporal_topology(), True)
+        self.assertEqual(D.get_granularity(), "1 day")
+
+    # The classic algebra gives each related map of A the sum of its map of
+    # B and all maps of A that this map contains: b1 + a1 + a2 is 8.
+    def test_raster_arithmetic_relation_4_classic(self) -> None:
+        """Arithmetic test with temporal intersection"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False, classic=True)
         tra.parse(expression="R = B {+,contains,r} A ", basename="r", overwrite=True)
 
         D = tgis.open_old_stds("R", type="strds")

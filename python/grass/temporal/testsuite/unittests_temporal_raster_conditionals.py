@@ -161,7 +161,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         """Testing the conditional time dimension bug, that uses the time
         dimension of the conditional statement instead the time dimension
         of the then/else statement."""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression="R = if({during},exist(A),  B - 1,  B + 1)",
             basename="r",
@@ -181,10 +181,34 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "2 days")
 
+    # The classic algebra gives one result per pair of a map of B and a
+    # related map of A, so the time stamps repeat.
+    def test_temporal_conditional_relation_1_classic(self) -> None:
+        """Testing the conditional time dimension bug, that uses the time
+        dimension of the conditional statement instead the time dimension
+        of the then/else statement."""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression="R = if({during},exist(A),  B - 1,  B + 1)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 4)
+        self.assertEqual(R.metadata.get_max_max(), 5)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), False)
+        self.assertEqual(R.get_granularity(), "2 days")
+
     def test_spatial_conditional_1(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression="R = if(A > 1 && A < 4 && isntnull(A), A)",
             basename="r",
@@ -200,6 +224,29 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 2))
         self.assertEqual(end, datetime.datetime(2001, 1, 4))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatial_conditional_1_classic(self) -> None:
+        """Testing the spatial conditionals combined by AND/OR operators.
+        Evaluation"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression="R = if(A > 1 && A < 4 && isntnull(A), A)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 3)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
@@ -227,11 +274,30 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_3(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         # A condition on map values chooses per cell between then and else,
         # so A and D of other time stamps are an error, not a partial result.
         with self.assertRaisesRegex(ValueError, "equal time stamps"):
             tra.parse(expression="R = if(A > 1, A, D)", basename="r", overwrite=True)
+
+    # The classic algebra gives the maps for which then and else have equal
+    # time stamps and leaves out the others.
+    def test_spatial_conditional_3_classic(self) -> None:
+        """Testing the spatial conditionals combined by AND/OR operators.
+        Evaluation"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(expression="R = if(A > 1, A, D)", basename="r", overwrite=True)
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 3)
+        self.assertEqual(R.metadata.get_max_max(), 4)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
     def test_spatial_conditional_4(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
@@ -253,7 +319,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_5(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression="R = if(B > 5 {&&,contains,l} A < 5, B)",
             basename="r",
@@ -268,6 +334,29 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         self.assertEqual(R.metadata.get_max_max(), 6)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "2 days")
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatial_conditional_5_classic(self) -> None:
+        """Testing the spatial conditionals combined by AND/OR operators.
+        Evaluation"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression="R = if(B > 5 {&&,contains,l} A < 5, B)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 6)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "2 days")
@@ -332,7 +421,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatial_conditional_numeric_relation_2(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression="R = if({contains},B > 5, A + 2 / 4.0)",
             basename="r",
@@ -348,6 +437,29 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatial_conditional_numeric_relation_2_classic(self) -> None:
+        """Testing the spatial conditionals combined by AND/OR operators.
+        Evaluation"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression="R = if({contains},B > 5, A + 2 / 4.0)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 4.5)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
@@ -402,7 +514,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatial_conditional_numeric_4(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(expression="R = if(A > 2, null())", basename="r", overwrite=True)
 
         # Without else the false cells are null as well, so every map is null
@@ -411,9 +523,27 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         R.select()
         self.assertEqual(R.metadata.get_number_of_maps(), 0)
 
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatial_conditional_numeric_4_classic(self) -> None:
+        """Testing the spatial conditionals with numeric conclusions"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(expression="R = if(A > 2, null())", basename="r", overwrite=True)
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 3))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
     def test_spatiotemporal_conditional_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression='R = if(A < 2 && start_date(A) < "2001-01-03", A)',
             basename="r",
@@ -429,6 +559,28 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 2))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatiotemporal_conditional_1_classic(self) -> None:
+        """Testing the spatial conditionals with numeric conclusions"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression='R = if(A < 2 && start_date(A) < "2001-01-03", A)',
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 1)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
@@ -454,7 +606,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_relation_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression="R = if({contains},B > 5 && start_day(B) < 3, D)",
             basename="r",
@@ -466,6 +618,28 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         R = tgis.open_old_stds("R", type="strds")
         R.select()
         self.assertEqual(R.metadata.get_number_of_maps(), 0)
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatiotemporal_conditional_relation_1_classic(self) -> None:
+        """Testing the spatial conditionals with numeric conclusions"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression="R = if({contains},B > 5 && start_day(B) < 3, D)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
     def test_spatiotemporal_conditional_relation_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
@@ -510,7 +684,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
     def test_spatiotemporal_conditional_numeric_relation_2(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression='R = if({contains},td(B) == 2 && start_date(B) == "2001-01-03" && B > 5 , A + 2 / 4.0)',
             basename="r",
@@ -526,6 +700,29 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatiotemporal_conditional_numeric_relation_2_classic(self) -> None:
+        """Testing the spatial conditionals combined by AND/OR operators.
+        Evaluation"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression='R = if({contains},td(B) == 2 && start_date(B) == "2001-01-03" && B > 5 , A + 2 / 4.0)',
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 4.5)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
@@ -592,7 +789,7 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
 
     def test_spatiotemporal_conditional_numeric_4(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(
             expression='R = if(A > 2 || start_date(A) > "2001-01-01", null())',
             basename="r",
@@ -604,6 +801,28 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         R = tgis.open_old_stds("R", type="strds")
         R.select()
         self.assertEqual(R.metadata.get_number_of_maps(), 0)
+
+    # The classic algebra gives 0 where a condition on map values is false,
+    # so it keeps the maps that the core leaves out.
+    def test_spatiotemporal_conditional_numeric_4_classic(self) -> None:
+        """Testing the spatial conditionals with numeric conclusions"""
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
+        tra.parse(
+            expression='R = if(A > 2 || start_date(A) > "2001-01-01", null())',
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 1)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 2))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import datetime
-import unittest
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
@@ -112,11 +111,50 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
-    # Undecided: {+,R,r} gives one map per related pair (b1 + a2 is 9), the
-    # classic algebra gives each related map the sum of all (b1 + a2 + a3 is
-    # 12).
-    @unittest.expectedFailure
     def test_temporal_conditional_complement_right_side_timestamps(self) -> None:
+        """Test the complement of a conditional expression with the right side
+        time stamps
+
+        R = merge(if({equal|contains|during}, B {#,contains} A == 2, B {+,contains,r} A, A),
+                  A {!:,during} B)
+
+        IF B contains two maps from A
+        THEN add each map of A that B contains to its map of B, with the time
+        stamp of the map of A: a right reference gives one map per related
+        pair, with the value of that pair
+        The maps of A outside of B are added with merge.
+
+        r0 = a1       # 1
+        r1 = b1 + a2  # 9
+        r2 = b1 + a3  # 10
+        r3 = b2 + a4  # 12
+        r4 = b2 + a5  # 13
+        r5 = a6       # 6
+
+        """
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
+        tra.parse(
+            expression="R = merge(if({equal|contains|during}, B {#,contains} A == 2, "
+            "B {+,contains,r} A, A), A {!:,during} B)",
+            basename="r",
+            overwrite=True,
+        )
+
+        R = tgis.open_old_stds("R", type="strds")
+        R.select()
+        self.assertEqual(R.metadata.get_number_of_maps(), 6)
+        self.assertEqual(R.metadata.get_min_min(), 1)
+        self.assertEqual(R.metadata.get_max_max(), 13)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 7))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
+
+    # The classic algebra gives each related map the sum of all.
+    def test_temporal_conditional_complement_right_side_timestamps_classic(
+        self,
+    ) -> None:
         """Test the complement of a conditional expression with the right side
         time stamps
 
@@ -135,7 +173,7 @@ class TestTemporalRasterAlgebraConditionalComplements(TestCase):
         r5 = a6            # 6
 
         """
-        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
         tra.parse(
             expression="R = merge(if({equal|contains|during}, B {#,contains} A == 2, "
             "B {+,contains,r} A, A), A {!:,during} B)",

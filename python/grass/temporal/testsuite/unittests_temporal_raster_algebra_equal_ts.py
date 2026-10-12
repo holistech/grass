@@ -6,7 +6,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import datetime
-import unittest
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
@@ -176,10 +175,39 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), None)
 
-    # Undecided: {+,R,r} gives one map per related pair (singletmap + a1 is
-    # 101), the classic algebra gives each related map the sum of all (110).
-    @unittest.expectedFailure
     def test_single_map_complex_operator_right_ts(self) -> None:
+        """Test the right reference
+
+        R = singletmap {+,equal,r} A
+
+        A right reference gives one map per related pair, with the value of
+        that pair:
+        r1 = singletmap + a1    # 101
+        r2 = singletmap + a2    # 102
+        r3 = singletmap + a3    # 103
+        r4 = singletmap + a4    # 104
+
+        """
+        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
+        ta.parse(
+            expression="R = tmap(singletmap) {+, equal,r} A",
+            basename="r",
+            overwrite=True,
+        )
+
+        D = tgis.open_old_stds("R", type="strds")
+        D.select()
+
+        self.assertEqual(D.metadata.get_number_of_maps(), 4)
+        self.assertEqual(D.metadata.get_min_min(), 101)
+        self.assertEqual(D.metadata.get_max_max(), 104)
+        start, end = D.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(D.check_temporal_topology(), False)
+        self.assertEqual(D.get_granularity(), None)
+
+    # The classic algebra gives each related map the sum of all.
+    def test_single_map_complex_operator_right_ts_classic(self) -> None:
         """Test implicit aggregation
 
         TODO: Is this the correct result? Implicit aggregation and full permutation?
@@ -193,7 +221,7 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         r4 = singletmap + a1 + a2 + a3 + a4    # 110
 
         """
-        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
+        ta = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
         ta.parse(
             expression="R = tmap(singletmap) {+, equal,r} A",
             basename="r",
