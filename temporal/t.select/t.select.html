@@ -368,6 +368,31 @@ This statement select all maps from space time data set A that are during
 the temporal extent of single map 'event'
 
 <br>
+<h2>NOTES</h2>
+
+Since GRASS 8.6, two corrections of the temporal algebra apply to
+<em>t.select</em> as to <em>t.rast.algebra</em>,
+<em>t.rast3d.algebra</em> and <em>t.vect.algebra</em>. First, <code>if({R}, condition, conclusion)</code>
+reads "condition R conclusion": <code>if({contains}, start_doy(A) &gt; 0, B)</code>
+gives the maps of B that lie within a map of A, where earlier versions gave
+the maps of B that contain a map of A. Second, with a temporal relation beyond
+<code>equal</code>, the else part of a condition on temporal variables also
+takes the maps that no condition map is related to. Figure A3 of Gebbert,
+Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and
+5 to 7 of January 2001, B has daily maps from day 1 to 10, and this
+expression gives the first two maps of A and the maps of B from day 5 on, as
+the figure shows:
+
+<div class="code"><pre>
+C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)
+</pre></div>
+
+<p>
+Results that rely on the previous reading direction or else rule need the
+GRASS version they were computed with. The section "Core and classic algebra"
+in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes
+both corrections.
+
 <h2>EXAMPLES</h2>
 
 Select all maps from space time dataset A which have equal time stamps

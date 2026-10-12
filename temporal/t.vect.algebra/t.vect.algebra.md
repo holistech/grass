@@ -450,9 +450,37 @@ select maps from C and store them in space time dataset D.
 D = if({contains}, td(buff_t(A, "1 days")) == 3, B, C)
 ```
 
+## NOTES
+
+Since GRASS 8.6, two corrections of the temporal algebra apply to
+*t.vect.algebra* as to *t.rast.algebra*, *t.rast3d.algebra* and
+*t.select*. First, `if({R}, condition, conclusion)` reads
+"condition R conclusion": `if({contains}, start_doy(A) > 0, B)` gives the
+maps of B that lie within a map of A, where earlier versions gave the maps
+of B that contain a map of A. Second, with a temporal relation beyond
+`equal`, the else part of a condition on temporal variables also takes the
+maps that no condition map is related to. Figure A3 of Gebbert, Leppelt
+and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and 5
+to 7 of January 2001, B has daily maps from day 1 to 10, and this
+expression gives the first two maps of A and the maps of B from day 5 on,
+as the figure shows:
+
+```sh
+C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
+```
+
+Results that rely on the previous reading direction or else rule need the
+GRASS version they were computed with. The section "Core and classic
+algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes
+both corrections.
+
 ## REFERENCES
 
 [PLY(Python-Lex-Yacc)](https://www.dabeaz.com/ply/)
+
+Gebbert, S., Leppelt, T., Pebesma, E., 2019. A topology based
+spatio-temporal map algebra for big data analysis. Data 4, 86.
+<https://doi.org/10.3390/data4020086>
 
 ## SEE ALSO
 
