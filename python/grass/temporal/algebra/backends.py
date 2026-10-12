@@ -155,8 +155,7 @@ class RasterBackend:
         msg = f"{function!r} is neither an operator nor a function of r.mapcalc"
         raise ValueError(msg)
 
-    @staticmethod
-    def _mapcalc(output, expression, spatial):
+    def _mapcalc(self, output, expression, spatial):
         parameters = {"expression": f"{_quote(output)}={expression}"}
         if spatial:
             parameters["region"] = "union"
@@ -218,7 +217,60 @@ class RasterBackend:
         return calls, temporaries
 
 
-_BACKENDS = {"raster": RasterBackend()}
+class Raster3DBackend(RasterBackend):
+    """Plan 3D raster maps with r3.mapcalc
+
+    r3.mapcalc reads the expressions of r.mapcalc, with three cell offsets
+    (checked 2026-10-13 with r3.mapcalc in grass --tmp-project XY on a 3x3x3
+    grid: offsets [1,0,-1], nmin(), if(), isnull() and 1.0e-05 are accepted).
+
+    Two things differ from r.mapcalc:
+
+    - region=union is accepted by the parser of r3.mapcalc but fails with
+      "Union or intersection of regions is not implemented" (same
+      measurement, region=intersect fails alike). Maps related in space
+      cannot be computed in the union of their regions, so a spatial series
+      is rejected instead of failing after other maps were computed.
+    - There is no r3.series, so a reduction that skips null cells and
+      needs r.series cannot be planned.
+    """
+
+    kind = "raster3d"
+
+    def _mapcalc(self, output, expression, spatial):
+        call = super()._mapcalc(output, expression, spatial)
+        return ModuleCall("r3.mapcalc", call.parameters)
+
+    def plan(self, content, output, *, spatial=False):
+        """Plan the computation of the map output from the content
+
+        :raises ValueError: for a reduction that needs r.series, or for maps
+            related in space, which need the union of regions
+        """
+        if spatial:
+            msg = (
+                "3D raster maps related in space cannot be computed: "
+                "r3.mapcalc does not implement region=union"
+            )
+            raise ValueError(msg)
+        if _has_series_reduce(content):
+            msg = (
+                "Skipping null cells in a sum or mean needs r.series, which has "
+                "no counterpart for 3D raster maps"
+            )
+            raise ValueError(msg)
+        return super().plan(content, output, spatial=spatial)
+
+
+def _has_series_reduce(content):
+    if isinstance(content, SeriesReduce):
+        return True
+    if isinstance(content, Call):
+        return any(_has_series_reduce(arg) for arg in content.args)
+    return False
+
+
+_BACKENDS = {"raster": RasterBackend(), "raster3d": Raster3DBackend()}
 
 
 def backend_for(kind):

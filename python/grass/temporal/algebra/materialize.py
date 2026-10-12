@@ -16,12 +16,11 @@ from grass.temporal.datetime_math import (
 )
 from grass.temporal.factory import dataset_factory
 from grass.temporal.open_stds import open_new_stds
-from grass.temporal.space_time_datasets import RasterDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
 from .backends import backend_for
-from .maptypes import STDS_TYPES
+from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
 TIME_SUFFIXES = (None, "gran", "time")
 
@@ -152,6 +151,10 @@ def plan(series, name, *, basename=None, time_suffix=None):
     )
 
 
+def _kind(chain):
+    return KINDS_OF_STDS[chain.stds_type]
+
+
 def _check_absent(chain, mapset, dbif):
     """Stop before anything is computed if a result exists
 
@@ -165,7 +168,7 @@ def _check_absent(chain, mapset, dbif):
             )
         )
     for planned in chain.maps:
-        map_ = RasterDataset(f"{planned.name}@{mapset}")
+        map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
         # A row can outlive its map, e.g. after g.remove.
         if map_.map_exists() or map_.is_in_db(dbif):
             raise FatalError(
@@ -232,7 +235,7 @@ def _store(map_, overwrite, dbif):
                 "Map <{name}> exists in the temporal database. Use the overwrite flag."
             ).format(name=map_.get_map_id())
         )
-    stored = RasterDataset(map_.get_id())
+    stored = type(map_)(map_.get_id())
     stored.select(dbif)
     if stored.get_temporal_type() == map_.get_temporal_type():
         map_.update_all(dbif)
@@ -252,16 +255,18 @@ def _store(map_, overwrite, dbif):
 _REMOVE_CHUNK = 100
 
 
-def _remove(names):
+def _remove(names, kind):
     for start in range(0, len(names), _REMOVE_CHUNK):
         chunk = names[start : start + _REMOVE_CHUNK]
-        Module("g.remove", flags="f", type="raster", name=",".join(chunk), quiet=True)
+        Module(
+            "g.remove", flags="f", type=ELEMENTS[kind], name=",".join(chunk), quiet=True
+        )
 
 
-def _forget(ident, dbif):
+def _forget(ident, kind, dbif):
     """Delete a map from the temporal database, which also unregisters it
     from the datasets"""
-    RasterDataset(ident).delete(dbif)
+    MAP_CLASSES[kind](ident).delete(dbif)
 
 
 def materialize(
@@ -304,7 +309,7 @@ def materialize(
             # Also when a call fails part-way: its temporary maps would
             # otherwise stay in the mapset. g.remove ignores names that were
             # never written.
-            _remove(chain.remove)
+            _remove(chain.remove, _kind(chain))
         dataset = open_new_stds(
             name,
             chain.stds_type,
@@ -317,7 +322,7 @@ def materialize(
         )
         empty = []
         for planned in chain.maps:
-            map_ = RasterDataset(f"{planned.name}@{mapset}")
+            map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
             if not map_.load():
                 raise FatalError(
                     _("Map <{name}> was not computed").format(name=map_.get_id())
@@ -330,7 +335,7 @@ def materialize(
             ):
                 empty.append(planned.name)
                 # An earlier run may have registered a map of this name.
-                _forget(map_.get_id(), dbif)
+                _forget(map_.get_id(), _kind(chain), dbif)
                 continue
             _store(map_, overwrite, dbif)
             dataset.register_map(map_, dbif)
@@ -342,7 +347,7 @@ def materialize(
                     "in {name}"
                 ).format(name=name)
             )
-        _remove(empty)
+        _remove(empty, _kind(chain))
     finally:
         if connection_state_changed:
             dbif.close()

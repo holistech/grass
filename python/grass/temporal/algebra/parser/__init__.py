@@ -8,6 +8,7 @@ do, and returns the same process chain dictionary.
 
 from __future__ import annotations
 
+from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
 
 from .grammar import parse
@@ -63,7 +64,10 @@ def evaluate(
         chain["remove"] = [
             {
                 "name": "g.remove",
-                "inputs": [("type", "raster"), ("name", ",".join(planned.remove))],
+                "inputs": [
+                    ("type", ELEMENTS[KINDS_OF_STDS[planned.stds_type]]),
+                    ("name", ",".join(planned.remove)),
+                ],
                 "outputs": [],
                 "flags": ["f"],
             }

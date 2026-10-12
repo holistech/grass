@@ -360,7 +360,7 @@ def test_temporary_maps_are_removed_in_chunks_of_100(monkeypatch):
         lambda *args, **parameters: calls.append((args, parameters)),
     )
     names = [f"R_{number}_tmp0" for number in range(250)]
-    materialize_module._remove(names)
+    materialize_module._remove(names, "raster")
     assert [len(parameters["name"].split(",")) for _, parameters in calls] == [
         100,
         100,
@@ -368,7 +368,7 @@ def test_temporary_maps_are_removed_in_chunks_of_100(monkeypatch):
     ]
     assert ",".join(parameters["name"] for _, parameters in calls) == ",".join(names)
     calls.clear()
-    materialize_module._remove([])
+    materialize_module._remove([], "raster")
     assert calls == []
 
 
@@ -394,7 +394,7 @@ def test_temporary_maps_are_removed_when_a_call_fails(core_session, monkeypatch)
     monkeypatch.setattr(materialize_module, "_module", failing_module)
     # Without the cleanup the temporary maps stay: the check can see them.
     with monkeypatch.context() as context:
-        context.setattr(materialize_module, "_remove", lambda names: None)
+        context.setattr(materialize_module, "_remove", lambda names, kind: None)
         with pytest.raises(RuntimeError, match="forced failure"):
             ta.materialize(reduced, "failing", overwrite=True)
         assert tools.g_list(type="raster", pattern="failing_*_tmp*") is not None
