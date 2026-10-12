@@ -867,15 +867,18 @@ class Module:
             self.time = time.time() - self.start_time
             self.returncode = self._popen.returncode
             self._finished = True
+            # Drop the process handle before raising, too: it holds a lock
+            # and cannot be pickled, and MultiModule sends failed modules
+            # back to the parent process.
+            self._popen = None
 
-            if self._popen.poll():
+            if self.returncode:
                 raise CalledModuleError(
-                    returncode=self._popen.returncode,
+                    returncode=self.returncode,
                     code=self.get_bash(),
                     module=self.name,
                     errors=stderr,
                 )
-        self._popen = None
 
         return self
 
@@ -1061,10 +1064,23 @@ class MultiModule:
         in asynchronous mode, hence if finished was set False.
 
         :return: The process list with finished processes to check their return states
+        :raises CalledModuleError: if a module failed; the modules after it
+            were not run
         """
         if self.p:
             proc_list = self.q.get()
             self.p.join()
+
+            # The module raised in the child process, where the exception
+            # stays; raise it again here, as Module.wait() does.
+            for module in proc_list:
+                if module.returncode:
+                    raise CalledModuleError(
+                        returncode=module.returncode,
+                        code=module.get_bash(),
+                        module=module.name,
+                        errors=module.outputs["stderr"].value,
+                    )
 
             return proc_list
 
