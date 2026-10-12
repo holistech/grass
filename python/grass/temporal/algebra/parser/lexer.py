@@ -138,9 +138,17 @@ class Lexer:
         r"""[a-zA-Z_][a-zA-Z_0-9@]*"""
         return t
 
+    # A "{" or a quote reaches t_error only when it is not closed (a "{"
+    # also when another "{" comes first), so the character is not the fault.
     @staticmethod
     def t_error(t):
-        msg = f"Unexpected character '{t.value[0]}' at position {t.lexpos}"
+        char = t.value[0]
+        if char == "{":
+            msg = f"Unterminated '{{' at position {t.lexpos}"
+        elif char in "\"'":
+            msg = f"Unterminated text at position {t.lexpos}"
+        else:
+            msg = f"Unexpected character '{char}' at position {t.lexpos}"
         raise SyntaxError(msg)
 
 

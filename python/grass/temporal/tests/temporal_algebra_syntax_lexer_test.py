@@ -102,6 +102,9 @@ def test_whitespace_and_newlines_are_ignored():
         ("A | B", r"Unexpected character '\|' at position 2"),
         ("A $ B", r"Unexpected character '\$' at position 2"),
         ("A {+,foo} B", r"Unknown relation 'foo'.* at position 2"),
+        ("K = A {+,during B", r"Unterminated '\{' at position 6"),
+        ('R = tshift(A, "1 day)', r"Unterminated text at position 14"),
+        ("R = tshift(A, '1 day)", r"Unterminated text at position 14"),
     ],
 )
 def test_errors(text, message):
