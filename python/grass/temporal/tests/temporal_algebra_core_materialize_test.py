@@ -24,7 +24,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
-from grass.exceptions import FatalError
+from grass.exceptions import CalledModuleError, FatalError
 from grass.temporal import algebra as ta
 from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.series import Space
@@ -251,6 +251,29 @@ def test_parallel_processes_give_the_same_result(core_session):
     reduced = ta.gather(b, ta.contains, z * 2, reduce="sum", nulls="skip")
     ta.materialize(reduced, "parallel_series", overwrite=True, nprocs=2)
     assert registered("parallel_series") == [(day(1), day(3), 4)]
+
+
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded:DeprecationWarning"
+)
+@pytest.mark.timeout(60)
+def test_parallel_failure_of_a_sequence_of_calls_is_raised(core_session, monkeypatch):
+    """r.series reads a missing map after r.mapcalc has written the temporary
+    maps; the background process reports the failure instead of waiting
+    forever"""
+    b, z = ta.source("B"), ta.source("Z")
+    reduced = ta.gather(b, ta.contains, z * 2, reduce="sum", nulls="skip")
+    run_module = materialize_module._module
+
+    def failing_module(call, overwrite):
+        module = run_module(call, overwrite)
+        if call.name == "r.series":
+            module.inputs["input"].value = "no_such_map"
+        return module
+
+    monkeypatch.setattr(materialize_module, "_module", failing_module)
+    with pytest.raises(CalledModuleError, match="no_such_map"):
+        ta.materialize(reduced, "parallel_failing", overwrite=True, nprocs=2)
 
 
 def test_removed_empty_maps_leave_no_row_in_the_temporal_database(core_session):
