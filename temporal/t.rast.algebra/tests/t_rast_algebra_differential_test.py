@@ -13,49 +13,29 @@ import pytest
 
 from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
 
-
-def unreadable_for_classic(expression):
-    """An expression that only the core reads
-
-    The classic grammar has no rule for it, and no listed difference covers
-    that; it stays expected to fail until it is decided how such expressions
-    are compared.
-    """
-    return pytest.param(
-        expression,
-        marks=pytest.mark.xfail(
-            strict=True,
-            reason="undecided: the classic algebra cannot read this syntax",
-        ),
-    )
-
-
 SAME = [
-    unreadable_for_classic("A"),
     "A + N",
     "A - N - 1",
     "A * 2",
     "2 * A - 1",
     "A / N",
     "A % 3",
-    unreadable_for_classic("-A + 10"),
     "float(A) / 2",
     "abs(A - 3)",
     "sqrt(A * A)",
-    unreadable_for_classic("isnull(A)"),
-    unreadable_for_classic("isntnull(A)"),
-    unreadable_for_classic("exist(A)"),
     "A {+,during} B",
+    # Each map of A lies in one map of B, so the classic sum over all
+    # partners of a map and the sum of the pair agree.
     "A {+,during,r} B",
     "B {+,contains} A",
     "B {+,contains,u} A",
     "B {*,contains,i} A",
     "HB {+,follows|precedes} HA",
-    "A : B",
+    "D : A",
     "A {:,during} B",
     "A {:,during,u} B",
     "A !: C",
-    "A {!:,during} B",
+    "A {!:,starts} C",
     "B {:,contains} A",
     "A + td(A)",
     "A {#,during} B",
@@ -65,7 +45,7 @@ SAME = [
     "if(start_day(A) > 2, A, N)",
     'if(start_date(A) < "2001-01-03", A)',
     "if(td(A) == 1 && A > 2, A, N)",
-    "if(A # B == 2, A)",
+    "if(A {#,during} B + A > 2, A, N)",
     'tshift(A, "1 day")',
     'buff_t(A, "1 day")',
     "tsnap(I)",
@@ -85,6 +65,23 @@ DIFFERENT = {
     "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": "&& binds stronger than ||",
     "if(A > 2, A, D)": "then and else of a map condition need equal time stamps",
     "if(td(I) > 0, I)": "td() of a time instance is null",
+    "C {+,contains,r} A": "an operator with r gives each pair its own value",
+    "A {+,equal|overlap} N": "a spatial relation needs the spatial flag",
+    "HB {:,follows|precedes,i} HA": (
+        "with i, a map whose partners have no common intersection is left out"
+    ),
+}
+
+# The new grammar reads forms that the classic grammar has no rule for. Each
+# must give what an expression of the classic grammar gives.
+EXTENDED = {
+    "A": "A * 1",
+    "-A + 10": "10 - A",
+    # A / (A - 2) is null for a2, so that the maps differ.
+    "isnull(A / (A - 2))": "if(isnull(A / (A - 2)), 1, 0)",
+    "isntnull(A / (A - 2))": "if(isntnull(A / (A - 2)), 1, 0)",
+    # In a classic condition, exist() of a dataset is the dataset itself.
+    "exist(A)": "A * 1",
 }
 
 
@@ -111,6 +108,14 @@ def test_listed_differences_still_differ(algebra, monkeypatch, expression):
     assert outcome(algebra, monkeypatch, expression, "core") != outcome(
         algebra, monkeypatch, expression, "classic"
     )
+
+
+@pytest.mark.parametrize(("expression", "equivalent"), EXTENDED.items())
+def test_extended_syntax(algebra, monkeypatch, expression, equivalent):
+    assert outcome(algebra, monkeypatch, expression, "classic") == "SyntaxError"
+    expected = outcome(algebra, monkeypatch, equivalent, "classic")
+    assert isinstance(expected, list)
+    assert outcome(algebra, monkeypatch, expression, "core") == expected
 
 
 RANDOM_DATASETS = ("A", "N", "D", "HA")
