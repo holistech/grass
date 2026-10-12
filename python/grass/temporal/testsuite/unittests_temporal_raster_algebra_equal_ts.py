@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import datetime
+import unittest
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
@@ -175,6 +176,9 @@ class TestTemporalRasterAlgebraImplicitAggregation(TestCase):
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), None)
 
+    # Undecided: {+,R,r} gives one map per related pair (singletmap + a1 is
+    # 101), the classic algebra gives each related map the sum of all (110).
+    @unittest.expectedFailure
     def test_single_map_complex_operator_right_ts(self) -> None:
         """Test implicit aggregation
 

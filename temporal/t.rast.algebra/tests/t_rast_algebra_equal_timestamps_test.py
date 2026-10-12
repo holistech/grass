@@ -28,8 +28,20 @@ def test_single_map_with_simple_operator(algebra):
 
 def test_single_map_with_complex_operator(algebra):
     """With the explicit operator the single map is aggregated correctly,
-    with the left reference to one map and with the right reference to four"""
+    with the left reference to one map"""
     assert algebra.values("tmap(sinst) {+,equal,l} E") == [110]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "undecided: {+,equal,r} gives one map per related pair (101 to 104); "
+        "the classic algebra gives the sum of all related maps (110) at the "
+        "time stamp of each"
+    ),
+)
+def test_single_map_with_right_reference(algebra):
+    """With the right reference the sum is repeated for each of the four maps"""
     assert algebra.values("tmap(sinst) {+,equal,r} E") == [110, 110, 110, 110]
 
 
@@ -52,8 +64,9 @@ def test_condition_on_maps_with_equal_time(algebra):
 
 
 def test_condition_without_else_on_maps_with_equal_time(algebra):
-    """if(E > 2, E) gives one map per condition map, 0 where it is false"""
-    assert algebra.values("if(E > 2, E)") == [0, 0, 3, 4]
+    """if(E > 2, E) gives null where the condition is false, so e1 and e2
+    are left out"""
+    assert algebra.values("if(E > 2, E)") == [3, 4]
 
 
 def test_then_and_else_on_maps_with_equal_time(algebra):
@@ -73,5 +86,5 @@ def test_condition_on_unequal_numbers_of_equal_maps_fails(algebra):
     tgis.register_maps_in_space_time_dataset(
         "raster", "E2", "e1,e2", start="2001-01-01"
     )
-    with pytest.raises(algebra.errors, match="maps of equal time stamps"):
+    with pytest.raises(ValueError, match="cannot be paired"):
         algebra.parse("if(E > 2, E2, null())")

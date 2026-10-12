@@ -104,7 +104,10 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         )
 
     def tearDown(self) -> None:
-        self.runModule("t.remove", flags="rf", inputs="R", quiet=True)
+        # A test of an error leaves no result dataset to remove.
+        result = tgis.SpaceTimeRasterDataset(f"R@{tgis.get_current_mapset()}")
+        if result.is_in_db():
+            self.runModule("t.remove", flags="rf", inputs="R", quiet=True)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -165,15 +168,17 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # One result per map of B, not one per related map of A: b1 - 1 and
+        # b2 - 1, so the time stamps do not repeat.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
         self.assertEqual(R.metadata.get_min_min(), 4)
         self.assertEqual(R.metadata.get_max_max(), 5)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
-        self.assertEqual(R.check_temporal_topology(), False)
+        self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "2 days")
 
     def test_spatial_conditional_1(self) -> None:
@@ -186,14 +191,15 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells are null, so a1 and a4 are left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 4)
-        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 2)
         self.assertEqual(R.metadata.get_max_max(), 3)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
-        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(start, datetime.datetime(2001, 1, 2))
+        self.assertEqual(end, datetime.datetime(2001, 1, 4))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
@@ -222,18 +228,10 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
-        tra.parse(expression="R = if(A > 1, A, D)", basename="r", overwrite=True)
-
-        R = tgis.open_old_stds("R", type="strds")
-        R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 3)
-        self.assertEqual(R.metadata.get_max_max(), 4)
-        start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 3))
-        self.assertEqual(end, datetime.datetime(2001, 1, 5))
-        self.assertEqual(R.check_temporal_topology(), True)
-        self.assertEqual(R.get_granularity(), "1 day")
+        # A condition on map values chooses per cell between then and else,
+        # so A and D of other time stamps are an error, not a partial result.
+        with self.assertRaisesRegex(ValueError, "equal time stamps"):
+            tra.parse(expression="R = if(A > 1, A, D)", basename="r", overwrite=True)
 
     def test_spatial_conditional_4(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
@@ -262,13 +260,14 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells are null: b1 (5) is left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 1)
+        self.assertEqual(R.metadata.get_min_min(), 6)
         self.assertEqual(R.metadata.get_max_max(), 6)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "2 days")
@@ -340,13 +339,15 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells are null: a1 and a2 in b1 (5) are left
+        # out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 4)
-        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 3.5)
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
@@ -404,16 +405,11 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True)
         tra.parse(expression="R = if(A > 2, null())", basename="r", overwrite=True)
 
+        # Without else the false cells are null as well, so every map is null
+        # and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 0)
-        self.assertEqual(R.metadata.get_max_max(), 0)
-        start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
-        self.assertEqual(end, datetime.datetime(2001, 1, 3))
-        self.assertEqual(R.check_temporal_topology(), True)
-        self.assertEqual(R.get_granularity(), "1 day")
+        self.assertEqual(R.metadata.get_number_of_maps(), 0)
 
     def test_spatiotemporal_conditional_1(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
@@ -424,14 +420,15 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells are null: only a1 remains.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 4)
-        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 1)
+        self.assertEqual(R.metadata.get_min_min(), 1)
         self.assertEqual(R.metadata.get_max_max(), 1)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
-        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(end, datetime.datetime(2001, 1, 2))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
@@ -464,16 +461,11 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # b2 contains d1 and d2 and starts on day 3, so the condition is
+        # false; without else d1 and d2 are null and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 0)
-        self.assertEqual(R.metadata.get_max_max(), 0)
-        start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 3))
-        self.assertEqual(end, datetime.datetime(2001, 1, 5))
-        self.assertEqual(R.check_temporal_topology(), True)
-        self.assertEqual(R.get_granularity(), "1 day")
+        self.assertEqual(R.metadata.get_number_of_maps(), 0)
 
     def test_spatiotemporal_conditional_relation_2(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
@@ -525,13 +517,15 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells are null: a1 and a2 in b1, which
+        # starts on day 1, are left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 4)
-        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 3.5)
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
@@ -605,16 +599,11 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
+        # Without else the false cells of a1 are null as well, so every map
+        # is null and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 1)
-        self.assertEqual(R.metadata.get_min_min(), 0)
-        self.assertEqual(R.metadata.get_max_max(), 0)
-        start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 1))
-        self.assertEqual(end, datetime.datetime(2001, 1, 2))
-        self.assertEqual(R.check_temporal_topology(), True)
-        self.assertEqual(R.get_granularity(), "1 day")
+        self.assertEqual(R.metadata.get_number_of_maps(), 0)
 
 
 if __name__ == "__main__":

@@ -69,6 +69,11 @@
 # % description: Perform a dry run, compute all dependencies and module calls but don't run them
 # %end
 
+# %flag
+# % key: c
+# % description: Use the classic algebra, as computed before the algebra core
+# %end
+
 import sys
 
 import grass.script as gs
@@ -97,6 +102,7 @@ def main():
         register_null=register_null,
         dry_run=dry_run,
         time_suffix=time_suffix,
+        classic=flags["c"] or None,
     )
 
     try:

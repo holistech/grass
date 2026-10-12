@@ -19,7 +19,7 @@ import os
 import pytest
 
 import grass.script as gs
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 
 @pytest.fixture(scope="module")
@@ -69,10 +69,8 @@ def result_values(session, expression, flags=""):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
-        ("P {+,equal|overlap} Q", "", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
-        ("P {+,equal|cover} Q", "", []),
         ("P {+,equal|cover} Q", "s", []),
         # the hash operator counts the temporally related maps; the result of
         # the condition is P itself, so the disjoint pair shows up as p2
@@ -83,3 +81,11 @@ def result_values(session, expression, flags=""):
 def test_spatial_topology(spatial_series, expression, flags, expected):
     """-s and spatial relations restrict the related maps to spatially related"""
     assert result_values(spatial_series, expression, flags) == expected
+
+
+@pytest.mark.parametrize("relations", ["equal|overlap", "equal|cover"])
+def test_spatial_relation_needs_the_spatial_flag(spatial_series, relations):
+    """Without -s no spatial topology is built, so a spatial relation name
+    is an error instead of an empty or unrestricted result"""
+    with pytest.raises(ToolError, match="need the spatial flag"):
+        result_values(spatial_series, f"P {{+,{relations}}} Q")

@@ -87,7 +87,7 @@ def test_result_dataset_is_registered_under_basename(algebra, tool):
 def test_overwrite_is_required(algebra, tool):
     """A second run fails without --overwrite and leaves the result unchanged"""
     tool.t_rast_algebra(expression="OPT_OW = A * 2", basename="opt_ow")
-    with pytest.raises(ToolError, match="Use --o flag"):
+    with pytest.raises(ToolError, match="Use the overwrite"):
         tool.t_rast_algebra(expression="OPT_OW = A * 3", basename="opt_ow")
     assert values(tool, "OPT_OW") == [2, 4, 6, 8]
     tool.t_rast_algebra(expression="OPT_OW = A * 3", basename="opt_ow", overwrite=True)
@@ -97,7 +97,7 @@ def test_overwrite_is_required(algebra, tool):
 def test_existing_dataset_with_new_basename_is_not_overwritten(algebra, tool):
     """The result dataset exists: refuse even if the map names are new"""
     tool.t_rast_algebra(expression="OPT_OW2 = A * 2", basename="opt_ow2")
-    with pytest.raises(ToolError, match="already in the database"):
+    with pytest.raises(ToolError, match=r"exists\. Use the overwrite"):
         tool.t_rast_algebra(expression="OPT_OW2 = A * 3", basename="opt_ow2_other")
     assert values(tool, "OPT_OW2") == [2, 4, 6, 8]
 
@@ -108,12 +108,25 @@ def test_dry_run_creates_nothing(algebra, tool):
         expression="OPT_DRY = A * 2", basename="opt_dry", flags="d"
     )
     assert "r.mapcalc" in result.stdout
-    assert "opt_dry_0=(a1@PERMANENT * 2)" in result.stdout
-    assert "opt_dry_3=(a4@PERMANENT * 2)" in result.stdout
+    assert '"opt_dry_0"=("a1@PERMANENT" * 2)' in result.stdout
+    assert '"opt_dry_3"=("a4@PERMANENT" * 2)' in result.stdout
     assert "OPT_DRY" in result.stdout
     with pytest.raises(ToolError):
         tool.t_info(input="OPT_DRY")
     assert not tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
+
+
+def test_classic_flag_selects_the_classic_algebra(algebra, tool):
+    """A selection with r gives one map per related pair in the core and one
+    map per left map in the classic algebra"""
+    tool.t_rast_algebra(expression="OPT_CORE = B {:,contains,r} A", basename="opt_core")
+    tool.t_rast_algebra(
+        expression="OPT_CLASSIC = B {:,contains,r} A",
+        basename="opt_classic",
+        flags="c",
+    )
+    assert len(list_maps(tool, "OPT_CORE")) == 4
+    assert len(list_maps(tool, "OPT_CLASSIC")) == 2
 
 
 @pytest.mark.parametrize("nprocs", [1, 2, 4])
@@ -370,14 +383,16 @@ def run_with_debug(algebra, expression, run):
 
 
 def test_debug_output_of_a_run(algebra, capsys):
-    """debug=True prints the mapcalc commands and the resulting statement"""
+    """debug=True prints each planned module call as a command line"""
     run_with_debug(algebra, "(A + A) * 2", run=True)
     output = capsys.readouterr().out
-    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
-    assert "R = [" in output
+    assert (
+        'r.mapcalc expression="r_0"=(("a1@PERMANENT" + "a1@PERMANENT") * 2)' in output
+    )
 
 
 def test_debug_output_without_run(algebra, capsys):
-    """With run=False debug=True prints the statement with the placeholder name"""
+    """With run=False only the syntax is checked, so nothing is planned and
+    debug=True prints nothing"""
     run_with_debug(algebra, "(A + A) * 2", run=False)
-    assert "R = A**" in capsys.readouterr().out
+    assert not capsys.readouterr().out

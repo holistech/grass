@@ -65,7 +65,7 @@ from .temporal_raster_base_algebra import (
 #: grass.temporal.algebra, "classic" runs the parser of this module. The
 #: classic algebra stays, because published results rely on it.
 ALGEBRA_VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
-DEFAULT_ALGEBRA = "classic"
+DEFAULT_ALGEBRA = "core"
 
 
 class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):

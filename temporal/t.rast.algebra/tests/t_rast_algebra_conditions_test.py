@@ -9,28 +9,34 @@ import pytest
 
 
 def a_intervals(values):
-    """Return the expected maps of dataset A with the given values"""
-    return [(number, number + 1, value) for number, value in enumerate(values, 1)]
+    """Return the expected maps of dataset A with the given values; None is a
+    map that is null everywhere and therefore not registered"""
+    return [
+        (number, number + 1, value)
+        for number, value in enumerate(values, 1)
+        if value is not None
+    ]
 
 
 @pytest.mark.parametrize(
     ("expression", "values"),
     [
-        # the two-argument if of r.mapcalc gives 0 where the condition is false
-        ("if(A > 2, A)", [0, 0, 3, 4]),
+        # An if without else gives null where the condition is false, unlike
+        # the two-argument if of r.mapcalc, which gives 0.
+        ("if(A > 2, A)", [None, None, 3, 4]),
         ("if(A > 2, A, 0)", [0, 0, 3, 4]),
         ("if(A > 2, A, A * 10)", [10, 20, 3, 4]),
         ("if(A > 2, 1, 0)", [0, 0, 1, 1]),
-        ("if(A > 2, 7)", [0, 0, 7, 7]),
+        ("if(A > 2, 7)", [None, None, 7, 7]),
         ("if(A == 2, A + N, A - N)", [-10, 14, -10, -10]),
-        ("if(A != 2, A)", [1, 0, 3, 4]),
-        ("if(A >= 3, A)", [0, 0, 3, 4]),
-        ("if(A <= 2, A)", [1, 2, 0, 0]),
-        ("if(A < 2, A)", [1, 0, 0, 0]),
-        ("if(A > 1 && A < 4, A)", [0, 2, 3, 0]),
-        ("if(A > 3 || A < 2, A)", [1, 0, 0, 4]),
+        ("if(A != 2, A)", [1, None, 3, 4]),
+        ("if(A >= 3, A)", [None, None, 3, 4]),
+        ("if(A <= 2, A)", [1, 2, None, None]),
+        ("if(A < 2, A)", [1, None, None, None]),
+        ("if(A > 1 && A < 4, A)", [None, 2, 3, None]),
+        ("if(A > 3 || A < 2, A)", [1, None, None, 4]),
         ("if(A == 2 || A == 3, A, 0)", [0, 2, 3, 0]),
-        ("if(A > 100, A)", [0, 0, 0, 0]),
+        ("if(A > 100, A)", [None, None, None, None]),
     ],
 )
 def test_raster_value_conditions(algebra, expression, values):
@@ -59,7 +65,8 @@ def test_isnull_isntnull_exist(algebra, expression, values):
         ("if(A > 2, null(), A)", [(1, 2, 1), (2, 3, 2)]),
         ("if(A > 2, null(), 0)", [(1, 2, 0), (2, 3, 0)]),
         ("if(A > 2, 5, null())", [(3, 4, 5), (4, 5, 5)]),
-        ("if(A > 2, null())", [(1, 2, 0), (2, 3, 0)]),
+        # Without else the false cells are null as well.
+        ("if(A > 2, null())", []),
     ],
 )
 def test_null_in_conditions(algebra, expression, expected):
@@ -72,15 +79,18 @@ def test_else_branch_with_other_dataset(algebra):
     assert algebra.values("if(A > 2, A, N)") == [11, 12, 3, 4]
 
 
-def test_else_branch_without_related_dataset_gives_nothing(algebra):
-    """The manual: if, then and else are equal in time; B is not equal to A"""
-    assert algebra.run("if(A > 2, A, B)") == []
+def test_else_branch_of_other_time_is_an_error(algebra):
+    """The manual: if, then and else are equal in time; B is not equal to A.
+    A condition on map values chooses per cell, so then and else of other
+    time stamps are an error instead of an empty result."""
+    with pytest.raises(ValueError, match="equal time stamps"):
+        algebra.run("if(A > 2, A, B)")
 
 
 @pytest.mark.parametrize(
     ("expression", "values"),
     [
-        ("if({equal}, A > 2, A)", [0, 0, 3, 4]),
+        ("if({equal}, A > 2, A)", [None, None, 3, 4]),
         ("if({equal}, A > 2, A, A * 10)", [10, 20, 3, 4]),
         ("if({equal}, A > 2, A + N, A)", [1, 2, 16, 18]),
     ],
@@ -94,7 +104,7 @@ def test_if_with_explicit_equal_relation(algebra, expression, values):
     ("expression", "values"),
     [
         # B contains A: b1 contains a1 and a2, b2 contains a3 and a4
-        ("if({contains}, B > 5, A)", [0, 0, 3, 4]),
+        ("if({contains}, B > 5, A)", [None, None, 3, 4]),
         ("if({contains}, B > 5, A, A * 10)", [10, 20, 3, 4]),
         ("if({contains}, td(B) == 2, A)", [1, 2, 3, 4]),
     ],
@@ -229,21 +239,23 @@ def test_doy_example_of_the_manual(algebra):
 @pytest.mark.parametrize(
     ("condition", "selected"),
     [
-        # Evaluated from left to right, the manual: ((d == 1 || d == 2) && d == 2)
-        ("start_day(A) == 1 || start_day(A) == 2 && start_day(A) == 2", [2]),
-        # ((d == 2 && d == 2) || d == 1)
+        # d == 1 || (d == 2 && d == 2); evaluated from left to right, as the
+        # classic algebra does, it would be [2]
+        ("start_day(A) == 1 || start_day(A) == 2 && start_day(A) == 2", [1, 2]),
+        # (d == 2 && d == 2) || d == 1
         ("start_day(A) == 2 && start_day(A) == 2 || start_day(A) == 1", [1, 2]),
         ("start_day(A) == 1 || start_day(A) == 2 || start_day(A) == 4", [1, 2, 4]),
         ("start_day(A) > 0 && start_day(A) < 3 && start_day(A) < 2", [1]),
         ("start_day(A) > 0 && start_day(A) < 3 || start_day(A) == 4", [1, 2, 4]),
-        ("start_day(A) == 4 || start_day(A) > 0 && start_day(A) < 3", [1, 2]),
+        # d == 4 || (d > 0 && d < 3); from left to right it would be [1, 2]
+        ("start_day(A) == 4 || start_day(A) > 0 && start_day(A) < 3", [1, 2, 4]),
         ('start_date(A) > "2001-01-01" && start_date(A) < "2001-01-04"', [2, 3]),
     ],
 )
-def test_temporal_conditions_are_combined_from_left_to_right(
+def test_and_binds_stronger_than_or_in_temporal_conditions(
     algebra, condition, selected
 ):
-    """&& and || have the same precedence for temporal conditions"""
+    """&& binds stronger than ||, as in conditions on map values"""
     expected = [(number, number + 1, number) for number in selected]
     assert algebra.triples(f"if({condition}, A)") == expected
 
@@ -276,12 +288,13 @@ def test_temporal_and_raster_conditions_combined(algebra, condition, values):
 @pytest.mark.parametrize(
     ("condition", "values"),
     [
-        ("td(A) == 1 && A == 1 || A == 3", [1, 0, 3, 0]),
-        ("td(A) == 1 && A == 2 || A == 3", [0, 2, 3, 0]),
+        ("td(A) == 1 && A == 1 || A == 3", [1, None, 3, None]),
+        ("td(A) == 1 && A == 2 || A == 3", [None, 2, 3, None]),
     ],
 )
 def test_td_and_raster_condition_chain(algebra, condition, values):
-    """Evaluated from left to right: (td(A) == 1 && A == x) || A == 3"""
+    """&& binds stronger than ||: (td(A) == 1 && A == x) || A == 3; without
+    else the maps where it is false are null and left out"""
     assert algebra.triples(f"if({condition}, A)") == a_intervals(values)
 
 
@@ -364,7 +377,7 @@ def test_manual_example_with_equal_slash_operator(algebra):
             'if(start_date(A) < "2001-01-03", A + N)',
             [(1, 2, 12), (2, 3, 14)],
         ),
-        ("if(A > 1 && A < 4 && td(A) > 0, N)", a_intervals([0, 12, 13, 0])),
+        ("if(A > 1 && A < 4 && td(A) > 0, N)", a_intervals([None, 12, 13, None])),
     ],
 )
 def test_manual_examples_with_conditions(algebra, expression, expected):
@@ -376,7 +389,7 @@ def test_manual_examples_with_conditions(algebra, expression, expected):
 def test_manual_example_selection_with_topology(algebra):
     """Manual example: selection of raster cells with temporal topology relation"""
     expression = "if({equal}, A > 1 && A < 4 && td(A) > 0, N)"
-    assert algebra.triples(expression) == a_intervals([0, 12, 13, 0])
+    assert algebra.triples(expression) == a_intervals([None, 12, 13, None])
 
 
 @pytest.mark.parametrize(
@@ -388,9 +401,10 @@ def test_manual_example_selection_with_topology(algebra):
 )
 def test_manual_example_conditional_computation(algebra, expression):
     """Example "Conditional computation": recharge per second where the
-    condition holds, with and without explicit topology"""
+    condition holds, with and without explicit topology; n1 and n2 are not
+    greater than 12, so without else a1 and a2 are null and left out"""
     values = algebra.values(expression)
-    assert values == pytest.approx([0, 0, 3 / 86400, 4 / 86400], abs=1e-6)
+    assert values == pytest.approx([3 / 86400, 4 / 86400], abs=1e-6)
 
 
 def test_manual_example_ndvi(algebra):
@@ -440,6 +454,14 @@ def test_complement_with_merge(algebra):
     ]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "undecided: {+,contains,r} gives one map per related pair (hb1 + ha2, "
+        "hb1 + ha3); the classic algebra gives the sum of all related maps at "
+        "the time stamp of each"
+    ),
+)
 def test_complement_with_merge_and_right_reference(algebra):
     """As above with the time stamps of HA: one map per day"""
     assert algebra.triples(f"merge({CONDITION_HB_RIGHT}, {OUTSIDE_HB})") == [

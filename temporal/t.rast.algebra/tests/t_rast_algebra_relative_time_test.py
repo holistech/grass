@@ -21,7 +21,8 @@ def relative_maps(algebra, expression):
         ("RT + RT", [(0, 1, 2), (1, 2, 4), (2, 3, 6)]),
         ("RT : RT", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
         ("RT[1]", [(0, 1, 2), (1, 2, 3)]),
-        ("if(RT > 1, RT)", [(0, 1, 0), (1, 2, 2), (2, 3, 3)]),
+        # without else x1 is null and left out
+        ("if(RT > 1, RT)", [(1, 2, 2), (2, 3, 3)]),
     ],
 )
 def test_relative_time_is_kept(algebra, expression, expected):

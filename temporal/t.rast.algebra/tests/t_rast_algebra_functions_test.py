@@ -30,11 +30,13 @@ def test_td_in_arithmetic(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-@pytest.mark.parametrize("expression", ["E + td(E)", "I + td(I)"])
-def test_td_of_time_instants_is_reported(algebra, expression):
-    """Instants have no length; this must be reported by the algebra"""
-    with pytest.raises(algebra.errors):
-        algebra.parse(expression)
+@pytest.mark.parametrize(("expression", "count"), [("E + td(E)", 4), ("I + td(I)", 3)])
+def test_td_of_time_instants_is_null(algebra, expression, count):
+    """Instants have no length, so td() is null and so is the sum; such maps
+    are registered only with register_null"""
+    assert algebra.run(expression) == []
+    rows = algebra.run(expression, register_null=True)
+    assert [row.min for row in rows] == [None] * count
 
 
 def test_buff_t_buffers_both_sides(algebra):
@@ -221,8 +223,9 @@ def test_temporal_neighbour(algebra, expression, expected):
 
 
 def test_temporal_neighbour_in_condition(algebra):
-    """The neighbour modifier can be used in conditions"""
-    assert algebra.triples("if(A[-1] > 1, A)") == [(2, 3, 0), (3, 4, 3), (4, 5, 4)]
+    """The neighbour modifier can be used in conditions; without else a2,
+    whose predecessor a1 is not greater than 1, is null and left out"""
+    assert algebra.triples("if(A[-1] > 1, A)") == [(3, 4, 3), (4, 5, 4)]
 
 
 @pytest.mark.parametrize(

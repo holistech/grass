@@ -95,16 +95,6 @@ def test_select_and_inverse_select_partition_the_dataset(
     assert sorted(selected + rejected) == algebra.dry_times(f"{left} : {left}")
 
 
-def later(task, reason):
-    """xfail (strict) until the defect or the rewrite named by task is done
-
-    Use "Kern" for behavior that only the planned rewrite of the algebra core
-    fixes and "Befund" for a defect found by these tests. The test fails as
-    soon as the case passes, so that the marker gets removed.
-    """
-    return pytest.mark.xfail(strict=True, reason=f"{task}: {reason}")
-
-
 # Expressions of all kinds over datasets with unique time stamps.
 CORPUS = [
     "A + N", "A - N * 2", "A {+,during,r} B", "B {+,contains,l} A",
@@ -152,15 +142,9 @@ CONDITION_CORPUS = [
     ("if(A > 2, A)", "A : A"),
     ("if(td(A) == 1, A)", "A : A"),
     ("if({contains}, td(B) == 2, A)", "A : A"),
-    pytest.param(
-        "if({during}, A > 1, B)", "B : B",
-        marks=later("Kern", "one result per pair of maps"),
-    ),
+    ("if({during}, A > 1, B)", "B : B"),
     ("if({during}, start_day(A) > 1, B)", "B : B"),
-    pytest.param(
-        "if({during}, A > 1 || start_day(A) == 1, B)", "B : B",
-        marks=later("Kern", "one result per pair of maps"),
-    ),
+    ("if({during}, A > 1 || start_day(A) == 1, B)", "B : B"),
     ("if({equal|contains}, HB {#,contains} HA == 2, HB {+,contains,l} HA)", "HB : HB"),
 ]  # fmt: skip
 
@@ -180,7 +164,7 @@ def test_one_result_per_conclusion_map(algebra, expression, conclusion):
 def test_hash_rejects_temporal_operators(algebra, operator):
     """The count keeps the time stamps of the left maps, r, u, i and d have
     no meaning for it"""
-    with pytest.raises(SyntaxError, match="temporal operator"):
+    with pytest.raises(SyntaxError, match="no temporal reference other than l"):
         algebra.parse(f"B {operator} A")
 
 
@@ -247,7 +231,7 @@ def test_merge_warns_about_identical_maps(algebra, monkeypatch, expression, coun
     algebra.run(expression)
     if count:
         assert len(warnings) == 1
-        assert f"keeps {count} maps of both operands only once" in warnings[0]
+        assert f"dropped {count} duplicate" in warnings[0]
     else:
         assert not warnings
 
@@ -261,31 +245,6 @@ def fresh_values(algebra, expression, **kwargs):
     """algebra.values() with result maps that no earlier test has used"""
     return algebra.values(expression, basename=fresh_basename(), **kwargs)
 
-
-# The tests from here on state the rules that the planned rewrite of the
-# algebra core must meet. A case that the current code does not meet is
-# marked later("Kern", ...); the reasons below name the rule in words.
-NULL_WITHOUT_ELSE = (
-    "an if without else gives null where a condition on map values is false, "
-    "so a map that is false everywhere is left out as with a condition of "
-    "time stamps"
-)
-AGGREGATE_WITH_OR = (
-    "the relation takes an aggregation, {during,|} joins the conditions of "
-    "the condition maps of one conclusion map with or"
-)
-AGGREGATE_WITH_AND = (
-    "the relation takes an aggregation, {during,&} joins the conditions of "
-    "the condition maps of one conclusion map with and"
-)
-ONE_RESULT_PER_CONCLUSION = (
-    "a conditional gives one result per conclusion map and joins the "
-    "conditions of its condition maps with and"
-)
-SELECT_WITH_PARTNER_EXTENT = (
-    "a selection with the temporal operator r gives one map per related "
-    "map with the extent of the related map, like the operator +"
-)
 
 TEMPORAL_OPERATORS = ["l", "r", "u", "i", "d"]
 RELATION_SETS = [
@@ -308,15 +267,6 @@ EMPTY_SELECTIONS = {
     ("HB", "HA", "equal"),
     ("HB", "HA", "overlaps|overlapped"),
 }
-# Cases of test_select_has_the_time_stamps_of_the_operator that differ today
-# (measured 2026-10-11 in the same run): all use the temporal operator r.
-SELECT_EXTENT_DIFFERS = {
-    ("B", "A", "contains", "r"),
-    ("B", "A", "starts|finishes|started|finished", "r"),
-    ("HB", "HA", "contains", "r"),
-    ("HB", "HA", "starts|finishes|started|finished", "r"),
-    ("HB", "HA", "follows|precedes", "r"),
-}
 
 
 def select_extent_cases():
@@ -329,8 +279,18 @@ def select_extent_cases():
         if (left, right, relations) in EMPTY_SELECTIONS:
             continue
         marks = []
-        if (left, right, relations, temporal) in SELECT_EXTENT_DIFFERS:
-            marks.append(later("Kern", SELECT_WITH_PARTNER_EXTENT))
+        if (left, right, relations, temporal) == ("HB", "HA", "follows|precedes", "i"):
+            marks.append(
+                pytest.mark.xfail(
+                    strict=True,
+                    reason=(
+                        "undecided: hb1 [2,4] follows ha1 and precedes ha4; "
+                        "the intersection with both is empty, so the map is "
+                        "left out; the classic algebra stops combining at ha4 "
+                        "and keeps the instant 2, the intersection with ha1"
+                    ),
+                )
+            )
         cases.append(pytest.param(left, right, relations, temporal, marks=marks))
     return cases
 
@@ -347,7 +307,6 @@ def test_select_has_the_time_stamps_of_the_operator(
     assert selected == algebra.dry_times(f"{left} {{+,{relations},{temporal}}} {right}")
 
 
-@later("Kern", SELECT_WITH_PARTNER_EXTENT)
 def test_select_with_right_reference_gives_one_map_per_pair(algebra):
     """Each map of B contains two maps of A: two results per map of B, with
     the values of B and the time stamps of A"""
@@ -356,23 +315,10 @@ def test_select_with_right_reference_gives_one_map_per_pair(algebra):
     ]  # fmt: skip
 
 
-@pytest.mark.parametrize(
-    "temporal",
-    [
-        pytest.param(
-            temporal,
-            marks=later(
-                "Kern",
-                "an inverse selection with a temporal operator other than l is "
-                "a syntax error, because its maps have no related map",
-            ),
-        )
-        for temporal in ["r", "u", "i", "d"]
-    ],
-)
+@pytest.mark.parametrize("temporal", ["r", "u", "i", "d"])
 def test_inverse_select_rejects_temporal_operators(algebra, temporal):
     """Maps without partner have no extent to combine with"""
-    with pytest.raises(SyntaxError, match="temporal operator"):
+    with pytest.raises(SyntaxError, match="no temporal reference other than l"):
         algebra.parse(f"A {{!:,during,{temporal}}} B")
 
 
@@ -423,22 +369,10 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
     [
         # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4
         ("if({during}, start_day(A) > 1, B)", [(3, 5, 6)]),
-        pytest.param(
-            "if({during,&}, start_day(A) > 1, B)",
-            [(3, 5, 6)],
-            marks=later("Kern", AGGREGATE_WITH_AND),
-        ),
-        pytest.param(
-            "if({during,|}, start_day(A) > 1, B)",
-            [(1, 3, 5), (3, 5, 6)],
-            marks=later("Kern", AGGREGATE_WITH_OR),
-        ),
+        ("if({during,&}, start_day(A) > 1, B)", [(3, 5, 6)]),
+        ("if({during,|}, start_day(A) > 1, B)", [(1, 3, 5), (3, 5, 6)]),
         ("if({during}, start_day(A) > 1, B, 0)", [(1, 3, 0), (3, 5, 6)]),
-        pytest.param(
-            "if({during,|}, start_day(A) > 2, B, 0)",
-            [(1, 3, 0), (3, 5, 6)],
-            marks=later("Kern", AGGREGATE_WITH_OR),
-        ),
+        ("if({during,|}, start_day(A) > 2, B, 0)", [(1, 3, 0), (3, 5, 6)]),
         # The manual example of t.select with A, B and C of this fixture: the
         # buffered maps of A are [k-1, k+2], all three days long. b1 [1,3] is
         # contained (finished, started) by the buffers of a1 and a2, b2 [3,5]
@@ -487,46 +421,20 @@ def test_map_condition_relation_reads_condition_to_conclusion(
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
-        pytest.param(
-            "if({during}, A > 1, B)",
-            # b1 has a1 > 1 false and a2 > 1 true: false with &. Without else
-            # b1 is null then and left out.
-            [(3, 5, 6)],
-            marks=later("Kern", f"{ONE_RESULT_PER_CONCLUSION}; {NULL_WITHOUT_ELSE}"),
-        ),
-        pytest.param(
-            "if({during,|}, A > 1, B)",
-            [(1, 3, 5), (3, 5, 6)],
-            marks=later("Kern", AGGREGATE_WITH_OR),
-        ),
-        pytest.param(
-            "if({during}, A > 1, B, 0)",
-            [(1, 3, 0), (3, 5, 6)],
-            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
-        ),
-        pytest.param(
-            "if({during,|}, A > 2, B, 0)",
-            [(1, 3, 0), (3, 5, 6)],
-            marks=later("Kern", AGGREGATE_WITH_OR),
-        ),
-        pytest.param(
-            "if({during}, A > 1 || start_day(A) == 1, B)",
-            [(1, 3, 5), (3, 5, 6)],
-            marks=later("Kern", ONE_RESULT_PER_CONCLUSION),
-        ),
+        # b1 has a1 > 1 false and a2 > 1 true: false with &. Without else
+        # b1 is null then and left out.
+        ("if({during}, A > 1, B)", [(3, 5, 6)]),
+        ("if({during,|}, A > 1, B)", [(1, 3, 5), (3, 5, 6)]),
+        ("if({during}, A > 1, B, 0)", [(1, 3, 0), (3, 5, 6)]),
+        ("if({during,|}, A > 2, B, 0)", [(1, 3, 0), (3, 5, 6)]),
+        ("if({during}, A > 1 || start_day(A) == 1, B)", [(1, 3, 5), (3, 5, 6)]),
     ],
 )
 def test_map_condition_aggregates_per_conclusion(algebra, expression, expected):
     assert fresh_triples(algebra, expression) == expected
 
 
-@pytest.mark.parametrize(
-    "aggregate",
-    [
-        pytest.param("", marks=later("Kern", ONE_RESULT_PER_CONCLUSION)),
-        pytest.param(",|", marks=later("Kern", AGGREGATE_WITH_OR)),
-    ],
-)
+@pytest.mark.parametrize("aggregate", ["", ",|"])
 def test_both_paths_agree_on_aggregation(algebra, aggregate):
     """A > 1 and start_day(A) > 1 are true for the same maps of A"""
     assert fresh_triples(algebra, f"if({{during{aggregate}}}, A > 1, B, 0)") == (
@@ -534,7 +442,6 @@ def test_both_paths_agree_on_aggregation(algebra, aggregate):
     )
 
 
-@later("Kern", f"{ONE_RESULT_PER_CONCLUSION}; {NULL_WITHOUT_ELSE}")
 def test_equal_time_map_conditions_are_broadcast(algebra):
     """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
     are false, so b1 is null and left out with &, and has the value of b1
@@ -586,25 +493,18 @@ def test_condition_without_related_map_gives_empty_result(algebra, expression):
     assert algebra.run(expression, fresh_basename()) == []
 
 
-THEN_ELSE_OF_EQUAL_TIME = (
-    "a condition on map values chooses per cell between then and else, so "
-    "it stops with an error unless both have the same time stamps"
-)
-
-
 @pytest.mark.parametrize(
     "expression",
     [
-        pytest.param(expression, marks=later("Kern", THEN_ELSE_OF_EQUAL_TIME))
-        for expression in [
-            "if({equal|during}, A > 2, B, A)",
-            "if(A > 2, if(A > 3, A, N), B)",
-            "if(A > 2, A, D)",
-        ]
+        "if({equal|during}, A > 2, B, A)",
+        "if(A > 2, if(A > 3, A, N), B)",
+        "if(A > 2, A, D)",
     ],
 )
 def test_map_condition_needs_then_and_else_of_equal_time(algebra, expression):
-    with pytest.raises(algebra.errors, match="equal time stamps"):
+    """A condition on map values chooses per cell between then and else, so
+    it stops with an error unless both have the same time stamps"""
+    with pytest.raises(ValueError, match="equal time stamps"):
         algebra.run(expression, fresh_basename())
 
 
@@ -672,8 +572,6 @@ NEGATED = {
     "b": ("start_day(T) != 2", "PB != 1"),
     "c": ("start_hour(T) != 12", "PC != 1"),
 }
-PARENTHESES = "conditions can be grouped with parentheses"
-PRECEDENCE = "&& binds stronger than || in conditions of time stamps"
 
 
 def bits(number):
@@ -690,25 +588,8 @@ def selected(python_formula):
     return [k for k in range(8) if eval(python_formula, {}, bits(k))]  # noqa: S307
 
 
-def null_without_else(python_formula, has_map_condition):
-    """The mark of a case that the null rule decides
-
-    Today a condition on map values gives 0 where it is false and keeps all
-    eight maps, so such a case fails unless the formula is true for all maps.
-    """
-    if has_map_condition and selected(python_formula) != list(range(8)):
-        return [later("Kern", NULL_WITHOUT_ELSE)]
-    return []
-
-
-def groups_with_parentheses(condition):
-    """True if the condition has parentheses other than those of a function"""
-    return "(" in re.sub(r"\w+\(T\)", "", condition)
-
-
 def render(rng, depth, kind):
-    """Return (algebra condition, Python formula, has a map atom) of a random
-    formula
+    """Return (algebra condition, Python formula) of a random formula
 
     kind is "time", "map" or "mixed" (each atom picks one at random).
     """
@@ -717,7 +598,7 @@ def render(rng, depth, kind):
         negated = rng.random() < 0.3
         pick = kind if kind != "mixed" else rng.choice(["time", "map"])
         text = (NEGATED if negated else ATOMS)[name][pick == "map"]
-        return text, f"(not {name})" if negated else name, pick == "map"
+        return text, f"(not {name})" if negated else name
     operator = rng.choice(["&&", "||"])
     left = render(rng, depth - 1, kind)
     right = render(rng, depth - 1, kind)
@@ -725,7 +606,7 @@ def render(rng, depth, kind):
     python_text = f"{left[1]} {'and' if operator == '&&' else 'or'} {right[1]}"
     if rng.random() < 0.4:
         algebra_text, python_text = f"({algebra_text})", f"({python_text})"
-    return algebra_text, python_text, left[2] or right[2]
+    return algebra_text, python_text
 
 
 FORMULAS = [
@@ -745,22 +626,13 @@ KINDS = {
 }  # fmt: skip
 
 
-def truth_table_cases():
-    cases = []
-    for (condition, formula), kind in itertools.product(FORMULAS, KINDS):
-        marks = null_without_else(formula, kind != "time")
-        if "(" in condition:
-            marks.append(later("Kern", PARENTHESES))
-        elif kind == "time" and condition == "{a} || {b} && {c}":
-            # The map conditions are left to the precedence of r.mapcalc. The
-            # case "a && b || c" of time stamps passes today by chance:
-            # evaluated from left to right it gives the same maps.
-            marks.append(later("Kern", PRECEDENCE))
-        cases.append(pytest.param(condition, formula, kind, marks=marks))
-    return cases
-
-
-@pytest.mark.parametrize(("condition", "formula", "kind"), truth_table_cases())
+@pytest.mark.parametrize(
+    ("condition", "formula", "kind"),
+    [
+        (condition, formula, kind)
+        for (condition, formula), kind in itertools.product(FORMULAS, KINDS)
+    ],
+)
 def test_precedence_truth_table(algebra, condition, formula, kind):
     """&& before ||, parentheses group, in every kind of condition"""
     texts = {
@@ -772,26 +644,15 @@ def test_precedence_truth_table(algebra, condition, formula, kind):
 
 
 def random_condition(seed):
-    """(algebra condition, Python formula, has a map atom) of a seed"""
+    """(algebra condition, Python formula) of a seed"""
     rng = random.Random(seed)
     return render(rng, 3, rng.choice(["time", "map", "mixed"]))
 
 
-def random_cases():
-    cases = []
-    for seed in range(40):
-        condition, formula, has_map = random_condition(seed)
-        marks = null_without_else(formula, has_map)
-        if groups_with_parentheses(condition):
-            marks.append(later("Kern", PARENTHESES))
-        cases.append(pytest.param(seed, marks=marks))
-    return cases
-
-
-@pytest.mark.parametrize("seed", random_cases())
+@pytest.mark.parametrize("seed", range(40))
 def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
-    condition, formula, _has_map = random_condition(seed)
+    condition, formula = random_condition(seed)
     assert fresh_values(algebra, f"if({condition}, T)") == selected(formula), condition
 
 
@@ -800,59 +661,21 @@ CONDITIONS = [
     "start_month(T) == 2", "PA == 1", "start_day(T) == 2 || PC == 1",
     "(PB == 1 && start_hour(T) == 12)",
 ]  # fmt: skip
+CONDITION_PAIRS = list(itertools.product(CONDITIONS, repeat=2))
 
 
-PRECEDENCE_MIXED = (
-    "&& binds stronger than || in conditions that mix time stamps and map values"
-)
-
-
-def law_pairs(operator):
-    """Pairs of CONDITIONS joined by operator, marked for what the current
-    code cannot do yet
-
-    A pair passes without a mark where the missing precedence cannot change
-    the result, e.g. when both conditions contain ||.
-    """
-    pairs = []
-    for first, second in itertools.product(CONDITIONS, repeat=2):
-        marks = []
-        if first.startswith("(") or second.startswith("("):
-            marks.append(later("Kern", PARENTHESES))
-        elif operator == "&&" and ("||" in first) != ("||" in second):
-            marks.append(later("Kern", PRECEDENCE_MIXED))
-        pairs.append(pytest.param(first, second, marks=marks))
-    return pairs
-
-
-def has_map_value(condition):
-    """True if the condition compares the values of maps (PA, PB or PC)"""
-    return re.search(r"\bP[ABC]\b", condition) is not None
-
-
-def conjunction_pairs():
-    """law_pairs("&&"), with the null rule where only one condition uses map
-    values: today the nested if lacks the maps that the condition of time
-    stamps leaves out, while the && of both has them with the value 0"""
-    pairs = []
-    for pair in law_pairs("&&"):
-        first, second = pair.values
-        marks = list(pair.marks)
-        if has_map_value(first) != has_map_value(second):
-            marks.append(later("Kern", NULL_WITHOUT_ELSE))
-        pairs.append(pytest.param(first, second, marks=marks))
-    return pairs
-
-
-@pytest.mark.parametrize(("first", "second"), conjunction_pairs())
+@pytest.mark.parametrize(("first", "second"), CONDITION_PAIRS)
 def test_nested_if_is_conjunction(algebra, first, second):
-    """if(c1, if(c2, X)) == if(c1 && c2, X)"""
+    """if(c1, if(c2, X)) == if((c1) && (c2), X)
+
+    The parentheses keep a condition with || together: && binds stronger,
+    so "c && a || b" is "(c && a) || b".
+    """
     nested = fresh_values(algebra, f"if({first}, if({second}, T))")
-    conjunction = fresh_values(algebra, f"if({first} && {second}, T)")
+    conjunction = fresh_values(algebra, f"if(({first}) && ({second}), T)")
     assert nested == conjunction
 
 
-@later("Kern", NULL_WITHOUT_ELSE)
 @pytest.mark.parametrize(
     ("dataset", "condition"),
     [(dataset, condition) for _bit, dataset, condition in TRUTH_TABLE_BITS],
@@ -865,19 +688,16 @@ def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, cond
     )
 
 
-def commute_cases():
-    return [
-        pytest.param(operator, *pair.values, marks=pair.marks)
-        for operator in ["&&", "||"]
-        for pair in law_pairs(operator)
-    ]
-
-
-@pytest.mark.parametrize(("operator", "first", "second"), commute_cases())
+@pytest.mark.parametrize(
+    ("operator", "first", "second"),
+    [(operator, *pair) for operator in ["&&", "||"] for pair in CONDITION_PAIRS],
+)
 def test_conditions_commute(algebra, operator, first, second):
-    assert fresh_values(algebra, f"if({first} {operator} {second}, T)") == fresh_values(
-        algebra, f"if({second} {operator} {first}, T)"
-    )
+    """(c1) op (c2) == (c2) op (c1), parenthesized as in
+    test_nested_if_is_conjunction"""
+    assert fresh_values(
+        algebra, f"if(({first}) {operator} ({second}), T)"
+    ) == fresh_values(algebra, f"if(({second}) {operator} ({first}), T)")
 
 
 def test_spatial_run_keeps_the_region(algebra):

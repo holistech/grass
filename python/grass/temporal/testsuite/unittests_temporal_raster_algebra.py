@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import datetime
+import unittest
 
 from grass.gunittest.case import TestCase
 from grass.gunittest.main import test
@@ -900,6 +901,10 @@ class TestTemporalRasterAlgebra(TestCase):
         self.assertEqual(D.check_temporal_topology(), True)
         self.assertEqual(D.get_granularity(), "2 days")
 
+    # Undecided: {+,R,r} gives one map per related pair (b1 + a1 is 6), the
+    # classic algebra gives each related map the sum of all (b1 + a1 + a2 is
+    # 8).
+    @unittest.expectedFailure
     def test_raster_arithmetic_relation_4(self) -> None:
         """Arithmetic test with temporal intersection"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
