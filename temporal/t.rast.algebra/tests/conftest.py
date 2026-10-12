@@ -258,7 +258,8 @@ class Algebra:
     def parse(self, expression, basename="r", **kwargs):
         """Run "R = <expression>" in-process without reading the result back"""
         self.remove("R")
-        parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, **kwargs)
+        kwargs.setdefault("debug", False)
+        parser = tgis.TemporalRasterAlgebraParser(run=True, **kwargs)
         return parser.parse(f"R = {expression}", basename, True)
 
     def dry_times(self, expression, **kwargs):
