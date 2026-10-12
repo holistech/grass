@@ -115,24 +115,21 @@ def test_syntax_errors(text, message):
 
 
 def test_grammar_has_no_conflicts():
-    """Every ambiguity is settled by the precedence table, not by PLY"""
+    """Every ambiguity is settled by the precedence table, not by PLY
+
+    The log must be empty: it would also show unused tokens and rules.
+    """
     log = io.StringIO()
     build_parser(errorlog=yacc.PlyLogger(log))
-    assert "conflict" not in log.getvalue()
+    assert log.getvalue() == ""
 
 
-def test_conflict_check_sees_a_missing_precedence():
-    """Negative control: without the table PLY does report conflicts"""
-
-    class Unordered(Grammar):
-        # Only the levels for NEGATIVE stay, so that %prec still resolves.
-        precedence = (("right", "NEGATIVE"),)
-
+def test_conflict_check_sees_a_missing_precedence(monkeypatch):
+    """Negative control: build_parser reports the conflicts PLY finds"""
+    # Only the level for NEGATIVE stays, so that %prec still resolves. The
+    # patch touches the class attribute only; parse() uses its own cached
+    # parser, built from the real table, and build_parser caches nothing.
+    monkeypatch.setattr(Grammar, "precedence", (("right", "NEGATIVE"),))
     log = io.StringIO()
-    yacc.yacc(
-        module=Unordered,
-        debug=True,
-        debuglog=yacc.NullLogger(),
-        errorlog=yacc.PlyLogger(log),
-    )
+    build_parser(errorlog=yacc.PlyLogger(log))
     assert "shift/reduce conflicts" in log.getvalue()

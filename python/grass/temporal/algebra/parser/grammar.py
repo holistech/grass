@@ -76,8 +76,8 @@ class Grammar:
     @staticmethod
     def p_negative(p):
         """expression : MINUS expression %prec NEGATIVE"""
-        # A negative number stays a number, so that it can be an offset or an
-        # increment.
+        # A negative literal stays a Number, so that arguments such as the
+        # -1 of start_doy(A, -1) reach the translator as plain numbers.
         if isinstance(p[2], ast.Number):
             p[0] = ast.Number(-p[2].value)
         else:
