@@ -395,11 +395,37 @@ class Translator:
             msg = f"{name}() takes a dataset and an optional offset"
             raise SyntaxError(msg)
         variable = time_functions.timevar(arguments[0], name)
+        _check_time_variable(name, arguments[0])
         if len(arguments) == 1:
             return variable
         # start_doy(A, -1) is the value of the map before, at the time stamp
         # of each map: neighbour() takes the content and keeps the extent.
         return time_functions.neighbour(variable, _whole(arguments[1], name))
+
+
+def _check_time_variable(name, series):
+    """Raise for a temporal variable that a map of series does not have
+
+    timevar() gives null for the end of an instant and for the calendar of
+    relative time. A null condition selects no map, so a slip such as end_doy
+    for start_doy would give an empty result without a word. The classic
+    algebra stops with an error that names the map, and so does this
+    translation. td() of an instant stays null, as in t.rast.mapcalc.
+    """
+    if name == "td":
+        return
+    for slot in series.slots:
+        extent = slot.extent
+        if extent.unit is None and (
+            extent.end is not None or name.startswith("start_")
+        ):
+            continue
+        what = f"map <{slot.origin}>" if slot.origin else f"the map at {extent.start}"
+        msg = (
+            f"Temporal function {name}() is not available for {what}: it needs "
+            "absolute time, and the end functions also an end time"
+        )
+        raise ValueError(msg)
 
 
 def _exactly(name, arguments, count):

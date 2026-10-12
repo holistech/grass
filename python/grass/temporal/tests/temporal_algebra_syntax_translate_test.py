@@ -565,9 +565,26 @@ def test_td_of_an_instant_is_null(translator):
     assert len(run(translator, "if(td(I) > 0, I)")) == 0
 
 
-def test_relative_time_in_conditions(translator):
-    assert len(run(translator, "if(start_month(RT) == 1, RT)")) == 0
-    assert len(run(translator, 'if(start_date(RT) < "2001-01-01", RT)')) == 0
+@pytest.mark.parametrize(
+    ("text", "ident"),
+    [
+        ("if(start_month(RT) == 1, RT)", "x1@PERMANENT"),
+        ('if(start_date(RT) < "2001-01-01", RT)', "x1@PERMANENT"),
+        ("RT + start_doy(RT, -1)", "x1@PERMANENT"),
+        ("if(end_doy(I) > 1, I)", "i1@PERMANENT"),
+        ("I + end_day(I)", "i1@PERMANENT"),
+    ],
+)
+def test_time_variable_that_a_map_lacks_is_an_error(translator, text, ident):
+    """The end of an instant and the calendar of relative time do not exist;
+    the error names the first map without them"""
+    with pytest.raises(ValueError, match=f"<{ident}>"):
+        run(translator, text)
+
+
+def test_time_variables_that_exist_on_instants_and_relative_time(translator):
+    assert len(run(translator, "if(start_day(I) > 1, I)")) == 2
+    assert len(run(translator, "if(td(RT) == 1, RT)")) == 3
 
 
 def test_rfc_examples(translator, datasets):

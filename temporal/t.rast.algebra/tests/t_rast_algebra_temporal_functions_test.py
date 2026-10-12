@@ -78,14 +78,6 @@ def test_start_functions_on_time_instances(time_series, condition, expected):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "undecided: end_* of a time instance and the calendar functions of "
-        "relative time are null, so the condition selects no map and the "
-        "result is empty; the classic algebra stops with an error"
-    ),
-)
 @pytest.mark.parametrize(
     ("expression", "map_id"),
     [
