@@ -27,11 +27,15 @@ series, as the selection L {:,R} X of t.rast.algebra does. Series are
 related only by select(), pairs() and gather(); apply() and where() need
 equal time stamps and never align series silently, and choose() judges each
 slot by the condition of its own time stamp.
+
+Vector maps are combined with the overlays of v.overlay and v.patch, written
+a & b, a | b, a ^ b, a - b and a + b, and buffered with buffer().
 """
 
 from .content import NULL, Call, Const, MapRef, SeriesReduce
 from .operations import (
     apply,
+    buffer,
     cell_offset,
     choose,
     gather,
@@ -76,6 +80,7 @@ __all__ = [
     "Slot",
     "Space",
     "apply",
+    "buffer",
     "cell_offset",
     "choose",
     "contains",

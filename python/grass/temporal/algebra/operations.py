@@ -20,13 +20,16 @@ from ._checks import (
     check_operands,
     check_relation,
     check_series,
+    require,
 )
+from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import NULL, Call, Const, MapRef, SeriesReduce, call
 from .maptypes import DIMENSIONS
 from .relations import related as related_indices
-from .series import Series, Slot
+from .series import Series, Slot, Space
 
 PAIR_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
+SPACES = ("keep", "union", "intersection")
 
 _COMBINE = {
     "union": "temporal_union",
@@ -92,6 +95,43 @@ def _combine(target, others, mode):
     return current
 
 
+def _combined_space(own, others, mode):
+    """The spatial extent of a result slot
+
+    "keep" leaves own. "union" is the box around all extents. An overlay
+    with and lies within all its inputs, so "intersection" is their common
+    box; if they have none, the result is empty and own stays, since no
+    box describes an empty map better.
+    """
+    if mode == "keep" or own is None or any(other is None for other in others):
+        return own
+    boxes = (own, *others)
+    if mode == "union":
+        return Space(
+            max(box.north for box in boxes),
+            min(box.south for box in boxes),
+            max(box.east for box in boxes),
+            min(box.west for box in boxes),
+            max(box.top for box in boxes),
+            min(box.bottom for box in boxes),
+        )
+    common = Space(
+        min(box.north for box in boxes),
+        max(box.south for box in boxes),
+        min(box.east for box in boxes),
+        max(box.west for box in boxes),
+        min(box.top for box in boxes),
+        max(box.bottom for box in boxes),
+    )
+    if (
+        common.north < common.south
+        or common.east < common.west
+        or common.top < common.bottom
+    ):
+        return own
+    return common
+
+
 def select(left, relation, other, *, related=True):
     """Keep the slots l of left for which a slot x of other with "l R x"
     exists (related=True) or none exists (related=False)
@@ -116,7 +156,7 @@ def select(left, relation, other, *, related=True):
     )
 
 
-def pairs(left, relation, other, *, extent="left", content=None):
+def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
     """One slot per pair (l, x) with "l R x"
 
     :param extent: the time stamp of a slot: that of l ("left"), of x
@@ -124,6 +164,10 @@ def pairs(left, relation, other, *, extent="left", content=None):
         pair without intersection is left out
     :param content: function of the contents of l and x that returns the
         content of the slot; the default keeps the content of l
+    :param space: the spatial extent of a slot: that of the slot that the
+        time stamp comes from, x for extent="right" and l otherwise
+        ("keep"), the box around l and x ("union"), or their common box
+        ("intersection"), which keeps the extent of "keep" if there is none
     """
     check_series(left, "left")
     check_relation(relation)
@@ -131,6 +175,7 @@ def pairs(left, relation, other, *, extent="left", content=None):
     if content is not None:
         check_callable(content, "content")
     _check_option("extent", extent, PAIR_EXTENTS)
+    _check_option("space", space, SPACES)
     _check_comparable(left, other)
     matches = related_indices(
         left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
@@ -140,9 +185,13 @@ def pairs(left, relation, other, *, extent="left", content=None):
         for index in found:
             partner = other.slots[index]
             if extent == "right":
-                time, space = partner.extent, partner.space
+                time, own, others = partner.extent, partner.space, [slot.space]
             else:
-                time, space = _combine(slot, [partner], extent), slot.space
+                time, own, others = (
+                    _combine(slot, [partner], extent),
+                    slot.space,
+                    [partner.space],
+                )
             if time is None:
                 continue
             value = (
@@ -150,7 +199,14 @@ def pairs(left, relation, other, *, extent="left", content=None):
                 if content is None
                 else content(slot.content, partner.content)
             )
-            slots.append(Slot(time, value, space, _origin(value, time, slot, partner)))
+            slots.append(
+                Slot(
+                    time,
+                    value,
+                    _combined_space(own, others, space),
+                    _origin(value, time, slot, partner),
+                )
+            )
     sort = left.sort if content is None else _joined_sort(left, other)
     spatial = left.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), left.kind, sort, spatial)
@@ -219,6 +275,13 @@ def _apply(function, operands, name):
         msg = f"{name}() cannot combine series of different map types"
         raise ValueError(msg)
     sort = _joined_sort(*series)
+    if first.kind == "vector" and sort == "field" and function not in VECTOR_FUNCTIONS:
+        msg = (
+            f"{function}() is not an operation on vector maps; they are "
+            f"combined with {', '.join(sorted(VECTOR_FUNCTIONS))} and buffered "
+            "with buffer()"
+        )
+        raise ValueError(msg)
     slots = []
     for index, slot in enumerate(first.slots):
         value = call(function, *(_content_at(operand, index) for operand in operands))
@@ -240,7 +303,8 @@ def apply(function, *operands):
     and maps without time stamp are used in every slot, None is null. There
     is no implicit alignment: relate series with gather() or pairs() first.
     The result is a field if any operand is a field; a scalar result is
-    computed in Python.
+    computed in Python. Vector maps take the overlays and, or, xor, not and
+    disor only.
 
     :raises TypeError: for an operand that is not a Series, a number, a bool,
         None or a content node
@@ -339,6 +403,7 @@ def gather(
     extent="target",
     equal_times="all",
     nulls="propagate",
+    space="keep",
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
@@ -359,6 +424,10 @@ def gather(
         if space takes part in the relation
     :param nulls: "propagate" makes a cell null if a related cell is null,
         "skip" passes over null cells
+    :param space: the spatial extent of a result slot: that of the target
+        ("keep"), the box around the target and its related slots
+        ("union"), or their common box ("intersection"), which keeps the
+        extent of the target if there is none
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     """
@@ -369,6 +438,7 @@ def gather(
     _check_option("extent", extent, GATHER_EXTENTS)
     _check_option("equal_times", equal_times, EQUAL_TIMES)
     _check_option("nulls", nulls, NULLS)
+    _check_option("space", space, SPACES)
     reducers.check(reduce, nulls)
     _check_comparable(target, other)
     sort = reducers.sort_of(reduce, target.sort, other.sort)
@@ -398,9 +468,58 @@ def gather(
         value = reducers.reduce(
             reduce, slot.content, [partner.content for partner in partners], nulls
         )
-        slots.append(Slot(time, value, slot.space, _origin(value, time, slot)))
+        extent_space = _combined_space(
+            slot.space, [partner.space for partner in partners], space
+        )
+        slots.append(Slot(time, value, extent_space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), target.kind, sort, spatial)
+
+
+def _grown(space, distance):
+    """The box of space grown by distance on all six sides, as
+    AbstractMapDataset.spatial_buffer() does
+
+    A negative distance shrinks areas in v.buffer; the box stays, since it
+    still contains the result.
+    """
+    if space is None or distance <= 0:
+        return space
+    return Space(
+        space.north + distance,
+        space.south - distance,
+        space.east + distance,
+        space.west - distance,
+        space.top + distance,
+        space.bottom - distance,
+    )
+
+
+def buffer(series, distance, *, features="area"):
+    """Buffer the features of each vector map, as v.buffer does
+
+    :param distance: the buffer distance in map units; v.buffer shrinks
+        areas for a negative distance
+    :param features: the feature type to buffer: "point", "line" or "area"
+    :raises ValueError: for a series of other maps than vector maps, of
+        scalar values, or for an unknown feature type
+    """
+    check_series(series)
+    require(distance, (int, float), "distance", "a number")
+    _check_option("features", features, tuple(BUFFERS))
+    if series.kind != "vector" or series.sort != "field":
+        msg = f"buffer() buffers vector maps, not {series.kind} {series.sort}s"
+        raise ValueError(msg)
+    function = BUFFERS[features]
+    slots = tuple(
+        Slot(
+            slot.extent,
+            call(function, slot.content, Const(float(distance))),
+            _grown(slot.space, distance),
+        )
+        for slot in series.slots
+    )
+    return replace(series, slots=slots)
 
 
 def _warn(message):

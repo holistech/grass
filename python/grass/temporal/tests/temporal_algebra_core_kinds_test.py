@@ -8,14 +8,19 @@ modules that compute the maps.
 import pytest
 
 from grass.temporal.algebra import (
+    Call,
+    Const,
     MapRef,
     Series,
     Slot,
     Space,
+    apply,
+    buffer,
     cell_offset,
     equal,
     fold,
     gather,
+    pairs,
     plan,
     relation,
     select,
@@ -111,3 +116,112 @@ def test_raster3d_reductions_cannot_skip_null_cells_with_r_series(make_series):
     series = Series((Slot(a.slots[0].extent, content),), kind="raster3d")
     with pytest.raises(ValueError, match=r"r\.series"):
         plan(series, "R")
+
+
+A_BOX = Space(10, 0, 10, 0)
+B_BOX = Space(15, 5, 15, 5)
+FAR_BOX = Space(100, 90, 100, 90)
+
+
+def _vectors(make_series, name, box):
+    return make_series(name, (1, 2), space=box, kind="vector")
+
+
+@pytest.mark.parametrize(
+    ("space", "expected"),
+    [
+        ("keep", A_BOX),
+        ("union", Space(15, 0, 15, 0)),
+        ("intersection", Space(10, 5, 10, 5)),
+    ],
+)
+def test_gather_combines_the_spatial_extents(make_series, space, expected):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    result = gather(a, equal, b, reduce=fold("and"), space=space)
+    assert result.slots[0].space == expected
+
+
+def test_an_empty_intersection_keeps_the_extent_of_the_target(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    far = _vectors(make_series, "b", FAR_BOX)
+    result = gather(a, equal, far, reduce=fold("and"), space="intersection")
+    assert result.slots[0].space == A_BOX
+
+
+def test_pairs_combine_the_spatial_extents(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    result = pairs(a, equal, b, extent="right", space="union")
+    assert result.slots[0].space == Space(15, 0, 15, 0)
+
+
+def test_unknown_space_mode(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    with pytest.raises(ValueError, match="space"):
+        gather(a, equal, a, reduce=None, space="both")
+
+
+def test_buffer_grows_the_spatial_extent_and_builds_the_content(make_series):
+    a = make_series(
+        "a", (1, 2), space=Space(10, 0, 10, 0, top=1, bottom=0), kind="vector"
+    )
+    result = buffer(a, 2, features="point")
+    slot = result.slots[0]
+    assert slot.space == Space(12, -2, 12, -2, top=3, bottom=-2)
+    assert slot.content == Call("buff_p", (MapRef("a1@PERMANENT"), Const(2.0)))
+    # A buffered map is a new map, not the registered one.
+    assert slot.origin is None
+
+
+def test_a_negative_buffer_keeps_the_spatial_extent(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    assert buffer(a, -1).slots[0].space == A_BOX
+
+
+@pytest.mark.parametrize(
+    ("kind", "features", "distance", "error"),
+    [
+        ("raster", "area", 1, ValueError),
+        ("vector", "polygon", 1, ValueError),
+        ("vector", "area", "1", TypeError),
+    ],
+)
+def test_buffer_arguments(make_series, kind, features, distance, error):
+    a = make_series("a", (1, 2), space=A_BOX, kind=kind)
+    with pytest.raises(error):
+        buffer(a, distance, features=features)
+
+
+@pytest.mark.parametrize(
+    ("operation", "expected"),
+    [
+        (lambda a, b: a & b, "and"),
+        (lambda a, b: a | b, "or"),
+        (lambda a, b: a ^ b, "xor"),
+        (lambda a, b: a + b, "disor"),
+        (lambda a, b: a - b, "not"),
+    ],
+)
+def test_python_operators_on_vector_maps_are_overlays(make_series, operation, expected):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    assert operation(a, b).slots[0].content.function == expected
+
+
+@pytest.mark.parametrize("function", ["*", ">", "&&", "if", "buff_a"])
+def test_other_functions_on_vector_maps(make_series, function):
+    a = _vectors(make_series, "a", A_BOX)
+    with pytest.raises(ValueError, match="vector"):
+        apply(function, a, a)
+
+
+def test_scalar_values_of_vector_maps_are_numbers(make_series):
+    days = make_series("a", (1, 2), values=[3], kind="vector")
+    assert (days - 1).slots[0].content == Const(2)
+
+
+def test_xor_of_raster_maps_is_the_function_of_r_mapcalc(make_series):
+    a = make_series("a", (1, 2))
+    b = make_series("b", (1, 2))
+    assert (a ^ b).slots[0].content.function == "xor"

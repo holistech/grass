@@ -9,6 +9,11 @@ KINDS = ("raster", "raster3d", "vector")
 SORTS = ("field", "scalar")
 
 
+# The operators of vector maps are overlays (v.overlay, v.patch); scalar
+# values of vector maps, such as td(), keep the arithmetic of numbers.
+_VECTOR_OPERATORS = {"&&": "and", "||": "or", "xor": "xor", "+": "disor", "-": "not"}
+
+
 @dataclass(frozen=True)
 class Extent:
     """A time stamp: an interval, or an instant if end is None
@@ -75,6 +80,9 @@ class Series:
     bool. Therefore bool(series) raises, so that "assert a == b" cannot pass
     for a comparison of contents, and a series is not hashable because it has
     no value-based equality to hash; compare the slots to compare contents.
+
+    For vector maps, &, |, ^, + and - are the overlays and, or, xor, disor
+    and not; ^ is xor() of r.mapcalc for raster maps.
     """
 
     slots: tuple[Slot, ...] = ()
@@ -137,6 +145,8 @@ class Series:
         # Imported here: operations imports this module.
         from .operations import apply
 
+        if self.kind == "vector" and self.sort == "field":
+            function = _VECTOR_OPERATORS.get(function, function)
         return apply(function, *operands)
 
     def __add__(self, other):
@@ -201,6 +211,12 @@ class Series:
 
     def __ror__(self, other):
         return self._apply("||", other, self)
+
+    def __xor__(self, other):
+        return self._apply("xor", self, other)
+
+    def __rxor__(self, other):
+        return self._apply("xor", other, self)
 
     def __invert__(self):
         return self._apply("!", self)

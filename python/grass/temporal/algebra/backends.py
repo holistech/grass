@@ -18,6 +18,17 @@ _FUNCTIONS = frozenset(
 )
 
 
+# The overlays of vector maps: the content names the operator of v.overlay,
+# and "disor" is the name of the classic algebra for v.patch. They are not
+# r.mapcalc operators, so a vector content can never be read as an
+# expression of r.mapcalc.
+OVERLAYS = {"and": "and", "or": "or", "xor": "xor", "not": "not"}
+PATCH = "disor"
+VECTOR_FUNCTIONS = frozenset({*OVERLAYS, PATCH})
+# The feature type of v.buffer to the content name of a buffer.
+BUFFERS = {"point": "buff_p", "line": "buff_l", "area": "buff_a"}
+
+
 @dataclass(frozen=True)
 class ModuleCall:
     """A planned module call: the module and its parameters"""
