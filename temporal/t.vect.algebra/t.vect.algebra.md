@@ -456,8 +456,10 @@ Since GRASS 8.6, two corrections of the temporal algebra apply to
 *t.vect.algebra* as to *t.rast.algebra*, *t.rast3d.algebra* and
 *t.select*. First, `if({R}, condition, conclusion)` reads
 "condition R conclusion": `if({contains}, start_doy(A) > 0, B)` gives the
-maps of B that lie within a map of A, where earlier versions gave the maps
-of B that contain a map of A. Second, with a temporal relation beyond
+maps of B that lie within a map of A. The code that *t.vect.algebra*
+shares with *t.select* read such relations the other way round before;
+*t.vect.algebra* of GRASS 8.4 stops with an error on conditions on
+temporal variables. Second, with a temporal relation beyond
 `equal`, the else part of a condition on temporal variables also takes the
 maps that no condition map is related to. Figure A3 of Gebbert, Leppelt
 and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and 5

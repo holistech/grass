@@ -698,8 +698,10 @@ In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, the new algebra raises `ValueError` or
 `TypeError`, where the classic algebra raises `FatalError`. Both raise
 `FatalError` for a missing dataset or map and, without overwrite, for an
-existing result dataset or map. The tool stops with the error message in
-both algebras.
+existing result dataset or map; a dry run of the classic algebra stops only
+at an existing result map. The classic algebra raises `FatalError` only
+after `tgis.init(raise_fatal_error=True)`; otherwise it raises
+`SystemExit`. The tool stops with the error message in both algebras.
 
 Two corrections apply to both algebras, so **-c** gives the rules of the
 previous algebra, not the results of a particular release. First,
