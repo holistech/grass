@@ -1,5 +1,7 @@
 """Tests for the operators in braces of the temporal algebra syntax"""
 
+import re
+
 import pytest
 
 from grass.temporal.algebra.parser.operators import TemporalOperator, parse_operator
@@ -47,5 +49,5 @@ def test_parse_operator(text, expected):
     ],
 )
 def test_parse_operator_errors(text, message):
-    with pytest.raises(SyntaxError, match=message):
+    with pytest.raises(SyntaxError, match=re.escape(message)):
         parse_operator(text)
