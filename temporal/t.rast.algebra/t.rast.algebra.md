@@ -242,21 +242,21 @@ by logical operators and evaluated for each map of the STRDS.
 The relation reads from the condition to the conclusion:
 `if({contains}, condition, A)` takes the maps of A that lie within a map
 of the condition. A map of the then part gets a result only if it has a
-condition map in the given temporal relation. With a relation beyond
-`equal`, the else part is also taken for the maps that no condition map
-is related to, while the then part leaves them out. `if({equal}, ...)` and
-`if(...)` take no such maps, because the condition speaks of maps with
-equal time only. In this expression each map of B that contains two maps
-of A becomes the sum of these three maps, and the maps of A outside of B
-are kept unchanged by the else part:
+condition map in the given temporal relation. For a condition on
+temporal variables and a temporal relation beyond `equal`, the else part
+is also taken for the maps that no condition map is related to, while the
+then part leaves them out. `if({equal}, ...)` and `if(...)` take no such
+maps, because the condition speaks of maps with equal time only, and
+neither does a condition on map values. In this expression each map of B
+that contains two maps of A becomes the sum of these three maps, and the
+maps of A outside of B are kept unchanged by the else part:
 
 ```sh
 C = merge(if({equal|contains}, B {#,contains} A == 2, B {+,contains,l} A, A), A {!:,during} B)
 ```
 
 The result stays the same without the `merge()` and the inverse select
-operator, which were needed before the else part took the maps without
-condition map.
+operator, because the else part takes the maps without condition map.
 
 Several maps with equal time stamps cannot be told apart by their time.
 An arithmetic operator aggregates them (`E + E` adds all maps of a time

@@ -429,8 +429,9 @@ def test_else_takes_the_maps_outside_of_the_condition_maps(algebra):
 
 
 def test_complement_with_merge(algebra):
-    """The manual example: maps without condition map are added with merge()
-    and the inverse select operator"""
+    """The manual example: merge() keeps maps that both operands share once,
+    so the maps outside of HB, which else takes and the inverse select
+    operator selects, appear a single time"""
     assert algebra.triples(f"merge({CONDITION_HB}, {OUTSIDE_HB})") == [
         (1, 2, 1),
         (2, 4, 12),

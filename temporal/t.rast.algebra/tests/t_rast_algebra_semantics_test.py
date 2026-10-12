@@ -265,9 +265,6 @@ def fresh_values(algebra, expression, **kwargs):
 # The tests from here on state the rules that the planned rewrite of the
 # algebra core must meet. A case that the current code does not meet is
 # marked later("Kern", ...); the reasons below name the rule in words.
-WRONG_DIRECTION = (
-    "the relation of a condition reads from the condition map to the conclusion map"
-)
 NULL_WITHOUT_ELSE = (
     "an if without else gives null where a condition on map values is false, "
     "so a map that is false everywhere is left out as with a condition of "
@@ -526,7 +523,7 @@ def test_map_condition_aggregates_per_conclusion(algebra, expression, expected):
 @pytest.mark.parametrize(
     "aggregate",
     [
-        pytest.param("", marks=later("Kern", WRONG_DIRECTION)),
+        pytest.param("", marks=later("Kern", ONE_RESULT_PER_CONCLUSION)),
         pytest.param(",|", marks=later("Kern", AGGREGATE_WITH_OR)),
     ],
 )

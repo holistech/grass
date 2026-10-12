@@ -558,6 +558,8 @@ def test_if_then_else(session, expression, expected):
 
     The relation in braces connects condition and branches, equal by default.
     It reads from the condition to the branch: C contains A, A is during C.
+    With {follows} the condition maps follow the branch maps (B precedes A),
+    so these cases name the relation of the condition to the branch.
     """
     assert dry_register(f"R = {expression}") == maps(*expected)
 
