@@ -110,5 +110,8 @@ def _module(call, overwrite):
 
 
 def _command(call):
-    arguments = (f"{key}={value}" for key, value in call.parameters.items())
+    arguments = (
+        f"{key}={','.join(value) if isinstance(value, tuple) else value}"
+        for key, value in call.parameters.items()
+    )
     return " ".join((call.name, *arguments))

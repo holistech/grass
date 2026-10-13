@@ -302,7 +302,10 @@ def test_a_vector_map_with_a_new_time_stamp_is_copied(make_series):
     chain = plan(retime(a, shift="1 day"), "R")
     [call] = chain.processes
     assert call.name == "g.copy"
-    assert call.parameters == {"vector": f"a1@PERMANENT,{chain.maps[0].name}"}
+    # pygrass.modules.Module takes the from,to pair of g.copy only as a tuple;
+    # a string "from,to" raises TypeError (seen 2026-10-13 with tshift() in
+    # the tests of t.vect.algebra).
+    assert call.parameters == {"vector": ("a1@PERMANENT", chain.maps[0].name)}
 
 
 def test_unchanged_raster_maps_are_still_computed(make_series):

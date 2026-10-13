@@ -315,7 +315,7 @@ class VectorBackend:
         def compute(node, target):
             match node:
                 case MapRef(ident=ident, offset=()):
-                    calls.append(ModuleCall("g.copy", {"vector": f"{ident},{target}"}))
+                    calls.append(ModuleCall("g.copy", {"vector": (ident, target)}))
                 case Call(function=function, args=(first, second)) if (
                     function in OVERLAYS
                 ):
