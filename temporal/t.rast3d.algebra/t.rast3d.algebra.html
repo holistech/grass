@@ -4,7 +4,7 @@
 operations on space time 3D raster datasets (STR3DS) by using the
 temporal 3D raster algebra.
 
-<h3>NOTES</h3>
+<h2>NOTES</h2>
 
 The module expects an <b>expression</b> as input parameter in the following form:
 <p>
@@ -36,26 +36,186 @@ dimensions: two maps with the same depth range are not related as
 <em>overlap</em>, even if they overlap in the horizontal plane.
 
 <p>
-<em>t.rast3d.algebra</em> computes with the classic algebra, which the
-section "Core and classic algebra" in the NOTES of
-<a href="t.rast.algebra.html">t.rast.algebra</a> describes. The rules given
-there for the new algebra do not apply to it yet: for example, conditions on
-temporal variables are evaluated from left to right, and <code>if</code>
-without else gives 0 where a condition on map values is false.
+Maps that are related in space are computed in the current 3D region, in both
+algebras: <em>r3.mapcalc</em> cannot compute in the union of the regions of
+its input maps.
+
+<h3>Core and classic algebra</h3>
+
+Since GRASS 8.6, <em>t.rast3d.algebra</em> computes its expressions with the
+functions of the Python package <code>grass.temporal.algebra</code>, as
+<em>t.rast.algebra</em> does. The previous implementation stays available as
+the classic algebra, so that published results remain reproducible. The flag
+<b>-c</b> selects it for one call, the environment variable
+<code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
+<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset variable selects the new
+algebra, and the flag takes precedence over the variable. In Python,
+<code>TemporalRaster3DAlgebraParser</code> takes the keyword
+<code>classic=True</code> for the same purpose. The granularity mode
+(<b>-g</b>) always uses the classic algebra.
 
 <p>
-Since GRASS 8.6, two corrections of the temporal algebra apply to
-<em>t.rast3d.algebra</em> as to <em>t.rast.algebra</em>,
-<em>t.select</em> and <em>t.vect.algebra</em>. First, <code>if({R}, condition, conclusion)</code>
-reads "condition R conclusion": <code>if({contains}, start_doy(A) &gt; 0, B)</code>
-gives the maps of B that lie within a map of A, where earlier versions gave
-the maps of B that contain a map of A. Second, with a temporal relation beyond
-<code>equal</code>, the else part of a condition on temporal variables also
-takes the maps that no condition map is related to. Figure A3 of Gebbert,
-Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and
-5 to 7 of January 2001, B has daily maps from day 1 to 10, and this
-expression gives the first two maps of A and the maps of B from day 5 on, as
-the figure shows:
+The two algebras differ in the following points. The examples use four daily
+3D raster maps in A with the values 1 to 4, two maps of two days in B that
+start with A, and time instances in I.
+
+<ol>
+<li><b>One result per conclusion map.</b> If a map of the conclusion of an
+<code>if</code> has several related condition maps, their conditions are
+joined with and; written as <code>{during,|}</code>, the relation joins them
+with or. The classic algebra gives one result for each pair of condition map
+and conclusion map, so that a conclusion map can occur several times, and does
+not read the form <code>{during,|}</code>. The first expression keeps the
+cells of B where both maps of A within the map of B are greater than 1, the
+second where one of them is:
+
+<div class="code"><pre>
+C = if({during}, A &gt; 1, B, 0)
+C = if({during,|}, A &gt; 1, B, 0)
+</pre></div>
+</li>
+
+<li><b>Equal time stamps for then and else.</b> With a condition on map
+values, the then and the else part need equal time stamps; otherwise the
+algebra stops with an error. The classic algebra computes only the maps whose
+time stamp occurs in both parts and leaves out the others without notice. This
+expression is therefore an error, where the classic algebra gives an empty
+result:
+
+<div class="code"><pre>
+C = if(A &gt; 2, A, B)
+</pre></div>
+</li>
+
+<li><b>Precedence.</b> <code>&amp;&amp;</code> binds stronger than
+<code>||</code>, and conditions can be grouped with parentheses. The classic
+algebra evaluates conditions on temporal variables from left to right and does
+not accept parentheses around conditions. The first expression takes all maps
+of A, because <code>td(A) == 1</code> is true for each of them; the classic
+algebra reads it as the second expression and takes none:
+
+<div class="code"><pre>
+C = if(td(A) == 1 || td(A) == 2 &amp;&amp; td(A) == 3, A)
+C = if((td(A) == 1 || td(A) == 2) &amp;&amp; td(A) == 3, A)
+</pre></div>
+</li>
+
+<li><b>Right reference.</b> <code>A {:,R,r} B</code> and
+<code>A {op,R,r} B</code> give one map per related pair, with the time stamp
+of the right map and, for an operator, the value of this pair. The classic
+algebra keeps only the last pair of a selection, and an operator combines the
+left map with all of its related right maps in every result. The first
+expression gives four maps, the time stamps of A with the values of B; the
+classic algebra gives one map per map of B. If a map b1 contains the maps a1
+and a2, the second expression gives <code>b1 + a1</code> and
+<code>b1 + a2</code>, the classic algebra <code>b1 + a1 + a2</code> for both:
+
+<div class="code"><pre>
+C = B {:,contains,r} A
+C = B {+,contains,r} A
+</pre></div>
+
+<p>
+The inverse selection <code>A {!:,R,t} B</code> takes only the temporal
+operator <code>l</code>, because its maps have no related map to combine with;
+the classic algebra accepts the other operators.
+</li>
+
+<li><b>if without else.</b> An <code>if</code> without else gives null where a
+condition on map values is false; the classic algebra gives 0 there, like the
+<code>if()</code> of <em>r3.mapcalc</em> with two arguments. A map that is
+false everywhere is not registered unless <b>-n</b> is set. This expression
+registers the maps of value 3 and 4, with <b>-n</b> also the first two maps as
+null maps; the classic algebra registers four maps, the first two with the
+value 0:
+
+<div class="code"><pre>
+C = if(A &gt; 2, A)
+</pre></div>
+</li>
+
+<li><b>td() of a time instance</b> is null instead of an error, so a condition
+on it is neither true nor false. This expression gives no map; the classic
+algebra stops with an error:
+
+<div class="code"><pre>
+C = if(td(I) &gt; 0, I)
+</pre></div>
+
+<p>
+A temporal variable that a map does not have, such as <code>end_doy()</code>
+of a time instance or the calendar values of relative time, is an error in
+both algebras.
+</li>
+
+<li><b>Spatial relations need -s.</b> A spatial relation in an operator, such
+as <code>{+,equal|overlap}</code>, needs the flag <b>-s</b>; without it, the
+algebra stops with an error. The classic algebra gives an empty result.
+</li>
+
+<li><b>More syntax.</b> Comparisons, temporal functions and the minus sign may
+stand anywhere in an expression, and a dataset may have the name of a
+function. The classic algebra reports a syntax error for each of these
+expressions; the last one adds 1 to a dataset named <code>td</code>:
+
+<div class="code"><pre>
+C = A
+C = -A + 10
+C = A &gt; 2
+C = A + start_doy(A)
+C = isnull(A)
+C = td + 1
+</pre></div>
+</li>
+
+<li><b>Maps without time stamp in arithmetic.</b> An expression of maps
+without time stamp, such as <code>map(L) + 1</code>, can be combined with
+space time datasets. This expression is a syntax error in the classic algebra:
+
+<div class="code"><pre>
+C = A * (map(L) + 1)
+</pre></div>
+</li>
+
+<li><b>Intersection with several related maps.</b> With the temporal operator
+<code>i</code>, a map whose related maps have no common intersection is left
+out. The classic algebra intersects the map with its related maps until the
+first one that has no common time with the result so far, so that its result
+depends on the order of the related maps. If a dataset H has a map from day 2
+to day 4, this map follows the map of A of day 1 and precedes the one of day
+4; the intersections are the time instances of day 2 and day 4, and the map is
+left out:
+
+<div class="code"><pre>
+C = H {:,follows|precedes,i} A
+</pre></div>
+</li>
+</ol>
+
+In Python, both algebras raise <code>SyntaxError</code> for an expression they
+cannot read. For one they cannot compute, such as
+<code>if(end_doy(I) &gt; 0, I)</code>, the new algebra raises
+<code>ValueError</code> or <code>TypeError</code>, where the classic algebra
+raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
+missing dataset and, without overwrite, for an existing result. Without
+<code>tgis.init(raise_fatal_error=True)</code>, the classic algebra raises
+<code>SystemExit</code> instead of <code>FatalError</code> for some of these
+errors, such as an existing result. The tool stops with the error message in
+both algebras.
+
+<p>
+Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
+<em>t.select</em> and <em>t.vect.algebra</em> as well, so <b>-c</b> gives the
+rules of the previous algebra, not the results of a particular release. First,
+<code>if({R}, condition, conclusion)</code> reads "condition R conclusion":
+<code>if({contains}, start_doy(A) &gt; 0, B)</code> gives the maps of B that
+lie within a map of A, where earlier versions gave the maps of B that contain
+a map of A. Second, with a temporal relation beyond <code>equal</code>, the
+else part of a condition on temporal variables also takes the maps that no
+condition map is related to. Figure A3 of Gebbert, Leppelt and Pebesma (2019)
+needs both: A has maps from day 1 to 3, 3 to 5 and 5 to 7 of January 2001, B
+has daily maps from day 1 to 10, and this expression gives the first two maps
+of A and the maps of B from day 5 on, as the figure shows:
 
 <div class="code"><pre>
 C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)
