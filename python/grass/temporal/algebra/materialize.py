@@ -217,8 +217,8 @@ def _module(call, overwrite):
     return module
 
 
-def _overlay_inputs_usable(call, produced, mapset):
-    """Tell whether v.overlay can run on its inputs
+def _overlay_inputs_usable(call, produced, mapset, result):
+    """Tell whether v.overlay can run on its inputs for the map result
 
     v.overlay fails on inputs without areas (measured 2026-10-13 in grass
     --tmp-project XY: "No auto features found" for an empty map, "Invalid
@@ -227,19 +227,22 @@ def _overlay_inputs_usable(call, produced, mapset):
     from an overlay whose inputs do not meet; the result map is then empty
     and dropped, as in the classic algebra.
 
-    :raises FatalError: for an input of the expression without areas
+    :raises FatalError: for a missing input, and for an input of the
+        expression without areas
     """
     for name in (call.parameters["ainput"], call.parameters["binput"]):
         ident = name if "@" in name else f"{name}@{mapset}"
         map_ = VectorDataset(ident)
-        intermediate = name in produced
+        # Also for an intermediate map: v.overlay writes its output even
+        # when it is empty (checked 2026-10-13 in grass --tmp-project XY with
+        # two squares apart: exit 0, an output map with 0 primitives), so a
+        # missing one is a fault, and the result map must not disappear
+        # without a message.
         if not map_.map_exists():
-            if not intermediate:
-                raise FatalError(_("Vector map <{name}> not found").format(name=ident))
-            return False
+            raise FatalError(_("Vector map <{name}> not found").format(name=ident))
         map_.load()
         if not map_.metadata.get_number_of_areas():
-            if not intermediate:
+            if name not in produced:
                 raise FatalError(
                     _("Vector map <{name}> has no areas, v.overlay needs areas").format(
                         name=ident
@@ -247,8 +250,9 @@ def _overlay_inputs_usable(call, produced, mapset):
                 )
             get_tgis_message_interface().warning(
                 _(
-                    "Dropping a result map: intermediate map <{name}> has no areas"
-                ).format(name=ident)
+                    "Result map <{result}> is left out: intermediate map <{name}> "
+                    "has no areas"
+                ).format(result=result, name=ident)
             )
             return False
     return True
@@ -266,7 +270,7 @@ def _run_vector(chain, overwrite):
     for planned in chain.maps:
         for call in planned.calls:
             if call.name == "v.overlay" and not _overlay_inputs_usable(
-                call, produced, mapset
+                call, produced, mapset, planned.name
             ):
                 dropped.append(planned.name)
                 break

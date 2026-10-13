@@ -12,6 +12,7 @@ import pytest
 import grass.temporal as tgis
 import grass.temporal.algebra as ta
 from grass.exceptions import FatalError
+from grass.temporal.algebra.backends import ModuleCall
 from grass.tools import Tools
 
 
@@ -139,11 +140,17 @@ def test_an_input_map_without_areas_stops_the_overlay_also_when_kept(
         ta.materialize(ta.merge(pa, overlaid), "core_kept", overwrite=True)
 
 
-def test_an_empty_intermediate_map_drops_the_result(vector_series):
+def test_an_empty_intermediate_map_drops_the_result(vector_series, monkeypatch):
     aa = ta.source("aa", stds_type="stvds")
     ab = ta.source("ab", stds_type="stvds")
     ac = ta.source("ac", stds_type="stvds")
     first = ta.gather(aa, ta.equal, ab, reduce=ta.fold("and"))
+    warnings = []
+    monkeypatch.setattr(
+        importlib.import_module("grass.temporal.algebra.materialize"),
+        "get_tgis_message_interface",
+        lambda: SimpleNamespace(warning=warnings.append),
+    )
     ta.materialize(
         ta.gather(first, ta.equal, ac, reduce=ta.fold("and")),
         "core_drop",
@@ -155,6 +162,28 @@ def test_an_empty_intermediate_map_drops_the_result(vector_series):
     # the overlay with ac has no areas to work on and that map is dropped
     # before it is computed.
     assert _maps("core_drop") == [("core_drop_0@PERMANENT", 1)]
+    # The warning names the map the user misses, not only the temporary one.
+    assert warnings == [
+        "Result map <core_drop_2> is left out: intermediate map "
+        "<core_drop_2_tmp0@PERMANENT> has no areas"
+    ]
+
+
+def test_a_missing_intermediate_map_is_an_error(vector_series):
+    # v.overlay writes its output even when it is empty, so this guards an
+    # invariant: a result map must not disappear without a message.
+    materialize = importlib.import_module("grass.temporal.algebra.materialize")
+    call = ModuleCall(
+        "v.overlay",
+        {
+            "ainput": "nosuch_tmp0",
+            "binput": "aa1@PERMANENT",
+            "operator": "and",
+            "output": "nosuch",
+        },
+    )
+    with pytest.raises(FatalError, match=r"<nosuch_tmp0@PERMANENT>"):
+        materialize._overlay_inputs_usable(call, {"nosuch_tmp0"}, "PERMANENT", "nosuch")
 
 
 def test_buffer_of_points(vector_series):
