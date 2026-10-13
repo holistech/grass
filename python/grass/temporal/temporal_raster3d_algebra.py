@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-
+from .algebra.parser import evaluate
 from .space_time_datasets import Raster3DDataset
 from .temporal_raster_base_algebra import TemporalRasterBaseAlgebraParser
 
@@ -33,9 +33,14 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         dry_run: bool = False,
         nprocs: int = 1,
         time_suffix=None,
+        classic: bool | None = None,
     ) -> None:
         """Create the parser; the defaults ``run=False, debug=True`` differ from
-        the base class and are kept for compatibility with existing callers"""
+        the base class and are kept for compatibility with existing callers
+
+        classic selects the classic algebra of this module (True) or the
+        algebra core (False).
+        """
         TemporalRasterBaseAlgebraParser.__init__(
             self,
             pid=pid,
@@ -47,6 +52,38 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
             nprocs=nprocs,
             time_suffix=time_suffix,
         )
+        self.classic = classic
+
+    def parse(self, expression, basename=None, overwrite=False):
+        """Parse the expression and compute the result
+
+        The expression is translated onto grass.temporal.algebra, unless the
+        classic algebra of this module is selected (see __init__). The common
+        granularity mode runs with the classic algebra, because the
+        translation does not cover it yet.
+
+        :return: the process chain dictionary
+        """
+        if self._classic() or self.use_granularity:
+            return super().parse(expression, basename, overwrite)
+        return evaluate(
+            expression,
+            kind="raster3d",
+            basename=basename,
+            overwrite=overwrite,
+            run=self.run,
+            dry_run=self.dry_run,
+            debug=self.debug,
+            spatial=self.spatial,
+            register_null=self.register_null,
+            nprocs=self.nprocs,
+            time_suffix=self.time_suffix,
+        )
+
+    def _classic(self):
+        # Only an explicit classic=False selects the core here, until the
+        # tests of t.rast3d.algebra hold for both algebras.
+        return True if self.classic is None else self.classic
 
     def _create_mapcalc_module(self, spatial):
         """Return the not yet executed r3.mapcalc module"""

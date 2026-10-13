@@ -10,6 +10,7 @@ import grass.temporal as tgis
 import grass.temporal.algebra as ta
 from grass.exceptions import FatalError
 from grass.temporal.algebra.materialize import check_absent
+from grass.tools import Tools
 
 
 def test_source_reads_a_space_time_3d_raster_dataset(series_3d):
@@ -71,3 +72,39 @@ def test_check_absent_finds_existing_3d_maps(series_3d):
     chain = ta.plan(a, "core_other", basename="core_maps")
     with pytest.raises(FatalError, match="exists"):
         check_absent(chain)
+
+
+def _parse(expression, name, **keywords):
+    parser = tgis.TemporalRaster3DAlgebraParser(run=True, debug=False, **keywords)
+    return parser.parse(f"{name} = {expression}", name, True)
+
+
+def test_parser_runs_the_core_with_classic_false(series_3d):
+    _parse("A + B", "fac_sum", classic=False)
+    assert [row[1] for row in _values("fac_sum")] == [11, 22, 33, 44]
+
+
+def test_parser_reads_3d_cell_offsets(series_3d):
+    _parse("D[0,0,1]", "fac_offset", classic=False)
+    # d holds the depth of each cell; one layer deeper the top layer reads
+    # outside the region, which is null. Checked 2026-10-13 with r3.mapcalc
+    # "o = d[0,0,1]" on the 3x3x3 region: min=2, max=3.
+    assert [row[1:] for row in _values("fac_offset")][0] == (2, 3)
+
+
+def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
+    tools = Tools(session=series_3d.session, overwrite=True)
+    tools.r_mapcalc(expression="flat = 1")
+    tools.t_create(
+        output="flat", type="strds", temporaltype="absolute", title="f", description="f"
+    )
+    tools.t_register(input="flat", maps="flat", start="2001-01-01", end="2001-01-02")
+    with pytest.raises(FatalError, match="not found"):
+        _parse("flat + A", "fac_flat", classic=False)
+
+
+def test_without_keyword_the_parser_stays_classic_for_now(series_3d, monkeypatch):
+    monkeypatch.delenv("GRASS_TEMPORAL_ALGEBRA", raising=False)
+    # if() without else gives 0 in the classic algebra and null in the core.
+    _parse("if(A > 2, A)", "fac_default")
+    assert len(_values("fac_default")) == 4

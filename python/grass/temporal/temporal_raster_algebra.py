@@ -52,20 +52,16 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-import os
-
 from .algebra.parser import evaluate
+from .algebra.parser.switch import (  # noqa: F401, imported by callers and tests
+    ALGEBRA_VARIABLE,
+    DEFAULT_ALGEBRA,
+    classic_selected,
+)
 from .temporal_raster_base_algebra import (
     TemporalRasterAlgebraLexer,  # noqa: F401, used by the doctest above
     TemporalRasterBaseAlgebraParser,
 )
-
-#: Selects the algebra when the parser is created without classic=True or
-#: classic=False: "core" translates the expression onto
-#: grass.temporal.algebra, "classic" runs the parser of this module. The
-#: classic algebra stays, because published results rely on it.
-ALGEBRA_VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
-DEFAULT_ALGEBRA = "core"
 
 
 class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
@@ -128,13 +124,7 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
         )
 
     def _classic(self):
-        if self.classic is not None:
-            return self.classic
-        choice = os.environ.get(ALGEBRA_VARIABLE, DEFAULT_ALGEBRA)
-        if choice not in ("core", "classic"):
-            msg = f"{ALGEBRA_VARIABLE} is core or classic, not {choice!r}"
-            raise ValueError(msg)
-        return choice == "classic"
+        return classic_selected(self.classic)
 
     def p_ts_neighbour_operation(self, t) -> None:
         # Spatial and temporal neighbour operations via indexing

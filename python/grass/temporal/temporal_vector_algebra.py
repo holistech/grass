@@ -46,6 +46,7 @@ import copy
 
 import grass.pygrass.modules as pygrass
 
+from .algebra.parser import evaluate
 from .space_time_datasets import VectorDataset
 from .temporal_algebra import TemporalAlgebraLexer, TemporalAlgebraParser
 
@@ -132,16 +133,26 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         run: bool = False,
         debug: bool = True,
         spatial: bool = False,
+        classic: bool | None = None,
     ) -> None:
+        """Create the parser
+
+        classic selects the classic algebra of this module (True) or the
+        algebra core (False).
+        """
         TemporalAlgebraParser.__init__(self, pid, run, debug, spatial)
 
         self.m_overlay = self._new_module("v.overlay", quiet=True)
         self.m_rename = self._new_module("g.rename", quiet=True)
         self.m_patch = self._new_module("v.patch", quiet=True)
         self.m_buffer = self._new_module("v.buffer", quiet=True)
+        self.classic = classic
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):
         """Parse the expression and run the computation
+
+        The expression is translated onto grass.temporal.algebra, unless the
+        classic algebra of this module is selected (see __init__).
 
         :param expression: The assignment, e.g. ``"R = A & B"``
         :param basename: Prefix of the names of the new vector maps
@@ -150,6 +161,16 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
             (name, start, end) of the registered maps
         :raises SyntaxError: for invalid expressions
         """
+        if not self._classic():
+            return evaluate(
+                expression,
+                kind="vector",
+                basename=basename,
+                overwrite=overwrite,
+                run=self.run,
+                debug=self.debug,
+                spatial=self.spatial,
+            )
         self._reject_dataset_type_tokens(TemporalVectorAlgebraLexer(), expression)
         return self._parse(
             TemporalVectorAlgebraLexer(),
@@ -160,6 +181,11 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
             basename,
             overwrite,
         )
+
+    def _classic(self):
+        # Only an explicit classic=False selects the core here, until the
+        # tests of t.vect.algebra hold for both algebras.
+        return True if self.classic is None else self.classic
 
     def _new_result_map(self, map_i):
         """Create the result map of an overlay: it keeps the id of the last
