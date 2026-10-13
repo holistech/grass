@@ -103,8 +103,21 @@ def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
         _parse("flat + A", "fac_flat", classic=False)
 
 
-def test_without_keyword_the_parser_stays_classic_for_now(series_3d, monkeypatch):
+def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkeypatch):
     monkeypatch.delenv("GRASS_TEMPORAL_ALGEBRA", raising=False)
-    # if() without else gives 0 in the classic algebra and null in the core.
+    # if() without else gives null in the core, so the maps of value 1 and 2,
+    # false everywhere, are left out.
     _parse("if(A > 2, A)", "fac_default")
-    assert len(_values("fac_default")) == 4
+    assert [row[1:] for row in _values("fac_default")] == [(3, 3), (4, 4)]
+
+
+def test_the_variable_selects_the_classic_algebra(series_3d, monkeypatch):
+    monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "classic")
+    # if() without else gives 0 in the classic algebra, so all four maps stay.
+    _parse("if(A > 2, A)", "fac_variable")
+    assert [row[1:] for row in _values("fac_variable")] == [
+        (0, 0),
+        (0, 0),
+        (3, 3),
+        (4, 4),
+    ]

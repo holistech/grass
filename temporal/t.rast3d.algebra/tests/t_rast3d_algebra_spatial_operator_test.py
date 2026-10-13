@@ -12,7 +12,7 @@ import os
 import pytest
 
 import grass.script as gs
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 
 @pytest.fixture(scope="module")
@@ -55,9 +55,12 @@ def spatial_series(tmp_path_factory):
         yield session
 
 
-def result_values(session, expression, flags=""):
-    """Run the tool and return the cell values of the result maps in time order"""
-    tools = Tools(session=session, overwrite=True)
+def result_values(session, expression, flags="", env=None):
+    """Run the tool and return the cell values of the result maps in time order
+
+    env replaces the environment of the session, if given.
+    """
+    tools = Tools(session=session, env=env, overwrite=True)
     tools.t_rast3d_algebra(expression=f"R = {expression}", basename="r", flags=flags)
     listing = tools.t_rast3d_list(input="R", columns="min,max", format="json")
     assert all(row["min"] == row["max"] for row in listing["data"])
@@ -71,10 +74,8 @@ def result_values(session, expression, flags=""):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
-        ("P {+,equal|overlap} Q", "", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
-        ("P {+,equal|cover} Q", "", []),
         ("P {+,equal|cover} Q", "s", []),
         # the condition yields P itself, so the disjoint pair shows up as p2
         ("if(P {#} Q == 1, P)", "", [1, 2]),
@@ -84,3 +85,21 @@ def result_values(session, expression, flags=""):
 def test_spatial_topology(spatial_series, expression, flags, expected):
     """-s and spatial relations restrict the related maps to spatially related"""
     assert result_values(spatial_series, expression, flags) == expected
+
+
+@pytest.mark.parametrize(
+    ("expression", "classic_expected"),
+    [
+        ("P {+,equal|overlap} Q", [11]),
+        ("P {+,equal|cover} Q", []),
+    ],
+)
+def test_spatial_relation_without_spatial_flag(
+    spatial_series, expression, classic_expected
+):
+    """A spatial relation in an operator needs -s; the classic algebra
+    computes the expression without it"""
+    assert result_values(spatial_series, expression, "c") == classic_expected
+    env = {**spatial_series.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
+    with pytest.raises(ToolError, match="need the spatial flag"):
+        result_values(spatial_series, expression, env=env)

@@ -47,6 +47,7 @@ import copy
 import grass.pygrass.modules as pygrass
 
 from .algebra.parser import evaluate
+from .algebra.parser.switch import classic_selected
 from .space_time_datasets import VectorDataset
 from .temporal_algebra import TemporalAlgebraLexer, TemporalAlgebraParser
 
@@ -138,7 +139,8 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         """Create the parser
 
         classic selects the classic algebra of this module (True) or the
-        algebra core (False).
+        algebra core (False); None follows the environment variable
+        GRASS_TEMPORAL_ALGEBRA, whose default is the core.
         """
         TemporalAlgebraParser.__init__(self, pid, run, debug, spatial)
 
@@ -183,9 +185,7 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         )
 
     def _classic(self):
-        # Only an explicit classic=False selects the core here, until the
-        # tests of t.vect.algebra hold for both algebras.
-        return True if self.classic is None else self.classic
+        return classic_selected(self.classic)
 
     def _new_result_map(self, map_i):
         """Create the result map of an overlay: it keeps the id of the last

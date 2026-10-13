@@ -12,6 +12,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 from .algebra.parser import evaluate
+from .algebra.parser.switch import classic_selected
 from .space_time_datasets import Raster3DDataset
 from .temporal_raster_base_algebra import TemporalRasterBaseAlgebraParser
 
@@ -39,7 +40,8 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         the base class and are kept for compatibility with existing callers
 
         classic selects the classic algebra of this module (True) or the
-        algebra core (False).
+        algebra core (False); None follows the environment variable
+        GRASS_TEMPORAL_ALGEBRA, whose default is the core.
         """
         TemporalRasterBaseAlgebraParser.__init__(
             self,
@@ -81,9 +83,7 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         )
 
     def _classic(self):
-        # Only an explicit classic=False selects the core here, until the
-        # tests of t.rast3d.algebra hold for both algebras.
-        return True if self.classic is None else self.classic
+        return classic_selected(self.classic)
 
     def _create_mapcalc_module(self, spatial):
         """Return the not yet executed r3.mapcalc module"""

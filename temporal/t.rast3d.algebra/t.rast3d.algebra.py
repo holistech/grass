@@ -61,6 +61,11 @@
 # % description: Use granularity sampling instead of the temporal topology approach
 # %end
 
+# %flag
+# % key: c
+# % description: Use the classic algebra instead of the algebra core
+# %end
+
 
 import sys
 
@@ -86,6 +91,7 @@ def main():
         spatial=spatial,
         nprocs=nprocs,
         register_null=register_null,
+        classic=flags["c"] or None,
     )
 
     try:

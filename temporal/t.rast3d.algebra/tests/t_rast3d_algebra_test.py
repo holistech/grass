@@ -24,10 +24,12 @@ def day(n, time="00:00:00"):
     return f"2001-01-{n:02d} {time}"
 
 
-def run_algebra(session, expression, flags="", nprocs=1):
+def run_algebra(session, expression, flags="", nprocs=1, classic=None):
     """Run the algebra in this process and return the name of the result dataset.
 
-    This mirrors what the tool does with its flags.
+    This mirrors what the tool does with its flags. classic=None follows
+    GRASS_TEMPORAL_ALGEBRA where both algebras agree; True and False choose
+    the algebra where they differ.
     """
     name = f"res{next(_counter)}"
     full = f"{name} = {expression}"
@@ -37,6 +39,7 @@ def run_algebra(session, expression, flags="", nprocs=1):
         spatial="s" in flags,
         nprocs=nprocs,
         register_null="n" in flags,
+        classic=classic,
     )
     if "g" in flags:
         assert parser.setup_common_granularity(
@@ -81,9 +84,9 @@ def result(session, expression, flags="", **options):
     return list_maps(session, name)
 
 
-def values(session, expression, flags=""):
+def values(session, expression, flags="", classic=None):
     """Value of every result map; asserts that min and max are equal"""
-    rows = result(session, expression, flags)
+    rows = result(session, expression, flags, classic=classic)
     assert all(row[2] == row[3] for row in rows)
     return [row[2] for row in rows]
 
@@ -385,20 +388,35 @@ def test_temporal_conditions(series_3d, expression, expected_values, expected_ti
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
-        # cells that do not meet the condition become 0 in r3.mapcalc
-        ("if(A > 1, A)", [0, 2, 3, 4]),
         ("if(A > 1, A, B)", [10, 2, 3, 4]),
-        ("if(A > 1 && B < 40, A)", [0, 2, 3, 0]),
         ("if(A > 1 || B < 40, A)", [1, 2, 3, 4]),
-        ("if(A > 100, A)", [0, 0, 0, 0]),
         ("if(isnull(A), 1, 0)", [0, 0, 0, 0]),
-        ("if(A > 1, A) + B", [10, 22, 33, 44]),
         ("if(A > 1, A, B) {+,equal} B", [20, 22, 33, 44]),
     ],
 )
 def test_cell_conditions(series_3d, expression, expected):
     """Conditions on cell values are evaluated per cell by r3.mapcalc"""
     assert values(series_3d.session, expression) == expected
+
+
+@pytest.mark.parametrize(
+    ("expression", "classic", "expected"),
+    [
+        ("if(A > 1, A)", False, [2, 3, 4]),
+        ("if(A > 1, A)", True, [0, 2, 3, 4]),
+        ("if(A > 1 && B < 40, A)", False, [2, 3]),
+        ("if(A > 1 && B < 40, A)", True, [0, 2, 3, 0]),
+        ("if(A > 100, A)", False, []),
+        ("if(A > 100, A)", True, [0, 0, 0, 0]),
+        ("if(A > 1, A) + B", False, [22, 33, 44]),
+        ("if(A > 1, A) + B", True, [10, 22, 33, 44]),
+    ],
+)
+def test_cell_conditions_without_else(series_3d, expression, classic, expected):
+    """if() without else gives null where the condition is false, and a map
+    that is null everywhere is left out; the classic algebra gives 0 there,
+    as the two-argument if() of r3.mapcalc does"""
+    assert values(series_3d.session, expression, classic=classic) == expected
 
 
 @pytest.mark.parametrize(
@@ -618,6 +636,25 @@ def test_nprocs_option(series_3d):
     """Parallel processing gives the same result as the default"""
     rows = result(series_3d.session, "A + B", nprocs=2)
     assert [row[2] for row in rows] == [11, 22, 33, 44]
+
+
+def test_classic_flag_selects_the_classic_algebra(series_3d):
+    """if() without else gives null in the core and 0 in the classic algebra,
+    so the core leaves out the maps of value 1 and 2"""
+    # The flag must win over the variable, which therefore selects the core.
+    env = {**series_3d.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
+    tools = Tools(env=env, overwrite=True)
+    tools.t_rast3d_algebra(expression="flag_core = if(A > 2, A)", basename="flag_core")
+    tools.t_rast3d_algebra(
+        expression="flag_classic = if(A > 2, A)", basename="flag_classic", flags="c"
+    )
+    assert [row[2] for row in list_maps(series_3d.session, "flag_core")] == [3, 4]
+    assert [row[2] for row in list_maps(series_3d.session, "flag_classic")] == [
+        0,
+        0,
+        3,
+        4,
+    ]
 
 
 # Names, overwrite and empty results

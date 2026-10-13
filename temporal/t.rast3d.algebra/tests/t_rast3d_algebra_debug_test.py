@@ -8,23 +8,38 @@ import pytest
 import grass.temporal as tgis
 
 
-def parse_with_debug(run):
+def parse_with_debug(run, classic):
     """Parse "dbg = (A + A) * 2" with debug=True and the given run"""
-    parser = tgis.TemporalRaster3DAlgebraParser(run=run, debug=True, dry_run=True)
+    parser = tgis.TemporalRaster3DAlgebraParser(
+        run=run, debug=True, dry_run=True, classic=classic
+    )
     parser.parse("dbg = (A + A) * 2", "dbg", True)
 
 
 def test_debug_output_of_a_run(series_3d, capsys):
-    """debug=True prints the r3.mapcalc commands and the resulting statement"""
-    parse_with_debug(run=True)
-    output = capsys.readouterr().out
-    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
-    assert "dbg = [" in output
+    """debug=True prints each planned module call as a command line"""
+    parse_with_debug(run=True, classic=False)
+    assert (
+        'r3.mapcalc expression="dbg_0"=(("a1@PERMANENT" + "a1@PERMANENT") * 2)'
+        in capsys.readouterr().out
+    )
 
 
 def test_debug_output_without_run(series_3d, capsys):
-    """With run=False debug=True prints the statement with the placeholder name"""
-    parse_with_debug(run=False)
+    """With run=False only the syntax is checked, so nothing is planned and
+    debug=True prints nothing"""
+    parse_with_debug(run=False, classic=False)
+    assert not capsys.readouterr().out
+
+
+def test_debug_output_of_the_classic_algebra(series_3d, capsys):
+    """The classic algebra prints the r3.mapcalc commands and the resulting
+    statement, and without run the statement with the placeholder name"""
+    parse_with_debug(run=True, classic=True)
+    output = capsys.readouterr().out
+    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
+    assert "dbg = [" in output
+    parse_with_debug(run=False, classic=True)
     assert "dbg = A**" in capsys.readouterr().out
 
 
