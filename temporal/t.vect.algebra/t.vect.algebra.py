@@ -43,6 +43,11 @@
 # % description: Check the spatial topology of temporally related maps and process only spatially related maps
 # %end
 
+# %flag
+# % key: c
+# % description: Use the classic algebra instead of the algebra core
+# %end
+
 import sys
 
 import grass.script as gs
@@ -58,7 +63,9 @@ def main():
     spatial = flags["s"]
 
     tgis.init(True)
-    p = tgis.TemporalVectorAlgebraParser(run=True, debug=False, spatial=spatial)
+    p = tgis.TemporalVectorAlgebraParser(
+        run=True, debug=False, spatial=spatial, classic=flags["c"] or None
+    )
     try:
         pc = p.parse(expression, basename, gs.overwrite())
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
