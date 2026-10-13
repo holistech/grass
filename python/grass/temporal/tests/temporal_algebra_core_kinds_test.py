@@ -5,6 +5,8 @@ differs is the dimension of spatial relations, the cell offsets and the
 modules that compute the maps.
 """
 
+import re
+
 import pytest
 
 from grass.temporal.algebra import (
@@ -26,7 +28,7 @@ from grass.temporal.algebra import (
     retime,
     select,
 )
-from grass.temporal.algebra.content import series_reduce
+from grass.temporal.algebra.content import SeriesReduce, series_reduce
 from grass.temporal.algebra.maptypes import DIMENSIONS, STDS_TYPES
 
 LOW = Space(10, 0, 10, 0, top=10, bottom=0)
@@ -314,16 +316,21 @@ def test_unchanged_raster_maps_are_still_computed(make_series):
 
 
 @pytest.mark.parametrize(
-    "content",
+    ("content", "description"),
     [
-        Const(1),
-        Const(None),
-        Call("+", (MapRef("a@m"), MapRef("b@m"))),
-        MapRef("a@m", (1, 0)),
+        (Const(1), "The number 1"),
+        (Const(None), "null()"),
+        (Call("+", (MapRef("a@m"), MapRef("b@m"))), "The function +()"),
+        (MapRef("a@m", (1, 0)), "The map <a@m> at the cell offset (1, 0)"),
+        (SeriesReduce("sum", (MapRef("a@m"),)), "The reduction sum of a series"),
     ],
 )
-def test_vector_maps_cannot_be_numbers_or_raster_expressions(make_series, content):
+def test_vector_maps_cannot_be_numbers_or_raster_expressions(
+    make_series, content, description
+):
     a = _vectors(make_series, "a", A_BOX)
     series = Series((Slot(a.slots[0].extent, content),), kind="vector")
-    with pytest.raises(ValueError, match="vector"):
+    # The message names the content in words, not as the repr of a node.
+    message = f"{description} cannot be computed as a vector map"
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         plan(series, "R")

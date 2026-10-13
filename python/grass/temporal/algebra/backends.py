@@ -281,6 +281,21 @@ def _has_series_reduce(content):
     return False
 
 
+def _describe(node):
+    """Name a content node in words for a message to the user"""
+    match node:
+        case Const(value=None):
+            return "null()"
+        case Const(value=value):
+            return f"The number {value}"
+        case MapRef(ident=ident, offset=offset):
+            return f"The map <{ident}> at the cell offset {offset}"
+        case Call(function=function):
+            return f"The function {function}()"
+        case SeriesReduce(method=method):
+            return f"The reduction {method} of a series"
+
+
 class VectorBackend:
     """Plan vector maps with v.overlay, v.patch, v.buffer and g.copy
 
@@ -315,6 +330,9 @@ class VectorBackend:
         def compute(node, target):
             match node:
                 case MapRef(ident=ident, offset=()):
+                    # pygrass.modules.Module takes the from,to pair of g.copy
+                    # only as a tuple; the string "from,to" raises TypeError
+                    # (checked 2026-10-13 with Module("g.copy", run_=False)).
                     calls.append(ModuleCall("g.copy", {"vector": (ident, target)}))
                 case Call(function=function, args=(first, second)) if (
                     function in OVERLAYS
@@ -352,7 +370,7 @@ class VectorBackend:
                         )
                     )
                 case _:
-                    msg = f"{node!r} cannot be computed as a vector map"
+                    msg = f"{_describe(node)} cannot be computed as a vector map"
                     raise ValueError(msg)
 
         compute(content, output)
