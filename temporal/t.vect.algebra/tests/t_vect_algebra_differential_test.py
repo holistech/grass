@@ -116,7 +116,9 @@ def outcome(monkeypatch, expression, algebra):
         parser.parse(f"{name} = {expression}", name, True)
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
         return type(error).__name__
-    if not tgis.dataset_factory("stvds", f"{name}@PERMANENT").is_in_db():
+    if not tgis.dataset_factory(
+        "stvds", f"{name}@{tgis.get_current_mapset()}"
+    ).is_in_db():
         return None
     return rows(name)
 
@@ -133,5 +135,5 @@ def test_listed_differences_still_differ(vector_series, monkeypatch, expression)
     """A listed difference that no longer differs must leave the list"""
     core = outcome(monkeypatch, expression, "core")
     assert core != outcome(monkeypatch, expression, "classic")
-    kind = "maps" if core is None or isinstance(core, list) else core
+    kind = "maps" if isinstance(core, list) else core
     assert kind == DIFFERENT[expression][0]
