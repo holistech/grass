@@ -104,11 +104,21 @@ class Translator:
         """Return the name of the result and its series
 
         :raises ValueError: if the expression gives no series
+        :raises SyntaxError: if a vector expression gives numbers
         """
         result = self.value(node.expression)
         if not isinstance(result, Series):
             msg = f"The expression of {node.target} gives no space time dataset"
             raise ValueError(msg)
+        # Checked on the sort rather than on the contents: a count whose
+        # relation finds no pair has no slot to look at, and would otherwise
+        # pass as an empty dataset.
+        if self._kind == "vector" and result.sort != "field":
+            msg = (
+                f"The expression of {node.target} gives numbers, not vector maps; "
+                "numbers such as td() or the hash operator belong in a condition"
+            )
+            raise SyntaxError(msg)
         return node.target, result
 
     def value(self, node):
@@ -351,6 +361,13 @@ class Translator:
             raise SyntaxError(msg)
         condition, then = arguments[:2]
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
+        if self._kind == "vector" and not all(
+            _vector_field(branch) for branch in arguments[1:]
+        ):
+            # A number in one branch would become the content of a map,
+            # which no vector module can compute.
+            msg = "if() on vector datasets chooses between vector maps, not numbers"
+            raise SyntaxError(msg)
         if not isinstance(condition, Series):
             msg = "The condition of if() needs a space time dataset"
             raise SyntaxError(msg)

@@ -24,6 +24,7 @@ def translate(make_series):
             "A": make_series("a", (1, 2), (2, 3), space=BOX, kind=kind),
             "B": make_series("b", (1, 2), (2, 3), space=SHIFTED, kind=kind),
             "C": make_series("c", (1, 2), (2, 3), space=BOX, kind=kind),
+            "W": make_series("w", (1, 4), space=BOX, kind=kind),
         }
         translator = Translator(
             kind=kind, spatial=spatial, resolve=datasets.__getitem__
@@ -123,6 +124,38 @@ def test_3d_cell_offsets(translate):
 def test_operators_that_a_map_type_does_not_have(translate, text, kind, message):
     with pytest.raises(SyntaxError, match=message):
         translate(text, kind=kind)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A {#,equal} B",
+        # No map of A lies within a map of B, so that the count has no slot;
+        # the error must not depend on whether the relation finds a pair.
+        "A {#,during} B",
+        "A {#,during} W",
+        "td(A)",
+        "start_day(A) + 1",
+    ],
+)
+def test_a_vector_expression_of_numbers_is_rejected(translate, text):
+    with pytest.raises(SyntaxError, match="gives numbers, not vector maps"):
+        translate(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "if(td(A) > 0, 1)",
+        "if(td(A) > 0, A, 1)",
+        "if(td(A) > 0, A, null())",
+        "if(td(A) > 0, A, td(A))",
+        "if(td(A) > 0, td(A))",
+    ],
+)
+def test_a_vector_if_chooses_between_vector_maps(translate, text):
+    with pytest.raises(SyntaxError, match="chooses between vector maps"):
+        translate(text)
 
 
 def test_plus_stays_arithmetic_for_raster_maps(translate):
