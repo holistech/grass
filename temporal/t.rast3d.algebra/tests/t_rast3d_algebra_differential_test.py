@@ -53,7 +53,7 @@ DIFFERENT = {
         "maps",
         "an operator with r gives each pair its own value",
     ),
-    "if({contains}, A > 1, W, 0)": ("maps", "one result per conclusion map"),
+    "if({during}, A > 1, W, 0)": ("maps", "one result per conclusion map"),
     "if(A > 2, A, W)": (
         "ValueError",
         "then and else of a map condition need equal time stamps",
@@ -65,7 +65,7 @@ DIFFERENT = {
 }
 
 
-_counter = itertools.count()
+counter = itertools.count()
 
 
 def rows(name):
@@ -84,7 +84,7 @@ def outcome(monkeypatch, expression, algebra):
     monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
     # Every run has its own result name: a result of an earlier expression
     # would otherwise stand in for the empty result of this one.
-    name = f"diff_{algebra}_{next(_counter)}"
+    name = f"diff_{algebra}_{next(counter)}"
     parser = tgis.TemporalRaster3DAlgebraParser(
         run=True, debug=False, register_null=True
     )
