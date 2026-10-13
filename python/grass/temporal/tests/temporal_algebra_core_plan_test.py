@@ -339,11 +339,6 @@ def test_map_without_time_stamp_cannot_be_planned():
         plan(Series((Slot(None, A1),)), "R")
 
 
-def test_other_map_types_are_not_supported_yet():
-    with pytest.raises(NotImplementedError, match="vector"):
-        plan(Series((), kind="vector"), "R")
-
-
 @pytest.mark.parametrize("time_suffix", [None, "gran", "time"])
 def test_empty_series_plans_an_empty_dataset(time_suffix):
     chain = plan(Series(), "R", time_suffix=time_suffix)

@@ -6,8 +6,10 @@ The datasets are described in the vector_series fixture in conftest.py.
 
 import pytest
 
+import grass.temporal as tgis
 import grass.temporal.algebra as ta
 from grass.exceptions import FatalError
+from grass.tools import Tools
 
 
 def test_source_reads_a_space_time_vector_dataset(vector_series):
@@ -32,3 +34,97 @@ def test_missing_vector_map(vector_series):
 def test_unknown_dataset_type(vector_series):
     with pytest.raises(ValueError, match="stds_type"):
         ta.source("aa", stds_type="vector")
+
+
+def _maps(name):
+    dataset = tgis.open_old_stds(name, "stvds")
+    rows = []
+    for map_ in dataset.get_registered_maps_as_objects(order="start_time") or []:
+        map_.select()
+        rows.append((map_.get_id(), map_.metadata.get_number_of_areas()))
+    return rows
+
+
+def test_overlay_and_of_overlapping_squares(vector_series):
+    aa = ta.source("aa", stds_type="stvds")
+    ab = ta.source("ab", stds_type="stvds")
+    ta.materialize(
+        ta.gather(aa, ta.equal, ab, reduce=ta.fold("and")), "core_and", overwrite=True
+    )
+    # aa3 and ab3 do not overlap, so the third map is empty and left out.
+    assert [areas for _, areas in _maps("core_and")] == [1, 1]
+
+
+def test_selected_vector_maps_are_registered_not_copied(vector_series):
+    aa = ta.source("aa", stds_type="stvds")
+    ab = ta.source("ab", stds_type="stvds")
+    ta.materialize(ta.select(aa, ta.equal, ab), "core_sel", basename="core_sel")
+    assert [ident for ident, _ in _maps("core_sel")] == [
+        f"aa{i}@PERMANENT" for i in range(1, 4)
+    ]
+    # A second run without overwrite fails only at the existing dataset,
+    # not at the input maps, which exist by nature.
+    with pytest.raises(FatalError, match="Space time dataset"):
+        ta.materialize(ta.select(aa, ta.equal, ab), "core_sel", basename="core_sel")
+
+
+def test_an_empty_input_map_is_never_removed(vector_series):
+    tools = Tools(session=vector_series.session, overwrite=True)
+    tools.v_edit(map="empty_in", tool="create")
+    tools.t_create(
+        output="emptyin",
+        type="stvds",
+        temporaltype="absolute",
+        title="e",
+        description="e",
+    )
+    tools.t_register(
+        input="emptyin",
+        type="vector",
+        maps="empty_in",
+        start="2001-01-01",
+        end="2001-01-02",
+    )
+    ta.materialize(ta.source("emptyin", stds_type="stvds"), "core_keep", overwrite=True)
+    assert tgis.VectorDataset("empty_in@PERMANENT").map_exists()
+
+
+def test_an_input_map_without_areas_stops_the_overlay(vector_series):
+    pa = ta.source("pa", stds_type="stvds")
+    aa = ta.source("aa", stds_type="stvds")
+    with pytest.raises(FatalError, match="has no areas"):
+        ta.materialize(
+            ta.gather(pa, ta.equal, aa, reduce=ta.fold("and")),
+            "core_pts",
+            overwrite=True,
+        )
+
+
+def test_an_empty_intermediate_map_drops_the_result(vector_series):
+    aa = ta.source("aa", stds_type="stvds")
+    ab = ta.source("ab", stds_type="stvds")
+    ac = ta.source("ac", stds_type="stvds")
+    first = ta.gather(aa, ta.equal, ab, reduce=ta.fold("and"))
+    ta.materialize(
+        ta.gather(first, ta.equal, ac, reduce=ta.fold("and")),
+        "core_drop",
+        overwrite=True,
+    )
+    # The first intersection of aa and ab overlaps the square of ac at x=0.
+    # The second one lies at x=25 to 30, apart from both squares of ac, so
+    # its overlay is computed and empty. The third intersection is empty, so
+    # the overlay with ac has no areas to work on and that map is dropped
+    # before it is computed.
+    assert _maps("core_drop") == [("core_drop_0@PERMANENT", 1)]
+
+
+def test_buffer_of_points(vector_series):
+    pa = ta.source("pa", stds_type="stvds")
+    ta.materialize(ta.buffer(pa, 1, features="point"), "core_buf", overwrite=True)
+    assert [areas for _, areas in _maps("core_buf")] == [1, 2, 3]
+
+
+def test_vector_maps_are_computed_one_after_another(vector_series):
+    aa = ta.source("aa", stds_type="stvds")
+    with pytest.raises(ValueError, match="nprocs"):
+        ta.materialize(ta.buffer(aa, 1), "core_par", overwrite=True, nprocs=2)

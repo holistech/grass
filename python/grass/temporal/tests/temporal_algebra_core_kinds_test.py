@@ -23,6 +23,7 @@ from grass.temporal.algebra import (
     pairs,
     plan,
     relation,
+    retime,
     select,
 )
 from grass.temporal.algebra.content import series_reduce
@@ -241,3 +242,85 @@ def test_overlays_combine_vector_maps_only(make_series, operation):
     scalar = make_series("s", (1, 2), values=[3], kind="vector")
     with pytest.raises(ValueError, match="vector maps only"):
         operation(a, scalar)
+
+
+def _calls(series, name="R"):
+    return [(call.name, call.parameters) for call in plan(series, name).processes]
+
+
+def test_an_overlay_of_two_vector_maps_is_one_v_overlay(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    chain = plan(gather(a, equal, b, reduce=fold("and")), "R")
+    assert chain.stds_type == "stvds"
+    [(name, parameters)] = [(c.name, c.parameters) for c in chain.processes]
+    assert name == "v.overlay"
+    assert parameters == {
+        "ainput": "a1@PERMANENT",
+        "binput": "b1@PERMANENT",
+        "operator": "and",
+        "output": chain.maps[0].name,
+    }
+
+
+def test_a_chain_of_overlays_computes_intermediate_maps(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    c = _vectors(make_series, "c", B_BOX)
+    series = gather(
+        gather(a, equal, b, reduce=fold("or")), equal, c, reduce=fold("not")
+    )
+    chain = plan(series, "R")
+    first, second = chain.processes
+    assert first.parameters["output"] == second.parameters["ainput"]
+    assert first.parameters["output"] in chain.remove
+    assert second.parameters["operator"] == "not"
+
+
+def test_patch_and_buffer_of_vector_maps(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    b = _vectors(make_series, "b", B_BOX)
+    series = buffer(gather(a, equal, b, reduce=fold("disor")), 2.5, features="line")
+    patch, buffered = plan(series, "R").processes
+    assert patch.name == "v.patch"
+    assert patch.parameters["input"] == "a1@PERMANENT,b1@PERMANENT"
+    assert buffered.name == "v.buffer"
+    assert buffered.parameters["input"] == patch.parameters["output"]
+    assert buffered.parameters["type"] == "line"
+    assert buffered.parameters["distance"] == 2.5
+
+
+def test_an_unchanged_vector_map_is_registered_as_it_is(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    chain = plan(a, "R")
+    assert chain.maps[0].name == "a1@PERMANENT"
+    assert chain.maps[0].calls == ()
+
+
+def test_a_vector_map_with_a_new_time_stamp_is_copied(make_series):
+    a = _vectors(make_series, "a", A_BOX)
+    chain = plan(retime(a, shift="1 day"), "R")
+    [call] = chain.processes
+    assert call.name == "g.copy"
+    assert call.parameters == {"vector": f"a1@PERMANENT,{chain.maps[0].name}"}
+
+
+def test_unchanged_raster_maps_are_still_computed(make_series):
+    chain = plan(make_series("a", (1, 2)), "R")
+    assert [call.name for call in chain.processes] == ["r.mapcalc"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        Const(1),
+        Const(None),
+        Call("+", (MapRef("a@m"), MapRef("b@m"))),
+        MapRef("a@m", (1, 0)),
+    ],
+)
+def test_vector_maps_cannot_be_numbers_or_raster_expressions(make_series, content):
+    a = _vectors(make_series, "a", A_BOX)
+    series = Series((Slot(a.slots[0].extent, content),), kind="vector")
+    with pytest.raises(ValueError, match="vector"):
+        plan(series, "R")

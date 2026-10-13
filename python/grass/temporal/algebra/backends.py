@@ -29,6 +29,7 @@ PATCH = "disor"
 VECTOR_FUNCTIONS = frozenset({*OVERLAYS, PATCH})
 # The feature type of v.buffer to the content name of a buffer.
 BUFFERS = {"point": "buff_p", "line": "buff_l", "area": "buff_a"}
+_BUFFER_TYPES = {name: features for features, name in BUFFERS.items()}
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,9 @@ class RasterBackend:
     """
 
     kind = "raster"
+    # Raster maps are computed even when unchanged, as in the classic algebra,
+    # so that a map of another mapset becomes a map of this one.
+    registers_origins = False
 
     def expression(self, content):
         """The r.mapcalc expression of a content
@@ -277,7 +281,89 @@ def _has_series_reduce(content):
     return False
 
 
-_BACKENDS = {"raster": RasterBackend(), "raster3d": Raster3DBackend()}
+class VectorBackend:
+    """Plan vector maps with v.overlay, v.patch, v.buffer and g.copy
+
+    Each overlay and buffer is one module call, so a nested expression
+    computes its parts into temporary maps, as the classic algebra does. A
+    registered map that reaches the result unchanged is registered as it
+    is; a map with another time stamp is copied.
+    """
+
+    kind = "vector"
+    registers_origins = True
+
+    def plan(self, content, output, *, spatial=False):
+        """Plan the computation of the map output from the content
+
+        spatial has no effect: the vector modules compute every feature.
+
+        :raises ValueError: for a content that is no vector map, overlay or
+            buffer
+        """
+        calls = []
+        temporaries = []
+
+        def as_map(node):
+            if isinstance(node, MapRef) and not node.offset:
+                return node.ident
+            name = f"{output}_tmp{len(temporaries)}"
+            temporaries.append(name)
+            compute(node, name)
+            return name
+
+        def compute(node, target):
+            match node:
+                case MapRef(ident=ident, offset=()):
+                    calls.append(ModuleCall("g.copy", {"vector": f"{ident},{target}"}))
+                case Call(function=function, args=(first, second)) if (
+                    function in OVERLAYS
+                ):
+                    calls.append(
+                        ModuleCall(
+                            "v.overlay",
+                            {
+                                "ainput": as_map(first),
+                                "binput": as_map(second),
+                                "operator": OVERLAYS[function],
+                                "output": target,
+                            },
+                        )
+                    )
+                case Call(function=function, args=args) if (
+                    function == PATCH and len(args) >= 2
+                ):
+                    inputs = ",".join(as_map(arg) for arg in args)
+                    calls.append(
+                        ModuleCall("v.patch", {"input": inputs, "output": target})
+                    )
+                case Call(
+                    function=function, args=(features, Const(value=distance))
+                ) if function in _BUFFER_TYPES:
+                    calls.append(
+                        ModuleCall(
+                            "v.buffer",
+                            {
+                                "input": as_map(features),
+                                "type": _BUFFER_TYPES[function],
+                                "distance": distance,
+                                "output": target,
+                            },
+                        )
+                    )
+                case _:
+                    msg = f"{node!r} cannot be computed as a vector map"
+                    raise ValueError(msg)
+
+        compute(content, output)
+        return calls, temporaries
+
+
+_BACKENDS = {
+    "raster": RasterBackend(),
+    "raster3d": Raster3DBackend(),
+    "vector": VectorBackend(),
+}
 
 
 def backend_for(kind):

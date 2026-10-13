@@ -16,6 +16,7 @@ from grass.temporal.datetime_math import (
 )
 from grass.temporal.factory import dataset_factory
 from grass.temporal.open_stds import open_new_stds
+from grass.temporal.space_time_datasets import VectorDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
@@ -117,6 +118,9 @@ def _check_name(label, value, stds_type):
 def plan(series, name, *, basename=None, time_suffix=None):
     """Return the process chain of materialize() without running anything
 
+    For vector maps, a registered map that reaches the result unchanged is
+    planned with its own name and without module call.
+
     :param name: the space time dataset to create
     :param basename: the prefix of the map names, by default the name
     :param time_suffix: None for numbered maps, "gran" or "time" for a
@@ -137,6 +141,10 @@ def plan(series, name, *, basename=None, time_suffix=None):
     maps = []
     remove = []
     for slot, map_name in zip(series.slots, names, strict=True):
+        if backend.registers_origins and slot.origin is not None:
+            # The registered map itself goes into the result.
+            maps.append(PlannedMap(slot.origin, slot.extent, ()))
+            continue
         calls, temporaries = backend.plan(
             slot.content, map_name, spatial=series.spatial
         )
@@ -168,6 +176,10 @@ def _check_absent(chain, mapset, dbif):
             )
         )
     for planned in chain.maps:
+        if not planned.calls:
+            # A registered map that goes into the result unchanged exists by
+            # nature.
+            continue
         map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
         # A row can outlive its map, e.g. after g.remove.
         if map_.map_exists() or map_.is_in_db(dbif):
@@ -200,21 +212,82 @@ def _module(call, overwrite):
     return module
 
 
+def _overlay_inputs_usable(call, produced, mapset):
+    """Tell whether v.overlay can run on its inputs
+
+    v.overlay fails on inputs without areas (measured 2026-10-13 in grass
+    --tmp-project XY: "No auto features found" for an empty map, "Invalid
+    feature type" for a map of points). An input of the expression without
+    areas is an error of the user. An intermediate map without areas comes
+    from an overlay whose inputs do not meet; the result map is then empty
+    and dropped, as in the classic algebra.
+
+    :raises FatalError: for an input of the expression without areas
+    """
+    for name in (call.parameters["ainput"], call.parameters["binput"]):
+        ident = name if "@" in name else f"{name}@{mapset}"
+        map_ = VectorDataset(ident)
+        intermediate = name in produced
+        if not map_.map_exists():
+            if not intermediate:
+                raise FatalError(_("Vector map <{name}> not found").format(name=ident))
+            return False
+        map_.load()
+        if not map_.metadata.get_number_of_areas():
+            if not intermediate:
+                raise FatalError(
+                    _("Vector map <{name}> has no areas, v.overlay needs areas").format(
+                        name=ident
+                    )
+                )
+            get_tgis_message_interface().warning(
+                _(
+                    "Dropping a result map: intermediate map <{name}> has no areas"
+                ).format(name=ident)
+            )
+            return False
+    return True
+
+
+def _run_vector(chain, overwrite):
+    """Compute vector maps one call after another, checking the inputs of
+    each overlay first"""
+    mapset = get_current_mapset()
+    produced = set(chain.remove) | {planned.name for planned in chain.maps}
+    dropped = []
+    for planned in chain.maps:
+        for call in planned.calls:
+            if call.name == "v.overlay" and not _overlay_inputs_usable(
+                call, produced, mapset
+            ):
+                dropped.append(planned.name)
+                break
+            _module(call, overwrite).run()
+    return dropped
+
+
 def _run(chain, overwrite, nprocs):
     """Compute the maps, in parallel for nprocs > 1; the calls of one map run
-    in order"""
+    in order
+
+    :return: the names of the maps that were dropped before they were
+        computed
+    """
+    if _kind(chain) == "vector":
+        return _run_vector(chain, overwrite)
     if int(nprocs) == 1:
         # No queue and no forked process: both are only needed to overlap
         # calls.
         for planned in chain.maps:
             for call in planned.calls:
                 _module(call, overwrite).run()
-        return
+        return []
     queue = ParallelModuleQueue(nprocs=int(nprocs))
     for planned in chain.maps:
         modules = [_module(call, overwrite) for call in planned.calls]
         queue.put(modules[0] if len(modules) == 1 else MultiModule(modules, sync=False))
     queue.wait()
+    return []
 
 
 def _set_time(map_, extent):
@@ -263,6 +336,14 @@ def _remove(names, kind):
         )
 
 
+def _is_empty(map_, kind):
+    """Tell whether a computed map holds nothing: no valid cell, or no
+    feature for a vector map"""
+    if kind == "vector":
+        return not map_.metadata.get_number_of_primitives()
+    return map_.metadata.get_min() is None and map_.metadata.get_max() is None
+
+
 def _forget(ident, kind, dbif):
     """Delete a map from the temporal database, which also unregisters it
     from the datasets"""
@@ -289,14 +370,25 @@ def materialize(
     Result maps registered with the other temporal type are replaced when
     overwriting.
 
+    Vector maps are computed one call after another; a registered vector map
+    that reaches the result unchanged is registered, not copied, and never
+    removed.
+
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
     :raises FatalError: if the dataset or a result map exists and overwrite
         is False; nothing is computed then
-    :raises ValueError: as plan()
+    :raises ValueError: as plan(), or for nprocs other than 1 with vector
+        maps
     :return: the space time dataset
     """
+    if series.kind == "vector" and int(nprocs) != 1:
+        msg = (
+            "Vector maps are computed one call after another, because each "
+            f"overlay checks its inputs first; nprocs must be 1, got {nprocs}"
+        )
+        raise ValueError(msg)
     chain = plan(series, name, basename=basename, time_suffix=time_suffix)
     mapset = get_current_mapset()
     dbif, connection_state_changed = init_dbif(None)
@@ -304,7 +396,7 @@ def materialize(
         if not overwrite:
             _check_absent(chain, mapset, dbif)
         try:
-            _run(chain, overwrite, nprocs)
+            dropped = _run(chain, overwrite, nprocs)
         finally:
             # Also when a call fails part-way: its temporary maps would
             # otherwise stay in the mapset. g.remove ignores names that were
@@ -322,17 +414,28 @@ def materialize(
         )
         empty = []
         for planned in chain.maps:
+            if planned.name in dropped:
+                empty.append(planned.name)
+                # An earlier run may have registered a map of this name.
+                _forget(f"{planned.name}@{mapset}", _kind(chain), dbif)
+                continue
+            if not planned.calls:
+                map_ = MAP_CLASSES[_kind(chain)](planned.name)
+                map_.select(dbif)
+                if not map_.is_in_db(dbif, mapset=mapset):
+                    # A map of another mapset is only in the database of its
+                    # own mapset, but register_map() needs it in this one; it
+                    # is referenced there, not copied, as t.register does.
+                    map_.insert(dbif)
+                dataset.register_map(map_, dbif)
+                continue
             map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
             if not map_.load():
                 raise FatalError(
                     _("Map <{name}> was not computed").format(name=map_.get_id())
                 )
             _set_time(map_, planned.extent)
-            if (
-                not register_null
-                and map_.metadata.get_min() is None
-                and map_.metadata.get_max() is None
-            ):
+            if not register_null and _is_empty(map_, _kind(chain)):
                 empty.append(planned.name)
                 # An earlier run may have registered a map of this name.
                 _forget(map_.get_id(), _kind(chain), dbif)
