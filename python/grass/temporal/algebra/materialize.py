@@ -253,7 +253,10 @@ def _run_vector(chain, overwrite):
     """Compute vector maps one call after another, checking the inputs of
     each overlay first"""
     mapset = get_current_mapset()
-    produced = set(chain.remove) | {planned.name for planned in chain.maps}
+    # Only the temporary maps are intermediate. A result map that is a
+    # registered map taken over unchanged is still an input of the
+    # expression, and can be the input of an overlay in another slot.
+    produced = set(chain.remove)
     dropped = []
     for planned in chain.maps:
         for call in planned.calls:
@@ -427,7 +430,15 @@ def materialize(
                     # own mapset, but register_map() needs it in this one; it
                     # is referenced there, not copied, as t.register does.
                     map_.insert(dbif)
-                dataset.register_map(map_, dbif)
+                if not dataset.register_map(map_, dbif):
+                    # register_map() refuses a map that is registered already,
+                    # e.g. one taken over unchanged in two slots.
+                    get_tgis_message_interface().warning(
+                        _(
+                            "Unable to register map <{map}> in space time "
+                            "dataset <{name}>"
+                        ).format(map=map_.get_id(), name=dataset.get_id())
+                    )
                 continue
             map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
             if not map_.load():

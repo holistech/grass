@@ -4,6 +4,9 @@ computing
 The datasets are described in the vector_series fixture in conftest.py.
 """
 
+import importlib
+from types import SimpleNamespace
+
 import pytest
 
 import grass.temporal as tgis
@@ -68,6 +71,30 @@ def test_selected_vector_maps_are_registered_not_copied(vector_series):
         ta.materialize(ta.select(aa, ta.equal, ab), "core_sel", basename="core_sel")
 
 
+def test_a_map_kept_in_two_slots_is_registered_once(vector_series, monkeypatch):
+    wide = ta.source("wide", stds_type="stvds")
+    aa = ta.source("aa", stds_type="stvds")
+    # wide1 (days 1-3) is related to aa1 and aa2, so two slots keep wide1.
+    kept = ta.pairs(wide, ta.relation("starts|started|finishes|finished"), aa)
+    assert [slot.origin for slot in kept].count("wide1@PERMANENT") == 2
+    # The messenger writes from a process forked before the test, out of
+    # reach of capfd.
+    warnings = []
+    # The package exports the function materialize under the name of the
+    # module, so a plain import would give the function.
+    monkeypatch.setattr(
+        importlib.import_module("grass.temporal.algebra.materialize"),
+        "get_tgis_message_interface",
+        lambda: SimpleNamespace(warning=warnings.append),
+    )
+    ta.materialize(kept, "core_twice", overwrite=True)
+    assert [ident for ident, _ in _maps("core_twice")] == [
+        "wide1@PERMANENT",
+        "wide2@PERMANENT",
+    ]
+    assert any("<wide1@PERMANENT>" in warning for warning in warnings)
+
+
 def test_an_empty_input_map_is_never_removed(vector_series):
     tools = Tools(session=vector_series.session, overwrite=True)
     tools.v_edit(map="empty_in", tool="create")
@@ -98,6 +125,18 @@ def test_an_input_map_without_areas_stops_the_overlay(vector_series):
             "core_pts",
             overwrite=True,
         )
+
+
+def test_an_input_map_without_areas_stops_the_overlay_also_when_kept(
+    vector_series,
+):
+    pa = ta.source("pa", stds_type="stvds")
+    aa = ta.source("aa", stds_type="stvds")
+    # pa1 goes into the result unchanged and into an overlay; it is still an
+    # input of the expression, not an intermediate map to drop quietly.
+    overlaid = ta.gather(pa, ta.equal, aa, reduce=ta.fold("and"))
+    with pytest.raises(FatalError, match="has no areas"):
+        ta.materialize(ta.merge(pa, overlaid), "core_kept", overwrite=True)
 
 
 def test_an_empty_intermediate_map_drops_the_result(vector_series):
