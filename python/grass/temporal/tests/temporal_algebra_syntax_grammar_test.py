@@ -134,3 +134,22 @@ def test_conflict_check_sees_a_missing_precedence(monkeypatch):
     log = io.StringIO()
     build_parser(errorlog=yacc.PlyLogger(log))
     assert "shift/reduce conflicts" in log.getvalue()
+
+
+def test_overlays_bind_like_addition_from_left_to_right():
+    assert expression("A & B + C | D") == Binary(
+        "|",
+        Binary("+", Binary("&", A, B), C),
+        Name("D"),
+    )
+
+
+def test_selection_binds_weaker_than_an_overlay():
+    assert expression("A : B & C") == Binary(":", A, Binary("&", B, C))
+
+
+def test_overlay_operator_in_braces():
+    tree = expression("A {&,during,r} B")
+    assert tree.symbol == "&"
+    assert tree.operator.relations == ("during",)
+    assert tree.operator.temporal == "r"

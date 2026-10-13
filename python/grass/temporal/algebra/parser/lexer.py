@@ -46,15 +46,25 @@ TOKENS = (
     "MUL_OP",
     "ADD_OP",
     "RELATION",
+    "AMP",
+    "PIPE",
+    "CARET",
+    "TILDE",
+    "OVERLAY_OP",
 )
 
-# The first symbol in the braces decides the kind.
+# The first symbol in the braces decides the kind; && and || are listed
+# before & and |, because the first match counts.
 _OPERATOR_KINDS = (
     ("!:", "SELECT_OP"),
     (":", "SELECT_OP"),
     ("#", "HASH_OP"),
     ("&&", "AND_OP"),
     ("||", "OR_OP"),
+    ("&", "OVERLAY_OP"),
+    ("|", "OVERLAY_OP"),
+    ("^", "OVERLAY_OP"),
+    ("~", "OVERLAY_OP"),
     ("*", "MUL_OP"),
     ("/", "MUL_OP"),
     ("%", "MUL_OP"),
@@ -97,6 +107,12 @@ class Lexer:
     t_TIMES = r"\*"
     t_DIVIDE = r"/"
     t_MODULO = r"%"
+    # A single & or | is an overlay of vector maps; PLY tries longer
+    # patterns first, so && and || stay the logical operators.
+    t_AMP = r"&"
+    t_PIPE = r"\|"
+    t_CARET = r"\^"
+    t_TILDE = r"~"
 
     # PLY needs the rule name to be a token type; the rule sets the type of
     # the kind it finds.

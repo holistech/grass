@@ -29,7 +29,22 @@ class Grammar:
         ("left", "OR", "OR_OP"),
         ("left", "AND", "AND_OP"),
         ("nonassoc", "EQ", "NE", "LT", "LE", "GT", "GE"),
-        ("left", "PLUS", "MINUS", "ADD_OP", "HASH", "HASH_OP"),
+        # The overlays of vector maps bind as + does, from left to right, as
+        # in the classic vector grammar, where they share one level with +,
+        # the v.patch of vector maps.
+        (
+            "left",
+            "PLUS",
+            "MINUS",
+            "ADD_OP",
+            "HASH",
+            "HASH_OP",
+            "AMP",
+            "PIPE",
+            "CARET",
+            "TILDE",
+            "OVERLAY_OP",
+        ),
         ("left", "TIMES", "DIVIDE", "MODULO", "MUL_OP"),
         ("right", "NEGATIVE"),
     )
@@ -58,6 +73,10 @@ class Grammar:
                    | expression TIMES expression
                    | expression DIVIDE expression
                    | expression MODULO expression
+                   | expression AMP expression
+                   | expression PIPE expression
+                   | expression CARET expression
+                   | expression TILDE expression
         """
         p[0] = ast.Binary(p[2], p[1], p[3])
 
@@ -70,6 +89,7 @@ class Grammar:
                    | expression ADD_OP expression
                    | expression HASH_OP expression
                    | expression MUL_OP expression
+                   | expression OVERLAY_OP expression
         """
         p[0] = ast.Binary(p[2].symbol, p[1], p[3], p[2])
 

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
 
-SYMBOLS = ("!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%")
+SYMBOLS = ("!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~")
 
 # The manual names both overlap relations "over".
 _SHORTHANDS = {"over": ("overlaps", "overlapped")}
@@ -35,10 +35,12 @@ _AGGREGATES = ("&", "|")
 class TemporalOperator:
     """An operator in braces
 
-    symbol is None for a bare relation such as ``{during,|}``, the first
-    argument of if(). aggregate joins the conditions of several related maps,
-    "&" (all) or "|" (any); temporal is the time stamp of the result: "l"
-    left, "r" right, "u" union, "i" intersection or "d" disjoint union.
+    symbol is one of SYMBOLS, among them the overlays &, |, ^ and ~ of
+    vector maps, or None for a bare relation such as ``{during,|}``, the
+    first argument of if(). aggregate joins the conditions of several
+    related maps, "&" (all) or "|" (any); temporal is the time stamp of the
+    result: "l" left, "r" right, "u" union, "i" intersection or "d" disjoint
+    union.
     """
 
     symbol: str | None

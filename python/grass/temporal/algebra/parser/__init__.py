@@ -23,6 +23,7 @@ _TIME_SUFFIXES = ("gran", "time")
 def evaluate(
     expression,
     *,
+    kind="raster",
     basename=None,
     overwrite=False,
     run=True,
@@ -40,6 +41,7 @@ def evaluate(
     stops at an existing result, as the run would. debug prints the module
     calls.
 
+    :param kind: the map type, "raster", "raster3d" or "vector"
     :return: the process chain of the parser classes: "processes" in the form
         of Module.get_dict(), "register" as (name, start, end) strings,
         "remove" and "STDS"
@@ -53,7 +55,7 @@ def evaluate(
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
-    name, series = Translator(spatial=spatial).statement(statement)
+    name, series = Translator(kind=kind, spatial=spatial).statement(statement)
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
     planned = plan(series, name, basename=basename, time_suffix=suffix)
     chain["processes"] = [_module(call, overwrite) for call in planned.processes]

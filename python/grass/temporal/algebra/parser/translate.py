@@ -11,9 +11,12 @@ and as the increment of tshift() and buff_t().
 from __future__ import annotations
 
 import datetime
+import functools
 
 from grass.temporal.algebra import operations, time_functions
+from grass.temporal.algebra.backends import PATCH, VECTOR_FUNCTIONS
 from grass.temporal.algebra.content import NULL, Const, call
+from grass.temporal.algebra.maptypes import STDS_TYPES
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
@@ -40,6 +43,9 @@ _CELL_FUNCTIONS = (
     "tan",
 )
 _OTHER_FUNCTIONS = (
+    "buff_a",
+    "buff_l",
+    "buff_p",
     "buff_t",
     "exist",
     "if",
@@ -51,6 +57,16 @@ _OTHER_FUNCTIONS = (
 )
 _COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
 _AGGREGATES = {"&": "all", "|": "any"}
+# The overlays of vector maps; + is the v.patch of vector maps.
+_OVERLAYS = {"&": "and", "|": "or", "^": "xor", "~": "not"}
+_BUFFERS = {"buff_p": "point", "buff_l": "line", "buff_a": "area"}
+# The forms of an index per map type: A[t] is a temporal neighbour, the
+# others read cells at an offset, with a temporal neighbour as last number.
+_INDEX_FORMS = {
+    "raster": (2, "one, two or three offsets"),
+    "raster3d": (3, "one, three or four offsets"),
+    "vector": (0, "one offset"),
+}
 # Marks an if() without else, which differs from an else of null().
 _ABSENT = object()
 
@@ -59,19 +75,29 @@ def _timed(value):
     return isinstance(value, Series) and not value.timeless
 
 
+def _vector_field(*values):
+    """Tell whether one of values holds vector maps rather than numbers"""
+    return any(
+        isinstance(value, Series) and value.kind == "vector" and value.sort == "field"
+        for value in values
+    )
+
+
 class Translator:
     """Translate statements of the algebra into series
 
     resolve(name) gives the series of a space time dataset and
     resolve_map(name, timestamp=...) the series of a single map; tests pass
     functions that build series in memory. With spatial, every relation also
-    asks for spatially related maps.
+    asks for spatially related maps. kind is the map type of the datasets; it
+    decides what + means and which indexes and functions exist.
     """
 
-    def __init__(self, *, spatial=False, resolve=None, resolve_map=None):
+    def __init__(self, *, kind="raster", spatial=False, resolve=None, resolve_map=None):
+        self._kind = kind
         self._spatial = spatial
-        self._resolve = resolve or source
-        self._resolve_map = resolve_map or source_map
+        self._resolve = resolve or functools.partial(source, stds_type=STDS_TYPES[kind])
+        self._resolve_map = resolve_map or functools.partial(source_map, kind=kind)
         self._datasets = {}
 
     def statement(self, node):
@@ -111,15 +137,16 @@ class Translator:
         # The count is checked before the dataset is read, so that a wrong
         # count is reported even for a missing dataset.
         offsets = node.offsets
-        if len(offsets) not in (1, 2, 3):
-            msg = f"{node.name}[...] takes one, two or three offsets"
+        axes, forms = _INDEX_FORMS[self._kind]
+        if len(offsets) != 1 and (not axes or len(offsets) not in (axes, axes + 1)):
+            msg = f"{node.name}[...] takes {forms} for {self._kind} maps"
             raise SyntaxError(msg)
         series = self._name(ast.Name(node.name))
         if len(offsets) == 1:
             return time_functions.neighbour(series, offsets[0])
-        if len(offsets) == 3:
-            series = time_functions.neighbour(series, offsets[2])
-        return operations.cell_offset(series, *offsets[:2])
+        if len(offsets) == axes + 1:
+            series = time_functions.neighbour(series, offsets[-1])
+        return operations.cell_offset(series, *offsets[:axes])
 
     def _binary(self, node):
         left, right = self.value(node.left), self.value(node.right)
@@ -129,6 +156,14 @@ class Translator:
             return self._select(left, right, operator)
         if symbol == "#":
             return self._count(left, right, operator)
+        if symbol in _OVERLAYS or (symbol == "+" and _vector_field(left, right)):
+            return self._overlay(symbol, left, right, node.operator)
+        if _vector_field(left, right):
+            msg = (
+                f"The operator {symbol} is not defined for vector maps; they are "
+                "combined with &, |, ^, ~ and +"
+            )
+            raise SyntaxError(msg)
         if symbol in ("&&", "||"):
             return self._logical(symbol, left, right, node.operator)
         if symbol in _COMPARISONS:
@@ -185,6 +220,37 @@ class Translator:
             raise SyntaxError(msg)
         return operations.gather(left, self._relation(operator), right, reduce="count")
 
+    def _overlay(self, symbol, left, right, operator):
+        timed_vectors = all(
+            _timed(value) and _vector_field(value) for value in (left, right)
+        )
+        if not timed_vectors:
+            msg = f"The overlay {symbol} combines two space time vector datasets"
+            raise SyntaxError(msg)
+        function = _OVERLAYS.get(symbol, PATCH)
+        # An overlay with and lies within its inputs, the others within the
+        # box around them, as in the classic algebra.
+        space = "intersection" if function == "and" else "union"
+        operator = operator or TemporalOperator(symbol)
+        relation = self._relation(operator)
+        if operator.temporal == "r":
+            return operations.pairs(
+                left,
+                relation,
+                right,
+                extent="right",
+                space=space,
+                content=lambda mine, theirs: call(function, mine, theirs),
+            )
+        return operations.gather(
+            left,
+            relation,
+            right,
+            reduce=fold(function),
+            extent=_EXTENTS[operator.temporal],
+            space=space,
+        )
+
     def _arithmetic(self, symbol, left, right, operator):
         if _timed(left) and _timed(right):
             return self._combine(
@@ -214,6 +280,12 @@ class Translator:
 
     @staticmethod
     def _apply(function, *operands):
+        if _vector_field(*operands) and function not in VECTOR_FUNCTIONS:
+            msg = (
+                f"{function}() is not defined for vector maps; they are "
+                "combined with &, |, ^, ~ and +"
+            )
+            raise SyntaxError(msg)
         for operand in operands:
             if isinstance(operand, str):
                 msg = (
@@ -286,6 +358,12 @@ class Translator:
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
         if not isinstance(condition, Series):
             msg = "The condition of if() needs a space time dataset"
+            raise SyntaxError(msg)
+        if _vector_field(condition):
+            msg = (
+                "Conditions on vector maps take temporal variables such as td() "
+                "or start_doy(), or the hash operator"
+            )
             raise SyntaxError(msg)
         if condition.timeless:
             if relation is not None:
@@ -368,6 +446,17 @@ class Translator:
             )
         if name == "exist":
             return _exactly(name, arguments, 1)[0]
+        if name in _BUFFERS:
+            series, distance = _exactly(name, arguments, 2)
+            if not (
+                isinstance(series, Series)
+                and series.kind == "vector"
+                and isinstance(distance, Const)
+                and isinstance(distance.value, (int, float))
+            ):
+                msg = f"{name}() takes a space time vector dataset and a distance"
+                raise SyntaxError(msg)
+            return operations.buffer(series, distance.value, features=_BUFFERS[name])
         if name == "null":
             _exactly(name, arguments, 0)
             return NULL

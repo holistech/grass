@@ -98,8 +98,6 @@ def test_whitespace_and_newlines_are_ignored():
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        ("A & B", r"Unexpected character '&' at position 2"),
-        ("A | B", r"Unexpected character '\|' at position 2"),
         ("A $ B", r"Unexpected character '\$' at position 2"),
         ("A {+,foo} B", r"Unknown relation 'foo'.* at position 2"),
         ("K = A {+,during B", r"Unterminated '\{' at position 6"),
@@ -110,3 +108,38 @@ def test_whitespace_and_newlines_are_ignored():
 def test_errors(text, message):
     with pytest.raises(SyntaxError, match=message):
         tokenize(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [("&", "AMP"), ("|", "PIPE"), ("^", "CARET"), ("~", "TILDE")],
+)
+def test_overlay_symbols(text, kind):
+    assert [token for token, _ in tokenize(f"A {text} B")] == ["NAME", kind, "NAME"]
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "symbol"),
+    [
+        ("{&,during,l}", "OVERLAY_OP", "&"),
+        ("{|,equal}", "OVERLAY_OP", "|"),
+        ("{^,equal,r}", "OVERLAY_OP", "^"),
+        ("{~,equal}", "OVERLAY_OP", "~"),
+        ("{&&,equal}", "AND_OP", "&&"),
+        ("{||,equal}", "OR_OP", "||"),
+        ("{+,equal}", "ADD_OP", "+"),
+    ],
+)
+def test_overlay_operators_in_braces(text, kind, symbol):
+    [(token, operator)] = tokenize(text)
+    assert (token, operator.symbol) == (kind, symbol)
+
+
+def test_double_symbols_stay_logical():
+    assert [token for token, _ in tokenize("A && B || C")] == [
+        "NAME",
+        "AND",
+        "NAME",
+        "OR",
+        "NAME",
+    ]
