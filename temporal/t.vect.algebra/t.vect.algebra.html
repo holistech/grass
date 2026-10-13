@@ -470,6 +470,8 @@ Maps that an expression leaves unchanged, such as the maps of A in
 <code>C = A : B</code>, are registered in the result dataset as they are, not
 copied. <em>t.remove</em> with the flags <b>-rf</b> on the result dataset
 therefore also unregisters them from A, and with <b>-df</b> deletes them.
+Maps of another mapset cannot be deleted; for them <em>t.remove</em>
+<b>-df</b> stops with an error and leaves the maps as they are.
 
 <h3>Core and classic algebra</h3>
 
