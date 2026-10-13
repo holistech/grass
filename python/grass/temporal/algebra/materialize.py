@@ -207,7 +207,12 @@ def check_absent(chain):
 
 
 def _module(call, overwrite):
-    module = Module(call.name, run_=False, **call.parameters)
+    # quiet is set here and not among the parameters of the call, so that
+    # plan() and the debug output show the calls as before. Without it the
+    # progress of v.overlay drowned the warnings: measured 2026-10-13 in
+    # grass --tmp-project XY, t.vect.algebra "C = A & B" over three map pairs
+    # wrote 108 lines to stderr, the classic algebra 23.
+    module = Module(call.name, run_=False, quiet=True, **call.parameters)
     module.flags["overwrite"].value = overwrite
     return module
 
