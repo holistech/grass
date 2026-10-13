@@ -10,14 +10,38 @@ from .content import MapRef
 from .maptypes import KINDS_OF_STDS, MAP_CLASSES
 from .series import Series, Slot
 
-# "Raster map" is the wording of the former raster-only message, "Vector map"
-# that of the classic vector algebra (temporal_vector_algebra.py) and "3D
-# raster map" that of the messages in space_time_datasets.py.
-_MAP_WORDS = {
-    "raster": "Raster map",
-    "raster3d": "3D raster map",
-    "vector": "Vector map",
-}
+
+# Each map type has messages of its own rather than one message with the
+# name of the type inserted, so that translators can inflect the whole
+# sentence. The functions call _() when an error is raised, as for the other
+# messages, and not once at import. "Raster map" is the wording of the
+# former raster-only message, "Vector map" that of the classic vector
+# algebra (temporal_vector_algebra.py) and "3D raster" that of the messages
+# in space_time_datasets.py.
+def _dataset_missing(stds_type):
+    return {
+        "strds": _("Space time raster dataset <{name}> not found"),
+        "str3ds": _("Space time 3D raster dataset <{name}> not found"),
+        "stvds": _("Space time vector dataset <{name}> not found"),
+    }[stds_type]
+
+
+def _map_missing(kind):
+    return {
+        "raster": _("Raster map <{name}> not found"),
+        "raster3d": _("3D raster map <{name}> not found"),
+        "vector": _("Vector map <{name}> not found"),
+    }[kind]
+
+
+def _map_unregistered(kind):
+    return {
+        "raster": _("Raster map <{name}> is not registered in the temporal database"),
+        "raster3d": _(
+            "3D raster map <{name}> is not registered in the temporal database"
+        ),
+        "vector": _("Vector map <{name}> is not registered in the temporal database"),
+    }[kind]
 
 
 def _qualified(name):
@@ -46,7 +70,7 @@ def source(name, *, where=None, stds_type="strds"):
     # exits the process unless the messenger raises on errors, which
     # tgis.init(raise_fatal_error=True) sets up (core.py).
     if not dataset_factory(stds_type, ident).is_in_db():
-        raise FatalError(_("Space time dataset <{name}> not found").format(name=ident))
+        raise FatalError(_dataset_missing(stds_type).format(name=ident))
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
     return Series(
@@ -70,19 +94,12 @@ def source_map(name, *, timestamp=True, kind="raster"):
         msg = f"kind must be one of {', '.join(MAP_CLASSES)}, got {kind!r}"
         raise ValueError(msg)
     map_ = MAP_CLASSES[kind](_qualified(name))
-    what = _MAP_WORDS[kind]
     if not map_.map_exists():
-        raise FatalError(
-            _("{what} <{name}> not found").format(what=what, name=map_.get_id())
-        )
+        raise FatalError(_map_missing(kind).format(name=map_.get_id()))
     if not timestamp:
         map_.load()
         return Series((Slot(None, MapRef(map_.get_id()), space_of(map_)),), kind)
     if not map_.is_in_db():
-        raise FatalError(
-            _("{what} <{name}> is not registered in the temporal database").format(
-                what=what, name=map_.get_id()
-            )
-        )
+        raise FatalError(_map_unregistered(kind).format(name=map_.get_id()))
     map_.select()
     return Series((_slot_of(map_),), kind)

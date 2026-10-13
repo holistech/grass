@@ -131,7 +131,9 @@ def test_source_of_an_unknown_dataset_type(core_session):
 
 
 def test_source_of_missing_dataset(core_session):
-    with pytest.raises(FatalError, match="missing"):
+    with pytest.raises(
+        FatalError, match=r"^Space time raster dataset <missing@PERMANENT> not found$"
+    ):
         ta.source("missing")
 
 
@@ -140,7 +142,10 @@ def test_source_map(core_session):
     timeless = ta.source_map("m", timestamp=False)
     assert timeless.timeless
     assert timeless.slots[0].content == MapRef("m@PERMANENT")
-    with pytest.raises(FatalError, match="not registered"):
+    with pytest.raises(
+        FatalError,
+        match=r"^Raster map <m@PERMANENT> is not registered in the temporal database$",
+    ):
         ta.source_map("m")
 
 

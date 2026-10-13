@@ -30,7 +30,7 @@ def test_source_map_reads_a_vector_map(vector_series):
 
 
 def test_missing_vector_map(vector_series):
-    with pytest.raises(FatalError, match="not found"):
+    with pytest.raises(FatalError, match=r"^Vector map <missing@PERMANENT> not found$"):
         ta.source_map("missing", kind="vector")
 
 
@@ -209,5 +209,7 @@ def test_a_raster_dataset_is_not_a_vector_dataset(vector_series):
         description="r",
     )
     tools.t_register(input="rast2", maps="rmap2", start="2001-01-01", end="2001-01-02")
-    with pytest.raises(FatalError, match="not found"):
+    with pytest.raises(
+        FatalError, match=r"^Space time vector dataset <rast2@PERMANENT> not found$"
+    ):
         _vparse("rast2 : aa", "fac_rast", classic=False)

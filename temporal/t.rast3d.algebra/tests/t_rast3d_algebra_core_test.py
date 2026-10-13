@@ -28,7 +28,9 @@ def test_source_map_reads_a_3d_raster_map(series_3d):
 
 
 def test_source_does_not_read_a_dataset_of_another_type(series_3d):
-    with pytest.raises(FatalError, match="not found"):
+    with pytest.raises(
+        FatalError, match=r"^Space time raster dataset <A@PERMANENT> not found$"
+    ):
         ta.source("A", stds_type="strds")
 
 
@@ -99,7 +101,9 @@ def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
         output="flat", type="strds", temporaltype="absolute", title="f", description="f"
     )
     tools.t_register(input="flat", maps="flat", start="2001-01-01", end="2001-01-02")
-    with pytest.raises(FatalError, match="not found"):
+    with pytest.raises(
+        FatalError, match=r"^Space time 3D raster dataset <flat@PERMANENT> not found$"
+    ):
         _parse("flat + A", "fac_flat", classic=False)
 
 
