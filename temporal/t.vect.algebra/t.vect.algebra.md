@@ -573,10 +573,6 @@ of A in its time, and time instances in I.
    C = td {&,during} B
    ```
 
-   The hash operator may also stand outside a condition. A count is no
-   vector map, so that `C = A {#,during} B` stays an error, a
-   `ValueError` instead of the `SyntaxError` of the classic algebra.
-
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the
 new algebra raises `ValueError` or `TypeError`, where the classic algebra

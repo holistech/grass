@@ -33,6 +33,10 @@ SAME = [
     "if(start_day(aa) > 1, aa, ab)",
     'tshift(aa, "1 day")',
     "merge(aa, ac)",
+    # A count is no vector map; both algebras reject it as a syntax error,
+    # also when the relation finds no pair, as for aa and ab.
+    "aa {#,during} wide",
+    "aa {#,during} ab",
 ]
 
 # Each changed rule with a short form of its item in the list of differences
@@ -47,11 +51,6 @@ DIFFERENT = {
     "wide {&,contains} aa": (
         "maps",
         "a vector map without primitives is not registered",
-    ),
-    "aa {#,during} wide": (
-        "ValueError",
-        "the core reads # in a vector expression and rejects a result without "
-        "vector maps",
     ),
     # The classic vector grammar has no neighbour rule and reports a syntax
     # error.
