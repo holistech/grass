@@ -573,6 +573,13 @@ of A in its time, and time instances in I.
    C = td {&,during} B
    ```
 
+   The hash operator may also stand in arithmetic within a condition; the
+   classic algebra reads it only directly before a comparison:
+
+   ```sh
+   C = if(A {#,during} B + 1 > 1, A)
+   ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the
 new algebra raises `ValueError` or `TypeError`, where the classic algebra

@@ -597,6 +597,14 @@ C = if(start_day(A) + 1 &gt; 3, A)
 C = if(-start_day(A) &lt; -2, A)
 C = td {&amp;,during} B
 </pre></div>
+
+<p>
+The hash operator may also stand in arithmetic within a condition; the
+classic algebra reads it only directly before a comparison:
+
+<div class="code"><pre>
+C = if(A {#,during} B + 1 &gt; 1, A)
+</pre></div>
 </li>
 </ol>
 

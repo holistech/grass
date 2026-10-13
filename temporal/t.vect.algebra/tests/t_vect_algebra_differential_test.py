@@ -37,6 +37,9 @@ SAME = [
     # also when the relation finds no pair, as for aa and ab.
     "aa {#,during} wide",
     "aa {#,during} ab",
+    # A number as else is no vector map either, also where no map takes the
+    # else branch.
+    "if(td(aa) == 1, aa, null())",
 ]
 
 # Each changed rule with a short form of its item in the list of differences
@@ -56,6 +59,12 @@ DIFFERENT = {
     # error.
     "aa[1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
     "aa[-1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
+    # The classic vector grammar reads the hash operator only directly before
+    # a comparison.
+    "if(aa {#,during} wide + 1 > 1, aa)": (
+        "maps",
+        "the hash operator may stand in arithmetic within a condition",
+    ),
     "wide {:,contains,r} aa": (
         "maps",
         "a selection with r gives one map per related pair",
