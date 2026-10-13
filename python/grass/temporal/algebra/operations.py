@@ -6,6 +6,7 @@ series of equal time stamps and never align them silently. choose() judges
 each slot by the condition of its own time stamp.
 """
 
+import math
 import warnings
 from collections import Counter, defaultdict
 from dataclasses import replace
@@ -525,11 +526,22 @@ def buffer(series, distance, *, features="area"):
     :param distance: the buffer distance in map units; v.buffer shrinks
         areas for a negative distance
     :param features: the feature type to buffer: "point", "line" or "area"
+    :raises TypeError: for a distance that is no number
     :raises ValueError: for a series of other maps than vector maps, of
-        scalar values, or for an unknown feature type
+        scalar values, for a distance that is not finite, or for an unknown
+        feature type
     """
     check_series(series)
     require(distance, (int, float), "distance", "a number")
+    # isinstance() takes a bool for an int, but True is no distance.
+    if isinstance(distance, bool):
+        msg = "distance must be a number, got bool"
+        raise TypeError(msg)
+    # A distance that is not finite would give the maps extents that are not
+    # finite either, such as nan for nan.
+    if not math.isfinite(distance):
+        msg = f"distance must be finite, got {distance}"
+        raise ValueError(msg)
     _check_option("features", features, tuple(BUFFERS))
     if series.kind != "vector" or series.sort != "field":
         msg = f"buffer() buffers vector maps, not {series.kind} {series.sort}s"

@@ -5,6 +5,7 @@ differs is the dimension of spatial relations, the cell offsets and the
 modules that compute the maps.
 """
 
+import math
 import re
 
 import pytest
@@ -188,6 +189,11 @@ def test_a_negative_buffer_keeps_the_spatial_extent(make_series):
         ("raster", "area", 1, ValueError),
         ("vector", "polygon", 1, ValueError),
         ("vector", "area", "1", TypeError),
+        ("vector", "area", True, TypeError),
+        # A distance that is not finite would give the maps extents that are
+        # not finite either.
+        ("vector", "area", math.nan, ValueError),
+        ("vector", "area", math.inf, ValueError),
     ],
 )
 def test_buffer_arguments(make_series, kind, features, distance, error):
