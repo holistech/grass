@@ -16,9 +16,6 @@ import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.tools import ToolError, Tools
 
-# The algebra core raises ValueError or TypeError for an expression it cannot
-# compute, where the classic algebra raises FatalError.
-ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError, FatalError, ValueError, TypeError)
 _counter = itertools.count()
 
 
@@ -496,7 +493,7 @@ def test_condition_with_overlay_result_maps(vector_series):
 
 def test_hash_operator_is_not_a_map_expression(vector_series):
     """A bare hash expression is an error: it yields numbers, not maps"""
-    with pytest.raises(ALGEBRA_ERRORS):
+    with pytest.raises(SyntaxError):
         run_algebra(vector_series.session, "aa {#,during} wide")
 
 
@@ -597,7 +594,7 @@ def test_empty_selection_creates_an_empty_dataset(vector_series, classic, expect
 
 def test_overlay_of_maps_without_areas_reports_error(vector_series):
     """Overlay of point maps must fail with a message, not vanish silently"""
-    with pytest.raises(ALGEBRA_ERRORS):
+    with pytest.raises(FatalError, match="has no areas"):
         run_algebra(vector_series.session, "pc & pc")
 
 
@@ -610,7 +607,7 @@ def test_overlay_of_maps_without_areas_reports_error(vector_series):
 )
 def test_unknown_relation_is_an_error(vector_series, expression):
     """A misspelled temporal relation ends the tool with an error"""
-    with pytest.raises(ALGEBRA_ERRORS):
+    with pytest.raises(SyntaxError):
         run_algebra(vector_series.session, expression)
 
 
@@ -627,7 +624,7 @@ def test_selection_without_relation_list(vector_series, expression, expected):
 def test_truncated_expressions_raise_syntax_error(vector_series, expression):
     """An expression that ends in the middle of a construct is a syntax error"""
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
-    with pytest.raises(ALGEBRA_ERRORS):
+    with pytest.raises(SyntaxError):
         parser.parse(expression, "bad", True)
 
 
@@ -646,7 +643,9 @@ def test_truncated_expressions_raise_syntax_error(vector_series, expression):
 def test_invalid_expressions_fail(vector_series, expression):
     """Syntax errors and unknown datasets are reported as exceptions"""
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
-    with pytest.raises(ALGEBRA_ERRORS):
+    # The core reads "one" in buff_p(aa, one) as a dataset and does not find
+    # it, where the classic grammar reports a syntax error.
+    with pytest.raises((SyntaxError, FatalError)):
         parser.parse(expression, "bad", True)
     assert list_maps(vector_series.session, "res") is None
 
