@@ -33,16 +33,6 @@ SAME = [
     "if(start_day(aa) > 1, aa, ab)",
     'tshift(aa, "1 day")',
     "merge(aa, ac)",
-    # The classic vector grammar has no rule for a neighbour, so that it
-    # reports a syntax error where the core gives the maps of aa shifted by
-    # one slot. No difference in the manual covers this; it stays here until
-    # it is decided whether it joins the additions to the grammar.
-    pytest.param(
-        "aa[1]",
-        marks=pytest.mark.xfail(
-            strict=True, reason="the classic vector grammar has no neighbour rule"
-        ),
-    ),
 ]
 
 # Each changed rule with a short form of its item in the list of differences
@@ -60,8 +50,13 @@ DIFFERENT = {
     ),
     "aa {#,during} wide": (
         "ValueError",
-        "the core raises ValueError where the classic grammar has no rule",
+        "the core reads # in a vector expression and rejects a result without "
+        "vector maps",
     ),
+    # The classic vector grammar has no neighbour rule and reports a syntax
+    # error.
+    "aa[1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
+    "aa[-1]": ("maps", "the core reads A[1] and A[-1] also for vector datasets"),
     "wide {:,contains,r} aa": (
         "maps",
         "a selection with r gives one map per related pair",
@@ -77,7 +72,7 @@ DIFFERENT = {
 }
 
 
-_counter = itertools.count()
+counter = itertools.count()
 
 
 def rows(name):
@@ -115,7 +110,7 @@ def outcome(monkeypatch, expression, algebra):
     # would otherwise stand in for the missing result of this one. Removing
     # it is no option, because the algebra registers unchanged maps of the
     # fixture in its result and removing the maps would delete them.
-    name = f"diff_{algebra}_{next(_counter)}"
+    name = f"diff_{algebra}_{next(counter)}"
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
     try:
         parser.parse(f"{name} = {expression}", name, True)
