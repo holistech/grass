@@ -231,23 +231,12 @@ class Translator:
         # An overlay with and lies within its inputs, the others within the
         # box around them, as in the classic algebra.
         space = "intersection" if function == "and" else "union"
-        operator = operator or TemporalOperator(symbol)
-        relation = self._relation(operator)
-        if operator.temporal == "r":
-            return operations.pairs(
-                left,
-                relation,
-                right,
-                extent="right",
-                space=space,
-                content=lambda mine, theirs: call(function, mine, theirs),
-            )
-        return operations.gather(
+        return self._combine(
+            function,
             left,
-            relation,
             right,
-            reduce=fold(function),
-            extent=_EXTENTS[operator.temporal],
+            operator or TemporalOperator(symbol),
+            fold(function),
             space=space,
         )
 
@@ -264,7 +253,7 @@ class Translator:
             raise SyntaxError(msg)
         return self._apply(symbol, left, right)
 
-    def _combine(self, symbol, left, right, operator, reduce):
+    def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
         relation = self._relation(operator)
         if operator.temporal == "r":
             return operations.pairs(
@@ -273,9 +262,15 @@ class Translator:
                 right,
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
+                space=space,
             )
         return operations.gather(
-            left, relation, right, reduce=reduce, extent=_EXTENTS[operator.temporal]
+            left,
+            relation,
+            right,
+            reduce=reduce,
+            extent=_EXTENTS[operator.temporal],
+            space=space,
         )
 
     @staticmethod
