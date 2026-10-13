@@ -725,9 +725,11 @@ they cannot read. For one they cannot compute, the new algebra raises
 raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
 missing dataset or map and, without overwrite, for an existing result dataset
 or map; a dry run of the classic algebra stops only at an existing result map.
-The classic algebra raises <code>FatalError</code> only after
-<code>tgis.init(raise_fatal_error=True)</code>; otherwise it raises
-<code>SystemExit</code>. The tool stops with the error message in both algebras.
+Without <code>tgis.init(raise_fatal_error=True)</code>, the classic algebra
+raises <code>SystemExit</code> instead of <code>FatalError</code> for some of
+these errors, such as an existing result; a missing dataset raises
+<code>FatalError</code> in both cases. The tool stops with the error message
+in both algebras.
 
 <p>
 Two corrections apply to both algebras, so <b>-c</b> gives the rules of the
