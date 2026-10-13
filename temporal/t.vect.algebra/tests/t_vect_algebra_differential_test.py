@@ -63,7 +63,7 @@ DIFFERENT = {
     ),
     "wide {&,contains,r} aa": (
         "maps",
-        "an operator with r gives each pair its own value",
+        "an overlay with r gives each pair its own overlay",
     ),
     "aa {&,equal|overlap} ab": (
         "ValueError",
