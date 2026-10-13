@@ -454,8 +454,8 @@ D = if({contains}, td(buff_t(A, "1 days")) == 3, B, C)
 
 Maps that an expression leaves unchanged, such as the maps of A in
 `C = A : B`, are registered in the result dataset as they are, not copied.
-*t.remove* with the flag **-r** on the result dataset therefore also
-unregisters them from A, and with **-d** deletes them.
+*t.remove* with the flags **-rf** on the result dataset therefore also
+unregisters them from A, and with **-df** deletes them.
 
 ### Core and classic algebra
 
