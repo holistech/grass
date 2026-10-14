@@ -110,13 +110,29 @@ def _is_legal_name(name):
     )
 
 
+def reject_input_names(series, names):
+    """Reject names that would replace an input map of series
+
+    Only a map of the current mapset (or without a mapset) counts, as a run
+    that overwrites would destroy it. Unlike materialize(), which sees only
+    the maps of the series it is given, this checks any series, such as the
+    full input of an aggregation whose reduced series lost maps.
+
+    :raises ValueError: for the name of an input map of the current mapset
+    """
+    inputs = _input_idents(series)
+    for name in names:
+        if _replaces(name, inputs):
+            msg = f"The result map <{name}> has the name of an input map"
+            raise ValueError(msg)
+
+
 def _check_given_names(series, names):
     """Reject names that would not be written as given
 
     :raises ValueError: for a mapset, an illegal name, or the name of an input
         map of the current mapset, which a run that overwrites would destroy
     """
-    inputs = _input_idents(series)
     for name in names:
         if "@" in name:
             msg = f"A map name must not contain '@', got {name!r}"
@@ -124,9 +140,7 @@ def _check_given_names(series, names):
         if not _is_legal_name(name):
             msg = f"{name!r} is not a legal map name"
             raise ValueError(msg)
-        if _replaces(name, inputs):
-            msg = f"The result map <{name}> has the name of an input map"
-            raise ValueError(msg)
+    reject_input_names(series, names)
 
 
 def _map_names(series, basename, time_suffix, names=None):

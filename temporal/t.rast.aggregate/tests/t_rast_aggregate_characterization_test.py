@@ -353,3 +353,36 @@ def test_existing_output_without_overwrite_prints_one_error(read):
     errors = [line for line in result.stderr.splitlines() if line.startswith("ERROR")]
     assert len(errors) == 1
     assert "twice" in errors[0]
+
+
+def test_result_name_equal_to_an_input_map_stops_the_run(read, aggregate_data):
+    """A result map named like an input map that no granule of the result
+    reads still stops the run and leaves that map untouched.
+
+    The input holds q on day 1, o_2001_01_03 (value 99) on days 2 to 3 and r
+    on day 3. With a two day granularity the second granule is named
+    o_2001_01_03 and reduces to r alone.
+    """
+    result = read.capturing_errors.t_rast_aggregate(
+        input="clash",
+        output="o2",
+        basename="o",
+        granularity="2 days",
+        method="sum",
+    )
+    assert result.returncode != 0
+    assert "o_2001_01_03" in result.stderr
+    stats = read.tools.r_univar(map="o_2001_01_03", flags="g").keyval
+    assert float(stats["max"]) == 99.0
+
+
+def test_input_with_a_semantic_label_aggregates_only_those_maps(read):
+    """input=name.label reads the maps with that label: day 1 has the maps of
+    both labels, and the sum over the label A leaves out the map of label B."""
+    rows = read.aggregate(
+        "labeled_a", input="labeled.A", granularity="1 days", method="sum"
+    )
+    assert [(row.start, row.min) for row in rows] == [
+        ("2001-01-01 00:00:00", 1.0),
+        ("2001-01-02 00:00:00", 5.0),
+    ]

@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import grass.temporal.algebra as ta
 from grass.temporal.algebra._adapters import as_map
+from grass.temporal.algebra.materialize import reject_input_names
 from grass.temporal.core import get_tgis_message_interface
 from grass.temporal.datetime_math import (
     create_numeric_suffix,
@@ -72,14 +73,15 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
 
 
 def _report_granules(reduced):
-    """Tell for each granule with several related maps that it is aggregated
+    """Tell for each granule with a related map that it is aggregated
 
-    The classic aggregation reported this per granule at verbose level.
+    The classic aggregation reported this per granule at verbose level. A
+    lone related map counts as well: it is a one-argument aggregate.
     """
     msgr = get_tgis_message_interface()
     for slot in reduced.slots:
         content = slot.content
-        if isinstance(content, ta.SeriesAggregate) and len(content.args) > 1:
+        if isinstance(content, ta.SeriesAggregate) and content.args:
             msgr.verbose(
                 _("Aggregating {num} raster maps from {start} to {end}").format(
                     num=len(content.args), start=slot.extent.start, end=slot.extent.end
@@ -149,6 +151,9 @@ def aggregate_series(
     _report_granules(reduced)
     _warn_file_limit(reduced, int(file_limit))
     names = _names(target, reduced, basename, granularity, time_suffix, offset)
+    # materialize() sees only the maps of the reduced series; a granule that
+    # was dropped or reduced away may still read a map with a result's name.
+    reject_input_names(input_series, names)
     return ta.materialize(
         reduced,
         output,

@@ -38,6 +38,13 @@ class Reader:
             capture_stderr=True,
             consistent_return_value=True,
         )
+        self.capturing_errors = Tools(
+            session=session,
+            overwrite=True,
+            capture_stderr=True,
+            consistent_return_value=True,
+            errors="ignore",
+        )
         self.refusing = Tools(
             session=session,
             overwrite=False,
@@ -122,6 +129,11 @@ def aggregate_data(tmp_path_factory):
       and 08:00 on 2001-01-01, one map per hourly granule.
     - semantic: the maps of cells in a dataset of semantic type "sum", to
       tell a copied semantic type from the default "mean".
+    - clash: q=1 over day 1, o_2001_01_03=99 over days 2 to 3 and r=2 over
+      day 3. With a two day granularity the second granule is named
+      o_2001_01_03 although it contains only r.
+    - labeled: lb1=1 (label A) and lb2=3 (label B) on 12 hour intervals of
+      day 1, lb3=5 (label A) on day 2.
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
     """
@@ -149,6 +161,13 @@ def aggregate_data(tmp_path_factory):
         ]:  # fmt: skip
             tools.r_mapcalc(expression=f"{name} = {value}")
         tools.r_colors(map="m1", color="grey")
+        for name, value in [("q", 1), ("o_2001_01_03", 99), ("r", 2)]:
+            tools.r_mapcalc(expression=f"{name} = {value}")
+        for name, value, label in [
+            ("lb1", 1, "A"), ("lb2", 3, "B"), ("lb3", 5, "A"),
+        ]:  # fmt: skip
+            tools.r_mapcalc(expression=f"{name} = {value}")
+            tools.r_support(map=name, semantic_label=label)
         probes = {
             3: (5, 25),
             5: (10, 25),
@@ -236,6 +255,24 @@ def aggregate_data(tmp_path_factory):
                 ("hr1", "2001-01-01 06:00:00", "2001-01-01 06:30:00"),
                 ("hr2", "2001-01-01 07:00:00", "2001-01-01 07:30:00"),
                 ("hr3", "2001-01-01 08:00:00", "2001-01-01 08:30:00"),
+            ],
+        )
+        _register(
+            "clash",
+            "absolute",
+            [
+                ("q", "2001-01-01", "2001-01-02"),
+                ("o_2001_01_03", "2001-01-02", "2001-01-04"),
+                ("r", "2001-01-03", "2001-01-04"),
+            ],
+        )
+        _register(
+            "labeled",
+            "absolute",
+            [
+                ("lb1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("lb2", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("lb3", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
             ],
         )
         _register(
