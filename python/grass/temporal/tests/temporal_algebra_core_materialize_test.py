@@ -16,6 +16,7 @@ and the map tm (7) registered with [1, 2] in no dataset, and the map m
 (100) without time stamp.
 """
 
+import dataclasses
 import datetime
 import importlib
 import os
@@ -539,14 +540,43 @@ def test_names_reject_an_illegal_name(make_series):
         ta.plan(make_series("a", (1, 2), (2, 3)), "res", names=["a b", "y"])
 
 
-def test_names_reject_an_input_map(make_series):
-    """A result named like an input would be written over it when overwriting"""
+def test_names_reject_an_input_map(core_session, make_series):
+    """A result named like an input of the current mapset would be written
+    over it when overwriting"""
     with pytest.raises(ValueError, match="a2"):
         ta.plan(
             make_series("a", (1, 2), (2, 3)) + 1,
             "res",
             names=["fresh", "a2"],
         )
+
+
+def test_names_accept_the_name_of_an_input_map_of_another_mapset(
+    core_session, make_series
+):
+    """The result goes to the current mapset and leaves a2@other alone"""
+    series = make_series("a", (1, 2), (2, 3))
+    other = dataclasses.replace(series.slots[1], content=MapRef("a2@other"))
+    series = Series((series.slots[0], other), kind="raster")
+    chain = ta.plan(series, "res", names=["fresh", "a2"])
+    assert [planned.name for planned in chain.maps] == ["fresh", "a2"]
+
+
+def test_selection_copy_may_take_the_name_of_a_map_of_another_mapset(
+    core_session, make_series
+):
+    kept = dataclasses.replace(make_series("C_", (1, 2)).slots[0], origin="C_1@other")
+    moved = ta.retime(make_series("b", (2, 3)), shift="1 day").slots
+    series = Series((kept, *moved), kind="raster")
+    chain = ta.plan(series, "sel", basename="C", selection=True)
+    assert [planned.name for planned in chain.maps] == ["C_1@other", "C_1"]
+
+
+@pytest.mark.parametrize(
+    "name", ["ok", "1x", "a b", "", ".a", "a@b", "a,b", "a/b", 'a"b', "äb", "a=b"]
+)
+def test_silent_name_check_agrees_with_legal_name(name):
+    assert materialize_module._is_legal_name(name) == gs.legal_name(name)
 
 
 def test_names_reject_time_suffix(make_series):
@@ -564,7 +594,7 @@ def test_selection_rejects_time_suffix(make_series):
         ta.plan(make_series("a", (1, 2)), "res", selection=True, time_suffix="time")
 
 
-def test_selection_copy_must_not_take_a_registered_name(make_series):
+def test_selection_copy_must_not_take_a_registered_name(core_session, make_series):
     """The first copy of basename C is C_1, the name of a map that reaches
     the result unchanged"""
     kept = make_series("C_", (1, 2)).slots[0]

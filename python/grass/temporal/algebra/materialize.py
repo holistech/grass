@@ -65,34 +65,66 @@ class ProcessChain:
         ]
 
 
-def _input_names(series):
-    """The names of the maps the slots read, without mapset"""
-    names = set()
+def _input_idents(series):
+    """The identifiers of the maps the slots read"""
+    idents = set()
     stack = [slot.content for slot in series.slots]
     while stack:
         node = stack.pop()
         if isinstance(node, MapRef):
-            names.add(node.ident.split("@", 1)[0])
+            idents.add(node.ident)
         elif isinstance(node, (Call, SeriesReduce, SeriesAggregate)):
             stack.extend(node.args)
-    return names
+    return idents
+
+
+def _replaces(name, idents):
+    """Tell whether a result map of this name would replace one of the maps
+
+    A result is written to the current mapset, so a map of the same name in
+    another mapset stays untouched. The mapset is looked up only when a name
+    matches, which keeps plan() free of a session otherwise.
+    """
+    mapset = None
+    for ident in idents:
+        base, _, ident_mapset = ident.partition("@")
+        if base != name:
+            continue
+        if mapset is None:
+            mapset = get_current_mapset()
+        if not ident_mapset or ident_mapset == mapset:
+            return True
+    return False
+
+
+def _is_legal_name(name):
+    """Tell whether a map name is legal, as gs.legal_name() but silently
+
+    gs.legal_name() warns on its own, and the ValueError of plan() would
+    report the same name a second time.
+    """
+    return (
+        bool(name)
+        and name[0] != "."
+        and not any(c in "/\"'@,=*~" or c <= " " or c >= "\177" for c in name)
+    )
 
 
 def _check_given_names(series, names):
     """Reject names that would not be written as given
 
     :raises ValueError: for a mapset, an illegal name, or the name of an input
-        map, which a run that overwrites would destroy
+        map of the current mapset, which a run that overwrites would destroy
     """
-    inputs = _input_names(series)
+    inputs = _input_idents(series)
     for name in names:
         if "@" in name:
             msg = f"A map name must not contain '@', got {name!r}"
             raise ValueError(msg)
-        if not gs.legal_name(name):
+        if not _is_legal_name(name):
             msg = f"{name!r} is not a legal map name"
             raise ValueError(msg)
-        if name in inputs:
+        if _replaces(name, inputs):
             msg = f"The result map <{name}> has the name of an input map"
             raise ValueError(msg)
 
@@ -252,7 +284,7 @@ def _plan_selection(series, name, basename, stds_type):
     digits = len(str(len(series.slots)))
     maps = []
     number = 0
-    registered = {slot.origin.split("@", 1)[0] for slot in series.slots if slot.origin}
+    registered = {slot.origin for slot in series.slots if slot.origin}
     for slot in series.slots:
         if slot.origin is not None:
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
@@ -268,7 +300,7 @@ def _plan_selection(series, name, basename, stds_type):
             raise ValueError(msg)
         number += 1
         map_name = create_numeric_suffix(basename, number, f"%0{digits}")
-        if map_name in registered:
+        if _replaces(map_name, registered):
             msg = f"The copy <{map_name}> has the name of a map in the result"
             raise ValueError(msg)
         call = ModuleCall(
