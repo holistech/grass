@@ -37,6 +37,17 @@ class Reader:
             capture_stderr=True,
             consistent_return_value=True,
         )
+        self.refusing = Tools(
+            session=session,
+            overwrite=False,
+            capture_stderr=True,
+            consistent_return_value=True,
+            errors="ignore",
+        )
+
+    def refused(self, output, **options):
+        """The result of a run without overwrite, which may fail"""
+        return self.refusing.t_rast_aggregate(output=output, basename=output, **options)
 
     def messages(self, output, **options):
         """The standard error output of one t.rast.aggregate run"""

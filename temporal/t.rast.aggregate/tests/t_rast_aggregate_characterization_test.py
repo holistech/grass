@@ -221,3 +221,15 @@ def test_sampling_list_keeps_the_maps_in_time_order(read):
         sampling=["overlaps", "contains"],
     )
     assert [(row.start, row.min) for row in rows] == [("2001-01-01 00:00:00", 1.0)]
+
+
+def test_existing_output_without_overwrite_prints_one_error(read):
+    """The classic tool printed the refusal once. With the messenger in raise
+    mode the message was printed by the library and again by the tool's own
+    handler (measured 2026-10-14: two identical ERROR lines)."""
+    read.aggregate("twice", input="cells", granularity="1 days", method="sum")
+    result = read.refused("twice", input="cells", granularity="1 days", method="sum")
+    assert result.returncode != 0
+    errors = [line for line in result.stderr.splitlines() if line.startswith("ERROR")]
+    assert len(errors) == 1
+    assert "twice" in errors[0]

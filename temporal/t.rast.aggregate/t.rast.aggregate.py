@@ -120,7 +120,7 @@ def main():
     file_limit = options["file_limit"]
     time_suffix = options["suffix"]
 
-    tgis.init(True)
+    tgis.init()
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
     try:

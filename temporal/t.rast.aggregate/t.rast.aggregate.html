@@ -61,14 +61,14 @@ once per matching relation as earlier versions did.
 
 <p>
 The maps related to an aggregation interval are read as one list in time
-order, not relation by relation as earlier versions did (<code>equal</code>,
-<code>contains</code>, <code>during</code>, <code>starts</code>,
-<code>started</code>, <code>finishes</code>, <code>finished</code>,
-<code>overlaps</code>, <code>overlapped</code>). This matters only when the
-sampling option lists more than one relation and the method depends on the
-order of the maps, that is <code>min_raster</code>, <code>max_raster</code>,
-<code>slope</code>, <code>offset</code> and <code>detcoeff</code>; the other
-methods give the same result.
+order. Earlier versions read them relation by relation, in the order
+<code>equal</code>, <code>contains</code>, <code>during</code>,
+<code>starts</code>, <code>started</code>, <code>finishes</code>,
+<code>finished</code>, <code>overlaps</code>, <code>overlapped</code>. This
+matters only when the sampling option lists more than one relation and the
+method depends on the order of the maps, that is <code>min_raster</code>,
+<code>max_raster</code>, <code>slope</code>, <code>offset</code> and
+<code>detcoeff</code>; the other methods give the same result.
 
 <h2>EXAMPLES</h2>
 
