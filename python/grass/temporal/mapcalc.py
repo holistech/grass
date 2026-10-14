@@ -334,15 +334,19 @@ def dataset_mapcalculator(
 def _run_in_batches(ctx, runner, statements, nprocs):
     """Run the r.mapcalc statements nprocs at a time
 
+    A value below 1 runs all statements at once, as the nprocs option of the
+    tools always did.
+
     Each batch is joined before the next starts, and the last one before the
     function returns, so the caller can read every result map.
 
     :return: False if a statement failed
     """
-    for first in range(0, len(statements), nprocs):
+    size = nprocs if nprocs >= 1 else max(len(statements), 1)
+    for first in range(0, len(statements), size):
         processes = [
             ctx.Process(target=runner, args=(statement,))
-            for statement in statements[first : first + nprocs]
+            for statement in statements[first : first + size]
         ]
         for process in processes:
             process.start()

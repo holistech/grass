@@ -1,4 +1,6 @@
-"""Tests of the batch runner of grass.temporal.mapcalc"""
+"""Tests of the batch runner of grass.temporal.mapcalc."""
+
+import pytest
 
 from grass.temporal.mapcalc import _run_in_batches
 
@@ -47,3 +49,11 @@ def test_a_failing_statement_fails_the_run():
 
 def test_no_statements():
     assert _run_in_batches(FakeContext(), print, [], 4)
+
+
+@pytest.mark.parametrize("nprocs", [0, -1, 10])
+def test_all_at_once_when_nprocs_is_not_below_the_count(nprocs):
+    ctx = FakeContext()
+    assert _run_in_batches(ctx, print, ["a", "b", "c"], nprocs)
+    events = [event for event, _statement in ctx.log]
+    assert events == ["start"] * 3 + ["join"] * 3
