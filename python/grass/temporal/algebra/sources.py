@@ -3,7 +3,7 @@
 from grass.exceptions import FatalError
 from grass.temporal.core import get_current_mapset
 from grass.temporal.factory import dataset_factory
-from grass.temporal.open_stds import open_old_stds
+from grass.temporal.open_stds import _parse_id, open_old_stds
 
 from ._adapters import extent_of, space_of
 from .content import MapRef
@@ -64,6 +64,8 @@ def source(name, *, where=None, stds_type="strds"):
 
     Needs a GRASS session and a temporal database.
 
+    :param name: the dataset, for "strds" optionally with a semantic label
+        ("name.label[@mapset]"), which keeps only the maps with that label
     :param where: an SQL condition on the registered maps, as in t.rast.list
     :param stds_type: "strds", "str3ds" or "stvds"
     :raises FatalError: if the dataset does not exist
@@ -73,10 +75,13 @@ def source(name, *, where=None, stds_type="strds"):
         msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
         raise ValueError(msg)
     ident = _qualified(name)
+    # "name.label" of a raster dataset names the dataset without the label;
+    # open_old_stds() below applies the label to the registered maps.
+    base, mapset, _label = _parse_id(ident, stds_type)
     # open_old_stds() reports a missing dataset with msgr.fatal(), which
     # exits the process unless the messenger raises on errors, which
     # tgis.init(raise_fatal_error=True) sets up (core.py).
-    if not dataset_factory(stds_type, ident).is_in_db():
+    if not dataset_factory(stds_type, f"{base}@{mapset}").is_in_db():
         raise FatalError(_dataset_missing(stds_type).format(name=ident))
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
