@@ -3,8 +3,9 @@
 Every expected value was measured on 2026-10-14 with the unchanged tool
 (build d8f948a911) in a temporary XY project, with t.rast.list. These tests
 are the first pytest coverage of t.rast.aggregate.ds, which had only a shell
-script. They pass before the port; the -n test below pins the current,
-inverted behaviour and is flipped in the port (see its docstring).
+script. They passed before the port, except for two documented changes of
+the port that the -n test and the relation order test assert in their
+corrected form (see their docstrings).
 """
 
 import pytest
@@ -19,9 +20,15 @@ def test_strds_sampler_values(read):
     """The daily sampler intervals aggregate m1 and m2; the day 3 interval
     holds only null maps and averages to an all null map. Each output map
     takes the extent of its sampler interval, so the day 3 map ends on
-    2001-01-04"""
+    2001-01-04. The values were measured before the -n fix, when the default
+    kept the all null map; -n now keeps it, hence the flag."""
     rows = read.rows_after(
-        "a_strds", input="input", sample="samp", type="strds", method="average"
+        "a_strds",
+        input="input",
+        sample="samp",
+        type="strds",
+        method="average",
+        flags="n",
     )
     assert [(row[0], row[1], row[2], row[3]) for row in rows] == [
         ("a_strds_2001_01_01", "2001-01-01 00:00:00", "2001-01-02 00:00:00", "1.0"),
@@ -52,21 +59,18 @@ def test_stvds_sampler(read):
     ]
 
 
-def test_n_flag_is_inverted_before_the_fix(read):
-    """Pins the behaviour of -n before the fix: t.rast.aggregate.ds passes
-    register_null straight to delete_empty, so WITHOUT -n it keeps the all
-    null day 3 map and WITH -n it deletes it, the opposite of the help text
-    and of t.rast.aggregate. The move onto the algebra core fixes this, and
-    this test then asserts the corrected behaviour.
-    """
+def test_n_flag_registers_the_all_null_granule(read):
+    """-n keeps null maps and the default drops them, as in t.rast.aggregate
+    and as the help text promises. Before the tool moved onto the algebra
+    core this was inverted; see the git history of this test."""
     without = read.aggregate(
         "ds_no", input="input", sample="samp", type="strds", method="average"
     )
-    assert without == ["ds_no_2001_01_01", "ds_no_2001_01_02", "ds_no_2001_01_03"]
+    assert without == ["ds_no_2001_01_01", "ds_no_2001_01_02"]
     with_n = read.aggregate(
         "ds_n", input="input", sample="samp", type="strds", method="average", flags="n"
     )
-    assert with_n == ["ds_n_2001_01_01", "ds_n_2001_01_02"]
+    assert with_n == ["ds_n_2001_01_01", "ds_n_2001_01_02", "ds_n_2001_01_03"]
 
 
 def test_numeric_suffix_with_offset_and_sampler_gap(read):
@@ -89,16 +93,18 @@ def test_numeric_suffix_with_offset_and_sampler_gap(read):
     ]
 
 
-def test_related_maps_are_read_per_relation_before_the_port(read):
-    """Pins the order in which the related maps reach an order dependent
-    method before the port. The sampler interval 2001-01-01 .. 2001-01-11
-    contains ct (day 5 .. 6) and overlaps ov1 (day 2 .. 15, the smaller
-    value). min_raster returns the index of the smallest map among the related
-    maps. In time order ov1 comes first and the index would be 0; the tool
-    concatenates the maps per relation in the order equal, contains, during,
-    starts, started, finishes, finished, overlaps, overlapped, so it reads ct
-    then ov1 and returns 1. The move onto the algebra core reads one union in
-    time order and this test then asserts 0."""
+def test_related_maps_are_read_in_time_order(read):
+    """The sampler interval 2001-01-01 .. 2001-01-11 contains ct (day 5 ..
+    6) and overlaps ov1 (day 2 .. 15, the smaller value). min_raster returns
+    the index of the smallest map among the related maps. The related maps
+    are read as one union in time order, so ov1 (starts first) comes first
+    and the index is 0. Before the tool moved onto the algebra core it
+    concatenated the maps per relation in the order equal, contains, during,
+    starts, started, finishes, finished, overlaps, overlapped, read ct then
+    ov1 and returned 1 (measured 2026-10-14 with the unchanged tool, see the
+    git history of this test). Only order dependent methods (min_raster,
+    max_raster, slope, offset, detcoeff) with several listed relations are
+    affected."""
     rows = read.rows_after(
         "ord",
         input="ordin",
@@ -108,5 +114,5 @@ def test_related_maps_are_read_per_relation_before_the_port(read):
         sampling="overlaps,contains",
     )
     assert [(row[1], row[2], row[3]) for row in rows] == [
-        ("2001-01-01 00:00:00", "2001-01-11 00:00:00", "1.0")
+        ("2001-01-01 00:00:00", "2001-01-11 00:00:00", "0.0")
     ]

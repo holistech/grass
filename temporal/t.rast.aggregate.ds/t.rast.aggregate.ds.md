@@ -12,6 +12,21 @@ The sampling method must be specified from the sampler dataset point of
 view. It defines the temporal relationships between intervals of the
 sampling dataset and the input space time raster dataset.
 
+Since GRASS 8.6 the **-n** flag works as documented and as in
+*t.rast.aggregate*: by default an aggregated map without any valid cell is
+not registered, and **-n** keeps it. Earlier versions did the opposite.
+
+When the sampling option lists a relation together with one of its parts
+(for example `during` with `starts`, or `contains` with `started`), a map
+is counted once, not once per matching relation as before.
+
+The maps related to a sampling interval are read as one list in time order,
+not relation by relation as before (`equal`, `contains`, `during`, `starts`,
+`started`, `finishes`, `finished`, `overlaps`, `overlapped`). This matters
+only when the sampling option lists more than one relation and the method
+depends on the order of the maps, that is `min_raster`, `max_raster`,
+`slope`, `offset` and `detcoeff`; the other methods give the same result.
+
 ## EXAMPLES
 
 ### Precipitation aggregation

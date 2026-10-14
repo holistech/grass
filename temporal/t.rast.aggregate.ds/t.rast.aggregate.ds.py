@@ -95,8 +95,14 @@ import grass.script as gs
 def main():
     # lazy imports
     import grass.temporal as tgis
+    import grass.temporal.algebra as ta
+    from grass.exceptions import FatalError
+    from grass.temporal.aggregation_core import (
+        aggregate_series,
+        sampler_target,
+        set_output_metadata,
+    )
 
-    # Get the options
     input = options["input"]
     output = options["output"]
     sampler = options["sample"]
@@ -104,94 +110,71 @@ def main():
     base = options["basename"]
     register_null = flags["n"]
     method = options["method"]
-    sampling = options["sampling"]
+    sampling = options["sampling"].split(",")
     offset = options["offset"]
     nprocs = options["nprocs"]
     time_suffix = options["suffix"]
-    type = options["type"]
+    stds_type = options["type"]
 
-    topo_list = sampling.split(",")
-
-    tgis.init()
-
+    tgis.init(True)
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
+    try:
+        sp = tgis.open_old_stds(input, "strds", dbif)
+        sampler_sp = tgis.open_old_stds(sampler, stds_type, dbif)
+        if sampler_sp.get_temporal_type() != sp.get_temporal_type():
+            gs.fatal(
+                _("Input and aggregation dataset must have the same temporal type")
+            )
+        if sampler_sp.temporal_extent.get_map_time() != "interval":
+            gs.fatal(
+                _(
+                    "All registered maps of the aggregation dataset must have time intervals"
+                )
+            )
+        tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
-    sp = tgis.open_old_stds(input, "strds", dbif)
-    sampler_sp = tgis.open_old_stds(sampler, type, dbif)
-
-    if sampler_sp.get_temporal_type() != sp.get_temporal_type():
-        dbif.close()
-        gs.fatal(_("Input and aggregation dataset must have the same temporal type"))
-
-    # Check if intervals are present
-    if sampler_sp.temporal_extent.get_map_time() != "interval":
-        dbif.close()
-        gs.fatal(
-            _("All registered maps of the aggregation dataset must have time intervals")
+        input_series = ta.source(input, where=where)
+        if not input_series.slots:
+            gs.fatal(_("Space time raster dataset <%s> is empty") % input)
+        # where filters the sampler too, as the classic tool does.
+        sampler_maps = sampler_sp.get_registered_maps_as_objects(
+            where=where, order="start_time", dbif=dbif
         )
+        if not sampler_maps:
+            gs.fatal(_("Space time dataset <%s> is empty") % sampler)
 
-    # We will create the strds later, but need to check here
-    tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
+        gran = sampler_sp.get_granularity()
+        unit = None if sp.is_time_absolute() else sp.get_relative_time_unit()
+        target = sampler_target(sampler_maps, unit)
 
-    map_list = sp.get_registered_maps_as_objects(
-        where=where, order="start_time", dbif=dbif
-    )
-
-    if not map_list:
-        dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> is empty") % input)
-
-    granularity_list = sampler_sp.get_registered_maps_as_objects(
-        where=where, order="start_time", dbif=dbif
-    )
-
-    if not granularity_list:
-        dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> is empty") % sampler)
-
-    gran = sampler_sp.get_granularity()
-
-    output_list = tgis.aggregate_by_topology(
-        granularity_list=granularity_list,
-        granularity=gran,
-        map_list=map_list,
-        topo_list=topo_list,
-        basename=base,
-        time_suffix=time_suffix,
-        offset=offset,
-        method=method,
-        nprocs=nprocs,
-        spatial=None,
-        overwrite=gs.overwrite(),
-    )
-
-    if output_list:
-        temporal_type, semantic_type, title, description = sp.get_initial_values()
-        output_strds = tgis.open_new_stds(
-            output,
-            "strds",
-            temporal_type,
-            title,
-            description,
-            semantic_type,
-            dbif,
-            gs.overwrite(),
+        dataset = aggregate_series(
+            input_series,
+            target,
+            sampling,
+            method,
+            output=output,
+            basename=base,
+            granularity=gran,
+            time_suffix=time_suffix,
+            offset=offset,
+            nprocs=nprocs,
+            # t.rast.aggregate.ds has no file_limit option, so the classic
+            # default stays.
+            file_limit=1000,
+            # register_null straight (not negated): -n keeps null maps,
+            # matching t.rast.aggregate and the help text. The tool used to
+            # pass it as delete_empty, so -n deleted them (measured
+            # 2026-10-14 with the characterization tests).
+            register_null=register_null,
+            overwrite=gs.overwrite(),
         )
-        tgis.register_map_object_list(
-            "rast",
-            output_list,
-            output_strds,
-            register_null,
-            sp.get_relative_time_unit(),
-            dbif,
-        )
-
-        # Update the raster metadata table entries with aggregation type
-        output_strds.set_aggregation_type(method)
-        output_strds.metadata.update(dbif)
-
-    dbif.close()
+        if dataset is not None:
+            set_output_metadata(dataset, sp, method, dbif)
+    except (FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
+    finally:
+        dbif.close()
 
 
 if __name__ == "__main__":
