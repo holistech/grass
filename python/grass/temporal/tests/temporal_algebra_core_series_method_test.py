@@ -52,6 +52,9 @@ def test_two_maps_plan_r_series_without_z():
     # The input maps travel on the call; the file is written at run time.
     assert calls[0].inputs == ("a", "b")
     assert "flags" not in calls[0].parameters
+    # plan() writes no file, so neither a file nor an input is planned.
+    assert "file" not in calls[0].parameters
+    assert "input" not in calls[0].parameters
 
 
 def test_z_flag_past_the_file_limit():
