@@ -136,13 +136,13 @@ def main():
 
         input_series = ta.source(input, where=where)
         if not input_series.slots:
-            gs.fatal(_("Space time raster dataset <%s> is empty") % input)
+            gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
         # where filters the sampler too, as the classic tool does.
         sampler_maps = sampler_sp.get_registered_maps_as_objects(
             where=where, order="start_time", dbif=dbif
         )
         if not sampler_maps:
-            gs.fatal(_("Space time dataset <%s> is empty") % sampler)
+            gs.fatal(_("Space time dataset <{}> is empty").format(sampler))
 
         gran = sampler_sp.get_granularity()
         unit = None if sp.is_time_absolute() else sp.get_relative_time_unit()
@@ -171,6 +171,8 @@ def main():
         )
         if dataset is not None:
             set_output_metadata(dataset, sp, method, dbif)
+    # The core reports wrong user input as ValueError or TypeError; the tool
+    # turns it into a fatal error with the message only.
     except (FatalError, ValueError, TypeError) as error:
         gs.fatal(str(error))
     finally:
