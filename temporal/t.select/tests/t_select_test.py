@@ -419,9 +419,15 @@ def test_if_with_else(series):
 
 
 def test_if_with_inverse_selection_in_then(series):
-    """The inverse selection is a conclusion like any other: of the A maps
-    that pass the condition (a3, a4), those not equal to a B map remain."""
-    assert selected_names(series.session, "if(start_doy(A) > 20, A !: B)") == [
+    """The inverse selection is a conclusion like any other: a2, a3 and a4
+    pass the condition, and a2 equals b1, so only a3 and a4 remain. Plain
+    A as the conclusion would keep a2."""
+    assert selected_names(series.session, "if(start_doy(A) > 5, A !: B)") == [
+        "a3",
+        "a4",
+    ]
+    assert selected_names(series.session, "if(start_doy(A) > 5, A)") == [
+        "a2",
         "a3",
         "a4",
     ]
