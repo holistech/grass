@@ -295,7 +295,14 @@ class Raster3DBackend(RasterBackend):
 
         :raises ValueError: for a reduction that needs r.series
         """
-        if _has_series_reduce(content):
+        found = _find_series_node(content)
+        if isinstance(found, SeriesAggregate):
+            msg = (
+                f"The r.series aggregation {found.method} has no counterpart "
+                "for 3D raster maps"
+            )
+            raise ValueError(msg)
+        if found is not None:
             msg = (
                 "Skipping null cells in a sum or mean needs r.series, which has "
                 "no counterpart for 3D raster maps"
@@ -304,16 +311,21 @@ class Raster3DBackend(RasterBackend):
         return super().plan(content, output, spatial=spatial)
 
 
-def _has_series_reduce(content):
+def _find_series_node(content):
+    """Return the first node that needs r.series, or None"""
     if isinstance(content, (SeriesReduce, SeriesAggregate)):
-        return True
+        return content
     if isinstance(content, Call):
-        return any(_has_series_reduce(arg) for arg in content.args)
-    return False
+        for arg in content.args:
+            found = _find_series_node(arg)
+            if found is not None:
+                return found
+    return None
 
 
-def _describe(node):
-    """Name a content node in words for a message to the user"""
+def describe(node):
+    """Name a content node in words for a message to the user; the sentence
+    starts with a capital letter"""
     match node:
         case Const(value=None):
             return "null()"
@@ -403,7 +415,7 @@ class VectorBackend:
                         )
                     )
                 case _:
-                    msg = f"{_describe(node)} cannot be computed as a vector map"
+                    msg = f"{describe(node)} cannot be computed as a vector map"
                     raise ValueError(msg)
 
         compute(content, output)

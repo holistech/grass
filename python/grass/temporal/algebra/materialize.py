@@ -21,7 +21,7 @@ from grass.temporal.space_time_datasets import VectorDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
-from .backends import ModuleCall, _describe, backend_for
+from .backends import ModuleCall, describe, backend_for
 from .content import Call, MapRef, SeriesAggregate, SeriesReduce
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
@@ -258,8 +258,8 @@ def _plan_selection(series, name, basename, stds_type):
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
             continue
         if not isinstance(slot.content, MapRef) or slot.content.offset:
-            # _describe() starts a sentence; here it follows a semicolon.
-            what = _describe(slot.content)
+            # describe() starts a sentence; here it follows a semicolon.
+            what = describe(slot.content)
             msg = (
                 "t.select selects and retimes maps, it computes none; "
                 f"{what[0].lower()}{what[1:]} cannot be selected. Use "

@@ -7,8 +7,15 @@ import datetime
 
 import pytest
 
-from grass.temporal.algebra.backends import ModuleCall, RasterBackend
-from grass.temporal.algebra.content import NULL, Call, Const, MapRef, SeriesReduce
+from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
+from grass.temporal.algebra.content import (
+    NULL,
+    Call,
+    Const,
+    MapRef,
+    SeriesAggregate,
+    SeriesReduce,
+)
 from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, where
 from grass.temporal.algebra.relations import contains
@@ -361,3 +368,15 @@ def test_reduction_node_inside_expression_is_not_rendered_directly():
 def test_map_name_with_a_quote_is_rejected():
     with pytest.raises(ValueError, match="quote"):
         RasterBackend().expression(MapRef('a"b@PERMANENT'))
+
+
+def test_3d_series_aggregate_names_r_series_and_the_method():
+    node = SeriesAggregate("median", (A1, A2))
+    with pytest.raises(ValueError, match=r"r\.series aggregation median") as error:
+        Raster3DBackend().plan(node, "out")
+    assert "sum or mean" not in str(error.value)
+
+
+def test_3d_series_reduce_keeps_its_message():
+    with pytest.raises(ValueError, match="sum or mean"):
+        Raster3DBackend().plan(SeriesReduce("sum", (A1, A2)), "out")
