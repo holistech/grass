@@ -48,6 +48,18 @@ available for aggregation computation. Internally several *r.series*
 modules will be started, depending on the number of specified parallel
 processes (*nprocs*) and the number of intervals to aggregate.
 
+When the sampling option lists a relation together with one of its parts
+(for example `during` with `starts`, or `contains` with `started`), a map
+is counted once, not once per matching relation as earlier versions did.
+
+The maps related to an aggregation interval are read as one list in time
+order, not relation by relation as earlier versions did (`equal`,
+`contains`, `during`, `starts`, `started`, `finishes`, `finished`,
+`overlaps`, `overlapped`). This matters only when the sampling option lists
+more than one relation and the method depends on the order of the maps,
+that is `min_raster`, `max_raster`, `slope`, `offset` and `detcoeff`; the
+other methods give the same result.
+
 ## EXAMPLES
 
 ### Aggregation of monthly data into yearly data
