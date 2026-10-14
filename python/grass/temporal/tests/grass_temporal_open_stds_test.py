@@ -8,6 +8,7 @@ import os
 
 import pytest
 
+from grass.exceptions import FatalError
 import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.open_stds import _parse_id
@@ -35,7 +36,7 @@ def project_session(tmp_path, monkeypatch):
             if os.environ.get(key) != value:
                 monkeypatch.setenv(key, value)
         Tools(session=session).g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
-        tgis.init()
+        tgis.init(raise_fatal_error=True)
         yield session
 
 
@@ -51,3 +52,16 @@ def test_old_raster_dataset_is_opened_with_its_label(project_session, stds_type)
     sp = tgis.open_old_stds("test.S2_8", stds_type)
     assert sp.get_name() == "test.S2_8"
     assert sp.get_name(semantic_label=False) == "test"
+
+
+def test_new_raster_dataset_with_dot_cannot_be_read_again(project_session):
+    """A dot in the name of an existing raster dataset is read as a label.
+
+    open_new_stds() keeps "a.b" whole, but open_old_stds() reads it as the
+    dataset "a" with the semantic label "b", as it always did for "strds".
+    A dataset created with a dot (e.g. as output of t.rast.mapcalc) is
+    therefore not found again under the type "raster".
+    """
+    tgis.open_new_stds("a.b", "raster", "absolute", "t", "d", "mean")
+    with pytest.raises(FatalError):
+        tgis.open_old_stds("a.b", "raster")

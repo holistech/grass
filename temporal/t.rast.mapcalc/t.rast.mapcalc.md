@@ -133,6 +133,9 @@ r.mapcalc expression="c_6 = if(8 == 5 || 8 == 6, (a8 + b8), (a8 * b8))"
 Semantic labels present in the sample dataset A will be transferred to
 the output dataset.
 
+An input name with a dot is read as dataset name and semantic label, so
+dataset names with a dot cannot be used as inputs.
+
 ## Examples
 
 The following command creates a new space time raster dataset

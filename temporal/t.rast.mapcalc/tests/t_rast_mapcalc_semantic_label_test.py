@@ -52,7 +52,7 @@ def test_inputs_with_semantic_labels(label_session):
         inputs="test.S2_8,test.S2_4",
         output="ratio",
         basename="ratio",
-        expression="ratio = float(test.S2_8) / test.S2_4",
+        expression="float(test.S2_8) / test.S2_4",
     )
     names = tools.t_rast_list(input="ratio", columns="name", flags="u").text.split()
     assert len(names) == 2
