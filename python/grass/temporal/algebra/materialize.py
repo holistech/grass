@@ -395,12 +395,17 @@ def _run_vector(chain, overwrite):
     """Compute vector maps one call after another, checking the inputs of
     each overlay first"""
     mapset = get_current_mapset()
+    msgr = get_tgis_message_interface()
     # Only the temporary maps are intermediate. A result map that is a
     # registered map taken over unchanged is still an input of the
     # expression, and can be the input of an overlay in another slot.
     produced = set(chain.remove)
     dropped = []
+    total = _count_computed(chain)
+    done = 0
     for planned in chain.maps:
+        if not planned.calls:
+            continue
         for call in planned.calls:
             if call.name == "v.overlay" and not _overlay_inputs_usable(
                 call, produced, mapset, planned.name
@@ -408,29 +413,51 @@ def _run_vector(chain, overwrite):
                 dropped.append(planned.name)
                 break
             _module(call, overwrite).run()
+        done += 1
+        msgr.percent(done, total, 1)
     return dropped
+
+
+def _count_computed(chain):
+    """The number of result maps that need module calls"""
+    return sum(1 for planned in chain.maps if planned.calls)
 
 
 def _run(chain, overwrite, nprocs):
     """Compute the maps, in parallel for nprocs > 1; the calls of one map run
     in order
 
+    The progress counts the maps handed to the queue when running in
+    parallel, as the classic aggregation did, because a finished process is
+    not reported back.
+
     :return: the names of the maps that were dropped before they were
         computed
     """
     if _kind(chain) == "vector":
         return _run_vector(chain, overwrite)
+    msgr = get_tgis_message_interface()
+    total = _count_computed(chain)
+    done = 0
     if int(nprocs) == 1:
         # No queue and no forked process: both are only needed to overlap
         # calls.
         for planned in chain.maps:
+            if not planned.calls:
+                continue
             for call in planned.calls:
                 _module(call, overwrite).run()
+            done += 1
+            msgr.percent(done, total, 1)
         return []
     queue = ParallelModuleQueue(nprocs=int(nprocs))
     for planned in chain.maps:
+        if not planned.calls:
+            continue
         modules = [_module(call, overwrite) for call in planned.calls]
         queue.put(modules[0] if len(modules) == 1 else MultiModule(modules, sync=False))
+        done += 1
+        msgr.percent(done, total, 1)
     queue.wait()
     return []
 

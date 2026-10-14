@@ -569,3 +569,18 @@ def test_selection_copy_must_not_take_a_registered_name(make_series):
     series = Series((kept, *moved), kind="raster")
     with pytest.raises(ValueError, match="C_1"):
         ta.plan(series, "sel", basename="C", selection=True)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded:DeprecationWarning"
+)
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_progress_is_reported_once_per_computed_map(core_session, monkeypatch, nprocs):
+    """The percent of the messenger is the only progress a long run shows"""
+    reported = []
+    msgr = tgis.get_tgis_message_interface()
+    monkeypatch.setattr(
+        msgr, "percent", lambda current, total, step: reported.append((current, total))
+    )
+    ta.materialize(ta.source("A") * 3, "progress", overwrite=True, nprocs=nprocs)
+    assert reported == [(1, 4), (2, 4), (3, 4), (4, 4)]
