@@ -29,6 +29,8 @@ SAME = [
     "if(td(A) == 1, A)",
     "if(start_day(A) > 2, A, B)",
     'tshift(A, "1 day")',
+    # Shrinks the two-day maps of W to one day, so each keeps an interval.
+    'buff_t(W, "-12 hours")',
     "merge(A, D)",
     "A[1]",
     "A[-1]",
@@ -41,6 +43,18 @@ SAME = [
 # may be none, or the name of the error. A crash of the core then does not
 # pass for a difference.
 DIFFERENT = {
+    # Where a negative buffer leaves a map no time, the core stops with an
+    # error. The classic algebra stores an instant when the end equals the
+    # start, and keeps the old time stamp with an error message when the end
+    # would precede it (measured 2026-10-14 with t.rast.algebra -c).
+    'buff_t(W, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end == start)",
+    ),
+    'buff_t(A, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end < start)",
+    ),
     "if(A > 2, A)": (
         "maps",
         "an if without else is null where a map condition is false",

@@ -175,6 +175,21 @@ that start with A, and time instances in I.
     C = H {:,follows|precedes,i} A
     ```
 
+11. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+    by that size at both ends. The new algebra stops with an error if a map
+    would keep no time, that is if its end would fall on or before its start,
+    and for a time instance, which has no duration to shrink. The classic
+    algebra goes on instead: for a map whose end would fall before its
+    start it prints an error message and keeps the old time stamp, and it
+    makes a time instance of a map whose end equals its start. For maps
+    of two days, the first expression shrinks them to one day and the
+    second is an error:
+
+    ```sh
+    C = buff_t(B, "-12 hours")
+    C = buff_t(B, "-1 day")
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the new
 algebra raises `ValueError` or `TypeError`, where the classic algebra
