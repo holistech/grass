@@ -386,18 +386,81 @@ during the temporal extent of single map 'event'
 
 ## NOTES
 
-Since GRASS 8.6, two corrections of the temporal algebra apply to
-*t.select* as to *t.rast.algebra*, *t.rast3d.algebra* and
-*t.vect.algebra*. First, `if({R}, condition, conclusion)` reads
-"condition R conclusion": `if({contains}, start_doy(A) > 0, B)` gives the
-maps of B that lie within a map of A, where earlier versions gave the maps
-of B that contain a map of A. Second, with a temporal relation beyond
-`equal`, the else part of a condition on temporal variables also takes the
-maps that no condition map is related to. Figure A3 of Gebbert, Leppelt
-and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5 and 5
-to 7 of January 2001, B has daily maps from day 1 to 10, and this
-expression gives the first two maps of A and the maps of B from day 5 on,
-as the figure shows:
+### Core and classic algebra
+
+Since GRASS 8.6, *t.select* selects with the functions of the Python package
+`grass.temporal.algebra`, as *t.rast.algebra* and *t.vect.algebra* do. The
+previous implementation stays available as the classic algebra, so that
+published results remain reproducible. The flag **-c** selects it for one
+call, the environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole
+session or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects
+the new algebra, and the flag takes precedence over the variable.
+
+*t.select* only selects and retimes maps, it computes none, so most
+differences between the two algebras do not reach it. An expression that
+selects no map creates an empty space time dataset in both algebras. These
+points differ:
+
+1. **Spatial relations need -s.** A spatial relation in an operator, such as
+   `{:,equal|overlap}`, is read only by the new algebra, needs the flag
+   **-s** and a temporal relation to go with it; without the flag the
+   algebra stops with an error. The classic algebra reports an error for
+   the name of a spatial relation, with and without **-s**.
+
+2. **Right reference.** `A {:,R,r} B` gives one map per related pair, with
+   the time stamp of the right map: a map of A that contains two maps of B
+   gives two maps. The classic algebra keeps only the last pair of each map
+   of A. `A {!:,R,t} B` with a temporal reference other than `l` is a
+   syntax error, because the inverse selection has no related map to
+   combine with; the classic algebra accepts it.
+
+3. **More syntax.** The neighbourhood modifier `A[1]` and `A[-1]`, and
+   comparisons and temporal functions anywhere in a condition (also with
+   the number on the left, as in `20 < start_doy(A)`, and in arithmetic, as
+   in `start_doy(A) - 1 > 20`), and the hash operator in arithmetic within
+   a condition are read by the new algebra, as is an expression that is only
+   a dataset, `C = A`; the classic algebra reports a syntax error for each.
+
+4. **Arithmetic on datasets.** An expression such as `A + B` is read by the
+   new algebra, which stops with a message that names the tools that
+   compute maps, because it is no selection. The classic algebra cannot
+   read it and reports a syntax error.
+
+5. **Mixing dataset types.** The classic algebra can pull maps of another
+   dataset type into a selection with `strds()`, `str3ds()` and `stvds()`;
+   the new algebra does not, and reports a syntax error. Use **-c** for such
+   an expression.
+
+6. **Copy names in a mixed result.** When a result mixes maps registered
+   unchanged with retimed maps, the copied maps are named `<result>_1`,
+   `<result>_2`, ... in the time order of the result. The classic algebra
+   numbers them by their position among all result maps, so the suffixes can
+   differ; the maps and their time stamps are the same. If three maps are
+   registered unchanged before three copies, the copies are `C_1` to `C_3`
+   in the new algebra and `C_4` to `C_6` in the classic one:
+
+   ```sh
+   C = merge(A {:,during,l} D, A {:,during,r} D)
+   ```
+
+In Python, both algebras raise `SyntaxError` for an expression they cannot
+read, and `FatalError` for a missing dataset and, without overwrite, for an
+existing result. The new algebra raises `ValueError` for an expression it
+reads but cannot select, such as `A + B`, and for a spatial relation without
+**-s**, where the classic algebra raises `SyntaxError`. The tool stops with
+the error message in both algebras.
+
+Two corrections apply to both algebras, and to *t.rast.algebra*,
+*t.rast3d.algebra* and *t.vect.algebra* as well, so **-c** gives the rules of
+the previous algebra, not the results of a particular release. First,
+`if({R}, condition, conclusion)` reads "condition R conclusion":
+`if({contains}, start_doy(A) > 0, B)` gives the maps of B that lie within a
+map of A. Second, with a temporal relation beyond `equal`, the else part of a
+condition on temporal variables also takes the maps that no condition map is
+related to. Figure A3 of Gebbert, Leppelt and Pebesma (2019) needs both: A
+has maps from day 1 to 3, 3 to 5 and 5 to 7 of January 2001, B has daily maps
+from day 1 to 10, and this expression gives the first two maps of A and the
+maps of B from day 5 on, as the figure shows:
 
 ```sh
 C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
@@ -405,8 +468,8 @@ C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
 
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
-algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes
-both corrections.
+algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes both
+corrections.
 
 ## EXAMPLES
 
