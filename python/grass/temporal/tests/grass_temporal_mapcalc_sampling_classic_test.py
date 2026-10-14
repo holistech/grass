@@ -199,6 +199,15 @@ def make_case(tag, case, generator, input_spans):
     return sampler, inp
 
 
+def touches_only(first, second):
+    """Whether closed boxes meet while their interiors do not"""
+    west1, south1, east1, north1 = first
+    west2, south2, east2, north2 = second
+    closed = west1 <= east2 and west2 <= east1 and south1 <= north2 and south2 <= north1
+    open_ = west1 < east2 and west2 < east1 and south1 < north2 and south2 < north1
+    return closed and not open_
+
+
 @pytest.mark.parametrize(
     ("seed", "input_spans"),
     [(7, interval_spans), (11, mixed_spans), (5, overlapping_spans)],
@@ -225,6 +234,27 @@ def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_s
             found_a_pick = found_a_pick or any(pick is not None for pick in tool)
     # All columns empty on both sides would make the equality above vacuous.
     assert found_a_pick
+
+
+def test_the_generated_boxes_include_edge_and_corner_contact():
+    """The module docstring promises boxes that share only an edge or corner.
+
+    Replays the box generators of make_case() without a session: a sampler map
+    and an input map of one case touching only at an edge or corner.
+    """
+    found = False
+    for seed, input_spans in [
+        (7, interval_spans),
+        (11, mixed_spans),
+        (5, overlapping_spans),
+    ]:
+        generator = random.Random(seed)
+        for case in range(CASES):
+            boxes = random.Random(f"{seed}-{case}")
+            sampler = [random_box(boxes) for _ in interval_spans(generator)]
+            inp = [random_box(boxes) for _ in input_spans(generator)]
+            found = found or any(touches_only(a, b) for a in sampler for b in inp)
+    assert found
 
 
 def test_the_comparison_detects_a_wrong_relation(temporal_session):

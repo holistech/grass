@@ -2,7 +2,8 @@
 
 series_method lets gather() aggregate related maps with any r.series method,
 as t.rast.aggregate does, and keeps its single map g.copy quirk and its
-file_limit apart from the skip-sum and skip-mean of the algebra. No session.
+file_limit apart from the skip-sum and skip-mean of the algebra. Only the
+check against the r.series interface description needs a session.
 """
 
 import os
