@@ -228,6 +228,9 @@ def test_empty_result_creates_an_empty_dataset_with_a_warning(
         def warning(self, message):
             warnings.append(message)
 
+        def percent(self, current, total, step):
+            pass
+
     monkeypatch.setattr(materialize_module, "get_tgis_message_interface", Messages)
     b, z = ta.source("B"), ta.source("Z")
     ta.materialize(ta.gather(b, ta.contains, z, reduce="sum"), "empty", overwrite=True)
