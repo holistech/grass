@@ -366,6 +366,9 @@ tshift(A, size)         Shift STDS A with granule ("1 month" or 5)
 tsnap(A)                Snap time instances and intervals of STDS A
 ```
 
+A negative size shrinks the maps; the new algebra stops with an error where
+a map would keep no time, see "Core and classic algebra".
+
 #### Single map with temporal extent
 
 The temporal algebra can also handle single maps with time stamps in the
@@ -441,6 +444,21 @@ points differ:
 
    ```sh
    C = merge(A {:,during,l} D, A {:,during,r} D)
+   ```
+
+7. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+   by that size at both ends. The new algebra stops with an error if a map
+   would keep no time, that is if its end would fall on or before its start,
+   and for a time instance, which has no duration to shrink. The classic
+   algebra goes on instead: for a map whose end would fall before its
+   start it prints an error message and keeps the old time stamp, and it
+   makes a time instance of a map whose end equals its start. For maps
+   of two days, the first expression shrinks them to one day and the
+   second is an error:
+
+   ```sh
+   C = buff_t(B, "-12 hours")
+   C = buff_t(B, "-1 day")
    ```
 
 In Python, both algebras raise `SyntaxError` for an expression they cannot

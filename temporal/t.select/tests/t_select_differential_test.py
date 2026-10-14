@@ -41,6 +41,9 @@ SAME = [
     'A : tshift(B, "5 days")',
     'buff_t(A, "1 days") {:,contains} B',
     'buff_t(A, "1 days") {:,overlaps} B',
+    # b2 [22,27) and b9 [28,29) lie inside the shrunk a3 [21,29)
+    'buff_t(A, "-1 days") {:,contains} B',
+    'buff_t(A, "-1 days") {:,during} D',
     "A : X@other",
     "X@other {:, precedes} A",
 ]
@@ -66,6 +69,17 @@ DIFFERENT = {
     "A": ("maps", "the core reads a bare dataset"),
     # A computed result is no selection on the core.
     "A + B": ("ValueError", "t.select selects maps, it computes none"),
+    # A negative buffer that leaves a map no time is an error on the core;
+    # the classic algebra makes instants (end == start) or keeps the old time
+    # (end < start) without a message.
+    'buff_t(A, "-5 days") {:,during} D': (
+        "ValueError",
+        "a negative buffer must leave every map some time",
+    ),
+    'buff_t(A, "-6 days") {:,during} D': (
+        "ValueError",
+        "a negative buffer must leave every map some time",
+    ),
 }
 
 
