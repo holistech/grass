@@ -12,13 +12,16 @@ not carry diverging copies:
   order, without repetition, and
 - the sampler must pass the two guards at the top of sample_by_dataset().
 
-It does not call gather(), and it does not use the spatial relation of the
-core. The classic builder relates maps by their 2D extent, also for 3D
-rasters, as closed boxes: it searches an R-tree that counts contact at an edge
-or a corner as intersection. The spatial relations of the core are 3D for 3D
-rasters and give no relation to boxes that share only a corner, so under
-spatial the temporal partners come from related() without a spatial part, and
-a closed 2D box test filters them (see boxes_intersect()).
+It does not call gather(), which differs from the classic rules in two ways.
+A classic caller that takes one map takes the first map of the first relation
+that has one, while gather() takes the earliest start over all relations.
+And the spatial relation of the core is not the classic one: the classic
+builder relates maps by their 2D extent, also for 3D rasters, as closed boxes,
+because it searches an R-tree that counts contact at an edge or a corner as
+intersection. The spatial relations of the core are 3D for 3D rasters and give
+no relation to boxes that share only a corner. So under spatial the temporal
+partners come from related() without a spatial part, and a closed 2D box test
+filters them (see boxes_intersect()).
 
 Aggregation does not use this module. aggregation_core takes the union of the
 related maps in time order, which is a documented change from the classic

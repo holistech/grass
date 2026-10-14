@@ -2,15 +2,14 @@
 
 t.rast.mapcalc samples its inputs by the first input and runs one r.mapcalc
 per sampler granule. The inputs and the temporal relations between their maps
-come from grass.temporal.algebra (source() and related()), timevar() gives
-td() and the calendar functions, and the start_time()/end_time() offsets are
-computed from the slot extents. The expression itself stays a text, and the
-dataset names and function tokens are substituted textually, as before, so the
-result maps, their names and the warnings are unchanged. The tool has no
-switch between the classic and the core algebra, so the sampling follows the
-classic rules of AbstractSpaceTimeDataset.sample_by_dataset() exactly and does
-not use gather(), which differs from them in the choice of the map and in the
-spatial test (see _sample_columns()).
+come from grass.temporal.algebra (source()), timevar() gives td() and the
+calendar functions, and the start_time()/end_time() offsets are computed from
+the slot extents. The expression itself stays a text, and the dataset names
+and function tokens are substituted textually, as before, so the result maps,
+their names and the warnings are unchanged. The tool has no switch between
+the classic and the core algebra, so the sampling follows the classic rules of
+AbstractSpaceTimeDataset.sample_by_dataset() exactly, through
+grass.temporal.related_maps.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -25,7 +24,6 @@ from grass.exceptions import CalledModuleError
 from grass.script.utils import _get_multiprocessing_context, get_num_suffix
 
 from .algebra.content import Const
-from .algebra.relations import relation, related
 from .algebra.series import Series, Slot
 from .algebra.sources import source
 from .algebra.time_functions import timevar
@@ -36,27 +34,8 @@ from .core import (
 )
 from .datetime_math import time_delta_to_relative_time
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
+from .related_maps import method_relations, related_per_granule, sampler_refused
 from .space_time_datasets import Raster3DDataset, RasterDataset
-
-# The relations that sample_by_dataset() reads for a method, from the side of
-# the granule: the topology builder files, under a relation name, the maps that
-# stand in that relation to the granule, and the method names are read the
-# same way ("during" selects the maps the granule lies during). So there is no
-# inversion. "start" appends "equals", which upper-cases to the key "EQUALS"
-# that the builder never files (it files "EQUAL"), so the classic "start" never
-# matches a map of equal time; that quirk is kept by leaving it out here.
-_METHOD_RELATIONS = {
-    "equal": ("equal",),
-    "during": ("during",),
-    "contain": ("contains",),
-    "overlap": ("overlapped", "overlaps"),
-    "follows": ("follows",),
-    "precedes": ("precedes",),
-    "start": ("overlapped", "starts", "started", "finishes", "contains"),
-}
-# These names stand for a group of relations that sample_by_dataset() appends
-# after the plain method names.
-_METHOD_GROUPS = ("start", "overlap", "contain")
 
 # The calendar tokens need absolute time, as in the classic tool.
 _CALENDAR_TOKENS = tuple(
@@ -75,40 +54,6 @@ _CALENDAR_TOKENS = tuple(
     )
 )
 _TIME_TOKENS = ("td", "start_time", "end_time", *_CALENDAR_TOKENS)
-
-
-def _method_relation_names(method):
-    """The relation names of a list of sampling method names, in the order in
-    which sample_by_dataset() tries them
-
-    The plain names come first, in the order of the list, then the groups
-    "start", "overlap" and "contain", each as far as not yet in the list. The
-    order matters because the map used is the first one found, and the first
-    relation with a map decides.
-    """
-    for name in method:
-        if name not in _METHOD_RELATIONS:
-            msg = f"Unknown sampling method <{name}>"
-            raise ValueError(msg)
-    names = [
-        relation_
-        for name in method
-        if name not in _METHOD_GROUPS
-        for relation_ in _METHOD_RELATIONS[name]
-    ]
-    for group in _METHOD_GROUPS:
-        if group in method:
-            names.extend(
-                relation_
-                for relation_ in _METHOD_RELATIONS[group]
-                if relation_ not in names
-            )
-    return names
-
-
-def _method_relation(method):
-    """Return the relation of a list of sampling method names as one union"""
-    return relation("|".join(_method_relation_names(method)))
 
 
 def _time_token_value(name, first_extent, extent, is_absolute, msgr):
@@ -150,54 +95,23 @@ def _substitute_time_tokens(expr, first_extent, extent, is_absolute, msgr):
     return expr
 
 
-def _boxes_intersect(left, right):
-    """True if the 2D extents touch or overlap, edges and corners included"""
-    return (
-        left.west <= right.east
-        and right.west <= left.east
-        and left.south <= right.north
-        and right.south <= left.north
-    )
-
-
 def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
     """The map name of the input name's first related map per sampler granule
 
     Returns a list with one entry per granule: the name of the map used, or
     None where none relates.
 
-    This does not use gather(). The tool has no switch between the classic and
-    the core algebra, so its results must stay those of sample_by_dataset(),
-    and gather() differs in two ways. First, the map used is the first of the
-    first relation in names that has one, and within that relation the one of
-    the earliest start; gather() would take the earliest start over all
-    relations. Second, with spatial the classic builder relates the maps by
-    their 2D extent, also for 3D rasters, and takes every map whose box
-    touches the granule's, corners and edges included; the spatial relations of
-    the core are 3D for 3D rasters and leave out contact at a corner. So the
-    temporal partners come from related() without a spatial part, and spatial
-    is a closed 2D box test on them.
+    The tool has no switch between the classic and the core algebra, so the
+    map used is the one sample_by_dataset() takes, the first of the first
+    relation in names that has one; related_maps explains why gather() does
+    not do that.
 
     Warns, as the classic tool does, once per granule that relates more than
     one map. An input without registered maps gives a column of None.
     """
-    partners = source(name, where=where, stds_type=stds_type).slots
-    per_relation = [
-        related(first_series.slots, relation(relation_name), partners)
-        for relation_name in names
-    ]
+    inputs = source(name, where=where, stds_type=stds_type)
     column = []
-    for number, granule in enumerate(first_series.slots):
-        found = []
-        for indices in per_relation:
-            for index in indices[number]:
-                if index in found:
-                    continue
-                if spatial and not _boxes_intersect(
-                    granule.space, partners[index].space
-                ):
-                    continue
-                found.append(index)
+    for found in related_per_granule(first_series, names, inputs, spatial=spatial):
         if len(found) > 1:
             msgr.warning(
                 _(
@@ -207,24 +121,9 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
                     "datasets."
                 )
             )
-        column.append(partners[found[0]].content.ident.split("@")[0] if found else None)
+        column.append(found[0].content.ident.split("@")[0] if found else None)
 
     return column
-
-
-def _sampler_refused(sampler, dataset, msgr):
-    """True, with the classic message, if sampler cannot sample dataset
-
-    These are the two guards at the top of sample_by_dataset(): the temporal
-    types must be equal, and the sampler must have interval time.
-    """
-    if dataset.get_temporal_type() != sampler.get_temporal_type():
-        msgr.error(_("The space time datasets must be of the same temporal type"))
-        return True
-    if sampler.get_map_time() != "interval":
-        msgr.error(_("The temporal map type of the sample dataset must be interval"))
-        return True
-    return False
 
 
 def dataset_mapcalculator(
@@ -309,7 +208,7 @@ def dataset_mapcalculator(
                 )
             )
             return 0
-        _sampler_refused(first_dataset, datasets[others[0]], msgr)
+        sampler_refused(first_dataset, datasets[others[0]], msgr)
         msgr.message(_("No samples found for map calculation"))
         return 0
     is_absolute = first_series.temporal_type == "absolute"
@@ -343,9 +242,9 @@ def dataset_mapcalculator(
     labels = [labels.get(slot.content.ident) for slot in first_series.slots]
 
     if do_sampling:
-        method_names = _method_relation_names(method)
+        method_names = method_relations(method)
         for name in others:
-            if _sampler_refused(first_dataset, datasets[name], msgr):
+            if sampler_refused(first_dataset, datasets[name], msgr):
                 msgr.message(_("No samples found for map calculation"))
                 return 0
             columns[name] = _sample_column(

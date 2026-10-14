@@ -9,8 +9,8 @@ sampler is always an interval series (sample_by_dataset requires it).
 The series have no two maps with the same start time inside one dataset. Where
 two partners in the winning relation start at the same time, the classic pick
 follows the hit order of the R-tree that builds the topology, which is
-undefined, while the tool follows the order of source(). That is a known limit
-of the comparison, not a defect, so the generators avoid such ties.
+undefined, while the tool takes the map with the lower id. That is a known
+limit of the comparison, not a defect, so the generators avoid such ties.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -25,7 +25,8 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.algebra.sources import source
 from grass.temporal.core import get_tgis_message_interface
-from grass.temporal.mapcalc import _method_relation_names, _sample_column
+from grass.temporal.mapcalc import _sample_column
+from grass.temporal.related_maps import method_relations
 
 SINGLE_METHODS = [
     ["equal"],
@@ -187,7 +188,7 @@ def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_s
         for method in SINGLE_METHODS + MULTI_METHODS:
             classic = classic_column(inp, sampler, method)
             tool = tool_column(
-                sampler.get_name(), inp.get_name(), _method_relation_names(method)
+                sampler.get_name(), inp.get_name(), method_relations(method)
             )
             assert tool == classic, f"seed {seed}, case {case}, method {method}"
             found_a_pick = found_a_pick or any(pick is not None for pick in tool)
@@ -215,7 +216,7 @@ def test_the_comparison_detects_a_swapped_relation_order(temporal_session):
     for case in range(CASES):
         sampler, inp = make_case("o", case, generator, overlapping_spans)
         for method in MULTI_METHODS:
-            swapped = list(reversed(_method_relation_names(method)))
+            swapped = list(reversed(method_relations(method)))
             classic = classic_column(inp, sampler, method)
             tool = tool_column(sampler.get_name(), inp.get_name(), swapped)
             if tool != classic:
