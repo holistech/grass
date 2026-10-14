@@ -86,7 +86,7 @@ def test_a_map_kept_in_two_slots_is_registered_once(vector_series, monkeypatch):
     monkeypatch.setattr(
         importlib.import_module("grass.temporal.algebra.materialize"),
         "get_tgis_message_interface",
-        lambda: SimpleNamespace(warning=warnings.append),
+        lambda: SimpleNamespace(warning=warnings.append, percent=lambda *args: None),
     )
     ta.materialize(kept, "core_twice", overwrite=True)
     assert [ident for ident, _ in _maps("core_twice")] == [
@@ -149,7 +149,7 @@ def test_an_empty_intermediate_map_drops_the_result(vector_series, monkeypatch):
     monkeypatch.setattr(
         importlib.import_module("grass.temporal.algebra.materialize"),
         "get_tgis_message_interface",
-        lambda: SimpleNamespace(warning=warnings.append),
+        lambda: SimpleNamespace(warning=warnings.append, percent=lambda *args: None),
     )
     ta.materialize(
         ta.gather(first, ta.equal, ac, reduce=ta.fold("and")),
@@ -242,3 +242,22 @@ def test_a_raster_dataset_is_not_a_vector_dataset(vector_series):
         FatalError, match=r"^Space time vector dataset <rast2@PERMANENT> not found$"
     ):
         _vparse("rast2 : aa", "fac_rast", classic=False)
+
+
+def test_progress_counts_the_computed_vector_maps(vector_series, monkeypatch):
+    """Every result map with calls is one step, also on the vector path"""
+    reported = []
+    monkeypatch.setattr(
+        tgis.get_tgis_message_interface(),
+        "percent",
+        lambda current, total, step: reported.append((current, total)),
+    )
+    aa = ta.source("aa", stds_type="stvds")
+    ab = ta.source("ab", stds_type="stvds")
+    series = ta.gather(aa, ta.equal, ab, reduce=ta.fold("and"))
+    computed = sum(
+        1 for planned in ta.plan(series, "core_progress").maps if planned.calls
+    )
+    assert computed > 0
+    ta.materialize(series, "core_progress", overwrite=True)
+    assert reported == [(step, computed) for step in range(1, computed + 1)]
