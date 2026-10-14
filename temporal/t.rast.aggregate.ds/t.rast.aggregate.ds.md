@@ -12,6 +12,8 @@ The sampling method must be specified from the sampler dataset point of
 view. It defines the temporal relationships between intervals of the
 sampling dataset and the input space time raster dataset.
 
+The module stops before computing if the name of a result map equals the name of an input map in the current mapset.
+
 Since GRASS 8.6 the **-n** flag works as documented and as in
 *t.rast.aggregate*: by default an aggregated map without any valid cell is
 not registered, and **-n** keeps it. Earlier versions did the opposite.
