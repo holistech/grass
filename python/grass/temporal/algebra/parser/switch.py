@@ -2,9 +2,7 @@
 
 The parser classes of the raster, 3D raster and vector algebra translate an
 expression onto grass.temporal.algebra unless the classic algebra is chosen.
-The common granularity mode of the raster and 3D raster parsers runs the
-classic algebra in any case. The classic algebra stays, because published
-results rely on it.
+The classic algebra stays, because published results rely on it.
 """
 
 import os

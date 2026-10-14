@@ -8,10 +8,14 @@ do, and returns the same process chain dictionary.
 
 from __future__ import annotations
 
-from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS
+import functools
+
+from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
+from grass.temporal.algebra.sources import source
 
 from .grammar import parse
+from .granularity import sample_by_granularity
 from .translate import Translator
 
 __all__ = ["Translator", "evaluate", "parse"]
@@ -33,6 +37,7 @@ def evaluate(
     register_null=False,
     nprocs=1,
     time_suffix=None,
+    granularity=None,
 ):
     """Parse, translate and compute "name = expression"
 
@@ -41,7 +46,15 @@ def evaluate(
     stops at an existing result, as the run would. debug prints the module
     calls.
 
+    With granularity every space time dataset of the expression is sampled
+    with this common granularity before the translation, as in the
+    granularity mode of t.rast.algebra; the caller has checked the
+    expression with setup_common_granularity() of the parser classes.
+
     :param kind: the map type, "raster", "raster3d" or "vector"
+    :param granularity: the common granularity of the datasets, a text such
+        as "1 day" for absolute time or a whole number for relative time;
+        None reads the datasets as they are
     :return: the process chain of the parser classes: "processes" in the form
         of Module.get_dict(), "register" as (name, start, end) strings,
         "remove" and "STDS"
@@ -55,7 +68,14 @@ def evaluate(
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
-    name, series = Translator(kind=kind, spatial=spatial).statement(statement)
+    resolve = None
+    if granularity is not None:
+        resolve = functools.partial(
+            _sampled_source, stds_type=STDS_TYPES[kind], granularity=granularity
+        )
+    name, series = Translator(kind=kind, spatial=spatial, resolve=resolve).statement(
+        statement
+    )
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
     planned = plan(series, name, basename=basename, time_suffix=suffix)
     chain["processes"] = [_module(call, overwrite) for call in planned.processes]
@@ -96,6 +116,11 @@ def evaluate(
             time_suffix=suffix,
         )
     return chain
+
+
+def _sampled_source(name, *, stds_type, granularity):
+    """The maps of a dataset on granules of the common granularity"""
+    return sample_by_granularity(source(name, stds_type=stds_type), granularity)
 
 
 def _module(call, overwrite):

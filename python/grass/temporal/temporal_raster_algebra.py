@@ -102,13 +102,13 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
         """Parse the expression and compute the result
 
         The expression is translated onto grass.temporal.algebra, unless the
-        classic algebra of this module is selected (see __init__). The common
-        granularity mode, set up by setup_common_granularity(), runs with the
-        classic algebra, because the translation does not cover it yet.
+        classic algebra of this module is selected (see __init__). After
+        setup_common_granularity() both algebras sample the datasets with
+        their common granularity.
 
         :return: the process chain dictionary
         """
-        if self._classic() or self.use_granularity:
+        if self._classic():
             return super().parse(expression, basename, overwrite)
         return evaluate(
             expression,
@@ -121,6 +121,7 @@ class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
             register_null=self.register_null,
             nprocs=self.nprocs,
             time_suffix=self.time_suffix,
+            granularity=self.granularity if self.use_granularity else None,
         )
 
     def _classic(self):
