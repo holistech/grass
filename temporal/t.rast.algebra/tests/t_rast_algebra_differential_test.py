@@ -127,6 +127,8 @@ GRANULARITY_SAME = [
     "A + I",
     "A + map(singletmap)",
     "tmap(singletmap) + B",
+    # The single map lies on no granule of B, but on one of A.
+    "tmap(singletmap) + A",
     "RT * 2",
 ]
 
