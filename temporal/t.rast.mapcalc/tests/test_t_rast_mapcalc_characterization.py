@@ -347,6 +347,9 @@ def test_more_than_one_related_map_warns_and_uses_first(mapcalc_session):
     stderr = result.stderr
     if isinstance(stderr, bytes):
         stderr = stderr.decode()
+    # The tool warns once per sampler granule that relates more than one input
+    # map. Here that is the single three-month granule, which contains both
+    # monthly maps, so the warning is expected exactly for this granule.
     assert "more than a single map" in stderr
     # contain relates both input maps; the first by start (char_one_a) is used,
     # so the result is char_one_s + char_one_a, with the same cell values as
@@ -780,7 +783,11 @@ def method_datasets(mapcalc_session):
         # its granule and runs on. Granule 1 is missing although its map
         # starts with it: the method asks the sampling for "equals" while the
         # topology says "equal". Granule 4 is missing although its map starts
-        # inside it and runs on; that was only measured, not derived.
+        # inside it and runs on: seen from the granule that is "overlaps"
+        # (the granule starts first and ends inside the map), and the method
+        # "start" lists "overlapped" but not "overlaps" (_METHOD_RELATIONS in
+        # related_maps.py). "overlapped" would need a map that starts before
+        # the granule and ends inside it.
         ("start", [2, 7, 8]),
     ],
 )
