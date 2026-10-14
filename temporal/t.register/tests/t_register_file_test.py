@@ -187,3 +187,31 @@ def test_names_only_file_takes_times_from_options(session_with_rasters, tmp_path
     assert [(row["start_time"], row["end_time"]) for row in rows] == [
         ("2001-01-01 00:00:00", "2001-01-05 00:00:00"),
     ] * 2
+
+
+def test_start_only_lines_take_the_end_of_the_command_line(
+    session_with_rasters, tmp_path
+):
+    """Lines with a start time only become intervals ending at end=.
+
+    At 4bfd966aa9 a line without end time kept the end of the command line
+    (read from the code: end was replaced only by a row that had one), so
+    these lines were intervals; the fix for time point lines must not change
+    that.
+    """
+    tools = Tools(session=session_with_rasters)
+    create_dataset(tools, "start_only", "absolute")
+    map_file = tmp_path / "maps.txt"
+    map_file.write_text("a|2001-01-01\nb|2001-01-02\n")
+    tools.t_register(
+        type="raster",
+        input="start_only",
+        file=map_file,
+        start="2000-12-01",
+        end="2001-02-01",
+    )
+    rows = registered_maps(tools, "start_only")
+    assert [(row["name"], row["start_time"], row["end_time"]) for row in rows] == [
+        ("a", "2001-01-01 00:00:00", "2001-02-01 00:00:00"),
+        ("b", "2001-01-02 00:00:00", "2001-02-01 00:00:00"),
+    ]

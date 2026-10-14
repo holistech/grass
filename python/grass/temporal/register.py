@@ -247,6 +247,8 @@ def register_maps_in_space_time_dataset(
     # Store the ids of datasets that must be updated
     datatsets_to_modify = {}
 
+    option_end = end
+
     msgr.debug(2, "Gathering map information...")
 
     for count, row in enumerate(maplist):
@@ -267,11 +269,11 @@ def register_maps_in_space_time_dataset(
                 )
             )
 
-        # A row of the file sets both times: a row without end time is a time
-        # point and must not keep the end time of the row before it.
+        # A row with a start time sets both times. Without an end time it
+        # takes the end of the command line, not the end of the row before it.
         if "start" in row:
             start = row["start"]
-            end = row.get("end")
+            end = row.get("end", option_end)
 
         # Use the semantic label from file
         semantic_label = row.get("semantic_label", None)
