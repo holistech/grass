@@ -61,6 +61,13 @@ def aggregate_ds_data(tmp_path_factory):
       monthly precip strds (six maps from 2001-03-01) and an stvds sampler of
       three intervals, for the vector sampler path.
 
+    - gapin: g1 on day 1 and g3 on day 3, so that the day 2 sampler interval
+      of samp relates to no map and leaves a gap in numbered output names.
+    - ordin and osamp: ct=9 on 2001-01-05 .. 2001-01-06 lies inside and
+      ov1=1 on 2001-01-02 .. 2001-01-15 overlaps the single sampler interval
+      2001-01-01 .. 2001-01-11, so that one granule collects maps through
+      the two relations contains and overlaps.
+
     The computational region is 3x3 cells of size 1.
     """
     project = tmp_path_factory.mktemp("t_rast_aggregate_ds") / "project"
@@ -88,6 +95,29 @@ def aggregate_ds_data(tmp_path_factory):
                 ("nz1", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
                 ("nz2", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
             ],
+        )
+        for name, value in [("g1", 1), ("g3", 3), ("ct", 9), ("ov1", 1), ("os1", 1)]:
+            tools.r_mapcalc(expression=f"{name} = {value}")
+        _register_raster(
+            "gapin",
+            "absolute",
+            [
+                ("g1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("g3", "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
+            ],
+        )
+        _register_raster(
+            "ordin",
+            "absolute",
+            [
+                ("ov1", "2001-01-02 00:00:00", "2001-01-15 00:00:00"),
+                ("ct", "2001-01-05 00:00:00", "2001-01-06 00:00:00"),
+            ],
+        )
+        _register_raster(
+            "osamp",
+            "absolute",
+            [("os1", "2001-01-01 00:00:00", "2001-01-11 00:00:00")],
         )
         _register_raster(
             "samp",
