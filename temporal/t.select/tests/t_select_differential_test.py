@@ -84,6 +84,12 @@ DIFFERENT = {
 }
 
 
+@pytest.fixture(autouse=True)
+def algebra():
+    """Each test here runs both algebras itself, so the parametrized fixture
+    of conftest.py, which would run every test twice, is replaced"""
+
+
 def selected(session, expression, algebra):
     """The registered maps of a tool run as (identifier without the result
     name, start day, end day), through the subprocess the session chooses"""
@@ -111,14 +117,13 @@ def test_same_result(series, expression):
     assert core, "the expression selects no map and compares nothing"
 
 
-def outcome(monkeypatch, expression, algebra, spatial=False):
+def outcome(expression, algebra, spatial=False):
     """The registered maps, None for no dataset, or the name of the error
 
     The parsers run in this process, so that the error class is visible; the
     core takes evaluate(..., selection=True), the classic algebra the base
     parser, each into its own result dataset.
     """
-    monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
     name = f"diff_{algebra}_{next(counter)}"
     try:
         if algebra == "classic":
@@ -142,21 +147,20 @@ def outcome(monkeypatch, expression, algebra, spatial=False):
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
-def test_listed_differences_still_differ(series, monkeypatch, expression):
+def test_listed_differences_still_differ(series, expression):
     """A listed difference that no longer differs must leave the list"""
-    core = outcome(monkeypatch, expression, "core")
-    classic = outcome(monkeypatch, expression, "classic")
-    assert core != classic
-    kind = "maps" if core == "maps" else core
-    assert kind == DIFFERENT[expression][0]
+    core = outcome(expression, "core")
+    classic = outcome(expression, "classic")
+    assert core != classic, DIFFERENT[expression][1]
+    assert core == DIFFERENT[expression][0]
 
 
-def test_spatial_relation_with_the_flag_is_read_by_the_core_only(series, monkeypatch):
+def test_spatial_relation_with_the_flag_is_read_by_the_core_only(series):
     """With -s the core reads the spatial relation and selects maps; the
     classic algebra reports a syntax error for the name, with or without -s"""
     expression = "A {:,equal|overlap} B"
-    assert outcome(monkeypatch, expression, "core", spatial=True) == "maps"
-    assert outcome(monkeypatch, expression, "classic", spatial=True) == "SyntaxError"
+    assert outcome(expression, "core", spatial=True) == "maps"
+    assert outcome(expression, "classic", spatial=True) == "SyntaxError"
 
 
 def test_right_reference_gives_one_map_per_pair(series):

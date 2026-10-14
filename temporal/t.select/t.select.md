@@ -421,8 +421,8 @@ points differ:
    comparisons and temporal functions anywhere in a condition (also with
    the number on the left, as in `20 < start_doy(A)`, and in arithmetic, as
    in `start_doy(A) - 1 > 20`), and the hash operator in arithmetic within
-   a condition are read by the new algebra, as is an expression that is only
-   a dataset, `C = A`; the classic algebra reports a syntax error for each.
+   a condition are read by the new algebra. So is an expression that is only
+   a dataset, `C = A`. The classic algebra reports a syntax error for each.
 
 4. **Arithmetic on datasets.** An expression such as `A + B` is read by the
    new algebra, which stops with a message that names the tools that

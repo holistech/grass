@@ -418,6 +418,30 @@ def test_if_with_else(series):
     ]
 
 
+def test_if_with_inverse_selection_in_then(series):
+    """The inverse selection is a conclusion like any other: of the A maps
+    that pass the condition (a3, a4), those not equal to a B map remain."""
+    assert selected_names(series.session, "if(start_doy(A) > 20, A !: B)") == [
+        "a3",
+        "a4",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("if({contains}, start_doy(A) > 0, B)", ["b2", "b4", "b5", "b9"]),
+        ("if({contains}, start_doy(A) > 20, B)", ["b2", "b5", "b9"]),
+    ],
+)
+def test_if_with_explicit_relation_reads_condition_relation_conclusion(
+    series, expression, expected
+):
+    """if({R}, condition, conclusion) reads "condition R conclusion": the
+    conclusion maps are the B maps within an A map that passes the test."""
+    assert selected_names(series.session, expression) == expected
+
+
 def test_if_then_other_dataset_has_no_equal_map(series):
     """The then-part dataset needs maps with the same extent as the condition."""
     assert run_select(series.session, "if(start_doy(A) > 20, B)") == []
