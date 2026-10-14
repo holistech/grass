@@ -6,16 +6,23 @@ which the classic dataset_mapcalculator used: gap granules skipped, and per
 granule the first sample. Both paths get the same random time stamps; the
 sampler is always an interval series (sample_by_dataset requires it).
 
-The series have no two maps with the same start time inside one dataset. Where
-two partners in the winning relation start at the same time, the classic pick
-follows the hit order of the R-tree that builds the topology, which is
-undefined, while the tool takes the map with the lower id. That is a known
-limit of the comparison, not a defect, so the generators avoid such ties.
+Every comparison runs twice, without and with the 2D spatial test. The maps
+get random boxes on a small grid, so that disjoint boxes, boxes that share only
+an edge or a corner, and overlapping boxes all occur.
+
+The comparison is exact only for series without a tie. Where two partners in
+the winning relation start at the same time, the classic pick follows the hit
+order of the R-tree that builds the topology, which is undefined, while the
+tool takes the map with the lower id. That is a known limit of the comparison,
+not a defect. The generators of the small series here (two to six maps per
+dataset) avoid such ties by drawing distinct start times; a long series would
+meet ties and could not be compared this way.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import itertools
 import os
 import random
 
@@ -103,7 +110,18 @@ def overlapping_spans(generator):
     return [(start, start + generator.randint(1, 5)) for start in sorted(starts)]
 
 
-def register(name, spans, prefix):
+def random_box(generator):
+    """A box on the grid 0..6 with at least one cell in each direction"""
+    west, south = generator.randint(0, 5), generator.randint(0, 5)
+    return (
+        west,
+        south,
+        generator.randint(west + 1, 6),
+        generator.randint(south + 1, 6),
+    )
+
+
+def register(name, spans, prefix, box_generator):
     """Create one raster per span and register each on its own
 
     The library call registers each map with its own start and end, so
@@ -123,6 +141,8 @@ def register(name, spans, prefix):
     )
     for i, (start, end) in enumerate(spans, 1):
         mapname = f"{prefix}{i}"
+        west, south, east, north = random_box(box_generator)
+        gs.run_command("g.region", w=west, s=south, e=east, n=north, res=1)
         gs.run_command("r.mapcalc", expression=f"{mapname} = {i}", overwrite=True)
         tgis.register_maps_in_space_time_dataset(
             "raster",
@@ -135,13 +155,15 @@ def register(name, spans, prefix):
     return tgis.open_old_stds(name, "strds")
 
 
-def classic_column(input_stds, sampler_stds, method):
+def classic_column(input_stds, sampler_stds, method, spatial):
     """The first sample per sampler granule, None where no map relates
 
     Gap granules (id None) are skipped as the classic dataset_mapcalculator
     loop did.
     """
-    entries = input_stds.sample_by_dataset(stds=sampler_stds, method=method)
+    entries = input_stds.sample_by_dataset(
+        stds=sampler_stds, method=method, spatial=spatial
+    )
     column = []
     for entry in entries:
         if entry["granule"].get_id() is None:
@@ -151,14 +173,14 @@ def classic_column(input_stds, sampler_stds, method):
     return column
 
 
-def tool_column(sampler_name, input_name, names):
+def tool_column(sampler_name, input_name, names, spatial):
     """The tool's pick per sampler granule for relation names, in that order"""
     first_series = source(sampler_name, stds_type="strds")
     return _sample_column(
         first_series,
         input_name,
         names,
-        False,
+        spatial,
         None,
         "strds",
         get_tgis_message_interface(),
@@ -167,8 +189,13 @@ def tool_column(sampler_name, input_name, names):
 
 def make_case(tag, case, generator, input_spans):
     """Register a sampler and an input series and return the dataset objects"""
-    sampler = register(f"s{tag}{case}", interval_spans(generator), f"sm{tag}{case}_")
-    inp = register(f"i{tag}{case}", input_spans(generator), f"in{tag}{case}_")
+    # The boxes come from their own generator, so that the time stamps of the
+    # series stay those of the comparison without boxes.
+    boxes = random.Random(f"{tag}-{case}")
+    sampler = register(
+        f"s{tag}{case}", interval_spans(generator), f"sm{tag}{case}_", boxes
+    )
+    inp = register(f"i{tag}{case}", input_spans(generator), f"in{tag}{case}_", boxes)
     return sampler, inp
 
 
@@ -185,12 +212,16 @@ def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_s
     found_a_pick = False
     for case in range(CASES):
         sampler, inp = make_case(seed, case, generator, input_spans)
-        for method in SINGLE_METHODS + MULTI_METHODS:
-            classic = classic_column(inp, sampler, method)
+        for method, spatial in itertools.product(
+            SINGLE_METHODS + MULTI_METHODS, (False, True)
+        ):
+            classic = classic_column(inp, sampler, method, spatial)
             tool = tool_column(
-                sampler.get_name(), inp.get_name(), method_relations(method)
+                sampler.get_name(), inp.get_name(), method_relations(method), spatial
             )
-            assert tool == classic, f"seed {seed}, case {case}, method {method}"
+            assert tool == classic, (
+                f"seed {seed}, case {case}, method {method}, spatial {spatial}"
+            )
             found_a_pick = found_a_pick or any(pick is not None for pick in tool)
     # All columns empty on both sides would make the equality above vacuous.
     assert found_a_pick
@@ -202,8 +233,8 @@ def test_the_comparison_detects_a_wrong_relation(temporal_session):
     generator = random.Random(11)
     for case in range(CASES):
         sampler, inp = make_case("n", case, generator, mixed_spans)
-        classic = classic_column(inp, sampler, ["contain"])
-        tool = tool_column(sampler.get_name(), inp.get_name(), ["during"])
+        classic = classic_column(inp, sampler, ["contain"], False)
+        tool = tool_column(sampler.get_name(), inp.get_name(), ["during"], False)
         if tool != classic:
             return
     pytest.fail("a wrong relation went unnoticed")
@@ -217,8 +248,25 @@ def test_the_comparison_detects_a_swapped_relation_order(temporal_session):
         sampler, inp = make_case("o", case, generator, overlapping_spans)
         for method in MULTI_METHODS:
             swapped = list(reversed(method_relations(method)))
-            classic = classic_column(inp, sampler, method)
-            tool = tool_column(sampler.get_name(), inp.get_name(), swapped)
+            classic = classic_column(inp, sampler, method, False)
+            tool = tool_column(sampler.get_name(), inp.get_name(), swapped, False)
             if tool != classic:
                 return
     pytest.fail("a swapped relation order went unnoticed")
+
+
+def test_the_comparison_detects_a_missing_spatial_test(temporal_session):
+    """Negative check: the classic pick without the spatial test against the
+    tool's pick with it must differ on some case, so the boxes make the
+    spatial half of the comparison able to fail"""
+    generator = random.Random(7)
+    for case in range(CASES):
+        sampler, inp = make_case("p", case, generator, interval_spans)
+        for method in SINGLE_METHODS:
+            classic = classic_column(inp, sampler, method, False)
+            tool = tool_column(
+                sampler.get_name(), inp.get_name(), method_relations(method), True
+            )
+            if tool != classic:
+                return
+    pytest.fail("the spatial test never changed a pick")
