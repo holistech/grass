@@ -51,9 +51,10 @@ class Slot:
     """A planned or existing map of a series
 
     extent is None for a map without time stamp, which can be combined with
-    every slot of another series. origin is the identifier of the registered
-    map whose content and time stamp the slot has unchanged, None for a
-    computed slot.
+    every slot of another series. origin is the identifier of the map that
+    came into the series with its content and time stamp, registered or only
+    stamped with r.timestamp (see source_map()), and that the slot still has
+    unchanged; None for a computed slot.
     """
 
     extent: Extent | None
