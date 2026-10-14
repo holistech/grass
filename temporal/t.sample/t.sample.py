@@ -204,7 +204,9 @@ def _open_stds(stds_type, name, msgr):
     ident = name if "@" in name else f"{name}@{tgis.get_current_mapset()}"
     stds = dataset_factory(stds_type, ident)
     if stds.is_in_db() is False:
-        msgr.fatal(_("Dataset <%s> not found in temporal database") % ident)
+        msgr.fatal(
+            _("Dataset <{name}> not found in temporal database").format(name=ident)
+        )
     stds.select()
     return stds
 
