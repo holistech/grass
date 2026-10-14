@@ -431,3 +431,37 @@ def test_substring_substitution_hazard(mapcalc_session):
         ("28.0", "894.0"),
         ("4.0", "638.0"),
     ]
+
+
+def test_semantic_label_of_the_sampled_map_is_transferred(mapcalc_session):
+    """Each result map takes the semantic label of the map it was sampled from.
+    The maps are the tool's own, so the shared fixture rasters stay unlabeled."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    for name in ("char_lab_1", "char_lab_2"):
+        tools.r_mapcalc(expression=f"{name} = 5")
+        tools.r_support(map=name, semantic_label="S2_1")
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output="char_lab",
+        title="t",
+        description="t",
+    )
+    tools.t_register(
+        type="raster",
+        input="char_lab",
+        maps="char_lab_1,char_lab_2",
+        start="2001-01-01",
+        increment="1 month",
+        flags="i",
+    )
+    tools.t_rast_mapcalc(
+        inputs="char_lab",
+        output="char_lab_out",
+        expression="char_lab * 2",
+        basename="char_lab_out",
+    )
+    text = tools.t_rast_list(
+        input="char_lab_out", columns="name,semantic_label", separator="|", flags="u"
+    ).text
+    assert text.strip().splitlines() == ["char_lab_out_1|S2_1", "char_lab_out_2|S2_1"]
