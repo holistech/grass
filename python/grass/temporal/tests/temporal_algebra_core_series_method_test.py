@@ -5,8 +5,12 @@ as t.rast.aggregate does, and keeps its single map g.copy quirk and its
 file_limit apart from the skip-sum and skip-mean of the algebra. No session.
 """
 
+import os
+import xml.etree.ElementTree as ET
+
 import pytest
 
+import grass.script as gs
 import grass.temporal.algebra as ta
 from grass.temporal.algebra import reducers
 from grass.temporal.algebra.backends import RasterBackend
@@ -18,6 +22,29 @@ from grass.temporal.algebra.series import Extent, Series, Slot
 def test_check_accepts_any_method():
     reducers.check(ta.series_method("median"), "skip")
     reducers.check(ta.series_method("quantile"), "skip")
+
+
+def test_series_method_rejects_an_unknown_method():
+    with pytest.raises(ValueError, match="medain"):
+        ta.series_method("medain")
+
+
+@pytest.fixture
+def session(tmp_path):
+    gs.create_project(tmp_path / "project")
+    with gs.setup.init(tmp_path / "project", env=os.environ.copy()) as grass_session:
+        yield grass_session
+
+
+def test_series_methods_match_r_series(session):
+    """The list must follow r.series when its methods change"""
+    description = gs.read_command(
+        "r.series", "--interface-description", env=session.env
+    )
+    parameters = ET.fromstring(description).iter("parameter")
+    method = next(p for p in parameters if p.get("name") == "method")
+    names = {value.findtext("name") for value in method.find("values")}
+    assert names == set(reducers.SERIES_METHODS)
 
 
 def test_sort_is_field():

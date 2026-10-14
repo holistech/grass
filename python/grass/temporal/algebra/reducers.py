@@ -6,6 +6,34 @@ from .content import Const, call, chain, series_aggregate, series_reduce
 
 REDUCERS = ("sum", "prod", "min", "max", "mean", "count", "all", "any", "first", "last")
 
+# Kept in step with r.series by a test, so that a typo fails when the reducer
+# is made, not when r.series runs.
+SERIES_METHODS = (
+    "average",
+    "count",
+    "median",
+    "mode",
+    "minimum",
+    "min_raster",
+    "maximum",
+    "max_raster",
+    "stddev",
+    "range",
+    "sum",
+    "variance",
+    "diversity",
+    "slope",
+    "offset",
+    "detcoeff",
+    "tvalue",
+    "quart1",
+    "quart3",
+    "perc90",
+    "quantile",
+    "skewness",
+    "kurtosis",
+)
+
 
 @dataclass(frozen=True)
 class Fold:
@@ -26,8 +54,7 @@ def fold(operator):
 class SeriesMethod:
     """Reduce with any method of r.series, as t.rast.aggregate does
 
-    method reaches r.series unchanged and is validated there, so the whole
-    r.series method list works without the core naming each one. A lone
+    method is one of SERIES_METHODS and reaches r.series unchanged. A lone
     related map is copied verbatim instead (see series_aggregate), so the
     method is applied only from two maps on. file_limit is the open file
     limit of r.series, carried here so the backend can set the -z flag per
@@ -39,7 +66,13 @@ class SeriesMethod:
 
 
 def series_method(method, *, file_limit=1000):
-    """Return the reducer that aggregates the related maps with r.series"""
+    """Return the reducer that aggregates the related maps with r.series
+
+    :raises ValueError: if method is not one of SERIES_METHODS
+    """
+    if method not in SERIES_METHODS:
+        msg = f"Unknown r.series method {method!r}, use one of {', '.join(SERIES_METHODS)}"
+        raise ValueError(msg)
     return SeriesMethod(method, file_limit)
 
 
@@ -48,8 +81,7 @@ def check(reducer, nulls):
     if reducer is None:
         return
     if isinstance(reducer, SeriesMethod):
-        # r.series validates the method name itself and always skips null
-        # cells, so nulls does not restrict it.
+        # r.series always skips null cells, so nulls does not restrict it.
         return
     if isinstance(reducer, Fold):
         if nulls == "skip":
