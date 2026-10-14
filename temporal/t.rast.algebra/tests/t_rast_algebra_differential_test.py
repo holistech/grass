@@ -49,6 +49,8 @@ SAME = [
     "if(A {#,during} B + A > 2, A, N)",
     'tshift(A, "1 day")',
     'buff_t(A, "1 day")',
+    # Shrinks the two-day maps of B to one day, so each keeps an interval.
+    'buff_t(B, "-12 hours")',
     "tsnap(I)",
     "merge(A, D)",
     "A[1]",
@@ -88,6 +90,26 @@ DIFFERENT = {
     "A {+,equal|overlap} N": (
         "ValueError",
         "a spatial relation needs the spatial flag",
+    ),
+    # Where a negative buffer leaves a map no time, the core stops with an
+    # error. The classic algebra stores an instant when the end equals the
+    # start, keeps the old time stamp when the end would precede it, and
+    # reports nothing in either case (measured 2026-10-14).
+    'buff_t(B, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end == start)",
+    ),
+    'buff_t(A, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end < start)",
+    ),
+    'buff_t(I, "-1 day")': (
+        "ValueError",
+        "a negative buffer cannot shrink a time instance",
+    ),
+    "buff_t(RT, -1)": (
+        "ValueError",
+        "a negative buffer must leave every map some time (relative time)",
     ),
     # Both maps of HB are such maps, so the core registers none.
     "HB {:,follows|precedes,i} HA": (

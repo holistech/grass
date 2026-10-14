@@ -853,7 +853,11 @@ MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 # The notes on the core and the classic algebra show expressions that only
 # the core reads, and one that the core rejects.
 CORE_NOTES = "### Core and classic algebra"
-MANUAL_ERRORS = {"C = if(A > 2, A, B)": ValueError}
+MANUAL_ERRORS = {
+    "C = if(A > 2, A, B)": ValueError,
+    # B has maps of two days, so one day on each side leaves no time.
+    'C = buff_t(B, "-1 day")': ValueError,
+}
 
 
 def manual_expressions(text):
