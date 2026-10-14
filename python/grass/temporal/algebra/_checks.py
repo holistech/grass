@@ -8,11 +8,22 @@ the argument.
 
 from collections.abc import Callable
 
-from .content import Call, Const, MapRef, SeriesReduce
+from .content import Call, Const, MapRef, SeriesAggregate, SeriesReduce
 from .relations import Relation
 from .series import Series
 
-_OPERANDS = (Series, int, float, bool, type(None), Const, MapRef, Call, SeriesReduce)
+_OPERANDS = (
+    Series,
+    int,
+    float,
+    bool,
+    type(None),
+    Const,
+    MapRef,
+    Call,
+    SeriesReduce,
+    SeriesAggregate,
+)
 
 
 def require(value, expected, name, what, hint=""):

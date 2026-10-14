@@ -24,7 +24,15 @@ from ._checks import (
     require,
 )
 from .backends import BUFFERS, VECTOR_FUNCTIONS
-from .content import NULL, Call, Const, MapRef, SeriesReduce, call
+from .content import (
+    NULL,
+    Call,
+    Const,
+    MapRef,
+    SeriesAggregate,
+    SeriesReduce,
+    call,
+)
 from .maptypes import DIMENSIONS
 from .relations import related as related_indices
 from .series import Series, Slot, Space
@@ -253,7 +261,7 @@ def _content_at(operand, index):
         return operand.slots[0 if operand.timeless else index].content
     if operand is None:
         return NULL
-    if isinstance(operand, (Const, MapRef, Call, SeriesReduce)):
+    if isinstance(operand, (Const, MapRef, Call, SeriesReduce, SeriesAggregate)):
         return operand
     return Const(operand)
 

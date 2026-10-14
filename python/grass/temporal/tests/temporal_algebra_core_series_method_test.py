@@ -111,3 +111,10 @@ def test_names_cannot_be_combined_with_selection():
     )
     with pytest.raises(ValueError, match="names cannot be combined with selection"):
         ta.plan(series, "out", selection=True, names=["x"])
+
+
+def test_series_aggregate_is_an_operand():
+    series = Series((Slot(Extent(1, 2, "days"), MapRef("a")),))
+    node = SeriesAggregate("average", (MapRef("b"), MapRef("c")), 1000)
+    result = ta.apply("+", series, node)
+    assert node in result.slots[0].content.args
