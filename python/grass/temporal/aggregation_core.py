@@ -41,19 +41,27 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
     dropped empty granule leaves a gap, as the classic count does: the number
     of a surviving slot is its position in target.
     """
-    position = {
-        slot.extent.start: number for number, slot in enumerate(target.slots, start=1)
-    }
+    # gather() keeps the order of target and the extent of each target slot,
+    # so the surviving slots are a subsequence of the target slots. Matching
+    # them in order also tells apart target slots that share a start time, as
+    # the maps of a sampler dataset may.
+    position = []
+    following = 0
+    for slot in surviving.slots:
+        while target.slots[following].extent != slot.extent:
+            following += 1
+        position.append(following + 1)
+        following += 1
     absolute = target.temporal_type == "absolute"
     names = []
-    for slot in surviving.slots:
+    for slot, number in zip(surviving.slots, position, strict=True):
         if absolute and time_suffix == "gran":
             suffix = create_suffix_from_datetime(slot.extent.start, granularity)
             names.append(f"{basename}_{suffix}")
         elif absolute and time_suffix == "time":
             names.append(f"{basename}_{create_time_suffix(as_map(slot.extent))}")
         else:
-            count = position[slot.extent.start] + int(offset)
+            count = number + int(offset)
             names.append(create_numeric_suffix(basename, count, time_suffix))
     return names
 
@@ -67,7 +75,12 @@ def _warn_file_limit(reduced, file_limit):
     msgr = get_tgis_message_interface()
     for slot in reduced.slots:
         content = slot.content
-        if isinstance(content, ta.SeriesAggregate) and len(content.args) > file_limit:
+        # A lone related map is copied with g.copy, and r.series never runs.
+        if (
+            isinstance(content, ta.SeriesAggregate)
+            and len(content.args) > 1
+            and len(content.args) > file_limit
+        ):
             msgr.warning(
                 _(
                     "The limit of open files (%i) was reached (%i). The module "
@@ -108,6 +121,7 @@ def aggregate_series(
         relation,
         input_series,
         reduce=ta.series_method(method, file_limit=int(file_limit)),
+        missing="drop",
         nulls="skip",
     )
     if not reduced.slots:
