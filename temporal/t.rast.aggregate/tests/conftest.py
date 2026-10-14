@@ -1,8 +1,9 @@
 """Fixtures for the characterization tests of t.rast.aggregate
 
 The datasets are built once per module with library registration, as the
-t.rast.algebra fixtures do, which is several times faster than one tool call
-per map.
+t.rast.algebra fixtures do. Measured 2026-10-14 by registering 30 maps in a
+temporary XY project: 1.16 s with register_maps_in_space_time_dataset, 12.18 s
+with one t.register call per map.
 """
 
 import os
@@ -115,6 +116,10 @@ def aggregate_data(tmp_path_factory):
       over [day 4, day 15] and oa3=9 over [day 6, day 7]; oz fixes the grid
       start at day 1 without being related to the first granule.
     - tail: tl_long=7 over [day 1, day 30] and the instant tl_inst=2 on day 3.
+    - months: mo1=1, mo2=2, mo3=3 over days 10 to 20 of January, February
+      and March 2001, one map per monthly granule.
+    - hours: hr1=1, hr2=2, hr3=3 over the first half hour of 06:00, 07:00
+      and 08:00 on 2001-01-01, one map per hourly granule.
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
     """
@@ -137,6 +142,8 @@ def aggregate_data(tmp_path_factory):
             ("rx1", 1), ("rx2", 2), ("rx3", 3), ("rx4", 4),
             ("oz", 3), ("oa1", 5), ("oa2", 1), ("oa3", 9),
             ("tl_long", 7), ("tl_inst", 2),
+            ("mo1", 1), ("mo2", 2), ("mo3", 3),
+            ("hr1", 1), ("hr2", 2), ("hr3", 3),
         ]:  # fmt: skip
             tools.r_mapcalc(expression=f"{name} = {value}")
         tools.r_colors(map="m1", color="grey")
@@ -200,6 +207,24 @@ def aggregate_data(tmp_path_factory):
             "tail",
             "absolute",
             [("tl_long", "2001-01-01", "2001-01-30"), ("tl_inst", "2001-01-03", None)],
+        )
+        _register(
+            "months",
+            "absolute",
+            [
+                ("mo1", "2001-01-10", "2001-01-20"),
+                ("mo2", "2001-02-10", "2001-02-20"),
+                ("mo3", "2001-03-10", "2001-03-20"),
+            ],
+        )
+        _register(
+            "hours",
+            "absolute",
+            [
+                ("hr1", "2001-01-01 06:00:00", "2001-01-01 06:30:00"),
+                ("hr2", "2001-01-01 07:00:00", "2001-01-01 07:30:00"),
+                ("hr3", "2001-01-01 08:00:00", "2001-01-01 08:30:00"),
+            ],
         )
         _register(
             "probes",
