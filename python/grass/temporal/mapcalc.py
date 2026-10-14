@@ -177,7 +177,8 @@ def dataset_mapcalculator(
     datasets = {}
     first_dataset = None
     for name in names:
-        dataset = open_old_stds(name, type)
+        # Opened as strds / str3ds because only that type reads "name.label".
+        dataset = open_old_stds(name, stds_type)
         datasets[name] = dataset
         display_names[name] = dataset.get_name()
         if first_dataset is None:
@@ -279,7 +280,6 @@ def dataset_mapcalculator(
         runner = _run_mapcalc2d if type == "raster" else _run_mapcalc3d
         for i in range(num):
             count += 1
-            msgr.percent(count, num, 10)
             map_name = f"{base}_{get_num_suffix(count, num)}"
             expr = expression.replace(" ", "")
             valid = True
@@ -322,7 +322,13 @@ def dataset_mapcalculator(
             result_maps.append(new_map)
             msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
             statements.append(statement)
-        if not _run_in_batches(ctx, runner, statements, nprocs):
+        if not _run_in_batches(
+            ctx,
+            runner,
+            statements,
+            nprocs,
+            progress=lambda done, total: msgr.percent(done, total, 10),
+        ):
             msgr.fatal(_("Error while mapcalc computation"))
     finally:
         dbif.close()
@@ -331,7 +337,7 @@ def dataset_mapcalculator(
     return 0
 
 
-def _run_in_batches(ctx, runner, statements, nprocs):
+def _run_in_batches(ctx, runner, statements, nprocs, progress=None):
     """Run the r.mapcalc statements nprocs at a time
 
     A value below 1 runs all statements at once, as the nprocs option of the
@@ -339,6 +345,10 @@ def _run_in_batches(ctx, runner, statements, nprocs):
 
     Each batch is joined before the next starts, and the last one before the
     function returns, so the caller can read every result map.
+
+    progress, if given, is called as progress(done, total) after each batch
+    with the number of finished statements, so that it follows the
+    computation and not the collecting of the statements.
 
     :return: False if a statement failed
     """
@@ -354,6 +364,8 @@ def _run_in_batches(ctx, runner, statements, nprocs):
             process.join()
         if any(process.exitcode for process in processes):
             return False
+        if progress:
+            progress(min(first + size, len(statements)), len(statements))
     return True
 
 
@@ -367,7 +379,9 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
     msgr.message(_("Starting map registration in temporal database..."))
     dbif = SQLDatabaseInterfaceConnection()
     dbif.connect()
-    first_stds = open_old_stds(first_name, type, dbif)
+    # The name may carry a semantic label, which only strds reads.
+    stds_type = {"raster": "strds", "raster3d": "str3ds"}[type]
+    first_stds = open_old_stds(first_name, stds_type, dbif)
     temporal_type, semantic_type, title, description = first_stds.get_initial_values()
     new_sp = open_new_stds(
         output,

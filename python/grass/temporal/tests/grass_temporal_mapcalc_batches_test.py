@@ -52,8 +52,32 @@ def test_no_statements():
 
 
 @pytest.mark.parametrize("nprocs", [0, -1, 10])
-def test_all_at_once_when_nprocs_is_not_below_the_count(nprocs):
+def test_all_at_once_when_nprocs_is_below_one_or_not_below_the_count(nprocs):
     ctx = FakeContext()
     assert _run_in_batches(ctx, print, ["a", "b", "c"], nprocs)
     events = [event for event, _statement in ctx.log]
     assert events == ["start"] * 3 + ["join"] * 3
+
+
+def test_progress_is_reported_after_each_batch():
+    ctx = FakeContext()
+    reported = []
+
+    def progress(done, total):
+        # A batch is reported only after it ran.
+        reported.append((done, total, ("join", "c") in ctx.log))
+
+    _run_in_batches(ctx, print, ["a", "b", "c"], 2, progress=progress)
+    assert reported == [(2, 3, False), (3, 3, True)]
+
+
+def test_progress_is_not_reported_for_a_failed_batch():
+    reported = []
+    _run_in_batches(
+        FakeContext(failing={"a"}),
+        print,
+        ["a", "b"],
+        1,
+        progress=lambda done, total: reported.append(done),
+    )
+    assert reported == []
