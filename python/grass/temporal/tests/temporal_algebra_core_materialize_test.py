@@ -20,6 +20,7 @@ import dataclasses
 import datetime
 import importlib
 import os
+from io import StringIO
 
 import pytest
 
@@ -160,6 +161,49 @@ def test_source_map_reads_a_grass_time_stamp(core_session):
     tools.r_mapcalc(expression="stamped = 42")
     tools.r_timestamp(map="stamped", date="01 Jan 2001/03 Jan 2001")
     assert ta.source_map("stamped").times() == [(day(1), day(3))]
+
+
+@pytest.mark.parametrize(
+    ("kind", "timestamp_tool", "date"),
+    [
+        ("raster3d", "r3_timestamp", "01 Jan 2001/03 Jan 2001"),
+        ("vector", "v_timestamp", "01 Jan 2001/03 Jan 2001"),
+    ],
+)
+def test_source_map_reads_a_grass_time_stamp_of_other_kinds(
+    core_session, kind, timestamp_tool, date
+):
+    """Maps of 3D raster and vector type stamped with r3.timestamp or
+    v.timestamp are usable without registration"""
+    tools = Tools(session=core_session, overwrite=True)
+    name = f"stamped_{kind}"
+    make_map(tools, kind, name)
+    getattr(tools, timestamp_tool)(map=name, date=date)
+    series = ta.source_map(name, kind=kind)
+    assert series.kind == kind
+    assert series.times() == [(day(1), day(3))]
+    assert series.slots[0].content == MapRef(f"{name}@PERMANENT")
+
+
+def make_map(tools, kind, name):
+    """Create a small map of the kind in the session"""
+    if kind == "raster3d":
+        tools.r3_mapcalc(expression=f"{name} = 1")
+    else:
+        tools.v_in_ascii(
+            input=StringIO("1,1,1\n"), output=name, format="point", separator="comma"
+        )
+
+
+def test_a_map_with_only_a_grass_time_stamp_is_materialized(core_session):
+    """The time stamp of r.timestamp survives source_map() and materialize():
+    the result is registered with it"""
+    tools = Tools(session=core_session, overwrite=True)
+    tools.r_mapcalc(expression="only_stamped = 5")
+    tools.r_timestamp(map="only_stamped", date="02 Jan 2001/04 Jan 2001")
+    assert not tgis.RasterDataset("only_stamped@PERMANENT").is_in_db()
+    ta.materialize(ta.source_map("only_stamped") * 2, "from_stamp", overwrite=True)
+    assert registered("from_stamp") == [(day(2), day(4), 10)]
 
 
 def test_materialize_computes_and_registers(core_session):
@@ -468,6 +512,18 @@ def test_selection_copies_a_retimed_map_with_g_copy(make_series):
     assert names_and_calls(chain) == [("copy_1", ("g.copy",)), ("copy_2", ("g.copy",))]
     first = chain.maps[0].calls[0]
     assert first.parameters == {"raster": ("a1@PERMANENT", "copy_1")}
+
+
+@pytest.mark.parametrize(
+    ("kind", "option"), [("raster3d", "raster_3d"), ("vector", "vector")]
+)
+def test_selection_copies_a_retimed_map_of_other_kinds_with_g_copy(
+    make_series, kind, option
+):
+    series = ta.retime(make_series("a", (1, 2), (2, 3), kind=kind), shift="1 day")
+    chain = ta.plan(series, "sel", basename="copy", selection=True)
+    assert names_and_calls(chain) == [("copy_1", ("g.copy",)), ("copy_2", ("g.copy",))]
+    assert chain.maps[0].calls[0].parameters == {option: ("a1@PERMANENT", "copy_1")}
 
 
 def test_selection_numbers_copies_only_in_a_mixed_result(make_series):
