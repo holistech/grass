@@ -212,9 +212,11 @@ def _plan_selection(series, name, basename, stds_type):
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
             continue
         if not isinstance(slot.content, MapRef) or slot.content.offset:
+            # _describe() starts a sentence; here it follows a semicolon.
+            what = _describe(slot.content)
             msg = (
                 "t.select selects and retimes maps, it computes none; "
-                f"{_describe(slot.content)} cannot be selected. Use "
+                f"{what[0].lower()}{what[1:]} cannot be selected. Use "
                 "t.rast.algebra, t.rast3d.algebra or t.vect.algebra to compute maps"
             )
             raise ValueError(msg)

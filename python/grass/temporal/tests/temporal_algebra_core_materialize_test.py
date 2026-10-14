@@ -26,7 +26,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import CalledModuleError, FatalError
 from grass.temporal import algebra as ta
-from grass.temporal.algebra.content import MapRef
+from grass.temporal.algebra.content import Const, MapRef
 from grass.temporal.algebra.series import Series, Slot, Space
 from grass.tools import Tools
 
@@ -144,7 +144,10 @@ def test_source_map(core_session):
     assert timeless.slots[0].content == MapRef("m@PERMANENT")
     with pytest.raises(
         FatalError,
-        match=r"^Raster map <m@PERMANENT> is not registered in the temporal database$",
+        match=(
+            r"^Raster map <m@PERMANENT> has neither a registration in the "
+            r"temporal database nor a time stamp$"
+        ),
     ):
         ta.source_map("m")
 
@@ -479,8 +482,17 @@ def test_selection_numbers_copies_only_in_a_mixed_result(make_series):
 
 def test_selection_rejects_computed_content(make_series):
     """t.select selects and retimes maps, it computes none"""
-    with pytest.raises(ValueError, match="cannot be selected"):
+    with pytest.raises(ValueError, match=r"computes none; the function \+\(\) cannot"):
         ta.plan(make_series("a", (1, 2)) + 1, "sel", selection=True)
+
+
+def test_selection_message_continues_in_lower_case(make_series):
+    """The description of the content follows a semicolon, so it starts in
+    lower case, also for a number"""
+    extent = make_series("a", (1, 2)).slots[0].extent
+    series = Series((Slot(extent, Const(1)),), kind="raster")
+    with pytest.raises(ValueError, match="computes none; the number 1 cannot be"):
+        ta.plan(series, "sel", selection=True)
 
 
 def test_selection_rejects_a_map_at_a_cell_offset(make_series):

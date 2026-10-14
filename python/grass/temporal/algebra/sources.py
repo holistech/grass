@@ -36,11 +36,18 @@ def _map_missing(kind):
 
 def _map_unregistered(kind):
     return {
-        "raster": _("Raster map <{name}> is not registered in the temporal database"),
-        "raster3d": _(
-            "3D raster map <{name}> is not registered in the temporal database"
+        "raster": _(
+            "Raster map <{name}> has neither a registration in the temporal "
+            "database nor a time stamp"
         ),
-        "vector": _("Vector map <{name}> is not registered in the temporal database"),
+        "raster3d": _(
+            "3D raster map <{name}> has neither a registration in the temporal "
+            "database nor a time stamp"
+        ),
+        "vector": _(
+            "Vector map <{name}> has neither a registration in the temporal "
+            "database nor a time stamp"
+        ),
     }[kind]
 
 
