@@ -30,7 +30,8 @@ TWO_MAP_METHODS = {
     "median": (2.0, "DCELL"),
     "stddev": (1.0, "DCELL"),
     "variance": (1.0, "DCELL"),
-    # Measured: two values occur once each, r.series returns the smaller.
+    # Both values occur once; c_mode (lib/stats/c_mode.c) replaces the mode
+    # only when a count exceeds the maximum, so a tie keeps the smaller one.
     "mode": (1.0, "CELL"),
     # Zero based index of the smallest and the largest map in time order.
     "min_raster": (0.0, "CELL"),
@@ -45,8 +46,9 @@ TWO_MAP_METHODS = {
     "quart1": (1.5, "DCELL"),
     "quart3": (2.5, "DCELL"),
     "perc90": (2.8, "DCELL"),
-    # Measured 2026-10-14 with t.rast.aggregate: the tool passes no quantile
-    # to r.series, and the result is the smallest value.
+    # t.rast.aggregate has no quantile option, so r.series uses quantile 0
+    # (raster/r.series/main.c) and c_quant (lib/stats/c_percentile.c) returns
+    # the smallest value.
     "quantile": (1.0, "DCELL"),
     # Symmetric values.
     "skewness": (0.0, "DCELL"),
@@ -144,8 +146,8 @@ def test_suffix_and_end_for_monthly_and_hourly_granules(
 ):
     """The month grid starts on the first of the month and the hour grid on
     the full hour; the first month map starts on day 10 and the hour maps on
-    the hour, so only the month grid is moved. The gran suffix shortens to the unit of the
-    granularity, the time suffix always has the full time. Measured
+    the hour, so only the month grid is moved. The gran suffix shortens to
+    the unit of the granularity, the time suffix always has the full time. Measured
     2026-10-14 with t.rast.aggregate in a temporary XY project; the starts and
     ends follow from the unit of the granularity."""
     rows = read.aggregate(
@@ -164,17 +166,20 @@ def test_suffix_and_end_for_monthly_and_hourly_granules(
 def test_output_dataset_attributes(read, aggregate_data, method):
     """The aggregation type is the method; title and description are copied
     from the input dataset (they read "cells", the output is named
-    otherwise) and so is the semantic type, which is "mean" in the input, so
-    the copy cannot be told from a default (measured 2026-10-14 with t.info
-    in a temporary XY project)."""
+    otherwise). Measured 2026-10-14 with t.info in a temporary XY project."""
     read.aggregate(f"attr_{method}", input="cells", granularity="2 days", method=method)
     info = read.tools.t_info(input=f"attr_{method}", flags="g").keyval
     assert info["aggregation_type"] == method
-    assert info["semantic_type"] == "mean"
     assert info["number_of_maps"] == 2
     text = read.tools.t_info(input=f"attr_{method}").text
     assert "| Title:\n | cells\n" in text
     assert "| Description:\n | cells\n" in text
+
+
+def test_output_copies_the_semantic_type_of_the_input(read):
+    """The default is "mean", so only an input of another type shows the copy"""
+    read.aggregate("sem", input="semantic", granularity="2 days", method="average")
+    assert read.tools.t_info(input="sem", flags="g").keyval["semantic_type"] == "sum"
 
 
 def test_numeric_suffix_with_offset(read):

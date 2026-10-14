@@ -89,10 +89,10 @@ class Reader:
         return self.tools.r_colors_out(map=raster).text.strip().splitlines()[0]
 
 
-def _register(dataset, temporaltype, rows, unit=None):
+def _register(dataset, temporaltype, rows, unit=None, semantic="mean"):
     """Create a STRDS and register maps from (name, start, end) rows"""
     tgis.open_new_stds(
-        dataset, "strds", temporaltype, dataset, dataset, "mean", overwrite=True
+        dataset, "strds", temporaltype, dataset, dataset, semantic, overwrite=True
     )
     for name, start, end in rows:
         kwargs = {"start": start} if end is None else {"start": start, "end": end}
@@ -120,6 +120,8 @@ def aggregate_data(tmp_path_factory):
       and March 2001, one map per monthly granule.
     - hours: hr1=1, hr2=2, hr3=3 over the first half hour of 06:00, 07:00
       and 08:00 on 2001-01-01, one map per hourly granule.
+    - semantic: the maps of cells in a dataset of semantic type "sum", to
+      tell a copied semantic type from the default "mean".
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
     """
@@ -207,6 +209,16 @@ def aggregate_data(tmp_path_factory):
             "tail",
             "absolute",
             [("tl_long", "2001-01-01", "2001-01-30"), ("tl_inst", "2001-01-03", None)],
+        )
+        _register(
+            "semantic",
+            "absolute",
+            [
+                ("m1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("m2", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+                ("m3", "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
+            ],
+            semantic="sum",
         )
         _register(
             "months",
