@@ -27,7 +27,7 @@ import grass.temporal as tgis
 from grass.exceptions import CalledModuleError, FatalError
 from grass.temporal import algebra as ta
 from grass.temporal.algebra.content import MapRef
-from grass.temporal.algebra.series import Space
+from grass.temporal.algebra.series import Series, Slot, Space
 from grass.tools import Tools
 
 materialize_module = importlib.import_module("grass.temporal.algebra.materialize")
@@ -434,3 +434,76 @@ def test_where_of_equal_branches(core_session):
     a = ta.source("A")
     ta.materialize(ta.where(a > 2, a, a), "same", overwrite=True)
     assert [row[2] for row in registered("same")] == [1, 2, 3, 4]
+
+
+def names_and_calls(chain):
+    """(result name, module names) of each planned map, in order"""
+    return [
+        (planned.name, tuple(call.name for call in planned.calls))
+        for planned in chain.maps
+    ]
+
+
+def test_selection_registers_a_map_with_an_origin_without_a_call(make_series):
+    """A slot that kept its origin is the registered map itself"""
+    chain = ta.plan(make_series("a", (1, 2), (2, 3)), "sel", selection=True)
+    assert names_and_calls(chain) == [
+        ("a1@PERMANENT", ()),
+        ("a2@PERMANENT", ()),
+    ]
+
+
+def test_selection_copies_a_retimed_map_with_g_copy(make_series):
+    """A slot without origin but with a plain map reference is a retimed map,
+    copied with g.copy and numbered from 1"""
+    series = ta.retime(make_series("a", (1, 2), (2, 3)), shift="1 day")
+    chain = ta.plan(series, "sel", basename="copy", selection=True)
+    assert names_and_calls(chain) == [("copy_1", ("g.copy",)), ("copy_2", ("g.copy",))]
+    first = chain.maps[0].calls[0]
+    assert first.parameters == {"raster": ("a1@PERMANENT", "copy_1")}
+
+
+def test_selection_numbers_copies_only_in_a_mixed_result(make_series):
+    """A result that mixes a registered map with retimed maps numbers the
+    copies from 1, independent of how many maps are registered unchanged"""
+    kept = make_series("a", (1, 2)).slots[0]
+    moved = ta.retime(make_series("b", (2, 3), (3, 4)), shift="1 day").slots
+    series = Series((kept, *moved), kind="raster")
+    chain = ta.plan(series, "sel", basename="mix", selection=True)
+    assert names_and_calls(chain) == [
+        ("a1@PERMANENT", ()),
+        ("mix_1", ("g.copy",)),
+        ("mix_2", ("g.copy",)),
+    ]
+
+
+def test_selection_rejects_computed_content(make_series):
+    """t.select selects and retimes maps, it computes none"""
+    with pytest.raises(ValueError, match="cannot be selected"):
+        ta.plan(make_series("a", (1, 2)) + 1, "sel", selection=True)
+
+
+def test_selection_rejects_a_map_at_a_cell_offset(make_series):
+    """A map read at a cell offset (an r.mapcalc neighbourhood) is no plain
+    selection; neighbour() in time shifts to another map and is accepted"""
+    extent = make_series("a", (1, 2)).slots[0].extent
+    series = Series((Slot(extent, MapRef("a1@PERMANENT", (1, 0))),), kind="raster")
+    with pytest.raises(ValueError, match="cannot be selected"):
+        ta.plan(series, "sel", selection=True)
+
+
+def test_materialize_selection_registers_and_copies(core_session):
+    """A selection registers a1 unchanged under its own name and copies a
+    shifted a2 under the result name, numbered from 1"""
+    source = ta.source("A")
+    kept = Series((source.slots[0],), kind="raster")
+    moved = ta.retime(Series((source.slots[1],), kind="raster"), shift="10 days")
+    series = Series((*kept.slots, *moved.slots), kind="raster")
+    ta.materialize(series, "picked", basename="picked", overwrite=True, selection=True)
+    assert registered("picked") == [(day(1), day(2), 1), (day(12), day(13), 2)]
+    result = tgis.open_old_stds("picked", "strds")
+    ids = [
+        map_.get_id()
+        for map_ in result.get_registered_maps_as_objects(order="start_time")
+    ]
+    assert ids == ["a1@PERMANENT", "picked_1@PERMANENT"]

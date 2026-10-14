@@ -20,7 +20,8 @@ from grass.temporal.space_time_datasets import VectorDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
-from .backends import backend_for
+from .backends import ModuleCall, _describe, backend_for
+from .content import MapRef
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
 TIME_SUFFIXES = (None, "gran", "time")
@@ -115,11 +116,18 @@ def _check_name(label, value, stds_type):
             raise ValueError(msg)
 
 
-def plan(series, name, *, basename=None, time_suffix=None):
+def plan(series, name, *, basename=None, time_suffix=None, selection=False):
     """Return the process chain of materialize() without running anything
 
     For vector maps, a registered map that reaches the result unchanged is
     planned with its own name and without module call.
+
+    With selection no map is computed: a slot with an origin is registered
+    unchanged, a retimed map (a slot that lost its origin but still holds a
+    plain map reference) is copied with g.copy under <basename>_N numbered
+    from 1, and any other content raises ValueError. This holds for every map
+    type, so a selection copies retimed raster maps with g.copy as the classic
+    algebra does, not with r.mapcalc.
 
     :param name: the space time dataset to create
     :param basename: the prefix of the map names, by default the name
@@ -127,7 +135,8 @@ def plan(series, name, *, basename=None, time_suffix=None):
         suffix from the start time (absolute time only)
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
-        or maps that would get the same name
+        or maps that would get the same name; with selection also for a result
+        slot that is not a registered map
     """
     stds_type = STDS_TYPES[series.kind]
     _check_name("name", name, stds_type)
@@ -136,6 +145,8 @@ def plan(series, name, *, basename=None, time_suffix=None):
     if series.timeless:
         msg = "A map without time stamp cannot be registered in a space time dataset"
         raise ValueError(msg)
+    if selection:
+        return _plan_selection(series, name, basename or name, stds_type)
     backend = backend_for(series.kind)
     names = _map_names(series, basename or name, time_suffix)
     maps = []
@@ -156,6 +167,44 @@ def plan(series, name, *, basename=None, time_suffix=None):
         series.temporal_type or "absolute",
         tuple(maps),
         tuple(remove),
+    )
+
+
+def _plan_selection(series, name, basename, stds_type):
+    """Plan a selection result: register unchanged maps, copy retimed ones
+
+    A slot with an origin is the registered map itself. A slot whose origin
+    was dropped by a temporal operator but still holds a plain map reference
+    is a retimed map, copied with g.copy; the copies are numbered
+    <basename>_1, _2, ..., as the classic t.select names them. Numbering runs
+    over the copies only, so it does not depend on how many maps are
+    registered unchanged. Any other content cannot be selected.
+
+    :raises ValueError: for a result slot that is not a registered map, e.g.
+        an expression or a map read at a cell offset
+    """
+    digits = len(str(len(series.slots)))
+    maps = []
+    number = 0
+    for slot in series.slots:
+        if slot.origin is not None:
+            maps.append(PlannedMap(slot.origin, slot.extent, ()))
+            continue
+        if not isinstance(slot.content, MapRef) or slot.content.offset:
+            msg = (
+                "t.select selects and retimes maps, it computes none; "
+                f"{_describe(slot.content)} cannot be selected. Use "
+                "t.rast.algebra, t.rast3d.algebra or t.vect.algebra to compute maps"
+            )
+            raise ValueError(msg)
+        number += 1
+        map_name = create_numeric_suffix(basename, number, f"%0{digits}")
+        call = ModuleCall(
+            "g.copy", {ELEMENTS[series.kind]: (slot.content.ident, map_name)}
+        )
+        maps.append(PlannedMap(map_name, slot.extent, (call,)))
+    return ProcessChain(
+        name, stds_type, series.temporal_type or "absolute", tuple(maps), ()
     )
 
 
@@ -371,6 +420,7 @@ def materialize(
     register_null=False,
     nprocs=1,
     time_suffix=None,
+    selection=False,
 ):
     """Compute the maps of a series and register them in a new space time
     dataset
@@ -385,6 +435,9 @@ def materialize(
     Vector maps are computed one call after another; a registered vector map
     that reaches the result unchanged is registered, not copied, and never
     removed.
+
+    With selection no map is computed: registered maps reach the result
+    unchanged and retimed maps are copied with g.copy (see plan()).
 
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
@@ -401,7 +454,9 @@ def materialize(
             f"overlay checks its inputs first; nprocs must be 1, got {nprocs}"
         )
         raise ValueError(msg)
-    chain = plan(series, name, basename=basename, time_suffix=time_suffix)
+    chain = plan(
+        series, name, basename=basename, time_suffix=time_suffix, selection=selection
+    )
     mapset = get_current_mapset()
     dbif, connection_state_changed = init_dbif(None)
     try:

@@ -38,6 +38,7 @@ def evaluate(
     nprocs=1,
     time_suffix=None,
     granularity=None,
+    selection=False,
 ):
     """Parse, translate and compute "name = expression"
 
@@ -50,6 +51,10 @@ def evaluate(
     with this common granularity before the translation, as in the
     granularity mode of t.rast.algebra; the caller has checked the
     expression with setup_common_granularity() of the parser classes.
+
+    With selection no map is computed: every result slot must be a registered
+    map, which is registered unchanged or, when a temporal operator retimed
+    it, copied with g.copy, as a selection needs it (see plan()).
 
     :param kind: the map type, "raster", "raster3d" or "vector"
     :param granularity: the common granularity of the datasets, a text such
@@ -77,7 +82,9 @@ def evaluate(
         statement
     )
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
-    planned = plan(series, name, basename=basename, time_suffix=suffix)
+    planned = plan(
+        series, name, basename=basename, time_suffix=suffix, selection=selection
+    )
     chain["processes"] = [_module(call, overwrite) for call in planned.processes]
     chain["register"] = [
         (map_name, str(start), str(end)) for map_name, start, end in planned.register
@@ -114,6 +121,7 @@ def evaluate(
             register_null=register_null,
             nprocs=int(nprocs),
             time_suffix=suffix,
+            selection=selection,
         )
     return chain
 
