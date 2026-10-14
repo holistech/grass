@@ -37,7 +37,12 @@ def project_session(tmp_path, monkeypatch):
                 monkeypatch.setenv(key, value)
         Tools(session=session).g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tgis.init(raise_fatal_error=True)
+        # get_msgr() returns one Messenger per process, so init() keeps the
+        # error mode of the first test in the process that created it. Set the
+        # mode on the existing Messenger and restore it afterwards.
+        previous = tgis.set_raise_on_error(True)
         yield session
+        tgis.set_raise_on_error(previous)
 
 
 def test_new_dataset_with_dot_keeps_its_name(project_session):
