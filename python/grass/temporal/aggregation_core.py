@@ -25,6 +25,9 @@ def sampler_target(maps, unit):
     slots with its time stamps. Only the times form the aggregation grid; the
     aggregated maps are always the raster input (checked 2026-10-14 with an
     stvds sampler).
+
+    unit is None for absolute time, otherwise the relative time unit of the
+    input dataset.
     """
     slots = []
     for map_ in maps:
@@ -44,7 +47,9 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
     # gather() keeps the order of target and the extent of each target slot,
     # so the surviving slots are a subsequence of the target slots. Matching
     # them in order also tells apart target slots that share a start time, as
-    # the maps of a sampler dataset may.
+    # the maps of a sampler dataset may. Two target slots with the same extent
+    # have the same related maps, so gather() keeps or drops both, and the
+    # in-order match assigns them to the right numbers.
     position = []
     following = 0
     for slot in surviving.slots:
@@ -64,6 +69,22 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
             count = number + int(offset)
             names.append(create_numeric_suffix(basename, count, time_suffix))
     return names
+
+
+def _report_granules(reduced):
+    """Tell for each granule with several related maps that it is aggregated
+
+    The classic aggregation reported this per granule at verbose level.
+    """
+    msgr = get_tgis_message_interface()
+    for slot in reduced.slots:
+        content = slot.content
+        if isinstance(content, ta.SeriesAggregate) and len(content.args) > 1:
+            msgr.verbose(
+                _("Aggregating {num} raster maps from {start} to {end}").format(
+                    num=len(content.args), start=slot.extent.start, end=slot.extent.end
+                )
+            )
 
 
 def _warn_file_limit(reduced, file_limit):
@@ -125,6 +146,7 @@ def aggregate_series(
     )
     if not reduced.slots:
         return None
+    _report_granules(reduced)
     _warn_file_limit(reduced, int(file_limit))
     names = _names(target, reduced, basename, granularity, time_suffix, offset)
     return ta.materialize(

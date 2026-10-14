@@ -34,3 +34,11 @@ def test_numeric_suffix_counts_target_slots_that_were_dropped():
         "agg_02",
         "agg_03",
     ]
+
+
+def test_numeric_suffix_numbers_slots_of_equal_extent_in_order():
+    """Two sampler maps with one extent are related to the same input maps, so
+    both survive; the third slot has no partner and is dropped"""
+    target = series((day(1), day(2)), (day(1), day(2)), (day(2), day(3)))
+    surviving = Series(target.slots[:2], "raster")
+    assert _names(target, surviving, "b", None, "num%02", 0) == ["b_01", "b_02"]
