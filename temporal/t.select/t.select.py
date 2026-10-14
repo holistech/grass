@@ -42,6 +42,11 @@
 # % description: Perform a dry run, compute all dependencies and module calls but don't run them
 # %end
 
+# %flag
+# % key: c
+# % description: Use the classic algebra instead of the algebra core
+# %end
+
 
 import sys
 
@@ -54,6 +59,9 @@ from grass.exceptions import FatalError
 def main():
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
+    from grass.temporal.algebra.parser import evaluate
+    from grass.temporal.algebra.parser.switch import classic_selected
 
     expression = options["expression"]
     spatial = flags["s"]
@@ -61,15 +69,29 @@ def main():
     stdstype = options["type"]
 
     tgis.init(True)
-    p = tgis.TemporalAlgebraParser(
-        run=True, debug=False, spatial=spatial, dry_run=dry_run
-    )
-    # Maps whose temporal extent is changed by the expression are copied. t.select
-    # has no basename option, so the copies are named after the result dataset;
-    # without a basename they would be called None_1, None_2, ...
+    # t.select has no basename option; the copies of retimed maps are named
+    # after the result dataset, otherwise they would be None_1, None_2, ...
     basename = expression.partition("=")[0].strip().partition("@")[0]
     try:
-        pc = p.parse(expression, stdstype, basename=basename, overwrite=gs.overwrite())
+        if classic_selected(flags["c"] or None):
+            parser = tgis.TemporalAlgebraParser(
+                run=True, debug=False, spatial=spatial, dry_run=dry_run
+            )
+            pc = parser.parse(
+                expression, stdstype, basename=basename, overwrite=gs.overwrite()
+            )
+        else:
+            pc = evaluate(
+                expression,
+                kind=KINDS_OF_STDS[stdstype],
+                basename=basename,
+                overwrite=gs.overwrite(),
+                run=True,
+                dry_run=dry_run,
+                debug=False,
+                spatial=spatial,
+                selection=True,
+            )
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
         gs.fatal(str(error))
 
