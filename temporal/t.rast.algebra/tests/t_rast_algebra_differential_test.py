@@ -93,8 +93,9 @@ DIFFERENT = {
     ),
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the
-    # start, keeps the old time stamp when the end would precede it, and
-    # reports nothing in either case (measured 2026-10-14).
+    # start without a message, and keeps the old time stamp when the end
+    # would precede it, printing one ERROR line per map ("End time must be
+    # greater than start time ...", exit code 0; measured 2026-10-14).
     'buff_t(B, "-1 day")': (
         "ValueError",
         "a negative buffer must leave every map some time (end == start)",

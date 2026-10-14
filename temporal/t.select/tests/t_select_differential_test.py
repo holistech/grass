@@ -70,8 +70,9 @@ DIFFERENT = {
     # A computed result is no selection on the core.
     "A + B": ("ValueError", "t.select selects maps, it computes none"),
     # A negative buffer that leaves a map no time is an error on the core;
-    # the classic algebra makes instants (end == start) or keeps the old time
-    # (end < start) without a message.
+    # the classic algebra makes instants (end == start) without a message or
+    # keeps the old time (end < start) and prints one ERROR line per map
+    # ("End time must be greater than start time ...", exit code 0).
     'buff_t(A, "-5 days") {:,during} D': (
         "ValueError",
         "a negative buffer must leave every map some time",

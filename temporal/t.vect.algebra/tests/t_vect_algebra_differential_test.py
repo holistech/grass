@@ -52,7 +52,7 @@ DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the
     # start, and keeps the old time stamp with an error message when the end
-    # would precede it (measured 2026-10-14 with t.rast.algebra -c).
+    # would precede it (measured 2026-10-14 with t.vect.algebra -c, -1 and -6 days).
     'buff_t(wide, "-1 day")': (
         "ValueError",
         "a negative buffer must leave every map some time (end == start)",

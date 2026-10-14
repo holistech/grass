@@ -46,7 +46,9 @@ DIFFERENT = {
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the
     # start, and keeps the old time stamp with an error message when the end
-    # would precede it (measured 2026-10-14 with t.rast.algebra -c).
+    # would precede it. Measured 2026-10-14 with t.rast.algebra -c only; the
+    # 3D algebra takes the same classic code path, buff_t() calling
+    # temporal_buffer() of the map dataset.
     'buff_t(W, "-1 day")': (
         "ValueError",
         "a negative buffer must leave every map some time (end == start)",
