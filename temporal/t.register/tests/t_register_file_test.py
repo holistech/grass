@@ -151,3 +151,39 @@ def test_absolute_semantic_label_from_file(session_with_rasters, tmp_path):
         ("2001-01-02 00:00:00", None),
     ]
     assert [row["semantic_label"] for row in rows] == ["S2_1", "S2_2"]
+
+
+def test_point_line_after_interval_line_stays_a_point(session_with_rasters, tmp_path):
+    """A line without end time registers a time point, whatever the line before held."""
+    tools = Tools(session=session_with_rasters)
+    create_dataset(tools, "mixed_lines", "absolute")
+    map_file = tmp_path / "maps.txt"
+    map_file.write_text(
+        "a|2001-01-01|2001-01-10\nb|2001-01-15\nc|2001-01-20|2001-01-25\n"
+    )
+    tools.t_register(type="raster", input="mixed_lines", file=map_file)
+    rows = registered_maps(tools, "mixed_lines")
+    assert [(row["name"], row["start_time"], row["end_time"]) for row in rows] == [
+        ("a", "2001-01-01 00:00:00", "2001-01-10 00:00:00"),
+        ("b", "2001-01-15 00:00:00", None),
+        ("c", "2001-01-20 00:00:00", "2001-01-25 00:00:00"),
+    ]
+
+
+def test_names_only_file_takes_times_from_options(session_with_rasters, tmp_path):
+    """A file with names only keeps using start and end of the command line."""
+    tools = Tools(session=session_with_rasters)
+    create_dataset(tools, "names_only", "absolute")
+    map_file = tmp_path / "maps.txt"
+    map_file.write_text("a\nb\n")
+    tools.t_register(
+        type="raster",
+        input="names_only",
+        file=map_file,
+        start="2001-01-01",
+        end="2001-01-05",
+    )
+    rows = registered_maps(tools, "names_only")
+    assert [(row["start_time"], row["end_time"]) for row in rows] == [
+        ("2001-01-01 00:00:00", "2001-01-05 00:00:00"),
+    ] * 2

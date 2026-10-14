@@ -267,11 +267,11 @@ def register_maps_in_space_time_dataset(
                 )
             )
 
-        # Use the time data from file
+        # A row of the file sets both times: a row without end time is a time
+        # point and must not keep the end time of the row before it.
         if "start" in row:
             start = row["start"]
-        if "end" in row:
-            end = row["end"]
+            end = row.get("end")
 
         # Use the semantic label from file
         semantic_label = row.get("semantic_label", None)
