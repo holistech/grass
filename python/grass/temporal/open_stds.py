@@ -118,13 +118,7 @@ def open_old_stds(name, type, dbif=None):
         return None
 
     # Check if the dataset name contains the mapset and the semantic label as well
-    # Raster datasets are opened under the map type name ("raster", "rast") as
-    # well, e.g. by t.rast.mapcalc, and carry the label just like "strds". Only
-    # reading splits it: open_new_stds() and check_new_stds() keep the whole
-    # name, as a dot in the name of a new dataset is not a label.
-    name, mapset, semantic_label = _parse_id(
-        name, stds_type="strds" if stds_type in {"raster", "rast"} else stds_type
-    )
+    name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
 
     dbif, connection_state_changed = init_dbif(dbif)
 

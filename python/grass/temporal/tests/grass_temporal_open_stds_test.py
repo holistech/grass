@@ -46,22 +46,26 @@ def test_new_dataset_with_dot_keeps_its_name(project_session):
     assert sp.get_id() == f"a.b@{sp.get_mapset()}"
 
 
-@pytest.mark.parametrize("stds_type", ["strds", "raster", "rast"])
-def test_old_raster_dataset_is_opened_with_its_label(project_session, stds_type):
+def test_old_strds_is_opened_with_its_label(project_session):
     tgis.open_new_stds("test", "strds", "absolute", "t", "d", "mean")
-    sp = tgis.open_old_stds("test.S2_8", stds_type)
+    sp = tgis.open_old_stds("test.S2_8", "strds")
     assert sp.get_name() == "test.S2_8"
     assert sp.get_name(semantic_label=False) == "test"
 
 
-def test_new_raster_dataset_with_dot_cannot_be_read_again(project_session):
-    """A dot in the name of an existing raster dataset is read as a label.
+@pytest.mark.parametrize("stds_type", ["raster", "rast"])
+def test_old_raster_dataset_with_dot_is_read_whole(project_session, stds_type):
+    """Only the type strds reads a label, so t.register and t.unregister do not.
 
-    open_new_stds() keeps "a.b" whole, but open_old_stds() reads it as the
-    dataset "a" with the semantic label "b", as it always did for "strds".
-    A dataset created with a dot (e.g. as output of t.rast.mapcalc) is
-    therefore not found again under the type "raster".
+    A dataset "test" must not be found under the name "test.S2_8".
     """
-    tgis.open_new_stds("a.b", "raster", "absolute", "t", "d", "mean")
+    tgis.open_new_stds("test", "strds", "absolute", "t", "d", "mean")
     with pytest.raises(FatalError):
-        tgis.open_old_stds("a.b", "raster")
+        tgis.open_old_stds("test.S2_8", stds_type)
+
+
+def test_new_raster_dataset_with_dot_can_be_read_again(project_session):
+    """A dataset created with a dot, e.g. by t.rast.mapcalc, is found again."""
+    tgis.open_new_stds("a.b", "raster", "absolute", "t", "d", "mean")
+    sp = tgis.open_old_stds("a.b", "raster")
+    assert sp.get_id() == f"a.b@{sp.get_mapset()}"
