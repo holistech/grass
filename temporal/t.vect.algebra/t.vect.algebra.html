@@ -473,6 +473,12 @@ therefore also unregisters them from A, and with <b>-df</b> deletes them.
 Maps of another mapset cannot be deleted; for them <em>t.remove</em>
 <b>-df</b> stops with an error and leaves the maps as they are.
 
+<p>
+The same holds for a time function that leaves the time of a map unchanged:
+<code>C = tsnap(A)</code> registers the maps of A themselves if they have no
+gaps, and copies only the maps whose time changes. This holds for both
+algebras.
+
 <h3>Core and classic algebra</h3>
 
 Since GRASS 8.6, <em>t.vect.algebra</em> computes its expressions with the

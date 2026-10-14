@@ -192,6 +192,27 @@ def test_temporal_shift_and_snap(vector_series, expression, expected):
     assert timeline(vector_series.session, expression) == expected
 
 
+@pytest.mark.parametrize("classic", [False, True])
+def test_time_function_that_changes_nothing_registers_the_inputs(
+    vector_series, classic
+):
+    """tsnap() of gapless maps leaves every time stamp as it is, so the result
+    dataset registers the maps aa1..aa3 themselves and makes no copies (measured
+    2026-10-14 on both algebras), while a shift gives a new extent and so
+    copies named after the result"""
+    session = vector_series.session
+    snapped = run_algebra(session, "tsnap(aa)", classic=classic)
+    assert [row["id"] for row in list_maps(session, snapped)] == [
+        "aa1@PERMANENT",
+        "aa2@PERMANENT",
+        "aa3@PERMANENT",
+    ]
+    shifted = run_algebra(session, 'tshift(aa, "1 day")', classic=classic)
+    assert [row["id"] for row in list_maps(session, shifted)] == [
+        f"{shifted}_{number}@PERMANENT" for number in range(3)
+    ]
+
+
 # Spatial overlay operators
 
 
