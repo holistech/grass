@@ -2,32 +2,28 @@
 
 AbstractSpaceTimeDataset.sample_by_dataset() is the routine the old tool
 called to group the related maps per sampler granule. The port groups them
-with grass.temporal.algebra instead. This test builds random sampler and
-input datasets, with random extents and with maps that share a start time,
-and checks for every method list, with and without the spatial check, that
-the ported helpers list the same related maps in the same order per granule
-as sample_by_dataset() - gap granules and empty granules included. The
-library routine stays in place for its other callers.
+with grass.temporal.related_maps instead, the same functions the tool calls.
+This test builds random sampler and input datasets, with random extents and
+with maps that share a start time, and checks for every method list, with and
+without the spatial check, that those functions list the same related maps in
+the same order per granule as sample_by_dataset() - gap granules and empty
+granules included. The library routine stays in place for its other callers.
 """
 
-import importlib.util
 import os
 import random
-from pathlib import Path
 
 import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.algebra.sources import source
+from grass.temporal.related_maps import (
+    method_relations,
+    related_per_granule,
+    with_gaps,
+)
 from grass.tools import Tools
-
-# The tool is a script, not an importable package; load its module-scope
-# helpers (no session is needed to define them) from the file next to tests/.
-_TOOL = Path(__file__).resolve().parent.parent / "t.sample.py"
-_spec = importlib.util.spec_from_file_location("t_sample_tool", _TOOL)
-tool = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(tool)
 
 # Every method of G_OPT_T_SAMPLE on its own, a few lists, and the default.
 METHODS = [
@@ -143,13 +139,13 @@ def register(tools, name, spans, tmp_path, generator, numbers=None):
 
 
 def tool_grouping(sampler_name, input_name, method, spatial):
-    """(granule ids, related map ids per granule) from the ported helpers"""
-    granules = tool._with_gaps(source(sampler_name, stds_type="strds"))
-    rows = tool._related_per_granule(
+    """(granule ids, related map ids per granule) from the library functions"""
+    granules = with_gaps(source(sampler_name, stds_type="strds"))
+    rows = related_per_granule(
         granules,
-        tool._method_relations(method),
+        method_relations(method),
         source(input_name, stds_type="strds"),
-        spatial,
+        spatial=spatial,
     )
     granule_ids = [str(slot.origin) for slot in granules.slots]
     return granule_ids, [[slot.content.ident for slot in row] for row in rows]
