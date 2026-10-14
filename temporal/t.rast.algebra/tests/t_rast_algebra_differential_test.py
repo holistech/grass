@@ -106,12 +106,43 @@ EXTENDED = {
     "isntnull(A / (A - 2))": "if(isntnull(A / (A - 2)), 1, 0)",
 }
 
+# The granularity mode (-g) samples each dataset with the common granularity
+# of the expression before both algebras compute it.
+GRANULARITY_SAME = [
+    # B has maps of two days, so that each counts for two days of A.
+    "A + B",
+    # A dataset alone keeps its own granularity.
+    "B * 2",
+    "A : B",
+    "B : A",
+    # The granules of C start a day after those of A.
+    "A + C",
+    "HA + HB",
+    "A + (A # B)",
+    "A + td(B)",
+    'if(start_date(B) >= "2001-01-03", A, N)',
+    "if(B > 5, A, N)",
+    "A[1] + B",
+    # Time instances get one more granule at the end.
+    "A + I",
+    "A + map(singletmap)",
+    "tmap(singletmap) + B",
+    "RT * 2",
+]
 
-def outcome(algebra, monkeypatch, expression, parser):
+GRANULARITY_DIFFERENT = {
+    "if(B > 5, A)": (
+        "maps",
+        "an if without else is null where a map condition is false",
+    ),
+}
+
+
+def outcome(algebra, monkeypatch, expression, parser, **keywords):
     """The registered maps, or the name of the error"""
     monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
     try:
-        rows = algebra.run(expression, f"d{parser}", register_null=True)
+        rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
     except (*algebra.errors, SyntaxError, ValueError, TypeError) as error:
         return type(error).__name__
     return [(row.start, row.end, row.min, row.max) for row in rows]
@@ -190,6 +221,54 @@ def test_no_more_mapcalc_calls(algebra, monkeypatch, expression):
     def chain(parser):
         monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
         return algebra.parse(expression, dry_run=True)
+
+    def calls(processes):
+        return sum(process["name"] == "r.mapcalc" for process in processes)
+
+    core = chain("core")
+    assert calls(core["processes"]) == len(core["register"])
+    assert calls(core["processes"]) <= calls(chain("classic")["processes"])
+
+
+@pytest.mark.parametrize("expression", GRANULARITY_SAME)
+def test_granularity_same_result(algebra, monkeypatch, expression):
+    assert outcome(
+        algebra, monkeypatch, expression, "core", granularity=True
+    ) == outcome(algebra, monkeypatch, expression, "classic", granularity=True)
+
+
+@pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
+def test_granularity_listed_differences_still_differ(algebra, monkeypatch, expression):
+    """A listed difference that no longer differs must leave the list"""
+    core = outcome(algebra, monkeypatch, expression, "core", granularity=True)
+    assert core != outcome(
+        algebra, monkeypatch, expression, "classic", granularity=True
+    )
+    assert ("maps" if isinstance(core, list) else core) == GRANULARITY_DIFFERENT[
+        expression
+    ][0]
+
+
+def test_granularity_with_the_spatial_flag(algebra, monkeypatch):
+    """The sampled maps keep their spatial extent, so that the spatial
+    relation of -s finds them"""
+    core = outcome(
+        algebra, monkeypatch, "A + B", "core", granularity=True, spatial=True
+    )
+    assert len(core) == 4
+    assert core == outcome(
+        algebra, monkeypatch, "A + B", "classic", granularity=True, spatial=True
+    )
+
+
+@pytest.mark.parametrize("expression", GRANULARITY_SAME)
+def test_granularity_no_more_mapcalc_calls(algebra, monkeypatch, expression):
+    """In the granularity mode, too, the core needs no more r.mapcalc calls
+    than the classic algebra"""
+
+    def chain(parser):
+        monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
+        return algebra.parse(expression, dry_run=True, granularity=True)
 
     def calls(processes):
         return sum(process["name"] == "r.mapcalc" for process in processes)
