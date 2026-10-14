@@ -105,10 +105,11 @@ def overlapping_spans(generator):
 def register(name, spans, prefix):
     """Create one raster per span and register each on its own
 
-    One call per map because t.register does not read a file with mixed
-    interval and instant lines reliably (measured 2026-10-14). The library call
-    is used instead of the tool because the tool's start-up dominates the run
-    time of this test.
+    The library call registers each map with its own start and end, so
+    interval and instant maps mix freely. It is used instead of t.register
+    because of the run time: the module took 291 s with one t.register file
+    per map and 131 s with this in-process call (pytest --durations,
+    2026-10-14).
     """
     gs.run_command(
         "t.create",
@@ -180,7 +181,7 @@ def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_s
     granule as the classic sample_by_dataset(); None marks a granule without
     a related map on both sides"""
     generator = random.Random(seed)
-    compared = 0
+    found_a_pick = False
     for case in range(CASES):
         sampler, inp = make_case(seed, case, generator, input_spans)
         for method in SINGLE_METHODS + MULTI_METHODS:
@@ -189,8 +190,9 @@ def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_s
                 sampler.get_name(), inp.get_name(), _method_relation_names(method)
             )
             assert tool == classic, f"seed {seed}, case {case}, method {method}"
-            compared += 1
-    assert compared == CASES * len(SINGLE_METHODS + MULTI_METHODS)
+            found_a_pick = found_a_pick or any(pick is not None for pick in tool)
+    # All columns empty on both sides would make the equality above vacuous.
+    assert found_a_pick
 
 
 def test_the_comparison_detects_a_wrong_relation(temporal_session):
