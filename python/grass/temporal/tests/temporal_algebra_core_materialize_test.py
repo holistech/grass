@@ -519,3 +519,53 @@ def test_materialize_selection_registers_and_copies(core_session):
         for map_ in result.get_registered_maps_as_objects(order="start_time")
     ]
     assert ids == ["a1@PERMANENT", "picked_1@PERMANENT"]
+
+
+def test_names_reject_a_mapset(make_series):
+    with pytest.raises(ValueError, match="'@'"):
+        ta.plan(
+            make_series("a", (1, 2), (2, 3)),
+            "res",
+            names=["x@PERMANENT", "y"],
+        )
+
+
+def test_names_reject_an_illegal_name(make_series):
+    """gs.legal_name() refuses a space (checked 2026-10-14: it accepts "1x")"""
+    with pytest.raises(ValueError, match="not a legal map name"):
+        ta.plan(make_series("a", (1, 2), (2, 3)), "res", names=["a b", "y"])
+
+
+def test_names_reject_an_input_map(make_series):
+    """A result named like an input would be written over it when overwriting"""
+    with pytest.raises(ValueError, match="a2"):
+        ta.plan(
+            make_series("a", (1, 2), (2, 3)) + 1,
+            "res",
+            names=["fresh", "a2"],
+        )
+
+
+def test_names_reject_time_suffix(make_series):
+    with pytest.raises(ValueError, match="time_suffix"):
+        ta.plan(
+            make_series("a", (1, 2), (2, 3)),
+            "res",
+            names=["x", "y"],
+            time_suffix="gran",
+        )
+
+
+def test_selection_rejects_time_suffix(make_series):
+    with pytest.raises(ValueError, match="time_suffix"):
+        ta.plan(make_series("a", (1, 2)), "res", selection=True, time_suffix="time")
+
+
+def test_selection_copy_must_not_take_a_registered_name(make_series):
+    """The first copy of basename C is C_1, the name of a map that reaches
+    the result unchanged"""
+    kept = make_series("C_", (1, 2)).slots[0]
+    moved = ta.retime(make_series("b", (2, 3)), shift="1 day").slots
+    series = Series((kept, *moved), kind="raster")
+    with pytest.raises(ValueError, match="C_1"):
+        ta.plan(series, "sel", basename="C", selection=True)

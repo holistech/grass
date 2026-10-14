@@ -22,7 +22,7 @@ from grass.temporal.temporal_granularity import compute_absolute_time_granularit
 
 from ._adapters import as_map
 from .backends import ModuleCall, _describe, backend_for
-from .content import MapRef
+from .content import Call, MapRef, SeriesAggregate, SeriesReduce
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
 TIME_SUFFIXES = (None, "gran", "time")
@@ -65,6 +65,38 @@ class ProcessChain:
         ]
 
 
+def _input_names(series):
+    """The names of the maps the slots read, without mapset"""
+    names = set()
+    stack = [slot.content for slot in series.slots]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, MapRef):
+            names.add(node.ident.split("@", 1)[0])
+        elif isinstance(node, (Call, SeriesReduce, SeriesAggregate)):
+            stack.extend(node.args)
+    return names
+
+
+def _check_given_names(series, names):
+    """Reject names that would not be written as given
+
+    :raises ValueError: for a mapset, an illegal name, or the name of an input
+        map, which a run that overwrites would destroy
+    """
+    inputs = _input_names(series)
+    for name in names:
+        if "@" in name:
+            msg = f"A map name must not contain '@', got {name!r}"
+            raise ValueError(msg)
+        if not gs.legal_name(name):
+            msg = f"{name!r} is not a legal map name"
+            raise ValueError(msg)
+        if name in inputs:
+            msg = f"The result map <{name}> has the name of an input map"
+            raise ValueError(msg)
+
+
 def _map_names(series, basename, time_suffix, names=None):
     """The names of the result maps
 
@@ -75,15 +107,21 @@ def _map_names(series, basename, time_suffix, names=None):
     suffix from the start time.
 
     :raises ValueError: for an unknown time_suffix, a names length other than
-        the number of slots, or names that would collide
+        the number of slots, names that would collide, are illegal or equal an
+        input map, or names together with time_suffix
     """
     if names is not None:
+        if time_suffix is not None:
+            # The names are final; a suffix has nothing to attach to.
+            msg = "names cannot be combined with time_suffix"
+            raise ValueError(msg)
         if len(names) != len(series.slots):
             msg = f"Got {len(names)} names for {len(series.slots)} maps"
             raise ValueError(msg)
         if len(set(names)) != len(names):
             msg = "Several maps would get the same name"
             raise ValueError(msg)
+        _check_given_names(series, names)
         return list(names)
     if time_suffix not in TIME_SUFFIXES:
         msg = f"time_suffix must be None, 'gran' or 'time', got {time_suffix!r}"
@@ -150,14 +188,20 @@ def plan(series, name, *, basename=None, time_suffix=None, selection=False, name
         time_suffix; none may repeat
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
-        maps that would get the same name, or names that do not match the
-        slots or are combined with selection; with selection also for a result
-        slot that is not a registered map
+        maps that would get the same name, names that do not match the
+        slots, are illegal, equal an input map or are combined with selection
+        or time_suffix, or a time_suffix combined with selection; with
+        selection also for a result slot that is not a registered map or a
+        copy that would get the name of a registered one
     """
     if selection and names is not None:
         # In a selection registered maps keep their names and only the copies
         # are counted, so there is no name per slot to give.
         msg = "names cannot be combined with selection"
+        raise ValueError(msg)
+    if selection and time_suffix is not None:
+        # The copies are numbered; a suffix from the time would be ignored.
+        msg = "time_suffix cannot be combined with selection"
         raise ValueError(msg)
     stds_type = STDS_TYPES[series.kind]
     _check_name("name", name, stds_type)
@@ -202,11 +246,13 @@ def _plan_selection(series, name, basename, stds_type):
     registered unchanged. Any other content cannot be selected.
 
     :raises ValueError: for a result slot that is not a registered map, e.g.
-        an expression or a map read at a cell offset
+        an expression or a map read at a cell offset, and for a copy that
+        would get the name of a map registered unchanged
     """
     digits = len(str(len(series.slots)))
     maps = []
     number = 0
+    registered = {slot.origin.split("@", 1)[0] for slot in series.slots if slot.origin}
     for slot in series.slots:
         if slot.origin is not None:
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
@@ -222,6 +268,9 @@ def _plan_selection(series, name, basename, stds_type):
             raise ValueError(msg)
         number += 1
         map_name = create_numeric_suffix(basename, number, f"%0{digits}")
+        if map_name in registered:
+            msg = f"The copy <{map_name}> has the name of a map in the result"
+            raise ValueError(msg)
         call = ModuleCall(
             "g.copy", {ELEMENTS[series.kind]: (slot.content.ident, map_name)}
         )
