@@ -274,8 +274,7 @@ def dataset_mapcalculator(
         ctx = _get_multiprocessing_context()
         num = len(sample_extents)
         result_maps = []
-        proc_list = []
-        proc_count = 0
+        statements = []
         count = 0
         runner = _run_mapcalc2d if type == "raster" else _run_mapcalc3d
         for i in range(num):
@@ -322,23 +321,36 @@ def dataset_mapcalculator(
                 new_map.set_semantic_label(labels[i])
             result_maps.append(new_map)
             msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
-            proc_list.append(ctx.Process(target=runner, args=(statement,)))
-            proc_list[proc_count].start()
-            proc_count += 1
-            if proc_count in {nprocs, num} or count == num:
-                exitcodes = 0
-                for proc in proc_list:
-                    proc.join()
-                    exitcodes += proc.exitcode
-                if exitcodes != 0:
-                    msgr.fatal(_("Error while mapcalc computation"))
-                proc_list = []
-                proc_count = 0
+            statements.append(statement)
+        if not _run_in_batches(ctx, runner, statements, nprocs):
+            msgr.fatal(_("Error while mapcalc computation"))
     finally:
         dbif.close()
 
     _register_results(output, type, names[0], result_maps, register_null, num)
     return 0
+
+
+def _run_in_batches(ctx, runner, statements, nprocs):
+    """Run the r.mapcalc statements nprocs at a time
+
+    Each batch is joined before the next starts, and the last one before the
+    function returns, so the caller can read every result map.
+
+    :return: False if a statement failed
+    """
+    for first in range(0, len(statements), nprocs):
+        processes = [
+            ctx.Process(target=runner, args=(statement,))
+            for statement in statements[first : first + nprocs]
+        ]
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join()
+        if any(process.exitcode for process in processes):
+            return False
+    return True
 
 
 def _register_results(output, type, first_name, result_maps, register_null, num):
