@@ -308,15 +308,15 @@ ORDER_CASES = {
 
 EQUAL_STARTS = """\
 eqsamp@PERMANENT|eqin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-eqs_1@PERMANENT|eqi_1@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
-eqs_2@PERMANENT|eqi_1@PERMANENT,eqi_2@PERMANENT|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
+eqs_2@PERMANENT|eqi_1@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
+eqs_1@PERMANENT|eqi_1@PERMANENT,eqi_2@PERMANENT|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
 None|eqi_3@PERMANENT|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0
 eqs_3@PERMANENT|eqi_4@PERMANENT|2001-01-08 00:00:00|2001-01-10 00:00:00|2.0|7.0"""
 
 EQUAL_STARTS_PRECEDES = """\
 eqsamp@PERMANENT|eqin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-eqs_1@PERMANENT|None|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
-eqs_2@PERMANENT|None|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
+eqs_2@PERMANENT|None|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
+eqs_1@PERMANENT|None|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
 None|None|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0
 eqs_3@PERMANENT|None|2001-01-08 00:00:00|2001-01-10 00:00:00|2.0|7.0"""
 
@@ -742,11 +742,12 @@ def test_missing_dataset_is_fatal(sample_session, kwargs, missing):
 
 
 def test_sampler_with_equal_start_times(sample_session):
-    """The granules eqs_1 [d0,d2) and eqs_2 [d0,d5) start together
+    """The granules eqs_1 [d0,d5) and eqs_2 [d0,d2) start together
 
     Such a sampler has an invalid topology, which t.sample does not check.
     The rows follow the order (start, end) in which the core sorts its slots,
-    so the shorter granule comes first, and the gap [d5,d7) is a row of its
+    so the shorter granule eqs_2 comes first although its id is the larger
+    one (neither id order nor registration order explains the rows), and the gap [d5,d7) is a row of its
     own. The instant eqi_1 on d1 lies in both granules; method=start gives
     the same rows because the inputs are instants. The rows were measured on
     2026-10-14 with t.sample on the fixture of conftest.py; the maps in each
@@ -760,8 +761,9 @@ def test_sampler_with_equal_start_times(sample_session):
 def test_sampler_with_equal_start_times_keeps_all_rows_when_nothing_relates(
     sample_session,
 ):
-    """No instant precedes a granule it lies in, but the four rows, the gap
-    among them, stay in the same order"""
+    """A granule precedes an input when its end equals the input's start; no
+    instant lies at d2, d5, d7 or d9, so every input column is None, but the
+    four rows, the gap among them, keep the same order"""
     assert (
         run(
             sample_session,
@@ -776,8 +778,8 @@ def test_sampler_with_equal_start_times_keeps_all_rows_when_nothing_relates(
 
 @pytest.mark.parametrize("method", [None, "start"])
 def test_stvds_layers_print_as_name_layer(sample_session, method):
-    """Layers 1 and 2 of the vector map lay are registered as lay:1 and lay:2
-    and printed under these ids. The format was measured on 2026-10-14 by
+    """The ids lay:1 and lay:2 are registered whether or not the layer holds
+    data (v.random writes layer 1 only) and printed under these ids. The format was measured on 2026-10-14 by
     registering "lay:1|<time>" and listing the result of t.sample. The default
     method and method=start both relate the instants to the granule."""
     assert (

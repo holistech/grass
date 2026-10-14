@@ -108,7 +108,8 @@ def _register_areas(tools, stds, extents, rows, tmp_path):
 
     extents maps a map name to the (w, e, s, n) of its single area, made with
     v.in.region so that the vector extent equals the region. v.random points
-    would give point extents, which cannot show the spatial overlap tests.
+    would give point extents, which can be inside or disjoint but cannot be
+    identical to the sampler's extent or share an edge with it.
     """
     for name, extent in extents.items():
         tools.g_region(**_region(*extent))
@@ -487,10 +488,10 @@ def sample_session(tmp_path_factory):
             },
         )
 
-        # A sampler whose first two granules start together: eqs_1 [d0,d2)
-        # and eqs_2 [d0,d5), then the gap [d5,d7) and eqs_3 [d7,d9). The
+        # A sampler whose first two granules start together: eqs_1 [d0,d5)
+        # and eqs_2 [d0,d2), so that the longer one has the smaller id, then the gap [d5,d7) and eqs_3 [d7,d9). The
         # topology is invalid (the granules overlap). The instants eqi_1 (d1)
-        # and eqi_2 (d3) lie in eqs_2, eqi_1 also in eqs_1, eqi_3 (d6) in the
+        # and eqi_2 (d3) lie in eqs_1, eqi_1 also in eqs_2, eqi_3 (d6) in the
         # gap and eqi_4 (d8) in eqs_3.
         _register(
             tools,
@@ -499,8 +500,8 @@ def sample_session(tmp_path_factory):
             "absolute",
             ["eqs_1", "eqs_2", "eqs_3"],
             [
-                f"eqs_1|{day(0)}|{day(2)}",
-                f"eqs_2|{day(0)}|{day(5)}",
+                f"eqs_1|{day(0)}|{day(5)}",
+                f"eqs_2|{day(0)}|{day(2)}",
                 f"eqs_3|{day(7)}|{day(9)}",
             ],
             tmp_path,
@@ -520,8 +521,10 @@ def sample_session(tmp_path_factory):
             tmp_path,
         )
 
-        # Vector maps with layers: lay:1 and lay:2 are two layers of the one
-        # map lay, registered as separate instants on d1 and d2.
+        # Vector maps with layers: lay:1 and lay:2 are ids of the one map lay,
+        # registered as separate instants on d1 and d2. v.random writes layer
+        # 1 only and t.register does not check the layer, so the ids are
+        # registered whether or not the layer holds data.
         tools.v_random(output="lay", npoints=1, seed=1, overwrite=True)
         tools.t_create(
             type="stvds",
