@@ -20,7 +20,8 @@ The raster module *r.series* is used internally. Hence all aggregate
 methods of *r.series* are supported. See the [r.series](r.series.md)
 manual page for details.
 
-The module stops before computing if the name of a result map equals the name of an input map in the current mapset.
+The module stops before computing if the name of a result map equals the
+name of an input map in the current mapset.
 
 This module will shift the start date for each aggregation process
 depending on the provided temporal granularity. The following shifts
