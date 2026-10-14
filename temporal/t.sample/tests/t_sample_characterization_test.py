@@ -462,9 +462,10 @@ def test_related_maps_follow_the_relations_in_method_order(sample_session, metho
     Within one relation the maps are in start-time order (not alphabetical:
     zz_early comes before aa_late). The names in the method list and the
     blocks that "start", "overlap" and "contain" expand to decide the order of
-    the relations, so contain,overlap prints like the default; a map in two
-    relations is listed once. A map
-    related to both granules (yy_during, uu_ovl_late) is listed in both rows.
+    the relations, so contain,overlap lists overlap before contain, as the
+    default does (the maps differ: the default also has the during and equal
+    maps). A map in two relations is listed once. A map related to both
+    granules (yy_during, uu_ovl_late) is listed in both rows.
     """
     first, second = ORDER_CASES[method]
     assert run(
@@ -522,7 +523,8 @@ def test_relative_time_intervals(sample_session):
     """Relative times print as integers without unit; rint_2 [1,3) overlaps
     rsamp_1 [0,2) and is listed before rint_1 [0,1), which lies inside rsamp_1,
     although it starts later: for the granule the key of rint_2 is OVERLAPS
-    and the key of rint_1 is CONTAINS, and the default method lists OVERLAPS
+    and the relevant key of rint_1 is CONTAINS (it also carries STARTED, which
+    the default method does not list), and the default method lists OVERLAPS
     before CONTAINS"""
     assert (
         run(sample_session, input="rint", sample="rsampler", flags="c")
