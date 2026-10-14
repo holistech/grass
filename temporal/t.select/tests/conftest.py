@@ -51,6 +51,8 @@ from types import SimpleNamespace
 import pytest
 
 import grass.script as gs
+import grass.temporal as tgis
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.tools import Tools
 
 DAY0 = datetime(2001, 1, 1)
@@ -120,7 +122,16 @@ def series(tmp_path_factory):
     project = tmp_path / "project"
     gs.create_project(project)
 
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    # tgis reads the session from os.environ, so it is mirrored there for the
+    # duration of the module; the differential test then runs the parsers in
+    # this process.
+    with (
+        pytest.MonkeyPatch.context() as monkeypatch,
+        gs.setup.init(project, env=os.environ.copy()) as session,
+    ):
+        for key, value in session.env.items():
+            if os.environ.get(key) != value:
+                monkeypatch.setenv(key, value)
         tools = Tools(session=session, overwrite=True)
         tools.g_region(n=3, s=0, e=3, w=0, b=0, t=3, res=1, res3=1, tbres=1)
 
@@ -157,4 +168,23 @@ def series(tmp_path_factory):
         tools.g_mapset(mapset="PERMANENT")
         tools.g_mapsets(mapset="other", operation="add")
 
-        yield SimpleNamespace(session=session)
+        previous = tgis.get_raise_on_error()
+        tgis.init()
+        # The messenger is created once per process with the mode of the first
+        # init(); other test modules may have set it to exit on fatal errors.
+        tgis.set_raise_on_error(True)
+        try:
+            yield SimpleNamespace(session=session)
+        finally:
+            tgis.set_raise_on_error(previous)
+
+
+@pytest.fixture(autouse=True, params=["core", "classic"])
+def algebra(series, request):
+    """Run every test once on the core and once on the classic algebra
+
+    t.select reads the environment variable from the session the tools use.
+    """
+    series.session.env[ALGEBRA_VARIABLE] = request.param
+    yield request.param
+    series.session.env.pop(ALGEBRA_VARIABLE, None)

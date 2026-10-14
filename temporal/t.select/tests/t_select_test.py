@@ -644,3 +644,25 @@ def test_blank_before_temporal_operator(series):
     """Blanks around the temporal operator are allowed."""
     rows = run_select(series.session, "A {:, during, r} D")
     assert [(start, end) for _, start, end in rows] == [(5, 45)] * 3
+
+
+def test_classic_flag_overrides_the_variable(series):
+    """-c runs the classic algebra even when the variable asks for the core"""
+    tools = Tools(session=series.session, overwrite=True)
+    env = dict(series.session.env, GRASS_TEMPORAL_ALGEBRA="core")
+    # A fresh name per run: the copies of the first run stay in the mapset.
+    result = f"flagged{next(result_counter)}"
+    tools.t_select(expression=f"{result} = A {{:,during,r}} D", flags="c", env=env)
+    names = [
+        row["name"]
+        for row in tools.t_rast_list(input=result, columns="name", format="json")[
+            "data"
+        ]
+    ]
+    assert sorted(names) == [f"{result}_1", f"{result}_2", f"{result}_3"]
+    # The result above is the same on both algebras. The neighbourhood
+    # modifier A[1] is only read by the core, so its rejection shows that the
+    # flag, not the variable, chose the algebra.
+    tools.t_select(expression=f"{result}_n = A[1]", env=env)
+    with pytest.raises(ToolError):
+        tools.t_select(expression=f"{result}_c = A[1]", flags="c", env=env)
