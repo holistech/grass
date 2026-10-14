@@ -3,7 +3,14 @@
 import math
 from dataclasses import dataclass
 
-from .content import LEFT_ASSOCIATIVE, Call, Const, MapRef, SeriesReduce
+from .content import (
+    LEFT_ASSOCIATIVE,
+    Call,
+    Const,
+    MapRef,
+    SeriesAggregate,
+    SeriesReduce,
+)
 
 # Operators of r.mapcalc written before one operand; the content tree names
 # the negation "neg" so that it cannot be mistaken for the subtraction.
@@ -34,10 +41,12 @@ _BUFFER_TYPES = {name: features for features, name in BUFFERS.items()}
 
 @dataclass(frozen=True)
 class ModuleCall:
-    """A planned module call: the module and its parameters"""
+    """A planned module call: the module, its parameters, and, for r.series
+    over a file, the related map names to write into that file at run time"""
 
     name: str
     parameters: dict
+    inputs: tuple = ()
 
 
 # CELL is a 32 bit integer whose lowest value is null in GRASS (measured
@@ -133,6 +142,9 @@ class RasterBackend:
             case SeriesReduce():
                 msg = "A reduction with r.series is planned as a call of its own"
                 raise ValueError(msg)
+            case SeriesAggregate():
+                msg = "An r.series aggregation is planned as a call of its own"
+                raise ValueError(msg)
         msg = f"Unknown content {content!r}"
         raise TypeError(msg)
 
@@ -208,6 +220,25 @@ class RasterBackend:
             return name
 
         def lower(node, target=None):
+            if isinstance(node, SeriesAggregate):
+                inputs = [as_map(lower(arg)) for arg in node.args]
+                name = target or temporary()
+                if len(inputs) == 1:
+                    # A lone related map is copied verbatim: g.copy keeps its
+                    # data type (CELL stays CELL) and its color table, which
+                    # r.series would drop, and the method never touches its
+                    # values (measured 2026-10-14, see SeriesAggregate).
+                    calls.append(ModuleCall("g.copy", {"raster": (inputs[0], name)}))
+                else:
+                    parameters = {"output": name, "method": node.method}
+                    if len(inputs) > node.file_limit:
+                        # r.series opens every input at once unless -z makes
+                        # it read them cell by cell; the limit is file_limit.
+                        parameters["flags"] = "z"
+                    calls.append(
+                        ModuleCall("r.series", parameters, inputs=tuple(inputs))
+                    )
+                return MapRef(name)
             if isinstance(node, SeriesReduce):
                 inputs = [as_map(lower(arg)) for arg in node.args]
                 name = target or temporary()
@@ -226,7 +257,7 @@ class RasterBackend:
                 return Call(node.function, tuple(lower(arg) for arg in node.args))
             return node
 
-        if isinstance(content, SeriesReduce):
+        if isinstance(content, (SeriesReduce, SeriesAggregate)):
             lower(content, target=output)
         else:
             lowered = lower(content)
@@ -274,7 +305,7 @@ class Raster3DBackend(RasterBackend):
 
 
 def _has_series_reduce(content):
-    if isinstance(content, SeriesReduce):
+    if isinstance(content, (SeriesReduce, SeriesAggregate)):
         return True
     if isinstance(content, Call):
         return any(_has_series_reduce(arg) for arg in content.args)
@@ -294,6 +325,8 @@ def _describe(node):
             return f"The function {function}()"
         case SeriesReduce(method=method):
             return f"The reduction {method} of a series"
+        case SeriesAggregate(method=method):
+            return f"The r.series aggregation {method} of a series"
 
 
 class VectorBackend:

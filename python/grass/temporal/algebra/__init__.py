@@ -32,7 +32,7 @@ Vector maps are combined with the overlays of v.overlay and v.patch, written
 a & b, a | b, a ^ b, a - b and a + b, and buffered with buffer().
 """
 
-from .content import NULL, Call, Const, MapRef, SeriesReduce
+from .content import NULL, Call, Const, MapRef, SeriesAggregate, SeriesReduce
 from .operations import (
     apply,
     buffer,
@@ -46,7 +46,7 @@ from .operations import (
     where,
 )
 from .materialize import ProcessChain, materialize, plan
-from .reducers import fold
+from .reducers import fold, series_method
 from .relations import (
     Relation,
     contains,
@@ -76,6 +76,7 @@ __all__ = [
     "ProcessChain",
     "Relation",
     "Series",
+    "SeriesAggregate",
     "SeriesReduce",
     "Slot",
     "Space",
@@ -105,6 +106,7 @@ __all__ = [
     "relation",
     "retime",
     "select",
+    "series_method",
     "source",
     "source_map",
     "started",

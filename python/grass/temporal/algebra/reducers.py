@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from .content import Const, call, chain, series_reduce
+from .content import Const, call, chain, series_aggregate, series_reduce
 
 REDUCERS = ("sum", "prod", "min", "max", "mean", "count", "all", "any", "first", "last")
 
@@ -22,9 +22,34 @@ def fold(operator):
     return Fold(operator)
 
 
+@dataclass(frozen=True)
+class SeriesMethod:
+    """Reduce with any method of r.series, as t.rast.aggregate does
+
+    method reaches r.series unchanged and is validated there, so the whole
+    r.series method list works without the core naming each one. A lone
+    related map is copied verbatim instead (see series_aggregate), so the
+    method is applied only from two maps on. file_limit is the open file
+    limit of r.series, carried here so the backend can set the -z flag per
+    granule.
+    """
+
+    method: str
+    file_limit: int = 1000
+
+
+def series_method(method, *, file_limit=1000):
+    """Return the reducer that aggregates the related maps with r.series"""
+    return SeriesMethod(method, file_limit)
+
+
 def check(reducer, nulls):
     """Stop for an unknown reducer or one that cannot skip null cells"""
     if reducer is None:
+        return
+    if isinstance(reducer, SeriesMethod):
+        # r.series validates the method name itself and always skips null
+        # cells, so nulls does not restrict it.
         return
     if isinstance(reducer, Fold):
         if nulls == "skip":
@@ -48,6 +73,8 @@ def sort_of(reducer, target_sort, other_sort):
         return target_sort
     if reducer == "count":
         return "scalar"
+    if isinstance(reducer, SeriesMethod):
+        return "field"
     if isinstance(reducer, Fold):
         return "field" if "field" in {target_sort, other_sort} else "scalar"
     return other_sort
@@ -102,6 +129,8 @@ def reduce(reducer, target, related, nulls):
     """
     if reducer is None:
         return target
+    if isinstance(reducer, SeriesMethod):
+        return series_aggregate(reducer.method, related, reducer.file_limit)
     if isinstance(reducer, Fold):
         return chain(reducer.operator, [target, *related])
     if reducer == "count":

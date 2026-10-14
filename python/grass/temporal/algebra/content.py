@@ -46,7 +46,26 @@ class SeriesReduce:
     args: tuple
 
 
-Content = MapRef | Const | Call | SeriesReduce
+@dataclass(frozen=True)
+class SeriesAggregate:
+    """An r.series aggregation of related maps, or a verbatim copy of one
+
+    Kept apart from SeriesReduce for two things that belong to
+    t.rast.aggregate and must not leak into the skip-sum and skip-mean of the
+    algebra: a single related map is copied with g.copy so that its data type
+    and color table survive and the method does not touch its values (measured
+    2026-10-14 with t.rast.aggregate method=count on a one map granule: the
+    result was the source value, not 1, and kept the CELL type and the grey
+    color table), and the open file limit that switches r.series to its -z
+    mode travels with the node.
+    """
+
+    method: str
+    args: tuple
+    file_limit: int = 1000
+
+
+Content = MapRef | Const | Call | SeriesReduce | SeriesAggregate
 
 NULL = Const(None)
 
@@ -248,3 +267,8 @@ def series_reduce(method, contents):
         return NULL
     total = sum(present)
     return Const(total if method == "sum" else total / len(present))
+
+
+def series_aggregate(method, contents, file_limit=1000):
+    """Return the r.series aggregation of contents"""
+    return SeriesAggregate(method, tuple(contents), file_limit)

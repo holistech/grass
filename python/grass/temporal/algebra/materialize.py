@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+import grass.script as gs
 from grass.exceptions import FatalError
 from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
 from grass.temporal.core import (
@@ -64,14 +65,26 @@ class ProcessChain:
         ]
 
 
-def _map_names(series, basename, time_suffix):
-    """The names of the result maps: basename with a number from 0 as
-    t.rast.algebra does, or for absolute time with a suffix from the start
-    time
+def _map_names(series, basename, time_suffix, names=None):
+    """The names of the result maps
 
-    :raises ValueError: for an unknown time_suffix, or if several maps would
-        get the same name
+    With names the caller gives one name per slot verbatim, which the
+    aggregation tools use for their own numbering (count from one, with an
+    offset and a gap for a dropped empty granule). Without names the maps are
+    numbered from zero as t.rast.algebra does, or for absolute time get a
+    suffix from the start time.
+
+    :raises ValueError: for an unknown time_suffix, a names length other than
+        the number of slots, or names that would collide
     """
+    if names is not None:
+        if len(names) != len(series.slots):
+            msg = f"Got {len(names)} names for {len(series.slots)} maps"
+            raise ValueError(msg)
+        if len(set(names)) != len(names):
+            msg = "Several maps would get the same name"
+            raise ValueError(msg)
+        return list(names)
     if time_suffix not in TIME_SUFFIXES:
         msg = f"time_suffix must be None, 'gran' or 'time', got {time_suffix!r}"
         raise ValueError(msg)
@@ -116,7 +129,7 @@ def _check_name(label, value, stds_type):
             raise ValueError(msg)
 
 
-def plan(series, name, *, basename=None, time_suffix=None, selection=False):
+def plan(series, name, *, basename=None, time_suffix=None, selection=False, names=None):
     """Return the process chain of materialize() without running anything
 
     For vector maps, a registered map that reaches the result unchanged is
@@ -133,11 +146,19 @@ def plan(series, name, *, basename=None, time_suffix=None, selection=False):
     :param basename: the prefix of the map names, by default the name
     :param time_suffix: None for numbered maps, "gran" or "time" for a
         suffix from the start time (absolute time only)
+    :param names: one finished map name per slot, used instead of basename and
+        time_suffix; none may repeat
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
-        or maps that would get the same name; with selection also for a result
+        maps that would get the same name, or names that do not match the
+        slots or are combined with selection; with selection also for a result
         slot that is not a registered map
     """
+    if selection and names is not None:
+        # In a selection registered maps keep their names and only the copies
+        # are counted, so there is no name per slot to give.
+        msg = "names cannot be combined with selection"
+        raise ValueError(msg)
     stds_type = STDS_TYPES[series.kind]
     _check_name("name", name, stds_type)
     if basename is not None:
@@ -148,10 +169,10 @@ def plan(series, name, *, basename=None, time_suffix=None, selection=False):
     if selection:
         return _plan_selection(series, name, basename or name, stds_type)
     backend = backend_for(series.kind)
-    names = _map_names(series, basename or name, time_suffix)
+    map_names = _map_names(series, basename or name, time_suffix, names=names)
     maps = []
     remove = []
-    for slot, map_name in zip(series.slots, names, strict=True):
+    for slot, map_name in zip(series.slots, map_names, strict=True):
         if backend.registers_origins and slot.origin is not None:
             # The registered map itself goes into the result.
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
@@ -256,12 +277,23 @@ def check_absent(chain):
 
 
 def _module(call, overwrite):
+    parameters = call.parameters
+    if call.inputs:
+        # The r.series input file is written now, at run time, not when the
+        # chain was planned, so that a dry run stays free of side effects
+        # while the run matches the classic module call (a file, with -z past
+        # the open file limit). gs.tempfile() registers the file for removal
+        # when the process ends, after r.series has read it.
+        filename = gs.tempfile(True)
+        with open(filename, "w") as handle:
+            handle.write("\n".join(call.inputs) + "\n")
+        parameters = {**call.parameters, "file": filename}
     # quiet is set here and not among the parameters of the call, so that
     # plan() and the debug output show the calls as before. Without it the
     # progress of v.overlay drowned the warnings: measured 2026-10-13 in
     # grass --tmp-project XY, t.vect.algebra "C = A & B" over three map pairs
     # wrote 108 lines to stderr, the classic algebra 23.
-    module = Module(call.name, run_=False, quiet=True, **call.parameters)
+    module = Module(call.name, run_=False, quiet=True, **parameters)
     module.flags["overwrite"].value = overwrite
     return module
 
@@ -421,6 +453,7 @@ def materialize(
     nprocs=1,
     time_suffix=None,
     selection=False,
+    names=None,
 ):
     """Compute the maps of a series and register them in a new space time
     dataset
@@ -439,6 +472,8 @@ def materialize(
     With selection no map is computed: registered maps reach the result
     unchanged and retimed maps are copied with g.copy (see plan()).
 
+    With names the result maps get the given names, one per slot (see plan()).
+
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
@@ -455,7 +490,12 @@ def materialize(
         )
         raise ValueError(msg)
     chain = plan(
-        series, name, basename=basename, time_suffix=time_suffix, selection=selection
+        series,
+        name,
+        basename=basename,
+        time_suffix=time_suffix,
+        selection=selection,
+        names=names,
     )
     mapset = get_current_mapset()
     dbif, connection_state_changed = init_dbif(None)
