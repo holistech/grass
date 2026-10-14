@@ -147,7 +147,16 @@ def retime(series, *, shift=None, buffer=None, snap=False):
     else:
         maps = AbstractSpaceTimeDataset.snap_map_list(maps)
     slots = tuple(
-        Slot(extent_of(map_), slot.content, slot.space)
+        # Keep the origin where the new time stamp equals the old one, e.g.
+        # tsnap of gapless maps: the slot is then still the registered map
+        # unchanged, which is what Slot.origin documents. A selection
+        # registers such a map instead of copying it.
+        Slot(
+            extent_of(map_),
+            slot.content,
+            slot.space,
+            slot.origin if extent_of(map_) == slot.extent else None,
+        )
         for map_, slot in zip(maps, series.slots, strict=True)
     )
     return replace(series, slots=slots)

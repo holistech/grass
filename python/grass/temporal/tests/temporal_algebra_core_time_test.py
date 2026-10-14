@@ -126,6 +126,35 @@ def test_snap(make_series):
     ]
 
 
+def test_snap_keeps_the_origin_of_gapless_maps(a):
+    """tsnap leaves gapless intervals unchanged, so each slot stays the
+    registered map; a selection registers it instead of copying it"""
+    snapped = retime(a, snap=True)
+    assert snapped.times() == a.times()
+    assert [slot.origin for slot in snapped] == [slot.origin for slot in a]
+
+
+def test_snap_drops_the_origin_where_it_closes_a_gap(make_series):
+    """A gap moves the end of the earlier map, so that slot is no longer the
+    registered map and loses its origin; the unchanged slot keeps it"""
+    series = make_series("m", (1, 2), (4, 5))
+    snapped = retime(series, snap=True)
+    assert snapped.times() == [(day(1), day(4)), (day(4), day(5))]
+    assert [slot.origin for slot in snapped] == [None, "m2@PERMANENT"]
+
+
+def test_shift_drops_the_origin(a):
+    """A shift changes every extent, so no slot is the registered map"""
+    assert all(slot.origin is None for slot in retime(a, shift="1 day"))
+
+
+def test_zero_buffer_keeps_the_origin(a):
+    """A zero buffer changes nothing, so each slot stays the registered map"""
+    assert [slot.origin for slot in retime(a, buffer="0 days")] == [
+        slot.origin for slot in a
+    ]
+
+
 def test_relative_shift_by_a_number(make_series):
     shifted = retime(make_series("r", (2, 5), unit="days"), shift=1)
     assert shifted.times() == [(3, 6)]
