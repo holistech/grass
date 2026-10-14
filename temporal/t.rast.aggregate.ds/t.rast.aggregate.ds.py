@@ -116,7 +116,7 @@ def main():
     time_suffix = options["suffix"]
     stds_type = options["type"]
 
-    tgis.init(True)
+    tgis.init()
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
     try:

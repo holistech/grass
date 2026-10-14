@@ -3,9 +3,10 @@
 Every expected value was measured on 2026-10-14 with the unchanged tool
 (build d8f948a911) in a temporary XY project, with t.rast.list. These tests
 are the first pytest coverage of t.rast.aggregate.ds, which had only a shell
-script. They passed before the port, except for two documented changes of
-the port that the -n test and the relation order test assert in their
-corrected form (see their docstrings).
+script. They passed before the port, except for three documented changes of
+the port: the -n test and the relation order test assert the corrected
+behavior, and test_strds_sampler_values passes flags="n" for the same
+reason (see their docstrings).
 """
 
 import pytest
@@ -116,3 +117,16 @@ def test_related_maps_are_read_in_time_order(read):
     assert [(row[1], row[2], row[3]) for row in rows] == [
         ("2001-01-01 00:00:00", "2001-01-11 00:00:00", "0.0")
     ]
+
+
+def test_existing_output_without_overwrite_prints_one_error(read):
+    """The classic tool printed the refusal once. With the messenger in raise
+    mode the message was printed by the library and again by the tool's own
+    handler (measured 2026-10-14: two identical ERROR lines)."""
+    options = {"input": "input", "sample": "samp", "type": "strds", "method": "sum"}
+    read.aggregate("twice", **options)
+    result = read.refused("twice", **options)
+    assert result.returncode != 0
+    errors = [line for line in result.stderr.splitlines() if line.startswith("ERROR")]
+    assert len(errors) == 1
+    assert "twice" in errors[0]

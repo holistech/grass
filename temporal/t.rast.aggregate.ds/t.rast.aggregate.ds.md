@@ -20,12 +20,13 @@ When the sampling option lists a relation together with one of its parts
 (for example `during` with `starts`, or `contains` with `started`), a map
 is counted once, not once per matching relation as before.
 
-The maps related to a sampling interval are read as one list in time order,
-not relation by relation as before (`equal`, `contains`, `during`, `starts`,
-`started`, `finishes`, `finished`, `overlaps`, `overlapped`). This matters
-only when the sampling option lists more than one relation and the method
-depends on the order of the maps, that is `min_raster`, `max_raster`,
-`slope`, `offset` and `detcoeff`; the other methods give the same result.
+The maps related to a sampling interval are read as one list in time order.
+Earlier versions read them relation by relation, in the order `equal`,
+`contains`, `during`, `starts`, `started`, `finishes`, `finished`, `overlaps`,
+`overlapped`. This matters only when the sampling option lists more than one
+relation and the method depends on the order of the maps, that is
+`min_raster`, `max_raster`, `slope`, `offset` and `detcoeff`; the other
+methods give the same result.
 
 ## EXAMPLES
 

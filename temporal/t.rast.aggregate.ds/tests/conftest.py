@@ -15,6 +15,19 @@ class Reader:
 
     def __init__(self, session):
         self.tools = Tools(session=session, overwrite=True)
+        self.refusing = Tools(
+            session=session,
+            overwrite=False,
+            capture_stderr=True,
+            consistent_return_value=True,
+            errors="ignore",
+        )
+
+    def refused(self, output, **options):
+        """The result of a run without overwrite, which may fail"""
+        return self.refusing.t_rast_aggregate_ds(
+            output=output, basename=output, **options
+        )
 
     def aggregate(self, output, **options):
         self.tools.t_rast_aggregate_ds(output=output, basename=output, **options)
