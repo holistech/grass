@@ -201,11 +201,11 @@ def test_file_limit_warning_only_when_r_series_runs(read):
 
 def test_sampling_list_keeps_the_maps_in_time_order(read):
     """min_raster returns the index of the smallest map among the related
-    maps, so it shows their order. The grid is [day 1, day 11], [day 11,
-    day 21] and [day 21, day 31]. In the first granule oa1=5 [day 3, day 15]
-    and oa2=1 [day 4, day 15] overlap it and oa3=9 [day 6, day 7] lies inside
-    it; oz [day 1, day 30] shares its start and is not in the list, and the
-    other two granules relate to nothing in the list. In time order the
+    maps, so it shows their order. The grid ends at the end of the last
+    map by start time (oa3, day 7), so it is the single granule [day 1,
+    day 11]. oa1=5 [day 3, day 15] and oa2=1 [day 4, day 15] overlap it and
+    oa3=9 [day 6, day 7] lies inside it; oz [day 1, day 30] shares its start
+    and is not in the list. In time order the
     related maps are oa1, oa2, oa3, and the smallest, oa2, has index 1. The
     classic tool concatenated the maps per relation in the order equal,
     contains, during, starts, started, finishes, finished, overlaps,
