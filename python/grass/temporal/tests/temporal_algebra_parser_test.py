@@ -38,6 +38,8 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.algebra import parser as algebra_parser
+from grass.temporal.algebra.backends import ModuleCall
 from grass.temporal.temporal_algebra import (
     FatalError,
     TemporalAlgebraLexer,
@@ -1147,3 +1149,11 @@ def test_dataset_type_functions_are_refused_by_the_reject_helper(session, expres
     parser = TemporalAlgebraParser(run=False)
     with pytest.raises(SyntaxError, match="Syntax error near"):
         parser._reject_dataset_type_tokens(TemporalAlgebraLexer(), expression)
+
+
+def test_module_dict_shows_the_input_maps_of_an_r_series_call():
+    call = ModuleCall("r.series", {"output": "x", "method": "sum"}, inputs=("a", "b"))
+    described = algebra_parser._module(call, False)
+    assert ("input", "a,b") in described["inputs"]
+    assert ("method", "sum") in described["inputs"]
+    assert described["outputs"] == [("output", "x")]

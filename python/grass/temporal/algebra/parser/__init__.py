@@ -132,11 +132,20 @@ def _sampled_source(name, *, stds_type, granularity):
 
 
 def _module(call, overwrite):
-    """A planned call in the form of Module.get_dict()"""
+    """A planned call in the form of Module.get_dict()
+
+    The related maps of an r.series call (call.inputs) are listed as one
+    input, "input" with the names joined by commas. The real call reads them
+    from a file that is written only at run time (see materialize._module),
+    so a dry run has no file name to show.
+    """
     parameters = call.parameters.items()
+    inputs = [(key, value) for key, value in parameters if key != "output"]
+    if call.inputs:
+        inputs.append(("input", ",".join(call.inputs)))
     return {
         "name": call.name,
-        "inputs": [(key, value) for key, value in parameters if key != "output"],
+        "inputs": inputs,
         "outputs": [(key, value) for key, value in parameters if key == "output"],
         "flags": ["overwrite"] if overwrite else [],
     }
