@@ -210,10 +210,11 @@ both corrections.
 
 With the flag **-g**, each space time dataset of the expression is first
 sampled with the common granularity of all datasets of the expression. The
-time from the start of the first map of a dataset to the end of its last
-map is divided into granules of this granularity; if the dataset has time
-instances, one more granule follows. Each granule takes one map of the
-dataset, with the time stamp of the granule:
+granules of a dataset follow each other from the start of its first map
+until they cover the end of its last map, so the last granule may reach
+past it, for example a granule of two days over a map of three days. If the
+dataset has time instances, one more granule follows. Each granule takes
+one map of the dataset, with the time stamp of the granule:
 
 1. the first map that is equal to the granule;
 2. otherwise the first map that contains the granule;
@@ -228,7 +229,11 @@ as without the flag, so that maps of equal time are combined. Operators
 with temporal relations in curly brackets cannot be used in this mode, and
 all datasets need a valid temporal topology and the same temporal type.
 
-See the manual of *t.rast.algebra* for an example.
+Single maps given with `map()` or `tmap()` are not sampled. The differences
+between the two algebras listed under "Core and classic algebra" apply with
+**-g** as well, for example item 5, an `if` without else.
+
+See the manual of [t.rast.algebra](t.rast.algebra.md) for an example.
 
 ## REFERENCES
 
