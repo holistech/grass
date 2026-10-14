@@ -130,7 +130,7 @@ def main():
 
         input_series = ta.source(input, where=where)
         if not input_series.slots:
-            gs.fatal(_("Space time raster dataset <%s> is empty") % input)
+            gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
 
         first = input_series.slots[0].extent
         last = input_series.slots[-1].extent
@@ -174,6 +174,8 @@ def main():
         )
         if dataset is not None:
             set_output_metadata(dataset, sp, method, dbif)
+    # The core reports wrong user input as ValueError or TypeError; the tool
+    # turns it into a fatal error with the message only.
     except (FatalError, ValueError, TypeError) as error:
         gs.fatal(str(error))
     finally:
