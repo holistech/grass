@@ -169,3 +169,32 @@ def test_n_flag_registers_the_all_null_granule(read):
         "withN_2001_01_02",
         "withN_2001_01_03",
     ]
+
+
+def test_instant_last_map_adds_no_granule_after_it(read):
+    """The last map is the instant tl_inst on day 3, the first one tl_long
+    runs from day 1 to day 30. With a granularity of 10 days the grid has the
+    single granule [day 1, day 11] that holds the instant. A second granule
+    [day 11, day 21] would lie during tl_long, so the sampling list "during"
+    would relate it and produce a second map; the tool stops the grid at the
+    last instant and the classic granule loop did the same."""
+    rows = read.aggregate(
+        "tail", input="tail", granularity="10 days", method="sum", sampling=["during"]
+    )
+    assert [(row.start, row.min) for row in rows] == [("2001-01-01 00:00:00", 7.0)]
+
+
+def test_file_limit_warning_only_when_r_series_runs(read):
+    """With file_limit=0 every granule exceeds the limit, but the daily
+    granules hold one map each and are copied with g.copy, so there is no
+    warning. The two day granule of m1 and m2 runs r.series with flag z and
+    warns once; the granule of m3 alone is copied again."""
+    text = "limit of open files"
+    assert text not in read.messages(
+        "warn_one", input="cells", granularity="1 days", method="sum", file_limit=0
+    )
+    messages = read.messages(
+        "warn_two", input="cells", granularity="2 days", method="sum", file_limit=1
+    )
+    assert messages.count(text) == 1
+

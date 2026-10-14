@@ -31,6 +31,19 @@ class Reader:
 
     def __init__(self, session):
         self.tools = Tools(session=session, overwrite=True)
+        self.capturing = Tools(
+            session=session,
+            overwrite=True,
+            capture_stderr=True,
+            consistent_return_value=True,
+        )
+
+    def messages(self, output, **options):
+        """The standard error output of one t.rast.aggregate run"""
+        result = self.capturing.t_rast_aggregate(
+            output=output, basename=output, **options
+        )
+        return result.stderr
 
     def aggregate(self, output, **options):
         self.tools.t_rast_aggregate(output=output, basename=output, **options)
@@ -87,6 +100,7 @@ def aggregate_data(tmp_path_factory):
       a daily granule of day 3 aggregates to an all null map.
     - instants: ip1=1, ip2=2, ip3=3 as time instants on days 1, 2, 3.
     - relative: rx1..rx4 = 1..4 as relative day intervals [0,1]..[3,4].
+    - tail: tl_long=7 over [day 1, day 30] and the instant tl_inst=2 on day 3.
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
     """
@@ -107,6 +121,7 @@ def aggregate_data(tmp_path_factory):
             ("na1", 1), ("na2", 2), ("nz1", "null()"), ("nz2", "null()"),
             ("ip1", 1), ("ip2", 2), ("ip3", 3),
             ("rx1", 1), ("rx2", 2), ("rx3", 3), ("rx4", 4),
+            ("tl_long", 7), ("tl_inst", 2),
         ]:  # fmt: skip
             tools.r_mapcalc(expression=f"{name} = {value}")
         tools.r_colors(map="m1", color="grey")
@@ -155,6 +170,11 @@ def aggregate_data(tmp_path_factory):
             "relative",
             [("rx1", 0, 1), ("rx2", 1, 2), ("rx3", 2, 3), ("rx4", 3, 4)],
             unit="days",
+        )
+        _register(
+            "tail",
+            "absolute",
+            [("tl_long", "2001-01-01", "2001-01-30"), ("tl_inst", "2001-01-03", None)],
         )
         _register(
             "probes",

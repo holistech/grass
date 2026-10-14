@@ -139,12 +139,15 @@ def main():
             start = tgis.adjust_datetime_to_granularity(start, gran)
         end = last.end
         if end is None:
-            # The last map is an instant; extend the grid by one granule so
-            # that granules() covers it, as the classic granule loop did.
+            # The last map is an instant. granules() adds a granule while its
+            # start is before end, so one time unit past the instant makes
+            # the last granule the one that holds it and no later one. A
+            # whole granularity would add a trailing granule that a longer
+            # earlier map can still relate to.
             if absolute:
-                end = tgis.increment_datetime_by_string(last.start, gran)
+                end = tgis.increment_datetime_by_string(last.start, "1 second")
             else:
-                end = last.start + int(gran)
+                end = last.start + 1
 
         target = ta.granules(
             start,
