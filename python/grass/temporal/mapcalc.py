@@ -38,8 +38,6 @@ from .datetime_math import time_delta_to_relative_time
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 from .space_time_datasets import Raster3DDataset, RasterDataset
 
-_ONLY_ABSOLUTE = "The temporal operators <%s> support only absolute time."
-
 # The relations that sample_by_dataset() reads for a method, from the side of
 # the granule: the topology builder files, under a relation name, the maps that
 # stand in that relation to the granule, and the method names are read the
@@ -133,7 +131,9 @@ def _time_token_value(name, first_extent, extent, is_absolute, msgr):
         return str(stamp - first_extent.start)
     if name in _CALENDAR_TOKENS and not is_absolute:
         side = "start_*" if name.startswith("start") else "end_*"
-        msgr.fatal(_(_ONLY_ABSOLUTE) % side)
+        msgr.fatal(
+            _("The temporal operators <{}> support only absolute time.").format(side)
+        )
     value = timevar(Series((Slot(extent, Const(None)),)), name).slots[0].content.value
     return "null()" if value is None else str(value)
 
@@ -422,6 +422,7 @@ def dataset_mapcalculator(
             if labels[i] is not None:
                 new_map.set_semantic_label(labels[i])
             result_maps.append(new_map)
+            msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
             proc_list.append(ctx.Process(target=runner, args=(statement,)))
             proc_list[proc_count].start()
             proc_count += 1

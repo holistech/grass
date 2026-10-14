@@ -83,11 +83,10 @@ def _warn_file_limit(reduced, file_limit):
         ):
             msgr.warning(
                 _(
-                    "The limit of open files (%i) was reached (%i). The module "
+                    "The limit of open files ({}) was reached ({}). The module "
                     "r.series will be run with flag z, to avoid open files "
                     "limit exceeding."
-                )
-                % (file_limit, len(content.args))
+                ).format(file_limit, len(content.args))
             )
 
 
