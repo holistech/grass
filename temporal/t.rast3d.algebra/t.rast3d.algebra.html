@@ -51,8 +51,8 @@ the classic algebra, so that published results remain reproducible. The flag
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
 <code>TemporalRaster3DAlgebraParser</code> takes the keyword
-<code>classic=True</code> for the same purpose. The granularity mode
-(<b>-g</b>) always uses the classic algebra.
+<code>classic=True</code> for the same purpose. Both algebras compute the
+granularity mode (<b>-g</b>), see below.
 
 <p>
 The two algebras differ in the following points. The examples use four daily
@@ -226,6 +226,34 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic algebra"
 in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes
 both corrections.
+
+<h3>Granularity algebra</h3>
+
+With the flag <b>-g</b>, each space time dataset of the expression is first
+sampled with the common granularity of all datasets of the expression. The
+time from the start of the first map of a dataset to the end of its last map
+is divided into granules of this granularity; if the dataset has time
+instances, one more granule follows. Each granule takes one map of the
+dataset, with the time stamp of the granule:
+
+<ol>
+<li>the first map that is equal to the granule;</li>
+<li>otherwise the first map that contains the granule;</li>
+<li>otherwise the first map that starts within the granule and ends after
+it;</li>
+<li>otherwise the first map that starts before the granule and ends within
+it;</li>
+<li>otherwise the first map that lies within the granule.</li>
+</ol>
+
+<p>
+A granule without such a map is left out. Then the expression is computed as
+without the flag, so that maps of equal time are combined. Operators with
+temporal relations in curly brackets cannot be used in this mode, and all
+datasets need a valid temporal topology and the same temporal type.
+
+<p>
+See the manual of <em>t.rast.algebra</em> for an example.
 
 <h2>REFERENCES</h2>
 

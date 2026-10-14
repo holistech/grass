@@ -48,8 +48,8 @@ classic algebra, so that published results remain reproducible. The flag
 `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
 `TemporalRaster3DAlgebraParser` takes the keyword `classic=True` for the
-same purpose. The granularity mode (**-g**) always uses the classic
-algebra.
+same purpose. Both algebras compute the granularity mode (**-g**), see
+below.
 
 The two algebras differ in the following points. The examples use four
 daily 3D raster maps in A with the values 1 to 4, two maps of two days in B
@@ -205,6 +205,30 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
 algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes
 both corrections.
+
+### Granularity algebra
+
+With the flag **-g**, each space time dataset of the expression is first
+sampled with the common granularity of all datasets of the expression. The
+time from the start of the first map of a dataset to the end of its last
+map is divided into granules of this granularity; if the dataset has time
+instances, one more granule follows. Each granule takes one map of the
+dataset, with the time stamp of the granule:
+
+1. the first map that is equal to the granule;
+2. otherwise the first map that contains the granule;
+3. otherwise the first map that starts within the granule and ends after
+   it;
+4. otherwise the first map that starts before the granule and ends within
+   it;
+5. otherwise the first map that lies within the granule.
+
+A granule without such a map is left out. Then the expression is computed
+as without the flag, so that maps of equal time are combined. Operators
+with temporal relations in curly brackets cannot be used in this mode, and
+all datasets need a valid temporal topology and the same temporal type.
+
+See the manual of *t.rast.algebra* for an example.
 
 ## REFERENCES
 
