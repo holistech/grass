@@ -98,6 +98,22 @@ def core_session(tmp_path_factory):
         yield session
 
 
+DATASET_CLASSES = {
+    "raster3d": tgis.Raster3DDataset,
+    "vector": tgis.VectorDataset,
+}
+
+
+def make_map(tools, kind, name):
+    """Create a small map of the kind in the session"""
+    if kind == "raster3d":
+        tools.r3_mapcalc(expression=f"{name} = 1")
+    else:
+        tools.v_in_ascii(
+            input=StringIO("1,1,1\n"), output=name, format="point", separator="comma"
+        )
+
+
 def registered(name):
     """(start, end, value) of the maps of a dataset, in time order"""
     dataset = tgis.open_old_stds(name, "strds")
@@ -179,20 +195,11 @@ def test_source_map_reads_a_grass_time_stamp_of_other_kinds(
     name = f"stamped_{kind}"
     make_map(tools, kind, name)
     getattr(tools, timestamp_tool)(map=name, date=date)
+    assert not DATASET_CLASSES[kind](f"{name}@PERMANENT").is_in_db()
     series = ta.source_map(name, kind=kind)
     assert series.kind == kind
     assert series.times() == [(day(1), day(3))]
     assert series.slots[0].content == MapRef(f"{name}@PERMANENT")
-
-
-def make_map(tools, kind, name):
-    """Create a small map of the kind in the session"""
-    if kind == "raster3d":
-        tools.r3_mapcalc(expression=f"{name} = 1")
-    else:
-        tools.v_in_ascii(
-            input=StringIO("1,1,1\n"), output=name, format="point", separator="comma"
-        )
 
 
 def test_a_map_with_only_a_grass_time_stamp_is_materialized(core_session):
@@ -524,6 +531,33 @@ def test_selection_copies_a_retimed_map_of_other_kinds_with_g_copy(
     chain = ta.plan(series, "sel", basename="copy", selection=True)
     assert names_and_calls(chain) == [("copy_1", ("g.copy",)), ("copy_2", ("g.copy",))]
     assert chain.maps[0].calls[0].parameters == {option: ("a1@PERMANENT", "copy_1")}
+
+
+@pytest.mark.parametrize(
+    ("kind", "stds_type", "list_type"),
+    [("raster3d", "str3ds", "raster_3d"), ("vector", "stvds", "vector")],
+)
+def test_materialize_selection_copies_maps_of_other_kinds(
+    core_session, kind, stds_type, list_type
+):
+    """g.copy accepts the map types of the selection: the copy exists with
+    the type and is registered with the shifted time"""
+    tools = Tools(session=core_session, overwrite=True)
+    name = f"sel_src_{kind}"
+    make_map(tools, kind, name)
+    getattr(tools, "r3_timestamp" if kind == "raster3d" else "v_timestamp")(
+        map=name, date="01 Jan 2001/03 Jan 2001"
+    )
+    series = ta.retime(ta.source_map(name, kind=kind), shift="10 days")
+    result = f"sel_{kind}"
+    ta.materialize(series, result, basename=result, overwrite=True, selection=True)
+    listed = tools.g_list(type=list_type, pattern=f"{result}_1")
+    assert listed.stdout.strip() == f"{result}_1"
+    dataset = tgis.open_old_stds(result, stds_type)
+    maps = dataset.get_registered_maps_as_objects(order="start_time")
+    assert [map_.get_id() for map_ in maps] == [f"{result}_1@PERMANENT"]
+    maps[0].select()
+    assert maps[0].get_temporal_extent_as_tuple() == (day(11), day(13))
 
 
 def test_selection_numbers_copies_only_in_a_mixed_result(make_series):
