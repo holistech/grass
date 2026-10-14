@@ -21,8 +21,13 @@ from grass.temporal.algebra.relations import (
     overlapped,
     overlaps,
 )
-from grass.temporal.algebra.series import Extent
-from grass.temporal.mapcalc import _method_relation, _time_token_value
+from grass.temporal.algebra.series import Extent, Space
+from grass.temporal.mapcalc import (
+    _boxes_intersect,
+    _method_relation,
+    _method_relation_names,
+    _time_token_value,
+)
 
 
 class _RaisingMessenger:
@@ -46,6 +51,36 @@ def test_start_method_omits_equal():
     rel = _method_relation(["start"])
     assert rel.temporal == {"overlapped", "starts", "started", "finishes", "contains"}
     assert "equal" not in rel.temporal
+
+
+def test_relations_are_tried_in_the_order_of_sample_by_dataset():
+    """Plain method names first in list order, then the groups start, overlap
+    and contain, each without what the list has already. The map used is the
+    first of the first relation with a map, so this order is observable."""
+    assert _method_relation_names(["equal", "during"]) == ["equal", "during"]
+    assert _method_relation_names(["during", "equal"]) == ["during", "equal"]
+    assert _method_relation_names(["start", "equal"]) == [
+        "equal",
+        "overlapped",
+        "starts",
+        "started",
+        "finishes",
+        "contains",
+    ]
+    assert _method_relation_names(["contain", "overlap", "during"]) == [
+        "during",
+        "overlapped",
+        "overlaps",
+        "contains",
+    ]
+    assert _method_relation_names(["start", "overlap", "contain"]) == [
+        "overlapped",
+        "starts",
+        "started",
+        "finishes",
+        "contains",
+        "overlaps",
+    ]
 
 
 def test_unknown_method_is_an_error():
@@ -80,3 +115,21 @@ def test_calendar_function_on_relative_time_is_fatal():
     extent = Extent(2, 4, "days")
     with pytest.raises(RuntimeError):
         _time_token_value("start_doy", first, extent, False, _RaisingMessenger())
+
+
+BOX = Space(north=80, south=0, east=120, west=0)
+
+
+@pytest.mark.parametrize(
+    ("other", "expected"),
+    [
+        (Space(north=40, south=-40, east=180, west=60), True),
+        (Space(north=160, south=80, east=240, west=120), True),  # corner contact
+        (Space(north=160, south=80, east=100, west=20), True),  # edge contact
+        (Space(north=160, south=81, east=240, west=120), False),
+        (Space(north=80, south=0, east=240, west=121), False),
+    ],
+)
+def test_boxes_intersect_includes_contact(other, expected):
+    assert _boxes_intersect(BOX, other) is expected
+    assert _boxes_intersect(other, BOX) is expected

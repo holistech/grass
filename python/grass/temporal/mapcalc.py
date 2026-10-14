@@ -1,13 +1,16 @@
 """Raster and 3D raster map calculation on the temporal algebra core
 
 t.rast.mapcalc samples its inputs by the first input and runs one r.mapcalc
-per sampler granule. The sampling and the values of the temporal functions
-come from grass.temporal.algebra: gather() relates the inputs, timevar() gives
+per sampler granule. The inputs and the temporal relations between their maps
+come from grass.temporal.algebra (source() and related()), timevar() gives
 td() and the calendar functions, and the start_time()/end_time() offsets are
 computed from the slot extents. The expression itself stays a text, and the
 dataset names and function tokens are substituted textually, as before, so the
-result maps, their names and the warnings are unchanged; there is no classic
-switch for this tool.
+result maps, their names and the warnings are unchanged. The tool has no
+switch between the classic and the core algebra, so the sampling follows the
+classic rules of AbstractSpaceTimeDataset.sample_by_dataset() exactly and does
+not use gather(), which differs from them in the choice of the map and in the
+spatial test (see _sample_columns()).
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -22,20 +25,7 @@ from grass.exceptions import CalledModuleError
 from grass.script.utils import _get_multiprocessing_context, get_num_suffix
 
 from .algebra.content import Const
-from .algebra.operations import gather
-from .algebra.relations import (
-    contains,
-    during,
-    equal,
-    finishes,
-    follows,
-    overlapped,
-    overlaps,
-    precedes,
-    relation,
-    started,
-    starts,
-)
+from .algebra.relations import relation, related
 from .algebra.series import Series, Slot
 from .algebra.sources import source
 from .algebra.time_functions import timevar
@@ -46,26 +36,29 @@ from .core import (
 )
 from .datetime_math import time_delta_to_relative_time
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
+from .space_time_datasets import Raster3DDataset, RasterDataset
 
 _ONLY_ABSOLUTE = "The temporal operators <%s> support only absolute time."
 
-# Each sampling method name, read as "first R input". gather() reads the
-# relation from the target side, and the target is the first input (the
-# sampler), which is the side AbstractSpaceTimeDataset.sample_by_dataset()
-# reads from as well. So the method name maps straight to a relation; there is
-# no inversion. "start" leaves equal out to match a long-standing quirk of
-# sample_by_dataset(): it appends "equals", which upper-cases to the key
-# "EQUALS" that the topology builder never files (it files "EQUAL"), so the
-# classic "start" never matches a map of equal time.
+# The relations that sample_by_dataset() reads for a method, from the side of
+# the granule: the topology builder files, under a relation name, the maps that
+# stand in that relation to the granule, and the method names are read the
+# same way ("during" selects the maps the granule lies during). So there is no
+# inversion. "start" appends "equals", which upper-cases to the key "EQUALS"
+# that the builder never files (it files "EQUAL"), so the classic "start" never
+# matches a map of equal time; that quirk is kept by leaving it out here.
 _METHOD_RELATIONS = {
-    "equal": equal,
-    "during": during,
-    "contain": contains,
-    "overlap": overlaps | overlapped,
-    "follows": follows,
-    "precedes": precedes,
-    "start": overlapped | starts | started | finishes | contains,
+    "equal": ("equal",),
+    "during": ("during",),
+    "contain": ("contains",),
+    "overlap": ("overlapped", "overlaps"),
+    "follows": ("follows",),
+    "precedes": ("precedes",),
+    "start": ("overlapped", "starts", "started", "finishes", "contains"),
 }
+# These names stand for a group of relations that sample_by_dataset() appends
+# after the plain method names.
+_METHOD_GROUPS = ("start", "overlap", "contain")
 
 # The calendar tokens need absolute time, as in the classic tool.
 _CALENDAR_TOKENS = tuple(
@@ -86,16 +79,38 @@ _CALENDAR_TOKENS = tuple(
 _TIME_TOKENS = ("td", "start_time", "end_time", *_CALENDAR_TOKENS)
 
 
-def _method_relation(method):
-    """Return the core relation of a list of sampling method names"""
-    rel = None
+def _method_relation_names(method):
+    """The relation names of a list of sampling method names, in the order in
+    which sample_by_dataset() tries them
+
+    The plain names come first, in the order of the list, then the groups
+    "start", "overlap" and "contain", each as far as not yet in the list. The
+    order matters because the map used is the first one found, and the first
+    relation with a map decides.
+    """
     for name in method:
         if name not in _METHOD_RELATIONS:
             msg = f"Unknown sampling method <{name}>"
             raise ValueError(msg)
-        part = _METHOD_RELATIONS[name]
-        rel = part if rel is None else rel | part
-    return rel
+    names = [
+        relation_
+        for name in method
+        if name not in _METHOD_GROUPS
+        for relation_ in _METHOD_RELATIONS[name]
+    ]
+    for group in _METHOD_GROUPS:
+        if group in method:
+            names.extend(
+                relation_
+                for relation_ in _METHOD_RELATIONS[group]
+                if relation_ not in names
+            )
+    return names
+
+
+def _method_relation(method):
+    """Return the relation of a list of sampling method names as one union"""
+    return relation("|".join(_method_relation_names(method)))
 
 
 def _time_token_value(name, first_extent, extent, is_absolute, msgr):
@@ -135,40 +150,81 @@ def _substitute_time_tokens(expr, first_extent, extent, is_absolute, msgr):
     return expr
 
 
-def _sample_columns(first_series, others, relation_, where, stds_type, msgr):
-    """The map name of each extra input's first related map per granule
+def _boxes_intersect(left, right):
+    """True if the 2D extents touch or overlap, edges and corners included"""
+    return (
+        left.west <= right.east
+        and right.west <= left.east
+        and left.south <= right.north
+        and right.south <= left.north
+    )
 
-    Returns a dict from input name to a list with one entry per sampler
-    granule: the name of the first (earliest-start) related map, or None where
-    none relates. Warns, as the classic tool does, when a granule relates more
-    than one map. Returns None if an input has no registered map.
+
+def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
+    """The map name of the input name's first related map per sampler granule
+
+    Returns a list with one entry per granule: the name of the map used, or
+    None where none relates.
+
+    This does not use gather(). The tool has no switch between the classic and
+    the core algebra, so its results must stay those of sample_by_dataset(),
+    and gather() differs in two ways. First, the map used is the first of the
+    first relation in names that has one, and within that relation the one of
+    the earliest start; gather() would take the earliest start over all
+    relations. Second, with spatial the classic builder relates the maps by
+    their 2D extent, also for 3D rasters, and takes every map whose box
+    touches the granule's, corners and edges included; the spatial relations of
+    the core are 3D for 3D rasters and leave out contact at a corner. So the
+    temporal partners come from related() without a spatial part, and spatial
+    is a closed 2D box test on them.
+
+    Warns, as the classic tool does, once per granule that relates more than
+    one map. An input without registered maps gives a column of None.
     """
-    columns = {}
-    for name in others:
-        inp = source(name, where=where, stds_type=stds_type)
-        if len(inp.slots) == 0:
-            return None
-        picked = gather(first_series, relation_, inp, reduce="first", missing="null")
-        counts = gather(first_series, relation_, inp, reduce="count")
-        # One warning per granule with several related maps, as the classic
-        # tool gave.
-        for slot in counts.slots:
-            if (slot.content.value or 0) > 1:
-                msgr.warning(
-                    _(
-                        "Found more than a single map in a sample granule. Only "
-                        "the first map is used for computation. Use "
-                        "t.rast.aggregate.ds to create synchronous raster "
-                        "datasets."
-                    )
+    partners = source(name, where=where, stds_type=stds_type).slots
+    per_relation = [
+        related(first_series.slots, relation(relation_name), partners)
+        for relation_name in names
+    ]
+    column = []
+    for number, granule in enumerate(first_series.slots):
+        found = []
+        for indices in per_relation:
+            for index in indices[number]:
+                if index in found:
+                    continue
+                if spatial and not _boxes_intersect(
+                    granule.space, partners[index].space
+                ):
+                    continue
+                found.append(index)
+        if len(found) > 1:
+            msgr.warning(
+                _(
+                    "Found more than a single map in a sample granule. Only "
+                    "the first map is used for computation. Use "
+                    "t.rast.aggregate.ds to create synchronous raster "
+                    "datasets."
                 )
-        column = []
-        for slot in picked.slots:
-            content = slot.content
-            is_null = isinstance(content, Const) and content.value is None
-            column.append(None if is_null else content.ident.split("@")[0])
-        columns[name] = column
-    return columns
+            )
+        column.append(partners[found[0]].content.ident.split("@")[0] if found else None)
+
+    return column
+
+
+def _sampler_refused(sampler, dataset, msgr):
+    """True, with the classic message, if sampler cannot sample dataset
+
+    These are the two guards at the top of sample_by_dataset(): the temporal
+    types must be equal, and the sampler must have interval time.
+    """
+    if dataset.get_temporal_type() != sampler.get_temporal_type():
+        msgr.error(_("The space time datasets must be of the same temporal type"))
+        return True
+    if sampler.get_map_time() != "interval":
+        msgr.error(_("The temporal map type of the sample dataset must be interval"))
+        return True
+    return False
 
 
 def dataset_mapcalculator(
@@ -205,7 +261,8 @@ def dataset_mapcalculator(
     :param method: list of sampling method names
     :param nprocs: number of parallel r.mapcalc processes
     :param register_null: keep (register) null result maps
-    :param spatial: relate maps spatially as well
+    :param spatial: also require the 2D extents of related maps to touch or
+        overlap
     :param where: SQL WHERE on the registered maps of every input
     """
     msgr = get_tgis_message_interface()
@@ -218,9 +275,11 @@ def dataset_mapcalculator(
     # differ from what was typed in inputs, so that name is what is substituted.
     uniq = []
     display_names = {}
+    datasets = {}
     first_dataset = None
     for name in names:
         dataset = open_old_stds(name, type)
+        datasets[name] = dataset
         display_names[name] = dataset.get_name()
         if first_dataset is None:
             first_dataset = dataset
@@ -231,22 +290,32 @@ def dataset_mapcalculator(
     # Fail before any computation if the output cannot be created.
     check_new_stds(output, type, None, gs.overwrite())
 
+    # The extra inputs in reverse sorted order, so that a longer dataset name is
+    # substituted before a name that is its prefix, as the classic tool does.
+    others = sorted(names[1:])
+    others.reverse()
+
+    if spatial:
+        msgr.message(_("Starting spatio-temporal sampling..."))
+    else:
+        msgr.message(_("Starting temporal sampling..."))
+
     first_series = source(names[0], where=where, stds_type=stds_type)
     if len(first_series.slots) == 0:
-        msgr.message(
-            _("No maps registered in input dataset <{}>").format(
-                display_names[names[0]]
+        if not do_sampling:
+            msgr.message(
+                _("No maps registered in input dataset <{}>").format(
+                    display_names[names[0]]
+                )
             )
-        )
+            return 0
+        _sampler_refused(first_dataset, datasets[others[0]], msgr)
+        msgr.message(_("No samples found for map calculation"))
         return 0
     is_absolute = first_series.temporal_type == "absolute"
     first_extent = first_series.slots[0].extent
     sample_extents = [slot.extent for slot in first_series.slots]
 
-    # The extra inputs in reverse sorted order, so that a longer dataset name is
-    # substituted before a name that is its prefix, as the classic tool does.
-    others = sorted(names[1:])
-    others.reverse()
     id_list = [names[0], *others]
     columns = {
         names[0]: [slot.content.ident.split("@")[0] for slot in first_series.slots]
@@ -261,7 +330,7 @@ def dataset_mapcalculator(
     # (Raster3DMetadata has no get_semantic_label), so it is only read for
     # raster; the shared function serves both types.
     mapset = get_current_mapset()
-    map_class = first_series_map_class(type)
+    map_class = RasterDataset if type == "raster" else Raster3DDataset
     labels = {}
     if type == "raster":
         for registered in (
@@ -274,24 +343,17 @@ def dataset_mapcalculator(
     labels = [labels.get(slot.content.ident) for slot in first_series.slots]
 
     if do_sampling:
-        if spatial:
-            msgr.message(_("Starting spatio-temporal sampling..."))
-        else:
-            msgr.message(_("Starting temporal sampling..."))
-        relation_ = _method_relation(method)
-        if spatial:
-            relation_ = relation(str(relation_), spatial=True)
-        sampled = _sample_columns(
-            first_series, others, relation_, where, stds_type, msgr
-        )
-        if sampled is None:
-            msgr.message(_("No samples found for map calculation"))
-            return 0
-        columns.update(sampled)
+        method_names = _method_relation_names(method)
+        for name in others:
+            if _sampler_refused(first_dataset, datasets[name], msgr):
+                msgr.message(_("No samples found for map calculation"))
+                return 0
+            columns[name] = _sample_column(
+                first_series, name, method_names, spatial, where, stds_type, msgr
+            )
     else:
-        # Inputs that differ only in their semantic label are not sampled: the
-        # n-th map of each is used with the n-th map of the first, as in the
-        # classic tool.
+        # Inputs that name one dataset (x,x) are not sampled: the n-th map of
+        # each is used with the n-th map of the first, as in the classic tool.
         for name in others:
             other_series = source(name, where=where, stds_type=stds_type)
             if len(other_series.slots) == 0:
@@ -375,20 +437,18 @@ def dataset_mapcalculator(
     finally:
         dbif.close()
 
-    _register_results(output, type, names[0], result_maps, register_null)
+    _register_results(output, type, names[0], result_maps, register_null, num)
     return 0
 
 
-def first_series_map_class(type):
-    """The map class of a dataset type"""
-    from .space_time_datasets import Raster3DDataset, RasterDataset
+def _register_results(output, type, first_name, result_maps, register_null, num):
+    """Register the computed maps, removing null maps unless register_null
 
-    return RasterDataset if type == "raster" else Raster3DDataset
-
-
-def _register_results(output, type, first_name, result_maps, register_null):
-    """Register the computed maps, removing null maps unless register_null"""
+    num is the number of sampler granules, the denominator of the progress
+    that is reported while the maps are registered.
+    """
     msgr = get_tgis_message_interface()
+    msgr.message(_("Starting map registration in temporal database..."))
     dbif = SQLDatabaseInterfaceConnection()
     dbif.connect()
     first_stds = open_old_stds(first_name, type, dbif)
@@ -404,7 +464,8 @@ def _register_results(output, type, first_name, result_maps, register_null):
         gs.overwrite(),
     )
     empty_maps = []
-    for new_map in result_maps:
+    for count, new_map in enumerate(result_maps, 1):
+        msgr.percent(count, num, 10)
         new_map.load()
         if new_map.metadata.get_min() is None and new_map.metadata.get_max() is None:
             if not register_null:
