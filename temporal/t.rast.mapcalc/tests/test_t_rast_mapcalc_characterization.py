@@ -30,6 +30,32 @@ def _maps(tools, strds):
     return [(row[0].rsplit("_", 1)[-1], row[1], row[2], row[3], row[4]) for row in rows]
 
 
+def _make_strds(tools, name, rows, temporaltype="absolute", unit=None):
+    """Create STRDS name from constant rasters name_1..name_N
+
+    rows holds (cell value, start, end) per map in registration order; an end
+    of None registers a time instant. The rasters are the test's own because a
+    raster can carry only one time stamp and the shared fixture rasters must
+    keep theirs.
+    """
+    tools.t_create(
+        type="strds",
+        temporaltype=temporaltype,
+        output=name,
+        title="t",
+        description="t",
+    )
+    for number, (value, start, end) in enumerate(rows, 1):
+        map_name = f"{name}_{number}"
+        tools.r_mapcalc(expression=f"{map_name} = {value}")
+        options = {"type": "raster", "input": name, "maps": map_name, "start": start}
+        if end is not None:
+            options["end"] = end
+        if unit is not None:
+            options["unit"] = unit
+        tools.t_register(**options)
+
+
 def test_two_inputs_equal_sampling_values(mapcalc_session):
     """precip_abs1 + precip_abs2 over the three identical granules"""
     tools = Tools(session=mapcalc_session, overwrite=True)
@@ -50,8 +76,8 @@ def test_two_inputs_equal_sampling_values(mapcalc_session):
 
 
 def test_map_names_use_get_num_suffix(mapcalc_session):
-    """The result maps are basename_1..basename_N, numbered from 1, the width
-    taken from the count, as gs.get_num_suffix gives them"""
+    """Three granules give the result maps basename_1..basename_3, numbered
+    from 1. The zero padding for ten or more granules is pinned separately."""
     tools = Tools(session=mapcalc_session, overwrite=True)
     tools.t_rast_mapcalc(
         flags="n",
@@ -268,9 +294,13 @@ def test_sampling_methods(mapcalc_session, assert_tinfo, method, expected):
 
 
 def test_more_than_one_related_map_warns_and_uses_first(mapcalc_session):
-    """Two input maps lie in one sampler granule: a warning is issued and the
-    first (earliest start) is used. The warning goes to stderr, so the tool is
-    run with consistent_return_value=True to get a result object."""
+    """Two input maps lie in one sampler granule: a warning is issued and one
+    of them is used. Here the map with the earliest start (char_one_a) is also
+    the one registered first, so this test cannot tell the two orders apart;
+    test_more_than_one_related_map_takes_the_earliest_start does. The result
+    carries the time stamp of the sampler granule, not that of the used map.
+    The warning goes to stderr, so the tool is run with
+    consistent_return_value=True to get a result object."""
     tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
     tools.r_mapcalc(expression="char_one_s = rand(0, 550)", seed=1)
     tools.r_mapcalc(expression="char_one_a = rand(0, 450)", seed=1)
@@ -323,6 +353,8 @@ def test_more_than_one_related_map_warns_and_uses_first(mapcalc_session):
     # prec_1 + prec_2 (min 120, max 986, measured 2026-10-14).
     rows = _maps(tools, "char_first")
     assert len(rows) == 1
+    # The sampler granule is three months long, the used map one month.
+    assert rows[0][:3] == ("1", "2001-01-01 00:00:00", "2001-04-01 00:00:00")
     assert rows[0][3:] == ("120.0", "986.0")
 
 
@@ -361,6 +393,11 @@ def test_gaps_in_the_sampler_are_skipped(mapcalc_session, assert_tinfo):
         method="equal",
     )
     assert_tinfo(tools, "char_gap_out", {"number_of_maps": 2})
+    # The gap from 2001-02-01 to 2001-03-01 consumes no number and no map.
+    assert [row[:3] for row in _maps(tools, "char_gap_out")] == [
+        ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00"),
+        ("2", "2001-03-01 00:00:00", "2001-04-01 00:00:00"),
+    ]
 
 
 def test_operand_order_does_not_matter(mapcalc_session, assert_tinfo):
@@ -389,10 +426,15 @@ def test_substring_substitution_hazard(mapcalc_session):
     """The first input is substituted first, the others in reverse sorted
     order. If the first input's name is a prefix of a later one (pa and pa2),
     pa is replaced inside pa2 and the expression names the nonexistent map
-    prec_12, so the tool aborts. With the longer name first it works. Measured
-    2026-10-14 on the unchanged tool in a temporary XY project. This pins a
-    defect; a rebuild that removes it changes this test on purpose."""
+    <first map>2 (here char_src_12), so the tool aborts. With the longer name
+    first it works. Measured 2026-10-14 on the unchanged tool in a temporary
+    XY project. This pins a defect; a rebuild that removes it changes this
+    test on purpose. The maps are the test's own, with the cell values of
+    prec_1..3 (same rand call and seed), so the shared fixture is not
+    re-registered."""
     tools = Tools(session=mapcalc_session, overwrite=True)
+    for number, upper in [(1, 550), (2, 450), (3, 320)]:
+        tools.r_mapcalc(expression=f"char_src_{number} = rand(0, {upper})", seed=1)
     for name in ("char_pa", "char_pa2"):
         tools.t_create(
             type="strds",
@@ -404,12 +446,12 @@ def test_substring_substitution_hazard(mapcalc_session):
         tools.t_register(
             type="raster",
             input=name,
-            maps="prec_1,prec_2,prec_3",
+            maps="char_src_1,char_src_2,char_src_3",
             start="2001-01-01",
             increment="3 months",
             flags="i",
         )
-    with pytest.raises(grass.exceptions.CalledModuleError):
+    with pytest.raises(grass.exceptions.CalledModuleError) as excinfo:
         tools.t_rast_mapcalc(
             flags="n",
             inputs="char_pa,char_pa2",
@@ -418,6 +460,7 @@ def test_substring_substitution_hazard(mapcalc_session):
             basename="char_hz",
             method="equal",
         )
+    assert "Invalid map <char_src_12>" in str(excinfo.value)
     tools.t_rast_mapcalc(
         flags="n",
         inputs="char_pa2,char_pa",
@@ -465,3 +508,305 @@ def test_semantic_label_of_the_sampled_map_is_transferred(mapcalc_session):
         input="char_lab_out", columns="name,semantic_label", separator="|", flags="u"
     ).text
     assert text.strip().splitlines() == ["char_lab_out_1|S2_1", "char_lab_out_2|S2_1"]
+
+
+def test_map_names_are_zero_padded_to_the_count(mapcalc_session):
+    """Ten granules give basename_01..basename_10: the suffix width follows
+    the number of granules, as gs.get_num_suffix gives it"""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    days = [f"2001-01-{day:02d}" for day in range(1, 12)]
+    _make_strds(
+        tools,
+        "char_pad",
+        [(number, days[number - 1], days[number]) for number in range(1, 11)],
+    )
+    tools.t_rast_mapcalc(
+        inputs="char_pad",
+        output="char_pad_out",
+        expression="char_pad",
+        basename="pad",
+    )
+    names = tools.t_rast_list(input="char_pad_out", columns="name", flags="u").text
+    assert names.split() == [f"pad_{number:02d}" for number in range(1, 11)]
+
+
+def test_more_than_one_related_map_takes_the_earliest_start(mapcalc_session):
+    """Two input maps lie in the single three-month sampler granule
+    2001-01-01 to 2001-04-01: char_mo_i_1 (value 10) is registered first but
+    starts on 2001-02-01, char_mo_i_2 (value 100) is registered second but
+    starts on 2001-01-01. The map with the earliest start is used, not the
+    one registered first. Everything that depends on the time of the current
+    sample comes from the sampler granule (90 days, ending on 2001-04-01), not
+    from the used map (31 days, ending on 2001-02-01)."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(tools, "char_mo_s", [(1000, "2001-01-01", "2001-04-01")])
+    _make_strds(
+        tools,
+        "char_mo_i",
+        [(10, "2001-02-01", "2001-03-01"), (100, "2001-01-01", "2001-02-01")],
+    )
+    for expression, expected in [
+        ("char_mo_s + char_mo_i", "1100.0"),
+        ("char_mo_s + char_mo_i + end_month()", "1104.0"),
+        ("td()", "90.0"),
+        ("end_time()", "90.0"),
+    ]:
+        tools.t_rast_mapcalc(
+            flags="n",
+            inputs="char_mo_s,char_mo_i",
+            output="char_mo_out",
+            expression=expression,
+            basename="char_mo_out",
+            method="contain",
+        )
+        assert _maps(tools, "char_mo_out") == [
+            ("1", "2001-01-01 00:00:00", "2001-04-01 00:00:00", expected, expected)
+        ], expression
+
+
+def test_sampler_granule_without_partner_is_skipped(mapcalc_session):
+    """Of the three monthly sampler granules (2001-01-01 to 2001-04-01) the
+    middle one has no partner in the second dataset, which holds only the
+    first and the third month. The middle granule gives no map, but its number
+    is used up, so the maps are numbered 1 and 3. With the two-granule dataset
+    as the sampler, there is no hole and the maps are numbered 1 and 2; both
+    time stamps and values are the same either way."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_np_s",
+        [
+            (1000, "2001-01-01", "2001-02-01"),
+            (2000, "2001-02-01", "2001-03-01"),
+            (3000, "2001-03-01", "2001-04-01"),
+        ],
+    )
+    _make_strds(
+        tools,
+        "char_np_p",
+        [(1, "2001-01-01", "2001-02-01"), (3, "2001-03-01", "2001-04-01")],
+    )
+    tools.t_rast_mapcalc(
+        inputs="char_np_s,char_np_p",
+        output="char_np_out",
+        expression="char_np_s + char_np_p",
+        basename="char_np_out",
+    )
+    assert _maps(tools, "char_np_out") == [
+        ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", "1001.0", "1001.0"),
+        ("3", "2001-03-01 00:00:00", "2001-04-01 00:00:00", "3003.0", "3003.0"),
+    ]
+    tools.t_rast_mapcalc(
+        inputs="char_np_p,char_np_s",
+        output="char_np_out",
+        expression="char_np_s + char_np_p",
+        basename="char_np_out",
+    )
+    assert _maps(tools, "char_np_out") == [
+        ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", "1001.0", "1001.0"),
+        ("2", "2001-03-01 00:00:00", "2001-04-01 00:00:00", "3003.0", "3003.0"),
+    ]
+
+
+def test_end_time_and_end_doy_of_intervals(mapcalc_session):
+    """The three three-month granules from 2001-01-01 end on 2001-04-01,
+    2001-07-01 and 2001-10-01: end_time() counts 90, 181 and 273 days from the
+    first start (31 + 28 + 31, then + 30 + 31 + 30, then + 31 + 31 + 30), and
+    end_doy() is the day of the year of the end, 91, 182 and 274."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    for expression, expected in [
+        ("end_time()", ["90.0", "181.0", "273.0"]),
+        ("end_doy()", ["91.0", "182.0", "274.0"]),
+    ]:
+        tools.t_rast_mapcalc(
+            inputs="precip_abs1",
+            output="char_end",
+            expression=expression,
+            basename="char_end",
+        )
+        rows = _maps(tools, "char_end")
+        assert [row[1:3] for row in rows] == [
+            ("2001-01-01 00:00:00", "2001-04-01 00:00:00"),
+            ("2001-04-01 00:00:00", "2001-07-01 00:00:00"),
+            ("2001-07-01 00:00:00", "2001-10-01 00:00:00"),
+        ]
+        assert [row[3] for row in rows] == expected, expression
+
+
+def test_start_time_and_end_time_on_relative_time(mapcalc_session):
+    """The relative granules 10 to 12, 12 to 14 and 14 to 16 days: start_time()
+    and end_time() count from the first start (10), not from 0, so start_time()
+    is 0, 2, 4 and end_time() is 2, 4, 6"""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_rel",
+        [(1, 10, 12), (1, 12, 14), (1, 14, 16)],
+        temporaltype="relative",
+        unit="days",
+    )
+    for expression, expected in [
+        ("start_time()", ["0.0", "2.0", "4.0"]),
+        ("end_time()", ["2.0", "4.0", "6.0"]),
+    ]:
+        tools.t_rast_mapcalc(
+            inputs="char_rel",
+            output="char_rel_out",
+            expression=expression,
+            basename="char_rel_out",
+        )
+        rows = _maps(tools, "char_rel_out")
+        assert [row[1:3] for row in rows] == [("10", "12"), ("12", "14"), ("14", "16")]
+        assert [row[3] for row in rows] == expected, expression
+
+
+def test_start_time_of_absolute_instants(mapcalc_session):
+    """Positive control for the instant tests: on three daily instances from
+    2001-01-01, start_time() is 0, 1, 2 and gives three maps. The result maps
+    are instances too, so they have no end time."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_instc",
+        [(1, "2001-01-01", None), (2, "2001-01-02", None), (3, "2001-01-03", None)],
+    )
+    tools.t_rast_mapcalc(
+        inputs="char_instc",
+        output="char_instc_out",
+        expression="start_time()",
+        basename="char_instc_out",
+    )
+    assert _maps(tools, "char_instc_out") == [
+        ("1", "2001-01-01 00:00:00", "None", "0.0", "0.0"),
+        ("2", "2001-01-02 00:00:00", "None", "1.0", "1.0"),
+        ("3", "2001-01-03 00:00:00", "None", "2.0", "2.0"),
+    ]
+
+
+@pytest.mark.parametrize("function", ["td()", "end_time()", "end_doy()"])
+def test_null_functions_of_instants_are_kept_with_n(mapcalc_session, function):
+    """With -n the all-null results of the functions that are null for time
+    instances are registered, one per instance, without min and max"""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_instn",
+        [(1, "2001-01-01", None), (2, "2001-01-02", None), (3, "2001-01-03", None)],
+    )
+    tools.t_rast_mapcalc(
+        flags="n",
+        inputs="char_instn",
+        output="char_instn_out",
+        expression=function,
+        basename="char_instn_out",
+    )
+    assert _maps(tools, "char_instn_out") == [
+        ("1", "2001-01-01 00:00:00", "None", "None", "None"),
+        ("2", "2001-01-02 00:00:00", "None", "None", "None"),
+        ("3", "2001-01-03 00:00:00", "None", "None", "None"),
+    ]
+
+
+# Sampler granules (start, end) of the per-method test, by number.
+_METHOD_GRANULES = {
+    1: ("2001-01-01", "2001-02-01"),
+    2: ("2001-03-01", "2001-04-01"),
+    3: ("2001-05-01", "2001-06-01"),
+    4: ("2001-07-01", "2001-08-01"),
+    5: ("2001-09-01", "2001-10-01"),
+    6: ("2001-11-01", "2001-12-01"),
+    7: ("2002-01-01", "2002-03-01"),
+    8: ("2002-04-01", "2002-05-01"),
+}
+
+
+@pytest.fixture(scope="module")
+def method_datasets(mapcalc_session):
+    """Sampler char_ms with the eight granules in _METHOD_GRANULES and input
+    char_mi with eight maps, map N (cell value N) related to granule N:
+
+    1. equals granule 1
+    2. 2001-03-10 to 2001-03-20, inside granule 2
+    3. 2001-04-20 to 2001-06-10, covers granule 3
+    4. 2001-07-20 to 2001-08-20, starts in granule 4 and ends after it
+    5. 2001-10-01 to 2001-10-15, begins where granule 5 ends
+    6. 2001-10-15 to 2001-11-01, ends where granule 6 begins
+    7. 2002-01-01 to 2002-02-01, inside granule 7, sharing its start
+    8. 2002-04-01 to 2002-07-01, covers granule 8, sharing its start
+
+    Each map is related to its own granule only, so every granule has at most
+    one partner and no "more than a single map" case arises.
+    """
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_ms",
+        [(1000 * number, *times) for number, times in _METHOD_GRANULES.items()],
+    )
+    _make_strds(
+        tools,
+        "char_mi",
+        [
+            (1, "2001-01-01", "2001-02-01"),
+            (2, "2001-03-10", "2001-03-20"),
+            (3, "2001-04-20", "2001-06-10"),
+            (4, "2001-07-20", "2001-08-20"),
+            (5, "2001-10-01", "2001-10-15"),
+            (6, "2001-10-15", "2001-11-01"),
+            (7, "2002-01-01", "2002-02-01"),
+            (8, "2002-04-01", "2002-07-01"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("method", "granules"),
+    [
+        # Map and granule have the same extent.
+        ("equal", [1]),
+        # The map covers the granule: map 3 strictly, map 8 with a shared start.
+        ("during", [3, 8]),
+        # The map lies in the granule: map 2 strictly, map 7 with a shared start.
+        ("contain", [2, 7]),
+        # The map starts in the granule and ends after it.
+        ("overlap", [4]),
+        # Map 6 ends where granule 6 begins: "follows" names the granule's
+        # relation to the map, so it selects the map that comes before it.
+        ("follows", [6]),
+        # Map 5 begins where granule 5 ends: "precedes" selects the map that
+        # comes after the granule.
+        ("precedes", [5]),
+        # Map 2 and map 7 lie in their granule, map 8 starts together with
+        # its granule and runs on. Granule 1 is missing although its map
+        # starts with it: the method asks the sampling for "equals" while the
+        # topology says "equal". Granule 4 is missing although its map starts
+        # inside it and runs on; that was only measured, not derived.
+        ("start", [2, 7, 8]),
+    ],
+)
+def test_sampling_methods_take_the_related_map(
+    mapcalc_session, method_datasets, method, granules
+):
+    """Per sampling method, which granules get a result and which map each
+    one takes, told by the cell value N of the taken map. Result map numbers
+    are the granule numbers, because the gaps between the granules consume no
+    number. Measured 2026-10-14 on the unchanged tool; the geometry is in the
+    method_datasets fixture."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    tools.t_rast_mapcalc(
+        inputs="char_ms,char_mi",
+        output="char_meth_out",
+        expression="char_mi",
+        basename="char_meth_out",
+        method=method,
+    )
+    assert _maps(tools, "char_meth_out") == [
+        (
+            str(number),
+            f"{_METHOD_GRANULES[number][0]} 00:00:00",
+            f"{_METHOD_GRANULES[number][1]} 00:00:00",
+            f"{number}.0",
+            f"{number}.0",
+        )
+        for number in granules
+    ]
