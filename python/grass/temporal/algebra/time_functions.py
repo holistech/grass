@@ -6,6 +6,7 @@ from dataclasses import replace
 from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
 from grass.temporal.datetime_math import (
     check_datetime_string,
+    decrement_datetime_by_string,
     increment_datetime_by_string,
     time_delta_to_relative_time,
 )
@@ -116,8 +117,9 @@ def retime(series, *, shift=None, buffer=None, snap=False):
 
     :param shift: e.g. "1 day" for absolute time, a number of the time unit
         for relative time
-    :param buffer: the same, taken off the start and added to the end; it
-        must not be negative
+    :param buffer: the same, taken off the start and added to the end. A
+        negative buffer shrinks the maps and raises ValueError for a map
+        that would keep no time (see _shrink())
     :param snap: set the end of each map to the start of the next one
     """
     check_series(series)
@@ -134,10 +136,8 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         shift = _checked_increment(series, shift)
     if buffer is not None:
         buffer = _checked_increment(series, buffer)
-        # temporal_buffer() would let the end fall before the start.
-        if str(buffer).strip().startswith("-"):
-            msg = f"The buffer must not be negative, got {buffer!r}"
-            raise ValueError(msg)
+    if buffer is not None and str(buffer).strip().startswith("-"):
+        return _shrink(series, buffer)
     maps = [as_map(slot.extent) for slot in series.slots]
     if shift is not None:
         maps = AbstractSpaceTimeDataset.shift_map_list(maps, shift)
@@ -160,6 +160,51 @@ def retime(series, *, shift=None, buffer=None, snap=False):
         for map_, slot in zip(maps, series.slots, strict=True)
     )
     return replace(series, slots=slots)
+
+
+def _shrink(series, buffer):
+    """Take a negative buffer off both ends of every slot
+
+    temporal_buffer() cannot be used: for an end before the start it prints
+    an error and keeps the old time stamp, for an end equal to the start it
+    stores an instant (set_absolute_time() and set_relative_time(); measured
+    2026-10-14 with t.rast.algebra -c, the classic algebra silently leaves
+    such maps unchanged or makes instants of them). Both would register a
+    map whose time is not the buffered one, so the new extent is computed
+    here and a slot that keeps no interval (end <= start, GRASS intervals
+    need end > start) raises ValueError. The new extent is computed before it
+    is compared, because a month has no fixed length.
+    """
+    slots = []
+    for position, slot in enumerate(series.slots, 1):
+        extent = slot.extent
+        name = f"map <{slot.origin}>" if slot.origin else f"slot {position}"
+        if extent.end is None:
+            msg = (
+                f"Buffering {name} at {extent.start} by {buffer} leaves no time: "
+                "an instant has no duration to shrink"
+            )
+            raise ValueError(msg)
+        shown = f"{name} [{extent.start}, {extent.end}] by {buffer}"
+        if extent.unit is None:
+            size = str(buffer).strip().lstrip("-").strip()
+            try:
+                start = increment_datetime_by_string(extent.start, size)
+                end = decrement_datetime_by_string(extent.end, size)
+            except ValueError as error:
+                # E.g. 31 January plus one month, which is no date.
+                msg = f"Buffering {shown} failed: {error}"
+                raise ValueError(msg) from error
+        else:
+            start = extent.start - buffer
+            end = extent.end + buffer
+        if end <= start:
+            msg = f"Buffering {shown} leaves no time"
+            raise ValueError(msg)
+        # The new stamp differs from the old one, so no slot is still the
+        # registered map and the origin goes.
+        slots.append(Slot(Extent(start, end, extent.unit), slot.content, slot.space))
+    return replace(series, slots=tuple(slots))
 
 
 def neighbour(series, offset):

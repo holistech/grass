@@ -12,7 +12,7 @@ import pytest
 
 from grass.temporal.algebra.content import NULL, Const, MapRef
 from grass.temporal.algebra.operations import apply
-from grass.temporal.algebra.series import Series, Slot
+from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.temporal.algebra.time_functions import (
     TIMEVARS,
     granules,
@@ -199,23 +199,108 @@ def test_relative_buffer(make_series):
     assert buffered.times() == [(1, 6)]
 
 
+def test_negative_buffer_shrinks_the_maps(make_series):
+    x = make_series("x", (1, 11), (11, 21))
+    assert retime(x, buffer="-1 days").times() == [
+        (day(2), day(10)),
+        (day(12), day(20)),
+    ]
+
+
+def test_negative_buffer_drops_the_origin(make_series):
+    assert retime(make_series("x", (1, 11)), buffer="-1 days").slots[0].origin is None
+
+
+def test_negative_relative_buffer(make_series):
+    x = make_series("r", (0, 4), (4, 8), unit="years")
+    shrunk = retime(x, buffer=-1)
+    assert shrunk.times() == [(1, 3), (5, 7)]
+    assert shrunk.slots[0].extent.unit == "years"
+    assert retime(x, buffer="-1").times() == [(1, 3), (5, 7)]
+
+
 @pytest.mark.parametrize(
-    ("series", "buffer"),
-    [
-        ("absolute", "-1 day"),
-        ("absolute", "-2 hours"),
-        ("relative", -1),
-        ("relative", "-1"),
-    ],
+    ("buffer", "unit", "length"),
+    [("-5 days", None, 10), ("-6 days", None, 10), (-2, "days", 4), (-3, "days", 4)],
+    ids=["absolute-equal", "absolute-before", "relative-equal", "relative-before"],
 )
-def test_negative_buffer_is_rejected(make_series, series, buffer):
-    """grass.temporal would make the interval end before it starts, which
-    fails with an AttributeError outside a session and prints an error and
-    returns inconsistent times inside one"""
-    unit = "days" if series == "relative" else None
-    x = make_series("x", (1, 2), (3, 6), unit=unit)
-    with pytest.raises(ValueError, match="must not be negative"):
+def test_negative_buffer_that_leaves_no_time_is_an_error(
+    make_series, buffer, unit, length
+):
+    """end == start counts as no time: grass.temporal stores such a map as an
+    instant, which is not the interval the map had (see set_absolute_time()
+    and set_relative_time(): "Do not create an interval in case start and end
+    time are equal"), and end < start it refuses and leaves the old stamp"""
+    x = make_series("x", (1, 1 + length), unit=unit)
+    with pytest.raises(ValueError, match=r"x1@PERMANENT.*leaves no time"):
         retime(x, buffer=buffer)
+
+
+def test_the_error_names_the_extent_and_the_buffer(make_series):
+    with pytest.raises(ValueError, match=r"2001-01-01.*2001-01-11.*-6 days"):
+        retime(make_series("x", (1, 11)), buffer="-6 days")
+
+
+def test_one_map_too_short_stops_the_whole_dataset(make_series):
+    """Classic keeps the short maps unchanged or makes instants of them; the
+    core does not register a result in which some maps have another meaning"""
+    x = make_series("x", (1, 11), (12, 16), (17, 29))
+    with pytest.raises(ValueError, match=r"x2@PERMANENT"):
+        retime(x, buffer="-3 days")
+
+
+def test_slot_without_origin_is_named_by_its_position():
+    x = Series((Slot(Extent(day(1), day(3)), Const(1)),))
+    with pytest.raises(ValueError, match=r"slot 1 "):
+        retime(x, buffer="-1 days")
+
+
+def test_negative_buffer_of_an_instant_is_an_error(make_series):
+    """An instant has no duration to shrink"""
+    with pytest.raises(ValueError, match=r"i1@PERMANENT.*instant"):
+        retime(make_series("i", 3), buffer="-1 days")
+
+
+def test_positive_buffer_of_an_instant_still_works(make_series):
+    assert retime(make_series("i", 3), buffer="1 days").times() == [(day(2), day(4))]
+
+
+def test_relative_instant_with_negative_buffer_is_an_error(make_series):
+    with pytest.raises(ValueError, match="instant"):
+        retime(make_series("r", 3, unit="days"), buffer=-1)
+
+
+def month_series(*spans):
+    return Series(
+        tuple(
+            Slot(Extent(day(*start), day(*end)), Const(i))
+            for i, (start, end) in enumerate(spans, 1)
+        )
+    )
+
+
+def test_negative_month_buffer_is_calendar_arithmetic():
+    """Quarters of different length shrink by a calendar month on each side"""
+    quarters = month_series(((1, 1), (1, 4)), ((1, 4), (1, 7)))
+    assert retime(quarters, buffer="-1 months").times() == [
+        (day(1, 2), day(1, 3)),
+        (day(1, 5), day(1, 6)),
+    ]
+
+
+def test_months_are_compared_after_the_calendar_arithmetic():
+    """A buffer of a month is no fixed number of days: February [1.2, 1.3) is
+    28 days, so -1 months moves its end before its start"""
+    february = month_series(((1, 2), (1, 3)))
+    with pytest.raises(ValueError, match="leaves no time"):
+        retime(february, buffer="-1 months")
+
+
+def test_month_buffer_that_is_no_date_is_an_error():
+    """1 March plus 1 month is fine, 31 January plus 1 month does not exist"""
+    x = month_series(((31, 1), (31, 3)))
+    with pytest.raises(ValueError, match=r"slot 1 .*day is out of range"):
+        retime(x, buffer="-1 months")
 
 
 def test_zero_buffer_changes_nothing(make_series):
