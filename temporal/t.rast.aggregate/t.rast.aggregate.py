@@ -103,8 +103,10 @@ import grass.script as gs
 def main():
     # lazy imports
     import grass.temporal as tgis
+    import grass.temporal.algebra as ta
+    from grass.exceptions import FatalError
+    from grass.temporal.aggregation_core import aggregate_series, set_output_metadata
 
-    # Get the options
     input = options["input"]
     output = options["output"]
     where = options["where"]
@@ -112,112 +114,67 @@ def main():
     base = options["basename"]
     register_null = flags["n"]
     method = options["method"]
-    sampling = options["sampling"]
+    sampling = options["sampling"].split(",")
     offset = options["offset"]
     nprocs = options["nprocs"]
     file_limit = options["file_limit"]
     time_suffix = options["suffix"]
 
-    topo_list = sampling.split(",")
-
-    tgis.init()
-
+    tgis.init(True)
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
+    try:
+        sp = tgis.open_old_stds(input, "strds", dbif)
+        absolute = sp.is_time_absolute()
+        tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
-    sp = tgis.open_old_stds(input, "strds", dbif)
+        input_series = ta.source(input, where=where)
+        if not input_series.slots:
+            gs.fatal(_("Space time raster dataset <%s> is empty") % input)
 
-    map_list = sp.get_registered_maps_as_objects(
-        where=where, order="start_time", dbif=dbif
-    )
+        first = input_series.slots[0].extent
+        last = input_series.slots[-1].extent
+        start = first.start
+        if absolute:
+            start = tgis.adjust_datetime_to_granularity(start, gran)
+        end = last.end
+        if end is None:
+            # The last map is an instant; extend the grid by one granule so
+            # that granules() covers it, as the classic granule loop did.
+            if absolute:
+                end = tgis.increment_datetime_by_string(last.start, gran)
+            else:
+                end = last.start + int(gran)
 
-    if not map_list:
+        target = ta.granules(
+            start,
+            end,
+            gran if absolute else int(gran),
+            temporal_type="absolute" if absolute else "relative",
+            unit=sp.get_relative_time_unit(),
+        )
+
+        dataset = aggregate_series(
+            input_series,
+            target,
+            sampling,
+            method,
+            output=output,
+            basename=base,
+            granularity=gran,
+            time_suffix=time_suffix,
+            offset=offset,
+            nprocs=nprocs,
+            file_limit=file_limit,
+            register_null=register_null,
+            overwrite=gs.overwrite(),
+        )
+        if dataset is not None:
+            set_output_metadata(dataset, sp, method, dbif)
+    except (FatalError, ValueError, TypeError) as error:
+        gs.fatal(str(error))
+    finally:
         dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> is empty") % input)
-
-    # We will create the strds later, but need to check here
-    tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
-
-    start_time = map_list[0].temporal_extent.get_start_time()
-
-    if sp.is_time_absolute():
-        start_time = tgis.adjust_datetime_to_granularity(start_time, gran)
-
-    # We use the end time first
-    end_time = map_list[-1].temporal_extent.get_end_time()
-    has_end_time = True
-
-    # In case no end time is available, then we use the start time of the last map layer
-    if end_time is None:
-        end_time = map_list[-1].temporal_extent.get_start_time()
-        has_end_time = False
-
-    granularity_list = []
-
-    # Build the granularity list
-    while True:
-        if has_end_time is True:
-            if start_time >= end_time:
-                break
-        else:  # noqa: PLR5501
-            if start_time > end_time:
-                break
-
-        granule = tgis.RasterDataset(None)
-        start = start_time
-        if sp.is_time_absolute():
-            end = tgis.increment_datetime_by_string(start_time, gran)
-            granule.set_absolute_time(start, end)
-        else:
-            end = start_time + int(gran)
-            granule.set_relative_time(start, end, sp.get_relative_time_unit())
-        start_time = end
-
-        granularity_list.append(granule)
-
-    output_list = tgis.aggregate_by_topology(
-        granularity_list=granularity_list,
-        granularity=gran,
-        map_list=map_list,
-        topo_list=topo_list,
-        basename=base,
-        time_suffix=time_suffix,
-        offset=offset,
-        method=method,
-        nprocs=nprocs,
-        spatial=None,
-        overwrite=gs.overwrite(),
-        file_limit=file_limit,
-    )
-
-    if output_list:
-        temporal_type, semantic_type, title, description = sp.get_initial_values()
-        output_strds = tgis.open_new_stds(
-            output,
-            "strds",
-            temporal_type,
-            title,
-            description,
-            semantic_type,
-            dbif,
-            gs.overwrite(),
-        )
-        register_null = not register_null
-
-        tgis.register_map_object_list(
-            "rast",
-            output_list,
-            output_strds,
-            register_null,
-            sp.get_relative_time_unit(),
-            dbif,
-        )
-
-        # Update the raster metadata table entries with aggregation type
-        output_strds.set_aggregation_type(method)
-        output_strds.metadata.update(dbif)
-
-    dbif.close()
 
 
 if __name__ == "__main__":
