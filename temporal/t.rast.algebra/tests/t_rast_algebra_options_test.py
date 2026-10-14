@@ -237,6 +237,24 @@ def test_granularity_algebra_samples_datasets(algebra, tool):
     assert maps[3]["end_time"] == "2001-01-05 00:00:00"
 
 
+def test_granularity_algebra_on_the_core(algebra, core_tool):
+    core_tool.t_rast_algebra(
+        expression="OPT_GRAN_CORE = A + B", basename="opt_gran_core", flags="g"
+    )
+    assert values(core_tool, "OPT_GRAN_CORE") == [6, 7, 9, 10]
+
+
+def test_granularity_algebra_with_the_classic_flag(algebra, core_tool):
+    """-c selects the classic algebra in the granularity mode as well,
+    whatever the variable says"""
+    core_tool.t_rast_algebra(
+        expression="OPT_GRAN_CLASSIC = A + B",
+        basename="opt_gran_classic",
+        flags="gc",
+    )
+    assert values(core_tool, "OPT_GRAN_CLASSIC") == [6, 7, 9, 10]
+
+
 def test_without_granularity_unrelated_datasets_give_nothing(algebra, tool):
     """The same expression without -g relates only equal maps: none here"""
     tool.t_rast_algebra(expression="OPT_NOGRAN = A + B", basename="opt_nogran")

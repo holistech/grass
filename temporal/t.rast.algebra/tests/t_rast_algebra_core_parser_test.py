@@ -109,13 +109,23 @@ def test_without_run_only_the_syntax_is_checked(algebra, core):
         parser.parse("R = A +", "r", True)
 
 
-def test_granularity_mode_keeps_the_earlier_parser(algebra, core):
-    parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False, dry_run=True)
-    assert parser.setup_common_granularity(
-        expression="R = A * 2", lexer=tgis.TemporalRasterAlgebraLexer()
-    )
-    chain = parser.parse("R = A * 2", "r", True)
+def test_granularity_mode_runs_the_core(algebra, core):
+    """B has maps of two days; sampled by the day of A, each counts for two
+    days, so that A + B has a map for each of the four days"""
+    chain = algebra.parse("A + B", dry_run=True, granularity=True)
+    assert expression_of(chain) == '"r_0"=("a1@PERMANENT" + "b1@PERMANENT")'
+    assert [entry[1:] for entry in chain["register"]] == [
+        (f"2001-01-0{day} 00:00:00", f"2001-01-0{day + 1} 00:00:00")
+        for day in range(1, 5)
+    ]
+
+
+def test_granularity_mode_runs_the_classic_algebra_when_chosen(algebra, classic):
+    chain = algebra.parse("A + B", dry_run=True, granularity=True)
+    # The classic algebra neither quotes map names nor numbers its results
+    # this way.
     assert '"r_0"' not in expression_of(chain)
+    assert len(chain["register"]) == 4
 
 
 def test_debug_prints_the_module_calls(algebra, core, capsys):

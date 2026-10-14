@@ -322,12 +322,21 @@ class Algebra:
         self.parse(expression, basename, **kwargs)
         return self.maps("R")
 
-    def parse(self, expression, basename="r", **kwargs):
-        """Run "R = <expression>" in-process without reading the result back"""
+    def parse(self, expression, basename="r", granularity=False, **kwargs):
+        """Run "R = <expression>" in-process without reading the result back
+
+        With granularity the datasets are first sampled with their common
+        granularity, as t.rast.algebra -g does.
+        """
         self.remove("R")
         kwargs.setdefault("debug", False)
         parser = tgis.TemporalRasterAlgebraParser(run=True, **kwargs)
-        return parser.parse(f"R = {expression}", basename, True)
+        statement = f"R = {expression}"
+        if granularity:
+            assert parser.setup_common_granularity(
+                expression=statement, lexer=tgis.TemporalRasterAlgebraLexer()
+            )
+        return parser.parse(statement, basename, True)
 
     def dry_times(self, expression, **kwargs):
         """Return the sorted (start, end) strings of the maps that "R =
