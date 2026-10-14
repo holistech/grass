@@ -86,6 +86,23 @@ def test_parser_runs_the_core_with_classic_false(series_3d):
     assert [row[1] for row in _values("fac_sum")] == [11, 22, 33, 44]
 
 
+def test_parser_samples_with_the_common_granularity(series_3d):
+    """W has maps of two days; sampled by the day of A, w1 counts for days 1
+    and 2, w2 for days 3 and 4"""
+    parser = tgis.TemporalRaster3DAlgebraParser(run=True, debug=False, classic=False)
+    assert parser.setup_common_granularity(
+        expression="fac_gran = A + W",
+        stdstype="str3ds",
+        lexer=tgis.TemporalRasterAlgebraLexer(),
+    )
+    chain = parser.parse("fac_gran = A + W", "fac_gran", True)
+    # Only the core quotes the names of the maps in the expression.
+    assert dict(chain["processes"][0]["inputs"])["expression"] == (
+        '"fac_gran_0"=("a1@PERMANENT" + "w1@PERMANENT")'
+    )
+    assert [row[1] for row in _values("fac_gran")] == [101, 102, 203, 204]
+
+
 def test_parser_reads_3d_cell_offsets(series_3d):
     _parse("D[0,0,1]", "fac_offset", classic=False)
     # d holds the depth of each cell; one layer deeper the top layer reads
