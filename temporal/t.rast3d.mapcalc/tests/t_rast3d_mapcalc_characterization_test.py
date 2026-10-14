@@ -73,6 +73,7 @@ def test_start_doy_values(mapcalc3d_session):
 
 
 def test_null_result_maps_dropped_without_n(mapcalc3d_session, assert_tinfo3d):
+    """A result that is all null is removed when -n is not given"""
     tools = Tools(session=mapcalc3d_session, overwrite=True)
     tools.t_rast3d_mapcalc(
         flags="s",
@@ -86,6 +87,7 @@ def test_null_result_maps_dropped_without_n(mapcalc3d_session, assert_tinfo3d):
 
 
 def test_null_result_maps_kept_with_n(mapcalc3d_session, assert_tinfo3d):
+    """The same all-null result is kept when -n is given"""
     tools = Tools(session=mapcalc3d_session, overwrite=True)
     tools.t_rast3d_mapcalc(
         flags="sn",
