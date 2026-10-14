@@ -100,6 +100,9 @@ def aggregate_data(tmp_path_factory):
       a daily granule of day 3 aggregates to an all null map.
     - instants: ip1=1, ip2=2, ip3=3 as time instants on days 1, 2, 3.
     - relative: rx1..rx4 = 1..4 as relative day intervals [0,1]..[3,4].
+    - ordering: oz=3 over [day 1, day 30], oa1=5 over [day 3, day 15], oa2=1
+      over [day 4, day 15] and oa3=9 over [day 6, day 7]; oz fixes the grid
+      start at day 1 without being related to the first granule.
     - tail: tl_long=7 over [day 1, day 30] and the instant tl_inst=2 on day 3.
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
@@ -121,6 +124,7 @@ def aggregate_data(tmp_path_factory):
             ("na1", 1), ("na2", 2), ("nz1", "null()"), ("nz2", "null()"),
             ("ip1", 1), ("ip2", 2), ("ip3", 3),
             ("rx1", 1), ("rx2", 2), ("rx3", 3), ("rx4", 4),
+            ("oz", 3), ("oa1", 5), ("oa2", 1), ("oa3", 9),
             ("tl_long", 7), ("tl_inst", 2),
         ]:  # fmt: skip
             tools.r_mapcalc(expression=f"{name} = {value}")
@@ -170,6 +174,16 @@ def aggregate_data(tmp_path_factory):
             "relative",
             [("rx1", 0, 1), ("rx2", 1, 2), ("rx3", 2, 3), ("rx4", 3, 4)],
             unit="days",
+        )
+        _register(
+            "ordering",
+            "absolute",
+            [
+                ("oz", "2001-01-01", "2001-01-30"),
+                ("oa1", "2001-01-03", "2001-01-15"),
+                ("oa2", "2001-01-04", "2001-01-15"),
+                ("oa3", "2001-01-06", "2001-01-07"),
+            ],
         )
         _register(
             "tail",

@@ -198,3 +198,26 @@ def test_file_limit_warning_only_when_r_series_runs(read):
     )
     assert messages.count(text) == 1
 
+
+def test_sampling_list_keeps_the_maps_in_time_order(read):
+    """min_raster returns the index of the smallest map among the related
+    maps, so it shows their order. The grid is [day 1, day 11], [day 11,
+    day 21] and [day 21, day 31]. In the first granule oa1=5 [day 3, day 15]
+    and oa2=1 [day 4, day 15] overlap it and oa3=9 [day 6, day 7] lies inside
+    it; oz [day 1, day 30] shares its start and is not in the list, and the
+    other two granules relate to nothing in the list. In time order the
+    related maps are oa1, oa2, oa3, and the smallest, oa2, has index 1. The
+    classic tool concatenated the maps per relation in the order equal,
+    contains, during, starts, started, finishes, finished, overlaps,
+    overlapped, so it read oa3, oa1, oa2 and returned 2 (measured 2026-10-14
+    with the script of commit 91f4669c39 in a temporary XY project). The core
+    reads one union in time order; the result differs only for order
+    dependent methods such as min_raster, max_raster and slope."""
+    rows = read.aggregate(
+        "order",
+        input="ordering",
+        granularity="10 days",
+        method="min_raster",
+        sampling=["overlaps", "contains"],
+    )
+    assert [(row.start, row.min) for row in rows] == [("2001-01-01 00:00:00", 1.0)]
