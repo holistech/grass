@@ -566,6 +566,24 @@ def test_existing_result_is_replaced_with_overwrite(series):
     assert names == ["a1", "a3", "a4"]
 
 
+def test_existing_result_without_overwrite_prints_one_error(series):
+    """The refusal is printed once on both algebras. With the messenger in
+    raise mode the classic algebra printed it twice, the library message and
+    again the tool's own (measured 2026-10-14)."""
+    Tools(session=series.session, overwrite=True).t_select(expression="once = A : B")
+    refusing = Tools(
+        session=series.session,
+        capture_stderr=True,
+        consistent_return_value=True,
+        errors="ignore",
+    )
+    result = refusing.t_select(expression="once = A !: B")
+    assert result.returncode != 0
+    errors = [line for line in result.stderr.splitlines() if line.startswith("ERROR")]
+    assert len(errors) == 1
+    assert "once" in errors[0]
+
+
 # Errors
 
 
@@ -666,3 +684,35 @@ def test_classic_flag_overrides_the_variable(series):
     tools.t_select(expression=f"{result}_n = A[1]", env=env)
     with pytest.raises(ToolError):
         tools.t_select(expression=f"{result}_c = A[1]", flags="c", env=env)
+
+
+@pytest.mark.parametrize("function", ["strds", "str3ds", "stvds"])
+def test_dataset_type_function_hints_at_the_classic_flag(series, algebra, function):
+    """Only the classic algebra mixes dataset types; the message of the core
+    says so for the three functions that do it, and for no other"""
+    if algebra != "core":
+        pytest.skip("the classic algebra reads the function")
+    tools = Tools(session=series.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_select(expression=f"hinted = {function}(A) : B")
+    assert f"Unknown function {function}()" in error.value.stderr
+    assert "Use the flag -c" in error.value.stderr
+
+
+def test_other_unknown_function_has_no_classic_hint(series, algebra):
+    if algebra != "core":
+        pytest.skip("the classic algebra reports another error")
+    tools = Tools(session=series.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_select(expression="hinted = nosuch(A) : B")
+    assert "Unknown function nosuch()" in error.value.stderr
+    assert "-c" not in error.value.stderr
+
+
+def test_dataset_type_function_works_with_the_classic_flag(series, algebra):
+    """The hint is right: -c selects with strds(A)"""
+    if algebra != "core":
+        pytest.skip("the flag is the point of the test")
+    assert run_select(series.session, "strds(A) : B", flags="c") == run_select(
+        series.session, "A : B", flags="c"
+    )

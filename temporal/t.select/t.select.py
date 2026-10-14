@@ -53,6 +53,8 @@ import sys
 import grass.script as gs
 from grass.exceptions import FatalError
 
+MIXING_FUNCTIONS = ("strds", "str3ds", "stvds")
+
 ############################################################################
 
 
@@ -68,7 +70,7 @@ def main():
     dry_run = flags["d"]
     stdstype = options["type"]
 
-    tgis.init(True)
+    tgis.init()
     # t.select has no basename option; the copies of retimed maps are named
     # after the result dataset, otherwise they would be None_1, None_2, ...
     basename = expression.partition("=")[0].strip().partition("@")[0]
@@ -93,7 +95,12 @@ def main():
                 selection=True,
             )
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
-        gs.fatal(str(error))
+        message = str(error)
+        # Only the classic algebra pulls maps of another dataset type into a
+        # selection; the user cannot guess that from "Unknown function".
+        if message in {f"Unknown function {name}()" for name in MIXING_FUNCTIONS}:
+            message += _(". Use the flag -c to select with the classic algebra.")
+        gs.fatal(message)
 
     if dry_run is True:
         import pprint

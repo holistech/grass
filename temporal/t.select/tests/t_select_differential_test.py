@@ -29,7 +29,8 @@ SAME = [
     "A {:,overlaps,i} B",
     "A {:,overlaps,u} B",
     "A {:,overlaps,d} B",
-    "A : B : D",
+    "A : B !: D",
+    "A {:,during} B {:,during} D",
     "A {:,equal} B {:,equal} B",
     "if(start_doy(A) > 20, A)",
     "if(start_doy(A) > 20, A, B)",
@@ -38,7 +39,8 @@ SAME = [
     "if({equal}, A {#, contains} B > 1, A {:, contains} B)",
     "tsnap(A)",
     'A : tshift(B, "5 days")',
-    'buff_t(A, "1 days") : B',
+    'buff_t(A, "1 days") {:,contains} B',
+    'buff_t(A, "1 days") {:,overlaps} B',
     "A : X@other",
     "X@other {:, precedes} A",
 ]
@@ -56,6 +58,12 @@ DIFFERENT = {
     # Dataset-type mixing is a core syntax error; the classic base algebra
     # mixes types.
     "strds(A) : stvds(B)": ("SyntaxError", "mixing dataset types needs -c"),
+    # A spatial relation needs -s on the core; the classic algebra does not
+    # know the relation name (see also the test with the flag below).
+    "A {:,equal|overlap} B": ("ValueError", "a spatial relation needs -s"),
+    # The core reads an expression that is only a dataset, the classic base
+    # grammar reports a syntax error.
+    "A": ("maps", "the core reads a bare dataset"),
     # A computed result is no selection on the core.
     "A + B": ("ValueError", "t.select selects maps, it computes none"),
 }
@@ -81,12 +89,14 @@ def selected(session, expression, algebra):
 
 @pytest.mark.parametrize("expression", SAME)
 def test_same_result(series, expression):
-    assert selected(series.session, expression, "core") == selected(
-        series.session, expression, "classic"
-    )
+    core = selected(series.session, expression, "core")
+    classic = selected(series.session, expression, "classic")
+    assert core == classic
+    # Two empty results are equal, so they would compare nothing.
+    assert core, "the expression selects no map and compares nothing"
 
 
-def outcome(monkeypatch, expression, algebra):
+def outcome(monkeypatch, expression, algebra, spatial=False):
     """The registered maps, None for no dataset, or the name of the error
 
     The parsers run in this process, so that the error class is visible; the
@@ -97,7 +107,7 @@ def outcome(monkeypatch, expression, algebra):
     name = f"diff_{algebra}_{next(counter)}"
     try:
         if algebra == "classic":
-            tgis.TemporalAlgebraParser(run=True, debug=False).parse(
+            tgis.TemporalAlgebraParser(run=True, debug=False, spatial=spatial).parse(
                 f"{name} = {expression}", "strds", basename=name, overwrite=True
             )
         else:
@@ -107,6 +117,7 @@ def outcome(monkeypatch, expression, algebra):
                 basename=name,
                 overwrite=True,
                 run=True,
+                spatial=spatial,
                 selection=True,
             )
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
@@ -123,6 +134,30 @@ def test_listed_differences_still_differ(series, monkeypatch, expression):
     assert core != classic
     kind = "maps" if core == "maps" else core
     assert kind == DIFFERENT[expression][0]
+
+
+def test_spatial_relation_with_the_flag_is_read_by_the_core_only(series, monkeypatch):
+    """With -s the core reads the spatial relation and selects maps; the
+    classic algebra reports a syntax error for the name, with or without -s"""
+    expression = "A {:,equal|overlap} B"
+    assert outcome(monkeypatch, expression, "core", spatial=True) == "maps"
+    assert outcome(monkeypatch, expression, "classic", spatial=True) == "SyntaxError"
+
+
+def test_right_reference_gives_one_map_per_pair(series):
+    """a3 contains b2 and b9: the core registers a map for each pair, the
+    classic algebra only the last pair of each map of A (measured
+    2026-10-14 on this fixture: 4 maps against 3, the map of b2 missing)"""
+    expression = "A {:,contains,r} B"
+    core = selected(series.session, expression, "core")
+    classic = selected(series.session, expression, "classic")
+    assert [(start, end) for _, start, end in core] == [
+        (0, 4),
+        (22, 27),
+        (28, 29),
+        (35, 40),
+    ]
+    assert [(start, end) for _, start, end in classic] == [(0, 4), (28, 29), (35, 40)]
 
 
 def test_mixed_result_copies_are_numbered_differently(series):
