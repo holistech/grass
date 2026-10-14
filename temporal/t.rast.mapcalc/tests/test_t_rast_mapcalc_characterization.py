@@ -810,3 +810,271 @@ def test_sampling_methods_take_the_related_map(
         )
         for number in granules
     ]
+
+
+_FIXTURE_REGION = {"s": 0, "n": 80, "w": 0, "e": 120, "b": 0, "t": 50, "res": 10}
+
+
+def _map_in_region(tools, name, value, **region):
+    """Create the constant raster name in the given region, then restore the
+    fixture region that the other tests of the session rely on"""
+    tools.g_region(**{**_FIXTURE_REGION, "res3": 10, **region})
+    try:
+        tools.r_mapcalc(expression=f"{name} = {value}")
+    finally:
+        tools.g_region(**_FIXTURE_REGION, res3=10)
+
+
+def _stds_of_maps(tools, name, rows):
+    """Create STRDS name from existing rasters; rows hold (map, start, end)"""
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output=name,
+        title="t",
+        description="t",
+    )
+    for map_name, start, end in rows:
+        tools.t_register(type="raster", input=name, maps=map_name, start=start, end=end)
+
+
+def _exists(tools, name):
+    return name in tools.t_list(type="strds", columns="name", format="plain").text
+
+
+def test_first_related_map_follows_the_method_order(mapcalc_session):
+    """The sampler granule 2001-01-01 to 2001-02-01 relates to two maps: char_fo_2
+    (value 20) equal to it, and char_fo_1 (value 10), which starts a month
+    earlier and ends a month later, so the granule lies during it. The map
+    used is the first of the first relation that has one, relations taken in
+    the order of the method list, not the one with the earliest start over
+    all relations: method equal,during uses the equal map (21), during,equal
+    the covering map (11). The granule has value 1. Measured 2026-10-14 on the
+    unchanged tool with the probe of this geometry."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(tools, "char_fo_s", [(1, "2001-01-01", "2001-02-01")])
+    for name, value in (("char_fo_1", 10), ("char_fo_2", 20)):
+        tools.r_mapcalc(expression=f"{name} = {value}")
+    _stds_of_maps(
+        tools,
+        "char_fo_p",
+        [
+            ("char_fo_1", "2000-12-01", "2001-03-01"),
+            ("char_fo_2", "2001-01-01", "2001-02-01"),
+        ],
+    )
+    for method, expected in [("equal,during", "21.0"), ("during,equal", "11.0")]:
+        tools.t_rast_mapcalc(
+            inputs="char_fo_s,char_fo_p",
+            output="char_fo_out",
+            expression="char_fo_s + char_fo_p",
+            basename="char_fo_out",
+            method=method,
+        )
+        assert _maps(tools, "char_fo_out") == [
+            ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", expected, expected)
+        ], method
+
+
+@pytest.fixture
+def spatial_datasets(mapcalc_session):
+    """Three monthly sampler granules a1..a3 (values 1, 2, 3) on the fixture
+    region and three partners of equal time (values 10, 20, 30) with other
+    extents: b1 touches the region at the corner (120, 80) only, b2 overlaps
+    it, b3 lies far away. Outside its extent a partner is null in the
+    computation region."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    months = [
+        ("2001-01-01", "2001-02-01"),
+        ("2001-02-01", "2001-03-01"),
+        ("2001-03-01", "2001-04-01"),
+    ]
+    for number in (1, 2, 3):
+        _map_in_region(tools, f"char_sp_a{number}", number)
+    _map_in_region(tools, "char_sp_b1", 10, s=80, n=160, w=120, e=240)
+    _map_in_region(tools, "char_sp_b2", 20, s=-40, n=40, w=60, e=180)
+    _map_in_region(tools, "char_sp_b3", 30, s=900, n=980, w=1000, e=1120)
+    _stds_of_maps(
+        tools,
+        "char_sp_a",
+        [(f"char_sp_a{n}", *months[n - 1]) for n in (1, 2, 3)],
+    )
+    _stds_of_maps(
+        tools,
+        "char_sp_b",
+        [(f"char_sp_b{n}", *months[n - 1]) for n in (1, 2, 3)],
+    )
+    return tools
+
+
+def test_spatial_sampling_keeps_partners_that_touch(spatial_datasets):
+    """With -s a partner is kept if its 2D extent intersects the granule's,
+    touching included: the corner partner b1 and the overlapping b2 give maps,
+    the far one b3 does not (so there is no third map). Where a partner is
+    null in the computation region the expression uses 100, so the results are
+    1 + 100 = 101 for b1 (no cell of b1 lies in the region), and for b2 the
+    overlap 2 + 20 = 22 and elsewhere 102. Without -s all three granules
+    give a map, the third 3 + 100 = 103. Measured 2026-10-14 on the unchanged
+    tool."""
+    tools = spatial_datasets
+    expression = "char_sp_a + if(isnull(char_sp_b), 100, char_sp_b)"
+    tools.t_rast_mapcalc(
+        flags="s",
+        inputs="char_sp_a,char_sp_b",
+        output="char_sp_out",
+        expression=expression,
+        basename="char_sp_out",
+        method="equal",
+    )
+    assert _maps(tools, "char_sp_out") == [
+        ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", "101.0", "101.0"),
+        ("2", "2001-02-01 00:00:00", "2001-03-01 00:00:00", "22.0", "102.0"),
+    ]
+    tools.t_rast_mapcalc(
+        inputs="char_sp_a,char_sp_b",
+        output="char_sp_out",
+        expression=expression,
+        basename="char_sp_out",
+        method="equal",
+    )
+    assert _maps(tools, "char_sp_out") == [
+        ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", "101.0", "101.0"),
+        ("2", "2001-02-01 00:00:00", "2001-03-01 00:00:00", "22.0", "102.0"),
+        ("3", "2001-03-01 00:00:00", "2001-04-01 00:00:00", "103.0", "103.0"),
+    ]
+
+
+def test_samplers_of_another_temporal_type_give_no_samples(mapcalc_session):
+    """A partner of relative time cannot be sampled by a sampler of absolute
+    time: the tool says so, reports that it found no samples, ends without an
+    error and creates no output dataset. Measured 2026-10-14 on the unchanged
+    tool."""
+    tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
+    _make_strds(tools, "char_tt_s", [(1, "2001-01-01", "2001-02-01")])
+    _make_strds(
+        tools,
+        "char_tt_p",
+        [(2, 0, 1)],
+        temporaltype="relative",
+        unit="days",
+    )
+    result = tools.t_rast_mapcalc(
+        inputs="char_tt_s,char_tt_p",
+        output="char_tt_out",
+        expression="char_tt_s + char_tt_p",
+        basename="char_tt_out",
+        method="equal",
+    )
+    assert "must be of the same temporal type" in result.stderr
+    assert "No samples found for map calculation" in result.stderr
+    assert not _exists(tools, "char_tt_out")
+
+
+def test_sampler_of_time_instants_gives_no_samples(mapcalc_session):
+    """A sampler of time instants has no granules to sample by: the tool says
+    that the sampler must be of interval time, reports that it found no
+    samples, ends without an error and creates no output dataset. Measured
+    2026-10-14 on the unchanged tool."""
+    tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
+    _make_strds(tools, "char_pt_s", [(1, "2001-01-01", None), (2, "2001-01-02", None)])
+    _make_strds(tools, "char_pt_p", [(3, "2001-01-01", "2001-01-02")])
+    result = tools.t_rast_mapcalc(
+        inputs="char_pt_s,char_pt_p",
+        output="char_pt_out",
+        expression="char_pt_s + char_pt_p",
+        basename="char_pt_out",
+        method="equal",
+    )
+    assert "must be interval" in result.stderr
+    assert "No samples found for map calculation" in result.stderr
+    assert not _exists(tools, "char_pt_out")
+
+
+@pytest.mark.parametrize("where", [None, "start_time >= '2001-03-01'"])
+def test_partner_without_maps_gives_an_empty_output(
+    mapcalc_session, assert_tinfo, where
+):
+    """If no map of the partner remains (the dataset has none, or where leaves
+    none), no sampler granule has a partner: no map is computed, but the
+    output dataset is created, empty. Measured 2026-10-14 on the unchanged
+    tool."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_ep_s",
+        [(1, "2001-01-01", "2001-02-01"), (2, "2001-03-01", "2001-04-01")],
+    )
+    if where is None:
+        tools.t_create(
+            type="strds",
+            temporaltype="absolute",
+            output="char_ep_p",
+            title="t",
+            description="t",
+        )
+    else:
+        _make_strds(tools, "char_ep_p", [(3, "2001-01-01", "2001-02-01")])
+    options = {} if where is None else {"where": where}
+    tools.t_rast_mapcalc(
+        inputs="char_ep_s,char_ep_p",
+        output="char_ep_out",
+        expression="char_ep_s + char_ep_p",
+        basename="char_ep_out",
+        method="equal",
+        **options,
+    )
+    assert _exists(tools, "char_ep_out")
+    assert_tinfo(tools, "char_ep_out", {"number_of_maps": 0})
+
+
+def test_same_dataset_twice_substitutes_its_name_twice(mapcalc_session):
+    """The inputs x,x name one dataset, so there is no sampling and the n-th
+    map of each input goes with the n-th granule. The name is substituted once
+    per input: the second pass replaces the dataset name inside the map name
+    the first pass put there (char_xx_1 becomes char_xx_1_1), so the tool
+    aborts. With the name once in the inputs it works. Measured 2026-10-14 on
+    the unchanged tool; like the prefix hazard above, this pins a defect that a
+    rebuild may remove on purpose."""
+    tools = Tools(session=mapcalc_session, overwrite=True)
+    _make_strds(
+        tools,
+        "char_xx",
+        [(3, "2001-01-01", "2001-05-01"), (4, "2001-05-01", "2001-09-01")],
+    )
+    with pytest.raises(grass.exceptions.CalledModuleError) as excinfo:
+        tools.t_rast_mapcalc(
+            inputs="char_xx,char_xx",
+            output="char_xx_out",
+            expression="char_xx * char_xx",
+            basename="char_xx_out",
+        )
+    assert "Invalid map <char_xx_1_1>" in str(excinfo.value)
+    tools.t_rast_mapcalc(
+        inputs="char_xx",
+        output="char_xx_out",
+        expression="char_xx * char_xx",
+        basename="char_xx_out",
+    )
+    assert _maps(tools, "char_xx_out") == [
+        ("1", "2001-01-01 00:00:00", "2001-05-01 00:00:00", "9.0", "9.0"),
+        ("2", "2001-05-01 00:00:00", "2001-09-01 00:00:00", "16.0", "16.0"),
+    ]
+
+
+def test_sampler_without_maps_gives_no_samples(mapcalc_session):
+    """If where leaves no map of the sampler, the tool reports that it found
+    no samples, ends without an error and creates no output dataset. Measured
+    2026-10-14 on the unchanged tool."""
+    tools = Tools(session=mapcalc_session, overwrite=True, consistent_return_value=True)
+    _make_strds(tools, "char_es_s", [(1, "2001-01-01", "2001-02-01")])
+    _make_strds(tools, "char_es_p", [(2, "2001-03-01", "2001-04-01")])
+    result = tools.t_rast_mapcalc(
+        inputs="char_es_s,char_es_p",
+        output="char_es_out",
+        expression="char_es_s + char_es_p",
+        basename="char_es_out",
+        method="equal",
+        where="start_time >= '2001-03-01'",
+    )
+    assert "No samples found for map calculation" in result.stderr
+    assert not _exists(tools, "char_es_out")
