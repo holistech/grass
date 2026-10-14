@@ -73,13 +73,15 @@ def aggregate_ds_data(tmp_path_factory):
     - precip and vsoil: the deterministic part of the legacy shell test, a
       monthly precip strds (six maps from 2001-03-01) and an stvds sampler of
       three intervals, for the vector sampler path.
-
     - gapin: g1 on day 1 and g3 on day 3, so that the day 2 sampler interval
       of samp relates to no map and leaves a gap in numbered output names.
     - ordin and osamp: ct=9 on 2001-01-05 .. 2001-01-06 lies inside and
       ov1=1 on 2001-01-02 .. 2001-01-15 overlaps the single sampler interval
       2001-01-01 .. 2001-01-11, so that one granule collects maps through
       the two relations contains and overlaps.
+    - instants: pp1 and pp2 (10, 20) at 12:00 and 18:00 of day 1, pp3 (30)
+      exactly at midnight starting day 3, pp4 (40) on day 5, all without end
+      time, for the time instant input of the sampling relations.
 
     The computational region is 3x3 cells of size 1.
     """
@@ -131,6 +133,18 @@ def aggregate_ds_data(tmp_path_factory):
             "osamp",
             "absolute",
             [("os1", "2001-01-01 00:00:00", "2001-01-11 00:00:00")],
+        )
+        for name, value in [("pp1", 10), ("pp2", 20), ("pp3", 30), ("pp4", 40)]:
+            tools.r_mapcalc(expression=f"{name} = {value}")
+        _register_raster(
+            "instants",
+            "absolute",
+            [
+                ("pp1", "2001-01-01 12:00:00", None),
+                ("pp2", "2001-01-01 18:00:00", None),
+                ("pp3", "2001-01-03 00:00:00", None),
+                ("pp4", "2001-01-05 00:00:00", None),
+            ],
         )
         _register_raster(
             "samp",

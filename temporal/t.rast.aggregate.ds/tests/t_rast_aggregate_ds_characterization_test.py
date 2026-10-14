@@ -63,15 +63,86 @@ def test_stvds_sampler(read):
 def test_n_flag_registers_the_all_null_granule(read):
     """-n keeps null maps and the default drops them, as in t.rast.aggregate
     and as the help text promises. Before the tool moved onto the algebra
-    core this was inverted; see the git history of this test."""
+    core this was inverted; see the git history of this test. The kept map
+    has no minimum and maximum, the others hold the inputs 1 and 2, and
+    without -n the dropped map does not remain as a raster map either."""
     without = read.aggregate(
         "ds_no", input="input", sample="samp", type="strds", method="average"
     )
     assert without == ["ds_no_2001_01_01", "ds_no_2001_01_02"]
-    with_n = read.aggregate(
+    assert read.tools.g_list(type="raster", pattern="ds_no_*").text.split() == [
+        "ds_no_2001_01_01",
+        "ds_no_2001_01_02",
+    ]
+    rows = read.rows_after(
         "ds_n", input="input", sample="samp", type="strds", method="average", flags="n"
     )
-    assert with_n == ["ds_n_2001_01_01", "ds_n_2001_01_02", "ds_n_2001_01_03"]
+    assert [(row[0], row[3], row[4]) for row in rows] == [
+        ("ds_n_2001_01_01", "1.0", "1.0"),
+        ("ds_n_2001_01_02", "2.0", "2.0"),
+        ("ds_n_2001_01_03", "None", "None"),
+    ]
+    assert read.tools.g_list(type="raster", pattern="ds_n_*").text.split() == [
+        "ds_n_2001_01_01",
+        "ds_n_2001_01_02",
+        "ds_n_2001_01_03",
+    ]
+
+
+def test_instants_are_collected_by_contains(read):
+    """The maps of the instants dataset have no end time. The sampler
+    interval of day 1 contains pp1 and pp2, so the sum is 10 + 20 = 30. pp3
+    lies exactly on the start of day 3 and the intervals are closed at the
+    start, so day 3 holds it (30) and day 2 relates to no map and produces
+    none. pp4 on day 5 lies outside every interval. The output keeps the
+    sampler extents (derived from the inputs, confirmed 2026-10-14 with the
+    unchanged tool in a temporary XY project)."""
+    rows = read.rows_after(
+        "inst_c",
+        input="instants",
+        sample="samp",
+        type="strds",
+        method="sum",
+        sampling="contains",
+    )
+    assert [(row[0], row[1], row[2], row[3], row[4]) for row in rows] == [
+        (
+            "inst_c_2001_01_01",
+            "2001-01-01 00:00:00",
+            "2001-01-02 00:00:00",
+            "30.0",
+            "30.0",
+        ),
+        (
+            "inst_c_2001_01_03",
+            "2001-01-03 00:00:00",
+            "2001-01-04 00:00:00",
+            "30.0",
+            "30.0",
+        ),
+    ]
+
+
+def test_instants_never_overlap_an_interval(read):
+    """An instant has no extent that could overlap an interval, so
+    sampling=overlaps relates no map at all. The tool then ends with return
+    code 0, prints no error and creates no output dataset (measured
+    2026-10-14 with the unchanged tool in a temporary XY project: exit code 0
+    and t.list shows no output dataset). The silence is documented here, not
+    endorsed."""
+    result = read.refused(
+        "inst_o",
+        input="instants",
+        sample="samp",
+        type="strds",
+        method="sum",
+        sampling="overlaps",
+    )
+    assert result.returncode == 0
+    assert "ERROR" not in result.stderr
+    listing = read.tools.t_list(type="strds", columns="name").text.split()
+    assert any(name.startswith("instants") for name in listing)
+    assert not [name for name in listing if name.startswith("inst_o")]
 
 
 def test_numeric_suffix_with_offset_and_sampler_gap(read):
