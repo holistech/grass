@@ -32,6 +32,8 @@ SAME = [
     "if(td(aa) == 1, aa)",
     "if(start_day(aa) > 1, aa, ab)",
     'tshift(aa, "1 day")',
+    # Shrinks the two-day maps of wide to one day, so each keeps an interval.
+    'buff_t(wide, "-12 hours")',
     "merge(aa, ac)",
     # A count is no vector map; both algebras reject it as a syntax error,
     # also when the relation finds no pair, as for aa and ab.
@@ -47,6 +49,18 @@ SAME = [
 # may be none, or the name of the error. A crash of the core then does not
 # pass for a difference.
 DIFFERENT = {
+    # Where a negative buffer leaves a map no time, the core stops with an
+    # error. The classic algebra stores an instant when the end equals the
+    # start, and keeps the old time stamp with an error message when the end
+    # would precede it (measured 2026-10-14 with t.rast.algebra -c).
+    'buff_t(wide, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end == start)",
+    ),
+    'buff_t(aa, "-1 day")': (
+        "ValueError",
+        "a negative buffer must leave every map some time (end < start)",
+    ),
     "aa {:,contains} wide": ("maps", "an empty result creates an empty dataset"),
     # wide1 contains aa1 and aa2, which do not overlap, so that the
     # intersection with both has no primitives. The classic algebra
