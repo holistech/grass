@@ -81,13 +81,15 @@ def source(name, *, where=None, stds_type="strds"):
 def source_map(name, *, timestamp=True, kind="raster"):
     """A single map as series
 
-    With timestamp, the map has its registered time stamp and must be
-    registered in the temporal database. Without, it has none and apply()
-    uses it in every slot.
+    With timestamp, the map has its time stamp: the registered one if the map
+    is in the temporal database, otherwise the one read from the GRASS
+    database (r.timestamp), as the classic algebra does, so a single map
+    stamped with r.timestamp is usable without registration. Without
+    timestamp, the map has none and apply() uses it in every slot.
 
     :param kind: "raster", "raster3d" or "vector"
-    :raises FatalError: if the map does not exist, or with timestamp if it is
-        not registered
+    :raises FatalError: if the map does not exist, or with timestamp if it has
+        no time stamp at all
     :raises ValueError: for another kind
     """
     if kind not in MAP_CLASSES:
@@ -99,7 +101,14 @@ def source_map(name, *, timestamp=True, kind="raster"):
     if not timestamp:
         map_.load()
         return Series((Slot(None, MapRef(map_.get_id()), space_of(map_)),), kind)
-    if not map_.is_in_db():
-        raise FatalError(_map_unregistered(kind).format(name=map_.get_id()))
-    map_.select()
+    if map_.is_in_db():
+        map_.select()
+    else:
+        # Read the time stamp from the GRASS database, as the classic
+        # _open_single_map() does, so a map stamped with r.timestamp but not
+        # registered is usable.
+        map_.load()
+        map_.read_timestamp_from_grass()
+        if map_.get_temporal_extent_as_tuple()[0] is None:
+            raise FatalError(_map_unregistered(kind).format(name=map_.get_id()))
     return Series((_slot_of(map_),), kind)

@@ -149,6 +149,15 @@ def test_source_map(core_session):
         ta.source_map("m")
 
 
+def test_source_map_reads_a_grass_time_stamp(core_session):
+    """A single map stamped with r.timestamp but not registered in the
+    temporal database is usable, as the classic _open_single_map() makes it"""
+    tools = Tools(session=core_session, overwrite=True)
+    tools.r_mapcalc(expression="stamped = 42")
+    tools.r_timestamp(map="stamped", date="01 Jan 2001/03 Jan 2001")
+    assert ta.source_map("stamped").times() == [(day(1), day(3))]
+
+
 def test_materialize_computes_and_registers(core_session):
     a = ta.source("A")
     dataset = ta.materialize(a + 1, "plus", overwrite=True)
