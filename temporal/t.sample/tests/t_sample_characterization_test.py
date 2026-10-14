@@ -306,6 +306,33 @@ ORDER_CASES = {
 }
 
 
+EQUAL_STARTS = """\
+eqsamp@PERMANENT|eqin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+eqs_1@PERMANENT|eqi_1@PERMANENT|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
+eqs_2@PERMANENT|eqi_1@PERMANENT,eqi_2@PERMANENT|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
+None|eqi_3@PERMANENT|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0
+eqs_3@PERMANENT|eqi_4@PERMANENT|2001-01-08 00:00:00|2001-01-10 00:00:00|2.0|7.0"""
+
+EQUAL_STARTS_PRECEDES = """\
+eqsamp@PERMANENT|eqin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+eqs_1@PERMANENT|None|2001-01-01 00:00:00|2001-01-03 00:00:00|2.0|0.0
+eqs_2@PERMANENT|None|2001-01-01 00:00:00|2001-01-06 00:00:00|5.0|0.0
+None|None|2001-01-06 00:00:00|2001-01-08 00:00:00|2.0|5.0
+eqs_3@PERMANENT|None|2001-01-08 00:00:00|2001-01-10 00:00:00|2.0|7.0"""
+
+LAYERS = """\
+laysamp@PERMANENT|layin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+laysamp_1@PERMANENT|lay:1@PERMANENT,lay:2@PERMANENT|2001-01-01 00:00:00|2001-01-04 00:00:00|3.0|0.0"""
+
+VECTOR_SPATIAL_ALL = """\
+svsamp@PERMANENT|svin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+svg@PERMANENT|sv_1@PERMANENT,sv_2@PERMANENT,sv_3@PERMANENT,sv_4@PERMANENT|2001-01-01 00:00:00|2001-01-09 00:00:00|8.0|0.0"""
+
+VECTOR_SPATIAL_S = """\
+svsamp@PERMANENT|svin@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+svg@PERMANENT|sv_1@PERMANENT,sv_2@PERMANENT,sv_4@PERMANENT|2001-01-01 00:00:00|2001-01-09 00:00:00|8.0|0.0"""
+
+
 def run(tools, **kwargs):
     """stdout of t.sample, stripped as ToolResult.text returns it"""
     return tools.t_sample(**kwargs).text
@@ -711,4 +738,84 @@ def test_missing_dataset_is_fatal(sample_session, kwargs, missing):
     assert error.value.returncode == 1
     assert error.value.errors == (
         f"ERROR: Dataset <{missing}@PERMANENT> not found in temporal database\n"
+    )
+
+
+def test_sampler_with_equal_start_times(sample_session):
+    """The granules eqs_1 [d0,d2) and eqs_2 [d0,d5) start together
+
+    Such a sampler has an invalid topology, which t.sample does not check.
+    The rows follow the order (start, end) in which the core sorts its slots,
+    so the shorter granule comes first, and the gap [d5,d7) is a row of its
+    own. The instant eqi_1 on d1 lies in both granules; method=start gives
+    the same rows because the inputs are instants. The rows were measured on
+    2026-10-14 with t.sample on the fixture of conftest.py; the maps in each
+    row follow from the instants d1, d3, d6 and d8.
+    """
+    kwargs = {"input": "eqin", "sample": "eqsamp", "flags": "c"}
+    assert run(sample_session, **kwargs) == EQUAL_STARTS
+    assert run(sample_session, method="start", **kwargs) == EQUAL_STARTS
+
+
+def test_sampler_with_equal_start_times_keeps_all_rows_when_nothing_relates(
+    sample_session,
+):
+    """No instant precedes a granule it lies in, but the four rows, the gap
+    among them, stay in the same order"""
+    assert (
+        run(
+            sample_session,
+            input="eqin",
+            sample="eqsamp",
+            method="precedes",
+            flags="c",
+        )
+        == EQUAL_STARTS_PRECEDES
+    )
+
+
+@pytest.mark.parametrize("method", [None, "start"])
+def test_stvds_layers_print_as_name_layer(sample_session, method):
+    """Layers 1 and 2 of the vector map lay are registered as lay:1 and lay:2
+    and printed under these ids. The format was measured on 2026-10-14 by
+    registering "lay:1|<time>" and listing the result of t.sample. The default
+    method and method=start both relate the instants to the granule."""
+    assert (
+        run(
+            sample_session,
+            input="layin",
+            sample="laysamp",
+            intype="stvds",
+            samtype="stvds",
+            flags="c",
+            **({} if method is None else {"method": method}),
+        )
+        == LAYERS
+    )
+
+
+def test_spatial_flag_on_stvds(sample_session):
+    """The sampler svg covers (w 40, e 80, s 20, n 60). sv_1 has the same
+    extent, sv_2 lies inside, sv_4 shares the edge x = 80 and sv_3, one cell
+    east, is disjoint: -s drops only sv_3"""
+    kwargs = {
+        "input": "svin",
+        "sample": "svsamp",
+        "intype": "stvds",
+        "samtype": "stvds",
+    }
+    assert run(sample_session, flags="c", **kwargs) == VECTOR_SPATIAL_ALL
+    assert run(sample_session, flags="cs", **kwargs) == VECTOR_SPATIAL_S
+
+
+@pytest.mark.parametrize("method", ["overlaps", "overlapped"])
+def test_methods_overlaps_and_overlapped_are_rejected(sample_session, method):
+    """The parser lists start, during, overlap, contain, equal, follows and
+    precedes; the inverse relations overlaps and overlapped are not options"""
+    with pytest.raises(ToolError) as error:
+        sample_session.t_sample(input="input", sample="sampler", method=method)
+    assert error.value.returncode == 1
+    assert (
+        f"ERROR: Value <{method}> out of range for parameter <method>"
+        in error.value.errors
     )

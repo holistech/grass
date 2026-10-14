@@ -103,6 +103,30 @@ def _region(w, e, s, n, **extra):
     return {"w": w, "e": e, "s": s, "n": n, "res": 10, "res3": 10, **extra}
 
 
+def _register_areas(tools, stds, extents, rows, tmp_path):
+    """Create a stvds of area maps and register them
+
+    extents maps a map name to the (w, e, s, n) of its single area, made with
+    v.in.region so that the vector extent equals the region. v.random points
+    would give point extents, which cannot show the spatial overlap tests.
+    """
+    for name, extent in extents.items():
+        tools.g_region(**_region(*extent))
+        tools.v_in_region(output=name, overwrite=True)
+    tools.g_region(**DEFAULT_REGION)
+    tools.t_create(
+        type="stvds",
+        output=stds,
+        temporaltype="absolute",
+        title=stds,
+        description=stds,
+        overwrite=True,
+    )
+    file = tmp_path / f"{stds}.txt"
+    file.write_text("\n".join(rows) + "\n")
+    tools.t_register(type="vector", input=stds, file=file, overwrite=True)
+
+
 @pytest.fixture(scope="module")
 def sample_session(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("t_sample")
@@ -461,5 +485,87 @@ def sample_session(tmp_path_factory):
                 "sp3_2": _region(90, 120, 20, 60, b=0, t=10),
                 "sp3_3": _region(80, 120, 20, 60, b=0, t=10),
             },
+        )
+
+        # A sampler whose first two granules start together: eqs_1 [d0,d2)
+        # and eqs_2 [d0,d5), then the gap [d5,d7) and eqs_3 [d7,d9). The
+        # topology is invalid (the granules overlap). The instants eqi_1 (d1)
+        # and eqi_2 (d3) lie in eqs_2, eqi_1 also in eqs_1, eqi_3 (d6) in the
+        # gap and eqi_4 (d8) in eqs_3.
+        _register(
+            tools,
+            "strds",
+            "eqsamp",
+            "absolute",
+            ["eqs_1", "eqs_2", "eqs_3"],
+            [
+                f"eqs_1|{day(0)}|{day(2)}",
+                f"eqs_2|{day(0)}|{day(5)}",
+                f"eqs_3|{day(7)}|{day(9)}",
+            ],
+            tmp_path,
+        )
+        _register(
+            tools,
+            "strds",
+            "eqin",
+            "absolute",
+            [f"eqi_{i}" for i in range(1, 5)],
+            [
+                f"eqi_1|{day(1)}",
+                f"eqi_2|{day(3)}",
+                f"eqi_3|{day(6)}",
+                f"eqi_4|{day(8)}",
+            ],
+            tmp_path,
+        )
+
+        # Vector maps with layers: lay:1 and lay:2 are two layers of the one
+        # map lay, registered as separate instants on d1 and d2.
+        tools.v_random(output="lay", npoints=1, seed=1, overwrite=True)
+        tools.t_create(
+            type="stvds",
+            output="layin",
+            temporaltype="absolute",
+            title="layin",
+            description="layin",
+            overwrite=True,
+        )
+        layfile = tmp_path / "layin.txt"
+        layfile.write_text(f"lay:1|{day(1)}\nlay:2|{day(2)}\n")
+        tools.t_register(type="vector", input="layin", file=layfile, overwrite=True)
+        _register(
+            tools,
+            "stvds",
+            "laysamp",
+            "absolute",
+            ["laysamp_1"],
+            [f"laysamp_1|{day(0)}|{day(3)}"],
+            tmp_path,
+        )
+
+        # Area vectors for -s on stvds: svg [d0,d8) over (w 40, e 80, s 20,
+        # n 60). sv_1 on d1 has the same extent, sv_2 on d2 lies inside, sv_3
+        # on d3 is one cell east (w 90) and disjoint, sv_4 on d4 shares the
+        # edge x = 80.
+        _register_areas(
+            tools,
+            "svsamp",
+            {"svg": SHAPES["identical"]},
+            [f"svg|{day(0)}|{day(8)}"],
+            tmp_path,
+        )
+        sv_shapes = {
+            "sv_1": SHAPES["identical"],
+            "sv_2": SHAPES["inside"],
+            "sv_3": SHAPES["one_cell_off"],
+            "sv_4": SHAPES["east_edge"],
+        }
+        _register_areas(
+            tools,
+            "svin",
+            sv_shapes,
+            [f"{n}|{day(i)}" for i, n in enumerate(sv_shapes, start=1)],
+            tmp_path,
         )
         yield tools

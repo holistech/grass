@@ -27,6 +27,10 @@ The default <em>separator</em> is the pipe symbol.
 Temporal gaps, if present, in the input and sampling space time
 datasets will be used in the sampling process. Gaps have no map name,
 instead <em>None</em> is printed.
+<p>
+A sampling space time dataset should have a valid topology. The tool
+does not check it; if sample map layers start at the same time, the
+output rows follow the order of their start and end times.
 
 <h2>EXAMPLE</h2>
 

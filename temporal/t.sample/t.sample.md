@@ -26,6 +26,10 @@ Temporal gaps, if present, in the input and sampling space time datasets
 will be used in the sampling process. Gaps have no map name, instead
 *None* is printed.
 
+A sampling space time dataset should have a valid topology. The tool does
+not check it; if sample map layers start at the same time, the output
+rows follow the order of their start and end times.
+
 ## EXAMPLE
 
 In the examples below we create a space time raster dataset *A* and a
