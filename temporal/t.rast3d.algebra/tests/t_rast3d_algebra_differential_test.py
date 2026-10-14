@@ -64,6 +64,27 @@ DIFFERENT = {
     ),
 }
 
+# The granularity mode (-g) samples each dataset with the common granularity
+# of the expression before both algebras compute it.
+GRANULARITY_SAME = [
+    # W has maps of two days, so that each counts for two days of A.
+    "A + W",
+    "W * 2",
+    "A : W",
+    "if(W > 150, A, B)",
+    "A[1] + W",
+    # Q starts at noon, so that the common granularity is shorter than a day.
+    "A + Q",
+    "A + map(single)",
+]
+
+GRANULARITY_DIFFERENT = {
+    "if(W > 150, A)": (
+        "maps",
+        "an if without else is null where a map condition is false",
+    ),
+}
+
 
 counter = itertools.count()
 
@@ -79,7 +100,7 @@ def rows(name):
     return result
 
 
-def outcome(monkeypatch, expression, algebra):
+def outcome(monkeypatch, expression, algebra, granularity=False):
     """The registered maps, or the name of the error"""
     monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
     # Every run has its own result name: a result of an earlier expression
@@ -88,8 +109,15 @@ def outcome(monkeypatch, expression, algebra):
     parser = tgis.TemporalRaster3DAlgebraParser(
         run=True, debug=False, register_null=True
     )
+    statement = f"{name} = {expression}"
+    if granularity:
+        assert parser.setup_common_granularity(
+            expression=statement,
+            stdstype="str3ds",
+            lexer=tgis.TemporalRasterAlgebraLexer(),
+        )
     try:
-        parser.parse(f"{name} = {expression}", name, True)
+        parser.parse(statement, name, True)
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
         return type(error).__name__
     return rows(name)
@@ -108,3 +136,22 @@ def test_listed_differences_still_differ(series_3d, monkeypatch, expression):
     core = outcome(monkeypatch, expression, "core")
     assert core != outcome(monkeypatch, expression, "classic")
     assert ("maps" if isinstance(core, list) else core) == DIFFERENT[expression][0]
+
+
+@pytest.mark.parametrize("expression", GRANULARITY_SAME)
+def test_granularity_same_result(series_3d, monkeypatch, expression):
+    assert outcome(monkeypatch, expression, "core", granularity=True) == outcome(
+        monkeypatch, expression, "classic", granularity=True
+    )
+
+
+@pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
+def test_granularity_listed_differences_still_differ(
+    series_3d, monkeypatch, expression
+):
+    """A listed difference that no longer differs must leave the list"""
+    core = outcome(monkeypatch, expression, "core", granularity=True)
+    assert core != outcome(monkeypatch, expression, "classic", granularity=True)
+    assert ("maps" if isinstance(core, list) else core) == GRANULARITY_DIFFERENT[
+        expression
+    ][0]
