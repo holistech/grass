@@ -82,9 +82,9 @@ def vector_series(tmp_path_factory):
     The single map "ev" (square at x=2) has the time stamp 2001-01-02.
     """
     tmp_path = tmp_path_factory.mktemp("t_vect_algebra")
-    # temporal_session mirrors the session into os.environ for the duration of
-    # the module; the algebra parsers then run in this process, which is much
-    # faster than one tool call per expression.
+    # The algebra parsers of the tests run in this process, which is much
+    # faster than one tool call per expression. That needs the session in
+    # os.environ and grass.temporal initialised, which temporal_session does.
     with temporal_session(tmp_path / "project") as session:
         tools = Tools(session=session, overwrite=True)
         tools.g_region(n=100, s=0, e=100, w=0, res=10)

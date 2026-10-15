@@ -37,9 +37,9 @@ def series_3d(tmp_path_factory):
 
     The single map "single" (value 1000) has the time stamp 2001-01-02.
     """
-    # temporal_session mirrors the session into os.environ for the duration of
-    # the module; the algebra parsers then run in this process, which is much
-    # faster than one tool call per expression.
+    # The algebra parsers of the tests run in this process, which is much
+    # faster than one tool call per expression. That needs the session in
+    # os.environ and grass.temporal initialised, which temporal_session does.
     project = tmp_path_factory.mktemp("t_rast3d_algebra") / "project"
     with temporal_session(project) as session:
         tools = Tools(session=session, overwrite=True)

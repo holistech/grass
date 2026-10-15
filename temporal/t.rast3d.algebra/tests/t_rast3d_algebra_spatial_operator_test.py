@@ -7,11 +7,10 @@ because maps with equal depth are not related as "overlap"), p2 and q2 are
 far apart.
 """
 
-import os
-
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import MapSpec, day, register_stds
+from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
 
 
@@ -19,9 +18,7 @@ from grass.tools import ToolError, Tools
 def spatial_series(tmp_path_factory):
     """Session with the 3D datasets P and Q of the module docstring"""
     tmp_path = tmp_path_factory.mktemp("spatial_operator_3d")
-    project = tmp_path / "project"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(tmp_path / "project") as session:
         tools = Tools(session=session, overwrite=True)
         extents = {
             "p1": (0, 3, 0, 3),
@@ -37,21 +34,15 @@ def spatial_series(tmp_path_factory):
             tools.r3_mapcalc(expression=f"{name} = {values[name]}")
         tools.g_region(w=0, e=103, s=0, n=103, t=4, b=0, res=1, res3=1, tbres=1)
         for dataset, maps in (("P", ("p1", "p2")), ("Q", ("q1", "q2"))):
-            tools.t_create(
-                output=dataset,
-                type="str3ds",
-                temporaltype="absolute",
-                title=dataset,
-                description=dataset,
+            register_stds(
+                tools,
+                "str3ds",
+                dataset,
+                [
+                    MapSpec(name, values[name], day(number - 1), day(number))
+                    for number, name in enumerate(maps, start=1)
+                ],
             )
-            for number, name in enumerate(maps, start=1):
-                tools.t_register(
-                    input=dataset,
-                    type="raster_3d",
-                    maps=name,
-                    start=f"2001-01-0{number}",
-                    end=f"2001-01-0{number + 1}",
-                )
         yield session
 
 
