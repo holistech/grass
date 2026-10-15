@@ -44,18 +44,20 @@ a4         b6         precedes
 The strds fixture has two more datasets, see the series fixture.
 """
 
-import os
-from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    day,
+    make_map,
+    register_stds,
+)
 from grass.tools import Tools
-
-DAY0 = datetime(2001, 1, 1)
 
 INTERVALS = {
     "A": [(0, 10), (10, 20), (20, 30), (30, 40)],
@@ -64,51 +66,41 @@ INTERVALS = {
     "D": [(5, 45)],
 }
 
-# type option, map type of t.register, name of the list module
-KINDS = {
-    "strds": ("raster", "t_rast_list"),
-    "stvds": ("vector", "t_vect_list"),
-    "str3ds": ("raster_3d", "t_rast3d_list"),
+# Map type that each dataset type holds
+KINDS = {"strds": "raster", "stvds": "vector", "str3ds": "raster_3d"}
+
+# Tests that skip themselves on the classic algebra. They are the only ones in
+# this directory that "-m fixed_algebra" has to leave out, see
+# pytest_collection_modifyitems.
+SKIP_ON_CLASSIC = {
+    "test_dataset_type_function_hints_at_the_classic_flag",
+    "test_other_unknown_function_has_no_classic_hint",
+    "test_dataset_type_function_works_with_the_classic_flag",
 }
 
 
-def timestamp(day):
-    """Date string of the day offset relative to 2001-01-01"""
-    return (DAY0 + timedelta(days=day)).strftime("%Y-%m-%d")
+def specs(intervals, prefix):
+    """MapSpec of the maps <prefix><number>, valued by their number"""
+    return [
+        MapSpec(f"{prefix}{number}", number, day(start), day(end))
+        for number, (start, end) in enumerate(intervals, 1)
+    ]
 
 
-def create_map(tools, kind, name, number):
-    """Create one map of the given STDS type"""
-    if kind == "strds":
-        tools.r_mapcalc(expression=f"{name} = {number}")
-    elif kind == "str3ds":
-        tools.r3_mapcalc(expression=f"{name} = {number}")
-    else:
-        tools.v_random(output=name, npoints=1, seed=number)
-
-
-def create_series(tools, kind, stds, intervals, tmp_path, prefix=None):
+def create_series(tools, kind, stds, intervals, prefix=None):
     """Create a STDS with one map per interval; maps are named <prefix><number>"""
-    prefix = prefix or stds.lower()
-    tools.t_create(
-        type=kind,
-        output=stds,
-        temporaltype="absolute",
-        title=stds,
-        description=stds,
-    )
-    lines = []
-    for number, (start, end) in enumerate(intervals, 1):
-        name = f"{prefix}{number}"
-        create_map(tools, kind, name, number)
-        lines.append(f"{name}|{timestamp(start)}|{timestamp(end)}")
-    file = tmp_path / f"{kind}_{stds}.txt"
-    file.write_text("\n".join(lines) + "\n")
-    tools.t_register(type=KINDS[kind][0], input=stds, file=file)
+    maps = specs(intervals, prefix or stds.lower())
+    if kind == "stvds":
+        # v.random points: the shared make_map() writes other geometry.
+        for spec in maps:
+            tools.v_random(output=spec.name, npoints=1, seed=spec.value)
+        register_stds(tools, kind, stds, maps)
+    else:
+        create_stds(tools, kind, stds, maps)
 
 
 @pytest.fixture(scope="module")
-def series(tmp_path_factory):
+def series(temporal_module_session):
     """Session with the datasets A, B and D of each type, see module docstring
 
     For strds there are also
@@ -117,74 +109,71 @@ def series(tmp_path_factory):
       the other maps, s2 has the time of a3 and lies inside it
     - the mapset "other" with the dataset X: x1 with the time of a2 and x2
       with the time of a4; it is in the mapset search path
+
+    The session mirrors its environment into os.environ for the module; the
+    differential test runs the parsers in this process.
     """
-    tmp_path = tmp_path_factory.mktemp("t_select")
-    project = tmp_path / "project"
-    gs.create_project(project)
+    session = temporal_module_session
+    tools = Tools(session=session, overwrite=True)
+    tools.g_region(n=3, s=0, e=3, w=0, b=0, t=3, res=1, res3=1, tbres=1)
 
-    # tgis reads the session from os.environ, so it is mirrored there for the
-    # duration of the module; the differential test then runs the parsers in
-    # this process.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tools = Tools(session=session, overwrite=True)
-        tools.g_region(n=3, s=0, e=3, w=0, b=0, t=3, res=1, res3=1, tbres=1)
+    for kind in KINDS:
+        for stds, intervals in INTERVALS.items():
+            create_series(tools, kind, stds, intervals)
 
-        for kind in KINDS:
-            for stds, intervals in INTERVALS.items():
-                create_series(tools, kind, stds, intervals, tmp_path)
+    make_map(
+        tools,
+        "raster",
+        "s1",
+        1,
+        region={"n": 103, "s": 100, "e": 103, "w": 100, "res": 1},
+    )
+    make_map(tools, "raster", "s2", 2)
+    register_stds(
+        tools,
+        "strds",
+        "S",
+        [
+            MapSpec("s1", 1, day(10), day(20)),
+            MapSpec("s2", 2, day(20), day(30)),
+        ],
+    )
 
-        tools.t_create(
-            type="strds",
-            output="S",
-            temporaltype="absolute",
-            title="S",
-            description="S",
-        )
-        tools.g_region(n=103, s=100, e=103, w=100, res=1)
-        tools.r_mapcalc(expression="s1 = 1")
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        tools.r_mapcalc(expression="s2 = 2")
-        spatial = tmp_path / "S.txt"
-        spatial.write_text(
-            f"s1|{timestamp(10)}|{timestamp(20)}\ns2|{timestamp(20)}|{timestamp(30)}\n"
-        )
-        tools.t_register(input="S", file=spatial)
-
-        tools.g_mapset(mapset="other", flags="c")
-        create_series(
-            tools,
-            "strds",
-            "X",
-            [(10, 20), (30, 40)],
-            tmp_path,
-            prefix="x",
-        )
-        tools.g_mapset(mapset="PERMANENT")
-        tools.g_mapsets(mapset="other", operation="add")
-
-        previous = tgis.get_raise_on_error()
-        tgis.init()
-        # The messenger is created once per process with the mode of the first
-        # init(); other test modules may have set it to exit on fatal errors.
-        tgis.set_raise_on_error(True)
-        try:
-            yield SimpleNamespace(session=session)
-        finally:
-            tgis.set_raise_on_error(previous)
+    tools.g_mapset(mapset="other", flags="c")
+    create_series(tools, "strds", "X", [(10, 20), (30, 40)], prefix="x")
+    tools.g_mapset(mapset="PERMANENT")
+    tools.g_mapsets(mapset="other", operation="add")
+    return SimpleNamespace(session=session)
 
 
-@pytest.fixture(autouse=True, params=["core", "classic"])
-def algebra(series, request):
+@pytest.fixture(autouse=True)
+def algebra(series, algebra_setting):
     """Run every test once on the core and once on the classic algebra
 
     t.select reads the environment variable from the session the tools use.
     """
-    series.session.env[ALGEBRA_VARIABLE] = request.param
-    yield request.param
+    series.session.env[ALGEBRA_VARIABLE] = algebra_setting
+    yield algebra_setting
     series.session.env.pop(ALGEBRA_VARIABLE, None)
+
+
+def pytest_collection_modifyitems(items):
+    """Mark the tests of this directory that choose their algebra themselves
+
+    Every test here does, by the fixture above or in its own body, except the
+    classic variants that skip themselves: "-m fixed_algebra" collects
+    the 371 tests that pass. A hook is used because a module-level mark would
+    include the skipped ones. Called with the items of the whole session, so
+    only the items below this directory are touched.
+    """
+    here = Path(__file__).parent
+    for item in items:
+        if item.path.parent != here:
+            continue
+        params = getattr(item, "callspec", None)
+        classic = (
+            params is not None and params.params.get("algebra_setting") == "classic"
+        )
+        if classic and item.originalname in SKIP_ON_CLASSIC:
+            continue
+        item.add_marker(pytest.mark.fixed_algebra)
