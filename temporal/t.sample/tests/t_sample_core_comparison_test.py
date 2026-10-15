@@ -10,12 +10,8 @@ the same order per granule as sample_by_dataset() - gap granules and empty
 granules included. The library routine stays in place for its other callers.
 """
 
-import os
 import random
 
-import pytest
-
-import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.algebra.sources import source
 from grass.temporal.related_maps import (
@@ -38,23 +34,6 @@ METHODS = [
     ["precedes", "follows", "overlap"],
     ["during", "overlap", "contain", "equal"],
 ]
-
-
-@pytest.fixture(scope="module")
-def session(tmp_path_factory):
-    project = tmp_path_factory.mktemp("t_sample_core") / "project"
-    gs.create_project(project)
-    # tgis and open_old_stds read the session from os.environ, as the
-    # temporal GUI support test documents.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        yield session
 
 
 def sampler_spans(generator):
@@ -164,9 +143,9 @@ def classic_grouping(sampler_name, input_name, method, spatial):
     return granule_ids, related
 
 
-def test_core_groups_as_sample_by_dataset(session, tmp_path_factory):
+def test_core_groups_as_sample_by_dataset(temporal_module_session, tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("t_sample_core_data")
-    tools = Tools(session=session)
+    tools = Tools(session=temporal_module_session)
     generator = random.Random(7)
     for scenario in range(20):
         sampler_name = f"csamp_{scenario}"
@@ -184,7 +163,9 @@ def test_core_groups_as_sample_by_dataset(session, tmp_path_factory):
                 )
 
 
-def test_equal_start_times_come_in_map_id_order(session, tmp_path_factory):
+def test_equal_start_times_come_in_map_id_order(
+    temporal_module_session, tmp_path_factory
+):
     """Three maps start on day 1 and lie in one granule; by end time they
     would be ids 1, 3, 2, and sample_by_dataset() lists them by id
 
@@ -194,7 +175,7 @@ def test_equal_start_times_come_in_map_id_order(session, tmp_path_factory):
     pass and fails this one).
     """
     tmp_path = tmp_path_factory.mktemp("t_sample_core_ties")
-    tools = Tools(session=session)
+    tools = Tools(session=temporal_module_session)
     generator = random.Random(11)
     register(tools, "tsamp", [(0, 6)], tmp_path, generator, numbers=[1])
     register(
