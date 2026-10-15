@@ -3,12 +3,17 @@
 The datasets are series in memory, so that no temporal database is read.
 """
 
+import json
+import pathlib
+
 import pytest
 
 from grass.temporal.algebra import CORE, Profile
 from grass.temporal.algebra.parser import ast, evaluate, parse
 from grass.temporal.algebra.parser import translate
 from grass.temporal.algebra.parser.translate import Translator
+
+GOLDEN = pathlib.Path(__file__).with_name("temporal_algebra_profile_chains.json")
 
 EXPRESSIONS = (
     "R = A",
@@ -49,13 +54,40 @@ def chain(expression, **keywords):
     return evaluate(expression, overwrite=True, dry_run=True, **keywords)
 
 
+def as_json(chain_):
+    return json.loads(json.dumps(chain_, default=list))
+
+
 @pytest.mark.parametrize("expression", EXPRESSIONS)
-def test_core_profile_gives_the_chain_without_profile(in_memory_datasets, expression):
-    plain = chain(expression)
-    # An empty chain would make the comparison say nothing.
-    assert plain["register"]
-    assert chain(expression, profile=CORE) == plain
-    assert chain(expression, profile=Profile()) == plain
+def test_core_profile_gives_the_chain_of_the_code_before_profiles(
+    in_memory_datasets, expression
+):
+    """The chains in the JSON file were produced on 2026-10-16 by the code of
+    commit 07b3e76f9b (before profiles), checked out in a temporary git
+    worktree: the algebra package of that commit over a copy of the installed
+    tree, run on the same in-memory datasets with evaluate(overwrite=True,
+    dry_run=True) and dumped as JSON.
+    """
+    golden = json.loads(GOLDEN.read_text())[expression]
+    assert golden["register"]
+    assert as_json(chain(expression)) == golden
+    assert as_json(chain(expression, profile=CORE)) == golden
+
+
+def test_a_profile_can_change_the_chain(in_memory_datasets):
+    """Without this the comparison above could not see a difference"""
+
+    class FirstOfMerge(Translator):
+        def _merge(self, first, second):
+            return first
+
+    profile = Profile(translator=FirstOfMerge)
+    changed = [
+        expression
+        for expression in EXPRESSIONS
+        if chain(expression, profile=profile) != chain(expression)
+    ]
+    assert changed == ["R = merge(A, B)"]
 
 
 def test_custom_grammar_supplies_the_tree(in_memory_datasets):
@@ -102,11 +134,6 @@ def test_profile_is_immutable():
         CORE.grammar = object()
 
 
-def test_extension_points_are_methods_of_the_translator():
-    for name in Translator.EXTENSION_POINTS:
-        assert callable(getattr(Translator, name)), name
-
-
 def test_an_override_of_an_extension_point_is_reached(in_memory_datasets):
     """Each hook of retime and merge is called as a method of self"""
     calls = []
@@ -142,3 +169,16 @@ def test_an_override_of_an_extension_point_is_reached(in_memory_datasets):
     ):
         chain(expression, profile=profile)
     assert calls == ["tsnap", "tshift", "buff_t", "merge", "operands"]
+
+
+def test_field_if_gets_the_raw_condition_and_the_relation(in_memory_datasets):
+    seen = []
+
+    class Recording(Translator):
+        def _field_if(self, condition, then, otherwise, relation):
+            seen.append((condition.sort, relation))
+            return super()._field_if(condition, then, otherwise, relation)
+
+    chain("R = if({equal}, A > 1, C)", profile=Profile(translator=Recording))
+    assert [sort for sort, _ in seen] == ["field"]
+    assert seen[0][1] is not None

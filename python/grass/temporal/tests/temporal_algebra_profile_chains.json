@@ -1,0 +1,1474 @@
+{
+ "R = A": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A + B": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a1@PERMANENT\" + \"b1@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a2@PERMANENT\" + \"b2@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(\"a3@PERMANENT\" + \"b3@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A * 2": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a1@PERMANENT\" * 2)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a2@PERMANENT\" * 2)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(\"a3@PERMANENT\" * 2)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A {+, during} B": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a1@PERMANENT\" + \"b4@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a2@PERMANENT\" + \"b4@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(\"a3@PERMANENT\" + \"b4@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A {+, equal, u} B": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a1@PERMANENT\" + \"b1@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a2@PERMANENT\" + \"b2@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(\"a3@PERMANENT\" + \"b3@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = B {:, contains} A": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"b4@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A : B": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = B !: A": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"b4@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A # B": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=1"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=1"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=1"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = if(A > 1, A, C)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=if(((\"a1@PERMANENT\" > 1) != 0), \"a1@PERMANENT\", \"c1@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=if(((\"a2@PERMANENT\" > 1) != 0), \"a2@PERMANENT\", \"c2@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=if(((\"a3@PERMANENT\" > 1) != 0), \"a3@PERMANENT\", \"c3@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = if({equal}, start_day(A) > 1, C)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"c2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"c3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = if(start_doy(A) == 1, A)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A[1] - A": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a2@PERMANENT\" - \"a1@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a3@PERMANENT\" - \"a2@PERMANENT\")"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = sin(A) + abs(B)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(sin(\"a1@PERMANENT\") + abs(\"b1@PERMANENT\"))"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(sin(\"a2@PERMANENT\") + abs(\"b2@PERMANENT\"))"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(sin(\"a3@PERMANENT\") + abs(\"b3@PERMANENT\"))"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = merge(A, B)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"b1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"b4@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_3\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_4\"=\"b2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_5\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_6\"=\"b3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-01 00:00:00",
+    "2001-01-04 00:00:00"
+   ],
+   [
+    "R_3",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_4",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_5",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ],
+   [
+    "R_6",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = tshift(A, '1 day')": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-04 00:00:00",
+    "2001-01-05 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = tsnap(A)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = buff_t(A, '1 day')": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=\"a1@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=\"a2@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=\"a3@PERMANENT\""
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2000-12-31 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-01 00:00:00",
+    "2001-01-04 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-02 00:00:00",
+    "2001-01-05 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = A - td(A)": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=(\"a1@PERMANENT\" - 1.0)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=(\"a2@PERMANENT\" - 1.0)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=(\"a3@PERMANENT\" - 1.0)"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ },
+ "R = null() + A": {
+  "processes": [
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_0\"=null()"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_1\"=null()"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   },
+   {
+    "name": "r.mapcalc",
+    "inputs": [
+     [
+      "expression",
+      "\"R_2\"=null()"
+     ],
+     [
+      "nprocs",
+      1
+     ]
+    ],
+    "outputs": [],
+    "flags": [
+     "overwrite"
+    ]
+   }
+  ],
+  "register": [
+   [
+    "R_0",
+    "2001-01-01 00:00:00",
+    "2001-01-02 00:00:00"
+   ],
+   [
+    "R_1",
+    "2001-01-02 00:00:00",
+    "2001-01-03 00:00:00"
+   ],
+   [
+    "R_2",
+    "2001-01-03 00:00:00",
+    "2001-01-04 00:00:00"
+   ]
+  ],
+  "remove": [],
+  "STDS": {
+   "name": "R",
+   "stdstype": "strds",
+   "temporal_type": "absolute"
+  }
+ }
+}

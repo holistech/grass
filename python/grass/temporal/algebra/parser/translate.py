@@ -96,35 +96,15 @@ class Translator:
     The profile says which variant of the algebra is translated. Its fields
     are read through self.profile.
 
-    The methods with a leading underscore that are listed in
-    EXTENSION_POINTS are the protected extension points of the class: a
-    subclass for another variant of the algebra overrides them and relies on
-    their signatures, and the translation calls every one of them as a
-    method of self, so an override is always reached. The other private
-    names are details of this class.
+    The protected extension points of the class are statement(), value() and
+    the methods _name, _single_map, _operands, _binary, _relation, _select,
+    _count, _overlay, _arithmetic, _combine, _apply, _logical, _if,
+    _temporal_if, _field_if, _conditions, _function, _time_variable, _tsnap,
+    _tshift, _buff_t and _merge. A subclass for another variant of the
+    algebra overrides them and relies on their signatures; the translation
+    calls every one of them as a method of self, so an override is always
+    reached. The other private names are details of this class.
     """
-
-    EXTENSION_POINTS = (
-        "_name",
-        "_single_map",
-        "_operands",
-        "_binary",
-        "_relation",
-        "_select",
-        "_count",
-        "_combine",
-        "_apply",
-        "_logical",
-        "_if",
-        "_temporal_if",
-        "_field_if",
-        "_function",
-        "_time_variable",
-        "_merge",
-        "_tsnap",
-        "_tshift",
-        "_buff_t",
-    )
 
     def __init__(
         self,
@@ -446,12 +426,14 @@ class Translator:
     def _temporal_if(self, condition, then, otherwise, relation, first):
         """Choose between then and else by a condition with time stamps
 
-        first is the first of then and else that has time stamps.
+        first is the first of then and else that has time stamps. Without
+        else, otherwise is the marker _ABSENT. A condition per cell goes to
+        _field_if().
         """
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
-            return self._field_if(conditions, then, otherwise)
+            return self._field_if(condition, then, otherwise, relation)
         then_maps = then if _timed(then) else _like(first, then)
         if otherwise is _ABSENT:
             return operations.choose(conditions, then_maps)
@@ -470,12 +452,17 @@ class Translator:
             ),
         )
 
-    def _field_if(self, conditions, then, otherwise):
+    def _field_if(self, condition, then, otherwise, relation):
         """Choose by a condition per cell between then and else
 
-        The choice is made in each cell, so where() needs both with the same
+        condition, then and otherwise are as _if() got them, relation is the
+        relation of if() or None. The choice is made in each cell, so
+        where() needs the joined conditions and both branches with the same
         time stamps.
         """
+        first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
+        operator = relation or TemporalOperator(None)
+        conditions = self._conditions(first, condition, operator)
         return _where(conditions, then, otherwise)
 
     def _conditions(self, target, condition, operator):
@@ -546,11 +533,19 @@ class Translator:
         return time_functions.retime(series, snap=True)
 
     def _tshift(self, series, increment):
-        """Shift the time stamps of series by an increment (text or number)"""
+        """Shift the time stamps of series by an increment
+
+        increment is the value of the argument, a text or a Const; the
+        conversion to a text or a whole number is done by _increment().
+        """
         return time_functions.retime(series, shift=_increment(increment))
 
     def _buff_t(self, series, increment):
-        """Buffer the time stamps of series by an increment (text or number)"""
+        """Buffer the time stamps of series by an increment
+
+        increment is the value of the argument, a text or a Const; the
+        conversion to a text or a whole number is done by _increment().
+        """
         return time_functions.retime(series, buffer=_increment(increment))
 
     def _merge(self, first, second):

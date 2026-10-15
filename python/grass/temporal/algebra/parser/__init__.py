@@ -32,7 +32,7 @@ def parse(text, *, grammar=None):
         statement; None reads the syntax of the core
     :raises SyntaxError: with the position of the first error
     """
-    return (grammar.parse if grammar else _parse_core)(text)
+    return (_parse_core if grammar is None else grammar.parse)(text)
 
 
 def evaluate(
