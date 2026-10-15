@@ -779,3 +779,35 @@ def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
     )
     assert parser.overlay_cmd_value("map", {}, "&", ["DURING"]) == ["cmd"]
     assert calls == [("map", "&", ["DURING"])]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "tsnap(aa {:,during} tmap(ev))",
+        'tshift(aa {:,during} tmap(ev), "1 day")',
+        "pa {:,equal} tsnap(aa {:,during} tmap(ev))",
+    ],
+)
+@pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
+@pytest.mark.fixed_algebra
+def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
+    vector_series, expression, classic, expected
+):
+    """Without maps to snap or shift the result is empty like any other empty
+    vector result: an empty dataset in the core, none in the classic algebra.
+    Neither raises an error."""
+    name = run_algebra(vector_series.session, expression, classic=classic)
+    assert list_maps(vector_series.session, name) == expected
+
+
+@pytest.mark.parametrize("expression", ['tshift(aa, "1 DAY")', 'tshift(aa, "1 d")'])
+@pytest.mark.fixed_algebra
+def test_tshift_with_a_refused_increment_is_a_syntax_error_classic(
+    vector_series, expression
+):
+    """An increment that the library refuses is an error in the classic
+    algebra, not an absent result. The core raises a ValueError with its own
+    message."""
+    with pytest.raises(SyntaxError, match="tshift"):
+        run_algebra(vector_series.session, expression, classic=True)

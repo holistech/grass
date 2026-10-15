@@ -3345,7 +3345,10 @@ class TemporalAlgebraParser:
              | TSNAP LPAREN expr RPAREN
         """
         if self.run:
-            t[0] = AbstractSpaceTimeDataset.snap_map_list(self.check_stds(t[3]))
+            maplist = self.check_stds(t[3])
+            # snap_map_list() returns None for an empty list, which would
+            # reach the enclosing rule as a value that is no map list.
+            t[0] = AbstractSpaceTimeDataset.snap_map_list(maplist) if maplist else []
         else:
             t[0] = self._placeholder(t[3])
         self._trace(str(t[3]) + "* = tsnap(", str(t[3]), ")")
@@ -3364,9 +3367,22 @@ class TemporalAlgebraParser:
             maplist = self.check_stds(t[3])
             with self._reporting_syntax_errors():
                 self._check_increment("tshift", maplist, self._increment(t))
-                t[0] = AbstractSpaceTimeDataset.shift_map_list(
-                    maplist, self._increment(t)
+                # shift_map_list() fails on an empty list and returns None
+                # for an increment the library does not accept.
+                shifted = (
+                    AbstractSpaceTimeDataset.shift_map_list(maplist, self._increment(t))
+                    if maplist
+                    else []
                 )
+                if shifted is None:
+                    msg = (
+                        'Function tshift() cannot shift {type} time by "{increment}"'
+                    ).format(
+                        type=maplist[-1].get_temporal_type(),
+                        increment=self._increment(t),
+                    )
+                    raise SyntaxError(msg)
+                t[0] = shifted
         else:
             t[0] = self._placeholder(t[3])
         self._trace_increment("tshift", t)

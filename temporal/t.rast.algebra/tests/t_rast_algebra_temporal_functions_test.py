@@ -131,3 +131,99 @@ def test_duration_of_an_expression_in_arithmetic(
         duration_arithmetic(algebra, monkeypatch, expression, implementation)
         == expected
     )
+
+
+def outcome(algebra, monkeypatch, expression, implementation):
+    """Return (result dataset exists, (start day, end day, value) of its maps)
+    for "R = <expression>" computed by the core or by the earlier
+    implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    algebra.remove("R")
+    if implementation == "core":
+        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
+        algebra.parse(expression)
+    else:
+        run_reference(
+            "raster", f"R = {expression}", basename="r", overwrite=True, run=True
+        )
+    if not algebra.exists():
+        return False, None
+    return True, [(row.start.day, row.end.day, row.min) for row in algebra.maps("R")]
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("implementation", ["core", "reference"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        # A and B have no map that is equal in time.
+        "tsnap(A {:,equal} B)",
+        'tshift(A {:,equal} B, "1 day")',
+        "tshift(A {:,equal} B, 1)",
+        "tsnap(tsnap(A {:,equal} B))",
+        "A + tsnap(A {:,equal} B)",
+        'A + tshift(A {:,equal} B, "1 day")',
+        "tsnap(A {:,equal} B) {:,equal} A",
+    ],
+)
+def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
+    algebra, monkeypatch, implementation, expression
+):
+    """Without maps to snap or shift the result is an empty dataset, like any
+    other empty result, and the enclosing expression goes on with no maps"""
+    assert outcome(algebra, monkeypatch, expression, implementation) == (True, [])
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("implementation", ["core", "reference"])
+def test_merge_with_tsnap_of_no_maps_keeps_the_other_maps(
+    algebra, monkeypatch, implementation
+):
+    """An empty list from tsnap() adds nothing to merge()"""
+    assert outcome(
+        algebra, monkeypatch, "merge(A, tsnap(A {:,equal} B))", implementation
+    ) == (True, [(1, 2, 1), (2, 3, 2), (3, 4, 3), (4, 5, 4)])
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    "expression",
+    [
+        # The unit is case sensitive and has no abbreviation.
+        'tshift(A, "1 DAY")',
+        'tshift(A, "1 d")',
+        'tshift(A, "1 fortnight")',
+        # Relative time is shifted by a number of its unit only.
+        'tshift(RT, "1 month")',
+        'tshift(RT, "1 day")',
+    ],
+)
+def test_tshift_with_a_refused_increment_is_a_syntax_error(
+    algebra, monkeypatch, expression
+):
+    """An increment that the library refuses is reported as the error of
+    a number without unit on absolute time, not as an absent result.
+
+    Checked on the earlier implementation only: the core raises a ValueError
+    with its own message for the same expressions.
+    """
+    algebra.remove("R")
+    with pytest.raises(SyntaxError, match="tshift"):
+        run_reference(
+            "raster", f"R = {expression}", basename="r", overwrite=True, run=True
+        )
+    assert not algebra.exists()
+
+
+@pytest.mark.fixed_algebra
+def test_tshift_with_a_refused_increment_inside_an_expression(algebra):
+    """The error is reported to the caller and not as the type of the input
+    of the enclosing operator"""
+    algebra.remove("R")
+    with pytest.raises(SyntaxError, match="tshift"):
+        run_reference(
+            "raster",
+            'R = A + tshift(A, "1 DAY")',
+            basename="r",
+            overwrite=True,
+            run=True,
+        )

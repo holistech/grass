@@ -822,3 +822,60 @@ def test_duration_of_an_expression_in_arithmetic(
         )
     rows = list_maps(series_3d.session, name)
     assert [row[2] for row in rows] == [9, 19, 29, 39]
+
+
+def run_on(series_3d, monkeypatch, expression, implementation):
+    """Return the maps of "res = <expression>" computed by the core or by the
+    earlier implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    if implementation == "core":
+        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
+        name = run_algebra(series_3d.session, expression)
+    else:
+        name = f"res{next(_counter)}"
+        run_reference(
+            "raster3d",
+            f"{name} = {expression}",
+            basename=name,
+            overwrite=True,
+            run=True,
+        )
+    return list_maps(series_3d.session, name)
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("implementation", ["core", "reference"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        # A and Q have no map that is equal in time.
+        "tsnap(A {:,equal} Q)",
+        'tshift(A {:,equal} Q, "1 day")',
+        "A + tsnap(A {:,equal} Q)",
+    ],
+)
+def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
+    series_3d, monkeypatch, implementation, expression
+):
+    """Without maps to snap or shift the result is an empty dataset, like any
+    other empty result"""
+    assert run_on(series_3d, monkeypatch, expression, implementation) == []
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("expression", ['tshift(A, "1 DAY")', 'tshift(A, "1 d")'])
+def test_tshift_with_a_refused_increment_is_a_syntax_error(series_3d, expression):
+    """An increment that the library refuses is an error, not an absent result.
+
+    Checked on the earlier implementation only: the core raises a ValueError
+    with its own message for the same expressions.
+    """
+    name = f"res{next(_counter)}"
+    with pytest.raises(SyntaxError, match="tshift"):
+        run_reference(
+            "raster3d",
+            f"{name} = {expression}",
+            basename=name,
+            overwrite=True,
+            run=True,
+        )
+    assert list_maps(series_3d.session, name) is None

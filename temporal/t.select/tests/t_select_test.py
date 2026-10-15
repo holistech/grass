@@ -746,3 +746,17 @@ def test_dataset_type_function_works_with_the_classic_flag(series, algebra):
     assert run_select(series.session, "strds(A) : B", flags="c") == run_select(
         series.session, "A : B", flags="c"
     )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "tsnap(A {:, equal} D)",
+        'tshift(A {:, equal} D, "1 day")',
+        "A {:, equal} tsnap(A {:, equal} D)",
+    ],
+)
+def test_snapping_or_shifting_no_maps_gives_an_empty_result(series, expression):
+    """tsnap() and tshift() of an empty selection leave the result empty
+    instead of ending in an error"""
+    assert run_select(series.session, expression) == []
