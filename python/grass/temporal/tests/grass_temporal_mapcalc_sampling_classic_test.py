@@ -58,9 +58,11 @@ CASES = 20
 
 
 @pytest.fixture(scope="module")
-def temporal_session(temporal_module_session):
+def sampling_session(temporal_module_session):
     """A session with the temporal database that the map objects need"""
-    gs.run_command("g.region", s=0, n=10, w=0, e=10, res=1)
+    gs.run_command(
+        "g.region", s=0, n=10, w=0, e=10, res=1, env=temporal_module_session.env
+    )
     return temporal_module_session
 
 
@@ -108,7 +110,7 @@ def random_box(generator):
     )
 
 
-def register(name, spans, prefix, box_generator):
+def register(session, name, spans, prefix, box_generator):
     """Create one raster per span and register each on its own
 
     The library call registers each map with its own start and end, so
@@ -125,12 +127,20 @@ def register(name, spans, prefix, box_generator):
         title="t",
         description="t",
         overwrite=True,
+        env=session.env,
     )
     for i, (start, end) in enumerate(spans, 1):
         mapname = f"{prefix}{i}"
         west, south, east, north = random_box(box_generator)
-        gs.run_command("g.region", w=west, s=south, e=east, n=north, res=1)
-        gs.run_command("r.mapcalc", expression=f"{mapname} = {i}", overwrite=True)
+        gs.run_command(
+            "g.region", w=west, s=south, e=east, n=north, res=1, env=session.env
+        )
+        gs.run_command(
+            "r.mapcalc",
+            expression=f"{mapname} = {i}",
+            overwrite=True,
+            env=session.env,
+        )
         tgis.register_maps_in_space_time_dataset(
             "raster",
             name,
@@ -174,15 +184,17 @@ def tool_column(sampler_name, input_name, names, spatial):
     )
 
 
-def make_case(tag, case, generator, input_spans):
+def make_case(session, tag, case, generator, input_spans):
     """Register a sampler and an input series and return the dataset objects"""
     # The boxes come from their own generator, so that the time stamps of the
     # series stay those of the comparison without boxes.
     boxes = random.Random(f"{tag}-{case}")
     sampler = register(
-        f"s{tag}{case}", interval_spans(generator), f"sm{tag}{case}_", boxes
+        session, f"s{tag}{case}", interval_spans(generator), f"sm{tag}{case}_", boxes
     )
-    inp = register(f"i{tag}{case}", input_spans(generator), f"in{tag}{case}_", boxes)
+    inp = register(
+        session, f"i{tag}{case}", input_spans(generator), f"in{tag}{case}_", boxes
+    )
     return sampler, inp
 
 
@@ -200,14 +212,14 @@ def touches_only(first, second):
     [(7, interval_spans), (11, mixed_spans), (5, overlapping_spans)],
     ids=["intervals", "intervals-and-instants", "overlapping-intervals"],
 )
-def test_tool_sampling_matches_sample_by_dataset(temporal_session, seed, input_spans):
+def test_tool_sampling_matches_sample_by_dataset(sampling_session, seed, input_spans):
     """For every method and random series the tool picks the same first map per
     granule as the classic sample_by_dataset(); None marks a granule without
     a related map on both sides"""
     generator = random.Random(seed)
     found_a_pick = False
     for case in range(CASES):
-        sampler, inp = make_case(seed, case, generator, input_spans)
+        sampler, inp = make_case(sampling_session, seed, case, generator, input_spans)
         for method, spatial in itertools.product(
             SINGLE_METHODS + MULTI_METHODS, (False, True)
         ):
@@ -244,12 +256,12 @@ def test_the_generated_boxes_include_edge_and_corner_contact():
     assert found
 
 
-def test_the_comparison_detects_a_wrong_relation(temporal_session):
+def test_the_comparison_detects_a_wrong_relation(sampling_session):
     """Negative check: the tool's 'during' against the classic 'contain' must
     differ on some case, so the comparison above is not vacuously true"""
     generator = random.Random(11)
     for case in range(CASES):
-        sampler, inp = make_case("n", case, generator, mixed_spans)
+        sampler, inp = make_case(sampling_session, "n", case, generator, mixed_spans)
         classic = classic_column(inp, sampler, ["contain"], False)
         tool = tool_column(sampler.get_name(), inp.get_name(), ["during"], False)
         if tool != classic:
@@ -257,12 +269,14 @@ def test_the_comparison_detects_a_wrong_relation(temporal_session):
     pytest.fail("a wrong relation went unnoticed")
 
 
-def test_the_comparison_detects_a_swapped_relation_order(temporal_session):
+def test_the_comparison_detects_a_swapped_relation_order(sampling_session):
     """Negative check for the order: the classic order of a multi-method list
     against the swapped order of the tool's names must differ on some case"""
     generator = random.Random(5)
     for case in range(CASES):
-        sampler, inp = make_case("o", case, generator, overlapping_spans)
+        sampler, inp = make_case(
+            sampling_session, "o", case, generator, overlapping_spans
+        )
         for method in MULTI_METHODS:
             swapped = list(reversed(method_relations(method)))
             classic = classic_column(inp, sampler, method, False)
@@ -272,13 +286,13 @@ def test_the_comparison_detects_a_swapped_relation_order(temporal_session):
     pytest.fail("a swapped relation order went unnoticed")
 
 
-def test_the_comparison_detects_a_missing_spatial_test(temporal_session):
+def test_the_comparison_detects_a_missing_spatial_test(sampling_session):
     """Negative check: the classic pick without the spatial test against the
     tool's pick with it must differ on some case, so the boxes make the
     spatial half of the comparison able to fail"""
     generator = random.Random(7)
     for case in range(CASES):
-        sampler, inp = make_case("p", case, generator, interval_spans)
+        sampler, inp = make_case(sampling_session, "p", case, generator, interval_spans)
         for method in SINGLE_METHODS:
             classic = classic_column(inp, sampler, method, False)
             tool = tool_column(
