@@ -51,6 +51,9 @@ def _register(
     the session region is restored afterwards. Vector maps come from
     v.random, which make_map does not offer, so they are made here.
     """
+    if regions and kind == "stvds":
+        msg = "regions apply to raster maps only; stvds maps come from v.random"
+        raise ValueError(msg)
     numbers = {name: number for number, name in enumerate(times, start=1)}
     for name, number in numbers.items():
         if kind == "stvds":
@@ -75,9 +78,9 @@ def _register(
     )
 
 
-def _instants(names, first=0, step=1):
-    """names as time points on the days first, first + step, ..."""
-    return {name: (day(first + i * step), None) for i, name in enumerate(names)}
+def _instants(names):
+    """names as time points on the days 0, 1, ..."""
+    return {name: (day(i), None) for i, name in enumerate(names)}
 
 
 # Extents (w, e, s, n) of the spatial fixture, see sample_session.
