@@ -14,7 +14,17 @@ set_temporal_extent_list() (line 1253).
 
 import pytest
 
-from grass.temporal.algebra.relations import Relation, inverse, related, relation
+from grass.exceptions import FatalError
+from grass.temporal.algebra.content import Call, Const, MapRef
+from grass.temporal.algebra.operations import _pair_equal_times, gather
+from grass.temporal.algebra.reducers import fold
+from grass.temporal.algebra.relations import (
+    Relation,
+    equal,
+    inverse,
+    related,
+    relation,
+)
 from grass.temporal.algebra.series import Space
 
 
@@ -126,3 +136,90 @@ def test_unknown_order(neighbours):
     left, other = neighbours
     with pytest.raises(ValueError, match="order must be one of sorted, written"):
         partners(left, "precedes", other, order="reverse")
+
+
+def ref(name):
+    return MapRef(f"{name}@PERMANENT")
+
+
+def folded(*names):
+    return Call("-", tuple(ref(name) for name in names))
+
+
+def contents(series):
+    return [slot.content for slot in series]
+
+
+def test_gather_folds_in_the_order_of_the_other_series_by_default(neighbours):
+    left, other = neighbours
+    result = gather(left, relation("precedes|follows"), other, reduce=fold("-"))
+    assert contents(result) == [folded("l1", "x1", "x2")]
+
+
+def test_gather_folds_in_written_order(neighbours):
+    left, other = neighbours
+    result = gather(
+        left, relation("precedes|follows"), other, reduce=fold("-"), order="written"
+    )
+    assert contents(result) == [folded("l1", "x2", "x1")]
+
+
+def test_gather_folds_a_partner_once_per_name_without_unique(around):
+    left, other = around
+    result = gather(
+        left,
+        relation("contains|started"),
+        other,
+        reduce=fold("-"),
+        order="written",
+        unique=False,
+    )
+    assert contents(result) == [folded("l1", "x1", "x2", "x3", "x1")]
+
+
+def test_gather_counts_a_partner_once_per_name_without_unique(around):
+    left, other = around
+    counted = gather(
+        left, relation("contains|started"), other, reduce="count", unique=False
+    )
+    assert contents(counted) == [Const(4)]
+
+
+def test_gather_rejects_an_unknown_order(neighbours):
+    left, other = neighbours
+    with pytest.raises(ValueError, match="order must be one of"):
+        gather(left, equal, other, reduce="count", order="reverse")
+
+
+def test_pairing_keeps_the_maps_of_one_time_together_in_written_order(make_series):
+    """The slots of a series are ordered by start and end, so the maps of one
+    time stamp are always adjacent in it; only a list that is ordered by
+    start alone, as the classic algebra orders its maps, interleaves them."""
+    target = make_series("t", (1, 10)).slots
+    # y1 and y3 have the time stamp [1, 2], y2 has [1, 3]; the list is in the
+    # order y1, y2, y3.
+    slots = make_series("y", (1, 2), (1, 3), (1, 2)).slots
+    other = sorted(slots, key=lambda slot: slot.content.ident)
+    matches = [[0, 1, 2]]
+    assert _pair_equal_times(target, matches, other) == [[0, 1, 2]]
+    assert _pair_equal_times(target, matches, other, order="written") == [[0, 2, 1]]
+
+
+def test_pairing_error_is_raised_as_the_class_asked_for(make_series):
+    two = make_series("x", (1, 2), (1, 2))
+    three = make_series("y", (1, 2), (1, 2), (1, 2))
+    with pytest.raises(
+        FatalError, match=r"2 maps of the time stamp .* cannot be paired with 3 maps"
+    ):
+        gather(
+            two,
+            equal,
+            three,
+            reduce="first",
+            equal_times="pairwise",
+            pairing_error=FatalError,
+        )
+    with pytest.raises(
+        ValueError, match=r"2 maps of the time stamp .* cannot be paired with 3 maps"
+    ):
+        gather(two, equal, three, reduce="first", equal_times="pairwise")

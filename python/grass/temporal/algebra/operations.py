@@ -34,6 +34,7 @@ from .content import (
     call,
 )
 from .maptypes import DIMENSIONS
+from .relations import ORDERS
 from .relations import related as related_indices
 from .series import Series, Slot, Space
 
@@ -391,12 +392,15 @@ EQUAL_TIMES = ("all", "pairwise")
 NULLS = ("propagate", "skip")
 
 
-def _pair_equal_times(targets, matches, others):
+def _pair_equal_times(targets, matches, others, *, order="sorted", error=ValueError):
     """Pair maps of equal time stamps like numpy broadcasting
 
     A single map on one side goes with all maps of its time on the other
     side, n maps go with n maps one to one in the order of the series, and
-    other counts are an error.
+    other counts are an error of the class error. With order="sorted" the
+    partners are in the order of others; with "written" the maps of one time
+    stay together, the times in the order in which they first occur in the
+    matches, as the classic algebra pairs them.
     """
     positions = {}
     counts = defaultdict(int)
@@ -421,8 +425,8 @@ def _pair_equal_times(targets, matches, others):
                     f"cannot be paired with {len(members)} maps of the time stamp "
                     f"{_describe(time)}"
                 )
-                raise ValueError(msg)
-        paired.append(sorted(chosen))
+                raise error(msg)
+        paired.append(sorted(chosen) if order == "sorted" else chosen)
     return paired
 
 
@@ -437,6 +441,9 @@ def gather(
     equal_times="all",
     nulls="propagate",
     space="keep",
+    order="sorted",
+    unique=True,
+    pairing_error=ValueError,
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
@@ -462,8 +469,18 @@ def gather(
         ("keep"), the box around the target and its related slots
         ("union"), or their common box ("intersection"), which keeps the
         extent of the target if there is none
+    :param order: the order of the related slots, see related(); a reducer
+        sees them in this order, which counts for fold(), "first", "last"
+        and the left-to-right nesting of the other reducers
+    :param unique: False lets a slot count once for every written relation
+        name that relates it, see related()
+    :param pairing_error: the exception class that equal_times="pairwise"
+        raises for counts that cannot be paired; the classic algebra stops
+        with a FatalError
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
+    :raises pairing_error: if equal_times="pairwise" cannot pair the maps of
+        a time stamp
     """
     check_series(target, "target")
     check_relation(relation)
@@ -473,6 +490,7 @@ def gather(
     _check_option("equal_times", equal_times, EQUAL_TIMES)
     _check_option("nulls", nulls, NULLS)
     _check_option("space", space, SPACES)
+    _check_option("order", order, ORDERS)
     reducers.check(reduce, nulls)
     _check_comparable(target, other)
     sort = reducers.sort_of(reduce, target.sort, other.sort)
@@ -483,10 +501,17 @@ def gather(
         )
         raise ValueError(msg)
     matches = related_indices(
-        target.slots, relation, other.slots, dimension=DIMENSIONS[target.kind]
+        target.slots,
+        relation,
+        other.slots,
+        dimension=DIMENSIONS[target.kind],
+        order=order,
+        unique=unique,
     )
     if equal_times == "pairwise" and relation.spatial is None:
-        matches = _pair_equal_times(target.slots, matches, other.slots)
+        matches = _pair_equal_times(
+            target.slots, matches, other.slots, order=order, error=pairing_error
+        )
     slots = []
     for slot, found in zip(target.slots, matches, strict=True):
         partners = [other.slots[index] for index in found]
