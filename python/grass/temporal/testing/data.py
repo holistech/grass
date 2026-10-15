@@ -19,7 +19,8 @@ import grass.temporal as tgis
 
 DAY0 = datetime(2001, 1, 1)
 
-# Dataset type -> map type of t.register and the library
+# t.register and the library take the type of the maps, not of the dataset
+# that holds them.
 _MAP_TYPE = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
 _MAP_KINDS = tuple(_MAP_TYPE.values())
 
@@ -67,11 +68,12 @@ class MapSpec:
 
     start and end are datetimes for absolute time and numbers in the unit of
     the dataset for relative time. Without end the map is a time point.
-    semantic_label is set on raster maps only.
+    semantic_label is set on raster maps only. value is None only for
+    register_stds() with maps that already exist; make_map() needs a number.
     """
 
     name: str
-    value: float
+    value: float | None
     start: datetime | int
     end: datetime | int | None = None
     semantic_label: str | None = None
@@ -142,9 +144,10 @@ def register_stds(
 ):
     """Create the dataset name and register maps, an iterable of MapSpec
 
-    The maps must exist. description defaults to the title. unit is required for relative time. via="tool" uses
-    t.create and t.register with a file; via="library" uses open_new_stds()
-    and register_maps_in_space_time_dataset() in this process and needs
+    The maps must exist. description defaults to the title. unit is required
+    for relative time. via="tool" uses t.create and t.register with a file;
+    via="library" uses open_new_stds() and
+    register_maps_in_space_time_dataset() in this process and needs
     temporal_session(). Both give the same dataset. With overwrite an
     existing dataset of that name is replaced and the maps are registered
     again; both routes honour it.
