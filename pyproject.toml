@@ -546,6 +546,7 @@ addopts = """
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "needs_solo_run: marks tests that must be run without any other tests running in parallel",
+    "fixed_algebra: test selects the algebra itself; runs once whatever GRASS_TEMPORAL_ALGEBRA says",
 ]
 minversion = "8.2"
 python_files = """
