@@ -24,6 +24,7 @@ set(PYDIRS
     temporal/algebra
     temporal/algebra/parser
     temporal/ply
+    temporal/testing
     tools
     utils
 )
