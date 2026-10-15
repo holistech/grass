@@ -16,7 +16,6 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
 import pathlib
 import shutil
 from typing import Literal, LiteralString
@@ -24,6 +23,7 @@ from typing import Literal, LiteralString
 import pytest
 
 import grass.script as gs
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 # ---------------------------------------------------------------------------
@@ -396,10 +396,8 @@ def bundled_archive():
 def test_import_bundled_data(tmp_path, bundled_archive):
     """Import precip_2000 and verify t.info metadata matches the known values."""
     project = tmp_path / "test"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.t_rast_import(
             flags="o",
             input=str(bundled_archive),
@@ -417,10 +415,8 @@ def test_import_bundled_data(tmp_path, bundled_archive):
 def test_import_bundled_data_new_project(tmp_path, bundled_archive):
     """Importing into a new project must not change the active session environment."""
     project = tmp_path / "source"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         gisenv_before = gs.gisenv(env=session.env)
 
         project_name = "test_project_import"

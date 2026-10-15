@@ -4,12 +4,13 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import MapSpec, register_stds
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 RASTER_NAMES = ["prec_1", "prec_2", "prec_3", "prec_4", "prec_5", "prec_6"]
@@ -24,6 +25,9 @@ ABSOLUTE_ARCHIVE_SPECS = [
     ("pack", "bzip2", "pack_bz2.tar.bz2"),
     ("AAIGrid", "bzip2", "aaigrid_bz2.tar.bz2"),
 ]
+
+# (start month, end month) of 2001 for prec_1 to prec_6
+ABSOLUTE_MONTHS = [(1, 7), (2, 4), (3, 4), (4, 6), (5, 6), (6, 7)]
 
 RELATIVE_ARCHIVE_SPECS = [
     ("GTiff", "bzip2", "gtiff_bz2.tar.bz2"),
@@ -45,13 +49,11 @@ def absolute_strds_session(tmp_path_factory):
     """
     tmp_path = tmp_path_factory.mktemp("t_rast_import_abs")
     project = tmp_path / "test"
-    gs.create_project(project)
     archive_dir = tmp_path / "archives"
     archive_dir.mkdir()
 
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         # Set a real CRS so that the exported proj.txt contains a valid PROJ4
         # string.  The new-project import tests read that string and pass it to
         # gs.create_location(); a plain XY project produces a placeholder that
@@ -61,27 +63,18 @@ def absolute_strds_session(tmp_path_factory):
         for name, maxval in zip(RASTER_NAMES, RASTER_MAX_VALUES, strict=True):
             tools.r_mapcalc(expression=f"{name} = rand(0, {maxval})", seed=1)
 
-        register_file = tmp_path / "register_abs.txt"
-        register_file.write_text(
-            "prec_1|2001-01-01|2001-07-01\n"
-            "prec_2|2001-02-01|2001-04-01\n"
-            "prec_3|2001-03-01|2001-04-01\n"
-            "prec_4|2001-04-01|2001-06-01\n"
-            "prec_5|2001-05-01|2001-06-01\n"
-            "prec_6|2001-06-01|2001-07-01\n",
-            encoding="utf-8",
-        )
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output="precip_abs1",
+        # The maps exist already; register_stds ignores the value of a MapSpec.
+        register_stds(
+            tools,
+            "strds",
+            "precip_abs1",
+            [
+                MapSpec(name, 0, datetime(2001, start, 1), datetime(2001, end, 1))
+                for name, (start, end) in zip(
+                    RASTER_NAMES, ABSOLUTE_MONTHS, strict=True
+                )
+            ],
             title="A test with input files",
-            description="A test with input files",
-        )
-        tools.t_register(
-            type="raster",
-            input="precip_abs1",
-            file=str(register_file),
         )
 
         archives = {}
@@ -112,34 +105,26 @@ def relative_strds_session(tmp_path_factory):
     """
     tmp_path = tmp_path_factory.mktemp("t_rast_import_rel")
     project = tmp_path / "test"
-    gs.create_project(project)
     archive_dir = tmp_path / "archives"
     archive_dir.mkdir()
 
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
         for name, maxval in zip(RASTER_NAMES, RASTER_MAX_VALUES, strict=True):
             tools.r_mapcalc(expression=f"{name} = rand(0, {maxval})", seed=1)
 
-        register_file = tmp_path / "register_rel.txt"
-        register_file.write_text(
-            "prec_1|1|2\nprec_2|2|3\nprec_3|3|4\nprec_4|4|5\nprec_5|5|6\nprec_6|6|7\n",
-            encoding="utf-8",
-        )
-        tools.t_create(
-            type="strds",
+        register_stds(
+            tools,
+            "strds",
+            "precip_rel",
+            [
+                MapSpec(name, 0, number, number + 1)
+                for number, name in enumerate(RASTER_NAMES, start=1)
+            ],
             temporaltype="relative",
-            output="precip_rel",
-            title="A test with input files",
-            description="A test with input files",
-        )
-        tools.t_register(
-            type="raster",
-            input="precip_rel",
-            file=str(register_file),
             unit="years",
+            title="A test with input files",
         )
 
         archives = {}
@@ -171,13 +156,11 @@ def semantic_label_session(tmp_path_factory):
     """
     tmp_path = tmp_path_factory.mktemp("t_rast_import_sem")
     project = tmp_path / "test"
-    gs.create_project(project)
     archive_dir = tmp_path / "archives"
     archive_dir.mkdir()
 
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
         for name, maxval in zip(RASTER_NAMES, RASTER_MAX_VALUES, strict=True):
             tools.r_mapcalc(expression=f"{name} = rand(0, {maxval})", seed=1)
