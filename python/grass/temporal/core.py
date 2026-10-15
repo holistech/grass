@@ -31,6 +31,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import atexit
+import math
 import multiprocessing.util  # noqa: F401
 import os
 import sqlite3
@@ -1532,6 +1533,15 @@ class DBConnection:
                         args[count],
                         statement[pos + 1 :],
                     )
+                elif isinstance(args[count], float) and not math.isfinite(args[count]):
+                    # SQLite has no literal for inf and nan; "%f" would write
+                    # the bare word inf, which the database reads as a column
+                    # name. Statistics of a map with infinite values are
+                    # unknown, which is what NULL says.
+                    statement = "%sNULL%s" % (
+                        statement[0:pos],
+                        statement[pos + 1 :],
+                    )
                 elif isinstance(args[count], float):
                     statement = "%s%f%s" % (
                         statement[0:pos],
@@ -1652,6 +1662,11 @@ class DBConnection:
             self.msgr.error(
                 _("Unable to execute transaction:\n %(sql)s") % {"sql": statement}
             )
+            # executescript() has already sent BEGIN. Without the rollback
+            # close() would commit the statements that ran before the
+            # failing one and the database would keep a half written entry.
+            if self.dbmi.__name__ == "sqlite3" and self.connection.in_transaction:
+                self.connection.rollback()
             raise
         finally:
             if connected:

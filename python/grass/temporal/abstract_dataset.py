@@ -392,6 +392,23 @@ class AbstractDataset(
     def delete(self):
         """Delete dataset from database if it exists"""
 
+    @staticmethod
+    def _execute_and_close_on_error(dbif, statement, owns_connection, mapset=None):
+        """Execute a transaction and close the connection if it fails
+
+        A connection opened by the caller of this method is closed here when
+        the transaction fails, because the caller never reaches its close()
+        and an open connection in the failed transaction keeps the
+        temporal database locked for other processes. A connection the
+        caller got from outside stays open, it is the owner's to close.
+        """
+        try:
+            dbif.execute_transaction(statement, mapset=mapset)
+        except BaseException:
+            if owns_connection:
+                dbif.close()
+            raise
+
     def insert(self, dbif=None, execute: bool = True):
         """Insert dataset into database
 
@@ -425,7 +442,9 @@ class AbstractDataset(
         self.msgr.debug(2, "insert with %s" % statement)
         if execute:
             # database to be modified must be in the current mapset
-            dbif.execute_transaction(statement, mapset=mapset)
+            self._execute_and_close_on_error(
+                dbif, statement, connection_state_changed, mapset=mapset
+            )
             if connection_state_changed:
                 dbif.close()
             return ""
@@ -459,7 +478,7 @@ class AbstractDataset(
             statement += self.stds_register.get_update_statement_mogrified(dbif, ident)
 
         if execute:
-            dbif.execute_transaction(statement)
+            self._execute_and_close_on_error(dbif, statement, connection_state_changed)
             if connection_state_changed:
                 dbif.close()
             return ""
@@ -497,7 +516,7 @@ class AbstractDataset(
             )
 
         if execute:
-            dbif.execute_transaction(statement)
+            self._execute_and_close_on_error(dbif, statement, connection_state_changed)
             if connection_state_changed:
                 dbif.close()
             return ""
