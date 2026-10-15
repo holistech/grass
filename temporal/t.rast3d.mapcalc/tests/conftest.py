@@ -36,7 +36,8 @@ def mapcalc3d_session(tmp_path_factory):
             for number, (start, end) in enumerate(quarters, 1)
         ]
         create_stds(tools, "str3ds", "precip3d_1", maps, title="A test")
-        # precip3d_2 holds the same maps with the same time stamps.
+        # The tests combine two inputs over identical granules, so the second
+        # dataset registers the same maps with the same time stamps.
         register_stds(tools, "str3ds", "precip3d_2", maps, title="A test")
         yield session
 
