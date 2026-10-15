@@ -14,45 +14,45 @@ p1 and q1 overlap spatially, p2 and q2 are far apart. The maps of the same
 day are temporally equal.
 """
 
-import os
-
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.tools import ToolError, Tools
 
 ALGEBRA = "GRASS_TEMPORAL_ALGEBRA"
 
 
 @pytest.fixture(scope="module")
-def spatial_series(tmp_path_factory):
+def spatial_series(xy_module_session):
     """Session with the datasets P and Q of the module docstring"""
-    tmp_path = tmp_path_factory.mktemp("spatial_operator")
-    project = tmp_path / "project"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
-        tools = Tools(session=session, overwrite=True)
-        regions = {
-            "p1": (0, 3, 0, 3),
-            "p2": (0, 3, 0, 3),
-            "q1": (2, 5, 2, 5),
-            "q2": (100, 103, 100, 103),
-        }
-        values = {"p1": 1, "p2": 2, "q1": 10, "q2": 20}
-        for name, (west, east, south, north) in regions.items():
-            tools.g_region(w=west, e=east, s=south, n=north, res=1)
-            tools.r_mapcalc(expression=f"{name} = {values[name]}")
-        tools.g_region(w=0, e=103, s=0, n=103, res=1)
-        for dataset, maps in (("P", ("p1", "p2")), ("Q", ("q1", "q2"))):
-            tools.t_create(
-                output=dataset, type="strds", title=dataset, description=dataset
-            )
-            listing = tmp_path / f"{dataset}.txt"
-            listing.write_text(
-                f"{maps[0]}|2001-01-01|2001-01-02\n{maps[1]}|2001-01-02|2001-01-03\n"
-            )
-            tools.t_register(input=dataset, file=listing)
-        yield session
+    tools = Tools(session=xy_module_session)
+    regions = {
+        "p1": (0, 3, 0, 3),
+        "p2": (0, 3, 0, 3),
+        "q1": (2, 5, 2, 5),
+        "q2": (100, 103, 100, 103),
+    }
+    values = {"p1": 1, "p2": 2, "q1": 10, "q2": 20}
+    for name, (west, east, south, north) in regions.items():
+        make_map(
+            tools,
+            "raster",
+            name,
+            values[name],
+            region={"w": west, "e": east, "s": south, "n": north, "res": 1},
+        )
+    tools.g_region(w=0, e=103, s=0, n=103, res=1)
+    for dataset, maps in (("P", ("p1", "p2")), ("Q", ("q1", "q2"))):
+        register_stds(
+            tools,
+            "strds",
+            dataset,
+            [
+                MapSpec(maps[0], values[maps[0]], day(0), day(1)),
+                MapSpec(maps[1], values[maps[1]], day(1), day(2)),
+            ],
+        )
+    return xy_module_session
 
 
 def result_values(session, expression, flags="", algebra=None):
@@ -78,10 +78,12 @@ def result_values(session, expression, flags="", algebra=None):
         ("P {+,equal} Q", "s", [11]),
         # The classic algebra builds no spatial topology without -s and
         # ignores the spatial relation then; the core needs -s for it.
-        ("P {+,equal|overlap} Q", "c", [11]),
+        pytest.param(
+            "P {+,equal|overlap} Q", "c", [11], marks=pytest.mark.fixed_algebra
+        ),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
-        ("P {+,equal|cover} Q", "c", []),
+        pytest.param("P {+,equal|cover} Q", "c", [], marks=pytest.mark.fixed_algebra),
         ("P {+,equal|cover} Q", "s", []),
         # the hash operator counts the temporally related maps; the result of
         # the condition is P itself, so the disjoint pair shows up as p2
@@ -94,6 +96,7 @@ def test_spatial_topology(spatial_series, expression, flags, expected):
     assert result_values(spatial_series, expression, flags) == expected
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("relations", ["equal|overlap", "equal|cover"])
 def test_spatial_relation_needs_the_spatial_flag(spatial_series, relations):
     """Without -s no spatial topology is built, so a spatial relation name

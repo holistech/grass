@@ -248,6 +248,7 @@ def test_aggregation_of_contained_maps_with_left_reference(algebra):
     assert algebra.triples("C {+,contains,l} A") == [(2, 4, 12)]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("classic", "expected"),
     [(False, [(2, 3, 9), (3, 4, 10)]), (True, [(2, 3, 12), (3, 4, 12)])],

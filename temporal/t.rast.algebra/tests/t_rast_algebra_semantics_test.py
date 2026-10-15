@@ -150,11 +150,22 @@ CONDITION_CORPUS = [
     ("if(A > 2, A)", "A : A", None),
     ("if(td(A) == 1, A)", "A : A", None),
     ("if({contains}, td(B) == 2, A)", "A : A", None),
-    ("if({during}, A > 1, B)", "B : B", False),
+    pytest.param(
+        "if({during}, A > 1, B)", "B : B", False, marks=pytest.mark.fixed_algebra
+    ),
     ("if({during}, start_day(A) > 1, B)", "B : B", None),
-    ("if({during}, A > 1 || start_day(A) == 1, B)", "B : B", False),
-    ("if({equal|contains}, HB {#,contains} HA == 2, HB {+,contains,l} HA)", "HB : HB", None),
-]  # fmt: skip
+    pytest.param(
+        "if({during}, A > 1 || start_day(A) == 1, B)",
+        "B : B",
+        False,
+        marks=pytest.mark.fixed_algebra,
+    ),
+    (
+        "if({equal|contains}, HB {#,contains} HA == 2, HB {+,contains,l} HA)",
+        "HB : HB",
+        None,
+    ),
+]
 
 
 @pytest.mark.parametrize(("expression", "conclusion", "classic"), CONDITION_CORPUS)
@@ -165,6 +176,7 @@ def test_one_result_per_conclusion_map(algebra, expression, conclusion, classic)
     assert set(times) <= set(algebra.dry_times(conclusion, classic=classic))
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "operator", ["{#,contains,r}", "{#,contains,u}", "{#,contains,i}",
                  "{#,contains,d}", "{#,contains,right}"],
@@ -224,6 +236,7 @@ def test_merge_of_select_and_inverse_select_is_the_dataset(algebra, relation):
     ) == algebra.dry_times("A : A")
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("expression", "count"),
     [
@@ -321,9 +334,9 @@ def select_extent_cases():
         if case in EMPTY_SELECTIONS:
             continue
         if case in EMPTY_IN_THE_CORE:
-            cases.append((*case, True))
+            cases.append(pytest.param(*case, True, marks=pytest.mark.fixed_algebra))
         elif case in CLASSIC_SELECT_EXTENT_DIFFERS:
-            cases.append((*case, False))
+            cases.append(pytest.param(*case, False, marks=pytest.mark.fixed_algebra))
         else:
             cases.append((*case, None))
     return cases
@@ -345,6 +358,7 @@ def test_select_has_the_time_stamps_of_the_operator(
     )
 
 
+@pytest.mark.fixed_algebra
 def test_select_with_right_reference_gives_one_map_per_pair(algebra):
     """Each map of B contains two maps of A: two results per map of B, with
     the values of B and the time stamps of A"""
@@ -353,6 +367,7 @@ def test_select_with_right_reference_gives_one_map_per_pair(algebra):
     ]  # fmt: skip
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("temporal", ["r", "u", "i", "d"])
 def test_inverse_select_rejects_temporal_operators(algebra, temporal):
     """Maps without partner have no extent to combine with"""
@@ -408,10 +423,25 @@ def test_temporal_condition_relation_reads_condition_to_conclusion(
         # b1 [1,3] has the conditions a1, a2 (during), b2 [3,5] a3, a4. The
         # classic algebra has no aggregation in the relation.
         ("if({during}, start_day(A) > 1, B)", None, [(3, 5, 6)]),
-        ("if({during,&}, start_day(A) > 1, B)", False, [(3, 5, 6)]),
-        ("if({during,|}, start_day(A) > 1, B)", False, [(1, 3, 5), (3, 5, 6)]),
+        pytest.param(
+            "if({during,&}, start_day(A) > 1, B)",
+            False,
+            [(3, 5, 6)],
+            marks=pytest.mark.fixed_algebra,
+        ),
+        pytest.param(
+            "if({during,|}, start_day(A) > 1, B)",
+            False,
+            [(1, 3, 5), (3, 5, 6)],
+            marks=pytest.mark.fixed_algebra,
+        ),
         ("if({during}, start_day(A) > 1, B, 0)", None, [(1, 3, 0), (3, 5, 6)]),
-        ("if({during,|}, start_day(A) > 2, B, 0)", False, [(1, 3, 0), (3, 5, 6)]),
+        pytest.param(
+            "if({during,|}, start_day(A) > 2, B, 0)",
+            False,
+            [(1, 3, 0), (3, 5, 6)],
+            marks=pytest.mark.fixed_algebra,
+        ),
         # The manual example of t.select with A, B and C of this fixture: the
         # buffered maps of A are [k-1, k+2], all three days long. b1 [1,3] is
         # contained (finished, started) by the buffers of a1 and a2, b2 [3,5]
@@ -463,6 +493,7 @@ def test_map_condition_relation_reads_condition_to_conclusion(
     )
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("expression", "expected"),
     [
@@ -480,6 +511,7 @@ def test_map_condition_aggregates_per_conclusion(algebra, expression, expected):
     assert fresh_triples(algebra, expression, classic=False) == expected
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("aggregate", ["", ",|"])
 def test_both_paths_agree_on_aggregation(algebra, aggregate):
     """A > 1 and start_day(A) > 1 are true for the same maps of A"""
@@ -490,6 +522,7 @@ def test_both_paths_agree_on_aggregation(algebra, aggregate):
     )
 
 
+@pytest.mark.fixed_algebra
 def test_equal_time_map_conditions_are_broadcast(algebra):
     """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
     are false, so b1 is null and left out with &, and has the value of b1
@@ -543,6 +576,7 @@ def test_condition_without_related_map_gives_empty_result(algebra, expression):
     assert algebra.run(expression, fresh_basename()) == []
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -713,7 +747,8 @@ def truth_table_cases():
             # The classic algebra joins conditions of time stamps from left
             # to right. The case "a && b || c" gives the same maps that way.
             classic = False
-        cases.append((condition, formula, kind, classic))
+        marks = [] if classic is None else [pytest.mark.fixed_algebra]
+        cases.append(pytest.param(condition, formula, kind, classic, marks=marks))
     return cases
 
 
@@ -732,7 +767,20 @@ def random_condition(seed):
     return render(rng, 3, rng.choice(["time", "map", "mixed"]))
 
 
-@pytest.mark.parametrize("seed", range(40))
+def random_condition_cases():
+    """The seeds; those whose classic setting is not None choose the algebra"""
+    return [
+        pytest.param(
+            seed,
+            marks=[]
+            if classic_setting(*random_condition(seed)) is None
+            else [pytest.mark.fixed_algebra],
+        )
+        for seed in range(40)
+    ]
+
+
+@pytest.mark.parametrize("seed", random_condition_cases())
 def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
     condition, formula = random_condition(seed)
@@ -775,6 +823,7 @@ def joined(first, operator, second, classic):
     return f"({first}) {operator} ({second})"
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("first", "second", "classic"),
     [(*pair, False) for pair in CONDITION_PAIRS]
@@ -793,6 +842,7 @@ def test_nested_if_is_conjunction(algebra, first, second, classic):
     assert nested == conjunction
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("dataset", "condition"),
     [(dataset, condition) for _bit, dataset, condition in TRUTH_TABLE_BITS],
@@ -806,6 +856,7 @@ def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, cond
     )
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("operator", "first", "second", "classic"),
     [(operator, *pair, False) for operator in ["&&", "||"] for pair in CONDITION_PAIRS]
@@ -903,7 +954,7 @@ def manual_cases():
     cases = []
     for classic, text in [(None, rest), (False, notes)]:
         for assignment in manual_expressions(text):
-            marks = []
+            marks = [] if classic is None else [pytest.mark.fixed_algebra]
             missing = sorted(
                 set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
             )

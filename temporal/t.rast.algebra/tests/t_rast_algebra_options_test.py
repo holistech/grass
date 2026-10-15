@@ -96,6 +96,7 @@ def test_result_dataset_is_registered_under_basename(algebra, tool):
     assert (stats["min"], stats["max"], stats["n"]) == (4, 4, 9)
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("flags", "message"), [("", "Use the overwrite"), ("c", "Use --o flag")]
 )
@@ -116,6 +117,7 @@ def test_overwrite_is_required(algebra, core_tool, flags, message):
     assert values(core_tool, name) == [3, 6, 9, 12]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("flags", "message"),
     [("", r"exists\. Use the overwrite"), ("c", "already in the database")],
@@ -135,6 +137,7 @@ def test_existing_dataset_with_new_basename_is_not_overwritten(
     assert values(core_tool, name) == [2, 4, 6, 8]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("flags", "first", "last"),
     [
@@ -157,6 +160,7 @@ def test_dry_run_creates_nothing(algebra, core_tool, flags, first, last):
     assert not core_tool.g_list(type="raster", pattern="opt_dry_*").stdout.strip()
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("flags", "message"), [("", "Use the overwrite"), ("c", "Use --o flag")]
 )
@@ -179,6 +183,7 @@ def test_dry_run_requires_overwrite_as_the_real_run(algebra, core_tool, flags, m
     assert "r.mapcalc" in result.stdout
 
 
+@pytest.mark.fixed_algebra
 def test_classic_flag_selects_the_classic_algebra(algebra, core_tool):
     """A selection with r gives one map per related pair in the core and one
     map per left map in the classic algebra"""
@@ -237,6 +242,7 @@ def test_granularity_algebra_samples_datasets(algebra, tool):
     assert maps[3]["end_time"] == "2001-01-05 00:00:00"
 
 
+@pytest.mark.fixed_algebra
 def test_granularity_algebra_on_the_core(algebra, core_tool):
     core_tool.t_rast_algebra(
         expression="OPT_GRAN_CORE = A + B", basename="opt_gran_core", flags="g"
@@ -244,6 +250,7 @@ def test_granularity_algebra_on_the_core(algebra, core_tool):
     assert values(core_tool, "OPT_GRAN_CORE") == [6, 7, 9, 10]
 
 
+@pytest.mark.fixed_algebra
 def test_granularity_algebra_with_the_classic_flag(algebra, core_tool):
     """-c selects the classic algebra in the granularity mode as well,
     whatever the variable says"""
@@ -467,6 +474,7 @@ def run_with_debug(algebra, expression, run, classic):
     parser.parse(f"R = {expression}", "r", True)
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_of_a_run(algebra, capsys):
     """debug=True prints each planned module call as a command line"""
     run_with_debug(algebra, "(A + A) * 2", run=True, classic=False)
@@ -476,6 +484,7 @@ def test_debug_output_of_a_run(algebra, capsys):
     )
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_without_run(algebra, capsys):
     """With run=False only the syntax is checked, so nothing is planned and
     debug=True prints nothing"""
@@ -483,6 +492,7 @@ def test_debug_output_without_run(algebra, capsys):
     assert not capsys.readouterr().out
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_of_the_classic_algebra(algebra, capsys):
     """The classic algebra prints the mapcalc commands and the resulting
     statement, and without run the statement with the placeholder name"""

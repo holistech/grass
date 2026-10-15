@@ -62,17 +62,20 @@ def test_dry_run_flags_tell_overwrite(algebra, core, overwrite, flags):
     assert [process["flags"] for process in chain["processes"]] == [flags] * 4
 
 
+@pytest.mark.fixed_algebra
 def test_core_is_the_default(algebra, monkeypatch):
     monkeypatch.delenv(VARIABLE, raising=False)
     chain = algebra.parse("A * 2", dry_run=True)
     assert '"r_0"' in expression_of(chain)
 
 
+@pytest.mark.fixed_algebra
 def test_classic_selects_the_earlier_parser(algebra, classic):
     chain = algebra.parse("A * 2", dry_run=True)
     assert '"r_0"' not in expression_of(chain)
 
 
+@pytest.mark.fixed_algebra
 def test_keyword_takes_precedence_over_the_variable(algebra, monkeypatch):
     monkeypatch.setenv(VARIABLE, "core")
     chain = algebra.parse("A * 2", dry_run=True, classic=True)
@@ -82,6 +85,7 @@ def test_keyword_takes_precedence_over_the_variable(algebra, monkeypatch):
     assert '"r_0"' in expression_of(chain)
 
 
+@pytest.mark.fixed_algebra
 def test_unknown_parser_is_an_error(algebra, monkeypatch):
     monkeypatch.setenv(VARIABLE, "other")
     with pytest.raises(ValueError, match="core or classic"):
@@ -120,6 +124,7 @@ def test_granularity_mode_runs_the_core(algebra, core):
     ]
 
 
+@pytest.mark.fixed_algebra
 def test_granularity_mode_runs_the_classic_algebra_when_chosen(algebra, classic):
     chain = algebra.parse("A + B", dry_run=True, granularity=True)
     # The classic algebra neither quotes map names nor numbers its results
@@ -151,6 +156,7 @@ def test_pairing_error_reaches_the_caller(algebra, core):
         algebra.run("if(start_day(E2) == 1, E)")
 
 
+@pytest.mark.fixed_algebra
 def test_spatial_relations_agree_with_the_earlier_parser(
     algebra, monkeypatch, large_region
 ):

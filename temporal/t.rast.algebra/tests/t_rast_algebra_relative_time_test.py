@@ -22,8 +22,18 @@ def relative_maps(algebra, expression, **kwargs):
         ("RT : RT", None, [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
         ("RT[1]", None, [(0, 1, 2), (1, 2, 3)]),
         # without else x1 is null and left out, 0 in the classic algebra
-        ("if(RT > 1, RT)", False, [(1, 2, 2), (2, 3, 3)]),
-        ("if(RT > 1, RT)", True, [(0, 1, 0), (1, 2, 2), (2, 3, 3)]),
+        pytest.param(
+            "if(RT > 1, RT)",
+            False,
+            [(1, 2, 2), (2, 3, 3)],
+            marks=pytest.mark.fixed_algebra,
+        ),
+        pytest.param(
+            "if(RT > 1, RT)",
+            True,
+            [(0, 1, 0), (1, 2, 2), (2, 3, 3)],
+            marks=pytest.mark.fixed_algebra,
+        ),
     ],
 )
 def test_relative_time_is_kept(algebra, expression, classic, expected):

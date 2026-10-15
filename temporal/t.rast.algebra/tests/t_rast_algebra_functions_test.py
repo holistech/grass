@@ -30,6 +30,7 @@ def test_td_in_arithmetic(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(("expression", "count"), [("E + td(E)", 4), ("I + td(I)", 3)])
 def test_td_of_time_instants_is_null(algebra, expression, count):
     """Instants have no length, so td() is null and so is the sum; such maps
@@ -39,6 +40,7 @@ def test_td_of_time_instants_is_null(algebra, expression, count):
     assert [row.min for row in rows] == [None] * count
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize("expression", ["E + td(E)", "I + td(I)"])
 def test_td_of_time_instants_is_an_error_in_the_classic_algebra(algebra, expression):
     with pytest.raises(algebra.errors, match="requires a time interval"):
@@ -228,6 +230,7 @@ def test_temporal_neighbour(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("classic", "expected"),
     [

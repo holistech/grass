@@ -35,6 +35,7 @@ def test_single_map_with_complex_operator(algebra):
     assert algebra.values("tmap(sinst) {+,equal,l} E") == [110]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("classic", "values"),
     [(False, [101, 102, 103, 104]), (True, [110, 110, 110, 110])],
@@ -64,6 +65,7 @@ def test_condition_on_maps_with_equal_time(algebra):
     assert algebra.values("if(E > 2, E, null())") == [3, 4]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(("classic", "values"), [(False, [3, 4]), (True, [0, 0, 3, 4])])
 def test_condition_without_else_on_maps_with_equal_time(algebra, classic, values):
     """if(E > 2, E) gives null where the condition is false, so e1 and e2
@@ -82,6 +84,7 @@ def test_single_condition_map_is_broadcast(algebra):
     assert algebra.values("if(tmap(sinst) > 50, E, null())") == [1, 2, 3, 4]
 
 
+@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("classic", "errors", "message"),
     [

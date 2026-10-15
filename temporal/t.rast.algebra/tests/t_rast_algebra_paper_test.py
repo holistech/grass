@@ -12,6 +12,9 @@ import pytest
 
 from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
 
+# Every test sets the algebra itself, see the marker in pyproject.toml.
+pytestmark = pytest.mark.fixed_algebra
+
 A1 = "(A1A {+,contains,l} A1B) {/,equal,l} (A1A {#,contains,l} A1B)"
 
 
