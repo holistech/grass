@@ -1,26 +1,12 @@
 """Fixtures for t.vect.algebra tests"""
 
-import os
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
+from grass.temporal.testing.data import MapSpec, day, register_stds, timestamp
+from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
-
-DAYS = ["2001-01-01", "2001-01-02", "2001-01-03", "2001-01-04", "2001-01-05"]
-
-
-def write_squares(path, squares):
-    """Write 10x10 squares given by their lower left corner in standard format"""
-    lines = []
-    for x, y in squares:
-        corners = [(x, y), (x + 10, y), (x + 10, y + 10), (x, y + 10), (x, y)]
-        lines.append(f"B {len(corners)}")
-        lines.extend(f" {cx} {cy}" for cx, cy in corners)
-        lines.append(f"C 1 1\n {x + 5} {y + 5}\n 1 1")
-    path.write_text("\n".join(lines) + "\n")
 
 
 def import_standard(tools, tmp_path, name, body):
@@ -53,13 +39,19 @@ def import_line(tools, tmp_path, name, x, y):
     import_standard(tools, tmp_path, name, f"L 2 1\n {x} {y}\n {x + 10} {y}\n 1 1\n")
 
 
-def create_stvds(tools, name, maps_and_times):
-    """Create a STVDS and register maps with (map, start, end) triples"""
-    tools.t_create(
-        output=name, type="stvds", temporaltype="absolute", title=name, description=name
+def create_stvds(tools, name, maps_and_times, **options):
+    """Create a STVDS and register maps with (map, start, end) triples
+
+    The maps exist already; their coordinates are the point of the datasets,
+    so they are not made by make_map(), which writes one point per map.
+    """
+    register_stds(
+        tools,
+        "stvds",
+        name,
+        [MapSpec(vector, None, start, end) for vector, start, end in maps_and_times],
+        **options,
     )
-    for vector, start, end in maps_and_times:
-        tools.t_register(input=name, type="vector", maps=vector, start=start, end=end)
 
 
 @pytest.fixture(scope="module")
@@ -90,41 +82,32 @@ def vector_series(tmp_path_factory):
     The single map "ev" (square at x=2) has the time stamp 2001-01-02.
     """
     tmp_path = tmp_path_factory.mktemp("t_vect_algebra")
-    project = tmp_path / "project"
-    gs.create_project(project)
-
-    # tgis reads the session from os.environ, so it is mirrored there for the
-    # duration of the module; the algebra parsers then run in this process,
-    # which is much faster than one tool call per expression.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
+    # temporal_session mirrors the session into os.environ for the duration of
+    # the module; the algebra parsers then run in this process, which is much
+    # faster than one tool call per expression.
+    with temporal_session(tmp_path / "project") as session:
         tools = Tools(session=session, overwrite=True)
         tools.g_region(n=100, s=0, e=100, w=0, res=10)
-        day = DAYS
+        days = [day(n) for n in range(5)]
 
         pa = []
         for i in (1, 2, 3):
             import_points(
                 tools, tmp_path, f"pa{i}", [(10 * j, 10 * i) for j in range(i)]
             )
-            pa.append((f"pa{i}", day[i - 1], day[i]))
+            pa.append((f"pa{i}", days[i - 1], days[i]))
         create_stvds(tools, "pa", pa)
 
         pb = []
         for i in (1, 2, 3):
             import_points(tools, tmp_path, f"pb{i}", [(3 + 10 * i, 5), (4 + 10 * i, 6)])
-            pb.append((f"pb{i}", day[i - 1], day[i]))
+            pb.append((f"pb{i}", days[i - 1], days[i]))
         create_stvds(tools, "pb", pb)
 
         pc = []
         for i in (1, 2, 3):
             import_points(tools, tmp_path, f"pc{i}", [(0, 0), (10, 10)])
-            pc.append((f"pc{i}", day[i - 1], day[i]))
+            pc.append((f"pc{i}", days[i - 1], days[i]))
         create_stvds(tools, "pc", pc)
 
         aa, ab, la = [], [], []
@@ -132,9 +115,9 @@ def vector_series(tmp_path_factory):
             import_square(tools, tmp_path, f"aa{i}", xa, 0)
             import_square(tools, tmp_path, f"ab{i}", xb, 0)
             import_line(tools, tmp_path, f"la{i}", xa, 5)
-            aa.append((f"aa{i}", day[i - 1], day[i]))
-            ab.append((f"ab{i}", day[i - 1], day[i]))
-            la.append((f"la{i}", day[i - 1], day[i]))
+            aa.append((f"aa{i}", days[i - 1], days[i]))
+            ab.append((f"ab{i}", days[i - 1], days[i]))
+            la.append((f"la{i}", days[i - 1], days[i]))
         create_stvds(tools, "aa", aa)
         create_stvds(tools, "ab", ab)
         create_stvds(tools, "la", la)
@@ -148,7 +131,7 @@ def vector_series(tmp_path_factory):
                 "B 5\n 0 0\n 10 0\n 10 10\n 0 10\n 0 0\nC 1 1\n 5 5\n 1 1\n"
                 "B 5\n 50 20\n 60 20\n 60 30\n 50 30\n 50 20\nC 1 1\n 55 25\n 1 1\n",
             )
-            ac.append((f"ac{i}", day[i - 1], day[i]))
+            ac.append((f"ac{i}", days[i - 1], days[i]))
         create_stvds(tools, "ac", ac)
 
         import_square(tools, tmp_path, "wide1", 5, 0)
@@ -156,37 +139,19 @@ def vector_series(tmp_path_factory):
         create_stvds(
             tools,
             "wide",
-            [("wide1", day[0], day[2]), ("wide2", day[2], day[4])],
+            [("wide1", days[0], days[2]), ("wide2", days[2], days[4])],
         )
 
         tools.g_copy(vector="pa1,rp1")
         tools.g_copy(vector="pa2,rp2")
-        tools.t_create(
-            output="rel",
-            type="stvds",
+        create_stvds(
+            tools,
+            "rel",
+            [("rp1", 0, 1), ("rp2", 1, 2)],
             temporaltype="relative",
-            title="rel",
-            description="rel",
-        )
-        tools.t_register(
-            input="rel",
-            type="vector",
-            maps="rp1,rp2",
-            start=0,
-            increment=1,
             unit="days",
-            flags="i",
         )
 
         import_square(tools, tmp_path, "ev", 2, 0)
-        tools.t_register(type="vector", maps="ev", start=day[1], end=day[2])
-
-        previous = tgis.get_raise_on_error()
-        tgis.init()
-        # The messenger is created once per process with the mode of the first
-        # init(); other test modules may have set it to exit on fatal errors.
-        tgis.set_raise_on_error(True)
-        try:
-            yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)
-        finally:
-            tgis.set_raise_on_error(previous)
+        tools.t_register(type="vector", maps="ev", start=timestamp(1), end=timestamp(2))
+        yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)

@@ -146,6 +146,7 @@ def outcome(monkeypatch, expression, algebra):
 
 
 @pytest.mark.parametrize("expression", SAME)
+@pytest.mark.fixed_algebra
 def test_same_result(vector_series, monkeypatch, expression):
     assert outcome(monkeypatch, expression, "core") == outcome(
         monkeypatch, expression, "classic"
@@ -153,6 +154,7 @@ def test_same_result(vector_series, monkeypatch, expression):
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
+@pytest.mark.fixed_algebra
 def test_listed_differences_still_differ(vector_series, monkeypatch, expression):
     """A listed difference that no longer differs must leave the list"""
     core = outcome(monkeypatch, expression, "core")

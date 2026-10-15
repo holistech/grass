@@ -34,6 +34,7 @@ def test_empty_result_gives_a_warning(vector_series):
         ("warnbuffer = buff_a(aa, 1)", "Buffering areas"),
     ],
 )
+@pytest.mark.fixed_algebra
 def test_the_modules_run_quietly(vector_series, expression, message):
     """The progress of the modules does not drown the warnings of the tool"""
     # The classic algebra runs g.copy without --quiet, so this holds for the

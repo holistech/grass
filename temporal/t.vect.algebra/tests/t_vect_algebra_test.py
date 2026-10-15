@@ -123,6 +123,7 @@ def test_selection_picks_input_maps(vector_series, expression, expected_ids):
     ["aa {!:,during} wide", "aa {:,contains} wide"],
 )
 @pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
+@pytest.mark.fixed_algebra
 def test_selection_without_maps(vector_series, expression, classic, expected):
     """An empty result creates an empty dataset; the classic algebra creates
     no dataset (None)"""
@@ -193,6 +194,7 @@ def test_temporal_shift_and_snap(vector_series, expression, expected):
 
 
 @pytest.mark.parametrize("classic", [False, True])
+@pytest.mark.fixed_algebra
 def test_time_function_that_changes_nothing_registers_the_inputs(
     vector_series, classic
 ):
@@ -319,6 +321,7 @@ def test_overlay_maps_with_several_areas(vector_series, expression, expected_are
 
 
 @pytest.mark.parametrize(("classic", "expected_areas"), [(False, [1]), (True, [1, 0])])
+@pytest.mark.fixed_algebra
 def test_overlay_without_common_area(vector_series, classic, expected_areas):
     """ac1 & ab1: the square of ac1 at x=0 overlaps ab1, so one area remains.
     ac2 & ab2 do not overlap, so the overlay has no areas.
@@ -330,6 +333,7 @@ def test_overlay_without_common_area(vector_series, classic, expected_areas):
 
 
 @pytest.mark.parametrize(("classic", "expected_areas"), [(False, [1]), (True, [0, 1])])
+@pytest.mark.fixed_algebra
 def test_overlay_implicit_aggregation(vector_series, classic, expected_areas):
     """wide1 contains aa1 and aa2, so both are overlaid with it: c1 = w1 & a1 & a2.
 
@@ -425,6 +429,7 @@ def test_buffer_combined_with_overlay(vector_series):
 @pytest.mark.parametrize(
     ("classic", "expected_areas"), [(False, [1, 1]), (True, [1, 1, 0])]
 )
+@pytest.mark.fixed_algebra
 def test_buffers_combined_without_common_area(vector_series, classic, expected_areas):
     """The buffers of pa3 and aa3 do not meet: the point of pa3 nearest to
     aa3 (x 40 to 50, y 0 to 10) is (20, 30), 28.3 from the corner (40, 10),
@@ -532,6 +537,7 @@ def test_spatial_topology_flag_keeps_overlapping_maps(vector_series):
     assert counts(vector_series.session, "aa & ab", flags="s") == [1, 1]
 
 
+@pytest.mark.fixed_algebra
 def test_classic_flag_selects_the_classic_algebra(vector_series):
     """An empty result creates an empty dataset in the core and none in the
     classic algebra"""
@@ -604,6 +610,7 @@ def test_overwrite_replaces_result(vector_series):
 
 
 @pytest.mark.parametrize(("classic", "expected"), [(False, []), (True, None)])
+@pytest.mark.fixed_algebra
 def test_empty_selection_creates_an_empty_dataset(vector_series, classic, expected):
     """A selection without hits creates an empty result dataset, as in
     t.rast.algebra; the classic algebra leaves no dataset behind (None).
@@ -728,6 +735,7 @@ def test_blanks_in_overlay_operator(vector_series, expression):
     assert counts(vector_series.session, expression) == [1, 1]
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output(vector_series, capsys):
     """debug=True prints each module call as a command line"""
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=True, classic=False)
@@ -740,6 +748,7 @@ def test_debug_output(vector_series, capsys):
     assert "g.copy vector=aa1@PERMANENT,dbg_0" in capsys.readouterr().out
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_without_run(vector_series, capsys):
     """With run=False only the syntax is checked, so nothing is planned and
     debug=True prints nothing"""
@@ -749,6 +758,7 @@ def test_debug_output_without_run(vector_series, capsys):
 
 
 @pytest.mark.parametrize("run", [True, False])
+@pytest.mark.fixed_algebra
 def test_debug_output_of_the_classic_algebra(vector_series, capsys, run):
     """With debug=True the classic algebra prints the parsed rules, with or
     without running"""
@@ -757,6 +767,7 @@ def test_debug_output_of_the_classic_algebra(vector_series, capsys, run):
     assert "aa&ab" in capsys.readouterr().out
 
 
+@pytest.mark.fixed_algebra
 def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
     """overlay_cmd_value forwards to operator_cmd_value with the new arguments"""
     parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False, classic=True)
