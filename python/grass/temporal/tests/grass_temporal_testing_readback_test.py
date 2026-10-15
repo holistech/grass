@@ -106,7 +106,7 @@ def test_empty_dataset_gives_no_rows(tools):
 
 
 def test_unknown_type_is_refused(tools):
-    with pytest.raises(ValueError, match="raster"):
+    with pytest.raises(ValueError, match="Unknown dataset type"):
         list_maps(tools, "raster", "s")
 
 

@@ -48,19 +48,6 @@ def make_series():
     return make
 
 
-@pytest.fixture(params=("core", "classic"))
-def algebra_setting(request):
-    """Name of the algebra a test runs on, "core" or "classic"
-
-    Not autouse, so a directory chooses whether it runs on both algebras. One
-    that does writes an autouse fixture which requests this one and sets the
-    name in the session the tools use:
-    `session.env[ALGEBRA_VARIABLE] = algebra_setting`, with ALGEBRA_VARIABLE
-    from grass.temporal.algebra.parser.switch.
-    """
-    return request.param
-
-
 @pytest.fixture(scope="module")
 def temporal_module_session(tmp_path_factory):
     """Session in an XY project for a whole module, with grass.temporal usable
@@ -80,7 +67,10 @@ def temporal_exit_session(temporal_module_session):
     For tests that check the abort of the classic algebra with
     pytest.raises(SystemExit), the way the tools fail. temporal_session
     makes fatal errors raise FatalError instead and restores the mode of
-    before when the module ends.
+    before when the module ends. The session is shared, so a module that
+    requests this fixture must not also rely on raising errors in the tests
+    of temporal_module_session: once requested, the exit mode stays on for
+    the rest of the module.
     """
     tgis.set_raise_on_error(False)
     return temporal_module_session
@@ -110,11 +100,12 @@ def cached_io(request, io_cache_storage):
     Replaces two IO calls that give the same answer all through a module: the
     list of mapsets with a temporal database (a t.connect run per database
     connection) and the --interface-description of a tool (a tool run per
-    pygrass Module). The real IO stays in tests marked real_io: the
-    tool-subprocess tests, the search path and discovery tests and the
-    session tests, and in
+    pygrass Module). The real IO stays in tests marked real_io (search
+    path, discovery, session start and init) and in
     python/grass/temporal/tests/grass_temporal_testing_fakes_test.py, which
-    compares every cached answer with the real one. Comparisons of two
+    compares every cached answer with the real one. A tool started as a
+    subprocess is never affected by the caches, marked or not, because they
+    live in the test process. Comparisons of two
     implementations (core against classic) run with real raster and
     database IO and get these two caches, which both sides receive alike.
     Fixtures of module scope are set up before this one and therefore use
