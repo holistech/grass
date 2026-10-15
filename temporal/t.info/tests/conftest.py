@@ -31,11 +31,11 @@ def temporal_data(tmp_path_factory):
         tools = Tools(session=session)
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10, tbres=10)
 
-        # Maps with constant values keep the min and max metadata predictable.
         months = intervals(3)
         # The history test reads the t.register call back, so this dataset is
         # registered with the maps= list and the -i flag, which register_stds
         # does not write.
+        # Maps with constant values keep the min and max metadata predictable.
         for i in range(1, 4):
             make_map(tools, "raster", f"prec_{i}", i)
         tools.t_create(

@@ -26,7 +26,7 @@ ABSOLUTE_ARCHIVE_SPECS = [
     ("AAIGrid", "bzip2", "aaigrid_bz2.tar.bz2"),
 ]
 
-# (start month, end month) of 2001 for prec_1 to prec_6
+# Start and end month of 2001 for prec_1 to prec_6.
 ABSOLUTE_MONTHS = [(1, 7), (2, 4), (3, 4), (4, 6), (5, 6), (6, 7)]
 
 RELATIVE_ARCHIVE_SPECS = [
