@@ -2178,15 +2178,7 @@ class TemporalAlgebraParser:
         """
         tfunc = gvar.tfunc.upper()
         for map_i in maplist:
-            tfuncval = self.get_temporal_func_dict(map_i)[tfunc]
-            if tfuncval is None:
-                self.msgr.fatal(
-                    _(
-                        "Temporal function {func}() is not available for map <{map}>."
-                        " It requires absolute time, end time functions also an end"
-                        " time."
-                    ).format(func=gvar.tfunc, map=map_i.get_id())
-                )
+            tfuncval = self._temporal_function_value(gvar.tfunc, map_i)
             # The literal has to have the same type as the function value,
             # otherwise the comparison fails or, for ==, is always False.
             value = self._literal_like(tfunc, gvar.value)
@@ -2194,6 +2186,23 @@ class TemporalAlgebraParser:
                 map_i, self.compare_values(tfuncval, gvar.compop, value)
             )
         return maplist
+
+    def _temporal_function_value(self, function, map_i):
+        """Return the value of a temporal function such as end_month for the map
+
+        :raises FatalError: if the map has no such value, which is the case for
+                            relative time and for end functions of an instant
+        """
+        value = self.get_temporal_func_dict(map_i)[function.upper()]
+        if value is None:
+            self.msgr.fatal(
+                _(
+                    "Temporal function {func}() is not available for map <{map}>."
+                    " It requires absolute time, end time functions also an end"
+                    " time."
+                ).format(func=function, map=map_i.get_id())
+            )
+        return value
 
     @staticmethod
     def _literal_like(tfunc, value):
@@ -3407,7 +3416,7 @@ class TemporalAlgebraParser:
             map_n = map_list[neighbour_index]
             map_new = self.generate_new_map(map_n, bool_op="and", copy=True)
             map_new.set_temporal_extent(map_i.get_temporal_extent())
-            map_new.cmd_list = str(self.get_temporal_func_dict(map_n)[function.upper()])
+            map_new.cmd_list = str(self._temporal_function_value(function, map_n))
             result_list.append(map_new)
         return result_list
 

@@ -5,6 +5,7 @@ The datasets are described in the time_series fixture in conftest.py.
 
 import pytest
 
+from grass.exceptions import FatalError
 from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
 from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
@@ -223,6 +224,50 @@ def test_tshift_with_a_refused_increment_inside_an_expression(algebra):
         run_reference(
             "raster",
             'R = A + tshift(A, "1 DAY")',
+            basename="r",
+            overwrite=True,
+            run=True,
+        )
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    "expression",
+    [
+        # End functions of time instants and any function of relative time
+        "end_month(I, 0)",
+        "end_month(E, 0)",
+        "start_month(RT, 0)",
+        "A + end_month(I, 0)",
+        "A + start_month(RT, 1)",
+    ],
+)
+def test_time_constant_with_offset_needs_absolute_time(algebra, expression):
+    """A temporal function of a neighbour map is refused where the map has no
+    such value, like the same function in a condition. It was written as None
+    into the r.mapcalc expression, which failed when the maps were computed.
+
+    Checked on the earlier implementation only: the core raises a ValueError
+    with its own message for the same expressions.
+    """
+    algebra.remove("R")
+    with pytest.raises(FatalError, match="requires absolute time"):
+        run_reference(
+            "raster", f"R = {expression}", basename="r", overwrite=True, run=True
+        )
+    assert not algebra.exists()
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("condition", ["end_month(I) == 1", "start_month(RT) == 1"])
+def test_time_function_in_a_condition_needs_absolute_time(algebra, condition):
+    """The condition form, which the offset form is measured against"""
+    stds = condition.split("(")[1].split(")")[0]
+    algebra.remove("R")
+    with pytest.raises(FatalError, match="requires absolute time"):
+        run_reference(
+            "raster",
+            f"R = if({condition}, {stds})",
             basename="r",
             overwrite=True,
             run=True,
