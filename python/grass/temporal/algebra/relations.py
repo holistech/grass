@@ -7,7 +7,7 @@ finished, as the topology builder of grass.temporal defines them. precedes
 and follows are adjacent intervals; intervals with a gap have no relation.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from grass.temporal.spatio_temporal_relationships import SpatioTemporalTopologyBuilder
 
@@ -66,16 +66,23 @@ class Relation:
     is None if only time relates two slots. Otherwise two slots must also
     have a spatial relation, one of the set if it is not empty. Boxes that
     share only a corner have none.
+
+    written lists the temporal names in the order and with the repetitions
+    of the text the relation was read from. A set has no order, but
+    related(order="written") needs one. It is no part of the identity of a
+    relation: "during|equal" and "equal|during" are equal.
     """
 
     temporal: frozenset
     spatial: frozenset | None = None
+    written: tuple = field(default=(), compare=False, repr=False)
 
     def __post_init__(self):
         if isinstance(self.temporal, str) or isinstance(self.spatial, str):
             msg = "The names of a relation are a set of strings, not a string"
             raise TypeError(msg)
         object.__setattr__(self, "temporal", frozenset(self.temporal))
+        object.__setattr__(self, "written", tuple(self.written))
         if self.spatial is not None:
             object.__setattr__(self, "spatial", frozenset(self.spatial))
         unknown = self.temporal - set(TEMPORAL_RELATIONS)
@@ -83,6 +90,9 @@ class Relation:
             unknown |= self.spatial - set(SPATIAL_RELATIONS)
         if unknown:
             msg = f"Unknown relations: {', '.join(sorted(unknown))}"
+            raise ValueError(msg)
+        if self.written and set(self.written) != self.temporal:
+            msg = "The written names of a relation must be its temporal names"
             raise ValueError(msg)
         if not self.temporal:
             if self.spatial:
@@ -101,7 +111,14 @@ class Relation:
             spatial = None
         else:
             spatial = (self.spatial or frozenset()) | (other.spatial or frozenset())
-        return Relation(self.temporal | other.temporal, spatial)
+        written = (
+            (*self.names(), *other.names()) if self.written or other.written else ()
+        )
+        return Relation(self.temporal | other.temporal, spatial, written)
+
+    def names(self):
+        """The temporal names in written order, sorted if none was written"""
+        return self.written or tuple(sorted(self.temporal))
 
     def __str__(self):
         return "|".join(sorted(self.temporal | (self.spatial or frozenset())))
@@ -111,14 +128,15 @@ def relation(text, *, spatial=False):
     """Return the relation of names joined with ``|``, e.g. ``during|starts``
 
     Spatial names in the text, or spatial=True, make space count. The text
-    needs at least one temporal name.
+    needs at least one temporal name. The temporal names are kept in written
+    order, see Relation.written.
     """
-    names = {name.strip().lower() for name in text.split("|") if name.strip()}
-    temporal = names & set(TEMPORAL_RELATIONS)
-    spatial_names = names - temporal
+    names = [name.strip().lower() for name in text.split("|") if name.strip()]
+    written = tuple(name for name in names if name in TEMPORAL_RELATIONS)
+    spatial_names = set(names) - set(written)
     if spatial_names or spatial:
-        return Relation(temporal, spatial_names)
-    return Relation(temporal)
+        return Relation(set(written), spatial_names, written)
+    return Relation(set(written), None, written)
 
 
 def inverse(relation_):
@@ -134,6 +152,7 @@ def inverse(relation_):
     return Relation(
         frozenset(_INVERSE[name] for name in relation_.temporal),
         None if spatial is None else frozenset(_INVERSE[name] for name in spatial),
+        tuple(_INVERSE[name] for name in relation_.written),
     )
 
 
@@ -151,7 +170,10 @@ def _partners(topology, names, index):
     }
 
 
-def related(left, relation_, other, *, dimension="2D"):
+ORDERS = ("sorted", "written")
+
+
+def related(left, relation_, other, *, dimension="2D", order="sorted", unique=True):
     """Return, per slot l of left, the indices of the slots x of other with
     "l R x", in the order of other
 
@@ -159,7 +181,18 @@ def related(left, relation_, other, *, dimension="2D"):
     :param other: sequence of slots
     :param dimension: "2D" relates the spatial extents as rectangles, "3D"
         as boxes; only used if the relation has a spatial part
+    :param order: "sorted" lists the partners in the order of other;
+        "written" lists those of the first temporal name of the relation
+        (Relation.written) first, in the order of other, then those of the
+        second name, and so on, as the classic algebra visits them
+    :param unique: False lists a partner once for every written name that
+        relates it, so a name written twice lists its partners twice; True
+        lists each partner once, at its first position
+    :raises ValueError: for an unknown order
     """
+    if order not in ORDERS:
+        msg = f"order must be one of {', '.join(ORDERS)}, got {order!r}"
+        raise ValueError(msg)
     for slot in (*left, *other):
         if slot.extent is None:
             msg = "A map without time stamp has no temporal relation"
@@ -181,17 +214,34 @@ def related(left, relation_, other, *, dimension="2D"):
         other_maps,
         spatial=None if relation_.spatial is None else dimension,
     )
+    names = relation_.names()
     result = []
     for map_ in left_maps:
-        found = _partners(map_.get_temporal_relations(), relation_.temporal, index)
-        # The search of the builder also finds boxes that share only a corner,
-        # which have no spatial relation. Without names any spatial relation
-        # is required, as in the classic algebra.
+        temporal = map_.get_temporal_relations()
+        spatial = None
         if relation_.spatial is not None:
-            names = relation_.spatial or SPATIAL_RELATIONS
-            found &= _partners(map_.get_spatial_relations(), names, index)
-        result.append(sorted(found))
+            # The search of the builder also finds boxes that share only a
+            # corner, which have no spatial relation. Without names any
+            # spatial relation is required, as in the classic algebra.
+            spatial = _partners(
+                map_.get_spatial_relations(),
+                relation_.spatial or SPATIAL_RELATIONS,
+                index,
+            )
+        groups = []
+        for name in names:
+            found = _partners(temporal, (name,), index)
+            groups.append(sorted(found if spatial is None else found & spatial))
+        result.append(_listed(groups, order, unique))
     return result
+
+
+def _listed(groups, order, unique):
+    """Join the partners of the single names into the list of one slot"""
+    joined = [partner for group in groups for partner in group]
+    if unique:
+        joined = list(dict.fromkeys(joined))
+    return sorted(joined) if order == "sorted" else joined
 
 
 equal = Relation(frozenset({"equal"}))
