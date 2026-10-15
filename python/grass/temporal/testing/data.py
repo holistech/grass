@@ -137,11 +137,12 @@ def register_stds(
     unit=None,
     via="tool",
     title=None,
+    description=None,
     overwrite=False,
 ):
     """Create the dataset name and register maps, an iterable of MapSpec
 
-    The maps must exist. unit is required for relative time. via="tool" uses
+    The maps must exist. description defaults to the title. unit is required for relative time. via="tool" uses
     t.create and t.register with a file; via="library" uses open_new_stds()
     and register_maps_in_space_time_dataset() in this process and needs
     temporal_session(). Both give the same dataset. With overwrite an
@@ -159,6 +160,7 @@ def register_stds(
     maps = list(maps)
     map_type = _MAP_TYPE[stds_type]
     title = name if title is None else title
+    description = title if description is None else description
     if temporaltype == "relative" and unit is None:
         msg = "A relative time dataset needs a unit"
         raise ValueError(msg)
@@ -168,7 +170,7 @@ def register_stds(
             output=name,
             temporaltype=temporaltype,
             title=title,
-            description=title,
+            description=description,
             overwrite=overwrite,
         )
         if maps:
@@ -189,7 +191,13 @@ def register_stds(
                 )
     elif via == "library":
         tgis.open_new_stds(
-            name, stds_type, temporaltype, title, title, "mean", overwrite=overwrite
+            name,
+            stds_type,
+            temporaltype,
+            title,
+            description,
+            "mean",
+            overwrite=overwrite,
         )
         for spec in maps:
             options = (

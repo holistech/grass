@@ -203,3 +203,41 @@ def test_registering_twice_with_overwrite(tools, via):
     assert [row.name for row in list_maps(tools, "strds", f"ow_{via}")] == [
         f"ow_{via}_1"
     ]
+
+
+@pytest.mark.needs_solo_run
+@pytest.mark.parametrize("via", ["tool", "library"])
+def test_description_defaults_to_title_and_can_be_set(tools, via):
+    create_stds(
+        tools,
+        "strds",
+        f"desc_{via}_default",
+        [MapSpec(f"desc_{via}_1", 1, day(0), day(1))],
+        via=via,
+        title="A title",
+    )
+    create_stds(
+        tools,
+        "strds",
+        f"desc_{via}_given",
+        [MapSpec(f"desc_{via}_2", 1, day(0), day(1))],
+        via=via,
+        title="A title",
+        description="Another text",
+    )
+
+    default = _field(tools, f"desc_{via}_default", "Description:")
+    given = _field(tools, f"desc_{via}_given", "Description:")
+
+    assert default == "A title"
+    assert given == "Another text"
+    assert _field(tools, f"desc_{via}_given", "Title:") == "A title"
+
+
+def _field(tools, name, label):
+    """The line that t.info prints below the heading label of a strds"""
+    lines = [
+        line.strip(" |")
+        for line in tools.t_info(type="strds", input=name).text.splitlines()
+    ]
+    return lines[lines.index(label) + 1]
