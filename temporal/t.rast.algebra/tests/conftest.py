@@ -487,11 +487,12 @@ def cached_io(request, io_cache_storage):
     Replaces two IO calls that give the same answer all through a module: the
     list of mapsets with a temporal database (a t.connect run per database
     connection) and the --interface-description of a tool (a tool run per
-    pygrass Module). The real IO stays in tests marked real_io: the
-    tool-subprocess tests, the search path and discovery tests and the
-    session tests, and in
+    pygrass Module). The real IO stays in tests marked real_io (search
+    path, discovery, session start and init) and in
     python/grass/temporal/tests/grass_temporal_testing_fakes_test.py, which
-    compares every cached answer with the real one. Comparisons of two
+    compares every cached answer with the real one. A tool started as a
+    subprocess is never affected by the caches, marked or not, because they
+    live in the test process. Comparisons of two
     implementations (core against classic) run with real raster and
     database IO and get these two caches, which both sides receive alike.
     Fixtures of module scope are set up before this one and therefore use
