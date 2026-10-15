@@ -67,7 +67,7 @@ INTERVALS = {
 }
 
 # Map type that each dataset type holds
-KINDS = {"strds": "raster", "stvds": "vector", "str3ds": "raster_3d"}
+KINDS = ("strds", "stvds", "str3ds")
 
 # Tests that skip themselves on the classic algebra. They are the only ones in
 # this directory that "-m fixed_algebra" has to leave out, see
@@ -162,7 +162,7 @@ def pytest_collection_modifyitems(items):
 
     Every test here does, by the fixture above or in its own body, except the
     classic variants that skip themselves: "-m fixed_algebra" collects
-    the 371 tests that pass. A hook is used because a module-level mark would
+    the tests that run. A hook is used because a module-level mark would
     include the skipped ones. Called with the items of the whole session, so
     only the items below this directory are touched.
     """
