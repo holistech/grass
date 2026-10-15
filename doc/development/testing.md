@@ -230,6 +230,40 @@ itself and so runs once whatever `GRASS_TEMPORAL_ALGEBRA` says. A run
 that wants every test once, such as the classic run, selects with
 `-m "not fixed_algebra"`.
 
+### Real and cached IO in library tests
+
+Tests of the library mock the slow IO that always gives the same answer, where
+a comparison with real IO shows that the mock is faithful. Tests of the IO
+itself and tests of the tools (end to end) run with real IO. Comparisons of two
+implementations run with real raster and database IO; they still get the
+cached mapset list and tool descriptions, which both sides receive alike.
+
+Two such caches exist, in `grass.temporal.testing.fakes`. The directories
+`python/grass/temporal/tests` and `temporal/t.*.algebra/tests` apply them to
+every test through an autouse fixture in their `conftest.py`. Fixtures of
+module scope are set up before that fixture and therefore use the real IO:
+
+- the list of mapsets with a temporal database, which
+  `grass.temporal.core.get_available_temporal_mapsets` otherwise asks
+  _t.connect_ for each time a database connection is opened;
+- the `--interface-description` of a tool, which pygrass otherwise reads by
+  starting the tool each time a `Module` is created.
+
+Both keys contain the content of the `GISRC` file, because the current mapset,
+the search path and options such as `NPROCS` are stored there. The test
+`grass_temporal_testing_fakes_test.py` compares each cached answer with the
+real one across another project, a changed search path, a changed `NPROCS` and
+a database created by a subprocess, and shows with weaker keys that the
+comparison would see a stale answer. A test, or a whole module, that checks the
+search path, the discovery of databases, the start of a session or a tool run
+as a subprocess carries `@pytest.mark.real_io`, which switches the caches off.
+Use it for every test whose subject is the IO that is cached.
+
+Creating the test projects on a tmpfs shortens a run further: with `TMPDIR`
+(or `--basetemp`) below `/dev/shm`, `t_rast_algebra_semantics_test.py` and
+`temporal_algebra_core_materialize_test.py` together ran 11 % faster
+(measured 2026-10-15, wall time of one run each, `TMPDIR` unset against set).
+
 ## More information
 
 - [grass.gunittest documentation](https://grass.osgeo.org/grass-devel/manuals/libpython/gunittest_testing.html)
