@@ -628,6 +628,21 @@ def test_overlay_of_maps_without_areas_reports_error(vector_series):
         run_algebra(vector_series.session, "pc & pc")
 
 
+@pytest.mark.parametrize("classic", [False, True])
+@pytest.mark.parametrize("expression", ["buff_p(aa, 1) ^ ac", "buff_p(ac, 2) & aa"])
+@pytest.mark.fixed_algebra
+def test_overlay_with_an_empty_intermediate_map_drops_the_result(
+    vector_series, expression, classic
+):
+    """buff_p() of a map without points leaves a map whose number of areas
+    is unknown (None) rather than 0. v.overlay cannot work on it, so the
+    result is dropped with a warning like for any other map without areas,
+    and the run neither fails nor registers a map.
+    """
+    name = run_algebra(vector_series.session, expression, classic=classic)
+    assert not list_maps(vector_series.session, name)
+
+
 # Errors
 
 

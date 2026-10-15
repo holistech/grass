@@ -334,7 +334,9 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
                 )
                 return False
             vector.load()
-            if vector.metadata.get_number_of_areas() == 0:
+            # A map that v.buffer left without features has no number of
+            # areas at all (None), which counts as no area like 0 does.
+            if not vector.metadata.get_number_of_areas():
                 if not intermediate:
                     self.msgr.fatal(
                         _("Vector map <{}> has no areas, v.overlay needs areas").format(
