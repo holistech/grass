@@ -198,7 +198,7 @@ Which session to use depends on how the test reaches GRASS:
   restores `os.environ`, the raise-on-error flag of the library and the
   error mode of the messenger; the database connection and mapset that
   `tgis.init()` binds stay bound until the next `init()`. The fixture
-  `temporal_module_session` provides it. Such a test
+  `temporal_module_session` provides it. A new test of this kind
   carries `@pytest.mark.needs_solo_run`, as described above.
 
 Each test module gets its own session, also when several directories run in
@@ -217,18 +217,18 @@ from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
 
 @pytest.fixture(autouse=True)
-def algebra(session, algebra_setting):
-    session.env[ALGEBRA_VARIABLE] = algebra_setting
+def algebra(xy_module_session, algebra_setting):
+    xy_module_session.env[ALGEBRA_VARIABLE] = algebra_setting
     yield algebra_setting
-    session.env.pop(ALGEBRA_VARIABLE, None)
+    xy_module_session.env.pop(ALGEBRA_VARIABLE, None)
 ```
 
-A test which selects the algebra itself, for example by running both and
-comparing them, carries `@pytest.mark.fixed_algebra`. The marker only
-labels the test; it does not select anything. The test picks its algebra
-itself and so runs once whatever `GRASS_TEMPORAL_ALGEBRA` says. A run
-that wants every test once, such as the classic run, selects with
-`-m "not fixed_algebra"`.
+In a directory whose tools read `GRASS_TEMPORAL_ALGEBRA`, a test which selects
+the algebra itself, for example by running both and comparing them, carries
+`@pytest.mark.fixed_algebra`. The marker only labels the test; it does not
+select anything. The test picks its algebra itself and so runs once whatever
+`GRASS_TEMPORAL_ALGEBRA` says. A run that wants every test once, such as the
+classic run, selects with `-m "not fixed_algebra"`.
 
 ### Real and cached IO in library tests
 
@@ -251,18 +251,15 @@ module scope are set up before that fixture and therefore use the real IO:
 
 Both keys contain the content of the `GISRC` file, because the current mapset,
 the search path and options such as `NPROCS` are stored there. The test
-`grass_temporal_testing_fakes_test.py` compares each cached answer with the
-real one across another project, a changed search path, a changed `NPROCS` and
-a database created by a subprocess, and shows with weaker keys that the
-comparison would see a stale answer. A test, or a whole module, that checks the
-search path, the discovery of databases, the start of a session or a tool run
-as a subprocess carries `@pytest.mark.real_io`, which switches the caches off.
-Use it for every test whose subject is the IO that is cached.
-
-Creating the test projects on a tmpfs shortens a run further: with `TMPDIR`
-(or `--basetemp`) below `/dev/shm`, `t_rast_algebra_semantics_test.py` and
-`temporal_algebra_core_materialize_test.py` together ran 11 % faster
-(measured 2026-10-15, wall time of one run each, `TMPDIR` unset against set).
+`grass_temporal_testing_fakes_test.py` compares each cached answer with the real
+one across another project, a changed search path, a changed `NPROCS` and a
+database created by a subprocess, and shows with weaker keys that the comparison
+would see a stale answer. A test, or a whole module, that checks the search
+path, the discovery of databases or the start of a session carries
+`@pytest.mark.real_io`, which switches the caches off. Use it for every test
+whose subject is the IO that is cached. A tool started as a subprocess never
+sees the caches, because they live in the test process; the marker matters only
+for the in-process part of such a test.
 
 ## More information
 
