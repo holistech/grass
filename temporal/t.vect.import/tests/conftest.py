@@ -4,12 +4,11 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 VECTOR_NAMES = ["soil_1", "soil_2", "soil_3"]
@@ -34,13 +33,11 @@ def stvds_session(tmp_path_factory):
     """
     tmp_path = tmp_path_factory.mktemp("t_vect_import")
     project = tmp_path / "test"
-    gs.create_project(project)
     archive_dir = tmp_path / "archives"
     archive_dir.mkdir()
 
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
         for i, name in enumerate(VECTOR_NAMES, start=1):
             tools.v_random(
