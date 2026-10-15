@@ -45,6 +45,20 @@ NAMES = {
     },
 }  # fmt: skip
 
+# The granularity mode (-g) needs a common granularity, so these datasets have
+# absolute intervals of whole days only (no instants, no relative time).
+GRANULARITY_NAMES = {
+    "raster": {
+        "A": 10, "N": 4, "B": 6, "C": 4, "D": 5, "Z": 3, "AF": 3, "W": 3,
+        "OV": 3, "GP": 3, "HA": 2, "HB": 2,
+    },
+    "raster3d": {"A": 10, "B": 6, "W": 4, "D": 3, "Z": 3, "EQ": 3},
+}  # fmt: skip
+
+GRANULARITY_FAMILY = {"raster": ["A", "N", "Z", "AF"], "raster3d": ["A", "B", "Z"]}
+
+GRANULARITY_SINGLE = {"raster": ["singletmap"], "raster3d": ["single"]}
+
 FAMILY = {
     "raster": ["A", "N", "Z", "AF"],
     "select": ["A", "N", "Z", "AF"],

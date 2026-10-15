@@ -17,7 +17,14 @@ from __future__ import annotations
 import random
 import re
 
-from .expressions_data import FAMILY, NAMES, SINGLE
+from .expressions_data import (
+    FAMILY,
+    GRANULARITY_FAMILY,
+    GRANULARITY_NAMES,
+    GRANULARITY_SINGLE,
+    NAMES,
+    SINGLE,
+)
 
 KINDS = ("raster", "raster3d", "vector", "select")
 
@@ -45,10 +52,16 @@ class Generator:
     so that both sides must reject them.
     """
 
-    def __init__(self, kind, rng):
+    def __init__(self, kind, rng, *, granularity=False):
         self.kind = kind
         self.rng = rng
-        names = NAMES[kind]
+        # The granularity mode refuses temporal operators and relations
+        # (setup_common_granularity), so none are written, and it needs the
+        # datasets of whole days.
+        self.granularity = granularity
+        self.family = GRANULARITY_FAMILY[kind] if granularity else FAMILY[kind]
+        self.single = GRANULARITY_SINGLE[kind] if granularity else SINGLE[kind]
+        names = GRANULARITY_NAMES[kind] if granularity else NAMES[kind]
         self.names = list(names)
         self.weights = list(names.values())
 
@@ -60,7 +73,7 @@ class Generator:
 
     def name(self):
         if self.r() < 0.4:
-            return self.pick(FAMILY[self.kind])
+            return self.pick(self.family)
         return self.rng.choices(self.names, self.weights)[0]
 
     def number(self):
@@ -79,6 +92,8 @@ class Generator:
         return "|".join(self.pick(TEMPORAL + ("over",)) for _ in range(count))
 
     def operator(self, symbol, *, ref=True, agg=False):
+        if self.granularity:
+            return symbol
         parts = [symbol, self.relations()]
         if ref and self.r() < 0.6:
             parts.append(self.pick("lruid"))
@@ -112,7 +127,7 @@ class Generator:
         if x < 0.9:
             return self.name()
         if x < 0.96:
-            return f"tmap({self.pick(SINGLE[self.kind])})"
+            return f"tmap({self.pick(self.single)})"
         if self.kind not in {"vector", "select"}:
             return f"{self.name()}[{self.pick(('1', '-1', '2', '0'))}]"
         return self.name()
@@ -240,7 +255,7 @@ class Generator:
 
     def if_(self, d):
         relation = "{" + self.relations() + "}"
-        with_relation = self.r() < 0.35
+        with_relation = not self.granularity and self.r() < 0.35
         condition = self.condition(max(d, 0))
         head = f"if({relation}, {condition}" if with_relation else f"if({condition}"
         if self.kind not in {"vector", "select"} and self.r() < 0.15:
@@ -296,7 +311,7 @@ class Generator:
         )
 
 
-def generate(kind, seed, *, depth=3, spatial_share=0.1):
+def generate(kind, seed, *, depth=3, spatial_share=0.1, granularity_share=0.0):
     """Return the expression and the parser options of one seed
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
@@ -304,14 +319,29 @@ def generate(kind, seed, *, depth=3, spatial_share=0.1):
         same result, independent of the Python hash seed
     :param depth: Largest nesting depth of the expression
     :param spatial_share: Share of the seeds that run with ``spatial=True``
+    :param granularity_share: Share of the seeds that run in the granularity
+        mode (-g), for the kinds ``"raster"`` and ``"raster3d"``. Such a seed
+        draws from other datasets and writes no temporal operators. Whether a
+        seed is one is drawn from its own random stream, so a share of 0 (the
+        default) leaves every other seed as it was.
     :return: ``(expression, options)``. The expression is the right hand side
         of a statement. The options are keyword arguments for the runner:
-        ``register_null`` (random for raster kinds) and ``spatial``.
+        ``register_null`` (random for raster kinds), ``spatial`` and
+        ``granularity``.
+    :raises ValueError: for a granularity share above 0 with a kind that has
+        no granularity mode
     """
     if kind not in NAMES:
         msg = f"kind is one of {', '.join(KINDS)}, not {kind!r}"
         raise ValueError(msg)
-    generator = Generator(kind, random.Random(f"{kind}:{seed}"))
+    granularity = False
+    if granularity_share > 0:
+        if kind not in GRANULARITY_NAMES:
+            msg = f"The granularity mode is generated for {', '.join(GRANULARITY_NAMES)}, not {kind!r}"
+            raise ValueError(msg)
+        granularity = random.Random(f"gran:{kind}:{seed}").random() < granularity_share
+    stream = f"{kind}:gran:{seed}" if granularity else f"{kind}:{seed}"
+    generator = Generator(kind, random.Random(stream), granularity=granularity)
     expression = generator.expr(generator.rng.randint(1, depth), top=True)
     rng = random.Random(f"opts:{kind}:{seed}")
     options = {}
@@ -319,6 +349,8 @@ def generate(kind, seed, *, depth=3, spatial_share=0.1):
         options["register_null"] = rng.random() < 0.5
     if rng.random() < spatial_share:
         options["spatial"] = True
+    if granularity:
+        options["granularity"] = True
     return expression, options
 
 

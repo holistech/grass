@@ -2,21 +2,21 @@
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
 run on two implementations of the algebra, and the registered maps must agree.
-Until the classic profile of the core exists, the first and the second are both
-the earlier implementation (SECOND below): that must give 0 differences and
-shows that the fuzzer sees no difference where there is none. The test of the
-listed differences shows that it sees one where there is one: the expressions
-of the differential test of this directory, run on the reference and on the
-core.
+Which two is set in one place, DIFFERENTIAL in that module. Until the classic
+profile of the core exists both are the earlier implementation: that must give
+0 differences and shows that the fuzzer sees no difference where there is none.
+The test of the listed differences shows that it sees one where there is one:
+the expressions of the differential test of this directory, run on the
+reference and on the core.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
 grass.temporal.testing.expressions. The tests carry slow, because the seeds
-cost seconds, and fixed_algebra, because they choose their runner themselves.
+cost seconds, and fixed_algebra, because they choose their runners themselves.
 
-Normal run: 38.1 s for 275 tests, measured 2026-10-15 with
+Normal run: 50.8 s for 327 tests, measured 2026-10-15 with
 `python3 -m pytest -p no:cacheprovider -q <this file>`, including the creation of the
-datasets (one run; other agents used the machine at the same time).
+datasets.
 """
 
 import pytest
@@ -25,7 +25,9 @@ from grass.temporal.testing import fakes
 from grass.temporal.testing.expressions import (
     RUNNERS,
     boundary_forms,
-    compare,
+    check_agreement,
+    check_difference_seen,
+    check_seed,
     generate,
     outcome,
     prepare,
@@ -33,8 +35,6 @@ from grass.temporal.testing.expressions import (
 )
 
 KIND = "raster"
-FIRST = RUNNERS["reference"]
-SECOND = RUNNERS["reference"]
 
 pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 
@@ -57,49 +57,71 @@ LISTED = [
 ]
 
 
+# The same for the granularity mode (-g).
+LISTED_GRANULARITY = ["if(B > 5, A)"]
+GRANULARITY_SEEDS = range(50)
+
+
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
-    """Create the datasets of the fuzzer in the session of the module"""
-    return prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("fuzz"))
+    """Create the datasets of the fuzzer, then switch on the test-only caches
 
-
-@pytest.fixture(scope="module")
-def io_cache_storage():
-    """Answers of the test-only caches, shared by the tests of one module"""
-    return fakes.CacheStorage()
+    The caches of grass.temporal.testing.fakes serve both runners alike. They
+    start after the creation of the datasets, which runs with real IO.
+    """
+    prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("fuzz"))
+    with fakes.cached_io(fakes.CacheStorage()):
+        yield
 
 
 @pytest.fixture(autouse=True)
-def cached_io(datasets, io_cache_storage):
-    """Both runners get the caches of grass.temporal.testing.fakes alike"""
-    with fakes.cached_io(io_cache_storage):
-        yield
+def cached_io(datasets):
+    """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
 @pytest.mark.parametrize("seed", seed_range())
 def test_runners_agree(datasets, seed):
-    expression, options = generate(KIND, seed)
-    first = outcome(KIND, expression, FIRST, basename="fa", **options)
-    second = outcome(KIND, expression, SECOND, basename="fb", **options)
-    assert compare(KIND, expression, first, second) is None, f"seed {seed}"
+    check_seed(KIND, seed)
 
 
 @pytest.mark.parametrize("expression", boundary_forms(KIND))
 def test_runners_agree_on_boundary_forms(datasets, expression):
-    options = {"register_null": True} if KIND in {"raster", "raster3d"} else {}
-    first = outcome(KIND, expression, FIRST, basename="fa", **options)
-    second = outcome(KIND, expression, SECOND, basename="fb", **options)
-    assert compare(KIND, expression, first, second) is None
+    check_agreement(
+        KIND,
+        expression,
+        **({"register_null": True} if KIND in {"raster", "raster3d"} else {}),
+    )
 
 
 @pytest.mark.parametrize("expression", LISTED)
 def test_compare_sees_a_listed_difference(datasets, expression):
-    options = {"register_null": True}
-    first = outcome(KIND, expression, RUNNERS["reference"], basename="fa", **options)
-    second = outcome(KIND, expression, RUNNERS["core"], basename="fb", **options)
-    assert compare(KIND, expression, first, second) is not None
+    check_difference_seen(
+        KIND,
+        expression,
+        **({"register_null": True} if KIND in {"raster", "raster3d"} else {}),
+    )
+
+
+@pytest.mark.parametrize("seed", GRANULARITY_SEEDS)
+def test_runners_agree_in_granularity_mode(datasets, seed):
+    check_seed(KIND, seed, granularity_share=1.0)
+
+
+@pytest.mark.parametrize("expression", LISTED_GRANULARITY)
+def test_compare_sees_a_listed_difference_in_granularity_mode(datasets, expression):
+    check_difference_seen(KIND, expression, register_null=True, granularity=True)
+
+
+def test_granularity_mode_reaches_the_runner(datasets):
+    """The option must not end as an error of the parser, equal on both sides"""
+    result = outcome(
+        KIND, "A + B", RUNNERS["reference"], basename="fa", granularity=True
+    )
+    assert result["stds"]
+    assert result["maps"]
 
 
 def test_same_seed_gives_the_same_expression():
     assert generate(KIND, 17) == generate(KIND, 17)
     assert generate(KIND, 17) != generate(KIND, 18)
+    assert generate(KIND, 17, granularity_share=1.0)[1]["granularity"]

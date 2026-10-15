@@ -84,6 +84,43 @@ def reference_parser(kind, **options):
     return parser
 
 
+def setup_granularity(parser, kind, expression):
+    """Sample the datasets of an expression with their common granularity
+
+    Does what the granularity mode (-g) of t.rast.algebra and t.rast3d.algebra
+    does before ``parse()``: ``parser.setup_common_granularity`` with the lexer
+    and dataset type of the kind. It works on the classic parser classes and on
+    the switching classes alike, so the algebra core can be run in the mode
+    too.
+
+    :param parser: A parser of ``reference_parser`` or a parser class instance
+    :param kind: ``"raster"``, ``"raster3d"`` or ``"vector"``; the tool for
+        vector maps has no such mode, the parser has
+    :param expression: The whole statement, ``"R = A + B"``
+    :raises FatalError: when no common granularity exists (the tool stops with
+        "Unable to process the expression in granularity algebra mode")
+    :raises ValueError: for kind ``"select"``, which has no such mode
+    """
+    from grass.exceptions import FatalError
+    from grass.temporal.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
+    from grass.temporal.temporal_vector_algebra import TemporalVectorAlgebraLexer
+
+    if kind == "raster":
+        arguments = {"stdstype": "strds", "lexer": TemporalRasterAlgebraLexer()}
+    elif kind == "raster3d":
+        arguments = {"stdstype": "str3ds", "lexer": TemporalRasterAlgebraLexer()}
+    elif kind == "vector":
+        arguments = {"stdstype": "stvds", "lexer": TemporalVectorAlgebraLexer()}
+    else:
+        msg = (
+            f"The granularity mode exists for raster, raster3d and vector, not {kind!r}"
+        )
+        raise ValueError(msg)
+    if not parser.setup_common_granularity(expression=expression, **arguments):
+        msg = "Unable to process the expression in granularity algebra mode"
+        raise FatalError(msg)
+
+
 def run_reference(kind, expression, *, basename, overwrite=False, **options):
     """Compute an expression with the earlier implementation
 
@@ -93,9 +130,13 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
     :param overwrite: Overwrite existing result maps and datasets
     :param options: See ``reference_parser``. With ``run=False`` the
         expression is only parsed, which tells accepted from rejected
-        expressions.
+        expressions. ``granularity=True`` first calls ``setup_granularity``.
     :return: The process chain dictionary, like ``parse()``
     :raises SyntaxError: for expressions that the earlier grammar rejects
+    :raises FatalError: see ``setup_granularity``
     """
+    granularity = options.pop("granularity", False)
     parser = reference_parser(kind, **options)
+    if granularity:
+        setup_granularity(parser, kind, expression)
     return parser.parse(expression, basename=basename, overwrite=overwrite)

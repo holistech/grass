@@ -36,13 +36,20 @@ line for the same seed. That makes before and after runs of a fix comparable::
         --seeds 0-3999 --runner reference --out after.jsonl
     python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
 
+``--spatial-share`` and ``--granularity-share`` set the share of the seeds in
+the spatial mode (-s) and in the granularity mode (-g, raster and raster3d
+only). The summary counts the outcomes of class ``Other:<name>``: a campaign
+that raises one for every expression, because an option does not reach the
+parser, would otherwise look like agreement.
+
 ``--against core`` computes every expression with a second runner and adds the
 other outcome and the difference to each line; ``--cluster FILE`` groups the
 differences in such a file by what differs. ``run_batch`` does the same from
 Python. A batch runs in a temporary project and gives each expression
 ``timeout`` seconds (SIGALRM, main thread only).
 
-The test modules that use this fuzzer run the seeds 0 to 199 per map type.
+The test modules that use this fuzzer run the seeds 0 to 199 per map type
+through ``check_seed``, ``check_agreement`` and ``check_difference_seen``.
 ``GRASS_TEMPORAL_FUZZ_COUNT`` sets another count and
 ``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
 
@@ -83,8 +90,17 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
     ``evaluate`` is what the parser classes call when the classic algebra is
     not chosen; calling it directly leaves ``GRASS_TEMPORAL_ALGEBRA`` and the
     parser classes out of the picture. Takes the signature of ``run_reference``;
-    the option ``stdstype`` of kind ``"select"`` is read like there.
+    the option ``stdstype`` of kind ``"select"`` is read like there. With
+    ``granularity=True`` the parser class of the kind runs instead, with
+    ``classic=False``, after ``setup_granularity``: the evaluation of the
+    granularity mode lives in its ``parse()``.
     """
+    if options.pop("granularity", False):
+        from .reference import _classes, setup_granularity
+
+        parser = _classes(kind)[0](classic=False, **options)
+        setup_granularity(parser, kind, expression)
+        return parser.parse(expression, basename=basename, overwrite=overwrite)
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
 
@@ -128,6 +144,19 @@ def _normalise(error):
     if isinstance(error, SystemExit):
         return "Exit"
     return f"Other:{name}"
+
+
+def _message(error, result, basename):
+    """The text of an error without what varies between runs and runners
+
+    Quoted and bracketed names, numbers, paths and the generated names are
+    replaced, so two files of outcomes can be compared with a plain diff.
+    """
+    text = str(error)
+    text = re.sub(r"<[^>]*>|'[^']*'|\"[^\"]*\"", "#", text)
+    text = re.sub(r"/\S+", "/PATH", text)
+    text = text.replace(result, "R").replace(f"{basename}_", "B_")
+    return re.sub(r"\d+", "#", text)[:200]
 
 
 def _value(number):
@@ -180,11 +209,14 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
         ``run=True`` and ``debug=False`` are set here.
     :return: ``{"error": class}`` when the runner raises (``SyntaxError``,
         ``FatalError``, ``Timeout``, ``Exit`` or ``Other:<name>``, plus the
-        message under ``"msg"``), otherwise ``{"stds": False}`` when no result
+        message under ``"msg"`` with quoted names, numbers, paths and the
+        basename replaced, so that a plain diff of two files of outcomes shows
+        real differences only; ``compare`` ignores it), otherwise ``{"stds": False}`` when no result
         dataset exists, or ``{"stds": True, "ttype", "maps"}``. A map is
         ``[name, start, end, min, max]``, for kind ``"vector"``
         ``[name, start, end, points, lines, areas]`` from ``v.info -t``, in the
-        order of the start time. Numbers have 6 significant digits.
+        order of the start time. Numbers have 6 significant digits. Raster
+        equality is the minimum and maximum of each map, not identical pixels.
     """
     result = f"R{basename}"
     stds = tgis.dataset_factory(STDS_TYPES[kind], f"{result}@PERMANENT")
@@ -200,7 +232,7 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
             **options,
         )
     except (Exception, SystemExit, Timeout) as error:  # noqa: BLE001
-        return {"error": _normalise(error), "msg": str(error)[:400]}
+        return {"error": _normalise(error), "msg": _message(error, result, basename)}
     return _read_result(kind, result, basename)
 
 
@@ -213,8 +245,7 @@ def _key(result):
 
 def _signature(result):
     if "error" in result:
-        message = re.sub(r"<[^>]*>|\d+|'[^']*'", "#", result["msg"])
-        return f"{result['error']}:{message[:60]}"
+        return f"{result['error']}:{result['msg'][:60]}"
     if not result["stds"]:
         return "nostds"
     return "empty" if not result["maps"] else "maps"
@@ -282,6 +313,59 @@ def cluster(records):
     ]
 
 
+#: The two runners that the test modules compare, as keys of ``RUNNERS``. Both
+#: are the earlier implementation until the classic profile of the core
+#: exists: that shows that the fuzzer sees no difference where there is none.
+#: The test modules take the pair from here, so switching is one edit.
+DIFFERENTIAL = ("reference", "reference")
+
+
+def check_agreement(kind, expression, **options):
+    """Run an expression on the runners of ``DIFFERENTIAL`` and compare them
+
+    :raises AssertionError: with the text of ``compare`` when they differ
+    """
+    first = outcome(
+        kind, expression, RUNNERS[DIFFERENTIAL[0]], basename="fa", **options
+    )
+    second = outcome(
+        kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
+    )
+    difference = compare(kind, expression, first, second)
+    if difference is not None:
+        raise AssertionError(difference)
+
+
+def check_seed(kind, seed, **generate_options):
+    """``check_agreement`` for the expression and options of a seed
+
+    :param generate_options: Arguments of ``generate`` such as
+        ``granularity_share``
+    """
+    expression, options = generate(kind, seed, **generate_options)
+    try:
+        check_agreement(kind, expression, **options)
+    except AssertionError as error:
+        msg = f"seed {seed}: {error}"
+        raise AssertionError(msg) from None
+
+
+def check_difference_seen(kind, expression, **options):
+    """Show that ``compare`` sees a known difference of the core
+
+    Runs the expression on the earlier implementation and on the core, whose
+    results are known to differ, and requires ``compare`` to say so. This is
+    the negative test of the fuzzer.
+
+    :raises AssertionError: when ``compare`` finds the outcomes equal
+    """
+    first = outcome(kind, expression, RUNNERS["reference"], basename="fa", **options)
+    second = outcome(kind, expression, RUNNERS["core"], basename="fb", **options)
+    if compare(kind, expression, first, second) is None:
+        msg = f"{kind}: {expression}: the known difference was not seen: {first}"
+        raise AssertionError(msg)
+
+
 def prepare(kind, session, directory):
     """Create the datasets of a kind and return the ``Tools`` of the session
 
@@ -306,7 +390,18 @@ def _alarm(signum, frame):
     raise Timeout
 
 
-def run_batch(kind, seeds, runner, out, *, against=None, timeout=300, depth=3):
+def run_batch(
+    kind,
+    seeds,
+    runner,
+    out,
+    *,
+    against=None,
+    timeout=300,
+    depth=3,
+    spatial_share=0.1,
+    granularity_share=0.0,
+):
     """Compute the expressions of seeds and write one JSON line per seed
 
     Must run inside a ``temporal_session`` with the datasets of ``prepare``.
@@ -317,6 +412,7 @@ def run_batch(kind, seeds, runner, out, *, against=None, timeout=300, depth=3):
     :param runner: A runner as for ``outcome``
     :param against: A second runner to compare with
     :param timeout: Seconds per outcome (SIGALRM, main thread only)
+    :param depth: See ``generate``, as are the two shares
     :return: The number of differences when ``against`` is set, else 0
     """
     differences = 0
@@ -324,7 +420,13 @@ def run_batch(kind, seeds, runner, out, *, against=None, timeout=300, depth=3):
     try:
         with Path(out).open("w") as handle:
             for seed in seeds:
-                expression, options = generate(kind, seed, depth=depth)
+                expression, options = generate(
+                    kind,
+                    seed,
+                    depth=depth,
+                    spatial_share=spatial_share,
+                    granularity_share=granularity_share,
+                )
                 signal.alarm(timeout)
                 try:
                     result = outcome(kind, expression, runner, basename="fa", **options)
@@ -352,12 +454,39 @@ def run_batch(kind, seeds, runner, out, *, against=None, timeout=300, depth=3):
     return differences
 
 
+def count_others(outcomes):
+    """Count the outcomes that raised something other than the usual errors
+
+    ``Other:<name>`` is every exception class except ``SyntaxError`` and
+    ``FatalError``. The algebras raise some of them for invalid expressions
+    (``ValueError`` of the core), but a broken campaign raises one for every
+    expression, for example a ``TypeError`` for an option that a parser does
+    not take, and then both sides agree on it. The count makes that visible.
+
+    :return: ``collections.Counter`` of the classes
+    """
+    return collections.Counter(
+        result["error"]
+        for result in outcomes
+        if result is not None and result.get("error", "").startswith("Other:")
+    )
+
+
+def _print_others(outcomes):
+    for name, count in sorted(count_others(outcomes).items()):
+        print(f"{count} outcomes of class {name}")
+
+
 def _lines(path):
     with Path(path).open() as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
 
 def _print_clusters(records):
+    records = list(records)
+    _print_others(
+        outcome for _, _, first, second in records for outcome in (first, second)
+    )
     for count, signature, seed, expression in cluster(records):
         print(f"{count} {signature}")
         print(f"      {seed} {expression}")
@@ -373,6 +502,13 @@ def main(argv=None):
     parser.add_argument("--out")
     parser.add_argument("--timeout", type=int, default=300)
     parser.add_argument("--depth", type=int, default=3)
+    parser.add_argument("--spatial-share", type=float, default=0.1)
+    parser.add_argument(
+        "--granularity-share",
+        type=float,
+        default=0.0,
+        help="share of the seeds in the granularity mode (raster, raster3d)",
+    )
     parser.add_argument("--diff", nargs=2, metavar=("OLD", "NEW"))
     parser.add_argument("--cluster", metavar="FILE")
     args = parser.parse_args(argv)
@@ -422,7 +558,13 @@ def main(argv=None):
                 against=RUNNERS[args.against] if args.against else None,
                 timeout=args.timeout,
                 depth=args.depth,
+                spatial_share=args.spatial_share,
+                granularity_share=args.granularity_share,
             )
+    lines = _lines(args.out)
+    _print_others(
+        outcome for line in lines for outcome in (line["outcome"], line.get("other"))
+    )
     print(f"{len(seeds)} seeds, {differences} differences")
     return 1 if differences else 0
 
