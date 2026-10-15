@@ -178,3 +178,28 @@ def test_make_map_region_is_used_for_the_map_only(tools):
 
     assert region() == before
     assert tools.r_info(map="rg_small", flags="g").keyval["rows"] == 2
+
+
+def test_make_map_restores_the_3d_resolution(tools):
+    def region():
+        return tools.g_region(flags="g3").keyval
+
+    tools.g_region(n=10, s=0, e=10, w=0, t=4, b=0, res=1, res3=1)
+    before = region()
+
+    make_map(tools, "raster_3d", "rg_coarse", 1, region={"res3": 5, "tbres": 2})
+
+    assert region() == before
+
+
+@pytest.mark.needs_solo_run
+@pytest.mark.parametrize("via", ["tool", "library"])
+def test_registering_twice_with_overwrite(tools, via):
+    specs = [MapSpec(f"ow_{via}_1", 1, day(0), day(1))]
+    create_stds(tools, "strds", f"ow_{via}", specs, via=via)
+
+    create_stds(tools, "strds", f"ow_{via}", specs, via=via, overwrite=True)
+
+    assert [row.name for row in list_maps(tools, "strds", f"ow_{via}")] == [
+        f"ow_{via}_1"
+    ]

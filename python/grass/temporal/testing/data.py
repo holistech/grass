@@ -21,7 +21,7 @@ DAY0 = datetime(2001, 1, 1)
 
 # Dataset type -> map type of t.register and the library
 _MAP_TYPE = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
-_KIND_STDS = {"raster": "strds", "raster_3d": "str3ds", "vector": "stvds"}
+_MAP_KINDS = tuple(_MAP_TYPE.values())
 
 _TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -77,16 +77,18 @@ class MapSpec:
     semantic_label: str | None = None
 
 
-def make_map(tools, kind, name, value, *, region=None):
+def make_map(tools, kind, name, value, *, region=None, overwrite=False):
     """Create a map of kind "raster", "raster_3d" or "vector" with a constant
 
     raster and raster_3d hold value in every cell (r.mapcalc, r3.mapcalc);
     a vector map gets one point at (value, value) with the attribute value
     (v.in.ascii). region, if given, is a dict for g.region used only for
-    this map (the session region is restored).
+    this map (the session region is restored). A vector map made here has
+    one point and its own topology and table; vector maps from other tools,
+    for example v.random, can be registered with register_stds().
     """
-    if kind not in _KIND_STDS:
-        msg = f"Unknown map kind {kind!r}, expected one of {list(_KIND_STDS)}"
+    if kind not in _MAP_KINDS:
+        msg = f"Unknown map kind {kind!r}, expected one of {list(_MAP_KINDS)}"
         raise ValueError(msg)
     saved = None
     if region is not None:
@@ -94,9 +96,9 @@ def make_map(tools, kind, name, value, *, region=None):
         tools.g_region(**region)
     try:
         if kind == "raster":
-            tools.r_mapcalc(expression=f"{name} = {value}")
+            tools.r_mapcalc(expression=f"{name} = {value}", overwrite=overwrite)
         elif kind == "raster_3d":
-            tools.r3_mapcalc(expression=f"{name} = {value}")
+            tools.r3_mapcalc(expression=f"{name} = {value}", overwrite=overwrite)
         else:
             tools.v_in_ascii(
                 input=StringIO(f"{value},{value},{value}\n"),
@@ -108,6 +110,7 @@ def make_map(tools, kind, name, value, *, region=None):
                 x=1,
                 y=2,
                 z=0,
+                overwrite=overwrite,
             )
     finally:
         if saved is not None:
@@ -117,7 +120,10 @@ def make_map(tools, kind, name, value, *, region=None):
 def _region(tools):
     """The 3D region of the session as options that g.region takes back"""
     values = tools.g_region(flags="g3").keyval
-    keys = ("n", "s", "e", "w", "t", "b", "nsres", "ewres", "tbres")
+    keys = (
+        "n", "s", "e", "w", "t", "b",
+        "nsres", "ewres", "nsres3", "ewres3", "tbres",
+    )  # fmt: skip
     return {key: values[key] for key in keys}
 
 
@@ -131,13 +137,16 @@ def register_stds(
     unit=None,
     via="tool",
     title=None,
+    overwrite=False,
 ):
     """Create the dataset name and register maps, an iterable of MapSpec
 
     The maps must exist. unit is required for relative time. via="tool" uses
     t.create and t.register with a file; via="library" uses open_new_stds()
     and register_maps_in_space_time_dataset() in this process and needs
-    temporal_session(). Both give the same dataset.
+    temporal_session(). Both give the same dataset. With overwrite an
+    existing dataset of that name is replaced and the maps are registered
+    again; both routes honour it.
 
     The tool route is the default because it works in every session and
     needs no mirrored os.environ. The library route is about twice as fast:
@@ -160,6 +169,7 @@ def register_stds(
             temporaltype=temporaltype,
             title=title,
             description=title,
+            overwrite=overwrite,
         )
         if maps:
             lines = [
@@ -174,9 +184,13 @@ def register_stds(
             with TemporaryDirectory() as directory:
                 file = Path(directory) / "maps.txt"
                 file.write_text("\n".join(lines) + "\n")
-                tools.t_register(type=map_type, input=name, file=file, **options)
+                tools.t_register(
+                    type=map_type, input=name, file=file, overwrite=overwrite, **options
+                )
     elif via == "library":
-        tgis.open_new_stds(name, stds_type, temporaltype, title, title, "mean")
+        tgis.open_new_stds(
+            name, stds_type, temporaltype, title, title, "mean", overwrite=overwrite
+        )
         for spec in maps:
             options = (
                 {"end": _text(spec.end, temporaltype)} if spec.end is not None else {}
@@ -203,11 +217,21 @@ def _text(value, temporaltype):
 
 
 def create_stds(tools, stds_type, name, maps, **options):
-    """make_map() for every MapSpec, then register_stds()"""
+    """make_map() for every MapSpec, then register_stds()
+
+    options are those of register_stds(); overwrite also applies to the maps.
+    Maps that already exist, such as v.random vectors, go to register_stds().
+    """
     maps = list(maps)
     map_type = _MAP_TYPE[stds_type]
     for spec in maps:
-        make_map(tools, map_type, spec.name, spec.value)
+        make_map(
+            tools,
+            map_type,
+            spec.name,
+            spec.value,
+            overwrite=options.get("overwrite", False),
+        )
         if spec.semantic_label is not None:
             if map_type != "raster":
                 msg = f"Only raster maps have a semantic label, not {map_type}"
