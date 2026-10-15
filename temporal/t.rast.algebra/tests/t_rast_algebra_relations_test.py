@@ -8,6 +8,9 @@ D are described in the algebra fixture.
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, make_map, register_stds
+from grass.tools import Tools
+
 
 def probes(algebra, expression):
     """Return the sorted probe numbers selected by an expression on rel"""
@@ -306,3 +309,55 @@ def test_select_with_time_extent_of_single_map(algebra):
     """tmap() gives a single raster a time stamp so that it can be related"""
     assert algebra.triples("A {:,equal} tmap(singletmap)") == [(3, 4, 3)]
     assert algebra.triples("D {+,equal,l} tmap(singletmap)") == [(3, 4, 107)]
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # sinst is an instant at day 1 within a1 and b1. The intersection of
+        # an interval with it is the instant, for a selection and for a
+        # calculation alike.
+        ("A {:,contains,i} tmap(sinst)", [(1, None, 1)]),
+        ("A {+,contains,i} tmap(sinst)", [(1, None, 101)]),
+        ("B {*,contains,i} tmap(sinst)", [(1, None, 500)]),
+        # The other temporal operators keep what they always gave.
+        ("A {+,contains,u} tmap(sinst)", [(1, 2, 101)]),
+        ("A {+,contains,l} tmap(sinst)", [(1, 2, 101)]),
+        ("A {+,contains,r} tmap(sinst)", [(1, None, 101)]),
+    ],
+)
+def test_intersection_with_an_instant_is_the_instant(algebra, expression, expected):
+    """The time stamp of a result is the instant for the temporal operator i"""
+    assert algebra.triples(expression) == expected
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("RV {:,contains,i} tmap(rinst)", [(2, None, 1)]),
+        ("RV {+,contains,i} tmap(rinst)", [(2, None, 51)]),
+    ],
+)
+def test_intersection_with_a_relative_instant_is_the_instant(
+    algebra, expression, expected
+):
+    """The same holds for relative time, where it was a TypeError for
+    selections"""
+    tools = Tools(session=algebra.session, overwrite=True)
+    for name, value in (("rv1", 1), ("rv2", 2), ("rinst", 50)):
+        make_map(tools, "raster", name, value, overwrite=True)
+    for name, maps in (
+        ("RV", [MapSpec("rv1", None, 0, 4), MapSpec("rv2", None, 4, 8)]),
+        ("RI", [MapSpec("rinst", None, 2, None)]),
+    ):
+        register_stds(
+            tools,
+            "strds",
+            name,
+            maps,
+            temporaltype="relative",
+            unit="days",
+            overwrite=True,
+        )
+    rows = algebra.run(expression)
+    assert [(row.start, row.end, row.min) for row in rows] == expected

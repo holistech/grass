@@ -469,6 +469,7 @@ from .open_stds import open_new_stds, open_old_stds
 from .ply import lex, yacc
 from .space_time_datasets import RasterDataset
 from .spatio_temporal_relationships import SpatioTemporalTopologyBuilder
+from .temporal_extent import TemporalExtent
 from .temporal_granularity import (
     compute_absolute_time_granularity,
     compute_common_absolute_time_granularity,
@@ -1240,7 +1241,13 @@ class TemporalAlgebraParser:
             return True
         if extent is None:
             return False
-        mapA.set_temporal_extent(extent)
+        if type(extent) is TemporalExtent:
+            # Only the intersection with an instant gives a plain extent,
+            # which set_temporal_extent() ignores and so left the old time
+            # stamp on the map. A selection sets the instant.
+            self._set_temporal_extent(mapA, extent)
+        else:
+            mapA.set_temporal_extent(extent)
         return True
 
     def set_temporal_extent_list(
@@ -2095,9 +2102,9 @@ class TemporalAlgebraParser:
         if map_i.is_time_absolute():
             map_i.set_absolute_time(start, end)
         else:
-            map_i.set_relative_time(
-                int(start), int(end), map_i.get_relative_time_unit()
-            )
+            # An instant has no end time to convert.
+            end = end if type(extent) is TemporalExtent else int(end)
+            map_i.set_relative_time(int(start), end, map_i.get_relative_time_unit())
 
     def get_temporal_func_dict(self, map):  # noqa: A002 (name of the public API)
         """This function creates a dictionary containing temporal functions for a
