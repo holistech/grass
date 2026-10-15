@@ -3278,7 +3278,9 @@ class TemporalAlgebraParser:
         if self.run:
             maplist = self.check_stds(t[3])
             with self._reporting_syntax_errors():
-                self._check_increment("buff_t", maplist, self._increment(t))
+                self._check_increment(
+                    "buff_t", maplist, self._increment(t), with_unit=len(t) == 10
+                )
                 for map_i in maplist:
                     # Relative time is buffered by a number of time units
                     map_i.temporal_buffer(
@@ -3322,12 +3324,16 @@ class TemporalAlgebraParser:
         return int(t[5]) if as_number else str(t[5])
 
     @staticmethod
-    def _check_increment(function, maplist, increment) -> None:
+    def _check_increment(function, maplist, increment, with_unit=False) -> None:
         """Refuse an increment of the wrong kind for the time type of the maps.
 
         Absolute time takes a number and a unit, relative time a number of its
         unit. Without the check temporal_buffer() fails with a bare Exception
         for the first and a TypeError for the second.
+
+        with_unit tells a quoted number and unit from a plain number. Only the
+        first is refused for relative time, so that a fractional number keeps
+        being truncated to a whole one there.
 
         :raises SyntaxError: if a map has absolute time and no unit is given,
                              or a map has relative time and a unit is given
@@ -3339,7 +3345,7 @@ class TemporalAlgebraParser:
                 'e.g. "{increment} days", but got {increment}'
             ).format(function=function, increment=increment)
             raise SyntaxError(msg)
-        if not is_number and any(map_i.is_time_relative() for map_i in maplist):
+        if with_unit and any(map_i.is_time_relative() for map_i in maplist):
             msg = (
                 "Function {function}() needs a number without a time unit for "
                 'relative time, e.g. 3, but got "{increment}"'
@@ -3375,7 +3381,9 @@ class TemporalAlgebraParser:
         if self.run:
             maplist = self.check_stds(t[3])
             with self._reporting_syntax_errors():
-                self._check_increment("tshift", maplist, self._increment(t))
+                self._check_increment(
+                    "tshift", maplist, self._increment(t), with_unit=len(t) == 10
+                )
                 # shift_map_list() fails on an empty list and returns None
                 # for an increment the library does not accept.
                 shifted = (

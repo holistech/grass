@@ -86,6 +86,32 @@ def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
     assert not algebra.exists()
 
 
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    ("increment", "expected"),
+    [
+        # A fraction is cut to a whole number of units, towards zero.
+        ("1.5", [(-1, 2, 1), (0, 3, 2), (1, 4, 3)]),
+        ("2", [(-2, 3, 1), (-1, 4, 2), (0, 5, 3)]),
+        ("0.5", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
+        ("-1.5", [(0, 1, 1), (1, 2, 2), (2, 3, 3)]),
+    ],
+)
+def test_relative_buffer_with_a_fractional_number(algebra, increment, expected):
+    """Numbers other than whole ones stay valid for relative time. Targets
+    measured 2026-10-15 on the library before the buff_t() checks changed,
+    with the earlier implementation."""
+    algebra.remove("R")
+    run_reference(
+        "raster",
+        f"R = buff_t(RT, {increment})",
+        basename="r",
+        overwrite=True,
+        run=True,
+    )
+    assert [(row.start, row.end, row.min) for row in algebra.maps("R")] == expected
+
+
 def test_relative_time_difference(algebra):
     """td() is one for intervals of one day"""
     assert relative_maps(algebra, "if(td(RT) == 1, RT)") == [
