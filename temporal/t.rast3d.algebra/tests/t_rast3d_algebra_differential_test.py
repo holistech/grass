@@ -140,6 +140,7 @@ def outcome(monkeypatch, expression, algebra, granularity=False):
 
 
 @pytest.mark.parametrize("expression", SAME)
+@pytest.mark.fixed_algebra
 def test_same_result(series_3d, monkeypatch, expression):
     assert outcome(monkeypatch, expression, "core") == outcome(
         monkeypatch, expression, "classic"
@@ -147,6 +148,7 @@ def test_same_result(series_3d, monkeypatch, expression):
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
+@pytest.mark.fixed_algebra
 def test_listed_differences_still_differ(series_3d, monkeypatch, expression):
     """A listed difference that no longer differs must leave the list"""
     core = outcome(monkeypatch, expression, "core")
@@ -155,6 +157,7 @@ def test_listed_differences_still_differ(series_3d, monkeypatch, expression):
 
 
 @pytest.mark.parametrize("expression", GRANULARITY_SAME)
+@pytest.mark.fixed_algebra
 def test_granularity_same_result(series_3d, monkeypatch, expression):
     assert outcome(monkeypatch, expression, "core", granularity=True) == outcome(
         monkeypatch, expression, "classic", granularity=True
@@ -162,6 +165,7 @@ def test_granularity_same_result(series_3d, monkeypatch, expression):
 
 
 @pytest.mark.parametrize("expression", sorted(GRANULARITY_DIFFERENT))
+@pytest.mark.fixed_algebra
 def test_granularity_listed_differences_still_differ(
     series_3d, monkeypatch, expression
 ):

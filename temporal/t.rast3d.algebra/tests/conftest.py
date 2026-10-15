@@ -1,28 +1,18 @@
 """Fixtures for t.rast3d.algebra tests"""
 
-import os
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    day,
+    register_stds,
+    timestamp,
+)
+from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
-
-
-def create_str3ds(tools, name, maps_and_times):
-    """Create a STR3DS and register maps given as (map, start, end) triples"""
-    tools.t_create(
-        output=name,
-        type="str3ds",
-        temporaltype="absolute",
-        title=name,
-        description=name,
-    )
-    for raster, start, end in maps_and_times:
-        tools.t_register(
-            input=name, type="raster_3d", maps=raster, start=start, end=end
-        )
 
 
 @pytest.fixture(scope="module")
@@ -47,67 +37,67 @@ def series_3d(tmp_path_factory):
 
     The single map "single" (value 1000) has the time stamp 2001-01-02.
     """
+    # temporal_session mirrors the session into os.environ for the duration of
+    # the module; the algebra parsers then run in this process, which is much
+    # faster than one tool call per expression.
     project = tmp_path_factory.mktemp("t_rast3d_algebra") / "project"
-    gs.create_project(project)
-
-    # tgis reads the session from os.environ, so it is mirrored there for the
-    # duration of the module; the algebra parsers then run in this process,
-    # which is much faster than one tool call per expression.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
+    with temporal_session(project) as session:
         tools = Tools(session=session, overwrite=True)
         tools.g_region(n=3, s=0, e=3, w=0, t=3, b=0, res=1, res3=1, tbres=1)
-        days = [f"2001-01-{n:02d}" for n in range(1, 7)]
 
-        for i in range(1, 5):
-            tools.r3_mapcalc(expression=f"a{i} = {i}")
-            tools.r3_mapcalc(expression=f"b{i} = {10 * i}")
+        create_stds(
+            tools,
+            "str3ds",
+            "A",
+            [MapSpec(f"a{i}", i, day(i - 1), day(i)) for i in range(1, 5)],
+        )
+        create_stds(
+            tools,
+            "str3ds",
+            "B",
+            [MapSpec(f"b{i}", 10 * i, day(i - 1), day(i)) for i in range(1, 5)],
+        )
+        # The value of a D map is the depth of the cell, not a constant, so
+        # the maps are made here and only registered.
         for i in range(1, 4):
             tools.r3_mapcalc(expression=f"d{i} = depth()")
-        tools.r3_mapcalc(expression="w1 = 100")
-        tools.r3_mapcalc(expression="w2 = 200")
+        register_stds(
+            tools,
+            "str3ds",
+            "D",
+            [MapSpec(f"d{i}", None, day(i - 1), day(i)) for i in range(1, 4)],
+        )
+        create_stds(
+            tools,
+            "str3ds",
+            "W",
+            [MapSpec("w1", 100, day(0), day(2)), MapSpec("w2", 200, day(2), day(4))],
+        )
         tools.r3_mapcalc(expression="single = 1000")
+        # E lies east of A, so its maps are made in a shifted region.
         tools.g_region(w=10, e=13)
         tools.r3_mapcalc(expression="e1 = 7")
         tools.r3_mapcalc(expression="e2 = 8")
         tools.g_region(w=0, e=3)
-        tools.r3_mapcalc(expression="q1 = 5")
-        tools.r3_mapcalc(expression="q2 = 50")
-
-        create_str3ds(
-            tools, "A", [(f"a{i}", days[i - 1], days[i]) for i in range(1, 5)]
-        )
-        create_str3ds(
-            tools, "B", [(f"b{i}", days[i - 1], days[i]) for i in range(1, 5)]
-        )
-        create_str3ds(
-            tools, "D", [(f"d{i}", days[i - 1], days[i]) for i in range(1, 4)]
-        )
-        create_str3ds(tools, "W", [("w1", days[0], days[2]), ("w2", days[2], days[4])])
-        create_str3ds(tools, "E", [("e1", days[0], days[1]), ("e2", days[1], days[2])])
-        create_str3ds(
+        register_stds(
             tools,
+            "str3ds",
+            "E",
+            [MapSpec("e1", 7, day(0), day(1)), MapSpec("e2", 8, day(1), day(2))],
+        )
+        create_stds(
+            tools,
+            "str3ds",
             "Q",
-            [("q1", "2001-01-01 12:00:00", "2001-01-02 12:00:00")],
+            [MapSpec("q1", 5, day(0, hours=12), day(1, hours=12))],
         )
-        create_str3ds(
+        create_stds(
             tools,
+            "str3ds",
             "Q2",
-            [("q2", "2001-01-04 12:00:00", "2001-01-05 12:00:00")],
+            [MapSpec("q2", 50, day(3, hours=12), day(4, hours=12))],
         )
-        tools.t_register(type="raster_3d", maps="single", start=days[1], end=days[2])
-
-        previous = tgis.get_raise_on_error()
-        tgis.init()
-        # The messenger is created once per process with the mode of the first
-        # init(); other test modules may have set it to exit on fatal errors.
-        tgis.set_raise_on_error(True)
-        try:
-            yield SimpleNamespace(session=session, tools=tools)
-        finally:
-            tgis.set_raise_on_error(previous)
+        tools.t_register(
+            type="raster_3d", maps="single", start=timestamp(1), end=timestamp(2)
+        )
+        yield SimpleNamespace(session=session, tools=tools)

@@ -81,11 +81,13 @@ def _parse(expression, name, **keywords):
     return parser.parse(f"{name} = {expression}", name, True)
 
 
+@pytest.mark.fixed_algebra
 def test_parser_runs_the_core_with_classic_false(series_3d):
     _parse("A + B", "fac_sum", classic=False)
     assert [row[1] for row in _values("fac_sum")] == [11, 22, 33, 44]
 
 
+@pytest.mark.fixed_algebra
 def test_parser_samples_with_the_common_granularity(series_3d):
     """W has maps of two days; sampled by the day of A, w1 counts for days 1
     and 2, w2 for days 3 and 4"""
@@ -103,6 +105,7 @@ def test_parser_samples_with_the_common_granularity(series_3d):
     assert [row[1] for row in _values("fac_gran")] == [101, 102, 203, 204]
 
 
+@pytest.mark.fixed_algebra
 def test_parser_reads_3d_cell_offsets(series_3d):
     _parse("D[0,0,1]", "fac_offset", classic=False)
     # d holds the depth of each cell; one layer deeper the top layer reads
@@ -111,6 +114,7 @@ def test_parser_reads_3d_cell_offsets(series_3d):
     assert [row[1:] for row in _values("fac_offset")][0] == (2, 3)
 
 
+@pytest.mark.fixed_algebra
 def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
     tools = Tools(session=series_3d.session, overwrite=True)
     tools.r_mapcalc(expression="flat = 1")
@@ -124,6 +128,7 @@ def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
         _parse("flat + A", "fac_flat", classic=False)
 
 
+@pytest.mark.fixed_algebra
 def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkeypatch):
     monkeypatch.delenv("GRASS_TEMPORAL_ALGEBRA", raising=False)
     # if() without else gives null in the core, so the maps of value 1 and 2,
@@ -132,6 +137,7 @@ def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkey
     assert [row[1:] for row in _values("fac_default")] == [(3, 3), (4, 4)]
 
 
+@pytest.mark.fixed_algebra
 def test_the_variable_selects_the_classic_algebra(series_3d, monkeypatch):
     monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "classic")
     # if() without else gives 0 in the classic algebra, so all four maps stay.

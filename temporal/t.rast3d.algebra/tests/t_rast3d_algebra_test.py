@@ -412,6 +412,7 @@ def test_cell_conditions(series_3d, expression, expected):
         ("if(A > 1, A) + B", True, [10, 22, 33, 44]),
     ],
 )
+@pytest.mark.fixed_algebra
 def test_cell_conditions_without_else(series_3d, expression, classic, expected):
     """if() without else gives null where the condition is false, and a map
     that is null everywhere is left out; the classic algebra gives 0 there,
@@ -638,6 +639,7 @@ def test_nprocs_option(series_3d):
     assert [row[2] for row in rows] == [11, 22, 33, 44]
 
 
+@pytest.mark.fixed_algebra
 def test_classic_flag_selects_the_classic_algebra(series_3d):
     """if() without else gives null in the core and 0 in the classic algebra,
     so the core leaves out the maps of value 1 and 2"""

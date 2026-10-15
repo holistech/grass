@@ -94,6 +94,7 @@ def test_spatial_topology(spatial_series, expression, flags, expected):
         ("P {+,equal|cover} Q", []),
     ],
 )
+@pytest.mark.fixed_algebra
 def test_spatial_relation_without_spatial_flag(
     spatial_series, expression, classic_expected
 ):

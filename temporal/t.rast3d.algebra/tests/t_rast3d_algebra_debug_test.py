@@ -16,6 +16,7 @@ def parse_with_debug(run, classic):
     parser.parse("dbg = (A + A) * 2", "dbg", True)
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_of_a_run(series_3d, capsys):
     """debug=True prints each planned module call as a command line"""
     parse_with_debug(run=True, classic=False)
@@ -25,6 +26,7 @@ def test_debug_output_of_a_run(series_3d, capsys):
     )
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_without_run(series_3d, capsys):
     """With run=False only the syntax is checked, so nothing is planned and
     debug=True prints nothing"""
@@ -32,6 +34,7 @@ def test_debug_output_without_run(series_3d, capsys):
     assert not capsys.readouterr().out
 
 
+@pytest.mark.fixed_algebra
 def test_debug_output_of_the_classic_algebra(series_3d, capsys):
     """The classic algebra prints the r3.mapcalc commands and the resulting
     statement, and without run the statement with the placeholder name"""
