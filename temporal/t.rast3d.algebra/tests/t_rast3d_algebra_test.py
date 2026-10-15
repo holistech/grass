@@ -15,6 +15,8 @@ import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.tools import ToolError, Tools
 
+pytestmark = pytest.mark.real_io
+
 ALGEBRA_ERRORS = (SyntaxError, tgis.FatalError, FatalError)
 _counter = itertools.count()
 
