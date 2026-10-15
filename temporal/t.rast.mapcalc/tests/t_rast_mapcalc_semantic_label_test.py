@@ -4,45 +4,33 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
+from datetime import datetime
 
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.tools import Tools
 
 
 @pytest.fixture(scope="module")
-def label_session(tmp_path_factory):
+def label_session(xy_module_session):
     """STRDS "test" with one S2_8 and one S2_4 map in each of two months."""
-    tmp_path = tmp_path_factory.mktemp("t_rast_mapcalc_label")
-    project = tmp_path / "test"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
-        tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
-        tools.g_region(s=0, n=80, w=0, e=120, res=10)
-        rows = []
-        for name, value, label, start in [
-            ("b8_1", 8, "S2_8", "2001-01-01"),
-            ("b4_1", 4, "S2_4", "2001-01-01"),
-            ("b8_2", 16, "S2_8", "2001-02-01"),
-            ("b4_2", 2, "S2_4", "2001-02-01"),
-        ]:
-            tools.r_mapcalc(expression=f"{name} = {value}")
-            tools.r_support(map=name, semantic_label=label)
-            rows.append(f"{name}|{start}|{label}")
-        maps_file = tmp_path / "maps.txt"
-        maps_file.write_text("\n".join(rows) + "\n", encoding="utf-8")
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output="test",
-            title="A test",
-            description="A test",
-        )
-        tools.t_register(type="raster", input="test", file=str(maps_file))
-        yield session
+    tools = Tools(session=xy_module_session, overwrite=True)
+    tools.g_region(s=0, n=80, w=0, e=120, res=10)
+    jan, feb = datetime(2001, 1, 1), datetime(2001, 2, 1)
+    create_stds(
+        tools,
+        "strds",
+        "test",
+        [
+            MapSpec("b8_1", 8, jan, semantic_label="S2_8"),
+            MapSpec("b4_1", 4, jan, semantic_label="S2_4"),
+            MapSpec("b8_2", 16, feb, semantic_label="S2_8"),
+            MapSpec("b4_2", 2, feb, semantic_label="S2_4"),
+        ],
+        title="A test",
+    )
+    return xy_module_session
 
 
 def test_inputs_with_semantic_labels(label_session):

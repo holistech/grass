@@ -4,11 +4,13 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
+from datetime import datetime
 
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import MapSpec, create_stds, register_stds
+from grass.temporal.testing.readback import stds_info
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 
@@ -21,34 +23,21 @@ def mapcalc3d_session(tmp_path_factory):
     as in the 2D fixture; the region has a vertical extent (bottom and top).
     """
     project = tmp_path_factory.mktemp("t_rast3d_mapcalc") / "project"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(project) as session:
         tools = Tools(session=session, overwrite=True)
-        tools.g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
         tools.g_region(s=0, n=80, w=0, e=120, b=0, t=50, res=10, res3=10)
-        for name, value in [("vol_1", 100), ("vol_2", 200), ("vol_3", 300)]:
-            tools.r3_mapcalc(expression=f"{name} = {value}")
-        for name in ("precip3d_1", "precip3d_2"):
-            tools.t_create(
-                type="str3ds",
-                temporaltype="absolute",
-                output=name,
-                title="A test",
-                description="A test",
-            )
-        tools.t_register(
-            flags="i",
-            type="raster_3d",
-            input="precip3d_1",
-            maps="vol_1,vol_2,vol_3",
-            start="2001-01-01",
-            increment="3 months",
-        )
-        tools.t_register(
-            type="raster_3d",
-            input="precip3d_2",
-            maps="vol_1,vol_2,vol_3",
-        )
+        quarters = [
+            (datetime(2001, 1, 1), datetime(2001, 4, 1)),
+            (datetime(2001, 4, 1), datetime(2001, 7, 1)),
+            (datetime(2001, 7, 1), datetime(2001, 10, 1)),
+        ]
+        maps = [
+            MapSpec(f"vol_{number}", number * 100, start, end)
+            for number, (start, end) in enumerate(quarters, 1)
+        ]
+        create_stds(tools, "str3ds", "precip3d_1", maps, title="A test")
+        # precip3d_2 holds the same maps with the same time stamps.
+        register_stds(tools, "str3ds", "precip3d_2", maps, title="A test")
         yield session
 
 
@@ -57,7 +46,7 @@ def assert_tinfo3d():
     """Return a helper that checks t.info -g of an str3ds against expected pairs"""
 
     def _assert(tools, str3ds_name, expected):
-        actual = tools.t_info(type="str3ds", input=str3ds_name, flags="g").keyval
+        actual = stds_info(tools, "str3ds", str3ds_name)
         for key, value in expected.items():
             assert key in actual, f"missing key {key!r} in t.info output"
             assert actual[key] == value, (

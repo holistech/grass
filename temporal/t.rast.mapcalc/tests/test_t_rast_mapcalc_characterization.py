@@ -12,9 +12,12 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+from datetime import datetime
+
 import pytest
 
 import grass.exceptions
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.tools import Tools
 
 
@@ -34,26 +37,32 @@ def _make_strds(tools, name, rows, temporaltype="absolute", unit=None):
     """Create STRDS name from constant rasters name_1..name_N
 
     rows holds (cell value, start, end) per map in registration order; an end
-    of None registers a time instant. The rasters are the test's own because a
-    raster can carry only one time stamp and the shared fixture rasters must
-    keep theirs.
+    of None registers a time instant. Absolute times are dates as text,
+    relative times numbers. The rasters are the test's own because a raster
+    can carry only one time stamp and the shared fixture rasters must keep
+    theirs.
     """
-    tools.t_create(
-        type="strds",
+    absolute = temporaltype == "absolute"
+
+    def convert(value):
+        if value is None or not absolute:
+            return value
+        return datetime.strptime(value, "%Y-%m-%d")
+
+    maps = [
+        MapSpec(f"{name}_{number}", value, convert(start), convert(end))
+        for number, (value, start, end) in enumerate(rows, 1)
+    ]
+    create_stds(
+        tools,
+        "strds",
+        name,
+        maps,
         temporaltype=temporaltype,
-        output=name,
+        unit=unit,
         title="t",
-        description="t",
+        overwrite=True,
     )
-    for number, (value, start, end) in enumerate(rows, 1):
-        map_name = f"{name}_{number}"
-        tools.r_mapcalc(expression=f"{map_name} = {value}")
-        options = {"type": "raster", "input": name, "maps": map_name, "start": start}
-        if end is not None:
-            options["end"] = end
-        if unit is not None:
-            options["unit"] = unit
-        tools.t_register(**options)
 
 
 def test_two_inputs_equal_sampling_values(mapcalc_session):
