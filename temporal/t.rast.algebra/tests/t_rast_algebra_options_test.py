@@ -12,6 +12,8 @@ import pytest
 import grass.temporal as tgis
 from grass.tools import ToolError, Tools
 
+pytestmark = pytest.mark.real_io
+
 
 @pytest.fixture
 def tool(algebra):
