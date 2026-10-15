@@ -770,6 +770,18 @@ C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with.
 
+<p>
+Earlier versions also computed <code>td()</code> of an expression wrongly on
+the right of an operator: they used the value of the expression instead of
+the duration of its maps. With daily maps in N and A, the expression below
+gave <code>N - A * 2</code> where it now gives <code>N - 1</code>; the new
+algebra always gave <code>N - 1</code>. Results that used this form need a new
+run.
+
+<div class="code"><pre>
+C = N - td(A * 2)
+</pre></div>
+
 <h3>Granularity algebra</h3>
 
 With the flag <b>-g</b>, each space time dataset of the expression is first

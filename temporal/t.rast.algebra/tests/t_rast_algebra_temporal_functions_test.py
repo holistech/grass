@@ -5,6 +5,8 @@ The datasets are described in the time_series fixture in conftest.py.
 
 import pytest
 
+from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 
 
@@ -93,3 +95,39 @@ def test_unavailable_time_function_is_reported(time_series, expression, map_id):
         tools.t_rast_algebra(expression=f"result = {expression}", basename="result")
     assert "ERROR:" in error.value.stderr
     assert map_id in error.value.stderr
+
+
+def duration_arithmetic(algebra, monkeypatch, expression, implementation):
+    """Return (start day, end day, value) of "R = <expression>" computed by the
+    core or by the earlier implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    algebra.remove("R")
+    if implementation == "core":
+        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
+        return algebra.triples(expression)
+    run_reference("raster", f"R = {expression}", basename="r", overwrite=True, run=True)
+    return [(row.start.day, row.end.day, row.min) for row in algebra.maps("R")]
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("implementation", ["core", "reference"])
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # The maps of A and N last one day, so td() of any expression over
+        # them is 1 and not the value of the expression.
+        ("N - td(A * 2)", [(1, 2, 10), (2, 3, 11), (3, 4, 12), (4, 5, 13)]),
+        ("N - td(A + N)", [(1, 2, 10), (2, 3, 11), (3, 4, 12), (4, 5, 13)]),
+        ("D - td(A[1])", [(3, 4, 7)]),
+        # The duration of the maps of B is two days.
+        ("B - td(B * 2)", [(1, 3, 3), (3, 5, 4)]),
+    ],
+)
+def test_duration_of_an_expression_in_arithmetic(
+    algebra, monkeypatch, implementation, expression, expected
+):
+    """td() of a computed expression is the duration of its maps on the right
+    of an operator, as td() of a dataset is"""
+    assert (
+        duration_arithmetic(algebra, monkeypatch, expression, implementation)
+        == expected
+    )

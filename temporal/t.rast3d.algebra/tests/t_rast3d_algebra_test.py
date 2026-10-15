@@ -13,6 +13,8 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
+from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -793,3 +795,30 @@ def test_raster_dataset_is_refused(series_3d):
     tools.t_register(input="flat", maps="flat", start=day(1), end=day(2))
     with pytest.raises(ToolError):
         tools.t_rast3d_algebra(expression="res = flat + A", basename="bad")
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("implementation", ["core", "reference"])
+@pytest.mark.parametrize(
+    "expression",
+    ["B - td(A * 2)", "B - td(A + B)"],
+)
+def test_duration_of_an_expression_in_arithmetic(
+    series_3d, monkeypatch, implementation, expression
+):
+    """td() of a computed expression is the duration of its maps (one day) on
+    the right of an operator, as td() of a dataset is"""
+    if implementation == "core":
+        monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
+        name = run_algebra(series_3d.session, expression)
+    else:
+        name = f"res{next(_counter)}"
+        run_reference(
+            "raster3d",
+            f"{name} = {expression}",
+            basename=name,
+            overwrite=True,
+            run=True,
+        )
+    rows = list_maps(series_3d.session, name)
+    assert [row[2] for row in rows] == [9, 19, 29, 39]

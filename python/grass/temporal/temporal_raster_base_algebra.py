@@ -352,14 +352,18 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
     def _operand_string(map_i):
         """Return the command of an operand: the command list of a map, the
         time difference of a td() variable, the map id or the string itself"""
-        if hasattr(map_i, "cmd_list"):
-            return map_i.cmd_list
+        # td() of an expression such as td(A * 2) hands out maps that carry
+        # both the command of the expression and the duration. The operand
+        # is the duration, so this check must come before the command list;
+        # otherwise N - td(A * 2) computed N - A * 2.
         if (
             hasattr(map_i, "map_value")
             and len(map_i.map_value) > 0
             and map_i.map_value[0].get_type() == "timediff"
         ):
             return map_i.map_value[0].get_type_value()[0]
+        if hasattr(map_i, "cmd_list"):
+            return map_i.cmd_list
         try:
             return map_i.get_id()
         except AttributeError:

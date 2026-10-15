@@ -742,6 +742,16 @@ C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with.
 
+Earlier versions also computed `td()` of an expression wrongly on the
+right of an operator: they used the value of the expression instead of the
+duration of its maps. With daily maps in N and A, the expression below gave
+`N - A * 2` where it now gives `N - 1`; the new algebra always gave
+`N - 1`. Results that used this form need a new run.
+
+```sh
+C = N - td(A * 2)
+```
+
 ### Granularity algebra
 
 With the flag **-g**, each space time dataset of the expression is first
