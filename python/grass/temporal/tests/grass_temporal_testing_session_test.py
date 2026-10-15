@@ -18,6 +18,8 @@ from grass.temporal.testing.session import (
     temporal_session,
 )
 
+pytestmark = pytest.mark.real_io
+
 
 def test_project_session_leaves_os_environ_alone(tmp_path):
     before = dict(os.environ)

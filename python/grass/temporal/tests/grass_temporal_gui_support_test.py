@@ -173,6 +173,7 @@ def test_other_mapset_and_cross_registration(all_mapsets_dbif):
     assert cross_maps == ["foreign_map@second"]
 
 
+@pytest.mark.real_io
 def test_search_path_scope(session_with_stds):
     """A default connection only covers the search path."""
     tgis.init()
@@ -181,12 +182,14 @@ def test_search_path_scope(session_with_stds):
     assert "other@second" not in result["strds"]
 
 
+@pytest.mark.real_io
 def test_mapset_without_temporal_database_is_skipped(all_mapsets_dbif):
     """A mapset without a temporal database is not scanned."""
     assert "plain" not in all_mapsets_dbif.tgis_mapsets
     assert "second" in all_mapsets_dbif.tgis_mapsets
 
 
+@pytest.mark.real_io
 def test_explicit_mapset_scope(session_with_stds):
     """A connection built for named mapsets covers exactly those."""
     tgis.init()
@@ -199,6 +202,7 @@ def test_explicit_mapset_scope(session_with_stds):
     assert list(result["strds"]) == ["other@second"]
 
 
+@pytest.mark.real_io
 def test_project_without_temporal_database(tmp_path, monkeypatch):
     """A project with no temporal database yields empty results."""
     project = tmp_path / "project"

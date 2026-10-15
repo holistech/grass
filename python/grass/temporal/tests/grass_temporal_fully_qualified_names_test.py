@@ -105,6 +105,7 @@ def test_open_old_stds_offpath(two_mapset_session):
     assert sp.get_id() == two_mapset_session.offpath_id
 
 
+@pytest.mark.real_io
 def test_open_old_stds_searchpath(two_mapset_session):
     """open_old_stds finds STDS not in the current mapset but on the search path."""
     tools = Tools(session=two_mapset_session.session)

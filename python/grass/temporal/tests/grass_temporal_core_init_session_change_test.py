@@ -15,6 +15,8 @@ from grass.grassdb.create import create_mapset
 import grass.script as gs
 import grass.temporal as tgis
 
+pytestmark = pytest.mark.real_io
+
 
 @pytest.fixture
 def two_projects(tmp_path):

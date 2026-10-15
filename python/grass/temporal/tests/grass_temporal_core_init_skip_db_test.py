@@ -17,6 +17,8 @@ import grass.temporal as tgis
 from grass.grassdb.create import create_mapset
 from grass.tools import Tools
 
+pytestmark = pytest.mark.real_io
+
 ds_types_dict = {
     "strds": ("strds"),
     "str3ds": ("str3ds"),

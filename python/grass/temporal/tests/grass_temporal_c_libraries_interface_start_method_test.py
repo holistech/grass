@@ -15,6 +15,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.real_io
+
 SCRIPT = """
 import multiprocessing
 import sys
