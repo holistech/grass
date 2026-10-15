@@ -173,6 +173,16 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
                 debug=self.debug,
                 spatial=self.spatial,
             )
+        return self._parse_classic(expression, basename, overwrite)
+
+    def _parse_classic(
+        self, expression, basename: str | None = None, overwrite: bool = False
+    ):
+        """Parse the expression with the classic rules of this module
+
+        Kept apart from ``parse`` so that a test helper can run the earlier
+        implementation whatever ``parse`` is routed to.
+        """
         self._reject_dataset_type_tokens(TemporalVectorAlgebraLexer(), expression)
         return self._parse(
             TemporalVectorAlgebraLexer(),
