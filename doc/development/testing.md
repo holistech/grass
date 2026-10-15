@@ -171,6 +171,65 @@ def test_something_which_changes_the_environment(xy_dataset_session):
     ...
 ```
 
+## Tests of the temporal framework
+
+The helpers for tests of _grass.temporal_ and of the `t.*` tools are in the
+package `grass.temporal.testing`. It does not import pytest, so it can be
+used from any test; the fixtures that wrap it are in
+`temporal/conftest.py` and in `python/grass/temporal/tests/conftest.py`.
+
+- `session`: `project_session()` and `temporal_session()` create a project
+  and yield a session. `add_mapset()` adds a mapset to it.
+- `data`: `create_stds()`, `register_stds()` and `make_map()` build
+  datasets and maps from a few lines of description; `day()`, `timestamp()`
+  and `intervals()` give the times.
+- `readback`: `list_maps()` and `stds_info()` read the registered maps and
+  the output of _t.info_ back as values that a test compares.
+
+Which session to use depends on how the test reaches GRASS:
+
+- A test which only runs tools, with `Tools(session=session)` or
+  `env=session.env`, needs `project_session()`. The fixture
+  `xy_module_session` provides it for a whole test module.
+- A test which calls _grass.temporal_ in the test process needs
+  `temporal_session()`, because the library reads the session from
+  `os.environ`. It mirrors the session into `os.environ`, runs
+  `tgis.init()` and makes errors raise instead of exiting. On exit it
+  restores `os.environ`, the raise-on-error flag of the library and the
+  error mode of the messenger; the database connection and mapset that
+  `tgis.init()` binds stay bound until the next `init()`. The fixture
+  `temporal_module_session` provides it. Such a test
+  carries `@pytest.mark.needs_solo_run`, as described above.
+
+Each test module gets its own session, also when several directories run in
+one pytest call. A `conftest.py` in a `tests` directory that defines a
+fixture with the same name takes precedence over the shared one.
+
+Tools which have both a classic and a core algebra run on the one chosen by
+the environment variable `GRASS_TEMPORAL_ALGEBRA`. The fixture
+`algebra_setting` is parametrized over `core` and `classic` and returns the
+name. It is not applied automatically; a directory which wants both
+algebras writes an autouse fixture which requests it and sets the variable
+in the session environment the tools use:
+
+```python
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+
+
+@pytest.fixture(autouse=True)
+def algebra(session, algebra_setting):
+    session.env[ALGEBRA_VARIABLE] = algebra_setting
+    yield algebra_setting
+    session.env.pop(ALGEBRA_VARIABLE, None)
+```
+
+A test which selects the algebra itself, for example by running both and
+comparing them, carries `@pytest.mark.fixed_algebra`. The marker only
+labels the test; it does not select anything. The test picks its algebra
+itself and so runs once whatever `GRASS_TEMPORAL_ALGEBRA` says. A run
+that wants every test once, such as the classic run, selects with
+`-m "not fixed_algebra"`.
+
 ## More information
 
 - [grass.gunittest documentation](https://grass.osgeo.org/grass-devel/manuals/libpython/gunittest_testing.html)
