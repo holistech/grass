@@ -4,16 +4,12 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import os
-
 import pytest
 
 from grass.exceptions import FatalError
-import grass.script as gs
 import grass.temporal as tgis
-from grass.pygrass.messages import get_msgr
 from grass.temporal.open_stds import _parse_id
-from grass.tools import Tools
+from grass.temporal.testing.session import temporal_session
 
 
 def test_label_is_split_for_strds():
@@ -28,27 +24,9 @@ def test_other_types_keep_the_dot(stds_type):
 
 
 @pytest.fixture
-def project_session(tmp_path, monkeypatch):
-    project = tmp_path / "project"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
-        # tgis reads the session from os.environ.
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        Tools(session=session).g_gisenv(set="TGIS_USE_CURRENT_MAPSET=1")
-        # get_msgr() returns one Messenger per process, so init() keeps the
-        # error mode of the first test in the process that created it. Set the
-        # mode on that Messenger and restore it afterwards, because later
-        # tests of the same process expect the exit mode. The state is read
-        # before init(), which already sets the module flag of tgis.
-        msgr = get_msgr()
-        previous = (tgis.get_raise_on_error(), msgr.raise_on_error)
-        tgis.init(raise_fatal_error=True)
-        tgis.set_raise_on_error(True)
+def project_session(tmp_path):
+    with temporal_session(tmp_path / "project") as session:
         yield session
-        tgis.set_raise_on_error(previous[0])
-        msgr.set_raise_on_error(previous[1])
 
 
 def test_new_dataset_with_dot_keeps_its_name(project_session):
