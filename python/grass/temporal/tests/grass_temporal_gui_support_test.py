@@ -8,17 +8,18 @@ name instead of by time is detected.
 
 import datetime
 import os
+from pathlib import Path
 
 import pytest
 
-from grass.grassdb.create import create_mapset
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.testing.session import add_mapset
 from grass.tools import Tools
 
 
 @pytest.fixture(scope="module")
-def session_with_stds(tmp_path_factory):
+def session_with_stds(temporal_module_session):
     """Session with temporal datasets in PERMANENT and a second mapset.
 
     PERMANENT contains:
@@ -34,77 +35,61 @@ def session_with_stds(tmp_path_factory):
     The second mapset contains strds "other" with one map. The mapset
     "plain" has no temporal database.
     """
-    project = tmp_path_factory.mktemp("data") / "project"
-    gs.create_project(project)
-    create_mapset(project / "second")
-    create_mapset(project / "plain")
+    session = temporal_module_session
+    gisenv = gs.gisenv(env=session.env)
+    project = Path(gisenv["GISDBASE"]) / gisenv["LOCATION_NAME"]
+    add_mapset(session, "second")
+    add_mapset(session, "plain")
 
-    with gs.setup.init(project / "second", env=os.environ.copy()) as session:
-        tools = Tools(session=session)
+    with gs.setup.init(project / "second", env=os.environ.copy()) as second_session:
+        tools = Tools(session=second_session)
         tools.g_region(n=3, s=0, e=3, w=0, res=1)
         tools.r_mapcalc(expression="other_map = 1")
         tools.r_mapcalc(expression="foreign_map = 1")
         tools.t_create(output="other", type="strds", title="other", description="other")
         tools.t_register(input="other", maps="other_map", start="2020-01-01")
 
-    # tgis reads the session from os.environ, so the session has to be
-    # visible there. Mirror it via monkeypatch rather than letting init()
-    # modify the global environment directly, so the environment is restored
-    # for the tests which run after this module. Once tgis accepts env, the
-    # session can be passed explicitly and the mirroring can go away.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
+    tools = Tools(session=session)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    for expression in ("a_map = 1", "b_map = 1", "rel_a = 1", "rel_b = 1"):
+        tools.r_mapcalc(expression=expression)
+    tools.r_mapcalc(expression="loner = 1")
+    tools.v_edit(map="point_map", tool="create")
 
-        tools = Tools(session=session)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        for expression in ("a_map = 1", "b_map = 1", "rel_a = 1", "rel_b = 1"):
-            tools.r_mapcalc(expression=expression)
-        tools.r_mapcalc(expression="loner = 1")
-        tools.v_edit(map="point_map", tool="create")
+    tools.t_create(
+        output="monthly", type="strds", title="monthly", description="monthly"
+    )
+    tools.t_register(
+        input="monthly", maps="b_map", start="2001-01-01", end="2001-02-01"
+    )
+    tools.t_register(
+        input="monthly", maps="a_map", start="2001-02-01", end="2001-03-01"
+    )
 
-        tools.t_create(
-            output="monthly", type="strds", title="monthly", description="monthly"
-        )
-        tools.t_register(
-            input="monthly", maps="b_map", start="2001-01-01", end="2001-02-01"
-        )
-        tools.t_register(
-            input="monthly", maps="a_map", start="2001-02-01", end="2001-03-01"
-        )
+    tools.t_create(output="shared", type="strds", title="shared", description="shared")
+    tools.t_register(input="shared", maps="b_map")
 
-        tools.t_create(
-            output="shared", type="strds", title="shared", description="shared"
-        )
-        tools.t_register(input="shared", maps="b_map")
+    tools.t_create(output="empty", type="strds", title="empty", description="empty")
 
-        tools.t_create(output="empty", type="strds", title="empty", description="empty")
+    tools.t_create(
+        output="relative",
+        type="strds",
+        temporaltype="relative",
+        title="relative",
+        description="relative",
+    )
+    tools.t_register(input="relative", maps="rel_b", start=5, unit="years")
+    tools.t_register(input="relative", maps="rel_a", start=2, unit="years")
 
-        tools.t_create(
-            output="relative",
-            type="strds",
-            temporaltype="relative",
-            title="relative",
-            description="relative",
-        )
-        tools.t_register(input="relative", maps="rel_b", start=5, unit="years")
-        tools.t_register(input="relative", maps="rel_a", start=2, unit="years")
+    tools.t_create(output="cross", type="strds", title="cross", description="cross")
+    tools.t_register(input="cross", maps="foreign_map@second", start="2010-01-01")
 
-        tools.t_create(output="cross", type="strds", title="cross", description="cross")
-        tools.t_register(input="cross", maps="foreign_map@second", start="2010-01-01")
+    tools.t_create(output="points", type="stvds", title="points", description="points")
+    tools.t_register(
+        input="points", type="vector", maps="point_map", start="2000-01-01"
+    )
 
-        tools.t_create(
-            output="points", type="stvds", title="points", description="points"
-        )
-        tools.t_register(
-            input="points", type="vector", maps="point_map", start="2000-01-01"
-        )
-
-        yield session
+    return session
 
 
 @pytest.fixture

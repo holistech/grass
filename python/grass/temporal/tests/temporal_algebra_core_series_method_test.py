@@ -6,7 +6,6 @@ file_limit apart from the skip-sum and skip-mean of the algebra. Only the
 check against the r.series interface description needs a session.
 """
 
-import os
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -18,6 +17,7 @@ from grass.temporal.algebra.backends import RasterBackend
 from grass.temporal.algebra.content import MapRef, SeriesAggregate
 from grass.temporal.algebra.materialize import _map_names
 from grass.temporal.algebra.series import Extent, Series, Slot
+from grass.temporal.testing.session import project_session
 
 
 def test_check_accepts_any_method():
@@ -32,8 +32,7 @@ def test_series_method_rejects_an_unknown_method():
 
 @pytest.fixture
 def session(tmp_path):
-    gs.create_project(tmp_path / "project")
-    with gs.setup.init(tmp_path / "project", env=os.environ.copy()) as grass_session:
+    with project_session(tmp_path / "project") as grass_session:
         yield grass_session
 
 

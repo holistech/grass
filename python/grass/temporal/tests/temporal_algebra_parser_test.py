@@ -31,13 +31,10 @@ REL   r1 (1), r2 (2), r3 (3): relative time 0-1, 1-2, 2-3 days
 ====  ====================================================================
 """
 
-import os
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall
 from grass.temporal.temporal_algebra import (
@@ -85,80 +82,69 @@ def maps(*names):
 
 
 @pytest.fixture(scope="module")
-def session(tmp_path_factory):
+def session(temporal_exit_session):
     """Session with the datasets described in the module docstring"""
-    project = tmp_path_factory.mktemp("parser") / "project"
-    gs.create_project(project)
+    session = temporal_exit_session
+    tools = Tools(session=session)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    values = {
+        "a1": 1,
+        "a2": 2,
+        "a3": 3,
+        "a4": 4,
+        "b2": 20,
+        "b3": 30,
+        "b5": 50,
+        "c1": 100,
+        "c2": 200,
+        "e1": 9,
+        "h1": 11,
+        "h2": 12,
+        "h3": 13,
+        "i1": 7,
+        "i2": 8,
+        "r1": 1,
+        "r2": 2,
+        "r3": 3,
+    }
+    for name, value in values.items():
+        tools.r_mapcalc(expression=f"{name} = {value}")
+    tools.g_region(n=103, s=100, e=103, w=100, res=1)
+    tools.r_mapcalc(expression="far = 5")
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    # a time stamped map which is in no space time dataset
+    tools.r_mapcalc(expression="event = 6")
+    tools.r_timestamp(map="event", date="6 Jan 2001 / 15 Feb 2001")
 
-    # tgis reads the session from os.environ, see grass_temporal_gui_support_test
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tools = Tools(session=session)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        values = {
-            "a1": 1,
-            "a2": 2,
-            "a3": 3,
-            "a4": 4,
-            "b2": 20,
-            "b3": 30,
-            "b5": 50,
-            "c1": 100,
-            "c2": 200,
-            "e1": 9,
-            "h1": 11,
-            "h2": 12,
-            "h3": 13,
-            "i1": 7,
-            "i2": 8,
-            "r1": 1,
-            "r2": 2,
-            "r3": 3,
-        }
-        for name, value in values.items():
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        tools.g_region(n=103, s=100, e=103, w=100, res=1)
-        tools.r_mapcalc(expression="far = 5")
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        # a time stamped map which is in no space time dataset
-        tools.r_mapcalc(expression="event = 6")
-        tools.r_timestamp(map="event", date="6 Jan 2001 / 15 Feb 2001")
-
-        for name in ("A", "B", "C", "D", "E", "H", "I", "EMPTY"):
-            tools.t_create(output=name, type="strds", title=name, description=name)
-        tools.t_create(
-            output="REL",
-            type="strds",
-            temporaltype="relative",
-            title="REL",
-            description="REL",
-        )
-        membership = {
-            "A": ("a1", "a2", "a3", "a4"),
-            "B": ("b2", "b3", "b5"),
-            "C": ("c1", "c2"),
-            "D": ("far",),
-            "E": ("e1",),
-            "H": ("h1", "h2", "h3"),
-            "I": ("i1", "i2"),
-        }
-        for stds, names in membership.items():
-            for name in names:
-                start, end = EXTENT[name]
-                kwargs = {"start": start}
-                if end != "None":
-                    kwargs["end"] = end
-                tools.t_register(input=stds, maps=name, **kwargs)
-        for name in ("r1", "r2", "r3"):
+    for name in ("A", "B", "C", "D", "E", "H", "I", "EMPTY"):
+        tools.t_create(output=name, type="strds", title=name, description=name)
+    tools.t_create(
+        output="REL",
+        type="strds",
+        temporaltype="relative",
+        title="REL",
+        description="REL",
+    )
+    membership = {
+        "A": ("a1", "a2", "a3", "a4"),
+        "B": ("b2", "b3", "b5"),
+        "C": ("c1", "c2"),
+        "D": ("far",),
+        "E": ("e1",),
+        "H": ("h1", "h2", "h3"),
+        "I": ("i1", "i2"),
+    }
+    for stds, names in membership.items():
+        for name in names:
             start, end = EXTENT[name]
-            tools.t_register(input="REL", maps=name, start=start, end=end, unit="days")
-        tgis.init()
-        yield SimpleNamespace(session=session, tools=tools)
+            kwargs = {"start": start}
+            if end != "None":
+                kwargs["end"] = end
+            tools.t_register(input=stds, maps=name, **kwargs)
+    for name in ("r1", "r2", "r3"):
+        start, end = EXTENT[name]
+        tools.t_register(input="REL", maps=name, start=start, end=end, unit="days")
+    return SimpleNamespace(session=session, tools=tools)
 
 
 def dry_register(expression, **kwargs):

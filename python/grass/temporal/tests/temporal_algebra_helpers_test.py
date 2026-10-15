@@ -20,37 +20,19 @@ Time lines used throughout (one month per cell, 2001):
 """
 
 import gc
-import os
 import weakref
 from datetime import datetime
 
 import pytest
 
-import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.temporal_algebra import GlobalTemporalVar, TemporalAlgebraParser
 
 BOX = {"north": 10, "south": 0, "east": 10, "west": 0, "top": 0, "bottom": 0}
 
 
-@pytest.fixture(scope="module")
-def project_session(tmp_path_factory):
-    """Session with an empty project and an initialized temporal framework"""
-    project = tmp_path_factory.mktemp("helpers") / "project"
-    gs.create_project(project)
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        yield session
-
-
 @pytest.fixture
-def raw_parser(project_session):
+def raw_parser(temporal_exit_session):
     """A parser as constructed by the user, before parse() was ever called"""
     return TemporalAlgebraParser()
 
@@ -1266,7 +1248,7 @@ def test_remove_maps_names_3d_raster_type_for_g_remove(parser):
     )
 
 
-def test_parser_tables_do_not_keep_the_first_instance_alive(project_session):
+def test_parser_tables_do_not_keep_the_first_instance_alive(temporal_exit_session):
     """The cached tables are shared by the instances of a class, but must not
     hold the instance which built them (and with it its database connection)"""
 

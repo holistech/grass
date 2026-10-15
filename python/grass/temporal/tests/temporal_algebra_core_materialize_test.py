@@ -19,7 +19,6 @@ and the map tm (7) registered with [1, 2] in no dataset, and the map m
 import dataclasses
 import datetime
 import importlib
-import os
 from io import StringIO
 
 import pytest
@@ -49,53 +48,42 @@ def day(number):
 
 
 @pytest.fixture(scope="module")
-def core_session(tmp_path_factory):
-    project = tmp_path_factory.mktemp("core") / "project"
-    gs.create_project(project)
-    # tgis reads the session from os.environ; mirror it there only for this
-    # module, see grass_temporal_gui_support_test.py.
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        tools = Tools(session=session)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        directory = tmp_path_factory.mktemp("register")
-        for name, (temporaltype, maps) in DATASETS.items():
-            tools.t_create(
-                output=name,
-                type="strds",
-                temporaltype=temporaltype,
-                title=name,
-                description=name,
-            )
-            lines = []
-            for map_name, value, start, end in maps:
-                tools.r_mapcalc(expression=f"{map_name} = {value}")
-                lines.append(f"{map_name}|{day(start)}|{day(end)}")
-            listing = directory / f"{name}.txt"
-            listing.write_text("\n".join(lines) + "\n")
-            tools.t_register(input=name, file=listing)
+def core_session(temporal_module_session, tmp_path_factory):
+    session = temporal_module_session
+    tools = Tools(session=session)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    directory = tmp_path_factory.mktemp("register")
+    for name, (temporaltype, maps) in DATASETS.items():
         tools.t_create(
-            output="RT",
+            output=name,
             type="strds",
-            temporaltype="relative",
-            title="RT",
-            description="RT",
+            temporaltype=temporaltype,
+            title=name,
+            description=name,
         )
-        for map_name, value in [("rt1", 1), ("rt2", 2)]:
+        lines = []
+        for map_name, value, start, end in maps:
             tools.r_mapcalc(expression=f"{map_name} = {value}")
-        tools.t_register(
-            input="RT", maps="rt1,rt2", start=0, increment=1, unit="days", flags="i"
-        )
-        tools.r_mapcalc(expression="tm = 7")
-        tools.t_register(maps="tm", start="2001-01-01", end="2001-01-02")
-        tools.r_mapcalc(expression="m = 100")
-        yield session
+            lines.append(f"{map_name}|{day(start)}|{day(end)}")
+        listing = directory / f"{name}.txt"
+        listing.write_text("\n".join(lines) + "\n")
+        tools.t_register(input=name, file=listing)
+    tools.t_create(
+        output="RT",
+        type="strds",
+        temporaltype="relative",
+        title="RT",
+        description="RT",
+    )
+    for map_name, value in [("rt1", 1), ("rt2", 2)]:
+        tools.r_mapcalc(expression=f"{map_name} = {value}")
+    tools.t_register(
+        input="RT", maps="rt1,rt2", start=0, increment=1, unit="days", flags="i"
+    )
+    tools.r_mapcalc(expression="tm = 7")
+    tools.t_register(maps="tm", start="2001-01-01", end="2001-01-02")
+    tools.r_mapcalc(expression="m = 100")
+    return session
 
 
 DATASET_CLASSES = {

@@ -8,34 +8,15 @@ same random time stamps, which have a valid temporal topology, as the
 granularity mode requires.
 """
 
-import os
 import random
 
 import pytest
 
-import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
 from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.parser.granularity import sample_by_granularity
 from grass.temporal.algebra.series import Extent, Series, Slot
-
-
-@pytest.fixture(scope="module")
-def temporal_session(tmp_path_factory):
-    """A session, which the map objects of grass.temporal need"""
-    project = tmp_path_factory.mktemp("granularity") / "project"
-    gs.create_project(project)
-    # tgis reads the session from os.environ, see grass_temporal_gui_support_test
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        yield session
 
 
 def random_spans(generator):
@@ -96,7 +77,8 @@ def core(spans, granularity):
     ]
 
 
-def test_core_samples_as_the_classic_algebra(temporal_session):
+@pytest.mark.usefixtures("temporal_module_session")
+def test_core_samples_as_the_classic_algebra():
     generator = random.Random(4)
     for _ in range(300):
         spans = random_spans(generator)

@@ -5,12 +5,8 @@ table survive; two maps run r.series. Measured expectations match the
 characterization tests of t.rast.aggregate.
 """
 
-import os
-
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
 from grass.temporal.algebra.content import MapRef, SeriesAggregate
 from grass.temporal.algebra.materialize import materialize
 from grass.temporal.algebra.series import Extent, Series, Slot
@@ -18,23 +14,14 @@ from grass.tools import Tools
 
 
 @pytest.fixture(scope="module")
-def session(tmp_path_factory):
-    project = tmp_path_factory.mktemp("aggregate_materialize") / "project"
-    gs.create_project(project)
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as grass_session,
-    ):
-        for key, value in grass_session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init(True)
-        tools = Tools(session=grass_session, overwrite=True)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        tools.r_mapcalc(expression="a = 1")
-        tools.r_mapcalc(expression="b = 3")
-        tools.r_colors(map="a", color="grey")
-        yield grass_session, tools
+def session(temporal_module_session):
+    grass_session = temporal_module_session
+    tools = Tools(session=grass_session, overwrite=True)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    tools.r_mapcalc(expression="a = 1")
+    tools.r_mapcalc(expression="b = 3")
+    tools.r_colors(map="a", color="grey")
+    return grass_session, tools
 
 
 def _slot(start, end, content):

@@ -4,6 +4,7 @@ import datetime
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.algebra.content import Const, MapRef
 from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.temporal.testing.session import project_session, temporal_session
@@ -69,6 +70,19 @@ def temporal_module_session(tmp_path_factory):
     """
     with temporal_session(tmp_path_factory.mktemp("temporal") / "project") as session:
         yield session
+
+
+@pytest.fixture(scope="module")
+def temporal_exit_session(temporal_module_session):
+    """Like temporal_module_session, but a fatal error ends the process
+
+    For tests that check the abort of the classic algebra with
+    pytest.raises(SystemExit), the way the tools fail. temporal_session
+    makes fatal errors raise FatalError instead and restores the mode of
+    before when the module ends.
+    """
+    tgis.set_raise_on_error(False)
+    return temporal_module_session
 
 
 @pytest.fixture(scope="module")

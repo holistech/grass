@@ -7,8 +7,8 @@ columns reported the other way round are detected.
 
 import pytest
 
-import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
 ROWS = 8
@@ -18,9 +18,7 @@ COLS = 12
 @pytest.fixture
 def session_with_maps(tmp_path):
     """Start a session with a raster and a 3D raster map"""
-    project = tmp_path / "project"
-    gs.create_project(project)
-    with gs.setup.init(project) as session:
+    with temporal_session(tmp_path / "project") as session:
         tools = Tools(session=session)
         tools.g_region(n=80, s=0, e=120, w=0, t=50, b=0, res=10, res3=10)
         tools.r_mapcalc(expression="test_raster = 1")

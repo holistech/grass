@@ -23,7 +23,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import itertools
-import os
 import random
 
 import pytest
@@ -59,22 +58,10 @@ CASES = 20
 
 
 @pytest.fixture(scope="module")
-def temporal_session(tmp_path_factory):
+def temporal_session(temporal_module_session):
     """A session with the temporal database that the map objects need"""
-    project = tmp_path_factory.mktemp("mapcalc_sampling") / "project"
-    gs.create_project(project)
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        # tgis reads the session from os.environ, so mirror it for the module.
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        gs.run_command("g.gisenv", set="TGIS_USE_CURRENT_MAPSET=1")
-        gs.run_command("g.region", s=0, n=10, w=0, e=10, res=1)
-        tgis.init()
-        yield session
+    gs.run_command("g.region", s=0, n=10, w=0, e=10, res=1)
+    return temporal_module_session
 
 
 def interval_spans(generator):
