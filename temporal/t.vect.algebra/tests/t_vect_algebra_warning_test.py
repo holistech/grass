@@ -7,6 +7,8 @@ import pytest
 
 from grass.tools import Tools
 
+pytestmark = pytest.mark.real_io
+
 
 def run_tool(session, expression):
     """Run the tool and return its stderr"""

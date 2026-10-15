@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from grass.temporal.testing import fakes
 from grass.temporal.testing.data import MapSpec, day, register_stds, timestamp
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -155,3 +156,33 @@ def vector_series(tmp_path_factory):
         import_square(tools, tmp_path, "ev", 2, 0)
         tools.t_register(type="vector", maps="ev", start=timestamp(1), end=timestamp(2))
         yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)
+
+
+@pytest.fixture(scope="module")
+def io_cache_storage():
+    """Answers of the test-only caches, shared by the tests of one module"""
+    return fakes.CacheStorage()
+
+
+@pytest.fixture(autouse=True)
+def cached_io(request, io_cache_storage):
+    """Run the test with the caches of grass.temporal.testing.fakes
+
+    Replaces two IO calls that give the same answer all through a module: the
+    list of mapsets with a temporal database (a t.connect run per database
+    connection) and the --interface-description of a tool (a tool run per
+    pygrass Module). The real IO stays in tests marked real_io: the
+    tool-subprocess tests, the search path and discovery tests and the
+    session tests, and in
+    python/grass/temporal/tests/grass_temporal_testing_fakes_test.py, which
+    compares every cached answer with the real one. Comparisons of two
+    implementations (core against classic) run with real raster and
+    database IO and get these two caches, which both sides receive alike.
+    Fixtures of module scope are set up before this one and therefore use
+    the real IO.
+    """
+    if request.node.get_closest_marker("real_io"):
+        yield
+        return
+    with fakes.cached_io(io_cache_storage):
+        yield
