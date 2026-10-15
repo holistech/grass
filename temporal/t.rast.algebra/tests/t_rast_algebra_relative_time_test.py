@@ -8,6 +8,8 @@ finding M5).
 
 import pytest
 
+from grass.temporal.testing.reference import run_reference
+
 
 def relative_maps(algebra, expression, **kwargs):
     """Return (start, end, value) of the result maps"""
@@ -54,6 +56,34 @@ def test_relative_buffer_and_shift(algebra):
         (6, 7, 2),
         (7, 8, 3),
     ]
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    "expression",
+    [
+        'buff_t(RT, "3 hours")',
+        'buff_t(RT, "1 day")',
+        'buff_t(RT, "1 month")',
+        'RT + buff_t(RT, "1 day")',
+        # A refused buffer leaves no result, also for absolute time.
+        "buff_t(A, 3)",
+    ],
+)
+def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
+    """A buffer with a time unit is refused for relative time like a number
+    without unit is for absolute time. It was a TypeError of the subtraction
+    of the buffer from the start time. The error leaves no result dataset.
+
+    Checked on the earlier implementation only: the core raises a ValueError
+    with its own message for the same expressions.
+    """
+    algebra.remove("R")
+    with pytest.raises(SyntaxError, match=r"buff_t\(\) needs a"):
+        run_reference(
+            "raster", f"R = {expression}", basename="r", overwrite=True, run=True
+        )
+    assert not algebra.exists()
 
 
 def test_relative_time_difference(algebra):

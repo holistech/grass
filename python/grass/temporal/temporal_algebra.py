@@ -3276,14 +3276,17 @@ class TemporalAlgebraParser:
              | BUFF_T LPAREN expr COMMA number RPAREN
         """
         if self.run:
-            t[0] = self.check_stds(t[3])
+            maplist = self.check_stds(t[3])
             with self._reporting_syntax_errors():
-                self._check_increment("buff_t", t[0], self._increment(t))
-                for map_i in t[0]:
+                self._check_increment("buff_t", maplist, self._increment(t))
+                for map_i in maplist:
                     # Relative time is buffered by a number of time units
                     map_i.temporal_buffer(
                         self._increment(t, as_number=map_i.is_time_relative())
                     )
+                # Assigned last: after a refused increment the rule has no
+                # value, so that no result is registered.
+                t[0] = maplist
         else:
             t[0] = self._placeholder(t[3])
         self._trace_increment("buff_t", t)
@@ -3320,19 +3323,26 @@ class TemporalAlgebraParser:
 
     @staticmethod
     def _check_increment(function, maplist, increment) -> None:
-        """Refuse a number without a unit as increment of absolute time maps.
+        """Refuse an increment of the wrong kind for the time type of the maps.
 
-        Without it temporal_buffer() fails with a bare Exception, which the
-        tools do not catch.
+        Absolute time takes a number and a unit, relative time a number of its
+        unit. Without the check temporal_buffer() fails with a bare Exception
+        for the first and a TypeError for the second.
 
-        :raises SyntaxError: if a map has absolute time and no unit is given
+        :raises SyntaxError: if a map has absolute time and no unit is given,
+                             or a map has relative time and a unit is given
         """
-        if str(increment).strip().lstrip("-").isdigit() and any(
-            map_i.is_time_absolute() for map_i in maplist
-        ):
+        is_number = str(increment).strip().lstrip("-").isdigit()
+        if is_number and any(map_i.is_time_absolute() for map_i in maplist):
             msg = (
                 "Function {function}() needs a time unit for absolute time, "
                 'e.g. "{increment} days", but got {increment}'
+            ).format(function=function, increment=increment)
+            raise SyntaxError(msg)
+        if not is_number and any(map_i.is_time_relative() for map_i in maplist):
+            msg = (
+                "Function {function}() needs a number without a time unit for "
+                'relative time, e.g. 3, but got "{increment}"'
             ).format(function=function, increment=increment)
             raise SyntaxError(msg)
 
