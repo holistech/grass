@@ -62,12 +62,23 @@ def temporal_session(path, *, crs=None, mapset=None):
     saved_environ = dict(os.environ)
     # get_msgr() returns one Messenger per process, and tgis.init() does not
     # change the error mode of an existing one. Later tests of the process
-    # expect the exit mode, so the mode of the Messenger and the module flag
-    # are saved here, before init() sets the flag itself, and both are
-    # restored below.
-    msgr = get_msgr()
+    # expect the exit mode, so the mode of an existing Messenger and the
+    # module flag are saved here, before init() sets the flag itself, and
+    # both are restored below.
+    #
+    # The Messenger is not created here. For the first session of a process
+    # this avoids a fork warning: a Messenger created now has a dead server
+    # by the time init() starts the RPC server thread (measured 2026-10-15
+    # with a traced os.fork), and its restart forks a multi-threaded process.
+    # Later sessions of a process can still warn, because init() stops the
+    # messenger when the project changes and the restart comes after that
+    # thread started. get_msgr offers no way to ask whether an instance
+    # exists, so the cache in its default argument is read. Without an
+    # earlier Messenger, "restore" means the exit mode, which is what the
+    # first init() of a process creates.
+    existing = get_msgr.__defaults__[0][0]
+    saved_msgr_flag = existing.raise_on_error if existing else False
     saved_module_flag = tgis.get_raise_on_error()
-    saved_msgr_flag = msgr.raise_on_error
     try:
         with project_session(path, crs=crs, mapset=mapset) as session:
             os.environ.update(session.env)
@@ -77,6 +88,7 @@ def temporal_session(path, *, crs=None, mapset=None):
             yield session
     finally:
         tgis.set_raise_on_error(saved_module_flag)
-        msgr.set_raise_on_error(saved_msgr_flag)
+        # init() creates the Messenger when none existed.
+        get_msgr().set_raise_on_error(saved_msgr_flag)
         os.environ.clear()
         os.environ.update(saved_environ)

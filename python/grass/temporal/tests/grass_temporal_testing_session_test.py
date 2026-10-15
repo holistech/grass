@@ -79,6 +79,31 @@ def test_messenger_mode_is_set_and_restored(tmp_path, before_block):
         msgr.set_raise_on_error(found)
 
 
+def test_messenger_created_by_the_block_is_left_in_exit_mode(tmp_path):
+    """A messenger that init() creates in the block is back in exit mode after.
+
+    This pins the restore rule for a process without a messenger: later tests
+    expect sys.exit on fatal errors. The cache of get_msgr() and
+    tgis.core.message_interface are emptied for the test, because there is no
+    other way to start from "no messenger", and both are put back afterwards.
+    """
+    cache = get_msgr.__defaults__[0]
+    original = cache[0]
+    original_interface = tgis.core.message_interface
+    cache[0] = None
+    tgis.core.message_interface = None
+    try:
+        with temporal_session(tmp_path / "p"):
+            assert get_msgr().raise_on_error is True
+        created = get_msgr()
+        assert created is not original
+        assert created.raise_on_error is False
+        created.server.terminate()
+    finally:
+        cache[0] = original
+        tgis.core.message_interface = original_interface
+
+
 def test_mapset_is_created_and_entered(tmp_path):
     with project_session(tmp_path / "p", mapset="other") as session:
         assert gs.read_command("g.gisenv", get="MAPSET", env=session.env).strip() == (
