@@ -3,22 +3,19 @@
 
 """Fixture for t.register tests"""
 
-import os
-
 import pytest
 
-import grass.script as gs
+from grass.temporal.testing.data import make_map
+from grass.temporal.testing.session import project_session
 from grass.tools import Tools
 
 
 @pytest.fixture
 def session_with_rasters(tmp_path):
     """Start a session in a new project and create small test rasters."""
-    project = tmp_path / "test"
-    gs.create_project(project)
-    with gs.setup.init(project, env=os.environ.copy()) as session:
+    with project_session(tmp_path / "test") as session:
         tools = Tools(session=session)
         tools.g_region(s=0, n=1, w=0, e=1, res=1)
         for name in ("a", "b", "c"):
-            tools.r_mapcalc(expression=f"{name} = 1")
+            make_map(tools, "raster", name, 1)
         yield session
