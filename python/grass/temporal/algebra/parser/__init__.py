@@ -12,9 +12,10 @@ import functools
 
 from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
+from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.sources import source
 
-from .grammar import parse
+from .grammar import parse as _parse_core
 from .granularity import sample_by_granularity
 from .translate import Translator
 
@@ -22,6 +23,16 @@ __all__ = ["Translator", "evaluate", "parse"]
 
 # The parser classes take "num" for numbered map names; the core takes None.
 _TIME_SUFFIXES = ("gran", "time")
+
+
+def parse(text, *, grammar=None):
+    """Return the syntax tree of the statement "name = expression"
+
+    :param grammar: an object with parse(text) that returns the tree of the
+        statement; None reads the syntax of the core
+    :raises SyntaxError: with the position of the first error
+    """
+    return (grammar.parse if grammar else _parse_core)(text)
 
 
 def evaluate(
@@ -39,6 +50,7 @@ def evaluate(
     time_suffix=None,
     granularity=None,
     selection=False,
+    profile=CORE,
 ):
     """Parse, translate and compute "name = expression"
 
@@ -57,6 +69,9 @@ def evaluate(
     it, copied with g.copy, as a selection needs it (see plan()).
 
     :param kind: the map type, "raster", "raster3d" or "vector"
+    :param profile: the variant of the algebra: its grammar reads the
+        expression and its translator class translates the tree; the default
+        is the algebra of the core
     :param granularity: the common granularity of the datasets, a text such
         as "1 day" for absolute time or a whole number for relative time;
         None reads the datasets as they are
@@ -69,7 +84,7 @@ def evaluate(
     :raises FatalError: for a missing dataset or map, and without overwrite
         for an existing result dataset or map
     """
-    statement = parse(expression)
+    statement = parse(expression, grammar=profile.grammar)
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
@@ -78,9 +93,10 @@ def evaluate(
         resolve = functools.partial(
             _sampled_source, stds_type=STDS_TYPES[kind], granularity=granularity
         )
-    name, series = Translator(kind=kind, spatial=spatial, resolve=resolve).statement(
-        statement
+    translator = (profile.translator or Translator)(
+        kind=kind, spatial=spatial, resolve=resolve, profile=profile
     )
+    name, series = translator.statement(statement)
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
     planned = plan(
         series, name, basename=basename, time_suffix=suffix, selection=selection

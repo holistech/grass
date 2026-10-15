@@ -17,6 +17,7 @@ from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra.backends import PATCH, VECTOR_FUNCTIONS
 from grass.temporal.algebra.content import NULL, Const, call
 from grass.temporal.algebra.maptypes import STDS_TYPES
+from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
@@ -91,9 +92,50 @@ class Translator:
     functions that build series in memory. With spatial, every relation also
     asks for spatially related maps. kind is the map type of the datasets; it
     decides what + means and which indexes and functions exist.
+
+    The profile says which variant of the algebra is translated. Its fields
+    are read through self.profile.
+
+    The methods with a leading underscore that are listed in
+    EXTENSION_POINTS are the protected extension points of the class: a
+    subclass for another variant of the algebra overrides them and relies on
+    their signatures, and the translation calls every one of them as a
+    method of self, so an override is always reached. The other private
+    names are details of this class.
     """
 
-    def __init__(self, *, kind="raster", spatial=False, resolve=None, resolve_map=None):
+    EXTENSION_POINTS = (
+        "_name",
+        "_single_map",
+        "_operands",
+        "_binary",
+        "_relation",
+        "_select",
+        "_count",
+        "_combine",
+        "_apply",
+        "_logical",
+        "_if",
+        "_temporal_if",
+        "_field_if",
+        "_function",
+        "_time_variable",
+        "_merge",
+        "_tsnap",
+        "_tshift",
+        "_buff_t",
+    )
+
+    def __init__(
+        self,
+        *,
+        kind="raster",
+        spatial=False,
+        resolve=None,
+        resolve_map=None,
+        profile=CORE,
+    ):
+        self.profile = profile
         self._kind = kind
         self._spatial = spatial
         self._resolve = resolve or functools.partial(source, stds_type=STDS_TYPES[kind])
@@ -158,8 +200,12 @@ class Translator:
             series = time_functions.neighbour(series, offsets[-1])
         return operations.cell_offset(series, *offsets[:axes])
 
+    def _operands(self, node):
+        """Return the values of the left and right operand of a binary node"""
+        return self.value(node.left), self.value(node.right)
+
     def _binary(self, node):
-        left, right = self.value(node.left), self.value(node.right)
+        left, right = self._operands(node)
         symbol = node.symbol
         operator = node.operator or TemporalOperator(symbol)
         if symbol in (":", "!:"):
@@ -283,8 +329,7 @@ class Translator:
             space=space,
         )
 
-    @staticmethod
-    def _apply(function, *operands):
+    def _apply(self, function, *operands):
         if _vector_field(*operands) and function not in VECTOR_FUNCTIONS:
             msg = (
                 f"{function}() is not defined for vector maps; they are "
@@ -396,12 +441,17 @@ class Translator:
                 _like(condition, then),
                 None if otherwise is _ABSENT else _like(condition, otherwise),
             )
+        return self._temporal_if(condition, then, otherwise, relation, first)
+
+    def _temporal_if(self, condition, then, otherwise, relation, first):
+        """Choose between then and else by a condition with time stamps
+
+        first is the first of then and else that has time stamps.
+        """
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
-            # A condition per cell chooses between then and else in each
-            # cell, so where() needs both with the same time stamps.
-            return _where(conditions, then, otherwise)
+            return self._field_if(conditions, then, otherwise)
         then_maps = then if _timed(then) else _like(first, then)
         if otherwise is _ABSENT:
             return operations.choose(conditions, then_maps)
@@ -419,6 +469,14 @@ class Translator:
                 operations.apply("!", _settled(others, relation)), otherwise
             ),
         )
+
+    def _field_if(self, conditions, then, otherwise):
+        """Choose by a condition per cell between then and else
+
+        The choice is made in each cell, so where() needs both with the same
+        time stamps.
+        """
+        return _where(conditions, then, otherwise)
 
     def _conditions(self, target, condition, operator):
         """The joined condition of each map of target
@@ -475,13 +533,29 @@ class Translator:
         if name in time_functions.TIMEVARS:
             return self._time_variable(name, arguments)
         if name == "tsnap":
-            return time_functions.retime(*_exactly(name, arguments, 1), snap=True)
-        if name in ("tshift", "buff_t"):
-            series, increment = _exactly(name, arguments, 2)
-            keyword = "shift" if name == "tshift" else "buffer"
-            return time_functions.retime(series, **{keyword: _increment(increment)})
+            return self._tsnap(*_exactly(name, arguments, 1))
+        if name == "tshift":
+            return self._tshift(*_exactly(name, arguments, 2))
+        if name == "buff_t":
+            return self._buff_t(*_exactly(name, arguments, 2))
         # merge is the only known name left.
-        return operations.merge(*_exactly(name, arguments, 2))
+        return self._merge(*_exactly(name, arguments, 2))
+
+    def _tsnap(self, series):
+        """Snap the time stamps of series to its granularity"""
+        return time_functions.retime(series, snap=True)
+
+    def _tshift(self, series, increment):
+        """Shift the time stamps of series by an increment (text or number)"""
+        return time_functions.retime(series, shift=_increment(increment))
+
+    def _buff_t(self, series, increment):
+        """Buffer the time stamps of series by an increment (text or number)"""
+        return time_functions.retime(series, buffer=_increment(increment))
+
+    def _merge(self, first, second):
+        """Keep the maps of both series"""
+        return operations.merge(first, second)
 
     def _single_map(self, node):
         arguments = node.arguments
@@ -494,8 +568,7 @@ class Translator:
             raise SyntaxError(msg)
         return self._resolve_map(arguments[0].ident, timestamp=node.name == "tmap")
 
-    @staticmethod
-    def _time_variable(name, arguments):
+    def _time_variable(self, name, arguments):
         if len(arguments) not in (1, 2):
             msg = f"{name}() takes a dataset and an optional offset"
             raise SyntaxError(msg)

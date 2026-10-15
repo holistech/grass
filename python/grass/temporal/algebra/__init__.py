@@ -46,6 +46,7 @@ from .operations import (
     where,
 )
 from .materialize import ProcessChain, materialize, plan
+from .profile import CORE, Profile
 from .reducers import fold, series_method
 from .relations import (
     Relation,
@@ -68,12 +69,14 @@ from .sources import source, source_map
 from .time_functions import granules, neighbour, retime, timevar
 
 __all__ = [
+    "CORE",
     "NULL",
     "Call",
     "Const",
     "Extent",
     "MapRef",
     "ProcessChain",
+    "Profile",
     "Relation",
     "Series",
     "SeriesAggregate",
