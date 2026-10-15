@@ -6,25 +6,15 @@ temporary XY project: 1.16 s with register_maps_in_space_time_dataset, 12.18 s
 with one t.register call per map.
 """
 
-import os
+from datetime import datetime
 from types import SimpleNamespace
-from typing import NamedTuple
 
 import pytest
 
-import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.readback import list_maps
 from grass.tools import Tools
-
-
-class Row(NamedTuple):
-    """A registered map of a result dataset, read back with t.rast.list"""
-
-    name: str
-    start: str
-    end: str
-    min: float | None
-    max: float | None
 
 
 class Reader:
@@ -69,25 +59,13 @@ class Reader:
         return self.rows(output)
 
     def rows(self, dataset):
-        text = self.tools.t_rast_list(
-            input=dataset,
-            columns="name,start_time,end_time,min,max",
-            separator="pipe",
-            flags="u",
-        ).text.strip()
-        rows = []
-        for line in text.splitlines():
-            name, start, end, low, high = line.split("|")
-            rows.append(
-                Row(
-                    name,
-                    start,
-                    end,
-                    None if low == "None" else float(low),
-                    None if high == "None" else float(high),
-                )
+        """The maps of dataset; relative times are text, as the tests compare"""
+        return [
+            row._replace(
+                start=str(row.start), end=None if row.end is None else str(row.end)
             )
-        return rows
+            for row in list_maps(self.tools, "strds", dataset)
+        ]
 
     def datatype(self, raster):
         return self.tools.r_info(map=raster, flags="g").keyval["datatype"]
@@ -96,20 +74,28 @@ class Reader:
         return self.tools.r_colors_out(map=raster).text.strip().splitlines()[0]
 
 
-def _register(dataset, temporaltype, rows, unit=None, semantic="mean"):
-    """Create a STRDS and register maps from (name, start, end) rows"""
-    tgis.open_new_stds(
-        dataset, "strds", temporaltype, dataset, dataset, semantic, overwrite=True
+def _spec(name, value, start, end=None):
+    """A MapSpec whose times are "YYYY-MM-DD[ HH:MM:SS]" text, or numbers"""
+    if isinstance(start, str):
+        start = datetime.fromisoformat(start)
+        end = None if end is None else datetime.fromisoformat(end)
+    return MapSpec(name, value, start, end)
+
+
+def _library(tools, name, rows, **options):
+    """Create the maps of (name, value, start, end) rows and register them"""
+    create_stds(
+        tools,
+        "strds",
+        name,
+        [_spec(*row) for row in rows],
+        via="library",
+        **options,
     )
-    for name, start, end in rows:
-        kwargs = {"start": start} if end is None else {"start": start, "end": end}
-        if unit is not None:
-            kwargs["unit"] = unit
-        tgis.register_maps_in_space_time_dataset("raster", dataset, name, **kwargs)
 
 
 @pytest.fixture(scope="module")
-def aggregate_data(tmp_path_factory):
+def aggregate_data(temporal_module_session):
     """Session with the datasets of the characterization tests
 
     - cells: CELL maps m1=1, m2=3, m3=5 on 12 hour intervals of days 1, 2, 3
@@ -137,150 +123,122 @@ def aggregate_data(tmp_path_factory):
     - probes: p-maps whose value is the probe number, with the time spans of
       the algebra PROBES, for the sampling list.
     """
-    project = tmp_path_factory.mktemp("t_rast_aggregate") / "project"
-    gs.create_project(project)
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        tools = Tools(session=session, overwrite=True)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        for name, value in [
-            ("m1", 1), ("m2", 3), ("m3", 5),
-            ("na1", 1), ("na2", 2), ("nz1", "null()"), ("nz2", "null()"),
-            ("ip1", 1), ("ip2", 2), ("ip3", 3),
-            ("rx1", 1), ("rx2", 2), ("rx3", 3), ("rx4", 4),
-            ("oz", 3), ("oa1", 5), ("oa2", 1), ("oa3", 9),
-            ("tl_long", 7), ("tl_inst", 2),
-            ("mo1", 1), ("mo2", 2), ("mo3", 3),
-            ("hr1", 1), ("hr2", 2), ("hr3", 3),
-        ]:  # fmt: skip
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        tools.r_colors(map="m1", color="grey")
-        for name, value in [("q", 1), ("o_2001_01_03", 99), ("r", 2)]:
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        for name, value, label in [
-            ("lb1", 1, "A"), ("lb2", 3, "B"), ("lb3", 5, "A"),
-        ]:  # fmt: skip
-            tools.r_mapcalc(expression=f"{name} = {value}")
-            tools.r_support(map=name, semantic_label=label)
-        probes = {
-            3: (5, 25),
-            5: (10, 25),
-            7: (5, 20),
-            10: (5, 15),
-            11: (15, 25),
-            1: (10, 20),
-            2: (12, 18),
-        }
-        for value in probes:
-            tools.r_mapcalc(expression=f"p{value} = {value}")
-
-        _register(
-            "cells",
-            "absolute",
-            [
-                ("m1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("m2", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
-                ("m3", "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
-            ],
+    session = temporal_module_session
+    tools = Tools(session=session, overwrite=True)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    cells = [
+        ("m1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+        ("m2", 3, "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+        ("m3", 5, "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
+    ]
+    _library(tools, "cells", cells)
+    tools.r_colors(map="m1", color="grey")
+    _library(
+        tools,
+        "nulls",
+        [
+            ("na1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+            ("na2", 2, "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+            ("nz1", "null()", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
+            ("nz2", "null()", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
+        ],
+    )
+    _library(
+        tools,
+        "instants",
+        [
+            ("ip1", 1, "2001-01-01", None),
+            ("ip2", 2, "2001-01-02", None),
+            ("ip3", 3, "2001-01-03", None),
+        ],
+    )
+    _library(
+        tools,
+        "relative",
+        [("rx1", 1, 0, 1), ("rx2", 2, 1, 2), ("rx3", 3, 2, 3), ("rx4", 4, 3, 4)],
+        temporaltype="relative",
+        unit="days",
+    )
+    _library(
+        tools,
+        "ordering",
+        [
+            ("oz", 3, "2001-01-01", "2001-01-30"),
+            ("oa1", 5, "2001-01-03", "2001-01-15"),
+            ("oa2", 1, "2001-01-04", "2001-01-15"),
+            ("oa3", 9, "2001-01-06", "2001-01-07"),
+        ],
+    )
+    _library(
+        tools,
+        "tail",
+        [
+            ("tl_long", 7, "2001-01-01", "2001-01-30"),
+            ("tl_inst", 2, "2001-01-03", None),
+        ],
+    )
+    # The semantic type is not an option of the shared helpers, so this
+    # dataset is registered here; its maps are those of cells.
+    tgis.open_new_stds(
+        "semantic", "strds", "absolute", "semantic", "semantic", "sum", overwrite=True
+    )
+    for name, _, start, end in cells:
+        tgis.register_maps_in_space_time_dataset(
+            "raster", "semantic", name, start=start, end=end
         )
-        _register(
-            "nulls",
-            "absolute",
-            [
-                ("na1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("na2", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
-                ("nz1", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
-                ("nz2", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
-            ],
-        )
-        _register(
-            "instants",
-            "absolute",
-            [
-                ("ip1", "2001-01-01", None),
-                ("ip2", "2001-01-02", None),
-                ("ip3", "2001-01-03", None),
-            ],
-        )
-        _register(
-            "relative",
-            "relative",
-            [("rx1", 0, 1), ("rx2", 1, 2), ("rx3", 2, 3), ("rx4", 3, 4)],
-            unit="days",
-        )
-        _register(
-            "ordering",
-            "absolute",
-            [
-                ("oz", "2001-01-01", "2001-01-30"),
-                ("oa1", "2001-01-03", "2001-01-15"),
-                ("oa2", "2001-01-04", "2001-01-15"),
-                ("oa3", "2001-01-06", "2001-01-07"),
-            ],
-        )
-        _register(
-            "tail",
-            "absolute",
-            [("tl_long", "2001-01-01", "2001-01-30"), ("tl_inst", "2001-01-03", None)],
-        )
-        _register(
-            "semantic",
-            "absolute",
-            [
-                ("m1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("m2", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
-                ("m3", "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
-            ],
-            semantic="sum",
-        )
-        _register(
-            "months",
-            "absolute",
-            [
-                ("mo1", "2001-01-10", "2001-01-20"),
-                ("mo2", "2001-02-10", "2001-02-20"),
-                ("mo3", "2001-03-10", "2001-03-20"),
-            ],
-        )
-        _register(
-            "hours",
-            "absolute",
-            [
-                ("hr1", "2001-01-01 06:00:00", "2001-01-01 06:30:00"),
-                ("hr2", "2001-01-01 07:00:00", "2001-01-01 07:30:00"),
-                ("hr3", "2001-01-01 08:00:00", "2001-01-01 08:30:00"),
-            ],
-        )
-        _register(
-            "clash",
-            "absolute",
-            [
-                ("q", "2001-01-01", "2001-01-02"),
-                ("o_2001_01_03", "2001-01-02", "2001-01-04"),
-                ("r", "2001-01-03", "2001-01-04"),
-            ],
-        )
-        _register(
-            "labeled",
-            "absolute",
-            [
-                ("lb1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("lb2", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("lb3", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
-            ],
-        )
-        _register(
-            "probes",
-            "absolute",
-            [
-                (f"p{v}", f"2001-01-{a:02d}", f"2001-01-{b:02d}")
-                for v, (a, b) in probes.items()
-            ],
-        )
-        yield SimpleNamespace(session=session, read=Reader(session))
+    _library(
+        tools,
+        "months",
+        [
+            ("mo1", 1, "2001-01-10", "2001-01-20"),
+            ("mo2", 2, "2001-02-10", "2001-02-20"),
+            ("mo3", 3, "2001-03-10", "2001-03-20"),
+        ],
+    )
+    _library(
+        tools,
+        "hours",
+        [
+            ("hr1", 1, "2001-01-01 06:00:00", "2001-01-01 06:30:00"),
+            ("hr2", 2, "2001-01-01 07:00:00", "2001-01-01 07:30:00"),
+            ("hr3", 3, "2001-01-01 08:00:00", "2001-01-01 08:30:00"),
+        ],
+    )
+    _library(
+        tools,
+        "clash",
+        [
+            ("q", 1, "2001-01-01", "2001-01-02"),
+            ("o_2001_01_03", 99, "2001-01-02", "2001-01-04"),
+            ("r", 2, "2001-01-03", "2001-01-04"),
+        ],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "labeled",
+        [
+            MapSpec("lb1", 1, datetime(2001, 1, 1, 6), datetime(2001, 1, 1, 18), "A"),
+            MapSpec("lb2", 3, datetime(2001, 1, 1, 6), datetime(2001, 1, 1, 18), "B"),
+            MapSpec("lb3", 5, datetime(2001, 1, 2, 6), datetime(2001, 1, 2, 18), "A"),
+        ],
+        via="library",
+    )
+    probes = {
+        3: (5, 25),
+        5: (10, 25),
+        7: (5, 20),
+        10: (5, 15),
+        11: (15, 25),
+        1: (10, 20),
+        2: (12, 18),
+    }
+    _library(
+        tools,
+        "probes",
+        [
+            (f"p{v}", v, f"2001-01-{a:02d}", f"2001-01-{b:02d}")
+            for v, (a, b) in probes.items()
+        ],
+    )
+    return SimpleNamespace(session=session, read=Reader(session))

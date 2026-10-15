@@ -1,12 +1,17 @@
 """Fixtures for the characterization tests of t.rast.aggregate.ds"""
 
-import os
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 
-import grass.script as gs
-import grass.temporal as tgis
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    intervals,
+    register_stds,
+)
+from grass.temporal.testing.readback import list_maps
 from grass.tools import Tools
 
 
@@ -38,33 +43,35 @@ class Reader:
         return self.rows(output)
 
     def names(self, dataset):
-        text = self.tools.t_rast_list(
-            input=dataset, columns="name", flags="u"
-        ).text.strip()
-        return text.splitlines() if text else []
+        return [row.name for row in list_maps(self.tools, "strds", dataset)]
 
     def rows(self, dataset):
-        text = self.tools.t_rast_list(
-            input=dataset,
-            columns="name,start_time,end_time,min,max",
-            separator="pipe",
-            flags="u",
-        ).text.strip()
-        return [line.split("|") for line in text.splitlines()]
+        """The maps as [name, start, end, min, max] text, None as "None"
+
+        The tests compare the text that t.rast.list prints; list_maps gives
+        typed values, which are rendered back to that form here.
+        """
+        return [
+            [str(value) for value in (row.name, row.start, row.end, row.min, row.max)]
+            for row in list_maps(self.tools, "strds", dataset)
+        ]
 
 
-def _register_raster(dataset, temporaltype, rows):
-    tgis.open_new_stds(
-        dataset, "strds", temporaltype, dataset, dataset, "mean", overwrite=True
-    )
-    for name, start, end in rows:
-        tgis.register_maps_in_space_time_dataset(
-            "raster", dataset, name, start=start, end=end
+def _specs(*rows):
+    """MapSpecs from (name, value, start, end) rows, times as ISO text"""
+    return [
+        MapSpec(
+            name,
+            value,
+            datetime.fromisoformat(start),
+            None if end is None else datetime.fromisoformat(end),
         )
+        for name, value, start, end in rows
+    ]
 
 
 @pytest.fixture(scope="module")
-def aggregate_ds_data(tmp_path_factory):
+def aggregate_ds_data(temporal_module_session):
     """Session with input and sampler datasets
 
     - input: m1=1, m2=2 on days 1 and 2, nz1 and nz2 null on day 3, so that
@@ -85,112 +92,80 @@ def aggregate_ds_data(tmp_path_factory):
 
     The computational region is 3x3 cells of size 1.
     """
-    project = tmp_path_factory.mktemp("t_rast_aggregate_ds") / "project"
-    gs.create_project(project)
-    with (
-        pytest.MonkeyPatch.context() as monkeypatch,
-        gs.setup.init(project, env=os.environ.copy()) as session,
-    ):
-        for key, value in session.env.items():
-            if os.environ.get(key) != value:
-                monkeypatch.setenv(key, value)
-        tgis.init()
-        tools = Tools(session=session, overwrite=True)
-        tools.g_region(n=3, s=0, e=3, w=0, res=1)
-        for name, value in [("m1", 1), ("m2", 2), ("nz1", "null()"), ("nz2", "null()")]:
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        for i in range(1, 4):
-            tools.r_mapcalc(expression=f"s{i} = {i}")
-        _register_raster(
+    session = temporal_module_session
+    tools = Tools(session=session, overwrite=True)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    for name, rows in [
+        (
             "input",
-            "absolute",
             [
-                ("m1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("m2", "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
-                ("nz1", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
-                ("nz2", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
+                ("m1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("m2", 2, "2001-01-02 06:00:00", "2001-01-02 18:00:00"),
+                ("nz1", "null()", "2001-01-03 06:00:00", "2001-01-03 12:00:00"),
+                ("nz2", "null()", "2001-01-03 13:00:00", "2001-01-03 18:00:00"),
             ],
-        )
-        for name, value in [("g1", 1), ("g3", 3), ("ct", 9), ("ov1", 1), ("os1", 1)]:
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        _register_raster(
+        ),
+        (
             "gapin",
-            "absolute",
             [
-                ("g1", "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
-                ("g3", "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
+                ("g1", 1, "2001-01-01 06:00:00", "2001-01-01 18:00:00"),
+                ("g3", 3, "2001-01-03 06:00:00", "2001-01-03 18:00:00"),
             ],
-        )
-        _register_raster(
+        ),
+        (
             "ordin",
-            "absolute",
             [
-                ("ov1", "2001-01-02 00:00:00", "2001-01-15 00:00:00"),
-                ("ct", "2001-01-05 00:00:00", "2001-01-06 00:00:00"),
+                ("ov1", 1, "2001-01-02 00:00:00", "2001-01-15 00:00:00"),
+                ("ct", 9, "2001-01-05 00:00:00", "2001-01-06 00:00:00"),
             ],
-        )
-        _register_raster(
-            "osamp",
-            "absolute",
-            [("os1", "2001-01-01 00:00:00", "2001-01-11 00:00:00")],
-        )
-        for name, value in [("pp1", 10), ("pp2", 20), ("pp3", 30), ("pp4", 40)]:
-            tools.r_mapcalc(expression=f"{name} = {value}")
-        _register_raster(
+        ),
+        ("osamp", [("os1", 1, "2001-01-01 00:00:00", "2001-01-11 00:00:00")]),
+        (
             "instants",
-            "absolute",
             [
-                ("pp1", "2001-01-01 12:00:00", None),
-                ("pp2", "2001-01-01 18:00:00", None),
-                ("pp3", "2001-01-03 00:00:00", None),
-                ("pp4", "2001-01-05 00:00:00", None),
+                ("pp1", 10, "2001-01-01 12:00:00", None),
+                ("pp2", 20, "2001-01-01 18:00:00", None),
+                ("pp3", 30, "2001-01-03 00:00:00", None),
+                ("pp4", 40, "2001-01-05 00:00:00", None),
             ],
-        )
-        _register_raster(
+        ),
+        (
             "samp",
-            "absolute",
             [
-                ("s1", "2001-01-01 00:00:00", "2001-01-02 00:00:00"),
-                ("s2", "2001-01-02 00:00:00", "2001-01-03 00:00:00"),
-                ("s3", "2001-01-03 00:00:00", "2001-01-04 00:00:00"),
+                ("s1", 1, "2001-01-01 00:00:00", "2001-01-02 00:00:00"),
+                ("s2", 2, "2001-01-02 00:00:00", "2001-01-03 00:00:00"),
+                ("s3", 3, "2001-01-03 00:00:00", "2001-01-04 00:00:00"),
             ],
-        )
+        ),
+    ]:
+        create_stds(tools, "strds", name, _specs(*rows), via="library")
 
-        # Deterministic part of the legacy shell test: a monthly precip strds
-        # and an stvds sampler of three fixed intervals. The vector content is
-        # irrelevant; only the time stamps are used.
-        for i, value in enumerate([100, 150, 250, 250, 150, 100], start=1):
-            tools.r_mapcalc(expression=f"prec_{i} = {value}")
-        tools.t_create(
-            type="strds",
-            temporaltype="absolute",
-            output="precip",
-            title="precip",
-            description="precip",
-        )
-        tools.t_register(
-            flags="i",
-            type="raster",
-            input="precip",
-            maps="prec_1,prec_2,prec_3,prec_4,prec_5,prec_6",
-            start="2001-03-01 00:00:00",
-            increment="1 months",
-        )
-        for i in range(1, 4):
-            tools.v_random(output=f"soil_{i}", npoints=5)
-        tools.t_create(
-            type="stvds",
-            temporaltype="absolute",
-            output="vsoil",
-            title="vsoil",
-            description="vsoil",
-        )
-        register = tmp_path_factory.mktemp("reg") / "soil.txt"
-        register.write_text(
-            "soil_1|2001-01-01|2001-04-01\n"
-            "soil_2|2001-05-01|2001-07-01\n"
-            "soil_3|2001-08-01|2001-12-01\n"
-        )
-        tools.t_register(type="vector", input="vsoil", file=str(register))
+    # Deterministic part of the legacy shell test: a monthly precip strds
+    # and an stvds sampler of three fixed intervals. The vector content is
+    # irrelevant; only the time stamps are used.
+    precip = [100, 150, 250, 250, 150, 100]
+    create_stds(
+        tools,
+        "strds",
+        "precip",
+        [
+            MapSpec(f"prec_{i}", value, start, end)
+            for i, (value, (start, end)) in enumerate(
+                zip(precip, intervals(6, start=2), strict=True), start=1
+            )
+        ],
+    )
+    for i in range(1, 4):
+        tools.v_random(output=f"soil_{i}", npoints=5)
+    register_stds(
+        tools,
+        "stvds",
+        "vsoil",
+        _specs(
+            ("soil_1", 0, "2001-01-01", "2001-04-01"),
+            ("soil_2", 0, "2001-05-01", "2001-07-01"),
+            ("soil_3", 0, "2001-08-01", "2001-12-01"),
+        ),
+    )
 
-        yield SimpleNamespace(session=session, read=Reader(session))
+    return SimpleNamespace(session=session, read=Reader(session))
