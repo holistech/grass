@@ -2729,7 +2729,6 @@ class TemporalAlgebraParser:
 
     def p_expr_tmerge_function(self, t):
         # Merge two maplists of same STDS type into a result map list.
-        # Only possible for same data types!
         # Examples:
         #    R = merge(A, B)
         """
@@ -2745,7 +2744,7 @@ class TemporalAlgebraParser:
         self._trace("merge(", t[3], ",", t[5], ")")
 
     def _merge(self, maplistA, maplistB):
-        """Return the union of two map lists of the same data type
+        """Return the union of two map lists
 
         A map which occurs identically in both lists is kept once and a warning
         reports how many were left out.
@@ -2766,10 +2765,10 @@ class TemporalAlgebraParser:
                 )
             )
             return maplistA
-        if self._datatype(maplistA[0]) != self._datatype(maplistB[0]):
-            raise FatalError(
-                _("Space time datasets to merge must have the same data type")
-            )
+        # The data types are not compared. The maps of a dataset have none
+        # loaded here, so a comparison would fail for every merge with a
+        # single map from tmap() and never for two datasets. A dataset may
+        # hold maps of different types anyway.
         merged = list(maplistA)
         known = {self._merge_key(map_i) for map_i in maplistA}
         duplicates = 0
@@ -2787,15 +2786,6 @@ class TemporalAlgebraParser:
                 )
             )
         return merged
-
-    @staticmethod
-    def _datatype(map_i):
-        """The data type of a raster map, None for a vector map
-
-        Vector maps have no data type, so any two of them can be merged.
-        """
-        get_datatype = getattr(map_i.metadata, "get_datatype", None)
-        return get_datatype() if get_datatype else None
 
     @staticmethod
     def _merge_key(map_i):

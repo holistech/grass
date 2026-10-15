@@ -176,6 +176,25 @@ def test_merge_nested_and_with_shift(algebra):
     assert algebra.values('merge(A, tshift(A, "10 days"))') == [1, 2, 3, 4, 1, 2, 3, 4]
 
 
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("classic", [False, True])
+@pytest.mark.parametrize(
+    "expression",
+    ["merge(A, tmap(singletmap))", "merge(tmap(singletmap), A)"],
+)
+def test_merge_with_a_single_map(algebra, classic, expression):
+    """A dataset and a single map can be merged, in either order. The earlier
+    implementation refused it because it compared the data type of a map read
+    from a dataset, which it had not loaded, with that of the single map."""
+    assert algebra.triples(expression, classic=classic) == [
+        (1, 2, 1),
+        (2, 3, 2),
+        (3, 4, 3),
+        (3, 4, 99),
+        (4, 5, 4),
+    ]
+
+
 def test_merged_dataset_can_be_selected(algebra):
     """The result of merge() takes part in later temporal operations"""
     assert algebra.values("merge(A, B) {:,equal} A") == [1, 2, 3, 4]
