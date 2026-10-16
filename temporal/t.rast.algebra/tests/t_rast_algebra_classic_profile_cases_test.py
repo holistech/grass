@@ -47,9 +47,9 @@ LISTED_CONDITIONS = [
     "if(merge(D[2], AF) != 3000000000, null(), null())",
 ]
 
-# Computed maps keep the id of the map they were made of, so a selection of
-# a merge with a computed copy keeps one of the two, the later one. An
-# operation of two maps is a new map and keeps its own id.
+# Computed maps keep the id of the map they were made of, so the selection in
+# braces of a merge with a computed copy keeps one of the two, the later one
+# (A : B keeps both). An operation of two maps is a new map with its own id.
 COMPUTED_COPIES = [
     "merge(A, sqrt(A)) {:,equal} HA",
     "merge(A, A + 1) {!:,equal} HA",
@@ -268,6 +268,25 @@ LIST_ORDER_PARTNERS = [
     'tshift(Z, "-3 hour") {:,during|overlapped,r} merge(Z, buff_t(AF, "2 day"))',
     'tshift(Z, "-3 hour") {-,over,u} merge(Z, buff_t(AF, "2 day"))',
     'tshift(Z, "-3 hour") {/,overlapped,l} merge(buff_t(AF, "2 day"), Z)',
+]
+
+# && and || with r give a map per partner whose content joins the left
+# condition with all its partners (a > 1 && (b1 > 1 && b2 > 1)), as arithmetic
+# with r does; l, u, i and d give one map per left map.
+LOGICAL_WITH_ALL_PARTNERS = [
+    f"if(B > 0 {{{symbol},contains,{reference}}} A > 1, 1, 0)"
+    for symbol in ("&&", "||")
+    for reference in ("l", "r", "u", "i", "d")
+] + [
+    'if(tshift(Z, "-3 hour") > 0 {&&,over,r} Z > 0, 1)',
+    'if(tshift(Z, "-3 hour") > 0 {&&,over,r} merge(Z, AF) > 0, 1)',
+    'if(tshift(Z, "-3 hour") > 0 {&&,over,r} merge(buff_t(AF, "2 day"), Z) > 0, A)',
+    'if(tshift(Z, "-3 hour") > 0 {||,over,r} Z > 0, 1)',
+    'if(tshift(Z, "-3 hour") > 0 {||,over,r} merge(Z, AF) > 0, 1)',
+    'if(tshift(Z, "-3 hour") > 0 {||,over,r} merge(buff_t(AF, "2 day"), Z) > 0, A)',
+    "if(B > 0 {&&,contains,|,r} A > 1, 1, 0)",
+    "B > 0 {&&,contains,r} A > 1",
+    "if(start_day(A) > 1 {&&,during,r} td(D) > 0, A)",
 ]
 
 # A condition on time is decided in Python by the classic algebra, so a
@@ -548,3 +567,9 @@ def test_a_plain_selection_keeps_every_map(datasets, expression, register_null):
 @pytest.mark.parametrize("expression", LIST_ORDER_PARTNERS)
 def test_partners_in_the_order_of_their_list(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LOGICAL_WITH_ALL_PARTNERS)
+def test_logical_operators_join_all_partners(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)

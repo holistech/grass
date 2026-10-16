@@ -785,14 +785,7 @@ class ClassicTranslator(Translator):
             "mixed_times": self.profile.mixed_times,
         }
         if operator.temporal == "r":
-            return operations.pairs(
-                left,
-                relation,
-                right,
-                extent="right",
-                content=lambda mine, theirs: _joined(symbol, mine, theirs),
-                **options,
-            )
+            return self._logical_per_partner(symbol, left, relation, right, operator)
         extent = _EXTENTS[operator.temporal]
         targets = operations.gather(
             left, relation, right, reduce=None, extent=extent, failure="stop", **options
@@ -824,6 +817,54 @@ class ClassicTranslator(Translator):
         if left.sort == "scalar" and right.sort == "scalar":
             self._carry_commands(joined, left)
         return joined
+
+    def _logical_per_partner(self, symbol, left, relation, right, operator):
+        """&& and || with the temporal reference r: a map per partner, with
+        the time stamp of the partner and the whole condition as content
+
+        The classic algebra joins all partners of a left map with the
+        aggregate (a1 > 1 && (b1 > 1 && b2 > 1)) and gives every partner a
+        copy of that map, as it does for arithmetic with r.
+        """
+        aggregate = "&&" if operator.aggregate == "&" else "||"
+        joined = []
+        for slot, found in zip(
+            left.slots, self._related(left, relation, right), strict=True
+        ):
+            others = [right.slots[index].content for index in found]
+            if not others:
+                joined.append(None)
+                continue
+            other = others[0]
+            for content in others[1:]:
+                other = call(aggregate, other, content)
+            joined.append(_joined(symbol, slot.content, other))
+        # The left maps are marked by their position, so that each pair
+        # finds the condition of its left map.
+        marked = _like(
+            left,
+            (
+                dataclasses.replace(slot, content=Const(number))
+                for number, slot in enumerate(left.slots)
+            ),
+        )
+        pairs = operations.pairs(
+            marked,
+            relation,
+            right,
+            extent="right",
+            order="written",
+            unique=False,
+            box="intersection",
+            mixed_times=self.profile.mixed_times,
+        )
+        return _like(
+            pairs,
+            (
+                dataclasses.replace(slot, content=joined[slot.content.value])
+                for slot in pairs.slots
+            ),
+        )
 
     def _time_variable(self, name, arguments):
         """td() needs intervals; in a selection start_doy(A, 1) and the like

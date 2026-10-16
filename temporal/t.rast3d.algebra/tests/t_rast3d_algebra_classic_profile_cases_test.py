@@ -74,6 +74,14 @@ FIRST_COUNT = [
     "if(if(start_day(A) > 0, A # merge(B, Z)) # D > 1, A)",
 ]
 
+# && and || with r give a map per partner that joins all partners
+LOGICAL_WITH_ALL_PARTNERS = [
+    'if(tshift(Z, "-3 hour") > 0 {&&,over,r} merge(Z, D) > 0, 1)',
+    'if(tshift(Z, "-3 hour") > 0 {||,over,r} merge(Z, D) > 0, 1)',
+    "if(B > 0 {&&,contains,r} A > 1, 1, 0)",
+    "if(B > 0 {||,contains,u} A > 1, 1, 0)",
+]
+
 # r.mapcalc reads an integer beyond 32 bits with an overflow, so constants
 # are not folded before it computes them.
 LARGE_CONSTANTS = ["2.0 + 3000000000 - B", "3000000000 - B", "A + 3000000000 + 1"]
@@ -195,4 +203,10 @@ def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
     ],
 )
 def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LOGICAL_WITH_ALL_PARTNERS)
+def test_logical_operators_join_all_partners(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
