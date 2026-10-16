@@ -22,6 +22,9 @@ MIXED_TIME = [
     "tmap(sinst) : RT",
     "RT !: tmap(sinst)",
     "RT {:,over} RH",
+    "merge(A, RT) : B",
+    "merge(RT, A) : A",
+    "merge(A, RT) {!:,during} B",
 ]
 
 # A map whose time stamp is the stored one after shifts and snaps is

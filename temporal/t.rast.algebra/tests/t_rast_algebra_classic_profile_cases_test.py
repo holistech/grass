@@ -18,6 +18,38 @@ KIND = "raster"
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
 pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 
+# Targeted probes (2026-10-16, a dozen expressions of each shape on both sides, and
+# none in the fuzzer runs of that day): arithmetic on a count and time
+# conditions on both sides of && and || with a computed argument on either
+# side give the registered maps of the classic algebra.
+COUNT_ARITHMETIC = [
+    "(Z # A) + 1",
+    "if((Z # A) + 1 > 2, A, B)",
+    "if(td(Z # A) > 1, A)",
+    "td(Z # A) + 1",
+]
+BOTH_SIDES_OF_LOGICAL = [
+    "if(td(A) > 0 && td(Z) < 5, A)",
+    "if(start_day(A * 2) < 3 && start_day(Z * 2) > 1, A)",
+    "if(start_day(A) < 3 && start_day(Z * 2) > 1, A)",
+    "if(start_day(A * 2) < 3 && start_day(Z) > 1, A)",
+    "if(start_day(A * 2) < 3 || start_day(Z * 2) > 1, A)",
+    "if(start_day(sin(A)) < 3 && start_day(N + HA) > 1, Z)",
+    "if(A > 1 && start_day(Z * 2) > 1, Z)",
+]
+
+# Profile gap, not a classic bug: the classic merge() tells maps apart by id,
+# time and the commands that made them, so a map read at a time offset (a new
+# map) stays next to the map it was read from. The profile compares content,
+# time and box, and drops the later of two such slots. Fixing it needs an
+# identity on the slots of the series.
+MERGED_COMPUTED_MAPS = [
+    "merge(A[0], A[0])",
+    "merge(A + 1, A[0] + 1)",
+    "merge(AF[2] % 60 * tmap(singletmap) {+,over,i} td(D % D), "
+    "HB {*,overlapped|started,r} start_month(Q, 1))",
+]
+
 # Absolute and relative time, and relative time of different units, are never
 # related in the classic algebra: the relation is empty, and an error comes
 # only from reading datasets of another temporal type or from registering.
@@ -241,3 +273,19 @@ def test_a_number_next_to_a_count_in_the_granularity_mode(datasets):
 @pytest.mark.parametrize("expression", NEIGHBOURS)
 def test_a_neighbour_has_its_own_box(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", COUNT_ARITHMETIC + BOTH_SIDES_OF_LOGICAL)
+def test_counts_and_time_conditions_on_both_sides(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+@pytest.mark.parametrize("expression", MERGED_COMPUTED_MAPS)
+def test_merge_keeps_computed_maps_that_look_alike(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+def test_merge_keeps_a_neighbour_map_in_the_granularity_mode(datasets):
+    assert_equal("merge(A[0], A)", granularity=True)
