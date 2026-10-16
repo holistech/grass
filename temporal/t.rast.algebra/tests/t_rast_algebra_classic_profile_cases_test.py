@@ -42,6 +42,19 @@ MIXED_TIME = [
 ]
 
 
+# A floating point map is no operand of && and || in r.mapcalc, also where
+# the core writes a comparison with zero.
+FLOATING_POINT_CONDITIONS = [
+    "if(isnull(AF) || exist(AF), GP)",
+    "if(isnull(AF) && exist(AF), GP)",
+    "if(exist(AF) && A > 1, GP)",
+    "if(exist(AF * 1) || A > 2, GP)",
+    "if(A > 1 && exist(A / 2), GP)",
+    "if(A > 1 && exist(A), GP)",
+    "if(isnull(A) || exist(A), GP)",
+]
+
+
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
@@ -76,3 +89,8 @@ def test_mixed_time_is_unrelated(datasets, expression):
 def test_equal_names_from_the_time_suffix(datasets, expression, suffix):
     """Maps of equal time get one name; the last of them stays"""
     assert_equal(expression, time_suffix=suffix)
+
+
+@pytest.mark.parametrize("expression", FLOATING_POINT_CONDITIONS)
+def test_floating_point_operands_of_logical_operators(datasets, expression):
+    assert_equal(expression)

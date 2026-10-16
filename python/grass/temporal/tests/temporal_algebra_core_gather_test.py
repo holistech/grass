@@ -408,3 +408,23 @@ def test_intersection_of_adjacent_maps_is_an_instant(make_series):
 def test_invalid_option_values(a, b, option, value):
     with pytest.raises(ValueError, match=option):
         gather(b, contains, a, reduce="sum", **{option: value})
+
+
+@pytest.mark.parametrize(("reduce", "function"), [("and", "&&"), ("or", "||")])
+def test_and_or_join_the_related_contents_as_they_are(a, b, c, reduce, function):
+    """Unlike all and any they do not compare a single related content with 0:
+    r.mapcalc refuses a floating point map as an operand of && and ||, and the
+    classic algebra writes it unchanged"""
+    assert contents(gather(a, during, c, reduce=reduce)) == [ref("c1"), ref("c1")]
+    assert contents(gather(b, contains, a, reduce=reduce))[0] == Call(
+        function, (ref("a1"), ref("a2"))
+    )
+    assert contents(gather(a, during, c, reduce="all"))[0] == Call(
+        "!=", (ref("c1"), Const(0))
+    )
+
+
+@pytest.mark.parametrize("reduce", ["and", "or"])
+def test_and_or_cannot_skip_null_cells(a, b, reduce):
+    with pytest.raises(ValueError, match="null"):
+        gather(b, contains, a, reduce=reduce, nulls="skip")

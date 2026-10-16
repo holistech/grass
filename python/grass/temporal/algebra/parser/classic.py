@@ -381,7 +381,7 @@ class ClassicTranslator(Translator):
             left,
             relation,
             right,
-            reduce="all" if operator.aggregate == "&" else "any",
+            reduce="and" if operator.aggregate == "&" else "or",
             extent=extent,
             failure="stop",
             **options,

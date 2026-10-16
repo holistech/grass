@@ -4,7 +4,20 @@ from dataclasses import dataclass
 
 from .content import Const, call, chain, series_aggregate, series_reduce
 
-REDUCERS = ("sum", "prod", "min", "max", "mean", "count", "all", "any", "first", "last")
+REDUCERS = (
+    "sum",
+    "prod",
+    "min",
+    "max",
+    "mean",
+    "count",
+    "all",
+    "any",
+    "and",
+    "or",
+    "first",
+    "last",
+)
 
 # Kept in step with r.series by a test, so that a typo fails when the reducer
 # is made, not when r.series runs.
@@ -97,6 +110,9 @@ def check(reducer, nulls):
     if reducer == "prod" and nulls == "skip":
         msg = "prod cannot skip null cells: r.series has no product"
         raise ValueError(msg)
+    if reducer in ("and", "or") and nulls == "skip":
+        msg = f"{reducer} cannot skip null cells: it joins the contents as they are"
+        raise ValueError(msg)
 
 
 def sort_of(reducer, target_sort, other_sort):
@@ -140,6 +156,10 @@ _PROPAGATE = {
     "mean": _mean,
     "all": lambda related: _every("&&", related),
     "any": lambda related: _every("||", related),
+    # A single related content stays as it is, also a floating point map that
+    # r.mapcalc refuses as an operand of && and ||.
+    "and": lambda related: chain("&&", related),
+    "or": lambda related: chain("||", related),
 }
 
 # nmin and nmax of r.mapcalc skip null cells in one call, sum and mean need
