@@ -80,7 +80,7 @@ def test_an_empty_variable_selects_the_core(algebra, monkeypatch):
 
 
 @pytest.mark.fixed_algebra
-@pytest.mark.parametrize("value", [" ", "\t", "bogus"])
+@pytest.mark.parametrize("value", [" ", "\t"])
 def test_a_value_that_only_looks_empty_is_refused(algebra, monkeypatch, value):
     """Whitespace is more likely a mistake than an empty choice"""
     monkeypatch.setenv(VARIABLE, value)
@@ -109,8 +109,9 @@ def test_keyword_takes_precedence_over_the_variable(algebra, monkeypatch):
 
 
 @pytest.mark.fixed_algebra
-def test_unknown_parser_is_an_error(algebra, monkeypatch):
-    monkeypatch.setenv(VARIABLE, "other")
+@pytest.mark.parametrize("value", ["other", "bogus"])
+def test_unknown_parser_is_an_error(algebra, monkeypatch, value):
+    monkeypatch.setenv(VARIABLE, value)
     with pytest.raises(ValueError, match="core or classic"):
         algebra.parse("A * 2", dry_run=True)
 

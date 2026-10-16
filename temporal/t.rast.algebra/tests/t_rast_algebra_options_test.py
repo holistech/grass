@@ -203,6 +203,27 @@ def test_classic_flag_selects_the_classic_algebra(algebra, core_tool):
 
 
 @pytest.mark.fixed_algebra
+def test_an_empty_variable_runs_the_core(algebra):
+    """A script that writes GRASS_TEMPORAL_ALGEBRA= t.rast.algebra ... gets
+    the core: one map per related pair, see the test above"""
+    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": ""}
+    empty_tool = Tools(env=env, consistent_return_value=True)
+    empty_tool.t_rast_algebra(
+        expression="OPT_EMPTY = B {:,contains,r} A", basename="opt_empty"
+    )
+    assert len(list_maps(empty_tool, "OPT_EMPTY")) == 4
+
+
+@pytest.mark.fixed_algebra
+def test_blanks_in_the_variable_stop_the_tool(algebra):
+    env = {**algebra.session.env, "GRASS_TEMPORAL_ALGEBRA": " "}
+    with pytest.raises(ToolError, match="core or classic"):
+        Tools(env=env).t_rast_algebra(
+            expression="OPT_BLANK = A * 2", basename="opt_blank"
+        )
+
+
+@pytest.mark.fixed_algebra
 def test_classic_flag_runs_the_classic_profile(algebra, core_tool):
     """The tool with -c computes on the classic profile of the core, not on the
     earlier implementation: an increment the library refuses is reported with

@@ -388,9 +388,8 @@ algebra is a set of rules of the same functions: it reads the syntax of the
 previous implementation and applies its rules for relations and order. The
 flag <b>-c</b> selects it for one call, the environment variable
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
-<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty
-variable selects the new
-algebra, and the flag takes precedence over the variable.
+<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable
+selects the new algebra, and the flag takes precedence over the variable.
 
 <p>
 <em>t.select</em> only selects and retimes maps, it computes none, so most
@@ -553,9 +552,9 @@ the order of errors and in the error for an existing result that <a
 href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. Two
 points change the outcome of an expression. The previous implementation
 refuses the relation name <code>equals</code> with a syntax error, where the
-classic algebra reads it as <code>equal</code>. A relation over a list that mixes maps
-of absolute and of relative time, which stopped the previous implementation
-with a <code>TypeError</code>, selects maps here, as in
+classic algebra reads it as <code>equal</code>. A relation over a list that
+mixes maps of absolute and of relative time, which stopped the previous
+implementation with a <code>TypeError</code>, selects maps here, as in
 <em>t.rast.algebra</em>: maps of the two types relate to nothing.
 
 <h2>EXAMPLES</h2>
