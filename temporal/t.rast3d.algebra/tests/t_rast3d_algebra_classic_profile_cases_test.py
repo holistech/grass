@@ -68,6 +68,10 @@ FIRST_COUNT = [
     "if(td(A # merge(B, Z)) > 1.5, A)",
     "if(td(A # merge(B, Z)) < 1.5, A)",
     "B + td(A # merge(B, Z))",
+    # if() on time with maps as then and else clears the count
+    "exp(if(start_day(A) > 0, A # merge(B, Z))) + B",
+    "B + td(if(start_day(A) > 0, A # merge(B, Z)))",
+    "if(if(start_day(A) > 0, A # merge(B, Z)) # D > 1, A)",
 ]
 
 # r.mapcalc reads an integer beyond 32 bits with an overflow, so constants

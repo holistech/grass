@@ -198,6 +198,9 @@ class ClassicTranslator(Translator):
         # (see _source()) and the content of its first count (see
         # _first_counts()).
         self._counted = {}
+        # The contents of counted maps whose count was cleared, by id() with
+        # the content and the id of the counted map; see _uncounted().
+        self._cleared = {}
         # The results of the hash operator itself and td() of counted maps,
         # by id() with the series; see _compare().
         self._hashes = {}
@@ -309,7 +312,9 @@ class ClassicTranslator(Translator):
 
         The classic algebra keeps the count on the map object of the left
         map, and the map stays that object through numbers, functions,
-        selections and merge(). Where it is an operand of an operation with
+        selections, merge() and if() on time with a number as else; if() on
+        time with maps only as then and else clears the count, see
+        _uncounted(). Where it is an operand of an operation with
         another map or of a cell condition of if(), the classic text takes
         the first count kept on it, not the expression built so far:
         exp(A # A) + N computes 1 + N.
@@ -487,6 +492,8 @@ class ClassicTranslator(Translator):
             return id(content)
         if id(content) in self._counted:
             return self._counted[id(content)][1]
+        if id(content) in self._cleared:
+            return self._cleared[id(content)][1]
         if isinstance(content, MapRef):
             return None if content.offset else content.ident
         if isinstance(content, Call):
@@ -1009,8 +1016,10 @@ class ClassicTranslator(Translator):
                 or all(_vector_field(branch) for branch in arguments[1:])
             )
         ):
-            return self._in_time_order(
-                self._judged_if(condition, *arguments[1:], relation=relation)
+            return self._uncounted(
+                self._in_time_order(
+                    self._judged_if(condition, *arguments[1:], relation=relation)
+                )
             )
         if self._kind == "vector":
             return order(super()._if(arguments, relation))
@@ -1019,6 +1028,26 @@ class ClassicTranslator(Translator):
         then = arguments[1]
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
         return order(self._field_if(condition, then, otherwise, relation))
+
+    def _uncounted(self, series):
+        """series with the counted maps no longer counted, but still the maps
+        they were
+
+        if() on time with maps as then and else ends by clearing the values
+        of the selected map objects (check_stds(..., clear=True)), the count
+        among them, and keeps their text; the form with a number as else
+        does not, see _temporal_if().
+        """
+        slots = []
+        for slot in series.slots:
+            known = self._counted.get(id(slot.content))
+            if known is not None:
+                # A copy, so that the count stays with the original content
+                content = dataclasses.replace(slot.content)
+                self._cleared[id(content)] = (content, known[1])
+                slot = dataclasses.replace(slot, content=content)
+            slots.append(slot)
+        return dataclasses.replace(series, slots=tuple(slots))
 
     def _temporal_if(self, condition, then, otherwise, relation, first):
         """if() on time with maps as then and a number as else: the classic

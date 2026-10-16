@@ -230,6 +230,24 @@ COUNTED_DURATION = [
     "N + td(A # merge(N, HA))",
 ]
 
+# if() on time with maps as then and else clears the values of the selected
+# map objects, the count among them, and keeps their text: after it a count
+# is the expression again. With a number as else the count stays.
+CLEARED_COUNT = [
+    "exp(if(start_day(A) > 2, A # merge(N, HA))) + N",
+    "exp(if(td(A) > 0, A # merge(N, HA))) + N",
+    "exp(if({equal}, start_day(A) > 2, A # merge(N, HA))) + N",
+    "exp(if(start_day(A) > 2, A # merge(N, HA), N)) + N",
+    "(if(start_day(A) > 2, A # merge(N, HA)) * 3) + N",
+    "if(start_day(A) > 2, (A # merge(N, HA)) * 3) + N",
+    "if(A > 0, if(start_day(A) > 2, A # merge(N, HA)) * 3, N)",
+    "if(if(start_day(A) > 2, A # merge(N, HA)) # D > 1, A)",
+    "N + td(if(start_day(A) > 2, A # merge(N, HA)))",
+    "if(td(if(start_day(A) > 2, A # merge(N, HA))) > 1.5, A)",
+    "exp(if(start_day(A) > 2, A # merge(N, HA), 5)) + N",
+    "merge(A, if(start_day(A) > 2, A # N)) {:,equal} HA",
+]
+
 # A condition on time is decided in Python by the classic algebra, so a
 # number beyond 32 bits does not overflow as it would in r.mapcalc.
 TIME_CONDITIONS_BEYOND_32_BITS = [
@@ -472,6 +490,11 @@ def test_td_of_a_counted_map_adds_the_count_in_the_reference(datasets):
 # keeps 4.
 @pytest.mark.xfail(strict=True, reason="merge() compares folded texts")
 def test_merge_of_a_folded_if_and_its_count(datasets):
+    assert_equal("merge(if(isnull(A # N), 1, 2), A # N)")
+
+
+def test_merge_of_a_folded_if_and_its_count_in_the_reference(datasets):
+    """The classic algebra keeps both lists, 8 maps"""
     reference = outcome(
         KIND,
         "merge(if(isnull(A # N), 1, 2), A # N)",
@@ -480,7 +503,12 @@ def test_merge_of_a_folded_if_and_its_count(datasets):
         register_null=True,
     )
     assert len(reference["maps"]) == 8
-    assert_equal("merge(if(isnull(A # N), 1, 2), A # N)")
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", CLEARED_COUNT)
+def test_if_on_time_clears_a_count(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
 
 
 @pytest.mark.parametrize("granularity", [False, True])
