@@ -567,13 +567,15 @@ second predecessor map.
 Since GRASS 8.6, *t.rast.algebra* computes its expressions with the
 functions of the Python package `grass.temporal.algebra`. The previous
 implementation stays available as the classic algebra, so that published
-results remain reproducible. The flag **-c** selects it for one call, the
-environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session
-or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the
-new algebra, and the flag takes precedence over the variable. In Python,
-`TemporalRasterAlgebraParser` takes the keyword `classic=True` for the
-same purpose. Both algebras compute the granularity mode (**-g**), see
-below.
+results remain reproducible. The classic algebra is a set of rules of the
+same functions: it reads the syntax of the previous implementation and
+applies its rules for relations, order and results. The flag **-c** selects
+it for one call, the environment variable `GRASS_TEMPORAL_ALGEBRA=classic`
+for a whole session or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset
+variable selects the new algebra, and the flag takes precedence over the
+variable. In Python, `TemporalRasterAlgebraParser` takes the keyword
+`classic=True` for the same purpose. Both algebras compute the granularity
+mode (**-g**), see below.
 
 The two algebras differ in the following points. The examples use four
 daily maps in A with the values 1 to 4, two maps of two days in B that
@@ -717,10 +719,7 @@ read. For one they cannot compute, the new algebra raises `ValueError` or
 `TypeError`, where the classic algebra raises `FatalError`. Both raise
 `FatalError` for a missing dataset or map and, without overwrite, for an
 existing result dataset or map; a dry run of the classic algebra stops only
-at an existing result map. Without `tgis.init(raise_fatal_error=True)`,
-the classic algebra raises `SystemExit` instead of `FatalError` for some of
-these errors, such as an existing result; a missing dataset raises
-`FatalError` in both cases. The tool stops with the error message in both
+at an existing result map. The tool stops with the error message in both
 algebras.
 
 Two corrections apply to both algebras, so **-c** gives the rules of the
@@ -742,15 +741,138 @@ C = if({equal|contains}, start_date(A) <= "2001-01-03", A, B)
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with.
 
-Earlier versions also computed `td()` of an expression wrongly on the
-right of an operator: they used the value of the expression instead of the
-duration of its maps. With daily maps in N and A, the expression below gave
-`N - A * 2` where it now gives `N - 1`; the new algebra always gave
-`N - 1`. Results that used this form need a new run.
+#### Corrections to the classic algebra
 
-```sh
-C = N - td(A * 2)
-```
+The classic algebra gives the results of the previous implementation, with
+the exceptions below. In these cases the previous implementation
+computed wrongly, ended in an error that had no reason, or reported the
+wrong error. **-c** now gives the result described here. The new algebra
+never computed these cases wrongly; only the last item concerned the
+library and with it both algebras. Results of earlier GRASS versions that
+used one of these forms need a new run. The examples use the datasets of
+the list above and, in addition, N with daily maps of the values 11 to 14
+and RT with maps of relative time.
+
+1. **td() of an expression** on the right of an operator used the value of
+   the expression instead of the duration of its maps. With daily maps in N
+   and A, the expression gave `N - A * 2` where it now gives `N - 1`:
+
+   ```sh
+   C = N - td(A * 2)
+   ```
+
+2. **tsnap() and tshift() of no maps.** If the expression inside has no
+   maps, the result is empty, like any other empty result: an empty dataset
+   is created, and an enclosing expression goes on with no maps. Earlier
+   versions ended in an error. No map of A is equal to a map of B, so both
+   expressions give an empty dataset:
+
+   ```sh
+   C = tsnap(A {:,equal} B)
+   C = A + tshift(A {:,equal} B, "1 day")
+   ```
+
+3. **Increments that the library refuses.** An increment of `tshift()` or
+   `buff_t()` that does not fit the temporal type is a syntax error and
+   leaves no result dataset: a text with a time unit on relative time, a
+   number without unit on absolute time, or a text that is not a time step.
+   Earlier versions raised a `TypeError` for `buff_t()` on relative time,
+   and for `tshift()` they did not report the increment as the cause: the
+   result was missing, or an enclosing operator complained about its input.
+   Each of these expressions is a syntax error; a number with a fraction,
+   such as `buff_t(RT, 1.5)`, stays valid on relative time. The new algebra
+   refuses the same increments with a `ValueError`:
+
+   ```sh
+   C = tshift(A, "1 DAY")
+   C = tshift(RT, "1 month")
+   C = buff_t(RT, "3 hours")
+   C = buff_t(A, 3)
+   ```
+
+4. **merge() and the data type.** The data types of the maps are not
+   compared, so a dataset may hold integer and floating point maps. Earlier
+   versions refused `merge()` of a dataset with a single map from `map()` or
+   `tmap()` with the error that the datasets must have the same data type.
+   The first expression gives the four maps of A and the single map, the
+   second the maps of A and the floating point maps computed from them:
+
+   ```sh
+   C = merge(A, tmap(singletmap))
+   C = merge(A, A * 1.5)
+   ```
+
+5. **Time constants with offset.** A temporal function with an offset
+   needs a map with the time value it returns. On a map without it, such as
+   `end_month()` of a time instance or `start_month()` of relative time, the
+   expression stops with an error that says the function requires absolute
+   time, as the same function in a condition does. Earlier versions wrote
+   `None` into the *r.mapcalc* expression, which failed when the maps were
+   computed:
+
+   ```sh
+   C = A + end_month(I, 0)
+   C = A + start_month(RT, 1)
+   ```
+
+6. **Intersection with a time instance.** With the temporal operator `i`, the
+   time stamp of the result is the time instance, for a selection and for
+   an operator, on absolute and on relative time. Earlier versions kept the
+   time stamp of the left map for an operator and failed with a `TypeError`
+   for a selection on relative time. If `sinst` is an instance on day 1,
+   both expressions give one map with the instance as time:
+
+   ```sh
+   C = A {:,contains,i} tmap(sinst)
+   C = A {+,contains,i} tmap(sinst)
+   ```
+
+7. **Infinite values.** A map with infinite values, such as the result of
+   `exp(A * 1000)`, is registered with null as its minimum and maximum.
+   Earlier versions failed when they wrote the map statistics ("no such
+   column: inf") and could leave the temporal database locked.
+
+   ```sh
+   C = exp(A * 1000)
+   ```
+
+#### Differences from the previous implementation
+
+Besides the corrections, **-c** differs from the previous implementation
+in the following points. None changes the maps of a valid expression.
+
+- **Message texts.** The texts of warnings and errors are those of the
+  new algebra. A `merge()` that meets maps identical in content and time
+  warns "merge() dropped 4 duplicate map(s)" for `C = merge(A, A)` instead
+  of "merge() keeps 4 maps of both operands only once". A refused increment
+  of `tshift()` reports that the text cannot be read as a time step, for
+  `tshift(A, "1 DAY")` instead of "cannot shift absolute time by".
+- **Debug output.** In Python, with `debug=True`, the classic algebra
+  prints each module call as a command line like the new algebra, for
+  example `r.mapcalc expression=q_0=(a1@PERMANENT + 1) nprocs=1`. The
+  previous implementation printed the *r.mapcalc* commands and the
+  resulting statement.
+- **Order of the errors.** The classic algebra reads the whole expression
+  before it computes. An expression with a syntax error is therefore a
+  syntax error, where the previous implementation could stop with the error
+  of a computation before it reached the syntax error. In this expression
+  the dataset `nosuch` does not exist and a bracket is too many; the
+  previous implementation reported the missing dataset (`FatalError`):
+
+  ```sh
+  C = nosuch + A )
+  ```
+
+- **merge() of computed maps.** The previous implementation tells two
+  computed maps apart by the commands that made them, so that it keeps both
+  of two maps that are identical in content and time. The classic algebra
+  compares content and time and keeps one of them. This expression gives
+  four maps where the previous implementation gave eight. The difference is
+  known and not yet decided:
+
+  ```sh
+  C = merge(A[0], A[0])
+  ```
 
 ### Granularity algebra
 
