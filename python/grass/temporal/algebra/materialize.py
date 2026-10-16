@@ -21,7 +21,7 @@ from grass.temporal.space_time_datasets import VectorDataset
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
-from .backends import ModuleCall, describe, backend_for
+from .backends import MapcalcStyle, ModuleCall, describe, backend_for
 from .content import Call, MapRef, SeriesAggregate, SeriesReduce
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
@@ -143,8 +143,11 @@ def _check_given_names(series, names):
     reject_input_names(series, names)
 
 
-def _map_names(series, basename, time_suffix, names=None):
+def _map_names(series, basename, time_suffix, names=None, slots=None):
     """The names of the result maps
+
+    slots are the slots of series in the order of the names, by default those
+    of the series (see plan() for list_order).
 
     With names the caller gives one name per slot verbatim, which the
     aggregation tools use for their own numbering (count from one, with an
@@ -156,13 +159,15 @@ def _map_names(series, basename, time_suffix, names=None):
         the number of slots, names that would collide, are illegal or equal an
         input map, or names together with time_suffix
     """
+    if slots is None:
+        slots = series.slots
     if names is not None:
         if time_suffix is not None:
             # The names are final; a suffix has nothing to attach to.
             msg = "names cannot be combined with time_suffix"
             raise ValueError(msg)
-        if len(names) != len(series.slots):
-            msg = f"Got {len(names)} names for {len(series.slots)} maps"
+        if len(names) != len(slots):
+            msg = f"Got {len(names)} names for {len(slots)} maps"
             raise ValueError(msg)
         if len(set(names)) != len(names):
             msg = "Several maps would get the same name"
@@ -176,11 +181,11 @@ def _map_names(series, basename, time_suffix, names=None):
     granularity = None
     if absolute and time_suffix == "gran":
         granularity = compute_absolute_time_granularity(
-            [as_map(slot.extent) for slot in series.slots]
+            [as_map(slot.extent) for slot in slots]
         )
-    digits = len(str(len(series.slots)))
+    digits = len(str(len(slots)))
     names = []
-    for number, slot in enumerate(series.slots):
+    for number, slot in enumerate(slots):
         if granularity:
             suffix = create_suffix_from_datetime(slot.extent.start, granularity)
             names.append(f"{basename}_{suffix}")
@@ -213,7 +218,20 @@ def _check_name(label, value, stds_type):
             raise ValueError(msg)
 
 
-def plan(series, name, *, basename=None, time_suffix=None, selection=False, names=None):
+def plan(
+    series,
+    name,
+    *,
+    basename=None,
+    time_suffix=None,
+    selection=False,
+    names=None,
+    mapcalc=MapcalcStyle(),
+    union_region=False,
+    list_order=False,
+    copies_by_position=False,
+    temporal_type=None,
+):
     """Return the process chain of materialize() without running anything
 
     For vector maps, a registered map that reaches the result unchanged is
@@ -232,6 +250,20 @@ def plan(series, name, *, basename=None, time_suffix=None, selection=False, name
         suffix from the start time (absolute time only)
     :param names: one finished map name per slot, used instead of basename and
         time_suffix; none may repeat
+    :param mapcalc: how the r.mapcalc text is written, see MapcalcStyle
+    :param union_region: compute every raster map in the union of the regions
+        of its input maps, not only where a spatial relation was used
+        (Series.spatial); 3D raster maps have no such option
+    :param list_order: take the slots in the list order of the series
+        (Series.listed()) for the names, the calls and the registration; the
+        names then also number the slots in that order, and names are given
+        in it. The default is the time order.
+    :param copies_by_position: number the copies of a selection by the
+        position of the slot among all result slots, counted from one, so a
+        registered map before a copy takes a number it does not use; the
+        default counts the copies only
+    :param temporal_type: the temporal type of a result without slots, which
+        has no maps to tell it; None means "absolute"
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
         maps that would get the same name, names that do not match the
@@ -256,32 +288,43 @@ def plan(series, name, *, basename=None, time_suffix=None, selection=False, name
     if series.timeless:
         msg = "A map without time stamp cannot be registered in a space time dataset"
         raise ValueError(msg)
+    slots = series.listed() if list_order else series.slots
+    result_type = series.temporal_type or temporal_type or "absolute"
     if selection:
-        return _plan_selection(series, name, basename or name, stds_type)
+        return _plan_selection(
+            series,
+            slots,
+            name,
+            basename or name,
+            stds_type,
+            copies_by_position,
+            result_type,
+        )
     backend = backend_for(series.kind)
-    map_names = _map_names(series, basename or name, time_suffix, names=names)
+    map_names = _map_names(
+        series, basename or name, time_suffix, names=names, slots=slots
+    )
     maps = []
     remove = []
-    for slot, map_name in zip(series.slots, map_names, strict=True):
+    for slot, map_name in zip(slots, map_names, strict=True):
         if backend.registers_origins and slot.origin is not None:
             # The registered map itself goes into the result.
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
             continue
         calls, temporaries = backend.plan(
-            slot.content, map_name, spatial=series.spatial
+            slot.content,
+            map_name,
+            spatial=series.spatial or union_region,
+            style=mapcalc,
         )
         maps.append(PlannedMap(map_name, slot.extent, tuple(calls)))
         remove.extend(temporaries)
-    return ProcessChain(
-        name,
-        stds_type,
-        series.temporal_type or "absolute",
-        tuple(maps),
-        tuple(remove),
-    )
+    return ProcessChain(name, stds_type, result_type, tuple(maps), tuple(remove))
 
 
-def _plan_selection(series, name, basename, stds_type):
+def _plan_selection(
+    series, slots, name, basename, stds_type, copies_by_position, result_type
+):
     """Plan a selection result: register unchanged maps, copy retimed ones
 
     A slot with an origin is the registered map itself. A slot whose origin
@@ -289,17 +332,19 @@ def _plan_selection(series, name, basename, stds_type):
     is a retimed map, copied with g.copy; the copies are numbered
     <basename>_1, _2, ..., as the classic t.select names them. Numbering runs
     over the copies only, so it does not depend on how many maps are
-    registered unchanged. Any other content cannot be selected.
+    registered unchanged. Any other content cannot be selected. With
+    copies_by_position the copies are numbered by the position of their slot
+    among all of slots, as the classic t.select numbers them.
 
     :raises ValueError: for a result slot that is not a registered map, e.g.
         an expression or a map read at a cell offset, and for a copy that
         would get the name of a map registered unchanged
     """
-    digits = len(str(len(series.slots)))
+    digits = len(str(len(slots)))
     maps = []
     number = 0
-    registered = {slot.origin for slot in series.slots if slot.origin}
-    for slot in series.slots:
+    registered = {slot.origin for slot in slots if slot.origin}
+    for position, slot in enumerate(slots, start=1):
         if slot.origin is not None:
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
             continue
@@ -312,7 +357,7 @@ def _plan_selection(series, name, basename, stds_type):
                 "t.rast.algebra, t.rast3d.algebra or t.vect.algebra to compute maps"
             )
             raise ValueError(msg)
-        number += 1
+        number = position if copies_by_position else number + 1
         map_name = create_numeric_suffix(basename, number, f"%0{digits}")
         if _replaces(map_name, registered):
             msg = f"The copy <{map_name}> has the name of a map in the result"
@@ -321,20 +366,63 @@ def _plan_selection(series, name, basename, stds_type):
             "g.copy", {ELEMENTS[series.kind]: (slot.content.ident, map_name)}
         )
         maps.append(PlannedMap(map_name, slot.extent, (call,)))
-    return ProcessChain(
-        name, stds_type, series.temporal_type or "absolute", tuple(maps), ()
-    )
+    return ProcessChain(name, stds_type, result_type, tuple(maps), ())
 
 
 def _kind(chain):
     return KINDS_OF_STDS[chain.stds_type]
 
 
-def _check_absent(chain, mapset, dbif):
+def _check_absent_classic(chain, mapset, dbif, with_dataset):
+    """Stop before anything is computed if a result exists, in the order and
+    with the words of the parser classes
+
+    They look at the result maps first, and only at the files of the maps
+    (not at a row of the temporal database), then at the dataset. The
+    parser classes find the dataset only after the maps are computed; this
+    check is made before, as the one of the core, so that nothing is lost.
+    A dry run of the parser classes never looks at the dataset (measured
+    2026-10-16 with an existing dataset and no existing map: the dry run
+    passes, the run stops), so with_dataset is False there.
+
+    :raises FatalError: if a result map or, with_dataset, the dataset exists
+    """
+    for planned in chain.maps:
+        if not planned.calls:
+            continue
+        map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
+        if map_.map_exists():
+            raise FatalError(
+                _(
+                    "Error maps with basename {name} exist. "
+                    "Use --o flag to overwrite existing file"
+                ).format(name=map_.get_id())
+            )
+    if not with_dataset:
+        return
+    dataset = dataset_factory(chain.stds_type, f"{chain.name}@{mapset}")
+    if dataset.is_in_db(dbif):
+        raise FatalError(
+            _(
+                "Space time {type} dataset <{name}> is already in the database. "
+                "Use the overwrite flag."
+            ).format(
+                type=dataset.get_new_map_instance(None).get_type(), name=chain.name
+            )
+        )
+
+
+def _check_absent(chain, mapset, dbif, classic=False, dry_run=False):
     """Stop before anything is computed if a result exists
+
+    classic selects the check of _check_absent_classic(), which depends on
+    dry_run; the check of the core does not.
 
     :raises FatalError: if the dataset or a result map exists
     """
+    if classic:
+        _check_absent_classic(chain, mapset, dbif, not dry_run)
+        return
     dataset = dataset_factory(chain.stds_type, f"{chain.name}@{mapset}")
     if dataset.is_in_db(dbif):
         raise FatalError(
@@ -357,17 +445,20 @@ def _check_absent(chain, mapset, dbif):
             )
 
 
-def check_absent(chain):
+def check_absent(chain, *, classic=False):
     """Stop if the dataset or a result map of a process chain exists
 
     materialize() does this check itself when not overwriting; a dry run
     calls it to fail where the run would fail.
 
+    :param classic: look at the result maps first and report in the words of
+        the parser classes, see materialize(); like the dry run of the parser
+        classes, do not look at the dataset
     :raises FatalError: if the dataset or a result map exists
     """
     dbif, connection_state_changed = init_dbif(None)
     try:
-        _check_absent(chain, get_current_mapset(), dbif)
+        _check_absent(chain, get_current_mapset(), dbif, classic, dry_run=True)
     finally:
         if connection_state_changed:
             dbif.close()
@@ -579,6 +670,14 @@ def materialize(
     time_suffix=None,
     selection=False,
     names=None,
+    mapcalc=MapcalcStyle(),
+    union_region=False,
+    list_order=False,
+    copies_by_position=False,
+    temporal_type=None,
+    classic_absence_check=False,
+    keep_empty_vector_maps=False,
+    vector_dataset_if_empty=True,
 ):
     """Compute the maps of a series and register them in a new space time
     dataset
@@ -599,6 +698,18 @@ def materialize(
 
     With names the result maps get the given names, one per slot (see plan()).
 
+    mapcalc, union_region, list_order, copies_by_position and temporal_type
+    are options of plan(). The others change what is done with the maps:
+
+    - classic_absence_check looks for existing result maps before the dataset
+      and reports in the words of the parser classes, see check_absent();
+    - keep_empty_vector_maps registers a computed vector map that has no
+      primitives, as if register_null were set for vector maps;
+    - vector_dataset_if_empty=False creates no dataset and gives no warning
+      for a vector result that has no map, either because the series has no
+      slot or because every overlay was dropped for an input without areas.
+      Nothing is checked or written then, and the result is None.
+
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
@@ -606,7 +717,8 @@ def materialize(
         is False; nothing is computed then
     :raises ValueError: as plan(), or for nprocs other than 1 with vector
         maps
-    :return: the space time dataset
+    :return: the space time dataset, or None for a vector result without maps
+        if vector_dataset_if_empty is False
     """
     if series.kind == "vector" and int(nprocs) != 1:
         msg = (
@@ -621,12 +733,20 @@ def materialize(
         time_suffix=time_suffix,
         selection=selection,
         names=names,
+        mapcalc=mapcalc,
+        union_region=union_region,
+        list_order=list_order,
+        copies_by_position=copies_by_position,
+        temporal_type=temporal_type,
     )
+    no_dataset = series.kind == "vector" and not vector_dataset_if_empty
+    if no_dataset and not chain.maps:
+        return None
     mapset = get_current_mapset()
     dbif, connection_state_changed = init_dbif(None)
     try:
         if not overwrite:
-            _check_absent(chain, mapset, dbif)
+            _check_absent(chain, mapset, dbif, classic_absence_check)
         try:
             dropped = _run(chain, overwrite, nprocs)
         finally:
@@ -634,6 +754,11 @@ def materialize(
             # otherwise stay in the mapset. g.remove ignores names that were
             # never written.
             _remove(chain.remove, _kind(chain))
+        if no_dataset and len(dropped) == len(chain.maps):
+            for planned in chain.maps:
+                # An earlier run may have registered a map of this name.
+                _forget(f"{planned.name}@{mapset}", _kind(chain), dbif)
+            return None
         dataset = open_new_stds(
             name,
             chain.stds_type,
@@ -645,6 +770,9 @@ def materialize(
             overwrite=overwrite,
         )
         empty = []
+        keep_empty = register_null or (
+            keep_empty_vector_maps and _kind(chain) == "vector"
+        )
         for planned in chain.maps:
             if planned.name in dropped:
                 empty.append(planned.name)
@@ -675,7 +803,7 @@ def materialize(
                     _("Map <{name}> was not computed").format(name=map_.get_id())
                 )
             _set_time(map_, planned.extent)
-            if not register_null and _is_empty(map_, _kind(chain)):
+            if not keep_empty and _is_empty(map_, _kind(chain)):
                 empty.append(planned.name)
                 # An earlier run may have registered a map of this name.
                 _forget(map_.get_id(), _kind(chain), dbif)
