@@ -32,6 +32,7 @@ Vector maps are combined with the overlays of v.overlay and v.patch, written
 a & b, a | b, a ^ b, a - b and a + b, and buffered with buffer().
 """
 
+from .backends import MapcalcStyle
 from .content import NULL, Call, Const, MapRef, SeriesAggregate, SeriesReduce
 from .operations import (
     apply,
@@ -75,6 +76,7 @@ __all__ = [
     "Const",
     "Extent",
     "MapRef",
+    "MapcalcStyle",
     "ProcessChain",
     "Profile",
     "Relation",

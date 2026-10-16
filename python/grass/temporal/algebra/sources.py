@@ -59,7 +59,7 @@ def _slot_of(map_):
     return Slot(extent_of(map_), MapRef(map_.get_id()), space_of(map_), map_.get_id())
 
 
-def source(name, *, where=None, stds_type="strds"):
+def source(name, *, where=None, stds_type="strds", order="time"):
     """The registered maps of a space time dataset as series
 
     Needs a GRASS session and a temporal database.
@@ -68,8 +68,12 @@ def source(name, *, where=None, stds_type="strds"):
         ("name.label[@mapset]"), which keeps only the maps with that label
     :param where: an SQL condition on the registered maps, as in t.rast.list
     :param stds_type: "strds", "str3ds" or "stvds"
+    :param order: how the series sorts the maps, "time" (start, then end) or
+        "start" (start only, see Series). With "start" maps of equal start
+        stay in the order in which the temporal database lists them, as the
+        classic algebra reads them, which the end time would override.
     :raises FatalError: if the dataset does not exist
-    :raises ValueError: for another stds_type
+    :raises ValueError: for another stds_type or order
     """
     if stds_type not in KINDS_OF_STDS:
         msg = f"stds_type must be one of {', '.join(KINDS_OF_STDS)}, got {stds_type!r}"
@@ -86,7 +90,9 @@ def source(name, *, where=None, stds_type="strds"):
     dataset = open_old_stds(ident, stds_type)
     maps = dataset.get_registered_maps_as_objects(where=where, order="start_time")
     return Series(
-        tuple(_slot_of(map_) for map_ in maps or []), KINDS_OF_STDS[stds_type]
+        tuple(_slot_of(map_) for map_ in maps or []),
+        KINDS_OF_STDS[stds_type],
+        order=order,
     )
 
 

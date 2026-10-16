@@ -9,12 +9,16 @@ do, and returns the same process chain dictionary.
 from __future__ import annotations
 
 import functools
+import re
 
+from grass.exceptions import FatalError
 from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.sources import source
+from grass.temporal.core import get_current_mapset
 
+from . import translate
 from .grammar import parse as _parse_core
 from .granularity import sample_by_granularity
 from .translate import Translator
@@ -23,6 +27,17 @@ __all__ = ["Translator", "evaluate", "parse"]
 
 # The parser classes take "num" for numbered map names; the core takes None.
 _TIME_SUFFIXES = ("gran", "time")
+
+# The messages of the core that evaluate() maps to the exception classes of the
+# parser classes if the profile asks for it, see _classic_error().
+_TIME_FUNCTION = re.compile(
+    r"Temporal function (\w+)\(\) is not available for (?:map <([^>]*)>)?"
+)
+_INCREMENT = re.compile(
+    r"Relative time is changed by a number of its unit"
+    r"|Absolute time needs a time unit"
+    r"|Cannot read .* as a time step"
+)
 
 
 def parse(text, *, grammar=None):
@@ -88,58 +103,162 @@ def evaluate(
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
-    resolve = None
+    types = _TemporalTypes(profile.one_temporal_type)
+    resolve = _resolver(kind, profile, granularity, types)
+    translator = (profile.translator or Translator)(
+        kind=kind, spatial=spatial, resolve=resolve, profile=profile
+    )
+    suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
+    options = {
+        "mapcalc": profile.mapcalc,
+        "union_region": profile.union_region_when_spatial and spatial,
+        "list_order": profile.list_order,
+        "copies_by_position": profile.copies_by_position,
+    }
+    try:
+        name, series = translator.statement(statement)
+        # Known only now, after the datasets are read
+        empty_type = types.first if profile.empty_result_type_from_input else None
+        planned = plan(
+            series,
+            name,
+            basename=basename,
+            time_suffix=suffix,
+            selection=selection,
+            temporal_type=empty_type,
+            **options,
+        )
+        # A vector result without maps has no dataset, if the profile says so
+        if profile.vector_dataset_if_empty or kind != "vector" or planned.maps:
+            chain["STDS"] = {
+                "name": name,
+                "stdstype": planned.stds_type,
+                "temporal_type": planned.temporal_type,
+            }
+        chain["processes"] = [_module(call, overwrite) for call in planned.processes]
+        chain["register"] = [
+            (map_name, str(start), str(end))
+            for map_name, start, end in planned.register
+        ]
+        if planned.remove:
+            chain["remove"] = [
+                {
+                    "name": "g.remove",
+                    "inputs": [
+                        ("type", ELEMENTS[KINDS_OF_STDS[planned.stds_type]]),
+                        ("name", ",".join(planned.remove)),
+                    ],
+                    "outputs": [],
+                    "flags": ["f"],
+                }
+            ]
+        if debug:
+            for call in planned.processes:
+                print(_command(call))
+        if dry_run:
+            if not overwrite:
+                check_absent(planned, classic=profile.classic_absence_check)
+        else:
+            materialize(
+                series,
+                name,
+                basename=basename,
+                overwrite=overwrite,
+                register_null=register_null,
+                nprocs=int(nprocs),
+                time_suffix=suffix,
+                selection=selection,
+                temporal_type=empty_type,
+                classic_absence_check=profile.classic_absence_check,
+                keep_empty_vector_maps=profile.keep_empty_vector_maps,
+                vector_dataset_if_empty=profile.vector_dataset_if_empty,
+                **options,
+            )
+    except ValueError as error:
+        mapped = _classic_error(error) if profile.classic_errors else None
+        if mapped is None:
+            raise
+        raise mapped from error
+    return chain
+
+
+class _TemporalTypes:
+    """The temporal type of the first dataset with maps that an expression reads
+
+    A dataset without maps has no temporal type and is passed over, as is a
+    single map, which the parser classes do not check either.
+    """
+
+    def __init__(self, refuse_others):
+        self.first = None
+        self._refuse_others = refuse_others
+
+    def watch(self, resolve):
+        """Return resolve, noting the temporal type of the series it gives"""
+
+        def read(name, *args, **keywords):
+            series = resolve(name, *args, **keywords)
+            if series.temporal_type is None:
+                return series
+            if self.first is None:
+                self.first = series.temporal_type
+            elif self._refuse_others and series.temporal_type != self.first:
+                ident = name if "@" in name else f"{name}@{get_current_mapset()}"
+                msg = _(
+                    "Wrong temporal type of space time dataset <{stds}> <{type}> "
+                    "time is required"
+                ).format(stds=ident, type=self.first)
+                raise FatalError(msg)
+            return series
+
+        return read
+
+
+def _resolver(kind, profile, granularity, types):
+    """The function that reads a dataset for the translator, or None for the
+    one of the translator
+
+    :param types: the _TemporalTypes that watches the datasets; it watches
+        only where the profile asks for it
+    """
+    order = "start" if profile.database_order else "time"
+    watched = profile.one_temporal_type or profile.empty_result_type_from_input
     if granularity is not None:
         resolve = functools.partial(
             _sampled_source, stds_type=STDS_TYPES[kind], granularity=granularity
         )
-    translator = (profile.translator or Translator)(
-        kind=kind, spatial=spatial, resolve=resolve, profile=profile
-    )
-    name, series = translator.statement(statement)
-    suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
-    planned = plan(
-        series, name, basename=basename, time_suffix=suffix, selection=selection
-    )
-    chain["processes"] = [_module(call, overwrite) for call in planned.processes]
-    chain["register"] = [
-        (map_name, str(start), str(end)) for map_name, start, end in planned.register
-    ]
-    if planned.remove:
-        chain["remove"] = [
-            {
-                "name": "g.remove",
-                "inputs": [
-                    ("type", ELEMENTS[KINDS_OF_STDS[planned.stds_type]]),
-                    ("name", ",".join(planned.remove)),
-                ],
-                "outputs": [],
-                "flags": ["f"],
-            }
-        ]
-    chain["STDS"] = {
-        "name": name,
-        "stdstype": planned.stds_type,
-        "temporal_type": planned.temporal_type,
-    }
-    if debug:
-        for call in planned.processes:
-            print(_command(call))
-    if dry_run:
-        if not overwrite:
-            check_absent(planned)
-    else:
-        materialize(
-            series,
-            name,
-            basename=basename,
-            overwrite=overwrite,
-            register_null=register_null,
-            nprocs=int(nprocs),
-            time_suffix=suffix,
-            selection=selection,
+    elif order != "time" or watched:
+        resolve = functools.partial(
+            translate.source, stds_type=STDS_TYPES[kind], order=order
         )
-    return chain
+    else:
+        return None
+    return types.watch(resolve) if watched else resolve
+
+
+def _classic_error(error):
+    """The exception of the parser classes for a ValueError of the core, or None
+
+    The core reports an expression it cannot compute with a ValueError, the
+    parser classes with the class that fits the cause. The causes are told
+    by the messages of the core (translate.py, time_functions.py); a
+    test pins each message, so that a changed wording does not silently end
+    the mapping.
+    """
+    text = str(error)
+    function = _TIME_FUNCTION.match(text)
+    if function and function.group(2):
+        return FatalError(
+            _(
+                "Temporal function {func}() is not available for map <{map}>. "
+                "It requires absolute time, end time functions also an end time."
+            ).format(func=function.group(1), map=function.group(2))
+        )
+    if function:
+        return FatalError(text)
+    if _INCREMENT.match(text):
+        return SyntaxError(text)
+    return None
 
 
 def _sampled_source(name, *, stds_type, granularity):
