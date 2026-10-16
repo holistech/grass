@@ -179,10 +179,11 @@ class Translator:
             msg = f"{node.name}[...] takes {forms} for {self._kind} maps"
             raise SyntaxError(msg)
         series = self._name(ast.Name(node.name))
+        space = self.profile.neighbour_space
         if len(offsets) == 1:
-            return time_functions.neighbour(series, offsets[0])
+            return time_functions.neighbour(series, offsets[0], space=space)
         if len(offsets) == axes + 1:
-            series = time_functions.neighbour(series, offsets[-1])
+            series = time_functions.neighbour(series, offsets[-1], space=space)
         return operations.cell_offset(series, *offsets[:axes])
 
     def _operands(self, node):

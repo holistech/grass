@@ -237,19 +237,33 @@ def _shrink(series, buffer):
     return replace(series, slots=tuple(slots))
 
 
-def neighbour(series, offset):
+def neighbour(series, offset, *, space="own"):
     """Each slot with the content of the slot offset positions away
 
     Slots without such a neighbour are left out, as A[1] and A[-1] of the
     algebra do.
+
+    :param space: the spatial extent of a slot: its own ("own") or that of the
+        neighbour whose content it takes ("neighbour")
+    :raises ValueError: for another space
     """
     check_series(series)
     check_int(offset, "offset")
+    if space not in ("own", "neighbour"):
+        msg = f"space must be one of own, neighbour, got {space!r}"
+        raise ValueError(msg)
     slots = []
     for index, slot in enumerate(series.slots):
         other = index + offset
         if 0 <= other < len(series.slots):
-            slots.append(Slot(slot.extent, series.slots[other].content, slot.space))
+            neighbour_slot = series.slots[other]
+            slots.append(
+                Slot(
+                    slot.extent,
+                    neighbour_slot.content,
+                    slot.space if space == "own" else neighbour_slot.space,
+                )
+            )
     return replace(series, slots=tuple(slots))
 
 

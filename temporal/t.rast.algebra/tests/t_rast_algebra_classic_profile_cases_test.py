@@ -137,6 +137,17 @@ COUNT_CONDITIONS = [
     "if(isnull(Z # A), A, B)",
 ]
 
+# A map read at a time offset has the box of the map it takes the cells from,
+# which decides whether it meets the boxes of its partners.
+NEIGHBOURS = [
+    "Z {/,contains,u} SA[1]",
+    "Z {/,contains} SA[-1]",
+    "Z {/,contains} SA[2]",
+    "Z {/,contains} SA[0]",
+    "A {/,contains} SA[1]",
+    "Z {/,precedes,l} SA[1]",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -225,3 +236,8 @@ def test_a_number_next_to_a_count_in_the_granularity_mode(datasets):
     assert_equal(
         "if(start_week(W, -1) >= 22 && isnull(A / A), Z # A, 19)", granularity=True
     )
+
+
+@pytest.mark.parametrize("expression", NEIGHBOURS)
+def test_a_neighbour_has_its_own_box(datasets, expression):
+    assert_equal(expression)

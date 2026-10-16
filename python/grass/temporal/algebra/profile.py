@@ -62,6 +62,9 @@ class Profile:
     :param database_order: read the maps of a dataset sorted by start only,
         so that maps with equal start keep the order of the temporal
         database (source())
+    :param neighbour_space: "neighbour" gives a map read at a time offset
+        (A[1]) the spatial extent of the map it takes the cells from, where
+        "own" keeps its own (translator)
     :param last_of_equal_names: let result maps that get the same name from a
         time suffix overwrite each other, the last of them staying (plan())
     :param mixed_times: "unrelated" relates nothing across absolute and
@@ -84,6 +87,7 @@ class Profile:
     list_order: bool = False
     database_order: bool = False
     last_of_equal_names: bool = False
+    neighbour_space: str = "own"
     mixed_times: str = "error"
     classic_errors: bool = False
 

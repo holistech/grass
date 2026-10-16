@@ -848,6 +848,7 @@ CLASSIC = Profile(
     list_order=True,
     database_order=True,
     last_of_equal_names=True,
+    neighbour_space="neighbour",
     mixed_times="unrelated",
     classic_errors=True,
 )
