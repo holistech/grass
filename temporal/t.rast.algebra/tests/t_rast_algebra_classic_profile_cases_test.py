@@ -221,6 +221,15 @@ FIRST_COUNT = [
     "if(A # N >= 3000000000, A)",
 ]
 
+# Classic bug, reproduced: td() of a counted map appends the duration after
+# the count, and a comparison or an operand of td() reads the first value,
+# the count. A # merge(N, HA) counts 2 for maps of one day.
+COUNTED_DURATION = [
+    "if(td(A # merge(N, HA)) > 1.5, A)",
+    "if(td(A # merge(N, HA)) < 1.5, A)",
+    "N + td(A # merge(N, HA))",
+]
+
 # A condition on time is decided in Python by the classic algebra, so a
 # number beyond 32 bits does not overflow as it would in r.mapcalc.
 TIME_CONDITIONS_BEYOND_32_BITS = [
@@ -441,6 +450,37 @@ def test_a_counted_map_is_its_first_count_next_to_maps(
 )
 def test_a_count_in_the_granularity_mode(datasets, expression):
     assert_equal(expression, granularity=True)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", COUNTED_DURATION)
+def test_td_of_a_counted_map_is_its_first_count(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
+
+
+def test_td_of_a_counted_map_adds_the_count_in_the_reference(datasets):
+    """N holds 11 to 14: the count 2 is added, not the duration of one day"""
+    reference = outcome(
+        KIND, "N + td(A # merge(N, HA))", RUNNERS["reference"], basename="fa"
+    )
+    assert [values[3] for values in reference["maps"]] == [13, 14, 15, 16]
+
+
+# Profile gap, not a classic bug: the classic merge() compares the texts
+# if(1, 1,2) and (1) of two objects of the same map and keeps both (8 maps);
+# the profile folds the text of if() to the number 1, equal to the count, and
+# keeps 4.
+@pytest.mark.xfail(strict=True, reason="merge() compares folded texts")
+def test_merge_of_a_folded_if_and_its_count(datasets):
+    reference = outcome(
+        KIND,
+        "merge(if(isnull(A # N), 1, 2), A # N)",
+        RUNNERS["reference"],
+        basename="fa",
+        register_null=True,
+    )
+    assert len(reference["maps"]) == 8
+    assert_equal("merge(if(isnull(A # N), 1, 2), A # N)")
 
 
 @pytest.mark.parametrize("granularity", [False, True])

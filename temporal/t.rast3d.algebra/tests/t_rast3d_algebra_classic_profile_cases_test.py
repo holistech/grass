@@ -64,6 +64,10 @@ FIRST_COUNT = [
     "merge(A # B, B # A)",
     "if(exist(Z[0]), if(A # Z >= 3000000000, A / tmap(single)), A + A)",
     "if(isntnull(A), if(isntnull(tmap(single)) && B # A >= 1, B), 4)",
+    # Classic bug, reproduced: td() of a counted map is its first count
+    "if(td(A # merge(B, Z)) > 1.5, A)",
+    "if(td(A # merge(B, Z)) < 1.5, A)",
+    "B + td(A # merge(B, Z))",
 ]
 
 # r.mapcalc reads an integer beyond 32 bits with an overflow, so constants

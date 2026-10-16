@@ -43,7 +43,6 @@ from grass.temporal.algebra.relations import (
     related,
 )
 from grass.temporal.algebra.series import Series, Slot
-from grass.temporal.core import get_tgis_message_interface
 
 from . import ast
 from .classic_grammar import classic_grammar
@@ -199,8 +198,8 @@ class ClassicTranslator(Translator):
         # (see _source()) and the content of its first count (see
         # _first_counts()).
         self._counted = {}
-        # The results of the hash operator itself, by id() with the series;
-        # see _compare().
+        # The results of the hash operator itself and td() of counted maps,
+        # by id() with the series; see _compare().
         self._hashes = {}
         # The time stamp of every registered map the expression reads, by
         # identifier; see statement().
@@ -697,9 +696,10 @@ class ClassicTranslator(Translator):
         self._remember_commands(result, carried)
 
     def _compare(self, symbol, left, right):
-        """A comparison of the hash operator itself (A # B == 2) is a
-        condition on time on the first count; any other comparison of a
-        count, as (A # B) + 1 > 2, is a cell condition in the r.mapcalc text"""
+        """A comparison of the hash operator itself (A # B == 2) or of td() of
+        a count is a condition on time on the first count; any other
+        comparison of a count, as (A # B) + 1 > 2, is a cell condition in the
+        r.mapcalc text"""
         if id(left) in self._hashes:
             left = self._first_counts(left)
         else:
@@ -834,6 +834,31 @@ class ClassicTranslator(Translator):
             )
         result = super()._time_variable(name, arguments)
         self._remember_commands(result, series)
+        if name == "td" and isinstance(series, Series):
+            result = self._counted_duration(result, series)
+        return result
+
+    def _counted_duration(self, durations, series):
+        """td() of counted maps: the classic algebra appends the duration to
+        the values of the map object after its count, and both a comparison
+        (td(A # B) > 1) and an operand (N + td(A # B)) read the first value,
+        the count. This is a classic bug, reproduced."""
+        if len(durations.slots) != len(series.slots) or not any(
+            id(slot.content) in self._counted for slot in series.slots
+        ):
+            return durations
+        slots = []
+        for slot, argument in zip(durations.slots, series.slots, strict=True):
+            known = self._counted.get(id(argument.content))
+            if known is not None:
+                # A copy of the first count, so that each has an identity
+                content = dataclasses.replace(known[2])
+                self._counted[id(content)] = (content, *known[1:])
+                slot = dataclasses.replace(slot, content=content)
+            slots.append(slot)
+        result = dataclasses.replace(durations, slots=tuple(slots))
+        # Compared as a condition on time, like the hash operator itself
+        self._hashes[id(result)] = result
         return result
 
     def _function(self, node):
@@ -885,11 +910,10 @@ class ClassicTranslator(Translator):
                 kept.append(slot)
         dropped = len(second.slots) - len(kept)
         if dropped:
-            messenger = get_tgis_message_interface()
-            if messenger is not None:
-                messenger.warning(
-                    _("merge() dropped {count} duplicate map(s)").format(count=dropped)
-                )
+            # The warning of the core, with its fallback before tgis.init()
+            operations._warn(  # noqa: SLF001
+                _("merge() dropped {count} duplicate map(s)").format(count=dropped)
+            )
         # One series, so that the core keeps all its slots and only ranks them
         listed = (*first.listed(), *kept)
         combined = Series(
@@ -902,6 +926,13 @@ class ClassicTranslator(Translator):
         return operations.merge(combined, keep_first_repeats=True)
 
     def _merge_key(self, slot):
+        """The identity of a map in merge(): time stamp, text and the id of
+        the map, as the classic key (map id, time stamp, command)
+
+        Box and origin, which the slots of the core also compare, follow from
+        the map id and the text: a map of one id and text has one box, and
+        the origin is the id of a registered map.
+        """
         return (slot.extent, slot.content, self._source(slot.content))
 
     @staticmethod
