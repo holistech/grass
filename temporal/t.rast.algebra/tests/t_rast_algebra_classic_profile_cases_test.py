@@ -135,6 +135,10 @@ TIME_AND_CELL_CONDITIONS = [
     "if(A > 99 || start_month(A[0, 1]) == 1, Z)",
     "if(A > 99 || start_month(if(A > 1, A)) == 1, Z)",
     "if(A > 99 && start_month(A * 0) == 1, Z)",
+    "if(end_year(A[0]) == 1 && exist(A), null())",
+    "if(end_year(A[1]) == 1 && exist(A), A)",
+    "if(end_year(A[1]) == 1 || A > 2, A)",
+    "if(A > 2 && end_year(A[0, 1]) == 1, A)",
 ]
 
 # && binds stronger than || in r.mapcalc, which reads the text of the classic

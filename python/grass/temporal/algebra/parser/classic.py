@@ -51,6 +51,7 @@ from .translate import (
     _ABSENT,
     _EXTENTS,
     Translator,
+    _INDEX_FORMS,
     _check_time_variable,
     _timed,
     _whole,
@@ -96,6 +97,12 @@ def _like(series, slots, sort=None):
         series.spatial,
         series.order,
     )
+
+
+def _has_command(content):
+    """True if the map of content has a command of its own in the classic
+    algebra: it is computed, or read at a cell offset"""
+    return not isinstance(content, MapRef) or bool(content.offset)
 
 
 def _joined(symbol, first, second):
@@ -178,6 +185,9 @@ class ClassicTranslator(Translator):
         # expression, by id(), with the series itself so that the id stays
         # taken; see _remember_commands().
         self._commands = {}
+        # The maps read at a time offset, by id() with the series; see
+        # _index().
+        self._generated = {}
         # The results of the hash operator, by id() (and the series itself, so
         # that the id stays taken); see _field_if().
         self._counts = {}
@@ -529,6 +539,15 @@ class ClassicTranslator(Translator):
             mixed_times=self.profile.mixed_times,
         )
 
+    def _index(self, node):
+        """A map read at a time offset is a new map in the classic algebra,
+        which carries a command like a computed one: its own id"""
+        result = super()._index(node)
+        axes, _forms = _INDEX_FORMS[self._kind]
+        if isinstance(result, Series) and len(node.offsets) in (1, axes + 1):
+            self._generated[id(result)] = result
+        return result
+
     def _remember_commands(self, result, argument):
         """Note the commands of the argument of a time function
 
@@ -541,7 +560,10 @@ class ClassicTranslator(Translator):
             isinstance(result, Series)
             and result.sort == "scalar"
             and len(result.slots) == len(slots)
-            and any(not isinstance(slot.content, MapRef) for slot in slots)
+            and (
+                id(argument) in self._generated
+                or any(_has_command(slot.content) for slot in slots)
+            )
         ):
             self._commands[id(result)] = (result, argument)
 
@@ -568,7 +590,10 @@ class ClassicTranslator(Translator):
                 return
             taken.add(index)
             slots.append(argument.slots[index])
-        self._remember_commands(result, _like(argument, slots))
+        carried = _like(argument, slots)
+        if id(argument) in self._generated:
+            self._generated[id(carried)] = carried
+        self._remember_commands(result, carried)
 
     def _compare(self, symbol, left, right):
         result = super()._compare(symbol, left, right)
@@ -591,9 +616,10 @@ class ClassicTranslator(Translator):
         known = self._commands.get(id(series))
         if known is None:
             return series
+        generated = id(known[1]) in self._generated
         slots = [
             slot
-            if isinstance(argument.content, MapRef)
+            if not (generated or _has_command(argument.content))
             else dataclasses.replace(slot, content=argument.content)
             for slot, argument in zip(series.slots, known[1].slots, strict=True)
         ]
