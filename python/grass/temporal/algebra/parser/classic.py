@@ -187,6 +187,7 @@ class ClassicTranslator(Translator):
         # The time stamp of every registered map the expression reads, by
         # identifier; see statement().
         self._stored = {}
+        self._sampled = False
         self._resolve = self._noting(self._resolve)
         self._resolve_map = self._noting(self._by_start(self._resolve_map))
 
@@ -207,6 +208,13 @@ class ClassicTranslator(Translator):
 
         def read(*arguments, **keywords):
             series = resolve(*arguments, **keywords)
+            idents = [
+                slot.content.ident
+                for slot in series.slots
+                if isinstance(slot.content, MapRef)
+            ]
+            # Sampled by a granularity, a dataset reads a map once per granule
+            self._sampled = self._sampled or len(set(idents)) < len(idents)
             for slot in series.slots:
                 if slot.origin is not None and slot.extent is not None:
                     self._stored[slot.origin] = slot.extent
@@ -347,7 +355,37 @@ class ClassicTranslator(Translator):
             if name not in TEMPORAL_RELATIONS:
                 msg = f"Unpermitted temporal relation name '{name}'"
                 raise SyntaxError(msg)
+        selected = self._selected(left, right, operator)
+        return selected if self._sampled else self._one_per_map(selected)
 
+    @staticmethod
+    def _one_per_map(series):
+        """series with one slot per registered map: a map that came twice
+        with different time stamps, as in merge(tshift(A, "1 hours"), A),
+        stays with the latest start once it is selected; not in the granularity
+        mode, where a dataset reads a map once per granule"""
+
+        def map_id(slot):
+            content = slot.content
+            if slot.extent is None or not isinstance(content, MapRef):
+                return None
+            return None if content.offset else content.ident
+
+        latest = {}
+        for slot in series.slots:
+            ident = map_id(slot)
+            if ident is not None and (
+                ident not in latest or slot.extent.start >= latest[ident].extent.start
+            ):
+                latest[ident] = slot
+        slots = [
+            slot
+            for slot in series.slots
+            if map_id(slot) is None or latest[map_id(slot)] is slot
+        ]
+        return _like(series, slots)
+
+    def _selected(self, left, right, operator):
         relation = self._relation(operator)
         right = self._aligned(left, right)
         if operator.symbol == "!:":

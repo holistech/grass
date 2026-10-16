@@ -43,6 +43,15 @@ SINGLE_MAPS = [
     "if({started}, E {#,contains|over} Q <= 1, tmap(singletmap), rel)",
 ]
 
+# A map that came twice with different time stamps stays once with the latest
+# start when it is selected
+MERGED_COPIES = [
+    'merge(tshift(Z, "-1 hours"), Z) {!:,contains} N',
+    'merge(tshift(Z, "1 hours"), Z) {:,equal|overlaps|overlapped} N',
+    'merge(tshift(Z, "1 hours"), tshift(Z, "-2 hours")) {!:,contains} N',
+    'merge(tshift(Z, "-1 hours"), Z) {!:,follows} N',
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -77,4 +86,9 @@ def test_retimed_maps_are_copied_only_when_their_time_changed(datasets, expressi
 
 @pytest.mark.parametrize("expression", SINGLE_MAPS)
 def test_single_maps_keep_the_order_of_the_lists_they_join(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", MERGED_COPIES)
+def test_a_selected_map_stays_once(datasets, expression):
     assert_equal(expression)
