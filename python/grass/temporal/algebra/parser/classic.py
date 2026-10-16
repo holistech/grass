@@ -362,8 +362,11 @@ class ClassicTranslator(Translator):
     def _one_per_map(series):
         """series with one slot per registered map: a map that came twice
         with different time stamps, as in merge(tshift(A, "1 hours"), A),
-        stays with the latest start once it is selected; not in the granularity
-        mode, where a dataset reads a map once per granule"""
+        stays with the latest start once it is selected, as the reference
+        keeps its selected maps in a dictionary by map id, the last of the
+        start-sorted list winning. Not where a dataset reads one map for
+        several granules (granularity mode): there the reference holds
+        separate map objects of the same id and keeps them all"""
 
         def map_id(slot):
             content = slot.content

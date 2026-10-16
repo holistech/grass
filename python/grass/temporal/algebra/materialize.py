@@ -716,7 +716,8 @@ def materialize(
     With names the result maps get the given names, one per slot (see plan()).
 
     mapcalc, union_region, list_order, copies_by_position, temporal_type and
-    last_of_equal_names are options of plan(). The others change what is done with the maps:
+    last_of_equal_names are options of plan(). The others change what is done
+    with the maps:
 
     - classic_absence_check looks for existing result maps before the dataset
       and reports in the words of the parser classes, see check_absent();

@@ -460,8 +460,10 @@ class Translator:
                 return _where(condition, then, otherwise)
             return operations.choose(
                 condition,
-                _like(condition, then),
-                None if otherwise is _ABSENT else _like(condition, otherwise),
+                _like(condition, then, listed=self.profile.list_order),
+                None
+                if otherwise is _ABSENT
+                else _like(condition, otherwise, listed=self.profile.list_order),
                 mixed_times=self.profile.mixed_times,
             )
         return self._temporal_if(condition, then, otherwise, relation, first)
@@ -477,7 +479,9 @@ class Translator:
         conditions = self._conditions(first, condition, operator)
         if conditions.sort == "field":
             return self._field_if(condition, then, otherwise, relation)
-        then_maps = then if _timed(then) else _like(first, then)
+        then_maps = (
+            then if _timed(then) else _like(first, then, listed=self.profile.list_order)
+        )
         if otherwise is _ABSENT:
             return operations.choose(
                 conditions, then_maps, mixed_times=self.profile.mixed_times
@@ -487,7 +491,7 @@ class Translator:
             return operations.choose(
                 settled,
                 then_maps,
-                _like(first, otherwise),
+                _like(first, otherwise, listed=self.profile.list_order),
                 mixed_times=self.profile.mixed_times,
             )
         if not _timed(then):
@@ -705,10 +709,13 @@ def _settled(conditions, relation):
     return operations.apply("if", operations.apply("isnull", conditions), 0, conditions)
 
 
-def _like(series, value):
+def _like(series, value, *, listed=False):
     """A series with the time stamps of series and value as each content
 
-    value is a content node or a map without time stamp.
+    value is a content node or a map without time stamp. With listed the
+    slots keep their rank and the series its order, as a profile that lists
+    results in the order of the lists needs; the core leaves them out so that
+    its results do not depend on them.
     """
     if isinstance(value, str):
         msg = f"A text such as '{value}' cannot be a branch of if()"
@@ -716,11 +723,12 @@ def _like(series, value):
     content = value.slots[0].content if isinstance(value, Series) else value
     return Series(
         tuple(
-            Slot(slot.extent, content, slot.space, rank=slot.rank) for slot in series
+            Slot(slot.extent, content, slot.space, rank=slot.rank if listed else None)
+            for slot in series
         ),
         kind=series.kind,
         spatial=series.spatial,
-        order=series.order,
+        **({"order": series.order} if listed else {}),
     )
 
 
