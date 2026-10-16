@@ -246,15 +246,9 @@ def test_merge_of_select_and_inverse_select_is_the_dataset(algebra, relation):
         ("merge(A {:,during} B, A {!:,during} B)", 0),
     ],
 )
-@pytest.mark.parametrize(
-    ("classic", "message"),
-    [
-        (False, "dropped {count} duplicate map(s)"),
-        (True, "keeps {count} maps of both operands only once"),
-    ],
-)
+@pytest.mark.parametrize("classic", [False, True])
 def test_merge_warns_about_identical_maps(
-    algebra, monkeypatch, expression, count, classic, message
+    algebra, monkeypatch, expression, count, classic
 ):
     """capfd stays empty although the warning shows in the captured stderr of
     the report (observed 2026-10-11); probably the messenger, a process wide
@@ -1024,6 +1018,14 @@ def test_manual_example_runs(algebra, assignment, classic):
             algebra.dry_times(expression, classic=classic)
     else:
         algebra.dry_times(expression, classic=classic)
+
+
+def test_every_listed_manual_error_is_in_the_manual():
+    """An example edited out of the manual must leave the error lists too, or
+    they test an expression that the manual no longer shows"""
+    examples = set(manual_expressions(MANUAL.read_text()))
+    assert set(MANUAL_ERRORS) - examples == set()
+    assert set(CLASSIC_MANUAL_ERRORS) - examples == set()
 
 
 @pytest.mark.fixed_algebra

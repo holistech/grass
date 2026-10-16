@@ -18,8 +18,9 @@ KIND = "raster"
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
 pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 
-# Targeted probes (2026-10-16, a dozen expressions of each shape on both sides, and
-# none in the fuzzer runs of that day): arithmetic on a count and time
+# Targeted probes (2026-10-16, a dozen expressions of each shape on both
+# sides, of which the lists keep a selection, and none in the fuzzer runs of
+# that day): arithmetic on a count and time
 # conditions on both sides of && and || with a computed argument on either
 # side give the registered maps of the classic algebra.
 COUNT_ARITHMETIC = [
@@ -469,12 +470,15 @@ def test_counts_and_time_conditions_on_both_sides(datasets, expression):
     assert_equal(expression)
 
 
+# The profile gap of MERGED_COMPUTED_MAPS, see there
 @pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 @pytest.mark.parametrize("expression", MERGED_COMPUTED_MAPS)
 def test_merge_keeps_computed_maps_that_look_alike(datasets, expression):
     assert_equal(expression)
 
 
+# The profile gap of MERGED_COMPUTED_MAPS: in the granularity mode A[0] is a
+# map read at a time offset as well.
 @pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 def test_merge_keeps_a_neighbour_map_in_the_granularity_mode(datasets):
     assert_equal("merge(A[0], A)", granularity=True)
@@ -490,6 +494,7 @@ def test_a_computed_copy_replaces_its_map_in_a_selection(datasets, expression):
     assert_equal(expression)
 
 
+# The profile gap of MERGED_COMPUTED_MAPS for Z[0] next to Z itself
 @pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 @pytest.mark.parametrize("expression", ["merge(Z, Z[0] : OV)", "0 + merge(Z, Z[0])"])
 def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression):

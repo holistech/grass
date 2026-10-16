@@ -348,6 +348,8 @@ def test_intersection_with_a_relative_instant_is_the_instant(
         make_map(tools, "raster", name, value, overwrite=True)
     for name, maps in (
         ("RV", [MapSpec("rv1", None, 0, 4), MapSpec("rv2", None, 4, 8)]),
+        # RI is never named in an expression; registering rinst in it gives
+        # the map the relative time stamp that tmap(rinst) reads.
         ("RI", [MapSpec("rinst", None, 2, None)]),
     ):
         register_stds(
