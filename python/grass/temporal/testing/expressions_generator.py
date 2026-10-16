@@ -275,7 +275,10 @@ class Generator:
                 return f"{left} && {right}"
             if x < 0.65:
                 return f"{left} || {right}"
-            operator = self.operator(self.pick(("&&", "||")), ref=False, agg=True)
+            # Every temporal reference, not only the l or r that comes with an
+            # aggregate: && and || with r give a map per partner, which
+            # generated expressions otherwise reached too rarely to compare.
+            operator = self.operator(self.pick(("&&", "||")), agg=True)
             return f"{left} {operator} {right}"
         if self.kind in {"vector", "select"} or self.r() < 0.45:
             return self.t_condition(depth)
