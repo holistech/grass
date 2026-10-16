@@ -51,6 +51,7 @@ from .translate import (
     _ABSENT,
     _EXTENTS,
     Translator,
+    _check_time_variable,
     _timed,
     _whole,
 )
@@ -503,10 +504,21 @@ class ClassicTranslator(Translator):
     def _time_variable(self, name, arguments):
         """td() needs intervals; in a selection start_doy(A, 1) and the like
         keep the neighbour map itself under the time stamp of each map, as no
-        value is computed there"""
+        value is computed there. With an offset only the maps whose value is
+        read are asked for the variable: start_hour(RT, 5) of three maps of
+        relative time is empty, not an error."""
         series = arguments[0] if arguments else None
-        if name == "td" and isinstance(series, Series):
-            for slot in series.slots:
+        used = series
+        offset = None
+        if len(arguments) == 2 and isinstance(series, Series):
+            offset = _whole(arguments[1], name)
+            if not self._selection:
+                count = len(series.slots)
+                used = dataclasses.replace(
+                    series, slots=series.slots[max(offset, 0) : count + min(offset, 0)]
+                )
+        if name == "td" and isinstance(used, Series):
+            for slot in used.slots:
                 if slot.extent is not None and slot.extent.end is None:
                     raise FatalError(
                         _(
@@ -514,11 +526,18 @@ class ClassicTranslator(Translator):
                             "<{map}> is a time instance."
                         ).format(map=slot.origin or slot.extent.start)
                     )
-        if self._selection and len(arguments) == 2:
-            return time_functions.neighbour(series, _whole(arguments[1], name))
+        if self._selection and offset is not None:
+            return time_functions.neighbour(series, offset)
+        if offset is not None:
+            _check_time_variable(name, used)
+            variable = time_functions.timevar(series, name)
+            # The value of a neighbour is a number in the map, so a condition
+            # on it judges cells, not time.
+            return dataclasses.replace(
+                time_functions.neighbour(variable, offset), sort="field"
+            )
         result = super()._time_variable(name, arguments)
-        if len(arguments) == 1:
-            self._remember_commands(result, series)
+        self._remember_commands(result, series)
         return result
 
     def _function(self, node):

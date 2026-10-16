@@ -89,6 +89,18 @@ LOGICAL_GROUPING = [
     "if(start_day(Z) < 1 && A > 3 || isntnull(HA), Z)",
 ]
 
+# A time function with an offset asks only the maps whose value it reads, and
+# its value is a number in the map, so a condition on it judges cells.
+TIME_FUNCTION_OFFSETS = [
+    "start_hour(RH, 2)",
+    "start_hour(RH, -1)",
+    "start_hour(RH, 0)",
+    "start_hour(A, 5)",
+    "start_doy(A, -1)",
+    "if(start_year(AF, 1) <= 1.5, AF)",
+    "if(end_hour(A, 0) == 3, AF)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -138,4 +150,9 @@ def test_time_and_cell_conditions(datasets, expression):
 
 @pytest.mark.parametrize("expression", LOGICAL_GROUPING)
 def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", TIME_FUNCTION_OFFSETS)
+def test_time_functions_with_an_offset(datasets, expression):
     assert_equal(expression)
