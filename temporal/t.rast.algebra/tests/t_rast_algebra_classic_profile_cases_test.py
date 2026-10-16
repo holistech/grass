@@ -48,11 +48,15 @@ LISTED_CONDITIONS = [
 ]
 
 # Computed maps keep the id of the map they were made of, so a selection of
-# a merge with a computed copy keeps one of the two, the later one.
+# a merge with a computed copy keeps one of the two, the later one. An
+# operation of two maps is a new map and keeps its own id.
 COMPUTED_COPIES = [
     "merge(A, sqrt(A)) {:,equal} HA",
     "merge(A, A + 1) {!:,equal} HA",
     "merge(A + 1, A) {:,equal} HA",
+    'buff_t(merge(A / AF, float(A)) : AF, "1 day")',
+    "merge(A / AF, A * 1) : AF",
+    "merge(A, A / AF) : AF",
     "merge(A, sqrt(A)) {:,overlapped|equal} if(AF < 3000000000 || td(D) >= 2, HA)",
 ]
 

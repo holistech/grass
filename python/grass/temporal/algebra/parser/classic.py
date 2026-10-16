@@ -433,9 +433,10 @@ class ClassicTranslator(Translator):
             if isinstance(content, MapRef):
                 return None if content.offset else content.ident
             if isinstance(content, Call):
-                return next(
-                    (found for found in map(source, content.args) if found), None
-                )
+                found = [ident for ident in map(source, content.args) if ident]
+                # An operation of two maps is a new map, one with a number
+                # is the map itself changed.
+                return id(content) if len(found) > 1 else next(iter(found), None)
             return None
 
         def map_id(slot):
