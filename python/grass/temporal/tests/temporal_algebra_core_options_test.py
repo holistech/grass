@@ -222,23 +222,17 @@ def test_pairing_keeps_the_maps_of_one_time_together_in_written_order(make_serie
 
 
 def test_pairing_error_is_raised_as_the_class_asked_for(make_series):
+    """gather() refuses counts that cannot be paired with a ValueError;
+    pair_equal_times() takes the class, as the classic algebra stops with a
+    FatalError"""
     two = make_series("x", (1, 2), (1, 2))
     three = make_series("y", (1, 2), (1, 2), (1, 2))
-    with pytest.raises(
-        FatalError, match=r"2 maps of the time stamp .* cannot be paired with 3 maps"
-    ):
-        gather(
-            two,
-            equal,
-            three,
-            reduce="first",
-            equal_times="pairwise",
-            pairing_error=FatalError,
-        )
-    with pytest.raises(
-        ValueError, match=r"2 maps of the time stamp .* cannot be paired with 3 maps"
-    ):
+    message = r"2 maps of the time stamp .* cannot be paired with 3 maps"
+    with pytest.raises(ValueError, match=message):
         gather(two, equal, three, reduce="first", equal_times="pairwise")
+    matches = [[0, 1, 2], [0, 1, 2]]
+    with pytest.raises(FatalError, match=message):
+        pair_equal_times(two.slots, matches, three.slots, error=FatalError)
 
 
 # The probes below were run on 2026-10-16 against the classic algebra: the

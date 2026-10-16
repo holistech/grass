@@ -676,7 +676,6 @@ def gather(
     space="keep",
     order="sorted",
     unique=True,
-    pairing_error=ValueError,
     failure="empty",
     box=None,
     mixed_times="error",
@@ -712,9 +711,6 @@ def gather(
         and the left-to-right nesting of the other reducers
     :param unique: False lets a slot count once for every written relation
         name that relates it, see related()
-    :param pairing_error: the exception class that equal_times="pairwise"
-        raises for counts that cannot be paired; the classic algebra stops
-        with a FatalError
     :param failure: what a related slot whose time stamp (or box, see box)
         does not combine with that of the target means: "empty" leaves the
         target out, "stop" ends the combination there and keeps what the
@@ -731,7 +727,7 @@ def gather(
         or of different units; "unrelated" relates nothing across them
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
-    :raises pairing_error: if equal_times="pairwise" cannot pair the maps of
+    :raises ValueError: if equal_times="pairwise" cannot pair the maps of
         a time stamp
     """
     check_series(target, "target")
@@ -763,9 +759,7 @@ def gather(
         unique=unique,
     )
     if equal_times == "pairwise" and relation.spatial is None:
-        matches = pair_equal_times(
-            target.slots, matches, other.slots, order=order, error=pairing_error
-        )
+        matches = pair_equal_times(target.slots, matches, other.slots, order=order)
     slots = []
     for slot, found in zip(target.slots, matches, strict=True):
         partners = [other.slots[index] for index in found]
