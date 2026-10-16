@@ -4,6 +4,9 @@ Scalars are folded while a tree is built; the expected values follow
 r.mapcalc, which divides integers like C and gives null for a null operand.
 """
 
+import dataclasses
+import datetime
+
 import pytest
 
 from grass.temporal.algebra.content import (
@@ -11,15 +14,20 @@ from grass.temporal.algebra.content import (
     Call,
     Const,
     MapRef,
+    SeriesAggregate,
     SeriesReduce,
     call,
     chain,
     evaluate,
     series_reduce,
 )
+from grass.temporal.algebra.operations import merge
+from grass.temporal.algebra.series import Extent, Series, Slot
 
 A = MapRef("a1@PERMANENT")
 B = MapRef("b1@PERMANENT")
+DAY1 = datetime.datetime(2001, 1, 1)
+DAY2 = datetime.datetime(2001, 1, 2)
 
 
 @pytest.mark.parametrize(
@@ -170,3 +178,43 @@ def test_chain_needs_contents():
 def test_evaluate_rejects_function_without_scalar_implementation():
     with pytest.raises(ValueError, match="sin"):
         evaluate("sin", [0])
+
+
+MARKED = [
+    MapRef("a1@PERMANENT", mark=object()),
+    Const(1, mark=object()),
+    Call("+", (A, B), mark=object()),
+    SeriesReduce("sum", (A, B), mark=object()),
+    SeriesAggregate("sum", (A, B), mark=object()),
+]
+
+
+@pytest.mark.parametrize("marked", MARKED, ids=lambda content: type(content).__name__)
+def test_the_mark_takes_no_part_in_equality_hash_and_repr(marked):
+    """A profile marks contents; the core must not see the mark"""
+    plain = dataclasses.replace(marked, mark=None)
+    assert marked.mark is not None
+    assert marked == plain
+    assert hash(marked) == hash(plain)
+    assert repr(marked) == repr(plain)
+    assert len({marked, plain}) == 1
+
+
+def test_the_mark_is_given_by_keyword_only():
+    with pytest.raises(TypeError):
+        MapRef("a1@PERMANENT", (), object())
+
+
+def test_the_core_builds_contents_without_a_mark():
+    assert call("+", A, B).mark is None
+    assert chain("+", [A, B, A]).mark is None
+    assert series_reduce("sum", [A, B]).mark is None
+
+
+def test_merge_drops_a_slot_that_differs_in_its_mark_only():
+    """The core has no map objects: equal contents are one map"""
+    first = Slot(Extent(DAY1, DAY2), MapRef("a1@PERMANENT", mark=object()))
+    second = Slot(Extent(DAY1, DAY2), MapRef("a1@PERMANENT", mark=object()))
+    with pytest.warns(UserWarning, match="dropped 1 duplicate"):
+        merged = merge(Series((first,)), Series((second,)))
+    assert len(merged.slots) == 1
