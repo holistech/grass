@@ -108,8 +108,9 @@ def test_a_relation_name_the_selection_does_not_know_is_a_syntax_error(
         chain("R = A {:,equal|overlap} B")
 
 
-# if() on time with maps as then and else clears the count of A # B, which
-# fills the table _cleared, see ClassicTranslator._uncounted().
+# if() on time with maps as then and else clears the count of A # B: the
+# contents keep the map but are no longer counted, see
+# ClassicTranslator._uncounted().
 CLEARED_COUNT = "R = if(start_day(A) > 1, A # B, B) + B"
 
 
@@ -130,11 +131,31 @@ def test_the_tables_of_the_translator_keep_their_keys(in_memory_datasets, expres
     count for its then part in some runs only, depending on the memory."""
     translator = classic.ClassicTranslator(kind="raster")
     translator.statement(classic_grammar("raster").parse(expression))
-    if expression == CLEARED_COUNT:
-        assert translator._cleared
-    tables = ("_commands", "_generated", "_fresh", "_counted", "_cleared", "_hashes")
-    for name in tables:
-        table = getattr(translator, name)
-        for key, entry in table.items():
-            kept = entry[0] if isinstance(entry, tuple) else entry
-            assert id(kept) == key, name
+    for name in ("_commands", "_hashes"):
+        for key, (series, _value) in getattr(translator, name)._notes.items():
+            assert id(series) == key, name
+
+
+def test_clearing_a_count_keeps_the_map_it_counted(in_memory_datasets, monkeypatch):
+    """if() on time with maps clears the count but not the map object"""
+    translator = classic.ClassicTranslator(kind="raster")
+    seen = []
+    uncounted = translator._uncounted
+
+    def spy(series):
+        result = uncounted(series)
+        seen.append((series, result))
+        return result
+
+    monkeypatch.setattr(translator, "_uncounted", spy)
+    translator.statement(classic_grammar("raster").parse(CLEARED_COUNT))
+    cleared = 0
+    for before, after in seen:
+        for old, new in zip(before.slots, after.slots, strict=True):
+            if translator._counted(old.content):
+                cleared += 1
+                assert not translator._counted(new.content)
+                assert translator._source(new.content) is translator._source(
+                    old.content
+                )
+    assert cleared
