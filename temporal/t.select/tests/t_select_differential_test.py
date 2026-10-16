@@ -13,6 +13,8 @@ import pytest
 import grass.temporal as tgis
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+from grass.temporal.algebra.profile import CLASSIC
+from grass.temporal.testing.reference import run_reference
 from grass.tools import Tools
 
 DAY0 = datetime(2001, 1, 1)
@@ -117,18 +119,27 @@ def test_same_result(series, expression):
     assert core, "the expression selects no map and compares nothing"
 
 
-def outcome(expression, algebra, spatial=False):
+def outcome(expression, algebra, spatial=False, detail=False):
     """The registered maps, None for no dataset, or the name of the error
 
     The parsers run in this process, so that the error class is visible; the
-    core takes evaluate(..., selection=True), the classic algebra the base
-    parser, each into its own result dataset.
+    core and the classic profile take evaluate(..., selection=True), the
+    reference (the earlier implementation of the classic algebra) the base
+    parser, each into its own result dataset. With detail the registered maps
+    are listed instead of "maps": (identifier without the result name, start,
+    end).
     """
     name = f"diff_{algebra}_{next(counter)}"
     try:
-        if algebra == "classic":
-            tgis.TemporalAlgebraParser(run=True, debug=False, spatial=spatial).parse(
-                f"{name} = {expression}", "strds", basename=name, overwrite=True
+        if algebra == "reference":
+            run_reference(
+                "select",
+                f"{name} = {expression}",
+                basename=name,
+                overwrite=True,
+                run=True,
+                debug=False,
+                spatial=spatial,
             )
         else:
             evaluate(
@@ -139,11 +150,26 @@ def outcome(expression, algebra, spatial=False):
                 run=True,
                 spatial=spatial,
                 selection=True,
+                **({"profile": CLASSIC} if algebra == "classic" else {}),
             )
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
         return type(error).__name__
     dataset = tgis.dataset_factory("strds", f"{name}@{tgis.get_current_mapset()}")
-    return "maps" if dataset.is_in_db() else None
+    if not dataset.is_in_db():
+        return None
+    if not detail:
+        return "maps"
+    result = []
+    stds = tgis.open_old_stds(name, "strds")
+    for raster in stds.get_registered_maps_as_objects(order="start_time") or []:
+        raster.select()
+        result.append(
+            (
+                raster.get_id().replace(name, "C", 1),
+                *map(str, raster.get_temporal_extent_as_tuple()),
+            )
+        )
+    return sorted(result)
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
@@ -203,3 +229,15 @@ def test_mixed_result_copies_are_numbered_differently(series):
         "C_5@PERMANENT",
         "C_6@PERMANENT",
     ]
+
+
+@pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
+def test_profile_equals_reference(series, expression):
+    """-c selects what the earlier implementation of the classic algebra
+    selected, also where the core differs"""
+    classic = outcome(expression, "classic", detail=True)
+    assert classic == outcome(expression, "reference", detail=True)
+    if expression in SAME:
+        # Two errors or two empty results are equal and would compare nothing.
+        assert classic
+        assert classic[0][1] != "None"

@@ -716,6 +716,19 @@ def test_classic_flag_overrides_the_variable(series):
         tools.t_select(expression=f"{result}_c = A[1]", flags="c", env=env)
 
 
+def test_classic_flag_runs_the_classic_profile(series):
+    """-c selects on the classic profile of the core, not on the earlier
+    implementation: an increment the library refuses is reported with the
+    message of the library, the earlier one named tshift() and the unit"""
+    tools = Tools(session=series.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_select(expression='profiled = A : tshift(B, "1 DAY")', flags="c")
+    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
+        error.value.stderr
+    )
+    assert "Function tshift()" not in error.value.stderr
+
+
 @pytest.mark.parametrize("function", ["strds", "str3ds", "stvds"])
 def test_dataset_type_function_hints_at_the_classic_flag(series, algebra, function):
     """Only the classic algebra mixes dataset types; the message of the core

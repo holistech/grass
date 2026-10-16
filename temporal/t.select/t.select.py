@@ -64,6 +64,7 @@ def main():
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
     from grass.temporal.algebra.parser.switch import classic_selected
+    from grass.temporal.algebra.profile import CLASSIC, CORE
 
     expression = options["expression"]
     spatial = flags["s"]
@@ -75,25 +76,18 @@ def main():
     # after the result dataset, otherwise they would be None_1, None_2, ...
     basename = expression.partition("=")[0].strip().partition("@")[0]
     try:
-        if classic_selected(flags["c"] or None):
-            parser = tgis.TemporalAlgebraParser(
-                run=True, debug=False, spatial=spatial, dry_run=dry_run
-            )
-            pc = parser.parse(
-                expression, stdstype, basename=basename, overwrite=gs.overwrite()
-            )
-        else:
-            pc = evaluate(
-                expression,
-                kind=KINDS_OF_STDS[stdstype],
-                basename=basename,
-                overwrite=gs.overwrite(),
-                run=True,
-                dry_run=dry_run,
-                debug=False,
-                spatial=spatial,
-                selection=True,
-            )
+        pc = evaluate(
+            expression,
+            kind=KINDS_OF_STDS[stdstype],
+            basename=basename,
+            overwrite=gs.overwrite(),
+            run=True,
+            dry_run=dry_run,
+            debug=False,
+            spatial=spatial,
+            selection=True,
+            profile=CLASSIC if classic_selected(flags["c"] or None) else CORE,
+        )
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
         message = str(error)
         # Only the classic algebra pulls maps of another dataset type into a
