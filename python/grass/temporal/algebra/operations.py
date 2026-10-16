@@ -79,6 +79,11 @@ def _joined_sort(*series):
     return "field" if any(part.sort == "field" for part in series) else "scalar"
 
 
+def _in_time_order(slot):
+    """The slot without a list order: a selection lists its maps in time order"""
+    return slot if slot.rank is None else replace(slot, rank=None)
+
+
 def _origin(content, extent, *slots):
     """The registered map that a result slot equals, if any"""
     for slot in slots:
@@ -314,7 +319,7 @@ def select(
             if combined[0] != slot.extent:
                 # The slot is no longer the registered map it was.
                 slot = Slot(combined[0], slot.content, slot.space)
-        slots.append(slot)
+        slots.append(_in_time_order(slot))
     return replace(
         left, slots=tuple(slots), spatial=left.spatial or relation.spatial is not None
     )
@@ -421,7 +426,7 @@ def pairs(
         slots.extend(made[-1:] if last_only else made)
     sort = left.sort if content is None else _joined_sort(left, other)
     spatial = left.spatial or other.spatial or relation.spatial is not None
-    return Series(tuple(slots), left.kind, sort, spatial)
+    return Series(tuple(slots), left.kind, sort, spatial, left.order)
 
 
 def _describe(extent):
@@ -518,6 +523,12 @@ def _apply(function, operands, name):
                 "with buffer()"
             )
             raise ValueError(msg)
+    # With one series of maps the result is one map for each of its maps and
+    # keeps its list order; with several the classic algebra builds a new
+    # list in time order (probe 2026-10-16 with the classic algebra:
+    # merge(N, A) + 1 numbers the maps of N first, merge(N, A) + merge(A, N)
+    # numbers the results in time order).
+    keep_rank = len(timed) == 1
     slots = []
     for index, slot in enumerate(first.slots):
         value = call(function, *(_content_at(operand, index) for operand in operands))
@@ -526,10 +537,16 @@ def _apply(function, operands, name):
             raise ValueError(msg)
         partners = (operand.slots[index] for operand in timed)
         slots.append(
-            Slot(slot.extent, value, slot.space, _origin(value, slot.extent, *partners))
+            Slot(
+                slot.extent,
+                value,
+                slot.space,
+                _origin(value, slot.extent, *partners),
+                slot.rank if keep_rank else None,
+            )
         )
     spatial = any(part.spatial for part in series)
-    return Series(tuple(slots), first.kind, sort, spatial)
+    return Series(tuple(slots), first.kind, sort, spatial, first.order)
 
 
 def apply(function, *operands):
@@ -584,7 +601,7 @@ def cell_offset(series, *offset):
             msg = "Only a map can be read at a cell offset, not an expression"
             raise ValueError(msg)
         content = MapRef(slot.content.ident, tuple(offset))
-        slots.append(Slot(slot.extent, content, slot.space))
+        slots.append(replace(slot, content=content, origin=None))
     return replace(series, slots=tuple(slots))
 
 
@@ -737,7 +754,7 @@ def gather(
             if missing == "null":
                 slots.append(Slot(slot.extent, NULL, slot.space))
             elif missing == "keep":
-                slots.append(slot)
+                slots.append(_in_time_order(slot))
             continue
         combined = _combine_steps(
             slot,
@@ -762,7 +779,7 @@ def gather(
         )
         slots.append(Slot(time, value, extent_space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None
-    return Series(tuple(slots), target.kind, sort, spatial)
+    return Series(tuple(slots), target.kind, sort, spatial, target.order)
 
 
 def _grown(space, distance):
@@ -816,6 +833,7 @@ def buffer(series, distance, *, features="area"):
             slot.extent,
             call(function, slot.content, Const(float(distance))),
             _grown(slot.space, distance),
+            rank=slot.rank,
         )
         for slot in series.slots
     )
@@ -866,7 +884,10 @@ def choose(condition, then, otherwise=None):
         _check_comparable(condition, branch)
         slots.extend(_chosen(branch, values, wanted))
     spatial = any(part.spatial for part in (condition, *branches))
-    return Series(tuple(slots), then.kind, _joined_sort(*branches), spatial)
+    if not condition.timeless:
+        # Two series meet, as in apply(): the list is in time order.
+        slots = [_in_time_order(slot) for slot in slots]
+    return Series(tuple(slots), then.kind, _joined_sort(*branches), spatial, then.order)
 
 
 def _chosen(branch, values, wanted):
@@ -914,7 +935,8 @@ def merge(*series):
     Identical slots are kept once with a warning, so that a later reduction
     does not count a map twice. Slots are identical if they agree in time
     stamp, content, space and origin. Different maps of equal time are all
-    kept.
+    kept. The slots of the result are ranked in the order of the call, first
+    the maps of the first series, see Series.listed().
 
     :raises ValueError: if no series is given, or the series differ in sort,
         map type, temporal type or unit
@@ -934,13 +956,15 @@ def merge(*series):
     slots = []
     duplicates = 0
     for part in series:
-        for slot in part.slots:
+        # The list order of a part, so that a merge of merges lists the maps
+        # of the inner one in the order it was written.
+        for slot in part.listed():
             if slot in seen:
                 duplicates += 1
                 continue
             seen.add(slot)
-            slots.append(slot)
+            slots.append(replace(slot, rank=len(slots)))
     if duplicates:
         _warn(_("merge() dropped {count} duplicate map(s)").format(count=duplicates))
     spatial = any(part.spatial for part in series)
-    return Series(tuple(slots), first.kind, first.sort, spatial)
+    return Series(tuple(slots), first.kind, first.sort, spatial, first.order)

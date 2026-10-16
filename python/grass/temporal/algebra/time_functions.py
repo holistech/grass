@@ -67,10 +67,10 @@ def timevar(series, name):
         msg = "A map without time stamp has no temporal variables"
         raise ValueError(msg)
     slots = tuple(
-        Slot(slot.extent, Const(_time_value(slot.extent, name)), slot.space)
+        replace(slot, content=Const(_time_value(slot.extent, name)), origin=None)
         for slot in series.slots
     )
-    return Series(slots, series.kind, "scalar", series.spatial)
+    return Series(slots, series.kind, "scalar", series.spatial, series.order)
 
 
 def _is_number(increment):
@@ -156,6 +156,8 @@ def retime(series, *, shift=None, buffer=None, snap=False):
             slot.content,
             slot.space,
             slot.origin if extent_of(map_) == slot.extent else None,
+            # A snapped list is sorted, as the classic tsnap() sorts it.
+            None if snap else slot.rank,
         )
         for map_, slot in zip(maps, series.slots, strict=True)
     )
@@ -203,7 +205,14 @@ def _shrink(series, buffer):
             raise ValueError(msg)
         # The new stamp differs from the old one, so no slot is still the
         # registered map and the origin goes.
-        slots.append(Slot(Extent(start, end, extent.unit), slot.content, slot.space))
+        slots.append(
+            Slot(
+                Extent(start, end, extent.unit),
+                slot.content,
+                slot.space,
+                rank=slot.rank,
+            )
+        )
     return replace(series, slots=tuple(slots))
 
 
