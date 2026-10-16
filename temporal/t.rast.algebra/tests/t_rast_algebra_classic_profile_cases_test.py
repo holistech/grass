@@ -120,6 +120,34 @@ MIXED_TIME = [
     "merge(tmap(sinst), RT)",
 ]
 
+# A merge() of maps of different units fails only when its maps are
+# registered in one dataset; what selects or relates the maps of one unit
+# gives a result, as maps of different units relate to nothing.
+MERGED_UNITS = [
+    "tmap(singletmap) !: merge(RT, RH)",
+    "tmap(singletmap) : merge(RT, RH)",
+    "tmap(singletmap) {+,equal,l} merge(RT, RH)",
+    "merge(RT, RH) : RT",
+    "merge(RT, RH) : RH",
+    "merge(RT, RH) !: RT",
+    "merge(RT, RH) {:,during} RT",
+    "merge(merge(RT, RH), RT) : RH",
+    "merge(merge(RT, RH), merge(RH, RT)) !: RH",
+    "merge(tshift(RT, 70), RH) : RH",
+    "(merge(RT, RH) + 1) : RT",
+    "tshift(merge(RT, RH), 1) : RT",
+    "if(RT > 0, merge(RT, RH)) : RT",
+    "if(merge(RT, RH) > 0, RT) : RT",
+    "if(td(merge(RT, RH)) > 0, RT)",
+    "if(RT > 0 {&&,equal} merge(RH, RT) > 0, RT)",
+    "RT {+,equal,r} merge(RH, RT)",
+    "merge(RH, RT) {+,equal,l} RT",
+    "RT # merge(RH, RT)",
+    "merge(RT, RH) + 1",
+    "if(merge(RT, RH) > 0, 1)",
+    "tsnap(merge(RT, RH))",
+    "buff_t(merge(tmap(sinst), RT), 1)",
+]
 
 # A floating point map is no operand of && and || in r.mapcalc, also where
 # the core writes a comparison with zero.
@@ -575,13 +603,7 @@ def test_logical_operators_join_all_partners(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
 
 
-# Profile gap, not a classic bug: the classic algebra fails on a merge() of
-# relative time of different units only when it registers such maps; a
-# selection that keeps none of them gives a result. The profile refuses the
-# merge() at once.
-@pytest.mark.xfail(strict=True, reason="merge() refuses mixed units at once")
-@pytest.mark.parametrize(
-    "expression", ["tmap(singletmap) !: merge(RT, RH)", "merge(RT, RH) : RT"]
-)
-def test_a_merge_of_units_that_is_not_registered(datasets, expression):
-    assert_equal(expression)
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", MERGED_UNITS)
+def test_a_merge_of_units_fails_only_when_registered(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)

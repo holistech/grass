@@ -27,6 +27,27 @@ MIXED_TIME = [
     "merge(A, RT) {!:,during} B",
 ]
 
+# A merge() of maps of different units fails only when its maps are
+# registered in one dataset; a selection that keeps the maps of one unit
+# gives a result
+MERGED_UNITS = [
+    "tmap(singletmap) !: merge(RT, RH)",
+    "tmap(singletmap) : merge(RT, RH)",
+    "merge(RT, RH) : RT",
+    "merge(RT, RH) : RH",
+    "merge(RT, RH) !: RT",
+    "merge(RT, RH) {:,during} RT",
+    "merge(merge(RT, RH), RT) : RH",
+    "merge(tshift(RT, 70), RH) : RH",
+    "tshift(merge(RT, RH), 1) : RT",
+    "if(td(merge(RT, RH)) > 0, RT)",
+    "RT !: merge(RH, RT)",
+    "merge(RT, RH)",
+    "tsnap(merge(RT, RH))",
+    "merge(RT, tmap(sinst))",
+    "buff_t(merge(tmap(sinst), RT), 1)",
+]
+
 # A map whose time stamp is the stored one after shifts and snaps is
 # registered itself, one with another time stamp is copied
 RETIMED = [
@@ -134,20 +155,6 @@ def test_buffered_maps_are_numbered_in_the_order_of_the_list(datasets, expressio
     assert_equal(expression)
 
 
-def test_a_merge_of_time_types_fails_before_the_unit_check():
-    """The classic algebra merges maps of absolute and relative time into one
-    list and stops at the unit check of buff_t() with a SyntaxError, where the
-    profile refuses the merge with a FatalError. Both reject the expression;
-    only the class of the error differs, the way the earlier computation of
-    the classic algebra differs from the full parse of the profile."""
-    expression = "buff_t(merge(tmap(sinst), RT), 1)"
-    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
-    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
-    assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
-    # With maps of one type the unit check is reached by both.
-    assert_equal("buff_t(merge(tmap(sinst), A), 1)")
-
-
 @pytest.mark.parametrize("expression", PLAIN_SELECTIONS)
 def test_a_plain_selection_keeps_every_map(datasets, expression):
     assert_equal(expression)
@@ -158,13 +165,6 @@ def test_partners_in_the_order_of_their_list(datasets, expression):
     assert_equal(expression)
 
 
-# Profile gap, not a classic bug: the classic algebra fails on a merge() of
-# relative time of different units only when it registers such maps; a
-# selection that keeps none of them gives a result. The profile refuses the
-# merge() at once.
-@pytest.mark.xfail(strict=True, reason="merge() refuses mixed units at once")
-@pytest.mark.parametrize(
-    "expression", ["tmap(singletmap) !: merge(RT, RH)", "merge(RT, RH) : RT"]
-)
-def test_a_merge_of_units_that_is_not_registered(datasets, expression):
+@pytest.mark.parametrize("expression", MERGED_UNITS)
+def test_a_merge_of_units_fails_only_when_registered(datasets, expression):
     assert_equal(expression)

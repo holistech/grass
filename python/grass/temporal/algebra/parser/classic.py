@@ -67,6 +67,59 @@ _EQUAL = TemporalOperator(None)
 _INT32_MAX = 2**31 - 1
 
 
+def _unit(series):
+    """The temporal type and unit of a series: the unit of relative time,
+    None for absolute time, _ABSENT for a map without time stamp"""
+    extent = series.slots[0].extent
+    return _ABSENT if extent is None else extent.unit
+
+
+@dataclasses.dataclass(frozen=True)
+class _Mixed:
+    """A classic list of maps of more than one temporal type or unit
+
+    The classic lists take any maps; maps of different types or units relate
+    to nothing, and registering them in one dataset fails. A series of the
+    core has one type and unit, so the list is held as one series per type
+    and unit, in the order in which the list first shows each. Only merge()
+    makes such a list; ClassicTranslator._each_unit() evaluates what takes
+    it once per series.
+    """
+
+    parts: tuple[Series, ...]
+
+    def part(self, unit):
+        """The series of maps of a unit; for a unit the list lacks, a series
+        that relates to nothing of that unit"""
+        return next((part for part in self.parts if _unit(part) == unit), self.parts[0])
+
+
+def _listed(parts):
+    """The slots of the parts of a list in its order"""
+    slots = [slot for part in parts for slot in part.listed()]
+    if all(slot.rank is not None for slot in slots):
+        slots.sort(key=lambda slot: slot.rank)
+    return slots
+
+
+def _gathered(parts):
+    """One series, or a _Mixed if the non-empty parts differ in unit"""
+    groups = {}
+    for part in parts:
+        if part.slots:
+            unit = _unit(part)
+            groups[unit] = (
+                dataclasses.replace(groups[unit], slots=groups[unit].slots + part.slots)
+                if unit in groups
+                else part
+            )
+    if not groups:
+        return parts[0]
+    if len(groups) == 1:
+        return next(iter(groups.values()))
+    return _Mixed(tuple(groups.values()))
+
+
 class ClassicSyntax:
     """The classic grammars as one grammar of a profile
 
@@ -280,12 +333,72 @@ class ClassicTranslator(Translator):
                 if not isinstance(operand, ast.Name):
                     self.value(operand)
             return self._count(None, None, operator)
-        if node.symbol in (":", "!:") and operator is None:
-            left, right = self._operands(node)
+        return super()._binary(node)
+
+    def _binary_values(self, node, left, right):
+        return self._each_unit(self._binary_unit, node, left, right)
+
+    def _binary_unit(self, node, left, right):
+        if node.symbol in (":", "!:") and node.operator is None:
             return self._select(
                 left, right, TemporalOperator(node.symbol), one_per_map=False
             )
-        return super()._binary(node)
+        return super()._binary_values(node, left, right)
+
+    def _each_unit(self, function, *arguments):
+        """function of arguments, once for each temporal type and unit of
+        the maps of a _Mixed among them
+
+        The unit is that of the first argument with time stamps: its maps
+        meet only the maps of their unit in the other arguments, as maps of
+        different units relate to nothing. An argument may be a list of
+        values, as the arguments of a function are.
+        """
+        values = [
+            value
+            for argument in arguments
+            for value in (argument if isinstance(argument, list) else [argument])
+        ]
+        if not any(isinstance(value, _Mixed) for value in values):
+            return function(*arguments)
+        lead = next(
+            value for value in values if isinstance(value, _Mixed) or _timed(value)
+        )
+        units = (
+            [_unit(part) for part in lead.parts]
+            if isinstance(lead, _Mixed)
+            else [_unit(lead)]
+        )
+
+        def part(value, unit):
+            if isinstance(value, list):
+                return [part(item, unit) for item in value]
+            return value.part(unit) if isinstance(value, _Mixed) else value
+
+        return _gathered(
+            [
+                function(*(part(argument, unit) for argument in arguments))
+                for unit in units
+            ]
+        )
+
+    def _result(self, target, result):
+        """The classic dataset takes the temporal type and unit of its first
+        map; registering a map of another fails"""
+        if not isinstance(result, _Mixed):
+            return result
+        first, second = result.parts[:2]
+        if (_unit(first) is None) != (_unit(second) is None):
+            msg = _(
+                "Temporal type of space time dataset <{name}> and its maps "
+                "are different"
+            )
+        else:
+            msg = _(
+                "Relative time units of space time dataset <{name}> and its "
+                "maps are different"
+            )
+        raise FatalError(msg.format(name=target))
 
     def _apply(self, function, *operands):
         """The classic result of function; a count that meets numbers stays a
@@ -938,9 +1051,18 @@ class ClassicTranslator(Translator):
             if key not in self._datasets:
                 self._datasets[key] = self._resolve(argument.ident, stds_type=stds_type)
             return self._datasets[key]
-        result = super()._function(node)
+        return super()._function(node)
+
+    def _call(self, name, arguments, relation):
+        # merge() takes a _Mixed whole, as it lists the maps of all units.
+        if name == "merge":
+            return super()._call(name, arguments, relation)
+        return self._each_unit(self._call_unit, name, arguments, relation)
+
+    def _call_unit(self, name, arguments, relation):
+        result = super()._call(name, arguments, relation)
         if (
-            node.name in _CONDITION_FUNCTIONS
+            name in _CONDITION_FUNCTIONS
             and isinstance(result, Series)
             and result.sort == "scalar"
             and not result.timeless
@@ -961,38 +1083,53 @@ class ClassicTranslator(Translator):
         algebra; the core compares the contents only, which would take the
         counts of two datasets (merge(A # N, N # A)) for one map.
         """
-        if first.sort != second.sort:
-            first, second = (
-                dataclasses.replace(series, sort="field") for series in (first, second)
+        firsts, seconds = (
+            value.parts if isinstance(value, _Mixed) else (value,)
+            for value in (first, second)
+        )
+        if len({part.sort for part in (*firsts, *seconds)}) > 1:
+            firsts, seconds = (
+                tuple(dataclasses.replace(part, sort="field") for part in parts)
+                for parts in (firsts, seconds)
             )
-        self._check_merged_times(first, second)
+        first, second = firsts[0], seconds[0]
         # The check of the map types that operations.merge() makes
         operations._check_comparable(  # noqa: SLF001
             first, second, mixed_times="unrelated"
         )
-        known = {self._merge_key(slot) for slot in first.slots}
+        first_listed = _listed(firsts)
+        known = {self._merge_key(slot) for slot in first_listed}
         kept = []
-        for slot in second.listed():
+        second_listed = _listed(seconds)
+        for slot in second_listed:
             key = self._merge_key(slot)
             if key not in known:
                 known.add(key)
                 kept.append(slot)
-        dropped = len(second.slots) - len(kept)
+        dropped = len(second_listed) - len(kept)
         if dropped:
             # The warning of the core, with its fallback before tgis.init()
             operations._warn(  # noqa: SLF001
                 _("merge() dropped {count} duplicate map(s)").format(count=dropped)
             )
-        # One series, so that the core keeps all its slots and only ranks them
-        listed = (*first.listed(), *kept)
-        combined = Series(
-            tuple(dataclasses.replace(slot, rank=n) for n, slot in enumerate(listed)),
-            first.kind,
-            first.sort,
-            first.spatial or second.spatial,
-            first.order,
+        # One series per unit, so that the core keeps all its slots and only
+        # ranks them; the ranks are those of the whole list. A map without
+        # time stamp goes with absolute time, where the series refuses it
+        # beside other maps.
+        units = {}
+        for n, slot in enumerate((*first_listed, *kept)):
+            unit = None if slot.extent is None else slot.extent.unit
+            units.setdefault(unit, []).append(dataclasses.replace(slot, rank=n))
+        spatial = any(part.spatial for part in (*firsts, *seconds))
+        return _gathered(
+            [
+                operations.merge(
+                    Series(tuple(slots), first.kind, first.sort, spatial, first.order),
+                    keep_first_repeats=True,
+                )
+                for slots in list(units.values()) or [[]]
+            ]
         )
-        return operations.merge(combined, keep_first_repeats=True)
 
     def _merge_key(self, slot):
         """The identity of a map in merge(): time stamp, text and the id of
@@ -1003,28 +1140,6 @@ class ClassicTranslator(Translator):
         the origin is the id of a registered map.
         """
         return (slot.extent, slot.content, self._source(slot.content))
-
-    @staticmethod
-    def _check_merged_times(first, second):
-        """The classic result list may hold maps of different temporal types
-        and units, which relate to nothing; registering them in one dataset
-        is what fails there, so merge() is where this surfaces
-
-        :raises FatalError: for absolute and relative time, and for relative
-            time of different units
-        """
-        units = {
-            slot.extent.unit
-            for slot in (*first.slots, *second.slots)
-            if slot.extent is not None
-        }
-        if len(units) < 2:
-            return
-        if None in units:
-            msg = _("Temporal type of the merged maps are different")
-        else:
-            msg = _("Relative time units of the merged maps are different")
-        raise FatalError(msg)
 
     def _tshift(self, series, increment):
         """Shift by an increment; a number needs relative and a text with a

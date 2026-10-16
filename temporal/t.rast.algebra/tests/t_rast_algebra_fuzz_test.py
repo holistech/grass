@@ -166,12 +166,21 @@ def test_other_pairs_of_errors_are_differences(datasets):
 
 def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
     """The profile's FatalError is accepted against a SyntaxError of the
-    earlier implementation only if it refuses datasets or maps of different
-    time types or units"""
+    earlier implementation only if it refuses a dataset of another temporal
+    type, not if it refuses to register maps of different types"""
     expression = "A + N"
     syntax = {"error": "SyntaxError", "msg": "syntax error"}
-    refusal = {"error": "FatalError", "msg": "Temporal type of the merged maps"}
+    refusal = {
+        "error": "FatalError",
+        "msg": "Wrong temporal type of space time dataset <RT@PERMANENT> "
+        "<absolute> time is required",
+    }
+    registration = {
+        "error": "FatalError",
+        "msg": "Temporal type of space time dataset <Rfa> and its maps are different",
+    }
     other = {"error": "FatalError", "msg": "Dataset <A> not found"}
     assert accepted_error_pair(KIND, expression, syntax, refusal) is not None
-    assert accepted_error_pair(KIND, expression, syntax, other) is None
-    assert compare_runs(KIND, expression, syntax, other) is not None
+    for fatal in (registration, other):
+        assert accepted_error_pair(KIND, expression, syntax, fatal) is None
+        assert compare_runs(KIND, expression, syntax, fatal) is not None

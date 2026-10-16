@@ -860,13 +860,14 @@ class of an error.
   algebra reads the whole expression before it computes. An expression with
   a syntax error is therefore a syntax error, where the previous
   implementation could stop with the error of a computation before it
-  reached the syntax error. The classic algebra also refuses at once a
-  `merge()` of maps of absolute and of relative time, or of relative time
-  with different units (`FatalError`), where the previous implementation
-  goes on and can stop with a later error of the expression, for example a
-  `SyntaxError` of `buff_t()`. In this expression the dataset `nosuch` does
-  not exist and a bracket is too many; the previous implementation reported
-  the missing dataset (`FatalError`):
+  reached the syntax error. The classic algebra also reads a dataset that is
+  an argument of a function before the arguments after it. A dataset of
+  another temporal type stops it there (`FatalError`), where the previous
+  implementation reads such a dataset last and can stop with an error of a
+  later argument, for example a `SyntaxError` of `buff_t()` in
+  `if(end_year(A) > 3, RT, buff_t(A, 2))`. In this expression the dataset
+  `nosuch` does not exist and a bracket is too many; the previous
+  implementation reported the missing dataset (`FatalError`):
 
   ```sh
   C = nosuch + A )

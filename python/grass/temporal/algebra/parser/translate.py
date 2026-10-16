@@ -100,10 +100,10 @@ class Translator:
     are read through self.profile.
 
     The protected extension points of the class are statement(), value() and
-    the methods _name, _single_map, _operands, _binary, _relation, _select,
-    _count, _overlay, _arithmetic, _combine, _apply, _logical, _if,
-    _temporal_if, _field_if, _conditions, _function, _time_variable, _tsnap,
-    _tshift, _buff_t and _merge. A subclass for another variant of the
+    the methods _result, _name, _single_map, _operands, _binary,
+    _binary_values, _relation, _select, _count, _overlay, _arithmetic,
+    _combine, _apply, _logical, _if, _temporal_if, _field_if, _conditions,
+    _function, _call, _time_variable, _tsnap, _tshift, _buff_t and _merge. A subclass for another variant of the
     algebra overrides them and relies on their signatures; the translation
     calls every one of them as a method of self, so an override is always
     reached. The other private names are details of this class.
@@ -133,7 +133,7 @@ class Translator:
         :raises ValueError: if the expression gives no series
         :raises SyntaxError: if a vector expression gives numbers
         """
-        result = self.value(node.expression)
+        result = self._result(node.target, self.value(node.expression))
         if not isinstance(result, Series):
             msg = f"The expression of {node.target} gives no space time dataset"
             raise ValueError(msg)
@@ -147,6 +147,11 @@ class Translator:
             )
             raise SyntaxError(msg)
         return node.target, result
+
+    def _result(self, target, result):
+        """Return the value of the expression that target is registered as;
+        a profile refuses here what it cannot register"""
+        return result
 
     def value(self, node):
         """Return the series, content node or text of a syntax tree node"""
@@ -192,6 +197,10 @@ class Translator:
 
     def _binary(self, node):
         left, right = self._operands(node)
+        return self._binary_values(node, left, right)
+
+    def _binary_values(self, node, left, right):
+        """Return the value of a binary node from the values of its operands"""
         symbol = node.symbol
         operator = node.operator or TemporalOperator(symbol)
         if symbol in (":", "!:"):
@@ -552,8 +561,13 @@ class Translator:
             msg = f"{name}() takes no relation"
             raise SyntaxError(msg)
         arguments = [self.value(argument) for argument in node.arguments]
+        return self._call(name, arguments, node.relation)
+
+    def _call(self, name, arguments, relation):
+        """Return the value of a known function other than tmap() and map()
+        from the values of its arguments"""
         if name == "if":
-            return self._if(arguments, node.relation)
+            return self._if(arguments, relation)
         if name in _CELL_FUNCTIONS:
             return self._apply(name, *_exactly(name, arguments, 1))
         if name == "isntnull":

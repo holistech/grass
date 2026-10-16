@@ -362,8 +362,8 @@ def error_classes_differ(first, second):
     return "error" in first and "error" in second and first["error"] != second["error"]
 
 
-# The texts of the profile that refuse maps of different time types or units
-_TYPE_REFUSALS = re.compile(r"temporal type|time units? of the merged")
+# The text of the profile that refuses a dataset of another temporal type
+_TYPE_REFUSALS = re.compile(r"wrong temporal type")
 
 
 def accepted_error_pair(kind, expression, first, second, **options):
@@ -375,8 +375,10 @@ def accepted_error_pair(kind, expression, first, second, **options):
     and the earlier implementation another class, if that implementation
     also rejects the expression as a syntax error when it runs without
     computing. Or the earlier implementation reports a ``SyntaxError`` and the
-    classic profile a ``FatalError`` that refuses datasets or maps of
-    different temporal types or units. Every other pair is a difference.
+    classic profile a ``FatalError`` that refuses a dataset of another
+    temporal type: the profile reads a dataset that is a bare argument
+    before the arguments after it, which the earlier implementation reads
+    first. Every other pair is a difference.
 
     :param first: The outcome of the earlier implementation
     :param second: The outcome of the classic profile

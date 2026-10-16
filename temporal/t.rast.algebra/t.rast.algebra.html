@@ -906,11 +906,12 @@ expression, but they can report another class of error. The classic algebra
 reads the whole expression before it computes. An expression with a syntax
 error is therefore a syntax error, where the previous implementation could stop
 with the error of a computation before it reached the syntax error. The classic
-algebra also refuses at once a <code>merge()</code> of maps of absolute and of
-relative time, or of relative time with different units
-(<code>FatalError</code>), where the previous implementation goes on and can
-stop with a later error of the expression, for example a
-<code>SyntaxError</code> of <code>buff_t()</code>. In this expression the
+algebra also reads a dataset that is an argument of a function before the
+arguments after it. A dataset of another temporal type stops it there
+(<code>FatalError</code>), where the previous implementation reads such a
+dataset last and can stop with an error of a later argument, for example a
+<code>SyntaxError</code> of <code>buff_t()</code> in
+<code>if(end_year(A) &gt; 3, RT, buff_t(A, 2))</code>. In this expression the
 dataset <code>nosuch</code> does not exist and a bracket is too many; the
 previous implementation reported the missing dataset
 (<code>FatalError</code>):
