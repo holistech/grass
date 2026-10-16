@@ -140,10 +140,30 @@ def test_the_class_of_an_error_may_differ_for_an_invalid_expression(datasets):
     assert compare_runs(KIND, expression, reference, profile) is None
 
 
-# Profile gap, not a classic bug: each module of the classic algebra writes a
-# map of its own, so the two evaluations of ab + pb stay apart in a merge. The
-# profile compares content, time and box and keeps one. Fixing it needs an
-# identity on the slots of the series.
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 def test_merge_keeps_two_overlays_of_the_same_maps(datasets):
+    """Each module of the classic algebra writes a map of its own, so the two
+    evaluations of ab + pb stay apart in a merge"""
     assert_equal("merge(ab + pb, ab + pb)")
+
+
+# Profile gap, not a classic bug: v.buffer writes a map of its own as well,
+# but the profile gives a buffer the id of the map it buffers, so a merge
+# keeps one of two equal buffers.
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+def test_merge_keeps_two_buffers_of_the_same_maps(datasets):
+    assert_equal("merge(buff_p(pa, 1), buff_p(pa, 1))")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "if({equal|contains}, end_week(eq) != 2, aa {!:,equal,i} eq, "
+        "merge(merge(aa, ac), eq + la))",
+        "if({equal|contains}, end_week(eq) != 2, aa, merge(aa, ac))",
+        "if(end_week(eq) != 2, aa, merge(aa, ac))",
+    ],
+)
+def test_a_condition_on_time_judges_maps_of_equal_time_together(datasets, expression):
+    """Each map of then and else is judged by all conditions related to it,
+    without pairing maps of equal time one to one"""
+    assert_equal(expression)

@@ -90,14 +90,11 @@ PARTNER_MAPS = [
 
 # Profile gap, not a classic bug: the classic merge() tells maps apart by id,
 # time and the commands that made them, so a map read at a time offset (a new
-# map) stays next to the map it was read from. The profile compares content,
-# time and box, and drops the later of two such slots. Fixing it needs an
-# identity on the slots of the series.
+# map) stays next to the map it was read from. The profile gives such a map
+# the id of the map it was read from, and drops the later of two such slots.
 MERGED_COMPUTED_MAPS = [
     "merge(A[0], A[0])",
     "merge(A + 1, A[0] + 1)",
-    "merge(AF[2] % 60 * tmap(singletmap) {+,over,i} td(D % D), "
-    "HB {*,overlapped|started,r} start_month(Q, 1))",
 ]
 
 # Absolute and relative time, and relative time of different units, are never
@@ -192,6 +189,45 @@ TIME_FUNCTION_OFFSETS = [
 MERGED_COMPUTED = [
     'merge(if({equal|over}, end_date(PA) == "2001-01-01", Q, null()), A - N)',
     "merge(if(start_month(A) == 1, Q, null()), A - N)",
+    "merge(AF[2] % 60 * tmap(singletmap) {+,over,i} td(D % D), "
+    "HB {*,overlapped|started,r} start_month(Q, 1))",
+    "merge(A # N, N # A)",
+    "merge(A # N, D # A)",
+    "merge(A, if((A # N) + 1 > 1, A))",
+]
+
+# A count stays on the map object of its left map in the classic algebra,
+# through numbers, functions, selections and merge(). As an operand of an
+# operation with another map, and in if() on cells, the classic text takes
+# the first count of that map, not the expression built on it: exp(A # A) + N
+# computes 1 + N, and a number next to such a count in if() is lost. Only the
+# comparison of the hash operator itself, A # N > 1, is a condition on time,
+# decided on the first count.
+FIRST_COUNT = [
+    "exp(10.25 * A # A) % N",
+    "exp(A # A) + N",
+    "((A # N) + 1) + N",
+    "A # N + 1 + N",
+    "sqrt((A # N) * 4) + N",
+    "float(A # N) / N",
+    "merge(A # N, N # A) + N",
+    "if((A # N) - 1 > 0, A)",
+    "if(abs(A # N) > 1, A, 2)",
+    "if(A > 0, (A # N) + 1, N)",
+    "if(isnull((A # N) * 2), N, (A # N) * 3)",
+    "if(isnull(A # N), 1, 2) + N",
+    "if(start_day(A) > 2, A # N, 5) + N",
+    "if((A # D) # N >= 2, A, 7)",
+    "if(A # N >= 3000000000, A)",
+]
+
+# A condition on time is decided in Python by the classic algebra, so a
+# number beyond 32 bits does not overflow as it would in r.mapcalc.
+TIME_CONDITIONS_BEYOND_32_BITS = [
+    "if(start_month(A) >= 3000000000, A)",
+    "if(start_month(A) < 3000000000, A, 2)",
+    "if(td(A) >= 3000000000, A)",
+    "if(start_day(A * 2) < 3000000000, A)",
 ]
 
 # The maps of then and else are numbered in one list in time order, the maps
@@ -377,10 +413,6 @@ def test_a_map_for_each_partner_stays_in_a_selection(datasets, expression):
     assert_equal(expression)
 
 
-# Profile gap of the id of a count, not a classic bug: in the classic algebra
-# a count keeps the id of its left map through arithmetic with a map and in
-# the condition of if(); the profile follows it through a number only.
-@pytest.mark.xfail(strict=True, reason="a count loses its id in these forms")
 @pytest.mark.parametrize(
     "expression",
     [
@@ -390,3 +422,28 @@ def test_a_map_for_each_partner_stays_in_a_selection(datasets, expression):
 )
 def test_a_count_keeps_its_id_beyond_arithmetic_with_a_number(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", FIRST_COUNT)
+def test_a_counted_map_is_its_first_count_next_to_maps(
+    datasets, expression, granularity
+):
+    assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "(if(N == 3 && exist(OV), 4, 2) # GP + 4 - Z)",
+        "if(N >= 2.0 && W # AF == 2, 2.0, 3)",
+    ],
+)
+def test_a_count_in_the_granularity_mode(datasets, expression):
+    assert_equal(expression, granularity=True)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", TIME_CONDITIONS_BEYOND_32_BITS)
+def test_time_conditions_beyond_32_bits(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)

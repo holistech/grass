@@ -43,17 +43,20 @@ from grass.temporal.algebra.relations import (
     related,
 )
 from grass.temporal.algebra.series import Series, Slot
+from grass.temporal.core import get_tgis_message_interface
 
 from . import ast
 from .classic_grammar import classic_grammar
 from .operators import TemporalOperator
 from .translate import (
     _ABSENT,
+    _COMPARISONS,
     _EXTENTS,
     Translator,
     _INDEX_FORMS,
     _check_time_variable,
     _timed,
+    _vector_field,
     _whole,
 )
 
@@ -191,15 +194,14 @@ class ClassicTranslator(Translator):
         # The contents of maps with an id of their own, by id() with the
         # content; see _one_per_map().
         self._fresh = {}
-        # The contents of counts, by id() with the content and the id of the
-        # map that was counted; see _source().
+        # The contents of counts and of what numbers and functions made of
+        # them, by id() with the content, the id of the map that was counted
+        # (see _source()) and the content of its first count (see
+        # _first_counts()).
         self._counted = {}
-        # The results of the hash operator, by id() (and the series itself, so
-        # that the id stays taken); see _field_if().
-        self._counts = {}
-        # The conditions isnull(), isntnull() and exist() of a count, by id()
-        # with the series and the count; see _if().
-        self._count_conditions = {}
+        # The results of the hash operator itself, by id() with the series;
+        # see _compare().
+        self._hashes = {}
         # The time stamp of every registered map the expression reads, by
         # identifier; see statement().
         self._stored = {}
@@ -280,34 +282,70 @@ class ClassicTranslator(Translator):
 
     def _apply(self, function, *operands):
         """The classic result of function; a count that meets numbers stays a
-        count of the same map, as the map changed by a number keeps its id"""
+        count of the same map, as the map changed by a number keeps its id
+        and its first count"""
         result = self._applied(function, *operands)
         series = [operand for operand in operands if isinstance(operand, Series)]
-        if (
+        if not (
             len(series) == 1
             and isinstance(result, Series)
             and len(result.slots) == len(series[0].slots)
-            and all(id(slot.content) in self._counted for slot in series[0].slots)
+            and any(id(slot.content) in self._counted for slot in series[0].slots)
         ):
-            slots = []
-            for slot, counted in zip(result.slots, series[0].slots, strict=True):
+            return result
+        slots = []
+        for slot, operand in zip(result.slots, series[0].slots, strict=True):
+            known = self._counted.get(id(operand.content))
+            if known is not None:
+                # Equal contents are copied, so that each has an identity.
                 content = dataclasses.replace(slot.content)
-                self._counted[id(content)] = (
-                    content,
-                    self._counted[id(counted.content)][1],
-                )
-                slots.append(dataclasses.replace(slot, content=content))
-            result = dataclasses.replace(result, slots=tuple(slots))
-            if id(series[0]) in self._counts:
-                # if() takes the count itself, whatever was done to it
-                self._counts[id(result)] = self._counts[id(series[0])]
-        return result
+                self._counted[id(content)] = (content, *known[1:])
+                slot = dataclasses.replace(slot, content=content)
+            slots.append(slot)
+        return dataclasses.replace(result, slots=tuple(slots))
+
+    def _first_counts(self, series):
+        """series with the first count in place of each content made of a
+        count, or series itself if it has none
+
+        The classic algebra keeps the count on the map object of the left
+        map, and the map stays that object through numbers, functions,
+        selections and merge(). Where it is an operand of an operation with
+        another map or of a cell condition of if(), the classic text takes
+        the first count kept on it, not the expression built so far:
+        exp(A # A) + N computes 1 + N.
+        """
+        if not isinstance(series, Series) or not any(
+            id(slot.content) in self._counted for slot in series.slots
+        ):
+            return series
+        return _like(
+            series,
+            (
+                dataclasses.replace(slot, content=self._counted[id(slot.content)][2])
+                if id(slot.content) in self._counted
+                else slot
+                for slot in series.slots
+            ),
+        )
+
+    def _arithmetic(self, symbol, left, right, operator):
+        """An operation of two map lists writes the first count of a counted
+        map; see _first_counts()"""
+        if isinstance(left, Series) and isinstance(right, Series):
+            left, right = self._first_counts(left), self._first_counts(right)
+        return super()._arithmetic(symbol, left, right, operator)
 
     def _applied(self, function, *operands):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
         computed by r.mapcalc per map in the classic algebra, while the core
         computes scalars in Python and lacks most of the functions"""
-        if any(
+        # A condition on time (start_month(A) > 3000000000) is decided in
+        # Python by the classic algebra, so it is folded here as well.
+        on_time = function in _COMPARISONS and any(
+            _timed(operand) and operand.sort == "scalar" for operand in operands
+        )
+        if not on_time and any(
             isinstance(operand, Const)
             and isinstance(operand.value, int)
             and abs(operand.value) > _INT32_MAX
@@ -440,9 +478,6 @@ class ClassicTranslator(Translator):
         selected = self._selected(left, right, operator)
         if not self._sampled:
             selected = self._one_per_map(selected)
-        if id(left) in self._counts:
-            # The selected counts are still counts to if()
-            self._counts[id(selected)] = selected
         return selected
 
     def _source(self, content):
@@ -543,10 +578,12 @@ class ClassicTranslator(Translator):
             )
             # Equal counts are copied, so that each has an identity.
             content = dataclasses.replace(slot.content)
-            self._counted[id(content)] = (content, self._source(target.content))
+            # Counted again, the map keeps its first count.
+            first = self._counted.get(id(target.content), (None, None, content))[2]
+            self._counted[id(content)] = (content, self._source(target.content), first)
             slots.append(dataclasses.replace(slot, content=content))
         counts = dataclasses.replace(counts, slots=tuple(slots))
-        self._counts[id(counts)] = counts
+        self._hashes[id(counts)] = counts
         return counts
 
     def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
@@ -660,6 +697,19 @@ class ClassicTranslator(Translator):
         self._remember_commands(result, carried)
 
     def _compare(self, symbol, left, right):
+        """A comparison of the hash operator itself (A # B == 2) is a
+        condition on time on the first count; any other comparison of a
+        count, as (A # B) + 1 > 2, is a cell condition in the r.mapcalc text"""
+        if id(left) in self._hashes:
+            left = self._first_counts(left)
+        else:
+            left, right = (
+                dataclasses.replace(operand, sort="field")
+                if self._first_counts(operand) is not operand
+                and operand.sort == "scalar"
+                else operand
+                for operand in (left, right)
+            )
         result = super()._compare(symbol, left, right)
         for operand, other in ((left, right), (right, left)):
             known = self._commands.get(id(operand))
@@ -804,9 +854,6 @@ class ClassicTranslator(Translator):
             # These are conditions on cells in the classic grammar, also of a
             # count or a time value, so the if() of a field condition applies.
             result = dataclasses.replace(result, sort="field")
-            argument = node.arguments[0]
-            if isinstance(argument, ast.Binary) and argument.symbol == "#":
-                self._count_conditions[id(result)] = (result, self.value(argument))
         return result
 
     def _merge(self, first, second):
@@ -814,13 +861,48 @@ class ClassicTranslator(Translator):
         list is a constant map, so merging a count with maps is a list of
         maps. A map that the second list shares with the first is kept once;
         what repeats in the first list stays, as the lists of the classic
-        algebra tell two computed maps apart by the map they came from."""
+        algebra tell two computed maps apart by the map they came from.
+
+        Shared means the same map id, time stamp and text, as in the classic
+        algebra; the core compares the contents only, which would take the
+        counts of two datasets (merge(A # N, N # A)) for one map.
+        """
         if first.sort != second.sort:
             first, second = (
                 dataclasses.replace(series, sort="field") for series in (first, second)
             )
         self._check_merged_times(first, second)
-        return operations.merge(first, second, keep_first_repeats=True)
+        # The check of the map types that operations.merge() makes
+        operations._check_comparable(  # noqa: SLF001
+            first, second, mixed_times="unrelated"
+        )
+        known = {self._merge_key(slot) for slot in first.slots}
+        kept = []
+        for slot in second.listed():
+            key = self._merge_key(slot)
+            if key not in known:
+                known.add(key)
+                kept.append(slot)
+        dropped = len(second.slots) - len(kept)
+        if dropped:
+            messenger = get_tgis_message_interface()
+            if messenger is not None:
+                messenger.warning(
+                    _("merge() dropped {count} duplicate map(s)").format(count=dropped)
+                )
+        # One series, so that the core keeps all its slots and only ranks them
+        listed = (*first.listed(), *kept)
+        combined = Series(
+            tuple(dataclasses.replace(slot, rank=n) for n, slot in enumerate(listed)),
+            first.kind,
+            first.sort,
+            first.spatial or second.spatial,
+            first.order,
+        )
+        return operations.merge(combined, keep_first_repeats=True)
+
+    def _merge_key(self, slot):
+        return (slot.extent, slot.content, self._source(slot.content))
 
     @staticmethod
     def _check_merged_times(first, second):
@@ -878,16 +960,11 @@ class ClassicTranslator(Translator):
         variables judge each conclusion map by the conditions related to it.
         The maps of then and else are listed together in time order, where
         the core lists those of then first."""
-        known = self._count_conditions.get(id(arguments[0]))
-        if known is not None:
-            # The classic algebra reads such a condition as the count itself,
-            # whatever the function made of it.
-            arguments = [dataclasses.replace(known[1], sort="field"), *arguments[1:]]
         # Without maps in then and else, the result is the list of the
         # condition as it stands, also if that list is not in time order.
         listed = not any(_timed(branch) for branch in arguments[1:])
         order = (lambda series: series) if listed else self._in_time_order
-        if self._kind == "vector" or len(arguments) not in (2, 3):
+        if len(arguments) not in (2, 3):
             return order(super()._if(arguments, relation))
         condition = arguments[0]
         if (
@@ -895,15 +972,52 @@ class ClassicTranslator(Translator):
             and condition.sort == "scalar"
             and not condition.timeless
             and all(_timed(branch) for branch in arguments[1:])
+            # The core checks the branches of the vector algebra itself.
+            and (
+                self._kind != "vector"
+                or all(_vector_field(branch) for branch in arguments[1:])
+            )
         ):
             return self._in_time_order(
                 self._judged_if(condition, *arguments[1:], relation=relation)
             )
+        if self._kind == "vector":
+            return order(super()._if(arguments, relation))
         if not (_timed(condition) and condition.sort == "field"):
             return order(super()._if(arguments, relation))
         then = arguments[1]
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
         return order(self._field_if(condition, then, otherwise, relation))
+
+    def _temporal_if(self, condition, then, otherwise, relation, first):
+        """if() on time with maps as then and a number as else: the classic
+        algebra writes the number on the map objects of then that the
+        condition rejects, so a counted map there stays counted"""
+        result = super()._temporal_if(condition, then, otherwise, relation, first)
+        if not (
+            _timed(then)
+            and otherwise is not _ABSENT
+            and not _timed(otherwise)
+            and any(id(slot.content) in self._counted for slot in then.slots)
+        ):
+            return result
+        mine = {id(slot.content) for slot in then.slots}
+        chosen = {id(slot.content) for slot in result.slots}
+        rejected = {}
+        for slot in then.slots:
+            if id(slot.content) not in chosen:
+                rejected.setdefault(slot.extent, []).append(slot)
+        slots = []
+        for slot in result.slots:
+            waiting = rejected.get(slot.extent)
+            if waiting and id(slot.content) not in mine:
+                known = self._counted.get(id(waiting.pop(0).content))
+                if known is not None:
+                    content = dataclasses.replace(slot.content)
+                    self._counted[id(content)] = (content, *known[1:])
+                    slot = dataclasses.replace(slot, content=content)
+            slots.append(slot)
+        return _like(result, slots)
 
     @staticmethod
     def _in_time_order(series):
@@ -961,13 +1075,11 @@ class ClassicTranslator(Translator):
         map with the time stamp of the conclusion. Numbers stand in every map.
         Without else r.mapcalc's if(c, x) gives 0 where c is false.
         """
-        # The classic algebra reads the operand of a count as the count itself
-        # whatever command was built for it, so a number next to a count is
-        # lost and the count stands alone as the then part.
-        if id(otherwise) in self._counts and not _timed(then):
-            then, otherwise = self._counts[id(otherwise)], _ABSENT
-        elif id(then) in self._counts and not _timed(otherwise):
-            then, otherwise = self._counts[id(then)], _ABSENT
+        # The condition and the conclusion maps are operands of the classic
+        # text, so a counted map is its first count there; see _first_counts().
+        condition, then, otherwise = map(
+            self._first_counts, (condition, then, otherwise)
+        )
         timed_then, timed_else = _timed(then), _timed(otherwise)
         if timed_then and timed_else:
             matches = self._related(
@@ -980,27 +1092,24 @@ class ClassicTranslator(Translator):
                     otherwise.slots[i] for i in self._meeting(slot, otherwise, found)
                 )
             ]
-        elif timed_then:
-            constant = _constant(otherwise)
-            conclusion = [(slot, (slot.content, constant)) for slot in then.slots]
-        elif timed_else:
-            constant = _constant(then)
-            conclusion = [(slot, (constant, slot.content)) for slot in otherwise.slots]
+        elif timed_then or timed_else:
+            timed = then if timed_then else otherwise
+            constant = _constant(otherwise if timed_then else then)
+            conclusion = []
+            for slot in timed.slots:
+                if id(slot.content) in self._counted:
+                    # The classic algebra writes "map, number" or "number,
+                    # map" as the command of the map, which a counted map
+                    # loses to its first count: the number is dropped and
+                    # the count stands alone as the then part.
+                    pair = (slot.content, Const(0))
+                elif timed_then:
+                    pair = (slot.content, constant)
+                else:
+                    pair = (constant, slot.content)
+                conclusion.append((slot, pair))
         else:
-            contents = (_constant(then), _constant(otherwise))
-            return _like(
-                condition,
-                (
-                    Slot(
-                        slot.extent,
-                        call("if", slot.content, *contents),
-                        slot.space,
-                        rank=slot.rank,
-                    )
-                    for slot in condition.slots
-                ),
-                "field",
-            )
+            return self._numbers_if(condition, then, otherwise)
         # Series sorts its slots by time, stably; the conclusion list is in
         # time order already, so its contents stay aligned.
         targets = Series(
@@ -1017,13 +1126,32 @@ class ClassicTranslator(Translator):
         for slot, found in zip(condition.slots, matches, strict=True):
             for index in self._meeting(slot, targets, found):
                 target = targets.slots[index]
-                slots.append(
-                    Slot(
-                        target.extent,
-                        call("if", slot.content, *contents[index]),
-                        target.space,
-                    )
+                # Each is a new map with an id of its own, also where the text
+                # folds to a map: if(1, a1) is not a1.
+                content = dataclasses.replace(
+                    call("if", slot.content, *contents[index])
                 )
+                self._fresh[id(content)] = content
+                slots.append(Slot(target.extent, content, target.space))
+        return _like(condition, slots, "field")
+
+    def _numbers_if(self, condition, then, otherwise):
+        """if() of a cell condition with numbers as then and else: the list of
+        the condition, each map with its if() text
+
+        The classic algebra writes the text on the map objects of the
+        condition, so a counted condition map stays the same counted map.
+        """
+        contents = (_constant(then), _constant(otherwise))
+        slots = []
+        for slot in condition.slots:
+            content = call("if", slot.content, *contents)
+            known = self._counted.get(id(slot.content))
+            if known is not None:
+                # Copied, so that each has an identity
+                content = dataclasses.replace(content)
+                self._counted[id(content)] = (content, *known[1:])
+            slots.append(Slot(slot.extent, content, slot.space, rank=slot.rank))
         return _like(condition, slots, "field")
 
 

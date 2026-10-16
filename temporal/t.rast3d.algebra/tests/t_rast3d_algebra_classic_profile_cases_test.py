@@ -54,6 +54,18 @@ COUNT_BRANCHES = [
     "if(isnull(A), 19, Z # A)",
 ]
 
+# A counted map is its first count as an operand of an operation with
+# another map and in if() on cells; the comparison of the hash operator
+# itself is a condition on time, decided in Python.
+FIRST_COUNT = [
+    "exp(A # A) + B",
+    "((A # B) + 1) + B",
+    "if(abs(A # B) > 1, A, 2)",
+    "merge(A # B, B # A)",
+    "if(exist(Z[0]), if(A # Z >= 3000000000, A / tmap(single)), A + A)",
+    "if(isntnull(A), if(isntnull(tmap(single)) && B # A >= 1, B), 4)",
+]
+
 # r.mapcalc reads an integer beyond 32 bits with an overflow, so constants
 # are not folded before it computes them.
 LARGE_CONSTANTS = ["2.0 + 3000000000 - B", "3000000000 - B", "A + 3000000000 + 1"]
@@ -111,6 +123,16 @@ def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression, s
 @pytest.mark.parametrize("expression", COUNT_BRANCHES)
 def test_a_number_next_to_a_count(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [{}, {"granularity": True}, {"granularity": True, "spatial": True}],
+    ids=["plain", "gran", "gran-spatial"],
+)
+@pytest.mark.parametrize("expression", FIRST_COUNT)
+def test_a_counted_map_is_its_first_count_next_to_maps(datasets, expression, options):
+    assert_equal(expression, **options)
 
 
 @pytest.mark.parametrize("expression", LARGE_CONSTANTS)

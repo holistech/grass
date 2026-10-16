@@ -106,3 +106,26 @@ def test_a_relation_name_the_selection_does_not_know_is_a_syntax_error(
 ):
     with pytest.raises(SyntaxError, match="Unpermitted"):
         chain("R = A {:,equal|overlap} B")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "R = if(A > 0 && (A # B) + 1 >= 1, 2.0, 3)",
+        "R = if(isnull(A), if(A > 0 && exp(A # B) >= 1, B), 4)",
+        "R = if(isnull((A # B) * 2), B, merge(A # B, B # A) * 3)",
+        "R = if(start_day(A) > 1, A # B, 5) + B",
+    ],
+)
+def test_the_tables_of_the_translator_keep_their_keys(in_memory_datasets, expression):
+    """A table keyed by id() must hold the object of the key: once that object
+    is gone, a later object can take its id and read another entry. A table
+    of counts keyed by the id of a series it did not keep made if() take a
+    count for its then part in some runs only, depending on the memory."""
+    translator = classic.ClassicTranslator(kind="raster")
+    translator.statement(classic_grammar("raster").parse(expression))
+    for name in ("_commands", "_generated", "_fresh", "_counted", "_hashes"):
+        table = getattr(translator, name)
+        for key, entry in table.items():
+            kept = entry[0] if isinstance(entry, tuple) else entry
+            assert id(kept) == key, name
