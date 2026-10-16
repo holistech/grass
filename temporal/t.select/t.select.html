@@ -378,8 +378,10 @@ the temporal extent of single map 'event'
 Since GRASS 8.6, <em>t.select</em> selects with the functions of the Python
 package <code>grass.temporal.algebra</code>, as <em>t.rast.algebra</em> and
 <em>t.vect.algebra</em> do. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The flag
-<b>-c</b> selects it for one call, the environment variable
+classic algebra, so that published results remain reproducible. The classic
+algebra is a set of rules of the same functions: it reads the syntax of the
+previous implementation and applies its rules for relations and order. The
+flag <b>-c</b> selects it for one call, the environment variable
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset variable selects the new
 algebra, and the flag takes precedence over the variable.
@@ -490,6 +492,47 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic algebra"
 in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes
 both corrections.
+
+<h4>Corrections to the classic algebra</h4>
+
+The classic algebra gives the results of the previous implementation, with the
+exceptions below. In these cases the previous implementation ended in an error
+that had no reason or reported the wrong error. <b>-c</b> now gives the result
+described here; the new algebra never had these errors. Results of earlier
+GRASS versions that used one of these forms need a new run.
+
+<ol>
+<li><b>tsnap() and tshift() of no maps.</b> If the expression inside selects no
+map, the result is an empty dataset, like any other selection of no map, and
+an enclosing expression goes on with no maps. Earlier versions ended in an
+error. No map of A is equal to a map of D, so both expressions give an empty
+dataset:
+
+<div class="code"><pre>
+C = tsnap(A {:,equal} D)
+C = tshift(A {:,equal} D, "1 day")
+</pre></div>
+</li>
+
+<li><b>Increments that the library refuses.</b> An increment of
+<code>tshift()</code> or <code>buff_t()</code> that does not fit the temporal
+type, such as a text that is not a time step or a number without unit on
+absolute time, is a syntax error and leaves no result dataset. The new algebra
+refuses the same increments with a <code>ValueError</code>:
+
+<div class="code"><pre>
+C = tshift(A, "1 DAY")
+C = buff_t(A, 3)
+</pre></div>
+</li>
+</ol>
+
+<h4>Differences from the previous implementation</h4>
+
+The differences in message texts, in the debug output of the Python parser and
+in the order of errors that <a href="t.rast.algebra.html">t.rast.algebra</a>
+lists apply here likewise. None changes the selected maps of a valid
+expression.
 
 <h2>EXAMPLES</h2>
 

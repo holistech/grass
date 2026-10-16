@@ -394,10 +394,13 @@ during the temporal extent of single map 'event'
 Since GRASS 8.6, *t.select* selects with the functions of the Python package
 `grass.temporal.algebra`, as *t.rast.algebra* and *t.vect.algebra* do. The
 previous implementation stays available as the classic algebra, so that
-published results remain reproducible. The flag **-c** selects it for one
-call, the environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole
-session or script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects
-the new algebra, and the flag takes precedence over the variable.
+published results remain reproducible. The classic algebra is a set of
+rules of the same functions: it reads the syntax of the previous
+implementation and applies its rules for relations and order. The flag
+**-c** selects it for one call, the environment variable
+`GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
+`GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the new
+algebra, and the flag takes precedence over the variable.
 
 *t.select* only selects and retimes maps, it computes none, so most
 differences between the two algebras do not reach it. An expression that
@@ -488,6 +491,43 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
 algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes both
 corrections.
+
+#### Corrections to the classic algebra
+
+The classic algebra gives the results of the previous implementation, with
+the exceptions below. In these cases the previous implementation ended in
+an error that had no reason or reported the wrong error. **-c** now gives
+the result described here; the new algebra never had these errors. Results
+of earlier GRASS versions that used one of these forms need a new run.
+
+1. **tsnap() and tshift() of no maps.** If the expression inside selects
+   no map, the result is an empty dataset, like any other selection of no
+   map, and an enclosing expression goes on with no maps. Earlier versions
+   ended in an error. No map of A is equal to a map of D, so both
+   expressions give an empty dataset:
+
+   ```sh
+   C = tsnap(A {:,equal} D)
+   C = tshift(A {:,equal} D, "1 day")
+   ```
+
+2. **Increments that the library refuses.** An increment of `tshift()` or
+   `buff_t()` that does not fit the temporal type, such as a text that is
+   not a time step or a number without unit on absolute time, is a syntax
+   error and leaves no result dataset. The new algebra refuses the same
+   increments with a `ValueError`:
+
+   ```sh
+   C = tshift(A, "1 DAY")
+   C = buff_t(A, 3)
+   ```
+
+#### Differences from the previous implementation
+
+The differences in message texts, in the debug output of the Python
+parser and in the order of errors that
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
+the selected maps of a valid expression.
 
 ## EXAMPLES
 
