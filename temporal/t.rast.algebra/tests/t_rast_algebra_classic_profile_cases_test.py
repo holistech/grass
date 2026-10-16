@@ -248,6 +248,28 @@ CLEARED_COUNT = [
     "merge(A, if(start_day(A) > 2, A # N)) {:,equal} HA",
 ]
 
+# A : B and A !: B keep every selected map, also a computed copy next to
+# its map; only the selection in braces keeps one map per id. An operation
+# of two map lists gives new maps, also where one list holds no map (td(N)).
+PLAIN_SELECTIONS = [
+    "merge(A * 1, A) : N",
+    "merge(A + 1, A) : N",
+    "merge(A, sqrt(A)) : N",
+    "merge(A + 1, A) !: N",
+    "merge(A * td(N), A) {!:,follows|overlaps} N",
+    "merge(A * td(N), A) {:,equal} N",
+    "merge(sqrt(N), merge(A * td(N), A) {!:,follows|overlaps} N {%,overlapped} B)",
+]
+
+# The partners of a map are visited in the order of their list, which a
+# merge() or buff_t() sets apart from the time order.
+LIST_ORDER_PARTNERS = [
+    'tshift(Z, "-3 hour") {:,over,r} merge(merge(ref, Z), buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {:,during|overlapped,r} merge(Z, buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {-,over,u} merge(Z, buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {/,overlapped,l} merge(buff_t(AF, "2 day"), Z)',
+]
+
 # A condition on time is decided in Python by the classic algebra, so a
 # number beyond 32 bits does not overflow as it would in r.mapcalc.
 TIME_CONDITIONS_BEYOND_32_BITS = [
@@ -515,3 +537,14 @@ def test_if_on_time_clears_a_count(datasets, expression, granularity):
 @pytest.mark.parametrize("expression", TIME_CONDITIONS_BEYOND_32_BITS)
 def test_time_conditions_beyond_32_bits(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize("register_null", [False, True])
+@pytest.mark.parametrize("expression", PLAIN_SELECTIONS)
+def test_a_plain_selection_keeps_every_map(datasets, expression, register_null):
+    assert_equal(expression, register_null=register_null)
+
+
+@pytest.mark.parametrize("expression", LIST_ORDER_PARTNERS)
+def test_partners_in_the_order_of_their_list(datasets, expression):
+    assert_equal(expression)

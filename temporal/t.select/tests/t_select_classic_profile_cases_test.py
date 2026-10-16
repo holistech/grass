@@ -56,6 +56,25 @@ MERGED_COPIES = [
 ]
 
 
+# A : B and A !: B keep every selected map, also two of one map id; only the
+# selection in braces keeps one map per id.
+PLAIN_SELECTIONS = [
+    'merge(tshift(Z, "1 hours"), Z) : N',
+    'merge(tshift(Z, "-1 hours"), Z) !: N',
+]
+
+# The partners of a map are visited in the order of their list, which a
+# merge() or buff_t() sets apart from the time order; with r the last
+# partner gives the time stamp.
+LIST_ORDER_PARTNERS = [
+    'tshift(Z, "-3 hour") {:,over,r} merge(merge(ref, Z), buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {:,overlapped,r} merge(Z, buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {:,during|overlapped,r} merge(Z, buff_t(AF, "2 day"))',
+    'tshift(Z, "-3 hour") {:,over,i} merge(buff_t(AF, "2 day"), Z)',
+    'tshift(Z, "-3 hour") {:,over,d} merge(buff_t(AF, "2 day"), Z)',
+]
+
+
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
@@ -127,3 +146,13 @@ def test_a_merge_of_time_types_fails_before_the_unit_check():
     assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
     # With maps of one type the unit check is reached by both.
     assert_equal("buff_t(merge(tmap(sinst), A), 1)")
+
+
+@pytest.mark.parametrize("expression", PLAIN_SELECTIONS)
+def test_a_plain_selection_keeps_every_map(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", LIST_ORDER_PARTNERS)
+def test_partners_in_the_order_of_their_list(datasets, expression):
+    assert_equal(expression)

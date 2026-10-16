@@ -280,6 +280,11 @@ class ClassicTranslator(Translator):
                 if not isinstance(operand, ast.Name):
                     self.value(operand)
             return self._count(None, None, operator)
+        if node.symbol in (":", "!:") and operator is None:
+            left, right = self._operands(node)
+            return self._select(
+                left, right, TemporalOperator(node.symbol), one_per_map=False
+            )
         return super()._binary(node)
 
     def _apply(self, function, *operands):
@@ -335,10 +340,21 @@ class ClassicTranslator(Translator):
 
     def _arithmetic(self, symbol, left, right, operator):
         """An operation of two map lists writes the first count of a counted
-        map; see _first_counts()"""
-        if isinstance(left, Series) and isinstance(right, Series):
-            left, right = self._first_counts(left), self._first_counts(right)
-        return super()._arithmetic(symbol, left, right, operator)
+        map (see _first_counts()) and gives new maps"""
+        if not (isinstance(left, Series) and isinstance(right, Series)):
+            return super()._arithmetic(symbol, left, right, operator)
+        left, right = self._first_counts(left), self._first_counts(right)
+        result = super()._arithmetic(symbol, left, right, operator)
+        if not isinstance(result, Series):
+            return result
+        # Each result map is a new map with an id of its own, also where one
+        # list holds no map, as td(N) in A * td(N).
+        slots = []
+        for slot in result.slots:
+            content = dataclasses.replace(slot.content)
+            self._fresh[id(content)] = content
+            slots.append(dataclasses.replace(slot, content=content))
+        return dataclasses.replace(result, slots=tuple(slots))
 
     def _applied(self, function, *operands):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
@@ -468,10 +484,15 @@ class ClassicTranslator(Translator):
                     return
             yield index
 
-    def _select(self, left, right, operator):
+    def _select(self, left, right, operator, *, one_per_map=True):
         """Selections keep one map per selected left map; with a temporal
         reference other than l its time stamp is combined with the partners
-        one after the other, skipping those that do not combine"""
+        one after the other, skipping those that do not combine
+
+        Only the selection in braces ({:,equal}) keeps one map per map id
+        (set_granularity() of the classic algebra collects the maps by id);
+        A : B and A !: B keep every selected map, also two of one id.
+        """
         self._pair(operator.symbol, left, right)
         for name in operator.relations:
             # The classic selection with a temporal operator refuses spatial
@@ -480,7 +501,7 @@ class ClassicTranslator(Translator):
                 msg = f"Unpermitted temporal relation name '{name}'"
                 raise SyntaxError(msg)
         selected = self._selected(left, right, operator)
-        if not self._sampled:
+        if one_per_map and not self._sampled:
             selected = self._one_per_map(selected)
         return selected
 

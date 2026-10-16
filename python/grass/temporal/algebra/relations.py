@@ -183,8 +183,10 @@ def related(left, relation_, other, *, dimension="2D", order="sorted", unique=Tr
         as boxes; only used if the relation has a spatial part
     :param order: "sorted" lists the partners in the order of other;
         "written" lists those of the first temporal name of the relation
-        (Relation.written) first, in the order of other, then those of the
-        second name, and so on, as the classic algebra visits them
+        (Relation.written) first, then those of the second name, and so on,
+        each name in the list order of other (the order of the ranks, if
+        every slot of other has one, as Series.listed()), as the classic
+        algebra visits them
     :param unique: False lists a partner once for every written name that
         relates it, so a name written twice lists its partners twice; True
         lists each partner once, at its first position
@@ -215,6 +217,9 @@ def related(left, relation_, other, *, dimension="2D", order="sorted", unique=Tr
         spatial=None if relation_.spatial is None else dimension,
     )
     names = relation_.names()
+    # The classic topology builder visits the partners in the order of their
+    # list, which a merge() or buff_t() sets apart from the time order.
+    listed = order == "written" and all(slot.rank is not None for slot in other)
     result = []
     for map_ in left_maps:
         temporal = map_.get_temporal_relations()
@@ -232,6 +237,8 @@ def related(left, relation_, other, *, dimension="2D", order="sorted", unique=Tr
         for name in names:
             found = _partners(temporal, (name,), index)
             groups.append(sorted(found if spatial is None else found & spatial))
+        if listed:
+            groups = [sorted(group, key=lambda j: other[j].rank) for group in groups]
         result.append(_listed(groups, order, unique))
     return result
 
