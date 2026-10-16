@@ -268,10 +268,34 @@ use the datasets of the list above and, in addition, N with daily maps.
    C = merge(A, A * 1.5)
    ```
 
+5. **Time constants with offset.** A temporal function with an offset
+   needs a map with the time value it returns. On a map without it, such as
+   `end_month()` of a time instance or `start_month()` of relative time, the
+   expression stops with an error that says the function requires absolute
+   time, as the same function in a condition does. Earlier versions wrote
+   `None` into the *r3.mapcalc* expression, which failed when the maps were
+   computed:
+
+   ```sh
+   C = A + end_month(I, 0)
+   ```
+
+6. **Intersection with a time instance.** With the temporal operator `i`,
+   the time stamp of the result is the time instance, for a selection and
+   for an operator, on absolute and on relative time. Earlier versions kept
+   the time stamp of the left map for an operator and failed with a
+   `TypeError` for a selection on relative time. Both expressions give maps
+   with the instances of I as time:
+
+   ```sh
+   C = A {:,contains,i} I
+   C = A {+,contains,i} I
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python
-parser and in the order of errors that
+parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
 the maps of a valid expression.
 

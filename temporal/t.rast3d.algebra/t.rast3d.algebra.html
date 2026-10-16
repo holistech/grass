@@ -294,13 +294,40 @@ must have the same data type:
 C = merge(A, A * 1.5)
 </pre></div>
 </li>
+
+<li><b>Time constants with offset.</b> A temporal function with an offset needs a
+map with the time value it returns. On a map without it, such as
+<code>end_month()</code> of a time instance or <code>start_month()</code> of
+relative time, the expression stops with an error that says the function
+requires absolute time, as the same function in a condition does. Earlier
+versions wrote <code>None</code> into the <em>r3.mapcalc</em> expression,
+which failed when the maps were computed:
+
+<div class="code"><pre>
+C = A + end_month(I, 0)
+</pre></div>
+</li>
+
+<li><b>Intersection with a time instance.</b> With the temporal operator
+<code>i</code>, the time stamp of the result is the time instance, for a
+selection and for an operator, on absolute and on relative time. Earlier
+versions kept the time stamp of the left map for an operator and failed with a
+<code>TypeError</code> for a selection on relative time. Both expressions give
+maps with the instances of I as time:
+
+<div class="code"><pre>
+C = A {:,contains,i} I
+C = A {+,contains,i} I
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>
 
-The differences in message texts, in the debug output of the Python parser and
-in the order of errors that <a href="t.rast.algebra.html">t.rast.algebra</a>
-lists apply here likewise. None changes the maps of a valid expression.
+The differences in message texts, in the debug output of the Python parser, in
+the order of errors and in the error for an existing result that <a
+href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. None
+changes the maps of a valid expression.
 
 <h3>Granularity algebra</h3>
 
