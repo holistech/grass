@@ -26,7 +26,12 @@ from grass.exceptions import FatalError
 from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra._adapters import as_map, extent_from
 from grass.temporal.algebra.backends import MapcalcStyle
-from grass.temporal.algebra.content import NULL, Const, ScalarFunctionError, call
+from grass.temporal.algebra.content import (
+    NULL,
+    Const,
+    ScalarFunctionError,
+    call,
+)
 from grass.temporal.algebra.maptypes import DIMENSIONS
 from grass.temporal.algebra.profile import Profile
 from grass.temporal.algebra.relations import (
@@ -146,6 +151,9 @@ def _check_increment(function, series, increment, with_unit):
 class ClassicTranslator(Translator):
     """Translate statements with the meaning of the classic algebra"""
 
+    def __init__(self, **keywords):
+        super().__init__(**keywords)
+
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
         it reduces, after the other operand: that operand's errors and
@@ -254,11 +262,18 @@ class ClassicTranslator(Translator):
             if name not in TEMPORAL_RELATIONS:
                 msg = f"Unpermitted temporal relation name '{name}'"
                 raise SyntaxError(msg)
+
         relation = self._relation(operator)
         right = self._aligned(left, right)
         if operator.symbol == "!:":
             return operations.select(
-                left, relation, right, related=False, order="written", unique=False
+                left,
+                relation,
+                right,
+                related=False,
+                order="written",
+                unique=False,
+                mixed_times=self.profile.mixed_times,
             )
         return operations.select(
             left,
@@ -268,6 +283,7 @@ class ClassicTranslator(Translator):
             failure="skip",
             order="written",
             unique=False,
+            mixed_times=self.profile.mixed_times,
         )
 
     def _count(self, left, right, operator):
@@ -287,6 +303,7 @@ class ClassicTranslator(Translator):
             reduce="count",
             order="written",
             unique=False,
+            mixed_times=self.profile.mixed_times,
         )
 
     def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
@@ -317,6 +334,7 @@ class ClassicTranslator(Translator):
                 box=box,
                 fold_all=True,
                 last_only=self._kind == "vector",
+                mixed_times=self.profile.mixed_times,
             )
         return operations.gather(
             left,
@@ -328,6 +346,7 @@ class ClassicTranslator(Translator):
             unique=False,
             failure="stop",
             box=box,
+            mixed_times=self.profile.mixed_times,
         )
 
     def _logical(self, symbol, left, right, operator):
@@ -339,7 +358,12 @@ class ClassicTranslator(Translator):
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
         right = self._aligned(left, right)
-        options = {"order": "written", "unique": False, "box": "intersection"}
+        options = {
+            "order": "written",
+            "unique": False,
+            "box": "intersection",
+            "mixed_times": self.profile.mixed_times,
+        }
         if operator.temporal == "r":
             return operations.pairs(
                 left,
@@ -410,7 +434,30 @@ class ClassicTranslator(Translator):
             first, second = (
                 dataclasses.replace(series, sort="field") for series in (first, second)
             )
+        self._check_merged_times(first, second)
         return super()._merge(first, second)
+
+    @staticmethod
+    def _check_merged_times(first, second):
+        """The classic result list may hold maps of different temporal types
+        and units, which relate to nothing; registering them in one dataset
+        is what fails there, so merge() is where this surfaces
+
+        :raises FatalError: for absolute and relative time, and for relative
+            time of different units
+        """
+        units = {
+            slot.extent.unit
+            for slot in (*first.slots, *second.slots)
+            if slot.extent is not None
+        }
+        if len(units) < 2:
+            return
+        if None in units:
+            msg = _("Temporal type of the merged maps are different")
+        else:
+            msg = _("Relative time units of the merged maps are different")
+        raise FatalError(msg)
 
     def _tshift(self, series, increment):
         """Shift by an increment; a number needs relative and a text with a
@@ -583,5 +630,6 @@ CLASSIC = Profile(
     union_region_when_spatial=True,
     list_order=True,
     database_order=True,
+    mixed_times="unrelated",
     classic_errors=True,
 )

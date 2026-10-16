@@ -242,13 +242,32 @@ class Translator:
                     "so it takes no temporal reference other than l"
                 )
                 raise SyntaxError(msg)
-            return operations.select(left, relation, right, related=False)
+            return operations.select(
+                left,
+                relation,
+                right,
+                related=False,
+                mixed_times=self.profile.mixed_times,
+            )
         if operator.temporal == "l":
-            return operations.select(left, relation, right)
+            return operations.select(
+                left, relation, right, mixed_times=self.profile.mixed_times
+            )
         if operator.temporal == "r":
-            return operations.pairs(left, relation, right, extent="right")
+            return operations.pairs(
+                left,
+                relation,
+                right,
+                extent="right",
+                mixed_times=self.profile.mixed_times,
+            )
         return operations.gather(
-            left, relation, right, reduce=None, extent=_EXTENTS[operator.temporal]
+            left,
+            relation,
+            right,
+            reduce=None,
+            extent=_EXTENTS[operator.temporal],
+            mixed_times=self.profile.mixed_times,
         )
 
     def _count(self, left, right, operator):
@@ -259,7 +278,13 @@ class Translator:
                 "it takes no temporal reference other than l"
             )
             raise SyntaxError(msg)
-        return operations.gather(left, self._relation(operator), right, reduce="count")
+        return operations.gather(
+            left,
+            self._relation(operator),
+            right,
+            reduce="count",
+            mixed_times=self.profile.mixed_times,
+        )
 
     def _overlay(self, symbol, left, right, operator):
         timed_vectors = all(
@@ -304,6 +329,7 @@ class Translator:
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
                 space=space,
+                mixed_times=self.profile.mixed_times,
             )
         return operations.gather(
             left,
@@ -312,6 +338,7 @@ class Translator:
             reduce=reduce,
             extent=_EXTENTS[operator.temporal],
             space=space,
+            mixed_times=self.profile.mixed_times,
         )
 
     def _apply(self, function, *operands):
@@ -371,17 +398,26 @@ class Translator:
                 right,
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
+                mixed_times=self.profile.mixed_times,
             )
         extent = _EXTENTS[operator.temporal]
         # The left maps that have related maps, and the joined conditions of
         # those related maps; both have the same time stamps.
-        targets = operations.gather(left, relation, right, reduce=None, extent=extent)
+        targets = operations.gather(
+            left,
+            relation,
+            right,
+            reduce=None,
+            extent=extent,
+            mixed_times=self.profile.mixed_times,
+        )
         others = operations.gather(
             left,
             relation,
             right,
             reduce=_AGGREGATES[operator.aggregate],
             extent=extent,
+            mixed_times=self.profile.mixed_times,
         )
         return operations.apply(symbol, targets, others)
 
@@ -425,6 +461,7 @@ class Translator:
                 condition,
                 _like(condition, then),
                 None if otherwise is _ABSENT else _like(condition, otherwise),
+                mixed_times=self.profile.mixed_times,
             )
         return self._temporal_if(condition, then, otherwise, relation, first)
 
@@ -441,19 +478,30 @@ class Translator:
             return self._field_if(condition, then, otherwise, relation)
         then_maps = then if _timed(then) else _like(first, then)
         if otherwise is _ABSENT:
-            return operations.choose(conditions, then_maps)
+            return operations.choose(
+                conditions, then_maps, mixed_times=self.profile.mixed_times
+            )
         settled = _settled(conditions, relation)
         if not _timed(otherwise):
-            return operations.choose(settled, then_maps, _like(first, otherwise))
+            return operations.choose(
+                settled,
+                then_maps,
+                _like(first, otherwise),
+                mixed_times=self.profile.mixed_times,
+            )
         if not _timed(then):
-            return operations.choose(settled, then_maps, otherwise)
+            return operations.choose(
+                settled, then_maps, otherwise, mixed_times=self.profile.mixed_times
+            )
         # Then and else have time stamps of their own; each map is judged by
         # the conditions related to it.
         others = self._conditions(otherwise, condition, operator)
         return operations.merge(
-            operations.choose(conditions, then),
+            operations.choose(conditions, then, mixed_times=self.profile.mixed_times),
             operations.choose(
-                operations.apply("!", _settled(others, relation)), otherwise
+                operations.apply("!", _settled(others, relation)),
+                otherwise,
+                mixed_times=self.profile.mixed_times,
             ),
         )
 
@@ -483,6 +531,7 @@ class Translator:
             reduce=_AGGREGATES[operator.aggregate],
             missing="null",
             equal_times="pairwise",
+            mixed_times=self.profile.mixed_times,
         )
 
     def _function(self, node):

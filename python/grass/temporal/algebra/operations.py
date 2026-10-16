@@ -56,15 +56,22 @@ def _check_option(name, value, allowed):
         raise ValueError(msg)
 
 
-def _check_comparable(first, second):
+MIXED_TIMES = ("error", "unrelated")
+
+
+def _check_comparable(first, second, mixed_times="error"):
     """Relations exist only between series of one map and temporal type
 
     related() does not check this itself: on mixed absolute and relative
     time, or on different units, it finds no relation instead of failing.
+    mixed_times="unrelated" leaves it at that, as the classic algebra does.
     """
+    _check_option("mixed_times", mixed_times, MIXED_TIMES)
     if first.kind != second.kind:
         msg = f"A {first.kind} series cannot be related to a {second.kind} series"
         raise ValueError(msg)
+    if mixed_times == "unrelated":
+        return
     units = {
         slot.extent.unit
         for slot in (*first.slots, *second.slots)
@@ -270,6 +277,7 @@ def select(
     failure="skip",
     order="sorted",
     unique=True,
+    mixed_times="error",
 ):
     """Keep the slots l of left for which a slot x of other with "l R x"
     exists (related=True) or none exists (related=False)
@@ -287,6 +295,8 @@ def select(
     :param order: the order of the partners, which fixes the last one and the
         result of "stop", see related()
     :param unique: see related()
+    :param mixed_times: "error" refuses series of absolute and relative time
+        or of different units; "unrelated" relates nothing across them
     :raises ValueError: for an extent other than "left" with related=False
     """
     check_series(left, "left")
@@ -298,7 +308,7 @@ def select(
     if extent != "left" and not related:
         msg = "A slot without partner has no time stamp to combine, so extent must be left"
         raise ValueError(msg)
-    _check_comparable(left, other)
+    _check_comparable(left, other, mixed_times)
     matches = related_indices(
         left.slots,
         relation,
@@ -339,6 +349,7 @@ def pairs(
     box=None,
     fold_all=False,
     last_only=False,
+    mixed_times="error",
 ):
     """One slot per pair (l, x) with "l R x"
 
@@ -366,6 +377,8 @@ def pairs(
         content(l, x); needs content
     :param last_only: keep only the last pair of each l, as the classic
         algebra does when the partners of a map share one result map
+    :param mixed_times: "error" refuses series of absolute and relative time
+        or of different units; "unrelated" relates nothing across them
     :raises ValueError: for fold_all without content
     """
     check_series(left, "left")
@@ -380,7 +393,7 @@ def pairs(
     if fold_all and content is None:
         msg = "fold_all needs a content function to fold with"
         raise ValueError(msg)
-    _check_comparable(left, other)
+    _check_comparable(left, other, mixed_times)
     matches = related_indices(
         left.slots,
         relation,
@@ -666,6 +679,7 @@ def gather(
     pairing_error=ValueError,
     failure="empty",
     box=None,
+    mixed_times="error",
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
@@ -711,6 +725,8 @@ def gather(
         also if space takes no part in the relation; the result box is the one
         so far, and it replaces space. Only "intersection" can fail. Slots
         without box combine
+    :param mixed_times: "error" refuses series of absolute and relative time
+        or of different units; "unrelated" relates nothing across them
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     :raises pairing_error: if equal_times="pairwise" cannot pair the maps of
@@ -728,7 +744,7 @@ def gather(
     _check_option("failure", failure, FAILURES)
     _check_box(box, space)
     reducers.check(reduce, nulls)
-    _check_comparable(target, other)
+    _check_comparable(target, other, mixed_times)
     sort = reducers.sort_of(reduce, target.sort, other.sort)
     if missing == "keep" and sort != target.sort:
         msg = (
@@ -852,7 +868,7 @@ def _warn(message):
         messenger.warning(message)
 
 
-def choose(condition, then, otherwise=None):
+def choose(condition, then, otherwise=None, *, mixed_times="error"):
     """Select whole slots by a scalar condition
 
     A slot of then is kept where the condition of its time stamp is true, a
@@ -864,6 +880,9 @@ def choose(condition, then, otherwise=None):
     builds them. A condition without time stamp decides for every slot of
     every branch, as a map without time stamp does in apply().
 
+    :param mixed_times: "error" refuses a branch of another temporal type or
+        unit than the condition; "unrelated" leaves out its slots, which no
+        condition belongs to
     :raises TypeError: if the condition is not a scalar series
     :raises ValueError: if a time stamp has several conditions and another
         number of slots in a branch, if a timed condition meets a branch map
@@ -882,7 +901,7 @@ def choose(condition, then, otherwise=None):
     branches = [then] if otherwise is None else [then, otherwise]
     slots = []
     for branch, wanted in zip(branches, (True, False), strict=False):
-        _check_comparable(condition, branch)
+        _check_comparable(condition, branch, mixed_times)
         slots.extend(_chosen(branch, values, wanted))
     spatial = any(part.spatial for part in (condition, *branches))
     if not condition.timeless:

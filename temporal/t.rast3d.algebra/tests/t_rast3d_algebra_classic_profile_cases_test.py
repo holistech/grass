@@ -31,6 +31,15 @@ RELATIONS = [
     "A {:,overlapped|contains,i} I",
 ]
 
+# Absolute time and the relative time of RT are never related.
+MIXED_TIME = [
+    "RT + tmap(single)",
+    "RT : tmap(single)",
+    "tmap(single) {:,over} RT",
+    "RT {!:,follows|overlapped} tmap(single)",
+    "merge(RT, tmap(single))",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -67,3 +76,8 @@ def test_time_of_a_partner_outside_the_box(
 @pytest.mark.parametrize("expression", RELATIONS)
 def test_relations(datasets, expression, spatial):
     assert_equal(expression, spatial=spatial)
+
+
+@pytest.mark.parametrize("expression", MIXED_TIME)
+def test_mixed_time_is_unrelated(datasets, expression):
+    assert_equal(expression)

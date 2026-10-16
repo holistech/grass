@@ -20,7 +20,13 @@ import pytest
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra.content import Call, Const, MapRef
-from grass.temporal.algebra.operations import pair_equal_times, gather, pairs, select
+from grass.temporal.algebra.operations import (
+    choose,
+    gather,
+    pair_equal_times,
+    pairs,
+    select,
+)
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import (
     Relation,
@@ -604,3 +610,50 @@ def test_intersection_of_an_interval_with_an_instant_is_the_instant(make_series)
     for result in (gathered, paired):
         assert [slot.extent for slot in result] == [instant.slots[0].extent]
         assert result.slots[0].extent.end is None
+
+
+@pytest.fixture
+def mixed(make_series):
+    """Maps of absolute time, of relative days, and of relative hours"""
+    return (
+        make_series("a", (1, 2)),
+        make_series("d", (0, 1), unit="days"),
+        make_series("h", (0, 1), unit="hours"),
+    )
+
+
+@pytest.mark.parametrize("other", [1, 2])
+@pytest.mark.parametrize("function", [select, pairs, gather])
+def test_mixed_times_are_refused_by_default(mixed, function, other):
+    options = {"reduce": "count"} if function is gather else {}
+    with pytest.raises(ValueError, match="different temporal types or units"):
+        function(mixed[0], equal, mixed[other], **options)
+
+
+@pytest.mark.parametrize("other", [1, 2])
+def test_mixed_times_relate_nothing_if_asked(mixed, other):
+    """The classic algebra finds no relation between maps of absolute and
+    relative time or of different units (probed 2026-10-16 with RT + RH and
+    RT : tmap(sinst) in the classic algebra: empty results, no error)"""
+    first, second = mixed[0], mixed[other]
+    options = {"mixed_times": "unrelated"}
+    assert not select(first, equal, second, **options).slots
+    assert select(first, equal, second, related=False, **options).slots == (first.slots)
+    assert not pairs(first, equal, second, **options).slots
+    assert not gather(first, equal, second, reduce="count", **options).slots
+
+
+def test_a_branch_of_other_times_is_left_out_if_asked(mixed):
+    condition = replace(mixed[0], sort="scalar")
+    condition = replace(
+        condition,
+        slots=tuple(replace(slot, content=Const(True)) for slot in condition.slots),
+    )
+    with pytest.raises(ValueError, match="different temporal types or units"):
+        choose(condition, mixed[1])
+    assert not choose(condition, mixed[1], mixed_times="unrelated").slots
+
+
+def test_the_mixed_times_option_is_checked(mixed):
+    with pytest.raises(ValueError, match="mixed_times must be one of"):
+        select(mixed[0], equal, mixed[0], mixed_times="ignore")

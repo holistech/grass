@@ -36,6 +36,15 @@ SPATIAL_CONDITIONS = [
 # Overlay of areas with lines or points, and with maps that have no areas
 NO_AREAS = ["aa & pa", "pa & aa", "aa & la", "aa | pa", "(aa & pa) & ab"]
 
+# Absolute time and the relative time of "rel" are never related.
+MIXED_TIME = [
+    "rel : tmap(ev)",
+    "tmap(ev) {:,equal|overlapped} rel",
+    'tshift(tmap(ev), "2 month") {!:,over|over,u} rel',
+    "rel & tmap(ev)",
+    "if({equal}, td(rel) == 1, tmap(ev))",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -72,4 +81,9 @@ def test_conditions_in_the_spatial_run(datasets, expression, spatial):
 
 @pytest.mark.parametrize("expression", NO_AREAS)
 def test_overlay_of_maps_without_areas(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", MIXED_TIME)
+def test_mixed_time_is_unrelated(datasets, expression):
     assert_equal(expression)

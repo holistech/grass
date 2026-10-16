@@ -62,6 +62,9 @@ class Profile:
     :param database_order: read the maps of a dataset sorted by start only,
         so that maps with equal start keep the order of the temporal
         database (source())
+    :param mixed_times: "unrelated" relates nothing across absolute and
+        relative time or different units, where "error" refuses the
+        expression (the relating operations)
     :param classic_errors: report ValueErrors of the core as the exception
         classes of the parser classes (evaluate())
     """
@@ -78,6 +81,7 @@ class Profile:
     union_region_when_spatial: bool = False
     list_order: bool = False
     database_order: bool = False
+    mixed_times: str = "error"
     classic_errors: bool = False
 
 
