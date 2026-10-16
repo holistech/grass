@@ -12,6 +12,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+from grass.temporal.testing.reference import reference_parser
 
 SAME = [
     "aa & ab",
@@ -126,14 +127,21 @@ def rows(name):
 
 
 def outcome(monkeypatch, expression, algebra):
-    """The registered maps, None for no dataset, or the name of the error"""
+    """The registered maps, None for no dataset, or the name of the error
+
+    algebra is "core", "classic" (the profile) or "reference" (the earlier
+    implementation of the classic algebra).
+    """
     monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
     # Every run has its own result name: a result of an earlier expression
     # would otherwise stand in for the missing result of this one. Removing
     # it is no option, because the algebra registers unchanged maps of the
     # fixture in its result and removing the maps would delete them.
     name = f"diff_{algebra}_{next(counter)}"
-    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
+    if algebra == "reference":
+        parser = reference_parser("vector", run=True, debug=False)
+    else:
+        parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False)
     try:
         parser.parse(f"{name} = {expression}", name, True)
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
@@ -161,3 +169,13 @@ def test_listed_differences_still_differ(vector_series, monkeypatch, expression)
     assert core != outcome(monkeypatch, expression, "classic")
     kind = "maps" if isinstance(core, list) else core
     assert kind == DIFFERENT[expression][0]
+
+
+@pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
+@pytest.mark.fixed_algebra
+def test_profile_equals_reference(vector_series, monkeypatch, expression):
+    """-c computes what the earlier implementation of the classic algebra
+    computed, also where the core differs"""
+    assert outcome(monkeypatch, expression, "classic") == outcome(
+        monkeypatch, expression, "reference"
+    )

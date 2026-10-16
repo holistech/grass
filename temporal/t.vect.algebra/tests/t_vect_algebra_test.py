@@ -14,6 +14,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
+from grass.temporal.testing.reference import reference_parser
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -560,6 +561,24 @@ def test_classic_flag_selects_the_classic_algebra(vector_series):
     assert list_maps(vector_series.session, "flag_classic") is None
 
 
+@pytest.mark.fixed_algebra
+def test_classic_flag_runs_the_classic_profile(vector_series):
+    """The tool with -c computes on the classic profile of the core, not on the
+    earlier implementation: an increment the library refuses is reported with
+    the message of the library, the earlier one named tshift() and the unit"""
+    tools = Tools(session=vector_series.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_vect_algebra(
+            expression='profiled = tshift(aa, "1 DAY")',
+            basename="profiled",
+            flags="c",
+        )
+    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
+        error.value.stderr
+    )
+    assert "Function tshift()" not in error.value.stderr
+
+
 # Names, overwrite and empty results
 
 
@@ -774,12 +793,28 @@ def test_debug_output_without_run(vector_series, capsys):
     assert not capsys.readouterr().out
 
 
+@pytest.mark.fixed_algebra
+def test_debug_output_of_the_classic_profile(vector_series, capsys):
+    """-c prints the planned module calls like the core, and with run=False
+    nothing"""
+    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=True, classic=True)
+    parser.parse("dbg = aa & ab", "dbg", True)
+    assert (
+        "v.overlay ainput=aa1@PERMANENT binput=ab1@PERMANENT operator=and"
+        in capsys.readouterr().out
+    )
+    parser = tgis.TemporalVectorAlgebraParser(run=False, debug=True, classic=True)
+    parser.parse("dbg = aa & ab", "dbg", True)
+    assert not capsys.readouterr().out
+
+
 @pytest.mark.parametrize("run", [True, False])
 @pytest.mark.fixed_algebra
-def test_debug_output_of_the_classic_algebra(vector_series, capsys, run):
-    """With debug=True the classic algebra prints the parsed rules, with or
-    without running"""
-    parser = tgis.TemporalVectorAlgebraParser(run=run, debug=True, classic=True)
+def test_debug_output_of_the_reference(vector_series, capsys, run):
+    """With debug=True the earlier implementation prints the parsed rules, with
+    or without running. Only the reference keeps this output; the classic
+    profile prints the module calls like the core."""
+    parser = reference_parser("vector", run=run, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)
     assert "aa&ab" in capsys.readouterr().out
 
@@ -822,7 +857,7 @@ def test_tshift_with_a_refused_increment_is_a_syntax_error_classic(
     vector_series, expression
 ):
     """An increment that the library refuses is an error in the classic
-    algebra, not an absent result. The core raises a ValueError with its own
-    message."""
-    with pytest.raises(SyntaxError, match="tshift"):
+    algebra, not an absent result. The core raises a ValueError. The message is
+    that of the library: it does not name tshift as the earlier one did."""
+    with pytest.raises(SyntaxError, match="time step"):
         run_algebra(vector_series.session, expression, classic=True)
