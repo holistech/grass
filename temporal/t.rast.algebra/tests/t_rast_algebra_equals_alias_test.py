@@ -57,7 +57,7 @@ def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
     assert canonical["maps"]
 
 
-@pytest.mark.parametrize(("equals", "equal"), SPELLINGS[:3])
+@pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
 def test_the_reference_refuses_equals(datasets, equals, equal):
     """A documented difference: the profile runs where the reference fails"""
     assert run("reference", equals, "fa")["error"] == "SyntaxError"
@@ -70,3 +70,18 @@ def test_upper_case_equals_is_refused_like_upper_case_equal(datasets):
         upper = f"A {{+,{name.upper()},l}} N"
         assert run("classic", upper, "fa")["error"] == "SyntaxError"
         assert run("reference", upper, "fb")["error"] == "SyntaxError"
+
+
+def test_equals_beside_equal_names_the_relation_twice(datasets):
+    """The profile reads equals|equal as the reference reads equal|equal
+
+    A relation named twice relates a partner twice in the classic algebra
+    (a + n + n), so equals|equal is not equal, as equal|equal is not.
+    """
+    reference = run("reference", "A {+,equal|equal,l} N", "fa")
+    profile = run("classic", "A {+,equals|equal,l} N", "fb")
+    once = run("classic", "A {+,equal,l} N", "fc")
+    assert compare(KIND, "A {+,equals|equal,l} N", reference, profile) is None
+    assert "error" not in once
+    assert once["maps"]
+    assert compare(KIND, "A {+,equal,l} N", profile, once) is not None

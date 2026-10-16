@@ -11,10 +11,13 @@ t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results; this module compares the two implementations on the
 expressions and pins three results computed by hand.
 
-The paper prints some spellings that no version reads. STR3DS and STVDS in
-capitals and preceedes are syntax errors; they are pinned here and in
-t_select_published_test.py. The grammar example {>=,equals,l} stands in an
-if() in the paper, which neither implementation reads.
+The paper prints some expressions that no classic version reads; they are
+pinned as errors here and in t_select_published_test.py. STR3DS and STVDS in
+capitals and preceedes are syntax errors. The long form {>=,equals,l} of a
+comparison, printed in section 3.2.1, is one too: the classic lexer knows an
+operator in braces with a comparison only for && and ||. The soil-adjusted
+vegetation index of appendix C.3 adds a number to map(L), which the classic
+grammar does not read; the new algebra computes it.
 """
 
 import datetime
@@ -56,7 +59,13 @@ PUBLISHED = [
         "(A {+,contains,l} E) {/,equals,l} (A {#,contains,l} E)",
         {},
         "paper",
-        id="section 5, hash operator with equals",
+        id="appendix A.1, hash operator with equals",
+    ),
+    pytest.param(
+        "E {+,equals|during|equivalent,l} A",
+        {},
+        "paper",
+        id="section 3.1.3, list of relations",
     ),
     pytest.param("E {:,during,l} A", {}, "paper", id="appendix C.1, selection"),
     pytest.param(
@@ -75,18 +84,24 @@ PUBLISHED = [
         "paper",
         id="appendix C.3, temporal buffer with equals",
     ),
+    pytest.param(
+        "(H[-2] + H[-1] + H + H[1] + H[2]) / 5.0",
+        {},
+        "paper",
+        id="appendix C.4, moving average",
+    ),
     pytest.param("(A[-1] + A) / td(A)", {}, "paper", id="appendix C.4, gradient"),
     pytest.param(
         "if(A > 1 {&&,equals,&,l} F > 6, A)",
         {},
         "paper",
-        id="grammar, logical operator with equals",
+        id="section 3.2.1, logical operator with equals",
     ),
     pytest.param(
         "if(A > 1 {&&,contains,&,l} E > 1, A)",
         {},
         "paper",
-        id="grammar, logical operator with contains",
+        id="section 3.2.1, logical operator with contains",
     ),
 ]
 
@@ -121,9 +136,10 @@ def paper(temporal_module_session):
     The values are floating point numbers, because r.mapcalc divides whole
     numbers as whole numbers. A, F: four monthly maps; G: February to April;
     B: two maps of one month that start on the 15th; C: one map of two
-    months; E: three days inside January; NIR, RED: three days with equal
-    time; DM: January and February; T, P: one map per day of January and
-    February 2001 (59 days).
+    months; E: three days inside January; H: six days of January; NIR,
+    RED: three days with equal time; DM: January and February; T, P: one map
+    per day of January and February 2001 (59 days); L: a map without time
+    stamp.
     """
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
     tools.g_region(n=3, s=0, e=3, w=0, res=1)
@@ -175,6 +191,16 @@ def paper(temporal_module_session):
         "RED",
         specs(["red1", "red2", "red3"], [2.5, 3.5, 4.5], days(1, 3)),
     )
+    create_stds(
+        tools,
+        "strds",
+        "H",
+        specs(
+            [f"h{number}" for number in range(1, 7)],
+            [1.5, 2.5, 3.5, 4.5, 5.5, 6.5],
+            days(10, 15),
+        ),
+    )
     create_stds(tools, "strds", "DM", specs(["dm1", "dm2"], [1, 2], MONTHS[:2]))
     daily = [(day_1 + number * day, day_1 + (number + 1) * day) for number in range(59)]
     create_stds(
@@ -195,6 +221,7 @@ def paper(temporal_module_session):
             daily,
         ),
     )
+    tools.r_mapcalc(expression="L = 0.5")
     with fakes.cached_io(fakes.CacheStorage()):
         yield
 
@@ -235,10 +262,7 @@ def test_the_profile_computes_what_the_reference_computes(
 
 @pytest.mark.parametrize(
     "expression",
-    [
-        "(A {+,contains,l} E) {/,equals,l} (A {#,contains,l} E)",
-        "A {+,equals|equivalent,l} F",
-    ],
+    [case.values[0] for case in PUBLISHED if "equals" in case.values[0]],
 )
 def test_the_reference_refuses_the_spelling_equals(paper, expression):
     """A documented difference: the profile runs where the reference fails"""
@@ -253,13 +277,25 @@ def test_the_spelling_preceedes_of_the_caption_is_refused(paper):
         assert run(runner, expression, "fa")["error"] == "SyntaxError"
 
 
+@pytest.mark.parametrize(
+    "expression", ["if(A {>=,equals,l} F, A)", "if(A {>=,equal,l} F, A)"]
+)
+def test_the_long_form_of_a_comparison_is_refused(paper, expression):
+    """Section 3.2.1 prints {>=,equals,l} as the long form of >="""
+    for runner in ("reference", "classic", "core"):
+        assert run(runner, expression, "fa")["error"] == "SyntaxError"
+
+
 def values(result):
-    """The maps of an outcome as (start, end, minimum) with the dates only"""
+    """The maps of an outcome as (start, end, value) with the dates only
+
+    Every map of these data is constant, so its minimum is its value.
+    """
     assert result["stds"], result
+    assert all(low == high for *_, low, high in result["maps"]), result
     return [
         (start[:10], end[:10] if end else None, pytest.approx(low, rel=1e-5))
-        for _name, start, end, low, high in result["maps"]
-        if low == high
+        for _name, start, end, low, _high in result["maps"]
     ]
 
 
@@ -319,4 +355,20 @@ def test_gradient_by_hand(paper, runner):
         ("2001-02-01", "2001-03-01", 4 / 28),
         ("2001-03-01", "2001-04-01", 6 / 31),
         ("2001-04-01", "2001-05-01", 8 / 30),
+    ]
+
+
+def test_the_soil_adjusted_vegetation_index(paper):
+    """Appendix C.3; the classic grammar has no rule for map(L) + 1
+
+    With L = 0.5 the numerator is (NIR - RED) * 1.5 = 6 * 1.5 = 9 on each day
+    and the denominator NIR + RED + 0.5: 11.5, 13.5 and 15.5.
+    """
+    expression = "((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))"
+    for runner in ("reference", "classic"):
+        assert run(runner, expression, "fa")["error"] == "SyntaxError"
+    assert values(run("core", expression, "fa")) == [
+        ("2001-01-01", "2001-01-02", 9 / 11.5),
+        ("2001-01-02", "2001-01-03", 9 / 13.5),
+        ("2001-01-03", "2001-01-04", 9 / 15.5),
     ]
