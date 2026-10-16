@@ -210,3 +210,22 @@ def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression, granu
 @pytest.mark.parametrize("expression", LOGICAL_WITH_ALL_PARTNERS)
 def test_logical_operators_join_all_partners(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
+
+
+def test_a_relation_over_absolute_and_relative_time(datasets):
+    """The previous implementation stops with a TypeError when it relates a
+    list of absolute and relative time; the classic algebra relates the two
+    types to nothing, as t.rast.algebra pins in more forms"""
+    expression = "merge(tmap(single), RT) : RT"
+    reference = outcome(
+        KIND, expression, RUNNERS["reference"], basename="fa", register_null=True
+    )
+    assert reference["error"] == "Other:TypeError"
+    profile = outcome(
+        KIND, expression, RUNNERS["classic"], basename="fb", register_null=True
+    )
+    expected = outcome(
+        KIND, "RT : RT", RUNNERS["reference"], basename="fb", register_null=True
+    )
+    assert "error" not in expected
+    assert compare(KIND, expression, expected, profile) is None

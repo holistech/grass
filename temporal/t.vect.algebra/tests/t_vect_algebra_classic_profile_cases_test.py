@@ -167,3 +167,16 @@ def test_a_condition_on_time_judges_maps_of_equal_time_together(datasets, expres
     """Each map of then and else is judged by all conditions related to it,
     without pairing maps of equal time one to one"""
     assert_equal(expression)
+
+
+def test_a_relation_over_absolute_and_relative_time(datasets):
+    """The previous implementation stops with a TypeError when it relates a
+    list of absolute and relative time; the classic algebra relates the two
+    types to nothing, as t.rast.algebra pins in more forms"""
+    expression = "merge(tmap(ev), rel) : rel"
+    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    assert reference["error"] == "Other:TypeError"
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    expected = outcome(KIND, "rel : rel", RUNNERS["reference"], basename="fb")
+    assert "error" not in expected
+    assert compare(KIND, expression, expected, profile) is None
