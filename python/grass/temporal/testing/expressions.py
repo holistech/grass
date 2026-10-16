@@ -14,9 +14,10 @@ Functions:
   a runner and returns the error class or the result dataset with its maps.
   A runner is any callable with the signature of
   ``grass.temporal.testing.reference.run_reference``. ``RUNNERS`` names the
-  ones at hand: ``reference`` (the earlier implementation) and ``core``
+  ones at hand: ``reference`` (the earlier implementation), ``core``
   (``grass.temporal.algebra.parser.evaluate``, which the parser classes call
-  when the classic algebra is not chosen).
+  when the classic algebra is not chosen) and ``classic`` (the same function
+  with the classic profile).
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise.
 - ``prepare(kind, session, directory)`` creates the datasets the generator
@@ -118,6 +119,42 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
     )
 
 
+def classic_runner(kind, expression, *, basename, overwrite=False, **options):
+    """Compute an expression with the classic profile of the algebra core
+
+    The profile ``CLASSIC`` is what ``evaluate`` runs for the classic
+    algebra. Takes the signature of ``run_reference``; ``stdstype`` of kind
+    ``"select"`` is read like there. For ``granularity=True`` the datasets are
+    sampled by ``setup_granularity`` on a parser of the kind, whose
+    granularity then goes to ``evaluate``.
+    """
+    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
+    from grass.temporal.algebra.parser import evaluate
+    from grass.temporal.algebra.profile import CLASSIC
+
+    granularity = None
+    if options.pop("granularity", False):
+        from .reference import _classes, setup_granularity
+
+        parser = _classes(kind)[0](classic=False, **options)
+        setup_granularity(parser, kind, expression)
+        granularity = parser.granularity
+    selection = kind == "select"
+    if selection:
+        stdstype = options.pop("stdstype", "strds")
+        kind = KINDS_OF_STDS[stdstype]
+    return evaluate(
+        expression,
+        kind=kind,
+        basename=basename,
+        overwrite=overwrite,
+        selection=selection,
+        granularity=granularity,
+        profile=CLASSIC,
+        **options,
+    )
+
+
 def reference_runner(kind, expression, *, basename, overwrite=False, **options):
     """Compute an expression with the earlier implementation, see run_reference"""
     from .reference import run_reference
@@ -127,7 +164,11 @@ def reference_runner(kind, expression, *, basename, overwrite=False, **options):
     )
 
 
-RUNNERS = {"reference": reference_runner, "core": core_runner}
+RUNNERS = {
+    "reference": reference_runner,
+    "core": core_runner,
+    "classic": classic_runner,
+}
 
 
 class Timeout(BaseException):  # noqa: N818, not an error of the algebra
