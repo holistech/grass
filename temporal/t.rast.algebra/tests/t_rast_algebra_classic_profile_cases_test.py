@@ -60,6 +60,14 @@ COMPUTED_COPIES = [
     "merge(A, A # N) {:,equal} HA",
     "merge(A # N, A) {:,equal} HA",
     "merge(A, A # D) {:,equal} HA",
+    "merge(A, (A # N) + 1) {:,equal} HA",
+    "merge(A, (A # N) * 2) {:,equal} HA",
+    "merge(A, (A # N) - 1) {:,equal} HA",
+    "merge(A, abs(A # N)) {:,equal} HA",
+    "merge(A, ((A # N) + 1) * 2) {:,equal} HA",
+    "merge(A, 1 + (A # N)) {:,equal} HA",
+    "merge(A, 2 * (A # N)) {:,equal} HA",
+    "merge(A, if(A # N > 1, A # N)) {:,equal} HA",
     "merge(A, sqrt(A)) {:,overlapped|equal} if(AF < 3000000000 || td(D) >= 2, HA)",
 ]
 
@@ -205,6 +213,9 @@ COUNT_BRANCHES = [
     "if(isnull(A), Z # A, A)",
     "if(isnull(A), Z # A)",
     "if(isnull(A), Z # A, null())",
+    "if(isnull(A), (A # D) + 1, 3)",
+    "if(isnull(A), 3, (A # D) * 2)",
+    "if(isnull(A), abs(A # D), 3)",
 ]
 
 # isnull(), isntnull() and exist() of a count as condition: the count itself

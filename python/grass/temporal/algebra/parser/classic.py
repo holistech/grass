@@ -279,6 +279,31 @@ class ClassicTranslator(Translator):
         return super()._binary(node)
 
     def _apply(self, function, *operands):
+        """The classic result of function; a count that meets numbers stays a
+        count of the same map, as the map changed by a number keeps its id"""
+        result = self._applied(function, *operands)
+        series = [operand for operand in operands if isinstance(operand, Series)]
+        if (
+            len(series) == 1
+            and isinstance(result, Series)
+            and len(result.slots) == len(series[0].slots)
+            and all(id(slot.content) in self._counted for slot in series[0].slots)
+        ):
+            slots = []
+            for slot, counted in zip(result.slots, series[0].slots, strict=True):
+                content = dataclasses.replace(slot.content)
+                self._counted[id(content)] = (
+                    content,
+                    self._counted[id(counted.content)][1],
+                )
+                slots.append(dataclasses.replace(slot, content=content))
+            result = dataclasses.replace(result, slots=tuple(slots))
+            if id(series[0]) in self._counts:
+                # if() takes the count itself, whatever was done to it
+                self._counts[id(result)] = self._counts[id(series[0])]
+        return result
+
+    def _applied(self, function, *operands):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
         computed by r.mapcalc per map in the classic algebra, while the core
         computes scalars in Python and lacks most of the functions"""
@@ -940,9 +965,9 @@ class ClassicTranslator(Translator):
         # whatever command was built for it, so a number next to a count is
         # lost and the count stands alone as the then part.
         if id(otherwise) in self._counts and not _timed(then):
-            then, otherwise = otherwise, _ABSENT
+            then, otherwise = self._counts[id(otherwise)], _ABSENT
         elif id(then) in self._counts and not _timed(otherwise):
-            otherwise = _ABSENT
+            then, otherwise = self._counts[id(then)], _ABSENT
         timed_then, timed_else = _timed(then), _timed(otherwise)
         if timed_then and timed_else:
             matches = self._related(
