@@ -1,0 +1,322 @@
+"""The expressions of the paper that introduced the algebra, in a gold corpus
+
+Gebbert, Leppelt and Pebesma (2019): A Topology Based Spatio-Temporal Map
+Algebra for Big Data Analysis. Data 4(2), 86. The expressions are the
+printed ones, with the names of the datasets replaced. The corpus checks
+that the classic profile (what -c runs) computes what the earlier
+implementation, the reference, computes. Where the paper writes the relation
+equals, the reference refuses it, so it runs with the relation equal there.
+
+t_rast_algebra_paper_test.py checks the figures of the paper against their
+printed results; this module compares the two implementations on the
+expressions and pins three results computed by hand.
+
+The paper prints some spellings that no version reads. STR3DS and STVDS in
+capitals and preceedes are syntax errors; they are pinned here and in
+t_select_published_test.py. The grammar example {>=,equals,l} stands in an
+if() in the paper, which neither implementation reads.
+"""
+
+import datetime
+
+import pytest
+
+from grass.temporal.testing import fakes
+from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.tools import Tools
+
+KIND = "raster"
+
+# Every test chooses its algebra itself, see the marker in pyproject.toml.
+pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
+
+# (expression, options of the runners, data). The test ids name the section
+# of the paper; the data are those of the fixture below. A name other than
+# "paper" in the last field would name another fixture.
+PUBLISHED = [
+    pytest.param(
+        "(NIR - RED) / (NIR + RED)", {}, "paper", id="section 4.1, Landsat NDVI"
+    ),
+    pytest.param(
+        "(NIR {-,equal|equivalent,l} RED) {/,equal|equivalent,l} "
+        "(NIR {+,equal|equivalent,l} RED)",
+        {"spatial": True},
+        "paper",
+        id="section 4.2, Sentinel-2 NDVI",
+    ),
+    pytest.param(
+        "(DM {+,contains,l} if(T >= 10.0, P, 0.0)) / "
+        "(DM {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))",
+        {},
+        "paper",
+        id="section 4.3, hydrothermal coefficient",
+    ),
+    pytest.param(
+        "(A {+,contains,l} E) {/,equals,l} (A {#,contains,l} E)",
+        {},
+        "paper",
+        id="section 5, hash operator with equals",
+    ),
+    pytest.param("E {:,during,l} A", {}, "paper", id="appendix C.1, selection"),
+    pytest.param(
+        "A !: B {:,contains,l} E", {}, "paper", id="appendix C.1, inverse selection"
+    ),
+    pytest.param("A {+,contains,l} E", {}, "paper", id="appendix C.2, contains"),
+    pytest.param("E {+,during,l} A", {}, "paper", id="appendix C.2, during"),
+    pytest.param(
+        "A {+,follows|precedes,d} G", {}, "paper", id="appendix C.2, disjoint union"
+    ),
+    pytest.param("A {-,overlaps,i} B", {}, "paper", id="appendix C.2, intersection"),
+    pytest.param("A {+,equals|equivalent,l} F", {}, "paper", id="appendix C.2, equals"),
+    pytest.param(
+        'buff_t(A, "1 month") {+,equals|overlaps|overlapped,u} buff_t(B, "1 month")',
+        {},
+        "paper",
+        id="appendix C.3, temporal buffer with equals",
+    ),
+    pytest.param("(A[-1] + A) / td(A)", {}, "paper", id="appendix C.4, gradient"),
+    pytest.param(
+        "if(A > 1 {&&,equals,&,l} F > 6, A)",
+        {},
+        "paper",
+        id="grammar, logical operator with equals",
+    ),
+    pytest.param(
+        "if(A > 1 {&&,contains,&,l} E > 1, A)",
+        {},
+        "paper",
+        id="grammar, logical operator with contains",
+    ),
+]
+
+MONTHS = [
+    (datetime.datetime(2001, month, 1), datetime.datetime(2001, month + 1, 1))
+    for month in range(1, 5)
+]
+
+
+def days(first, last):
+    """Daily intervals from day first to day last of January 2001"""
+    return [
+        (
+            datetime.datetime(2001, 1, day),
+            datetime.datetime(2001, 1, day) + datetime.timedelta(days=1),
+        )
+        for day in range(first, last + 1)
+    ]
+
+
+def specs(names, values, times):
+    return [
+        MapSpec(name, value, start, end)
+        for name, value, (start, end) in zip(names, values, times, strict=True)
+    ]
+
+
+@pytest.fixture(scope="module")
+def paper(temporal_module_session):
+    """Small datasets for the expressions of the paper
+
+    The values are floating point numbers, because r.mapcalc divides whole
+    numbers as whole numbers. A, F: four monthly maps; G: February to April;
+    B: two maps of one month that start on the 15th; C: one map of two
+    months; E: three days inside January; NIR, RED: three days with equal
+    time; DM: January and February; T, P: one map per day of January and
+    February 2001 (59 days).
+    """
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    day_1 = datetime.datetime(2001, 1, 1)
+    day = datetime.timedelta(days=1)
+    create_stds(
+        tools,
+        "strds",
+        "A",
+        specs(["a1", "a2", "a3", "a4"], [1.5, 2.5, 3.5, 4.5], MONTHS),
+    )
+    create_stds(
+        tools, "strds", "F", specs(["f1", "f2", "f3", "f4"], [5, 6, 7, 8], MONTHS)
+    )
+    create_stds(
+        tools, "strds", "G", specs(["g1", "g2", "g3"], [10, 20, 30], MONTHS[1:])
+    )
+    create_stds(
+        tools,
+        "strds",
+        "B",
+        specs(
+            ["b1", "b2"],
+            [10, 20],
+            [
+                (datetime.datetime(2001, 1, 15), datetime.datetime(2001, 2, 15)),
+                (datetime.datetime(2001, 2, 15), datetime.datetime(2001, 3, 15)),
+            ],
+        ),
+    )
+    create_stds(
+        tools,
+        "strds",
+        "C",
+        specs(["c1"], [100], [(MONTHS[0][0], MONTHS[1][1])]),
+    )
+    create_stds(
+        tools, "strds", "E", specs(["e1", "e2", "e3"], [1.5, 2.5, 3.5], days(5, 7))
+    )
+    create_stds(
+        tools,
+        "strds",
+        "NIR",
+        specs(["nir1", "nir2", "nir3"], [8.5, 9.5, 10.5], days(1, 3)),
+    )
+    create_stds(
+        tools,
+        "strds",
+        "RED",
+        specs(["red1", "red2", "red3"], [2.5, 3.5, 4.5], days(1, 3)),
+    )
+    create_stds(tools, "strds", "DM", specs(["dm1", "dm2"], [1, 2], MONTHS[:2]))
+    daily = [(day_1 + number * day, day_1 + (number + 1) * day) for number in range(59)]
+    create_stds(
+        tools,
+        "strds",
+        "T",
+        specs(
+            [f"t{number}" for number in range(59)], [n % 20 for n in range(59)], daily
+        ),
+    )
+    create_stds(
+        tools,
+        "strds",
+        "P",
+        specs(
+            [f"p{number}" for number in range(59)],
+            [n % 7 + 1 for n in range(59)],
+            daily,
+        ),
+    )
+    with fakes.cached_io(fakes.CacheStorage()):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def cached_io(paper):
+    """Replace the fixture of conftest.py: the caches run through paper"""
+
+
+def run(runner, expression, basename, **options):
+    return outcome(
+        KIND,
+        expression,
+        RUNNERS[runner],
+        basename=basename,
+        register_null=True,
+        **options,
+    )
+
+
+def readable(expression):
+    """The expression with the relation name that the reference reads"""
+    return expression.replace("equals", "equal")
+
+
+@pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)
+def test_the_profile_computes_what_the_reference_computes(
+    paper, expression, options, data
+):
+    assert data == "paper"
+    reference = run("reference", readable(expression), "fa", **options)
+    profile = run("classic", expression, "fb", **options)
+    assert compare(KIND, expression, reference, profile) is None
+    # Two refusals would make the comparison vacuous.
+    assert "error" not in reference
+    assert reference["maps"]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "(A {+,contains,l} E) {/,equals,l} (A {#,contains,l} E)",
+        "A {+,equals|equivalent,l} F",
+    ],
+)
+def test_the_reference_refuses_the_spelling_equals(paper, expression):
+    """A documented difference: the profile runs where the reference fails"""
+    assert run("reference", expression, "fa")["error"] == "SyntaxError"
+    assert "error" not in run("classic", expression, "fb")
+
+
+def test_the_spelling_preceedes_of_the_caption_is_refused(paper):
+    """The caption of the paper misspells precedes; no version reads it"""
+    expression = "A {+,follows|preceedes,d} G"
+    for runner in ("reference", "classic", "core"):
+        assert run(runner, expression, "fa")["error"] == "SyntaxError"
+
+
+def values(result):
+    """The maps of an outcome as (start, end, minimum) with the dates only"""
+    assert result["stds"], result
+    return [
+        (start[:10], end[:10] if end else None, pytest.approx(low, rel=1e-5))
+        for _name, start, end, low, high in result["maps"]
+        if low == high
+    ]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_landsat_ndvi_by_hand(paper, runner):
+    """(NIR - RED) / (NIR + RED) of the maps of one day each
+
+    day 1: (8.5 - 2.5) / (8.5 + 2.5) = 6 / 11
+    day 2: (9.5 - 3.5) / (9.5 + 3.5) = 6 / 13
+    day 3: (10.5 - 4.5) / (10.5 + 4.5) = 6 / 15
+    """
+    result = run(runner, "(NIR - RED) / (NIR + RED)", "fa")
+    assert values(result) == [
+        ("2001-01-01", "2001-01-02", 6 / 11),
+        ("2001-01-02", "2001-01-03", 6 / 13),
+        ("2001-01-03", "2001-01-04", 6 / 15),
+    ]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_hydrothermal_coefficient_by_hand(paper, runner):
+    """The sum of P over the days with T >= 10 divided by the sum of T / 10
+
+    DM adds its value once to numerator and denominator. Day number n (from
+    0 on) has T = n % 20 and P = n % 7 + 1.
+
+    January, DM = 1, days 0 to 30. T >= 10 on days 10 to 19 (T = 10 to 19)
+    and day 30 (T = 10). P on days 10 to 19 is 4 5 6 7 1 2 3 4 5 6 (sum 43),
+    on day 30 it is 3: numerator 1 + 46 = 47. The T of these days sum to
+    145 + 10 = 155: denominator 1 + 15.5 = 16.5. 47 / 16.5.
+
+    February, DM = 2, days 31 to 58. T >= 10 on days 31 to 39 (T = 11 to 19)
+    and 50 to 58 (T = 10 to 18). P on days 31 to 39 is 4 5 6 7 1 2 3 4 5
+    (sum 37), on days 50 to 58 it is 2 3 4 5 6 7 1 2 3 (sum 33): numerator
+    2 + 70 = 72. The T sum to 135 + 126 = 261: denominator 2 + 26.1 = 28.1.
+    72 / 28.1.
+    """
+    expression = (
+        "(DM {+,contains,l} if(T >= 10.0, P, 0.0)) / "
+        "(DM {+,contains,l} if(T >= 10.0, T / 10.0, 0.0))"
+    )
+    assert values(run(runner, expression, "fa")) == [
+        ("2001-01-01", "2001-02-01", 47 / 16.5),
+        ("2001-02-01", "2001-03-01", 72 / 28.1),
+    ]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_gradient_by_hand(paper, runner):
+    """(A[-1] + A) / td(A) on the monthly maps 1.5, 2.5, 3.5 and 4.5
+
+    The first map has no predecessor and gives no map. February has 28 days,
+    March 31 and April 30 (2001 is no leap year):
+    (1.5 + 2.5) / 28, (2.5 + 3.5) / 31, (3.5 + 4.5) / 30.
+    """
+    assert values(run(runner, "(A[-1] + A) / td(A)", "fa")) == [
+        ("2001-02-01", "2001-03-01", 4 / 28),
+        ("2001-03-01", "2001-04-01", 6 / 31),
+        ("2001-04-01", "2001-05-01", 8 / 30),
+    ]
