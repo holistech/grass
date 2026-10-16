@@ -87,36 +87,82 @@ def _origin(content, extent, *slots):
     return None
 
 
-def _combine(target, others, mode, *, stop_at_failure=False):
-    """The time stamp of a target combined with related slots
+FAILURES = ("empty", "stop", "skip")
+BOXES = ("intersection", "union")
 
-    "left" and "target" keep the time stamp of the target. The other modes
-    fold the target with each related slot in turn using the methods of
-    grass.temporal. None means that the combination is empty. A related slot
-    that does not combine empties the whole combination, unless
-    stop_at_failure is set: then the slots before it count and the ones after
-    it are left out, and only a first slot that does not combine empties it.
+
+def _combine(target, others, mode):
+    """The time stamp of a target combined with related slots, None if empty
+
+    A convenience for the callers that need the time stamp only; see
+    _combine_steps().
     """
-    if mode in {"left", "target"}:
-        return target.extent
-    unit = target.extent.unit
-    current = target.extent
-    for number, slot in enumerate(others):
-        combined = getattr(as_map(current), _COMBINE[mode])(as_map(slot.extent))
-        found = extent_from(combined, unit)
-        if found is None:
-            return current if stop_at_failure and number else None
-        current = found
-    return current
+    found = _combine_steps(target, others, mode)
+    return None if found is None else found[0]
 
 
-def _intersection(first, second, three_d):
-    """The common box of two boxes as SpatialExtent finds it, None if none
+def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=False):
+    """The time stamp and the box of a target combined with related slots
 
-    This is what the classic algebra asks of its map objects, and it is not
+    "left" and "target" keep the time stamp of the target, "right" takes that
+    of each related slot in turn, so that of the last one. The other modes
+    fold the target with each related slot in turn using the methods of
+    grass.temporal. With box the box of the target is combined with the box
+    of each related slot in the same step (see _box()).
+
+    A step fails if the time stamps do not combine or the boxes do not. The
+    failing step still applies the half that did combine, as the classic
+    algebra does (overlay_map_extent() evaluates the spatial and the temporal
+    overlay one after the other and without short circuit, and both change
+    the same map). failure says what a failing step means:
+
+    - "empty": the whole combination is empty
+    - "stop": the slots after it are left out, and what the steps before and
+      the half step itself set stays; the combination is empty only if no step
+      before succeeded
+    - "skip": the slot is passed over, and the combination is that of the
+      other slots, at worst the target as it is
+
+    :return: (time stamp, box), or None if the combination is empty
+    """
+    extent, space = target.extent, target.space
+    succeeded = 0
+    for partner in others:
+        ok = True
+        if mode == "right":
+            extent = partner.extent
+        elif mode not in {"left", "target"}:
+            combined = getattr(as_map(extent), _COMBINE[mode])(as_map(partner.extent))
+            found = extent_from(combined, target.extent.unit)
+            if found is None:
+                ok = False
+            else:
+                extent = found
+        if box is not None and space is not None and partner.space is not None:
+            found = _box(space, partner.space, box, three_d)
+            if found is None:
+                ok = False
+            else:
+                space = found
+        if ok:
+            succeeded += 1
+        elif failure == "empty":
+            return None
+        elif failure == "stop":
+            return (extent, space) if succeeded else None
+    return extent, space
+
+
+def _box(first, second, operation, three_d):
+    """The common box ("intersection") or the box around both ("union") of
+    two boxes, as SpatialExtent computes them; None if there is no common box
+
+    The classic algebra asks its map objects for these boxes, which is not
     the test of _combined_space(). Measured 2026-10-16 by calling
-    SpatialExtent.intersect_2d() and intersect() on such boxes: boxes that share only an edge or a
-    corner have no common box, and neither have two 3D boxes of no height.
+    SpatialExtent.intersect_2d() and intersect() on such boxes: boxes that
+    share only an edge or a corner have no common box, and neither have two
+    3D boxes of no height, where _combined_space() finds one. A box around
+    both always exists.
     """
     boxes = [
         SpatialExtent(
@@ -129,7 +175,16 @@ def _intersection(first, second, three_d):
         )
         for box in (first, second)
     ]
-    found = boxes[0].intersect(boxes[1]) if three_d else boxes[0].intersect_2d(boxes[1])
+    if operation == "intersection":
+        found = (
+            boxes[0].intersect(boxes[1]) if three_d else boxes[0].intersect_2d(boxes[1])
+        )
+    else:
+        found = (
+            boxes[0].disjoint_union(boxes[1])
+            if three_d
+            else boxes[0].disjoint_union_2d(boxes[1])
+        )
     if found is None:
         return None
     return Space(
@@ -142,20 +197,21 @@ def _intersection(first, second, three_d):
     )
 
 
-def _meeting(space, partners, three_d):
-    """The slots of partners up to the first whose box does not meet space
+def _check_box(box, space):
+    if box is None:
+        return
+    _check_option("box", box, BOXES)
+    if space != "keep":
+        msg = "box replaces space, so space must stay keep"
+        raise ValueError(msg)
 
-    Each partner narrows the box to its common box with the slots before
-    it. A slot without box, and any slot after a target without box, meets.
-    """
-    meeting = []
-    for partner in partners:
-        if space is not None and partner.space is not None:
-            space = _intersection(space, partner.space, three_d)
-            if space is None:
-                break
-        meeting.append(partner)
-    return meeting
+
+def _box_of(slot, partner, operation, three_d):
+    """The box of the pair (slot, partner), False if the boxes do not combine"""
+    if slot.space is None or partner.space is None:
+        return slot.space
+    found = _box(slot.space, partner.space, operation, three_d)
+    return False if found is None else found
 
 
 def _combined_space(own, others, mode):
@@ -195,27 +251,72 @@ def _combined_space(own, others, mode):
     return common
 
 
-def select(left, relation, other, *, related=True):
+SELECT_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
+
+
+def select(
+    left,
+    relation,
+    other,
+    *,
+    related=True,
+    extent="left",
+    failure="skip",
+    order="sorted",
+    unique=True,
+):
     """Keep the slots l of left for which a slot x of other with "l R x"
     exists (related=True) or none exists (related=False)
 
-    Content and time stamps stay as they are. select(L, R, X) and
-    select(L, R, X, related=False) are disjoint and together are L.
+    Content stays as it is. select(L, R, X) and select(L, R, X, related=False)
+    are disjoint and together are L.
+
+    :param extent: the time stamp of a kept slot: its own ("left"), or its own
+        combined with the time stamps of its partners one after the other:
+        the union, intersection or disjoint union, or "right", the time stamp
+        of the last partner. Only for related=True
+    :param failure: what a partner whose time stamp does not combine means
+        for extent other than "left" and "right", see gather(); the default
+        "skip" passes over such a partner, so the slot is always kept
+    :param order: the order of the partners, which fixes the last one and the
+        result of "stop", see related()
+    :param unique: see related()
+    :raises ValueError: for an extent other than "left" with related=False
     """
     check_series(left, "left")
     check_relation(relation)
     check_series(other, "other")
+    _check_option("extent", extent, SELECT_EXTENTS)
+    _check_option("failure", failure, FAILURES)
+    _check_option("order", order, ORDERS)
+    if extent != "left" and not related:
+        msg = "A slot without partner has no time stamp to combine, so extent must be left"
+        raise ValueError(msg)
     _check_comparable(left, other)
     matches = related_indices(
-        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
+        left.slots,
+        relation,
+        other.slots,
+        dimension=DIMENSIONS[left.kind],
+        order=order,
+        unique=unique,
     )
-    slots = tuple(
-        slot
-        for slot, found in zip(left.slots, matches, strict=True)
-        if bool(found) == related
-    )
+    slots = []
+    for slot, found in zip(left.slots, matches, strict=True):
+        if bool(found) != related:
+            continue
+        if extent != "left":
+            combined = _combine_steps(
+                slot, [other.slots[index] for index in found], extent, failure=failure
+            )
+            if combined is None:
+                continue
+            if combined[0] != slot.extent:
+                # The slot is no longer the registered map it was.
+                slot = Slot(combined[0], slot.content, slot.space)
+        slots.append(slot)
     return replace(
-        left, slots=slots, spatial=left.spatial or relation.spatial is not None
+        left, slots=tuple(slots), spatial=left.spatial or relation.spatial is not None
     )
 
 
@@ -229,7 +330,7 @@ def pairs(
     space="keep",
     order="sorted",
     unique=True,
-    box_filter=False,
+    box=None,
     fold_all=False,
     last_only=False,
 ):
@@ -248,10 +349,12 @@ def pairs(
         order of the slots of one l, and the order in which fold_all folds
     :param unique: False makes a pair for every written relation name that
         relates x to l, see related()
-    :param box_filter: only the partners of l up to the first whose box does
-        not meet the common box so far make pairs, also if space takes no
-        part in the relation; slots without box meet. fold_all still folds
-        all partners
+    :param box: "intersection" or "union" combines the box of l with the box
+        of x for the slot of each pair, as an overlay of the classic algebra
+        does (see _box()), also if space takes no part in the relation; it
+        replaces space. The pairs end at the first partner of l without
+        common box (only "intersection" has none); fold_all still folds all
+        partners. Slots without box combine
     :param fold_all: every pair of l gets the content that folds all partners
         of l, content(content(l, x1), x2) and so on, instead of
         content(l, x); needs content
@@ -267,6 +370,7 @@ def pairs(
     _check_option("extent", extent, PAIR_EXTENTS)
     _check_option("space", space, SPACES)
     _check_option("order", order, ORDERS)
+    _check_box(box, space)
     if fold_all and content is None:
         msg = "fold_all needs a content function to fold with"
         raise ValueError(msg)
@@ -286,10 +390,13 @@ def pairs(
         if fold_all:
             for partner in partners:
                 folded = content(folded, partner.content)
-        if box_filter:
-            partners = _meeting(slot.space, partners, DIMENSIONS[left.kind] == "3D")
         made = []
         for partner in partners:
+            pair_space = None
+            if box is not None:
+                pair_space = _box_of(slot, partner, box, DIMENSIONS[left.kind] == "3D")
+                if pair_space is False:
+                    break
             if extent == "right":
                 time, own, others = partner.extent, partner.space, [slot.space]
             else:
@@ -306,13 +413,10 @@ def pairs(
                 value = slot.content
             else:
                 value = content(slot.content, partner.content)
+            if box is None:
+                pair_space = _combined_space(own, others, space)
             made.append(
-                Slot(
-                    time,
-                    value,
-                    _combined_space(own, others, space),
-                    _origin(value, time, slot, partner),
-                )
+                Slot(time, value, pair_space, _origin(value, time, slot, partner))
             )
         slots.extend(made[-1:] if last_only else made)
     sort = left.sort if content is None else _joined_sort(left, other)
@@ -542,8 +646,8 @@ def gather(
     order="sorted",
     unique=True,
     pairing_error=ValueError,
-    stop_at_failure=False,
-    box_filter=False,
+    failure="empty",
+    box=None,
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
@@ -577,17 +681,18 @@ def gather(
     :param pairing_error: the exception class that equal_times="pairwise"
         raises for counts that cannot be paired; the classic algebra stops
         with a FatalError
-    :param stop_at_failure: a related slot whose time stamp does not combine
-        with the time stamp so far ends the combination instead of emptying
-        it: the result has the time stamp of the slots before it, and is left
-        out only if the first slot does not combine; the reducer still sees
-        all related slots. Without effect for extent="target"
-    :param box_filter: only the related slots up to the first whose box does
-        not meet the common box so far give the time stamp and the spatial
-        extent of the result (the reducer still sees all of them), also if
-        space takes no part in the relation; a target none of whose related
-        slots meets it is left out, whatever missing says. Slots without
-        box meet
+    :param failure: what a related slot whose time stamp (or box, see box)
+        does not combine with that of the target means: "empty" leaves the
+        target out, "stop" ends the combination there and keeps what the
+        slots before it and the failing step itself set (the target is left
+        out only if no step before succeeded), "skip" passes over the slot.
+        The reducer sees all related slots whatever failure says
+    :param box: "intersection" or "union" combines the box of the target with
+        the box of each related slot in the same step as the time stamp, as an
+        overlay of the classic algebra does (see _combine_steps() and _box()),
+        also if space takes no part in the relation; the result box is the one
+        so far, and it replaces space. Only "intersection" can fail. Slots
+        without box combine
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     :raises pairing_error: if equal_times="pairwise" cannot pair the maps of
@@ -602,6 +707,8 @@ def gather(
     _check_option("nulls", nulls, NULLS)
     _check_option("space", space, SPACES)
     _check_option("order", order, ORDERS)
+    _check_option("failure", failure, FAILURES)
+    _check_box(box, space)
     reducers.check(reduce, nulls)
     _check_comparable(target, other)
     sort = reducers.sort_of(reduce, target.sort, other.sort)
@@ -632,21 +739,26 @@ def gather(
             elif missing == "keep":
                 slots.append(slot)
             continue
-        meeting = (
-            _meeting(slot.space, partners, DIMENSIONS[target.kind] == "3D")
-            if box_filter
-            else partners
+        combined = _combine_steps(
+            slot,
+            partners,
+            extent,
+            box=box,
+            failure=failure,
+            three_d=DIMENSIONS[target.kind] == "3D",
         )
-        if not meeting:
+        if combined is None:
             continue
-        time = _combine(slot, meeting, extent, stop_at_failure=stop_at_failure)
-        if time is None:
-            continue
+        time, box_space = combined
         value = reducers.reduce(
             reduce, slot.content, [partner.content for partner in partners], nulls
         )
-        extent_space = _combined_space(
-            slot.space, [partner.space for partner in meeting], space
+        extent_space = (
+            box_space
+            if box is not None
+            else _combined_space(
+                slot.space, [partner.space for partner in partners], space
+            )
         )
         slots.append(Slot(time, value, extent_space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None

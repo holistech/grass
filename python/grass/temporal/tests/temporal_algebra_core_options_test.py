@@ -5,11 +5,12 @@ no deduplication, fold over all partners, stop at the first failure). Their
 defaults are the rules of the core, which the other tests of the core pin.
 
 The expected values of the classic rules come from the classic algebra:
-the partners are visited as _related_maps() of temporal_algebra.py (line
-1369) does, once per relation name in the written order of the expression
-(_check_topology(), line 1530, keeps order and repetitions); the fold and
-the stop at the first partner that does not combine are
-set_temporal_extent_list() (line 1253).
+the partners are visited as _related_maps() of temporal_algebra.py does,
+once per relation name in the written order of the expression
+(_check_topology() keeps order and repetitions); the stop at the first
+partner that does not combine is set_temporal_extent_list() with
+overlay_map_extent(), the selection with a temporal operator is
+set_granularity(). Where a probe was run, the comment says so.
 """
 
 import datetime
@@ -19,7 +20,7 @@ import pytest
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra.content import Call, Const, MapRef
-from grass.temporal.algebra.operations import _pair_equal_times, gather, pairs
+from grass.temporal.algebra.operations import _pair_equal_times, gather, pairs, select
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import (
     Relation,
@@ -233,10 +234,75 @@ def test_pairing_error_is_raised_as_the_class_asked_for(make_series):
         gather(two, equal, three, reduce="first", equal_times="pairwise")
 
 
-# The combination of time stamps stops at the first partner that does not
-# combine, as set_temporal_extent_list() of the classic algebra does when
-# overlay_map_extent() fails (temporal_algebra.py line 1300): the map keeps
-# what the partners before had given it.
+# The probes below were run on 2026-10-16 against the classic algebra: the
+# maps are RasterDataset objects with the extents of the cases, related with
+# SpatioTemporalTopologyBuilder, and set_temporal_extent_list() of
+# TemporalAlgebraParser (bool_op "and", relations CONTAINS and PRECEDES) or
+# set_granularity() (selections) combines them. l is [1, 3] with the box
+# N10 S0 E10 W0, x1 is [1, 2] and x2 [2, 3] with the same box, x3 is [3, 4].
+# Each step is overlay_map_extent(): the spatial and the temporal overlay
+# both run, whether the other one failed or not, and both change the same
+# map object. Results of the probe, as (time stamp, box E and W):
+#
+#   x3 box E6 W2 meets, time fails after the instant:  instant day 2, E6 W2
+#   x3 box E30 W20 fails, time union combines:          [1, 4], E10 W0
+#   x3 box E30 W20 fails, time intersection combines:   instant day 2, E10 W0
+#   first partner box fails, time combines:             no result map
+
+
+def stepped(make_series, extent, last):
+    """l [1, 3] and the partners x1 [1, 2], x2 [2, 3] and x3 [3, 4] with the
+    box last in the classic probe; l contains x1 and x2 and precedes x3"""
+    whole = Space(10, 0, 10, 0, 0, 0)
+    target = make_series("l", (1, 3), space=whole)
+    other = make_series("x", (1, 2), (2, 3), (3, 4), space=whole)
+    slots = (*other.slots[:2], replace(other.slots[2], space=last))
+    other = replace(other, slots=slots)
+    return gather(
+        target,
+        relation("contains|precedes"),
+        other,
+        reduce="count",
+        order="written",
+        extent=extent,
+        box="intersection",
+        failure="stop",
+    )
+
+
+def test_a_partner_whose_time_fails_still_applies_its_box(make_series):
+    result = stepped(make_series, "intersection", Space(10, 0, 6, 2, 0, 0))
+    assert result.times() == [(day(2), None)]
+    assert [slot.space for slot in result] == [Space(10, 0, 6, 2, 0, 0)]
+
+
+def test_a_partner_whose_box_fails_still_applies_its_union_time(make_series):
+    result = stepped(make_series, "union", Space(10, 0, 30, 20, 0, 0))
+    assert result.times() == [(day(1), day(4))]
+    assert [slot.space for slot in result] == [Space(10, 0, 10, 0, 0, 0)]
+
+
+def test_a_partner_whose_box_fails_still_applies_its_intersection(make_series):
+    result = stepped(make_series, "intersection", Space(10, 0, 30, 20, 0, 0))
+    assert result.times() == [(day(2), None)]
+    assert [slot.space for slot in result] == [Space(10, 0, 10, 0, 0, 0)]
+
+
+def test_a_first_step_that_fails_leaves_the_target_out(make_series):
+    whole = Space(10, 0, 10, 0, 0, 0)
+    target = make_series("l", (1, 3), space=whole)
+    other = make_series("x", (1, 2), space=Space(10, 0, 30, 20, 0, 0))
+    kept = {"reduce": "count", "extent": "union", "box": "intersection"}
+    for failure in ("empty", "stop"):
+        assert len(gather(target, contains, other, **kept, failure=failure)) == 0
+    # skip passes over the partner and keeps the target with the half step
+    skipped = gather(target, contains, other, **kept, failure="skip")
+    assert skipped.times() == [(day(1), day(3))]
+
+
+def test_the_reducer_sees_the_partners_after_a_failing_step(make_series):
+    result = stepped(make_series, "union", Space(10, 0, 30, 20, 0, 0))
+    assert contents(result) == [Const(3)]
 
 
 def test_a_partner_that_does_not_intersect_empties_the_intersection(make_series):
@@ -246,7 +312,7 @@ def test_a_partner_that_does_not_intersect_empties_the_intersection(make_series)
     assert result.times() == []
 
 
-def test_stop_at_failure_keeps_the_intersection_so_far(make_series):
+def test_stop_keeps_the_intersection_so_far(make_series):
     target = make_series("t", (1, 10))
     other = make_series("x", (2, 3), (5, 6), (7, 8))
     result = gather(
@@ -255,100 +321,96 @@ def test_stop_at_failure_keeps_the_intersection_so_far(make_series):
         other,
         reduce=fold("-"),
         extent="intersection",
-        stop_at_failure=True,
+        failure="stop",
     )
     assert result.times() == [(day(2), day(3))]
     # The reducer sees the partners after the failing one as well.
     assert contents(result) == [folded("t1", "x1", "x2", "x3")]
 
 
-def test_stop_at_failure_changes_nothing_if_all_partners_combine(make_series):
+def test_skip_passes_over_the_partner_that_does_not_combine(make_series):
+    target = make_series("t", (1, 10))
+    other = make_series("x", (2, 5), (3, 9), (7, 8))
+    options = {"reduce": "count", "extent": "intersection"}
+    # [2, 5] and [3, 9] intersect in [3, 5]; [7, 8] has no time with it.
+    skipped = gather(target, contains, other, **options, failure="skip")
+    assert skipped.times() == [(day(3), day(5))]
+    assert len(gather(target, contains, other, **options)) == 0
+
+
+def test_failure_changes_nothing_if_all_partners_combine(make_series):
     target = make_series("t", (1, 10))
     other = make_series("x", (2, 5), (3, 6))
     options = {"reduce": fold("-"), "extent": "intersection"}
-    stopped = gather(target, contains, other, **options, stop_at_failure=True)
-    assert stopped.slots == gather(target, contains, other, **options).slots
-    assert stopped.times() == [(day(3), day(5))]
+    default = gather(target, contains, other, **options)
+    for failure in ("stop", "skip"):
+        assert gather(target, contains, other, **options, failure=failure).slots == (
+            default.slots
+        )
+    assert default.times() == [(day(3), day(5))]
 
 
-# The box filter follows set_temporal_extent_list() as well: with bool_op
-# "and" overlay_map_extent() intersects the box of the result map with the
-# box of each partner and stops at the first partner without a common box,
-# whether the expression names a spatial relation or not.
+def test_failure_must_be_known(make_series):
+    target = make_series("t", (1, 10))
+    other = make_series("x", (2, 5))
+    with pytest.raises(ValueError, match="failure must be one of empty, stop, skip"):
+        gather(target, contains, other, reduce="count", failure="ignore")
 
 
-@pytest.fixture
-def boxes(make_series):
-    """t [1, 10] has a box over the whole area; x1 and x3 lie in the north
-    east, x2 in the south west and has no common box with x1"""
+def test_box_replaces_space(make_series):
+    target = make_series("t", (1, 10))
+    other = make_series("x", (2, 5))
+    with pytest.raises(ValueError, match="box replaces space"):
+        gather(target, contains, other, reduce="count", box="union", space="union")
+
+
+def test_the_union_box_is_the_box_around_both(make_series):
     target = make_series("t", (1, 10), space=Space(10, 0, 10, 0, 0, 0))
-    other = make_series("x", (2, 3), (3, 4), (4, 5), space=Space(10, 5, 10, 5, 0, 0))
-    far = Space(4, 0, 4, 0, 0, 0)
-    slots = (other.slots[0], replace(other.slots[1], space=far), other.slots[2])
-    return target, replace(other, slots=slots)
+    other = make_series("x", (2, 5), space=Space(20, 5, 30, 20, 0, 0))
+    result = gather(target, contains, other, reduce="count", box="union")
+    assert [slot.space for slot in result] == [Space(20, 0, 30, 0, 0, 0)]
 
 
-def test_without_box_filter_all_partners_count(boxes):
-    target, other = boxes
-    result = gather(target, contains, other, reduce=fold("-"), extent="union")
-    assert result.times() == [(day(1), day(10))]
-    assert contents(result) == [folded("t1", "x1", "x2", "x3")]
-
-
-def test_box_filter_stops_at_the_first_box_that_does_not_meet(boxes):
-    target, other = boxes
-    result = gather(
-        target,
-        contains,
-        other,
-        reduce=fold("-"),
-        extent="intersection",
-        space="intersection",
-        box_filter=True,
-    )
-    # Only x1 gives time and box; x2 has no common box with it, x3 is not
-    # looked at, but the fold sees all three.
-    assert result.times() == [(day(2), day(3))]
-    assert [slot.space for slot in result] == [Space(10, 5, 10, 5, 0, 0)]
-    assert contents(result) == [folded("t1", "x1", "x2", "x3")]
-
-
-def test_box_filter_drops_a_target_whose_first_partner_does_not_meet(make_series):
-    target = make_series("t", (1, 10), space=Space(10, 5, 10, 5, 0, 0))
-    other = make_series("x", (2, 3), space=Space(4, 0, 4, 0, 0, 0))
-    options = {"reduce": fold("-"), "missing": "null"}
-    assert len(gather(target, contains, other, **options)) == 1
-    assert len(gather(target, contains, other, **options, box_filter=True)) == 0
-
-
-def test_box_filter_lets_slots_without_box_meet(make_series):
+def test_a_slot_without_box_combines(make_series):
     target = make_series("t", (1, 10), space=Space(10, 0, 10, 0, 0, 0))
     other = make_series("x", (2, 3), (3, 4))
-    result = gather(target, contains, other, reduce="count", box_filter=True)
+    result = gather(target, contains, other, reduce="count", box="intersection")
     assert contents(result) == [Const(2)]
+    assert [slot.space for slot in result] == [Space(10, 0, 10, 0, 0, 0)]
 
 
-def test_box_filter_ignores_the_height_of_2d_boxes(make_series):
+def test_the_box_ignores_the_height_of_2d_boxes(make_series):
     flat = Space(10, 0, 10, 0, 0, 0)
     target = make_series("t", (1, 10), space=flat)
     other = make_series("x", (2, 3), space=flat)
-    result = gather(target, contains, other, reduce="count", box_filter=True)
+    result = gather(target, contains, other, reduce="count", box="intersection")
     assert contents(result) == [Const(1)]
 
 
-def test_box_filter_judges_3d_boxes_of_no_height_as_not_meeting(make_series):
+def test_the_box_of_3d_boxes_of_no_height_does_not_combine(make_series):
     # Measured 2026-10-16: SpatialExtent.intersect() finds no common box for
     # two 3D boxes of no height, as the classic raster3d algebra asks.
     flat = Space(10, 0, 10, 0, 0, 0)
     target = make_series("t", (1, 10), space=flat, kind="raster3d")
     other = make_series("x", (2, 3), space=flat, kind="raster3d")
-    result = gather(target, contains, other, reduce="count", box_filter=True)
+    result = gather(target, contains, other, reduce="count", box="intersection")
     assert len(result) == 0
     tall = Space(10, 0, 10, 0, 5, 0)
     target = make_series("t", (1, 10), space=tall, kind="raster3d")
     other = make_series("x", (2, 3), space=tall, kind="raster3d")
-    result = gather(target, contains, other, reduce="count", box_filter=True)
+    result = gather(target, contains, other, reduce="count", box="intersection")
     assert contents(result) == [Const(1)]
+
+
+@pytest.fixture
+def boxes(make_series):
+    """t [1, 10] has a box over the whole area; x1 and x3 lie in the north
+    east, x2 far away in the north east corner and has no common box with t"""
+    target = make_series("t", (1, 10), space=Space(10, 0, 10, 0, 0, 0))
+    other = make_series("x", (2, 3), (3, 4), (4, 5), space=Space(10, 5, 10, 5, 0, 0))
+    far = Space(30, 20, 30, 20, 0, 0)
+    slots = (other.slots[0], replace(other.slots[1], space=far), other.slots[2])
+    return target, replace(other, slots=slots)
 
 
 def minus(first, second):
@@ -411,14 +473,37 @@ def test_pairs_without_unique_make_a_pair_for_every_name(around):
     assert len(pairs(left, both, other, extent="right", unique=False)) == 4
 
 
-def test_pairs_box_filter_stops_at_the_first_box_that_does_not_meet(boxes):
+def test_pairs_box_ends_at_the_first_partner_without_common_box(boxes):
     target, other = boxes
     assert len(pairs(target, contains, other, extent="right")) == 3
-    kept = pairs(target, contains, other, extent="right", box_filter=True)
+    kept = pairs(target, contains, other, extent="right", box="intersection")
     assert kept.times() == [other.times()[0]]
+    assert [slot.space for slot in kept] == [Space(10, 5, 10, 5, 0, 0)]
 
 
-def test_pairs_box_filter_still_folds_all_partners(boxes):
+def test_pairs_box_combines_each_pair_on_its_own(make_series):
+    # A copy of the target is combined with each partner in the classic
+    # algebra, so the second pair does not see the box of the first.
+    target = make_series("t", (1, 10), space=Space(10, 0, 10, 0, 0, 0))
+    other = make_series("x", (2, 3), (3, 4))
+    slots = (
+        replace(other.slots[0], space=Space(10, 0, 4, 0, 0, 0)),
+        replace(other.slots[1], space=Space(10, 0, 10, 6, 0, 0)),
+    )
+    result = pairs(
+        target,
+        contains,
+        replace(other, slots=slots),
+        extent="right",
+        box="intersection",
+    )
+    assert [slot.space for slot in result] == [
+        Space(10, 0, 4, 0, 0, 0),
+        Space(10, 0, 10, 6, 0, 0),
+    ]
+
+
+def test_pairs_box_still_folds_all_partners(boxes):
     target, other = boxes
     kept = pairs(
         target,
@@ -427,11 +512,76 @@ def test_pairs_box_filter_still_folds_all_partners(boxes):
         extent="right",
         content=minus,
         fold_all=True,
-        box_filter=True,
+        box="intersection",
     )
     assert contents(kept) == [
         minus(minus(minus(ref("t1"), ref("x1")), ref("x2")), ref("x3"))
     ]
+
+
+def test_pairs_box_replaces_space(boxes):
+    target, other = boxes
+    with pytest.raises(ValueError, match="box replaces space"):
+        pairs(target, contains, other, box="union", space="union")
+
+
+# Selections with a temporal operator, probe of 2026-10-16 with
+# set_granularity() of the classic algebra: l [1, 10] with the relation names
+# FINISHED, STARTED, CONTAINS in this order and the partners x1 [1, 3], x2
+# [5, 10] and x3 [6, 7]. FINISHED lists x2, STARTED x1, CONTAINS all three.
+# The time stamp of l after the operator: l unchanged, r [6, 7] (the last
+# partner), i [6, 7], u and d [1, 10]. The intersection passes over x1 after
+# x2 (they share no time) and takes up again with the next partners.
+
+
+@pytest.fixture
+def selected(make_series):
+    target = make_series("l", (1, 10))
+    other = make_series("x", (1, 3), (5, 10), (6, 7))
+    both = relation("finished|started|contains")
+    return target, both, other
+
+
+@pytest.mark.parametrize(
+    ("extent", "expected"),
+    [
+        ("left", (day(1), day(10))),
+        ("right", (day(6), day(7))),
+        ("intersection", (day(6), day(7))),
+        ("union", (day(1), day(10))),
+        ("disjoint", (day(1), day(10))),
+    ],
+)
+def test_selection_takes_the_time_of_the_partners(selected, extent, expected):
+    target, both, other = selected
+    result = select(target, both, other, extent=extent, order="written", unique=False)
+    assert result.times() == [expected]
+    assert contents(result) == contents(target)
+
+
+def test_selection_stops_or_empties_like_gather(selected):
+    target, both, other = selected
+    options = {"extent": "intersection", "order": "written", "unique": False}
+    # x1 does not intersect the [5, 10] of x2.
+    stopped = select(target, both, other, failure="stop", **options)
+    assert stopped.times() == [(day(5), day(10))]
+    assert len(select(target, both, other, failure="empty", **options)) == 0
+
+
+def test_selection_without_partner_is_not_kept_and_keeps_its_origin(make_series):
+    target = make_series("l", (1, 10), (20, 30))
+    other = make_series("x", (2, 3))
+    kept = select(target, contains, other, extent="intersection")
+    assert kept.times() == [(day(2), day(3))]
+    assert kept.slots[0].origin is None
+    same = select(target, contains, other)
+    assert same.slots[0].origin == target.slots[0].origin
+
+
+def test_inverse_selection_takes_no_extent(selected):
+    target, both, other = selected
+    with pytest.raises(ValueError, match="extent must be left"):
+        select(target, both, other, related=False, extent="union")
 
 
 def test_pairs_reject_an_unknown_order(around):
@@ -443,7 +593,7 @@ def test_pairs_reject_an_unknown_order(around):
 def test_intersection_of_an_interval_with_an_instant_is_the_instant(make_series):
     """The classic algebra sets the instant on the map as well, through
     _set_temporal_extent() for the plain extent that the intersection with an
-    instant returns (temporal_algebra.py line 1244), so no option selects
+    instant returns (_overlay_temporal_extent() in temporal_algebra.py), so no option selects
     another rule."""
     interval = make_series("i", (1, 10))
     instant = make_series("p", 5)
