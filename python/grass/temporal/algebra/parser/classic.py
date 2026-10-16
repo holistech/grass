@@ -15,6 +15,13 @@ failure policy), the translator passes it; the pieces that have no such
 parameter (the conditions of ``if()``, which judge maps, and ``buff_t()``,
 which keeps the quirks of the library) are written out here.
 
+The module also uses private helpers of ``translate`` (the constants and
+checks imported from there) and of ``operations`` (``_check_comparable()``,
+``_warn()``). The profile must judge operands and refuse map types exactly as
+the core does, and these helpers are that judgement; making them public would
+make them API of the core for this one caller. A change of these helpers
+must therefore be checked against this module.
+
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
