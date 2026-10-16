@@ -47,6 +47,13 @@ LOGICAL_GROUPING = [
     "if(B > 1.5 {||,finished|over} Q > 1.5 && D > 2, B)",
 ]
 
+# A number next to a count is lost: the count is the then part
+COUNT_BRANCHES = [
+    "if(start_week(W, -1) >= 22 && isnull(A / A), Z # A, 19)",
+    "if(isnull(A / A), Z # A, 19)",
+    "if(isnull(A), 19, Z # A)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -94,3 +101,9 @@ def test_mixed_time_is_unrelated(datasets, expression):
 @pytest.mark.parametrize("expression", LOGICAL_GROUPING)
 def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression, spatial):
     assert_equal(expression, spatial=spatial)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", COUNT_BRANCHES)
+def test_a_number_next_to_a_count(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)

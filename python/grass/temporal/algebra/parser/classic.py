@@ -177,6 +177,12 @@ class ClassicTranslator(Translator):
         # expression, by id(), with the series itself so that the id stays
         # taken; see _remember_commands().
         self._commands = {}
+        # The results of the hash operator, by id() (and the series itself, so
+        # that the id stays taken); see _field_if().
+        self._counts = {}
+        # The conditions isnull(), isntnull() and exist() of a count, by id()
+        # with the series and the count; see _if().
+        self._count_conditions = {}
 
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
@@ -320,7 +326,7 @@ class ClassicTranslator(Translator):
             )
             raise SyntaxError(msg)
         self._pair("#", left, right)
-        return operations.gather(
+        counts = operations.gather(
             left,
             self._relation(operator),
             self._aligned(left, right),
@@ -329,6 +335,8 @@ class ClassicTranslator(Translator):
             unique=False,
             mixed_times=self.profile.mixed_times,
         )
+        self._counts[id(counts)] = counts
+        return counts
 
     def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
         """Fold each left map with all its partners in the written order of
@@ -558,6 +566,9 @@ class ClassicTranslator(Translator):
             # These are conditions on cells in the classic grammar, also of a
             # count or a time value, so the if() of a field condition applies.
             result = dataclasses.replace(result, sort="field")
+            argument = node.arguments[0]
+            if isinstance(argument, ast.Binary) and argument.symbol == "#":
+                self._count_conditions[id(result)] = (result, self.value(argument))
         return result
 
     def _merge(self, first, second):
@@ -626,6 +637,11 @@ class ClassicTranslator(Translator):
         variables judge each conclusion map by the conditions related to it.
         The maps of then and else are listed together in time order, where
         the core lists those of then first."""
+        known = self._count_conditions.get(id(arguments[0]))
+        if known is not None:
+            # The classic algebra reads such a condition as the count itself,
+            # whatever the function made of it.
+            arguments = [dataclasses.replace(known[1], sort="field"), *arguments[1:]]
         if self._kind == "vector" or len(arguments) not in (2, 3):
             return self._in_time_order(super()._if(arguments, relation))
         condition = arguments[0]
@@ -700,6 +716,13 @@ class ClassicTranslator(Translator):
         map with the time stamp of the conclusion. Numbers stand in every map.
         Without else r.mapcalc's if(c, x) gives 0 where c is false.
         """
+        # The classic algebra reads the operand of a count as the count itself
+        # whatever command was built for it, so a number next to a count is
+        # lost and the count stands alone as the then part.
+        if id(otherwise) in self._counts and not _timed(then):
+            then, otherwise = otherwise, _ABSENT
+        elif id(then) in self._counts and not _timed(otherwise):
+            otherwise = _ABSENT
         timed_then, timed_else = _timed(then), _timed(otherwise)
         if timed_then and timed_else:
             matches = self._related(

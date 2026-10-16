@@ -120,6 +120,23 @@ GRANULARITY_ORDER = [
     "if(end_year(log(A)) < 1 || end_week(AF) < 3 && B # W == 1, merge(A, W))",
 ]
 
+# A number next to a count is lost: the count is the then part
+COUNT_BRANCHES = [
+    "if(isnull(A / A), Z # A, 19)",
+    "if(isnull(A), 19, Z # A)",
+    "if(isnull(A), Z # A, A)",
+    "if(isnull(A), Z # A)",
+    "if(isnull(A), Z # A, null())",
+]
+
+# isnull(), isntnull() and exist() of a count as condition: the count itself
+COUNT_CONDITIONS = [
+    "if(isnull(N # AF), HA)",
+    "if(isntnull(N # AF), HA)",
+    "if(exist(N # AF), HA)",
+    "if(isnull(Z # A), A, B)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -192,3 +209,19 @@ def test_conditions_list_the_maps_in_time_order(datasets, expression):
 @pytest.mark.parametrize("expression", GRANULARITY_ORDER)
 def test_granularity_mode_lists_the_maps_in_time_order(datasets, expression):
     assert_equal(expression, granularity=True)
+
+
+@pytest.mark.parametrize("expression", COUNT_BRANCHES)
+def test_a_number_next_to_a_count(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", COUNT_CONDITIONS)
+def test_a_count_as_condition(datasets, expression):
+    assert_equal(expression)
+
+
+def test_a_number_next_to_a_count_in_the_granularity_mode(datasets):
+    assert_equal(
+        "if(start_week(W, -1) >= 22 && isnull(A / A), Z # A, 19)", granularity=True
+    )
