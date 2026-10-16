@@ -375,3 +375,18 @@ def test_constants_beyond_32_bits_next_to_time_functions(
 @pytest.mark.parametrize("expression", PARTNER_MAPS)
 def test_a_map_for_each_partner_stays_in_a_selection(datasets, expression):
     assert_equal(expression)
+
+
+# Profile gap of the id of a count, not a classic bug: in the classic algebra
+# a count keeps the id of its left map through arithmetic with a map and in
+# the condition of if(); the profile follows it through a number only.
+@pytest.mark.xfail(strict=True, reason="a count loses its id in these forms")
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "merge(A, ((A # N) + 1) + N) {:,equal} HA",
+        "merge(A, if((A # N) + 1 > 1, A)) {:,equal} HA",
+    ],
+)
+def test_a_count_keeps_its_id_beyond_arithmetic_with_a_number(datasets, expression):
+    assert_equal(expression)
