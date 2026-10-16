@@ -471,8 +471,10 @@ copies only the maps whose time changes. This holds for both algebras.
 Since GRASS 8.6, *t.vect.algebra* computes its expressions with the
 functions of the Python package `grass.temporal.algebra`, as
 *t.rast.algebra* does. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The flag
-**-c** selects it for one call, the environment variable
+classic algebra, so that published results remain reproducible. The classic
+algebra is a set of rules of the same functions: it reads the syntax of the
+previous implementation and applies its rules for relations, order and
+results. The flag **-c** selects it for one call, the environment variable
 `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
 `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
@@ -606,10 +608,8 @@ In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the
 new algebra raises `ValueError` or `TypeError`, where the classic algebra
 raises `FatalError`. Both raise `FatalError` for a missing dataset and,
-without overwrite, for an existing result. Without
-`tgis.init(raise_fatal_error=True)`, the classic algebra raises
-`SystemExit` instead of `FatalError` for some of these errors, such as an
-existing result. The tool stops with the error message in both algebras.
+without overwrite, for an existing result. The tool stops with the error
+message in both algebras.
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.rast3d.algebra* and *t.select* as well, so **-c** gives the rules of
@@ -634,6 +634,54 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
 algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes
 both corrections.
+
+#### Corrections to the classic algebra
+
+The classic algebra gives the results of the previous implementation, with
+the exceptions below. In these cases the previous implementation ended in
+an error that had no reason or reported the wrong error. **-c** now gives
+the result described here; the new algebra never had these errors. Results
+of earlier GRASS versions that used one of these forms need a new run.
+
+1. **tsnap() and tshift() of no maps.** If the expression inside has no
+   maps, the result is empty like any other empty result: the classic
+   algebra creates no dataset, and an enclosing expression goes on with no
+   maps. Earlier versions ended in an error. No daily map of A contains a
+   map of B of two days, so both expressions give an empty result:
+
+   ```sh
+   C = tsnap(A {:,contains} B)
+   C = tshift(A {:,contains} B, "1 day")
+   ```
+
+2. **Increments that the library refuses.** An increment of `tshift()` or
+   `buff_t()` that does not fit the temporal type, such as a text that is
+   not a time step or a number without unit on absolute time, is a syntax
+   error and leaves no result dataset. The new algebra refuses the same
+   increments with a `ValueError`:
+
+   ```sh
+   C = tshift(A, "1 DAY")
+   C = buff_t(A, 3)
+   ```
+
+3. **Overlay with an unknown number of areas.** An intermediate map that
+   `buff_p()` leaves empty, because the input has no points, has no known
+   number of areas. It counts as a map without areas: *v.overlay* is not
+   run, a warning says so, and the result is dropped. Earlier versions ran
+   *v.overlay* on the map, which failed. A has no points, so this
+   expression gives no map:
+
+   ```sh
+   C = buff_p(A, 1) ^ B
+   ```
+
+#### Differences from the previous implementation
+
+The differences in message texts, in the debug output of the Python
+parser and in the order of errors that
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
+the maps of a valid expression.
 
 ## REFERENCES
 

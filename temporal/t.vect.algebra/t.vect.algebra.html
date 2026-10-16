@@ -487,8 +487,10 @@ algebras.
 Since GRASS 8.6, <em>t.vect.algebra</em> computes its expressions with the
 functions of the Python package <code>grass.temporal.algebra</code>, as
 <em>t.rast.algebra</em> does. The previous implementation stays available as
-the classic algebra, so that published results remain reproducible. The flag
-<b>-c</b> selects it for one call, the environment variable
+the classic algebra, so that published results remain reproducible. The
+classic algebra is a set of rules of the same functions: it reads the syntax
+of the previous implementation and applies its rules for relations, order and
+results. The flag <b>-c</b> selects it for one call, the environment variable
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
@@ -637,11 +639,8 @@ cannot read. For one they cannot compute, such as
 <code>if(end_doy(I) &gt; 0, I)</code>, the new algebra raises
 <code>ValueError</code> or <code>TypeError</code>, where the classic algebra
 raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
-missing dataset and, without overwrite, for an existing result. Without
-<code>tgis.init(raise_fatal_error=True)</code>, the classic algebra raises
-<code>SystemExit</code> instead of <code>FatalError</code> for some of these
-errors, such as an existing result. The tool stops with the error message in
-both algebras.
+missing dataset and, without overwrite, for an existing result. The tool stops
+with the error message in both algebras.
 
 <p>
 Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
@@ -669,6 +668,58 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic algebra"
 in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes
 both corrections.
+
+<h4>Corrections to the classic algebra</h4>
+
+The classic algebra gives the results of the previous implementation, with the
+exceptions below. In these cases the previous implementation ended in an error
+that had no reason or reported the wrong error. <b>-c</b> now gives the result
+described here; the new algebra never had these errors. Results of earlier
+GRASS versions that used one of these forms need a new run.
+
+<ol>
+<li><b>tsnap() and tshift() of no maps.</b> If the expression inside has no maps,
+the result is empty like any other empty result: the classic algebra creates
+no dataset, and an enclosing expression goes on with no maps. Earlier versions
+ended in an error. No daily map of A contains a map of B of two days, so both
+expressions give an empty result:
+
+<div class="code"><pre>
+C = tsnap(A {:,contains} B)
+C = tshift(A {:,contains} B, "1 day")
+</pre></div>
+</li>
+
+<li><b>Increments that the library refuses.</b> An increment of
+<code>tshift()</code> or <code>buff_t()</code> that does not fit the temporal
+type, such as a text that is not a time step or a number without unit on
+absolute time, is a syntax error and leaves no result dataset. The new algebra
+refuses the same increments with a <code>ValueError</code>:
+
+<div class="code"><pre>
+C = tshift(A, "1 DAY")
+C = buff_t(A, 3)
+</pre></div>
+</li>
+
+<li><b>Overlay with an unknown number of areas.</b> An intermediate map that
+<code>buff_p()</code> leaves empty, because the input has no points, has no
+known number of areas. It counts as a map without areas: <em>v.overlay</em> is
+not run, a warning says so, and the result is dropped. Earlier versions ran
+<em>v.overlay</em> on the map, which failed. A has no points, so this
+expression gives no map:
+
+<div class="code"><pre>
+C = buff_p(A, 1) ^ B
+</pre></div>
+</li>
+</ol>
+
+<h4>Differences from the previous implementation</h4>
+
+The differences in message texts, in the debug output of the Python parser and
+in the order of errors that <a href="t.rast.algebra.html">t.rast.algebra</a>
+lists apply here likewise. None changes the maps of a valid expression.
 
 <h2>REFERENCES</h2>
 
