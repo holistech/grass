@@ -19,7 +19,10 @@ Functions:
   when the classic algebra is not chosen) and ``classic`` (the same function
   with the classic profile).
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
-  and a short description of the difference otherwise.
+  and a short description of the difference otherwise. ``compare_runs`` is
+  ``compare`` for the earlier implementation against the classic profile; it
+  also accepts the error class of an invalid expression that the earlier
+  implementation computes into before it reaches the syntax error.
 - ``prepare(kind, session, directory)`` creates the datasets the generator
   names, see ``expressions_data``.
 
@@ -354,11 +357,59 @@ def cluster(records):
     ]
 
 
-#: The two runners that the test modules compare, as keys of ``RUNNERS``. Both
-#: are the earlier implementation until the classic profile of the core
-#: exists: that shows that the fuzzer sees no difference where there is none.
-#: The test modules take the pair from here, so switching is one edit.
-DIFFERENTIAL = ("reference", "reference")
+def rejected_after_a_run_error(kind, expression, first, second, **options):
+    """Tell whether two outcomes differ only in the class of the error of an
+    invalid expression
+
+    The earlier implementation computes while it parses, so for an expression
+    that its grammar rejects it can stop with the error of a computation
+    before it reaches the syntax error. The classic profile parses the whole
+    expression first and reports the syntax error. That is the one accepted
+    difference in the error class.
+
+    :param first: The outcome of the earlier implementation
+    :param second: The outcome of the classic profile
+    :param options: The options of the runs. The granularity mode is left
+        out, so that the check of the earlier implementation is a syntax check
+        only.
+    :return: True if ``first`` is an error other than ``SyntaxError``,
+        ``second`` is a ``SyntaxError`` and the earlier implementation, run
+        without computing, rejects the expression as a syntax error, too
+    """
+    if "error" not in first or first["error"] == "SyntaxError":
+        return False
+    if second.get("error") != "SyntaxError":
+        return False
+    options = {**options, "run": False, "debug": False}
+    options.pop("granularity", None)
+    try:
+        RUNNERS["reference"](
+            kind, f"Rfa = {expression}", basename="fa", overwrite=True, **options
+        )
+    except SyntaxError:
+        return True
+    except Exception:  # noqa: BLE001, any other error means: not rejected
+        return False
+    return False
+
+
+def compare_runs(kind, expression, first, second, **options):
+    """``compare`` of the outcomes of the earlier implementation and the
+    classic profile, which accepts the difference of
+    ``rejected_after_a_run_error``"""
+    difference = compare(kind, expression, first, second)
+    if difference is not None and rejected_after_a_run_error(
+        kind, expression, first, second, **options
+    ):
+        return None
+    return difference
+
+
+#: The two runners that the test modules compare, as keys of ``RUNNERS``: the
+#: earlier implementation of the classic algebra and the classic profile of
+#: the core, which ``-c`` runs. The test modules take the pair from here, so
+#: switching is one edit.
+DIFFERENTIAL = ("reference", "classic")
 
 
 def check_agreement(kind, expression, **options):
@@ -372,7 +423,7 @@ def check_agreement(kind, expression, **options):
     second = outcome(
         kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
     )
-    difference = compare(kind, expression, first, second)
+    difference = compare_runs(kind, expression, first, second, **options)
     if difference is not None:
         raise AssertionError(difference)
 
@@ -486,7 +537,9 @@ def run_batch(
                 }
                 if against is not None:
                     line["other"] = other
-                    line["difference"] = compare(kind, expression, result, other)
+                    line["difference"] = compare_runs(
+                        kind, expression, result, other, **options
+                    )
                     differences += line["difference"] is not None
                 handle.write(json.dumps(line, sort_keys=True) + "\n")
                 handle.flush()

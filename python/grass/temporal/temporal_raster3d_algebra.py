@@ -59,15 +59,18 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
     def parse(self, expression, basename=None, overwrite=False):
         """Parse the expression and compute the result
 
-        The expression is translated onto grass.temporal.algebra, unless the
-        classic algebra of this module is selected (see __init__). After
-        setup_common_granularity() both algebras sample the datasets with
-        their common granularity.
+        The expression is translated onto grass.temporal.algebra, with the
+        rules of the core or, if the classic algebra is selected (see
+        __init__), with those of its classic profile. After
+        setup_common_granularity() both sample the datasets with their common
+        granularity.
 
         :return: the process chain dictionary
         """
-        if self._classic():
-            return super().parse(expression, basename, overwrite)
+        # Loaded on use: the classic profile imports the classic lexers,
+        # which live in modules that import this one.
+        from .algebra.profile import CLASSIC, CORE
+
         return evaluate(
             expression,
             kind="raster3d",
@@ -81,6 +84,7 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
             nprocs=self.nprocs,
             time_suffix=self.time_suffix,
             granularity=self.granularity if self.use_granularity else None,
+            profile=CLASSIC if self._classic() else CORE,
         )
 
     def _classic(self):

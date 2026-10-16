@@ -1,8 +1,11 @@
-"""The choice between the algebra core and the classic algebra
+"""The choice between the rules of the algebra core and the classic rules
 
-The parser classes of the raster, 3D raster and vector algebra translate an
-expression onto grass.temporal.algebra unless the classic algebra is chosen.
-The classic algebra stays, because published results rely on it.
+The parser classes of the raster, 3D raster and vector algebra and t.select
+translate an expression onto grass.temporal.algebra in both cases: with the
+profile CORE, or with the profile CLASSIC if the classic algebra is chosen.
+The classic algebra stays, because published results rely on it. The
+implementation that predates the profile is reachable only through
+grass.temporal.testing.reference, which tests compare the profile with.
 """
 
 import os

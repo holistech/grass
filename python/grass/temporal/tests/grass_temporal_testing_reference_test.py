@@ -8,6 +8,7 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import importlib
 import os
 
 import pytest
@@ -89,6 +90,17 @@ def test_reference_is_classic_and_core_is_not(tools, algebra_variable):
 
 
 @pytest.mark.needs_solo_run
+def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
+    """The parser class with classic=True gives the classic maxima although
+    it no longer runs the earlier implementation: the expression is a listed
+    difference of the core"""
+    parser = TemporalRasterAlgebraParser(run=True, debug=False, classic=True)
+    parser.parse(DIFFERENT_EXPRESSION, "prof", True)
+    assert maxima(tools, "R") == CLASSIC_MAXIMA
+    assert "parse" not in vars(parser)
+
+
+@pytest.mark.needs_solo_run
 def test_reference_parser_binds_the_earlier_parse(tools, algebra_variable):
     """The instance carries its own parse, not the one of the routing class"""
     parser = reference_parser("raster", run=True, debug=False)
@@ -96,14 +108,50 @@ def test_reference_parser_binds_the_earlier_parse(tools, algebra_variable):
 
 
 @pytest.mark.needs_solo_run
-def test_reference_parser_survives_a_rerouted_class(tools, monkeypatch):
+@pytest.mark.parametrize(
+    ("kind", "module", "class_name", "expression"),
+    [
+        (
+            "raster",
+            "temporal_raster_algebra",
+            "TemporalRasterAlgebraParser",
+            "R = A + 1",
+        ),
+        (
+            "raster3d",
+            "temporal_raster3d_algebra",
+            "TemporalRaster3DAlgebraParser",
+            "R = A + 1",
+        ),
+        (
+            "vector",
+            "temporal_vector_algebra",
+            "TemporalVectorAlgebraParser",
+            "R = V & V",
+        ),
+    ],
+)
+def test_reference_parser_survives_a_rerouted_class(
+    tools, monkeypatch, kind, module, class_name, expression
+):
+    """The class that chooses between the core and the classic profile in
+    parse() is not on the way of the reference, for every kind with such a
+    class. (t.select has none: its reference is the base parser itself, and
+    test_every_kind_parses runs it under each setting of the variable.)"""
+    parser_class = getattr(
+        importlib.import_module(f"grass.temporal.{module}"), class_name
+    )
+
     def rerouted(*args, **kwargs):
         msg = "the routing parse() was called"
         raise AssertionError(msg)
 
-    monkeypatch.setattr(TemporalRasterAlgebraParser, "parse", rerouted)
-    parser = reference_parser("raster", run=False, debug=False)
-    parser.parse("R = A + 1", basename="x", overwrite=True)
+    # Negative control: the patched class does fail when it is the one called.
+    monkeypatch.setattr(parser_class, "parse", rerouted)
+    with pytest.raises(AssertionError, match="routing parse"):
+        parser_class(run=False, debug=False).parse(expression, "x", True)
+    parser = reference_parser(kind, run=False, debug=False)
+    parser.parse(expression, basename="x", overwrite=True)
 
 
 @pytest.mark.needs_solo_run

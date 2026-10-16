@@ -153,8 +153,9 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):
         """Parse the expression and run the computation
 
-        The expression is translated onto grass.temporal.algebra, unless the
-        classic algebra of this module is selected (see __init__).
+        The expression is translated onto grass.temporal.algebra, with the
+        rules of the core or, if the classic algebra is selected (see
+        __init__), with those of its classic profile.
 
         :param expression: The assignment, e.g. ``"R = A & B"``
         :param basename: Prefix of the names of the new vector maps
@@ -163,24 +164,28 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
             (name, start, end) of the registered maps
         :raises SyntaxError: for invalid expressions
         """
-        if not self._classic():
-            return evaluate(
-                expression,
-                kind="vector",
-                basename=basename,
-                overwrite=overwrite,
-                run=self.run,
-                debug=self.debug,
-                spatial=self.spatial,
-            )
-        return self._parse_classic(expression, basename, overwrite)
+        # Loaded on use: the classic profile imports the classic lexers,
+        # which live in modules that import this one.
+        from .algebra.profile import CLASSIC, CORE
+
+        return evaluate(
+            expression,
+            kind="vector",
+            basename=basename,
+            overwrite=overwrite,
+            run=self.run,
+            debug=self.debug,
+            spatial=self.spatial,
+            profile=CLASSIC if self._classic() else CORE,
+        )
 
     def _parse_classic(
         self, expression, basename: str | None = None, overwrite: bool = False
     ):
-        """Parse the expression with the classic rules of this module
+        """Parse the expression with the earlier implementation
 
-        Kept apart from ``parse`` so that a test helper can run the earlier
+        Kept apart from ``parse`` so that the test helper
+        ``grass.temporal.testing.reference`` can run the earlier
         implementation whatever ``parse`` is routed to.
         """
         self._reject_dataset_type_tokens(TemporalVectorAlgebraLexer(), expression)
