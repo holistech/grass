@@ -70,16 +70,18 @@ def test_core_is_the_default(algebra, monkeypatch):
 
 
 @pytest.mark.fixed_algebra
-def test_classic_selects_the_earlier_parser(algebra, classic):
+def test_classic_selects_the_classic_profile(algebra, classic):
+    """The profile writes the r.mapcalc text of the classic algebra: the names
+    unquoted"""
     chain = algebra.parse("A * 2", dry_run=True)
-    assert '"r_0"' not in expression_of(chain)
+    assert expression_of(chain) == "r_0=(a1@PERMANENT * 2)"
 
 
 @pytest.mark.fixed_algebra
 def test_keyword_takes_precedence_over_the_variable(algebra, monkeypatch):
     monkeypatch.setenv(VARIABLE, "core")
     chain = algebra.parse("A * 2", dry_run=True, classic=True)
-    assert '"r_0"' not in expression_of(chain)
+    assert expression_of(chain) == "r_0=(a1@PERMANENT * 2)"
     monkeypatch.setenv(VARIABLE, "classic")
     chain = algebra.parse("A * 2", dry_run=True, classic=False)
     assert '"r_0"' in expression_of(chain)

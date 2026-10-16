@@ -2,19 +2,18 @@
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
 run on two implementations of the algebra, and the registered maps must agree.
-Which two is set in one place, DIFFERENTIAL in that module. Until the classic
-profile of the core exists both are the earlier implementation: that must give
-0 differences and shows that the fuzzer sees no difference where there is none.
-The test of the listed differences shows that it sees one where there is one:
-the expressions of the differential test of this directory, run on the
-reference and on the core.
+Which two is set in one place, DIFFERENTIAL in that module: the earlier
+implementation and the classic profile of the core. That must give 0
+differences. The test of the listed differences shows that the fuzzer sees one
+where there is one: the expressions of the differential test of this directory,
+run on the reference and on the core.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
 grass.temporal.testing.expressions. The tests carry slow, because the seeds
 cost seconds, and fixed_algebra, because they choose their runners themselves.
 
-Normal run: 50.8 s for 327 tests, measured 2026-10-15 with
+Normal run: 48.9 s for 329 tests, measured 2026-10-16 with
 `python3 -m pytest -p no:cacheprovider -q <this file>`, including the creation of the
 datasets.
 """
@@ -28,6 +27,7 @@ from grass.temporal.testing.expressions import (
     check_agreement,
     check_difference_seen,
     check_seed,
+    compare_runs,
     generate,
     outcome,
     prepare,
@@ -125,3 +125,28 @@ def test_same_seed_gives_the_same_expression():
     assert generate(KIND, 17) == generate(KIND, 17)
     assert generate(KIND, 17) != generate(KIND, 18)
     assert generate(KIND, 17, granularity_share=1.0)[1]["granularity"]
+
+
+def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
+    """The earlier implementation computes while it parses: end_date() of a
+    time instance stops it before it reads the syntax error after it. The
+    profile reports the syntax error."""
+    expression = 'if(end_date(I) <= "2001-01-01", 3)'
+    first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    assert first["error"] == "FatalError"
+    assert second["error"] == "SyntaxError"
+    assert compare_runs(KIND, expression, first, second) is None
+
+
+def test_other_differences_are_not_accepted(datasets):
+    """The exception covers a syntax error of the profile that the earlier
+    implementation reports as another error, not a valid expression that the
+    profile rejects"""
+    expression = "A + N"
+    valid = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    rejected = {"error": "SyntaxError", "msg": "syntax error"}
+    assert "error" not in valid
+    assert compare_runs(KIND, expression, valid, rejected) is not None
+    run_error = {"error": "FatalError", "msg": "run error"}
+    assert compare_runs(KIND, expression, run_error, rejected) is not None

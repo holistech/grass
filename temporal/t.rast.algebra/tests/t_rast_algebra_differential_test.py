@@ -1,10 +1,13 @@
 """Comparison of the algebra core with the classic algebra
 
-Both algebras compute each expression; the registered maps (start, end,
-minimum, maximum) must agree, except for the differences that the manual
-lists between the core and the classic algebra. Values are compared rather
-than r.mapcalc expressions, because the two parsers parenthesize and quote
-differently.
+The core and the classic profile compute each expression; the registered maps
+(start, end, minimum, maximum) must agree, except for the differences that the
+manual lists between the core and the classic algebra. Values are compared
+rather than r.mapcalc expressions, because the two write them differently.
+
+The classic profile in turn must give what the earlier implementation of the
+classic algebra gives, for every expression of the lists, the differences
+included.
 """
 
 import random
@@ -12,6 +15,7 @@ import random
 import pytest
 
 from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.testing.reference import run_reference
 
 # Every test sets the algebra itself, see the marker in pyproject.toml.
 pytestmark = pytest.mark.fixed_algebra
@@ -167,10 +171,28 @@ GRANULARITY_DIFFERENT = {
 
 
 def outcome(algebra, monkeypatch, expression, parser, **keywords):
-    """The registered maps, or the name of the error"""
+    """The registered maps, or the name of the error
+
+    parser is "core", "classic" (the profile) or "reference" (the earlier
+    implementation of the classic algebra).
+    """
     monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
     try:
-        rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
+        if parser == "reference":
+            algebra.remove("R")
+            run_reference(
+                "raster",
+                f"R = {expression}",
+                basename=f"d{parser}",
+                overwrite=True,
+                run=True,
+                debug=False,
+                register_null=True,
+                **keywords,
+            )
+            rows = algebra.maps("R")
+        else:
+            rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
     except (*algebra.errors, SyntaxError, ValueError, TypeError) as error:
         return type(error).__name__
     return [(row.start, row.end, row.min, row.max) for row in rows]
@@ -197,6 +219,27 @@ def test_extended_syntax(algebra, monkeypatch, expression, equivalent):
     expected = outcome(algebra, monkeypatch, equivalent, "classic")
     assert isinstance(expected, list)
     assert outcome(algebra, monkeypatch, expression, "core") == expected
+
+
+@pytest.mark.parametrize(
+    "expression", [*SAME, *sorted(DIFFERENT), *EXTENDED, *EXTENDED.values()]
+)
+def test_profile_equals_reference(algebra, monkeypatch, expression):
+    """-c computes what the earlier implementation of the classic algebra
+    computed, also where the core differs and where the classic grammar has no
+    rule"""
+    assert outcome(algebra, monkeypatch, expression, "classic") == outcome(
+        algebra, monkeypatch, expression, "reference"
+    )
+
+
+@pytest.mark.parametrize(
+    "expression", [*GRANULARITY_SAME, *sorted(GRANULARITY_DIFFERENT)]
+)
+def test_granularity_profile_equals_reference(algebra, monkeypatch, expression):
+    assert outcome(
+        algebra, monkeypatch, expression, "classic", granularity=True
+    ) == outcome(algebra, monkeypatch, expression, "reference", granularity=True)
 
 
 RANDOM_DATASETS = ("A", "N", "D", "HA")

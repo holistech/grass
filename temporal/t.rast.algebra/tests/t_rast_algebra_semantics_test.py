@@ -265,7 +265,7 @@ def test_merge_warns_about_identical_maps(
     algebra.run(expression, classic=classic)
     if count:
         assert len(warnings) == 1
-        assert message.format(count=count) in warnings[0]
+        assert f"dropped {count} duplicate map(s)" in warnings[0]
     else:
         assert not warnings
 

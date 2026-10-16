@@ -10,6 +10,7 @@ import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.testing.reference import reference_parser
 from grass.tools import ToolError, Tools
 
 pytestmark = pytest.mark.real_io
@@ -199,6 +200,23 @@ def test_classic_flag_selects_the_classic_algebra(algebra, core_tool):
     )
     assert len(list_maps(core_tool, "OPT_CORE")) == 4
     assert len(list_maps(core_tool, "OPT_CLASSIC")) == 2
+
+
+@pytest.mark.fixed_algebra
+def test_classic_flag_runs_the_classic_profile(algebra, core_tool):
+    """The tool with -c computes on the classic profile of the core, not on the
+    earlier implementation: an increment the library refuses is reported with
+    the message of the library, the earlier one named tshift() and the unit"""
+    with pytest.raises(ToolError) as error:
+        core_tool.t_rast_algebra(
+            expression='OPT_PROFILE = tshift(A, "1 DAY")',
+            basename="opt_profile",
+            flags="c",
+        )
+    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
+        error.value.stderr
+    )
+    assert "Function tshift()" not in error.value.stderr
 
 
 @pytest.mark.parametrize("nprocs", [1, 2, 4])
@@ -495,12 +513,33 @@ def test_debug_output_without_run(algebra, capsys):
 
 
 @pytest.mark.fixed_algebra
-def test_debug_output_of_the_classic_algebra(algebra, capsys):
-    """The classic algebra prints the mapcalc commands and the resulting
-    statement, and without run the statement with the placeholder name"""
+def test_debug_output_of_the_classic_profile(algebra, capsys):
+    """-c prints each planned module call as a command line, with the
+    r.mapcalc text of the classic algebra, and with run=False nothing"""
     run_with_debug(algebra, "(A + A) * 2", run=True, classic=True)
+    assert (
+        "r.mapcalc expression=r_0=((a1@PERMANENT + a1@PERMANENT) * 2)"
+        in capsys.readouterr().out
+    )
+    run_with_debug(algebra, "(A + A) * 2", run=False, classic=True)
+    assert not capsys.readouterr().out
+
+
+@pytest.mark.fixed_algebra
+def test_debug_output_of_the_reference(algebra, capsys):
+    """The earlier implementation prints the mapcalc commands and the resulting
+    statement, and without run the statement with the placeholder name. Only
+    the reference keeps this output; the classic profile prints the module
+    calls like the core."""
+
+    def parse(run):
+        algebra.remove("R")
+        parser = reference_parser("raster", run=run, debug=True, dry_run=True)
+        parser.parse("R = (A + A) * 2", "r", True)
+
+    parse(run=True)
     output = capsys.readouterr().out
     assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
     assert "R = [" in output
-    run_with_debug(algebra, "(A + A) * 2", run=False, classic=True)
+    parse(run=False)
     assert "R = A**" in capsys.readouterr().out
