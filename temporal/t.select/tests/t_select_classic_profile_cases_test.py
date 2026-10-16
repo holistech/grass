@@ -156,3 +156,15 @@ def test_a_plain_selection_keeps_every_map(datasets, expression):
 @pytest.mark.parametrize("expression", LIST_ORDER_PARTNERS)
 def test_partners_in_the_order_of_their_list(datasets, expression):
     assert_equal(expression)
+
+
+# Profile gap, not a classic bug: the classic algebra fails on a merge() of
+# relative time of different units only when it registers such maps; a
+# selection that keeps none of them gives a result. The profile refuses the
+# merge() at once.
+@pytest.mark.xfail(strict=True, reason="merge() refuses mixed units at once")
+@pytest.mark.parametrize(
+    "expression", ["tmap(singletmap) !: merge(RT, RH)", "merge(RT, RH) : RT"]
+)
+def test_a_merge_of_units_that_is_not_registered(datasets, expression):
+    assert_equal(expression)
