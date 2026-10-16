@@ -67,3 +67,12 @@ def assert_equal(expression, **options):
 @pytest.mark.parametrize("expression", MIXED_TIME)
 def test_mixed_time_is_unrelated(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("suffix", ["time", "gran"])
+@pytest.mark.parametrize(
+    "expression", ["Q + 1", "E + 1", "Q * 10", "merge(A, W) + 1", "merge(W, A) + 1"]
+)
+def test_equal_names_from_the_time_suffix(datasets, expression, suffix):
+    """Maps of equal time get one name; the last of them stays"""
+    assert_equal(expression, time_suffix=suffix)

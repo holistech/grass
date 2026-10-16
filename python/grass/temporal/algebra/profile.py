@@ -62,6 +62,8 @@ class Profile:
     :param database_order: read the maps of a dataset sorted by start only,
         so that maps with equal start keep the order of the temporal
         database (source())
+    :param last_of_equal_names: let result maps that get the same name from a
+        time suffix overwrite each other, the last of them staying (plan())
     :param mixed_times: "unrelated" relates nothing across absolute and
         relative time or different units, where "error" refuses the
         expression (the relating operations)
@@ -81,6 +83,7 @@ class Profile:
     union_region_when_spatial: bool = False
     list_order: bool = False
     database_order: bool = False
+    last_of_equal_names: bool = False
     mixed_times: str = "error"
     classic_errors: bool = False
 

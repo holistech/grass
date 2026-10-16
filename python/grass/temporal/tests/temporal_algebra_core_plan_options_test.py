@@ -271,3 +271,31 @@ def test_a_result_without_maps_can_take_a_temporal_type():
 def test_the_temporal_type_of_the_maps_wins(make_series):
     series = make_series("a", (1, 2), unit="days") * 2
     assert plan(series, "R", temporal_type="absolute").temporal_type == "relative"
+
+
+def test_equal_names_from_a_time_suffix_are_an_error_by_default(make_series):
+    series = make_series("a", (1, 2), (1, 3)) + 1
+    with pytest.raises(ValueError, match="same name"):
+        plan(series, "R", time_suffix="time")
+
+
+def test_the_last_of_equal_names_stays_if_asked(make_series):
+    """The classic algebra computes every map under its name; the later one
+    overwrites the earlier, with its content and its time stamp (probed
+    2026-10-16 with Q + 1 and time_suffix time in the classic algebra: one map
+    for two, the value and time stamp of the second)"""
+    series = make_series("a", (1, 2), (1, 3), (2, 3)) + 1
+    chain = plan(series, "R", time_suffix="time", last_of_equal_names=True)
+    assert [planned.name for planned in chain.maps] == [
+        "R_2001_01_01T00_00_00",
+        "R_2001_01_02T00_00_00",
+    ]
+    first = chain.maps[0]
+    assert first.extent == series.slots[1].extent
+    assert first.calls[0].parameters["expression"].endswith('("a2@PERMANENT" + 1)')
+
+
+def test_names_given_by_the_caller_may_not_repeat_even_if_asked(make_series):
+    series = make_series("a", (1, 2), (2, 3))
+    with pytest.raises(ValueError, match="same name"):
+        plan(series, "R", names=["x", "x"], last_of_equal_names=True)

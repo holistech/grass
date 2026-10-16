@@ -112,6 +112,7 @@ def evaluate(
         "union_region": profile.union_region_when_spatial and spatial,
         "list_order": profile.list_order,
         "copies_by_position": profile.copies_by_position,
+        "last_of_equal_names": profile.last_of_equal_names,
     }
     try:
         name, series = translator.statement(statement)

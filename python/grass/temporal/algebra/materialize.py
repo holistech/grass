@@ -143,7 +143,7 @@ def _check_given_names(series, names):
     reject_input_names(series, names)
 
 
-def _map_names(series, basename, time_suffix, names=None, slots=None):
+def _map_names(series, basename, time_suffix, names=None, slots=None, repeatable=False):
     """The names of the result maps
 
     slots are the slots of series in the order of the names, by default those
@@ -154,6 +154,9 @@ def _map_names(series, basename, time_suffix, names=None, slots=None):
     offset and a gap for a dropped empty granule). Without names the maps are
     numbered from zero as t.rast.algebra does, or for absolute time get a
     suffix from the start time.
+
+    With repeatable the names that a time suffix gives to maps of equal time
+    may repeat; names given by the caller may not.
 
     :raises ValueError: for an unknown time_suffix, a names length other than
         the number of slots, names that would collide, are illegal or equal an
@@ -193,7 +196,7 @@ def _map_names(series, basename, time_suffix, names=None, slots=None):
             names.append(f"{basename}_{create_time_suffix(as_map(slot.extent))}")
         else:
             names.append(create_numeric_suffix(basename, number, f"%0{digits}"))
-    if len(set(names)) != len(names):
+    if len(set(names)) != len(names) and not repeatable:
         msg = (
             "Several maps would get the same name; maps of equal time need the "
             "numeric suffix"
@@ -231,6 +234,7 @@ def plan(
     list_order=False,
     copies_by_position=False,
     temporal_type=None,
+    last_of_equal_names=False,
 ):
     """Return the process chain of materialize() without running anything
 
@@ -264,6 +268,10 @@ def plan(
         default counts the copies only
     :param temporal_type: the temporal type of a result without slots, which
         has no maps to tell it; None means "absolute"
+    :param last_of_equal_names: let the maps that get the same name from
+        time_suffix overwrite each other: only the last of them (in the order
+        of the slots) is planned, with its content and time stamp. Without it
+        equal names are an error.
     :raises ValueError: for a map without time stamp, a name or basename with
         "@" (or a name with "." for a raster dataset), an unknown time_suffix,
         maps that would get the same name, names that do not match the
@@ -302,11 +310,19 @@ def plan(
         )
     backend = backend_for(series.kind)
     map_names = _map_names(
-        series, basename or name, time_suffix, names=names, slots=slots
+        series,
+        basename or name,
+        time_suffix,
+        names=names,
+        slots=slots,
+        repeatable=last_of_equal_names,
     )
+    last = {map_name: number for number, map_name in enumerate(map_names)}
     maps = []
     remove = []
-    for slot, map_name in zip(slots, map_names, strict=True):
+    for number, (slot, map_name) in enumerate(zip(slots, map_names, strict=True)):
+        if last[map_name] != number:
+            continue
         if backend.registers_origins and slot.origin is not None:
             # The registered map itself goes into the result.
             maps.append(PlannedMap(slot.origin, slot.extent, ()))
@@ -675,6 +691,7 @@ def materialize(
     list_order=False,
     copies_by_position=False,
     temporal_type=None,
+    last_of_equal_names=False,
     classic_absence_check=False,
     keep_empty_vector_maps=False,
     vector_dataset_if_empty=True,
@@ -698,8 +715,8 @@ def materialize(
 
     With names the result maps get the given names, one per slot (see plan()).
 
-    mapcalc, union_region, list_order, copies_by_position and temporal_type
-    are options of plan(). The others change what is done with the maps:
+    mapcalc, union_region, list_order, copies_by_position, temporal_type and
+    last_of_equal_names are options of plan(). The others change what is done with the maps:
 
     - classic_absence_check looks for existing result maps before the dataset
       and reports in the words of the parser classes, see check_absent();
@@ -738,6 +755,7 @@ def materialize(
         list_order=list_order,
         copies_by_position=copies_by_position,
         temporal_type=temporal_type,
+        last_of_equal_names=last_of_equal_names,
     )
     no_dataset = series.kind == "vector" and not vector_dataset_if_empty
     if no_dataset and not chain.maps:

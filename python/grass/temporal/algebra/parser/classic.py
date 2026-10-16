@@ -630,6 +630,7 @@ CLASSIC = Profile(
     union_region_when_spatial=True,
     list_order=True,
     database_order=True,
+    last_of_equal_names=True,
     mixed_times="unrelated",
     classic_errors=True,
 )
