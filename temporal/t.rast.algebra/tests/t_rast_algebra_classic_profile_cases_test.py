@@ -47,6 +47,15 @@ LISTED_CONDITIONS = [
     "if(merge(D[2], AF) != 3000000000, null(), null())",
 ]
 
+# Computed maps keep the id of the map they were made of, so a selection of
+# a merge with a computed copy keeps one of the two, the later one.
+COMPUTED_COPIES = [
+    "merge(A, sqrt(A)) {:,equal} HA",
+    "merge(A, A + 1) {!:,equal} HA",
+    "merge(A + 1, A) {:,equal} HA",
+    "merge(A, sqrt(A)) {:,overlapped|equal} if(AF < 3000000000 || td(D) >= 2, HA)",
+]
+
 # Profile gap, not a classic bug: the classic merge() tells maps apart by id,
 # time and the commands that made them, so a map read at a time offset (a new
 # map) stays next to the map it was read from. The profile compares content,
@@ -302,4 +311,9 @@ def test_merge_keeps_a_neighbour_map_in_the_granularity_mode(datasets):
 
 @pytest.mark.parametrize("expression", LISTED_CONDITIONS)
 def test_a_condition_without_maps_in_then_and_else_keeps_its_list(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", COMPUTED_COPIES)
+def test_a_computed_copy_replaces_its_map_in_a_selection(datasets, expression):
     assert_equal(expression)

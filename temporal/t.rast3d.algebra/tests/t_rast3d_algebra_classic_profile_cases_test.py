@@ -116,3 +116,15 @@ def test_a_number_next_to_a_count(datasets, expression, granularity):
 @pytest.mark.parametrize("expression", LARGE_CONSTANTS)
 def test_constants_beyond_32_bits(datasets, expression):
     assert_equal(expression, spatial=True)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "if(isnull(A), A # D[-1] : B[2], 3)",
+        "if(isnull(A), (A # D) : B, 3)",
+        "if(isnull(A), 3, (A # D) : B)",
+    ],
+)
+def test_a_selected_count_is_still_a_count(datasets, expression):
+    assert_equal(expression, granularity=True, spatial=True)

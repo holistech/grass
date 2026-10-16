@@ -356,7 +356,12 @@ class ClassicTranslator(Translator):
                 msg = f"Unpermitted temporal relation name '{name}'"
                 raise SyntaxError(msg)
         selected = self._selected(left, right, operator)
-        return selected if self._sampled else self._one_per_map(selected)
+        if not self._sampled:
+            selected = self._one_per_map(selected)
+        if id(left) in self._counts:
+            # The selected counts are still counts to if()
+            self._counts[id(selected)] = selected
+        return selected
 
     @staticmethod
     def _one_per_map(series):
@@ -368,11 +373,18 @@ class ClassicTranslator(Translator):
         several granules (granularity mode): there the reference holds
         separate map objects of the same id and keeps them all"""
 
+        def source(content):
+            # A computed map keeps the id of the first map it was made of
+            if isinstance(content, MapRef):
+                return None if content.offset else content.ident
+            if isinstance(content, Call):
+                return next(
+                    (found for found in map(source, content.args) if found), None
+                )
+            return None
+
         def map_id(slot):
-            content = slot.content
-            if slot.extent is None or not isinstance(content, MapRef):
-                return None
-            return None if content.offset else content.ident
+            return None if slot.extent is None else source(slot.content)
 
         latest = {}
         for slot in series.slots:
