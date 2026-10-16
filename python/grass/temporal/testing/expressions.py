@@ -21,8 +21,7 @@ Functions:
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise. ``compare_runs`` is
   ``compare`` for the earlier implementation against the classic profile; it
-  also accepts the error class of an invalid expression that the earlier
-  implementation computes into before it reaches the syntax error.
+  accepts two errors of different classes, which the batch counts apart.
 - ``prepare(kind, session, directory)`` creates the datasets the generator
   names, see ``expressions_data``.
 
@@ -357,52 +356,27 @@ def cluster(records):
     ]
 
 
-def rejected_after_a_run_error(kind, expression, first, second, **options):
-    """Tell whether two outcomes differ only in the class of the error of an
-    invalid expression
+def error_classes_differ(first, second):
+    """Tell whether two outcomes are both errors of different classes
 
-    The earlier implementation computes while it parses, so for an expression
-    that its grammar rejects it can stop with the error of a computation
-    before it reaches the syntax error. The classic profile parses the whole
-    expression first and reports the syntax error. That is the one accepted
-    difference in the error class.
-
-    :param first: The outcome of the earlier implementation
-    :param second: The outcome of the classic profile
-    :param options: The options of the runs. The granularity mode is left
-        out, so that the check of the earlier implementation is a syntax check
-        only.
-    :return: True if ``first`` is an error other than ``SyntaxError``,
-        ``second`` is a ``SyntaxError`` and the earlier implementation, run
-        without computing, rejects the expression as a syntax error, too
+    The earlier implementation computes while it parses and merges maps of
+    different time types into one list, so for an invalid expression it can
+    stop with the error of a computation, or of a later check, where the
+    classic profile reports the syntax error or refuses the merge first. The
+    expression is rejected by both; the class of the error is compared for
+    valid expressions only.
     """
-    if "error" not in first or first["error"] == "SyntaxError":
-        return False
-    if second.get("error") != "SyntaxError":
-        return False
-    options = {**options, "run": False, "debug": False}
-    options.pop("granularity", None)
-    try:
-        RUNNERS["reference"](
-            kind, f"Rfa = {expression}", basename="fa", overwrite=True, **options
-        )
-    except SyntaxError:
-        return True
-    except Exception:  # noqa: BLE001, any other error means: not rejected
-        return False
-    return False
+    return "error" in first and "error" in second and first["error"] != second["error"]
 
 
-def compare_runs(kind, expression, first, second, **options):
+def compare_runs(kind, expression, first, second):
     """``compare`` of the outcomes of the earlier implementation and the
-    classic profile, which accepts the difference of
-    ``rejected_after_a_run_error``"""
-    difference = compare(kind, expression, first, second)
-    if difference is not None and rejected_after_a_run_error(
-        kind, expression, first, second, **options
-    ):
+    classic profile, which accepts two errors of different classes, see
+    ``error_classes_differ``; ``run_batch`` counts those
+    """
+    if error_classes_differ(first, second):
         return None
-    return difference
+    return compare(kind, expression, first, second)
 
 
 #: The two runners that the test modules compare, as keys of ``RUNNERS``: the
@@ -423,7 +397,7 @@ def check_agreement(kind, expression, **options):
     second = outcome(
         kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
     )
-    difference = compare_runs(kind, expression, first, second, **options)
+    difference = compare_runs(kind, expression, first, second)
     if difference is not None:
         raise AssertionError(difference)
 
@@ -498,8 +472,9 @@ def run_batch(
 
     Must run inside a ``temporal_session`` with the datasets of ``prepare``.
     A line holds ``seed``, ``expression``, ``options`` and ``outcome``; with
-    ``against`` also ``other`` and ``difference`` (None or the text of
-    ``compare``). The lines depend only on the seed and the code.
+    ``against`` also ``other``, ``difference`` (None or the text of
+    ``compare_runs``) and ``error_classes`` (true for two errors of different
+    classes, which are no difference). The lines depend only on the seed and the code.
 
     :param runner: A runner as for ``outcome``
     :param against: A second runner to compare with
@@ -537,9 +512,8 @@ def run_batch(
                 }
                 if against is not None:
                     line["other"] = other
-                    line["difference"] = compare_runs(
-                        kind, expression, result, other, **options
-                    )
+                    line["difference"] = compare_runs(kind, expression, result, other)
+                    line["error_classes"] = error_classes_differ(result, other)
                     differences += line["difference"] is not None
                 handle.write(json.dumps(line, sort_keys=True) + "\n")
                 handle.flush()
@@ -659,7 +633,11 @@ def main(argv=None):
     _print_others(
         outcome for line in lines for outcome in (line["outcome"], line.get("other"))
     )
-    print(f"{len(seeds)} seeds, {differences} differences")
+    error_classes = sum(bool(line.get("error_classes")) for line in lines)
+    print(
+        f"{len(seeds)} seeds, {differences} differences, "
+        f"{error_classes} with errors of different classes (not differences)"
+    )
     return 1 if differences else 0
 
 

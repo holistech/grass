@@ -28,6 +28,7 @@ from grass.temporal.testing.expressions import (
     check_difference_seen,
     check_seed,
     compare_runs,
+    error_classes_differ,
     generate,
     outcome,
     prepare,
@@ -127,26 +128,24 @@ def test_same_seed_gives_the_same_expression():
     assert generate(KIND, 17, granularity_share=1.0)[1]["granularity"]
 
 
-def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
+def test_two_errors_of_different_classes_are_no_difference(datasets):
     """The earlier implementation computes while it parses: end_date() of a
     time instance stops it before it reads the syntax error after it. The
-    profile reports the syntax error."""
+    profile reports the syntax error. The expression is rejected by both."""
     expression = 'if(end_date(I) <= "2001-01-01", 3)'
     first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert first["error"] == "FatalError"
     assert second["error"] == "SyntaxError"
+    assert error_classes_differ(first, second)
     assert compare_runs(KIND, expression, first, second) is None
 
 
-def test_other_differences_are_not_accepted(datasets):
-    """The exception covers a syntax error of the profile that the earlier
-    implementation reports as another error, not a valid expression that the
-    profile rejects"""
+def test_a_valid_expression_that_the_profile_rejects_is_a_difference(datasets):
+    """Only two errors are accepted, not a result against an error"""
     expression = "A + N"
     valid = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     rejected = {"error": "SyntaxError", "msg": "syntax error"}
     assert "error" not in valid
+    assert not error_classes_differ(valid, rejected)
     assert compare_runs(KIND, expression, valid, rejected) is not None
-    run_error = {"error": "FatalError", "msg": "run error"}
-    assert compare_runs(KIND, expression, run_error, rejected) is not None

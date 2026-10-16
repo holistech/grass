@@ -9,7 +9,14 @@ maps or fail with the same class of error.
 import pytest
 
 from grass.temporal.testing import fakes
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
+from grass.temporal.testing.expressions import (
+    RUNNERS,
+    compare,
+    compare_runs,
+    error_classes_differ,
+    outcome,
+    prepare,
+)
 
 KIND = "vector"
 
@@ -114,3 +121,18 @@ STORED_TIME = [
 @pytest.mark.parametrize("expression", STORED_TIME)
 def test_a_map_with_its_stored_time_is_registered_itself(datasets, expression):
     assert_equal(expression)
+
+
+def test_the_class_of_an_error_may_differ_for_an_invalid_expression(datasets):
+    """The classic algebra reads a bare dataset name when it reduces the call,
+    after the other arguments, so it reaches the unit check of buff_t() and
+    reports a SyntaxError. The classic profile reads the dataset rel of
+    relative time first and reports its FatalError. Both reject the
+    expression, so the fuzzer counts it apart and does not call it a
+    difference."""
+    expression = "if(end_year(ab) > 3, rel, buff_t(ab, 2) : aa)"
+    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
+    assert error_classes_differ(reference, profile)
+    assert compare_runs(KIND, expression, reference, profile) is None
