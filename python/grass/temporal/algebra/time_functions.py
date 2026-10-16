@@ -73,6 +73,27 @@ def timevar(series, name):
     return Series(slots, series.kind, "scalar", series.spatial, series.order)
 
 
+class TimeStepError(ValueError):
+    """An increment of tshift() or buff_t() of the wrong kind for the time type
+
+    A profile that follows the classic algebra reports it as a SyntaxError.
+    """
+
+
+class TimeFunctionError(ValueError):
+    """A temporal function that a map has no value for
+
+    function is the name of the function and ident the identifier of the map,
+    None for a map without origin. A profile that follows the classic algebra
+    reports it as a FatalError.
+    """
+
+    def __init__(self, message, function, ident=None):
+        super().__init__(message)
+        self.function = function
+        self.ident = ident
+
+
 def _is_number(increment):
     return isinstance(increment, (int, float)) or (
         isinstance(increment, str) and increment.strip().lstrip("-").isdigit()
@@ -98,17 +119,17 @@ def _checked_increment(series, increment):
     if series.temporal_type == "relative":
         if not _is_number(increment):
             msg = f"Relative time is changed by a number of its unit, not {increment!r}"
-            raise ValueError(msg)
+            raise TimeStepError(msg)
         if int(float(increment)) != float(increment):
             msg = f"Relative time is changed by whole units, not {increment!r}"
             raise ValueError(msg)
         return int(float(increment))
     if _is_number(increment):
         msg = f'Absolute time needs a time unit, e.g. "{increment} days"'
-        raise ValueError(msg)
+        raise TimeStepError(msg)
     if not check_granularity_string(increment, "absolute"):
         msg = f'Cannot read {increment!r} as a time step, use e.g. "1 day"'
-        raise ValueError(msg)
+        raise TimeStepError(msg)
     return increment
 
 

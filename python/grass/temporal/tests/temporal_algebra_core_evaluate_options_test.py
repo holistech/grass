@@ -3,8 +3,12 @@
 The profile hands the options of plan() and materialize() on, reads the
 datasets in the order of the database, refuses a second temporal type and
 reports a ValueError of the core as the exception class of the classic
-algebra. The datasets are series in memory, so that no temporal database is
-read. The options of plan() themselves are tested in
+algebra. The datasets are series in memory, so translate.source (the read of
+the temporal database) is replaced. The real read is checked by
+test_the_database_order_of_equal_starts_is_that_of_the_classic_algebra
+(database_order), test_a_second_temporal_type_is_a_fatal_error
+(one_temporal_type) and test_an_empty_result_takes_the_temporal_type_of_the_first_dataset
+in temporal_algebra_core_plan_options_io_test.py. The options of plan() themselves are tested in
 temporal_algebra_core_plan_options_test.py, those that need a session in
 temporal_algebra_core_plan_options_io_test.py.
 
@@ -23,6 +27,7 @@ from grass.temporal.algebra import CORE, MapcalcStyle, Profile
 from grass.temporal.algebra import parser as parser_module
 from grass.temporal.algebra.parser import evaluate, translate
 from grass.temporal.algebra.series import Series
+from grass.temporal.algebra.time_functions import TimeFunctionError, TimeStepError
 
 BARE = MapcalcStyle(quote_names=False, written_integers=True, bare_comparisons=True)
 
@@ -248,3 +253,14 @@ def test_the_fatal_error_names_the_map_and_the_requirement(datasets):
 def test_other_value_errors_stay_value_errors(datasets):
     with pytest.raises(ValueError, match="different temporal types"):
         dry("R = merge(A, RT)", Profile(classic_errors=True))
+
+
+def test_the_mapping_goes_by_class_not_by_wording():
+    from grass.temporal.algebra.parser import _classic_error
+
+    text = "Cannot read '1 fortnight' as a time step, use e.g. \"1 day\""
+    assert _classic_error(ValueError(text)) is None
+    assert isinstance(_classic_error(TimeStepError(text)), SyntaxError)
+    mapped = _classic_error(TimeFunctionError("any words", "end_doy", "a1@PERMANENT"))
+    assert isinstance(mapped, FatalError)
+    assert "end_doy() is not available for map <a1@PERMANENT>" in str(mapped)

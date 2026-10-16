@@ -67,8 +67,10 @@ class MapcalcStyle:
 
 _COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
 # The operators whose operands may be bare comparisons: r.mapcalc reads
-# "a > 1 && b < 2" as "(a > 1) && (b < 2)", which the maps of
-# temporal_algebra_core_plan_options_io_test.py show for && and ||.
+# "a > 1 && b < 2" as "(a > 1) && (b < 2)". Measured 2026-10-16 in a temporal
+# session of an XY project: the maps of "if(A > 2 && N < 4, A, N)" and of
+# "if(A > 3 || N < 2, A, N)" computed with bare comparisons equal those
+# computed with parentheses (temporal_algebra_core_plan_options_io_test.py).
 _LOOSE = frozenset({"&&", "||"})
 
 

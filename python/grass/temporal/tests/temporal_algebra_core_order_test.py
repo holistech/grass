@@ -1,11 +1,10 @@
 """Tests for the sort key and the list order of Series
 
 The expected orders come from the classic algebra, which numbers the result
-maps of an expression in the order of its map list. The probe is
-ai-analysis/scratch/classic_profile/task11/probe_order.py: it runs the
-expression with run_reference() in a session with the datasets of
-grass.temporal.testing.expressions_data and prints the result maps by their
-number. It ran on 2026-10-16; the series below have the time stamps of the
+maps of an expression in the order of its map list. They were read on
+2026-10-16 by running each expression with run_reference() in a session with
+the datasets of grass.temporal.testing.expressions_data and listing the result
+maps by their number; the series below have the time stamps of the
 datasets A, N, AF (daily from 1 January 2001), W (one map, 1 to 5 January),
 Z (daily) and E (four instants on 1 January) of that module. Each test
 names the expression it follows.
@@ -204,7 +203,7 @@ def test_nested_merge_with_the_inner_merge_first(datasets):
     assert names(merged.listed()) == expected
 
 
-def test_merge_drops_a_duplicate_without_a_gap_in_the_list(datasets):
+def test_merge_drops_a_duplicate_without_a_gap_in_the_list(datasets, no_messenger):
     with pytest.warns(UserWarning, match="dropped 4 duplicate"):
         merged = merge(datasets["N"], datasets["A"], datasets["N"])
     assert [slot.rank for slot in merged.listed()] == list(range(8))

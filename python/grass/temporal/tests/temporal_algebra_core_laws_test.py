@@ -113,14 +113,8 @@ def test_apply_commutes_with_retime(a):
     )
 
 
-def test_merge_is_idempotent_and_associative(a, b, make_series, monkeypatch):
+def test_merge_is_idempotent_and_associative(a, b, make_series, no_messenger):
     c = make_series("c", (2, 4))
-    # Before tgis.init() the duplicate warning goes through Python, after it
-    # through the messenger; pin the first so that the test does not depend on
-    # which tests ran before.
-    monkeypatch.setattr(
-        "grass.temporal.algebra.operations.get_tgis_message_interface", lambda: None
-    )
     with pytest.warns(UserWarning, match="duplicate"):
         twice = ta.merge(ta.merge(a, b), b)
     assert twice.slots == ta.merge(a, b).slots

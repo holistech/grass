@@ -598,7 +598,7 @@ def _check_time_variable(name, series):
             f"Temporal function {name}() is not available for {what}: it needs "
             "absolute time, and the end functions also an end time"
         )
-        raise ValueError(msg)
+        raise time_functions.TimeFunctionError(msg, name, slot.origin)
 
 
 def _exactly(name, arguments, count):

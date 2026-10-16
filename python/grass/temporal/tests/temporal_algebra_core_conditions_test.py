@@ -175,8 +175,7 @@ def test_merge_keeps_identical_slots_once_with_a_warning(a, messages):
     assert "4" in messages.warnings[0]
 
 
-def test_merge_warns_through_python_before_init(a, monkeypatch):
-    monkeypatch.setattr(operations, "get_tgis_message_interface", lambda: None)
+def test_merge_warns_through_python_before_init(a, no_messenger):
     with pytest.warns(UserWarning, match="4 duplicate") as caught:
         assert merge(a, a).slots == a.slots
     assert caught[0].filename == __file__

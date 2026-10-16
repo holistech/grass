@@ -9,13 +9,13 @@ do, and returns the same process chain dictionary.
 from __future__ import annotations
 
 import functools
-import re
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.sources import source
+from grass.temporal.algebra import time_functions
 from grass.temporal.core import get_current_mapset
 
 from . import translate
@@ -27,17 +27,6 @@ __all__ = ["Translator", "evaluate", "parse"]
 
 # The parser classes take "num" for numbered map names; the core takes None.
 _TIME_SUFFIXES = ("gran", "time")
-
-# The messages of the core that evaluate() maps to the exception classes of the
-# parser classes if the profile asks for it, see _classic_error().
-_TIME_FUNCTION = re.compile(
-    r"Temporal function (\w+)\(\) is not available for (?:map <([^>]*)>)?"
-)
-_INCREMENT = re.compile(
-    r"Relative time is changed by a number of its unit"
-    r"|Absolute time needs a time unit"
-    r"|Cannot read .* as a time step"
-)
 
 
 def parse(text, *, grammar=None):
@@ -240,24 +229,21 @@ def _classic_error(error):
     """The exception of the parser classes for a ValueError of the core, or None
 
     The core reports an expression it cannot compute with a ValueError, the
-    parser classes with the class that fits the cause. The causes are told
-    by the messages of the core (translate.py, time_functions.py); a
-    test pins each message, so that a changed wording does not silently end
-    the mapping.
+    parser classes with the class that fits the cause. The causes the core
+    knows are subclasses of ValueError (time_functions.py), so the mapping
+    does not depend on the wording of a message.
     """
-    text = str(error)
-    function = _TIME_FUNCTION.match(text)
-    if function and function.group(2):
+    if isinstance(error, time_functions.TimeFunctionError):
+        if error.ident is None:
+            return FatalError(str(error))
         return FatalError(
             _(
                 "Temporal function {func}() is not available for map <{map}>. "
                 "It requires absolute time, end time functions also an end time."
-            ).format(func=function.group(1), map=function.group(2))
+            ).format(func=error.function, map=error.ident)
         )
-    if function:
-        return FatalError(text)
-    if _INCREMENT.match(text):
-        return SyntaxError(text)
+    if isinstance(error, time_functions.TimeStepError):
+        return SyntaxError(str(error))
     return None
 
 
