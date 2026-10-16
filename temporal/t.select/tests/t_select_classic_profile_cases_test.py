@@ -95,3 +95,13 @@ def test_single_maps_keep_the_order_of_the_lists_they_join(datasets, expression)
 @pytest.mark.parametrize("expression", MERGED_COPIES)
 def test_a_selected_map_stays_once(datasets, expression):
     assert_equal(expression)
+
+
+# The result maps are numbered in the order of the list, which a buffer that
+# moves a start past the next one leaves as it was.
+BUFFERED = ['buff_t(rel, "-3 day")', 'buff_t(rel, "3 day")', "tsnap(rel)"]
+
+
+@pytest.mark.parametrize("expression", BUFFERED)
+def test_buffered_maps_are_numbered_in_the_order_of_the_list(datasets, expression):
+    assert_equal(expression)

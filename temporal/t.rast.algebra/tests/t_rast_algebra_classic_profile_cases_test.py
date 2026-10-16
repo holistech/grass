@@ -38,6 +38,15 @@ BOTH_SIDES_OF_LOGICAL = [
     "if(A > 1 && start_day(Z * 2) > 1, Z)",
 ]
 
+# A condition on a merged list with numbers as then and else is the list of
+# the condition as it stands, in the order of the merge and not by time.
+LISTED_CONDITIONS = [
+    "if(merge(D, AF) != 3, 1, 2)",
+    "if(merge(D, AF) != 3, 1)",
+    "if(isnull(merge(D, AF)), 1, 2)",
+    "if(merge(D[2], AF) != 3000000000, null(), null())",
+]
+
 # Profile gap, not a classic bug: the classic merge() tells maps apart by id,
 # time and the commands that made them, so a map read at a time offset (a new
 # map) stays next to the map it was read from. The profile compares content,
@@ -289,3 +298,8 @@ def test_merge_keeps_computed_maps_that_look_alike(datasets, expression):
 @pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 def test_merge_keeps_a_neighbour_map_in_the_granularity_mode(datasets):
     assert_equal("merge(A[0], A)", granularity=True)
+
+
+@pytest.mark.parametrize("expression", LISTED_CONDITIONS)
+def test_a_condition_without_maps_in_then_and_else_keeps_its_list(datasets, expression):
+    assert_equal(expression)

@@ -717,14 +717,17 @@ class ClassicTranslator(Translator):
         value, with_unit = _written_increment(increment)
         _check_increment("buff_t", series, value, with_unit)
         slots = []
-        for slot in series.slots:
+        for position, slot in enumerate(series.slots):
             map_ = as_map(slot.extent)
             # Relative time is buffered by a whole number of its unit.
             map_.temporal_buffer(str(value) if slot.extent.unit is None else int(value))
             extent = extent_from(map_.get_temporal_extent(), slot.extent.unit)
             # A map that keeps its time stamp is still the registered map.
             origin = slot.origin if extent == slot.extent else None
-            slots.append(Slot(extent, slot.content, slot.space, origin, slot.rank))
+            # The classic list keeps its order when the buffer moves a start
+            # past the next one, and the result maps are numbered by it.
+            rank = position if slot.rank is None else slot.rank
+            slots.append(Slot(extent, slot.content, slot.space, origin, rank))
         return _like(series, slots)
 
     def _if(self, arguments, relation):
@@ -738,8 +741,12 @@ class ClassicTranslator(Translator):
             # The classic algebra reads such a condition as the count itself,
             # whatever the function made of it.
             arguments = [dataclasses.replace(known[1], sort="field"), *arguments[1:]]
+        # Without maps in then and else, the result is the list of the
+        # condition as it stands, also if that list is not in time order.
+        listed = not any(_timed(branch) for branch in arguments[1:])
+        order = (lambda series: series) if listed else self._in_time_order
         if self._kind == "vector" or len(arguments) not in (2, 3):
-            return self._in_time_order(super()._if(arguments, relation))
+            return order(super()._if(arguments, relation))
         condition = arguments[0]
         if (
             isinstance(condition, Series)
@@ -751,10 +758,10 @@ class ClassicTranslator(Translator):
                 self._judged_if(condition, *arguments[1:], relation=relation)
             )
         if not (_timed(condition) and condition.sort == "field"):
-            return self._in_time_order(super()._if(arguments, relation))
+            return order(super()._if(arguments, relation))
         then = arguments[1]
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
-        return self._in_time_order(self._field_if(condition, then, otherwise, relation))
+        return order(self._field_if(condition, then, otherwise, relation))
 
     @staticmethod
     def _in_time_order(series):
@@ -842,7 +849,12 @@ class ClassicTranslator(Translator):
             return _like(
                 condition,
                 (
-                    Slot(slot.extent, call("if", slot.content, *contents), slot.space)
+                    Slot(
+                        slot.extent,
+                        call("if", slot.content, *contents),
+                        slot.space,
+                        rank=slot.rank,
+                    )
                     for slot in condition.slots
                 ),
                 "field",
