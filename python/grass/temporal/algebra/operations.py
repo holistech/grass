@@ -12,6 +12,7 @@ from collections import Counter, defaultdict
 from dataclasses import replace
 
 from grass.temporal.core import get_tgis_message_interface
+from grass.temporal.spatial_extent import SpatialExtent
 
 from . import reducers
 from ._adapters import as_map, extent_from
@@ -86,23 +87,75 @@ def _origin(content, extent, *slots):
     return None
 
 
-def _combine(target, others, mode):
+def _combine(target, others, mode, *, stop_at_failure=False):
     """The time stamp of a target combined with related slots
 
     "left" and "target" keep the time stamp of the target. The other modes
     fold the target with each related slot in turn using the methods of
-    grass.temporal. None means that the combination is empty.
+    grass.temporal. None means that the combination is empty. A related slot
+    that does not combine empties the whole combination, unless
+    stop_at_failure is set: then the slots before it count and the ones after
+    it are left out, and only a first slot that does not combine empties it.
     """
     if mode in {"left", "target"}:
         return target.extent
     unit = target.extent.unit
     current = target.extent
-    for slot in others:
+    for number, slot in enumerate(others):
         combined = getattr(as_map(current), _COMBINE[mode])(as_map(slot.extent))
-        current = extent_from(combined, unit)
-        if current is None:
-            return None
+        found = extent_from(combined, unit)
+        if found is None:
+            return current if stop_at_failure and number else None
+        current = found
     return current
+
+
+def _intersection(first, second, three_d):
+    """The common box of two boxes as SpatialExtent finds it, None if none
+
+    This is what the classic algebra asks of its map objects, and it is not
+    the test of _combined_space(). Measured 2026-10-16 by calling
+    SpatialExtent.intersect_2d() and intersect() on such boxes: boxes that share only an edge or a
+    corner have no common box, and neither have two 3D boxes of no height.
+    """
+    boxes = [
+        SpatialExtent(
+            north=box.north,
+            south=box.south,
+            east=box.east,
+            west=box.west,
+            top=box.top,
+            bottom=box.bottom,
+        )
+        for box in (first, second)
+    ]
+    found = boxes[0].intersect(boxes[1]) if three_d else boxes[0].intersect_2d(boxes[1])
+    if found is None:
+        return None
+    return Space(
+        found.get_north(),
+        found.get_south(),
+        found.get_east(),
+        found.get_west(),
+        found.get_top() or 0.0,
+        found.get_bottom() or 0.0,
+    )
+
+
+def _meeting(space, partners, three_d):
+    """The slots of partners up to the first whose box does not meet space
+
+    Each partner narrows the box to its common box with the slots before
+    it. A slot without box, and any slot after a target without box, meets.
+    """
+    meeting = []
+    for partner in partners:
+        if space is not None and partner.space is not None:
+            space = _intersection(space, partner.space, three_d)
+            if space is None:
+                break
+        meeting.append(partner)
+    return meeting
 
 
 def _combined_space(own, others, mode):
@@ -444,6 +497,8 @@ def gather(
     order="sorted",
     unique=True,
     pairing_error=ValueError,
+    stop_at_failure=False,
+    box_filter=False,
 ):
     """For each slot t of target, reduce the slots x of other with "t R x"
 
@@ -477,6 +532,17 @@ def gather(
     :param pairing_error: the exception class that equal_times="pairwise"
         raises for counts that cannot be paired; the classic algebra stops
         with a FatalError
+    :param stop_at_failure: a related slot whose time stamp does not combine
+        with the time stamp so far ends the combination instead of emptying
+        it: the result has the time stamp of the slots before it, and is left
+        out only if the first slot does not combine; the reducer still sees
+        all related slots. Without effect for extent="target"
+    :param box_filter: only the related slots up to the first whose box does
+        not meet the common box so far give the time stamp and the spatial
+        extent of the result (the reducer still sees all of them), also if
+        space takes no part in the relation; a target none of whose related
+        slots meets it is left out, whatever missing says. Slots without
+        box meet
     :raises ValueError: for missing="keep" with a reducer whose result has
         another sort than the target
     :raises pairing_error: if equal_times="pairwise" cannot pair the maps of
@@ -521,14 +587,21 @@ def gather(
             elif missing == "keep":
                 slots.append(slot)
             continue
-        time = _combine(slot, partners, extent)
+        meeting = (
+            _meeting(slot.space, partners, DIMENSIONS[target.kind] == "3D")
+            if box_filter
+            else partners
+        )
+        if not meeting:
+            continue
+        time = _combine(slot, meeting, extent, stop_at_failure=stop_at_failure)
         if time is None:
             continue
         value = reducers.reduce(
             reduce, slot.content, [partner.content for partner in partners], nulls
         )
         extent_space = _combined_space(
-            slot.space, [partner.space for partner in partners], space
+            slot.space, [partner.space for partner in meeting], space
         )
         slots.append(Slot(time, value, extent_space, _origin(value, time, slot)))
     spatial = target.spatial or other.spatial or relation.spatial is not None
