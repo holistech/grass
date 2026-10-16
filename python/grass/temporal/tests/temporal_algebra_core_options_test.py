@@ -19,7 +19,7 @@ import pytest
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra.content import Call, Const, MapRef
-from grass.temporal.algebra.operations import _pair_equal_times, gather
+from grass.temporal.algebra.operations import _pair_equal_times, gather, pairs
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import (
     Relation,
@@ -349,3 +349,92 @@ def test_box_filter_judges_3d_boxes_of_no_height_as_not_meeting(make_series):
     other = make_series("x", (2, 3), space=tall, kind="raster3d")
     result = gather(target, contains, other, reduce="count", box_filter=True)
     assert contents(result) == [Const(1)]
+
+
+def minus(first, second):
+    return Call("-", (first, second))
+
+
+def test_pairs_make_one_slot_per_partner_with_the_pair_content(around):
+    left, other = around
+    result = pairs(left, contains, other, extent="right", content=minus)
+    assert contents(result) == [
+        minus(ref("l1"), ref("x1")),
+        minus(ref("l1"), ref("x2")),
+        minus(ref("l1"), ref("x3")),
+    ]
+
+
+def test_fold_all_gives_every_pair_the_fold_of_all_partners(around):
+    left, other = around
+    result = pairs(left, contains, other, extent="right", content=minus, fold_all=True)
+    whole = minus(minus(minus(ref("l1"), ref("x1")), ref("x2")), ref("x3"))
+    assert contents(result) == [whole, whole, whole]
+    assert result.times() == other.times()
+
+
+def test_fold_all_folds_in_written_order(neighbours):
+    left, other = neighbours
+    both = relation("precedes|follows")
+    result = pairs(
+        left, both, other, extent="right", content=minus, fold_all=True, order="written"
+    )
+    whole = minus(minus(ref("l1"), ref("x2")), ref("x1"))
+    assert contents(result) == [whole, whole]
+
+
+def test_fold_all_needs_a_content_function(around):
+    left, other = around
+    with pytest.raises(ValueError, match="fold_all needs a content function"):
+        pairs(left, contains, other, fold_all=True)
+
+
+def test_last_only_keeps_the_last_partner_of_each_slot(around):
+    left, other = around
+    result = pairs(left, contains, other, extent="right", last_only=True)
+    assert result.times() == [other.times()[-1]]
+
+
+def test_last_only_follows_the_written_order(neighbours):
+    left, other = neighbours
+    both = relation("precedes|follows")
+    kept = pairs(left, both, other, extent="right", last_only=True)
+    assert kept.times() == [other.times()[1]]
+    written = pairs(left, both, other, extent="right", last_only=True, order="written")
+    assert written.times() == [other.times()[0]]
+
+
+def test_pairs_without_unique_make_a_pair_for_every_name(around):
+    left, other = around
+    both = relation("contains|started")
+    assert len(pairs(left, both, other, extent="right")) == 3
+    assert len(pairs(left, both, other, extent="right", unique=False)) == 4
+
+
+def test_pairs_box_filter_stops_at_the_first_box_that_does_not_meet(boxes):
+    target, other = boxes
+    assert len(pairs(target, contains, other, extent="right")) == 3
+    kept = pairs(target, contains, other, extent="right", box_filter=True)
+    assert kept.times() == [other.times()[0]]
+
+
+def test_pairs_box_filter_still_folds_all_partners(boxes):
+    target, other = boxes
+    kept = pairs(
+        target,
+        contains,
+        other,
+        extent="right",
+        content=minus,
+        fold_all=True,
+        box_filter=True,
+    )
+    assert contents(kept) == [
+        minus(minus(minus(ref("t1"), ref("x1")), ref("x2")), ref("x3"))
+    ]
+
+
+def test_pairs_reject_an_unknown_order(around):
+    left, other = around
+    with pytest.raises(ValueError, match="order must be one of"):
+        pairs(left, contains, other, order="reverse")

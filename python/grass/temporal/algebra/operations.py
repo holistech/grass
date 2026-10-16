@@ -219,7 +219,20 @@ def select(left, relation, other, *, related=True):
     )
 
 
-def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
+def pairs(
+    left,
+    relation,
+    other,
+    *,
+    extent="left",
+    content=None,
+    space="keep",
+    order="sorted",
+    unique=True,
+    box_filter=False,
+    fold_all=False,
+    last_only=False,
+):
     """One slot per pair (l, x) with "l R x"
 
     :param extent: the time stamp of a slot: that of l ("left"), of x
@@ -231,6 +244,20 @@ def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
         time stamp comes from, x for extent="right" and l otherwise
         ("keep"), the box around l and x ("union"), or their common box
         ("intersection"), which keeps the extent of "keep" if there is none
+    :param order: the order of the partners of l, see related(); it is the
+        order of the slots of one l, and the order in which fold_all folds
+    :param unique: False makes a pair for every written relation name that
+        relates x to l, see related()
+    :param box_filter: only the partners of l up to the first whose box does
+        not meet the common box so far make pairs, also if space takes no
+        part in the relation; slots without box meet. fold_all still folds
+        all partners
+    :param fold_all: every pair of l gets the content that folds all partners
+        of l, content(content(l, x1), x2) and so on, instead of
+        content(l, x); needs content
+    :param last_only: keep only the last pair of each l, as the classic
+        algebra does when the partners of a map share one result map
+    :raises ValueError: for fold_all without content
     """
     check_series(left, "left")
     check_relation(relation)
@@ -239,14 +266,30 @@ def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
         check_callable(content, "content")
     _check_option("extent", extent, PAIR_EXTENTS)
     _check_option("space", space, SPACES)
+    _check_option("order", order, ORDERS)
+    if fold_all and content is None:
+        msg = "fold_all needs a content function to fold with"
+        raise ValueError(msg)
     _check_comparable(left, other)
     matches = related_indices(
-        left.slots, relation, other.slots, dimension=DIMENSIONS[left.kind]
+        left.slots,
+        relation,
+        other.slots,
+        dimension=DIMENSIONS[left.kind],
+        order=order,
+        unique=unique,
     )
     slots = []
     for slot, found in zip(left.slots, matches, strict=True):
-        for index in found:
-            partner = other.slots[index]
+        partners = [other.slots[index] for index in found]
+        folded = slot.content
+        if fold_all:
+            for partner in partners:
+                folded = content(folded, partner.content)
+        if box_filter:
+            partners = _meeting(slot.space, partners, DIMENSIONS[left.kind] == "3D")
+        made = []
+        for partner in partners:
             if extent == "right":
                 time, own, others = partner.extent, partner.space, [slot.space]
             else:
@@ -257,12 +300,13 @@ def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
                 )
             if time is None:
                 continue
-            value = (
-                slot.content
-                if content is None
-                else content(slot.content, partner.content)
-            )
-            slots.append(
+            if fold_all:
+                value = folded
+            elif content is None:
+                value = slot.content
+            else:
+                value = content(slot.content, partner.content)
+            made.append(
                 Slot(
                     time,
                     value,
@@ -270,6 +314,7 @@ def pairs(left, relation, other, *, extent="left", content=None, space="keep"):
                     _origin(value, time, slot, partner),
                 )
             )
+        slots.extend(made[-1:] if last_only else made)
     sort = left.sort if content is None else _joined_sort(left, other)
     spatial = left.spatial or other.spatial or relation.spatial is not None
     return Series(tuple(slots), left.kind, sort, spatial)
