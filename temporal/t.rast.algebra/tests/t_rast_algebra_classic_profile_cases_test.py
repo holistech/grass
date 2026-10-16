@@ -56,6 +56,15 @@ COMPUTED_COPIES = [
     "merge(A, sqrt(A)) {:,overlapped|equal} if(AF < 3000000000 || td(D) >= 2, HA)",
 ]
 
+# A constant beyond 32 bits is read by r.mapcalc with an overflow, also next
+# to the number of a time function, so it is not folded.
+LARGE_CONSTANTS_WITH_TIME = [
+    "3000000000 % start_dow(N, 1)",
+    "3000000000 % start_dow(N, 1) / tsnap(AF)",
+    "3000000000 + A",
+    "4000000000 * 2 - A",
+]
+
 # Profile gap, not a classic bug: the classic merge() tells maps apart by id,
 # time and the commands that made them, so a map read at a time offset (a new
 # map) stays next to the map it was read from. The profile compares content,
@@ -323,3 +332,11 @@ def test_a_computed_copy_replaces_its_map_in_a_selection(datasets, expression):
 @pytest.mark.parametrize("expression", ["merge(Z, Z[0] : OV)", "0 + merge(Z, Z[0])"])
 def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression):
     assert_equal(expression, granularity=True)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LARGE_CONSTANTS_WITH_TIME)
+def test_constants_beyond_32_bits_next_to_time_functions(
+    datasets, expression, granularity
+):
+    assert_equal(expression, granularity=granularity)

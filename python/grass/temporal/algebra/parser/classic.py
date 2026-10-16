@@ -265,13 +265,17 @@ class ClassicTranslator(Translator):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
         computed by r.mapcalc per map in the classic algebra, while the core
         computes scalars in Python and lacks most of the functions"""
-        if all(isinstance(operand, Const) for operand in operands) and any(
-            isinstance(operand.value, int) and abs(operand.value) > _INT32_MAX
+        if any(
+            isinstance(operand, Const)
+            and isinstance(operand.value, int)
+            and abs(operand.value) > _INT32_MAX
             for operand in operands
         ):
             # r.mapcalc reads such an integer with an overflow, so folding the
             # constants here would give another number than the classic text.
-            return Call(function, operands)
+            unfolded = self._unfolded(function, operands)
+            if unfolded is not None:
+                return unfolded
         try:
             return super()._apply(function, *operands)
         except ScalarFunctionError:
@@ -285,6 +289,42 @@ class ClassicTranslator(Translator):
             for operand in operands
         )
         return super()._apply(function, *fields)
+
+    @staticmethod
+    def _unfolded(function, operands):
+        """The call of function for each slot of the series among operands,
+        or for numbers alone, without computing it; None where the series do
+        not agree, which apply() reports"""
+        series = [operand for operand in operands if isinstance(operand, Series)]
+        if not series:
+            return Call(function, operands)
+        first = series[0]
+        if any(
+            len(other.slots) != len(first.slots)
+            or any(
+                a.extent != b.extent
+                for a, b in zip(other.slots, first.slots, strict=True)
+            )
+            for other in series
+        ):
+            return None
+        slots = [
+            dataclasses.replace(
+                slot,
+                content=Call(
+                    function,
+                    tuple(
+                        operand.slots[number].content
+                        if isinstance(operand, Series)
+                        else operand
+                        for operand in operands
+                    ),
+                ),
+                origin=None,
+            )
+            for number, slot in enumerate(first.slots)
+        ]
+        return dataclasses.replace(first, slots=tuple(slots), sort="field")
 
     def _relation(self, operator):
         """The relation in the written order of its names; a spatial name
