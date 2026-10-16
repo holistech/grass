@@ -128,3 +128,26 @@ def test_constants_beyond_32_bits(datasets, expression):
 )
 def test_a_selected_count_is_still_a_count(datasets, expression):
     assert_equal(expression, granularity=True, spatial=True)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "if(B > 0.5 || td(A[2]) > 0.5, Z, 1.5)",
+        "if(B > 0.5 && td(A[1]) > 0.5, Z)",
+        "if(isntnull(A) || td(Z[-1]) <= 1, D, null()) + EQ / 2.0",
+    ],
+)
+def test_the_classic_algebra_joins_a_neighbour_map_as_a_truth_value(
+    datasets, expression
+):
+    """Classic bug, not reproduced: for the time function of a map read at an
+    offset the classic algebra writes the map itself as the operand of || and
+    && (build_command_string() takes the command of the argument,
+    _operand_string()), e.g. if(b1 > 0.5||(a3), z1, 1.5). The maps are
+    floating point, which r3.mapcalc refuses as an operand, so the reference
+    ends in a CalledModuleError. The profile computes the truth value."""
+    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    assert reference["error"] == "Other:CalledModuleError"
+    assert "error" not in profile

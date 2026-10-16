@@ -105,3 +105,17 @@ BUFFERED = ['buff_t(rel, "-3 day")', 'buff_t(rel, "3 day")', "tsnap(rel)"]
 @pytest.mark.parametrize("expression", BUFFERED)
 def test_buffered_maps_are_numbered_in_the_order_of_the_list(datasets, expression):
     assert_equal(expression)
+
+
+def test_a_merge_of_time_types_fails_before_the_unit_check():
+    """The classic algebra merges maps of absolute and relative time into one
+    list and stops at the unit check of buff_t() with a SyntaxError, where the
+    profile refuses the merge with a FatalError. Both reject the expression;
+    only the class of the error differs, the way the earlier computation of
+    the classic algebra differs from the full parse of the profile."""
+    expression = "buff_t(merge(tmap(sinst), RT), 1)"
+    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
+    # With maps of one type the unit check is reached by both.
+    assert_equal("buff_t(merge(tmap(sinst), A), 1)")

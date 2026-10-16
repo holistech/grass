@@ -317,3 +317,9 @@ def test_a_condition_without_maps_in_then_and_else_keeps_its_list(datasets, expr
 @pytest.mark.parametrize("expression", COMPUTED_COPIES)
 def test_a_computed_copy_replaces_its_map_in_a_selection(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+@pytest.mark.parametrize("expression", ["merge(Z, Z[0] : OV)", "0 + merge(Z, Z[0])"])
+def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression):
+    assert_equal(expression, granularity=True)
