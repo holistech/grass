@@ -103,10 +103,10 @@ class Translator:
     the methods _result, _name, _single_map, _operands, _binary,
     _binary_values, _relation, _select, _count, _overlay, _arithmetic,
     _combine, _apply, _logical, _if, _temporal_if, _field_if, _conditions,
-    _function, _call, _time_variable, _tsnap, _tshift, _buff_t and _merge. A subclass for another variant of the
-    algebra overrides them and relies on their signatures; the translation
-    calls every one of them as a method of self, so an override is always
-    reached. The other private names are details of this class.
+    _function, _call, _time_variable, _tsnap, _tshift, _buff_t and _merge.
+    A subclass for another variant of the algebra overrides them and relies
+    on their signatures; the translation calls every one of them as a method
+    of self, so an override is always reached. The other private names are details of this class.
     """
 
     def __init__(
