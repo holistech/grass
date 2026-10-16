@@ -267,10 +267,14 @@ python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
 ```
 
 An expression on which the two implementations differ is an error of the
-profile, unless it is a documented difference: message texts, debug output
-and the class of the error of an invalid expression (the profile reads the
-whole expression first and reports the syntax error). The module docstring
-lists the options.
+profile, unless it is a documented difference: message texts, debug output,
+the class of the error of an invalid expression (the profile reads the whole
+expression first and reports the syntax error), a `merge()` of two computed
+maps identical in content and time (the profile keeps one), and a relation
+over a list of absolute and relative time (the previous implementation stops
+with a `TypeError`). The section "Differences from the previous
+implementation" of the _t.rast.algebra_ manual describes them all. The module
+docstring lists the options.
 
 ### Real and cached IO in library tests
 
