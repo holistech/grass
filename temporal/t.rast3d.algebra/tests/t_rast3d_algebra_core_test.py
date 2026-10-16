@@ -138,6 +138,14 @@ def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkey
 
 
 @pytest.mark.fixed_algebra
+def test_an_empty_variable_runs_the_core(series_3d, monkeypatch):
+    monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "")
+    # The core leaves out the false maps of if() without else, see above.
+    _parse("if(A > 2, A)", "fac_empty")
+    assert [row[1:] for row in _values("fac_empty")] == [(3, 3), (4, 4)]
+
+
+@pytest.mark.fixed_algebra
 def test_the_variable_selects_the_classic_algebra(series_3d, monkeypatch):
     monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "classic")
     # if() without else gives 0 in the classic algebra, so all four maps stay.

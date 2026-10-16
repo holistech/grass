@@ -11,7 +11,7 @@ grass.temporal.testing.reference, which tests compare the profile with.
 import os
 
 #: The environment variable that chooses the algebra for every expression
-#: of a session or script: "core" or "classic".
+#: of a session or script: "core" or "classic". Unset or empty means the core.
 ALGEBRA_VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
 DEFAULT_ALGEBRA = "core"
 
@@ -22,11 +22,13 @@ def classic_selected(classic):
     :param classic: True or False decides; None follows the environment
         variable GRASS_TEMPORAL_ALGEBRA, whose default is the core
     :raises ValueError: for a value of the variable other than core and
-        classic
+        classic; an empty value counts as unset, as a shell script that
+        writes ``GRASS_TEMPORAL_ALGEBRA= t.rast.algebra ...`` means no
+        choice, while a value of blanks is more likely a mistake
     """
     if classic is not None:
         return classic
-    choice = os.environ.get(ALGEBRA_VARIABLE, DEFAULT_ALGEBRA)
+    choice = os.environ.get(ALGEBRA_VARIABLE) or DEFAULT_ALGEBRA
     if choice not in ("core", "classic"):
         msg = f"{ALGEBRA_VARIABLE} is core or classic, not {choice!r}"
         raise ValueError(msg)

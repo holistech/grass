@@ -206,7 +206,8 @@ one pytest call. A `conftest.py` in a `tests` directory that defines a
 fixture with the same name takes precedence over the shared one.
 
 Tools which have both a classic and a core algebra run on the one chosen by
-the environment variable `GRASS_TEMPORAL_ALGEBRA`. The fixture
+the environment variable `GRASS_TEMPORAL_ALGEBRA`; unset or empty means the
+core, and a value other than `core` and `classic` is an error. The fixture
 `algebra_setting` is parametrized over `core` and `classic` and returns the
 name. It is not applied automatically; a directory which wants both
 algebras writes an autouse fixture which requests it and sets the variable

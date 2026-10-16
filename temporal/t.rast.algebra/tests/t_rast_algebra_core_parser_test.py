@@ -8,6 +8,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.exceptions import FatalError
+from grass.temporal.algebra.parser.switch import classic_selected
 
 VARIABLE = "GRASS_TEMPORAL_ALGEBRA"
 
@@ -67,6 +68,26 @@ def test_core_is_the_default(algebra, monkeypatch):
     monkeypatch.delenv(VARIABLE, raising=False)
     chain = algebra.parse("A * 2", dry_run=True)
     assert '"r_0"' in expression_of(chain)
+
+
+@pytest.mark.fixed_algebra
+def test_an_empty_variable_selects_the_core(algebra, monkeypatch):
+    """A script that writes GRASS_TEMPORAL_ALGEBRA= means no choice"""
+    monkeypatch.setenv(VARIABLE, "")
+    assert not classic_selected(None)
+    chain = algebra.parse("A * 2", dry_run=True)
+    assert '"r_0"' in expression_of(chain)
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("value", [" ", "\t", "bogus"])
+def test_a_value_that_only_looks_empty_is_refused(algebra, monkeypatch, value):
+    """Whitespace is more likely a mistake than an empty choice"""
+    monkeypatch.setenv(VARIABLE, value)
+    with pytest.raises(ValueError, match="core or classic"):
+        classic_selected(None)
+    with pytest.raises(ValueError, match="core or classic"):
+        algebra.parse("A * 2", dry_run=True)
 
 
 @pytest.mark.fixed_algebra

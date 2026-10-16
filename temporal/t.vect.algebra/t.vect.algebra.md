@@ -480,7 +480,8 @@ algebra is a set of rules of the same functions: it reads the syntax of the
 previous implementation and applies its rules for relations, order and
 results. The flag **-c** selects it for one call, the environment variable
 `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
-`GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the new
+`GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty
+variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
 `TemporalVectorAlgebraParser` takes the keyword `classic=True` for the
 same purpose.
