@@ -169,18 +169,26 @@ LEFT_ASSOCIATIVE = frozenset(
 _VARIADIC = frozenset({"min", "max", "nmin", "nmax"})
 
 
+class ScalarFunctionError(ValueError):
+    """A function that has no implementation for scalar values
+
+    A profile that lets r.mapcalc compute such a function on the maps of a
+    scalar series (the classic algebra does) catches this class.
+    """
+
+
 def evaluate(function, values):
     """Compute an operator or a function of r.mapcalc on scalar values
 
     An operator with more than two operands is applied from left to right.
 
-    :raises ValueError: if the function has no scalar implementation
+    :raises ScalarFunctionError: if the function has no scalar implementation
     """
     if function in _NULL_AWARE:
         return _NULL_AWARE[function](*values)
     if function not in _SCALAR:
         msg = f"{function}() cannot be computed for scalar values"
-        raise ValueError(msg)
+        raise ScalarFunctionError(msg)
     if function in LEFT_ASSOCIATIVE and len(values) > 2:
         result = values[0]
         for value in values[1:]:

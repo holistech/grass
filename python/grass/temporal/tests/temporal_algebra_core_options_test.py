@@ -20,7 +20,7 @@ import pytest
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra.content import Call, Const, MapRef
-from grass.temporal.algebra.operations import _pair_equal_times, gather, pairs, select
+from grass.temporal.algebra.operations import pair_equal_times, gather, pairs, select
 from grass.temporal.algebra.reducers import fold
 from grass.temporal.algebra.relations import (
     Relation,
@@ -210,8 +210,8 @@ def test_pairing_keeps_the_maps_of_one_time_together_in_written_order(make_serie
     slots = make_series("y", (1, 2), (1, 3), (1, 2)).slots
     other = sorted(slots, key=lambda slot: slot.content.ident)
     matches = [[0, 1, 2]]
-    assert _pair_equal_times(target, matches, other) == [[0, 1, 2]]
-    assert _pair_equal_times(target, matches, other, order="written") == [[0, 2, 1]]
+    assert pair_equal_times(target, matches, other) == [[0, 1, 2]]
+    assert pair_equal_times(target, matches, other, order="written") == [[0, 2, 1]]
 
 
 def test_pairing_error_is_raised_as_the_class_asked_for(make_series):

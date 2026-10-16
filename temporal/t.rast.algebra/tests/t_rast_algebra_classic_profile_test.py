@@ -10,6 +10,7 @@ borders of its grammar.
 
 import pytest
 
+import grass.temporal as tgis
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
@@ -144,3 +145,94 @@ def test_comparison_sees_a_different_result(algebra):
     reference, _ = both("A + N")
     _, profile = both("A - N")
     assert compare("raster", "A + N", reference, profile) is not None
+
+
+# The increment of a time shift or buffer is truncated to whole units on
+# relative time and refused on others, and an empty list passes any increment.
+INCREMENTS = [
+    "buff_t(RT, 1.5)",
+    "tshift(RT, 1.5)",
+    "tshift(RT, 2)",
+    "buff_t(A, 1.5)",
+    "tshift(A, 1.5)",
+    'buff_t(RT, "1 day")',
+    'tshift(RT, "1 day")',
+    'tshift(A, "1 DAY")',
+    'tshift(A, "1 d")',
+    'tshift(A, "3 onth")',
+    'buff_t(A, "1 d")',
+    "buff_t(A, 5)",
+    "tshift(A, 2)",
+    "tshift(D !: D, 2)",
+    'tshift(D !: D, "1 DAY")',
+    "buff_t(D !: D, 2)",
+    'buff_t(D !: D, "1 d")',
+    'buff_t(RT !: RT, "1 day")',
+    "tshift(RT !: RT, 1.5)",
+    "tsnap(D !: D)",
+]
+
+# In the granularity mode every dataset is sampled with the common
+# granularity first; maps without partner of a relation stay in the list.
+GRANULARITY = [
+    "A + B",
+    "A + N",
+    "A {+,during} B",
+    "B {+,contains} A",
+    "A : B",
+    "A : D",
+    "A !: C",
+    "A {:,during,u} B",
+    "D {:,equal|follows} A",
+    "A # D",
+    "if(A > 2, A, N)",
+    "if({during}, A > 1, B)",
+    "if(td(A) == 1, A)",
+    'tshift(A, "1 day") + N',
+    "tsnap(I)",
+    "merge(A, D)",
+]
+
+
+@pytest.mark.parametrize("expression", INCREMENTS)
+def test_increments_equal_reference(algebra, expression):
+    reference, profile = both(expression)
+    assert compare("raster", expression, reference, profile) is None
+
+
+@pytest.mark.parametrize("expression", GRANULARITY)
+def test_granularity_mode_equals_reference(algebra, expression):
+    reference, profile = both(expression, granularity=True)
+    assert compare("raster", expression, reference, profile) is None
+
+
+def test_the_increment_tests_see_results_and_errors(algebra):
+    """The expressions above cover both: maps and a refused increment"""
+    refused = both('tshift(A, "1 DAY")')[0]
+    kept = both("buff_t(RT, 1.5)")[0]
+    assert refused["error"] == "SyntaxError"
+    assert len(kept["maps"]) == 3
+
+
+@pytest.mark.parametrize(
+    "expression", ['buff_t(RT, "1 day")', "buff_t(A, 5)", 'tshift(A, "1 DAY")']
+)
+def test_a_refused_increment_leaves_no_dataset(algebra, expression):
+    """The reference and the profile both stop before a dataset exists"""
+    exists = {}
+    for name in ("reference", "classic"):
+        result = f"Rx{name}"
+        dataset = tgis.dataset_factory("strds", f"{result}@PERMANENT")
+        if dataset.is_in_db():
+            dataset.delete()
+        with pytest.raises(SyntaxError):
+            RUNNERS[name](
+                "raster",
+                f"{result} = {expression}",
+                basename=f"x{name}",
+                overwrite=True,
+                run=True,
+                debug=False,
+            )
+        exists[name] = dataset.is_in_db()
+    assert exists == {"reference": False, "classic": False}

@@ -26,7 +26,7 @@ from grass.exceptions import FatalError
 from grass.temporal.algebra import operations, time_functions
 from grass.temporal.algebra._adapters import as_map, extent_from
 from grass.temporal.algebra.backends import MapcalcStyle
-from grass.temporal.algebra.content import NULL, Const, call
+from grass.temporal.algebra.content import NULL, Const, ScalarFunctionError, call
 from grass.temporal.algebra.maptypes import DIMENSIONS
 from grass.temporal.algebra.profile import Profile
 from grass.temporal.algebra.relations import (
@@ -50,7 +50,7 @@ from .translate import (
 
 # strds(), str3ds() and stvds() of t.select read a dataset of another type
 # than the result.
-_DATASET_FUNCTIONS = {"strds": "strds", "str3ds": "str3ds", "stvds": "stvds"}
+_DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 
@@ -173,9 +173,8 @@ class ClassicTranslator(Translator):
         computes scalars in Python and lacks most of the functions"""
         try:
             return super()._apply(function, *operands)
-        except ValueError as error:
-            if "cannot be computed for scalar values" not in str(error):
-                raise
+        except ScalarFunctionError:
+            pass
         fields = tuple(
             dataclasses.replace(operand, sort="field")
             if isinstance(operand, Series)
@@ -212,7 +211,7 @@ class ClassicTranslator(Translator):
             unique=False,
         )
         if pairwise:
-            matches = operations._pair_equal_times(
+            matches = operations.pair_equal_times(
                 left.slots, matches, other.slots, order="written", error=_pairing_error
             )
         return matches
@@ -237,7 +236,9 @@ class ClassicTranslator(Translator):
         for index in found:
             partner = other.slots[index].space
             if space is not None and partner is not None:
-                space = operations._box(space, partner, "intersection", three_d)
+                space = operations.combine_boxes(
+                    space, partner, "intersection", three_d
+                )
                 if space is None:
                     return
             yield index
@@ -384,7 +385,7 @@ class ClassicTranslator(Translator):
     def _function(self, node):
         if node.name in _DATASET_FUNCTIONS:
             (argument,) = node.arguments
-            stds_type = _DATASET_FUNCTIONS[node.name]
+            stds_type = node.name
             key = (argument.ident, stds_type)
             if key not in self._datasets:
                 self._datasets[key] = self._resolve(argument.ident, stds_type=stds_type)

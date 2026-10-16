@@ -25,7 +25,10 @@ from .backends import MapcalcStyle
 class Profile:
     """The rules of one variant of the algebra
 
-    The defaults are the rules of the core.
+    The defaults are the rules of the core. The profile CLASSIC of the classic
+    algebra is defined in grass.temporal.algebra.parser.classic, whose
+    translator imports this module; the module attribute CLASSIC loads it on
+    first use (module __getattr__, and listed by __dir__).
 
     :param grammar: an object with parse(text) that returns the syntax tree
         (grass.temporal.algebra.parser.ast.Statement) of "name = expression";
@@ -90,3 +93,7 @@ def __getattr__(name):
         return CLASSIC
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
+
+
+def __dir__():
+    return sorted([*globals(), "CLASSIC"])

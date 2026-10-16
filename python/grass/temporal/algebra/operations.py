@@ -30,6 +30,7 @@ from .content import (
     Call,
     Const,
     MapRef,
+    ScalarFunctionError,
     SeriesAggregate,
     SeriesReduce,
     call,
@@ -113,7 +114,7 @@ def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=F
     of each related slot in turn, so that of the last one. The other modes
     fold the target with each related slot in turn using the methods of
     grass.temporal. With box the box of the target is combined with the box
-    of each related slot in the same step (see _box()).
+    of each related slot in the same step (see combine_boxes()).
 
     A step fails if the time stamps do not combine or the boxes do not. The
     failing step still applies the half that did combine, as the classic
@@ -144,7 +145,7 @@ def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=F
             else:
                 extent = found
         if box is not None and space is not None and partner.space is not None:
-            found = _box(space, partner.space, box, three_d)
+            found = combine_boxes(space, partner.space, box, three_d)
             if found is None:
                 ok = False
             else:
@@ -158,7 +159,7 @@ def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=F
     return extent, space
 
 
-def _box(first, second, operation, three_d):
+def combine_boxes(first, second, operation, three_d):
     """The common box ("intersection") or the box around both ("union") of
     two boxes, as SpatialExtent computes them; None if there is no common box
 
@@ -215,7 +216,7 @@ def _box_of(slot, partner, operation, three_d):
     """The box of the pair (slot, partner), False if the boxes do not combine"""
     if slot.space is None or partner.space is None:
         return slot.space
-    found = _box(slot.space, partner.space, operation, three_d)
+    found = combine_boxes(slot.space, partner.space, operation, three_d)
     return False if found is None else found
 
 
@@ -356,7 +357,7 @@ def pairs(
         relates x to l, see related()
     :param box: "intersection" or "union" combines the box of l with the box
         of x for the slot of each pair, as an overlay of the classic algebra
-        does (see _box()), also if space takes no part in the relation; it
+        does (see combine_boxes()), also if space takes no part in the relation; it
         replaces space. The pairs end at the first partner of l without
         common box (only "intersection" has none); fold_all still folds all
         partners. Slots without box combine
@@ -534,7 +535,7 @@ def _apply(function, operands, name):
         value = call(function, *(_content_at(operand, index) for operand in operands))
         if sort == "scalar" and not isinstance(value, Const):
             msg = f"{function}() cannot be computed for scalar values"
-            raise ValueError(msg)
+            raise ScalarFunctionError(msg)
         partners = (operand.slots[index] for operand in timed)
         slots.append(
             Slot(
@@ -611,7 +612,7 @@ EQUAL_TIMES = ("all", "pairwise")
 NULLS = ("propagate", "skip")
 
 
-def _pair_equal_times(targets, matches, others, *, order="sorted", error=ValueError):
+def pair_equal_times(targets, matches, others, *, order="sorted", error=ValueError):
     """Pair maps of equal time stamps like numpy broadcasting
 
     A single map on one side goes with all maps of its time on the other
@@ -706,7 +707,7 @@ def gather(
         The reducer sees all related slots whatever failure says
     :param box: "intersection" or "union" combines the box of the target with
         the box of each related slot in the same step as the time stamp, as an
-        overlay of the classic algebra does (see _combine_steps() and _box()),
+        overlay of the classic algebra does (see _combine_steps() and combine_boxes()),
         also if space takes no part in the relation; the result box is the one
         so far, and it replaces space. Only "intersection" can fail. Slots
         without box combine
@@ -744,7 +745,7 @@ def gather(
         unique=unique,
     )
     if equal_times == "pairwise" and relation.spatial is None:
-        matches = _pair_equal_times(
+        matches = pair_equal_times(
             target.slots, matches, other.slots, order=order, error=pairing_error
         )
     slots = []
