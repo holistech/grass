@@ -362,6 +362,10 @@ def error_classes_differ(first, second):
     return "error" in first and "error" in second and first["error"] != second["error"]
 
 
+# The texts of the profile that refuse maps of different time types or units
+_TYPE_REFUSALS = re.compile(r"temporal type|time units? of the merged")
+
+
 def accepted_error_pair(kind, expression, first, second, **options):
     """Name the pair of error classes of two outcomes if the rule accepts it
 
@@ -371,13 +375,16 @@ def accepted_error_pair(kind, expression, first, second, **options):
     and the earlier implementation another class, if that implementation
     also rejects the expression as a syntax error when it runs without
     computing. Or the earlier implementation reports a ``SyntaxError`` and the
-    classic profile a ``FatalError``. Every other pair is a difference.
+    classic profile a ``FatalError`` that refuses datasets or maps of
+    different temporal types or units. Every other pair is a difference.
 
     :param first: The outcome of the earlier implementation
     :param second: The outcome of the classic profile
     :param options: The options of the runs. The granularity mode is left
-        out of the run without computing, so that its check is a syntax
-        check only.
+        out of the run without computing: that run must reach the syntax
+        check, and the granularity mode first reads the datasets and samples
+        them, which stops it with the errors of a computation before it
+        parses.
     :return: ``"<class of first>/<class of second>"``, or None
     """
     if not error_classes_differ(first, second):
@@ -385,7 +392,8 @@ def accepted_error_pair(kind, expression, first, second, **options):
     pair = (first["error"], second["error"])
     label = "/".join(pair)
     if pair == ("SyntaxError", "FatalError"):
-        return label
+        message = second.get("msg", "").lower()
+        return label if _TYPE_REFUSALS.search(message) else None
     if second["error"] != "SyntaxError":
         return None
     options = {**options, "run": False, "debug": False}
@@ -506,7 +514,8 @@ def run_batch(
     A line holds ``seed``, ``expression``, ``options`` and ``outcome``; with
     ``against`` also ``other``, ``difference`` (None or the text of
     ``compare_runs``) and ``error_pair`` (the accepted pair of error classes,
-    which is no difference, see ``accepted_error_pair``, else None). The lines depend only on the seed and the code.
+    which is no difference, see ``accepted_error_pair``, else None). The lines
+    depend only on the seed and the code.
 
     :param runner: A runner as for ``outcome``
     :param against: A second runner to compare with

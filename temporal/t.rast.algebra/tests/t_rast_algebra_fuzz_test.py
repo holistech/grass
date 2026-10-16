@@ -162,3 +162,16 @@ def test_other_pairs_of_errors_are_differences(datasets):
     ):
         assert accepted_error_pair(KIND, expression, first, second) is None
         assert compare_runs(KIND, expression, first, second) is not None
+
+
+def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
+    """The profile's FatalError is accepted against a SyntaxError of the
+    earlier implementation only if it refuses datasets or maps of different
+    time types or units"""
+    expression = "A + N"
+    syntax = {"error": "SyntaxError", "msg": "syntax error"}
+    refusal = {"error": "FatalError", "msg": "Temporal type of the merged maps"}
+    other = {"error": "FatalError", "msg": "Dataset <A> not found"}
+    assert accepted_error_pair(KIND, expression, syntax, refusal) is not None
+    assert accepted_error_pair(KIND, expression, syntax, other) is None
+    assert compare_runs(KIND, expression, syntax, other) is not None
