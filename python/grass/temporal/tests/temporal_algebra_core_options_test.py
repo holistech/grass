@@ -438,3 +438,19 @@ def test_pairs_reject_an_unknown_order(around):
     left, other = around
     with pytest.raises(ValueError, match="order must be one of"):
         pairs(left, contains, other, order="reverse")
+
+
+def test_intersection_of_an_interval_with_an_instant_is_the_instant(make_series):
+    """The classic algebra sets the instant on the map as well, through
+    _set_temporal_extent() for the plain extent that the intersection with an
+    instant returns (temporal_algebra.py line 1244), so no option selects
+    another rule."""
+    interval = make_series("i", (1, 10))
+    instant = make_series("p", 5)
+    gathered = gather(
+        interval, contains, instant, reduce="first", extent="intersection"
+    )
+    paired = pairs(interval, contains, instant, extent="intersection")
+    for result in (gathered, paired):
+        assert [slot.extent for slot in result] == [instant.slots[0].extent]
+        assert result.slots[0].extent.end is None
