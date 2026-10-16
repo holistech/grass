@@ -920,6 +920,8 @@ MANUAL_ERRORS = {
     "C = A + end_month(I, 0)": ValueError,
     "C = A + start_month(RT, 1)": ValueError,
     "C = nosuch + A )": SyntaxError,
+    # The core relates no series of different temporal types.
+    "C = merge(tmap(sinst), RT) : RT": ValueError,
 }
 CLASSIC_MANUAL_ERRORS = {
     'C = tshift(A, "1 DAY")': SyntaxError,

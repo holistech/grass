@@ -840,9 +840,9 @@ and RT with maps of relative time.
 #### Differences from the previous implementation
 
 Besides the corrections, **-c** differs from the previous implementation
-in the following points. Only the item on `merge()` of computed maps changes
-the maps of a valid expression; the others concern messages, output and the
-class of an error.
+in the following points. Only the items on `merge()` of computed maps and
+on lists of absolute and relative time change the outcome of an
+expression; the others concern messages, output and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -888,6 +888,16 @@ class of an error.
   existing result map. The classic algebra raises `FatalError`, as the new
   algebra does. The tools are not affected, because they initialise the
   library with `raise_fatal_error=True`.
+- **Lists of absolute and relative time.** A relation over a list that
+  mixes maps of absolute and of relative time, made with `merge()` and
+  `tmap()`, stopped the previous implementation with a `TypeError` while it
+  related the maps. The classic algebra does not reproduce this crash: maps
+  of the two types relate to nothing, so this expression selects the maps
+  of `RT` as `RT : RT` does:
+
+  ```sh
+  C = merge(tmap(sinst), RT) : RT
+  ```
 
 ### Granularity algebra
 

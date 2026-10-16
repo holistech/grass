@@ -537,7 +537,10 @@ of earlier GRASS versions that used one of these forms need a new run.
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
-the selected maps of a valid expression.
+the selected maps of a valid expression. A relation over a list that mixes
+maps of absolute and of relative time, which stopped the previous
+implementation with a `TypeError`, selects maps here, as in
+*t.rast.algebra*: maps of the two types relate to nothing.
 
 ## EXAMPLES
 

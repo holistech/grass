@@ -543,7 +543,10 @@ C = A {:,contains,i} I
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a
 href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. None
-changes the selected maps of a valid expression.
+changes the selected maps of a valid expression. A relation over a list that
+mixes maps of absolute and of relative time, which stopped the previous
+implementation with a <code>TypeError</code>, selects maps here, as in
+<em>t.rast.algebra</em>: maps of the two types relate to nothing.
 
 <h2>EXAMPLES</h2>
 

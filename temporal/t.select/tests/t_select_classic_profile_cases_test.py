@@ -168,3 +168,25 @@ def test_partners_in_the_order_of_their_list(datasets, expression):
 @pytest.mark.parametrize("expression", MERGED_UNITS)
 def test_a_merge_of_units_fails_only_when_registered(datasets, expression):
     assert_equal(expression)
+
+
+# A relation over a list that mixes maps of absolute and relative time stops
+# the previous implementation with a TypeError while it builds the topology,
+# as it compares the start times of the two types. That crash is no result to
+# reproduce; the classic algebra relates the two types to nothing, so each
+# expression gives the result of the one without the maps of the other type.
+CRASHED_MIXED_RELATIONS = [
+    ("merge(tmap(sinst), RT) : RT", "RT : RT"),
+    ("RT : merge(tmap(sinst), RT)", "RT : RT"),
+    ("tmap(sinst) : merge(tmap(sinst), RT)", "tmap(sinst) : tmap(sinst)"),
+]
+
+
+@pytest.mark.parametrize(("expression", "unmixed"), CRASHED_MIXED_RELATIONS)
+def test_a_relation_over_absolute_and_relative_time(datasets, expression, unmixed):
+    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    assert reference["error"] == "Other:TypeError"
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    expected = outcome(KIND, unmixed, RUNNERS["reference"], basename="fb")
+    assert "error" not in expected
+    assert compare(KIND, expression, expected, profile) is None
