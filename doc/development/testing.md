@@ -230,6 +230,48 @@ select anything. The test picks its algebra itself and so runs once whatever
 `GRASS_TEMPORAL_ALGEBRA` says. A run that wants every test once, such as the
 classic run, selects with `-m "not fixed_algebra"`.
 
+### Comparing the classic algebra with its reference
+
+`-c` and `GRASS_TEMPORAL_ALGEBRA=classic` compute on a profile of the algebra
+core. The implementation that predates the profile stays in the repository
+only as a reference for tests, and is deleted once the profile has proven
+itself. It has no switch and no value of `GRASS_TEMPORAL_ALGEBRA`; the private
+helper `grass.temporal.testing.reference` reaches it, whatever the variable and
+the `classic` argument say. Its function `run_reference(kind, expression,
+basename=..., **options)` computes an expression like the parse method of
+the parser classes, for the kinds `raster`, `raster3d`, `vector` and
+`select`. Do not use it outside tests.
+
+The module `grass.temporal.testing.expressions` generates seeded random
+expressions of the classic grammar, runs them on two implementations and
+compares the error class or the registered maps, with their time stamps and
+values. The same seed gives the same expression, so a difference can be
+reproduced from its seed alone. The test modules `*_fuzz_test.py` of the four
+tools run the seeds 0 to 199 per kind in the normal run; they carry the marker
+`slow`, which `-m "not slow"` deselects, and `fixed_algebra`. Two variables
+widen a run for an acceptance:
+
+```bash
+GRASS_TEMPORAL_FUZZ_COUNT=4000 GRASS_TEMPORAL_FUZZ_SEED=0 \
+    pytest temporal/t.rast.algebra/tests/t_rast_algebra_fuzz_test.py
+```
+
+Outside pytest, the module writes one JSON line per expression, so that a
+run before and after a change can be compared:
+
+```bash
+python3 -m grass.temporal.testing.expressions --kind raster \
+    --seeds 0-3999 --runner reference --out before.jsonl
+# change the code, run the same command with --out after.jsonl, then:
+python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
+```
+
+An expression on which the two implementations differ is an error of the
+profile, unless it is a documented difference: message texts, debug output
+and the class of the error of an invalid expression (the profile reads the
+whole expression first and reports the syntax error). The module docstring
+lists the options.
+
 ### Real and cached IO in library tests
 
 Tests of the library mock the slow IO that always gives the same answer, where
