@@ -811,9 +811,10 @@ not a time step. Earlier versions raised a <code>TypeError</code> for
 <code>buff_t()</code> on relative time, and for <code>tshift()</code> they did
 not report the increment as the cause: the result was missing, or an enclosing
 operator complained about its input. Each of these expressions is a syntax
-error; a number with a fraction, such as <code>buff_t(RT, 1.5)</code>, stays
-valid on relative time. The new algebra refuses the same increments with a
-<code>ValueError</code>:
+error. The new algebra refuses the same increments with a
+<code>ValueError</code>. A number with a fraction, such as
+<code>buff_t(RT, 1.5)</code>, stays valid on relative time in the classic
+algebra; the new algebra reads whole numbers only and reports a syntax error:
 
 <div class="code"><pre>
 C = tshift(A, "1 DAY")

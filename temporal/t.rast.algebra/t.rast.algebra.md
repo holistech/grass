@@ -779,9 +779,10 @@ and RT with maps of relative time.
    Earlier versions raised a `TypeError` for `buff_t()` on relative time,
    and for `tshift()` they did not report the increment as the cause: the
    result was missing, or an enclosing operator complained about its input.
-   Each of these expressions is a syntax error; a number with a fraction,
-   such as `buff_t(RT, 1.5)`, stays valid on relative time. The new algebra
-   refuses the same increments with a `ValueError`:
+   Each of these expressions is a syntax error. The new algebra refuses the
+   same increments with a `ValueError`. A number with a fraction, such as
+   `buff_t(RT, 1.5)`, stays valid on relative time in the classic algebra;
+   the new algebra reads whole numbers only and reports a syntax error:
 
    ```sh
    C = tshift(A, "1 DAY")

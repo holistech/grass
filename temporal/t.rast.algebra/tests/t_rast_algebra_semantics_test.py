@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.exceptions import FatalError
 from grass.temporal.algebra.parser import ast as syntax
 from grass.temporal.algebra.parser import parse
 from grass.tools import Tools
@@ -902,12 +903,32 @@ def test_spatial_run_keeps_the_region(algebra):
 MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 
 # The notes on the core and the classic algebra show expressions that only
-# the core reads, and one that the core rejects.
+# the core reads, expressions that the core rejects, and, in the subsections
+# on corrections and differences, expressions that both algebras reject. The
+# core runs them all; MANUAL_ERRORS is the class of error the manual describes
+# for it. CLASSIC_MANUAL_ERRORS is the class of error of the classic algebra
+# for the expressions that the manual describes as errors there.
 CORE_NOTES = "### Core and classic algebra"
 MANUAL_ERRORS = {
     "C = if(A > 2, A, B)": ValueError,
     # B has maps of two days, so one day on each side leaves no time.
     'C = buff_t(B, "-1 day")': ValueError,
+    'C = tshift(A, "1 DAY")': ValueError,
+    'C = tshift(RT, "1 month")': ValueError,
+    'C = buff_t(RT, "3 hours")': ValueError,
+    "C = buff_t(A, 3)": ValueError,
+    "C = A + end_month(I, 0)": ValueError,
+    "C = A + start_month(RT, 1)": ValueError,
+    "C = nosuch + A )": SyntaxError,
+}
+CLASSIC_MANUAL_ERRORS = {
+    'C = tshift(A, "1 DAY")': SyntaxError,
+    'C = tshift(RT, "1 month")': SyntaxError,
+    'C = buff_t(RT, "3 hours")': SyntaxError,
+    "C = buff_t(A, 3)": SyntaxError,
+    "C = A + end_month(I, 0)": FatalError,
+    "C = A + start_month(RT, 1)": FatalError,
+    "C = nosuch + A )": SyntaxError,
 }
 
 
@@ -930,9 +951,10 @@ def split_core_notes(text):
     """Return the notes on the core and the classic algebra and the rest of
     the manual
 
-    The notes end at the next heading of any level, so that a section added
-    after them runs with either algebra. Lines in code blocks are no
-    headings, though a shell comment starts with "#" as well.
+    The notes end at the next heading of their own level or a higher one, so
+    that their subsections belong to them and a section added after them runs
+    with either algebra. Lines in code blocks are no headings, though a shell
+    comment starts with "#" as well.
     """
     lines = text.splitlines(keepends=True)
     start = lines.index(CORE_NOTES + "\n")
@@ -941,7 +963,7 @@ def split_core_notes(text):
     while end < len(lines):
         if lines[end].lstrip().startswith("```"):
             fenced = not fenced
-        elif not fenced and re.match(r"#{1,6} ", lines[end]):
+        elif not fenced and re.match(r"#{1,3} ", lines[end]):
             break
         end += 1
     return "".join(lines[start:end]), "".join(lines[:start] + lines[end:])
@@ -988,13 +1010,25 @@ def dataset_names(node):
 def test_manual_example_runs(algebra, assignment, classic):
     """Every example of the manual on datasets of the fixture parses and plans
     (dry run), or raises the error that the manual describes"""
-    names = dataset_names(parse(assignment).expression)
-    missing = sorted({name for name in names if not algebra.exists(name)})
-    if missing:
-        pytest.skip(f"datasets not in the fixture: {missing}")
     _name, expression = assignment.split(" = ", 1)
+    if MANUAL_ERRORS.get(assignment) is not SyntaxError:
+        # An expression that cannot be read has no datasets to look for.
+        names = dataset_names(parse(assignment).expression)
+        missing = sorted({name for name in names if not algebra.exists(name)})
+        if missing:
+            pytest.skip(f"datasets not in the fixture: {missing}")
     if assignment in MANUAL_ERRORS:
         with pytest.raises(MANUAL_ERRORS[assignment]):
             algebra.dry_times(expression, classic=classic)
     else:
         algebra.dry_times(expression, classic=classic)
+
+
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("assignment", list(CLASSIC_MANUAL_ERRORS))
+def test_manual_example_error_of_the_classic_algebra(algebra, assignment):
+    """The examples that the notes describe as errors of the classic algebra
+    raise the error class they name"""
+    _name, expression = assignment.split(" = ", 1)
+    with pytest.raises(CLASSIC_MANUAL_ERRORS[assignment]):
+        algebra.dry_times(expression, classic=True)
