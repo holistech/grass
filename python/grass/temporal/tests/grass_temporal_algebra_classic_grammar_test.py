@@ -187,6 +187,42 @@ def test_boundary_forms(world):
     assert disagreements(kind, forms) == []
 
 
+def braced_operator_statement(kind, operator):
+    """A statement that uses a braced operator of the generator where the
+    generator writes it: && and || join conditions, and the hash operator of
+    the vector algebra and t.select stands in a condition"""
+    symbol = operator[1:].split(",")[0]
+    if symbol in {"&&", "||"}:
+        return f"R = if(start_doy(A) > 0 {operator} start_doy(B) > 0, A)"
+    if symbol == "#" and kind in {"vector", "select"}:
+        return f"R = if(A {operator} B > 1, A)"
+    return f"R = A {operator} B"
+
+
+@pytest.mark.parametrize("kind", classic.KINDS)
+def test_the_generator_writes_braced_operators_the_grammar_reads(kind):
+    """Every braced operator of generated expressions parses, so that a
+    generated relation, aggregate or temporal reference is compared and not
+    refused as a syntax error by both implementations"""
+    grammar = classic.classic_grammar(kind)
+    operators = {
+        operator
+        for seed in range(300)
+        for operator in re.findall(r"\{[^{}]*,[^{}]*\}", generate(kind, seed)[0])
+    }
+    # The check must see every temporal reference to prove its point.
+    assert {
+        part for operator in operators for part in operator[1:-1].split(",")
+    } >= set("lruid")
+    rejected = []
+    for operator in sorted(operators):
+        try:
+            grammar.parse(braced_operator_statement(kind, operator))
+        except SyntaxError:
+            rejected.append(operator)
+    assert rejected == []
+
+
 @pytest.mark.slow
 @kinds(*classic.KINDS)
 def test_seeded_expressions_and_damaged_variants(world):

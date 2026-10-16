@@ -95,12 +95,12 @@ class Generator:
         if self.granularity:
             return symbol
         parts = [symbol, self.relations()]
+        # The classic grammar takes the aggregate before the temporal
+        # reference: {&&,contains,|,r} parses, {&&,contains,r,|} does not.
+        if agg and self.r() < 0.6:
+            parts.append(self.pick("|&"))
         if ref and self.r() < 0.6:
             parts.append(self.pick("lruid"))
-        if agg and self.r() < 0.6:
-            if len(parts) == 2 and self.r() < 0.5:
-                parts.append(self.pick("lr"))
-            parts.append(self.pick("|&"))
         return "{" + ",".join(parts) + "}"
 
     def increment(self, negative_ok):
@@ -275,9 +275,8 @@ class Generator:
                 return f"{left} && {right}"
             if x < 0.65:
                 return f"{left} || {right}"
-            # Every temporal reference, not only the l or r that comes with an
-            # aggregate: && and || with r give a map per partner, which
-            # generated expressions otherwise reached too rarely to compare.
+            # Every temporal reference: && and || with r give a map per
+            # partner, which the comparison must reach as often as l.
             operator = self.operator(self.pick(("&&", "||")), agg=True)
             return f"{left} {operator} {right}"
         if self.kind in {"vector", "select"} or self.r() < 0.45:
