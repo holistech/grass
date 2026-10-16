@@ -690,8 +690,9 @@ of earlier GRASS versions that used one of these forms need a new run.
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
-the maps of a valid expression.
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as does the
+item on `merge()` of computed maps, which is the only one that changes the
+maps of a valid expression.
 
 ## REFERENCES
 

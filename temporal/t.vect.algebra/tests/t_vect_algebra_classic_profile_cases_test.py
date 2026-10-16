@@ -136,3 +136,12 @@ def test_the_class_of_an_error_may_differ_for_an_invalid_expression(datasets):
     assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
     assert error_classes_differ(reference, profile)
     assert compare_runs(KIND, expression, reference, profile) is None
+
+
+# Profile gap, not a classic bug: each module of the classic algebra writes a
+# map of its own, so the two evaluations of ab + pb stay apart in a merge. The
+# profile compares content, time and box and keeps one. Fixing it needs an
+# identity on the slots of the series.
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+def test_merge_keeps_two_overlays_of_the_same_maps(datasets):
+    assert_equal("merge(ab + pb, ab + pb)")
