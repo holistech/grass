@@ -42,8 +42,10 @@ its input maps.
 Since GRASS 8.6, *t.rast3d.algebra* computes its expressions with the
 functions of the Python package `grass.temporal.algebra`, as
 *t.rast.algebra* does. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The flag
-**-c** selects it for one call, the environment variable
+classic algebra, so that published results remain reproducible. The classic
+algebra is a set of rules of the same functions: it reads the syntax of the
+previous implementation and applies its rules for relations, order and
+results. The flag **-c** selects it for one call, the environment variable
 `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
 `GRASS_TEMPORAL_ALGEBRA=core` or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
@@ -194,10 +196,8 @@ In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the new
 algebra raises `ValueError` or `TypeError`, where the classic algebra
 raises `FatalError`. Both raise `FatalError` for a missing dataset and,
-without overwrite, for an existing result. Without
-`tgis.init(raise_fatal_error=True)`, the classic algebra raises
-`SystemExit` instead of `FatalError` for some of these errors, such as an
-existing result. The tool stops with the error message in both algebras.
+without overwrite, for an existing result. The tool stops with the error
+message in both algebras.
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.select* and *t.vect.algebra* as well, so **-c** gives the rules of the
@@ -220,6 +220,60 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
 algebra" in the NOTES of [t.rast.algebra](t.rast.algebra.md) describes
 both corrections.
+
+#### Corrections to the classic algebra
+
+The classic algebra gives the results of the previous implementation, with
+the exceptions below. In these cases the previous implementation computed
+wrongly or reported the wrong error. **-c** now gives the result described
+here; the new algebra never computed these cases wrongly. Results of earlier
+GRASS versions that used one of these forms need a new run. The examples
+use the datasets of the list above and, in addition, N with daily maps.
+
+1. **td() of an expression** on the right of an operator used the value of
+   the expression instead of the duration of its maps. With daily maps in N
+   and A, the expression gave `N - A * 2` where it now gives `N - 1`:
+
+   ```sh
+   C = N - td(A * 2)
+   ```
+
+2. **tsnap() and tshift() of no maps.** If the expression inside has no
+   maps, the result is an empty dataset, and an enclosing expression goes on
+   with no maps. Earlier versions ended in an error. No map of A is equal to
+   a map of B, so both expressions give an empty dataset:
+
+   ```sh
+   C = tsnap(A {:,equal} B)
+   C = A + tshift(A {:,equal} B, "1 day")
+   ```
+
+3. **Increments that the library refuses.** An increment of `tshift()` or
+   `buff_t()` that does not fit the temporal type, such as a text that is
+   not a time step or a number without unit on absolute time, is a syntax
+   error and leaves no result dataset. The new algebra refuses the same
+   increments with a `ValueError`:
+
+   ```sh
+   C = tshift(A, "1 DAY")
+   C = buff_t(A, 3)
+   ```
+
+4. **merge() and the data type.** The data types of the maps are not
+   compared, so a dataset may hold integer and floating point maps. Earlier
+   versions refused `merge()` of a dataset with a single map from `map()` or
+   `tmap()` with the error that the datasets must have the same data type:
+
+   ```sh
+   C = merge(A, A * 1.5)
+   ```
+
+#### Differences from the previous implementation
+
+The differences in message texts, in the debug output of the Python
+parser and in the order of errors that
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
+the maps of a valid expression.
 
 ### Granularity algebra
 

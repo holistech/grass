@@ -45,8 +45,10 @@ its input maps.
 Since GRASS 8.6, <em>t.rast3d.algebra</em> computes its expressions with the
 functions of the Python package <code>grass.temporal.algebra</code>, as
 <em>t.rast.algebra</em> does. The previous implementation stays available as
-the classic algebra, so that published results remain reproducible. The flag
-<b>-c</b> selects it for one call, the environment variable
+the classic algebra, so that published results remain reproducible. The
+classic algebra is a set of rules of the same functions: it reads the syntax
+of the previous implementation and applies its rules for relations, order and
+results. The flag <b>-c</b> selects it for one call, the environment variable
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset variable selects the new
 algebra, and the flag takes precedence over the variable. In Python,
@@ -212,11 +214,8 @@ cannot read. For one they cannot compute, such as
 <code>if(end_doy(I) &gt; 0, I)</code>, the new algebra raises
 <code>ValueError</code> or <code>TypeError</code>, where the classic algebra
 raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
-missing dataset and, without overwrite, for an existing result. Without
-<code>tgis.init(raise_fatal_error=True)</code>, the classic algebra raises
-<code>SystemExit</code> instead of <code>FatalError</code> for some of these
-errors, such as an existing result. The tool stops with the error message in
-both algebras.
+missing dataset and, without overwrite, for an existing result. The tool stops
+with the error message in both algebras.
 
 <p>
 Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
@@ -241,6 +240,67 @@ Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic algebra"
 in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes
 both corrections.
+
+<h4>Corrections to the classic algebra</h4>
+
+The classic algebra gives the results of the previous implementation, with the
+exceptions below. In these cases the previous implementation computed wrongly
+or reported the wrong error. <b>-c</b> now gives the result described here;
+the new algebra never computed these cases wrongly. Results of earlier GRASS
+versions that used one of these forms need a new run. The examples use the
+datasets of the list above and, in addition, N with daily maps.
+
+<ol>
+<li><b>td() of an expression</b> on the right of an operator used the value of the
+expression instead of the duration of its maps. With daily maps in N and A,
+the expression gave <code>N - A * 2</code> where it now gives
+<code>N - 1</code>:
+
+<div class="code"><pre>
+C = N - td(A * 2)
+</pre></div>
+</li>
+
+<li><b>tsnap() and tshift() of no maps.</b> If the expression inside has no maps,
+the result is an empty dataset, and an enclosing expression goes on with no
+maps. Earlier versions ended in an error. No map of A is equal to a map of B,
+so both expressions give an empty dataset:
+
+<div class="code"><pre>
+C = tsnap(A {:,equal} B)
+C = A + tshift(A {:,equal} B, "1 day")
+</pre></div>
+</li>
+
+<li><b>Increments that the library refuses.</b> An increment of
+<code>tshift()</code> or <code>buff_t()</code> that does not fit the temporal
+type, such as a text that is not a time step or a number without unit on
+absolute time, is a syntax error and leaves no result dataset. The new algebra
+refuses the same increments with a <code>ValueError</code>:
+
+<div class="code"><pre>
+C = tshift(A, "1 DAY")
+C = buff_t(A, 3)
+</pre></div>
+</li>
+
+<li><b>merge() and the data type.</b> The data types of the maps are not compared,
+so a dataset may hold integer and floating point maps. Earlier versions
+refused <code>merge()</code> of a dataset with a single map from
+<code>map()</code> or <code>tmap()</code> with the error that the datasets
+must have the same data type:
+
+<div class="code"><pre>
+C = merge(A, A * 1.5)
+</pre></div>
+</li>
+</ol>
+
+<h4>Differences from the previous implementation</h4>
+
+The differences in message texts, in the debug output of the Python parser and
+in the order of errors that <a href="t.rast.algebra.html">t.rast.algebra</a>
+lists apply here likewise. None changes the maps of a valid expression.
 
 <h3>Granularity algebra</h3>
 
