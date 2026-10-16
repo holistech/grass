@@ -100,13 +100,16 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-def assert_equal(expression, **options):
+def assert_equal(expression, *, maps=None, **options):
+    """The profile gives what the reference gives, with maps maps if given"""
     options = {"register_null": True, **options}
     reference = outcome(
         KIND, expression, RUNNERS["reference"], basename="fa", **options
     )
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
+    if maps is not None:
+        assert len(profile["maps"]) == maps
 
 
 @pytest.mark.parametrize("spatial", [False, True])
@@ -188,11 +191,10 @@ def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
     assert_equal(expression)
 
 
-# Profile gap, not a classic bug: the classic merge() tells maps apart by id,
-# time and the commands that made them, so a map read at a time offset stays
-# next to the map it was read from. The profile compares content, time and
-# box. Fixing it needs an identity on the slots of the series.
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+# The classic merge() tells maps apart by id, time and the commands that made
+# them, so a map read at a time offset or a time function at an offset stays
+# next to the map it was read from. The profile marks such a content with a
+# map object of its own.
 @pytest.mark.parametrize(
     ("expression", "granularity"),
     [
@@ -200,6 +202,8 @@ def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
         ("merge(A[0], A[0])", True),
         ("merge(A, A[0])", True),
         ("merge(A[0], A)", True),
+        ("merge(A[0,0,0], A[0,0,0])", False),
+        ("merge(start_day(A, 1), start_day(A, 1))", False),
     ],
 )
 def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression, granularity):

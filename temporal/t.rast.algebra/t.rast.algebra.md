@@ -844,10 +844,9 @@ and RT with maps of relative time.
 #### Differences from the previous implementation
 
 Besides the corrections, **-c** differs from the previous implementation
-in the following points. Only the items on `merge()` of computed maps,
-on lists of absolute and relative time and on the relation `equals` change
-the outcome of an expression; the others concern messages, output and the
-class of an error.
+in the following points. Only the items on lists of absolute and relative
+time and on the relation `equals` change the outcome of an expression; the
+others concern messages, output and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -876,16 +875,6 @@ class of an error.
 
   ```sh
   C = nosuch + A )
-  ```
-
-- **merge() of computed maps.** The previous implementation tells two
-  computed maps apart by the commands that made them, so that it keeps both
-  of two maps that are identical in content and time. The classic algebra
-  compares content and time and keeps one of them. This expression gives
-  four maps where the previous implementation gave eight:
-
-  ```sh
-  C = merge(A[0], A[0])
   ```
 
 - **Existing result.** In Python, without `tgis.init(raise_fatal_error=True)`,

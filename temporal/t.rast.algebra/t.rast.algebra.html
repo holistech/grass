@@ -885,10 +885,9 @@ C = exp(A * 1000)
 <h4>Differences from the previous implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the previous implementation in
-the following points. Only the items on <code>merge()</code> of computed maps,
-on lists of absolute and relative time and on the relation <code>equals</code>
-change the outcome of an expression; the others concern messages, output and
-the class of an error.
+the following points. Only the items on lists of absolute and relative time and
+on the relation <code>equals</code> change the outcome of an expression; the
+others concern messages, output and the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -924,17 +923,6 @@ previous implementation reported the missing dataset
 
 <div class="code"><pre>
 C = nosuch + A )
-</pre></div>
-</li>
-
-<li><b>merge() of computed maps.</b> The previous implementation tells two
-computed maps apart by the commands that made them, so that it keeps both of
-two maps that are identical in content and time. The classic algebra compares
-content and time and keeps one of them. This expression gives four maps where
-the previous implementation gave eight:
-
-<div class="code"><pre>
-C = merge(A[0], A[0])
 </pre></div>
 </li>
 

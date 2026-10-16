@@ -695,9 +695,9 @@ of earlier GRASS versions that used one of these forms need a new run.
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the
-items on `merge()` of computed maps, on lists of absolute and relative time
-and on the relation `equals`, the three that change the outcome of an
-expression. The previous implementation refuses `equals` with a syntax error.
+items on lists of absolute and relative time and on the relation `equals`,
+the two that change the outcome of an expression. The previous
+implementation refuses `equals` with a syntax error.
 
 ## REFERENCES
 

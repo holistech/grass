@@ -88,13 +88,40 @@ PARTNER_MAPS = [
     "(int(N) {%,finishes|started,r} Q + 1) !: A",
 ]
 
-# Profile gap, not a classic bug: the classic merge() tells maps apart by id,
-# time and the commands that made them, so a map read at a time offset (a new
-# map) stays next to the map it was read from. The profile gives such a map
-# the id of the map it was read from, and drops the later of two such slots.
+# The classic merge() tells maps apart by id, time and the commands that made
+# them, so a map read at a time offset, a buffer or a time function at an
+# offset (each a new map) stays next to the map it was read from, and two
+# readings stay apart. The profile marks such a content with a map object of
+# its own.
 MERGED_COMPUTED_MAPS = [
     "merge(A[0], A[0])",
     "merge(A + 1, A[0] + 1)",
+    "merge(A[0,1], A[0,1])",
+    "merge(A[1], A[1])",
+    "merge(A[0], A)",
+    "merge(A[0] + 0, A[0])",
+    "merge(start_day(A, 1), start_day(A, 1))",
+    "merge(start_day(A, 1) + 0, start_day(A, 1))",
+]
+
+# The object of a map goes through a selection, a count and a number
+MERGED_COMPUTED_MAPS_BEYOND_MERGE = [
+    "merge(A[0], A) {:,equal} HA",
+    "merge(A[0], A) : HA",
+    "merge(A[0] # N, A # N)",
+    "merge((A # N) + 0, A # N)",
+    "merge((A # N) * 1, (A # N) + 0)",
+]
+
+# Expressions that must still collapse or stay as they are, with the number
+# of maps of the classic algebra: a map and its count is one object with one
+# command, a different offset or a number on a map another command.
+SAME_MAP_OBJECT = [
+    ("merge(A # N, A # N)", 4),
+    ("merge((A # N) + 0, (A # N) + 0)", 4),
+    ("merge(A * 1, A * 1)", 4),
+    ("merge(A + 0, A)", 8),
+    ("merge(A[0,1], A[0,0])", 8),
 ]
 
 # Absolute and relative time, and relative time of different units, are never
@@ -383,13 +410,16 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-def assert_equal(expression, **options):
+def assert_equal(expression, *, maps=None, **options):
+    """The profile gives what the reference gives, with maps maps if given"""
     options = {"register_null": True, **options}
     reference = outcome(
         KIND, expression, RUNNERS["reference"], basename="fa", **options
     )
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
+    if maps is not None:
+        assert len(profile["maps"]) == maps
 
 
 @pytest.mark.parametrize("expression", MIXED_TIME)
@@ -469,16 +499,22 @@ def test_counts_and_time_conditions_on_both_sides(datasets, expression):
     assert_equal(expression)
 
 
-# The profile gap of MERGED_COMPUTED_MAPS, see there
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 @pytest.mark.parametrize("expression", MERGED_COMPUTED_MAPS)
 def test_merge_keeps_computed_maps_that_look_alike(datasets, expression):
     assert_equal(expression)
 
 
-# The profile gap of MERGED_COMPUTED_MAPS: in the granularity mode A[0] is a
-# map read at a time offset as well.
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+@pytest.mark.parametrize("expression", MERGED_COMPUTED_MAPS_BEYOND_MERGE)
+def test_the_object_of_a_map_goes_through_selections_and_counts(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize(("expression", "maps"), SAME_MAP_OBJECT)
+def test_a_map_and_its_count_stay_one_object(datasets, expression, maps):
+    assert_equal(expression, maps=maps)
+
+
+# In the granularity mode A[0] is a map read at a time offset as well.
 def test_merge_keeps_a_neighbour_map_in_the_granularity_mode(datasets):
     assert_equal("merge(A[0], A)", granularity=True)
 
@@ -493,8 +529,6 @@ def test_a_computed_copy_replaces_its_map_in_a_selection(datasets, expression):
     assert_equal(expression)
 
 
-# The profile gap of MERGED_COMPUTED_MAPS for Z[0] next to Z itself
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
 @pytest.mark.parametrize("expression", ["merge(Z, Z[0] : OV)", "0 + merge(Z, Z[0])"])
 def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression):
     assert_equal(expression, granularity=True)
@@ -557,11 +591,9 @@ def test_td_of_a_counted_map_adds_the_count_in_the_reference(datasets):
     assert [values[3] for values in reference["maps"]] == [13, 14, 15, 16]
 
 
-# Profile gap, not a classic bug: the classic merge() compares the texts
-# if(1, 1,2) and (1) of two objects of the same map and keeps both (8 maps);
-# the profile folds the text of if() to the number 1, equal to the count, and
-# keeps 4.
-@pytest.mark.xfail(strict=True, reason="merge() compares folded texts")
+# The classic merge() compares the texts if(1, 1,2) and (1) of two objects of
+# the same map and keeps both (8 maps); the profile folds the text of if() to
+# the number 1, equal to the count, and remembers the text on the content.
 def test_merge_of_a_folded_if_and_its_count(datasets):
     assert_equal("merge(if(isnull(A # N), 1, 2), A # N)")
 

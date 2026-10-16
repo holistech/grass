@@ -73,12 +73,15 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-def assert_equal(expression, **options):
+def assert_equal(expression, *, maps=None, **options):
+    """The profile gives what the reference gives, with maps maps if given"""
     reference = outcome(
         KIND, expression, RUNNERS["reference"], basename="fa", **options
     )
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
+    if maps is not None:
+        assert len(profile["maps"]) == maps
 
 
 @pytest.mark.parametrize("spatial", [False, True])
@@ -146,12 +149,26 @@ def test_merge_keeps_two_overlays_of_the_same_maps(datasets):
     assert_equal("merge(ab + pb, ab + pb)")
 
 
-# Profile gap, not a classic bug: v.buffer writes a map of its own as well,
-# but the profile gives a buffer the id of the map it buffers, so a merge
-# keeps one of two equal buffers.
-@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
-def test_merge_keeps_two_buffers_of_the_same_maps(datasets):
-    assert_equal("merge(buff_p(pa, 1), buff_p(pa, 1))")
+# v.buffer writes a map of its own, so a merge keeps both of two equal
+# buffers, also next to the map they buffer and after a selection or a shift.
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "merge(buff_p(pa, 1), buff_p(pa, 1))",
+        "merge(buff_l(la, 1) : aa, buff_l(la, 1))",
+        'merge(tshift(buff_a(aa, 1), "1 day"), buff_a(aa, 1))',
+    ],
+)
+def test_merge_keeps_two_buffers_of_the_same_maps(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize(
+    ("expression", "maps"),
+    [("merge(buff_p(pa, 1), pa)", 6), ("merge(ab + pb, ab + pb)", 6)],
+)
+def test_a_buffer_next_to_its_map_stays_a_second_map(datasets, expression, maps):
+    assert_equal(expression, maps=maps)
 
 
 @pytest.mark.parametrize(

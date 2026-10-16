@@ -59,7 +59,6 @@ from .translate import (
     _COMPARISONS,
     _EXTENTS,
     Translator,
-    _INDEX_FORMS,
     _check_time_variable,
     _timed,
     _vector_field,
@@ -69,6 +68,7 @@ from .translate import (
 # strds(), str3ds() and stvds() of t.select read a dataset of another type
 # than the result.
 _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
+_BUFFERS = ("buff_p", "buff_l", "buff_a")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 _INT32_MAX = 2**31 - 1
@@ -187,10 +187,16 @@ class _MapObject:
         the content itself for the first count; None for a map that is not
         counted. Set after the content is made, because the content that
         carries the mark is the first count.
+    text: the command as the classic algebra writes it, unfolded, where the
+        content was folded to a number (a count changed by numbers, a value
+        of a time function at an offset); None for the content itself. The
+        classic algebra compares this text in merge(), and the profile folds
+        a count plus 0 to the number of the count.
     """
 
     map: object = _OWN
     first: Content | None = None
+    text: Content | None = None
 
 
 class _SeriesNotes:
@@ -215,12 +221,6 @@ class _SeriesNotes:
 
     def __contains__(self, series):
         return id(series) in self._notes
-
-
-def _has_command(content):
-    """True if the map of content has a command of its own in the classic
-    algebra: it is computed, or read at a cell offset"""
-    return not isinstance(content, MapRef) or bool(content.offset)
 
 
 def _joined(symbol, first, second):
@@ -302,9 +302,6 @@ class ClassicTranslator(Translator):
         # The conditions on time functions whose argument is a computed
         # expression, with the argument; see _remember_commands().
         self._commands = _SeriesNotes()
-        # The maps read at a time offset, by id() with the series; see
-        # _index().
-        self._generated = {}
         # The results of the hash operator itself and td() of counted maps;
         # see _compare().
         self._hashes = _SeriesNotes()
@@ -461,17 +458,50 @@ class ClassicTranslator(Translator):
             len(series) == 1
             and isinstance(result, Series)
             and len(result.slots) == len(series[0].slots)
-            and any(self._counted(slot.content) for slot in series[0].slots)
+            and any(
+                self._counted(slot.content) or self._new_map(slot.content)
+                for slot in series[0].slots
+            )
         ):
             return result
         slots = []
-        for slot, operand in zip(result.slots, series[0].slots, strict=True):
+        for index, (slot, operand) in enumerate(
+            zip(result.slots, series[0].slots, strict=True)
+        ):
             if self._counted(operand.content):
                 # Equal contents are copied, so that each has an identity.
                 content = self._counting(slot.content, operand.content)
+                content.mark.text = self._text_of(function, operands, index)
+                slot = dataclasses.replace(slot, content=content)
+            elif self._new_map(operand.content) and isinstance(slot.content, Const):
+                # A new map changed by a number is the same map, but the
+                # profile has folded it: it keeps the map and the command.
+                content = dataclasses.replace(
+                    slot.content,
+                    mark=_MapObject(
+                        self._source(operand.content),
+                        text=self._text_of(function, operands, index),
+                    ),
+                )
                 slot = dataclasses.replace(slot, content=content)
             slots.append(slot)
         return dataclasses.replace(result, slots=tuple(slots))
+
+    def _text_of(self, function, operands, index):
+        """The command of function on the operands in the slot at index,
+        written with the commands of the operands and not folded"""
+        return Call(
+            function,
+            tuple(
+                self._written(operations._content_at(operand, index))  # noqa: SLF001
+                for operand in operands
+            ),
+        )
+
+    @staticmethod
+    def _new_map(content):
+        """True if content is a new map object of the classic algebra"""
+        return content.mark is not None and content.mark.map is _OWN
 
     @staticmethod
     def _counted(content):
@@ -483,10 +513,41 @@ class ClassicTranslator(Translator):
         """A copy of content that is the map and the count that like is
 
         The copy has the mark of a new map object, so that each content has an
-        identity of its own, and keeps the map and the first count of like.
+        identity of its own, and keeps the map, the first count and the text
+        of like.
         """
         return dataclasses.replace(
-            content, mark=_MapObject(like.mark.map, like.mark.first)
+            content, mark=_MapObject(like.mark.map, like.mark.first, like.mark.text)
+        )
+
+    @staticmethod
+    def _written(content):
+        """The content as the classic algebra writes its command: unfolded
+        where the profile folded it to a number"""
+        mark = content.mark
+        return content if mark is None or mark.text is None else mark.text
+
+    @staticmethod
+    def _new_maps(series):
+        """series with a new map object for each content"""
+        return dataclasses.replace(
+            series,
+            slots=tuple(
+                dataclasses.replace(
+                    slot, content=dataclasses.replace(slot.content, mark=_MapObject())
+                )
+                for slot in series.slots
+            ),
+        )
+
+    @staticmethod
+    def _has_command(content):
+        """True if the map of content has a command of its own in the classic
+        algebra: it is computed, read at a cell offset or a new map object"""
+        return (
+            not isinstance(content, MapRef)
+            or bool(content.offset)
+            or (content.mark is not None and content.mark.map is _OWN)
         )
 
     def _first_counts(self, series):
@@ -845,10 +906,7 @@ class ClassicTranslator(Translator):
         """A map read at a time offset is a new map in the classic algebra,
         which carries a command like a computed one: its own id"""
         result = super()._index(node)
-        axes, _forms = _INDEX_FORMS[self._kind]
-        if isinstance(result, Series) and len(node.offsets) in (1, axes + 1):
-            self._generated[id(result)] = result
-        return result
+        return self._new_maps(result) if isinstance(result, Series) else result
 
     def _remember_commands(self, result, argument):
         """Note the commands of the argument of a time function
@@ -862,10 +920,7 @@ class ClassicTranslator(Translator):
             isinstance(result, Series)
             and result.sort == "scalar"
             and len(result.slots) == len(slots)
-            and (
-                id(argument) in self._generated
-                or any(_has_command(slot.content) for slot in slots)
-            )
+            and (any(self._has_command(slot.content) for slot in slots))
         ):
             self._commands.note(result, argument)
 
@@ -891,10 +946,7 @@ class ClassicTranslator(Translator):
                 return
             taken.add(index)
             slots.append(argument.slots[index])
-        carried = _like(argument, slots)
-        if id(argument) in self._generated:
-            self._generated[id(carried)] = carried
-        self._remember_commands(result, carried)
+        self._remember_commands(result, _like(argument, slots))
 
     def _compare(self, symbol, left, right):
         """A comparison of the hash operator itself (A # B == 2) or of td() of
@@ -931,10 +983,9 @@ class ClassicTranslator(Translator):
         known = self._commands.get(series)
         if known is None:
             return series
-        generated = id(known) in self._generated
         slots = [
             slot
-            if not (generated or _has_command(argument.content))
+            if not self._has_command(argument.content)
             else dataclasses.replace(slot, content=argument.content)
             for slot, argument in zip(series.slots, known.slots, strict=True)
         ]
@@ -1071,8 +1122,10 @@ class ClassicTranslator(Translator):
             variable = time_functions.timevar(series, name)
             # The value of a neighbour is a number in the map, so a condition
             # on it judges cells, not time.
-            return dataclasses.replace(
-                time_functions.neighbour(variable, offset), sort="field"
+            return self._new_maps(
+                dataclasses.replace(
+                    time_functions.neighbour(variable, offset), sort="field"
+                )
             )
         result = super()._time_variable(name, arguments)
         self._remember_commands(result, series)
@@ -1119,6 +1172,10 @@ class ClassicTranslator(Translator):
 
     def _call_unit(self, name, arguments, relation):
         result = super()._call(name, arguments, relation)
+        if name in _BUFFERS and isinstance(result, Series):
+            # Each buffer is a new map object (v.buffer of its own), also
+            # where the buffer of the same map is made twice.
+            result = self._new_maps(result)
         if (
             name in _CONDITION_FUNCTIONS
             and isinstance(result, Series)
@@ -1197,7 +1254,7 @@ class ClassicTranslator(Translator):
         the map id and the text: a map of one id and text has one box, and
         the origin is the id of a registered map.
         """
-        return (slot.extent, slot.content, self._source(slot.content))
+        return (slot.extent, self._written(slot.content), self._source(slot.content))
 
     def _tshift(self, series, increment):
         """Shift by an increment; a number needs relative and a text with a
@@ -1442,6 +1499,7 @@ class ClassicTranslator(Translator):
             if self._counted(slot.content):
                 # Copied, so that each has an identity
                 content = self._counting(content, slot.content)
+                content.mark.text = Call("if", (self._written(slot.content), *contents))
             slots.append(Slot(slot.extent, content, slot.space, rank=slot.rank))
         return _like(condition, slots, "field")
 
