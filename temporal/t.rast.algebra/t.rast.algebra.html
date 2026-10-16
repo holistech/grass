@@ -914,12 +914,19 @@ C = nosuch + A )
 computed maps apart by the commands that made them, so that it keeps both of
 two maps that are identical in content and time. The classic algebra compares
 content and time and keeps one of them. This expression gives four maps where
-the previous implementation gave eight. The difference is known and not yet
-decided:
+the previous implementation gave eight:
 
 <div class="code"><pre>
 C = merge(A[0], A[0])
 </pre></div>
+</li>
+
+<li><b>Existing result.</b> In Python, without
+<code>tgis.init(raise_fatal_error=True)</code>, the previous implementation
+exits the process with <code>SystemExit</code> for an existing result map. The
+classic algebra raises <code>FatalError</code>, as the new algebra does. The
+tools are not affected, because they initialise the library with
+<code>raise_fatal_error=True</code>.
 </li>
 </ul>
 

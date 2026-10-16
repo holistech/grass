@@ -867,12 +867,17 @@ in the following points. None changes the maps of a valid expression.
   computed maps apart by the commands that made them, so that it keeps both
   of two maps that are identical in content and time. The classic algebra
   compares content and time and keeps one of them. This expression gives
-  four maps where the previous implementation gave eight. The difference is
-  known and not yet decided:
+  four maps where the previous implementation gave eight:
 
   ```sh
   C = merge(A[0], A[0])
   ```
+
+- **Existing result.** In Python, without `tgis.init(raise_fatal_error=True)`,
+  the previous implementation exits the process with `SystemExit` for an
+  existing result map. The classic algebra raises `FatalError`, as the new
+  algebra does. The tools are not affected, because they initialise the
+  library with `raise_fatal_error=True`.
 
 ### Granularity algebra
 
