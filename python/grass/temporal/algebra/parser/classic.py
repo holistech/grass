@@ -187,7 +187,19 @@ class ClassicTranslator(Translator):
         # identifier; see statement().
         self._stored = {}
         self._resolve = self._noting(self._resolve)
-        self._resolve_map = self._noting(self._resolve_map)
+        self._resolve_map = self._noting(self._by_start(self._resolve_map))
+
+    @staticmethod
+    def _by_start(resolve):
+        """resolve, with the series ordered by start alone as the datasets are
+        (see resolve in evaluate()): a single map joins lists of datasets, and
+        the order of its list decides the ties in the lists it joins"""
+
+        def read(*arguments, **keywords):
+            series = resolve(*arguments, **keywords)
+            return dataclasses.replace(series, order="start")
+
+        return read
 
     def _noting(self, resolve):
         """resolve, noting the time stamps of the registered maps it reads"""

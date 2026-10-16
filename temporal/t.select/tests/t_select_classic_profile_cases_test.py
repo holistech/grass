@@ -37,6 +37,12 @@ RETIMED = [
     'tsnap(tshift(A, "1 day"))',
 ]
 
+# A single map joins the lists of datasets, which are ordered by start alone
+SINGLE_MAPS = [
+    "tsnap(if({started}, E {#,contains|over} Q <= 1, tmap(singletmap), rel))",
+    "if({started}, E {#,contains|over} Q <= 1, tmap(singletmap), rel)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -66,4 +72,9 @@ def test_mixed_time_is_unrelated(datasets, expression):
 
 @pytest.mark.parametrize("expression", RETIMED)
 def test_retimed_maps_are_copied_only_when_their_time_changed(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", SINGLE_MAPS)
+def test_single_maps_keep_the_order_of_the_lists_they_join(datasets, expression):
     assert_equal(expression)
