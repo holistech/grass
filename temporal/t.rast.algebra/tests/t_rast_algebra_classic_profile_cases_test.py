@@ -65,6 +65,14 @@ LARGE_CONSTANTS_WITH_TIME = [
     "4000000000 * 2 - A",
 ]
 
+# A right-hand temporal operator makes a map of its own for each partner, so
+# the maps stay apart in an inverse selection although they come from one map.
+PARTNER_MAPS = [
+    'int(N) {%,finishes|started,r} Q !: A {:,overlaps|during} buff_t(HB, "2 hours")',
+    "int(N) {%,finishes|started,r} Q !: A",
+    "(int(N) {%,finishes|started,r} Q + 1) !: A",
+]
+
 # Profile gap, not a classic bug: the classic merge() tells maps apart by id,
 # time and the commands that made them, so a map read at a time offset (a new
 # map) stays next to the map it was read from. The profile compares content,
@@ -344,3 +352,8 @@ def test_constants_beyond_32_bits_next_to_time_functions(
     datasets, expression, granularity
 ):
     assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize("expression", PARTNER_MAPS)
+def test_a_map_for_each_partner_stays_in_a_selection(datasets, expression):
+    assert_equal(expression)

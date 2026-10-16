@@ -143,7 +143,7 @@ def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
     offset the classic algebra writes the map itself as the operand of || and
     && (build_command_string() takes the command of the argument,
     _operand_string()), e.g. if(b1 > 0.5||(a3), z1, 1.5). The maps are
-    floating point, which r3.mapcalc refuses as an operand, so both ends in a
+    floating point, which r3.mapcalc refuses as an operand, so both end in a
     CalledModuleError."""
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert reference["error"] == "Other:CalledModuleError"

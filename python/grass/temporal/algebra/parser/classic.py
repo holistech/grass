@@ -188,6 +188,9 @@ class ClassicTranslator(Translator):
         # The maps read at a time offset, by id() with the series; see
         # _index().
         self._generated = {}
+        # The contents of maps with an id of their own, by id() with the
+        # content; see _one_per_map().
+        self._fresh = {}
         # The results of the hash operator, by id() (and the series itself, so
         # that the id stays taken); see _field_if().
         self._counts = {}
@@ -233,11 +236,12 @@ class ClassicTranslator(Translator):
         return read
 
     def statement(self, node):
-        """A selection registers a map unchanged if its time stamp is the
-        stored one, also after tshift(), tsnap() and buff_t() moved it away
-        and back; the classic algebra compares the time stamps only"""
+        """A selection and the vector algebra register a map unchanged if its
+        time stamp is the stored one, also after tshift(), tsnap() and buff_t()
+        moved it away and back; the classic algebra compares the time stamps
+        only. Raster maps are computed, so they are always new"""
         name, series = super().statement(node)
-        if not self._selection:
+        if not (self._selection or self._kind == "vector"):
             return name, series
         slots = [
             dataclasses.replace(slot, origin=slot.content.ident)
@@ -413,8 +417,7 @@ class ClassicTranslator(Translator):
             self._counts[id(selected)] = selected
         return selected
 
-    @staticmethod
-    def _one_per_map(series):
+    def _one_per_map(self, series):
         """series with one slot per registered map: a map that came twice
         with different time stamps, as in merge(tshift(A, "1 hours"), A),
         stays with the latest start once it is selected, as the reference
@@ -425,6 +428,8 @@ class ClassicTranslator(Translator):
 
         def source(content):
             # A computed map keeps the id of the first map it was made of
+            if id(content) in self._fresh:
+                return id(content)
             if isinstance(content, MapRef):
                 return None if content.offset else content.ident
             if isinstance(content, Call):
@@ -513,7 +518,7 @@ class ClassicTranslator(Translator):
         right = self._aligned(left, right)
         box = space if self._kind == "vector" and space != "keep" else "intersection"
         if operator.temporal == "r":
-            return operations.pairs(
+            result = operations.pairs(
                 left,
                 relation,
                 right,
@@ -526,6 +531,17 @@ class ClassicTranslator(Translator):
                 last_only=self._kind == "vector",
                 mixed_times=self.profile.mixed_times,
             )
+            if self._kind != "vector":
+                # Each partner gives a new map with an id of its own; the
+                # maps of vector maps share the id of the left one.
+                # Equal contents are copied, so that each has an identity.
+                slots = []
+                for slot in result.slots:
+                    content = dataclasses.replace(slot.content)
+                    self._fresh[id(content)] = content
+                    slots.append(dataclasses.replace(slot, content=content))
+                return dataclasses.replace(result, slots=tuple(slots))
+            return result
         return operations.gather(
             left,
             relation,
@@ -795,7 +811,7 @@ class ClassicTranslator(Translator):
         value, with_unit = _written_increment(increment)
         _check_increment("buff_t", series, value, with_unit)
         slots = []
-        for position, slot in enumerate(series.slots):
+        for position, slot in enumerate(series.listed()):
             map_ = as_map(slot.extent)
             # Relative time is buffered by a whole number of its unit.
             map_.temporal_buffer(str(value) if slot.extent.unit is None else int(value))

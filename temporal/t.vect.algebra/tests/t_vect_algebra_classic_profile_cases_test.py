@@ -99,3 +99,18 @@ def test_mixed_time_is_unrelated(datasets, expression):
 @pytest.mark.parametrize("expression", LIST_ORDER)
 def test_conditions_list_the_maps_in_time_order(datasets, expression):
     assert_equal(expression)
+
+
+# A map that is registered itself when its time stamp is the stored one, also
+# after the time was moved away and back.
+STORED_TIME = [
+    "tsnap(ab {:,precedes,d} pb)",
+    'tshift(tshift(ab, "1 day"), "-1 day")',
+    'tsnap(tshift(tshift(ab, "1 hours"), "-1 hours"))',
+    'buff_t(buff_t(ab, "1 day"), "-1 day")',
+]
+
+
+@pytest.mark.parametrize("expression", STORED_TIME)
+def test_a_map_with_its_stored_time_is_registered_itself(datasets, expression):
+    assert_equal(expression)

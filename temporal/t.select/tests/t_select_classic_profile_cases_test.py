@@ -99,7 +99,15 @@ def test_a_selected_map_stays_once(datasets, expression):
 
 # The result maps are numbered in the order of the list, which a buffer that
 # moves a start past the next one leaves as it was.
-BUFFERED = ['buff_t(rel, "-3 day")', 'buff_t(rel, "3 day")', "tsnap(rel)"]
+BUFFERED = [
+    'buff_t(rel, "-3 day")',
+    'buff_t(rel, "3 day")',
+    "tsnap(rel)",
+    'if({starts}, start_second(N) == 0, Q, buff_t(merge(N, Q), "-1 days"))',
+    "(if({starts}, start_second(N) == 0, "
+    'merge(tshift(tmap(sinst), "2 days"), Q), '
+    'buff_t(merge(N, Q), "-1 days")))',
+]
 
 
 @pytest.mark.parametrize("expression", BUFFERED)
