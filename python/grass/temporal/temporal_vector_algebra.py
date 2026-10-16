@@ -341,6 +341,9 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
             vector.load()
             # A map that v.buffer left without features has no number of
             # areas at all (None), which counts as no area like 0 does.
+            # Checked 2026-10-16: v.buffer of a map without features in a
+            # temporary project leaves it without topology, and load() gives
+            # None where the empty input gives 0.
             if not vector.metadata.get_number_of_areas():
                 if not intermediate:
                     self.msgr.fatal(

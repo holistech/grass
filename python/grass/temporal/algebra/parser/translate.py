@@ -528,6 +528,10 @@ class Translator:
         where() needs the joined conditions and both branches with the same
         time stamps.
         """
+        # The join that _temporal_if() made is made again here: the hook takes
+        # the condition as _if() got it, because an override (the classic
+        # profile) pairs that raw condition with the branches itself. The cost
+        # is a second join for a condition per cell.
         first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)

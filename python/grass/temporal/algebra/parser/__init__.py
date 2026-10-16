@@ -11,11 +11,11 @@ from __future__ import annotations
 import functools
 
 from grass.exceptions import FatalError
+from grass.temporal.algebra import time_functions
 from grass.temporal.algebra.maptypes import ELEMENTS, KINDS_OF_STDS, STDS_TYPES
 from grass.temporal.algebra.materialize import check_absent, materialize, plan
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.sources import source
-from grass.temporal.algebra import time_functions
 from grass.temporal.core import get_current_mapset
 
 from . import translate

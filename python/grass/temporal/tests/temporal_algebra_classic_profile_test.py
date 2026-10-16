@@ -108,6 +108,11 @@ def test_a_relation_name_the_selection_does_not_know_is_a_syntax_error(
         chain("R = A {:,equal|overlap} B")
 
 
+# if() on time with maps as then and else clears the count of A # B, which
+# fills the table _cleared, see ClassicTranslator._uncounted().
+CLEARED_COUNT = "R = if(start_day(A) > 1, A # B, B) + B"
+
+
 @pytest.mark.parametrize(
     "expression",
     [
@@ -115,6 +120,7 @@ def test_a_relation_name_the_selection_does_not_know_is_a_syntax_error(
         "R = if(isnull(A), if(A > 0 && exp(A # B) >= 1, B), 4)",
         "R = if(isnull((A # B) * 2), B, merge(A # B, B # A) * 3)",
         "R = if(start_day(A) > 1, A # B, 5) + B",
+        CLEARED_COUNT,
     ],
 )
 def test_the_tables_of_the_translator_keep_their_keys(in_memory_datasets, expression):
@@ -124,7 +130,10 @@ def test_the_tables_of_the_translator_keep_their_keys(in_memory_datasets, expres
     count for its then part in some runs only, depending on the memory."""
     translator = classic.ClassicTranslator(kind="raster")
     translator.statement(classic_grammar("raster").parse(expression))
-    for name in ("_commands", "_generated", "_fresh", "_counted", "_hashes"):
+    if expression == CLEARED_COUNT:
+        assert translator._cleared
+    tables = ("_commands", "_generated", "_fresh", "_counted", "_cleared", "_hashes")
+    for name in tables:
         table = getattr(translator, name)
         for key, entry in table.items():
             kept = entry[0] if isinstance(entry, tuple) else entry
