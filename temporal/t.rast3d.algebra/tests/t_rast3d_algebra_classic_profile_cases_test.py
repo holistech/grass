@@ -40,6 +40,13 @@ MIXED_TIME = [
     "merge(RT, tmap(single))",
 ]
 
+# && binds stronger than || in r.mapcalc, which reads the text of the classic
+# algebra as a || (b && c) also where the || has a relation.
+LOGICAL_GROUPING = [
+    "if(B > 1.5 {||,finished|over} Q > 1.5 && end_year(A) == 0 && D > 2, B)",
+    "if(B > 1.5 {||,finished|over} Q > 1.5 && D > 2, B)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -81,3 +88,9 @@ def test_relations(datasets, expression, spatial):
 @pytest.mark.parametrize("expression", MIXED_TIME)
 def test_mixed_time_is_unrelated(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("spatial", [False, True])
+@pytest.mark.parametrize("expression", LOGICAL_GROUPING)
+def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression, spatial):
+    assert_equal(expression, spatial=spatial)

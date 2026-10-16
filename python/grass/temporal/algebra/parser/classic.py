@@ -28,6 +28,7 @@ from grass.temporal.algebra._adapters import as_map, extent_from
 from grass.temporal.algebra.backends import MapcalcStyle
 from grass.temporal.algebra.content import (
     NULL,
+    Call,
     Const,
     MapRef,
     ScalarFunctionError,
@@ -93,6 +94,23 @@ def _like(series, slots, sort=None):
         series.spatial,
         series.order,
     )
+
+
+def _joined(symbol, first, second):
+    """The content of two conditions joined by && or ||, as r.mapcalc reads
+    the text of the classic algebra
+
+    The classic algebra writes "a||(b)&&(c)" and r.mapcalc binds && stronger,
+    so the condition is a || (b && c) whatever grouped the operands before.
+    """
+    if (
+        symbol == "&&"
+        and isinstance(first, Call)
+        and first.function == "||"
+        and len(first.args) == 2
+    ):
+        return Call("||", (first.args[0], _joined(symbol, first.args[1], second)))
+    return call(symbol, first, second)
 
 
 def _constant(value):
@@ -447,7 +465,7 @@ class ClassicTranslator(Translator):
                 relation,
                 right,
                 extent="right",
-                content=lambda mine, theirs: call(symbol, mine, theirs),
+                content=lambda mine, theirs: _joined(symbol, mine, theirs),
                 **options,
             )
         extent = _EXTENTS[operator.temporal]
@@ -463,7 +481,24 @@ class ClassicTranslator(Translator):
             failure="stop",
             **options,
         )
-        return operations.apply(symbol, targets, others)
+        joined = operations.apply(symbol, targets, others)
+        if symbol == "&&":
+            # apply() wrote call(symbol, target, other) for every slot, unless
+            # it computed a constant.
+            joined = _like(
+                joined,
+                (
+                    dataclasses.replace(
+                        slot, content=_joined(symbol, *slot.content.args)
+                    )
+                    if isinstance(slot.content, Call)
+                    else slot
+                    for slot in joined.slots
+                ),
+            )
+        if left.sort == "scalar" and right.sort == "scalar":
+            self._carry_commands(joined, left)
+        return joined
 
     def _time_variable(self, name, arguments):
         """td() needs intervals; in a selection start_doy(A, 1) and the like

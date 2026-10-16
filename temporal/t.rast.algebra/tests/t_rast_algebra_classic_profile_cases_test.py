@@ -78,6 +78,17 @@ TIME_AND_CELL_CONDITIONS = [
     "if(A > 99 && start_month(A * 0) == 1, Z)",
 ]
 
+# && binds stronger than || in r.mapcalc, which reads the text of the classic
+# algebra as a || (b && c) also where the || has a relation.
+LOGICAL_GROUPING = [
+    "if(A > 1 || A < 3 && A > 2, A)",
+    "if(A > 1 {||,equal} N > 11 && A > 2, A)",
+    "if(A > 1 {||,during} B > 5 && A > 2, A)",
+    "if(A > 1 && A < 4 || A > 2, A)",
+    "if(end_doy(2 / Z) >= 4 && start_day(Z) < 1 || isntnull(HA), Z)",
+    "if(start_day(Z) < 1 && A > 3 || isntnull(HA), Z)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -122,4 +133,9 @@ def test_floating_point_operands_of_logical_operators(datasets, expression):
 
 @pytest.mark.parametrize("expression", TIME_AND_CELL_CONDITIONS)
 def test_time_and_cell_conditions(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", LOGICAL_GROUPING)
+def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression):
     assert_equal(expression)
