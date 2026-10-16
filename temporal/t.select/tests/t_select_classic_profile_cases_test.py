@@ -24,6 +24,19 @@ MIXED_TIME = [
     "RT {:,over} RH",
 ]
 
+# A map whose time stamp is the stored one after shifts and snaps is
+# registered itself, one with another time stamp is copied
+RETIMED = [
+    'tsnap(tshift(tshift(OV, "1 hours"), "-1 hours"))',
+    'tshift(tshift(OV, "1 day"), "-1 day")',
+    'tshift(tshift(OV, "1 day"), "-2 days")',
+    'buff_t(buff_t(OV, "1 day"), "-1 day")',
+    "tsnap(OV)",
+    "tsnap(tsnap(OV))",
+    'tshift(OV, "0 days")',
+    'tsnap(tshift(A, "1 day"))',
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -48,4 +61,9 @@ def assert_equal(expression, **options):
 
 @pytest.mark.parametrize("expression", MIXED_TIME)
 def test_mixed_time_is_unrelated(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", RETIMED)
+def test_retimed_maps_are_copied_only_when_their_time_changed(datasets, expression):
     assert_equal(expression)

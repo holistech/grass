@@ -183,6 +183,41 @@ class ClassicTranslator(Translator):
         # The conditions isnull(), isntnull() and exist() of a count, by id()
         # with the series and the count; see _if().
         self._count_conditions = {}
+        # The time stamp of every registered map the expression reads, by
+        # identifier; see statement().
+        self._stored = {}
+        self._resolve = self._noting(self._resolve)
+        self._resolve_map = self._noting(self._resolve_map)
+
+    def _noting(self, resolve):
+        """resolve, noting the time stamps of the registered maps it reads"""
+
+        def read(*arguments, **keywords):
+            series = resolve(*arguments, **keywords)
+            for slot in series.slots:
+                if slot.origin is not None and slot.extent is not None:
+                    self._stored[slot.origin] = slot.extent
+            return series
+
+        return read
+
+    def statement(self, node):
+        """A selection registers a map unchanged if its time stamp is the
+        stored one, also after tshift(), tsnap() and buff_t() moved it away
+        and back; the classic algebra compares the time stamps only"""
+        name, series = super().statement(node)
+        if not self._selection:
+            return name, series
+        slots = [
+            dataclasses.replace(slot, origin=slot.content.ident)
+            if slot.origin is None
+            and isinstance(slot.content, MapRef)
+            and not slot.content.offset
+            and self._stored.get(slot.content.ident) == slot.extent
+            else slot
+            for slot in series.slots
+        ]
+        return name, _like(series, slots)
 
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
