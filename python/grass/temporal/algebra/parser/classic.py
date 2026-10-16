@@ -191,6 +191,9 @@ class ClassicTranslator(Translator):
         # The contents of maps with an id of their own, by id() with the
         # content; see _one_per_map().
         self._fresh = {}
+        # The contents of counts, by id() with the content and the id of the
+        # map that was counted; see _source().
+        self._counted = {}
         # The results of the hash operator, by id() (and the series itself, so
         # that the id stays taken); see _field_if().
         self._counts = {}
@@ -417,6 +420,23 @@ class ClassicTranslator(Translator):
             self._counts[id(selected)] = selected
         return selected
 
+    def _source(self, content):
+        """The id of the map that the map of content is, or None: a computed
+        map keeps the id of the first map it was made of, and so does a count
+        of the left map"""
+        if id(content) in self._fresh:
+            return id(content)
+        if id(content) in self._counted:
+            return self._counted[id(content)][1]
+        if isinstance(content, MapRef):
+            return None if content.offset else content.ident
+        if isinstance(content, Call):
+            found = [ident for ident in map(self._source, content.args) if ident]
+            # An operation of two maps is a new map, one with a number is the
+            # map itself changed.
+            return id(content) if len(found) > 1 else next(iter(found), None)
+        return None
+
     def _one_per_map(self, series):
         """series with one slot per registered map: a map that came twice
         with different time stamps, as in merge(tshift(A, "1 hours"), A),
@@ -426,21 +446,8 @@ class ClassicTranslator(Translator):
         several granules (granularity mode): there the reference holds
         separate map objects of the same id and keeps them all"""
 
-        def source(content):
-            # A computed map keeps the id of the first map it was made of
-            if id(content) in self._fresh:
-                return id(content)
-            if isinstance(content, MapRef):
-                return None if content.offset else content.ident
-            if isinstance(content, Call):
-                found = [ident for ident in map(source, content.args) if ident]
-                # An operation of two maps is a new map, one with a number
-                # is the map itself changed.
-                return id(content) if len(found) > 1 else next(iter(found), None)
-            return None
-
         def map_id(slot):
-            return None if slot.extent is None else source(slot.content)
+            return None if slot.extent is None else self._source(slot.content)
 
         latest = {}
         for slot in series.slots:
@@ -499,6 +506,21 @@ class ClassicTranslator(Translator):
             unique=False,
             mixed_times=self.profile.mixed_times,
         )
+        slots = []
+        targets = list(left.slots)
+        for slot in counts.slots:
+            # A left map without partner has no count, so the counts are
+            # matched to the left maps by time stamp, in order.
+            target = targets.pop(
+                next(
+                    i for i, found in enumerate(targets) if found.extent == slot.extent
+                )
+            )
+            # Equal counts are copied, so that each has an identity.
+            content = dataclasses.replace(slot.content)
+            self._counted[id(content)] = (content, self._source(target.content))
+            slots.append(dataclasses.replace(slot, content=content))
+        counts = dataclasses.replace(counts, slots=tuple(slots))
         self._counts[id(counts)] = counts
         return counts
 

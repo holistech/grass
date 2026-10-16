@@ -57,6 +57,9 @@ COMPUTED_COPIES = [
     'buff_t(merge(A / AF, float(A)) : AF, "1 day")',
     "merge(A / AF, A * 1) : AF",
     "merge(A, A / AF) : AF",
+    "merge(A, A # N) {:,equal} HA",
+    "merge(A # N, A) {:,equal} HA",
+    "merge(A, A # D) {:,equal} HA",
     "merge(A, sqrt(A)) {:,overlapped|equal} if(AF < 3000000000 || td(D) >= 2, HA)",
 ]
 
