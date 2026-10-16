@@ -148,3 +148,21 @@ def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert reference["error"] == "Other:CalledModuleError"
     assert_equal(expression)
+
+
+# Profile gap, not a classic bug: the classic merge() tells maps apart by id,
+# time and the commands that made them, so a map read at a time offset stays
+# next to the map it was read from. The profile compares content, time and
+# box. Fixing it needs an identity on the slots of the series.
+@pytest.mark.xfail(strict=True, reason="merge() cannot tell computed maps apart")
+@pytest.mark.parametrize(
+    ("expression", "granularity"),
+    [
+        ("merge(A[0], A[0])", False),
+        ("merge(A[0], A[0])", True),
+        ("merge(A, A[0])", True),
+        ("merge(A[0], A)", True),
+    ],
+)
+def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
