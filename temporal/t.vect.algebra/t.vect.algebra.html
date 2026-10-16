@@ -713,13 +713,25 @@ expression gives no map:
 C = buff_p(A, 1) ^ B
 </pre></div>
 </li>
+
+<li><b>Selection with a time instance on relative time.</b> With the temporal
+operator <code>i</code>, the time stamp of the result is the time instance.
+Earlier versions failed with a <code>TypeError</code> for a selection on
+relative time. If A has maps of relative time that contain the time instances
+of I, this expression gives maps with the instances as time:
+
+<div class="code"><pre>
+C = A {:,contains,i} I
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>
 
-The differences in message texts, in the debug output of the Python parser and
-in the order of errors that <a href="t.rast.algebra.html">t.rast.algebra</a>
-lists apply here likewise. None changes the maps of a valid expression.
+The differences in message texts, in the debug output of the Python parser, in
+the order of errors and in the error for an existing result that <a
+href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. None
+changes the maps of a valid expression.
 
 <h2>REFERENCES</h2>
 
