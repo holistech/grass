@@ -663,6 +663,24 @@ def test_classic_flag_selects_the_classic_algebra(series_3d):
     ]
 
 
+@pytest.mark.fixed_algebra
+def test_classic_flag_runs_the_classic_profile(series_3d):
+    """The tool with -c computes on the classic profile of the core, not on the
+    earlier implementation: an increment the library refuses is reported with
+    the message of the library, the earlier one named tshift() and the unit"""
+    tools = Tools(session=series_3d.session, overwrite=True)
+    with pytest.raises(ToolError) as error:
+        tools.t_rast3d_algebra(
+            expression='profiled = tshift(A, "1 DAY")',
+            basename="profiled",
+            flags="c",
+        )
+    assert "Cannot read '1 DAY' as a time step, use e.g. \"1 day\"" in (
+        error.value.stderr
+    )
+    assert "Function tshift()" not in error.value.stderr
+
+
 # Names, overwrite and empty results
 
 

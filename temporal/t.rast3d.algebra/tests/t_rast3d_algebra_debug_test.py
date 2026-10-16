@@ -6,6 +6,7 @@ The datasets are described in the series_3d fixture in conftest.py.
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.testing.reference import reference_parser
 
 
 def parse_with_debug(run, classic):
@@ -35,15 +36,33 @@ def test_debug_output_without_run(series_3d, capsys):
 
 
 @pytest.mark.fixed_algebra
-def test_debug_output_of_the_classic_algebra(series_3d, capsys):
-    """The classic algebra prints the r3.mapcalc commands and the resulting
-    statement, and without run the statement with the placeholder name"""
+def test_debug_output_of_the_classic_profile(series_3d, capsys):
+    """-c prints each planned module call as a command line, with the
+    r3.mapcalc text of the classic algebra, and with run=False nothing"""
     parse_with_debug(run=True, classic=True)
-    output = capsys.readouterr().out
-    assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
-    assert "dbg = [" in output
+    assert (
+        "r3.mapcalc expression=dbg_0=((a1@PERMANENT + a1@PERMANENT) * 2)"
+        in capsys.readouterr().out
+    )
     parse_with_debug(run=False, classic=True)
-    assert "dbg = A**" in capsys.readouterr().out
+    assert not capsys.readouterr().out
+
+
+@pytest.mark.fixed_algebra
+def test_debug_output_of_the_reference(series_3d, capsys):
+    """The earlier implementation prints the r3.mapcalc commands and the
+    resulting statement, and without run the statement with the placeholder
+    name. Only the reference keeps this output; the classic profile prints the
+    module calls like the core."""
+    for run in (True, False):
+        parser = reference_parser("raster3d", run=run, debug=True, dry_run=True)
+        parser.parse("dbg = (A + A) * 2", "dbg", True)
+        output = capsys.readouterr().out
+        if run:
+            assert "((a1@PERMANENT + a1@PERMANENT) * 2)" in output
+            assert "dbg = [" in output
+        else:
+            assert "dbg = A**" in output
 
 
 @pytest.mark.parametrize("run", [True, False])

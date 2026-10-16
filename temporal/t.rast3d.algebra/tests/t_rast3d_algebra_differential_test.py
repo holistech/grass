@@ -11,6 +11,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
+from grass.temporal.testing.reference import reference_parser, setup_granularity
 
 SAME = [
     "A + B",
@@ -117,21 +118,23 @@ def rows(name):
 
 
 def outcome(monkeypatch, expression, algebra, granularity=False):
-    """The registered maps, or the name of the error"""
+    """The registered maps, or the name of the error
+
+    algebra is "core", "classic" (the profile) or "reference" (the earlier
+    implementation of the classic algebra).
+    """
     monkeypatch.setenv(ALGEBRA_VARIABLE, algebra)
     # Every run has its own result name: a result of an earlier expression
     # would otherwise stand in for the empty result of this one.
     name = f"diff_{algebra}_{next(counter)}"
-    parser = tgis.TemporalRaster3DAlgebraParser(
-        run=True, debug=False, register_null=True
-    )
+    options = {"run": True, "debug": False, "register_null": True}
+    if algebra == "reference":
+        parser = reference_parser("raster3d", **options)
+    else:
+        parser = tgis.TemporalRaster3DAlgebraParser(**options)
     statement = f"{name} = {expression}"
     if granularity:
-        assert parser.setup_common_granularity(
-            expression=statement,
-            stdstype="str3ds",
-            lexer=tgis.TemporalRasterAlgebraLexer(),
-        )
+        setup_granularity(parser, "raster3d", statement)
     try:
         parser.parse(statement, name, True)
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
@@ -175,3 +178,23 @@ def test_granularity_listed_differences_still_differ(
     assert ("maps" if isinstance(core, list) else core) == GRANULARITY_DIFFERENT[
         expression
     ][0]
+
+
+@pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
+@pytest.mark.fixed_algebra
+def test_profile_equals_reference(series_3d, monkeypatch, expression):
+    """-c computes what the earlier implementation of the classic algebra
+    computed, also where the core differs"""
+    assert outcome(monkeypatch, expression, "classic") == outcome(
+        monkeypatch, expression, "reference"
+    )
+
+
+@pytest.mark.parametrize(
+    "expression", [*GRANULARITY_SAME, *sorted(GRANULARITY_DIFFERENT)]
+)
+@pytest.mark.fixed_algebra
+def test_granularity_profile_equals_reference(series_3d, monkeypatch, expression):
+    assert outcome(monkeypatch, expression, "classic", granularity=True) == outcome(
+        monkeypatch, expression, "reference", granularity=True
+    )

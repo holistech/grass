@@ -2,19 +2,18 @@
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
 run on two implementations of the algebra, and the registered maps must agree.
-Which two is set in one place, DIFFERENTIAL in that module. Until the classic
-profile of the core exists both are the earlier implementation: that must give
-0 differences and shows that the fuzzer sees no difference where there is none.
-The test of the listed differences shows that it sees one where there is one:
-the expressions of the differential test of this directory, run on the
-reference and on the core.
+Which two is set in one place, DIFFERENTIAL in that module: the earlier
+implementation and the classic profile of the core. That must give 0
+differences. The test of the listed differences shows that the fuzzer sees one
+where there is one: the expressions of the differential test of this directory,
+run on the reference and on the core.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
 grass.temporal.testing.expressions. The tests carry slow, because the seeds
 cost seconds, and fixed_algebra, because they choose their runners themselves.
 
-Normal run: 35.4 s for 321 tests, measured 2026-10-15 with
+Normal run: 32.7 s for 321 tests, measured 2026-10-16 with
 `python3 -m pytest -p no:cacheprovider -q <this file>`, including the creation of the
 datasets.
 """
