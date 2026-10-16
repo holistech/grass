@@ -667,7 +667,7 @@ def test_overlay_with_an_empty_intermediate_map_drops_the_result(
 
 @pytest.mark.parametrize(
     "expression",
-    ["aa {&,nonsense} ab", "aa {:,nonsense} ab", "aa {:,equals} ab"],
+    ["aa {&,nonsense} ab", "aa {:,nonsense} ab", "aa {:,preceedes} ab"],
 )
 def test_unknown_relation_is_an_error(vector_series, expression):
     """A misspelled temporal relation ends the tool with an error"""

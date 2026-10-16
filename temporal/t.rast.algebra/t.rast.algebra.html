@@ -116,6 +116,11 @@ over              both overlaps and overlapped
 The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 <p>
+The relation <code>equal</code> may also be written <code>equals</code>, as
+Gebbert, Leppelt and Pebesma (2019) do; the new algebra and <b>-c</b> read both
+names. The previous implementation refuses <code>equals</code> with a syntax
+error.
+<p>
 Topological relations must be specified with curly brackets {}.
 <p>
 The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b>
@@ -880,9 +885,9 @@ C = exp(A * 1000)
 <h4>Differences from the previous implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the previous implementation in
-the following points. Only the items on <code>merge()</code> of computed maps
-and on lists of absolute and relative time change the outcome of an
-expression; the others concern messages, output and the class of an error.
+the following points. Only the items on <code>merge()</code> of computed maps,
+on lists of absolute and relative time and on the relation <code>equals</code>
+change the outcome of an expression; the others concern messages, output and the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -949,6 +954,16 @@ expression selects the maps of <code>RT</code> as <code>RT : RT</code> does:
 
 <div class="code"><pre>
 C = merge(tmap(sinst), RT) : RT
+</pre></div>
+</li>
+
+<li><b>The relation equals.</b> The previous implementation refuses the spelling
+<code>equals</code> of the paper with a syntax error. The classic algebra reads
+it as <code>equal</code>, so this expression gives the same maps as
+<code>C = A {+,equal,l} B</code>:
+
+<div class="code"><pre>
+C = A {+,equals,l} B
 </pre></div>
 </li>
 </ul>

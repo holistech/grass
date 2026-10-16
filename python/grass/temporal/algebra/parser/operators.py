@@ -14,8 +14,11 @@ from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIO
 
 SYMBOLS = ("!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~")
 
-# The manual names both overlap relations "over".
-_SHORTHANDS = {"over": ("overlaps", "overlapped")}
+# The manual names both overlap relations "over". The published paper writes
+# "equals" for the relation that the lexer of the earlier implementation
+# knows as "equal"; it is read as a second name so that the printed
+# expressions run. TEMPORAL_RELATIONS keeps the canonical names only.
+_SHORTHANDS = {"over": ("overlaps", "overlapped"), "equals": ("equal",)}
 _TEMPORAL_REFERENCES = {
     "l": "l",
     "left": "l",
@@ -78,11 +81,20 @@ def parse_operator(text):
     return TemporalOperator(symbol, relations, aggregate, temporal)
 
 
+def relation_names(name):
+    """Return the canonical relation names that a written name stands for
+
+    ``over`` is both overlap relations and ``equals`` is ``equal``; any other
+    name stands for itself, known or not.
+    """
+    return _SHORTHANDS.get(name, (name,))
+
+
 def _relations(part, text):
     names = []
     for word in part.lower().split("|"):
         name = word.strip()
-        for each in _SHORTHANDS.get(name, (name,)):
+        for each in relation_names(name):
             if each not in TEMPORAL_RELATIONS and each not in SPATIAL_RELATIONS:
                 msg = f"Unknown relation '{name}' in the operator {text}"
                 raise SyntaxError(msg)

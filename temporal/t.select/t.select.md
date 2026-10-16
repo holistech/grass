@@ -113,6 +113,10 @@ over              both overlaps and overlapped
 The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
+Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
+the new algebra and **-c** read both names. The previous implementation
+refuses `equals` with a syntax error.
+
 Topological relations must be specified in {} parentheses.  
 
 The relations **during** and **contains** are inclusive: **during** also
@@ -435,7 +439,9 @@ points differ:
 5. **Mixing dataset types.** The classic algebra can pull maps of another
    dataset type into a selection with `strds()`, `str3ds()` and `stvds()`;
    the new algebra does not, and reports a syntax error. Use **-c** for such
-   an expression.
+   an expression. Function names are lower case in both algebras:
+   `STR3DS(A)`, as the paper prints it, is a syntax error, `str3ds(A)` is
+   valid with **-c**.
 
 6. **Copy names in a mixed result.** When a result mixes maps registered
    unchanged with retimed maps, the copied maps are named `<result>_1`,
@@ -536,11 +542,13 @@ of earlier GRASS versions that used one of these forms need a new run.
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
-the selected maps of a valid expression. A relation over a list that mixes
-maps of absolute and of relative time, which stopped the previous
-implementation with a `TypeError`, selects maps here, as in
-*t.rast.algebra*: maps of the two types relate to nothing.
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise. Two points
+change the outcome of an expression. The previous implementation refuses the
+relation name `equals` with a syntax error, where the classic algebra reads
+it as `equal`. A relation over a list that mixes maps of absolute and of
+relative time, which stopped the previous implementation with a `TypeError`,
+selects maps here, as in *t.rast.algebra*: maps of the two types relate to
+nothing.
 
 ## EXAMPLES
 

@@ -66,10 +66,10 @@ def test_precedes_and_follows_need_adjacent_maps(algebra, relation):
     assert 13 not in selected
 
 
-def test_equals_is_not_a_relation(algebra):
-    """Only equal is a relation; the spelling equals is reported"""
-    with pytest.raises(SyntaxError, match="equals"):
-        algebra.parse("rel {:,equals} ref")
+def test_preceedes_is_not_a_relation(algebra):
+    """The caption of the paper misspells precedes; the spelling is reported"""
+    with pytest.raises(SyntaxError, match="preceedes"):
+        algebra.parse("rel {:,preceedes} ref")
 
 
 @pytest.mark.parametrize(

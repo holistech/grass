@@ -733,7 +733,7 @@ def test_inputs_are_not_modified(series_3d):
 # Errors
 
 
-@pytest.mark.parametrize("expression", ["A {:,equals} B"])
+@pytest.mark.parametrize("expression", ["A {:,preceedes} B"])
 def test_unknown_relation_is_an_error(series_3d, expression):
     """A misspelled relation of a selection is reported as syntax error"""
     with pytest.raises(SyntaxError):

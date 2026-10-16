@@ -115,6 +115,11 @@ over              both overlaps and overlapped
 
 The relations must be read as: A is related to B, like - A is equal to B - A is
 during B - A contains B <p>
+The relation <code>equal</code> may also be written <code>equals</code>, as
+Gebbert, Leppelt and Pebesma (2019) do; the new algebra and <b>-c</b> read both
+names. The previous implementation refuses <code>equals</code> with a syntax
+error.
+<p>
 Topological relations must be specified in {} parentheses. <br>
 <p>
 The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b>
@@ -427,7 +432,9 @@ and reports a syntax error.
 <li><b>Mixing dataset types.</b> The classic algebra can pull maps of another
 dataset type into a selection with <code>strds()</code>, <code>str3ds()</code>
 and <code>stvds()</code>; the new algebra does not, and reports a syntax error.
-Use <b>-c</b> for such an expression.
+Use <b>-c</b> for such an expression. Function names are lower case in both
+algebras: <code>STR3DS(A)</code>, as the paper prints it, is a syntax error,
+<code>str3ds(A)</code> is valid with <b>-c</b>.
 </li>
 
 <li><b>Copy names in a mixed result.</b> When a result mixes maps registered
@@ -542,10 +549,12 @@ C = A {:,contains,i} I
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a
-href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. None
-changes the selected maps of a valid expression. A relation over a list that
-mixes maps of absolute and of relative time, which stopped the previous
-implementation with a <code>TypeError</code>, selects maps here, as in
+href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. Two points
+change the outcome of an expression. The previous implementation refuses the
+relation name <code>equals</code> with a syntax error, where the classic
+algebra reads it as <code>equal</code>. A relation over a list that mixes maps
+of absolute and of relative time, which stopped the previous implementation
+with a <code>TypeError</code>, selects maps here, as in
 <em>t.rast.algebra</em>: maps of the two types relate to nothing.
 
 <h2>EXAMPLES</h2>

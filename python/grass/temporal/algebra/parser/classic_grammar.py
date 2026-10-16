@@ -27,7 +27,11 @@ import dataclasses
 import functools
 
 from grass.temporal.algebra.parser import ast
-from grass.temporal.algebra.parser.operators import TemporalOperator, parse_operator
+from grass.temporal.algebra.parser.operators import (
+    TemporalOperator,
+    parse_operator,
+    relation_names,
+)
 from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
 from grass.temporal.ply import yacc
 
@@ -804,7 +808,8 @@ def productions(kind):
     return tuple((name, _TEXTS[name]) for name in _ORDER[kind])
 
 
-_NAMES = {*TEMPORAL_RELATIONS, *SPATIAL_RELATIONS, "over"}
+# Every written relation name, the shorthands "over" and "equals" included
+_NAMES = {*TEMPORAL_RELATIONS, *SPATIAL_RELATIONS, "over", "equals"}
 
 # Tokens whose text is the symbol of a binary operation
 _SYMBOL_TOKENS = {
@@ -884,7 +889,7 @@ def _operator(text, errors):
         written = []
         for word in lists[0].lower().split("|"):
             word = word.strip()
-            written.extend(("overlaps", "overlapped") if word == "over" else (word,))
+            written.extend(relation_names(word))
         if sorted(set(written)) == sorted(operator.relations):
             operator = dataclasses.replace(operator, relations=tuple(written))
     return operator
