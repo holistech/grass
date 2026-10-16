@@ -18,11 +18,10 @@ KIND = "raster"
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
 pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 
-# Targeted probes (2026-10-16, a dozen expressions of each shape on both
-# sides, of which the lists keep a selection, and none in the fuzzer runs of
-# that day): arithmetic on a count and time
-# conditions on both sides of && and || with a computed argument on either
-# side give the registered maps of the classic algebra.
+# Targeted probes (2026-10-16, the 11 expressions below on the reference and
+# the profile, and none in the fuzzer runs of that day): arithmetic on a count
+# and time conditions on both sides of && and || with a computed argument on
+# either side give the registered maps of the classic algebra.
 COUNT_ARITHMETIC = [
     "(Z # A) + 1",
     "if((Z # A) + 1 > 2, A, B)",
