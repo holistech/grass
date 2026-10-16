@@ -61,6 +61,7 @@ from .translate import (
 _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
+_INT32_MAX = 2**31 - 1
 
 
 class ClassicSyntax:
@@ -256,6 +257,13 @@ class ClassicTranslator(Translator):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
         computed by r.mapcalc per map in the classic algebra, while the core
         computes scalars in Python and lacks most of the functions"""
+        if all(isinstance(operand, Const) for operand in operands) and any(
+            isinstance(operand.value, int) and abs(operand.value) > _INT32_MAX
+            for operand in operands
+        ):
+            # r.mapcalc reads such an integer with an overflow, so folding the
+            # constants here would give another number than the classic text.
+            return Call(function, operands)
         try:
             return super()._apply(function, *operands)
         except ScalarFunctionError:

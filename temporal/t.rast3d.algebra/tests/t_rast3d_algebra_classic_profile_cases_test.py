@@ -54,6 +54,10 @@ COUNT_BRANCHES = [
     "if(isnull(A), 19, Z # A)",
 ]
 
+# r.mapcalc reads an integer beyond 32 bits with an overflow, so constants
+# are not folded before it computes them.
+LARGE_CONSTANTS = ["2.0 + 3000000000 - B", "3000000000 - B", "A + 3000000000 + 1"]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -107,3 +111,8 @@ def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression, s
 @pytest.mark.parametrize("expression", COUNT_BRANCHES)
 def test_a_number_next_to_a_count(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize("expression", LARGE_CONSTANTS)
+def test_constants_beyond_32_bits(datasets, expression):
+    assert_equal(expression, spatial=True)
