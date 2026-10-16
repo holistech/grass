@@ -522,10 +522,20 @@ of earlier GRASS versions that used one of these forms need a new run.
    C = buff_t(A, 3)
    ```
 
+3. **Selection with a time instance on relative time.** With the temporal
+   operator `i`, the time stamp of the result is the time instance. Earlier
+   versions failed with a `TypeError` for a selection on relative time. If A
+   has maps of relative time that contain the time instances of I, this
+   expression gives maps with the instances as time:
+
+   ```sh
+   C = A {:,contains,i} I
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python
-parser and in the order of errors that
+parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise. None changes
 the selected maps of a valid expression.
 
