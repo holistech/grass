@@ -54,6 +54,30 @@ FLOATING_POINT_CONDITIONS = [
     "if(isnull(A) || exist(A), GP)",
 ]
 
+# A condition on a time function of an expression, joined with a condition on
+# cells, is replaced by the value of the expression where that has a cell
+# command of its own.
+TIME_AND_CELL_CONDITIONS = [
+    "if(A > 4 && A > 1 || start_month(N + HA) == 4, Z)",
+    "if(A > 99 || start_month(A * 0) == 1, Z)",
+    "if(start_month(A * 0) == 1 || A > 99, Z)",
+    "if(start_month(A * 0) == 1 && A > 0, Z)",
+    "if(A > 99 || start_month(sin(A)) == 1, Z)",
+    "if(A > 99 || start_month(A) == 1, Z)",
+    "if(A > 99 || start_month(merge(A, N)) == 1, Z)",
+    "if(A > 99 || start_month(tsnap(A)) == 1, Z)",
+    'if(A > 99 || start_month(tshift(A, "1 day")) == 1, Z)',
+    "if(A > 99 || start_month(A : N) == 1, Z)",
+    "if(A > 99 || start_month(A {:,equal} N) == 1, Z)",
+    "if(A > 99 || start_month(tmap(singletmap)) == 1, Z)",
+    "if(A > 99 || start_month(A {+,equal} N) == 1, Z)",
+    "if(A > 99 || start_month(int(A)) == 1, Z)",
+    "if(A > 99 || start_month(A[1]) == 1, Z)",
+    "if(A > 99 || start_month(A[0, 1]) == 1, Z)",
+    "if(A > 99 || start_month(if(A > 1, A)) == 1, Z)",
+    "if(A > 99 && start_month(A * 0) == 1, Z)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -93,4 +117,9 @@ def test_equal_names_from_the_time_suffix(datasets, expression, suffix):
 
 @pytest.mark.parametrize("expression", FLOATING_POINT_CONDITIONS)
 def test_floating_point_operands_of_logical_operators(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", TIME_AND_CELL_CONDITIONS)
+def test_time_and_cell_conditions(datasets, expression):
     assert_equal(expression)

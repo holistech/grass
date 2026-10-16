@@ -29,6 +29,7 @@ from grass.temporal.algebra.backends import MapcalcStyle
 from grass.temporal.algebra.content import (
     NULL,
     Const,
+    MapRef,
     ScalarFunctionError,
     call,
 )
@@ -153,6 +154,10 @@ class ClassicTranslator(Translator):
 
     def __init__(self, **keywords):
         super().__init__(**keywords)
+        # The conditions on time functions whose argument is a computed
+        # expression, by id(), with the series itself so that the id stays
+        # taken; see _remember_commands().
+        self._commands = {}
 
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
@@ -349,9 +354,81 @@ class ClassicTranslator(Translator):
             mixed_times=self.profile.mixed_times,
         )
 
+    def _remember_commands(self, result, argument):
+        """Note the commands of the argument of a time function
+
+        The classic algebra gives a map of the argument that carries a
+        command (a computed expression, not a registered map) a condition
+        on its time as the command of the argument; see _logical().
+        """
+        slots = argument.slots
+        if (
+            isinstance(result, Series)
+            and result.sort == "scalar"
+            and len(result.slots) == len(slots)
+            and any(not isinstance(slot.content, MapRef) for slot in slots)
+        ):
+            self._commands[id(result)] = (result, argument)
+
+    def _carry_commands(self, result, source):
+        """Note for result the commands of source, a condition on a time
+        function: result keeps the maps of the left operand, so what the
+        classic algebra found at their argument is still there"""
+        known = self._commands.get(id(source))
+        if known is None:
+            return
+        argument = known[1]
+        taken = set()
+        slots = []
+        for slot in result.slots:
+            index = next(
+                (
+                    number
+                    for number, candidate in enumerate(source.slots)
+                    if number not in taken and candidate.extent == slot.extent
+                ),
+                None,
+            )
+            if index is None:
+                return
+            taken.add(index)
+            slots.append(argument.slots[index])
+        self._remember_commands(result, _like(argument, slots))
+
+    def _compare(self, symbol, left, right):
+        result = super()._compare(symbol, left, right)
+        for operand, other in ((left, right), (right, left)):
+            known = self._commands.get(id(operand))
+            if known is not None and not isinstance(other, Series):
+                self._remember_commands(result, known[1])
+        return result
+
+    def _as_command(self, series):
+        """series, with the command of the argument of its time function in
+        place of the truth value of each map that has one
+
+        A condition that joins a condition on a time function with one on
+        cells (A > 1 && start_month(A * 0) == 1) takes the command of the
+        argument, so the cells of the expression decide and not the time,
+        where the classic algebra finds a command at the argument. A
+        registered map has none, and its time decides.
+        """
+        known = self._commands.get(id(series))
+        if known is None:
+            return series
+        slots = [
+            slot
+            if isinstance(argument.content, MapRef)
+            else dataclasses.replace(slot, content=argument.content)
+            for slot, argument in zip(series.slots, known[1].slots, strict=True)
+        ]
+        return _like(series, slots, "field")
+
     def _logical(self, symbol, left, right, operator):
         """&& and || of two condition series combine the boxes in the same
         steps as the time stamps, as every classic combination of maps does"""
+        if operator is None and (left.sort == "field") != (right.sort == "field"):
+            left, right = self._as_command(left), self._as_command(right)
         if not (_timed(left) and _timed(right)):
             return super()._logical(symbol, left, right, operator)
         if operator is None:
@@ -404,7 +481,10 @@ class ClassicTranslator(Translator):
                     )
         if self._selection and len(arguments) == 2:
             return time_functions.neighbour(series, _whole(arguments[1], name))
-        return super()._time_variable(name, arguments)
+        result = super()._time_variable(name, arguments)
+        if len(arguments) == 1:
+            self._remember_commands(result, series)
+        return result
 
     def _function(self, node):
         if node.name in _DATASET_FUNCTIONS:
