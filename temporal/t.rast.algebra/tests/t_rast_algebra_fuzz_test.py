@@ -23,12 +23,12 @@ import pytest
 from grass.temporal.testing import fakes
 from grass.temporal.testing.expressions import (
     RUNNERS,
+    accepted_error_pair,
     boundary_forms,
     check_agreement,
     check_difference_seen,
     check_seed,
     compare_runs,
-    error_classes_differ,
     generate,
     outcome,
     prepare,
@@ -128,24 +128,37 @@ def test_same_seed_gives_the_same_expression():
     assert generate(KIND, 17, granularity_share=1.0)[1]["granularity"]
 
 
-def test_two_errors_of_different_classes_are_no_difference(datasets):
+def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
     """The earlier implementation computes while it parses: end_date() of a
     time instance stops it before it reads the syntax error after it. The
-    profile reports the syntax error. The expression is rejected by both."""
+    profile reports the syntax error."""
     expression = 'if(end_date(I) <= "2001-01-01", 3)'
     first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert first["error"] == "FatalError"
     assert second["error"] == "SyntaxError"
-    assert error_classes_differ(first, second)
+    assert accepted_error_pair(KIND, expression, first, second) == (
+        "FatalError/SyntaxError"
+    )
     assert compare_runs(KIND, expression, first, second) is None
 
 
-def test_a_valid_expression_that_the_profile_rejects_is_a_difference(datasets):
-    """Only two errors are accepted, not a result against an error"""
+def test_other_pairs_of_errors_are_differences(datasets):
+    """Only the two pairs of accepted_error_pair() are accepted: a valid
+    expression that fails in a module, or exits the process, is a difference
+    from another class of error, and so is a syntax error of the profile that
+    the earlier implementation does not report without computing"""
     expression = "A + N"
     valid = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     rejected = {"error": "SyntaxError", "msg": "syntax error"}
     assert "error" not in valid
-    assert not error_classes_differ(valid, rejected)
     assert compare_runs(KIND, expression, valid, rejected) is not None
+    fatal = {"error": "FatalError", "msg": "run error"}
+    for first, second in (
+        ({"error": "Other:CalledModuleError", "msg": ""}, fatal),
+        ({"error": "Exit", "msg": ""}, fatal),
+        (fatal, {"error": "Other:ValueError", "msg": ""}),
+        (fatal, rejected),
+    ):
+        assert accepted_error_pair(KIND, expression, first, second) is None
+        assert compare_runs(KIND, expression, first, second) is not None

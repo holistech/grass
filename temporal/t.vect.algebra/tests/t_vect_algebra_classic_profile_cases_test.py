@@ -11,9 +11,9 @@ import pytest
 from grass.temporal.testing import fakes
 from grass.temporal.testing.expressions import (
     RUNNERS,
+    accepted_error_pair,
     compare,
     compare_runs,
-    error_classes_differ,
     outcome,
     prepare,
 )
@@ -134,7 +134,9 @@ def test_the_class_of_an_error_may_differ_for_an_invalid_expression(datasets):
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
-    assert error_classes_differ(reference, profile)
+    assert accepted_error_pair(KIND, expression, reference, profile) == (
+        "SyntaxError/FatalError"
+    )
     assert compare_runs(KIND, expression, reference, profile) is None
 
 

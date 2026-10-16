@@ -21,7 +21,8 @@ Functions:
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise. ``compare_runs`` is
   ``compare`` for the earlier implementation against the classic profile; it
-  accepts two errors of different classes, which the batch counts apart.
+  accepts the pairs of error classes of ``accepted_error_pair``, which the
+  batch counts by pair.
 - ``prepare(kind, session, directory)`` creates the datasets the generator
   names, see ``expressions_data``.
 
@@ -357,24 +358,55 @@ def cluster(records):
 
 
 def error_classes_differ(first, second):
-    """Tell whether two outcomes are both errors of different classes
-
-    The earlier implementation computes while it parses and merges maps of
-    different time types into one list, so for an invalid expression it can
-    stop with the error of a computation, or of a later check, where the
-    classic profile reports the syntax error or refuses the merge first. The
-    expression is rejected by both; the class of the error is compared for
-    valid expressions only.
-    """
+    """Tell whether two outcomes are both errors of different classes"""
     return "error" in first and "error" in second and first["error"] != second["error"]
 
 
-def compare_runs(kind, expression, first, second):
-    """``compare`` of the outcomes of the earlier implementation and the
-    classic profile, which accepts two errors of different classes, see
-    ``error_classes_differ``; ``run_batch`` counts those
+def accepted_error_pair(kind, expression, first, second, **options):
+    """Name the pair of error classes of two outcomes if the rule accepts it
+
+    Two errors of different classes are no difference when the expression is
+    invalid on its own, so that the class only tells which check came first.
+    That holds for two pairs. The classic profile reports a ``SyntaxError``
+    and the earlier implementation another class, if that implementation
+    also rejects the expression as a syntax error when it runs without
+    computing. Or the earlier implementation reports a ``SyntaxError`` and the
+    classic profile a ``FatalError``. Every other pair is a difference.
+
+    :param first: The outcome of the earlier implementation
+    :param second: The outcome of the classic profile
+    :param options: The options of the runs. The granularity mode is left
+        out of the run without computing, so that its check is a syntax
+        check only.
+    :return: ``"<class of first>/<class of second>"``, or None
     """
-    if error_classes_differ(first, second):
+    if not error_classes_differ(first, second):
+        return None
+    pair = (first["error"], second["error"])
+    label = "/".join(pair)
+    if pair == ("SyntaxError", "FatalError"):
+        return label
+    if second["error"] != "SyntaxError":
+        return None
+    options = {**options, "run": False, "debug": False}
+    options.pop("granularity", None)
+    try:
+        RUNNERS["reference"](
+            kind, f"Rfa = {expression}", basename="fa", overwrite=True, **options
+        )
+    except SyntaxError:
+        return label
+    except Exception:  # noqa: BLE001, any other error means: not rejected
+        return None
+    return None
+
+
+def compare_runs(kind, expression, first, second, **options):
+    """``compare`` of the outcomes of the earlier implementation and the
+    classic profile, except for a pair of errors that ``accepted_error_pair``
+    accepts; ``run_batch`` counts those
+    """
+    if accepted_error_pair(kind, expression, first, second, **options):
         return None
     return compare(kind, expression, first, second)
 
@@ -397,7 +429,7 @@ def check_agreement(kind, expression, **options):
     second = outcome(
         kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
     )
-    difference = compare_runs(kind, expression, first, second)
+    difference = compare_runs(kind, expression, first, second, **options)
     if difference is not None:
         raise AssertionError(difference)
 
@@ -473,8 +505,8 @@ def run_batch(
     Must run inside a ``temporal_session`` with the datasets of ``prepare``.
     A line holds ``seed``, ``expression``, ``options`` and ``outcome``; with
     ``against`` also ``other``, ``difference`` (None or the text of
-    ``compare_runs``) and ``error_classes`` (true for two errors of different
-    classes, which are no difference). The lines depend only on the seed and the code.
+    ``compare_runs``) and ``error_pair`` (the accepted pair of error classes,
+    which is no difference, see ``accepted_error_pair``, else None). The lines depend only on the seed and the code.
 
     :param runner: A runner as for ``outcome``
     :param against: A second runner to compare with
@@ -512,8 +544,12 @@ def run_batch(
                 }
                 if against is not None:
                     line["other"] = other
-                    line["difference"] = compare_runs(kind, expression, result, other)
-                    line["error_classes"] = error_classes_differ(result, other)
+                    line["difference"] = compare_runs(
+                        kind, expression, result, other, **options
+                    )
+                    line["error_pair"] = accepted_error_pair(
+                        kind, expression, result, other, **options
+                    )
                     differences += line["difference"] is not None
                 handle.write(json.dumps(line, sort_keys=True) + "\n")
                 handle.flush()
@@ -633,11 +669,12 @@ def main(argv=None):
     _print_others(
         outcome for line in lines for outcome in (line["outcome"], line.get("other"))
     )
-    error_classes = sum(bool(line.get("error_classes")) for line in lines)
-    print(
-        f"{len(seeds)} seeds, {differences} differences, "
-        f"{error_classes} with errors of different classes (not differences)"
+    pairs = collections.Counter(
+        line["error_pair"] for line in lines if line.get("error_pair")
     )
+    print(f"{len(seeds)} seeds, {differences} differences")
+    for pair, count in sorted(pairs.items()):
+        print(f"{count} accepted pairs of error classes {pair}")
     return 1 if differences else 0
 
 
