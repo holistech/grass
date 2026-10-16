@@ -880,7 +880,9 @@ C = exp(A * 1000)
 <h4>Differences from the previous implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the previous implementation in
-the following points. None changes the maps of a valid expression.
+the following points. Only the item on <code>merge()</code> of computed maps
+changes the maps of a valid expression; the others concern messages, output and
+the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -899,12 +901,19 @@ previous implementation printed the <em>r.mapcalc</em> commands and the
 resulting statement.
 </li>
 
-<li><b>Order of the errors.</b> The classic algebra reads the whole expression
-before it computes. An expression with a syntax error is therefore a syntax
-error, where the previous implementation could stop with the error of a
-computation before it reached the syntax error. In this expression the dataset
-<code>nosuch</code> does not exist and a bracket is too many; the previous
-implementation reported the missing dataset (<code>FatalError</code>):
+<li><b>Order of the errors.</b> Both implementations reject an invalid
+expression, but they can report another class of error. The classic algebra
+reads the whole expression before it computes. An expression with a syntax
+error is therefore a syntax error, where the previous implementation could stop
+with the error of a computation before it reached the syntax error. The classic
+algebra also refuses at once a <code>merge()</code> of maps of absolute and of
+relative time, or of relative time with different units
+(<code>FatalError</code>), where the previous implementation goes on and can
+stop with a later error of the expression, for example a
+<code>SyntaxError</code> of <code>buff_t()</code>. In this expression the
+dataset <code>nosuch</code> does not exist and a bracket is too many; the
+previous implementation reported the missing dataset
+(<code>FatalError</code>):
 
 <div class="code"><pre>
 C = nosuch + A )

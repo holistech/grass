@@ -840,7 +840,9 @@ and RT with maps of relative time.
 #### Differences from the previous implementation
 
 Besides the corrections, **-c** differs from the previous implementation
-in the following points. None changes the maps of a valid expression.
+in the following points. Only the item on `merge()` of computed maps changes
+the maps of a valid expression; the others concern messages, output and the
+class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -853,12 +855,18 @@ in the following points. None changes the maps of a valid expression.
   example `r.mapcalc expression=q_0=(a1@PERMANENT + 1) nprocs=1`. The
   previous implementation printed the *r.mapcalc* commands and the
   resulting statement.
-- **Order of the errors.** The classic algebra reads the whole expression
-  before it computes. An expression with a syntax error is therefore a
-  syntax error, where the previous implementation could stop with the error
-  of a computation before it reached the syntax error. In this expression
-  the dataset `nosuch` does not exist and a bracket is too many; the
-  previous implementation reported the missing dataset (`FatalError`):
+- **Order of the errors.** Both implementations reject an invalid
+  expression, but they can report another class of error. The classic
+  algebra reads the whole expression before it computes. An expression with
+  a syntax error is therefore a syntax error, where the previous
+  implementation could stop with the error of a computation before it
+  reached the syntax error. The classic algebra also refuses at once a
+  `merge()` of maps of absolute and of relative time, or of relative time
+  with different units (`FatalError`), where the previous implementation
+  goes on and can stop with a later error of the expression, for example a
+  `SyntaxError` of `buff_t()`. In this expression the dataset `nosuch` does
+  not exist and a bracket is too many; the previous implementation reported
+  the missing dataset (`FatalError`):
 
   ```sh
   C = nosuch + A )
