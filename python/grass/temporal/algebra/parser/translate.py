@@ -91,7 +91,10 @@ class Translator:
     resolve_map(name, timestamp=...) the series of a single map; tests pass
     functions that build series in memory. With spatial, every relation also
     asks for spatially related maps. kind is the map type of the datasets; it
-    decides what + means and which indexes and functions exist.
+    decides what + means and which indexes and functions exist. selection says
+    that the expression selects registered maps (t.select) and computes none;
+    the core translates it like any other expression, a variant of the algebra
+    may need to know.
 
     The profile says which variant of the algebra is translated. Its fields
     are read through self.profile.
@@ -114,10 +117,12 @@ class Translator:
         resolve=None,
         resolve_map=None,
         profile=CORE,
+        selection=False,
     ):
         self.profile = profile
         self._kind = kind
         self._spatial = spatial
+        self._selection = selection
         self._resolve = resolve or functools.partial(source, stds_type=STDS_TYPES[kind])
         self._resolve_map = resolve_map or functools.partial(source_map, kind=kind)
         self._datasets = {}

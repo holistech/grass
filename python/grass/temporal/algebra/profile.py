@@ -29,7 +29,9 @@ class Profile:
 
     :param grammar: an object with parse(text) that returns the syntax tree
         (grass.temporal.algebra.parser.ast.Statement) of "name = expression";
-        None reads the syntax of the core
+        None reads the syntax of the core. A variant whose syntax depends on
+        the map type gives an object with for_kind(kind, selection) instead,
+        which returns such an object for an expression (evaluate())
     :param translator: the Translator class (or a subclass of it) that
         translates the tree; evaluate() calls it with the keywords of
         Translator and profile=; None takes Translator
@@ -77,3 +79,14 @@ class Profile:
 
 
 CORE = Profile()
+
+
+def __getattr__(name):
+    """CLASSIC, the profile of the classic algebra, is defined next to its
+    translator, which imports this module; it is loaded when asked for"""
+    if name == "CLASSIC":
+        from .parser.classic import CLASSIC
+
+        return CLASSIC
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)

@@ -75,7 +75,9 @@ def evaluate(
     :param kind: the map type, "raster", "raster3d" or "vector"
     :param profile: the variant of the algebra: its grammar reads the
         expression and its translator class translates the tree; the default
-        is the algebra of the core
+        is the algebra of the core. A grammar of a variant that reads
+        different syntax per map type has for_kind(kind, selection), which
+        returns the object with parse(text) for this expression.
     :param granularity: the common granularity of the datasets, a text such
         as "1 day" for absolute time or a whole number for relative time;
         None reads the datasets as they are
@@ -88,14 +90,21 @@ def evaluate(
     :raises FatalError: for a missing dataset or map, and without overwrite
         for an existing result dataset or map
     """
-    statement = parse(expression, grammar=profile.grammar)
+    grammar = profile.grammar
+    if hasattr(grammar, "for_kind"):
+        grammar = grammar.for_kind(kind, selection)
+    statement = parse(expression, grammar=grammar)
     chain = {"processes": [], "register": [], "remove": [], "STDS": {}}
     if not run:
         return chain
     types = _TemporalTypes(profile.one_temporal_type)
     resolve = _resolver(kind, profile, granularity, types)
     translator = (profile.translator or Translator)(
-        kind=kind, spatial=spatial, resolve=resolve, profile=profile
+        kind=kind,
+        spatial=spatial,
+        resolve=resolve,
+        profile=profile,
+        selection=selection,
     )
     suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
     options = {
