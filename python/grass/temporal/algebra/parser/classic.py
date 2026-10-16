@@ -623,9 +623,11 @@ class ClassicTranslator(Translator):
     def _if(self, arguments, relation):
         """The classic if(): conditions on map values choose per cell, one map
         per pair of condition and conclusion; conditions on temporal
-        variables judge each conclusion map by the conditions related to it"""
+        variables judge each conclusion map by the conditions related to it.
+        The maps of then and else are listed together in time order, where
+        the core lists those of then first."""
         if self._kind == "vector" or len(arguments) not in (2, 3):
-            return super()._if(arguments, relation)
+            return self._in_time_order(super()._if(arguments, relation))
         condition = arguments[0]
         if (
             isinstance(condition, Series)
@@ -633,12 +635,21 @@ class ClassicTranslator(Translator):
             and not condition.timeless
             and all(_timed(branch) for branch in arguments[1:])
         ):
-            return self._judged_if(condition, *arguments[1:], relation=relation)
+            return self._in_time_order(
+                self._judged_if(condition, *arguments[1:], relation=relation)
+            )
         if not (_timed(condition) and condition.sort == "field"):
-            return super()._if(arguments, relation)
+            return self._in_time_order(super()._if(arguments, relation))
         then = arguments[1]
         otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
-        return self._field_if(condition, then, otherwise, relation)
+        return self._in_time_order(self._field_if(condition, then, otherwise, relation))
+
+    @staticmethod
+    def _in_time_order(series):
+        """series with its slots listed in time order"""
+        if not isinstance(series, Series):
+            return series
+        return _like(series, (dataclasses.replace(s, rank=None) for s in series.slots))
 
     def _judged_if(self, condition, then, otherwise=None, *, relation):
         """if() on temporal variables: each conclusion map is judged by all

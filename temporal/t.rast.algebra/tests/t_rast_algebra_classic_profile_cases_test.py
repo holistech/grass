@@ -108,6 +108,18 @@ MERGED_COMPUTED = [
     "merge(if(start_month(A) == 1, Q, null()), A - N)",
 ]
 
+# The maps of then and else are numbered in one list in time order, the maps
+# that share a start in the order of the database. In the granularity mode
+# every dataset is sampled first.
+IF_ORDER = [
+    "if({finished}, end_dow(A) != 1, rel, 5)",
+    "if({finished}, end_dow(A) != 1, rel)",
+]
+GRANULARITY_ORDER = [
+    "if(end_month(Z) >= 0 && td(AF) > 0, merge(D, Z % Z), tsnap(D))",
+    "if(end_year(log(A)) < 1 || end_week(AF) < 3 && B # W == 1, merge(A, W))",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -169,3 +181,14 @@ def test_time_functions_with_an_offset(datasets, expression):
 def test_merge_keeps_alike_computed_maps(datasets, expression):
     assert_equal(expression)
     assert_equal(expression, register_null=False)
+
+
+@pytest.mark.parametrize("expression", IF_ORDER)
+def test_conditions_list_the_maps_in_time_order(datasets, expression):
+    assert_equal(expression)
+    assert_equal(expression, register_null=False)
+
+
+@pytest.mark.parametrize("expression", GRANULARITY_ORDER)
+def test_granularity_mode_lists_the_maps_in_time_order(datasets, expression):
+    assert_equal(expression, granularity=True)

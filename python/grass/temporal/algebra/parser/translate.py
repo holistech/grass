@@ -714,9 +714,12 @@ def _like(series, value):
         raise TypeError(msg)
     content = value.slots[0].content if isinstance(value, Series) else value
     return Series(
-        tuple(Slot(slot.extent, content, slot.space) for slot in series),
+        tuple(
+            Slot(slot.extent, content, slot.space, rank=slot.rank) for slot in series
+        ),
         kind=series.kind,
         spatial=series.spatial,
+        order=series.order,
     )
 
 

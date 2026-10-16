@@ -45,6 +45,13 @@ MIXED_TIME = [
     "if({equal}, td(rel) == 1, tmap(ev))",
 ]
 
+# The maps of then and else are numbered in one list in time order
+LIST_ORDER = [
+    'if({follows}, end_day(pb) >= 2, pa, tshift(ac, "-2 minutes"))',
+    "if({precedes}, td(tsnap(wide)) != 1, buff_p(pb, 1), tmap(ev))",
+    "if({equal}, td(aa) == 1, pa, pb)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -86,4 +93,9 @@ def test_overlay_of_maps_without_areas(datasets, expression):
 
 @pytest.mark.parametrize("expression", MIXED_TIME)
 def test_mixed_time_is_unrelated(datasets, expression):
+    assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", LIST_ORDER)
+def test_conditions_list_the_maps_in_time_order(datasets, expression):
     assert_equal(expression)
