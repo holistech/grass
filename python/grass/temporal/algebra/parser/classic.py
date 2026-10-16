@@ -563,13 +563,15 @@ class ClassicTranslator(Translator):
     def _merge(self, first, second):
         """The classic map lists mix maps and numbers freely: a number in a
         list is a constant map, so merging a count with maps is a list of
-        maps"""
+        maps. A map that the second list shares with the first is kept once;
+        what repeats in the first list stays, as the lists of the classic
+        algebra tell two computed maps apart by the map they came from."""
         if first.sort != second.sort:
             first, second = (
                 dataclasses.replace(series, sort="field") for series in (first, second)
             )
         self._check_merged_times(first, second)
-        return super()._merge(first, second)
+        return operations.merge(first, second, keep_first_repeats=True)
 
     @staticmethod
     def _check_merged_times(first, second):

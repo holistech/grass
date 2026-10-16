@@ -23,6 +23,7 @@ from grass.temporal.algebra.content import Call, Const, MapRef
 from grass.temporal.algebra.operations import (
     choose,
     gather,
+    merge,
     pair_equal_times,
     pairs,
     select,
@@ -36,7 +37,7 @@ from grass.temporal.algebra.relations import (
     related,
     relation,
 )
-from grass.temporal.algebra.series import Space
+from grass.temporal.algebra.series import Series, Space
 
 
 def partners(left, text, other, **options):
@@ -657,3 +658,13 @@ def test_a_branch_of_other_times_is_left_out_if_asked(mixed):
 def test_the_mixed_times_option_is_checked(mixed):
     with pytest.raises(ValueError, match="mixed_times must be one of"):
         select(mixed[0], equal, mixed[0], mixed_times="ignore")
+
+
+def test_merge_keeps_repeats_of_the_first_series_if_asked(make_series):
+    """Computed slots lose the map they came from, so two different maps can
+    look identical in the first series"""
+    one = make_series("a", (1, 2))
+    twice = Series(one.slots * 2)
+    assert len(merge(twice, one).slots) == 1
+    assert len(merge(twice, one, keep_first_repeats=True).slots) == 2
+    assert len(merge(one, twice, keep_first_repeats=True).slots) == 1

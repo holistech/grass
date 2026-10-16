@@ -101,6 +101,13 @@ TIME_FUNCTION_OFFSETS = [
     "if(end_hour(A, 0) == 3, AF)",
 ]
 
+# Computed maps that look alike stay apart in merge(): the classic lists tell
+# them apart by the map they came from.
+MERGED_COMPUTED = [
+    'merge(if({equal|over}, end_date(PA) == "2001-01-01", Q, null()), A - N)',
+    "merge(if(start_month(A) == 1, Q, null()), A - N)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -156,3 +163,9 @@ def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression):
 @pytest.mark.parametrize("expression", TIME_FUNCTION_OFFSETS)
 def test_time_functions_with_an_offset(datasets, expression):
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("expression", MERGED_COMPUTED)
+def test_merge_keeps_alike_computed_maps(datasets, expression):
+    assert_equal(expression)
+    assert_equal(expression, register_null=False)

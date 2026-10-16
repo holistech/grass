@@ -951,7 +951,7 @@ def where(condition, then, otherwise=None):
     return _apply("if", (condition, then, otherwise), "where")
 
 
-def merge(*series):
+def merge(*series, keep_first_repeats=False):
     """The union of series
 
     Identical slots are kept once with a warning, so that a later reduction
@@ -960,6 +960,10 @@ def merge(*series):
     kept. The slots of the result are ranked in the order of the call, first
     the maps of the first series, see Series.listed().
 
+    :param keep_first_repeats: keep identical slots of the first series, and
+        drop only those of the later series that an earlier slot has already.
+        Computed slots lose the map they came from, so two of them can look
+        identical although they are different maps.
     :raises ValueError: if no series is given, or the series differ in sort,
         map type, temporal type or unit
     """
@@ -977,11 +981,11 @@ def merge(*series):
     seen = set()
     slots = []
     duplicates = 0
-    for part in series:
+    for number, part in enumerate(series):
         # The list order of a part, so that a merge of merges lists the maps
         # of the inner one in the order it was written.
         for slot in part.listed():
-            if slot in seen:
+            if slot in seen and not (number == 0 and keep_first_repeats):
                 duplicates += 1
                 continue
             seen.add(slot)
