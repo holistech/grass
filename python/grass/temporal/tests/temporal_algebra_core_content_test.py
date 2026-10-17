@@ -211,7 +211,7 @@ def test_the_core_builds_contents_without_a_mark():
     assert series_reduce("sum", [A, B]).mark is None
 
 
-def test_merge_drops_a_slot_that_differs_in_its_mark_only():
+def test_merge_drops_a_slot_that_differs_in_its_mark_only(no_messenger):
     """The core has no map objects: equal contents are one map"""
     first = Slot(Extent(DAY1, DAY2), MapRef("a1@PERMANENT", mark=object()))
     second = Slot(Extent(DAY1, DAY2), MapRef("a1@PERMANENT", mark=object()))
