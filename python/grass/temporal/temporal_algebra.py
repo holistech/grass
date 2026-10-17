@@ -2866,7 +2866,12 @@ class TemporalAlgebraParser:
             for map_i in maplist:
                 gvar = GlobalTemporalVar()
                 gvar.td = self._time_difference(map_i)
-                self._add_map_value(map_i, gvar)
+                # In front of a count: the readers of td() take the first
+                # map value, and td() of a counted map gave the count.
+                if hasattr(map_i, "map_value"):
+                    map_i.map_value.insert(0, gvar)
+                else:
+                    self._add_map_value(map_i, gvar)
             t[0] = maplist
         else:
             t[0] = f"td({t[3]})"
