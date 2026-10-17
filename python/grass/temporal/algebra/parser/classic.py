@@ -914,9 +914,9 @@ class ClassicTranslator(Translator):
         )
 
     def _index(self, node):
-        """A map read at an offset, in time or in cells, is a new map in the
-        classic algebra, which carries a command like a computed one: its own
-        id"""
+        """A map read at an offset, in time or in cells, is a new map object
+        in the classic algebra with an id of its own, whose command is only
+        its reference (bare, see _has_command())"""
         result = super()._index(node)
         return (
             self._new_maps(result, bare=True) if isinstance(result, Series) else result
