@@ -189,13 +189,18 @@ def test_boundary_forms(world):
 
 def braced_operator_statement(kind, operator):
     """A statement that uses a braced operator of the generator where the
-    generator writes it: && and || join conditions, and the hash operator of
-    the vector algebra and t.select stands in a condition"""
+    generator writes it: && and || join conditions, the comparison operators
+    compare two datasets in a condition, and the hash operator of the vector
+    algebra and t.select stands in a condition"""
     symbol = operator[1:].split(",")[0]
     if symbol in {"&&", "||"}:
         return f"R = if(start_doy(A) > 0 {operator} start_doy(B) > 0, A)"
     if symbol == "#" and kind in {"vector", "select"}:
         return f"R = if(A {operator} B > 1, A)"
+    if symbol in {"==", "!=", "<", "<=", ">", ">="}:
+        # The comparison operator stands in a condition; the generator writes
+        # it for the raster kinds only
+        return f"R = if(A {operator} B, A)"
     return f"R = A {operator} B"
 
 
