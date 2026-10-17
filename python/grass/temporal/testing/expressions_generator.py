@@ -453,8 +453,9 @@ def generate(
 
 # Forms on the border between the grammar of the classic algebra and the
 # grammar of the core: syntax that one reads and the other may refuse or read
-# differently (signs, spacing in increments, relations, neighbour indices,
-# precedence of && and ||, large integers). They were found while comparing
+# differently (signs, spacing in increments, relations, spatial relation names
+# without a temporal one, neighbour indices, precedence of && and ||, large
+# integers). They were found while comparing
 # the two grammars; whether a form is read or refused is the result of a run,
 # not a property of the list.
 _RASTER_FORMS = [
@@ -475,6 +476,7 @@ _RASTER_FORMS = [
     "if({over}, A > 1, D)", "start_doy(A, -1) + A", "A {#,equal} N + 1",
     "if(A {#,during} B == 1, A)", "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)",
     "if(isnull(A) || A > 2 && A < 4, A, 0)", "A {+,equal,l} N {*,equal,r} D",
+    "A {+,equivalent,l} N", "if(A {#,in} N > 0, A)",
 ]  # fmt: skip
 _VECTOR_FORMS = [
     "aa && ab", "aa * ab", "aa - ab", "ev", "aa", "aa + 1", "aa & 1",
@@ -482,11 +484,12 @@ _VECTOR_FORMS = [
     "aa # ab", "td(aa) + aa", "strds(aa)", "stvds(aa) & ab",
     'tshift(aa, "1days")', "aa {&,equal|equal} ab", "aa {&,over} wide",
     "aa + ab & ac", "aa | ab & ac", "aa ~ aa", 'buff_t(aa, " 1 day")',
+    "aa {&,equivalent,l} ab", "buff_p(aa {:,equivalent} ab, 1)",
 ]  # fmt: skip
 _SELECT_FORMS = [
     "A", "A : N : D", "A :: N", 'tshift(A, "+1 day")', "A {:,equal,x} N",
     'tshift(A, "1days")', "A {:,equal|equal} N", "A {:,over} D",
-    'buff_t(A, " 1 day")',
+    'buff_t(A, " 1 day")', "A {:,equivalent} N",
 ]  # fmt: skip
 
 

@@ -1553,6 +1553,7 @@ class TemporalAlgebraParser:
 
         :raises SyntaxError:
             This method will raise a syntax error in case the topology name is unknown
+        :raises ValueError: If only spatial relations are given
         """
         temporal_topo_list = []
         spatial_topo_list = []
@@ -1565,6 +1566,17 @@ class TemporalAlgebraParser:
             else:
                 msg = f"Unpermitted topological relation name '{topo}'"
                 raise SyntaxError(msg)
+        # Related maps are searched by the temporal relations only, so spatial
+        # names alone related no map and gave an empty result without a
+        # message, whatever the data. The message is the one of the algebra
+        # on the new core, which refuses the same expression.
+        if spatial_topo_list and not temporal_topo_list:
+            names = "|".join(sorted(name.lower() for name in spatial_topo_list))
+            msg = (
+                f"{names} is a spatial relation and needs a temporal one, "
+                "as in equal|overlap"
+            )
+            raise ValueError(msg)
 
         return temporal_topo_list, spatial_topo_list
 

@@ -323,6 +323,20 @@ def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
     assert not unrelated["maps"]
 
 
+@pytest.mark.parametrize("spatial", [False, True], ids=["", "-s"])
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+def test_a_spatial_relation_name_alone_is_refused(paper, runner, spatial):
+    """A spatial name needs a temporal one beside it, as in equal|equivalent
+
+    A related map is found by the temporal relations; with none written no map
+    can relate. The reference used to give an empty result without a message
+    for every data; all three now refuse the expression with the same error.
+    """
+    refused = run(runner, "A {+,equivalent,l} F", "fa", spatial=spatial)
+    assert refused["error"] == "Other:ValueError"
+    assert "needs a temporal one" in refused["msg"]
+
+
 @pytest.mark.parametrize("register_null", [False, True], ids=["", "-n"])
 @pytest.mark.parametrize("runner", ["reference", "classic", "core"])
 @pytest.mark.parametrize(

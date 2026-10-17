@@ -752,6 +752,10 @@ class ClassicTranslator(Translator):
         A : B and A !: B keep every selected map, also two of one id.
         """
         self._pair(operator.symbol, left, right)
+        # Spatial names alone fail in the reference before the selection, with
+        # the error that every operator gives them; building the relation
+        # raises it.
+        self._relation(operator)
         for name in operator.relations:
             # The classic selection with a temporal operator refuses spatial
             # names, also with the temporal reference l.

@@ -547,6 +547,17 @@ of I, this expression gives maps with the instances as time:
 C = A {:,contains,i} I
 </pre></div>
 </li>
+<li><b>Spatial relation names alone.</b> A selection in braces refuses spatial
+relation names with a syntax error. With spatial names only, such as
+<code>A {:,equivalent} B</code>, it stops now with the error "equivalent is a
+spatial relation and needs a temporal one, as in equal|overlap", as every
+operator of the algebras and the new algebra do (17 October 2026). Selections
+read temporal relations only:
+
+<div class="code"><pre>
+C = A {:,equal} B
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>

@@ -934,6 +934,18 @@ datasets of the list above and, in addition, N with daily maps of the values
     C = A + td(A) / A
     ```
 
+12. **A spatial relation without a temporal one.** An operator with spatial
+    relation names only, such as `A {+,equivalent,l} N`, related no map, because
+    maps are related by their temporal relations, and gave an empty result
+    without a message (corrected 17 October 2026). It stops now with the error
+    "equivalent is a spatial relation and needs a temporal one, as in
+    equal|overlap", as in the new algebra. Write a temporal relation beside the
+    spatial one:
+
+    ```sh
+    C = A {+,equal|equivalent,l} N
+    ```
+
 #### Differences from the previous implementation
 
 Besides the corrections, **-c** differs from the previous implementation

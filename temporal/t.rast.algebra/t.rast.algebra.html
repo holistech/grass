@@ -982,6 +982,18 @@ was a syntax error and is read now:
 C = A + td(A) / A
 </pre></div>
 </li>
+<li><b>A spatial relation without a temporal one.</b> An operator with spatial
+relation names only, such as <code>A {+,equivalent,l} N</code>, related no map,
+because maps are related by their temporal relations, and gave an empty result
+without a message (corrected 17 October 2026). It stops now with the error
+"equivalent is a spatial relation and needs a temporal one, as in
+equal|overlap", as in the new algebra. Write a temporal relation beside the
+spatial one:
+
+<div class="code"><pre>
+C = A {+,equal|equivalent,l} N
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>

@@ -539,6 +539,17 @@ of earlier GRASS versions that used one of these forms need a new run.
    C = A {:,contains,i} I
    ```
 
+4. **Spatial relation names alone.** A selection in braces refuses spatial
+   relation names with a syntax error. With spatial names only, such as
+   `A {:,equivalent} B`, it stops now with the error "equivalent is a spatial
+   relation and needs a temporal one, as in equal|overlap", as every operator
+   of the algebras and the new algebra do (17 October 2026). Selections read
+   temporal relations only:
+
+   ```sh
+   C = A {:,equal} B
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python

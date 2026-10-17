@@ -702,6 +702,19 @@ of earlier GRASS versions that used one of these forms need a new run.
    C = A {:,contains,i} I
    ```
 
+5. **A spatial relation without a temporal one.** An operator with spatial
+   relation names only, such as `A {&,equivalent,l} B`, related no map, because
+   maps are related by their temporal relations, and gave an empty result
+   without a message (corrected 17 October 2026). It stops now with the error
+   "equivalent is a spatial relation and needs a temporal one, as in
+   equal|overlap", as in the new algebra. A selection in braces, which refuses
+   spatial names with a syntax error, gives this error too when the names are
+   spatial only. Write a temporal relation beside the spatial one:
+
+   ```sh
+   C = A {&,equal|equivalent,l} B
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python
