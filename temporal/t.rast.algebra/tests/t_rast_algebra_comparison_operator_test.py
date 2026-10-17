@@ -117,6 +117,8 @@ def comparisons(temporal_module_session):
     create_stds(tools, "strds", "F", specs("f", [5, 6, 7, 8], MONTHS))
     create_stds(tools, "strds", "G", specs("g", [10, 20, 30], MONTHS[1:]))
     create_stds(tools, "strds", "E", specs("e", [1.5, 2.5, 3.5], DAYS))
+    # Two maps with the time of January, which no time stamp tells apart
+    create_stds(tools, "strds", "D", specs("d", [1, 2], [MONTHS[0], MONTHS[0]]))
     with fakes.cached_io(fakes.CacheStorage()):
         yield
 
@@ -214,6 +216,20 @@ def test_a_condition_without_an_equal_map_leaves_null_maps_in_the_new_algebra(
     algebra, where the classic algebra leaves them out"""
     result = run("core", "if(A {>=,contains,&,i} E, A, 0)", "fa")
     assert [row[3] for row in result["maps"]] == [None, None, None, None]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize(("aggregate", "value"), [("|", 1.5), ("&", 0)])
+def test_maps_of_equal_time_are_all_related(comparisons, runner, aggregate, value):
+    """d1 = 1 and d2 = 2 both have the time of a1 = 1.5, and both are compared
+
+    1.5 >= 1 or 1.5 >= 2 is true: 1.5; 1.5 >= 1 and 1.5 >= 2 is false: 0.
+    The other maps of A have no related map (null maps in the new algebra).
+    """
+    result = run(runner, f"if(A {{>=,equal,{aggregate}}} D, A, 0)", "fa")
+    assert "error" not in result, result
+    january = [row[3] for row in result["maps"] if row[1].startswith("2001-01")]
+    assert january == [pytest.approx(value)]
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic", "core"])

@@ -385,10 +385,15 @@ if(A >= F, A, F)
 The first expression is true for a map of A if it is greater than or equal
 to any related map of E; the last one gives, for each map of A, the value
 of A where it is not smaller than the map of F with the same time, and the
-value of F otherwise. Earlier GRASS releases did not read the comparison of
-two datasets, neither in braces nor as `A >= F`; both algebras do now. The
-granularity mode (**-g**) reads the short form; it refuses the operator in
-braces, as it refuses every operator in braces.
+value of F otherwise. In the new algebra the short form compares maps of
+equal time stamps cell by cell, as `A + F` does, and stops with an error if
+the time stamps differ. With the temporal reference `r`, the new algebra
+compares each pair on its own, as it does for `&&` and `||`, where the
+classic algebra gives every related map the whole condition of its left
+map. Earlier GRASS releases did not read the comparison of two datasets,
+neither in braces nor as `A >= F`; both algebras do now. The granularity
+mode (**-g**) reads the short form; it refuses the operator in braces, as
+it refuses every operator in braces.
 
 #### Hash operator
 
@@ -999,12 +1004,8 @@ class of an error.
 
 - **Comparison of related maps.** The previous implementation refused the
   comparison of two space time datasets, in braces and as `A >= F`, with a
-  syntax error (see the comparison of related maps above). Both algebras
-  read it now. The new algebra keeps a map of A without a related map as a
-  null map, where the classic algebra leaves it out. With the temporal
-  reference `r`, the new algebra compares each pair on its own, where the
-  classic algebra gives every related map the whole condition of its left
-  map, as it does for `&&` and `||`:
+  syntax error. **-c** reads it as described in the comparison of related
+  maps above:
 
   ```sh
   C = if(A {<, contains, |, r} B, B, 0)

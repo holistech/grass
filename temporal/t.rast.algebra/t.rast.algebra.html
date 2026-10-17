@@ -398,8 +398,13 @@ if(A &gt;= F, A, F)
 The first expression is true for a map of A if it is greater than or equal to
 any related map of E; the last one gives, for each map of A, the value of A
 where it is not smaller than the map of F with the same time, and the value of
-F otherwise. Earlier GRASS releases did not read the comparison of two
-datasets, neither in braces nor as <code>A &gt;= F</code>; both algebras do now.
+F otherwise. In the new algebra the short form compares maps of equal time
+stamps cell by cell, as <code>A + F</code> does, and stops with an error if the
+time stamps differ. With the temporal reference <code>r</code>, the new algebra
+compares each pair on its own, as it does for <code>&amp;&amp;</code> and <code>||</code>,
+where the classic algebra gives every related map the whole condition of its
+left map. Earlier GRASS releases did not read the comparison of two datasets,
+neither in braces nor as <code>A &gt;= F</code>; both algebras do now.
 The granularity mode (<b>-g</b>) reads the short form; it refuses the operator
 in braces, as it refuses every operator in braces.
 
@@ -1063,12 +1068,8 @@ C = A {+,equals,l} B
 
 <li><b>Comparison of related maps.</b> The previous implementation refused the
 comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
-with a syntax error (see the comparison of related maps above). Both algebras
-read it now. The new algebra keeps a map of A without a related map as a null
-map, where the classic algebra leaves it out. With the temporal reference
-<code>r</code>, the new algebra compares each pair on its own, where the classic
-algebra gives every related map the whole condition of its left map, as it does
-for <code>&amp;&amp;</code> and <code>||</code>:
+with a syntax error. <b>-c</b> reads it as described in the comparison of
+related maps above:
 
 <div class="code"><pre>
 C = if(A {&lt;, contains, |, r} B, B, 0)
