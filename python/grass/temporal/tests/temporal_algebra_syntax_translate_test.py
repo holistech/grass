@@ -4,6 +4,7 @@ Each test compares the translation with the core calls of the translation
 table, on series built in memory.
 """
 
+import dataclasses
 import datetime
 
 import pytest
@@ -247,6 +248,50 @@ def test_cell_functions(translator, datasets):
 def test_unknown_functions(translator, text):
     with pytest.raises(SyntaxError, match="Unknown function"):
         run(translator, text)
+
+
+def test_dataset_functions_name_the_type_in_a_selection(datasets):
+    """strds(A) and STVDS(B) read the dataset as one of that type, with the
+    spelling of the paper in capitals; a selection relates them"""
+    asked = []
+
+    def resolve(name, stds_type=None):
+        asked.append((name, stds_type))
+        return datasets[name]
+
+    selecting = Translator(resolve=resolve, selection=True)
+    result = selecting.statement(parse("R = STRDS(A) {:,during} stvds(B)"))[1]
+    assert asked == [("A", "strds"), ("B", "stvds")]
+    assert result.slots == operations.select(datasets["A"], during, datasets["B"]).slots
+    # A dataset is read once for a type
+    selecting.value(parse("R = strds(A) : strds(A)").expression)
+    assert asked == [("A", "strds"), ("B", "stvds")]
+
+
+def test_a_selection_relates_datasets_of_different_types(datasets):
+    """The right series gets the map type of the left one; the operations
+    refuse mixed types"""
+    vector = dataclasses.replace(datasets["B"], kind="vector")
+    left = datasets["A"]
+    assert vector.kind != left.kind
+    selecting = Translator(
+        resolve=lambda name, stds_type=None: vector if name == "V" else datasets[name],
+        selection=True,
+    )
+    result = selecting.statement(parse("R = A {:,during} V"))[1]
+    assert result.slots == operations.select(left, during, datasets["B"]).slots
+    plain = Translator(resolve=lambda name: vector if name == "V" else datasets[name])
+    with pytest.raises(ValueError, match="cannot be related"):
+        plain.statement(parse("R = A {:,during} V"))
+
+
+@pytest.mark.parametrize("text", ["strds(A, B)", "strds(1)", "STVDS(A + B)"])
+def test_dataset_functions_take_one_name(datasets, text):
+    selecting = Translator(
+        resolve=lambda name, stds_type=None: datasets[name], selection=True
+    )
+    with pytest.raises(SyntaxError, match="takes the name of a space time dataset"):
+        selecting.statement(parse(f"R = {text}"))
 
 
 def test_time_functions(translator, datasets):

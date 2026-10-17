@@ -406,6 +406,15 @@ implementation and applies its rules for relations and order. The flag
 `GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
 new algebra, and the flag takes precedence over the variable.
 
+Both algebras pull maps of another dataset type into a selection with the
+functions `strds()`, `str3ds()` and `stvds()`; the type of the function need
+not equal the parameter **type**, which gives the type of the result (since
+17 October 2026 the new algebra reads them as well; before, only the classic
+algebra did). Besides the lower case spelling, `str3ds(A)`, both read the
+capitals of the paper, `STRDS(A)`, `STR3DS(A)` and `STVDS(A)`. A capital name
+is a function only before an opening parenthesis, so that a dataset may be
+named `STRDS`. Other spellings, such as `Str3ds(A)`, are a syntax error.
+
 *t.select* only selects and retimes maps, it computes none, so most
 differences between the two algebras do not reach it. An expression that
 selects no map creates an empty space time dataset in both algebras. These
@@ -436,17 +445,7 @@ points differ:
    compute maps, because it is no selection. The classic algebra cannot
    read it and reports a syntax error.
 
-5. **Mixing dataset types.** The classic algebra can pull maps of another
-   dataset type into a selection with `strds()`, `str3ds()` and `stvds()`;
-   the new algebra does not, and reports a syntax error. Use **-c** for such
-   an expression. The functions are written in lower case, `str3ds(A)`; the
-   classic algebra also reads the capitals of the paper, `STRDS(A)`,
-   `STR3DS(A)` and `STVDS(A)`, which the previous implementation refused. A
-   capital name is a function only before an opening parenthesis, so that a
-   dataset may be named `STRDS`. Other spellings, such as `Str3ds(A)`, are a
-   syntax error.
-
-6. **Copy names in a mixed result.** When a result mixes maps registered
+5. **Copy names in a mixed result.** When a result mixes maps registered
    unchanged with retimed maps, the copied maps are named `<result>_1`,
    `<result>_2`, ... in the time order of the result. The classic algebra
    numbers them by their position among all result maps, so the suffixes can
@@ -458,7 +457,7 @@ points differ:
    C = merge(A {:,during,l} D, A {:,during,r} D)
    ```
 
-7. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+6. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
    by that size at both ends. The new algebra stops with an error if a map
    would keep no time, that is if its end would fall on or before its start,
    and for a time instance, which has no duration to shrink. The classic
@@ -548,8 +547,8 @@ parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise. Three points
 change the outcome of an expression. The previous implementation refused the
 relation name `equals` and the capital function names `STRDS(A)`,
-`STR3DS(A)` and `STVDS(A)` with a syntax error, where the classic algebra
-reads them as `equal` and as the functions in lower case. A relation over a
+`STR3DS(A)` and `STVDS(A)` with a syntax error, where both algebras
+read them as `equal` and as the functions in lower case. A relation over a
 list that mixes maps of absolute and of relative time, which stopped the
 previous implementation with a `TypeError`, selects maps here, as in
 *t.rast.algebra*: maps of the two types relate to nothing.

@@ -391,6 +391,19 @@ flag <b>-c</b> selects it for one call, the environment variable
 selects the new algebra, and the flag takes precedence over the variable.
 
 <p>
+Both algebras pull maps of another dataset type into a selection with the
+functions <code>strds()</code>, <code>str3ds()</code> and <code>stvds()</code>;
+the type of the function need not equal the parameter <b>type</b>, which gives
+the type of the result (since 17 October 2026 the new algebra reads them as
+well; before, only the classic algebra did). Besides the lower case spelling,
+<code>str3ds(A)</code>, both read the capitals of the paper,
+<code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>. A
+capital name is a function only before an opening parenthesis, so that a
+dataset may be named <code>STRDS</code>. Other spellings, such as
+<code>Str3ds(A)</code>, are a syntax error.
+</p>
+
+<p>
 <em>t.select</em> only selects and retimes maps, it computes none, so most
 differences between the two algebras do not reach it. An expression that
 selects no map creates an empty space time dataset in both algebras. These
@@ -426,18 +439,6 @@ for each.
 read by the new algebra, which stops with a message that names the tools that
 compute maps, because it is no selection. The classic algebra cannot read it
 and reports a syntax error.
-</li>
-
-<li><b>Mixing dataset types.</b> The classic algebra can pull maps of another
-dataset type into a selection with <code>strds()</code>, <code>str3ds()</code>
-and <code>stvds()</code>; the new algebra does not, and reports a syntax error.
-Use <b>-c</b> for such an expression. The functions are written in lower case,
-<code>str3ds(A)</code>; the classic algebra also reads the capitals of the
-paper, <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>,
-which the previous implementation refused. A capital name is a function only
-before an opening parenthesis, so that a dataset may be named
-<code>STRDS</code>. Other spellings, such as <code>Str3ds(A)</code>, are a
-syntax error.
 </li>
 
 <li><b>Copy names in a mixed result.</b> When a result mixes maps registered
@@ -556,7 +557,7 @@ href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. Three
 points change the outcome of an expression. The previous implementation
 refused the relation name <code>equals</code> and the capital function names
 <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code> with a
-syntax error, where the classic algebra reads them as <code>equal</code> and as
+syntax error, where both algebras read them as <code>equal</code> and as
 the functions in lower case. A relation over a list that mixes maps of
 absolute and of relative time, which stopped the previous implementation
 with a <code>TypeError</code>, selects maps here, as in <em>t.rast.algebra</em>:

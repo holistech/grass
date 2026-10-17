@@ -13,7 +13,7 @@ import pytest
 
 from grass.temporal.testing import expressions
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
-from grass.tools import ToolError, Tools
+from grass.tools import Tools
 
 PRINTED = "STR3DS(A) {:,during,l} STVDS(B)"
 LOWER_CASE = "str3ds(A) {:,during,l} stvds(B)"
@@ -50,7 +50,7 @@ def test_the_profile_selects_what_the_reference_selects(series, str3ds_result):
     ]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
 def test_the_function_names_in_capitals_select_like_lower_case(
     series, str3ds_result, runner
 ):
@@ -65,11 +65,7 @@ def test_the_function_names_in_capitals_select_like_lower_case(
     ]
 
 
-def test_the_core_refuses_the_function_names_in_capitals(series, str3ds_result):
-    assert run("core", PRINTED, "fa")["error"] == "SyntaxError"
-
-
-@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
 @pytest.mark.parametrize(
     "expression",
     [
@@ -105,10 +101,10 @@ def test_the_tool_selects_with_the_classic_flag(series):
     assert listing["data"]
 
 
-def test_the_core_does_not_know_the_functions(series, algebra):
-    """Observed 2026-10-17: the new algebra reports unknown functions"""
-    if algebra != "core":
-        pytest.skip("the classic setting reads the functions")
+def test_the_tool_selects_with_the_functions_in_both_algebras(series, algebra):
+    """Observed 2026-10-17: the new algebra read no dataset type function
+    before; both algebras select the maps a1 and a2 now"""
     tools = Tools(session=series.session, overwrite=True)
-    with pytest.raises(ToolError, match="Unknown function"):
-        tools.t_select(expression=f"published = {LOWER_CASE}", type="str3ds")
+    tools.t_select(expression=f"published = {LOWER_CASE}", type="str3ds")
+    listing = tools.t_rast3d_list(input="published", columns="name", format="json")
+    assert len(listing["data"]) == 2

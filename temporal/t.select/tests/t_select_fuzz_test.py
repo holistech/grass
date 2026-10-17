@@ -38,7 +38,6 @@ pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 # and the core answer differently on the datasets of the fuzzer.
 LISTED = [
     "A[1]",
-    "strds(A) : stvds(B)",
     "A {:,equal|overlap} B",
     "A",
     "A + B",

@@ -729,20 +729,18 @@ def test_classic_flag_runs_the_classic_profile(series):
     assert "Function tshift()" not in error.value.stderr
 
 
-@pytest.mark.parametrize("function", ["strds", "str3ds", "stvds"])
-def test_dataset_type_function_hints_at_the_classic_flag(series, algebra, function):
-    """Only the classic algebra mixes dataset types; the message of the core
-    says so for the three functions that do it, and for no other"""
-    if algebra != "core":
-        pytest.skip("the classic algebra reads the function")
-    tools = Tools(session=series.session, overwrite=True)
-    with pytest.raises(ToolError) as error:
-        tools.t_select(expression=f"hinted = {function}(A) : B")
-    assert f"Unknown function {function}()" in error.value.stderr
-    assert "Use the flag -c" in error.value.stderr
+@pytest.mark.parametrize("function", ["strds", "STRDS"])
+def test_dataset_type_function_selects_like_the_dataset(series, function):
+    """Both algebras read the functions that name the type of a dataset, in
+    lower case and in the capitals of the published paper"""
+    assert run_select(series.session, f"{function}(A) : B") == run_select(
+        series.session, "A : B"
+    )
 
 
 def test_other_unknown_function_has_no_classic_hint(series, algebra):
+    """Only the core reports the name of an unknown function; the hint at -c
+    is gone, as both algebras read the dataset type functions"""
     if algebra != "core":
         pytest.skip("the classic algebra reports another error")
     tools = Tools(session=series.session, overwrite=True)
@@ -750,15 +748,6 @@ def test_other_unknown_function_has_no_classic_hint(series, algebra):
         tools.t_select(expression="hinted = nosuch(A) : B")
     assert "Unknown function nosuch()" in error.value.stderr
     assert "-c" not in error.value.stderr
-
-
-def test_dataset_type_function_works_with_the_classic_flag(series, algebra):
-    """The hint is right: -c selects with strds(A)"""
-    if algebra != "core":
-        pytest.skip("the flag is the point of the test")
-    assert run_select(series.session, "strds(A) : B", flags="c") == run_select(
-        series.session, "A : B", flags="c"
-    )
 
 
 @pytest.mark.parametrize(

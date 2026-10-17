@@ -53,8 +53,6 @@ import sys
 import grass.script as gs
 from grass.exceptions import FatalError
 
-MIXING_FUNCTIONS = ("strds", "str3ds", "stvds")
-
 ############################################################################
 
 
@@ -89,12 +87,7 @@ def main():
             profile=CLASSIC if classic_selected(flags["c"] or None) else CORE,
         )
     except (SyntaxError, FatalError, ValueError, TypeError) as error:
-        message = str(error)
-        # Only the classic algebra pulls maps of another dataset type into a
-        # selection; the user cannot guess that from "Unknown function".
-        if message in {f"Unknown function {name}()" for name in MIXING_FUNCTIONS}:
-            message += _(". Use the flag -c to select with the classic algebra.")
-        gs.fatal(message)
+        gs.fatal(str(error))
 
     if dry_run is True:
         import pprint

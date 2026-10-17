@@ -10,6 +10,7 @@ and as the increment of tshift() and buff_t().
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import functools
 
@@ -60,6 +61,9 @@ _COMPARISONS = COMPARISONS
 _AGGREGATES = {"&": "all", "|": "any"}
 # The overlays of vector maps; + is the v.patch of vector maps.
 _OVERLAYS = {"&": "and", "|": "or", "^": "xor", "~": "not"}
+# The functions of t.select that name the type of a dataset, in lower case and
+# in the capitals of the published paper
+_DATASET_FUNCTIONS = ("strds", "str3ds", "stvds", "STRDS", "STR3DS", "STVDS")
 _BUFFERS = {"buff_p": "point", "buff_l": "line", "buff_a": "area"}
 # The forms of an index per map type: A[t] is a temporal neighbour, the
 # others read cells at an offset, with a temporal neighbour as last number.
@@ -239,6 +243,18 @@ class Translator:
             return Relation(temporal, spatial)
         return Relation(temporal)
 
+    def _aligned(self, left, right):
+        """right as a series of the map type of left in a selection
+
+        t.select relates maps of different dataset types (strds(A) :
+        stvds(B)), which the operations refuse. Only time and box matter for
+        the relation. Elsewhere the types are fixed by the tool and stay as
+        they are.
+        """
+        if not self._selection or right.kind == left.kind:
+            return right
+        return dataclasses.replace(right, kind=left.kind)
+
     @staticmethod
     def _pair(symbol, left, right):
         if not (_timed(left) and _timed(right)):
@@ -247,6 +263,7 @@ class Translator:
 
     def _select(self, left, right, operator):
         self._pair(operator.symbol, left, right)
+        right = self._aligned(left, right)
         relation = self._relation(operator)
         if operator.symbol == "!:":
             if operator.temporal != "l":
@@ -285,6 +302,7 @@ class Translator:
 
     def _count(self, left, right, operator):
         self._pair("#", left, right)
+        right = self._aligned(left, right)
         if operator.temporal != "l":
             msg = (
                 "The hash operator keeps the time stamps of the left maps, so "
@@ -333,6 +351,7 @@ class Translator:
         return self._apply(symbol, left, right)
 
     def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
+        right = self._aligned(left, right)
         relation = self._relation(operator)
         if operator.temporal == "r":
             return operations.pairs(
@@ -419,6 +438,7 @@ class Translator:
                 )
                 raise SyntaxError(msg)
             return self._apply(symbol, left, right)
+        right = self._aligned(left, right)
         if operator is None:
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
@@ -577,6 +597,8 @@ class Translator:
         name = node.name
         if name in ("tmap", "map"):
             return self._single_map(node)
+        if self._selection and name in _DATASET_FUNCTIONS:
+            return self._dataset_of_type(node)
         # The name is checked before the arguments are read, so that an
         # unknown function is reported as such and reads no dataset.
         if name not in (*_CELL_FUNCTIONS, *_OTHER_FUNCTIONS, *time_functions.TIMEVARS):
@@ -587,6 +609,22 @@ class Translator:
             raise SyntaxError(msg)
         arguments = [self.value(argument) for argument in node.arguments]
         return self._call(name, arguments, node.relation)
+
+    def _dataset_of_type(self, node):
+        """strds(A), str3ds(A) and stvds(A): the dataset A as one of this type
+
+        A selection may relate datasets of different types; the type of the
+        left function need not be the one of the tool, as in the classic
+        algebra. The capitals are the spelling of the published paper.
+        """
+        if len(node.arguments) != 1 or not isinstance(node.arguments[0], ast.Name):
+            msg = f"{node.name}() takes the name of a space time dataset"
+            raise SyntaxError(msg)
+        ident = node.arguments[0].ident
+        stds_type = node.name.lower()
+        if (ident, stds_type) not in self._datasets:
+            self._datasets[ident, stds_type] = self._resolve(ident, stds_type=stds_type)
+        return self._datasets[ident, stds_type]
 
     def _call(self, name, arguments, relation):
         """Return the value of a known function other than tmap() and map()

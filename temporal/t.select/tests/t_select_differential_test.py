@@ -60,9 +60,6 @@ DIFFERENT = {
     # The core reads the neighbourhood modifier A[1] and copies the shifted
     # map; the classic base grammar reports a syntax error.
     "A[1]": ("maps", "the core reads A[1] and A[-1]"),
-    # Dataset-type mixing is a core syntax error; the classic base algebra
-    # mixes types.
-    "strds(A) : stvds(B)": ("SyntaxError", "mixing dataset types needs -c"),
     # A spatial relation needs -s on the core; the classic algebra does not
     # know the relation name (see also the test with the flag below).
     "A {:,equal|overlap} B": ("ValueError", "a spatial relation needs -s"),
