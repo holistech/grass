@@ -142,7 +142,7 @@ def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
 
 
 def test_other_pairs_of_errors_are_differences(datasets):
-    """Only the two pairs of accepted_error_pair() are accepted: a valid
+    """Only the pairs of accepted_error_pair() are accepted: a valid
     expression that fails in a module, or exits the process, is a difference
     from another class of error, and so is a syntax error of the profile that
     the earlier implementation does not report without computing"""
@@ -182,3 +182,42 @@ def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
     for fatal in (registration, other):
         assert accepted_error_pair(KIND, expression, syntax, fatal) is None
         assert compare_runs(KIND, expression, syntax, fatal) is not None
+
+
+def test_the_crash_on_mixed_time_against_its_refusal_is_accepted(datasets):
+    """The earlier implementation crashes while tsnap() orders the maps of
+    absolute and relative time that merge() put into one list; the profile
+    refuses to register that list, as the earlier implementation does
+    without tsnap()"""
+    expression = "tsnap(merge(tmap(sinst), RT))"
+    first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    plain = outcome(KIND, "merge(tmap(sinst), RT)", RUNNERS["reference"], basename="fc")
+    assert first["error"] == "Other:TypeError"
+    assert second["error"] == "FatalError"
+    assert plain["error"] == "FatalError"
+    assert accepted_error_pair(KIND, expression, first, second) == (
+        "Other:TypeError/FatalError"
+    )
+    assert compare_runs(KIND, expression, first, second) is None
+
+
+def test_a_type_error_against_another_fatal_error_is_a_difference(datasets):
+    """A TypeError of the earlier implementation is accepted only against the
+    refusal to register maps of different temporal types, and only if it is
+    the crash of an ordering"""
+    expression = "A + N"
+    crash = {
+        "error": "Other:TypeError",
+        "msg": "# not supported between instances of # and #",
+    }
+    registration = {
+        "error": "FatalError",
+        "msg": "Temporal type of space time dataset # and its maps are different",
+    }
+    other_crash = {"error": "Other:TypeError", "msg": "unsupported operand type(s)"}
+    other_fatal = {"error": "FatalError", "msg": "Dataset <A> not found"}
+    assert accepted_error_pair(KIND, expression, crash, registration) is not None
+    for first, second in ((crash, other_fatal), (other_crash, registration)):
+        assert accepted_error_pair(KIND, expression, first, second) is None
+        assert compare_runs(KIND, expression, first, second) is not None

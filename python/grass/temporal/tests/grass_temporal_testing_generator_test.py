@@ -103,6 +103,23 @@ def test_without_the_paper_share_a_seed_gives_its_old_expression(kind, seed):
     assert generate(kind, seed, paper_share=0.0) == BEFORE[kind, seed]
 
 
+@pytest.mark.parametrize("kind", ["raster", "raster3d", "select"])
+def test_a_seed_that_draws_no_paper_forms_keeps_its_old_expression(kind):
+    """At the default share each seed is either a paper seed, the same as with
+    a share of 1, or gives the expression of a share of 0; whether it is one is
+    drawn apart from the expression, so the other seeds stay comparable"""
+    old = 0
+    for seed in range(400):
+        default = generate(kind, seed)
+        if default == generate(kind, seed, paper_share=0.0):
+            old += 1
+        else:
+            assert default == generate(kind, seed, paper_share=1.0), seed
+    # A quarter of the seeds are paper seeds by default; some of them may
+    # draw no new form and so match the old expression.
+    assert old >= 250
+
+
 def test_the_paper_share_leaves_the_vector_kind_alone():
     for seed in range(500):
         assert generate("vector", seed) == generate("vector", seed, paper_share=0.0)

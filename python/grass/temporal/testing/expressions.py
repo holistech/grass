@@ -44,9 +44,10 @@ line for the same seed. That makes before and after runs of a fix comparable::
 the spatial mode (-s) and in the granularity mode (-g, raster and raster3d
 only); ``--paper-share`` the share of the seeds that also draw the forms of the
 published paper (number chains, td() on the left, the comparison operator,
-capital dataset functions in t.select). The summary counts the outcomes of class ``Other:<name>``: a campaign
-that raises one for every expression, because an option does not reach the
-parser, would otherwise look like agreement.
+capital dataset functions in t.select). The summary counts the outcomes of
+class ``Other:<name>``: a campaign that raises one for every expression,
+because an option does not reach the parser, would otherwise look like
+agreement.
 
 ``--against core`` computes every expression with a second runner and adds the
 other outcome and the difference to each line; ``--cluster FILE`` groups the
@@ -366,6 +367,13 @@ def error_classes_differ(first, second):
 
 # The text of the profile that refuses a dataset of another temporal type
 _TYPE_REFUSALS = re.compile(r"wrong temporal type")
+# The crash of the earlier implementation when it orders a list that mixes
+# maps of absolute and of relative time (datetime against int), and the
+# refusal to register such a list as one result
+_MIXED_TIME_CRASH = re.compile(r"not supported between instances of")
+_MIXED_TIME_REGISTRATION = re.compile(
+    r"temporal type of space time dataset .* and its maps are different"
+)
 
 
 def accepted_error_pair(kind, expression, first, second, **options):
@@ -380,7 +388,14 @@ def accepted_error_pair(kind, expression, first, second, **options):
     classic profile a ``FatalError`` that refuses a dataset of another
     temporal type: the profile reads a dataset that is a bare argument
     before the arguments after it, which the earlier implementation reads
-    first. Every other pair is a difference.
+    first. Or the earlier implementation crashes with a ``TypeError`` while
+    it orders a list that mixes absolute and relative time, as in
+    ``tsnap(merge(tmap(sinst), RT))``, and the profile refuses to register
+    that list as one result with a ``FatalError``; the earlier
+    implementation refuses the same list with that error where it does not
+    order it first (``merge(tmap(sinst), RT)``), and the manual names the
+    crash among the differences of the classic algebra. Every other pair is
+    a difference.
 
     :param first: The outcome of the earlier implementation
     :param second: The outcome of the classic profile
@@ -398,6 +413,10 @@ def accepted_error_pair(kind, expression, first, second, **options):
     if pair == ("SyntaxError", "FatalError"):
         message = second.get("msg", "").lower()
         return label if _TYPE_REFUSALS.search(message) else None
+    if pair == ("Other:TypeError", "FatalError"):
+        crash = _MIXED_TIME_CRASH.search(first.get("msg", ""))
+        refusal = _MIXED_TIME_REGISTRATION.search(second.get("msg", "").lower())
+        return label if crash and refusal else None
     if second["error"] != "SyntaxError":
         return None
     options = {**options, "run": False, "debug": False}
