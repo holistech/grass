@@ -320,7 +320,9 @@ use the datasets of the list above and, in addition, N with daily maps.
    joined with `&&` or `||` to a condition on cells is a truth value, like
    the time function of any map (corrected 17 October 2026). The previous
    implementation wrote the map itself as the operand, so that a map with
-   a value other than 0 counted as true whatever the time function said.
+   a value other than 0 counted as true whatever the time function said. The
+   same holds where the time condition follows further time conditions, as in
+   `td(A[1]) > 0.5 && td(B) > 0.5 && B > 0`.
    Where the maps are floating point, *r3.mapcalc* refused the map as an
    operand and the expression ended in an error; it now runs. The cell
    value of a map read at an offset, as in `B[1] > 0.5 && B`, did not
