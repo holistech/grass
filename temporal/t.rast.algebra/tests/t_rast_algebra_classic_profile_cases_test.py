@@ -288,6 +288,13 @@ COUNTED_DURATION = [
     "if(td(A # merge(N, HA)) > 1.5, A)",
     "if(td(A # merge(N, HA)) < 1.5, A)",
     "N + td(A # merge(N, HA))",
+    # The count and td() of the same count side by side, a count of a map
+    # read at an offset, a shifted count and td() in both branches of if()
+    "(A # merge(N, HA)) + td(A # merge(N, HA))",
+    "if(td(A # merge(N, HA)) == 1, A # merge(N, HA), N)",
+    "N + td(A[1] # merge(N, HA))",
+    'N + td(tshift(A # merge(N, HA), "1 day"))',
+    "if(td(A # merge(N, HA)) > 1.5 && A # merge(N, HA) == 2, A)",
 ]
 
 # if() on time with maps as then and else clears the values of the selected
@@ -609,11 +616,30 @@ def test_td_of_a_counted_map_is_its_duration(datasets, expression, granularity):
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_td_of_a_counted_map_as_an_operand_by_hand(datasets, runner):
-    """N holds 11 to 14 and its maps last one day; A # merge(N, HA) counts 2,
-    which is not the duration: 11 + 1, 12 + 1, 13 + 1, 14 + 1"""
-    result = outcome(KIND, "N + td(A # merge(N, HA))", RUNNERS[runner], basename="fa")
+@pytest.mark.parametrize("counted", ["A # merge(N, HA)", "A # merge(A, N)"])
+def test_td_of_a_counted_map_as_an_operand_by_hand(datasets, runner, counted):
+    """N holds 11 to 14 and its maps last one day, as do the maps of A; both
+    counts are 2, which is not the duration: 11 + 1, 12 + 1, 13 + 1, 14 + 1.
+    The second is the example of the manual."""
+    count = outcome(KIND, counted, RUNNERS[runner], basename="fc")
+    assert [values[3] for values in count["maps"]] == [2, 2, 2, 2]
+    result = outcome(KIND, f"N + td({counted})", RUNNERS[runner], basename="fa")
     assert [values[3] for values in result["maps"]] == [12, 13, 14, 15]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "(A # merge(N, HA)) + td(A # merge(N, HA))",
+        "exp(A # merge(N, HA)) + td(A # merge(N, HA))",
+    ],
+)
+def test_a_count_next_to_td_of_the_count_by_hand(datasets, runner, expression):
+    """The count is still read as the count, also as the first count of exp()
+    next to a map (see _first_counts()), and td() as the duration: 2 + 1"""
+    result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
+    assert [values[3] for values in result["maps"]] == [3, 3, 3, 3]
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
@@ -628,7 +654,9 @@ def test_td_of_a_counted_map_as_an_operand_by_hand(datasets, runner):
 )
 def test_td_of_a_counted_map_in_a_condition_by_hand(datasets, runner, expression, maps):
     result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
-    assert len(result.get("maps", [])) == maps
+    # An error would pass for no maps
+    assert "error" not in result
+    assert len(result["maps"]) == maps
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
