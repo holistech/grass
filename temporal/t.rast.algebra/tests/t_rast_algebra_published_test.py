@@ -318,9 +318,9 @@ def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
 def test_if_without_else_gives_zero(paper, runner, expression, expected, register_null):
     """An if without else is 0 where the condition is false, as in r.mapcalc
 
-    Observed 2026-10-17 (ai-analysis/scratch/paper_forms/
-    p15_classic_probe.py): the earlier implementation and the classic profile
-    register these maps with and without -n. With -n the new algebra also
+    The earlier implementation, which this test runs as the reference, and
+    the classic profile register these maps with and without -n. With -n the
+    new algebra also
     registers a null map for each map of A without a partner in E, which is
     what -n asks for (a left map without related map), not a property of the
     missing else.

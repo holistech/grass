@@ -47,7 +47,8 @@ and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 spatial operator, for example `{+,equal|overlap}`; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
 the spatial topology for its operator also without **-s**, as in the
-classic algebra.
+classic algebra (since 17 October 2026; before, the new algebra stopped
+with an error).
 
 The expression option must be passed as **quoted** expression, for
 example:
@@ -241,7 +242,10 @@ if statement                        decision option                        tempo
 ```
 
 An `if` without else gives 0 where a condition on map values is false, like
-the `if()` of *r.mapcalc* with two arguments.
+the `if()` of *r.mapcalc* with two arguments, so a map that is false
+everywhere is registered with the value 0. The new algebra does so since
+17 October 2026; before, it gave null there and registered such a map only
+with **-n**.
 
 The conditions are comparison expressions that are used to evaluate
 space time datasets. Specific values of temporal variables are compared

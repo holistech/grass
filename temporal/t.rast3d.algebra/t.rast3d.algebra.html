@@ -33,7 +33,8 @@ curly brackets of a spatial operator, for example
 <code>{+,equal|overlap}</code>; the maps then need this spatial relation
 in addition to the temporal one. Such a name builds the
 spatial topology for its operator also without <b>-s</b>, as in the classic
-algebra. The relation is evaluated in three
+algebra (since 17 October 2026; before, the new algebra stopped with an
+error). The relation is evaluated in three
 dimensions: two maps with the same depth range are not related as
 <em>overlap</em>, even if they overlap in the horizontal plane.
 
@@ -58,6 +59,12 @@ In Python, <code>TemporalRaster3DAlgebraParser</code> takes the keyword
 <code>classic=True</code> for the same purpose. Both algebras compute the
 granularity mode (<b>-g</b>), see below.
 
+<p>
+An <code>if</code> without else gives 0 where a condition on map values is
+false, in both algebras, like the <code>if()</code> of <em>r3.mapcalc</em> with
+two arguments. The new algebra does so since 17 October 2026; before, it gave
+null there and registered a map that is false everywhere only with
+<b>-n</b>.
 <p>
 The two algebras differ in the following points. The examples use four daily
 3D raster maps in A with the values 1 to 4, two maps of two days in B that

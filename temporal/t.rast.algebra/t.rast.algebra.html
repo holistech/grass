@@ -49,7 +49,8 @@ curly brackets of a spatial operator, for example
 <code>{+,equal|overlap}</code>; the maps then need this spatial relation
 in addition to the temporal one. Such a name builds the
 spatial topology for its operator also without <b>-s</b>, as in the classic
-algebra.
+algebra (since 17 October 2026; before, the new algebra stopped with an
+error).
 <p>
 The expression option must be passed as <b>quoted</b> expression, for
 example:
@@ -246,7 +247,10 @@ if statement                        decision option                        tempo
 
 <p>
 An <code>if</code> without else gives 0 where a condition on map values is
-false, like the <code>if()</code> of <em>r.mapcalc</em> with two arguments.
+false, like the <code>if()</code> of <em>r.mapcalc</em> with two arguments, so
+a map that is false everywhere is registered with the value 0. The new algebra
+does so since 17 October 2026; before, it gave null there and registered such
+a map only with <b>-n</b>.
 </p>
 
 The conditions are comparison expressions that are used to evaluate

@@ -31,7 +31,8 @@ and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 spatial operator, for example `{+,equal|overlap}`; the maps then need
 this spatial relation in addition to the temporal one. Such a name builds
 the spatial topology for its operator also without **-s**, as in the
-classic algebra. The relation is
+classic algebra (since 17 October 2026; before, the new algebra stopped
+with an error). The relation is
 evaluated in three dimensions: two maps with the same depth range are not
 related as *overlap*, even if they overlap in the horizontal plane.
 
@@ -54,6 +55,11 @@ new algebra, and the flag takes precedence over the variable. In Python,
 `TemporalRaster3DAlgebraParser` takes the keyword `classic=True` for the
 same purpose. Both algebras compute the granularity mode (**-g**), see
 below.
+
+An `if` without else gives 0 where a condition on map values is false, in
+both algebras, like the `if()` of *r3.mapcalc* with two arguments. The new
+algebra does so since 17 October 2026; before, it gave null there and
+registered a map that is false everywhere only with **-n**.
 
 The two algebras differ in the following points. The examples use four
 daily 3D raster maps in A with the values 1 to 4, two maps of two days in B
