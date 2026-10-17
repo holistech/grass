@@ -130,12 +130,6 @@ EXAMPLES = {
     ),
 }  # fmt: skip
 
-# Where the classic algebra differs from the paper (checked 12 October 2026).
-CLASSIC = {
-    # map(L) + 1 is a syntax error.
-    "appendix C.3, SAVI": "SyntaxError",
-}
-
 
 def outcome(paper, monkeypatch, name, algebra):
     """The maps of an example as (start, end, value), or the error name"""
@@ -167,5 +161,4 @@ def test_core_computes_the_published_maps(paper, monkeypatch, name):
 @pytest.mark.parametrize("name", list(EXAMPLES))
 def test_classic_algebra_computes_the_published_maps(paper, monkeypatch, name):
     """Results published with the classic algebra stay reproducible"""
-    expected = CLASSIC.get(name, EXAMPLES[name][2])
-    assert outcome(paper, monkeypatch, name, "classic") == expected
+    assert outcome(paper, monkeypatch, name, "classic") == EXAMPLES[name][2]

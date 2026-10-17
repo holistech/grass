@@ -170,15 +170,6 @@ C = td + 1
 </pre></div>
 </li>
 
-<li><b>Maps without time stamp in arithmetic.</b> An expression of maps
-without time stamp, such as <code>map(L) + 1</code>, can be combined with
-space time datasets. This expression is a syntax error in the classic algebra:
-
-<div class="code"><pre>
-C = A * (map(L) + 1)
-</pre></div>
-</li>
-
 <li><b>Intersection with several related maps.</b> With the temporal operator
 <code>i</code>, a map whose related maps have no common intersection is left
 out. The classic algebra intersects the map with its related maps until the
@@ -361,6 +352,21 @@ in <code>B[1] &gt; 0.5 &amp;&amp; B</code>, did not change:
 
 <div class="code"><pre>
 C = if(B > 0.5 && td(A[1]) > 0.5, A)
+</pre></div>
+</li>
+
+<li><b>Chains that start with a number or map().</b> A chain of operators whose
+first operand is a number or a map without time stamp, such as
+<code>map(L) - 1 - A</code>, was grouped from the right, as
+<code>map(L) - (1 - A)</code> (corrected 17 October 2026). It is grouped from
+the left now, as in mathematics and in the new algebra. With 0.5 in L and the
+values 1 to 4 in A, the expression gave 0.5, 1.5, 2.5 and 3.5 and now gives
+-1.5, -2.5, -3.5 and -4.5, the result of <code>(map(L) - 1) - A</code>. Chains
+after a dataset, such as <code>A + (map(L) - 1 - 1)</code>, which ended in a
+syntax error, are read now:
+
+<div class="code"><pre>
+C = map(L) - 1 - A
 </pre></div>
 </li>
 </ol>

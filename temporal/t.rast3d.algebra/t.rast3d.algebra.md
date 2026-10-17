@@ -155,16 +155,7 @@ that start with A, and time instances in I.
    C = td + 1
    ```
 
-9. **Maps without time stamp in arithmetic.** An expression of maps
-   without time stamp, such as `map(L) + 1`, can be combined with space
-   time datasets. This expression is a syntax error in the classic
-   algebra:
-
-   ```sh
-   C = A * (map(L) + 1)
-   ```
-
-10. **Intersection with several related maps.** With the temporal
+9. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
     left out. The classic algebra intersects the map with its related maps
     until the first one that has no common time with the result so far,
@@ -177,7 +168,7 @@ that start with A, and time instances in I.
     C = H {:,follows|precedes,i} A
     ```
 
-11. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+10. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
     by that size at both ends. The new algebra stops with an error if a map
     would keep no time, that is if its end would fall on or before its start,
     and for a time instance, which has no duration to shrink. The classic
@@ -192,7 +183,7 @@ that start with A, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
-12. **merge() of maps read at an offset.** The new algebra takes two maps
+11. **merge() of maps read at an offset.** The new algebra takes two maps
     with equal content and time stamps as one map. The classic algebra, as
     the previous implementation, makes a new map for each map read with a
     temporal neighbourhood modifier, and `merge()` keeps such a map next to
@@ -330,6 +321,20 @@ use the datasets of the list above and, in addition, N with daily maps.
 
    ```sh
    C = if(B > 0.5 && td(A[1]) > 0.5, A)
+   ```
+
+9. **Chains that start with a number or map().** A chain of operators whose
+   first operand is a number or a map without time stamp, such as
+   `map(L) - 1 - A`, was grouped from the right, as `map(L) - (1 - A)`
+   (corrected 17 October 2026). It is grouped from the left now, as in
+   mathematics and in the new algebra. With 0.5 in L and the values 1 to 4
+   in A, the expression gave 0.5, 1.5, 2.5 and 3.5 and now gives -1.5, -2.5,
+   -3.5 and -4.5, the result of `(map(L) - 1) - A`. Chains after a dataset,
+   such as `A + (map(L) - 1 - 1)`, which ended in a syntax error, are read
+   now:
+
+   ```sh
+   C = map(L) - 1 - A
    ```
 
 #### Differences from the previous implementation

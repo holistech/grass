@@ -494,6 +494,53 @@ _TEXTS = {
     "p_hash_operation": """
         expr : t_hash_var
     """,
+    "p_mapexpr_numeric": """
+        mapexpr : mapexpr   MOD  number
+                | mapexpr   DIV  number
+                | mapexpr   MULT number
+                | mapexpr   ADD  number
+                | mapexpr   SUB  number
+                | number    MOD  mapexpr
+                | number    DIV  mapexpr
+                | number    MULT mapexpr
+                | number    ADD  mapexpr
+                | number    SUB  mapexpr
+                | mapexpr   MOD  numberstr
+                | mapexpr   DIV  numberstr
+                | mapexpr   MULT numberstr
+                | mapexpr   ADD  numberstr
+                | mapexpr   SUB  numberstr
+                | numberstr MOD  mapexpr
+                | numberstr DIV  mapexpr
+                | numberstr MULT mapexpr
+                | numberstr ADD  mapexpr
+                | numberstr SUB  mapexpr
+                | mapexpr   MOD  mapexpr
+                | mapexpr   DIV  mapexpr
+                | mapexpr   MULT mapexpr
+                | mapexpr   ADD  mapexpr
+                | mapexpr   SUB  mapexpr
+    """,
+    "p_mapexpr_paren": """
+        mapexpr : LPAREN mapexpr RPAREN
+    """,
+    "p_numberstr_chain": """
+        numberstr : numberstr MOD  number
+                  | numberstr DIV  number
+                  | numberstr MULT number
+                  | numberstr ADD  number
+                  | numberstr SUB  number
+                  | number    MOD  numberstr
+                  | number    DIV  numberstr
+                  | number    MULT numberstr
+                  | number    ADD  numberstr
+                  | number    SUB  numberstr
+                  | numberstr MOD  numberstr
+                  | numberstr DIV  numberstr
+                  | numberstr MULT numberstr
+                  | numberstr ADD  numberstr
+                  | numberstr SUB  numberstr
+    """,
     "p_ts_neighbor_operation": """
         expr : stds L_SPAREN number COMMA number COMMA number R_SPAREN
              | stds L_SPAREN number R_SPAREN
@@ -607,6 +654,9 @@ _ORDER = {
         "p_s_expr_condition_elif_relation",
         "p_ts_var_expr1",
         "p_hash_operation",
+        "p_mapexpr_numeric",
+        "p_mapexpr_paren",
+        "p_numberstr_chain",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",
@@ -672,6 +722,9 @@ _ORDER = {
         "p_s_expr_condition_elif_relation",
         "p_ts_var_expr1",
         "p_hash_operation",
+        "p_mapexpr_numeric",
+        "p_mapexpr_paren",
+        "p_numberstr_chain",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",

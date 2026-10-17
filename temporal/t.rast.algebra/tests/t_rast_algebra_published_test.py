@@ -15,9 +15,7 @@ The paper prints some expressions that no classic version reads; they are
 pinned as errors here and in t_select_published_test.py. The caption misspells
 precedes, which is a syntax error. The long form {>=,equals,l} of a
 comparison, printed in section 3.2.1, is one too: the classic lexer knows an
-operator in braces with a comparison only for && and ||. The soil-adjusted
-vegetation index of appendix C.3 adds a number to map(L), which the classic
-grammar does not read; the new algebra computes it.
+operator in braces with a comparison only for && and ||.
 """
 
 import datetime
@@ -96,6 +94,12 @@ PUBLISHED = [
         {},
         "paper",
         id="section 3.2.1, logical operator with equals",
+    ),
+    pytest.param(
+        "((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))",
+        {},
+        "paper",
+        id="appendix C.3, SAVI",
     ),
     pytest.param(
         "if(A > 1 {&&,contains,&,l} E > 1, A)",
@@ -392,16 +396,15 @@ def test_gradient_by_hand(paper, runner):
     ]
 
 
-def test_the_soil_adjusted_vegetation_index(paper):
-    """Appendix C.3; the classic grammar has no rule for map(L) + 1
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+def test_the_soil_adjusted_vegetation_index(paper, runner):
+    """Appendix C.3, a number added to map(L)
 
     With L = 0.5 the numerator is (NIR - RED) * 1.5 = 6 * 1.5 = 9 on each day
     and the denominator NIR + RED + 0.5: 11.5, 13.5 and 15.5.
     """
     expression = "((NIR - RED) * (map(L) + 1)) / (NIR + RED + map(L))"
-    for runner in ("reference", "classic"):
-        assert run(runner, expression, "fa")["error"] == "SyntaxError"
-    assert values(run("core", expression, "fa")) == [
+    assert values(run(runner, expression, "fa")) == [
         ("2001-01-01", "2001-01-02", 9 / 11.5),
         ("2001-01-02", "2001-01-03", 9 / 13.5),
         ("2001-01-03", "2001-01-04", 9 / 15.5),

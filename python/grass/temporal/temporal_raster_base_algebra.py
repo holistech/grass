@@ -1383,6 +1383,76 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
         t[0] = resultlist
         self._debug_commands(resultlist)
 
+    def p_mapexpr_numeric(self, t) -> None:
+        # map(L) + 1
+        # 2 * map(L)
+        # map(L) - map(L)
+        # Every pair of the string valued operands (a number, a computed
+        # number and a map) is an operand of its own operator. Without a
+        # production for the pair the parser shifted and a chain such as
+        # map(L) - 1 - A was read as L - (1 - A).
+        """
+        mapexpr : mapexpr   MOD  number
+                | mapexpr   DIV  number
+                | mapexpr   MULT number
+                | mapexpr   ADD  number
+                | mapexpr   SUB  number
+                | number    MOD  mapexpr
+                | number    DIV  mapexpr
+                | number    MULT mapexpr
+                | number    ADD  mapexpr
+                | number    SUB  mapexpr
+                | mapexpr   MOD  numberstr
+                | mapexpr   DIV  numberstr
+                | mapexpr   MULT numberstr
+                | mapexpr   ADD  numberstr
+                | mapexpr   SUB  numberstr
+                | numberstr MOD  mapexpr
+                | numberstr DIV  mapexpr
+                | numberstr MULT mapexpr
+                | numberstr ADD  mapexpr
+                | numberstr SUB  mapexpr
+                | mapexpr   MOD  mapexpr
+                | mapexpr   DIV  mapexpr
+                | mapexpr   MULT mapexpr
+                | mapexpr   ADD  mapexpr
+                | mapexpr   SUB  mapexpr
+        """
+        t[0] = "(%s %s %s)" % (t[1], t[2], t[3])
+
+        self._trace(t[0])
+
+    def p_mapexpr_paren(self, t) -> None:
+        # (map(L) + 1)
+        """
+        mapexpr : LPAREN mapexpr RPAREN
+        """
+        t[0] = t[2]
+
+    def p_numberstr_chain(self, t) -> None:
+        # 1 + 2 - 3
+        # Chains of numbers, grouped from the left as in mathematics.
+        """
+        numberstr : numberstr MOD  number
+                  | numberstr DIV  number
+                  | numberstr MULT number
+                  | numberstr ADD  number
+                  | numberstr SUB  number
+                  | number    MOD  numberstr
+                  | number    DIV  numberstr
+                  | number    MULT numberstr
+                  | number    ADD  numberstr
+                  | number    SUB  numberstr
+                  | numberstr MOD  numberstr
+                  | numberstr DIV  numberstr
+                  | numberstr MULT numberstr
+                  | numberstr ADD  numberstr
+                  | numberstr SUB  numberstr
+        """
+        t[0] = "(%s %s %s)" % (t[1], t[2], t[3])
+
+        self._trace(t[0])
+
 
 if __name__ == "__main__":
     import doctest
