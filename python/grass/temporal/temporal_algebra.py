@@ -1204,7 +1204,11 @@ class TemporalAlgebraParser:
         if copy:
             mapA.set_spatial_extent(mapB.get_spatial_extent())
             mapA.set_temporal_extent(mapB.get_temporal_extent())
-            for attribute in ("cmd_list", "condition_value"):
+            # neighbour_cmd marks the command of a map read at an offset
+            # (see _neighbour_maps() of the raster algebra); a copy with the
+            # same command, as the result of two time conditions, is that
+            # map still.
+            for attribute in ("cmd_list", "condition_value", "neighbour_cmd"):
                 if hasattr(mapB, attribute):
                     setattr(mapA, attribute, getattr(mapB, attribute))
             return 1

@@ -221,6 +221,22 @@ def test_a_neighbour_map_joined_as_a_truth_value_by_hand(datasets, runner):
     ]
 
 
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("granularity", [False, True])
+def test_a_neighbour_map_of_zeros_is_true_by_hand(datasets, runner, granularity):
+    """Z[1] is z2 (0) and z3 for the first two days and td(Z[1]) is one day,
+    so the condition is true where the map itself would be false or null:
+    B is 10 and 20 there"""
+    result = outcome(
+        KIND,
+        "if(td(Z[1]) > 0.5 || B < 0, B)",
+        RUNNERS[runner],
+        basename="fa",
+        granularity=granularity,
+    )
+    assert [(row[3], row[4]) for row in result["maps"]] == [(10, 10), (20, 20)]
+
+
 # The classic merge() tells maps apart by id, time and the commands that made
 # them, so a map read at a time offset or a time function at an offset stays
 # next to the map it was read from. The profile marks such a content with a

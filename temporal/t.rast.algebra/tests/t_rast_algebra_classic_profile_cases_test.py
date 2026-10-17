@@ -472,6 +472,17 @@ NEIGHBOUR_TRUTH_VALUES = [
     ("if(end_year(A[1]) == 1 || A > 2, A)", [0, 0, 3]),
     ("if(A > 2 && end_year(A[0, 1]) == 1, A)", [0, 0, 0, 0]),
     ("if(exist(A) && start_month(A[1]) == 3, A)", [0, 0, 0]),
+    # Joined with a time condition of another map first: the result of the
+    # two time conditions is a copy of the neighbour map. A[-1] has no map
+    # for the first day.
+    ("if(end_year(A[1]) == 1 && end_year(N) == 1 && A > 0, A)", [0, 0, 0]),
+    ("if(end_year(A[1]) == 1 || end_year(N) == 1 || A > 2, A)", [0, 0, 3]),
+    ("if(end_year(A[1]) == 1 && end_year(A[-1]) == 1 && A > 0, A)", [0, 0]),
+    # A true time condition of a neighbour map whose cells are 0: Z[1] is z2
+    # (0), z3 and z4 for the first three days, so the map itself would be
+    # false on the first day.
+    ("if(end_year(Z[1]) == 2001 && A > 0, A)", [1, 2, 3]),
+    ("if(end_year(Z[1]) == 2001 && end_year(N) == 2001 && A > 0, A)", [1, 2, 3]),
 ]
 
 # A neighbour map as a cell value, the value of a time function at an offset
