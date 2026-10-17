@@ -40,6 +40,14 @@ T_VARS = (
 COMPARE = ("==", "!=", "<", "<=", ">", ">=")
 MAPCALC = ("abs", "sqrt", "double", "int", "float", "log", "exp")
 UNITS = ("day", "days", "hours", "hour", "month", "minutes")
+# The kinds with forms of the published paper: number chains, td() on the
+# left and the comparison operator for the raster kinds, the dataset
+# functions in capitals for t.select. Vector expressions have none.
+PAPER_KINDS = ("raster", "raster3d", "select")
+DATASET_FUNCTIONS = (
+    "STRDS", "STRDS", "STRDS", "STR3DS", "STVDS", "strds", "strds", "str3ds",
+    "stvds",
+)  # fmt: skip
 
 
 class Generator:
@@ -52,9 +60,13 @@ class Generator:
     so that both sides must reject them.
     """
 
-    def __init__(self, kind, rng, *, granularity=False):
+    def __init__(self, kind, rng, *, granularity=False, paper=False):
         self.kind = kind
         self.rng = rng
+        # A paper seed adds builders for the forms that the published paper
+        # prints; the other seeds draw as they did before the builders were
+        # written, see generate().
+        self.paper = paper
         # The granularity mode refuses temporal operators and relations
         # (setup_common_granularity), so none are written, and it needs the
         # datasets of whole days.
@@ -123,6 +135,8 @@ class Generator:
         return self.rng.choices(builders, weights)[0](depth - 1)
 
     def leaf(self):
+        if self.paper and self.kind == "select" and self.r() < 0.3:
+            return f"{self.pick(DATASET_FUNCTIONS)}({self.name()})"
         x = self.r()
         if x < 0.9:
             return self.name()
@@ -133,6 +147,12 @@ class Generator:
         return self.name()
 
     def raster_table(self):
+        table = self.base_raster_table()
+        if self.paper:
+            table += [(self.number_chain, 8), (self.td_left, 6)]
+        return table
+
+    def base_raster_table(self):
         return [
             (self.arith, 18),
             (self.t_arith, 14),
@@ -187,6 +207,61 @@ class Generator:
         if self.r() < 0.6:
             return f"{self.expr(d)} {op} {self.number()}"
         return f"{self.number()} {op} {self.expr(d)}"
+
+    def atom(self):
+        """A number or a single map read with map()"""
+        if self.r() < 0.45:
+            return f"map({self.pick(self.single)})"
+        return self.number()
+
+    def number_chain(self, d):
+        """A chain of numbers and map() calls in front of a dataset
+
+        ``1 - 2 - A``, ``2 * map(S) + A`` and ``map(S) - 1`` start with
+        operands that are no dataset, which the classic grammar groups on its
+        own.
+        """
+        operators = " ".join(
+            f"{self.pick('+-*/%')} {self.atom()}" for _ in range(self.rng.randint(0, 2))
+        )
+        chain = f"{self.atom()} {operators}".strip()
+        op = self.pick("+-*/%")
+        if self.r() < 0.25:
+            # Only a map() has a number as its partner
+            return f"map({self.pick(self.single)}) {op} {self.number()}"
+        return f"{chain} {op} {self.expr(d)}"
+
+    def td_left(self, d):
+        """td() as left operand of a multiplication, division or modulo"""
+        x = self.r()
+        stronger = self.pick("*/%")
+        if x < 0.35:
+            return f"td({self.name()}) {stronger} {self.expr(d)}"
+        if x < 0.7:
+            return (
+                f"{self.expr(d)} {self.pick('+-')} td({self.name()}) "
+                f"{stronger} {self.expr(d)}"
+            )
+        return (
+            f"{self.expr(d)} {self.pick('+-*')} td({self.name()}) {stronger} "
+            f"{self.expr(d)} {self.pick('+-')} {self.expr(d)}"
+        )
+
+    def compare_condition(self):
+        """Two datasets joined by a comparison, with or without the braces
+
+        ``A >= F`` is the short form of ``{>=, equal, &, l}``. The granularity
+        mode writes no braces.
+        """
+        compare = self.pick(COMPARE)
+        # Datasets of equal time stamps relate often enough to give maps
+        if self.r() < 0.7:
+            left, right = self.pick(self.family), self.pick(self.family)
+        else:
+            left, right = self.name(), self.name()
+        if self.r() < 0.35:
+            return f"{left} {compare} {right}"
+        return f"{left} {self.operator(compare, agg=True)} {right}"
 
     def select(self, d):
         x = self.r()
@@ -279,6 +354,8 @@ class Generator:
             # partner, which the comparison must reach as often as l.
             operator = self.operator(self.pick(("&&", "||")), agg=True)
             return f"{left} {operator} {right}"
+        if self.paper and self.kind in {"raster", "raster3d"} and self.r() < 0.35:
+            return self.compare_condition()
         if self.kind in {"vector", "select"} or self.r() < 0.45:
             return self.t_condition(depth)
         return self.s_condition(depth)
@@ -313,7 +390,9 @@ class Generator:
         )
 
 
-def generate(kind, seed, *, depth=3, spatial_share=0.1, granularity_share=0.0):
+def generate(
+    kind, seed, *, depth=3, spatial_share=0.1, granularity_share=0.0, paper_share=0.25
+):
     """Return the expression and the parser options of one seed
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
@@ -326,6 +405,12 @@ def generate(kind, seed, *, depth=3, spatial_share=0.1, granularity_share=0.0):
         draws from other datasets and writes no temporal operators. Whether a
         seed is one is drawn from its own random stream, so a share of 0 (the
         default) leaves every other seed as it was.
+    :param paper_share: Share of the seeds that also draw the forms of the
+        published paper, for the kinds ``"raster"``, ``"raster3d"`` and
+        ``"select"`` (see ``PAPER_KINDS``). Like the granularity mode, it is
+        drawn from its own random stream and such a seed has a stream of its
+        own, so every other seed gives the expression it gave before these
+        forms were generated. The vector kind ignores it.
     :return: ``(expression, options)``. The expression is the right hand side
         of a statement. The options are keyword arguments for the runner:
         ``register_null`` (random for raster kinds), ``spatial`` and
@@ -342,8 +427,18 @@ def generate(kind, seed, *, depth=3, spatial_share=0.1, granularity_share=0.0):
             msg = f"The granularity mode is generated for {', '.join(GRANULARITY_NAMES)}, not {kind!r}"
             raise ValueError(msg)
         granularity = random.Random(f"gran:{kind}:{seed}").random() < granularity_share
-    stream = f"{kind}:gran:{seed}" if granularity else f"{kind}:{seed}"
-    generator = Generator(kind, random.Random(stream), granularity=granularity)
+    paper = (
+        kind in PAPER_KINDS
+        and random.Random(f"paper:{kind}:{seed}").random() < paper_share
+    )
+    stream = f"{kind}:{seed}"
+    if granularity:
+        stream = f"{kind}:gran:{seed}"
+    if paper:
+        stream = f"paper:{stream}"
+    generator = Generator(
+        kind, random.Random(stream), granularity=granularity, paper=paper
+    )
     expression = generator.expr(generator.rng.randint(1, depth), top=True)
     rng = random.Random(f"opts:{kind}:{seed}")
     options = {}

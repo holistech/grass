@@ -42,7 +42,9 @@ line for the same seed. That makes before and after runs of a fix comparable::
 
 ``--spatial-share`` and ``--granularity-share`` set the share of the seeds in
 the spatial mode (-s) and in the granularity mode (-g, raster and raster3d
-only). The summary counts the outcomes of class ``Other:<name>``: a campaign
+only); ``--paper-share`` the share of the seeds that also draw the forms of the
+published paper (number chains, td() on the left, the comparison operator,
+capital dataset functions in t.select). The summary counts the outcomes of class ``Other:<name>``: a campaign
 that raises one for every expression, because an option does not reach the
 parser, would otherwise look like agreement.
 
@@ -509,6 +511,7 @@ def run_batch(
     depth=3,
     spatial_share=0.1,
     granularity_share=0.0,
+    paper_share=0.25,
 ):
     """Compute the expressions of seeds and write one JSON line per seed
 
@@ -536,6 +539,7 @@ def run_batch(
                     depth=depth,
                     spatial_share=spatial_share,
                     granularity_share=granularity_share,
+                    paper_share=paper_share,
                 )
                 signal.alarm(timeout)
                 try:
@@ -619,6 +623,13 @@ def main(argv=None):
     parser.add_argument("--depth", type=int, default=3)
     parser.add_argument("--spatial-share", type=float, default=0.1)
     parser.add_argument(
+        "--paper-share",
+        type=float,
+        default=0.25,
+        help="share of the seeds with the forms of the published paper "
+        "(raster, raster3d, select)",
+    )
+    parser.add_argument(
         "--granularity-share",
         type=float,
         default=0.0,
@@ -675,6 +686,7 @@ def main(argv=None):
                 depth=args.depth,
                 spatial_share=args.spatial_share,
                 granularity_share=args.granularity_share,
+                paper_share=args.paper_share,
             )
     lines = _lines(args.out)
     _print_others(
