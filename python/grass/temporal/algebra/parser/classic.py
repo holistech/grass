@@ -926,8 +926,9 @@ class ClassicTranslator(Translator):
         """Note the commands of the argument of a time function
 
         The classic algebra gives a map of the argument that carries a
-        command (a computed expression, not a registered map) a condition
-        on its time as the command of the argument; see _logical().
+        command (a computed expression, not a registered map or a map read
+        at an offset) a condition on its time as the command of the
+        argument; see _logical().
         """
         slots = argument.slots
         if (
@@ -991,7 +992,8 @@ class ClassicTranslator(Translator):
         cells (A > 1 && start_month(A * 0) == 1) takes the command of the
         argument, so the cells of the expression decide and not the time,
         where the classic algebra finds a command at the argument. A
-        registered map has none, and its time decides.
+        registered map and a map read at an offset have none, and their
+        time decides.
         """
         known = self._commands.get(series)
         if known is None:
