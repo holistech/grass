@@ -338,13 +338,14 @@ use the datasets of the list above and, in addition, N with daily maps.
    ```
 
 10. **td() as left operand of a stronger operator.** An expression such
-    as `A + td(A) / A` was computed as `(A + td(A)) / A`, because `td()` could
-    only stand right of an operator (corrected 17 October 2026). The operators
-    `*`, `/` and `%`, also with a temporal operator in braces, bind stronger than
-    `+` and `-` now, as in mathematics and in the new algebra. With daily maps and
-    the values 1 to 4 in A, `td(A)` is one day. The expression gave 2, 1.5, 1.3333
-    and 1.25 and now gives 2, 2.5, 3.3333 and 4.25. A `td()` at the start of a
-    product, such as `td(A) * 2`, was a syntax error and is read now:
+    as `A + td(A) / A` was computed as `(A + td(A)) / A`, because `td()`
+    could only stand right of an operator (corrected 17 October 2026). The
+    operators `*`, `/` and `%`, also with a temporal operator in braces,
+    bind stronger than `+` and `-` now, as in mathematics and in the new
+    algebra. With daily maps and the values 1 to 4 in A, `td(A)` is one
+    day. The expression gave 2, 1.5, 1.3333 and 1.25 and now gives 2, 2.5,
+    3.3333 and 4.25. A `td()` at the start of a product, such as
+    `td(A) * 2`, was a syntax error and is read now:
 
     ```sh
     C = A + td(A) / A
