@@ -2,9 +2,9 @@
 
 Gebbert, Leppelt and Pebesma (2019) select the maps of a 3D raster time
 series that are during the maps of a vector time series. The paper prints the
-function names in capitals, STR3DS(A) and STVDS(B); the functions exist in the
-classic algebra only, so the selection needs -c. Capitals are accepted for
-these three names, and only before an opening parenthesis. The datasets are
+function names in capitals, STR3DS(A) and STVDS(B); both algebras read the
+functions. Capitals are accepted for these three names, and only before an
+opening parenthesis. The datasets are
 those of conftest.py: A of type str3ds and B of type stvds, whose maps stand
 in the relations listed there.
 """

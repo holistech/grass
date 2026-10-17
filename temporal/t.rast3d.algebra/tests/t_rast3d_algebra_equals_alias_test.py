@@ -1,7 +1,7 @@
 """The relation name equals, which the published algebra paper writes
 
-As t_rast_algebra_equals_alias_test.py, for 3D raster maps: the core and the classic
-profile read equals as another name of equal, the reference refuses it.
+As t_rast_algebra_equals_alias_test.py, for 3D raster maps: the core, the classic
+profile and the reference read equals as another name of equal.
 """
 
 import pytest

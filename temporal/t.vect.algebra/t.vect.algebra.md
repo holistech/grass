@@ -39,7 +39,12 @@ maps are then only used together if they are also spatially related,
 that is the spatial extents of the maps are equivalent, one covers or is
 covered by the other, they overlap, one lies in the other, one contains
 the other, or they meet (the spatial relations *equivalent*, *cover*,
-*covered*, *overlap*, *in*, *contain* and *meet*).
+*covered*, *overlap*, *in*, *contain* and *meet*). These relations can
+also be named in the curly brackets of an operator, for example
+`{&,equal|overlap}`; the maps then need this spatial relation in addition
+to the temporal one. Such a name builds the spatial topology for its
+operator also without **-s**, as in the classic algebra (since 17 October
+2026; before, the new algebra stopped with an error).
 
 The expression option must be passed as **quoted** expression, for
 example:  
