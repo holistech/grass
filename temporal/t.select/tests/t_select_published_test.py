@@ -4,8 +4,9 @@ Gebbert, Leppelt and Pebesma (2019) select the maps of a 3D raster time
 series that are during the maps of a vector time series. The paper prints the
 function names in capitals, STR3DS(A) and STVDS(B); the functions exist in the
 classic algebra only, so the selection needs -c. Capitals are accepted for
-these three names, and only before an opening parenthesis. The datasets are those of conftest.py: A of type str3ds and B of type
-stvds, whose maps stand in the relations listed there.
+these three names, and only before an opening parenthesis. The datasets are
+those of conftest.py: A of type str3ds and B of type stvds, whose maps stand
+in the relations listed there.
 """
 
 import pytest
@@ -85,9 +86,15 @@ def test_other_capital_spellings_are_refused(series, str3ds_result, runner, expr
 def test_a_dataset_named_like_a_capital_function_stays_a_name(
     series, str3ds_result, runner
 ):
-    """STVDS before no parenthesis is a dataset name, which does not exist here"""
+    """Without a parenthesis after it, STVDS is a dataset name
+
+    No dataset of that name exists here, so the selection stops where the
+    dataset is looked up. The lower case stvds in the same place is a
+    syntax error.
+    """
     result = run(runner, "A {:,during,l} STVDS", "fa")
-    assert result["error"] != "SyntaxError"
+    assert result["error"] == "FatalError"
+    assert "not found" in result["msg"]
 
 
 def test_the_tool_selects_with_the_classic_flag(series):

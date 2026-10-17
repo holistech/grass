@@ -103,7 +103,8 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra, **-c** and the previous implementation read both names.
+the new algebra and **-c** read both names. The previous implementation
+refused `equals` with a syntax error.
 
 Topological relations must be specified in {} parentheses.  
 
@@ -705,8 +706,8 @@ of earlier GRASS versions that used one of these forms need a new run.
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the
-item on lists of absolute and relative time that changes the outcome of an
-expression.
+items on lists of absolute and relative time and on the relation `equals`,
+the two that change the outcome of an expression.
 
 ## REFERENCES
 

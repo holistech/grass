@@ -113,7 +113,8 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra, **-c** and the previous implementation read both names.
+the new algebra and **-c** read both names. The previous implementation
+refused `equals` with a syntax error.
 
 Topological relations must be specified with curly brackets {}.
 
@@ -887,8 +888,8 @@ datasets of the list above and, in addition, N with daily maps of the values
 
 Besides the corrections, **-c** differs from the previous implementation
 in the following points. Only the items on lists of absolute and relative
-time change the outcome of an expression; the others concern messages,
-output and the class of an error.
+time and on the relation `equals` change the outcome of an expression; the
+others concern messages, output and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -933,6 +934,15 @@ output and the class of an error.
 
   ```sh
   C = merge(tmap(sinst), RT) : RT
+  ```
+
+- **The relation equals.** The previous implementation refused the
+  spelling `equals` of the paper with a syntax error. The classic algebra
+  reads it as `equal`, so this expression gives the same maps as
+  `C = A {+,equal,l} B`:
+
+  ```sh
+  C = A {+,equals,l} B
   ```
 
 ### Granularity algebra
