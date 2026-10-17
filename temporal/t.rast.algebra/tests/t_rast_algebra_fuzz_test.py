@@ -43,7 +43,6 @@ pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 # and the core answer differently on the datasets of the fuzzer.
 LISTED = [
     "B {:,contains,r} A",
-    "if(A > 2, A)",
     "if({during}, A > 1, B, 0)",
     "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)",
     "if(A > 2, A, D)",
@@ -58,7 +57,7 @@ LISTED = [
 
 
 # The same for the granularity mode (-g).
-LISTED_GRANULARITY = ["if(B > 5, A)"]
+LISTED_GRANULARITY = ["if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)"]
 GRANULARITY_SEEDS = range(50)
 
 

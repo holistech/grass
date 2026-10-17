@@ -65,13 +65,10 @@ def test_condition_on_maps_with_equal_time(algebra):
     assert algebra.values("if(E > 2, E, null())") == [3, 4]
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(("classic", "values"), [(False, [3, 4]), (True, [0, 0, 3, 4])])
-def test_condition_without_else_on_maps_with_equal_time(algebra, classic, values):
-    """if(E > 2, E) gives null where the condition is false, so e1 and e2
-    are left out; the classic algebra gives one map per condition map, 0
-    where it is false"""
-    assert algebra.values("if(E > 2, E)", classic=classic) == values
+def test_condition_without_else_on_maps_with_equal_time(algebra):
+    """if(E > 2, E) gives one map per condition map, 0 where the condition is
+    false"""
+    assert algebra.values("if(E > 2, E)") == [0, 0, 3, 4]
 
 
 def test_then_and_else_on_maps_with_equal_time(algebra):

@@ -72,12 +72,15 @@ def test_function_without_arguments_stays_a_call():
     assert call("rand") == Call("rand", ())
 
 
-def test_if_without_else_is_null_where_false():
-    assert call("if", Const(0), A) == NULL
+def test_if_without_else_is_zero_where_false():
+    """As in r.mapcalc, if(x, a) is a where x is not zero and 0 otherwise;
+    a null condition gives null"""
+    assert call("if", Const(0), A) == Const(0)
     assert call("if", Const(1), A) == A
+    assert call("if", NULL, A) == NULL
     assert call("if", NULL, A, B) == NULL
     assert call("if", MapRef("c@PERMANENT"), A) == Call(
-        "if", (MapRef("c@PERMANENT"), A, NULL)
+        "if", (MapRef("c@PERMANENT"), A, Const(0))
     )
 
 

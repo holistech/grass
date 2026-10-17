@@ -493,8 +493,8 @@ def test_map_condition_relation_reads_condition_to_conclusion(
     ("expression", "expected"),
     [
         # b1 has a1 > 1 false and a2 > 1 true: false with &. Without else
-        # b1 is null then and left out.
-        ("if({during}, A > 1, B)", [(3, 5, 6)]),
+        # b1 is 0 then.
+        ("if({during}, A > 1, B)", [(1, 3, 0), (3, 5, 6)]),
         ("if({during,|}, A > 1, B)", [(1, 3, 5), (3, 5, 6)]),
         ("if({during}, A > 1, B, 0)", [(1, 3, 0), (3, 5, 6)]),
         ("if({during,|}, A > 2, B, 0)", [(1, 3, 0), (3, 5, 6)]),
@@ -520,9 +520,10 @@ def test_both_paths_agree_on_aggregation(algebra, aggregate):
 @pytest.mark.fixed_algebra
 def test_equal_time_map_conditions_are_broadcast(algebra):
     """Four condition maps of equal time, one conclusion: e1 > 2 and e2 > 2
-    are false, so b1 is null and left out with &, and has the value of b1
-    with |"""
-    assert fresh_triples(algebra, "if({during}, E > 2, B)", classic=False) == []
+    are false, so b1 is 0 with &, and has the value of b1 with |"""
+    assert fresh_triples(algebra, "if({during}, E > 2, B)", classic=False) == [
+        (1, 3, 0)
+    ]
     assert fresh_triples(algebra, "if({during,|}, E > 2, B)", classic=False) == [
         (1, 3, 5)
     ]
@@ -672,16 +673,25 @@ def uses_map_values(condition):
     return re.search(r"\bP[ABC]\b", condition) is not None
 
 
+def expected_values(condition, python_formula):
+    """The values of T that if(condition, T) gives
+
+    A condition of time stamps selects whole maps. A condition on map values
+    keeps all eight maps and gives 0 where it is false, in both algebras.
+    """
+    chosen = selected(python_formula)
+    if uses_map_values(condition):
+        return [k if k in chosen else 0 for k in range(8)]
+    return chosen
+
+
 def classic_setting(condition, python_formula):
     """The classic argument of a truth table or random case: None (follow
     the variable) if the classic algebra computes it, False (run the core)
     otherwise
 
-    The classic algebra gives 0 where a condition on map values is false and
-    so keeps all eight maps, and it knows no parentheses around conditions.
+    The classic algebra knows no parentheses around conditions.
     """
-    if uses_map_values(condition) and selected(python_formula) != list(range(8)):
-        return False
     if "(" in re.sub(r"\w+\(T\)", "", condition):
         return False
     return None
@@ -752,8 +762,10 @@ def truth_table_cases():
 )
 def test_precedence_truth_table(algebra, condition, formula, kind, classic):
     """&& before ||, parentheses group, in every kind of condition"""
-    expression = f"if({truth_table_condition(condition, kind)}, T)"
-    assert fresh_values(algebra, expression, classic=classic) == selected(formula)
+    text = truth_table_condition(condition, kind)
+    assert fresh_values(algebra, f"if({text}, T)", classic=classic) == expected_values(
+        text, formula
+    )
 
 
 def random_condition(seed):
@@ -780,9 +792,9 @@ def test_random_conditions_match_python(algebra, seed):
     """Random formulas of temporal, map and mixed conditions"""
     condition, formula = random_condition(seed)
     classic = classic_setting(condition, formula)
-    assert fresh_values(algebra, f"if({condition}, T)", classic=classic) == selected(
-        formula
-    ), condition
+    assert fresh_values(
+        algebra, f"if({condition}, T)", classic=classic
+    ) == expected_values(condition, formula), condition
 
 
 # Conditions of time stamps, of map values, with || and with parentheses.
@@ -791,6 +803,15 @@ CONDITIONS = [
     "(PB == 1 && start_hour(T) == 12)",
 ]  # fmt: skip
 CONDITION_PAIRS = list(itertools.product(CONDITIONS, repeat=2))
+# An if without else gives 0 where a condition on map values is false, and
+# an if with a condition of time stamps selects whole maps. A nested if is
+# the conjunction of its conditions only if both use map values or neither:
+# otherwise the outer if selects maps and the conjunction keeps all of them.
+NESTED_PAIRS = [
+    pair
+    for pair in CONDITION_PAIRS
+    if uses_map_values(pair[0]) == uses_map_values(pair[1])
+]
 
 
 def classic_pairs(operator, nested=False):
@@ -798,8 +819,7 @@ def classic_pairs(operator, nested=False):
 
     It knows no parentheses around conditions, so they are joined without
     them; this changes the meaning of && if only one of them contains ||.
-    For a nested if it gives 0 where a condition on map values is false, so
-    both conditions must use map values or neither.
+    For a nested if see NESTED_PAIRS.
     """
     pairs = []
     for first, second in itertools.product(CONDITIONS[:3], repeat=2):
@@ -821,7 +841,7 @@ def joined(first, operator, second, classic):
 @pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     ("first", "second", "classic"),
-    [(*pair, False) for pair in CONDITION_PAIRS]
+    [(*pair, False) for pair in NESTED_PAIRS]
     + [(*pair, True) for pair in classic_pairs("&&", nested=True)],
 )
 def test_nested_if_is_conjunction(algebra, first, second, classic):
@@ -844,10 +864,10 @@ def test_nested_if_is_conjunction(algebra, first, second, classic):
 )
 def test_map_conditions_select_like_time_stamp_conditions(algebra, dataset, condition):
     """A condition on map values and one of time stamps that are true for the
-    same maps select the same maps; the classic algebra keeps the maps of a
-    false condition on map values with 0"""
+    same maps give the same maps: T where it is true and 0 where it is false,
+    which a condition on map values gives without else"""
     assert fresh_values(algebra, f"if({dataset} == 1, T)", classic=False) == (
-        fresh_values(algebra, f"if({condition}, T)", classic=False)
+        fresh_values(algebra, f"if({condition}, T, 0)", classic=False)
     )
 
 

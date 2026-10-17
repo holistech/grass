@@ -122,8 +122,11 @@ def test_choose_of_empty_series(a):
     assert choose(empty, Series(), a).slots == ()
 
 
-def test_where_chooses_per_cell_and_gives_null_without_else(a):
+def test_where_chooses_per_cell_and_gives_zero_without_else(a):
     assert contents(where(a > 2, a))[0] == Call(
+        "if", (Call(">", (ref("a1"), Const(2))), ref("a1"), Const(0))
+    )
+    assert contents(where(a > 2, a, None))[0] == Call(
         "if", (Call(">", (ref("a1"), Const(2))), ref("a1"), NULL)
     )
     assert contents(where(a > 2, a, 0))[0] == Call(
@@ -132,7 +135,9 @@ def test_where_chooses_per_cell_and_gives_null_without_else(a):
 
 
 def test_where_lifts_a_scalar_condition(a, condition):
-    assert contents(where(condition, a)) == [ref("a1"), NULL, NULL, ref("a4")]
+    # The third cell has a null condition, which gives null with any else
+    assert contents(where(condition, a)) == [ref("a1"), Const(0), NULL, ref("a4")]
+    assert contents(where(condition, a, None)) == [ref("a1"), NULL, NULL, ref("a4")]
 
 
 def test_where_agrees_with_choose_on_aligned_series(a, n, condition):

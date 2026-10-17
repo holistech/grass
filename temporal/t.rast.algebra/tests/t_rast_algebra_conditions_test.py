@@ -25,79 +25,22 @@ def a_intervals(values):
 @pytest.mark.parametrize(
     ("expression", "classic", "values"),
     [
-        # An if without else gives null where the condition is false; the
-        # classic algebra uses the two-argument if of r.mapcalc, which gives 0.
-        pytest.param(
-            "if(A > 2, A)", False, [None, None, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A > 2, A)", True, [0, 0, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
+        # An if without else gives 0 where the condition is false, like the
+        # two-argument if of r.mapcalc.
+        ("if(A > 2, A)", None, [0, 0, 3, 4]),
         ("if(A > 2, A, 0)", None, [0, 0, 3, 4]),
         ("if(A > 2, A, A * 10)", None, [10, 20, 3, 4]),
         ("if(A > 2, 1, 0)", None, [0, 0, 1, 1]),
-        pytest.param(
-            "if(A > 2, 7)", False, [None, None, 7, 7], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A > 2, 7)", True, [0, 0, 7, 7], marks=pytest.mark.fixed_algebra
-        ),
+        ("if(A > 2, 7)", None, [0, 0, 7, 7]),
         ("if(A == 2, A + N, A - N)", None, [-10, 14, -10, -10]),
-        pytest.param(
-            "if(A != 2, A)", False, [1, None, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A != 2, A)", True, [1, 0, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A >= 3, A)", False, [None, None, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A >= 3, A)", True, [0, 0, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A <= 2, A)", False, [1, 2, None, None], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A <= 2, A)", True, [1, 2, 0, 0], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A < 2, A)",
-            False,
-            [1, None, None, None],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if(A < 2, A)", True, [1, 0, 0, 0], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A > 1 && A < 4, A)",
-            False,
-            [None, 2, 3, None],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if(A > 1 && A < 4, A)", True, [0, 2, 3, 0], marks=pytest.mark.fixed_algebra
-        ),
-        pytest.param(
-            "if(A > 3 || A < 2, A)",
-            False,
-            [1, None, None, 4],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if(A > 3 || A < 2, A)", True, [1, 0, 0, 4], marks=pytest.mark.fixed_algebra
-        ),
+        ("if(A != 2, A)", None, [1, 0, 3, 4]),
+        ("if(A >= 3, A)", None, [0, 0, 3, 4]),
+        ("if(A <= 2, A)", None, [1, 2, 0, 0]),
+        ("if(A < 2, A)", None, [1, 0, 0, 0]),
+        ("if(A > 1 && A < 4, A)", None, [0, 2, 3, 0]),
+        ("if(A > 3 || A < 2, A)", None, [1, 0, 0, 4]),
         ("if(A == 2 || A == 3, A, 0)", None, [0, 2, 3, 0]),
-        pytest.param(
-            "if(A > 100, A)",
-            False,
-            [None, None, None, None],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if(A > 100, A)", True, [0, 0, 0, 0], marks=pytest.mark.fixed_algebra
-        ),
+        ("if(A > 100, A)", None, [0, 0, 0, 0]),
     ],
 )
 def test_raster_value_conditions(algebra, expression, classic, values):
@@ -126,15 +69,9 @@ def test_isnull_isntnull_exist(algebra, expression, values):
         ("if(A > 2, null(), A)", None, [(1, 2, 1), (2, 3, 2)]),
         ("if(A > 2, null(), 0)", None, [(1, 2, 0), (2, 3, 0)]),
         ("if(A > 2, 5, null())", None, [(3, 4, 5), (4, 5, 5)]),
-        # Without else the false cells are null as well, 0 in the classic
-        # algebra.
-        pytest.param("if(A > 2, null())", False, [], marks=pytest.mark.fixed_algebra),
-        pytest.param(
-            "if(A > 2, null())",
-            True,
-            [(1, 2, 0), (2, 3, 0)],
-            marks=pytest.mark.fixed_algebra,
-        ),
+        # Without else the false cells are 0, so a1 and a2 give a map of 0 and
+        # the null maps of a3 and a4 are dropped.
+        ("if(A > 2, null())", None, [(1, 2, 0), (2, 3, 0)]),
     ],
 )
 def test_null_in_conditions(algebra, expression, classic, expected):
@@ -164,15 +101,7 @@ def test_else_branch_of_other_time_gives_nothing_in_the_classic_algebra(algebra)
 @pytest.mark.parametrize(
     ("expression", "classic", "values"),
     [
-        pytest.param(
-            "if({equal}, A > 2, A)",
-            False,
-            [None, None, 3, 4],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if({equal}, A > 2, A)", True, [0, 0, 3, 4], marks=pytest.mark.fixed_algebra
-        ),
+        ("if({equal}, A > 2, A)", None, [0, 0, 3, 4]),
         ("if({equal}, A > 2, A, A * 10)", None, [10, 20, 3, 4]),
         ("if({equal}, A > 2, A + N, A)", None, [1, 2, 16, 18]),
     ],
@@ -186,18 +115,7 @@ def test_if_with_explicit_equal_relation(algebra, expression, classic, values):
     ("expression", "classic", "values"),
     [
         # B contains A: b1 contains a1 and a2, b2 contains a3 and a4
-        pytest.param(
-            "if({contains}, B > 5, A)",
-            False,
-            [None, None, 3, 4],
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if({contains}, B > 5, A)",
-            True,
-            [0, 0, 3, 4],
-            marks=pytest.mark.fixed_algebra,
-        ),
+        ("if({contains}, B > 5, A)", None, [0, 0, 3, 4]),
         ("if({contains}, B > 5, A, A * 10)", None, [10, 20, 3, 4]),
         ("if({contains}, td(B) == 2, A)", None, [1, 2, 3, 4]),
     ],
@@ -405,23 +323,17 @@ def test_temporal_and_raster_conditions_combined(algebra, condition, values):
     assert algebra.triples(f"if({condition}, A, 0)") == a_intervals(values)
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
-    ("condition", "classic", "values"),
+    ("condition", "values"),
     [
-        ("td(A) == 1 && A == 1 || A == 3", False, [1, None, 3, None]),
-        ("td(A) == 1 && A == 1 || A == 3", True, [1, 0, 3, 0]),
-        ("td(A) == 1 && A == 2 || A == 3", False, [None, 2, 3, None]),
-        ("td(A) == 1 && A == 2 || A == 3", True, [0, 2, 3, 0]),
+        ("td(A) == 1 && A == 1 || A == 3", [1, 0, 3, 0]),
+        ("td(A) == 1 && A == 2 || A == 3", [0, 2, 3, 0]),
     ],
 )
-def test_td_and_raster_condition_chain(algebra, condition, classic, values):
-    """(td(A) == 1 && A == x) || A == 3, by precedence in the core and from
-    left to right in the classic algebra; without else the maps where it is
-    false are null and left out, 0 in the classic algebra"""
-    assert algebra.triples(f"if({condition}, A)", classic=classic) == a_intervals(
-        values
-    )
+def test_td_and_raster_condition_chain(algebra, condition, values):
+    """(td(A) == 1 && A == x) || A == 3: the same by precedence and from left
+    to right; without else the maps where it is false are 0"""
+    assert algebra.triples(f"if({condition}, A)") == a_intervals(values)
 
 
 @pytest.mark.parametrize(
@@ -504,18 +416,7 @@ def test_manual_example_with_equal_slash_operator(algebra):
             None,
             [(1, 2, 12), (2, 3, 14)],
         ),
-        pytest.param(
-            "if(A > 1 && A < 4 && td(A) > 0, N)",
-            False,
-            a_intervals([None, 12, 13, None]),
-            marks=pytest.mark.fixed_algebra,
-        ),
-        pytest.param(
-            "if(A > 1 && A < 4 && td(A) > 0, N)",
-            True,
-            a_intervals([0, 12, 13, 0]),
-            marks=pytest.mark.fixed_algebra,
-        ),
+        ("if(A > 1 && A < 4 && td(A) > 0, N)", None, a_intervals([0, 12, 13, 0])),
     ],
 )
 def test_manual_examples_with_conditions(algebra, expression, classic, expected):
@@ -524,17 +425,12 @@ def test_manual_examples_with_conditions(algebra, expression, classic, expected)
     assert algebra.triples(expression, classic=classic) == expected
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("classic", "values"), [(False, [None, 12, 13, None]), (True, [0, 12, 13, 0])]
-)
-def test_manual_example_selection_with_topology(algebra, classic, values):
+def test_manual_example_selection_with_topology(algebra):
     """Manual example: selection of raster cells with temporal topology relation"""
     expression = "if({equal}, A > 1 && A < 4 && td(A) > 0, N)"
-    assert algebra.triples(expression, classic=classic) == a_intervals(values)
+    assert algebra.triples(expression) == a_intervals([0, 12, 13, 0])
 
 
-@pytest.mark.fixed_algebra
 @pytest.mark.parametrize(
     "expression",
     [
@@ -542,17 +438,13 @@ def test_manual_example_selection_with_topology(algebra, classic, values):
         "if({equal}, N > 12.0, A / 3600.0 / 24.0 {/,equal,l} td(A))",
     ],
 )
-@pytest.mark.parametrize(
-    ("classic", "expected"),
-    [(False, [3 / 86400, 4 / 86400]), (True, [0, 0, 3 / 86400, 4 / 86400])],
-)
-def test_manual_example_conditional_computation(algebra, expression, classic, expected):
+def test_manual_example_conditional_computation(algebra, expression):
     """Example "Conditional computation": recharge per second where the
     condition holds, with and without explicit topology; n1 and n2 are not
-    greater than 12, so without else a1 and a2 are null and left out, 0 in
-    the classic algebra"""
-    values = algebra.values(expression, classic=classic)
-    assert values == pytest.approx(expected, abs=1e-6)
+    greater than 12, so without else a1 and a2 are 0. a3 and a4 have td() of
+    one day: 3 / 86400 and 4 / 86400"""
+    values = algebra.values(expression)
+    assert values == pytest.approx([0, 0, 3 / 86400, 4 / 86400], abs=1e-6)
 
 
 def test_manual_example_ndvi(algebra):

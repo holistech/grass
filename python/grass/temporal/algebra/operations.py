@@ -933,10 +933,11 @@ def _chosen(branch, values, wanted):
     return chosen
 
 
-def where(condition, then, otherwise=None):
+def where(condition, then, otherwise=0):
     """Choose per cell: if(condition, then, otherwise)
 
-    Without otherwise a cell is null where the condition is false. A scalar
+    Without otherwise a cell is 0 where the condition is false, as in
+    r.mapcalc; pass None for null. A scalar
     condition is lifted to a constant field. condition, then and otherwise
     need equal time stamps; numbers are used in every slot.
     """

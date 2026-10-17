@@ -3,7 +3,7 @@
 The laws hold for any series; random series with a fixed seed test them.
 The rules pin the semantics of conditions in the Python API: a relation in
 a condition reads from the condition map to the conclusion map, a
-conclusion map gets one result, and a condition without else gives null.
+conclusion map gets one result, and a condition without else gives 0.
 """
 
 import datetime
@@ -156,7 +156,7 @@ def test_condition_reads_from_condition_to_conclusion(a, make_series):
 
 def test_one_result_per_conclusion_map(a, b):
     """if({during}, A > 1, B): each map of B gets one result, the conditions
-    of its maps of A joined with and; false is null without else"""
+    of its maps of A joined with and; false is 0 without else"""
     k = ta.gather(
         b,
         ta.inverse(ta.during),
@@ -175,7 +175,7 @@ def test_one_result_per_conclusion_map(a, b):
                 (Call(">", (ref("a1"), Const(1))), Call(">", (ref("a2"), Const(1)))),
             ),
             ref("b1"),
-            NULL,
+            Const(0),
         ),
     )
     assert contents(result)[1] == Call(
@@ -186,7 +186,7 @@ def test_one_result_per_conclusion_map(a, b):
                 (Call(">", (ref("a3"), Const(1))), Call(">", (ref("a4"), Const(1)))),
             ),
             ref("b2"),
-            NULL,
+            Const(0),
         ),
     )
 

@@ -403,24 +403,21 @@ def test_cell_conditions(series_3d, expression, expected):
     assert values(series_3d.session, expression) == expected
 
 
+@pytest.mark.parametrize("classic", [False, True], ids=["core", "classic"])
 @pytest.mark.parametrize(
-    ("expression", "classic", "expected"),
+    ("expression", "expected"),
     [
-        ("if(A > 1, A)", False, [2, 3, 4]),
-        ("if(A > 1, A)", True, [0, 2, 3, 4]),
-        ("if(A > 1 && B < 40, A)", False, [2, 3]),
-        ("if(A > 1 && B < 40, A)", True, [0, 2, 3, 0]),
-        ("if(A > 100, A)", False, []),
-        ("if(A > 100, A)", True, [0, 0, 0, 0]),
-        ("if(A > 1, A) + B", False, [22, 33, 44]),
-        ("if(A > 1, A) + B", True, [10, 22, 33, 44]),
+        ("if(A > 1, A)", [0, 2, 3, 4]),
+        ("if(A > 1 && B < 40, A)", [0, 2, 3, 0]),
+        ("if(A > 100, A)", [0, 0, 0, 0]),
+        ("if(A > 1, A) + B", [10, 22, 33, 44]),
     ],
 )
 @pytest.mark.fixed_algebra
 def test_cell_conditions_without_else(series_3d, expression, classic, expected):
-    """if() without else gives null where the condition is false, and a map
-    that is null everywhere is left out; the classic algebra gives 0 there,
-    as the two-argument if() of r3.mapcalc does"""
+    """if() without else gives 0 where the condition is false, as the
+    two-argument if() of r3.mapcalc does, in both algebras; a map that is 0
+    everywhere is a map like any other"""
     assert values(series_3d.session, expression, classic=classic) == expected
 
 
@@ -645,21 +642,30 @@ def test_nprocs_option(series_3d):
 
 @pytest.mark.fixed_algebra
 def test_classic_flag_selects_the_classic_algebra(series_3d):
-    """if() without else gives null in the core and 0 in the classic algebra,
-    so the core leaves out the maps of value 1 and 2"""
+    """A selection with the right reference gives one map per related pair in
+    the core (w1 = 100 contains a1 and a2, w2 = 200 contains a3 and a4: 100,
+    100, 200, 200) and the last pair of each map of W in the classic
+    algebra (100, 200)"""
     # The flag must win over the variable, which therefore selects the core.
     env = {**series_3d.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
     tools = Tools(env=env, overwrite=True)
-    tools.t_rast3d_algebra(expression="flag_core = if(A > 2, A)", basename="flag_core")
     tools.t_rast3d_algebra(
-        expression="flag_classic = if(A > 2, A)", basename="flag_classic", flags="c"
+        expression="flag_core = W {:,contains,r} A", basename="flag_core"
     )
-    assert [row[2] for row in list_maps(series_3d.session, "flag_core")] == [3, 4]
+    tools.t_rast3d_algebra(
+        expression="flag_classic = W {:,contains,r} A",
+        basename="flag_classic",
+        flags="c",
+    )
+    assert [row[2] for row in list_maps(series_3d.session, "flag_core")] == [
+        100,
+        100,
+        200,
+        200,
+    ]
     assert [row[2] for row in list_maps(series_3d.session, "flag_classic")] == [
-        0,
-        0,
-        3,
-        4,
+        100,
+        200,
     ]
 
 

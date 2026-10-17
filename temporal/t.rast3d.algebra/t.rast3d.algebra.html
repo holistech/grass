@@ -125,19 +125,6 @@ operator <code>l</code>, because its maps have no related map to combine with;
 the classic algebra accepts the other operators.
 </li>
 
-<li><b>if without else.</b> An <code>if</code> without else gives null where a
-condition on map values is false; the classic algebra gives 0 there, like the
-<code>if()</code> of <em>r3.mapcalc</em> with two arguments. A map that is
-false everywhere is not registered unless <b>-n</b> is set. This expression
-registers the maps of value 3 and 4, with <b>-n</b> also the first two maps as
-null maps; the classic algebra registers four maps, the first two with the
-value 0:
-
-<div class="code"><pre>
-C = if(A &gt; 2, A)
-</pre></div>
-</li>
-
 <li><b>td() of a time instance</b> is null instead of an error, so a condition
 on it is neither true nor false. This expression gives no map; the classic
 algebra stops with an error:
@@ -430,8 +417,8 @@ datasets need a valid temporal topology and the same temporal type.
 <p>
 Single maps given with <code>map()</code> or <code>tmap()</code> are not
 sampled. The differences between the two algebras listed under "Core and
-classic algebra" apply with <b>-g</b> as well, for example item 5, an
-<code>if</code> without else.
+classic algebra" apply with <b>-g</b> as well, for example item 4, the right
+reference.
 
 <p>
 See the manual of <a href="t.rast.algebra.html">t.rast.algebra</a> for an example.

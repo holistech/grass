@@ -27,6 +27,7 @@ SAME = [
     "A !: Q",
     "A {#,during} W",
     "if(A > 2, A, B)",
+    "if(A > 2, A)",
     "A {+,equal|overlap} B",
     "if(td(A) == 1, A)",
     "if(start_day(A) > 2, A, B)",
@@ -59,10 +60,6 @@ DIFFERENT = {
         "ValueError",
         "a negative buffer must leave every map some time (end < start)",
     ),
-    "if(A > 2, A)": (
-        "maps",
-        "an if without else is null where a map condition is false",
-    ),
     "W {:,contains,r} A": (
         "maps",
         "a selection with r gives one map per related pair",
@@ -86,6 +83,7 @@ GRANULARITY_SAME = [
     "W * 2",
     "A : W",
     "if(W > 150, A, B)",
+    "if(W > 150, A)",
     "A[1] + W",
     # Q starts at noon, so that the common granularity is shorter than a day.
     "A + Q",
@@ -93,9 +91,9 @@ GRANULARITY_SAME = [
 ]
 
 GRANULARITY_DIFFERENT = {
-    "if(W > 150, A)": (
+    "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": (
         "maps",
-        "an if without else is null where a map condition is false",
+        "&& binds stronger than ||",
     ),
 }
 

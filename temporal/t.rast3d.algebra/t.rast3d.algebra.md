@@ -115,19 +115,7 @@ that start with A, and time instances in I.
    `l`, because its maps have no related map to combine with; the classic
    algebra accepts the other operators.
 
-5. **if without else.** An `if` without else gives null where a condition
-   on map values is false; the classic algebra gives 0 there, like the
-   `if()` of *r3.mapcalc* with two arguments. A map that is false
-   everywhere is not registered unless **-n** is set. This expression
-   registers the maps of value 3 and 4, with **-n** also the first two
-   maps as null maps; the classic algebra registers four maps, the first
-   two with the value 0:
-
-   ```sh
-   C = if(A > 2, A)
-   ```
-
-6. **td() of a time instance** is null instead of an error, so a condition
+5. **td() of a time instance** is null instead of an error, so a condition
    on it is neither true nor false. This expression gives no map; the
    classic algebra stops with an error:
 
@@ -139,7 +127,7 @@ that start with A, and time instances in I.
    time instance or the calendar values of relative time, is an error in
    both algebras.
 
-7. **More syntax.** Comparisons, temporal functions and the minus sign may
+6. **More syntax.** Comparisons, temporal functions and the minus sign may
    stand anywhere in an expression, and a dataset may have the name of a
    function. The classic algebra reports a syntax error for each of these
    expressions; the last one adds 1 to a dataset named `td`:
@@ -153,7 +141,7 @@ that start with A, and time instances in I.
    C = td + 1
    ```
 
-8. **Intersection with several related maps.** With the temporal
+7. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
     left out. The classic algebra intersects the map with its related maps
     until the first one that has no common time with the result so far,
@@ -166,7 +154,7 @@ that start with A, and time instances in I.
     C = H {:,follows|precedes,i} A
     ```
 
-9. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
     by that size at both ends. The new algebra stops with an error if a map
     would keep no time, that is if its end would fall on or before its start,
     and for a time instance, which has no duration to shrink. The classic
@@ -181,7 +169,7 @@ that start with A, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
-10. **merge() of maps read at an offset.** The new algebra takes two maps
+9. **merge() of maps read at an offset.** The new algebra takes two maps
     with equal content and time stamps as one map. The classic algebra, as
     the previous implementation, makes a new map for each map read with a
     temporal neighbourhood modifier, and `merge()` keeps such a map next to
@@ -390,7 +378,7 @@ all datasets need a valid temporal topology and the same temporal type.
 
 Single maps given with `map()` or `tmap()` are not sampled. The differences
 between the two algebras listed under "Core and classic algebra" apply with
-**-g** as well, for example item 5, an `if` without else.
+**-g** as well, for example item 4, the right reference.
 
 See the manual of [t.rast.algebra](t.rast.algebra.md) for an example.
 

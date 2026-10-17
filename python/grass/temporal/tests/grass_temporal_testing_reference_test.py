@@ -21,12 +21,14 @@ from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.reference import reference_parser, run_reference
 from grass.tools import Tools
 
-# The classic algebra keeps a null map for each map of A where the condition
-# is false, the core drops them. The expression is one of the listed
+# B (10 on days 0 to 2, 20 on days 2 to 4) contains a1 and a2, and b2 contains
+# a3 and a4. A selection with the right reference gives one map per related
+# pair in the core: 10, 10, 20, 20. The classic algebra keeps only the last
+# pair of each map of B: 10, 20. The expression is one of the listed
 # differences in t_rast_algebra_differential_test.py.
-DIFFERENT_EXPRESSION = "R = if(A > 2, A)"
-CLASSIC_MAXIMA = [0.0, 0.0, 3.0, 4.0]
-CORE_MAXIMA = [3.0, 4.0]
+DIFFERENT_EXPRESSION = "R = B {:,contains,r} A"
+CLASSIC_MAXIMA = [10.0, 20.0]
+CORE_MAXIMA = [10.0, 10.0, 20.0, 20.0]
 
 
 @pytest.fixture(scope="module")
@@ -40,6 +42,12 @@ def tools(temporal_module_session):
             MapSpec(f"a{number}", number, day(number - 1), day(number))
             for number in range(1, 5)
         ],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "B",
+        [MapSpec("b1", 10, day(0), day(2)), MapSpec("b2", 20, day(2), day(4))],
     )
     create_stds(
         tools,

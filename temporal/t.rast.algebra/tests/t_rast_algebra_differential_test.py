@@ -53,6 +53,7 @@ SAME = [
     "if(start_day(A) > 2, A, N)",
     'if(start_date(A) < "2001-01-03", A)',
     "if(td(A) == 1 && A > 2, A, N)",
+    "if(A > 2, A)",
     "A {+,equal|overlap} N",
     "if(A {#,during} B + A > 2, A, N)",
     'tshift(A, "1 day")',
@@ -76,10 +77,6 @@ DIFFERENT = {
     "B {:,contains,r} A": (
         "maps",
         "a selection with r gives one map per related pair",
-    ),
-    "if(A > 2, A)": (
-        "maps",
-        "an if without else is null where a map condition is false",
     ),
     "if({during}, A > 1, B, 0)": ("maps", "one result per conclusion map"),
     "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": (
@@ -149,6 +146,7 @@ GRANULARITY_SAME = [
     "A + td(B)",
     'if(start_date(B) >= "2001-01-03", A, N)',
     "if(B > 5, A, N)",
+    "if(B > 5, A)",
     "A[1] + B",
     # Time instances get one more granule at the end.
     "A + I",
@@ -160,9 +158,9 @@ GRANULARITY_SAME = [
 ]
 
 GRANULARITY_DIFFERENT = {
-    "if(B > 5, A)": (
+    "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)": (
         "maps",
-        "an if without else is null where a map condition is false",
+        "&& binds stronger than ||",
     ),
 }
 

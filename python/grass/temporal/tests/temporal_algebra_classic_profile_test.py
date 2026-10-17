@@ -51,9 +51,10 @@ def test_the_grammar_follows_the_map_type_and_t_select(kind, selection, expected
 
 
 def test_the_profile_reaches_the_translator(in_memory_datasets):
-    """An if() without else is 0 where the condition is false in the classic
-    algebra and null in the core, so the two chains differ"""
-    expression = "R = if(A > 1, A)"
+    """A selection with the right reference gives one map per related pair in
+    the core and the last pair of each map in the classic algebra, so the two
+    chains differ"""
+    expression = "R = B {:,contains,r} A"
     assert chain(expression) != chain(expression, CORE)
 
 

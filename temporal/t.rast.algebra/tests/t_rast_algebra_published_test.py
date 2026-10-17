@@ -297,6 +297,48 @@ def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
     assert not unrelated["maps"]
 
 
+@pytest.mark.parametrize("register_null", [False, True], ids=["", "-n"])
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        # a > 1 holds for 1.5, 2.5, 3.5 and 4.5; f > 6 holds for 7 and 8 only
+        # (f is 5, 6, 7, 8), so the conjunction is false, false, true, true.
+        # r.mapcalc gives 0 where an if without else is false, so the result
+        # is 0, 0, 3.5, 4.5 in four maps.
+        ("if(A > 1 && F > 6, A)", [0, 0, 3.5, 4.5]),
+        # a > 9 is false everywhere: four maps of 0, which are no null maps
+        # and so are registered even without -n.
+        ("if(A > 9, A)", [0, 0, 0, 0]),
+        # a1 contains e1, e2, e3 (1.5, 2.5, 3.5, all above 1) and a1 > 1, so
+        # the conjunction holds for a1 (1.5); a2 to a4 contain no map of E.
+        ("if(A > 1 {&&,contains,&,l} E > 1, A)", [1.5]),
+    ],
+)
+def test_if_without_else_gives_zero(paper, runner, expression, expected, register_null):
+    """An if without else is 0 where the condition is false, as in r.mapcalc
+
+    Observed 2026-10-17 (ai-analysis/scratch/paper_forms/
+    p15_classic_probe.py): the earlier implementation and the classic profile
+    register these maps with and without -n. With -n the new algebra also
+    registers a null map for each map of A without a partner in E, which is
+    what -n asks for (a left map without related map), not a property of the
+    missing else.
+    """
+    result = outcome(
+        KIND,
+        expression,
+        RUNNERS[runner],
+        basename="fa",
+        register_null=register_null,
+    )
+    assert "error" not in result
+    found = [row[3] for row in result["maps"]]
+    if runner == "core" and register_null and "contains" in expression:
+        expected = [*expected, None, None, None]
+    assert found == pytest.approx(expected)
+
+
 @pytest.mark.parametrize("runner", ["reference", "classic"])
 @pytest.mark.parametrize("name", ["EQUALS", "Equals", "EQUAL"])
 def test_the_relation_names_stay_lower_case(paper, runner, name):

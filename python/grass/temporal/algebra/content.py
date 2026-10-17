@@ -213,8 +213,8 @@ def evaluate(function, values):
 def call(function, *args):
     """Return the content of a function applied to contents
 
-    An if without else gets null as else: a cell or map for which the
-    condition is false is null, not the 0 of r.mapcalc. An if with a
+    An if without else gets 0 as else, as in r.mapcalc: a cell or map for
+    which the condition is false is 0, not null. An if with a
     constant condition is replaced by the chosen branch; with four arguments
     the branches are for a condition above zero, zero and below zero. An
     operator with a null operand is null, as in r.mapcalc. Other calls whose
@@ -228,7 +228,10 @@ def call(function, *args):
         msg = f"if() takes two to four arguments, got {len(args)}"
         raise ValueError(msg)
     if function == "if" and len(args) == 2:
-        args = (*args, NULL)
+        # r.mapcalc gives 0 where if(c, t) is false (measured 2026-10-17 with
+        # r.mapcalc "z = if(col() > 1, 5)": 0 in the first column), and so did
+        # the earlier implementation of the algebra.
+        args = (*args, Const(0))
     if function == "if" and isinstance(args[0], Const):
         condition = args[0].value
         if condition is None:

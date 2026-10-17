@@ -41,7 +41,6 @@ pytestmark = [pytest.mark.slow, pytest.mark.fixed_algebra]
 LISTED = [
     'buff_t(W, "-1 day")',
     'buff_t(A, "-1 day")',
-    "if(A > 2, A)",
     "W {:,contains,r} A",
     "W {+,contains,r} A",
     "if({during}, A > 1, W, 0)",
@@ -50,7 +49,7 @@ LISTED = [
 
 
 # The same for the granularity mode (-g).
-LISTED_GRANULARITY = ["if(A > 2, A)"]
+LISTED_GRANULARITY = ["if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)"]
 GRANULARITY_SEEDS = range(50)
 
 

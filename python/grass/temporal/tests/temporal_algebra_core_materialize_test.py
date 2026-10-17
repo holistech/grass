@@ -210,9 +210,11 @@ def test_materialize_computes_and_registers(core_session):
 
 def test_null_maps_are_registered_only_on_request(core_session):
     a = ta.source("A")
-    ta.materialize(ta.where(a > 2, a), "high", overwrite=True)
+    ta.materialize(ta.where(a > 2, a, None), "high", overwrite=True)
     assert [row[2] for row in registered("high")] == [3, 4]
-    ta.materialize(ta.where(a > 2, a), "high_all", overwrite=True, register_null=True)
+    ta.materialize(
+        ta.where(a > 2, a, None), "high_all", overwrite=True, register_null=True
+    )
     assert [row[2] for row in registered("high_all")] == [None, None, 3, 4]
 
 
@@ -340,7 +342,7 @@ def test_removed_empty_maps_leave_no_row_in_the_temporal_database(core_session):
     a = ta.source("A")
     ta.materialize(a * 1, "stale", overwrite=True)
     assert tgis.RasterDataset("stale_0@PERMANENT").is_in_db()
-    ta.materialize(ta.where(a > 10, a), "stale", overwrite=True)
+    ta.materialize(ta.where(a > 10, a, None), "stale", overwrite=True)
     assert registered("stale") == []
     assert not tgis.RasterDataset("stale_0@PERMANENT").is_in_db()
     # The names are free again, also without overwrite.
@@ -466,11 +468,11 @@ def test_temporary_maps_are_removed_when_a_call_fails(core_session, monkeypatch)
 
 def test_choose_equals_where_of_the_lifted_condition(core_session, make_series):
     """Without registration of empty maps both kinds of conditions keep the
-    same maps, also for a null condition"""
+    same maps, also for a null condition, if the else is null"""
     a = ta.source("A")
     k = make_series("k", (1, 2), (2, 3), (3, 4), (4, 5), values=[1, 0, None, 1])
     ta.materialize(ta.choose(k, a) * 1, "chosen", overwrite=True)
-    ta.materialize(ta.where(k, a), "where_lifted", overwrite=True)
+    ta.materialize(ta.where(k, a, None), "where_lifted", overwrite=True)
     assert registered("chosen") == registered("where_lifted")
     assert [row[2] for row in registered("chosen")] == [1, 4]
 

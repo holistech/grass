@@ -215,20 +215,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells are null, so a1 and a4 are left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 2)
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
         self.assertEqual(R.metadata.get_max_max(), 3)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 2))
-        self.assertEqual(end, datetime.datetime(2001, 1, 4))
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatial_conditional_1_classic(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
@@ -326,20 +325,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells are null: b1 (5) is left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 1)
-        self.assertEqual(R.metadata.get_min_min(), 6)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
         self.assertEqual(R.metadata.get_max_max(), 6)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "2 days")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatial_conditional_5_classic(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
@@ -428,21 +426,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells are null: a1 and a2 in b1 (5) are left
-        # out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 3.5)
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatial_conditional_numeric_relation_2_classic(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
@@ -517,14 +513,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=False)
         tra.parse(expression="R = if(A > 2, null())", basename="r", overwrite=True)
 
-        # Without else the false cells are null as well, so every map is null
-        # and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 3))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatial_conditional_numeric_4_classic(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
@@ -550,20 +551,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells are null: only a1 remains.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 1)
-        self.assertEqual(R.metadata.get_min_min(), 1)
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
         self.assertEqual(R.metadata.get_max_max(), 1)
         start, end = R.get_absolute_time()
         self.assertEqual(start, datetime.datetime(2001, 1, 1))
-        self.assertEqual(end, datetime.datetime(2001, 1, 2))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatiotemporal_conditional_1_classic(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
@@ -613,14 +613,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # b2 contains d1 and d2 and starts on day 3, so the condition is
-        # false; without else d1 and d2 are null and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 2)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(end, datetime.datetime(2001, 1, 5))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatiotemporal_conditional_relation_1_classic(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)
@@ -691,21 +696,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells are null: a1 and a2 in b1, which
-        # starts on day 1, are left out.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 2)
-        self.assertEqual(R.metadata.get_min_min(), 3.5)
+        self.assertEqual(R.metadata.get_number_of_maps(), 4)
+        self.assertEqual(R.metadata.get_min_min(), 0)
         self.assertEqual(R.metadata.get_max_max(), 4.5)
         start, end = R.get_absolute_time()
-        self.assertEqual(start, datetime.datetime(2001, 1, 3))
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
         self.assertEqual(end, datetime.datetime(2001, 1, 5))
         self.assertEqual(R.check_temporal_topology(), True)
         self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatiotemporal_conditional_numeric_relation_2_classic(self) -> None:
         """Testing the spatial conditionals combined by AND/OR operators.
         Evaluation"""
@@ -796,14 +799,19 @@ class TestTemporalRasterAlgebraConditionals(TestCase):
             overwrite=True,
         )
 
-        # Without else the false cells of a1 are null as well, so every map
-        # is null and none is registered.
         R = tgis.open_old_stds("R", type="strds")
         R.select()
-        self.assertEqual(R.metadata.get_number_of_maps(), 0)
+        self.assertEqual(R.metadata.get_number_of_maps(), 1)
+        self.assertEqual(R.metadata.get_min_min(), 0)
+        self.assertEqual(R.metadata.get_max_max(), 0)
+        start, end = R.get_absolute_time()
+        self.assertEqual(start, datetime.datetime(2001, 1, 1))
+        self.assertEqual(end, datetime.datetime(2001, 1, 2))
+        self.assertEqual(R.check_temporal_topology(), True)
+        self.assertEqual(R.get_granularity(), "1 day")
 
-    # The classic algebra gives 0 where a condition on map values is false,
-    # so it keeps the maps that the core leaves out.
+    # The classic algebra and the core agree: an if without else gives 0
+    # where a condition on map values is false.
     def test_spatiotemporal_conditional_numeric_4_classic(self) -> None:
         """Testing the spatial conditionals with numeric conclusions"""
         tra = tgis.TemporalRasterAlgebraParser(run=True, debug=True, classic=True)

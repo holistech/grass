@@ -628,7 +628,7 @@ def test_if_with_map_condition_needs_then_and_else_of_equal_time(translator):
             run(translator, text)
 
 
-def test_if_without_else_gives_null_for_map_conditions(translator, datasets):
+def test_if_without_else_gives_zero_for_map_conditions(translator, datasets):
     a = datasets["A"]
     k = operations.gather(
         a,
@@ -640,7 +640,7 @@ def test_if_without_else_gives_null_for_map_conditions(translator, datasets):
     )
     result = run(translator, "if(A > 2, A)")
     assert result.slots == operations.where(k, a).slots
-    assert all(slot.content.args[2] == NULL for slot in result)
+    assert all(slot.content.args[2] == Const(0) for slot in result)
 
 
 def test_if_with_numbers_only_takes_the_maps_of_the_condition(translator, datasets):

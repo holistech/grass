@@ -34,6 +34,10 @@ def test_source_does_not_read_a_dataset_of_another_type(series_3d):
         ta.source("A", stds_type="strds")
 
 
+# W {:,contains,r} A in the core: w1 (100) for a1 and a2, w2 (200) for a3, a4
+CORE_PAIRS = [(100, 100), (100, 100), (200, 200), (200, 200)]
+
+
 def _values(name):
     dataset = tgis.open_old_stds(name, "str3ds")
     rows = []
@@ -57,7 +61,7 @@ def test_materialize_computes_3d_raster_maps(series_3d):
 def test_materialize_leaves_out_empty_3d_raster_maps(series_3d):
     a = ta.source("A", stds_type="str3ds")
     condition = ta.apply(">", a, 2)
-    ta.materialize(ta.where(condition, a), "core_where", overwrite=True)
+    ta.materialize(ta.where(condition, a, None), "core_where", overwrite=True)
     assert [row[1] for row in _values("core_where")] == [3, 4]
 
 
@@ -131,28 +135,23 @@ def test_a_raster_dataset_is_not_a_3d_dataset(series_3d):
 @pytest.mark.fixed_algebra
 def test_without_keyword_and_variable_the_parser_runs_the_core(series_3d, monkeypatch):
     monkeypatch.delenv("GRASS_TEMPORAL_ALGEBRA", raising=False)
-    # if() without else gives null in the core, so the maps of value 1 and 2,
-    # false everywhere, are left out.
-    _parse("if(A > 2, A)", "fac_default")
-    assert [row[1:] for row in _values("fac_default")] == [(3, 3), (4, 4)]
+    # A selection with the right reference gives one map per related pair in
+    # the core: w1 (100) contains a1 and a2, w2 (200) contains a3 and a4.
+    _parse("W {:,contains,r} A", "fac_default")
+    assert [row[1:] for row in _values("fac_default")] == CORE_PAIRS
 
 
 @pytest.mark.fixed_algebra
 def test_an_empty_variable_runs_the_core(series_3d, monkeypatch):
     monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "")
-    # The core leaves out the false maps of if() without else, see above.
-    _parse("if(A > 2, A)", "fac_empty")
-    assert [row[1:] for row in _values("fac_empty")] == [(3, 3), (4, 4)]
+    # The core gives one map per related pair, see above.
+    _parse("W {:,contains,r} A", "fac_empty")
+    assert [row[1:] for row in _values("fac_empty")] == CORE_PAIRS
 
 
 @pytest.mark.fixed_algebra
 def test_the_variable_selects_the_classic_algebra(series_3d, monkeypatch):
     monkeypatch.setenv("GRASS_TEMPORAL_ALGEBRA", "classic")
-    # if() without else gives 0 in the classic algebra, so all four maps stay.
-    _parse("if(A > 2, A)", "fac_variable")
-    assert [row[1:] for row in _values("fac_variable")] == [
-        (0, 0),
-        (0, 0),
-        (3, 3),
-        (4, 4),
-    ]
+    # The classic algebra keeps only the last pair of each map of W.
+    _parse("W {:,contains,r} A", "fac_variable")
+    assert [row[1:] for row in _values("fac_variable")] == [(100, 100), (200, 200)]

@@ -249,19 +249,11 @@ def test_temporal_neighbour(algebra, expression, expected):
     assert algebra.triples(expression) == expected
 
 
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize(
-    ("classic", "expected"),
-    [
-        (False, [(3, 4, 3), (4, 5, 4)]),
-        (True, [(2, 3, 0), (3, 4, 3), (4, 5, 4)]),
-    ],
-)
-def test_temporal_neighbour_in_condition(algebra, classic, expected):
-    """The neighbour modifier can be used in conditions; without else a2,
-    whose predecessor a1 is not greater than 1, is null and left out, 0 in
-    the classic algebra"""
-    assert algebra.triples("if(A[-1] > 1, A)", classic=classic) == expected
+def test_temporal_neighbour_in_condition(algebra):
+    """The neighbour modifier can be used in conditions; a1 has no
+    predecessor and is dropped, and without else a2, whose predecessor a1 is
+    not greater than 1, is 0"""
+    assert algebra.triples("if(A[-1] > 1, A)") == [(2, 3, 0), (3, 4, 3), (4, 5, 4)]
 
 
 @pytest.mark.parametrize(
