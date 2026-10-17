@@ -173,9 +173,11 @@ class _MapObject:
     The classic algebra tells maps apart by the id of their map object, their
     time stamp and the command written on them (_merge_key() of the classic
     algebra). The profile attaches this object to the content as its mark,
-    which the core never reads. A new map object, made for each result of an
-    operation of two map lists, is its own id; a number or a function keeps
-    the object, and the hash operator counts on the object of the left map.
+    which the core never reads. A new map object is its own id; the classic
+    algebra makes one for each result of an operation of two map lists, each
+    map read at an offset, each buffer and each value of a time function at
+    an offset. A number or a function keeps the object, and the hash operator
+    counts on the object of the left map.
 
     It compares and hashes by identity, because a mark that is its own map
     object is the identity.
@@ -903,8 +905,9 @@ class ClassicTranslator(Translator):
         )
 
     def _index(self, node):
-        """A map read at a time offset is a new map in the classic algebra,
-        which carries a command like a computed one: its own id"""
+        """A map read at an offset, in time or in cells, is a new map in the
+        classic algebra, which carries a command like a computed one: its own
+        id"""
         result = super()._index(node)
         return self._new_maps(result) if isinstance(result, Series) else result
 
@@ -920,7 +923,7 @@ class ClassicTranslator(Translator):
             isinstance(result, Series)
             and result.sort == "scalar"
             and len(result.slots) == len(slots)
-            and (any(self._has_command(slot.content) for slot in slots))
+            and any(self._has_command(slot.content) for slot in slots)
         ):
             self._commands.note(result, argument)
 
