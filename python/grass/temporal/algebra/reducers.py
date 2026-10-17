@@ -58,6 +58,28 @@ class Fold:
     operator: str
 
 
+@dataclass(frozen=True)
+class Compare:
+    """Compare the target with each related slot and join the comparisons
+
+    The target is compared with every related content separately:
+    (t >= x1 && t >= x2) for "&" and (t >= x1 || t >= x2) for "|". Folding the
+    comparisons would compare the result of the first with the second slot.
+    """
+
+    symbol: str
+    join: str
+
+
+def compare(symbol, join):
+    """Return the reducer that compares the target with each related slot
+
+    :param symbol: ==, !=, >, >=, < or <=
+    :param join: "&" for all comparisons, "|" for any
+    """
+    return Compare(symbol, join)
+
+
 def fold(operator):
     """Return the reducer that folds the target and the related slots"""
     return Fold(operator)
@@ -101,6 +123,11 @@ def check(reducer, nulls):
             msg = "fold() has no meaningful way to skip null cells"
             raise ValueError(msg)
         return
+    if isinstance(reducer, Compare):
+        if nulls == "skip":
+            msg = "compare() has no meaningful way to skip null cells"
+            raise ValueError(msg)
+        return
     if reducer not in REDUCERS:
         msg = (
             f"Unknown reducer {reducer!r}, use one of {', '.join(REDUCERS)}, "
@@ -121,7 +148,7 @@ def sort_of(reducer, target_sort, other_sort):
         return target_sort
     if reducer == "count":
         return "scalar"
-    if isinstance(reducer, SeriesMethod):
+    if isinstance(reducer, (SeriesMethod, Compare)):
         return "field"
     if isinstance(reducer, Fold):
         return "field" if "field" in {target_sort, other_sort} else "scalar"
@@ -177,7 +204,7 @@ _SKIP = {
 def reduce(reducer, target, related, nulls):
     """Return the content that reduces the related contents
 
-    Only fold() includes the target; None keeps the content of the target.
+    Only fold() and compare() include the target; None keeps the content of the target.
     """
     if reducer is None:
         return target
@@ -185,6 +212,9 @@ def reduce(reducer, target, related, nulls):
         return series_aggregate(reducer.method, related, reducer.file_limit)
     if isinstance(reducer, Fold):
         return chain(reducer.operator, [target, *related])
+    if isinstance(reducer, Compare):
+        comparisons = [call(reducer.symbol, target, content) for content in related]
+        return chain("&&" if reducer.join == "&" else "||", comparisons)
     if reducer == "count":
         return Const(len(related))
     if reducer == "first":

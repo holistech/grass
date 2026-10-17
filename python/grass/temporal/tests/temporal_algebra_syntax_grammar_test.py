@@ -70,6 +70,21 @@ def test_operators_in_braces_take_the_precedence_of_their_symbol():
     )
 
 
+def test_a_comparison_in_braces_binds_like_the_plain_comparison():
+    both = TemporalOperator(">=", ("during",), "|", "l")
+    assert expression("A + 1 {>=,during,|} B") == Binary(
+        ">=", Binary("+", A, Number(1)), B, both
+    )
+    assert expression("A {>=,during,|} B && C") == Binary(
+        "&&", Binary(">=", A, B, both), C
+    )
+
+
+def test_two_comparisons_in_a_row_are_refused():
+    with pytest.raises(SyntaxError):
+        expression("A {>=,equal} B {<,equal} C")
+
+
 @pytest.mark.parametrize(
     ("text", "tree"),
     [

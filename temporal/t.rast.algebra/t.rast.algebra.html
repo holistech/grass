@@ -386,7 +386,8 @@ operator and the temporal operator are optional, the aggregation operator is
 relations default to <code>equal</code> if the braces are left out. The short
 form <code>A &gt;= F</code> is the operator
 <code>{&gt;=, equal, &amp;, l}</code>. A map of the first dataset without a
-related map gives no map:
+related map gives no map in the classic algebra and a null map in the new
+algebra:
 
 <div class="code"><pre>
 if(A {&gt;=, contains, |} E, A, 0)
@@ -397,10 +398,10 @@ if(A &gt;= F, A, F)
 The first expression is true for a map of A if it is greater than or equal to
 any related map of E; the last one gives, for each map of A, the value of A
 where it is not smaller than the map of F with the same time, and the value of
-F otherwise. The comparison operator in braces and the short form are read by
-the classic algebra (<b>-c</b>); the new algebra does not read them yet. The
-granularity mode (<b>-g</b>) reads the short form; it refuses the operator in
-braces, as it refuses every operator in braces.
+F otherwise. Earlier GRASS releases did not read the comparison of two
+datasets, neither in braces nor as <code>A &gt;= F</code>; both algebras do now.
+The granularity mode (<b>-g</b>) reads the short form; it refuses the operator
+in braces, as it refuses every operator in braces.
 
 <h4>Hash operator</h4>
 
@@ -988,9 +989,10 @@ C = A + td(A) / A
 <h4>Differences from the previous implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the previous implementation in
-the following points. Only the items on lists of absolute and relative time and
-on the relation <code>equals</code> change the outcome of an expression; the
-others concern messages, output and the class of an error.
+the following points. Only the items on lists of absolute and relative time, on
+the relation <code>equals</code> and on the comparison of related maps change
+the outcome of an expression; the others concern messages, output and the
+class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -1056,6 +1058,20 @@ it as <code>equal</code>, so this expression gives the same maps as
 
 <div class="code"><pre>
 C = A {+,equals,l} B
+</pre></div>
+</li>
+
+<li><b>Comparison of related maps.</b> The previous implementation refused the
+comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
+with a syntax error (see the comparison of related maps above). Both algebras
+read it now. The new algebra keeps a map of A without a related map as a null
+map, where the classic algebra leaves it out. With the temporal reference
+<code>r</code>, the new algebra compares each pair on its own, where the classic
+algebra gives every related map the whole condition of its left map, as it does
+for <code>&amp;&amp;</code> and <code>||</code>:
+
+<div class="code"><pre>
+C = if(A {&lt;, contains, |, r} B, B, 0)
 </pre></div>
 </li>
 </ul>

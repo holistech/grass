@@ -408,6 +408,64 @@ def test_logical_operators_relate_their_operands(translator, datasets):
     assert run(translator, "A > 1 {||,during} td(B)").slots == either.slots
 
 
+def contents(series):
+    return [slot.content for slot in series.slots]
+
+
+def test_comparison_with_a_relation_compares_each_related_map(translator, datasets):
+    """B has the maps b1 (1-3) and b2 (3-5); b1 contains a1 and a2, b2 contains
+    a3 and a4. Each map is compared with every related map, and the
+    comparisons are joined: they are not folded into one another."""
+    a, b = contents(datasets["A"]), contents(datasets["B"])
+    anywhere = run(translator, "B {>=,contains,|} A")
+    assert contents(anywhere) == [
+        call("||", call(">=", b[0], a[0]), call(">=", b[0], a[1])),
+        call("||", call(">=", b[1], a[2]), call(">=", b[1], a[3])),
+    ]
+    everywhere = run(translator, "B {<,contains} A")
+    assert contents(everywhere) == [
+        call("&&", call("<", b[0], a[0]), call("<", b[0], a[1])),
+        call("&&", call("<", b[1], a[2]), call("<", b[1], a[3])),
+    ]
+    assert [slot.extent for slot in everywhere.slots] == [
+        slot.extent for slot in datasets["B"].slots
+    ]
+    assert everywhere.sort == "field"
+
+
+def test_comparison_with_one_related_map_is_the_comparison(translator, datasets):
+    a, n = contents(datasets["A"]), contents(datasets["N"])
+    result = run(translator, "A {!=,equal} N")
+    assert contents(result) == [call("!=", x, y) for x, y in zip(a, n, strict=True)]
+
+
+def test_comparison_with_the_right_reference_compares_each_pair(translator, datasets):
+    """Every pair takes the time stamp of the right map and is compared alone"""
+    a, b = contents(datasets["A"]), contents(datasets["B"])
+    result = run(translator, "B {>,contains,&,r} A")
+    assert contents(result) == [
+        call(">", b[0], a[0]),
+        call(">", b[0], a[1]),
+        call(">", b[1], a[2]),
+        call(">", b[1], a[3]),
+    ]
+    assert [slot.extent for slot in result.slots] == [
+        slot.extent for slot in datasets["A"].slots
+    ]
+
+
+def test_comparison_with_a_relation_needs_two_datasets(translator):
+    with pytest.raises(SyntaxError, match="relates two space time datasets"):
+        run(translator, "A {>=,equal} 1")
+
+
+def test_comparison_without_braces_pairs_equal_times(translator, datasets):
+    a, n = contents(datasets["A"]), contents(datasets["N"])
+    assert contents(run(translator, "A >= N")) == [
+        call(">=", x, y) for x, y in zip(a, n, strict=True)
+    ]
+
+
 def test_or_without_braces_joins_with_or(translator, datasets):
     """Two maps of G share the time stamp of the first map of A"""
     left = operations.apply(">", datasets["A"], 1)

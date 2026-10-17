@@ -18,7 +18,7 @@ from grass.temporal.algebra.backends import PATCH, VECTOR_FUNCTIONS
 from grass.temporal.algebra.content import NULL, Const, call
 from grass.temporal.algebra.maptypes import STDS_TYPES
 from grass.temporal.algebra.profile import CORE
-from grass.temporal.algebra.reducers import fold
+from grass.temporal.algebra.reducers import compare, fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
 from grass.temporal.algebra.series import Series, Slot
 from grass.temporal.algebra.sources import source, source_map
@@ -219,6 +219,8 @@ class Translator:
         if symbol in ("&&", "||"):
             return self._logical(symbol, left, right, node.operator)
         if symbol in _COMPARISONS:
+            if node.operator is not None:
+                return self._compare_related(symbol, left, right, node.operator)
             return self._compare(symbol, left, right)
         return self._arithmetic(symbol, left, right, node.operator)
 
@@ -389,6 +391,24 @@ class Translator:
         if isinstance(right, str):
             right = _moment(right, left)
         return self._apply(symbol, left, right)
+
+    def _compare_related(self, symbol, left, right, operator):
+        """A comparison with a temporal relation: each left map is compared
+        with every related map, and the comparisons are joined by the
+        aggregation of the operator, (a1 >= f1 && a1 >= f2)
+
+        With the temporal reference r every pair is compared on its own and
+        takes the time stamp of the right map, as in _logical().
+        """
+        if not (_timed(left) and _timed(right)):
+            msg = (
+                f"The temporal operator {{{symbol},...}} relates two space "
+                "time datasets"
+            )
+            raise SyntaxError(msg)
+        return self._combine(
+            symbol, left, right, operator, compare(symbol, operator.aggregate)
+        )
 
     def _logical(self, symbol, left, right, operator):
         if not (_timed(left) and _timed(right)):

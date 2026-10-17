@@ -373,7 +373,8 @@ if all comparisons are true (aggregation `&`) or if any is true
 are optional, the aggregation operator is `&` and the temporal operator `l`
 by default, and the relations default to `equal` if the braces are left
 out. The short form `A >= F` is the operator `{>=, equal, &, l}`. A map of
-the first dataset without a related map gives no map:
+the first dataset without a related map gives no map in the classic
+algebra and a null map in the new algebra:
 
 ```sh
 if(A {>=, contains, |} E, A, 0)
@@ -384,10 +385,10 @@ if(A >= F, A, F)
 The first expression is true for a map of A if it is greater than or equal
 to any related map of E; the last one gives, for each map of A, the value
 of A where it is not smaller than the map of F with the same time, and the
-value of F otherwise. The comparison operator in braces and the short form
-are read by the classic algebra (**-c**); the new algebra does not read
-them yet. The granularity mode (**-g**) reads the short form; it refuses
-the operator in braces, as it refuses every operator in braces.
+value of F otherwise. Earlier GRASS releases did not read the comparison of
+two datasets, neither in braces nor as `A >= F`; both algebras do now. The
+granularity mode (**-g**) reads the short form; it refuses the operator in
+braces, as it refuses every operator in braces.
 
 #### Hash operator
 
@@ -938,8 +939,9 @@ datasets of the list above and, in addition, N with daily maps of the values
 
 Besides the corrections, **-c** differs from the previous implementation
 in the following points. Only the items on lists of absolute and relative
-time and on the relation `equals` change the outcome of an expression; the
-others concern messages, output and the class of an error.
+time, on the relation `equals` and on the comparison of related maps change
+the outcome of an expression; the others concern messages, output and the
+class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -993,6 +995,19 @@ others concern messages, output and the class of an error.
 
   ```sh
   C = A {+,equals,l} B
+  ```
+
+- **Comparison of related maps.** The previous implementation refused the
+  comparison of two space time datasets, in braces and as `A >= F`, with a
+  syntax error (see the comparison of related maps above). Both algebras
+  read it now. The new algebra keeps a map of A without a related map as a
+  null map, where the classic algebra leaves it out. With the temporal
+  reference `r`, the new algebra compares each pair on its own, where the
+  classic algebra gives every related map the whole condition of its left
+  map, as it does for `&&` and `||`:
+
+  ```sh
+  C = if(A {<, contains, |, r} B, B, 0)
   ```
 
 ### Granularity algebra

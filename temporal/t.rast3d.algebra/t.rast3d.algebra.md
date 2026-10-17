@@ -356,15 +356,16 @@ use the datasets of the list above and, in addition, N with daily maps.
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the
-items on lists of absolute and relative time and on the relation `equals`,
-the two that change the outcome of an expression. The relation `equal` may
-be written `equals` here too, as in *t.rast.algebra*; the previous
-implementation refused that spelling with a syntax error.
+items on lists of absolute and relative time, on the relation `equals` and
+on the comparison of related maps, the three that change the outcome of an
+expression. The relation `equal` may be written `equals` here too, as in
+*t.rast.algebra*; the previous implementation refused that spelling with a
+syntax error.
 
 The comparison of related maps inside `if()`, such as
 `C = if(A {>=, contains, |} B, A, 0)` or `C = if(A >= B, A, B)`, described
 in [t.rast.algebra](t.rast.algebra.md), works for 3D raster maps in the
-same way and is read by the classic algebra (**-c**) only for now.
+same way. The previous implementation refused it with a syntax error.
 
 ### Granularity algebra
 

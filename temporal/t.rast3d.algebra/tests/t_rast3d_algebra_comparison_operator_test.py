@@ -1,6 +1,6 @@
 """A comparison of two 3D raster datasets with a temporal relation, in if()
 
-As t_rast_algebra_comparison_operator_test.py. A has four maps of one day each
+As t_rast_algebra_comparison_operator_test.py, also for the new algebra. A has four maps of one day each
 with the values 1, 2, 3 and 4 and B the values 10, 20, 30 and 40 on the same
 days, so a >= b is false on each day and the else part B is the result.
 """
@@ -39,7 +39,7 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
 @pytest.mark.parametrize(("expression", "values"), EXPRESSIONS)
 def test_a_comparison_by_hand(datasets, runner, expression, values):
     result = outcome(KIND, expression, RUNNERS[runner], basename="fa")

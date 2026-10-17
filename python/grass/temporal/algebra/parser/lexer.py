@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from grass.temporal.ply import lex
 
-from .operators import parse_operator
+from .operators import COMPARISONS, parse_operator
 
 TOKENS = (
     "NAME",
@@ -51,6 +51,7 @@ TOKENS = (
     "CARET",
     "TILDE",
     "OVERLAY_OP",
+    "CMP_OP",
 )
 
 # The first symbol in the braces decides the kind; && and || are listed
@@ -70,6 +71,9 @@ _OPERATOR_KINDS = (
     ("%", "MUL_OP"),
     ("+", "ADD_OP"),
     ("-", "ADD_OP"),
+    # {>=,equal,l} compares related maps; no comparison symbol starts like
+    # one of the symbols above.
+    *((symbol, "CMP_OP") for symbol in COMPARISONS),
 )
 
 

@@ -686,11 +686,12 @@ def gather(
 
     :param reduce: how the related slots are combined: "sum", "prod", "min",
         "max", "mean", "count", "all", "any", "and", "or", "first", "last",
-        fold(op), series_method(method), or None to keep the content of the
-        target. "all" and "any" give 0 or 1; "and" and "or" join the related
-        contents with && and || as they are, so one related content stays
-        unchanged. The other reducers leave the content of the target out,
-        except fold(), which starts with it.
+        fold(op), compare(symbol, join), series_method(method), or None to
+        keep the content of the target. "all" and "any" give 0 or 1; "and" and
+        "or" join the related contents with && and || as they are, so one
+        related content stays unchanged. The other reducers leave the content
+        of the target out, except fold(), which starts with it, and
+        compare(), which compares it with each related content.
     :param missing: a target without related slot is dropped ("drop"),
         gets a null content ("null") or stays as it is ("keep")
     :param extent: the time stamp of a result slot: that of the target, or

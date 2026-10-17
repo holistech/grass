@@ -13,9 +13,7 @@ expressions and pins three results computed by hand.
 
 The paper prints some expressions that no classic version reads; they are
 pinned as errors here and in t_select_published_test.py. The caption misspells
-precedes, which is a syntax error. The long form {>=,equals,l} of a
-comparison, printed in section 3.2.1, is read by the classic algebra but not
-yet by the new one.
+precedes, which is a syntax error.
 """
 
 import datetime
@@ -322,13 +320,11 @@ def test_the_long_form_of_a_comparison(paper, expression):
     """Section 3.2.1 prints {>=,equals,l} as the long form of >=
 
     a >= f is false on each month (1.5 < 5, 2.5 < 6, 3.5 < 7, 4.5 < 8), so
-    the else part F is the result: 5, 6, 7 and 8. The new algebra does not
-    read the long form yet.
+    the else part F is the result: 5, 6, 7 and 8.
     """
-    for runner in ("reference", "classic"):
+    for runner in ("reference", "classic", "core"):
         result = run(runner, expression, "fa")
         assert [row[3] for row in result["maps"]] == [5, 6, 7, 8]
-    assert run("core", expression, "fb")["error"] == "SyntaxError"
 
 
 def values(result):

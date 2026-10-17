@@ -127,6 +127,12 @@ def test_overlay_symbols(text, kind):
         ("{~,equal}", "OVERLAY_OP", "~"),
         ("{&&,equal}", "AND_OP", "&&"),
         ("{||,equal}", "OR_OP", "||"),
+        ("{==,equal}", "CMP_OP", "=="),
+        ("{!=,equal,|}", "CMP_OP", "!="),
+        ("{<,during,l}", "CMP_OP", "<"),
+        ("{<=,contains,&,r}", "CMP_OP", "<="),
+        ("{>,equal}", "CMP_OP", ">"),
+        ("{ >=,equal}", "CMP_OP", ">="),
         ("{+,equal}", "ADD_OP", "+"),
     ],
 )
