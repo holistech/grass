@@ -192,15 +192,33 @@ def test_a_selected_count_is_still_a_count(datasets, expression):
     ],
 )
 def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
-    """Classic bug, reproduced: for the time function of a map read at an
-    offset the classic algebra writes the map itself as the operand of || and
-    && (build_command_string() takes the command of the argument,
-    _operand_string()), e.g. if(b1 > 0.5||(a3), z1, 1.5). The maps are
-    floating point, which r3.mapcalc refuses as an operand, so both end in a
-    CalledModuleError."""
+    """The time function of a map read at an offset is a truth value as the
+    operand of || and &&. The earlier implementation wrote the map itself
+    (if(b1 > 0.5||(a3), z1, 1.5)); the maps are floating point, which
+    r3.mapcalc refuses as an operand, so both ended in a CalledModuleError
+    (corrected 17.10.2026)."""
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
-    assert reference["error"] == "Other:CalledModuleError"
+    assert "error" not in reference
     assert_equal(expression)
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_a_neighbour_map_joined_as_a_truth_value_by_hand(datasets, runner):
+    """B holds 10 to 40, so B > 0.5 is true; td(A[1]) is one day, so
+    td(A[1]) > 0.5 is true and the condition holds for the three maps that
+    have a neighbour. Z is null, 0 and 2 (null in the lowest layer)"""
+    result = outcome(
+        KIND,
+        "if(B > 0.5 && td(A[1]) > 0.5, Z)",
+        RUNNERS[runner],
+        basename="fa",
+        register_null=True,
+    )
+    assert [(row[3], row[4]) for row in result["maps"]] == [
+        (None, None),
+        (0, 0),
+        (2, 2),
+    ]
 
 
 # The classic merge() tells maps apart by id, time and the commands that made

@@ -909,6 +909,22 @@ false now. The duration of a map that is not counted did not change:
 C = N + td(A # merge(A, N))
 </pre></div>
 </li>
+
+<li><b>A map read at an offset as a truth value.</b> A time function of a map
+read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
+joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
+is a truth value, like the time function of any map (corrected 17 October
+2026). The previous implementation wrote the map itself as the operand, so
+that a map with a value other than 0 counted as true whatever the time
+function said. With the values 1 to 4 in A, the expression gave 1, 2 and 3
+and now gives 0, 0 and 3, because <code>end_year(A[1]) == 1</code> is false.
+The cell value of a map read at an offset, as
+in <code>A[1] &gt; 1 &amp;&amp; A</code>, did not change:
+
+<div class="code"><pre>
+C = if(end_year(A[1]) == 1 || A > 2, A)
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>

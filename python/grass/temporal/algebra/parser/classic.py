@@ -194,11 +194,14 @@ class _MapObject:
         of a time function at an offset); None for the content itself. The
         classic algebra compares this text in merge(), and the profile folds
         a count plus 0 to the number of the count.
+    bare: True for a neighbour map, a new map object whose command is its own
+        reference; see _has_command().
     """
 
     map: object = _OWN
     first: Content | None = None
     text: Content | None = None
+    bare: bool = False
 
 
 class _SeriesNotes:
@@ -529,13 +532,17 @@ class ClassicTranslator(Translator):
         return content if mark is None or mark.text is None else mark.text
 
     @staticmethod
-    def _new_maps(series):
-        """series with a new map object for each content"""
+    def _new_maps(series, *, bare=False):
+        """series with a new map object for each content; bare if the command
+        of the map is its own reference, as for a neighbour map"""
         return dataclasses.replace(
             series,
             slots=tuple(
                 dataclasses.replace(
-                    slot, content=dataclasses.replace(slot.content, mark=_MapObject())
+                    slot,
+                    content=dataclasses.replace(
+                        slot.content, mark=_MapObject(bare=bare)
+                    ),
                 )
                 for slot in series.slots
             ),
@@ -544,11 +551,14 @@ class ClassicTranslator(Translator):
     @staticmethod
     def _has_command(content):
         """True if the map of content has a command of its own in the classic
-        algebra: it is computed, read at a cell offset or a new map object"""
-        return (
-            not isinstance(content, MapRef)
-            or bool(content.offset)
-            or (content.mark is not None and content.mark.map is _OWN)
+        algebra: it is computed or a new map object whose command is more than
+        its reference. A neighbour map (read at an offset in time or in cells)
+        has only its reference, so the truth value of its time function is the
+        operand of && and || and not the map itself."""
+        return not isinstance(content, MapRef) or (
+            content.mark is not None
+            and content.mark.map is _OWN
+            and not content.mark.bare
         )
 
     def _first_counts(self, series):
@@ -908,7 +918,9 @@ class ClassicTranslator(Translator):
         classic algebra, which carries a command like a computed one: its own
         id"""
         result = super()._index(node)
-        return self._new_maps(result) if isinstance(result, Series) else result
+        return (
+            self._new_maps(result, bare=True) if isinstance(result, Series) else result
+        )
 
     def _remember_commands(self, result, argument):
         """Note the commands of the argument of a time function

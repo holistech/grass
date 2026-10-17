@@ -315,6 +315,21 @@ use the datasets of the list above and, in addition, N with daily maps.
    C = N + td(A # merge(A, N))
    ```
 
+8. **A map read at an offset as a truth value.** A time function of a
+   map read at an offset in time or in cells, such as `end_year(A[1])`,
+   joined with `&&` or `||` to a condition on cells is a truth value, like
+   the time function of any map (corrected 17 October 2026). The previous
+   implementation wrote the map itself as the operand, so that a map with
+   a value other than 0 counted as true whatever the time function said.
+   Where the maps are floating point, *r3.mapcalc* refused the map as an
+   operand and the expression ended in an error; it now runs. The cell
+   value of a map read at an offset, as in `B[1] > 0.5 && B`, did not
+   change:
+
+   ```sh
+   C = if(B > 0.5 && td(A[1]) > 0.5, A)
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python

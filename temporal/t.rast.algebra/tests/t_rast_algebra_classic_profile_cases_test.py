@@ -458,6 +458,74 @@ def test_time_and_cell_conditions(datasets, expression):
     assert_equal(expression)
 
 
+# A time function of a map read at an offset, joined with a condition on
+# cells, is a truth value like the one of any registered map. The earlier
+# implementation wrote the neighbour map itself as the operand of && and ||
+# (if(a2 && a1, ...)), so a map with a value other than 0 was true whatever
+# the time function said (corrected 17.10.2026). A has the values 1 to 4 in
+# four daily maps. The years and months of the maps are 2001 and 1, so each
+# time condition is false and && gives 0, || the cell condition alone. A[1]
+# has no map for the last day, A[0,1] has one for each day; if() without
+# else is 0 in the classic algebra.
+NEIGHBOUR_TRUTH_VALUES = [
+    ("if(end_year(A[1]) == 1 && exist(A), A)", [0, 0, 0]),
+    ("if(end_year(A[1]) == 1 || A > 2, A)", [0, 0, 3]),
+    ("if(A > 2 && end_year(A[0, 1]) == 1, A)", [0, 0, 0, 0]),
+    ("if(exist(A) && start_month(A[1]) == 3, A)", [0, 0, 0]),
+]
+
+# A neighbour map as a cell value, the value of a time function at an offset
+# and a time function of an expression keep their command
+NEIGHBOUR_UNCHANGED = [
+    ("if(A[1] > 1 && A > 1, A)", [0, 2, 3]),
+    ("if(exist(A[1]) && A > 1, A)", None),
+    ("if(A[0, 1] > 1 || A > 2, A)", None),
+    ("if(start_month(A * 0) == 1 && A > 0, Z)", None),
+    ("if(start_month(A[1]) == 1 {&&,equal} start_month(N) == 1, A)", None),
+    ("if(A > 1 && start_doy(A, 1) > 1, A)", None),
+]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize(("expression", "values"), NEIGHBOUR_TRUTH_VALUES)
+def test_a_neighbour_map_is_a_truth_value_by_hand(datasets, runner, expression, values):
+    result = outcome(
+        KIND, expression, RUNNERS[runner], basename="fa", register_null=True
+    )
+    assert "error" not in result
+    assert [row[3] for row in result["maps"]] == values
+
+
+@pytest.mark.parametrize(("expression", "values"), NEIGHBOUR_TRUTH_VALUES)
+@pytest.mark.parametrize("granularity", [False, True])
+def test_a_neighbour_map_as_a_truth_value_in_both_implementations(
+    datasets, expression, values, granularity
+):
+    assert_equal(expression, granularity=granularity)
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_a_neighbour_map_as_a_cell_value_by_hand(datasets, runner):
+    """A[1] is 2, 3, 4 for the first three maps, so A[1] > 1 is true; A > 1 is
+    false for the value 1: 0, 2, 3"""
+    result = outcome(
+        KIND,
+        "if(A[1] > 1 && A > 1, A)",
+        RUNNERS[runner],
+        basename="fa",
+        register_null=True,
+    )
+    assert [row[3] for row in result["maps"]] == [0, 2, 3]
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize(("expression", "values"), NEIGHBOUR_UNCHANGED)
+def test_a_neighbour_map_as_a_cell_value_keeps_its_command(
+    datasets, expression, values, granularity
+):
+    assert_equal(expression, granularity=granularity)
+
+
 @pytest.mark.parametrize("expression", LOGICAL_GROUPING)
 def test_logical_operators_group_as_r_mapcalc_reads_them(datasets, expression):
     assert_equal(expression)

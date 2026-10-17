@@ -867,6 +867,21 @@ datasets of the list above and, in addition, N with daily maps of the values
    C = N + td(A # merge(A, N))
    ```
 
+9. **A map read at an offset as a truth value.** A time function of a
+   map read at an offset in time or in cells, such as `end_year(A[1])`,
+   joined with `&&` or `||` to a condition on cells is a truth value, like
+   the time function of any map (corrected 17 October 2026). The previous
+   implementation wrote the map itself as the operand, so that a map with
+   a value other than 0 counted as true whatever the time function said.
+   With the values 1 to 4 in A, the expression gave 1, 2 and 3 and now
+   gives 0, 0 and 3, because `end_year(A[1]) == 1` is false. The cell
+   value of a map read at an offset, as in `A[1] > 1 && A`, did not
+   change:
+
+   ```sh
+   C = if(end_year(A[1]) == 1 || A > 2, A)
+   ```
+
 #### Differences from the previous implementation
 
 Besides the corrections, **-c** differs from the previous implementation

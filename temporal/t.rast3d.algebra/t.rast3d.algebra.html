@@ -345,6 +345,22 @@ false now. The duration of a map that is not counted did not change:
 C = N + td(A # merge(A, N))
 </pre></div>
 </li>
+
+<li><b>A map read at an offset as a truth value.</b> A time function of a map
+read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
+joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
+is a truth value, like the time function of any map (corrected 17 October
+2026). The previous implementation wrote the map itself as the operand, so
+that a map with a value other than 0 counted as true whatever the time
+function said. Where the maps are floating point, <em>r3.mapcalc</em> refused
+the map as an operand and the expression ended in an error; it now runs. The
+cell value of a map read at an offset, as
+in <code>B[1] &gt; 0.5 &amp;&amp; B</code>, did not change:
+
+<div class="code"><pre>
+C = if(B > 0.5 && td(A[1]) > 0.5, A)
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>
