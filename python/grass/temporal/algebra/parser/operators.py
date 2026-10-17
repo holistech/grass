@@ -12,7 +12,11 @@ from dataclasses import dataclass
 
 from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
 
-SYMBOLS = ("!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~")
+COMPARISONS = ("==", "!=", ">", ">=", "<", "<=")
+SYMBOLS = (
+    "!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~",
+    *COMPARISONS,
+)  # fmt: skip
 
 # The manual names both overlap relations "over". The published paper writes
 # "equals" for the relation that is called "equal"; the earlier
@@ -55,8 +59,9 @@ class TemporalOperator:
 def parse_operator(text):
     """Read an operator from its text including the braces
 
-    A bare relation takes an aggregation, && and || take an aggregation and a
-    temporal reference, the other symbols a temporal reference.
+    A bare relation takes an aggregation, && and || and the comparisons take
+    an aggregation and a temporal reference, the other symbols a temporal
+    reference.
 
     :raises SyntaxError: for an unknown relation or temporal reference, or a
         part the operator does not take
@@ -66,8 +71,9 @@ def parse_operator(text):
     rest = parts[1:] if symbol is not None else parts
     relations = _relations(rest.pop(0), text) if rest else ("equal",)
     aggregate = "|" if symbol == "||" else "&"
+    joining = (None, "&&", "||", *COMPARISONS)
     temporal = "l"
-    if rest and symbol in (None, "&&", "||") and rest[0] in _AGGREGATES:
+    if rest and symbol in joining and rest[0] in _AGGREGATES:
         aggregate = rest.pop(0)
     if rest and symbol is not None:
         word = rest.pop(0).lower()

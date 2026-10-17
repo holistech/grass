@@ -398,6 +398,12 @@ relation <code>equal</code> may be written
 <code>equals</code> here too, as in <em>t.rast.algebra</em>; the previous
 implementation refused that spelling with a syntax error.
 
+The comparison of related maps inside <code>if()</code>, such as
+<code>C = if(A {&gt;=, contains, |} B, A, 0)</code> or
+<code>C = if(A &gt;= B, A, B)</code>, described in <a
+href="t.rast.algebra.html">t.rast.algebra</a>, works for 3D raster maps in the
+same way and is read by the classic algebra (<b>-c</b>) only for now.
+
 <h3>Granularity algebra</h3>
 
 With the flag <b>-g</b>, each space time dataset of the expression is first

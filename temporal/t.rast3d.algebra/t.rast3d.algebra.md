@@ -361,6 +361,11 @@ the two that change the outcome of an expression. The relation `equal` may
 be written `equals` here too, as in *t.rast.algebra*; the previous
 implementation refused that spelling with a syntax error.
 
+The comparison of related maps inside `if()`, such as
+`C = if(A {>=, contains, |} B, A, 0)` or `C = if(A >= B, A, B)`, described
+in [t.rast.algebra](t.rast.algebra.md), works for 3D raster maps in the
+same way and is read by the classic algebra (**-c**) only for now.
+
 ### Granularity algebra
 
 With the flag **-g**, each space time dataset of the expression is first

@@ -14,8 +14,8 @@ expressions and pins three results computed by hand.
 The paper prints some expressions that no classic version reads; they are
 pinned as errors here and in t_select_published_test.py. The caption misspells
 precedes, which is a syntax error. The long form {>=,equals,l} of a
-comparison, printed in section 3.2.1, is one too: the classic lexer knows an
-operator in braces with a comparison only for && and ||.
+comparison, printed in section 3.2.1, is read by the classic algebra but not
+yet by the new one.
 """
 
 import datetime
@@ -316,12 +316,19 @@ def test_the_spelling_preceedes_of_the_caption_is_refused(paper):
 
 
 @pytest.mark.parametrize(
-    "expression", ["if(A {>=,equals,l} F, A)", "if(A {>=,equal,l} F, A)"]
+    "expression", ["if(A {>=,equals,l} F, A, F)", "if(A {>=,equal,l} F, A, F)"]
 )
-def test_the_long_form_of_a_comparison_is_refused(paper, expression):
-    """Section 3.2.1 prints {>=,equals,l} as the long form of >="""
-    for runner in ("reference", "classic", "core"):
-        assert run(runner, expression, "fa")["error"] == "SyntaxError"
+def test_the_long_form_of_a_comparison(paper, expression):
+    """Section 3.2.1 prints {>=,equals,l} as the long form of >=
+
+    a >= f is false on each month (1.5 < 5, 2.5 < 6, 3.5 < 7, 4.5 < 8), so
+    the else part F is the result: 5, 6, 7 and 8. The new algebra does not
+    read the long form yet.
+    """
+    for runner in ("reference", "classic"):
+        result = run(runner, expression, "fa")
+        assert [row[3] for row in result["maps"]] == [5, 6, 7, 8]
+    assert run("core", expression, "fb")["error"] == "SyntaxError"
 
 
 def values(result):

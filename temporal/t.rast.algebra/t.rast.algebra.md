@@ -360,6 +360,35 @@ Condition 1 {&&, equal|during, l} Condition 2 && Condition 3
 Condition 1 {&&, equal|during, l} Condition 2 {&&,contains, |, r} Condition 3
 ```
 
+#### Comparison of related maps
+
+Inside `if()`, the values of two space time datasets can be compared with
+the comparison operators `==`, `!=`, `>`, `>=`, `<` and `<=`. Each map of
+the first dataset is compared with every map of the second dataset that has
+one of the given topological relations to it. The result for a map is true
+if all comparisons are true (aggregation `&`) or if any is true
+(aggregation `|`). The operator in braces has the form
+{"comparison operator", "topological relations", aggregation operator,
+"temporal operator"}; the aggregation operator and the temporal operator
+are optional, the aggregation operator is `&` and the temporal operator `l`
+by default, and the relations default to `equal` if the braces are left
+out. The short form `A >= F` is the operator `{>=, equal, &, l}`. A map of
+the first dataset without a related map gives no map:
+
+```sh
+if(A {>=, contains, |} E, A, 0)
+if(A {<, equal|during, &, r} F, F, 0)
+if(A >= F, A, F)
+```
+
+The first expression is true for a map of A if it is greater than or equal
+to any related map of E; the last one gives, for each map of A, the value
+of A where it is not smaller than the map of F with the same time, and the
+value of F otherwise. The comparison operator in braces and the short form
+are read by the classic algebra (**-c**); the new algebra does not read
+them yet. The granularity mode (**-g**) reads the short form only, like any
+expression in braces it refuses the other.
+
 #### Hash operator
 
 Additionally, the number of maps in intervals can be computed and used

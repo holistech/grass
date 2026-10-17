@@ -370,6 +370,38 @@ Condition 1 {&amp;&amp;, equal|during, l} Condition 2 &amp;&amp; Condition 3
 Condition 1 {&amp;&amp;, equal|during, l} Condition 2 {&amp;&amp;,contains, |, r} Condition 3
 </pre></div>
 
+<h4>Comparison of related maps</h4>
+
+Inside <code>if()</code>, the values of two space time datasets can be
+compared with the comparison operators <code>==</code>, <code>!=</code>,
+<code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code> and
+<code>&lt;=</code>. Each map of the first dataset is compared with every map of
+the second dataset that has one of the given topological relations to it. The
+result for a map is true if all comparisons are true (aggregation
+<code>&amp;</code>) or if any is true (aggregation <code>|</code>). The
+operator in braces has the form {"comparison operator", "topological
+relations", aggregation operator, "temporal operator"}; the aggregation
+operator and the temporal operator are optional, the aggregation operator is
+<code>&amp;</code> and the temporal operator <code>l</code> by default, and the
+relations default to <code>equal</code> if the braces are left out. The short
+form <code>A &gt;= F</code> is the operator
+<code>{&gt;=, equal, &amp;, l}</code>. A map of the first dataset without a
+related map gives no map:
+
+<div class="code"><pre>
+if(A {&gt;=, contains, |} E, A, 0)
+if(A {&lt;, equal|during, &amp;, r} F, F, 0)
+if(A &gt;= F, A, F)
+</pre></div>
+
+The first expression is true for a map of A if it is greater than or equal to
+any related map of E; the last one gives, for each map of A, the value of A
+where it is not smaller than the map of F with the same time, and the value of
+F otherwise. The comparison operator in braces and the short form are read by
+the classic algebra (<b>-c</b>); the new algebra does not read them yet. The
+granularity mode (<b>-g</b>) reads the short form only, like any expression in
+braces it refuses the other.
+
 <h4>Hash operator</h4>
 
 Additionally, the number of maps in intervals can be computed and used in

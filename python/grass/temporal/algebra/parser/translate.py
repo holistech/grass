@@ -25,7 +25,7 @@ from grass.temporal.algebra.sources import source, source_map
 from grass.temporal.datetime_math import check_datetime_string
 
 from . import ast
-from .operators import TemporalOperator
+from .operators import COMPARISONS, TemporalOperator
 
 _EXTENTS = {"l": "target", "u": "union", "i": "intersection", "d": "disjoint"}
 _CELL_FUNCTIONS = (
@@ -56,7 +56,7 @@ _OTHER_FUNCTIONS = (
     "tshift",
     "tsnap",
 )
-_COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
+_COMPARISONS = COMPARISONS
 _AGGREGATES = {"&": "all", "|": "any"}
 # The overlays of vector maps; + is the v.patch of vector maps.
 _OVERLAYS = {"&": "and", "|": "or", "^": "xor", "~": "not"}

@@ -391,6 +391,15 @@ class ClassicTranslator(Translator):
         return self._each_unit(self._binary_unit, node, left, right)
 
     def _binary_unit(self, node, left, right):
+        if (
+            node.symbol in _COMPARISONS
+            and isinstance(left, Series)
+            and isinstance(right, Series)
+        ):
+            # The grammar reads the comparison of two datasets in if() only.
+            return self._compare_related(
+                node.symbol, left, right, node.operator or TemporalOperator(node.symbol)
+            )
         if node.symbol in (":", "!:") and node.operator is None:
             return self._select(
                 left, right, TemporalOperator(node.symbol), one_per_map=False
@@ -1078,6 +1087,18 @@ class ClassicTranslator(Translator):
             for content in others[1:]:
                 other = call(aggregate, other, content)
             joined.append(_joined(symbol, slot.content, other))
+        return self._place(left, relation, right, joined, "r")
+
+    def _place(self, left, relation, right, conditions, temporal, sort=None):
+        """The conditions of the left maps, with the time stamps that the
+        temporal reference gives the pairs of a map and its related maps
+
+        :param conditions: One content for each slot of left, in its order
+        :param temporal: l, r, u, i or d; r gives a map per partner that
+            carries the whole condition of its left map, the others one map
+            per left map.
+        :param sort: The sort of the result, that of left if omitted
+        """
         # The left maps are marked by their position, so that each pair
         # finds the condition of its left map.
         marked = _like(
@@ -1087,23 +1108,65 @@ class ClassicTranslator(Translator):
                 for number, slot in enumerate(left.slots)
             ),
         )
-        pairs = operations.pairs(
-            marked,
-            relation,
-            right,
-            extent="right",
-            order="written",
-            unique=False,
-            box="intersection",
-            mixed_times=self.profile.mixed_times,
-        )
+        options = {
+            "order": "written",
+            "unique": False,
+            "box": "intersection",
+            "mixed_times": self.profile.mixed_times,
+        }
+        if temporal == "r":
+            placed = operations.pairs(
+                marked, relation, right, extent="right", **options
+            )
+        else:
+            placed = operations.gather(
+                marked,
+                relation,
+                right,
+                reduce=None,
+                extent=_EXTENTS[temporal],
+                failure="stop",
+                **options,
+            )
         return _like(
-            pairs,
+            placed,
             (
-                dataclasses.replace(slot, content=joined[slot.content.value])
-                for slot in pairs.slots
+                dataclasses.replace(slot, content=conditions[slot.content.value])
+                for slot in placed.slots
             ),
+            sort,
         )
+
+    def _compare_related(self, symbol, left, right, operator):
+        """A comparison of two datasets: each left map is compared with every
+        related map, and the comparisons are joined by the aggregation, as
+        (a1 >= f1 && a1 >= f2)
+
+        A count is a cell value here, as in other cell conditions. A left map
+        without related map gives no map.
+        """
+        left, right = self._cells(left), self._cells(self._aligned(left, right))
+        relation = self._relation(operator)
+        join = "&&" if operator.aggregate == "&" else "||"
+        conditions = []
+        for slot, found in zip(
+            left.slots, self._related(left, relation, right), strict=True
+        ):
+            condition = None
+            for index in found:
+                part = call(symbol, slot.content, right.slots[index].content)
+                condition = part if condition is None else call(join, condition, part)
+            conditions.append(condition)
+        return self._place(
+            left, relation, right, conditions, operator.temporal, "field"
+        )
+
+    def _cells(self, series):
+        """The series with its counts as cell values"""
+        series = self._first_counts(series)
+        if series.sort == "scalar" and _timed(series):
+            return dataclasses.replace(series, sort="field")
+        return series
 
     def _time_variable(self, name, arguments):
         """td() needs intervals; in a selection start_doy(A, 1) and the like

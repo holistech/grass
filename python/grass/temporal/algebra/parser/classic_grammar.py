@@ -563,6 +563,18 @@ _TEXTS = {
              | t_td_var T_ARITH1_OPERATOR expr
              | t_td_var T_ARITH1_OPERATOR t_td_var
     """,
+    "p_s_var_expr_compare": """
+        s_var_expr : stds comp_op stds
+                   | expr comp_op stds
+                   | stds comp_op expr
+                   | expr comp_op expr
+    """,
+    "p_s_var_expr_compare_relation": """
+        s_var_expr : stds T_COMPARISON_OPERATOR stds
+                   | expr T_COMPARISON_OPERATOR stds
+                   | stds T_COMPARISON_OPERATOR expr
+                   | expr T_COMPARISON_OPERATOR expr
+    """,
     "p_ts_neighbor_operation": """
         expr : stds L_SPAREN number COMMA number COMMA number R_SPAREN
              | stds L_SPAREN number R_SPAREN
@@ -681,6 +693,8 @@ _ORDER = {
         "p_numberstr_chain",
         "p_td_operation",
         "p_td_operation_relation",
+        "p_s_var_expr_compare",
+        "p_s_var_expr_compare_relation",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",
@@ -751,6 +765,8 @@ _ORDER = {
         "p_numberstr_chain",
         "p_td_operation",
         "p_td_operation_relation",
+        "p_s_var_expr_compare",
+        "p_s_var_expr_compare_relation",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",
@@ -898,6 +914,7 @@ _SYMBOL_TOKENS = {
 _OPERATOR_TOKENS = {
     "T_SELECT_OPERATOR", "T_HASH_OPERATOR", "T_COMP_OPERATOR",
     "T_ARITH1_OPERATOR", "T_ARITH2_OPERATOR", "T_OVERLAY_OPERATOR",
+    "T_COMPARISON_OPERATOR",
 }  # fmt: skip
 # Nonterminals whose value is the name of a function or a comparison
 _WORDS = ("comp_op", "t_var", "mapcalc_arith", "buff_function")
