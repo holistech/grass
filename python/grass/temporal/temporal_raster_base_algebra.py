@@ -1387,10 +1387,10 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
         # map(L) + 1
         # 2 * map(L)
         # map(L) - map(L)
-        # Every pair of the string valued operands (a number, a computed
-        # number and a map) is an operand of its own operator. Without a
-        # production for the pair the parser shifted and a chain such as
-        # map(L) - 1 - A was read as L - (1 - A).
+        # Every pair of the operands that are computed as text (a number, a
+        # chain of numbers and a map) has a production, so that the pair is
+        # reduced with the precedence of its operator. Without one the parser
+        # shifted, and map(L) - 1 - A was read as L - (1 - A).
         """
         mapexpr : mapexpr   MOD  number
                 | mapexpr   DIV  number

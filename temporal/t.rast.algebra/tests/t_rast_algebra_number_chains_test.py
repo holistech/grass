@@ -182,8 +182,12 @@ def test_forms_without_a_production_stay_refused(chains, runner, expression):
     assert run(runner, expression, "fa")["error"] == "SyntaxError"
 
 
-@pytest.mark.parametrize(("expression", "new", "old"), CHAINS[:3])
-def test_the_profile_computes_what_the_reference_computes(chains, expression, new, old):
+@pytest.mark.parametrize(
+    "expression",
+    [row[0] for row in CHAINS + NEWLY_READ + UNCHANGED],
+)
+def test_the_profile_computes_what_the_reference_computes(chains, expression):
+    """Also the time stamps and names, which the tests above leave out"""
     reference = run("reference", expression, "fa")
     profile = run("classic", expression, "fb")
     assert compare(KIND, expression, reference, profile) is None
