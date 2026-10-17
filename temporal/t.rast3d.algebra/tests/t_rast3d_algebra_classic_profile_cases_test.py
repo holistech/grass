@@ -64,7 +64,7 @@ FIRST_COUNT = [
     "merge(A # B, B # A)",
     "if(exist(Z[0]), if(A # Z >= 3000000000, A / tmap(single)), A + A)",
     "if(isntnull(A), if(isntnull(tmap(single)) && B # A >= 1, B), 4)",
-    # Classic bug, reproduced: td() of a counted map is its first count
+    # td() of a counted map is its duration (corrected 17.10.2026)
     "if(td(A # merge(B, Z)) > 1.5, A)",
     "if(td(A # merge(B, Z)) < 1.5, A)",
     "B + td(A # merge(B, Z))",
@@ -152,6 +152,18 @@ def test_a_number_next_to_a_count(datasets, expression, granularity):
 @pytest.mark.parametrize("expression", FIRST_COUNT)
 def test_a_counted_map_is_its_first_count_next_to_maps(datasets, expression, options):
     assert_equal(expression, **options)
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_td_of_a_counted_map_is_td_of_the_map(datasets, runner):
+    """Counting does not change what td() says"""
+    counted, plain = (
+        outcome(KIND, f"B + td({operand})", RUNNERS[runner], basename=name)
+        for operand, name in (("A # merge(B, Z)", "fa"), ("A", "fb"))
+    )
+    assert "error" not in plain
+    assert plain["maps"]
+    assert compare(KIND, "td", counted, plain) is None
 
 
 @pytest.mark.parametrize("expression", LARGE_CONSTANTS)

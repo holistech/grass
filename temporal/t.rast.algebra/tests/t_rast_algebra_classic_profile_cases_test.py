@@ -280,9 +280,10 @@ FIRST_COUNT = [
     "if(A # N >= 3000000000, A)",
 ]
 
-# Classic bug, reproduced: td() of a counted map appends the duration after
-# the count, and a comparison or an operand of td() reads the first value,
-# the count. A # merge(N, HA) counts 2 for maps of one day.
+# td() of a counted map is its duration. The earlier implementation appended
+# the duration after the count and read the first value, the count, in a
+# comparison and as an operand (corrected 17.10.2026, both implementations
+# give the duration). A # merge(N, HA) counts 2 for maps of one day.
 COUNTED_DURATION = [
     "if(td(A # merge(N, HA)) > 1.5, A)",
     "if(td(A # merge(N, HA)) < 1.5, A)",
@@ -603,16 +604,50 @@ def test_a_count_in_the_granularity_mode(datasets, expression):
 
 @pytest.mark.parametrize("granularity", [False, True])
 @pytest.mark.parametrize("expression", COUNTED_DURATION)
-def test_td_of_a_counted_map_is_its_first_count(datasets, expression, granularity):
+def test_td_of_a_counted_map_is_its_duration(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
 
 
-def test_td_of_a_counted_map_adds_the_count_in_the_reference(datasets):
-    """N holds 11 to 14: the count 2 is added, not the duration of one day"""
-    reference = outcome(
-        KIND, "N + td(A # merge(N, HA))", RUNNERS["reference"], basename="fa"
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_td_of_a_counted_map_as_an_operand_by_hand(datasets, runner):
+    """N holds 11 to 14 and its maps last one day; A # merge(N, HA) counts 2,
+    which is not the duration: 11 + 1, 12 + 1, 13 + 1, 14 + 1"""
+    result = outcome(KIND, "N + td(A # merge(N, HA))", RUNNERS[runner], basename="fa")
+    assert [values[3] for values in result["maps"]] == [12, 13, 14, 15]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize(
+    ("expression", "maps"),
+    [
+        # The count 2 is above 1.5, the duration of one day is not
+        ("if(td(A # merge(N, HA)) > 1.5, A)", 0),
+        ("if(td(A # merge(N, HA)) < 1.5, A)", 4),
+        ("if(td(A # merge(N, HA)) == 1, A)", 4),
+    ],
+)
+def test_td_of_a_counted_map_in_a_condition_by_hand(datasets, runner, expression, maps):
+    result = outcome(KIND, expression, RUNNERS[runner], basename="fa")
+    assert len(result.get("maps", [])) == maps
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("granularity", [False, True])
+def test_td_of_a_counted_map_is_td_of_the_map(datasets, runner, granularity):
+    """Counting does not change what td() says, and td() of a map that is
+    not counted is as it was"""
+    counted, plain = (
+        outcome(
+            KIND,
+            f"N + td({operand})",
+            RUNNERS[runner],
+            basename=name,
+            granularity=granularity,
+        )
+        for operand, name in (("A # merge(N, HA)", "fa"), ("A", "fb"))
     )
-    assert [values[3] for values in reference["maps"]] == [13, 14, 15, 16]
+    assert compare(KIND, "td", counted, plain) is None
+    assert [values[3] for values in plain["maps"]] == [12, 13, 14, 15]
 
 
 # The classic merge() compares the texts if(1, 1,2) and (1) of two objects of

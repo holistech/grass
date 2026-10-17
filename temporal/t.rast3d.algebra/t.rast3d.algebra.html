@@ -332,6 +332,19 @@ C = A {:,contains,i} I
 C = A {+,contains,i} I
 </pre></div>
 </li>
+
+<li><b>td() of a counted map.</b> <code>td()</code> of a map counted by the
+hash operator gave the count instead of the duration, as an operand and in a
+comparison (corrected 17 October 2026). The datasets A and N have daily maps
+and <code>A # merge(A, N)</code> counts 2 for each map of A. The expression
+added 2 to the maps of N where it now adds the one day of their duration; a
+condition such as <code>td(A # merge(A, N)) &gt; 1.5</code> was true and is
+false now. The duration of a map that is not counted did not change:
+
+<div class="code"><pre>
+C = N + td(A # merge(A, N))
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>

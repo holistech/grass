@@ -304,8 +304,7 @@ class ClassicTranslator(Translator):
         # The conditions on time functions whose argument is a computed
         # expression, with the argument; see _remember_commands().
         self._commands = _SeriesNotes()
-        # The results of the hash operator itself and td() of counted maps;
-        # see _compare().
+        # The results of the hash operator itself; see _compare().
         self._hashes = _SeriesNotes()
         # The time stamp of every registered map the expression reads, by
         # identifier; see statement().
@@ -952,10 +951,9 @@ class ClassicTranslator(Translator):
         self._remember_commands(result, _like(argument, slots))
 
     def _compare(self, symbol, left, right):
-        """A comparison of the hash operator itself (A # B == 2) or of td() of
-        a count is a condition on time on the first count; any other
-        comparison of a count, as (A # B) + 1 > 2, is a cell condition in the
-        r.mapcalc text"""
+        """A comparison of the hash operator itself (A # B == 2) is a condition
+        on time on the first count; any other comparison of a count, as
+        (A # B) + 1 > 2, is a cell condition in the r.mapcalc text"""
         if left in self._hashes:
             left = self._first_counts(left)
         else:
@@ -1132,29 +1130,6 @@ class ClassicTranslator(Translator):
             )
         result = super()._time_variable(name, arguments)
         self._remember_commands(result, series)
-        if name == "td" and isinstance(series, Series):
-            result = self._counted_duration(result, series)
-        return result
-
-    def _counted_duration(self, durations, series):
-        """td() of counted maps: the classic algebra appends the duration to
-        the values of the map object after its count, and both a comparison
-        (td(A # B) > 1) and an operand (N + td(A # B)) read the first value,
-        the count. This is a classic bug, reproduced."""
-        if len(durations.slots) != len(series.slots) or not any(
-            self._counted(slot.content) for slot in series.slots
-        ):
-            return durations
-        slots = []
-        for slot, argument in zip(durations.slots, series.slots, strict=True):
-            if self._counted(argument.content):
-                # A copy of the first count, so that each has an identity
-                content = self._counting(argument.content.mark.first, argument.content)
-                slot = dataclasses.replace(slot, content=content)
-            slots.append(slot)
-        result = dataclasses.replace(durations, slots=tuple(slots))
-        # Compared as a condition on time, like the hash operator itself
-        self._hashes.note(result)
         return result
 
     def _function(self, node):

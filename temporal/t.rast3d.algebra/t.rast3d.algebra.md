@@ -303,6 +303,18 @@ use the datasets of the list above and, in addition, N with daily maps.
    C = A {+,contains,i} I
    ```
 
+7. **td() of a counted map.** `td()` of a map counted by the hash operator
+   gave the count instead of the duration, as an operand and in a
+   comparison (corrected 17 October 2026). The datasets A and N have daily
+   maps and `A # merge(A, N)` counts 2 for each map of A. The expression
+   added 2 to the maps of N where it now adds the one day of their
+   duration; a condition such as `td(A # merge(A, N)) > 1.5` was true and
+   is false now. The duration of a map that is not counted did not change:
+
+   ```sh
+   C = N + td(A # merge(A, N))
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python

@@ -765,11 +765,11 @@ The classic algebra gives the results of the previous implementation, with
 the exceptions below. In these cases the previous implementation
 computed wrongly, ended in an error that had no reason, or reported the
 wrong error. **-c** now gives the result described here. The new algebra
-never computed these cases wrongly; only the last item concerned the
-library and with it both algebras. Results of earlier GRASS versions that
-used one of these forms need a new run. The examples use the datasets of
-the list above and, in addition, N with daily maps of the values 11 to 14
-and RT with maps of relative time.
+never computed these cases wrongly; only the item on infinite values
+concerned the library and with it both algebras. Results of earlier GRASS
+versions that used one of these forms need a new run. The examples use the
+datasets of the list above and, in addition, N with daily maps of the values
+11 to 14 and RT with maps of relative time.
 
 1. **td() of an expression** on the right of an operator used the value of
    the expression instead of the duration of its maps. With daily maps in N
@@ -853,6 +853,18 @@ and RT with maps of relative time.
 
    ```sh
    C = exp(A * 1000)
+   ```
+
+8. **td() of a counted map.** `td()` of a map counted by the hash operator
+   gave the count instead of the duration, as an operand and in a
+   comparison (corrected 17 October 2026). The datasets A and N have daily
+   maps and `A # merge(A, N)` counts 2 for each map of A. The expression
+   added 2 to the maps of N where it now adds the one day of their
+   duration; a condition such as `td(A # merge(A, N)) > 1.5` was true and
+   is false now. The duration of a map that is not counted did not change:
+
+   ```sh
+   C = N + td(A # merge(A, N))
    ```
 
 #### Differences from the previous implementation
