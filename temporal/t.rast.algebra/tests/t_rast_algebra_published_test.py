@@ -11,9 +11,9 @@ t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results; this module compares the two implementations on the
 expressions and pins three results computed by hand.
 
-The paper prints some expressions that no classic version reads; they are
-pinned as errors here and in t_select_published_test.py. The caption misspells
-precedes, which is a syntax error.
+Every printed expression runs in the reference, the profile and the new
+algebra. The caption of one figure misspells precedes; that spelling is a
+syntax error in all three and the only printed form that is refused.
 """
 
 import datetime
@@ -262,6 +262,32 @@ def test_the_profile_computes_what_the_reference_computes(
     # Two refusals would make the comparison vacuous.
     assert "error" not in reference
     assert reference["maps"]
+
+
+@pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)
+def test_the_core_computes_what_the_reference_computes(
+    paper, expression, options, data
+):
+    """Every printed expression runs in the new algebra and gives the maps of
+    the reference
+
+    One expression differs by the meaning of -n, which the runner sets: the
+    new algebra also registers a null map for each map of A that contains no
+    map of E (a2 to a4), the earlier implementation registers only the map
+    with partners. The map with partners is the same.
+    """
+    assert data == "paper"
+    reference = run("reference", expression, "fa", **options)
+    core = run("core", expression, "fc", **options)
+    assert "error" not in core, core
+    assert core["maps"]
+    difference = compare(KIND, expression, reference, core)
+    if difference is None:
+        return
+    assert "{&&,contains" in expression, difference
+    kept = [row for row in core["maps"] if row[3] is not None]
+    assert [row[1:] for row in kept] == [row[1:] for row in reference["maps"]]
+    assert len(core["maps"]) - len(kept) == 3
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
