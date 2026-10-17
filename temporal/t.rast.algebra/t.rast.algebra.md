@@ -386,8 +386,8 @@ to any related map of E; the last one gives, for each map of A, the value
 of A where it is not smaller than the map of F with the same time, and the
 value of F otherwise. The comparison operator in braces and the short form
 are read by the classic algebra (**-c**); the new algebra does not read
-them yet. The granularity mode (**-g**) reads the short form only, like any
-expression in braces it refuses the other.
+them yet. The granularity mode (**-g**) reads the short form; it refuses
+the operator in braces, as it refuses every operator in braces.
 
 #### Hash operator
 

@@ -75,6 +75,11 @@ BRACES = [
     ("if(A {>=,contains,|} E && A > 1, A, 0)", JAN, [1.5]),
     # equal named twice relates a partner twice; a > f is false either way
     ("if(A {>,equal|equals} F, A, 0)", ALL, [0, 0, 0, 0]),
+    # The union of a1 with e1, e2 and e3, which lie inside it, is January:
+    # 1.5 >= 1.5 and 1.5 >= 2.5 is false
+    ("if(A {>=,contains,&,u} E, A, 0)", JAN, [0]),
+    # The disjoint union is January as well: 1.5 < 2.5 is true for or
+    ("if(A {<,contains,|,d} E, 1, 0)", JAN, [1]),
     # the condition has the time of a1, which is equal to the map a1: 1.5 >= 1.5
     ("if({equal}, A {>=,contains,|} E, A, 0)", JAN, [1.5]),
 ]
@@ -159,8 +164,8 @@ def test_a_condition_without_an_equal_map_is_empty(comparisons, runner):
     "expression",
     [row[0] for row in BRACES + BARE]
     + [
-        "if(A {>=,contains,&,u} E, A, 0)",
         "if(A {>=,contains,&,d} E, A, 0)",
+        "if(A {<,contains,|,u} E, E, 0)",
         "if(E {<=,during} A, E, 0)",
         "if(E {<=,during,r} A, A, 0)",
         "if(A[1] >= A, A, 0)",
@@ -190,7 +195,7 @@ def test_the_granularity_mode_reads_the_bare_form_only(comparisons, runner):
     bare = run(runner, "if(A >= F, A, F)", "fa", granularity=True)
     assert starts_and_values(bare) == (ALL, [5, 6, 7, 8])
     braces = run(runner, "if(A {>=,equal,l} F, A, F)", "fb", granularity=True)
-    assert braces["error"] != ""
+    assert braces["error"] == "FatalError"
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
@@ -206,7 +211,7 @@ def test_the_granularity_mode_reads_the_bare_form_only(comparisons, runner):
     ],
 )
 def test_forms_that_are_no_comparisons_stay_refused(comparisons, runner, expression):
-    assert "error" in run(runner, expression, "fa")
+    assert run(runner, expression, "fa")["error"] == "SyntaxError"
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
