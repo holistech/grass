@@ -308,6 +308,9 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
                     str(offset) for offset in spatial_offsets
                 )
             map_new.cmd_list = reference
+            # The bare reference, so that a truth value of this map is
+            # recognised in _convert_condition_value().
+            map_new.neighbour_cmd = reference
             resultlist.append(map_new)
         return resultlist
 
@@ -438,9 +441,15 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
 
         A map that already carries a command (a raster comparison chained
         behind a temporal condition) keeps it; overwriting it would discard
-        the raster part of the chain.
+        the raster part of the chain. A neighbour map carries only its own
+        reference as command, which is no raster part: its condition value
+        is the truth value (a time function of A[1] is not the cell value of
+        A[1]).
         """
-        if getattr(map_i, "condition_value", None) and not hasattr(map_i, "cmd_list"):
+        if getattr(map_i, "condition_value", None) and (
+            not hasattr(map_i, "cmd_list")
+            or map_i.cmd_list == getattr(map_i, "neighbour_cmd", None)
+        ):
             map_i.cmd_list = str(int(map_i.condition_value[0]))
 
     def operator_cmd_value(
