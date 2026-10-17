@@ -150,7 +150,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     >>> expression = "{^, over, right}"
     >>> p.parse(expression, optype="rter")
     Traceback (most recent call last):
-    SyntaxError: Unknown optype rter, must be one of ['select', 'boolean', 'raster', 'hash', 'relation', 'overlay']
+    SyntaxError: Unknown optype rter, must be one of ['select', 'boolean', 'raster', 'hash', 'relation', 'overlay', 'compare']
 
 """  # noqa: E501
 
@@ -256,6 +256,12 @@ class TemporalOperatorLexer:
         "SUB",
         "T_SELECT",
         "T_NOT_SELECT",
+        "CEQUALS",
+        "UNEQUALS",
+        "LOWER",
+        "LOWER_EQUALS",
+        "GREATER",
+        "GREATER_EQUALS",
         "CLPAREN",
         "CRPAREN",
     )
@@ -268,6 +274,12 @@ class TemporalOperatorLexer:
     # for them would be a character class and also match a leading "|".
     t_T_SELECT = r":"
     t_T_NOT_SELECT = r"!:"
+    t_CEQUALS = r"=="
+    t_UNEQUALS = r"!="
+    t_LOWER = r"<"
+    t_LOWER_EQUALS = r"<="
+    t_GREATER = r">"
+    t_GREATER_EQUALS = r">="
     t_COMMA = r","
     t_HASH = r"\#"
     t_OR = r"[\|]"
@@ -358,6 +370,7 @@ class TemporalOperatorParser:
             "hash",
             "relation",
             "overlay",
+            "compare",
         ]
 
     def parse(self, expression, optype="relation"):
@@ -373,6 +386,7 @@ class TemporalOperatorParser:
             - overlay  { \\|, starts,   &}
             - hash     { #, during,   l}
             - relation {during}
+            - compare  { >=, contains, \\|, r}
 
         :raises SyntaxError: If the expression is not a valid operator or the
             operator does not belong to optype
@@ -450,6 +464,30 @@ class TemporalOperatorParser:
         """
         aggregate, temporal = t[5]
         t[0] = _Operator({"boolean"}, t[4], temporal or "l", t[2], aggregate or t[2][0])
+
+    @staticmethod
+    def p_comparison_operator(t):
+        # {>=, during}
+        # {==, equal | during, |}
+        # {<, contains, &, r}
+        """
+        operator : CLPAREN comparison COMMA relations booleanoptions CRPAREN
+        """
+        aggregate, temporal = t[5]
+        t[0] = _Operator({"compare"}, t[4], temporal or "l", t[2], aggregate or "&")
+
+    @staticmethod
+    def p_comparison(t):
+        # A comparison joins its comparisons with and unless told otherwise
+        """
+        comparison : CEQUALS
+                   | UNEQUALS
+                   | LOWER
+                   | LOWER_EQUALS
+                   | GREATER
+                   | GREATER_EQUALS
+        """
+        t[0] = t[1]
 
     @staticmethod
     def p_boolean_options(t):

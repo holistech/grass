@@ -55,6 +55,9 @@ from .temporal_algebra import (
     TemporalAlgebraParser,
 )
 
+# The symbols of a comparison of two datasets, {>=,contains} or A >= F
+_COMPARISONS = ("==", "!=", ">", ">=", "<", "<=")
+
 
 class TemporalRasterAlgebraLexer(TemporalAlgebraLexer):
     """Lexical analyzer for the GRASS temporal algebra"""
@@ -94,6 +97,7 @@ class TemporalRasterAlgebraLexer(TemporalAlgebraLexer):
         "SUB",
         "T_ARITH1_OPERATOR",
         "T_ARITH2_OPERATOR",
+        "T_COMPARISON_OPERATOR",
         "L_SPAREN",
         "R_SPAREN",
     )
@@ -115,6 +119,14 @@ class TemporalRasterAlgebraLexer(TemporalAlgebraLexer):
     t_T_ARITH1_OPERATOR = r"\{[\%\*\/][,]?[a-zA-Z\| ]*([,])?([lrudi]|left|right|union|disjoint|intersect)?\}"  # noqa: E501
     t_T_ARITH2_OPERATOR = (
         r"\{[+-][,]?[a-zA-Z\| ]*([,])?([lrudi]|left|right|union|disjoint|intersect)?\}"
+    )
+    # A comparison of related maps, {>=,contains,|,l}. Like the operator of &&
+    # and || it needs a comma behind the symbol. Only the raster lexers have the
+    # token: the grammars of the select and vector algebras have no rule for it
+    # and PLY would report an unused token.
+    t_T_COMPARISON_OPERATOR = (
+        r"\{(==|!=|>=|<=|>|<)[,][a-zA-Z\| ]*([,][ ]*[\|&])?"
+        + TemporalAlgebraLexer._OPERATOR_TAIL
     )
     t_L_SPAREN = r"\["
     t_R_SPAREN = r"\]"
@@ -390,11 +402,14 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
 
         R = if(A < 1 {&&,equal|equivalent} B > 1, A, B)
 
+        R = if(A {>=,contains,|} B, A, B)
+
         Extended temporal algebra version with command
         list builder for temporal raster algebra.
 
         :param map_i: Map object with temporal extent.
-        :param compop: Comparison operator, && or ||.
+        :param compop: Boolean operator, && or ||, or a comparison of two
+                       datasets: ==, !=, >, >=, < or <=.
         :param aggregate: Aggregation operator for relation map list, & or \\|.
         :param temporal_topo_list: List of strings for given temporal relations.
         :param spatial_topo_list: List of strings for given spatial relations.
@@ -408,6 +423,10 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             ["EQUAL"] if temporal_topo_list is None else temporal_topo_list
         )
         spatial_topo_list = [] if spatial_topo_list is None else spatial_topo_list
+        if compop in _COMPARISONS:
+            return self._compare_with_related(
+                map_i, compop, aggregate, temporal_topo_list, spatial_topo_list
+            )
         if convert:
             self._convert_condition_value(map_i)
         if not hasattr(map_i, "cmd_list"):
@@ -432,6 +451,32 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
             compop,
             (aggregate + aggregate).join(str(cmd) for cmd in related_commands),
         )
+        self._trace(map_i.cmd_list)
+        return map_i.cmd_list
+
+    def _compare_with_related(
+        self, map_i, compop, aggregate, temporal_topo_list, spatial_topo_list
+    ):
+        """Compare a map with each of its related maps and join the results
+
+        The condition of the map is a comparison of its value with every
+        related map, joined by the aggregation doubled: (a1 >= f1 && a1 >= f2).
+        The operands are the commands of the maps, or the maps themselves if
+        they have no command; the boolean operators only meet conditions, which
+        always have one.
+
+        :return: The condition, or None if the map has no related map
+        """
+        comparisons = [
+            "%s %s %s"
+            % (self._operand_string(map_i), compop, self._operand_string(relationmap))
+            for relationmap in self._related_maps(
+                map_i, temporal_topo_list, spatial_topo_list
+            )
+        ]
+        if not comparisons:
+            return None
+        map_i.cmd_list = "(%s)" % (" %s " % (aggregate + aggregate)).join(comparisons)
         self._trace(map_i.cmd_list)
         return map_i.cmd_list
 
@@ -1519,6 +1564,40 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
         )
         t[0] = self._operate(t[1], t[3], relations, temporal, function)
         self._debug_commands(t[0])
+
+    def p_s_var_expr_compare(self, t) -> None:
+        # A >= B
+        # A * 2 < B + 1
+        # The short form of {>=, equal, &, l}.
+        """
+        s_var_expr : stds comp_op stds
+                   | expr comp_op stds
+                   | stds comp_op expr
+                   | expr comp_op expr
+        """
+        if not self.run:
+            t[0] = self._dry_name(t[1], t[3])
+            return
+        t[0] = self._compare(t[1], t[3], ["EQUAL"], "l", t[2], "&", convert=False)
+
+    def p_s_var_expr_compare_relation(self, t) -> None:
+        # A {>=, contains} B
+        # A {<, during | equal, |, r} B
+        """
+        s_var_expr : stds T_COMPARISON_OPERATOR stds
+                   | expr T_COMPARISON_OPERATOR stds
+                   | stds T_COMPARISON_OPERATOR expr
+                   | expr T_COMPARISON_OPERATOR expr
+        """
+        if not self.run:
+            t[0] = self._dry_name(t[1], t[3])
+            return
+        relations, temporal, function, aggregate = self.eval_toperator(
+            t[2], optype="compare"
+        )
+        t[0] = self._compare(
+            t[1], t[3], relations, temporal, function, aggregate, convert=False
+        )
 
 
 if __name__ == "__main__":

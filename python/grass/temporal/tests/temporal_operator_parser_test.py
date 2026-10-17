@@ -91,6 +91,12 @@ def lex(text):
         ("meet", [("MEET", "meet")]),
         # The published paper writes equals for the relation equal.
         ("equals", [("EQUAL", "equal")]),
+        ("==", [("CEQUALS", "==")]),
+        ("!=", [("UNEQUALS", "!=")]),
+        ("<", [("LOWER", "<")]),
+        ("<=", [("LOWER_EQUALS", "<=")]),
+        (">", [("GREATER", ">")]),
+        (">=", [("GREATER_EQUALS", ">=")]),
     ],
 )
 def test_lexer_single_tokens(text, expected):
@@ -592,3 +598,52 @@ def test_failed_parse_leaves_no_stale_attributes():
     with pytest.raises(SyntaxError):
         parser.parse("{:, during, r}", optype="raster")
     assert (parser.relations, parser.temporal, parser.function) == (None, None, None)
+
+
+# Parser: comparison operators {>=, during, |, r}
+
+
+@pytest.mark.parametrize("symbol", ["==", "!=", "<", "<=", ">", ">="])
+def test_compare_operator_default_is_equal_and_and(symbol):
+    """A bare comparison relates equal maps and joins the comparisons with and"""
+    assert parse("{%s, equal}" % symbol, "compare") == (["equal"], "l", symbol, "&")
+
+
+@pytest.mark.parametrize(
+    ("expression", "relations", "temporal", "aggregate"),
+    [
+        ("{>=, contains}", ["contains"], "l", "&"),
+        ("{>=, contains, |}", ["contains"], "l", "|"),
+        ("{<, during | equals, |, r}", ["during", "equal"], "r", "|"),
+        ("{<=, equal, union}", ["equal"], "u", "&"),
+        ("{==, over, &, i}", ["overlaps", "overlapped"], "i", "&"),
+        ("{!=, meet, d}", ["meet"], "d", "&"),
+    ],
+)
+def test_compare_operator_forms(expression, relations, temporal, aggregate):
+    """The options are those of the boolean operators"""
+    symbol = expression[1:].split(",")[0]
+    assert parse(expression, "compare") == (relations, temporal, symbol, aggregate)
+
+
+@pytest.mark.parametrize(
+    ("expression", "optype"),
+    [
+        ("{>=, equal}", "boolean"),
+        ("{>=, equal}", "raster"),
+        ("{&&, equal}", "compare"),
+        ("{+, equal}", "compare"),
+        ("{:, equal}", "compare"),
+    ],
+)
+def test_compare_operator_belongs_to_its_optype_only(expression, optype):
+    with pytest.raises(SyntaxError, match="Wrong optype"):
+        parse(expression, optype)
+
+
+@pytest.mark.parametrize(
+    "expression", ["{>=}", "{>=,}", "{>=, nonsense}", "{=, equal}"]
+)
+def test_compare_operator_errors(expression):
+    with pytest.raises(SyntaxError):
+        parse(expression, "compare")
