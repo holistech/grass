@@ -17,7 +17,7 @@ day are temporally equal.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
-from grass.tools import ToolError, Tools
+from grass.tools import Tools
 
 ALGEBRA = "GRASS_TEMPORAL_ALGEBRA"
 
@@ -76,30 +76,25 @@ def result_values(session, expression, flags="", algebra=None):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
-        # The classic algebra builds no spatial topology without -s and
-        # ignores the spatial relation then; the core needs -s for it.
-        pytest.param(
-            "P {+,equal|overlap} Q", "c", [11], marks=pytest.mark.fixed_algebra
-        ),
+        # A spatial relation name builds the spatial topology without -s,
+        # in the classic and in the new algebra.
+        ("P {+,equal|overlap} Q", "", [11]),
+        ("P {+,equal|overlap} Q", "c", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),
         # p1 and q1 overlap, they do not cover each other
-        pytest.param("P {+,equal|cover} Q", "c", [], marks=pytest.mark.fixed_algebra),
+        ("P {+,equal|cover} Q", "", []),
+        ("P {+,equal|cover} Q", "c", []),
         ("P {+,equal|cover} Q", "s", []),
         # the hash operator counts the temporally related maps; the result of
         # the condition is P itself, so the disjoint pair shows up as p2
         ("if(P {#} Q == 1, P)", "", [1, 2]),
         ("if(P {#} Q == 1, P)", "s", [1]),
+        # A spatial name counts the spatially related maps also without -s:
+        # p2 has none, as q2 is far away.
+        ("if(P {#,equal|overlap} Q == 1, P)", "", [1]),
+        ("if(P {#,equal|overlap} Q == 1, P)", "c", [1]),
     ],
 )
 def test_spatial_topology(spatial_series, expression, flags, expected):
     """-s and spatial relations restrict the related maps to spatially related"""
     assert result_values(spatial_series, expression, flags) == expected
-
-
-@pytest.mark.fixed_algebra
-@pytest.mark.parametrize("relations", ["equal|overlap", "equal|cover"])
-def test_spatial_relation_needs_the_spatial_flag(spatial_series, relations):
-    """Without -s no spatial topology is built, so a spatial relation name
-    is an error instead of an empty or unrestricted result"""
-    with pytest.raises(ToolError, match="need the spatial flag"):
-        result_values(spatial_series, f"P {{+,{relations}}} Q", algebra="core")

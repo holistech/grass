@@ -280,6 +280,23 @@ def test_equals_by_hand(paper, runner):
     assert [row[2] for row in twice] == [11.5, 14.5, 17.5, 20.5]
 
 
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+def test_a_spatial_relation_name_works_without_the_flag(paper, runner):
+    """Appendix C.2 prints equals|equivalent without -s
+
+    A and F have four monthly maps each, month for month the same time and
+    the same region, so each pair is spatially equivalent:
+    a + f = 1.5 + 5, 2.5 + 6, 3.5 + 7, 4.5 + 8 = 6.5, 8.5, 10.5, 12.5.
+    The regions are equivalent, not a cover of one another, so the name cover
+    relates no pair and no map results.
+    """
+    related = run(runner, "A {+,equal|equivalent,l} F", "fa")
+    assert [row[2] for row in values(related)] == [6.5, 8.5, 10.5, 12.5]
+    unrelated = run(runner, "A {+,equal|cover,l} F", "fb")
+    assert "error" not in unrelated
+    assert not unrelated["maps"]
+
+
 @pytest.mark.parametrize("runner", ["reference", "classic"])
 @pytest.mark.parametrize("name", ["EQUALS", "Equals", "EQUAL"])
 def test_the_relation_names_stay_lower_case(paper, runner, name):

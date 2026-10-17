@@ -49,7 +49,6 @@ LISTED = [
     "if(A > 2, A, D)",
     "if(td(I) > 0, I)",
     "C {+,contains,r} A",
-    "A {+,equal|overlap} N",
     'buff_t(B, "-1 day")',
     'buff_t(A, "-1 day")',
     'buff_t(I, "-1 day")',

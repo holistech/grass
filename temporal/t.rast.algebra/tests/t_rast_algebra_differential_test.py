@@ -53,6 +53,7 @@ SAME = [
     "if(start_day(A) > 2, A, N)",
     'if(start_date(A) < "2001-01-03", A)',
     "if(td(A) == 1 && A > 2, A, N)",
+    "A {+,equal|overlap} N",
     "if(A {#,during} B + A > 2, A, N)",
     'tshift(A, "1 day")',
     'buff_t(A, "1 day")',
@@ -93,10 +94,6 @@ DIFFERENT = {
     "C {+,contains,r} A": (
         "maps",
         "an operator with r gives each pair its own value",
-    ),
-    "A {+,equal|overlap} N": (
-        "ValueError",
-        "a spatial relation needs the spatial flag",
     ),
     # Where a negative buffer leaves a map no time, the core stops with an
     # error. The classic algebra stores an instant when the end equals the

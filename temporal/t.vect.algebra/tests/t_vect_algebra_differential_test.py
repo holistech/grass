@@ -88,9 +88,12 @@ DIFFERENT = {
         "maps",
         "an overlay with r gives each pair its own overlay",
     ),
+    # The core reads the name of a spatial relation without -s, as the classic
+    # algebra does. Both give no map, which the core registers as an empty
+    # dataset and the classic algebra does not create at all.
     "aa {&,equal|overlap} ab": (
-        "ValueError",
-        "a spatial relation needs the spatial flag",
+        "maps",
+        "an empty result creates an empty dataset only in the core",
     ),
 }
 

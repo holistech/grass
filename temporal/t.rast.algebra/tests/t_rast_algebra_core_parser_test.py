@@ -184,10 +184,12 @@ def test_pairing_error_reaches_the_caller(algebra, core):
 def test_spatial_relations_agree_with_the_earlier_parser(
     algebra, monkeypatch, large_region
 ):
+    """The name of a spatial relation builds the spatial topology with and
+    without -s, in the classic profile and in the core"""
     expression = "SA {+,equal|equivalent} SB"
     monkeypatch.setenv(VARIABLE, "classic")
     expected = algebra.run(expression, spatial=True)
+    assert algebra.run(expression) == expected
     monkeypatch.setenv(VARIABLE, "core")
     assert algebra.run(expression, spatial=True) == expected
-    with pytest.raises(ValueError, match="need the spatial flag"):
-        algebra.run(expression)
+    assert algebra.run(expression) == expected

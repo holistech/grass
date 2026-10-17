@@ -232,14 +232,11 @@ class Translator:
         names = frozenset(operator.relations)
         temporal = names & frozenset(TEMPORAL_RELATIONS)
         spatial = names - temporal
-        if spatial and not self._spatial:
-            msg = (
-                f"The spatial relations {', '.join(sorted(spatial))} need the "
-                "spatial flag"
-            )
-            raise ValueError(msg)
-        if self._spatial:
-            # An empty set asks for maps that are related in space at all.
+        if spatial or self._spatial:
+            # A spatial name asks for spatially related maps also without the
+            # flag, as in the classic algebra; the paper prints such an
+            # expression without it. With the flag alone, an empty set asks
+            # for maps that are related in space at all.
             return Relation(temporal, spatial)
         return Relation(temporal)
 

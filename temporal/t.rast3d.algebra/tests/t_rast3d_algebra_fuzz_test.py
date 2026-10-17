@@ -46,7 +46,6 @@ LISTED = [
     "W {+,contains,r} A",
     "if({during}, A > 1, W, 0)",
     "if(A > 2, A, W)",
-    "A {+,equal|overlap} B",
 ]
 
 

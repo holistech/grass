@@ -410,11 +410,11 @@ selects no map creates an empty space time dataset in both algebras. These
 points differ:
 
 <ol>
-<li><b>Spatial relations need -s.</b> A spatial relation in an operator, such
-as <code>{:,equal|overlap}</code>, is read only by the new algebra, needs the
-flag <b>-s</b> and a temporal relation to go with it; without the flag the
-algebra stops with an error. The classic algebra reports an error for the name
-of a spatial relation, with and without <b>-s</b>.
+<li><b>Spatial relations.</b> A spatial relation in an operator, such
+as <code>{:,equal|overlap}</code>, is read only by the new algebra, with and
+without the flag <b>-s</b>, and needs a temporal relation to go with it. The
+classic algebra reports a syntax error for the name of a spatial relation, with
+and without <b>-s</b>.
 </li>
 
 <li><b>Right reference.</b> <code>A {:,R,r} B</code> gives one map per related
@@ -476,8 +476,8 @@ In Python, both algebras raise <code>SyntaxError</code> for an expression they
 cannot read, and <code>FatalError</code> for a missing dataset and, without
 overwrite, for an existing result. The new algebra raises
 <code>ValueError</code> for an expression it reads but cannot select, such as
-<code>A + B</code>, and for a spatial relation without <b>-s</b>, where the
-classic algebra raises <code>SyntaxError</code>. The tool stops with the error
+<code>A + B</code>, where the classic algebra raises
+<code>SyntaxError</code>. The tool stops with the error
 message in both algebras.
 
 <p>

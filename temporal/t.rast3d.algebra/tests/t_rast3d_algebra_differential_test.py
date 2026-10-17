@@ -27,6 +27,7 @@ SAME = [
     "A !: Q",
     "A {#,during} W",
     "if(A > 2, A, B)",
+    "A {+,equal|overlap} B",
     "if(td(A) == 1, A)",
     "if(start_day(A) > 2, A, B)",
     'tshift(A, "1 day")',
@@ -74,10 +75,6 @@ DIFFERENT = {
     "if(A > 2, A, W)": (
         "ValueError",
         "then and else of a map condition need equal time stamps",
-    ),
-    "A {+,equal|overlap} B": (
-        "ValueError",
-        "a spatial relation needs the spatial flag",
     ),
 }
 

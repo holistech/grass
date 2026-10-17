@@ -60,9 +60,9 @@ DIFFERENT = {
     # The core reads the neighbourhood modifier A[1] and copies the shifted
     # map; the classic base grammar reports a syntax error.
     "A[1]": ("maps", "the core reads A[1] and A[-1]"),
-    # A spatial relation needs -s on the core; the classic algebra does not
-    # know the relation name (see also the test with the flag below).
-    "A {:,equal|overlap} B": ("ValueError", "a spatial relation needs -s"),
+    # The core reads the name of a spatial relation, with and without -s; the
+    # classic algebra does not know it (see also the test with the flag below).
+    "A {:,equal|overlap} B": ("maps", "the core reads spatial relations"),
     # The core reads an expression that is only a dataset, the classic base
     # grammar reports a syntax error.
     "A": ("maps", "the core reads a bare dataset"),
@@ -178,10 +178,12 @@ def test_listed_differences_still_differ(series, expression):
     assert core == DIFFERENT[expression][0]
 
 
-def test_spatial_relation_with_the_flag_is_read_by_the_core_only(series):
-    """With -s the core reads the spatial relation and selects maps; the
-    classic algebra reports a syntax error for the name, with or without -s"""
+def test_spatial_relation_is_read_by_the_core_only(series):
+    """The core reads the spatial relation and selects maps, with and without
+    -s; the classic algebra reports a syntax error for the name, with or
+    without -s"""
     expression = "A {:,equal|overlap} B"
+    assert outcome(expression, "core") == "maps"
     assert outcome(expression, "core", spatial=True) == "maps"
     assert outcome(expression, "classic", spatial=True) == "SyntaxError"
 

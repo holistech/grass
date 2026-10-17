@@ -11,7 +11,7 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, day, register_stds
 from grass.temporal.testing.session import project_session
-from grass.tools import ToolError, Tools
+from grass.tools import Tools
 
 
 @pytest.fixture(scope="module")
@@ -79,19 +79,18 @@ def test_spatial_topology(spatial_series, expression, flags, expected):
 
 
 @pytest.mark.parametrize(
-    ("expression", "classic_expected"),
+    ("expression", "expected"),
     [
         ("P {+,equal|overlap} Q", [11]),
         ("P {+,equal|cover} Q", []),
+        # p2 has no spatially related map, as q2 is far away
+        ("if(P {#,equal|overlap} Q == 1, P)", [1]),
     ],
 )
-@pytest.mark.fixed_algebra
+@pytest.mark.parametrize("flags", ["", "c"])
 def test_spatial_relation_without_spatial_flag(
-    spatial_series, expression, classic_expected
+    spatial_series, expression, expected, flags
 ):
-    """A spatial relation in an operator needs -s; the classic algebra
-    computes the expression without it"""
-    assert result_values(spatial_series, expression, "c") == classic_expected
-    env = {**spatial_series.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
-    with pytest.raises(ToolError, match="need the spatial flag"):
-        result_values(spatial_series, expression, env=env)
+    """The name of a spatial relation builds the spatial topology without -s,
+    in the classic and in the new algebra"""
+    assert result_values(spatial_series, expression, flags) == expected

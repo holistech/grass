@@ -47,7 +47,9 @@ The relations <em>equivalent</em>, <em>cover</em>, <em>overlap</em>,
 <em>in</em>, <em>contain</em> and <em>meet</em> can also be named in the
 curly brackets of a spatial operator, for example
 <code>{+,equal|overlap}</code>; the maps then need this spatial relation
-in addition to the temporal one.
+in addition to the temporal one. Such a name builds the
+spatial topology for its operator also without <b>-s</b>, as in the classic
+algebra.
 <p>
 The expression option must be passed as <b>quoted</b> expression, for
 example:
@@ -720,11 +722,6 @@ C = if(td(I) &gt; 0, I)
 A temporal variable that a map does not have, such as <code>end_doy()</code>
 of a time instance or the calendar values of relative time, is an error in
 both algebras.
-</li>
-
-<li><b>Spatial relations need -s.</b> A spatial relation in an operator, such
-as <code>{+,equal|overlap}</code>, needs the flag <b>-s</b>; without it, the
-algebra stops with an error. The classic algebra gives an empty result.
 </li>
 
 <li><b>More syntax.</b> Comparisons, temporal functions and the minus sign

@@ -420,11 +420,11 @@ differences between the two algebras do not reach it. An expression that
 selects no map creates an empty space time dataset in both algebras. These
 points differ:
 
-1. **Spatial relations need -s.** A spatial relation in an operator, such as
-   `{:,equal|overlap}`, is read only by the new algebra, needs the flag
-   **-s** and a temporal relation to go with it; without the flag the
-   algebra stops with an error. The classic algebra reports an error for
-   the name of a spatial relation, with and without **-s**.
+1. **Spatial relations.** A spatial relation in an operator, such as
+   `{:,equal|overlap}`, is read only by the new algebra, with and without
+   the flag **-s**, and needs a temporal relation to go with it. The
+   classic algebra reports a syntax error for the name of a spatial
+   relation, with and without **-s**.
 
 2. **Right reference.** `A {:,R,r} B` gives one map per related pair, with
    the time stamp of the right map: a map of A that contains two maps of B
@@ -475,9 +475,8 @@ points differ:
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises `ValueError` for an expression it
-reads but cannot select, such as `A + B`, and for a spatial relation without
-**-s**, where the classic algebra raises `SyntaxError`. The tool stops with
-the error message in both algebras.
+reads but cannot select, such as `A + B`, where the classic algebra raises
+`SyntaxError`. The tool stops with the error message in both algebras.
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.rast3d.algebra* and *t.vect.algebra* as well, so **-c** gives the rules of

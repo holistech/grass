@@ -350,9 +350,18 @@ def test_wrong_number_of_offsets_reads_no_dataset(translator):
         run(translator, "missing[1,2,3,4]")
 
 
-def test_spatial_relations_need_the_spatial_flag(translator):
-    with pytest.raises(ValueError, match="need the spatial flag"):
-        run(translator, "SA {+,equal|equivalent} SB")
+def test_spatial_relations_work_without_the_spatial_flag(translator, datasets):
+    """A spatial name builds the spatial topology also without the flag, as in
+    the classic algebra; without a name and without the flag, space is not
+    asked"""
+    sa, sb = datasets["SA"], datasets["SB"]
+    named = Relation(frozenset({"equal"}), frozenset({"equivalent"}))
+    result = run(translator, "SA {+,equal|equivalent} SB")
+    assert result.slots == operations.gather(sa, named, sb, reduce=fold("+")).slots
+    assert result.spatial
+    # SC overlaps SA without being equivalent to it
+    assert not run(translator, "SA {+,equal|equivalent} SC").slots
+    assert not run(translator, "SA + SB").spatial
 
 
 def test_spatial_flag_adds_space_to_every_relation(translator, datasets):

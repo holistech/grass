@@ -45,7 +45,9 @@ relations *equivalent*, *cover*, *covered*, *overlap*, *in*, *contain*
 and *meet*). The relations *equivalent*, *cover*, *overlap*, *in*,
 *contain* and *meet* can also be named in the curly brackets of a
 spatial operator, for example `{+,equal|overlap}`; the maps then need
-this spatial relation in addition to the temporal one.
+this spatial relation in addition to the temporal one. Such a name builds
+the spatial topology for its operator also without **-s**, as in the
+classic algebra.
 
 The expression option must be passed as **quoted** expression, for
 example:
@@ -698,11 +700,7 @@ start with A, and time instances in I.
    time instance or the calendar values of relative time, is an error in
    both algebras.
 
-7. **Spatial relations need -s.** A spatial relation in an operator, such
-   as `{+,equal|overlap}`, needs the flag **-s**; without it, the algebra
-   stops with an error. The classic algebra gives an empty result.
-
-8. **More syntax.** Comparisons, temporal functions and the minus sign may
+7. **More syntax.** Comparisons, temporal functions and the minus sign may
    stand anywhere in an expression, and a dataset may have the name of a
    function. The classic algebra reports a syntax error for each of these
    expressions; the last one adds 1 to a dataset named `td`:
@@ -716,7 +714,7 @@ start with A, and time instances in I.
    C = td + 1
    ```
 
-9. **Intersection with several related maps.** With the temporal
+8. **Intersection with several related maps.** With the temporal
     operator `i`, a map whose related maps have no common intersection is
     left out. The classic algebra intersects the map with its related maps
     until the first one that has no common time with the result so far,
@@ -729,7 +727,7 @@ start with A, and time instances in I.
     C = H {:,follows|precedes,i} A
     ```
 
-10. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+9. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
     by that size at both ends. The new algebra stops with an error if a map
     would keep no time, that is if its end would fall on or before its start,
     and for a time instance, which has no duration to shrink. The classic
@@ -744,7 +742,7 @@ start with A, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
-11. **merge() of maps read at an offset.** The new algebra takes two maps
+10. **merge() of maps read at an offset.** The new algebra takes two maps
     with equal content and time stamps as one map. The classic algebra, as
     the previous implementation, makes a new map for each map read with a
     temporal neighbourhood modifier and for each value of a temporal

@@ -510,11 +510,7 @@ of A in its time, and time instances in I.
    `l`, because its maps have no related map to combine with; the classic
    algebra accepts the other operators.
 
-2. **Spatial relations need -s.** A spatial relation in an operator, such
-   as `{&,equal|overlap}`, needs the flag **-s**; without it, the algebra
-   stops with an error. The classic algebra gives an empty result.
-
-3. **Empty results.** An expression that gives no map creates an empty
+2. **Empty results.** An expression that gives no map creates an empty
    space time dataset; the classic algebra creates none. No daily map of A
    contains a map of B of two days, so this expression gives an empty
    dataset:
@@ -523,7 +519,7 @@ of A in its time, and time instances in I.
    C = A {:,contains} B
    ```
 
-4. **Maps without primitives.** A computed map without primitives, such
+3. **Maps without primitives.** A computed map without primitives, such
    as the intersection of two maps without common area, is not
    registered. The classic algebra registers it, unless the extents of the
    two maps do not intersect. If a map e1 has two areas, one left and one
@@ -534,7 +530,7 @@ of A in its time, and time instances in I.
    C = A & E
    ```
 
-5. **Precedence.** `&&` binds stronger than `||`, and conditions can be
+4. **Precedence.** `&&` binds stronger than `||`, and conditions can be
    grouped with parentheses. The classic algebra evaluates conditions
    from left to right and does not accept parentheses around conditions.
    The first expression takes all maps of A, because `td(A) == 1` is true
@@ -546,7 +542,7 @@ of A in its time, and time instances in I.
    C = if((td(A) == 1 || td(A) == 2) && td(A) == 3, A)
    ```
 
-6. **Conditions joined with or.** If a map of the conclusion of an `if`
+5. **Conditions joined with or.** If a map of the conclusion of an `if`
    has several related condition maps, both algebras join their
    conditions with and; written as `{during,|}`, the relation joins them
    with or, a form that the classic algebra does not read. The first
@@ -558,7 +554,7 @@ of A in its time, and time instances in I.
    C = if({during,|}, start_day(A) > 1, B)
    ```
 
-7. **td() of a time instance** is null instead of an error, so a condition
+6. **td() of a time instance** is null instead of an error, so a condition
    on it is neither true nor false. This expression gives no map; the
    classic algebra stops with an error:
 
@@ -569,7 +565,7 @@ of A in its time, and time instances in I.
    A temporal variable that a map does not have, such as `end_doy()` of a
    time instance, is an error in both algebras.
 
-8. **More syntax.** The temporal neighbourhood modifier of
+7. **More syntax.** The temporal neighbourhood modifier of
    *t.rast.algebra*, such as `A[1]` and `A[-1]`, applies to vector
    datasets. Comparisons and temporal functions may stand anywhere in a
    condition, also with the number on the left, in arithmetic and after a
@@ -593,7 +589,7 @@ of A in its time, and time instances in I.
    C = if(A {#,during} B + 1 > 1, A)
    ```
 
-9. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
+8. **Negative buffer.** A negative size in `buff_t()` shrinks the maps
    by that size at both ends. The new algebra stops with an error if a map
    would keep no time, that is if its end would fall on or before its start,
    and for a time instance, which has no duration to shrink. The classic
@@ -608,7 +604,7 @@ of A in its time, and time instances in I.
    C = buff_t(B, "-1 day")
    ```
 
-10. **merge() of buffers.** The new algebra takes two maps with equal
+9. **merge() of buffers.** The new algebra takes two maps with equal
     content and time stamps as one map. The classic algebra, as the
     previous implementation, makes a new map for each buffer of
     `buff_p()`, `buff_l()` and `buff_a()`, and `merge()` keeps such a map
