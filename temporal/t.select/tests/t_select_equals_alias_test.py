@@ -1,8 +1,8 @@
 """The relation name equals, which the published algebra paper writes
 
 As t_rast_algebra_equals_alias_test.py, for the tool t.select on each dataset
-type: the core and the classic profile (-c) read equals as another name of
-equal, the reference refuses it. conftest.py describes the datasets; a2 and
+type: the core, the classic profile (-c) and the reference read equals as
+another name of equal. conftest.py describes the datasets; a2 and
 b1 have the same time.
 """
 
@@ -10,7 +10,7 @@ import itertools
 
 import pytest
 
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 from grass.tools import Tools
 
 KINDS = {"strds": "t_rast_list", "stvds": "t_vect_list", "str3ds": "t_rast3d_list"}
@@ -49,9 +49,9 @@ def test_equals_is_another_name_of_equal(series, kind, equals, equal):
 
 
 @pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
-def test_the_reference_refuses_equals(series, equals, equal):
-    """A documented difference: the profile runs where the reference fails"""
-    refused = outcome("select", equals, RUNNERS["reference"], basename="fa")
-    accepted = outcome("select", equal, RUNNERS["reference"], basename="fb")
-    assert refused["error"] == "SyntaxError"
-    assert "error" not in accepted
+def test_the_reference_reads_equals(series, equals, equal):
+    written = outcome("select", equals, RUNNERS["reference"], basename="fa")
+    canonical = outcome("select", equal, RUNNERS["reference"], basename="fb")
+    assert "error" not in canonical
+    assert canonical["maps"]
+    assert compare("select", equals, written, canonical) is None

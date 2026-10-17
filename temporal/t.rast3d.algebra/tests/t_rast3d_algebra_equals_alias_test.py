@@ -38,7 +38,7 @@ def run(runner, expression, basename):
     return outcome(KIND, expression, RUNNERS[runner], basename=basename)
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
+@pytest.mark.parametrize("runner", ["core", "classic", "reference"])
 @pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
 def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
     written = run(runner, equals, "fa")
@@ -47,10 +47,3 @@ def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
     # A refusal on both sides would make the comparison above vacuous.
     assert "error" not in canonical
     assert canonical["maps"]
-
-
-@pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
-def test_the_reference_refuses_equals(datasets, equals, equal):
-    """A documented difference: the profile runs where the reference fails"""
-    assert run("reference", equals, "fa")["error"] == "SyntaxError"
-    assert "error" not in run("reference", equal, "fb")

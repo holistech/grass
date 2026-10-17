@@ -89,6 +89,8 @@ def lex(text):
         ("equal", [("EQUAL", "equal")]),
         ("over", [("OVER", "over")]),
         ("meet", [("MEET", "meet")]),
+        # The published paper writes equals for the relation equal.
+        ("equals", [("EQUAL", "equal")]),
     ],
 )
 def test_lexer_single_tokens(text, expected):
@@ -166,6 +168,20 @@ def test_relation_operator_single_relation(relation):
 def test_relation_operator_lists(expression, relations):
     """Relations joined with '|' are kept in the written order."""
     assert parse(expression, "relation") == (relations, None, None, None)
+
+
+def test_relation_operator_equals_is_another_name_of_equal():
+    """'equals' is read as 'equal' and named twice stays twice."""
+    assert parse("{equals}", "relation")[0] == ["equal"]
+    assert parse("{during|equals}", "relation")[0] == ["during", "equal"]
+    assert parse("{equals|equal}", "relation")[0] == ["equal", "equal"]
+
+
+@pytest.mark.parametrize("word", ["EQUALS", "Equals", "equalss"])
+def test_relation_name_equals_is_matched_exactly(word):
+    """Only the lower case word is an alias, like every relation name."""
+    with pytest.raises(SyntaxError, match=word):
+        parse("{%s}" % word, "relation")
 
 
 def test_relation_operator_over_expands_to_both_overlaps():
@@ -450,7 +466,6 @@ def test_invalid_expressions_raise_syntax_error(expression, optype):
         ("{nonsense}", "relation"),
         ("{equal|nonsense}", "relation"),
         ("{:, nonsense}", "select"),
-        ("{:, equals}", "select"),
         ("{#, contain|nonsense}", "hash"),
         ("{+, nonsense}", "raster"),
         ("{*, during|nonsense, r}", "raster"),
@@ -461,7 +476,7 @@ def test_invalid_expressions_raise_syntax_error(expression, optype):
 )
 def test_unknown_relation_name_raises_syntax_error(operator, optype):
     """A relation name which is none of the known relations is reported by name"""
-    with pytest.raises(SyntaxError, match=r"near '(nonsense|equals)'"):
+    with pytest.raises(SyntaxError, match=r"near 'nonsense'"):
         parse(operator, optype)
 
 

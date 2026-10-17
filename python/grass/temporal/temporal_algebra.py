@@ -478,6 +478,10 @@ from .temporal_granularity import (
 from .temporal_operator import TemporalOperatorParser
 
 
+# Capital spellings of the dataset functions and their token types
+_UPPER_CASE_FUNCTIONS = {"STRDS": "STRDS", "STR3DS": "STR3DS", "STVDS": "STVDS"}
+
+
 class TemporalAlgebraLexer:
     """Lexical analyzer for the GRASS temporal algebra"""
 
@@ -657,6 +661,14 @@ class TemporalAlgebraLexer:
 
     def temporal_symbol(self, t):
         """Set the token type of a name: a reserved word or NAME"""
+        # The paper prints the dataset functions in capitals. They are function
+        # names only before an opening parenthesis, so that a dataset may keep
+        # such a name. PLY has advanced lexpos to the end of the word.
+        if t.value in _UPPER_CASE_FUNCTIONS and t.lexer.lexdata[
+            t.lexer.lexpos :
+        ].lstrip().startswith("("):
+            t.type = _UPPER_CASE_FUNCTIONS[t.value]
+            return t
         for table in self._reserved_tables:
             reserved = getattr(self, table)
             if t.value in reserved:

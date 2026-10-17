@@ -117,8 +117,8 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The previous
-implementation refuses <code>equals</code> with a syntax error.
+<code>equals</code>; the new algebra, <b>-c</b> and the previous implementation
+read both names.
 <p>
 Topological relations must be specified with curly brackets {}.
 <p>
@@ -932,9 +932,9 @@ C = if(end_year(A[1]) == 1 || A > 2, A)
 <h4>Differences from the previous implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the previous implementation in
-the following points. Only the items on lists of absolute and relative time and
-on the relation <code>equals</code> change the outcome of an expression; the
-others concern messages, output and the class of an error.
+the following points. Only the items on lists of absolute and relative time
+change the outcome of an expression; the others concern messages, output and
+the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -990,16 +990,6 @@ expression selects the maps of <code>RT</code> as <code>RT : RT</code> does:
 
 <div class="code"><pre>
 C = merge(tmap(sinst), RT) : RT
-</pre></div>
-</li>
-
-<li><b>The relation equals.</b> The previous implementation refuses the spelling
-<code>equals</code> of the paper with a syntax error. The classic algebra reads
-it as <code>equal</code>, so this expression gives the same maps as
-<code>C = A {+,equal,l} B</code>:
-
-<div class="code"><pre>
-C = A {+,equals,l} B
 </pre></div>
 </li>
 </ul>

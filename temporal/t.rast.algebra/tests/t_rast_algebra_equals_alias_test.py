@@ -1,8 +1,7 @@
 """The relation name equals, which the published algebra paper writes
 
 The paper prints {+,equals,l}; the relation is called equal. The core and the
-classic profile read equals as another name of equal. The earlier
-implementation, the reference, never did and keeps refusing it.
+classic profile and the reference read equals as another name of equal.
 """
 
 import pytest
@@ -46,7 +45,7 @@ def run(runner, expression, basename):
     return outcome(KIND, expression, RUNNERS[runner], basename=basename)
 
 
-@pytest.mark.parametrize("runner", ["core", "classic"])
+@pytest.mark.parametrize("runner", ["core", "classic", "reference"])
 @pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
 def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
     written = run(runner, equals, "fa")
@@ -55,13 +54,6 @@ def test_equals_is_another_name_of_equal(datasets, runner, equals, equal):
     # A refusal on both sides would make the comparison above vacuous.
     assert "error" not in canonical
     assert canonical["maps"]
-
-
-@pytest.mark.parametrize(("equals", "equal"), SPELLINGS)
-def test_the_reference_refuses_equals(datasets, equals, equal):
-    """A documented difference: the profile runs where the reference fails"""
-    assert run("reference", equals, "fa")["error"] == "SyntaxError"
-    assert "error" not in run("reference", equal, "fb")
 
 
 def test_upper_case_equals_is_refused_like_upper_case_equal(datasets):
@@ -73,15 +65,17 @@ def test_upper_case_equals_is_refused_like_upper_case_equal(datasets):
 
 
 def test_equals_beside_equal_names_the_relation_twice(datasets):
-    """The profile reads equals|equal as the reference reads equal|equal
+    """Both read equals|equal as the reference reads equal|equal
 
     A relation named twice relates a partner twice in the classic algebra
     (a + n + n), so equals|equal is not equal, as equal|equal is not.
     """
     reference = run("reference", "A {+,equal|equal,l} N", "fa")
     profile = run("classic", "A {+,equals|equal,l} N", "fb")
+    written = run("reference", "A {+,equals|equal,l} N", "fd")
     once = run("classic", "A {+,equal,l} N", "fc")
     assert compare(KIND, "A {+,equals|equal,l} N", reference, profile) is None
+    assert compare(KIND, "A {+,equals|equal,l} N", reference, written) is None
     assert "error" not in once
     assert once["maps"]
     assert compare(KIND, "A {+,equal,l} N", profile, once) is not None

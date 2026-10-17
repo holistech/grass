@@ -4,16 +4,16 @@ Gebbert, Leppelt and Pebesma (2019): A Topology Based Spatio-Temporal Map
 Algebra for Big Data Analysis. Data 4(2), 86. The expressions are the
 printed ones, with the names of the datasets replaced. The corpus checks
 that the classic profile (what -c runs) computes what the earlier
-implementation, the reference, computes. Where the paper writes the relation
-equals, the reference refuses it, so it runs with the relation equal there.
+implementation, the reference, computes. The paper writes the relation equals;
+both read it as another name of equal.
 
 t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results; this module compares the two implementations on the
 expressions and pins three results computed by hand.
 
 The paper prints some expressions that no classic version reads; they are
-pinned as errors here and in t_select_published_test.py. STR3DS and STVDS in
-capitals and preceedes are syntax errors. The long form {>=,equals,l} of a
+pinned as errors here and in t_select_published_test.py. The caption misspells
+precedes, which is a syntax error. The long form {>=,equals,l} of a
 comparison, printed in section 3.2.1, is one too: the classic lexer knows an
 operator in braces with a comparison only for && and ||. The soil-adjusted
 vegetation index of appendix C.3 adds a number to map(L), which the classic
@@ -137,8 +137,9 @@ def paper(temporal_module_session):
     numbers as whole numbers. A, F: four monthly maps; G: February to April;
     B: two maps of one month that start on the 15th; C: one map of two
     months; E: three days inside January; H: six days of January; NIR,
-    RED: three days with equal time; DM: January and February; T, P: one map
-    per day of January and February 2001 (59 days); L: a map without time
+    RED: three days with equal time; DM: January and February; STRDS: four
+    monthly maps, a dataset named like a function; T, P: one map per day of
+    January and February 2001 (59 days); L: a map without time
     stamp.
     """
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
@@ -202,6 +203,12 @@ def paper(temporal_module_session):
         ),
     )
     create_stds(tools, "strds", "DM", specs(["dm1", "dm2"], [1, 2], MONTHS[:2]))
+    create_stds(
+        tools,
+        "strds",
+        "STRDS",
+        specs(["s1", "s2", "s3", "s4"], [10, 20, 30, 40], MONTHS),
+    )
     daily = [(day_1 + number * day, day_1 + (number + 1) * day) for number in range(59)]
     create_stds(
         tools,
@@ -242,17 +249,12 @@ def run(runner, expression, basename, **options):
     )
 
 
-def readable(expression):
-    """The expression with the relation name that the reference reads"""
-    return expression.replace("equals", "equal")
-
-
 @pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)
 def test_the_profile_computes_what_the_reference_computes(
     paper, expression, options, data
 ):
     assert data == "paper"
-    reference = run("reference", readable(expression), "fa", **options)
+    reference = run("reference", expression, "fa", **options)
     profile = run("classic", expression, "fb", **options)
     assert compare(KIND, expression, reference, profile) is None
     # Two refusals would make the comparison vacuous.
@@ -260,14 +262,46 @@ def test_the_profile_computes_what_the_reference_computes(
     assert reference["maps"]
 
 
-@pytest.mark.parametrize(
-    "expression",
-    [case.values[0] for case in PUBLISHED if "equals" in case.values[0]],
-)
-def test_the_reference_refuses_the_spelling_equals(paper, expression):
-    """A documented difference: the profile runs where the reference fails"""
-    assert run("reference", expression, "fa")["error"] == "SyntaxError"
-    assert "error" not in run("classic", expression, "fb")
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_equals_by_hand(paper, runner):
+    """A and F have four monthly maps each, month for month the same time
+
+    {+,equals,l}: a + f = 1.5 + 5, 2.5 + 6, 3.5 + 7, 4.5 + 8 = 6.5, 8.5,
+    10.5, 12.5.
+    equals|equal names the relation twice and relates the partner twice:
+    a + f + f = 1.5 + 10, 2.5 + 12, 3.5 + 14, 4.5 + 16 = 11.5, 14.5, 17.5,
+    20.5.
+    """
+    once = values(run(runner, "A {+,equals,l} F", "fa"))
+    twice = values(run(runner, "A {+,equals|equal,l} F", "fb"))
+    assert [row[2] for row in once] == [6.5, 8.5, 10.5, 12.5]
+    assert [row[2] for row in twice] == [11.5, 14.5, 17.5, 20.5]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("name", ["EQUALS", "Equals", "EQUAL"])
+def test_the_relation_names_stay_lower_case(paper, runner, name):
+    assert run(runner, f"A {{+,{name},l}} F", "fa")["error"] == "SyntaxError"
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+def test_a_dataset_may_be_named_like_a_capital_function(paper, runner):
+    """STRDS is a function name only before an opening parenthesis
+
+    The dataset STRDS has the values 10, 20, 30, 40 on the months of A (1.5,
+    2.5, 3.5, 4.5).
+    STRDS + 1 = 11, 21, 31, 41; A + STRDS = 11.5, 22.5, 33.5, 44.5.
+    """
+    plus_one = values(run(runner, "STRDS + 1", "fa"))
+    assert [row[2] for row in plus_one] == [11, 21, 31, 41]
+    sums = values(run(runner, "A + STRDS", "fb"))
+    assert [row[2] for row in sums] == [11.5, 22.5, 33.5, 44.5]
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
+def test_the_dataset_function_is_no_raster_operand(paper, runner):
+    """STRDS(A) is the selection form of t.select, not an operand here"""
+    assert run(runner, "STRDS(A) + 1", "fa")["error"] == "SyntaxError"
 
 
 def test_the_spelling_preceedes_of_the_caption_is_refused(paper):

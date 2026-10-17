@@ -2,9 +2,9 @@
 
 Gebbert, Leppelt and Pebesma (2019) select the maps of a 3D raster time
 series that are during the maps of a vector time series. The paper prints the
-function names in capitals, STR3DS(A) and STVDS(B); the functions are written
-in lower case and exist in the classic algebra only, so the selection needs
--c. The datasets are those of conftest.py: A of type str3ds and B of type
+function names in capitals, STR3DS(A) and STVDS(B); the functions exist in the
+classic algebra only, so the selection needs -c. Capitals are accepted for
+these three names, and only before an opening parenthesis. The datasets are those of conftest.py: A of type str3ds and B of type
 stvds, whose maps stand in the relations listed there.
 """
 
@@ -49,9 +49,45 @@ def test_the_profile_selects_what_the_reference_selects(series, str3ds_result):
     ]
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_the_function_names_in_capitals_are_refused(series, str3ds_result, runner):
-    assert run(runner, PRINTED, "fa")["error"] == "SyntaxError"
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_the_function_names_in_capitals_select_like_lower_case(
+    series, str3ds_result, runner
+):
+    printed = run(runner, PRINTED, "fa")
+    lower = run(runner, LOWER_CASE, "fb")
+    assert compare("select", PRINTED, printed, lower) is None
+    # The same maps as in the test above: a1 and a2.
+    assert "error" not in printed
+    assert [row[1:3] for row in printed["maps"]] == [
+        ["2001-01-01T00:00:00", "2001-01-11T00:00:00"],
+        ["2001-01-11T00:00:00", "2001-01-21T00:00:00"],
+    ]
+
+
+def test_the_core_refuses_the_function_names_in_capitals(series, str3ds_result):
+    assert run("core", PRINTED, "fa")["error"] == "SyntaxError"
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "Str3ds(A) {:,during,l} stvds(B)",
+        "STR3ds(A) {:,during,l} stvds(B)",
+        "str3ds(A) {:,during,l} STVDs(B)",
+    ],
+)
+def test_other_capital_spellings_are_refused(series, str3ds_result, runner, expression):
+    assert run(runner, expression, "fa")["error"] == "SyntaxError"
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_a_dataset_named_like_a_capital_function_stays_a_name(
+    series, str3ds_result, runner
+):
+    """STVDS before no parenthesis is a dataset name, which does not exist here"""
+    result = run(runner, "A {:,during,l} STVDS", "fa")
+    assert result["error"] != "SyntaxError"
 
 
 def test_the_tool_selects_with_the_classic_flag(series):

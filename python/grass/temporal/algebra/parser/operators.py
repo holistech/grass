@@ -15,9 +15,9 @@ from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIO
 SYMBOLS = ("!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~")
 
 # The manual names both overlap relations "over". The published paper writes
-# "equals" for the relation that the lexer of the earlier implementation
-# knows as "equal"; it is read as a second name so that the printed
-# expressions run. TEMPORAL_RELATIONS keeps the canonical names only.
+# "equals" for the relation that is called "equal"; the earlier
+# implementation reads it the same way. It is a second name so that the
+# printed expressions run. TEMPORAL_RELATIONS keeps the canonical names only.
 _SHORTHANDS = {"over": ("overlaps", "overlapped"), "equals": ("equal",)}
 _TEMPORAL_REFERENCES = {
     "l": "l",

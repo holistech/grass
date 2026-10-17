@@ -186,6 +186,10 @@ _SYMBOL_OPTYPES = {
     "~": {"overlay"},
 }
 
+# Other spellings of relation names. The published paper writes equals for
+# the relation equal. The word is matched exactly, like every relation name.
+_RELATION_SPELLINGS = {"equals": "equal"}
+
 # Temporal reference words and the token they produce. The token value is the
 # first letter of the word.
 _TEMPORAL_WORDS = {
@@ -288,6 +292,10 @@ class TemporalOperatorLexer:
     # Parse symbols
     def temporal_symbol(self, t):
         """Turn a word into the token of a relation or a temporal reference"""
+        # The value is normalised here, so that every consumer sees the
+        # canonical name. A second entry in the relations table would list
+        # the token EQUAL twice among the PLY tokens.
+        t.value = _RELATION_SPELLINGS.get(t.value, t.value)
         if t.value in TemporalOperatorLexer.relations:
             t.type = TemporalOperatorLexer.relations[t.value]
         elif t.value in _TEMPORAL_WORDS:
