@@ -192,6 +192,17 @@ that start with A, and time instances in I.
     C = buff_t(B, "-1 day")
     ```
 
+12. **merge() of maps read at an offset.** The new algebra takes two maps
+    with equal content and time stamps as one map. The classic algebra, as
+    the previous implementation, makes a new map for each map read with a
+    temporal neighbourhood modifier, and `merge()` keeps such a map next to
+    an equal one. For four maps in A, this expression gives four maps in
+    the new algebra and eight in the classic algebra:
+
+    ```sh
+    C = merge(A[0], A[0])
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the new
 algebra raises `ValueError` or `TypeError`, where the classic algebra

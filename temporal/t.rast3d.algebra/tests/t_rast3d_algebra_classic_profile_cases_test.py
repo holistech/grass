@@ -210,6 +210,21 @@ def test_merge_keeps_a_neighbour_map_next_to_its_map(datasets, expression, granu
     assert_equal(expression, granularity=granularity)
 
 
+# A number and the hash operator keep the object of the map, so a merge of
+# two such expressions keeps each map once.
+@pytest.mark.parametrize("expression", ["merge(A * 1, A * 1)", "merge(A # A, A # A)"])
+def test_one_map_object_stays_one_map(datasets, expression):
+    assert_equal(expression, maps=4)
+
+
+def test_the_core_keeps_one_of_two_equal_new_maps(datasets):
+    """A difference of the two algebras that the manual lists"""
+    core = outcome(KIND, "merge(A[0], A[0])", RUNNERS["core"], basename="fc")
+    profile = outcome(KIND, "merge(A[0], A[0])", RUNNERS["classic"], basename="fb")
+    assert len(core["maps"]) == 4
+    assert len(profile["maps"]) == 8
+
+
 @pytest.mark.parametrize("granularity", [False, True])
 @pytest.mark.parametrize("expression", LOGICAL_WITH_ALL_PARTNERS)
 def test_logical_operators_join_all_partners(datasets, expression, granularity):

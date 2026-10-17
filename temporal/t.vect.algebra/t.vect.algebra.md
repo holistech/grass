@@ -608,6 +608,17 @@ of A in its time, and time instances in I.
    C = buff_t(B, "-1 day")
    ```
 
+10. **merge() of buffers.** The new algebra takes two maps with equal
+    content and time stamps as one map. The classic algebra, as the
+    previous implementation, makes a new map for each buffer of
+    `buff_p()`, `buff_l()` and `buff_a()`, and `merge()` keeps such a map
+    next to an equal one. This expression gives the buffers of the maps of
+    A once in the new algebra and twice in the classic algebra:
+
+    ```sh
+    C = merge(buff_p(A, 1), buff_p(A, 1))
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the
 new algebra raises `ValueError` or `TypeError`, where the classic algebra

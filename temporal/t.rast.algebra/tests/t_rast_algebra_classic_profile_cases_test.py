@@ -111,6 +111,9 @@ MERGED_COMPUTED_MAPS_BEYOND_MERGE = [
     "merge(A[0] # N, A # N)",
     "merge((A # N) + 0, A # N)",
     "merge((A # N) * 1, (A # N) + 0)",
+    "merge(A[0] * 1, A[0])",
+    "merge(A[0] # N, A[0] # N)",
+    "merge(if(isnull(A[0]), 1, 2), A[0])",
 ]
 
 # Expressions that must still collapse or stay as they are, with the number
@@ -118,6 +121,7 @@ MERGED_COMPUTED_MAPS_BEYOND_MERGE = [
 # command, a different offset or a number on a map another command.
 SAME_MAP_OBJECT = [
     ("merge(A # N, A # N)", 4),
+    ("merge(A # A[0], A # A[0])", 4),
     ("merge((A # N) + 0, (A # N) + 0)", 4),
     ("merge(A * 1, A * 1)", 4),
     ("merge(A + 0, A)", 8),
@@ -512,6 +516,26 @@ def test_the_object_of_a_map_goes_through_selections_and_counts(datasets, expres
 @pytest.mark.parametrize(("expression", "maps"), SAME_MAP_OBJECT)
 def test_a_map_and_its_count_stay_one_object(datasets, expression, maps):
     assert_equal(expression, maps=maps)
+
+
+@pytest.mark.parametrize(
+    ("expression", "core_maps", "classic_maps"),
+    [
+        ("merge(A[0], A[0])", 4, 8),
+        ("merge(A + 1, A[0] + 1)", 4, 8),
+        ("merge(start_day(A, 1), start_day(A, 1))", 3, 6),
+    ],
+)
+def test_the_core_keeps_one_of_two_equal_new_maps(
+    datasets, expression, core_maps, classic_maps
+):
+    """A difference of the two algebras that the manual lists: the core has no
+    map objects, it compares content and time"""
+    options = {"register_null": True}
+    core = outcome(KIND, expression, RUNNERS["core"], basename="fc", **options)
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
+    assert len(core["maps"]) == core_maps
+    assert len(profile["maps"]) == classic_maps
 
 
 # In the granularity mode A[0] is a map read at a time offset as well.

@@ -637,6 +637,18 @@ C = buff_t(B, "-12 hours")
 C = buff_t(B, "-1 day")
 </pre></div>
 </li>
+
+<li><b>merge() of buffers.</b> The new algebra takes two maps with equal
+content and time stamps as one map. The classic algebra, as the previous
+implementation, makes a new map for each buffer of <code>buff_p()</code>,
+<code>buff_l()</code> and <code>buff_a()</code>, and <code>merge()</code> keeps
+such a map next to an equal one. This expression gives the buffers of the maps
+of A once in the new algebra and twice in the classic algebra:
+
+<div class="code"><pre>
+C = merge(buff_p(A, 1), buff_p(A, 1))
+</pre></div>
+</li>
 </ol>
 
 In Python, both algebras raise <code>SyntaxError</code> for an expression they

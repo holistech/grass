@@ -163,12 +163,28 @@ def test_merge_keeps_two_buffers_of_the_same_maps(datasets, expression):
     assert_equal(expression)
 
 
+# A buffer next to its map and two overlays are new maps; a shift and a
+# selection keep the object of the map, so a merge keeps each map once.
 @pytest.mark.parametrize(
     ("expression", "maps"),
-    [("merge(buff_p(pa, 1), pa)", 6), ("merge(ab + pb, ab + pb)", 6)],
+    [
+        ("merge(buff_p(pa, 1), pa)", 6),
+        ("merge(ab + pb, ab + pb)", 6),
+        ('merge(tshift(pa, "1 day"), tshift(pa, "1 day"))', 3),
+        ("merge(pa : aa, pa)", 3),
+    ],
 )
-def test_a_buffer_next_to_its_map_stays_a_second_map(datasets, expression, maps):
+def test_merge_keeps_each_map_object_once(datasets, expression, maps):
     assert_equal(expression, maps=maps)
+
+
+def test_the_core_keeps_one_of_two_equal_buffers(datasets):
+    """A difference of the two algebras that the manual lists"""
+    expression = "merge(buff_p(pa, 1), buff_p(pa, 1))"
+    core = outcome(KIND, expression, RUNNERS["core"], basename="fc")
+    profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
+    assert len(core["maps"]) == 3
+    assert len(profile["maps"]) == 6
 
 
 @pytest.mark.parametrize(
