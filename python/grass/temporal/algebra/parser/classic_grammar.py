@@ -541,6 +541,28 @@ _TEXTS = {
                   | numberstr ADD  numberstr
                   | numberstr SUB  numberstr
     """,
+    "p_td_operation": """
+        expr : t_td_var MOD  stds
+             | t_td_var MOD  expr
+             | t_td_var MOD  number
+             | t_td_var MOD  mapexpr
+             | t_td_var MOD  t_td_var
+             | t_td_var DIV  stds
+             | t_td_var DIV  expr
+             | t_td_var DIV  number
+             | t_td_var DIV  mapexpr
+             | t_td_var DIV  t_td_var
+             | t_td_var MULT stds
+             | t_td_var MULT expr
+             | t_td_var MULT number
+             | t_td_var MULT mapexpr
+             | t_td_var MULT t_td_var
+    """,
+    "p_td_operation_relation": """
+        expr : t_td_var T_ARITH1_OPERATOR stds
+             | t_td_var T_ARITH1_OPERATOR expr
+             | t_td_var T_ARITH1_OPERATOR t_td_var
+    """,
     "p_ts_neighbor_operation": """
         expr : stds L_SPAREN number COMMA number COMMA number R_SPAREN
              | stds L_SPAREN number R_SPAREN
@@ -657,6 +679,8 @@ _ORDER = {
         "p_mapexpr_numeric",
         "p_mapexpr_paren",
         "p_numberstr_chain",
+        "p_td_operation",
+        "p_td_operation_relation",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",
@@ -725,6 +749,8 @@ _ORDER = {
         "p_mapexpr_numeric",
         "p_mapexpr_paren",
         "p_numberstr_chain",
+        "p_td_operation",
+        "p_td_operation_relation",
         "p_statement_assign",
         "p_stds_1",
         "p_paren_expr",

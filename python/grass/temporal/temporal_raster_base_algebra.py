@@ -1453,6 +1453,73 @@ class TemporalRasterBaseAlgebraParser(TemporalAlgebraParser):
 
         self._trace(t[0])
 
+    def p_td_operation(self, t) -> None:
+        # td(A) / A
+        # td(A) * 2
+        # A + td(A) / A
+        # td() exists as the right operand of an operator in the productions
+        # above. As the left operand it needs productions of its own: without
+        # them the parser reduced A + td(A) at the lookahead / and computed
+        # (A + td(A)) / A.
+        """
+        expr : t_td_var MOD  stds
+             | t_td_var MOD  expr
+             | t_td_var MOD  number
+             | t_td_var MOD  mapexpr
+             | t_td_var MOD  t_td_var
+             | t_td_var DIV  stds
+             | t_td_var DIV  expr
+             | t_td_var DIV  number
+             | t_td_var DIV  mapexpr
+             | t_td_var DIV  t_td_var
+             | t_td_var MULT stds
+             | t_td_var MULT expr
+             | t_td_var MULT number
+             | t_td_var MULT mapexpr
+             | t_td_var MULT t_td_var
+        """
+        if not self.run:
+            if t.slice[3].type in ("number", "mapexpr"):
+                t[0] = self._dry_name(t[1])
+            else:
+                t[0] = self._dry_name(t[1], t[3])
+            return
+        if t.slice[3].type in ("number", "mapexpr"):
+            # A number or a map is no list of maps. Each map of td() becomes a
+            # new map whose command is the duration and the operand;
+            # _transform_commands would write the id of the map and leave the
+            # duration in the map, where the next operator would read it again.
+            maps = []
+            for map_i in self.check_stds(t[1]):
+                new_map = self.generate_new_map(map_i, bool_op="and", copy=True)
+                new_map.cmd_list = "(%s %s %s)" % (
+                    self._operand_string(map_i),
+                    t[2],
+                    t[3],
+                )
+                maps.append(new_map)
+            t[0] = maps
+        else:
+            t[0] = self._operate(t[1], t[3], ["EQUAL"], "l", t[2])
+        self._debug_commands(t[0])
+
+    def p_td_operation_relation(self, t) -> None:
+        # td(A) {*, equal, l} F
+        # A + td(A) {*, equal, l} F
+        """
+        expr : t_td_var T_ARITH1_OPERATOR stds
+             | t_td_var T_ARITH1_OPERATOR expr
+             | t_td_var T_ARITH1_OPERATOR t_td_var
+        """
+        if not self.run:
+            t[0] = self._dry_name(t[1], t[3])
+            return
+        relations, temporal, function, aggregate = self.eval_toperator(
+            t[2], optype="raster"
+        )
+        t[0] = self._operate(t[1], t[3], relations, temporal, function)
+        self._debug_commands(t[0])
+
 
 if __name__ == "__main__":
     import doctest

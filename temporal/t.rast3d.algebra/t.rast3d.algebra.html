@@ -369,6 +369,22 @@ syntax error, are read now:
 C = map(L) - 1 - A
 </pre></div>
 </li>
+
+<li><b>td() as left operand of a stronger operator.</b> An expression such as
+<code>A + td(A) / A</code> was computed as <code>(A + td(A)) / A</code>, because
+<code>td()</code> could only stand right of an operator (corrected 17 October
+2026). The operators <code>*</code>, <code>/</code> and <code>%</code>, also
+with a temporal operator in braces, bind stronger than <code>+</code> and
+<code>-</code> now, as in mathematics and in the new algebra. With daily maps
+and the values 1 to 4 in A, <code>td(A)</code> is one day. The expression gave
+2, 1.5, 1.3333 and 1.25 and now gives 2, 2.5, 3.3333 and 4.25. A
+<code>td()</code> at the start of a product, such as <code>td(A) * 2</code>,
+was a syntax error and is read now:
+
+<div class="code"><pre>
+C = A + td(A) / A
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the previous implementation</h4>
