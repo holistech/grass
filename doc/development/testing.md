@@ -198,7 +198,10 @@ used from any test; the fixtures that wrap it are in
 - `readback`: `list_maps()` and `stds_info()` read the registered maps and
   the output of _t.info_ back as values that a test compares; `map_info()`
   does the same for a single map and gives `None` for one that is not in the
-  temporal database.
+  temporal database. `message()` returns the
+  messages of a call or of the error it raised as one line; compare messages
+  through it, because GRASS wraps them and an absence check on the raw text
+  passes whatever the text says.
 
 Tests of the `t.*` tools and of _grass.temporal_ build all their data with
 these helpers, in a project created in `tmp_path`, and do not read the North

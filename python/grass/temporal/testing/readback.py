@@ -97,3 +97,18 @@ def map_info(tools, map_type, name):
         if "not found in temporal database" not in " ".join(str(error).split()):
             raise
         return None
+
+
+def message(source):
+    """The messages of a tool call as one line of text
+
+    source is the result of a call (its stderr) or the ToolError it raised
+    (its text, which holds the stderr). GRASS wraps messages at a width that
+    depends on the length of the names in them, so a check that a text is
+    present or absent compares with the white space normalized; an absence
+    check on the raw text passes however the text is wrapped.
+    """
+    text = getattr(source, "stderr", None)
+    if text is None:
+        text = str(source)
+    return " ".join(text.split())

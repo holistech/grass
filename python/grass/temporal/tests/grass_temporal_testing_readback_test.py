@@ -9,7 +9,7 @@ import os
 import pytest
 
 import grass.script as gs
-from grass.temporal.testing.readback import Row, list_maps, map_info, stds_info
+from grass.temporal.testing.readback import Row, list_maps, map_info, message, stds_info
 from grass.tools import ToolError, Tools
 
 
@@ -143,3 +143,19 @@ def test_map_info_of_a_map_that_is_not_registered_is_none(tools):
 def test_map_info_raises_any_other_failure(tools):
     with pytest.raises(ToolError):
         map_info(tools, "nonsense", "a")
+
+
+def test_message_joins_a_wrapped_stderr(tools):
+    result = tools.t_info(type="strds", input="s", flags="g")
+    assert message(type("R", (), {"stderr": "a  b\n   c\n"})()) == "a b c"
+    assert message(result) == " ".join(result.stderr.split())
+
+
+def test_message_reads_the_text_of_an_error(tools):
+    with pytest.raises(ToolError) as raised:
+        tools.t_info(
+            type="strds", input="a_dataset_with_a_name_that_makes_it_wrap_x" * 2
+        )
+
+    assert "\n" not in message(raised.value)
+    assert "not found" in message(raised.value)
