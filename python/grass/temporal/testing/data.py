@@ -228,6 +228,26 @@ def register_stds(
         raise ValueError(msg)
 
 
+def create_daily_stds(tools, stds_type, names, count, *, map_prefix):
+    """Create count maps and a dataset of every name that holds all of them
+
+    Map n, counted from 1, is named <map_prefix>_<n>, holds the value n and
+    lasts one day, from day(n - 1) to day(n). The kind of the maps follows
+    stds_type. All datasets register the same maps with the same times, so
+    a test of a tool that removes a map from one dataset can look at the
+    others. Returns the map names.
+    """
+    map_type = _MAP_TYPE[stds_type]
+    specs = []
+    for number in range(1, count + 1):
+        name = f"{map_prefix}_{number}"
+        make_map(tools, map_type, name, number)
+        specs.append(MapSpec(name, number, day(number - 1), day(number)))
+    for name in names:
+        register_stds(tools, stds_type, name, specs)
+    return [spec.name for spec in specs]
+
+
 def _text(value, temporaltype):
     """A time as t.register reads it: a date and time, or a plain number"""
     if temporaltype == "relative":

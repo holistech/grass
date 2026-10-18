@@ -15,6 +15,7 @@ from grass.exceptions import CalledModuleError
 from grass.temporal.testing.data import (
     DAY0,
     MapSpec,
+    create_daily_stds,
     create_stds,
     day,
     intervals,
@@ -199,6 +200,30 @@ def test_make_map_restores_the_3d_resolution(tools):
     make_map(tools, "raster_3d", "rg_coarse", 1, region={"res3": 5, "tbres": 2})
 
     assert region() == before
+
+
+@pytest.mark.parametrize(
+    ("stds_type", "values"),
+    [("strds", [1, 2, 3]), ("str3ds", [1, 2, 3]), ("stvds", [None] * 3)],
+)
+def test_create_daily_stds_shares_the_maps(tools, stds_type, values):
+    maps = create_daily_stds(
+        tools,
+        stds_type,
+        [f"cd_{stds_type}_a", f"cd_{stds_type}_b"],
+        3,
+        map_prefix=f"cd_{stds_type}",
+    )
+
+    assert maps == [f"cd_{stds_type}_{number}" for number in (1, 2, 3)]
+    for dataset in ("a", "b"):
+        rows = list_maps(tools, stds_type, f"cd_{stds_type}_{dataset}")
+        # Map n lasts from day n-1 to day n and holds the value n.
+        assert [(row.name, row.start, row.end, row.min) for row in rows] == [
+            (maps[0], "2001-01-01 00:00:00", "2001-01-02 00:00:00", values[0]),
+            (maps[1], "2001-01-02 00:00:00", "2001-01-03 00:00:00", values[1]),
+            (maps[2], "2001-01-03 00:00:00", "2001-01-04 00:00:00", values[2]),
+        ]
 
 
 @pytest.mark.needs_solo_run

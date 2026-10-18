@@ -184,7 +184,9 @@ used from any test; the fixtures that wrap it are in
 - `session`: `project_session()` and `temporal_session()` create a project
   and yield a session. `add_mapset()` adds a mapset to it.
 - `data`: `create_stds()`, `register_stds()` and `make_map()` build
-  datasets and maps from a few lines of description; `day()`, `timestamp()`,
+  datasets and maps from a few lines of description;
+  `create_daily_stds()` makes the same maps of one day each and registers
+  them in several datasets; `day()`, `timestamp()`,
   `intervals()` and `relative_intervals()` give the times. `vector_points()`
   makes a point map with an attribute table, in one or more layers;
   `register_file()` writes the input file of _t.register_ and
