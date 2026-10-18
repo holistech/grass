@@ -15,10 +15,18 @@ from grass.tools import Tools
 
 
 def test_defaults(space_time_vector_dataset):
-    """Check that the module runs with default parameters"""
-    tools = Tools(session=space_time_vector_dataset.session)
-    result = tools.t_vect_list(input=space_time_vector_dataset.name)
-    assert result.returncode == 0
+    """The defaults list name, layer, mapset and the times in a table"""
+    data = space_time_vector_dataset
+    tools = Tools(session=data.session)
+    result = tools.t_vect_list(input=data.name)
+    # Six monthly maps without a layer from 2001-01-01
+    months = [*data.start_times, datetime.datetime(2001, 7, 1)]
+    assert result.stdout.splitlines() == ["name|layer|mapset|start_time|end_time"] + [
+        f"{name}|None|PERMANENT|{start:%Y-%m-%d %H:%M:%S}|{end:%Y-%m-%d %H:%M:%S}"
+        for name, start, end in zip(
+            data.vector_names, months[:-1], months[1:], strict=True
+        )
+    ]
 
 
 @pytest.mark.parametrize(
