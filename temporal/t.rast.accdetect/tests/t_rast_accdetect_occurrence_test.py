@@ -213,6 +213,44 @@ def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds, dete
     assert detect("eq", minimum="det_equal_min", range="10,50") == {}
 
 
+@pytest.fixture(scope="module")
+def half_day_minimum(tools, cells):
+    """A minimum of 100 from the noon of day 2 to the noon of day 3
+
+    The granule of day 2 overlaps the map, the map overlaps the granule of
+    day 3; the manual names both relations, overlaps and overlapped.
+    """
+    create_stds(
+        tools,
+        "strds",
+        "det_half_min",
+        [MapSpec("det_half_min_map", 100, day(2, hours=12), day(3, hours=12))],
+    )
+    return "det_half_min"
+
+
+def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
+    tools, cells, half_day_minimum, detect
+):
+    # The tool looks for OVERLAPPING, the topology files the relation under
+    # OVERLAPPED. The granule of day 2 finds the minimum 100 (its cells 30
+    # and 5 are below it, so the map is empty), the granule of day 3 does not
+    # and takes the minimum 10 of the range: [3, 3].
+    result = detect("ovtoday", minimum=half_day_minimum, range="10,50")
+
+    assert result == {0: [N, 0], 1: [1, 1], 3: [3, 3], 4: [N, 4]}
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_a_threshold_map_that_the_granule_overlaps_last_is_used(
+    tools, cells, half_day_minimum, detect
+):
+    # Day 3 (40, 20) also lies below the minimum 100.
+    result = detect("ov", minimum=half_day_minimum, range="10,50")
+
+    assert result == {0: [N, 0], 1: [1, 1], 4: [N, 4]}
+
+
 def test_today_the_reverse_flag_takes_the_threshold_of_another_day(
     tools, cells, thresholds, detect
 ):
