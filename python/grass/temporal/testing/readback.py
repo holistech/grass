@@ -104,8 +104,8 @@ def cell_values(tools, raster):
 
     A null cell is None. Meant for maps of a few cells (see small_region()),
     where a test derives the value of every cell by hand. r.out.ascii writes
-    the values with its default precision, so values that need more digits
-    than six are rounded.
+    16 decimal places of a DCELL map and 6 of an FCELL map, so the values of
+    an FCELL map are rounded to six decimal places.
     """
     words = tools.r_out_ascii(input=raster, flags="h", null_value="N").stdout.split()
     return [None if word == "N" else float(word) for word in words]

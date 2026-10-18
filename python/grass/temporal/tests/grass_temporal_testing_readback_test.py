@@ -173,3 +173,12 @@ def test_cell_values_reads_every_cell_and_null(tools):
     tools.r_mapcalc(expression="cells = if(row() == 1, if(col() == 1, 1.5, null()), 3)")
 
     assert cell_values(tools, "cells") == [1.5, None, 3.0, 3.0]
+
+
+def test_cell_values_rounds_only_fcell_maps_to_six_places(tools):
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    tools.r_mapcalc(expression="third_d = 1.0 / 3")
+    tools.r_mapcalc(expression="third_f = float(1.0 / 3)")
+
+    assert cell_values(tools, "third_d") == [0.3333333333333333]
+    assert cell_values(tools, "third_f") == [0.333333]
