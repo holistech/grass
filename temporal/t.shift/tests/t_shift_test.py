@@ -226,13 +226,11 @@ def test_relative_time_adds_the_number(tools, prefix, granularity, expected):
 
 
 @pytest.mark.parametrize(
-    "granularity", ["1.5 days", "abc", "1 fortnight", "5", "1 days, 2 hours"]
+    "granularity", ["1.5 days", "abc", "1 fortnight", "5", "1 days, 2 fortnights"]
 )
 def test_a_granularity_in_the_wrong_form_is_refused(tools, mixed, granularity):
-    # "5" lacks the unit that absolute time needs. The manual asks for
-    # "number unit", and so does the check of the granularity; the
-    # description of the option names a list of units, which the function
-    # that adds the shift could take, but the tool refuses it.
+    # "5" lacks the unit that absolute time needs; a list is accepted since
+    # 18.10.2026, but each of its parts must be a number and a unit.
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=mixed, granularity=granularity)
 
@@ -257,6 +255,76 @@ def test_a_granularity_in_the_wrong_form_for_relative_time_is_refused(
         tools.t_shift(input=name, granularity=granularity)
 
     assert f"Wrong granularity format: {granularity}" in message(error.value)
+    assert _times(tools, name) == [(0, 14), (14, 28)]
+
+
+@pytest.mark.parametrize(
+    ("granularity", "interval", "point"),
+    [
+        # Changed on 18.10.2026: a list of units is shifted as a whole.
+        (
+            "1 days, 2 hours",
+            ("2001-01-02 02:00:00", "2001-01-16 02:00:00"),
+            "2001-01-21 02:00:00",
+        ),
+        (
+            "1 years, 2 months, 3 days, 4 hours, 5 minutes, 6 seconds",
+            ("2002-03-04 04:05:06", "2002-03-18 04:05:06"),
+            "2002-03-23 04:05:06",
+        ),
+        (
+            "-1 days, -2 hours",
+            ("2000-12-30 22:00:00", "2001-01-13 22:00:00"),
+            "2001-01-18 22:00:00",
+        ),
+        (
+            "1 weeks,1 days",
+            ("2001-01-09 00:00:00", "2001-01-23 00:00:00"),
+            "2001-01-28 00:00:00",
+        ),
+    ],
+)
+def test_a_list_of_units_is_added_as_a_whole(
+    tools, mixed, granularity, interval, point
+):
+    # Derived from the dates 2001-01-01, 2001-01-15 and 2001-01-20.
+    tools.t_shift(input=mixed, granularity=granularity)
+
+    assert _times(tools, mixed) == [(interval[0], interval[1]), (point, None)]
+
+
+def test_a_list_with_a_wrong_part_changes_nothing(tools, mixed):
+    with pytest.raises(ToolError) as error:
+        tools.t_shift(input=mixed, granularity="1 days, abc")
+
+    assert "Wrong granularity format: 1 days, abc" in message(error.value)
+    assert _times(tools, mixed) == [
+        ("2001-01-01 00:00:00", "2001-01-15 00:00:00"),
+        ("2001-01-20 00:00:00", None),
+    ]
+
+
+def test_a_list_updates_the_granularity_and_the_history(tools, prefix):
+    name = _dataset(tools, prefix, [(day(0), day(1)), (day(1), day(2))])
+
+    tools.t_shift(input=name, granularity="1 days, 2 hours")
+
+    # As after a shift by hours (test_the_granularity_is_calculated_again).
+    assert stds_info(tools, "strds", name)["granularity"] == "'24 hours'"
+    history = tools.t_info(type="strds", input=name, flags="h").stdout
+    history = history.replace("\\\n", "")
+    assert f't.shift input="{name}" granularity="1 days, 2 hours"' in history
+
+
+def test_a_list_is_not_possible_for_relative_time(tools, prefix):
+    name = _dataset(
+        tools, prefix, [(0, 14), (14, 28)], temporaltype="relative", unit="days"
+    )
+
+    with pytest.raises(ToolError) as error:
+        tools.t_shift(input=name, granularity="1, 2")
+
+    assert "Wrong granularity format: 1, 2" in message(error.value)
     assert _times(tools, name) == [(0, 14), (14, 28)]
 
 
@@ -360,3 +428,19 @@ def test_input_and_granularity_are_required(tools, mixed, missing):
         tools.t_shift(**options)
 
     assert f"Required parameter <{missing}> not set" in message(error.value)
+
+
+def test_a_list_for_a_dataset_without_maps_ends_like_one_unit(tools, prefix):
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output=f"{prefix}_empty",
+        title="empty",
+        description="empty",
+    )
+
+    # Both end without an error and without a map to move.
+    tools.t_shift(input=f"{prefix}_empty", granularity="1 days")
+    tools.t_shift(input=f"{prefix}_empty", granularity="1 days, 2 hours")
+
+    assert stds_info(tools, "strds", f"{prefix}_empty")["number_of_maps"] == 0

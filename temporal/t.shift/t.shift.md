@@ -6,7 +6,10 @@ vector space time datasets are supported.
 
 The format of the absolute time granularity is "number unit". Number is
 an integer, unit is the temporal unit that can be one of year(s),
-month(s), week(s), day(s), hour(s), minute(s) or second(s).
+month(s), week(s), day(s), hour(s), minute(s) or second(s). Since
+18.10.2026 a comma separated list such as `1 days, 2 hours` is accepted
+and shifts the maps by all parts at once; every part must be
+"number unit". Relative time takes a single integer.
 
 The granularity in case of relative time is an integer. The temporal
 unit is the unit of the space time dataset and can not be modified.
