@@ -167,6 +167,8 @@ def test_t_list_mapset_explicit(space_time_dataset):
     assert space_time_dataset.raster_dataset2 in names
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_t_list_empty_database(empty_session):
     """Verify that t.list handles a missing TGIS database without creating one."""
     tools = Tools(session=empty_session.session)
@@ -215,14 +217,18 @@ def test_t_list_multiple_types_json(space_time_dataset):
 def test_t_list_multiple_types_line_error(space_time_dataset):
     """Check that line format with multiple dataset types raises an error."""
     tools = Tools(session=space_time_dataset.session)
-    with pytest.raises(ToolError, match="Only one type is allowed for line format"):
+    with pytest.raises(
+        ToolError, match=r"Only\s+one\s+type\s+is\s+allowed\s+for\s+line\s+format"
+    ):
         tools.t_list(type="strds,stvds", columns="id", format="line")
 
 
 def test_t_list_line_columns_all_error(space_time_dataset):
     """Check that line format with columns=all raises an error."""
     tools = Tools(session=space_time_dataset.session)
-    with pytest.raises(ToolError, match="Only one column is allowed for line format"):
+    with pytest.raises(
+        ToolError, match=r"Only\s+one\s+column\s+is\s+allowed\s+for\s+line\s+format"
+    ):
         tools.t_list(type="strds", format="line", columns="all")
 
 
@@ -231,7 +237,7 @@ def test_t_list_cross_category_types_error(space_time_dataset):
     tools = Tools(session=space_time_dataset.session)
     with pytest.raises(
         ToolError,
-        match="Combinations across space time datasets and time stamped maps",
+        match=r"Combinations\s+across\s+space\s+time\s+datasets\s+and\s+time\s+stamped\s+maps",
     ):
         tools.t_list(type="strds,raster", columns="id")
 
