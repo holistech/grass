@@ -242,3 +242,18 @@ def test_today_a_time_without_offset_in_a_dataset_with_offsets_fails(
 
     # The map is in the dataset although the call failed.
     assert stds_info(zone_tools, "strds", name)["number_of_maps"] == 2
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_a_failed_call_does_not_change_the_dataset(zone_tools, prefix):
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    zone_tools.t_register(
+        type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00 +02:00"
+    )
+
+    with pytest.raises(ToolError):
+        zone_tools.t_register(
+            type="raster", input=name, maps=maps[1], start="2001-01-02 10:00:00"
+        )
+
+    assert stds_info(zone_tools, "strds", name)["number_of_maps"] == 1
