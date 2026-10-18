@@ -168,7 +168,9 @@ def test_name_may_carry_the_current_mapset(tools):
 def test_name_in_another_mapset_is_refused(tools, mapset):
     name = f"foreign_{mapset}"
 
-    with pytest.raises(ToolError, match="only be created in the current mapset"):
+    with pytest.raises(
+        ToolError, match=r"only\s+be\s+created\s+in\s+the\s+current\s+mapset"
+    ):
         tools.t_create(output=f"{name}@{mapset}", **CREATE)
 
     assert _listed(tools, "strds", name) == []
@@ -178,7 +180,7 @@ def test_name_in_another_mapset_is_refused(tools, mapset):
 def test_existing_dataset_is_refused_without_overwrite(tools):
     tools.t_create(output="exists_ds", semantictype="sum", **CREATE)
 
-    with pytest.raises(ToolError, match="already in the database") as raised:
+    with pytest.raises(ToolError, match=r"already\s+in\s+the\s+database") as raised:
         tools.t_create(
             output="exists_ds", semantictype="min", title="New", description="New"
         )
@@ -255,7 +257,9 @@ def test_required_option_is_checked(tools, missing):
     options = {"output": "req_ds", **CREATE}
     del options[missing]
 
-    with pytest.raises(ToolError, match=f"Required parameter <{missing}> not set"):
+    with pytest.raises(
+        ToolError, match=rf"Required\s+parameter\s+<{missing}>\s+not\s+set"
+    ):
         tools.t_create(**options)
 
     assert _listed(tools, "strds", "req_ds") == []
@@ -328,7 +332,7 @@ def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
         assert "Cannot start with '.'" in message(result)
         rows = tools.t_list(type="strds", format="json").json
         assert [(row["id"], row["name"]) for row in rows] == [("@PERMANENT", "")]
-        with pytest.raises(ToolError, match="not found in temporal"):
+        with pytest.raises(ToolError, match=r"not\s+found\s+in\s+temporal"):
             tools.t_info(type="strds", input=".dot", flags="g")
 
 
