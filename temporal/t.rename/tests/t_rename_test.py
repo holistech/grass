@@ -160,7 +160,7 @@ def test_an_existing_name_is_refused_without_overwrite(tools, prefix, has_datase
     other, other_maps = _make(tools, prefix, suffix="2")
 
     with pytest.raises(
-        ToolError, match=r"is in use,\s+please use\s+the overwrite flag"
+        ToolError, match=r"is\s+in\s+use,\s+please\s+use\s+the\s+overwrite\s+flag"
     ):
         tools.t_rename(input=name, output=other)
 
@@ -186,7 +186,7 @@ def test_overwrite_replaces_the_dataset_and_keeps_its_maps(
 
 def test_an_unknown_dataset_is_refused(tools, prefix):
     with pytest.raises(
-        ToolError, match=r"Space time raster dataset\s+<nope@PERMANENT>"
+        ToolError, match=r"Space\s+time\s+raster\s+dataset\s+<nope@PERMANENT>"
     ):
         tools.t_rename(input="nope", output=f"{prefix}_new")
 
@@ -194,12 +194,14 @@ def test_an_unknown_dataset_is_refused(tools, prefix):
 def test_a_dataset_of_another_type_is_not_found(tools, prefix, has_dataset):
     name, _ = _make(tools, prefix)
 
-    with pytest.raises(ToolError, match=r"Space time vector dataset\s+<.*> not found"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+vector\s+dataset\s+<.*>\s+not\s+found"
+    ):
         tools.t_rename(type="stvds", input=name, output=f"{prefix}_new")
 
     assert has_dataset(name)
 
 
 def test_an_unknown_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <type>"):
+    with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_rename(type="raster", input="a", output="b")
