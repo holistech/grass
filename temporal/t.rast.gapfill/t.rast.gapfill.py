@@ -47,11 +47,6 @@
 # % answer: 1
 # %end
 
-# %flag
-# % key: t
-# % description: Assign the space time raster dataset start and end time to the output map
-# %end
-
 import copy
 import sys
 

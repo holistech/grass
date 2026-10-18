@@ -16,6 +16,9 @@ Each gap is re-sampled by the space time raster dataset granularity.
 Therefore several time stamped raster map layers will be interpolated if
 the gap is larger than the STRDS granularity.
 
+The flag **-t** was removed on 18.10.2026. It had no effect since 2012.
+A call that still uses it is refused by the parser.
+
 ## EXAMPLES
 
 In this example we will create 3 raster maps and register them in the

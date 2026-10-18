@@ -21,6 +21,7 @@ is 6 and the second 7 (the suffix num%01 gives test_6_1, test_6_2, test_7_1 ...)
 import pytest
 
 from grass.temporal.testing.readback import cell_values, list_maps, message, stds_info
+from grass.tools import ToolError
 
 # Nearly every test builds maps and datasets and runs the interpolation, which takes
 # more than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -230,19 +231,15 @@ def test_one_missing_map_is_the_mean_of_its_neighbours(tools, gappy, prefix):
     assert len(rows) == 3
 
 
-def test_the_t_flag_changes_nothing(tools, gappy, prefix):
-    # The flag is declared ("assign the start and end time of the dataset to
-    # the output map") but the script never reads it.
+def test_the_removed_t_flag_is_refused(tools, gappy, prefix):
+    # The flag had no effect and was removed on 18.10.2026.
     name = gappy({1: (100, 0), 3: (300, 90)})
 
-    tools.t_rast_gapfill(input=name, basename=prefix, flags="t")
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_gapfill(input=name, basename=prefix, flags="t")
 
-    assert _filled(tools, name)[1] == (
-        f"{prefix}_2001_02",
-        "2001-02-01 00:00:00",
-        "2001-03-01 00:00:00",
-        [200.0, 45.0],
-    )
+    assert "Sorry, <t> is not a valid flag" in message(error.value)
+    assert tools.g_list(type="raster", pattern=f"{prefix}_2*").stdout == ""
 
 
 def test_a_gap_with_two_successors_uses_one_of_them(tools, gappy, prefix):
