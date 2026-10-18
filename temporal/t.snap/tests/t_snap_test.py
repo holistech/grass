@@ -146,35 +146,48 @@ def test_today_a_single_point_stays_a_point(tools, prefix):
     assert stds_info(tools, "strds", name)["map_time"] == "point"
 
 
-def test_maps_with_the_start_of_the_next_map_are_not_snapped(tools, prefix):
-    # Maps 1 and 2 start on day 0 (the order of the two is that of the
-    # registration), map 3 is a point on day 5; the granularity is 1 day.
+def _snap_tied(tools, prefix):
+    """Snap maps of which two start together; return their times by name
+
+    Maps 1 [day 0, day 1) and 2 [day 0, day 3) start together, map 3 is a
+    point on day 5; the granularity is 1 day. The tool orders the maps by
+    start time only, so which of maps 1 and 2 it takes first is not defined:
+    the one it takes second is snapped to day 5, the one it takes first is
+    the case under test. Returns the times of maps 1 to 3 after the snap, the
+    original ends of maps 1 and 2, and the names of the map snapped to day 5
+    and of the other tied map.
+    """
     name = _dataset(tools, prefix, [(day(0), day(1)), (day(0), day(3)), (day(5), None)])
-
     tools.t_snap(input=name)
+    times = {row.name: (row.start, row.end) for row in list_maps(tools, "strds", name)}
+    ends = {f"{prefix}_1": _text(1), f"{prefix}_2": _text(3)}
+    (snapped,) = [map_name for map_name in ends if times[map_name][1] == _text(5)]
+    (other,) = [map_name for map_name in ends if map_name != snapped]
+    return times, ends, snapped, other
 
-    rows = _times(tools, name)
-    # Map 2 ends on the start of map 3, map 3 gets the granularity.
-    assert rows[1:] == [(_text(0), _text(5)), (_text(5), _text(6))]
+
+def test_maps_with_the_start_of_the_next_map_are_not_snapped(tools, prefix):
+    times, _, snapped, _ = _snap_tied(tools, prefix)
+
+    # One tied map ends on the start of map 3 (found by that in the helper),
+    # map 3 gets the granularity.
+    assert times[snapped] == (_text(0), _text(5))
+    assert times[f"{prefix}_3"] == (_text(5), _text(6))
 
 
 def test_today_a_map_with_the_start_of_the_next_map_takes_its_end(tools, prefix):
     # The tool means to keep the times of such a map, but keeps the end of
-    # the next map: map 1 ends on day 3, where map 2 ended before.
-    name = _dataset(tools, prefix, [(day(0), day(1)), (day(0), day(3)), (day(5), None)])
+    # the next map: the other tied map ends where the snapped one ended.
+    times, ends, snapped, other = _snap_tied(tools, prefix)
 
-    tools.t_snap(input=name)
-
-    assert _times(tools, name)[0] == (_text(0), _text(3))
+    assert times[other] == (_text(0), ends[snapped])
 
 
 @pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
 def test_a_map_with_the_start_of_the_next_map_keeps_its_times(tools, prefix):
-    name = _dataset(tools, prefix, [(day(0), day(1)), (day(0), day(3)), (day(5), None)])
+    times, ends, _, other = _snap_tied(tools, prefix)
 
-    tools.t_snap(input=name)
-
-    assert _times(tools, name)[0] == (_text(0), _text(1))
+    assert times[other] == (_text(0), ends[other])
 
 
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
