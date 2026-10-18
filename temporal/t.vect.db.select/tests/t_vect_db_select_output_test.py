@@ -73,7 +73,12 @@ def test_where_selects_rows_of_every_map(tools, intervals):
 def test_the_separator_of_an_instant_sits_between_the_empty_fields(tools, instants):
     lines = _lines(tools, input=instants, where="cat = 1", separator="  |  ")
 
-    assert lines[1] == "2004-01-01 00:00:00  |    |  1  |  1  |  1  |  100"
+    assert lines == [
+        "start_time  |  end_time  |  x  |  y  |  cat  |  observation",
+        "2004-01-01 00:00:00  |    |  1  |  1  |  1  |  100",
+        "2004-04-01 00:00:00  |    |  2  |  1  |  1  |  200",
+        "2004-07-01 00:00:00  |    |  3  |  1  |  1  |  300",
+    ]
 
 
 @pytest.mark.parametrize(
