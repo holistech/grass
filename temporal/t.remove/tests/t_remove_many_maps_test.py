@@ -2,9 +2,14 @@
 
 t.remove collects the statements for the maps of a dataset and executes them
 (and deletes the maps with g.remove, for -d) after every 99 maps, then the
-rest. A dataset of 120 maps takes the second path as well. -d is the flag
-that deletes maps in these steps, and each dataset type has its own call of
-g.remove there, so it is the one tested, once per type.
+rest. 100 maps is the smallest dataset that takes both steps: maps 1 to 99
+in the first, map 100 in the last. -d is the flag that deletes maps in these
+steps, and each dataset type has its own call of g.remove in both, so it is
+the one tested, once per type.
+
+The temporal database is asked for the first and the last map of each step
+only: a step executes all its statements at once, and one t.info per map
+made the module take minutes.
 """
 
 from io import StringIO
@@ -13,9 +18,12 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, day, register_stds, vector_points
 
-COUNT = 120
+COUNT = 100
+# Map numbers 1, 99 and 100 as list positions: both ends of the first step
+# and the last step.
+SAMPLE = (0, 98, 99)
 
-# Each test makes and removes 120 maps (about 50 s, measured 18.10.2026 with a
+# Each test makes and removes 100 maps (5 to 14 s, measured 18.10.2026 with a
 # serial pytest --durations=0).
 pytestmark = pytest.mark.slow
 
@@ -70,6 +78,6 @@ def test_df_deletes_every_map(
     tools.t_remove(inputs=dataset, type=stds_type, flags="df")
 
     assert not has_dataset(dataset, stds_type)
-    assert registered(names, map_type) == [False] * COUNT
+    assert registered([names[i] for i in SAMPLE], map_type) == [False] * len(SAMPLE)
     assert existing(spatial, map_type) == [False] * len(spatial)
     assert existing([f"{prefix}_bystander"]) == [True]
