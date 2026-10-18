@@ -274,7 +274,8 @@ def test_other_versions_are_refused_and_left_alone(project, version):
     with pytest.raises(ToolError) as raised:
         tools.t_upgrade()
 
-    assert f"Unsupported TGIS DB upgrade scenario: from version {version} to 3" in str(
-        raised.value
+    assert (
+        f"Unsupported TGIS DB upgrade scenario: from version {version} to 3"
+        in message(raised.value)
     )
     assert dump(database) == before
