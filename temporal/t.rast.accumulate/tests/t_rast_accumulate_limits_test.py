@@ -131,6 +131,41 @@ def test_a_threshold_map_of_the_same_time_is_used(tools, daily):
     assert rows == _sums(0, 0, 10, 35, 45, 45, 45)
 
 
+@pytest.fixture(scope="module")
+def half_day_lower(tools, daily):
+    """A lower limit of 10 from the noon of day 2 to the noon of day 3
+
+    The granule of day 2 overlaps the map, the map overlaps the granule of
+    day 3; the manual names both relations, overlaps and overlapped.
+    """
+    create_stds(
+        tools,
+        "strds",
+        "lim_half",
+        [MapSpec("lim_half_map", 10, day(2, hours=12), day(3, hours=12))],
+    )
+    return "lim_half"
+
+
+def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
+    tools, half_day_lower
+):
+    # The tool looks for OVERLAPPING, the topology files the relation under
+    # OVERLAPPED. Day 2 finds the lower 10 (increment 20 - 10 = 10), day 3
+    # does not and takes the limit 0 (increment 35): sums 5 15 25 60 80 90 95.
+    rows = _accumulate(tools, "lim_ov_today", lower=half_day_lower)
+
+    assert rows == _sums(5, 15, 25, 60, 80, 90, 95)
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_a_threshold_map_that_the_granule_overlaps_last_is_used(tools, half_day_lower):
+    # Day 3 takes the lower 10 as well: increment 25, sums 5 15 25 50 70 80 85.
+    rows = _accumulate(tools, "lim_ov", lower=half_day_lower)
+
+    assert rows == _sums(5, 15, 25, 50, 70, 80, 85)
+
+
 def test_today_the_reverse_flag_takes_the_threshold_of_another_day(tools, daily):
     # With -r the tool computes the last day first but reads the threshold
     # of the granule at the same position of the list in time order. The
