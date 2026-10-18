@@ -162,7 +162,9 @@ def main():
         dbif.execute_transaction(statement)
 
         # Update the effected space time datasets: those that held a removed
-        # map and those that hold a map with new values
+        # map and those that hold a map with new values. The input dataset
+        # holds every map; it is updated once below.
+        dataset_dict.pop(stds.get_id(), None)
         for id in dataset_dict:
             stds_new = stds.get_new_instance(id)
             stds_new.select(dbif=dbif)
