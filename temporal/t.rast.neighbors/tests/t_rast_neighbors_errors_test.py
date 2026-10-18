@@ -40,8 +40,10 @@ def test_a_wrong_value_is_refused_by_the_parser(tools, ramp, prefix, option, val
 
 def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, ramp, prefix):
     # The parser does not refuse the value although the parameter lists its
-    # options (measured 18.10.2026: no "out of range" message, unlike method);
-    # the library refuses it with its own message.
+    # options: the option block has no "type" line, so the type stays 0 and
+    # the parser checks the options only for integer, double and string
+    # (lib/gis/parser.c, check_an_opt()). The library refuses the value with
+    # its own message and a traceback.
     text = _refused(
         tools, input=ramp, output=prefix, basename=prefix, region_relation="bogus"
     )
