@@ -310,6 +310,7 @@ def test_an_illegal_name_is_refused(tools, case):
     assert _listed(tools, "strds", name) == []
 
 
+@pytest.mark.slow
 def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
     # G_legal_filename refuses a leading dot, t.create only warns and then
     # stores the dataset under the id "@<mapset>" with an empty name, so it
