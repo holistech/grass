@@ -127,11 +127,14 @@ def test_the_p_flag_writes_point_data(tools, vtk_input, tmp_path):
         ("pc", "ORIGIN 1000.000000 2000.000000 0.000000"),
     ],
 )
-def test_the_c_flag_moves_the_origin_by_half_a_cell(
+def test_the_c_flag_subtracts_the_centre_of_the_default_region(
     tools, vtk_input, tmp_path, flags, origin
 ):
-    # Measured 18.10.2026 (see above): the flag shifts the origin of the grid
-    # by minus half a cell in both directions.
+    # r.out.vtk (writeascii.c, main.c): the origin is the south-west corner
+    # of the region, with -p the centre of that cell (+ 0.5), and -c
+    # subtracts the centre of the default region of the project. The default
+    # region of the test project is the one cell (0, 0) to (1, 1), so -c
+    # subtracts 0.5 in both directions.
     tools.g_region(n=2002, s=2000, w=1000, e=1003, res=1)
     try:
         _export(
