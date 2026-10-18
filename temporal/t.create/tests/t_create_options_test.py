@@ -8,7 +8,7 @@ import re
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
-from grass.temporal.testing.readback import list_maps, stds_info
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
 
@@ -183,7 +183,7 @@ def test_existing_dataset_is_refused_without_overwrite(tools):
             output="exists_ds", semantictype="min", title="New", description="New"
         )
 
-    assert "overwrite" in str(raised.value)
+    assert "overwrite" in message(raised.value)
     # Nothing of the refused call is stored.
     assert stds_info(tools, "strds", "exists_ds")["semantic_type"] == "sum"
     assert _texts(tools, "strds", "exists_ds")["title"] == "A title"
@@ -202,7 +202,7 @@ def test_overwrite_replaces_the_dataset(tools):
         overwrite=True,
     )
 
-    assert "Overwriting space time raster dataset <over_ds>" in result.stderr
+    assert "Overwriting space time raster dataset <over_ds>" in message(result)
     info = stds_info(tools, "strds", "over_ds")
     assert (info["temporal_type"], info["semantic_type"]) == ("relative", "max")
     texts = _texts(tools, "strds", "over_ds")
@@ -221,7 +221,7 @@ def test_overwrite_unregisters_the_maps_but_keeps_them(tools):
 
     result = tools.t_create(output="over_maps", overwrite=True, **CREATE)
 
-    assert "unregistering all maps" in result.stderr.replace("\n", " ")
+    assert "unregistering all maps" in message(result)
     assert list_maps(tools, "strds", "over_maps") == []
     existing = tools.g_list(type="raster", pattern="over_m*").stdout.split()
     assert existing == ["over_m1", "over_m2"]
@@ -230,7 +230,7 @@ def test_overwrite_unregisters_the_maps_but_keeps_them(tools):
 def test_overwrite_of_a_new_name_just_creates(tools):
     result = tools.t_create(output="over_new", overwrite=True, **CREATE)
 
-    assert "Overwriting" not in result.stderr
+    assert "Overwriting" not in message(result)
     assert _listed(tools, "strds", "over_new")
 
 
@@ -244,7 +244,9 @@ def test_value_outside_the_options_is_refused(tools, option, value):
     with pytest.raises(ToolError) as raised:
         tools.t_create(output=name, **{**CREATE, option: value})
 
-    assert f"Value <{value}> out of range for parameter <{option}>" in str(raised.value)
+    assert f"Value <{value}> out of range for parameter <{option}>" in message(
+        raised.value
+    )
     assert _listed(tools, "strds", name) == []
 
 
@@ -279,7 +281,7 @@ def test_odd_but_legal_names_are_accepted(tools, case):
 
     result = tools.t_create(output=name, **CREATE)
 
-    assert "Illegal filename" not in result.stderr
+    assert "Illegal filename" not in message(result)
     assert _listed(tools, "strds", name) == [
         {"name": name, "type": "strds", "semantic_type": "mean"}
     ]
@@ -292,7 +294,7 @@ def test_today_an_illegal_name_is_accepted(tools, case):
 
     result = tools.t_create(output=name, **CREATE)
 
-    assert ("Illegal filename" in result.stderr) == warns
+    assert ("Illegal filename" in message(result)) == warns
     assert _listed(tools, "strds", name) == [
         {"name": name, "type": "strds", "semantic_type": "mean"}
     ]
@@ -323,7 +325,7 @@ def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
 
         result = tools.t_create(output=".dot", **CREATE)
 
-        assert "Cannot start with '.'" in result.stderr
+        assert "Cannot start with '.'" in message(result)
         rows = tools.t_list(type="strds", format="json").json
         assert [(row["id"], row["name"]) for row in rows] == [("@PERMANENT", "")]
         with pytest.raises(ToolError, match="not found in temporal"):

@@ -11,7 +11,7 @@ import re
 
 import pytest
 
-from grass.temporal.testing.readback import stds_info
+from grass.temporal.testing.readback import message, stds_info
 from grass.tools import ToolError
 
 CASES = {
@@ -44,7 +44,7 @@ def test_today_the_call_fails_and_leaves_no_dataset(tools, case):
     with pytest.raises(ToolError) as raised:
         tools.t_create(output=name, **options)
 
-    assert reason in str(raised.value)
+    assert reason in message(raised.value)
     assert not _exists(tools, name)
     # The failed call leaves nothing behind that blocks the name.
     tools.t_create(output=name, title="plain", description="plain")
