@@ -7,7 +7,11 @@ raster map (or one column, named by column, for the first map) to the table of
 the layer and stores the value at every point with v.what.rast.
 """
 
+from datetime import datetime
+
 import pytest
+
+from grass.temporal.testing.data import MapSpec, create_stds
 
 # Most tests take more than a second (measured 19.10.2026 with a serial
 # pytest --durations=0): every test makes its own vector maps.
@@ -97,8 +101,6 @@ def test_the_values_are_those_of_the_point_in_its_cell(tools, rasters, vectors):
 def test_each_sampling_method_selects_its_relation(
     tools, rasters, vectors, sampling, interval, names
 ):
-    from datetime import datetime
-
     start, end = (datetime.fromisoformat(day) for day in interval)
     data = vectors([(start, end)])
 
@@ -108,8 +110,6 @@ def test_each_sampling_method_selects_its_relation(
 
 
 def test_sampling_methods_can_be_combined(tools, rasters, vectors):
-    from datetime import datetime
-
     data = vectors([(datetime(2001, 3, 15), datetime(2001, 4, 15))])
 
     _what(tools, data, sampling="overlap,contain,follows")
@@ -119,8 +119,6 @@ def test_sampling_methods_can_be_combined(tools, rasters, vectors):
 
 
 def test_an_interval_without_a_raster_map_is_left_alone(tools, rasters, vectors):
-    from datetime import datetime
-
     data = vectors([(datetime(2005, 1, 1), datetime(2005, 2, 1))])
 
     _what(tools, data)
@@ -159,6 +157,10 @@ METHODS = {
     "quart1": lambda cell: 325 + cell,
     "quart3": lambda cell: 375 + cell,
     "perc90": lambda cell: 390 + cell,
+    # The tool has no quantile option, so r.series uses the quantile 0
+    # (raster/r.series/main.c) and c_quant gives the smaller value, as in
+    # t.rast.aggregate.
+    "quantile": lambda cell: 300 + cell,
     # Two symmetric values: no skew; the fourth moment equals the squared
     # variance, so the excess kurtosis is 1 - 3.
     "skewness": lambda cell: 0,
@@ -245,10 +247,6 @@ def test_t_where_selects_the_vector_maps(tools, rasters, vectors):
 def test_a_dot_in_the_raster_name_becomes_an_underscore_in_the_column(
     tools, rasters, vectors, prefix
 ):
-    from datetime import datetime
-
-    from grass.temporal.testing.data import MapSpec, create_stds
-
     create_stds(
         tools,
         "strds",
@@ -261,3 +259,29 @@ def test_a_dot_in_the_raster_name_becomes_an_underscore_in_the_column(
 
     assert _columns(tools, data.maps[0]) == [f"{prefix}d_1"]
     assert _column(tools, data.maps[0], f"{prefix}d_1") == ["7"] * 4
+
+
+def test_an_aggregate_without_a_value_adds_no_column(tools, rasters, vectors, prefix):
+    # Both maps of January and February hold no value, so their average has
+    # none either; the aggregation removes such a map and the tool goes on
+    # with the next vector map without a column.
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_null",
+        [
+            MapSpec(
+                f"{prefix}_n{k}",
+                "null()",
+                datetime(2001, k, 1),
+                datetime(2001, k + 1, 1),
+            )
+            for k in (1, 2)
+        ],
+    )
+    data = vectors([(datetime(2001, 1, 1), datetime(2001, 3, 1))])
+
+    _what(tools, data, strds=f"{prefix}_null", sampling="during", method="average")
+
+    assert _columns(tools, data.maps[0]) == []
+    assert tools.g_list(type="raster", pattern="aggreagated_map_name_*").stdout == ""

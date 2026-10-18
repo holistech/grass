@@ -16,7 +16,8 @@ from grass.temporal.testing.data import (
     register_stds,
     vector_points,
 )
-from grass.temporal.testing.readback import stds_info
+from grass.temporal.testing.readback import message, stds_info
+from grass.tools import ToolError
 
 # Most tests take more than a second (measured 19.10.2026 with a serial
 # pytest --durations=0): every test makes its own vector maps.
@@ -94,9 +95,6 @@ def test_relative_time_with_the_average_during_the_interval(tools, rasters, vect
 
 
 def test_the_datasets_must_have_the_same_temporal_type(tools, rasters, vectors):
-    from grass.temporal.testing.readback import message
-    from grass.tools import ToolError
-
     data = vectors([(0, 10)], temporaltype="relative", unit="minutes")
 
     with pytest.raises(ToolError) as error:
