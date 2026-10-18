@@ -197,7 +197,13 @@ def test_three_months_sum_with_offset(tools, absolute):
     _check(
         tools,
         "ag_three",
-        {"end_time": "'2001-04-01 00:00:00'", "number_of_maps": 1},
+        {
+            "start_time": "'2001-01-01 00:00:00'",
+            "end_time": "'2001-04-01 00:00:00'",
+            "granularity": "'3 months'",
+            "aggregation_type": "sum",
+            "number_of_maps": 1,
+        },
     )
 
 
@@ -220,7 +226,16 @@ def test_relative_granularity_6_average(tools, relative):
         (6, 12, 350.0),
         (12, 18, 550.0),
     ]
-    _check(tools, "agr_6", {"unit": "days", "granularity": 6, "map_time": "interval"})
+    _check(
+        tools,
+        "agr_6",
+        {
+            "unit": "days",
+            "granularity": 6,
+            "map_time": "interval",
+            "aggregation_type": "average",
+        },
+    )
 
 
 def test_relative_granularity_9_maximum_with_null_maps(tools, relative):
@@ -242,6 +257,7 @@ def test_relative_granularity_9_maximum_with_null_maps(tools, relative):
         (9, 18, 600.0),
         (18, 27, None),
     ]
+    _check(tools, "agr_9n", {"semantic_type": "mean", "aggregation_type": "maximum"})
 
 
 def test_relative_granularity_9_maximum_drops_the_null_granule(tools, relative):
@@ -259,7 +275,11 @@ def test_relative_granularity_9_maximum_drops_the_null_granule(tools, relative):
         (0, 9, 300.0),
         (9, 18, 600.0),
     ]
-    _check(tools, "agr_9", {"end_time": "'18'", "number_of_maps": 2})
+    _check(
+        tools,
+        "agr_9",
+        {"end_time": "'18'", "number_of_maps": 2, "aggregation_type": "maximum"},
+    )
 
 
 def test_relative_granularity_21_average(tools, relative):
@@ -275,5 +295,8 @@ def test_relative_granularity_21_average(tools, relative):
         nprocs=4,
     )
 
-    # The old suite expected two maps, but compared with a tolerance of 2.
+    # The maps end on day 21, so the grid from 0 has the one granule [0,21)
+    # and the result is one map. The old suite expected two maps and passed
+    # only because it compared every value with a tolerance of 2.
     assert _rows(tools, "agr_21") == [("agr_21_00001", 0, 21, 350.0)]
+    _check(tools, "agr_21", {"aggregation_type": "average", "number_of_maps": 1})

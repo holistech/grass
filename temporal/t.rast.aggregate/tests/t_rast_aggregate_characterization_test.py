@@ -75,6 +75,8 @@ def test_two_map_granule_method_families(read, method):
     assert read.datatype(rows[1].name) == "CELL"
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 @pytest.mark.parametrize("method", ["average", "count", "sum"])
 def test_single_map_granule_keeps_value_type_and_color(read, method):
     """A granule with one related map is copied verbatim: the method is
@@ -162,6 +164,8 @@ def test_suffix_and_end_for_monthly_and_hourly_granules(
     assert [row.end.removesuffix(" 00:00:00") for row in rows] == ends
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 @pytest.mark.parametrize("method", ["sum", "average", "count", "maximum"])
 def test_output_dataset_attributes(read, aggregate_data, method):
     """The aggregation type is the method; title and description are copied
@@ -176,12 +180,16 @@ def test_output_dataset_attributes(read, aggregate_data, method):
     assert "| Description:\n | cells\n" in text
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_output_copies_the_semantic_type_of_the_input(read):
     """The default is "mean", so only an input of another type shows the copy"""
     read.aggregate("sem", input="semantic", granularity="2 days", method="average")
     assert read.tools.t_info(input="sem", flags="g").keyval["semantic_type"] == "sum"
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_numeric_suffix_with_offset(read):
     rows = read.aggregate(
         "num",
@@ -275,6 +283,8 @@ def test_sampling_list(read):
     ]
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_n_flag_registers_the_all_null_granule(read):
     """Without -n the all null day 3 granule is dropped; with -n it is kept"""
     without = read.aggregate(
@@ -343,6 +353,8 @@ def test_sampling_list_keeps_the_maps_in_time_order(read):
     assert [(row.start, row.min) for row in rows] == [("2001-01-01 00:00:00", 1.0)]
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_existing_output_without_overwrite_prints_one_error(read):
     """The classic tool printed the refusal once. With the messenger in raise
     mode the message was printed by the library and again by the tool's own

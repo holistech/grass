@@ -180,10 +180,14 @@ def test_relative_instants_get_a_final_granule(tools):
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_a_relative_instant_at_the_end_adds_no_granule_after_it(tools):
-    # The long map [0,30) holds 7, the instant on 3 holds 2. A granularity of
-    # 10 gives the single granule [0,10) that holds the instant; a granule
-    # [10,20) would lie during the long map, which sampling "during" would
-    # relate and produce a second map.
+    # The long map [0,30) holds 7, the instant on 3 holds 2. The grid ends
+    # after the map that starts last, as before the move to the algebra
+    # core, not at the end of the dataset: one unit after the instant, at 4,
+    # so there is the single granule [0,10). With sampling "during" it
+    # collects the long map, which it starts (7), not the instant inside
+    # it. A grid that ended a whole granularity after the instant, at 13,
+    # would add [10,20), which lies during the long map and gives a second
+    # map.
     create_stds(
         tools,
         "strds",
