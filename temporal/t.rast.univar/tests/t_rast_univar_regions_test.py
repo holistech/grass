@@ -58,7 +58,9 @@ def test_today_a_map_without_a_valid_cell_gets_meaningless_statistics(tools, reg
     result = tools.t_rast_univar(input=regions, where="start_time >= '2001-01-04'")
 
     fields = result.stdout.splitlines()[1].split("|")
-    # min is nan and max the smallest double instead of nan too
+    # min is nan and max the smallest double instead of nan too. r.univar
+    # alone prints the same for a map outside the region; the tool passes
+    # its numbers on, the defect is r.univar's.
     assert fields[6] == "nan"
     assert fields[7] == "-1.79769313486232e+308"
 
@@ -68,7 +70,7 @@ def test_a_map_without_a_valid_cell_has_no_value_for_min_and_max(tools, regions)
     result = tools.t_rast_univar(input=regions, where="start_time >= '2001-01-04'")
 
     fields = result.stdout.splitlines()[1].split("|")
-    assert fields[6] == fields[7]
+    assert fields[6] == fields[7] == "nan"
 
 
 def test_the_r_flag_uses_the_region_of_each_map(tools, regions):
