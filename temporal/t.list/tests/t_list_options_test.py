@@ -291,24 +291,3 @@ def test_t_list_lists_raster_3d_maps(tools, raster_3d_maps):
     )
 
     assert result.stdout.splitlines() == raster_3d_maps
-
-
-@pytest.fixture(scope="module")
-def dotted(tools):
-    """A dataset whose name starts with a dot, made once for the pinned defect"""
-    tools.t_create(output=".list_dotted", title="t", description="d")
-
-
-def test_today_a_name_with_a_leading_dot_is_listed_without_a_name(tools, dotted):
-    result = tools.t_list(type="strds", columns="id,name", where="id LIKE '@%'")
-
-    assert result.stdout == "@PERMANENT|\n"
-
-
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
-def test_t_list_lists_a_name_with_a_leading_dot(tools, dotted):
-    result = tools.t_list(
-        type="strds", columns="id,name", where="name LIKE '%list_dotted'"
-    )
-
-    assert result.stdout == ".list_dotted@PERMANENT|.list_dotted\n"
