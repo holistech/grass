@@ -3,7 +3,9 @@
 Every test has a project of its own, because setting a connection writes the
 VAR file of the mapset. The options driver and database have defaults (sqlite
 and a file in the tgis directory of the mapset), so a call that gives one of
-them sets the other to its default as well; the tests pin that.
+them sets the other to its default as well; the tests pin that. db.connect
+does the same (its options have defaults too), and the manual promises
+nothing else, so it is today's behaviour, not a pinned defect.
 """
 
 from pathlib import Path
@@ -67,6 +69,26 @@ def test_c_keeps_a_connection_that_exists(tools):
 
     assert message(result) == ""
     assert _printed(tools)[1].endswith("/tgis/mine.db")
+
+
+@pytest.mark.parametrize(
+    ("variable", "missing"),
+    [
+        ("TGISDB_DRIVER=sqlite", "database"),
+        (f"TGISDB_DATABASE={DEFAULT_DATABASE}", "driver"),
+    ],
+)
+def test_c_refuses_a_connection_that_is_half_set(tools, variable, missing):
+    # Driver and database must be set together; -c gives up when only one of
+    # them is in the VAR file of the mapset and leaves it as it is.
+    tools.g_gisenv(set=variable, store="mapset")
+    before = _var_file(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(flags="c")
+
+    assert f"Default TGIS {missing} is not set" in message(error.value)
+    assert _var_file(tools) == before
 
 
 def test_d_sets_the_default_over_a_connection_that_exists(tools):

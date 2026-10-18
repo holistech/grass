@@ -14,6 +14,8 @@ the mapsets do not depend on each other, so three show the same.
 """
 
 import contextlib
+import sqlite3
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -106,6 +108,35 @@ def test_each_mapset_has_a_connection_of_its_own(project):
         assert entry["mapset"] == name
         assert entry["driver"] == "sqlite"
         assert entry["database"] == "$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db"
+
+
+def _datasets_in_file(tools, stds_type):
+    """The ids of the datasets in the sqlite file of the mapset of tools
+
+    None if the mapset has no such file yet.
+    """
+    env = {
+        key: tools.g_gisenv(get=key).stdout.strip()
+        for key in ("GISDBASE", "LOCATION_NAME", "MAPSET")
+    }
+    path = (
+        Path(env["GISDBASE"]) / env["LOCATION_NAME"] / env["MAPSET"] / "tgis"
+    ) / "sqlite.db"
+    if not path.exists():
+        return None
+    with sqlite3.connect(path) as connection:
+        rows = connection.execute(f"SELECT id FROM {stds_type}_base").fetchall()
+    return [row[0] for row in rows]
+
+
+def test_each_dataset_is_in_the_file_of_its_mapset(project):
+    # What the readers below find comes from these files: every data mapset
+    # holds its own dataset A and no other, and the viewer, which created
+    # none, holds none (it has a file once a tool ran there).
+    for name in project.mapsets:
+        found = _datasets_in_file(project.tools[name], project.stds_type)
+        assert found == [f"A@{name}"]
+    assert _datasets_in_file(project.tools["viewer"], project.stds_type) in (None, [])
 
 
 def test_t_list_reads_the_dataset_of_every_mapset(project, reader):
