@@ -250,7 +250,7 @@ def register_file(path, rows, *, separator="|"):
     for row in rows:
         fields = [row] if isinstance(row, str) else list(row)
         if any(field is None for field in fields):
-            msg = f"A row of a register file has no None fields, got {row!r}"
+            msg = f"A row of a register file may not contain None, got {row!r}"
             raise ValueError(msg)
         lines.append(
             separator.join(
@@ -268,7 +268,9 @@ def register_file(path, rows, *, separator="|"):
 _SQL_TYPE = {int: "integer", float: "double precision", str: "text"}
 
 
-def vector_points(tools, name, points, *, attributes=None, layer=1, overwrite=False):
+def vector_points(
+    tools, name, points, *, attributes=None, layers=(1,), overwrite=False
+):
     """Create a point map name with one point per (x, y) and an attribute table
 
     The categories are 1 to len(points) in the given order. With attributes,
@@ -280,15 +282,22 @@ def vector_points(tools, name, points, *, attributes=None, layer=1, overwrite=Fa
     float (0.0, not 0). Text may not contain a comma, because the points go
     to v.in.ascii as comma separated lines.
 
-    layer is the layer of the categories and of the table. Other than 1, the
-    map is imported into layer 1 and moved, as the shell tests of t.vect.list
-    and t.register did by hand; the table keeps the name of the map.
+    layers are the layers that get the categories; they must include 1.
+    Every layer gets its own copy of the table, named name for layer 1 and
+    name_<layer> for the others, the names v.db.addtable would give. This
+    is the map that the shell tests of t.register, t.vect.list and
+    t.vect.what.strds built with v.category option=transfer and db.copy, to
+    register it as name:layer.
 
     Register the map with a MapSpec whose value is None. make_map() makes the
     simplest map, one point per map; use this when a test needs several
     points or columns.
     """
     points = list(points)
+    layers = sorted(set(layers))
+    if 1 not in layers:
+        msg = f"layers must include 1, got {layers}"
+        raise ValueError(msg)
     attributes = {} if attributes is None else dict(attributes)
     columns = [("x", float), ("y", float), ("cat", int)]
     rows = [[x, y, number] for number, (x, y) in enumerate(points, start=1)]
@@ -303,7 +312,9 @@ def vector_points(tools, name, points, *, attributes=None, layer=1, overwrite=Fa
         columns.append((column, type(values[0]) if values else str))
         for row, value in zip(rows, values, strict=True):
             row.append(value)
-    source = name if layer == 1 else f"{name}_layer1"
+    # v.category cannot write its input, so with further layers the points
+    # are imported under another name first.
+    source = name if layers == [1] else f"{name}_import"
     tools.v_in_ascii(
         input=StringIO("".join(",".join(map(str, row)) + "\n" for row in rows)),
         output=source,
@@ -318,19 +329,22 @@ def vector_points(tools, name, points, *, attributes=None, layer=1, overwrite=Fa
     )
     if not attributes:
         tools.v_db_addtable(map=source)
-    if layer != 1:
-        # chlayer copies the table for the new layer but keeps the link on
-        # layer 1, so the link is moved by hand.
-        tools.v_category(
-            input=source,
-            output=name,
-            option="chlayer",
-            layer=f"1,{layer}",
-            overwrite=overwrite,
-        )
-        tools.v_db_connect(map=name, flags="d", layer=1)
-        tools.v_db_connect(map=name, table=name, layer=layer, key="cat")
-        tools.g_remove(type="vector", name=source, flags="f")
+    if layers == [1]:
+        return
+    # transfer copies the table of layer 1 to name, but links no table to
+    # the new layers.
+    tools.v_category(
+        input=source,
+        output=name,
+        option="transfer",
+        layer=",".join(map(str, layers)),
+        overwrite=overwrite,
+    )
+    tools.g_remove(type="vector", name=source, flags="f")
+    for layer in layers[1:]:
+        table = f"{name}_{layer}"
+        tools.db_copy(from_table=name, to_table=table, overwrite=overwrite)
+        tools.v_db_connect(map=name, table=table, layer=layer, key="cat")
 
 
 def small_region(tools, rows, cols, *, depths=None):

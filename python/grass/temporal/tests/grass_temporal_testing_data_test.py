@@ -371,21 +371,51 @@ def test_vector_points_coordinates(tools):
     assert out.text.splitlines() == ["1,2,1", "3,4,2"]
 
 
-def test_vector_points_other_layer(tools):
+def _tables(tools, name):
+    """The table linked to each layer of the vector map name"""
+    lines = tools.v_db_connect(map=name, flags="g").text.splitlines()
+    return {line.split("|")[0].split("/")[0]: line.split("|")[1] for line in lines}
+
+
+def test_vector_points_in_several_layers(tools):
     vector_points(
-        tools, "vp_layer", [(1, 1), (2, 2)], attributes={"v": [5, 6]}, layer=3
+        tools, "vp_layer", [(1, 1), (2, 2)], attributes={"v": [5, 6]}, layers=(1, 3)
     )
 
-    assert [(r["cat"], r["v"]) for r in _records(tools, "vp_layer", 3)] == [
-        (1, 5),
-        (2, 6),
-    ]
-    report = tools.v_category(input="vp_layer", option="report", layer=3)
-    assert "point" in report.text
     layers = tools.v_category(input="vp_layer", option="layers").text.split()
-    assert layers == ["3"]
+    assert layers == ["1", "3"]
+    assert _tables(tools, "vp_layer") == {"1": "vp_layer", "3": "vp_layer_3"}
+    for layer in (1, 3):
+        assert [(r["cat"], r["v"]) for r in _records(tools, "vp_layer", layer)] == [
+            (1, 5),
+            (2, 6),
+        ]
     listed = tools.g_list(type="vector", pattern="vp_layer*").text.split()
     assert listed == ["vp_layer"]
+
+
+def test_vector_points_layers_are_registered_as_map_and_layer(tools):
+    vector_points(tools, "vp_ml", [(1, 1)], layers=(1, 2))
+    register_stds(
+        tools,
+        "stvds",
+        "vp_ml_ds",
+        [
+            MapSpec("vp_ml:1", None, day(0), day(1)),
+            MapSpec("vp_ml:2", None, day(1), day(2)),
+        ],
+    )
+
+    listed = tools.t_vect_list(
+        input="vp_ml_ds", columns="name,layer", order="start_time", flags="u"
+    ).text.split()
+
+    assert listed == ["vp_ml|1", "vp_ml|2"]
+
+
+def test_vector_points_layers_must_include_layer_1(tools):
+    with pytest.raises(ValueError, match="include 1"):
+        vector_points(tools, "vp_bad", [(1, 1)], layers=(2,))
 
 
 def test_vector_points_refuses_existing_map_without_overwrite(tools):
@@ -400,19 +430,20 @@ def test_vector_points_refuses_existing_map_without_overwrite(tools):
     assert [r["v"] for r in _records(tools, "vp_twice")] == [5, 6]
 
 
-def test_vector_points_other_layer_overwrite(tools):
-    vector_points(tools, "vp_lo", [(1, 1)], attributes={"v": [1]}, layer=2)
+def test_vector_points_several_layers_overwrite(tools):
+    vector_points(tools, "vp_lo", [(1, 1)], attributes={"v": [1]}, layers=(1, 2))
 
     vector_points(
         tools,
         "vp_lo",
         [(7, 7), (8, 8)],
         attributes={"v": [7, 8]},
-        layer=2,
+        layers=(1, 2),
         overwrite=True,
     )
 
-    assert [r["v"] for r in _records(tools, "vp_lo", 2)] == [7, 8]
+    for layer in (1, 2):
+        assert [r["v"] for r in _records(tools, "vp_lo", layer)] == [7, 8]
 
 
 def test_vector_points_attribute_length_must_match(tools):
