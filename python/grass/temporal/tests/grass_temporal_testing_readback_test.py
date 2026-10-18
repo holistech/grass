@@ -9,8 +9,8 @@ import os
 import pytest
 
 import grass.script as gs
-from grass.temporal.testing.readback import Row, list_maps, stds_info
-from grass.tools import Tools
+from grass.temporal.testing.readback import Row, list_maps, map_info, stds_info
+from grass.tools import ToolError, Tools
 
 
 @pytest.fixture(scope="module")
@@ -119,3 +119,27 @@ def test_stds_info_of_an_empty_dataset(tools):
     info = stds_info(tools, "strds", "empty")
     assert info["name"] == "empty"
     assert info["number_of_maps"] == "None"
+
+
+@pytest.mark.parametrize(
+    ("map_type", "name", "start"),
+    [
+        ("raster", "a", "'2001-01-01 00:00:00'"),
+        ("raster_3d", "va", "'2001-01-01 00:00:00'"),
+        ("vector", "vw", "'2001-01-02 00:00:00'"),
+    ],
+)
+def test_map_info_of_a_registered_map(tools, map_type, name, start):
+    info = map_info(tools, map_type, name)
+    assert info["name"] == name
+    assert info["start_time"] == start
+
+
+def test_map_info_of_a_map_that_is_not_registered_is_none(tools):
+    tools.r_mapcalc(expression="loose = 1")
+    assert map_info(tools, "raster", "loose") is None
+
+
+def test_map_info_raises_any_other_failure(tools):
+    with pytest.raises(ToolError):
+        map_info(tools, "nonsense", "a")

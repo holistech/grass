@@ -9,6 +9,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from typing import NamedTuple
 
+from grass.tools import ToolError
+
 # Maps the dataset type to the list tool and whether it reports min and max;
 # vector maps have no value range.
 _LIST_TOOLS = {
@@ -74,3 +76,22 @@ def stds_info(tools, stds_type, name):
     t.info assertions of the tool tests compare against.
     """
     return tools.t_info(type=stds_type, input=name, flags="g").keyval
+
+
+def map_info(tools, map_type, name):
+    """t.info -g of a map as a dict, or None if the map is not in the database
+
+    map_type is "raster", "raster_3d" or "vector"; a vector layer is named
+    "map:layer". The map keeps its entry in the temporal database after a
+    space time dataset forgets it, so None means that the map is no longer
+    registered anywhere, which is what t.unregister without a dataset and
+    t.remove -r do. Any other failure of t.info is raised.
+    """
+    try:
+        return tools.t_info(type=map_type, input=name, flags="g").keyval
+    except ToolError as error:
+        # t.info says so for a map that was never registered or was
+        # unregistered, in the text "not found in temporal database".
+        if "not found in temporal" not in str(error):
+            raise
+        return None
