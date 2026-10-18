@@ -5,8 +5,11 @@ and cover the quarters from 2001-01-01 to 2002-07-01 (conftest.py). The
 comparisons of the old suite are kept with all their keys.
 """
 
+from datetime import datetime
+
 import pytest
 
+from grass.temporal.testing.data import MapSpec, register_stds, small_region
 from grass.temporal.testing.readback import list_maps, message, stds_info
 
 # The keys the old suite compared, for datasets of this region.
@@ -171,6 +174,37 @@ def test_the_expression_names_the_dataset_for_every_map(tools, quarterly, prefix
         1000.0,
         1200.0,
     ]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_the_expression_is_computed_for_every_voxel(tools, prefix):
+    # The other tests have one layer, where a computation on the first layer
+    # only would look the same. Here a cube of one row, two columns and two
+    # layers holds 10 * depth + column: 11, 12 in the bottom layer and 21, 22
+    # in the top one. The extracted map holds each value plus 1.
+    previous = small_region(tools, 1, 2, depths=2)
+    try:
+        tools.r3_mapcalc(expression=f"{prefix}_v = 10 * depth() + col()")
+        register_stds(
+            tools,
+            "str3ds",
+            f"{prefix}_in",
+            [MapSpec(f"{prefix}_v", None, datetime(2001, 1, 1), datetime(2001, 4, 1))],
+        )
+        tools.t_rast3d_extract(
+            input=f"{prefix}_in",
+            output=prefix,
+            expression=f"{prefix}_in + 1",
+            basename=f"{prefix}_x",
+        )
+        (row,) = list_maps(tools, "str3ds", prefix)
+        text = tools.r3_out_ascii(input=row.name, flags="h").stdout
+    finally:
+        tools.g_region(**previous)
+
+    # r3.out.ascii writes the layers from the bottom, each row from the west.
+    assert [float(word) for word in text.split()] == [12.0, 13.0, 22.0, 23.0]
 
 
 @pytest.mark.parametrize(
