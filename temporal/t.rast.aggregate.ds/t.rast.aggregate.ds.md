@@ -15,6 +15,11 @@ sampling dataset and the input space time raster dataset.
 The module stops before computing if the name of a result map equals the
 name of an input map in the current mapset.
 
+With relative time the sampler dataset must have the same time unit as
+the input dataset. Since 18.10.2026 the module refuses a sampler with
+another unit before computing anything; earlier it read the numbers of
+the sampler in the unit of the input.
+
 Since GRASS 8.6 the **-n** flag works as documented and as in
 *t.rast.aggregate*: by default an aggregated map without any valid cell is
 not registered, and **-n** keeps it. Earlier versions did the opposite.

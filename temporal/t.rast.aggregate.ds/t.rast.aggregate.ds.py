@@ -126,6 +126,22 @@ def main():
             gs.fatal(
                 _("Input and aggregation dataset must have the same temporal type")
             )
+        if (
+            sp.is_time_relative()
+            and sampler_sp.get_relative_time_unit() != sp.get_relative_time_unit()
+        ):
+            # The numbers of the sampler would be read in the unit of the input.
+            gs.fatal(
+                _(
+                    "The unit <{sampler_unit}> of the aggregation dataset <{sampler}> "
+                    "differs from the unit <{unit}> of the input dataset <{input}>"
+                ).format(
+                    sampler_unit=sampler_sp.get_relative_time_unit(),
+                    sampler=sampler,
+                    unit=sp.get_relative_time_unit(),
+                    input=input,
+                )
+            )
         if sampler_sp.temporal_extent.get_map_time() != "interval":
             gs.fatal(
                 _(

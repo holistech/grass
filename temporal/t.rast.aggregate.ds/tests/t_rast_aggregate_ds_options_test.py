@@ -541,23 +541,26 @@ def test_relative_time(tools, prefix):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_the_unit_of_a_relative_sampler_is_not_compared(tools, prefix):
-    # The input is in days, the sampler [0,2) in years. The tool checks only
-    # that both have relative time and reads the numbers of the sampler in
-    # the unit of the input: the granule is the days 0 to 2, not two years,
-    # and holds the maps 1 and 2.
+def test_a_sampler_with_another_relative_unit_is_refused(tools, prefix):
+    # Changed on 18.10.2026: the input is in days, the sampler [0,2) in years.
+    # The tool used to read the numbers of the sampler in days; now it refuses
+    # the pair and creates nothing.
     _relative(tools, f"{prefix}_in", [(k, k + 1) for k in range(4)], "days")
     _relative(tools, f"{prefix}_smp", [(0, 2)], "years")
 
-    tools.t_rast_aggregate_ds(
-        input=f"{prefix}_in",
-        sample=f"{prefix}_smp",
-        type="strds",
-        output=f"{prefix}_out",
-        basename=f"{prefix}_out",
-        method="sum",
-    )
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate_ds(
+            input=f"{prefix}_in",
+            sample=f"{prefix}_smp",
+            type="strds",
+            output=f"{prefix}_out",
+            basename=f"{prefix}_out",
+            method="sum",
+        )
 
-    assert [(row[1], row[2], row[3]) for row in _rows(tools, f"{prefix}_out")] == [
-        (0, 2, 3.0)
-    ]
+    assert (
+        f"The unit <years> of the aggregation dataset <{prefix}_smp> differs from "
+        f"the unit <days> of the input dataset <{prefix}_in>"
+    ) in message(error.value)
+    assert tools.t_list(type="strds", columns="name").stdout.count(f"{prefix}_out") == 0
+    assert tools.g_list(type="raster", pattern=f"{prefix}_out*").stdout == ""
