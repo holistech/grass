@@ -199,15 +199,17 @@ def test_a_dataset_of_another_type_is_not_found(tools, make_dataset):
 
 
 def test_an_unknown_semantic_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <semantictype>"):
+    with pytest.raises(
+        ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<semantictype>"
+    ):
         tools.t_support(input="a", semantictype="median")
 
 
 def test_an_unknown_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <type>"):
+    with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_support(type="raster", input="a")
 
 
 def test_the_input_is_required(tools):
-    with pytest.raises(ToolError, match=r"Required parameter <input> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<input>\s+not\s+set"):
         tools.t_support(title="x")

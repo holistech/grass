@@ -130,28 +130,36 @@ def test_m_sets_the_semantic_type_to_mean(tools, make_dataset):
 
 
 def _stale_dataset(tools, prefix):
-    """A dataset whose metadata still counts maps that were taken away
+    """A dataset whose metadata lags behind the entries of its maps
 
-    Datasets B (maps 1-3) and C (maps 1-2) share maps. t.remove -rf C
-    unregisters maps 1 and 2 from B without updating B, so B lists one map
-    (map 3, 2001-01-03 to 2001-01-04) and still reports three.
+    Datasets A and B register the same maps 1 to 3 with the values 1, 2 and 3.
+    Map 1 is made again with the value 7, and t.support -m A reads it into
+    the temporal database and updates A. B is not updated, because -m updates
+    other datasets only for maps that are gone (as its description says), so
+    B still reports the values 1 to 3 while the entries hold 7, 2 and 3.
     """
     specs = [MapSpec(f"{prefix}_{n}", n, day(n - 1), day(n)) for n in (1, 2, 3)]
-    create_stds(tools, "strds", f"{prefix}_b", specs)
-    tools.t_create(output=f"{prefix}_c", title="c", description="c")
+    create_stds(tools, "strds", f"{prefix}_a", specs)
+    tools.t_create(output=f"{prefix}_b", title="b", description="b")
     tools.t_register(
-        input=f"{prefix}_c",
-        maps=f"{specs[0].name},{specs[1].name}",
+        input=f"{prefix}_b",
+        maps=",".join(spec.name for spec in specs),
         start="2001-01-01",
         increment="1 days",
         flags="i",
         overwrite=True,
     )
-    tools.t_remove(inputs=f"{prefix}_c", flags="rf")
+    make_map(tools, "raster", specs[0].name, 7, overwrite=True)
+    tools.t_support(input=f"{prefix}_a", flags="m")
+    assert stds_info(tools, "strds", f"{prefix}_a")["max_max"] == 7
     stale = stds_info(tools, "strds", f"{prefix}_b")
-    assert stale["number_of_maps"] == 3
-    assert [r.name for r in list_maps(tools, "strds", f"{prefix}_b")] == [specs[2].name]
+    assert (stale["min_min"], stale["max_max"]) == (1, 3)
     return f"{prefix}_b"
+
+
+# The entries hold the values 7, 2 and 3: the smallest minimum is 2, the
+# largest maximum 7.
+REPAIRED = (2, 7)
 
 
 def test_m_repairs_a_dataset_with_stale_metadata(tools, prefix):
@@ -160,11 +168,8 @@ def test_m_repairs_a_dataset_with_stale_metadata(tools, prefix):
     tools.t_support(input=name, flags="m")
 
     info = stds_info(tools, "strds", name)
-    assert info["number_of_maps"] == 1
-    assert (info["start_time"], info["end_time"]) == (
-        "'2001-01-03 00:00:00'",
-        "'2001-01-04 00:00:00'",
-    )
+    assert (info["min_min"], info["max_max"]) == REPAIRED
+    assert info["number_of_maps"] == 3
 
 
 def test_u_repairs_a_dataset_with_stale_metadata(tools, prefix):
@@ -173,8 +178,8 @@ def test_u_repairs_a_dataset_with_stale_metadata(tools, prefix):
     tools.t_support(input=name, flags="u")
 
     info = stds_info(tools, "strds", name)
-    assert info["number_of_maps"] == 1
-    assert info["start_time"] == "'2001-01-03 00:00:00'"
+    assert (info["min_min"], info["max_max"]) == REPAIRED
+    assert info["number_of_maps"] == 3
 
 
 def test_today_a_call_without_u_repairs_it_as_well(tools, prefix):
@@ -185,7 +190,8 @@ def test_today_a_call_without_u_repairs_it_as_well(tools, prefix):
 
     tools.t_support(input=name)
 
-    assert stds_info(tools, "strds", name)["number_of_maps"] == 1
+    info = stds_info(tools, "strds", name)
+    assert (info["min_min"], info["max_max"]) == REPAIRED
 
 
 def test_today_u_sets_the_semantic_type_to_mean(tools, make_dataset):
