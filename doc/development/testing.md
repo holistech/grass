@@ -198,7 +198,8 @@ used from any test; the fixtures that wrap it are in
 - `readback`: `list_maps()` and `stds_info()` read the registered maps and
   the output of _t.info_ back as values that a test compares; `map_info()`
   does the same for a single map and gives `None` for one that is not in the
-  temporal database. `message()` returns the
+  temporal database. `cell_values()` reads the cells of a map of a few
+  cells as a list, null as `None`. `message()` returns the
   messages of a call or of the error it raised as one line; compare messages
   through it, because GRASS wraps them and an absence check on the raw text
   passes whatever the text says.

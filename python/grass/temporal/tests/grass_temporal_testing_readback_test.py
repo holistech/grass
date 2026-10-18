@@ -9,7 +9,14 @@ import os
 import pytest
 
 import grass.script as gs
-from grass.temporal.testing.readback import Row, list_maps, map_info, message, stds_info
+from grass.temporal.testing.readback import (
+    Row,
+    cell_values,
+    list_maps,
+    map_info,
+    message,
+    stds_info,
+)
 from grass.tools import ToolError, Tools
 
 
@@ -159,3 +166,10 @@ def test_message_reads_the_text_of_an_error(tools):
 
     assert "\n" not in message(raised.value)
     assert "not found" in message(raised.value)
+
+
+def test_cell_values_reads_every_cell_and_null(tools):
+    tools.g_region(n=2, s=0, e=2, w=0, res=1)
+    tools.r_mapcalc(expression="cells = if(row() == 1, if(col() == 1, 1.5, null()), 3)")
+
+    assert cell_values(tools, "cells") == [1.5, None, 3.0, 3.0]

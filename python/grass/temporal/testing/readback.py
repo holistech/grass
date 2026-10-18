@@ -99,6 +99,18 @@ def map_info(tools, map_type, name):
         return None
 
 
+def cell_values(tools, raster):
+    """The cells of a raster map as a list of floats, row by row
+
+    A null cell is None. Meant for maps of a few cells (see small_region()),
+    where a test derives the value of every cell by hand. r.out.ascii writes
+    the values with its default precision, so values that need more digits
+    than six are rounded.
+    """
+    words = tools.r_out_ascii(input=raster, flags="h", null_value="N").stdout.split()
+    return [None if word == "N" else float(word) for word in words]
+
+
 def message(source):
     """The messages of a tool call as one line of text
 
