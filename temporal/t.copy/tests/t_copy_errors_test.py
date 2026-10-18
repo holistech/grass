@@ -6,17 +6,19 @@ from grass.tools import ToolError
 
 
 def test_the_input_is_required(tools):
-    with pytest.raises(ToolError, match=r"Required parameter <input> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<input>\s+not\s+set"):
         tools.t_copy(output="a")
 
 
 def test_the_output_is_required(tools):
-    with pytest.raises(ToolError, match=r"Required parameter <output> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<output>\s+not\s+set"):
         tools.t_copy(input="a")
 
 
 def test_an_unknown_dataset_is_refused(tools, prefix):
-    with pytest.raises(ToolError, match=r"Space time dataset <nope> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<nope>\s+of\s+type\s+<strds>"
+    ):
         tools.t_copy(input="nope", output=f"{prefix}_copy")
 
     assert f"{prefix}_copy" not in tools.t_list(type="strds", columns="name").stdout
@@ -26,7 +28,7 @@ def test_an_unknown_dataset_is_refused(tools, prefix):
 def test_a_dataset_of_another_type_is_not_found(tools, make_stds, prefix):
     _, (name,) = make_stds(1)
 
-    with pytest.raises(ToolError, match=r"of type\s+<stvds> not found"):
+    with pytest.raises(ToolError, match=r"of\s+type\s+<stvds>\s+not\s+found"):
         tools.t_copy(type="stvds", input=name, output=f"{prefix}_copy")
 
 
@@ -36,5 +38,5 @@ def test_an_unknown_mapset_is_refused(tools, prefix):
 
 
 def test_an_unknown_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <type>"):
+    with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_copy(type="raster", input="a", output="b")

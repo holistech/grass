@@ -202,7 +202,7 @@ def test_c_with_overwrite_leaves_the_source_as_it_was(tools, prefix):
 def test_today_c_fails_for_3d_and_vector_datasets(tools, prefix, stds_type, map_type):
     name, _ = _make(tools, prefix, stds_type)
 
-    with pytest.raises(ToolError, match="has no attribute 'get_semantic_label'"):
+    with pytest.raises(ToolError, match=r"has\s+no\s+attribute\s+'get_semantic_label'"):
         tools.t_copy(type=stds_type, input=name, output=f"{prefix}_copy", flags="c")
 
 
