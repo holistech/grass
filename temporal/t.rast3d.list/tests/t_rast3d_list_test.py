@@ -185,6 +185,27 @@ def test_method_comma(space_time_raster3d_dataset):
     assert result.comma_items == expected
 
 
+def test_the_3d_columns_of_a_volume(space_time_raster3d_dataset):
+    """Check the extent and size columns on a region of several layers."""
+    # The region of the fixture spans 0 to 80 north, 0 to 120 east and 0 to 50
+    # in height at a resolution of 10 in all three directions: 8 rows, 12
+    # columns, 5 layers and 8 * 12 * 5 = 480 cells. The other tests of the
+    # columns have one layer, where depths and rows could not be told apart.
+    tools = Tools(session=space_time_raster3d_dataset.session)
+    columns = "north,south,west,east,nsres,ewres,tbres,rows,cols,depths,number_of_cells"
+
+    result = tools.t_rast3d_list(
+        input=space_time_raster3d_dataset.name,
+        columns=columns,
+        where="name = 'vol_1'",
+    )
+
+    assert result.text.splitlines() == [
+        columns.replace(",", "|"),
+        "80.0|0.0|0.0|120.0|10.0|10.0|10.0|8|12|5|480",
+    ]
+
+
 @pytest.mark.parametrize("output_format", ["json", "yaml", "csv", "plain"])
 def test_suppress_header_validation(space_time_raster3d_dataset, output_format):
     """Check that the suppress column flag (-s) is rejected for specific formats."""
