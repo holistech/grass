@@ -2,9 +2,9 @@
 
 The apostrophe ends the SQL string of the INSERT statement, and the question
 mark is taken for a placeholder by the library's mogrify_sql_statement(), so
-the call fails with a Python traceback instead of storing the text. Each case has a test for today's behaviour and a strict xfail test for
-the behaviour a user expects: the dataset is created and the text is read back
-as given.
+the call fails with a Python traceback instead of storing the text. Each case
+has a test for today's behaviour and a strict xfail test for the behaviour a
+user expects: the dataset is created and the text is read back as given.
 """
 
 import re
@@ -35,6 +35,7 @@ def _title_and_description(tools, name):
     return tuple(part.strip(" |\n") for part in match.groups())
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("case", CASES)
 def test_today_the_call_fails_and_leaves_no_dataset(tools, case):
     options, reason = CASES[case]

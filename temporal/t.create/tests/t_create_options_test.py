@@ -45,6 +45,7 @@ def _listed(tools, stds_type, name, **options):
     return result.json
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("temporaltype", ["absolute", "relative"])
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
 def test_type_and_temporal_type_are_recorded(tools, stds_type, temporaltype):
@@ -76,6 +77,7 @@ def test_type_and_temporal_type_are_recorded(tools, stds_type, temporaltype):
     assert _listed(tools, stds_type, name, temporaltype=other) == []
 
 
+@pytest.mark.slow
 def test_dataset_is_empty_after_creation(tools):
     tools.t_create(output="empty_ds", **CREATE)
 
@@ -86,6 +88,7 @@ def test_dataset_is_empty_after_creation(tools):
     assert list_maps(tools, "strds", "empty_ds") == []
 
 
+@pytest.mark.slow
 def test_type_defaults_to_strds_and_time_to_absolute(tools):
     tools.t_create(output="defaults_ds", **CREATE)
 
@@ -96,6 +99,7 @@ def test_type_defaults_to_strds_and_time_to_absolute(tools):
     assert _listed(tools, "stvds", "defaults_ds") == []
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("semantictype", ["min", "max", "sum", "mean"])
 def test_semantictype_is_recorded(tools, semantictype):
     name = f"sem_{semantictype}"
@@ -169,6 +173,7 @@ def test_name_in_another_mapset_is_refused(tools, mapset):
     assert _listed(tools, "strds", name) == []
 
 
+@pytest.mark.slow
 def test_existing_dataset_is_refused_without_overwrite(tools):
     tools.t_create(output="exists_ds", semantictype="sum", **CREATE)
 
@@ -183,6 +188,7 @@ def test_existing_dataset_is_refused_without_overwrite(tools):
     assert _texts(tools, "strds", "exists_ds")["title"] == "A title"
 
 
+@pytest.mark.slow
 def test_overwrite_replaces_the_dataset(tools):
     tools.t_create(output="over_ds", semantictype="sum", **CREATE)
 
@@ -202,6 +208,7 @@ def test_overwrite_replaces_the_dataset(tools):
     assert (texts["title"], texts["description"]) == ("New title", "New description")
 
 
+@pytest.mark.slow
 def test_overwrite_unregisters_the_maps_but_keeps_them(tools):
     tools.g_region(n=1, s=0, e=1, w=0, res=1)
     create_stds(
@@ -251,16 +258,52 @@ def test_required_option_is_checked(tools, missing):
     assert _listed(tools, "strds", "req_ds") == []
 
 
-@pytest.mark.slow
-def test_names_that_are_not_legal_map_names_are_accepted(tools):
-    # Characterization, not a recommendation: a space only produces a warning,
-    # and a leading digit or a semicolon are not even mentioned. The dataset
-    # is created and found in every case.
-    expected = {"a b": True, "1digit": False, "semi;colon": False}
-    for name, warns in expected.items():
-        result = tools.t_create(output=name, **CREATE)
+# G_legal_filename() (lib/gis/legal_name.c) refuses a map name that starts
+# with "." or contains a character up to " ", one of / " ' @ , = * or a byte
+# above 0176. A semicolon and a leading digit are legal there.
+LEGAL_NAMES = {"leading_digit": "1digit", "semicolon": "semi;colon"}
+# The value says whether t.create warns today; the comma passes silently.
+ILLEGAL_NAMES = {
+    "space": ("a b", True),
+    "slash": ("sl/ash", True),
+    "equals": ("eq=ual", True),
+    "star": ("st*ar", True),
+    "comma": ("com,ma", False),
+}
 
-        assert ("Illegal filename" in result.stderr) == warns
-        assert _listed(tools, "strds", name) == [
-            {"name": name, "type": "strds", "semantic_type": "mean"}
-        ]
+
+@pytest.mark.parametrize("case", LEGAL_NAMES)
+def test_odd_but_legal_names_are_accepted(tools, case):
+    name = LEGAL_NAMES[case]
+
+    result = tools.t_create(output=name, **CREATE)
+
+    assert "Illegal filename" not in result.stderr
+    assert _listed(tools, "strds", name) == [
+        {"name": name, "type": "strds", "semantic_type": "mean"}
+    ]
+
+
+@pytest.mark.parametrize("case", ILLEGAL_NAMES)
+def test_today_an_illegal_name_is_accepted(tools, case):
+    name, warns = ILLEGAL_NAMES[case]
+    name = f"today_{name}"
+
+    result = tools.t_create(output=name, **CREATE)
+
+    assert ("Illegal filename" in result.stderr) == warns
+    assert _listed(tools, "strds", name) == [
+        {"name": name, "type": "strds", "semantic_type": "mean"}
+    ]
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.parametrize("case", ILLEGAL_NAMES)
+def test_an_illegal_name_is_refused(tools, case):
+    name, _ = ILLEGAL_NAMES[case]
+    name = f"right_{name}"
+
+    with pytest.raises(ToolError):
+        tools.t_create(output=name, **CREATE)
+
+    assert _listed(tools, "strds", name) == []
