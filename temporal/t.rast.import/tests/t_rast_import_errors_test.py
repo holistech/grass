@@ -5,6 +5,7 @@ session ends with a traceback after the message.
 """
 
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -131,3 +132,40 @@ def test_a_projection_that_differs_is_refused_without_the_o_flag(
         )
 
     assert "Projection information does not match. Aborting." in text
+
+
+def test_today_an_unprojected_archive_cannot_create_a_project(
+    tools, archive, prefix, tmp_path
+):
+    # The archive of an unprojected project holds "XY location (unprojected)"
+    # as its projection, which the library hands to gs.create_location() as a
+    # PROJ string.
+    text = _refused(
+        tools,
+        input=str(archive),
+        output=prefix,
+        basename=prefix,
+        project=f"{prefix}_new",
+        directory=str(tmp_path),
+    )
+
+    assert "Can't parse PROJ.4-style parameter string" in text
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_an_unprojected_archive_creates_an_unprojected_project(
+    tools, archive, prefix, tmp_path
+):
+    # The manual takes any archive of t.rast.export, and project= creates a
+    # new project for it.
+    gisdbase = Path(tools.g_gisenv(get="GISDBASE").stdout.strip())
+
+    tools.t_rast_import(
+        input=str(archive),
+        output=prefix,
+        basename=prefix,
+        project=f"{prefix}_new",
+        directory=str(tmp_path),
+    )
+
+    assert (gisdbase / f"{prefix}_new" / "PERMANENT" / "cell").is_dir()

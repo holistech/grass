@@ -65,9 +65,19 @@ def test_the_maps_have_the_times_and_cells_of_the_exported_ones(tools, archive, 
 
 
 def test_today_the_numbers_of_the_new_maps_start_at_two(tools, archive, prefix):
+    # stds_import.py counts the lines with enumerate(list_file, 1) and still
+    # adds 1, since b1701e510f (2026-07-17); before, the counter started at 0
+    # and the first map was <base>_1.
     rows = _import(tools, archive, prefix)
 
     assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_the_numbers_of_the_new_maps_start_at_one(tools, archive, prefix):
+    rows = _import(tools, archive, prefix)
+
+    assert [row.name for row in rows] == [f"{prefix}_1", f"{prefix}_2"]
 
 
 def test_title_and_description_are_set(tools, archive, prefix):
