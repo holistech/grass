@@ -91,7 +91,9 @@ def map_info(tools, map_type, name):
         return tools.t_info(type=map_type, input=name, flags="g").keyval
     except ToolError as error:
         # t.info says so for a map that was never registered or was
-        # unregistered, in the text "not found in temporal database".
-        if "not found in temporal" not in str(error):
+        # unregistered, in the text "not found in temporal database"; the
+        # message is wrapped at a width that depends on the length of the
+        # name, so the white space is normalized before the search.
+        if "not found in temporal database" not in " ".join(str(error).split()):
             raise
         return None
