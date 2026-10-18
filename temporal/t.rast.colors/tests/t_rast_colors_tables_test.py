@@ -95,9 +95,15 @@ def test_random_colours_have_the_structure_of_a_table(tools, colored, table):
 
 
 def test_the_measured_tables_of_grey_eq_and_grey_log(tools, colored, table):
-    # Not derived: the shapes of these two tables are what r.colors gives for
-    # this dataset (measured 18.10.2026 with t.rast.colors in a temporary XY
-    # project). Both have 26 rules and the two lines for null and the default.
+    # The greys are derived from lib/raster/color_hist.c for the 18 values
+    # of the dataset, each in one cell. grey.eq gives the value at rank i
+    # (from 0) the grey (i + 0.5) 256 / 18, cut to an integer: 7, 21, 35 for
+    # 1, 2, 3 and 248 for 90 (rank 17). grey.log gives
+    # int(255 ln(v) / ln(90)): 0, 39, 62 for 1, 2, 3 and 255 for 90.
+    # The number of lines is measured, not derived: r.colors.out joins the
+    # ranges of equal grey into 26 rules, plus the lines for null and the
+    # default (measured 18.10.2026 with this test; the joining is a matter of
+    # the output format, not of the tool under test).
     name, first, _ = colored
 
     tools.t_rast_colors(input=name, color="grey.eq")

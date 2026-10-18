@@ -163,21 +163,23 @@ def test_the_w_flag_keeps_an_existing_table(tools, colored, table, red_to_blue):
     assert table(first) == ["1 255:0:0", "90 0:0:255", *WHITE]
 
 
-def test_today_the_w_flag_stops_at_the_first_map_that_has_a_table(
-    tools, colored, table
-):
-    # Only the first map has a table, the second has none. r.colors treats an
-    # existing table as an error, so the run stops there and the second map is
-    # not written, though -w says "only write ... if it does not already
-    # exist".
+def test_the_w_flag_writes_no_map_if_one_map_has_a_table(tools, colored, table):
+    # Only the second map has a table. r.colors checks every map of its list
+    # for a table before it writes any and ends with an error at the first it
+    # finds (raster/r.colors/edit_colors.c), so the first map, which has none,
+    # gets no table either. That is r.colors with a list of maps, which
+    # t.rast.colors passes on unchanged.
     name, first, second = colored
-    tools.r_colors(map=first, color="grey")
-    before = table(second)
+    tools.r_colors(map=second, color="grey")
+    before = table(first)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_rast_colors(input=name, color="viridis", flags="w")
 
-    assert table(second) == before
+    assert f"Color table exists for raster map <{second}@PERMANENT>" in message(
+        error.value
+    )
+    assert table(first) == before
 
 
 def test_today_the_l_flag_cannot_be_used(tools, colored):
