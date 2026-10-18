@@ -153,15 +153,14 @@ def test_the_shell_script_with_maximum_and_sum(tools, monthly, prefix):
 
 
 def test_bug_3223_average_of_all_maps(series, monthly):
+    # The script of the bug report gave no method: the default is average.
     # (100 + 200 + 300 + 400 + 500 + 600) / 6 = 350.
-    assert series(monthly, method="average") == [[350.0, 350.0]]
+    assert series(monthly) == [[350.0, 350.0]]
 
 
 def test_bug_3223_average_of_the_last_three_months(tools, series, monthly, prefix):
     # Maps 4 to 6: (400 + 500 + 600) / 3 = 500, from April 1 to July 1.
-    assert series(monthly, method="average", where="start_time >= '2001-04-01'") == [
-        [500.0, 500.0]
-    ]
+    assert series(monthly, where="start_time >= '2001-04-01'") == [[500.0, 500.0]]
     assert _times(tools, f"{prefix}_o") == (
         "'2001-04-01 00:00:00'",
         "'2001-07-01 00:00:00'",

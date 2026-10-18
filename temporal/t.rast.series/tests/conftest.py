@@ -66,7 +66,7 @@ def monthly(tools):
 
 @pytest.fixture
 def series(tools, prefix):
-    """Function that runs t.rast.series and reads the first cell values back
+    """Function that runs t.rast.series and reads the cells of the outputs back
 
     run(input, **options) names the output after the test (<prefix>_o); with
     several outputs each is <prefix>_o<n>. Returns the cell values of each

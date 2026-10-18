@@ -60,9 +60,12 @@ def test_a_quantile_next_to_another_method(series, stats):
 
 
 def test_today_a_quantile_after_another_method_is_the_minimum(series, stats):
-    # r.series reads the quantile of the method at position i from the i-th
-    # value of quantile=, so the second method finds no value and uses 0.0:
-    # quantile=0.9 at the second position gives the minimum.
+    # r.series pairs the values of quantile= with the methods by position
+    # (its manual: the same number of values for all options) and uses 0.0
+    # where a position has none. t.rast.series passes quantile=0.9 unchanged,
+    # so it goes to maximum and the quantile at the second position is the
+    # quantile 0.0, the minimum. The form r.series expects, quantile=0,0.9,
+    # fails the count of t.rast.series (2 quantiles + 1 method, 2 outputs).
     result = series(stats, outputs=2, method="maximum,quantile", quantile=0.9)
 
     assert result == [[10.0, 5.0], [1.0, 2.0]]
