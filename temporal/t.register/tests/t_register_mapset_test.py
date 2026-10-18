@@ -7,15 +7,11 @@ search path). Each test registers maps of its own, because registering sets
 the time of the map.
 """
 
-import os
-
 import pytest
 
-import grass.script as gs
-from grass.grassdb.create import create_mapset
 from grass.temporal.testing.data import make_map
 from grass.temporal.testing.readback import list_maps
-from grass.tools import ToolError, Tools
+from grass.tools import ToolError
 
 # Almost every test of the module runs longer than one second (measured
 # 18.10.2026 with pytest --durations).
@@ -23,28 +19,15 @@ pytestmark = pytest.mark.slow
 
 
 @pytest.fixture(scope="module")
-def two_mapsets(tmp_path_factory):
+def work(two_mapsets):
     """Tools in mapset work; the maps foreign_1 to foreign_4 are in mapset other"""
-    project = tmp_path_factory.mktemp("mapsets") / "project"
-    gs.create_project(project)
-    create_mapset(project / "other")
-    create_mapset(project / "work")
-    with gs.setup.init(project / "other", env=os.environ.copy()) as session:
-        tools = Tools(session=session)
-        tools.g_region(n=1, s=0, e=1, w=0, res=1)
-        for number in (1, 2, 3, 4):
-            make_map(tools, "raster", f"foreign_{number}", number)
-    with gs.setup.init(project / "work", env=os.environ.copy()) as session:
-        tools = Tools(
-            session=session, consistent_return_value=True, capture_stderr=True
-        )
-        tools.g_region(n=1, s=0, e=1, w=0, res=1)
-        tools.g_mapsets(operation="add", mapset="other")
-        yield tools
+    for number in (1, 2, 3, 4):
+        make_map(two_mapsets.other, "raster", f"foreign_{number}", number)
+    return two_mapsets.work
 
 
-def test_maps_of_another_mapset_in_a_dataset_of_the_current_one(two_mapsets):
-    tools = two_mapsets
+def test_maps_of_another_mapset_in_a_dataset_of_the_current_one(work):
+    tools = work
     tools.t_create(output="mixed", title="t", description="d")
 
     tools.t_register(
@@ -65,8 +48,8 @@ def test_maps_of_another_mapset_in_a_dataset_of_the_current_one(two_mapsets):
     ]
 
 
-def test_name_without_mapset_is_found_in_the_search_path(two_mapsets):
-    tools = two_mapsets
+def test_name_without_mapset_is_found_in_the_search_path(work):
+    tools = work
     tools.t_create(output="searched", title="t", description="d")
 
     tools.t_register(
@@ -79,8 +62,8 @@ def test_name_without_mapset_is_found_in_the_search_path(two_mapsets):
     ]
 
 
-def test_dataset_in_another_mapset_is_refused(two_mapsets):
-    tools = two_mapsets
+def test_dataset_in_another_mapset_is_refused(work):
+    tools = work
 
     with pytest.raises(ToolError, match="not found"):
         tools.t_register(
