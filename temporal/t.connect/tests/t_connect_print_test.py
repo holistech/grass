@@ -1,10 +1,11 @@
-"""Test current baseline functionality of t.connect"""
+"""Test what t.connect prints: plain, shell and json, one mapset or several"""
 
 import pathlib
 
 import pytest
 
 import grass.script as gs
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError, Tools
 
 
@@ -57,16 +58,22 @@ def test_missing_print_flag(t_connect_session, output_format):
     """Ensure omitting the -p flag when requesting a format triggers a fatal error."""
     tools = Tools(session=t_connect_session.session)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_connect(format=output_format)
+
+    assert "The -p flag is required when using the format option" in message(
+        error.value
+    )
 
 
 def test_incompatible_flags(t_connect_session):
     """Ensure combining the deprecated -g flag with format=json triggers a fatal error."""
     tools = Tools(session=t_connect_session.session)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_connect(flags="g", format="json")
+
+    assert "The -g flag cannot be used with format=json" in message(error.value)
 
 
 def test_json_search_path_default(multi_mapset_session):
@@ -120,16 +127,20 @@ def test_mapset_requires_json_format(t_connect_session):
     """Check that combining the mapset option with a non-JSON format raises an error."""
     tools = Tools(session=t_connect_session.session)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_connect(flags="p", format="shell", mapset=".")
+
+    assert "The mapset option requires format=json" in message(error.value)
 
 
 def test_mapset_requires_print_flag(t_connect_session):
     """Check that using the mapset option without -p raises an error."""
     tools = Tools(session=t_connect_session.session)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_connect(mapset=".", format="json")
+
+    assert "Option <mapset> requires <-p>" in message(error.value)
 
 
 def test_print_does_not_write_var_file(empty_session):
@@ -156,3 +167,30 @@ def test_print_does_not_write_var_file(empty_session):
         contents = var_file.read_text()
         assert "TGISDB_DRIVER" not in contents
         assert "TGISDB_DATABASE" not in contents
+
+
+def test_json_mapset_without_a_connection_has_null_fields(multi_mapset_session):
+    tools = Tools(session=multi_mapset_session.session)
+
+    result = tools.t_connect(flags="p", format="json", mapset="no_such_mapset")
+
+    assert list(result) == [
+        {"mapset": "no_such_mapset", "driver": None, "database": None}
+    ]
+
+
+def test_json_mapset_takes_a_list(multi_mapset_session):
+    tools = Tools(session=multi_mapset_session.session)
+
+    result = tools.t_connect(flags="p", format="json", mapset="user1,PERMANENT")
+
+    assert [entry["mapset"] for entry in result] == ["user1", "PERMANENT"]
+
+
+def test_an_unknown_format_is_refused(t_connect_session):
+    tools = Tools(session=t_connect_session.session)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(flags="p", format="xml")
+
+    assert "Value <xml> out of range for parameter <format>" in message(error.value)
