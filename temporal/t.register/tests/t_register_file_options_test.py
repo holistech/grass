@@ -111,7 +111,9 @@ def test_increment_without_start_option_is_refused_with_times_in_the_file(
     name = dataset()
     file = register_file(tmp_path / "maps.txt", [(maps[0], "2001-01-01")])
 
-    with pytest.raises(ToolError, match="increment option requires the start option"):
+    with pytest.raises(
+        ToolError, match=r"increment\s+option\s+requires\s+the\s+start\s+option"
+    ):
         tools.t_register(type="raster", input=name, file=file, increment="1 months")
 
     assert list_maps(tools, "strds", name) == []
@@ -124,7 +126,9 @@ def test_interval_flag_without_start_option_is_refused_with_times_in_the_file(
     name = dataset()
     file = register_file(tmp_path / "maps.txt", [(maps[0], "2001-01-01", "2001-04-01")])
 
-    with pytest.raises(ToolError, match="interval flag requires the start option"):
+    with pytest.raises(
+        ToolError, match=r"interval\s+flag\s+requires\s+the\s+start\s+option"
+    ):
         tools.t_register(type="raster", input=name, file=file, flags="i")
 
 
@@ -220,7 +224,7 @@ def test_wrong_separator_does_not_find_the_times(tools, make_maps, dataset, tmp_
         tmp_path / "maps.txt", [(maps[0], "2001-01-01")], separator=","
     )
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_register(type="raster", input=name, file=file)
 
 

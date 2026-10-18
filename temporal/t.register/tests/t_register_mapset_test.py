@@ -65,7 +65,7 @@ def test_name_without_mapset_is_found_in_the_search_path(work):
 def test_dataset_in_another_mapset_is_refused(work):
     tools = work
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_register(
             type="raster", input="nothing@other", maps="foreign_4", start="2001-01-01"
         )

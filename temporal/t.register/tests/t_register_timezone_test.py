@@ -226,7 +226,9 @@ def test_today_a_time_without_offset_in_a_dataset_with_offsets_fails(
         type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00 +02:00"
     )
 
-    with pytest.raises(ToolError, match="can't compare offset-naive and offset-aware"):
+    with pytest.raises(
+        ToolError, match=r"can't\s+compare\s+offset-naive\s+and\s+offset-aware"
+    ):
         zone_tools.t_register(
             type="raster", input=name, maps=maps[1], start="2001-01-02 10:00:00"
         )

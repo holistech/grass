@@ -416,7 +416,8 @@ def test_unit_is_refused_for_an_invalid_value(tools, make_maps, dataset):
     name = dataset(temporaltype="relative")
 
     with pytest.raises(
-        ToolError, match="Value <weeks> out of range for parameter <unit>"
+        ToolError,
+        match=r"Value\s+<weeks>\s+out\s+of\s+range\s+for\s+parameter\s+<unit>",
     ):
         tools.t_register(type="raster", input=name, maps=maps[0], start=1, unit="weeks")
 
@@ -514,7 +515,7 @@ def test_today_a_month_increment_from_day_31_fails(tools, make_maps, dataset):
     maps = make_maps(2)
     name = dataset()
 
-    with pytest.raises(ToolError, match="day is out of range for month"):
+    with pytest.raises(ToolError, match=r"day\s+is\s+out\s+of\s+range\s+for\s+month"):
         tools.t_register(
             type="raster",
             input=name,

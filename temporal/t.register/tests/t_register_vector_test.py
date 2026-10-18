@@ -274,5 +274,5 @@ def test_vector_without_time_needs_a_start(tools, prefix, dataset):
     (map_name,) = _make(tools, prefix, 1)
     name = dataset(stds_type="stvds")
 
-    with pytest.raises(ToolError, match="has no timestamp"):
+    with pytest.raises(ToolError, match=r"has\s+no\s+timestamp"):
         tools.t_register(type="vector", input=name, maps=map_name)
