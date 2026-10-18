@@ -37,14 +37,15 @@ def mixed(tools, prefix):
     return _dataset(tools, prefix, [(day(0), day(14)), (day(19), None)])
 
 
-# Day 0 is 2001-01-01, so day 14 is 2001-01-15 and day 19 is 2001-01-20.
+# Day 0 is 2001-01-01, so day 14 is 2001-01-15 and day 19 is 2001-01-20. The
+# units are taken in the singular and in the plural.
 @pytest.mark.parametrize(
     ("granularity", "interval", "point"),
     [
         ("1 day", ("2001-01-02", "2001-01-16"), "2001-01-21"),
         ("-1 day", ("2000-12-31", "2001-01-14"), "2001-01-19"),
         ("2 weeks", ("2001-01-15", "2001-01-29"), "2001-02-03"),
-        ("6 months", ("2001-07-01", "2001-07-15"), "2001-07-20"),
+        ("6 month", ("2001-07-01", "2001-07-15"), "2001-07-20"),
         ("-1 month", ("2000-12-01", "2000-12-15"), "2000-12-20"),
         ("1 year", ("2002-01-01", "2002-01-15"), "2002-01-20"),
         ("-1 year", ("2000-01-01", "2000-01-15"), "2000-01-20"),
@@ -71,6 +72,11 @@ def test_shifts_by_days_weeks_months_and_years(
             "1 hour",
             ("2001-01-01 01:00:00", "2001-01-15 01:00:00"),
             "2001-01-20 01:00:00",
+        ),
+        (
+            "1 second",
+            ("2001-01-01 00:00:01", "2001-01-15 00:00:01"),
+            "2001-01-20 00:00:01",
         ),
         (
             "30 minutes",
@@ -223,8 +229,10 @@ def test_relative_time_adds_the_number(tools, prefix, granularity, expected):
     "granularity", ["1.5 days", "abc", "1 fortnight", "5", "1 days, 2 hours"]
 )
 def test_a_granularity_in_the_wrong_form_is_refused(tools, mixed, granularity):
-    # "5" lacks the unit that absolute time needs; a list of units is not
-    # one granularity.
+    # "5" lacks the unit that absolute time needs. The manual asks for
+    # "number unit", and so does the check of the granularity; the
+    # description of the option names a list of units, which the function
+    # that adds the shift could take, but the tool refuses it.
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=mixed, granularity=granularity)
 
@@ -290,10 +298,13 @@ def test_today_a_month_shift_to_a_missing_day_ends_with_a_traceback(
 
 @pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
 def test_a_month_shift_to_a_missing_day_ends_with_a_message(tools, end_of_month):
+    # The manual: "an error will raise and the shifting will not performed
+    # for the whole dataset". Tools end with a message, not with a traceback.
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=end_of_month, granularity="1 month")
 
     assert "Traceback" not in message(error.value)
+    assert _times(tools, end_of_month) == [(_text(30), _text(40))]
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
