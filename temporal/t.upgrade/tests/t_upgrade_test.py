@@ -1,8 +1,8 @@
 """Test t.upgrade on a current database, on a database of version 2 and on others
 
-A database of version 2 is made from a current one by undoing
-upgrade_db_2_to_3.sql in sqlite, see downgrade_to_version_2(). Every test gets
-its own project, because the tests change the database.
+A database of version 2 is made from a current one in sqlite, see
+downgrade_to_version_2(). Every test gets its own project, because the tests
+change the database.
 """
 
 import sqlite3
@@ -18,6 +18,14 @@ from grass.tools import ToolError, Tools
 
 CURRENT_VERSION = "3"
 VIEW_TEMPLATES = ("raster", "raster3d", "vector", "strds", "str3ds", "stvds")
+# sqlite3_indexes.sql got these when the spatial filter of the datasets came,
+# with version 3 already in place; a database of version 2 has none of them.
+NEWER_INDEXES = {
+    "raster_spatial_extent_index_bbox",
+    "raster3d_spatial_extent_index_bbox",
+    "vector_spatial_extent_index_bbox",
+    "raster_metadata_index_semantic_label",
+}
 
 
 def database_file(session):
@@ -62,6 +70,11 @@ def views(database):
     )
 
 
+def indexes(database):
+    rows = query(database, "SELECT name FROM sqlite_master WHERE type='index'")
+    return {row[0] for row in rows}
+
+
 def dump(database):
     """Every statement that rebuilds the database, to compare two states"""
     with sqlite3.connect(database) as connection:
@@ -71,16 +84,20 @@ def dump(database):
 def downgrade_to_version_2(session):
     """Turn the database of the session into the layout of version 2
 
-    Undoes upgrade_db_2_to_3.sql: the two columns for semantic labels and the
-    index on one of them go, and the version is set to 2. The views are
-    rebuilt from the installed templates without the label column of the
-    raster views, the only view that mentions it.
+    The SQL files of version 2 (the last ones before semantic labels, then
+    called band references, came) differ from today's in the two columns that
+    upgrade_db_2_to_3.sql adds, in the label column of the raster views, the
+    only view that mentions it, and in NEWER_INDEXES. So the indexes and the
+    columns go, the views are rebuilt from the installed templates without
+    the label column, and the version is set to 2. Compared on 18.10.2026
+    with git show of the SQL files before the band reference commit.
     """
     database = database_file(session)
     templates = sql_files(session)
     with sqlite3.connect(database) as connection:
         connection.executescript((templates / "drop_views.sql").read_text())
-        connection.execute("DROP INDEX raster_metadata_index_semantic_label")
+        for index in sorted(NEWER_INDEXES):
+            connection.execute(f"DROP INDEX {index}")
         connection.execute("ALTER TABLE raster_metadata DROP COLUMN semantic_label")
         connection.execute(
             "ALTER TABLE strds_metadata DROP COLUMN number_of_semantic_labels"
@@ -155,6 +172,7 @@ def test_downgrade_for_the_tests_gives_version_2(project):
     assert version_of(database) == "2"
     assert "semantic_label" not in columns(database, "raster_metadata")
     assert "number_of_semantic_labels" not in columns(database, "strds_metadata")
+    assert not indexes(database) & NEWER_INDEXES
     warning = tools.t_info(type="strds", input="series", flags="g").stderr
     assert "Temporal database version mismatch detected" in warning
     assert "Run t.upgrade" in warning
@@ -185,25 +203,20 @@ def test_version_2_is_upgraded_to_3(project):
     )
 
 
-def indexes(database):
-    rows = query(database, "SELECT name FROM sqlite_master WHERE type='index'")
-    return {row[0] for row in rows}
-
-
-def test_current_database_has_the_semantic_label_index(project):
+def test_current_database_has_the_newer_indexes(project):
     # Reference for the two tests below: a database created at version 3.
     _, _, database = project
 
-    assert "raster_metadata_index_semantic_label" in indexes(database)
+    assert indexes(database) >= NEWER_INDEXES
 
 
-def test_today_upgrade_does_not_create_the_semantic_label_index(project):
+def test_today_upgrade_does_not_create_the_newer_indexes(project):
     tools, session, database = project
     downgrade_to_version_2(session)
 
     tools.t_upgrade()
 
-    assert "raster_metadata_index_semantic_label" not in indexes(database)
+    assert not indexes(database) & NEWER_INDEXES
 
 
 @pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
@@ -239,6 +252,7 @@ def test_semantic_labels_work_after_the_upgrade(project):
     assert stds_info(tools, "strds", "labelled")["number_of_semantic_labels"] == 1
 
 
+@pytest.mark.slow
 def test_a_second_upgrade_changes_nothing(project):
     tools, session, database = project
     downgrade_to_version_2(session)
