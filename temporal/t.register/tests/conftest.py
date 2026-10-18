@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 GRASS Development Team
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-"""Fixture for t.register tests"""
+"""Fixtures for the t.register tests
 
-import re
-import zlib
+tools and prefix come from temporal/conftest.py.
+"""
 
 import pytest
 
@@ -22,29 +22,6 @@ def session_with_rasters(tmp_path):
         for name in ("a", "b", "c"):
             make_map(tools, "raster", name, 1)
         yield session
-
-
-@pytest.fixture(scope="module")
-def tools(tmp_path_factory):
-    """Tools in a project of its own for a whole module
-
-    The region is one cell, so a constant map is cheap. Messages of a
-    successful run are kept in result.stderr, because the warnings of
-    t.register (a map that is already registered) are part of its behaviour.
-    """
-    with project_session(tmp_path_factory.mktemp("t_register") / "project") as session:
-        tools = Tools(
-            session=session, consistent_return_value=True, capture_stderr=True
-        )
-        tools.g_region(n=1, s=0, e=1, w=0, res=1, b=0, t=1, res3=1)
-        yield tools
-
-
-@pytest.fixture
-def prefix(request):
-    """A name prefix that is unique for the test within its module"""
-    node = re.sub(r"\W+", "_", request.node.name).strip("_").lower()
-    return f"{node[:24]}_{zlib.crc32(request.node.name.encode()) % 100000}"
 
 
 @pytest.fixture

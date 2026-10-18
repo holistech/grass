@@ -7,9 +7,6 @@ zone of the process, so the module runs with three values of TZ in the
 environment of the tools.
 """
 
-import re
-import zlib
-
 import pytest
 
 from grass.temporal.testing.data import make_map, register_file
@@ -34,12 +31,6 @@ def zone_tools(request, tmp_path_factory):
         )
         tools.g_region(n=1, s=0, e=1, w=0, res=1)
         yield tools
-
-
-@pytest.fixture
-def prefix(request):
-    node = re.sub(r"\W+", "_", request.node.name).strip("_").lower()
-    return f"{node[:24]}_{zlib.crc32(request.node.name.encode()) % 100000}"
 
 
 def _maps_and_dataset(tools, prefix, count):
