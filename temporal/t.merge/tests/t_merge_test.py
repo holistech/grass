@@ -201,7 +201,7 @@ def test_datasets_of_different_temporal_types_are_refused(tools, prefix):
     _make(tools, prefix)
     _make(tools, f"{prefix}_r", members={"a": (1,)}, temporaltype="relative")
 
-    with pytest.raises(ToolError, match="must have the same temporal type"):
+    with pytest.raises(ToolError, match=r"must\s+have\s+the\s+same\s+temporal\s+type"):
         tools.t_merge(inputs=f"{prefix}_a,{prefix}_r_a", output=f"{prefix}_out")
 
     assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
@@ -210,7 +210,9 @@ def test_datasets_of_different_temporal_types_are_refused(tools, prefix):
 def test_an_unknown_input_is_refused(tools, prefix):
     _make(tools, prefix)
 
-    with pytest.raises(ToolError, match=r"Space time dataset <nope> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<nope>\s+of\s+type\s+<strds>"
+    ):
         tools.t_merge(inputs=f"{prefix}_a,nope", output=f"{prefix}_out")
 
     assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
@@ -219,19 +221,19 @@ def test_an_unknown_input_is_refused(tools, prefix):
 def test_a_dataset_of_another_type_is_not_found(tools, prefix):
     _make(tools, prefix)
 
-    with pytest.raises(ToolError, match=r"of type\s+<stvds> not found"):
+    with pytest.raises(ToolError, match=r"of\s+type\s+<stvds>\s+not\s+found"):
         tools.t_merge(type="stvds", inputs=f"{prefix}_a", output=f"{prefix}_out")
 
 
 def test_inputs_and_output_are_required(tools):
-    with pytest.raises(ToolError, match=r"Required parameter <inputs> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<inputs>\s+not\s+set"):
         tools.t_merge(output="a")
-    with pytest.raises(ToolError, match=r"Required parameter <output> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<output>\s+not\s+set"):
         tools.t_merge(inputs="a")
 
 
 def test_an_unknown_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <type>"):
+    with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_merge(type="raster", inputs="a", output="b")
 
 

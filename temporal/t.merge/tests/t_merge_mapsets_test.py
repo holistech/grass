@@ -79,7 +79,9 @@ def test_today_an_input_without_a_mapset_is_taken_from_the_current_mapset(
     work, _ = two_mapsets
     name, _ = foreign
 
-    with pytest.raises(ToolError, match=r"Space time dataset <.*> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<.*>\s+of\s+type\s+<strds>"
+    ):
         work.t_merge(inputs=name, output=f"{prefix}_out")
 
 
