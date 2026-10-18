@@ -12,7 +12,7 @@ import pytest
 
 import grass.script as gs
 from grass.temporal.testing.data import MapSpec, create_stds, day
-from grass.temporal.testing.readback import list_maps, stds_info
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
 
@@ -136,7 +136,7 @@ def test_current_database_is_left_alone(project):
 
     result = tools.t_upgrade()
 
-    assert "Temporal database is up-to-date. Operation canceled" in result.stderr
+    assert "Temporal database is up-to-date. Operation canceled" in message(result)
     assert dump(database) == before
     assert version_of(database) == CURRENT_VERSION
 
@@ -150,7 +150,7 @@ def test_project_without_a_database_gets_a_current_one(tmp_path):
 
         result = tools.t_upgrade()
 
-        assert "up-to-date" in result.stderr
+        assert "up-to-date" in message(result)
         assert version_of(database_file(session)) == CURRENT_VERSION
 
 
@@ -158,7 +158,7 @@ def test_quiet_hides_the_message_and_verbose_shows_it(project):
     tools, _, _ = project
 
     assert tools.t_upgrade(quiet=True).stderr == ""
-    assert "up-to-date" in tools.t_upgrade(verbose=True).stderr
+    assert "up-to-date" in message(tools.t_upgrade(verbose=True))
 
 
 def test_downgrade_for_the_tests_gives_version_2(project):
@@ -173,7 +173,7 @@ def test_downgrade_for_the_tests_gives_version_2(project):
     assert "semantic_label" not in columns(database, "raster_metadata")
     assert "number_of_semantic_labels" not in columns(database, "strds_metadata")
     assert not indexes(database) & NEWER_INDEXES
-    warning = tools.t_info(type="strds", input="series", flags="g").stderr
+    warning = message(tools.t_info(type="strds", input="series", flags="g"))
     assert "Temporal database version mismatch detected" in warning
     assert "Run t.upgrade" in warning
 
@@ -186,7 +186,7 @@ def test_version_2_is_upgraded_to_3(project):
 
     result = tools.t_upgrade()
 
-    assert "from version 2 to 3" in result.stderr.replace("\n", " ")
+    assert "from version 2 to 3" in message(result)
     assert version_of(database) == CURRENT_VERSION
     assert "semantic_label" in columns(database, "raster_metadata")
     assert "number_of_semantic_labels" in columns(database, "strds_metadata")
@@ -198,8 +198,8 @@ def test_version_2_is_upgraded_to_3(project):
     )
     # Nothing registered is lost, and GRASS no longer complains.
     assert list_maps(tools, "strds", "series") == before_rows
-    assert (
-        "mismatch" not in tools.t_info(type="strds", input="series", flags="g").stderr
+    assert "mismatch" not in message(
+        tools.t_info(type="strds", input="series", flags="g")
     )
 
 
@@ -261,7 +261,7 @@ def test_a_second_upgrade_changes_nothing(project):
 
     result = tools.t_upgrade()
 
-    assert "up-to-date" in result.stderr
+    assert "up-to-date" in message(result)
     assert dump(database) == after_first
 
 
