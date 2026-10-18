@@ -269,11 +269,16 @@ def test_a_gap_with_two_successors_uses_one_of_them(tools, gappy, prefix):
     assert _filled(tools, name)[1][3][0] in {200.0, 300.0}
 
 
-def test_a_gap_with_two_predecessors_uses_one_of_them(tools, gappy, prefix):
+def test_a_gap_with_two_predecessors_uses_the_one_that_starts_first(
+    tools, gappy, prefix
+):
     # A map from December 2000 to the end of January ends where the map of
     # January ends, so the gap has two predecessors (100 / 0 and 500 / 70).
-    # The tool warns and uses "the first found", which is not defined: the
-    # first cell is (100 + 300) / 2 = 200 or (500 + 300) / 2 = 400.
+    # The tool warns and uses "the first found". The topology builder adds
+    # the neighbours of the gap in the order of the maps by start time, and
+    # the two predecessors start on different days, so the first found is
+    # the map from December: (500 + 300) / 2 = 400 and (70 + 90) / 2 = 80.
+    # (Two successors with the same start, as above, have no defined order.)
     name = gappy({1: (100, 0), 3: (300, 90)})
     tools.r_mapcalc(expression=f"{prefix}_wide = if(col() == 1, 500, 70)")
     tools.t_register(
@@ -289,4 +294,4 @@ def test_a_gap_with_two_predecessors_uses_one_of_them(tools, gappy, prefix):
     assert "More than one predecessor of the gap found. Using the first found." in (
         message(result)
     )
-    assert _filled(tools, name)[2][3][0] in {200.0, 400.0}
+    assert _filled(tools, name)[2][3] == [400.0, 80.0]
