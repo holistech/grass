@@ -109,10 +109,11 @@ def test_the_s_flag_cuts_the_corners_through_the_edge_midpoints(tools, shapes, p
         )
     }
     # Every edge of the plus sign has length 1 and a midpoint as a vertex of
-    # the smoothed outline; the corners themselves are gone, except the one
-    # where r.to.vect starts the outline (see the findings of this tool).
+    # the smoothed outline; the corners themselves are gone, except (2, 0),
+    # where the closed boundary starts and ends: that point is the node of
+    # the boundary and stays (v.out.ascii lists the boundary from (2, 0)).
     assert midpoints <= vertices
-    assert len(CORNERS_OF_PLUS & vertices) <= 1
+    assert CORNERS_OF_PLUS & vertices == {(2, 0)}
 
 
 def test_the_s_flag_keeps_the_counts_of_the_features(tools, shapes, prefix):
