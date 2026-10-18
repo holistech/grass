@@ -7,6 +7,7 @@ next to a strict xfail for the right text.
 
 import pytest
 
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
 # Only the tests that make maps run longer than one second; the others fail
@@ -98,4 +99,4 @@ def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
     with pytest.raises(ToolError) as error:
         tools.t_unregister(file=tmp_path / "missing.txt")
 
-    assert "Traceback" not in str(error.value)
+    assert "Traceback" not in message(error.value)
