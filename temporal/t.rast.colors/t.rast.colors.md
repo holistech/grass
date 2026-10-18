@@ -12,8 +12,9 @@ Please have a look at the [r.colors](r.colors.md) manual page for
 further information.
 
 With the **-w** flag only the maps that have no color table of their own
-get the new one; maps that already have a table are skipped and keep it
-(changed on 18.10.2026: *r.colors* alone refuses the whole list of maps
+get the new one; maps that already have a table, also one that
+*r.colors* wrote in the current mapset for a map of another mapset, are
+skipped and keep it (changed on 18.10.2026: *r.colors* alone refuses the whole list of maps
 if one of them has a table). The color table is then computed from the
 data range of the maps that are written.
 

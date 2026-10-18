@@ -166,8 +166,8 @@ def test_the_w_flag_writes_to_the_maps_without_a_table_only(tools, prefix, table
     # Changed on 18.10.2026: r.colors with -w stops at the first map that has
     # a table and writes none, so the tool leaves such maps out of its list.
     # Of the three maps (1 to 9, 10 to 90, 100 to 900) the second has a grey
-    # table, the others none (a new map has no colour file). They get viridis for their common range 1 to 900,
-    # the second keeps grey for its own range.
+    # table, the others none (a new map has no colour file). They get viridis
+    # for their common range 1 to 900, the second keeps grey for its own range.
     small_region(tools, 3, 3)
     number = "(row() - 1) * 3 + col()"
     create_stds(
@@ -187,9 +187,42 @@ def test_the_w_flag_writes_to_the_maps_without_a_table_only(tools, prefix, table
 
     tools.t_rast_colors(input=f"{prefix}_in", color="viridis", flags="w")
 
+    assert table(f"{prefix}_0")[0].startswith("1 ")
+    assert table(f"{prefix}_0")[-3].startswith("900 ")
     assert table(f"{prefix}_0") == table(f"{prefix}_ref0")
     assert table(f"{prefix}_2") == table(f"{prefix}_ref2")
     assert table(f"{prefix}_1") == grey_before
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_the_w_flag_sees_the_tables_of_maps_of_another_mapset(two_mapsets, prefix):
+    # r.colors writes the table of a map of another mapset into the current
+    # mapset (colr2), and -w finds it there. Map a of the other mapset has
+    # such a grey table in "work", b none: -w writes viridis to b only.
+    work, other = two_mapsets
+    create_stds(
+        other,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_a", 1, day(0), day(1)),
+            MapSpec(f"{prefix}_b", 2, day(1), day(2)),
+        ],
+    )
+    work.r_colors(map=f"{prefix}_a@other", color="grey")
+    grey = work.r_colors_out(map=f"{prefix}_a@other").stdout
+    work.r_mapcalc(expression=f"{prefix}_c = 2")
+    work.r_colors(map=f"{prefix}_c", color="viridis")
+
+    work.t_rast_colors(input=f"{prefix}_in@other", color="viridis", flags="w")
+
+    assert work.r_colors_out(map=f"{prefix}_a@other").stdout == grey
+    # b gets the table that r.colors makes for a map of the same value 2.
+    assert (
+        work.r_colors_out(map=f"{prefix}_b@other").stdout
+        == work.r_colors_out(map=f"{prefix}_c").stdout
+    )
 
 
 def test_today_the_l_flag_cannot_be_used(tools, colored):

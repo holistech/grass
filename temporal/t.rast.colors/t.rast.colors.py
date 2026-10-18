@@ -101,6 +101,21 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
+def has_color_table(map_id, env):
+    """Whether r.colors -w would find a color table of the raster map map_id
+
+    Like Rast_read_colors(), this is the secondary table of the current
+    mapset (colr2/<mapset>, which r.colors writes for a map of another
+    mapset) or the table in the mapset of the map (colr). env is the result
+    of gs.gisenv().
+    """
+    location = Path(env["GISDBASE"], env["LOCATION_NAME"])
+    name, mapset = map_id.split("@")
+    return (location / env["MAPSET"] / "colr2" / mapset / name).is_file() or (
+        location / mapset / "colr" / name
+    ).is_file()
+
+
 def main():
     # lazy imports
     import grass.temporal as tgis
@@ -141,11 +156,10 @@ def main():
     if rows and write:
         # r.colors with -w stops at the first map that has a table and then
         # writes none, so the maps that have one are left out of its list.
-        rows = [
-            row
-            for row in rows
-            if not gs.find_file(row["id"], element="colr")["file"]
-        ]
+        # The files are looked up directly, as g.findfile would be one
+        # process per map.
+        env = gs.gisenv()
+        rows = [row for row in rows if not has_color_table(row["id"], env)]
 
     if rows:
         flags_ = ""
