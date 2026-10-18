@@ -8,7 +8,9 @@ it.
 GRASS has two testing frameworks. Use _pytest_ for everything new. Use the
 older _grass.gunittest_ framework when the test needs the North Carolina
 sample dataset, or when it needs data supplied as files. Neither is currently
-possible with _pytest_.
+possible with _pytest_. The tests of the temporal framework are an exception:
+they use _pytest_ with synthetic data, see
+[Tests of the temporal framework](#tests-of-the-temporal-framework).
 
 The two live side by side in the source tree: _pytest_ tests go into a
 `tests` directory next to the code they test, _grass.gunittest_ tests into a
@@ -156,7 +158,8 @@ _grass.tools_.
 
 When the test needs specific data which cannot be generated, the data has to
 be supplied as files, which is currently possible only with _grass.gunittest_
-in a `testsuite` directory.
+in a `testsuite` directory. The temporal tools do not need such data; see
+[Tests of the temporal framework](#tests-of-the-temporal-framework).
 
 ### Tests which run in parallel
 
@@ -181,10 +184,28 @@ used from any test; the fixtures that wrap it are in
 - `session`: `project_session()` and `temporal_session()` create a project
   and yield a session. `add_mapset()` adds a mapset to it.
 - `data`: `create_stds()`, `register_stds()` and `make_map()` build
-  datasets and maps from a few lines of description; `day()`, `timestamp()`
-  and `intervals()` give the times.
+  datasets and maps from a few lines of description; `day()`, `timestamp()`,
+  `intervals()` and `relative_intervals()` give the times. `vector_points()`
+  makes a point map with an attribute table, in any layer;
+  `register_file()` writes the input file of _t.register_ and
+  _t.unregister_; `small_region()` sets a region of a few cells for tests
+  that query values at coordinates.
 - `readback`: `list_maps()` and `stds_info()` read the registered maps and
   the output of _t.info_ back as values that a test compares.
+
+The tests of the `t.*` tools and of _grass.temporal_ build all their data
+with these helpers, in a project created in `tmp_path`, and never read the
+North Carolina dataset. Constant maps from _r.mapcalc_ make the expected
+values derivable by hand: the comment next to an expected value shows the
+arithmetic. A value that cannot be derived, such as the file written by an
+export format, may be measured once; the comment then names the date and the
+command, and says why it cannot be derived. A tool's tests go into
+`temporal/<tool>/tests/`, in files named like the tool with the dots replaced
+by underscores and a topic, for example
+`temporal/t.shift/tests/t_shift_relative_test.py`. They run in parallel with
+_pytest-xdist_ like all other pytest tests, so a module builds its datasets
+once in a module-scoped session and a test never changes what another test
+reads; a test which changes `os.environ` is marked as described above.
 
 Which session to use depends on how the test reaches GRASS:
 
