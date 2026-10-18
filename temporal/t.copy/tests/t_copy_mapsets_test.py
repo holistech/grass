@@ -9,7 +9,7 @@ be in the current mapset.
 import pytest
 
 from grass.temporal.testing.data import create_daily_stds
-from grass.temporal.testing.readback import list_maps
+from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
 # Every test makes maps and datasets with tools, which takes more than a second
@@ -55,7 +55,7 @@ def test_c_copies_the_maps_into_the_current_mapset(two_mapsets, prefix, source):
 
     result = work.t_copy(input=f"{name}@other", output=f"{prefix}_copy", flags="c")
 
-    assert "Copying raster maps to the current mapset" in result.stderr
+    assert "Copying raster maps to the current mapset" in message(result)
     assert _rows(work, f"{prefix}_copy") == [(m, "work") for m in maps]
     assert set(maps) <= set(work.g_list(type="raster", mapset="work").stdout.split())
     # The copies hold the values of the originals, 1 to 3, and their times.
@@ -189,5 +189,5 @@ def test_c_reports_its_progress_every_ten_maps(two_mapsets, prefix):
 
     result = work.t_copy(input=f"{prefix}_src", output=f"{prefix}_copy", flags="c")
 
-    assert "100%" in result.stderr
+    assert "100%" in message(result)
     assert set(maps) <= set(work.g_list(type="raster", mapset="work").stdout.split())
