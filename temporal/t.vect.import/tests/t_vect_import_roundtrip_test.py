@@ -107,13 +107,17 @@ def test_a_pack_archive_keeps_the_columns_of_the_table(tools, tmp_path, prefix):
     assert columns == ["x", "y", "cat", "value", "name"]
 
 
-def test_today_a_gml_archive_adds_the_columns_of_the_gml_file(tools, tmp_path, prefix):
+def test_a_gml_archive_adds_the_columns_of_the_gml_file(tools, tmp_path, prefix):
     archive = _exported(tools, tmp_path, "GML", "no")
 
     rows = _import(tools, archive, prefix, tmp_path)
 
-    # v.in.ogr adds gml_id and renames the category column cat of the file to
-    # cat_, since the new table has its own cat. The other columns stay.
+    # Not a defect of the tool: the GML driver of GDAL reads the feature id
+    # as the field gml_id, and v.in.ogr makes a new key column cat ("If not
+    # specified, categories numbers are generated ... stored in the column
+    # named cat", its manual) and renames a field of that name to cat_. The
+    # manual of t.vect.import promises no unchanged table. The other columns
+    # stay.
     columns = tools.db_columns(table=rows[0].name).stdout.split()
     assert columns == ["cat", "gml_id", "x", "y", "cat_", "value", "name"]
     assert _table(tools, rows[0].name, "gml_id,cat_") == [
