@@ -1,7 +1,10 @@
 """Test the refusals of t.vect.observe.strds"""
 
+from datetime import datetime
+
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -176,10 +179,6 @@ def test_a_column_that_the_input_table_has_is_refused(tools, rasters, points, pr
 
 
 def test_a_raster_map_that_is_gone_ends_the_run(tools, points, prefix):
-    from datetime import datetime
-
-    from grass.temporal.testing.data import MapSpec, create_stds
-
     create_stds(
         tools,
         "strds",

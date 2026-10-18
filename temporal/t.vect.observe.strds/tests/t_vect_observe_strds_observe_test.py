@@ -6,8 +6,16 @@ layers (the table of the input for layer 1) and registers the layers as the
 maps vector_output:<layer> with the times of the granules.
 """
 
+from datetime import datetime, timedelta
+
 import pytest
 
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    small_region,
+    vector_points,
+)
 from grass.temporal.testing.readback import list_maps, stds_info
 
 
@@ -216,8 +224,6 @@ def test_where_selects_the_points_in_every_layer(tools, rasters, points, prefix)
 def test_an_input_with_layers_gets_the_columns_in_its_own_tables(
     tools, rasters, prefix
 ):
-    from grass.temporal.testing.data import vector_points
-
     name = f"{prefix}_two"
     vector_points(
         tools, name, [(0.5, 1.5), (1.5, 0.5)], attributes={"h": [1, 2]}, layers=(1, 2)
@@ -251,42 +257,48 @@ def test_overwrite_replaces_the_dataset_and_the_vector(tools, rasters, points, p
     assert _rows(tools, vector, 1, "obs") == [("1.5",)] * 4
 
 
+# About 90 seconds (measured 19.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_a_series_of_269_layers_keeps_every_layer(tools, points, prefix):
-    # The case of the old script test.t.vect.observe.strds.layer_bug.sh, which
-    # an exit statement had disabled "for performance reason": 269 maps, one
-    # hour each from 2001-01-01, observed by four points; the number of layers
-    # lies above 256. Measured 19.10.2026 (serial): about 90 seconds.
-    from datetime import datetime, timedelta
+def test_more_than_256_layers_keep_their_values(tools, points, prefix):
+    # The case of the old script test.t.vect.observe.strds.layer_bug.sh ("the
+    # limit of the number of layers"), which an exit statement had disabled
+    # for its run time: maps of one hour each from 2001-01-01, observed by
+    # four points. The script used 269 maps and checked nothing. Its commit
+    # does not name the limit, and the vector library has none today
+    # (GV_FIELD_MAX is PORT_INT_MAX); 257 maps cross the one of a byte, the
+    # likely candidate, with the fewest maps.
+    previous = small_region(tools, 1, 1)
+    try:
+        start = datetime(2001, 1, 1)
+        create_stds(
+            tools,
+            "strds",
+            f"{prefix}_big",
+            [
+                MapSpec(
+                    f"{prefix}_b{k}",
+                    k,
+                    start + timedelta(hours=k - 1),
+                    start + timedelta(hours=k),
+                )
+                for k in range(1, 258)
+            ],
+        )
 
-    from grass.temporal.testing.data import MapSpec, create_stds, small_region
-
-    small_region(tools, 1, 1)
-    start = datetime(2001, 1, 1)
-    create_stds(
-        tools,
-        "strds",
-        f"{prefix}_big",
-        [
-            MapSpec(
-                f"{prefix}_b{k}",
-                str(k),
-                start + timedelta(hours=k - 1),
-                start + timedelta(hours=k),
-            )
-            for k in range(1, 270)
-        ],
-    )
-
-    vector = _observe(tools, points, prefix, strds=f"{prefix}_big", columns="test_val")
+        vector = _observe(
+            tools, points, prefix, strds=f"{prefix}_big", columns="test_val"
+        )
+    finally:
+        tools.g_region(**previous)
 
     rows = list_maps(tools, "stvds", prefix)
-    assert len(rows) == 269
+    assert len(rows) == 257
     assert rows[0].start == "2001-01-01 00:00:00"
-    assert rows[-1].end == "2001-01-12 05:00:00"
+    # 257 hours are 10 days and 17 hours.
+    assert rows[-1].end == "2001-01-11 17:00:00"
     # Layer k holds the value k. Only the third point, (0.5, 0.5), lies in
     # the region of one cell; the others read nothing.
-    for layer in (1, 2, 255, 256, 257, 269):
+    for layer in (1, 2, 255, 256, 257):
         assert _rows(tools, vector, layer, "cat,test_val")[2] == ("3", str(layer)), (
             layer
         )
