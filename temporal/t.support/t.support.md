@@ -12,7 +12,9 @@ using temporal commands.
 The flag *-m* will update the metadata from registered maps, but also
 checks if the registered map layers have been removed from the spatial
 database. It deletes missing map layers from the space time dataset
-register table and the temporal database.
+register table and the temporal database. Since 18.10.2026 the other
+space time datasets that hold a map layer read by *-m* are updated too,
+not only those that held a removed map layer.
 
 ## EXAMPLES
 

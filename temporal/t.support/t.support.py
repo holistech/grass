@@ -143,6 +143,11 @@ def main():
                 # Read new metadata from the spatial database
                 map.load()
                 statement += map.update(dbif=dbif, execute=False)
+                # Other datasets that hold the map must follow its new values
+                datasets = map.get_registered_stds(dbif)
+                if datasets:
+                    for dataset in datasets:
+                        dataset_dict[dataset] = dataset
             else:
                 # Delete the map from the temporal database
                 # We need to update all effected space time datasets
@@ -156,7 +161,8 @@ def main():
         # Execute the collected SQL statements
         dbif.execute_transaction(statement)
 
-        # Update the effected space time datasets
+        # Update the effected space time datasets: those that held a removed
+        # map and those that hold a map with new values
         for id in dataset_dict:
             stds_new = stds.get_new_instance(id)
             stds_new.select(dbif=dbif)

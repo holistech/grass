@@ -4,11 +4,15 @@ The dataset has three maps (see the make_dataset fixture): map n lasts one
 day from 2001-01-0n to 2001-01-0(n+1), holds the value 10 n (a vector map the
 point (n, n)), on a region of one cell from 0,0 to 1,1.
 
--m reads the maps from the mapset again and unregisters those that are gone;
+-m reads the maps from the mapset again, unregisters those that are gone and
+updates every other dataset that holds a map it read or removed (since
+18.10.2026, before only for removed maps);
 -u updates the dataset from the entries of the registered maps in the
 temporal database; the flag itself is ignored by the tool, but every call
 does it (pinned below).
 """
+
+import sqlite3
 
 import pytest
 
@@ -129,15 +133,8 @@ def test_m_sets_the_semantic_type_to_mean(tools, make_dataset):
     assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
 
 
-def _stale_dataset(tools, prefix):
-    """A dataset whose metadata lags behind the entries of its maps
-
-    Datasets A and B register the same maps 1 to 3 with the values 1, 2 and 3.
-    Map 1 is made again with the value 7, and t.support -m A reads it into
-    the temporal database and updates A. B is not updated, because -m updates
-    other datasets only for maps that are gone (as its description says), so
-    B still reports the values 1 to 3 while the entries hold 7, 2 and 3.
-    """
+def _two_datasets(tools, prefix):
+    """Datasets A and B register the same maps 1 to 3 with the values 1, 2, 3"""
     specs = [MapSpec(f"{prefix}_{n}", n, day(n - 1), day(n)) for n in (1, 2, 3)]
     create_stds(tools, "strds", f"{prefix}_a", specs)
     tools.t_create(output=f"{prefix}_b", title="b", description="b")
@@ -149,8 +146,43 @@ def _stale_dataset(tools, prefix):
         flags="i",
         overwrite=True,
     )
+    return specs
+
+
+def test_m_updates_every_dataset_that_holds_a_changed_map(tools, prefix):
+    # Changed on 18.10.2026: map 1 is made again with the value 7; -m on A
+    # reads it, and B, which holds the map too, follows. The entries hold 7,
+    # 2 and 3, so B reports the smallest minimum 2 and the largest maximum 7.
+    specs = _two_datasets(tools, prefix)
+    make_map(tools, "raster", specs[0].name, 7, overwrite=True)
+
+    tools.t_support(input=f"{prefix}_a", flags="m")
+
+    for dataset in (f"{prefix}_a", f"{prefix}_b"):
+        info = stds_info(tools, "strds", dataset)
+        assert (info["min_min"], info["max_max"]) == (2, 7), dataset
+
+
+def _stale_dataset(tools, prefix):
+    """A dataset whose metadata lags behind the entries of its maps
+
+    Datasets A and B register the same maps 1 to 3 with the values 1, 2 and 3.
+    Map 1 is made again with the value 7 and read by t.support -m A, which
+    updates B as well. The state "metadata lags behind" no longer arises that
+    way, so the metadata of B is set back to the values 1 to 3 in the
+    temporal database: B reports 1 and 3 while the entries hold 7, 2 and 3.
+    """
+    specs = _two_datasets(tools, prefix)
     make_map(tools, "raster", specs[0].name, 7, overwrite=True)
     tools.t_support(input=f"{prefix}_a", flags="m")
+    base = tools.g_gisenv(get="GISDBASE").stdout.strip()
+    project = tools.g_gisenv(get="LOCATION_NAME").stdout.strip()
+    mapset = tools.g_gisenv(get="MAPSET").stdout.strip()
+    with sqlite3.connect(f"{base}/{project}/{mapset}/tgis/sqlite.db") as database:
+        database.execute(
+            "UPDATE strds_metadata SET min_min = 1, max_max = 3 WHERE id = ?",
+            (f"{prefix}_b@{mapset}",),
+        )
     assert stds_info(tools, "strds", f"{prefix}_a")["max_max"] == 7
     stale = stds_info(tools, "strds", f"{prefix}_b")
     assert (stale["min_min"], stale["max_max"]) == (1, 3)
