@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
@@ -213,13 +213,16 @@ def test_overwrite_replaces_the_dataset(tools):
 
 @pytest.mark.slow
 def test_overwrite_unregisters_the_maps_but_keeps_them(tools):
-    tools.g_region(n=1, s=0, e=1, w=0, res=1)
-    create_stds(
-        tools,
-        "strds",
-        "over_maps",
-        [MapSpec(f"over_m{i}", i, day(i - 1), day(i)) for i in (1, 2)],
-    )
+    previous = small_region(tools, 1, 1)
+    try:
+        create_stds(
+            tools,
+            "strds",
+            "over_maps",
+            [MapSpec(f"over_m{i}", i, day(i - 1), day(i)) for i in (1, 2)],
+        )
+    finally:
+        tools.g_region(**previous)
 
     result = tools.t_create(output="over_maps", overwrite=True, **CREATE)
 
