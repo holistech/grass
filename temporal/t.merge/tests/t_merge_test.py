@@ -62,9 +62,15 @@ def test_a_single_dataset_is_copied(tools, prefix):
 def test_overlapping_datasets_register_every_map_once(tools, prefix):
     _make(tools, prefix)
 
-    tools.t_merge(inputs=f"{prefix}_a,{prefix}_b,{prefix}_c", output=f"{prefix}_out")
+    result = tools.t_merge(
+        inputs=f"{prefix}_a,{prefix}_b,{prefix}_c", output=f"{prefix}_out"
+    )
 
     assert _numbers(tools, prefix, f"{prefix}_out") == [1, 2, 3, 4, 5, 6]
+    # Maps 3, 4 and 5 are in two inputs. t.merge skips a map it has already
+    # registered; registering it again would only warn, so the warning is
+    # what tells the skip. The message is wrapped at the width of the line.
+    assert "already registered" not in " ".join(result.stderr.split())
     # Six one-day maps from 2001-01-01 to 2001-01-07 with the values 1 to 6.
     info = stds_info(tools, "strds", f"{prefix}_out")
     assert info["number_of_maps"] == 6
@@ -129,8 +135,10 @@ def test_overwrite_adds_the_maps_to_an_existing_output(tools, prefix):
     _make(tools, prefix)
     tools.t_merge(inputs=f"{prefix}_a", output=f"{prefix}_out")
 
-    tools.t_merge(inputs=f"{prefix}_b", output=f"{prefix}_out", overwrite=True)
+    result = tools.t_merge(inputs=f"{prefix}_b", output=f"{prefix}_out", overwrite=True)
 
+    # Map 3 is in the output already and is skipped, without a warning.
+    assert "already registered" not in " ".join(result.stderr.split())
     # A's maps 1 to 3 stay, B adds 4 and 5; map 3 is registered once.
     assert _numbers(tools, prefix, f"{prefix}_out") == [1, 2, 3, 4, 5]
     info = stds_info(tools, "strds", f"{prefix}_out")
