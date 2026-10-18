@@ -9,6 +9,10 @@ import pytest
 
 from grass.temporal.testing.readback import list_maps, stds_info
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 
 def test_intervals_of_seconds(tools, make_maps, dataset):
     maps = make_maps(3, kind="raster_3d")

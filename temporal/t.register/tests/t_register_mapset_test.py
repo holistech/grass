@@ -17,6 +17,10 @@ from grass.temporal.testing.data import make_map
 from grass.temporal.testing.readback import list_maps
 from grass.tools import ToolError, Tools
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 
 @pytest.fixture(scope="module")
 def two_mapsets(tmp_path_factory):

@@ -10,6 +10,10 @@ import pytest
 from grass.temporal.testing.readback import list_maps, stds_info
 from grass.tools import ToolError
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 # Each case: start, increment, interval flag, then the (start, end) of the
 # three maps, the granularity and the end of the dataset.
 INCREMENTS = {
@@ -227,6 +231,7 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         start="2001-01-01", increment="20 years, 3 months, 1 days, 4 hours", **options
     )
     first = [row.start for row in list_maps(tools, "strds", name)]
+    first_info = stds_info(tools, "strds", name)
     first_topology = _topology(tools, name)
     tools.t_register(
         start="2001-01-01",
@@ -235,6 +240,8 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         **options,
     )
     second = [row.start for row in list_maps(tools, "strds", name)]
+    second_info = stds_info(tools, "strds", name)
+    second_topology = _topology(tools, name)
     tools.t_register(
         start="2001-01-01",
         increment="99 years, 9 months, 9 days, 9 hours",
@@ -243,6 +250,7 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         **options,
     )
     third = [(row.start, row.end) for row in list_maps(tools, "strds", name)]
+    third_info = stds_info(tools, "strds", name)
     third_topology = _topology(tools, name)
 
     assert first == [
@@ -269,9 +277,30 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         ("2400-02-07 12:00:00", "2499-11-17 21:00:00"),
         ("2499-11-16 21:00:00", "2599-08-26 06:00:00"),
     ]
+    # The granularity is the greatest common divisor of the gaps between the
+    # starts; the intervals of the third round are as long as the gaps. In
+    # hours, from the starts above, the first round has the gaps 24 d + 4 with
+    # d = 7396, 7397, 7398, 7398, 7395, so 4 divides every gap, and
+    # gcd(177508, 177532) = gcd(177508, 24) = 4, because 177508 = 4 * 44377
+    # with 44377 odd and its digit sum 25 not divisible by 3. The second
+    # round has the gaps 24 d + 9 with d = 36441, 36441, 36442, 36443, 36442,
+    # so 3 divides every gap, and gcd(874593, 874617) = gcd(874593, 24) = 3,
+    # because 874593 is odd and its digit sum 36 is divisible by 3. The values
+    # are those of the former gunittest.
+    assert first_info["granularity"] == "'4 hours'"
+    assert second_info["granularity"] == "'3 hours'"
+    assert third_info["granularity"] == "'3 hours'"
+    # The dataset ends with the last start (points) or the last end.
+    assert first_info["end_time"] == "'2102-04-06 20:00:00'"
+    assert second_info["end_time"] == "'2499-11-16 21:00:00'"
+    assert third_info["end_time"] == "'2599-08-26 06:00:00'"
     # Points are valid; the intervals of the last round start where the one
     # before ends only up to the clipped day (2499-11-16 against -17).
-    assert (first_topology, third_topology) == ("valid", "invalid")
+    assert (first_topology, second_topology, third_topology) == (
+        "valid",
+        "valid",
+        "invalid",
+    )
     # The map time stamp follows the last registration.
     assert tools.r_timestamp(map=maps[2]).stdout.strip() == (
         "19 Jul 2200 18:00:00 / 29 Apr 2300 03:00:00"
@@ -443,6 +472,12 @@ def test_time_and_label_are_read_from_the_map(tools, make_maps, dataset):
 
     tools.t_register(type="raster", input=name, maps=",".join(maps))
 
+    rows = list_maps(tools, "strds", name)
+    assert [(row.name, row.start, row.end) for row in rows] == [
+        (maps[0], "2001-01-01 00:00:00", "2001-01-01 08:00:00"),
+        (maps[1], "2001-01-01 08:00:00", "2001-01-01 16:00:00"),
+        (maps[2], "2001-01-01 16:00:00", "2001-01-02 00:00:00"),
+    ]
     info = stds_info(tools, "strds", name)
     assert info["granularity"] == "'8 hours'"
     assert (info["start_time"], info["end_time"]) == (

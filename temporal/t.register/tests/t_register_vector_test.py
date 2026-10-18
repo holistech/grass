@@ -11,6 +11,10 @@ from grass.temporal.testing.data import register_file, vector_points
 from grass.temporal.testing.readback import list_maps, stds_info
 from grass.tools import ToolError
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 
 def _make(tools, prefix, count, layers=(1,)):
     names = []
@@ -202,9 +206,9 @@ def test_layers_in_a_file(tools, prefix, dataset, tmp_path):
         file=register_file(
             tmp_path / "starts.txt",
             [
-                (layers[0], "2001-01-01"),
-                (layers[1], "2001-02-01"),
-                (layers[2], "2001-03-01"),
+                (layers[0], "2002-01-01"),
+                (layers[1], "2002-02-01"),
+                (layers[2], "2002-03-01"),
             ],
         ),
         **common,
@@ -229,7 +233,13 @@ def test_layers_in_a_file(tools, prefix, dataset, tmp_path):
         (map_name, "2", "2001-02-01 00:00:00", None),
         (map_name, "3", "2001-03-01 00:00:00", None),
     ]
-    assert starts_result == names_only_result
+    # Other times than the first round, so a file whose times were ignored
+    # would show.
+    assert starts_result == [
+        (map_name, "1", "2002-01-01 00:00:00", None),
+        (map_name, "2", "2002-02-01 00:00:00", None),
+        (map_name, "3", "2002-03-01 00:00:00", None),
+    ]
     assert _layers(tools, intervals) == [
         (map_name, "1", "2001-01-01 00:00:00", "2001-04-01 00:00:00"),
         (map_name, "2", "2001-04-01 00:00:00", "2001-07-01 00:00:00"),

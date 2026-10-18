@@ -17,6 +17,10 @@ from grass.temporal.testing.readback import list_maps, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 ZONES = ["UTC", "Asia/Kathmandu", "America/New_York"]
 
 

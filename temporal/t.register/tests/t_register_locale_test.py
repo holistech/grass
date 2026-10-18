@@ -3,15 +3,22 @@
 The former gunittest set the locale of the process to fr_BE.UTF-8 to catch a
 UnicodeDecodeError. That locale is not installed everywhere, and a locale that
 is missing falls back to the C locale, so the module runs the same steps with
-C, C.UTF-8 and fr_BE.UTF-8 in the environment of the tools.
+C, C.UTF-8 and fr_BE.UTF-8 in the environment of the tools and skips a locale
+that the system does not have. With LC_ALL empty, Python coerces the C locale
+to UTF-8 (PEP 538), so "C" decodes the description as UTF-8 too.
 """
 
 import pytest
 
+from grass.exceptions import CalledModuleError
 from grass.temporal.testing.data import make_map
 from grass.temporal.testing.readback import list_maps, stds_info
 from grass.temporal.testing.session import project_session
 from grass.tools import ToolError, Tools
+
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
 
 LOCALES = ["C", "C.UTF-8", "fr_BE.UTF-8"]
 DESCRIPTION = "Précipitation totale mensuelle NC"
@@ -28,6 +35,16 @@ def locale_tools(request, tmp_path):
         tools = Tools(
             session=session, consistent_return_value=True, capture_stderr=True
         )
+        try:
+            tools.run_cmd(
+                [
+                    "python3",
+                    "-c",
+                    "import locale; locale.setlocale(locale.LC_ALL, '')",
+                ]
+            )
+        except CalledModuleError:
+            pytest.skip(f"locale {request.param} is not installed")
         tools.g_region(n=1, s=0, e=1, w=0, res=1)
         yield tools
 

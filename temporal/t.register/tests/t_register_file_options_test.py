@@ -10,6 +10,10 @@ from grass.temporal.testing.data import day, register_file
 from grass.temporal.testing.readback import list_maps, stds_info
 from grass.tools import ToolError
 
+# Almost every test of the module runs longer than one second (measured
+# 18.10.2026 with pytest --durations).
+pytestmark = pytest.mark.slow
+
 
 def _times(tools, name):
     return [(row.start, row.end) for row in list_maps(tools, "strds", name)]

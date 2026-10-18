@@ -91,6 +91,7 @@ def test_unknown_dataset(tools, make_maps):
     assert "Space time dataset <no_such_dataset> of type <raster> not found" in message
 
 
+@pytest.mark.slow
 def test_unknown_map_registers_nothing(tools, make_maps, dataset):
     maps = make_maps(1)
     name = dataset()
@@ -149,6 +150,7 @@ def test_start_that_is_no_date_counts_as_relative_time(tools, make_maps, dataset
     assert "unit must be set in case of relative time stamps" in message
 
 
+@pytest.mark.slow
 def test_absolute_map_in_a_relative_dataset(tools, make_maps, dataset):
     maps = make_maps(1)
     absolute = dataset()
