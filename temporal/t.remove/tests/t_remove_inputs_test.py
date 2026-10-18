@@ -8,6 +8,7 @@ to before the error.
 
 import pytest
 
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
 # Every test makes maps and datasets with tools, which takes more than a second
@@ -105,7 +106,7 @@ def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
     with pytest.raises(ToolError) as error:
         tools.t_remove(file=tmp_path / "missing.txt", flags="f")
 
-    assert "Traceback" not in str(error.value)
+    assert "Traceback" not in message(error.value)
 
 
 def test_an_unknown_dataset_is_refused(tools):
