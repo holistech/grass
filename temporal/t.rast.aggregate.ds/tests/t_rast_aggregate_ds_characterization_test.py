@@ -60,6 +60,8 @@ def test_stvds_sampler(read):
     ]
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_n_flag_registers_the_all_null_granule(read):
     """-n keeps null maps and the default drops them, as in t.rast.aggregate
     and as the help text promises. Before the tool moved onto the algebra
@@ -190,6 +192,8 @@ def test_related_maps_are_read_in_time_order(read):
     ]
 
 
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
 def test_existing_output_without_overwrite_prints_one_error(read):
     """The classic tool printed the refusal once. With the messenger in raise
     mode the message was printed by the library and again by the tool's own

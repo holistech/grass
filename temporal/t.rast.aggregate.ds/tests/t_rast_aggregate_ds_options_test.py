@@ -16,7 +16,7 @@ from grass.temporal.testing.data import (
     intervals,
     register_stds,
 )
-from grass.temporal.testing.readback import list_maps, message
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
 TIME = "%Y-%m-%d %H:%M:%S"
@@ -497,3 +497,67 @@ def test_the_required_options(tools, prefix, missing):
         tools.t_rast_aggregate_ds(method="sum", **options)
 
     assert f"Required parameter <{missing}> not set" in message(error.value)
+
+
+def _relative(tools, name, times, unit):
+    """Maps <name>_k with the value k + 1 and the relative times (start, end)"""
+    create_stds(
+        tools,
+        "strds",
+        name,
+        [
+            MapSpec(f"{name}_{k}", k + 1, start, end)
+            for k, (start, end) in enumerate(times)
+        ],
+        temporaltype="relative",
+        unit=unit,
+    )
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_relative_time(tools, prefix):
+    # Four maps of one day with 1 to 4 and the sampler intervals [0,2) and
+    # [2,4), both in days: the sums are 1 + 2 and 3 + 4, and the result has
+    # the unit of the input.
+    _relative(tools, f"{prefix}_in", [(k, k + 1) for k in range(4)], "days")
+    _relative(tools, f"{prefix}_smp", [(0, 2), (2, 4)], "days")
+
+    tools.t_rast_aggregate_ds(
+        input=f"{prefix}_in",
+        sample=f"{prefix}_smp",
+        type="strds",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        method="sum",
+    )
+
+    assert [(row[1], row[2], row[3]) for row in _rows(tools, f"{prefix}_out")] == [
+        (0, 2, 3.0),
+        (2, 4, 7.0),
+    ]
+    assert stds_info(tools, "strds", f"{prefix}_out")["unit"] == "days"
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_today_the_unit_of_a_relative_sampler_is_not_compared(tools, prefix):
+    # The input is in days, the sampler [0,2) in years. The tool checks only
+    # that both have relative time and reads the numbers of the sampler in
+    # the unit of the input: the granule is the days 0 to 2, not two years,
+    # and holds the maps 1 and 2.
+    _relative(tools, f"{prefix}_in", [(k, k + 1) for k in range(4)], "days")
+    _relative(tools, f"{prefix}_smp", [(0, 2)], "years")
+
+    tools.t_rast_aggregate_ds(
+        input=f"{prefix}_in",
+        sample=f"{prefix}_smp",
+        type="strds",
+        output=f"{prefix}_out",
+        basename=f"{prefix}_out",
+        method="sum",
+    )
+
+    assert [(row[1], row[2], row[3]) for row in _rows(tools, f"{prefix}_out")] == [
+        (0, 2, 3.0)
+    ]
