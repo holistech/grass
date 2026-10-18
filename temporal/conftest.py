@@ -9,11 +9,12 @@ takes precedence over the one here.
 
 import re
 import zlib
+from types import SimpleNamespace
 from typing import NamedTuple
 
 import pytest
 
-from grass.temporal.testing.data import create_daily_stds
+from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds, day
 from grass.temporal.testing.readback import map_info
 from grass.temporal.testing.session import (
     mapset_session,
@@ -173,3 +174,70 @@ def existing(tools):
         return [name in listed for name in maps]
 
     return check
+
+
+# The granule G is day 10 to day 20 (counted from 2001-01-01). The map
+# "anchor" on day 0 to day 1 starts the grid there, so a granularity of
+# 10 days gives the granules [0,10), [10,20) and [20,30), and G is the second.
+# Every other map has a value that is a power of two, so a sum tells which
+# maps a sampling relation collected. The relation is that of the granule to
+# the map: G equals e, contains c, lies inside d, and so on.
+_SAMPLING_MAPS = [
+    # name, start day, end day, value
+    ("e", 10, 20, 1),  # equal
+    ("c", 12, 18, 2),  # G contains c
+    ("d", 5, 25, 4),  # G is during d
+    ("o1", 15, 25, 8),  # G overlaps o1
+    ("o2", 5, 15, 16),  # G is overlapped by o2
+    ("s1", 10, 15, 32),  # same start, shorter: G is started by s1
+    ("s2", 10, 25, 64),  # same start, longer: G starts s2
+    ("f1", 15, 20, 128),  # same end, shorter: G is finished by f1
+    ("f2", 5, 20, 256),  # same end, longer: G finishes f2
+]
+
+# GRASS files a map that starts or finishes together with the granule under
+# "during" as well, and the inverse under "contains" (see
+# spatio_temporal_relationships.py), so "contains" collects c, s1 and f1
+# (2 + 32 + 128) and "during" collects d, s2 and f2 (4 + 64 + 256).
+_SAMPLING_SUMS = {
+    "equal": 1,
+    "contains": 2 + 32 + 128,
+    "during": 4 + 64 + 256,
+    "overlaps": 8,
+    "overlapped": 16,
+    "started": 32,
+    "starts": 64,
+    "finished": 128,
+    "finishes": 256,
+    "overlaps,overlapped": 8 + 16,
+    "equal,contains": 1 + 2 + 32 + 128,
+}
+
+
+@pytest.fixture(scope="module")
+def sampling_relations(tools):
+    """A dataset and a sampler for one sampling relation at a time
+
+    Returns the names of the dataset "sampling_relations" of ten maps (the
+    maps of the comment above and the anchor), of the dataset
+    "sampling_relations_sampler" of the three intervals [0,10), [10,20) and
+    [20,30), the sum that each sampling value must give for the granule G,
+    and the start of G as t.rast.list prints it.
+    """
+    maps = [MapSpec("rel_anchor", 1024, day(0), day(1))] + [
+        MapSpec(f"rel_{name}", value, day(start), day(end))
+        for name, start, end, value in _SAMPLING_MAPS
+    ]
+    create_stds(tools, "strds", "sampling_relations", maps)
+    create_stds(
+        tools,
+        "strds",
+        "sampling_relations_sampler",
+        [MapSpec(f"rel_smp{k}", k, day(10 * k), day(10 * k + 10)) for k in range(3)],
+    )
+    return SimpleNamespace(
+        dataset="sampling_relations",
+        sampler="sampling_relations_sampler",
+        sums=_SAMPLING_SUMS,
+        start=day(10).strftime("%Y-%m-%d %H:%M:%S"),
+    )
