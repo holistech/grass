@@ -5,17 +5,9 @@ at 0.5, 1.5 and 2.5 in both directions. A point of the output sits on the
 centre of its cell and an area follows the cell borders (0 to 3).
 """
 
-from datetime import datetime
-
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
-
-
-def quarter(index):
-    """The first day of quarter index, counted from 2001-01-01"""
-    month = 1 + 3 * index
-    return datetime(2001 + (month - 1) // 12, (month - 1) % 12 + 1, 1)
+from grass.temporal.testing.data import MapSpec, create_stds, day, quarter, small_region
 
 
 @pytest.fixture(scope="module")

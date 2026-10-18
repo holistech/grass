@@ -10,17 +10,9 @@ column value holds 1 and 2, in layer 2 (table vl_k_2) 101 and 102, so that a
 condition on value tells the layers apart.
 """
 
-from datetime import datetime
-
 import pytest
 
-from grass.temporal.testing.data import MapSpec, register_stds, vector_points
-
-
-def quarter(index):
-    """The first day of quarter index, counted from 2001-01-01"""
-    month = 1 + 3 * index
-    return datetime(2001 + (month - 1) // 12, (month - 1) % 12 + 1, 1)
+from grass.temporal.testing.data import MapSpec, quarter, register_stds, vector_points
 
 
 @pytest.fixture(scope="module")

@@ -62,6 +62,11 @@ def _month_start(months):
     return DAY0.replace(year=DAY0.year + year, month=month + 1)
 
 
+def quarter(index):
+    """The first day of the quarter that lies index quarters after DAY0"""
+    return _month_start(3 * index)
+
+
 def relative_intervals(count, *, step=1, start=0):
     """count adjacent (start, end) pairs of numbers, each step long
 

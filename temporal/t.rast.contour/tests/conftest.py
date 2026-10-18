@@ -13,16 +13,10 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, small_region
+from grass.temporal.testing.data import MapSpec, create_stds, quarter, small_region
 
 COLUMNS = "double(col())"
 ROWS = "double(row() * 2)"
-
-
-def quarter(index):
-    """The first day of quarter index, counted from 2001-01-01"""
-    month = 1 + 3 * index
-    return datetime(2001 + (month - 1) // 12, (month - 1) % 12 + 1, 1)
 
 
 @pytest.fixture(scope="module")
