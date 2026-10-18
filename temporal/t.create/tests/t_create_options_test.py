@@ -9,7 +9,8 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps, stds_info
-from grass.tools import ToolError
+from grass.temporal.testing.session import project_session
+from grass.tools import ToolError, Tools
 
 MAPSET = "work"  # the current mapset of the fixture in conftest.py
 
@@ -307,3 +308,35 @@ def test_an_illegal_name_is_refused(tools, case):
         tools.t_create(output=name, **CREATE)
 
     assert _listed(tools, "strds", name) == []
+
+
+def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
+    # G_legal_filename refuses a leading dot, t.create only warns and then
+    # stores the dataset under the id "@<mapset>" with an empty name, so it
+    # cannot be found by the name it was given. A project of its own, because
+    # every such dataset has the same id.
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(
+            session=session, consistent_return_value=True, capture_stderr=True
+        )
+
+        result = tools.t_create(output=".dot", **CREATE)
+
+        assert "Cannot start with '.'" in result.stderr
+        rows = tools.t_list(type="strds", format="json").json
+        assert [(row["id"], row["name"]) for row in rows] == [("@PERMANENT", "")]
+        with pytest.raises(ToolError, match="not found in temporal"):
+            tools.t_info(type="strds", input=".dot", flags="g")
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_a_leading_dot_is_refused(tmp_path):
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(
+            session=session, consistent_return_value=True, capture_stderr=True
+        )
+
+        with pytest.raises(ToolError):
+            tools.t_create(output=".dot", **CREATE)
+
+        assert tools.t_list(type="strds", format="json").json == []
