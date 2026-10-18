@@ -48,7 +48,8 @@ def shift_by_list(stds, gran, dbif):
     This does what the shift() method of the dataset does for one
     granularity, which refuses a list, with the same dry run before any map
     is changed. The parts of the list are checked one by one, so that only
-    this tool accepts a list.
+    this tool accepts a list. Each unit may appear once: the function that
+    adds the shift keeps only the last number of a unit.
 
     :return: True if the maps were shifted, False if a part is invalid or
              there is nothing to shift
@@ -60,22 +61,31 @@ def shift_by_list(stds, gran, dbif):
     if stds.get_mapset() != get_current_mapset():
         gs.fatal(
             _(
-                "Unable to shift dataset <%(ds)s> of type %(type)s in the temporal "
+                "Unable to shift dataset <{ds}> of type {type} in the temporal "
                 "database. The mapset of the database does not match the current "
                 "mapset"
-            )
-            % {"ds": stds.get_id(), "type": stds.get_type()}
+            ).format(ds=stds.get_id(), type=stds.get_type())
         )
 
     parts = [part.strip() for part in gran.split(",")]
     if not all(check_granularity_string(part, "absolute") for part in parts):
-        gs.error(_("Wrong granularity format: %s") % gran)
+        gs.error(_("Wrong granularity format: {}").format(gran))
+        return False
+    units = [part.split(" ")[1].removesuffix("s") for part in parts]
+    if len(set(units)) != len(units):
+        gs.error(
+            _("Each unit may appear only once in the granularity: {}").format(gran)
+        )
         return False
 
     maps = stds.get_registered_maps_as_objects(dbif=dbif)
     if maps is None:
         return False
 
+    # All new times are computed before the first map changes, as in shift(),
+    # so that an impossible date such as 2001-04-31 leaves the dataset as it
+    # was. Shifting by one part after the other with shift() would not:
+    # a later part could fail after the earlier ones were written.
     date_list = []
     for map in maps:
         start, end = map.get_temporal_extent_as_tuple()
@@ -84,6 +94,8 @@ def shift_by_list(stds, gran, dbif):
             end = increment_datetime_by_string(end, gran)
         date_list.append((start, end))
 
+    # The dataset offers no public method that writes a list of new times and
+    # updates the datasets of the maps; shift() uses this one.
     stds._update_map_timestamps(maps, date_list, dbif)
     return True
 

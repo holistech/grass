@@ -9,7 +9,11 @@ an integer, unit is the temporal unit that can be one of year(s),
 month(s), week(s), day(s), hour(s), minute(s) or second(s). Since
 18.10.2026 a comma separated list such as <tt>1 days, 2 hours</tt> is accepted
 and shifts the maps by all parts at once; every part must be
-"number unit". Relative time takes a single integer.
+"number unit" and every unit may appear once. Each part is counted
+from the old time of a map and the lengths are added: shifted by
+<tt>1 years, 1 months</tt>, 2003-02-15 becomes 2004-03-14, since the month
+from 2003-02-15 has 28 days, while <tt>13 months</tt> give 2004-03-15.
+Relative time takes a single integer.
 <p>
 The granularity in case of relative time is an integer. The temporal
 unit is the unit of the space time dataset and can not be modified.

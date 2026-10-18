@@ -5,6 +5,8 @@ time point on 2001-01-20. A shift moves the start and the end of every map by
 the same amount; the expected times are calculated by hand in the cases.
 """
 
+from datetime import datetime
+
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
@@ -304,6 +306,44 @@ def test_a_list_with_a_wrong_part_changes_nothing(tools, mixed):
     ]
 
 
+@pytest.mark.parametrize("granularity", ["1 days, 2 days", "1 day, 1 days"])
+def test_a_list_that_names_a_unit_twice_is_refused(tools, mixed, granularity):
+    # The function that adds the shift keeps only the last number of a unit,
+    # so "1 days, 2 days" would move the maps by 2 days, not 3.
+    with pytest.raises(ToolError) as error:
+        tools.t_shift(input=mixed, granularity=granularity)
+
+    assert (
+        f"Each unit may appear only once in the granularity: {granularity}"
+        in message(error.value)
+    )
+    assert _times(tools, mixed) == [
+        ("2001-01-01 00:00:00", "2001-01-15 00:00:00"),
+        ("2001-01-20 00:00:00", None),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("granularity", "expected"),
+    [
+        ("1 years, 1 months", "2004-03-14 00:00:00"),
+        ("13 months", "2004-03-15 00:00:00"),
+    ],
+)
+def test_the_parts_of_a_list_are_measured_from_the_old_time(
+    tools, prefix, granularity, expected
+):
+    # Every part is counted from 2003-02-15 and the lengths are added: one
+    # month is 28 days (to 2003-03-15), one year 365 days (to 2004-02-15).
+    # 2004-02-15 plus 28 days is 2004-03-14, as February 2004 has 29 days.
+    # 13 months in one part land on 2004-03-15.
+    name = _dataset(tools, prefix, [(datetime(2003, 2, 15), None)])
+
+    tools.t_shift(input=name, granularity=granularity)
+
+    assert _times(tools, name) == [(expected, None)]
+
+
 def test_a_list_updates_the_granularity_and_the_history(tools, prefix):
     name = _dataset(tools, prefix, [(day(0), day(1)), (day(1), day(2))])
 
@@ -353,11 +393,12 @@ def end_of_month(tools, prefix):
     return _dataset(tools, prefix, [(day(30), day(40))])
 
 
+@pytest.mark.parametrize("granularity", ["1 month", "1 months, 1 days"])
 def test_today_a_month_shift_to_a_missing_day_ends_with_a_traceback(
-    tools, end_of_month
+    tools, end_of_month, granularity
 ):
     with pytest.raises(ToolError) as error:
-        tools.t_shift(input=end_of_month, granularity="1 month")
+        tools.t_shift(input=end_of_month, granularity=granularity)
 
     assert "ValueError: day is out of range for month" in message(error.value)
     # The dry run stops the shift before the first map is changed.
@@ -388,12 +429,13 @@ def test_today_a_dataset_without_maps_is_shifted_silently(tools, prefix):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
+@pytest.mark.parametrize("granularity", ["1 day", "1 days, 2 hours"])
+def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix, granularity):
     work, other = two_mapsets
     name = _dataset(other, prefix, [(day(0), day(1))])
 
     with pytest.raises(ToolError) as error:
-        work.t_shift(input=f"{name}@other", granularity="1 day")
+        work.t_shift(input=f"{name}@other", granularity=granularity)
 
     text = message(error.value)
     assert f"Unable to shift dataset <{name}@other> of type strds" in text
