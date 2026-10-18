@@ -5,8 +5,12 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 from datetime import datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
+
+from grass.exceptions import CalledModuleError
 
 from grass.temporal.testing.data import (
     DAY0,
@@ -15,7 +19,12 @@ from grass.temporal.testing.data import (
     day,
     intervals,
     make_map,
+    register_file,
+    register_stds,
+    relative_intervals,
+    small_region,
     timestamp,
+    vector_points,
 )
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.session import temporal_session
@@ -241,3 +250,227 @@ def _field(tools, name, label):
         for line in tools.t_info(type="strds", input=name).text.splitlines()
     ]
     return lines[lines.index(label) + 1]
+
+
+def test_relative_intervals_default():
+    assert relative_intervals(3) == [(0, 1), (1, 2), (2, 3)]
+
+
+def test_relative_intervals_with_step_and_start():
+    assert relative_intervals(2, step=5, start=10) == [(10, 15), (15, 20)]
+
+
+def test_register_file_writes_one_line_per_row(tmp_path):
+    rows = [
+        "only_a_name",
+        ("point", day(1, hours=6)),
+        ("interval", day(2), day(3)),
+        ("relative", 4, 6.5),
+    ]
+
+    path = register_file(tmp_path / "maps.txt", rows)
+
+    assert path == tmp_path / "maps.txt"
+    assert path.read_text().splitlines() == [
+        "only_a_name",
+        "point|2001-01-02 06:00:00",
+        "interval|2001-01-03 00:00:00|2001-01-04 00:00:00",
+        "relative|4|6.5",
+    ]
+
+
+def test_register_file_separator(tmp_path):
+    path = register_file(tmp_path / "m.txt", [("a", 1, 2)], separator=",")
+
+    assert path.read_text() == "a,1,2\n"
+
+
+def test_register_file_refuses_a_missing_field(tmp_path):
+    with pytest.raises(ValueError, match="None"):
+        register_file(tmp_path / "m.txt", [("a", day(0), None)])
+
+
+def test_register_file_is_read_by_t_register(tools):
+    for number in (1, 2):
+        make_map(tools, "raster", f"rf_m{number}", number)
+    tools.t_create(type="strds", output="rf", title="rf", description="rf")
+    with TemporaryDirectory() as directory:
+        path = register_file(
+            Path(directory) / "maps.txt",
+            [("rf_m1", day(0), day(1)), ("rf_m2", day(1), day(2))],
+        )
+        tools.t_register(type="raster", input="rf", file=path)
+
+    rows = list_maps(tools, "strds", "rf")
+
+    assert [(row.name, row.start, row.end) for row in rows] == [
+        ("rf_m1", "2001-01-01 00:00:00", "2001-01-02 00:00:00"),
+        ("rf_m2", "2001-01-02 00:00:00", "2001-01-03 00:00:00"),
+    ]
+
+
+def test_register_file_names_only_take_their_times_from_t_register(tools):
+    for number in (1, 2):
+        make_map(tools, "raster", f"rn_m{number}", number)
+    tools.t_create(type="strds", output="rn", title="rn", description="rn")
+    with TemporaryDirectory() as directory:
+        path = register_file(Path(directory) / "maps.txt", ["rn_m1", "rn_m2"])
+        tools.t_register(
+            type="raster", input="rn", file=path, start="2001-03-01", increment="1 days"
+        )
+
+    rows = list_maps(tools, "strds", "rn")
+
+    assert [(row.name, row.start) for row in rows] == [
+        ("rn_m1", "2001-03-01 00:00:00"),
+        ("rn_m2", "2001-03-02 00:00:00"),
+    ]
+
+
+def _records(tools, name, layer=1):
+    return tools.v_db_select(map=name, layer=layer, format="json").json["records"]
+
+
+def test_vector_points_without_attributes(tools):
+    vector_points(tools, "vp_plain", [(1, 2), (3.5, 4)])
+
+    assert _records(tools, "vp_plain") == [{"cat": 1}, {"cat": 2}]
+    assert tools.v_info(map="vp_plain", flags="t").keyval["points"] == 2
+
+
+def test_vector_points_attributes_keep_their_types(tools):
+    vector_points(
+        tools,
+        "vp_attr",
+        [(1, 1), (2, 2), (3, 3)],
+        attributes={"count": [10, 20, 30], "ratio": [0.5, 1.5, 2.5], "kind": "abc"},
+    )
+
+    rows = _records(tools, "vp_attr")
+
+    assert [(r["cat"], r["count"], r["ratio"], r["kind"]) for r in rows] == [
+        (1, 10, 0.5, "a"),
+        (2, 20, 1.5, "b"),
+        (3, 30, 2.5, "c"),
+    ]
+
+
+def test_vector_points_text_values(tools):
+    vector_points(
+        tools, "vp_text", [(1, 1), (2, 2)], attributes={"name": ["north", "south"]}
+    )
+
+    assert [r["name"] for r in _records(tools, "vp_text")] == ["north", "south"]
+
+
+def test_vector_points_coordinates(tools):
+    vector_points(tools, "vp_xy", [(1, 2), (3, 4)])
+
+    out = tools.v_out_ascii(input="vp_xy", format="point", separator="comma")
+
+    assert out.text.splitlines() == ["1,2,1", "3,4,2"]
+
+
+def test_vector_points_other_layer(tools):
+    vector_points(
+        tools, "vp_layer", [(1, 1), (2, 2)], attributes={"v": [5, 6]}, layer=3
+    )
+
+    assert [(r["cat"], r["v"]) for r in _records(tools, "vp_layer", 3)] == [
+        (1, 5),
+        (2, 6),
+    ]
+    report = tools.v_category(input="vp_layer", option="report", layer=3)
+    assert "point" in report.text
+    layers = tools.v_category(input="vp_layer", option="layers").text.split()
+    assert layers == ["3"]
+    listed = tools.g_list(type="vector", pattern="vp_layer*").text.split()
+    assert listed == ["vp_layer"]
+
+
+def test_vector_points_refuses_existing_map_without_overwrite(tools):
+    vector_points(tools, "vp_twice", [(1, 1)], attributes={"v": [1]})
+
+    with pytest.raises(CalledModuleError):
+        vector_points(tools, "vp_twice", [(1, 1)], attributes={"v": [1]})
+
+    vector_points(
+        tools, "vp_twice", [(5, 5), (6, 6)], attributes={"v": [5, 6]}, overwrite=True
+    )
+    assert [r["v"] for r in _records(tools, "vp_twice")] == [5, 6]
+
+
+def test_vector_points_other_layer_overwrite(tools):
+    vector_points(tools, "vp_lo", [(1, 1)], attributes={"v": [1]}, layer=2)
+
+    vector_points(
+        tools,
+        "vp_lo",
+        [(7, 7), (8, 8)],
+        attributes={"v": [7, 8]},
+        layer=2,
+        overwrite=True,
+    )
+
+    assert [r["v"] for r in _records(tools, "vp_lo", 2)] == [7, 8]
+
+
+def test_vector_points_attribute_length_must_match(tools):
+    with pytest.raises(ValueError, match="2 points"):
+        vector_points(tools, "vp_bad", [(1, 1), (2, 2)], attributes={"v": [1]})
+
+
+def test_vector_points_text_may_not_contain_the_separator(tools):
+    with pytest.raises(ValueError, match="comma"):
+        vector_points(tools, "vp_bad", [(1, 1)], attributes={"v": ["a,b"]})
+
+
+def test_vector_points_is_registered_like_any_vector(tools):
+    vector_points(tools, "vp_reg1", [(1, 1)])
+    vector_points(tools, "vp_reg2", [(2, 2)])
+    register_stds(
+        tools,
+        "stvds",
+        "vp_reg",
+        [
+            MapSpec("vp_reg1", None, day(0), day(1)),
+            MapSpec("vp_reg2", None, day(1), day(2)),
+        ],
+    )
+
+    rows = list_maps(tools, "stvds", "vp_reg")
+
+    assert [row.name for row in rows] == ["vp_reg1", "vp_reg2"]
+
+
+def test_small_region_sets_rows_and_columns(tools):
+    small_region(tools, 4, 6)
+
+    values = tools.g_region(flags="g").keyval
+    assert (values["rows"], values["cols"]) == (4, 6)
+    assert (values["n"], values["s"], values["e"], values["w"]) == (4, 0, 6, 0)
+
+
+def test_small_region_with_depths(tools):
+    small_region(tools, 2, 3, depths=5)
+
+    values = tools.g_region(flags="g3").keyval
+    assert (values["rows3"], values["cols3"], values["depths"]) == (2, 3, 5)
+
+
+def test_small_region_returns_the_previous_region(tools):
+    tools.g_region(n=10, s=0, e=10, w=0, t=4, b=0, res=1, res3=1)
+    before = tools.g_region(flags="g3").keyval
+
+    previous = small_region(tools, 2, 2)
+    tools.g_region(**previous)
+
+    assert tools.g_region(flags="g3").keyval == before
+
+
+def test_small_region_decides_the_cells_of_a_new_map(tools):
+    small_region(tools, 3, 5)
+    make_map(tools, "raster", "sr_map", 9)
+
+    info = tools.r_info(map="sr_map", flags="g").keyval
+    assert (info["rows"], info["cols"]) == (3, 5)

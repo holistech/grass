@@ -62,6 +62,18 @@ def _month_start(months):
     return DAY0.replace(year=DAY0.year + year, month=month + 1)
 
 
+def relative_intervals(count, *, step=1, start=0):
+    """count adjacent (start, end) pairs of numbers, each step long
+
+    The pairs are the start and end of MapSpec for a dataset of relative
+    time, in the unit that register_stds() is given. start is the first
+    start.
+    """
+    return [
+        (start + number * step, start + (number + 1) * step) for number in range(count)
+    ]
+
+
 @dataclass(frozen=True)
 class MapSpec:
     """A map to create and register: a constant value and its time
@@ -177,18 +189,14 @@ def register_stds(
             overwrite=overwrite,
         )
         if maps:
-            lines = [
-                "|".join(
-                    [spec.name, _text(spec.start, temporaltype)]
-                    + ([] if spec.end is None else [_text(spec.end, temporaltype)])
-                )
+            rows = [
+                (spec.name, spec.start) + (() if spec.end is None else (spec.end,))
                 for spec in maps
             ]
             options = {} if unit is None else {"unit": unit}
             # t.register opens the file itself, so it cannot read stdin.
             with TemporaryDirectory() as directory:
-                file = Path(directory) / "maps.txt"
-                file.write_text("\n".join(lines) + "\n")
+                file = register_file(Path(directory) / "maps.txt", rows)
                 tools.t_register(
                     type=map_type, input=name, file=file, overwrite=overwrite, **options
                 )
@@ -225,6 +233,121 @@ def _text(value, temporaltype):
     if temporaltype == "relative":
         return str(value)
     return value.strftime(_TIME_FORMAT)
+
+
+def register_file(path, rows, *, separator="|"):
+    """Write the input file of t.register file= or t.unregister file= to path
+
+    Each row is a map name, or a sequence of the name followed by a start and
+    an end. A datetime is written as "YYYY-MM-DD HH:MM:SS", any other value
+    with str(), so relative times are plain numbers. t.register takes
+    either only names (the times then come from its start and increment
+    options) or names with times in every row; the file is not checked
+    here, so a test can also write a file the tool should refuse. Returns
+    path as a Path.
+    """
+    lines = []
+    for row in rows:
+        fields = [row] if isinstance(row, str) else list(row)
+        if any(field is None for field in fields):
+            msg = f"A row of a register file has no None fields, got {row!r}"
+            raise ValueError(msg)
+        lines.append(
+            separator.join(
+                field.strftime(_TIME_FORMAT)
+                if isinstance(field, datetime)
+                else str(field)
+                for field in fields
+            )
+        )
+    path = Path(path)
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+_SQL_TYPE = {int: "integer", float: "double precision", str: "text"}
+
+
+def vector_points(tools, name, points, *, attributes=None, layer=1, overwrite=False):
+    """Create a point map name with one point per (x, y) and an attribute table
+
+    The categories are 1 to len(points) in the given order. With attributes,
+    a dict of column name to values (one value per point: int, float or
+    text), the table has the columns x, y and cat and then one column per
+    entry. Without attributes the table has only cat: v.in.ascii makes no
+    table for a map with nothing but coordinates, so one is added. The
+    column type follows the first value, so a column of floats starts with a
+    float (0.0, not 0). Text may not contain a comma, because the points go
+    to v.in.ascii as comma separated lines.
+
+    layer is the layer of the categories and of the table. Other than 1, the
+    map is imported into layer 1 and moved, as the shell tests of t.vect.list
+    and t.register did by hand; the table keeps the name of the map.
+
+    Register the map with a MapSpec whose value is None. make_map() makes the
+    simplest map, one point per map; use this when a test needs several
+    points or columns.
+    """
+    points = list(points)
+    attributes = {} if attributes is None else dict(attributes)
+    columns = [("x", float), ("y", float), ("cat", int)]
+    rows = [[x, y, number] for number, (x, y) in enumerate(points, start=1)]
+    for column, values in attributes.items():
+        values = list(values)
+        if len(values) != len(points):
+            msg = f"Column {column!r} has {len(values)} values for {len(points)} points"
+            raise ValueError(msg)
+        if any(isinstance(value, str) and "," in value for value in values):
+            msg = f"A value of column {column!r} contains a comma"
+            raise ValueError(msg)
+        columns.append((column, type(values[0]) if values else str))
+        for row, value in zip(rows, values, strict=True):
+            row.append(value)
+    source = name if layer == 1 else f"{name}_layer1"
+    tools.v_in_ascii(
+        input=StringIO("".join(",".join(map(str, row)) + "\n" for row in rows)),
+        output=source,
+        format="point",
+        separator="comma",
+        columns=", ".join(f"{column} {_SQL_TYPE[kind]}" for column, kind in columns),
+        x=1,
+        y=2,
+        z=0,
+        cat=3,
+        overwrite=overwrite,
+    )
+    if not attributes:
+        tools.v_db_addtable(map=source)
+    if layer != 1:
+        # chlayer copies the table for the new layer but keeps the link on
+        # layer 1, so the link is moved by hand.
+        tools.v_category(
+            input=source,
+            output=name,
+            option="chlayer",
+            layer=f"1,{layer}",
+            overwrite=overwrite,
+        )
+        tools.v_db_connect(map=name, flags="d", layer=1)
+        tools.v_db_connect(map=name, table=name, layer=layer, key="cat")
+        tools.g_remove(type="vector", name=source, flags="f")
+
+
+def small_region(tools, rows, cols, *, depths=None):
+    """Set the region to rows by cols cells of size 1, from (0, 0)
+
+    With depths the 3D region gets that many layers of thickness 1 as well.
+    A map made afterwards has the cell (row, col) at the position
+    (col + 0.5, rows - row - 0.5), counting both from 0, which makes
+    coordinates for value queries easy to write down. Returns the previous
+    region as options that g.region takes back, so a test can restore it.
+    """
+    previous = _region(tools)
+    options = {"n": rows, "s": 0, "e": cols, "w": 0, "res": 1}
+    if depths is not None:
+        options.update({"t": depths, "b": 0, "res3": 1})
+    tools.g_region(**options)
+    return previous
 
 
 def create_stds(tools, stds_type, name, maps, **options):
