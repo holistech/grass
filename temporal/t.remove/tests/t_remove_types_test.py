@@ -66,7 +66,7 @@ def test_stvds_df(tools, make_stds, has_dataset, registered, existing):
 def test_a_dataset_is_found_by_its_type_only(tools, make_stds, has_dataset):
     _, (name,) = make_stds(1, stds_type="stvds")
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_remove(inputs=name, flags="f")
 
     assert has_dataset(name, "stvds")

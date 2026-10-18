@@ -66,7 +66,9 @@ def test_today_a_blank_line_in_the_file_is_a_dataset_without_a_name(
     file = tmp_path / "names.txt"
     file.write_text(f"{first}\n\n{second}\n")
 
-    with pytest.raises(ToolError, match=r"Space time dataset <> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<>\s+of\s+type\s+<strds>"
+    ):
         tools.t_remove(file=file, flags="f")
 
     # The error comes before anything is executed, so both datasets remain.
@@ -79,20 +81,24 @@ def test_inputs_and_file_exclude_each_other(tools, make_stds, has_dataset, tmp_p
     file = tmp_path / "names.txt"
     file.write_text(name + "\n")
 
-    with pytest.raises(ToolError, match="are mutually exclusive"):
+    with pytest.raises(ToolError, match=r"are\s+mutually\s+exclusive"):
         tools.t_remove(inputs=name, file=file, flags="f")
 
     assert has_dataset(name)
 
 
 def test_today_the_exclusion_names_the_option_input(tools, tmp_path):
-    with pytest.raises(ToolError, match="input= and file= are mutually exclusive"):
+    with pytest.raises(
+        ToolError, match=r"input=\s+and\s+file=\s+are\s+mutually\s+exclusive"
+    ):
         tools.t_remove(inputs="a", file=tmp_path / "names.txt")
 
 
 @pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
 def test_the_exclusion_names_the_options_inputs_and_file(tools, tmp_path):
-    with pytest.raises(ToolError, match="inputs= and file= are mutually exclusive"):
+    with pytest.raises(
+        ToolError, match=r"inputs=\s+and\s+file=\s+are\s+mutually\s+exclusive"
+    ):
         tools.t_remove(inputs="a", file=tmp_path / "names.txt")
 
 
@@ -110,7 +116,9 @@ def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
 
 
 def test_an_unknown_dataset_is_refused(tools):
-    with pytest.raises(ToolError, match=r"Space time dataset <nope> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<nope>\s+of\s+type\s+<strds>"
+    ):
         tools.t_remove(inputs="nope", flags="f")
 
 
@@ -119,7 +127,7 @@ def test_an_unknown_dataset_after_a_known_one_removes_nothing(
 ):
     maps, (name,) = make_stds(2)
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_remove(inputs=f"{name},nope", flags="f")
 
     assert has_dataset(name)
@@ -131,7 +139,7 @@ def test_today_a_failed_call_with_r_has_unregistered_the_maps_before_the_error(
 ):
     maps, (name,) = make_stds(2)
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_remove(inputs=f"{name},nope", flags="rf")
 
     # The dataset stays, empty of maps that are no longer in the database.
@@ -145,7 +153,7 @@ def test_a_failed_call_does_not_change_anything(
 ):
     maps, (name,) = make_stds(2)
 
-    with pytest.raises(ToolError, match="not found"):
+    with pytest.raises(ToolError, match=r"not\s+found"):
         tools.t_remove(inputs=f"{name},nope", flags="rf")
 
     assert has_dataset(name)
@@ -155,7 +163,7 @@ def test_a_failed_call_does_not_change_anything(
 def test_a_dataset_of_another_type_is_not_found(tools, make_stds, has_dataset):
     _, (name,) = make_stds(1)
 
-    with pytest.raises(ToolError, match=r"of type\s+<stvds> not found"):
+    with pytest.raises(ToolError, match=r"of\s+type\s+<stvds>\s+not\s+found"):
         tools.t_remove(inputs=name, type="stvds", flags="f")
 
     assert has_dataset(name)
@@ -170,5 +178,5 @@ def test_the_type_defaults_to_strds(tools, make_stds, has_dataset):
 
 
 def test_an_unknown_type_is_refused(tools):
-    with pytest.raises(ToolError, match="out of range for parameter <type>"):
+    with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_remove(inputs="a", type="raster", flags="f")

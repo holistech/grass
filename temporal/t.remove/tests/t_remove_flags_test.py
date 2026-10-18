@@ -130,7 +130,9 @@ def test_the_old_sequence_removing_twice_fails_the_second_time(
     maps, (name,) = make_stds(6)
     tools.t_remove(inputs=name, flags="rf")
 
-    with pytest.raises(ToolError, match=r"Space time dataset <.*> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<.*>\s+of\s+type\s+<strds>"
+    ):
         tools.t_remove(inputs=name, flags="r")
 
     assert not has_dataset(name)
