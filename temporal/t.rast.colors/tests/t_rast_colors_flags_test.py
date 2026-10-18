@@ -14,6 +14,7 @@ import math
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -150,36 +151,45 @@ def test_the_w_flag_writes_to_maps_without_a_table(tools, colored, table):
     assert table(second)[:2] == ["1 0:0:0", "90 255:255:255"]
 
 
-def test_the_w_flag_keeps_an_existing_table(tools, colored, table, red_to_blue):
+def test_the_w_flag_keeps_the_tables_that_exist(tools, colored, table, red_to_blue):
     name, first, _ = colored
     tools.t_rast_colors(input=name, rules=red_to_blue)
 
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_colors(input=name, color="grey", flags="w")
+    # Both maps have a table now: nothing is left to write, and no error.
+    result = tools.t_rast_colors(input=name, color="grey", flags="w")
 
-    text = message(error.value)
-    assert f"Color table exists for raster map <{first}@PERMANENT>. Exiting." in text
-    assert "Error in r.colors call" in text
+    assert result.returncode == 0
     assert table(first) == ["1 255:0:0", "90 0:0:255", *WHITE]
 
 
-def test_the_w_flag_writes_no_map_if_one_map_has_a_table(tools, colored, table):
-    # Only the second map has a table. r.colors checks every map of its list
-    # for a table before it writes any and ends with an error at the first it
-    # finds (raster/r.colors/edit_colors.c), so the first map, which has none,
-    # gets no table either. That is r.colors with a list of maps, which
-    # t.rast.colors passes on unchanged.
-    name, first, second = colored
-    tools.r_colors(map=second, color="grey")
-    before = table(first)
-
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_colors(input=name, color="viridis", flags="w")
-
-    assert f"Color table exists for raster map <{second}@PERMANENT>" in message(
-        error.value
+def test_the_w_flag_writes_to_the_maps_without_a_table_only(tools, prefix, table):
+    # Changed on 18.10.2026: r.colors with -w stops at the first map that has
+    # a table and writes none, so the tool leaves such maps out of its list.
+    # Of the three maps (1 to 9, 10 to 90, 100 to 900) the second has a grey
+    # table, the others none (a new map has no colour file). They get viridis for their common range 1 to 900,
+    # the second keeps grey for its own range.
+    small_region(tools, 3, 3)
+    number = "(row() - 1) * 3 + col()"
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_{k}", f"({number}) * {m}", day(k), day(k + 1))
+            for k, m in enumerate((1, 10, 100))
+        ],
     )
-    assert table(first) == before
+    tools.r_colors(map=f"{prefix}_1", color="grey")
+    for k, m in ((0, 1), (1, 10), (2, 100)):
+        tools.r_mapcalc(expression=f"{prefix}_ref{k} = ({number}) * {m}")
+    tools.r_colors(map=f"{prefix}_ref0,{prefix}_ref2", color="viridis")
+    grey_before = table(f"{prefix}_1")
+
+    tools.t_rast_colors(input=f"{prefix}_in", color="viridis", flags="w")
+
+    assert table(f"{prefix}_0") == table(f"{prefix}_ref0")
+    assert table(f"{prefix}_2") == table(f"{prefix}_ref2")
+    assert table(f"{prefix}_1") == grey_before
 
 
 def test_today_the_l_flag_cannot_be_used(tools, colored):

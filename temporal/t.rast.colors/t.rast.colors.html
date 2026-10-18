@@ -11,6 +11,12 @@ to the <em>file</em> option of <em>r.colors</em>.
 <p>
 Please have a look at the <a href="r.colors.html">r.colors</a>
 manual page for further information.
+<p>
+With the <b>-w</b> flag only the maps that have no color table of their own
+get the new one; maps that already have a table are skipped and keep it
+(changed on 18.10.2026: <em>r.colors</em> alone refuses the whole list of
+maps if one of them has a table). The color table is then computed from the
+data range of the maps that are written.
 
 <h2>EXAMPLE</h2>
 

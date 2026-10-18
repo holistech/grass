@@ -138,6 +138,15 @@ def main():
 
     rows = sp.get_registered_maps("id", None, None, None)
 
+    if rows and write:
+        # r.colors with -w stops at the first map that has a table and then
+        # writes none, so the maps that have one are left out of its list.
+        rows = [
+            row
+            for row in rows
+            if not gs.find_file(row["id"], element="colr")["file"]
+        ]
+
     if rows:
         flags_ = ""
         if remove:
