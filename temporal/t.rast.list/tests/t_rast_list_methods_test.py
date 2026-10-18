@@ -176,17 +176,19 @@ def test_the_setup_matches_the_layouts(tools, stds):
     assert stds_info(tools, "strds", "mixed")["map_time"] == "mixed"
 
 
-@pytest.mark.parametrize("method", ["list", "cols"])
+@pytest.mark.parametrize("method", [None, "list", "cols"])
 @pytest.mark.parametrize("scenario", list(TIMES))
 def test_list_prints_name_mapset_and_times_by_start(tools, stds, scenario, method):
-    # The method cols is accepted and does the same as list: the script has no
-    # branch of its own for it.
+    # list is the default (None: no method given). The method cols is
+    # accepted and does the same as list: the script has no branch of its own
+    # for it.
     expected = [LIST_HEADER] + [
         "|".join([name, "PERMANENT", _time(start), _time(end)])
         for name, start, end in _maps(scenario)
     ]
 
-    assert _lines(tools, input=stds[scenario], method=method) == expected
+    options = {"method": method} if method else {}
+    assert _lines(tools, input=stds[scenario], **options) == expected
 
 
 @pytest.mark.parametrize("scenario", list(TIMES))
@@ -511,8 +513,8 @@ def test_gran_with_a_granule_of_the_length_of_the_maps(tools, stds):
     ],
 )
 def test_gran_extents_for_overlapping_maps(tools, stds, scenario, granule, extents):
-    # The map that covers a granule is not derived here, because the series
-    # has no valid temporal topology; the extents of the granules are.
+    # The extents are those of the granules; which map a granule names is
+    # derived in the test below.
     lines = _lines(
         tools,
         input=stds[scenario],
@@ -526,6 +528,32 @@ def test_gran_extents_for_overlapping_maps(tools, stds, scenario, granule, exten
         for start, end, length, distance in extents
     ]
     assert lines == expected
+
+
+@pytest.mark.parametrize(
+    ("scenario", "names"),
+    [
+        # nested, granules [Jan, Apr) and [Apr, Jul): nes_1 (Jan to Jul)
+        # starts with the first granule and ends with the second, so each
+        # granule lies during nes_1; the other maps lie in a granule
+        # (contains), which comes later in the search order.
+        ("nested", ["nes_1", "nes_1"]),
+        # mixed: the first granule overlaps mix_3 (Mar 1 to Jun 2); mix_1 and
+        # mix_2 lie in it (contains). The second granule is overlapped by
+        # mix_3; the instants and mix_6 lie in it. The third is a gap.
+        ("mixed", ["mix_3", "mix_3", "None"]),
+    ],
+)
+def test_gran_names_the_map_by_the_order_of_the_relations(tools, stds, scenario, names):
+    # resample_maplist_by_granularity() takes the maps of the first relation
+    # of a granule in the order equal, during, overlaps, overlapped,
+    # contains, and the first of them names the granule. That holds without
+    # a valid topology, too.
+    lines = _lines(
+        tools, input=stds[scenario], method="gran", granule="3 months", columns="name"
+    )
+
+    assert lines == ["name", *names]
 
 
 def test_the_last_granule_of_mixed_times_is_a_gap(tools, stds):

@@ -15,13 +15,6 @@ from grass.tools import Tools
 
 
 @pytest.mark.needs_solo_run
-def test_defaults(space_time_raster_dataset):
-    """Check that the module runs with default parameters"""
-    tools = Tools(session=space_time_raster_dataset.session)
-    tools.t_rast_list(input=space_time_raster_dataset.name)
-
-
-@pytest.mark.needs_solo_run
 @pytest.mark.parametrize(
     ("separator", "delimiter"),
     [(None, ","), (",", ","), ("pipe", "|")],
