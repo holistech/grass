@@ -182,7 +182,10 @@ used from any test; the fixtures that wrap it are in
 `temporal/conftest.py` and in `python/grass/temporal/tests/conftest.py`.
 
 - `session`: `project_session()` and `temporal_session()` create a project
-  and yield a session. `add_mapset()` adds a mapset to it.
+  and yield a session. `add_mapset()` adds a mapset to it, and
+  `mapset_session()` opens a second session in another mapset of the same
+  project, as the `two_mapsets` fixture of `temporal/conftest.py` does for
+  tests of tools that cross mapsets.
 - `data`: `create_stds()`, `register_stds()` and `make_map()` build
   datasets and maps from a few lines of description;
   `create_daily_stds()` makes the same maps of one day each and registers

@@ -27,6 +27,24 @@ def add_mapset(session, name):
 
 
 @contextlib.contextmanager
+def mapset_session(session, name):
+    """Yield a second session in the mapset name of the project of session
+
+    The mapset is created if it does not exist. The two sessions are
+    independent and can be used at the same time, each with its own current
+    mapset and region; the mapset search path of session is not changed, so
+    a test that wants to see maps of name from session adds the mapset with
+    g.mapsets. This is how a test makes data that belong to another mapset.
+    """
+    gisenv = gs.gisenv(env=session.env)
+    path = Path(gisenv["GISDBASE"]) / gisenv["LOCATION_NAME"] / name
+    if not path.exists():
+        create_mapset(path)
+    with gs.setup.init(path, env=os.environ.copy()) as other:
+        yield other
+
+
+@contextlib.contextmanager
 def project_session(path, *, crs=None, mapset=None):
     """Create a project at path and yield a session in it
 

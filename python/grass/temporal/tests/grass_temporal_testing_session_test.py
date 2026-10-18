@@ -14,6 +14,7 @@ from grass.exceptions import FatalError
 from grass.pygrass.messages import get_msgr
 from grass.temporal.testing.session import (
     add_mapset,
+    mapset_session,
     project_session,
     temporal_session,
 )
@@ -120,3 +121,27 @@ def test_add_mapset_keeps_current_mapset(tmp_path):
         assert "user1" in mapsets.split()
         current = gs.read_command("g.gisenv", get="MAPSET", env=session.env)
         assert current.strip() == "PERMANENT"
+
+
+def test_mapset_session_runs_next_to_the_first_session(tmp_path):
+    with (
+        project_session(tmp_path / "p", mapset="work") as work,
+        mapset_session(work, "other") as other,
+    ):
+        for session, mapset in ((work, "work"), (other, "other")):
+            current = gs.read_command("g.gisenv", get="MAPSET", env=session.env)
+            assert current.strip() == mapset
+        gs.run_command("g.region", n=1, s=0, e=1, w=0, res=1, env=other.env)
+        gs.mapcalc("m = 1", env=other.env)
+        # The first session does not see the map before it adds the mapset.
+        assert gs.list_strings("raster", env=work.env) == []
+        gs.run_command("g.mapsets", operation="add", mapset="other", env=work.env)
+        assert gs.list_strings("raster", env=work.env) == ["m@other"]
+
+
+def test_mapset_session_takes_an_existing_mapset(tmp_path):
+    with project_session(tmp_path / "p", mapset="work") as work:
+        add_mapset(work, "other")
+        with mapset_session(work, "other") as other:
+            current = gs.read_command("g.gisenv", get="MAPSET", env=other.env)
+            assert current.strip() == "other"

@@ -9,11 +9,16 @@ takes precedence over the one here.
 
 import re
 import zlib
+from typing import NamedTuple
 
 import pytest
 
 from grass.temporal.testing.data import create_daily_stds
-from grass.temporal.testing.session import project_session, temporal_session
+from grass.temporal.testing.session import (
+    mapset_session,
+    project_session,
+    temporal_session,
+)
 from grass.tools import Tools
 
 
@@ -99,3 +104,37 @@ def make_stds(tools, prefix):
         return maps, names
 
     return make
+
+
+class Mapsets(NamedTuple):
+    """Tools in the two mapsets of the two_mapsets fixture"""
+
+    work: Tools
+    other: Tools
+
+
+@pytest.fixture(scope="module")
+def two_mapsets(tmp_path_factory):
+    """Tools in the mapsets "work" and "other" of one XY project
+
+    Both run at the same time. "work" is the mapset the tool under test runs
+    in, with "other" in its search path; make the maps and datasets that are
+    to belong to another mapset with the "other" tools. Both have a region of
+    one cell in 2D and 3D, and keep the messages of successful runs in
+    result.stderr like the tools fixture.
+    """
+    project = tmp_path_factory.mktemp("two_mapsets") / "project"
+    with (
+        project_session(project, mapset="work") as work,
+        mapset_session(work, "other") as other,
+    ):
+        tools = []
+        for session in (work, other):
+            tools.append(
+                Tools(
+                    session=session, consistent_return_value=True, capture_stderr=True
+                )
+            )
+            tools[-1].g_region(n=1, s=0, e=1, w=0, res=1, b=0, t=1, res3=1)
+        tools[0].g_mapsets(operation="add", mapset="other")
+        yield Mapsets(*tools)
