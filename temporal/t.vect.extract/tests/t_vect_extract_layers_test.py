@@ -106,6 +106,24 @@ def test_today_two_layers_of_one_time_get_one_name(tools, same_time_layers, pref
         f"<{prefix}_x_2001_01> exists. To overwrite, use the --overwrite flag" in text
     )
     assert "Error in computation process" in text
+    # The map of the first layer stays, but no dataset is made.
+    assert tools.g_list(type="vector", pattern=f"{prefix}_x_*").stdout.split() == [
+        f"{prefix}_x_2001_01"
+    ]
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
+
+
+@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+def test_a_failed_extraction_leaves_no_new_map(tools, same_time_layers, prefix):
+    with pytest.raises(ToolError):
+        tools.t_vect_extract(
+            input=same_time_layers,
+            output=prefix,
+            expression="value > 0",
+            basename=f"{prefix}_x",
+        )
+
+    assert tools.g_list(type="vector", pattern=f"{prefix}_x_*").stdout == ""
 
 
 def test_a_numbered_suffix_keeps_the_layers_apart(tools, same_time_layers, prefix):

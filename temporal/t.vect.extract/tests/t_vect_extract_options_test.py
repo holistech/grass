@@ -161,18 +161,40 @@ def test_the_suffix_of_the_new_maps(tools, quarterly, prefix, suffix, names):
     ]
 
 
-@pytest.mark.parametrize("nprocs", [1, 2, 6, 8])
-def test_nprocs_gives_the_same_maps(tools, quarterly, prefix, nprocs):
+def test_one_process_extracts_every_map(tools, quarterly, prefix):
+    # value > 33: none of 11 to 24, 34 of the third map, all of the rest.
     tools.t_vect_extract(
         input=quarterly,
         output=prefix,
         expression="value > 33",
         basename=f"{prefix}_x",
-        nprocs=nprocs,
+        nprocs=1,
         flags="n",
     )
 
     assert _primitives(tools, prefix) == [0, 0, 1, 4, 4, 4]
+
+
+@pytest.mark.parametrize("nprocs", [2, 6, 8])
+def test_more_processes_than_maps_run_one_extraction(tools, quarterly, prefix, nprocs):
+    # Several v.extract processes copy their tables into one SQLite database
+    # at the same time, which the description of nprocs rules out ("Use only
+    # if database backend is used which supports concurrent writing"). With
+    # 24 maps and nprocs=8, 4 of 30 runs ended with "database is locked" or
+    # "database schema has changed" (measured 18.10.2026: t.vect.extract
+    # repeated in a temporary project with the default SQLite backend). So
+    # the selection holds one map, the fourth (values 41 to 44), and the
+    # processes are started and joined without writing at the same time.
+    tools.t_vect_extract(
+        input=quarterly,
+        output=prefix,
+        where="start_time >= '2001-10-01' AND start_time < '2001-12-01'",
+        expression="value > 33",
+        basename=f"{prefix}_x",
+        nprocs=nprocs,
+    )
+
+    assert _primitives(tools, prefix) == [4]
 
 
 def test_overwrite_replaces_the_dataset_and_its_maps(tools, quarterly, prefix):
