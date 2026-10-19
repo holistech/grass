@@ -150,7 +150,10 @@ def test_today_a_null_counts_as_zero_in_the_extended_statistics(tools, points):
     assert [float(rows[1][key]) for key in EXTENDED] == [0, 3, 4, 6]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="v.univar counts a NULL row as the value 0 in the extended statistics, so t.vect.univar -e gives wrong percentiles",
+)
 def test_a_null_is_left_out_of_the_extended_statistics(tools, points):
     rows = _table(tools.t_vect_univar(input=points, column="value", flags="e"))[1]
 
