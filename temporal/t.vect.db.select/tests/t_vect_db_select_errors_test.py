@@ -61,7 +61,10 @@ def test_today_a_failure_of_v_db_select_ends_with_its_message_and_a_traceback(
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.db.select ends with the message of v.db.select and a traceback instead of a message alone",
+)
 @pytest.mark.parametrize(("name", "options", "reason"), FAILURES)
 def test_a_failure_of_v_db_select_is_reported_as_a_message(
     tools, intervals, name, options, reason
