@@ -259,7 +259,10 @@ def test_today_a_layer_the_map_does_not_have_is_registered(tools, prefix, datase
     assert _layers(tools, name) == [(map_name, "7", "2001-01-01 00:00:00", None)]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.register checks that the vector map exists but not the layer, and registers a layer the map does not have",
+)
 def test_a_layer_the_map_does_not_have_is_refused(tools, prefix, dataset):
     (map_name,) = _make(tools, prefix, 1)
     name = dataset(stds_type="stvds")

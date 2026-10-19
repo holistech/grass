@@ -205,7 +205,10 @@ def test_today_grass_time_stamp_of_two_hours_is_wrong(zone_tools, prefix):
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.register writes the time zone offset into the GRASS time stamp in minutes (+0120 for +02:00), where GRASS reads hours and minutes",
+)
 def test_grass_time_stamp_of_two_hours(zone_tools, prefix):
     maps, name = _maps_and_dataset(zone_tools, prefix, 1)
 
@@ -237,7 +240,10 @@ def test_today_a_time_without_offset_in_a_dataset_with_offsets_fails(
     assert stds_info(zone_tools, "strds", name)["number_of_maps"] == 2
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="a failed t.register of a time without offset into a dataset with offsets leaves the dataset changed",
+)
 def test_a_failed_call_does_not_change_the_dataset(zone_tools, prefix):
     maps, name = _maps_and_dataset(zone_tools, prefix, 2)
     zone_tools.t_register(

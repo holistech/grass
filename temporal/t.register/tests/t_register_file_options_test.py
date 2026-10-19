@@ -240,7 +240,10 @@ def test_today_an_empty_line_ends_the_list(tools, make_maps, dataset, tmp_path):
     assert [row.name for row in list_maps(tools, "strds", name)] == [maps[0]]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.register stops reading the file at the first empty line and ignores the maps after it",
+)
 def test_maps_after_an_empty_line_are_registered(tools, make_maps, dataset, tmp_path):
     maps = make_maps(2)
     name = dataset()
