@@ -35,7 +35,10 @@ def test_today_levels_or_step_are_needed_and_the_refusal_has_a_traceback(
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.contour ends in a traceback when neither levels nor step is given instead of a plain message",
+)
 def test_levels_or_step_are_needed_and_the_refusal_is_a_message(
     tools, quarterly, prefix
 ):
@@ -67,7 +70,10 @@ def test_today_a_step_with_a_map_without_values_crashes(tools, quarterly, prefix
     assert "G_malloc: unable to allocate" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.contour with step on a map without values crashes in r.contour with an absurd G_malloc request",
+)
 def test_a_step_leaves_a_map_without_values_empty(tools, quarterly, prefix):
     # The three maps with values and, with -n, the empty one.
     tools.t_rast_contour(
