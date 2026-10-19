@@ -218,8 +218,9 @@ def _time(moment):
     return moment.isoformat() if hasattr(moment, "isoformat") else moment
 
 
-def _read_result(kind, name, basename):
-    stds = tgis.dataset_factory(STDS_TYPES[kind], f"{name}@PERMANENT")
+def _read_result(kind, name, basename, stdstype=None):
+    stds_type = stdstype or STDS_TYPES[kind]
+    stds = tgis.dataset_factory(stds_type, f"{name}@PERMANENT")
     if not stds.is_in_db():
         return {"stds": False}
     stds.select()
@@ -230,7 +231,7 @@ def _read_result(kind, name, basename):
         map_name = item.get_name()
         if map_name.startswith(f"{basename}_"):
             map_name = "N_" + map_name[len(basename) + 1 :]
-        if kind == "vector":
+        if stds_type == "stvds":
             # The temporal database holds no primitive counts for maps the
             # algebra registers (all None, seen 15.10.2026), so they are read
             # from the map itself.
@@ -253,7 +254,9 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
         second would overwrite the maps of the first; the basename is cut
         from the map names of the outcome.
     :param options: Options for the runner, as ``generate`` returns them.
-        ``run=True`` and ``debug=False`` are set here.
+        ``run=True`` and ``debug=False`` are set here. The kind ``"select"``
+        reads its result as the dataset type of ``stdstype``; the option
+        ``result_type``, which the runner does not get, names another type.
     :return: ``{"error": class}`` when the runner raises (``SyntaxError``,
         ``FatalError``, ``Timeout``, ``Exit`` or ``Other:<name>``, plus the
         message under ``"msg"`` with quoted names, numbers, paths and the
@@ -266,7 +269,11 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
         equality is the minimum and maximum of each map, not identical pixels.
     """
     result = f"R{basename}"
-    stds = tgis.dataset_factory(STDS_TYPES[kind], f"{result}@PERMANENT")
+    # The kind "select" makes a dataset of the type that stdstype names, unless
+    # the maps decide otherwise: result_type then names the type to read
+    result_type = options.pop("result_type", None)
+    stdstype = result_type or (options.get("stdstype") if kind == "select" else None)
+    stds = tgis.dataset_factory(stdstype or STDS_TYPES[kind], f"{result}@PERMANENT")
     if stds.is_in_db():
         stds.delete()
     options = {"run": True, "debug": False, **options}
@@ -280,7 +287,7 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
         )
     except (Exception, SystemExit, Timeout) as error:  # noqa: BLE001
         return {"error": _normalise(error), "msg": _message(error, result, basename)}
-    return _read_result(kind, result, basename)
+    return _read_result(kind, result, basename, stdstype)
 
 
 def _key(result):
