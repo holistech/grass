@@ -80,7 +80,10 @@ def test_today_the_extra_call_for_the_remaining_maps_loses_the_last_map(tools, m
     assert _values(result) == list(range(1, 401))
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.what loses the last map when exactly one map remains after the loop of 100, its call writes to the file name of the first loop",
+)
 def test_all_maps_come_back_when_one_map_remains(tools, many):
     result = tools.t_rast_what(
         strds=many, coordinates="0.5,0.5", where="start_time < '2002-02-06'"
@@ -108,7 +111,10 @@ def test_today_a_second_run_with_more_than_100_remaining_maps_is_refused(tools, 
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.what leaves the file out_remain_0 behind after more than 100 remaining maps",
+)
 def test_more_than_100_remaining_maps_leave_no_file_behind(tools, many, tmp_path):
     tools.t_rast_what(strds=many, coordinates="0.5,0.5")
 
