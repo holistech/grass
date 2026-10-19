@@ -160,7 +160,10 @@ def test_the_gran_method_of_an_empty_dataset_today_blames_the_granularity(
     assert 'Wrong granularity: "None"' in _refused(tools, input="void", method="gran")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.vect.list method=gran on an empty dataset says "Wrong granularity" instead of that the dataset is empty',
+)
 def test_the_gran_method_of_an_empty_dataset_says_it_is_empty(tools, series):
     assert "Dataset is empty" in _refused(tools, input="void", method="gran")
 
@@ -181,7 +184,10 @@ def test_a_where_with_a_syntax_error_today_ends_with_a_traceback(tools, series):
     assert "syntax error" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.list ends in a traceback for a where with a syntax error instead of a message",
+)
 def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "Traceback" not in _refused(tools, input="err", where="nonsense =")
 
@@ -194,7 +200,10 @@ def test_the_delta_method_with_a_database_column_today_ends_with_a_traceback(
     assert "ValueError: Unsupported column 'north'" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.list method=delta with a database column ends in a ValueError traceback instead of a message",
+)
 def test_the_delta_method_with_a_database_column_is_reported_as_a_message(
     tools, series
 ):

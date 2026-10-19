@@ -263,7 +263,10 @@ def test_gran_of_intervals_with_gaps_repeats_a_long_map(tools, stds):
     assert _lines(tools, input="gaps", method="gran") == _table(entries)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.list offers no column interval_length or distance_from_begin, so the delta methods print the lengths of the intervals nowhere",
+)
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
 def test_the_delta_methods_print_the_lengths_of_the_intervals(tools, stds, method):
     lines = _lines(tools, input="gaps", method=method)
