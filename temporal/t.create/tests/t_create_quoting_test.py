@@ -51,7 +51,11 @@ def test_today_the_call_fails_and_leaves_no_dataset(tools, case):
     assert stds_info(tools, "strds", name)["name"] == name
 
 
-@pytest.mark.xfail(strict=True, raises=ToolError, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    raises=ToolError,
+    reason="t.create fails on a title or description with quotes or other special characters instead of storing the text as given",
+)
 @pytest.mark.parametrize("case", CASES)
 def test_text_is_stored_as_given(tools, case):
     options, _ = CASES[case]

@@ -307,7 +307,10 @@ def test_today_an_illegal_name_is_accepted(tools, case):
     ]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.create accepts a name that G_legal_filename refuses and only warns",
+)
 @pytest.mark.parametrize("case", ILLEGAL_NAMES)
 def test_an_illegal_name_is_refused(tools, case):
     name, _ = ILLEGAL_NAMES[case]
@@ -339,7 +342,10 @@ def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
             tools.t_info(type="strds", input=".dot", flags="g")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.create accepts a name with a leading dot and stores the dataset under an empty name",
+)
 def test_a_leading_dot_is_refused(tmp_path):
     with project_session(tmp_path / "project") as session:
         tools = Tools(
