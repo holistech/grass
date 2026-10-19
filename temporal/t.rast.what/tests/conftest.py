@@ -22,7 +22,8 @@ from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 @pytest.fixture(autouse=True)
 def _work_in_tmp_path(tmp_path, monkeypatch):
     # For more than 400 maps the tool writes a file in the current directory
-    # (see t_rast_what_many_maps_test.py), and env.sh starts in the repository.
+    # (see t_rast_what_many_maps_test.py), and pytest may run from the
+    # source tree.
     monkeypatch.chdir(tmp_path)
 
 
