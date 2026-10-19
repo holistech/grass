@@ -105,7 +105,10 @@ def test_today_limits_that_do_not_rise_end_with_a_traceback(tools, daily, limits
     assert "CalledModuleError" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate ends in a CalledModuleError traceback for limits that do not rise instead of a message",
+)
 @pytest.mark.parametrize("limits", ["40,0", "10,10"])
 def test_limits_that_do_not_rise_are_refused_with_a_message(tools, daily, limits):
     with pytest.raises(ToolError) as error:
@@ -128,7 +131,10 @@ def test_today_a_wrong_date_ends_with_a_traceback(tools, daily, option, value, t
     assert text in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate ends in a traceback for a wrong start or stop instead of a message",
+)
 @pytest.mark.parametrize("option", ["start", "stop"])
 def test_a_wrong_date_is_refused_with_a_message(tools, daily, option):
     with pytest.raises(ToolError) as error:
@@ -166,7 +172,10 @@ def test_today_relative_time_ends_with_a_traceback(tools, relative):
     assert "unsupported operand type(s) for +: 'int' and 'str'" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate with relative time fails because the cycle is added to the start as text",
+)
 def test_relative_time_accumulates(tools, relative):
     # Three maps of one day with 5, 10, 15 and the lower limit 0: sums 5, 15, 30.
     tools.t_rast_accumulate(
@@ -254,6 +263,9 @@ def test_today_a_cycle_without_a_map_never_ends(gap):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate loops forever on a cycle without a map, the loop continues before the start advances",
+)
 def test_a_cycle_without_a_map_is_skipped(gap):
     assert _run_with_timeout(gap, ARGUMENTS, 8) == 0

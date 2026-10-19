@@ -122,7 +122,10 @@ def test_today_a_threshold_map_of_the_same_time_is_ignored(tools, daily):
     assert rows == _sums(5, 15, 35, 70, 90, 100, 105)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate ignores a threshold map of the same time, it looks for EQUALS but the topology files equal times under EQUAL",
+)
 def test_a_threshold_map_of_the_same_time_is_used(tools, daily):
     # The lower map 10 gives the increments 0 0 10 25 10 0 0, the sums
     # 0 0 10 35 45 45 45.
@@ -158,7 +161,10 @@ def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
     assert rows == _sums(5, 15, 25, 60, 80, 90, 95)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate ignores a threshold map that the granule overlaps last, it looks for OVERLAPPING but the topology files OVERLAPPED",
+)
 def test_a_threshold_map_that_the_granule_overlaps_last_is_used(tools, half_day_lower):
     # Day 3 takes the lower 10 as well: increment 25, sums 5 15 25 50 70 80 85.
     rows = _accumulate(tools, "lim_ov", lower=half_day_lower)
@@ -183,7 +189,10 @@ def test_today_the_reverse_flag_takes_the_threshold_of_another_day(tools, daily)
     assert rows == _sums(50, 50, 50, 50, 35, 15, 5)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate -r reads the threshold of the mirrored day, the list in time order is indexed from the wrong end",
+)
 def test_the_reverse_flag_takes_the_threshold_of_the_day(tools, daily):
     # Each step uses the lower value of its own day: day 7, 6, 5 have 20 (all
     # increments 0), day 4 has 20 (15), days 3, 2, 1 have 0 (20, 10, 5), so
@@ -216,7 +225,10 @@ def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(
     assert rows == _sums(5, 15, 35, 70, 90, 100, 105)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accumulate accepts a threshold dataset of the other time type, the check compares the type before the dataset is read",
+)
 def test_a_threshold_dataset_of_the_other_time_type_is_refused(
     tools, relative_threshold
 ):
