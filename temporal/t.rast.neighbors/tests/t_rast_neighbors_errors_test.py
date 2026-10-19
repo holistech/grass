@@ -55,7 +55,10 @@ def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, ramp, pr
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.neighbors does not let the parser refuse a wrong region_relation, the option block has no type line, so the library refuses it with a traceback",
+)
 def test_a_wrong_region_relation_is_refused_by_the_parser(tools, ramp, prefix):
     text = _refused(
         tools, input=ramp, output=prefix, basename=prefix, region_relation="bogus"

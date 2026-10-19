@@ -182,7 +182,10 @@ def test_today_a_failing_r_neighbors_ends_with_a_traceback(
     assert "Error running modules." not in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.neighbors ends in a traceback when r.neighbors fails, the queue raises before the exit codes are collected",
+)
 @pytest.mark.parametrize("size", [4])
 def test_a_failing_r_neighbors_is_reported_by_the_tool(tools, spike, prefix, size):
     with pytest.raises(ToolError) as error:
