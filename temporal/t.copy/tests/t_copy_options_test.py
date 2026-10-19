@@ -189,7 +189,10 @@ def test_today_c_with_overwrite_takes_the_maps_out_of_their_other_datasets(
     assert _names(tools, "strds", name) == []
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.copy -c --overwrite unregisters the maps of the source dataset",
+)
 def test_c_with_overwrite_leaves_the_source_as_it_was(tools, prefix):
     name, maps = _make(tools, prefix)
 
@@ -206,7 +209,10 @@ def test_today_c_fails_for_3d_and_vector_datasets(tools, prefix, stds_type, map_
         tools.t_copy(type=stds_type, input=name, output=f"{prefix}_copy", flags="c")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.copy -c fails for 3D raster and vector datasets with an AttributeError on get_semantic_label",
+)
 @pytest.mark.parametrize(("stds_type", "map_type"), TYPES[1:])
 def test_c_copies_3d_and_vector_datasets(tools, prefix, stds_type, map_type):
     name, maps = _make(tools, prefix, stds_type)

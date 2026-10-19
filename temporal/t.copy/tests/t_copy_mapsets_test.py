@@ -128,7 +128,10 @@ def test_today_the_refusal_names_the_input_instead_of_the_output(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.copy names the input in the refusal of an output in another mapset, not the output",
+)
 def test_the_refusal_names_the_output(two_mapsets, prefix, source):
     work, _ = two_mapsets
     name, _ = source
@@ -164,7 +167,10 @@ def test_today_a_failed_c_has_copied_the_first_map(
     assert f"{prefix}_copy" not in work.t_list(type=stds_type, columns="name").stdout
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="a failed t.copy -c of a 3D raster or vector dataset has already copied the first map into the current mapset",
+)
 @pytest.mark.parametrize(
     ("stds_type", "map_type"), [("str3ds", "raster_3d"), ("stvds", "vector")]
 )
