@@ -84,7 +84,10 @@ def test_today_an_empty_dataset_is_refused_as_a_dataset_of_instants(
     assert "must have time intervals" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.what.strds refuses an empty dataset as one that needs time intervals instead of saying it is empty",
+)
 def test_an_empty_dataset_is_reported_as_empty(tools, rasters, prefix):
     tools.t_create(
         type="stvds",
@@ -138,7 +141,10 @@ def test_today_a_where_with_a_syntax_error_leaves_every_value_empty(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.what.strds ends with status 0 for a where with a syntax error and leaves every value empty",
+)
 def test_a_where_with_a_syntax_error_is_refused(tools, rasters, vectors):
     assert "incomplete input" in _refused(
         tools, input=vectors().dataset, strds="wh_a", column="m", where="h >"
