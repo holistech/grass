@@ -276,7 +276,10 @@ def test_today_a_granularity_without_a_unit_ends_with_a_traceback(
     assert "IndexError: list index out of range" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.aggregate ends in an IndexError traceback for a granularity without a unit instead of a message",
+)
 @pytest.mark.parametrize("granularity", ["abc", "2"])
 def test_a_granularity_without_a_unit_is_refused_with_a_message(
     tools, four_hourly, granularity
