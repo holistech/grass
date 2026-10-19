@@ -49,7 +49,10 @@ def test_today_rf_leaves_the_metadata_of_the_other_dataset_stale(tools, make_std
     assert info["start_time"] == "'2001-01-01 00:00:00'"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.remove -rf leaves number_of_maps and the time range of another dataset that shared the removed maps unchanged",
+)
 def test_rf_updates_the_metadata_of_the_other_dataset(tools, make_stds):
     maps, (first, second) = make_stds(6, datasets=2)
     tools.t_remove(inputs=first, flags="rf")
