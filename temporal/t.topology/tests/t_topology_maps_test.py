@@ -198,12 +198,14 @@ SPATIAL = {"Equivalent", "Cover", "Covered", "Overlap", "In", "Contain", "Meet"}
 
 
 def test_an_unknown_dataset_is_refused(tools):
-    with pytest.raises(ToolError, match=r"Space time dataset <nope> of type\s+<strds>"):
+    with pytest.raises(
+        ToolError, match=r"Space\s+time\s+dataset\s+<nope>\s+of\s+type\s+<strds>"
+    ):
         tools.t_topology(input="nope")
 
 
 def test_the_input_is_required(tools):
-    with pytest.raises(ToolError, match=r"Required parameter <input> not set"):
+    with pytest.raises(ToolError, match=r"Required\s+parameter\s+<input>\s+not\s+set"):
         tools.t_topology()
 
 
