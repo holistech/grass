@@ -137,7 +137,10 @@ def test_order_by_a_value_changes_the_time_stamp_today(tools, stats, prefix):
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.series takes the start of the first and the end of the last map in the order of order=, so the time stamp of the result shrinks",
+)
 @pytest.mark.parametrize("order", ["max", "name"])
 def test_order_does_not_shrink_the_time_stamp(tools, stats, prefix, order):
     assert _run(tools, f"{prefix}_o", stats, order=order) == (

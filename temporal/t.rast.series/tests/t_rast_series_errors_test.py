@@ -59,7 +59,10 @@ def test_today_a_wrong_where_ends_with_a_traceback(tools, stats, prefix):
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.series ends in a traceback for a wrong where instead of a message",
+)
 def test_a_wrong_where_is_refused_with_a_message(tools, stats, prefix):
     text = _refused(tools, input=stats, method="sum", output=f"{prefix}_o", where="x >")
 

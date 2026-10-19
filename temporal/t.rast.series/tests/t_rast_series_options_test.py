@@ -100,7 +100,10 @@ def test_today_order_by_the_modification_time_fails_in_the_database(
     assert "no such column: modification_time" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.series lists modification_time as an order but fails, the view of the maps has no such column",
+)
 def test_order_by_the_modification_time_is_accepted(series, stats):
     assert series(stats, method="average", order="modification_time") == [AVERAGE]
 

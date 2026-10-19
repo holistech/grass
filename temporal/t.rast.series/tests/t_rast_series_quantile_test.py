@@ -39,7 +39,7 @@ def test_the_median_of_four_values_is_the_mean_of_the_middle_two(tools, series, 
     # (200 + 300) / 2 = 250. The old gunittest expected 300 (the value at
     # index 2), which was the result of the quantile algorithm that
     # lib/stats used before 21.01.2022; since then t.rast.series gives 250, as
-    # the type 7 estimate of R does (see OFFENE_PUNKTE).
+    # the type 7 estimate of R does.
     small_region(tools, 1, 2)
     create_stds(
         tools,
@@ -71,7 +71,10 @@ def test_today_a_quantile_after_another_method_is_the_minimum(series, stats):
     assert result == [[10.0, 5.0], [1.0, 2.0]]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.series passes quantile unchanged to r.series, which pairs it with the methods by position, so a quantile after another method becomes the minimum",
+)
 def test_a_quantile_after_another_method_is_computed(series, stats):
     result = series(stats, outputs=2, method="maximum,quantile", quantile=0.9)
 
@@ -138,7 +141,10 @@ def test_today_several_quantiles_are_refused(tools, stats, prefix):
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.series refuses several quantiles, its count of methods and outputs does not fit the form r.series documents",
+)
 def test_several_quantiles_are_computed(series, stats):
     # The example of the r.series manual: method=quantile,quantile,quantile
     # quantile=0.1,0.5,0.9 with three outputs.
