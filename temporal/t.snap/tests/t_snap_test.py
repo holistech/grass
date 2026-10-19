@@ -183,7 +183,10 @@ def test_today_a_map_with_the_start_of_the_next_map_takes_its_end(tools, prefix)
     assert times[other] == (_text(0), ends[snapped])
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.snap gives a map with the start of the next map the end of that next map instead of keeping its times",
+)
 def test_a_map_with_the_start_of_the_next_map_keeps_its_times(tools, prefix):
     times, ends, _, other = _snap_tied(tools, prefix)
 
@@ -267,7 +270,10 @@ def test_today_a_dataset_without_maps_ends_with_a_traceback(tools, prefix):
     assert "IndexError: list index out of range" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.snap ends in an IndexError traceback for a dataset without maps, t.shift leaves such a dataset as it is",
+)
 def test_a_dataset_without_maps_is_left_as_it_is(tools, prefix):
     # t.shift does nothing for such a dataset.
     name = _dataset(tools, prefix, [])
