@@ -379,7 +379,10 @@ def test_today_the_message_of_a_refused_shift_names_a_function(tools, mixed):
     assert "<built-in function id>" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.shift names the builtin function id, not the dataset, in the message of a refused shift",
+)
 def test_the_message_of_a_refused_shift_names_the_dataset(tools, mixed):
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=mixed, granularity="abc")
@@ -405,7 +408,10 @@ def test_today_a_month_shift_to_a_missing_day_ends_with_a_traceback(
     assert _times(tools, end_of_month) == [(_text(30), _text(40))]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.shift ends in a ValueError traceback (day is out of range for month) instead of a message when a month shift hits a missing day",
+)
 def test_a_month_shift_to_a_missing_day_ends_with_a_message(tools, end_of_month):
     # The manual: "an error will raise and the shifting will not performed
     # for the whole dataset". Tools end with a message, not with a traceback.
