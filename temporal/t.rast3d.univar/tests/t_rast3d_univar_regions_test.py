@@ -128,7 +128,10 @@ def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, regions)
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast3d.univar does not let the parser refuse a wrong region_relation, the library refuses it with a traceback",
+)
 def test_a_wrong_region_relation_is_refused_by_the_parser(tools, regions):
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_univar(input=regions, region_relation="touches")
