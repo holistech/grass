@@ -176,3 +176,8 @@ def test_cases(legacy, runner, expression, options, expected):
         result_set.check_temporal_topology(),
         result_set.get_granularity(),
     ) == SHAPE[expression]
+
+
+def test_every_case_has_one_shape():
+    # SHAPE is looked up by the expression of each case.
+    assert set(SHAPE) == {case.values[0] for case in CASES}
