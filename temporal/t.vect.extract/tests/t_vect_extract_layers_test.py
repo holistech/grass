@@ -113,7 +113,10 @@ def test_today_two_layers_of_one_time_get_one_name(tools, same_time_layers, pref
     assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.extract leaves a new map behind when two layers of one time get one name and v.extract refuses to overwrite it",
+)
 def test_a_failed_extraction_leaves_no_new_map(tools, same_time_layers, prefix):
     with pytest.raises(ToolError):
         tools.t_vect_extract(
