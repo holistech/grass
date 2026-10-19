@@ -57,7 +57,10 @@ def test_today_a_missing_archive_ends_with_a_traceback(tools, prefix, tmp_path):
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.import ends in a traceback for a missing archive instead of a message",
+)
 def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     text = _refused(tools, input=str(tmp_path / "none.tar"), output=prefix, flags="o")
 
@@ -152,7 +155,10 @@ def test_today_an_unprojected_archive_cannot_create_a_project(
     assert "Can't parse PROJ.4-style parameter string" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.rast.import cannot create a project for an unprojected archive, it passes "XY location (unprojected)" as a PROJ string',
+)
 def test_an_unprojected_archive_creates_an_unprojected_project(
     tools, archive, prefix, tmp_path
 ):

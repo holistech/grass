@@ -73,7 +73,10 @@ def test_today_the_numbers_of_the_new_maps_start_at_two(tools, archive, prefix):
     assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.import numbers the new maps from 2, the counter starts at 1 and adds 1 again",
+)
 def test_the_numbers_of_the_new_maps_start_at_one(tools, archive, prefix):
     rows = _import(tools, archive, prefix)
 
