@@ -67,6 +67,9 @@ def test_intervals_rejects_unknown_granularity():
         intervals(1, granularity="year")
 
 
+# The tests with via="library" call grass.temporal in this process, which
+# reads the session from os.environ, so they carry needs_solo_run
+# (doc/development/testing.md).
 @pytest.fixture(scope="module")
 def tools(tmp_path_factory):
     with temporal_session(tmp_path_factory.mktemp("data") / "project") as session:

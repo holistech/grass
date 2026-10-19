@@ -61,6 +61,8 @@ def tools(temporal_module_session):
     return tools
 
 
+# The tests that take this fixture change os.environ and run grass.temporal in
+# this process, so they carry needs_solo_run (doc/development/testing.md).
 @pytest.fixture(params=[None, "core", "classic"], ids=["unset", "core", "classic"])
 def algebra_variable(request, monkeypatch):
     if request.param is None:
@@ -195,6 +197,7 @@ def test_every_kind_parses(tools, algebra_variable, kind, expression, options):
     assert set(chain) >= {"processes", "register"}
 
 
+@pytest.mark.needs_solo_run
 def test_select_returns_the_chain_of_the_registered_maps(tools, algebra_variable):
     chain = run_reference(
         "select", "S = A : A", basename="S", overwrite=True, stdstype="strds"
