@@ -105,7 +105,10 @@ def test_today_a_refusal_comes_with_a_traceback(tools, cells):
     assert "ScriptError" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect ends a refusal with a ScriptError traceback instead of a message",
+)
 def test_a_refusal_comes_without_a_traceback(tools, cells):
     with pytest.raises(ToolError) as error:
         tools.t_rast_accdetect(
@@ -128,7 +131,10 @@ def test_today_an_unknown_input_ends_with_an_attribute_error(tools, cells):
     assert "AttributeError" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect with an unknown input ends in an AttributeError (get_output_map_instance) instead of naming the missing dataset",
+)
 def test_an_unknown_input_is_refused_with_a_message(tools, cells):
     with pytest.raises(ToolError) as error:
         _run(tools, "no_such_dataset", "err_input2")
@@ -148,7 +154,10 @@ def test_today_a_wrong_time_ends_with_a_traceback(tools, cells, option, value):
     assert "TypeError" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect with a wrong start or cycle ends in a TypeError traceback instead of a message",
+)
 @pytest.mark.parametrize("option", ["start", "cycle"])
 def test_a_wrong_time_is_refused_with_a_message(tools, cells, option):
     with pytest.raises(ToolError) as error:
@@ -192,7 +201,10 @@ def test_today_relative_time_ends_with_a_traceback(tools, relative):
     assert "unsupported operand type(s) for +: 'int' and 'str'" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect with relative time fails because the cycle is added to the start as text",
+)
 def test_relative_time_detects(tools, relative):
     # Three maps of 20 days, one per day: the occurrence is the day number.
     tools.t_rast_accdetect(
@@ -221,7 +233,10 @@ def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(
     _run(tools, cells, "err_type", minimum="det_rel_min")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect accepts a threshold dataset of the other time type, the manual says it must be equal",
+)
 def test_a_threshold_dataset_of_the_other_time_type_is_refused(tools, cells, relative):
     with pytest.raises(ToolError) as error:
         _run(tools, cells, "err_type2", minimum="det_rel_min")
@@ -290,6 +305,9 @@ def test_today_a_cycle_without_a_map_never_ends(gap):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect loops forever on a cycle without a map, the loop continues before the start advances",
+)
 def test_a_cycle_without_a_map_is_skipped(gap):
     assert _run_with_timeout(gap, ARGUMENTS, 8) == 0

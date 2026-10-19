@@ -207,7 +207,10 @@ def test_today_a_threshold_map_of_the_same_time_is_ignored(
     assert result == {0: [N, 0], 1: [1, 1], 2: [2, N], 3: [3, 3], 4: [N, 4]}
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect ignores a threshold map of the same time, it looks for EQUALS but the topology files equal times under EQUAL",
+)
 def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds, detect):
     # Minimum 100 on each day: nothing lies above it.
     assert detect("eq", minimum="det_equal_min", range="10,50") == {}
@@ -241,7 +244,10 @@ def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
     assert result == {0: [N, 0], 1: [1, 1], 3: [3, 3], 4: [N, 4]}
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect ignores a threshold map that the granule overlaps last, it looks for OVERLAPPING but the topology files OVERLAPPED",
+)
 def test_a_threshold_map_that_the_granule_overlaps_last_is_used(
     tools, cells, half_day_minimum, detect
 ):
@@ -265,7 +271,10 @@ def test_today_the_reverse_flag_takes_the_threshold_of_another_day(
     assert result == {3: [3, 3], 4: [N, 4]}
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect -r takes the threshold of the mirrored day, the list in time order is indexed from the wrong end",
+)
 def test_the_reverse_flag_takes_the_threshold_of_the_day(
     tools, cells, thresholds, detect
 ):
@@ -291,7 +300,10 @@ def test_today_minimum_and_maximum_datasets_without_a_range_end_with_a_traceback
     assert "IndexError: list index out of range" in message(error.value)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.accdetect with minimum and maximum datasets but no range ends in an IndexError",
+)
 def test_minimum_and_maximum_datasets_work_without_a_range(
     tools, cells, thresholds, detect
 ):
