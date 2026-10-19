@@ -81,7 +81,10 @@ def test_today_known_maps_are_reported_but_the_run_succeeds(tools, quarterly, pr
     assert list_maps(tools, "str3ds", f"{prefix}_b") == []
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast3d.extract reports maps that are already known as errors but ends with exit code 0 and an empty dataset",
+)
 def test_known_maps_make_the_run_fail(tools, quarterly, prefix):
     options = {
         "input": quarterly,
