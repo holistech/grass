@@ -64,7 +64,10 @@ def test_today_the_message_for_an_existing_map_names_the_base(tools, gappy, pref
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.gapfill names the base map in the message for an existing map, not the map that exists",
+)
 def test_the_message_for_an_existing_map_names_the_map(tools, gappy, prefix):
     first = gappy({1: (100, 0), 3: (300, 90)})
     tools.t_rast_gapfill(input=first, basename=prefix)
@@ -101,7 +104,10 @@ def test_overwrite_replaces_a_map_of_another_dataset(tools, gappy, prefix):
     ]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.gapfill -overwrite of a map of another dataset leaves number_of_maps of the first dataset unchanged, delete() does not update the metadata",
+)
 def test_the_first_dataset_counts_its_maps_after_an_overwrite(tools, gappy, prefix):
     first = gappy({1: (100, 0), 3: (300, 90)})
     tools.t_rast_gapfill(input=first, basename=prefix)
