@@ -115,7 +115,10 @@ def test_today_createopt_without_type_is_skipped_without_a_warning(
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.rast.export skips a createopt without a type silently, the warning "not working" is missing',
+)
 @pytest.mark.parametrize("fmt", ["pack", "AAIGrid"])
 def test_createopt_without_type_is_skipped_with_a_warning(
     tools, absolute, tmp_path, fmt

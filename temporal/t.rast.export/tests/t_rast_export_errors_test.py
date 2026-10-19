@@ -115,7 +115,10 @@ def test_today_a_map_without_values_ends_with_a_traceback(tools, tmp_path):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.export fails on a map without values with a TypeError (None + int)",
+)
 def test_a_map_without_values_can_be_exported(tools, tmp_path):
     _failing_dataset(tools)
 
@@ -142,7 +145,10 @@ def test_today_a_failed_export_leaves_its_working_directory(tools, tmp_path):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.export leaves its working directory behind when the export fails",
+)
 def test_a_failed_export_removes_its_working_directory(tools, tmp_path):
     _failing_dataset(tools)
 
