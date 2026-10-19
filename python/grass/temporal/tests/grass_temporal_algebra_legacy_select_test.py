@@ -319,7 +319,10 @@ def test_dry_runs(data, request, runner, expression, options, expected):
         legacy_data.check_dry(KIND, runner, expression, options, today or expected)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE, a runner plans another run")
+@pytest.mark.xfail(
+    strict=True,
+    reason="the classic profile plans a str3ds and the core refuses the expression, where the reference plans the stds type given",
+)
 @pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
 def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
     legacy_data.check_dry(KIND, runner, expression, options, expected)

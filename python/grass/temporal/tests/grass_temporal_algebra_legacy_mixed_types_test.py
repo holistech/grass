@@ -221,7 +221,7 @@ def test_cases(data, request, runner, expression, options, expected):
 
 @pytest.mark.xfail(
     strict=True,
-    reason="see OFFENE_PUNKTE, the core refuses what the earlier algebra relates",
+    reason="the core refuses expressions that relate datasets of different types, which the earlier algebra and t.select.md allow",
 )
 @pytest.mark.parametrize(
     ("expression", "options", "expected"), [c for c in CASES if c.id in CORE_TODAY]
@@ -244,7 +244,8 @@ def test_dry_runs(data, request, runner, expression, options, expected):
 
 
 @pytest.mark.xfail(
-    strict=True, reason="see OFFENE_PUNKTE, the profile and the core plan another run"
+    strict=True,
+    reason="the classic profile plans a str3ds and the core refuses the mixed expression, where the reference plans the stds type given",
 )
 @pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
 def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
