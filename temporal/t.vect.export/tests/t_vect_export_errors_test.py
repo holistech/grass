@@ -44,7 +44,10 @@ def test_today_a_missing_directory_ends_with_a_traceback(tools, absolute, tmp_pa
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.export ends in a traceback for a missing directory instead of a message",
+)
 def test_a_missing_directory_is_refused_with_a_message(tools, absolute, tmp_path):
     text = _missing_directory(tools, absolute, tmp_path)
 
@@ -77,7 +80,10 @@ def test_today_a_directory_that_is_not_writable_ends_with_a_traceback(
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root can write to any directory")
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.export ends in a PermissionError traceback for a directory that is not writable instead of a message",
+)
 def test_a_directory_that_is_not_writable_is_refused_with_a_message(
     tools, absolute, tmp_path
 ):

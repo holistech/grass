@@ -220,7 +220,10 @@ def test_today_the_extent_of_a_selection_is_that_of_the_whole_dataset(
     assert _init(archive)["west"] == "1.0"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.export writes the extent of the whole dataset into init.txt, not of the selected maps",
+)
 def test_the_extent_of_a_selection_is_that_of_the_selected_maps(
     tools, absolute, tmp_path
 ):
@@ -280,7 +283,10 @@ def test_today_readme_describes_a_gpkg_archive_as_packed_files(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.export describes a GPKG archive in readme.txt as v.pack files",
+)
 def test_readme_names_the_gpkg_files_of_a_gpkg_archive(tools, absolute, tmp_path):
     archive = tmp_path / "out"
 
