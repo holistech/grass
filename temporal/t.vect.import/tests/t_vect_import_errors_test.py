@@ -64,7 +64,10 @@ def test_today_a_missing_archive_ends_with_a_traceback(tools, prefix, tmp_path):
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.import ends in a traceback for a missing archive instead of a message",
+)
 def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     text = _refused(
         tools, input=str(tmp_path / "none.tar"), output=prefix, directory=str(tmp_path)
@@ -93,7 +96,10 @@ def test_today_a_file_that_is_no_archive_ends_with_a_traceback(tools, prefix, tm
     assert "tarfile.ReadError" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.import ends in a tarfile.ReadError traceback for a file that is no archive instead of a message",
+)
 def test_a_file_that_is_no_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     junk = tmp_path / "junk"
     junk.write_text("no archive")
@@ -277,7 +283,10 @@ def test_today_a_gpkg_archive_cannot_be_imported(tools, archives, prefix, tmp_pa
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.vect.import cannot import a GPKG archive, it ends with "Unsupported input format"',
+)
 def test_a_gpkg_archive_can_be_imported(tools, prefix, tmp_path):
     archive = _gpkg_archive(tools, tmp_path)
 

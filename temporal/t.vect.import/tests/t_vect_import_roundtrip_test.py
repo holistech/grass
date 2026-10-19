@@ -223,7 +223,10 @@ def test_today_a_pack_archive_registers_the_map_without_its_layer(
     assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_2|None"]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.import registers a pack archive map without the layer that list.txt names, stds_import.py writes the map name alone",
+)
 def test_a_pack_archive_registers_the_layer_of_the_exported_map(
     tools, archives, tmp_path, prefix
 ):

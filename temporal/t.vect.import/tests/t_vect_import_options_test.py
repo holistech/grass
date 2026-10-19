@@ -38,7 +38,10 @@ def test_today_the_numbers_of_the_new_maps_start_at_two(
     assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.import numbers the new maps from 2, the counter starts at 1 and adds 1 again",
+)
 @pytest.mark.parametrize("fmt", ["GML", "pack"])
 def test_the_numbers_of_the_new_maps_start_at_one(
     tools, archives, prefix, tmp_path, fmt
@@ -121,7 +124,10 @@ def test_today_the_e_flag_does_not_extend_the_region_for_a_pack_archive(
     assert _extent(region) == DEFAULT
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.import -e does not extend the region for a pack archive, stds_import.py hands the flag to the GML import only",
+)
 def test_the_e_flag_extends_the_region_for_a_pack_archive(archives, prefix, tmp_path):
     region = _region_after(archives, "pack", prefix, tmp_path, "e")
 
