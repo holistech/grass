@@ -94,7 +94,10 @@ def test_today_a_refused_export_leaves_the_copy_of_the_map(tools, vtk_input, tmp
     assert len(_copies(tools)) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.out.vtk leaves the copy of the map behind when the export is refused",
+)
 def test_a_refused_export_removes_the_copy_of_the_map(tools, vtk_input, tmp_path):
     (tmp_path / "000000_vt_in.vtk").write_text("keep")
 
