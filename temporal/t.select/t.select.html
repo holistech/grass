@@ -508,9 +508,10 @@ both corrections.
 
 The classic algebra gives the results of the previous implementation, with the
 exceptions below. In these cases the previous implementation ended in an error
-that had no reason or reported the wrong error. <b>-c</b> now gives the result
-described here; the new algebra never had these errors. Results of earlier
-GRASS versions that used one of these forms need a new run.
+that had no reason, reported the wrong error, or did not do what this manual
+describes. <b>-c</b> now gives the result described here; the new algebra never
+had these errors. Results of earlier GRASS versions that used one of these
+forms need a new run.
 
 <ol>
 <li><b>tsnap() and tshift() of no maps.</b> If the expression inside selects no
@@ -556,6 +557,29 @@ read temporal relations only:
 
 <div class="code"><pre>
 C = A {:,equal} B
+</pre></div>
+</li>
+
+<li><b>Empty selection of vector maps.</b> An expression that selects no map
+creates an empty space time vector dataset, as it does for raster maps and in
+the new algebra (19 October 2026). The previous implementation created no
+dataset for vector maps and gave no warning. With <b>type=stvds</b>, if no map
+of A is equal to a map of D, this expression gives an empty dataset:
+
+<div class="code"><pre>
+C = A {:,equal} D
+</pre></div>
+</li>
+
+<li><b>Planned type of a mixed selection.</b> The dry run (<b>-d</b>) plans the
+type of the dataset that the run creates (19 October 2026). If the maps of the
+result come from a function of another type, the run creates a dataset of that
+type: with <b>type=strds</b>, this expression creates a space time 3D raster
+dataset, and the dry run plans one. The previous implementation planned the
+type given by <b>type</b> and created the other:
+
+<div class="code"><pre>
+C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
 </pre></div>
 </li>
 </ol>

@@ -503,9 +503,10 @@ corrections.
 
 The classic algebra gives the results of the previous implementation, with
 the exceptions below. In these cases the previous implementation ended in
-an error that had no reason or reported the wrong error. **-c** now gives
-the result described here; the new algebra never had these errors. Results
-of earlier GRASS versions that used one of these forms need a new run.
+an error that had no reason, reported the wrong error, or did not do what
+this manual describes. **-c** now gives the result described here; the new
+algebra never had these errors. Results of earlier GRASS versions that used
+one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside selects
    no map, the result is an empty dataset, like any other selection of no
@@ -548,6 +549,28 @@ of earlier GRASS versions that used one of these forms need a new run.
 
    ```sh
    C = A {:,equal} B
+   ```
+
+5. **Empty selection of vector maps.** An expression that selects no map
+   creates an empty space time vector dataset, as it does for raster maps
+   and in the new algebra (19 October 2026). The previous implementation
+   created no dataset for vector maps and gave no warning. With
+   **type=stvds**, if no map of A is equal to a map of D, this expression
+   gives an empty dataset:
+
+   ```sh
+   C = A {:,equal} D
+   ```
+
+6. **Planned type of a mixed selection.** The dry run (**-d**) plans the
+   type of the dataset that the run creates (19 October 2026). If the maps
+   of the result come from a function of another type, the run creates a
+   dataset of that type: with **type=strds**, this expression creates a
+   space time 3D raster dataset, and the dry run plans one. The previous
+   implementation planned the type given by **type** and created the other:
+
+   ```sh
+   C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
    ```
 
 #### Differences from the previous implementation

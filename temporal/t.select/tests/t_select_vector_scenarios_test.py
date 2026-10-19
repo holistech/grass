@@ -279,26 +279,14 @@ def _creates(vectors, expression, name):
 
 
 @pytest.mark.parametrize("expression", EMPTY)
-def test_today_only_the_core_creates_an_empty_vector_result(
+def test_a_selection_without_maps_creates_an_empty_dataset(
     vectors, algebra, expression
 ):
-    """The core registers nothing in a new, empty dataset and warns; the
-    classic algebra creates no dataset at all for vector data (it does for
-    raster data), as the reference implementation did, measured 19.10.2026"""
-    created = _creates(vectors, expression, f"empty_{algebra}")
-    assert created == (algebra == "core")
-
-
-@pytest.mark.parametrize("expression", EMPTY)
-def test_a_selection_without_maps_creates_an_empty_dataset(
-    request, vectors, algebra, expression
-):
-    # t.select.md: "An expression that selects no map creates an empty space
-    # time dataset in both algebras."
-    if algebra == "classic":
-        request.applymarker(
-            pytest.mark.xfail(
-                strict=True, reason="the classic algebra makes no empty stvds"
-            )
-        )
-    assert _creates(vectors, expression, f"empty2_{algebra}")
+    """t.select.md: "An expression that selects no map creates an empty space
+    time dataset in both algebras." The reference implementation creates no
+    vector dataset; the classic algebra follows the manual since 19.10.2026."""
+    # A name per expression, so that a dataset of an earlier case cannot pass.
+    name = f"empty_{algebra}_{EMPTY.index(expression)}"
+    assert _creates(vectors, expression, name)
+    tools = Tools(session=vectors)
+    assert tools.t_vect_list(input=name, format="json")["data"] == []
