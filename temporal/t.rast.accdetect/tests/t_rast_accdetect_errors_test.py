@@ -235,7 +235,7 @@ def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(
 
 @pytest.mark.xfail(
     strict=True,
-    reason="t.rast.accdetect accepts a threshold dataset of the other time type, the manual says it must be equal",
+    reason="t.rast.accdetect accepts a threshold dataset of the other time type, the check compares the type before the dataset is read",
 )
 def test_a_threshold_dataset_of_the_other_time_type_is_refused(tools, cells, relative):
     with pytest.raises(ToolError) as error:
