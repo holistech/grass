@@ -170,8 +170,8 @@ CONDITIONS = [
         "if({equal|during}, start_day(test2) > 15, test2, test1)",
         [("test2", _ones(27, 40)), ("test1", _ones(1, 15))],
     ),
-    # No test1 map lies during a one-day test2 map, so only the else part
-    # remains and it takes every test1 map as one that no condition map
+    # No one-day test2 map lies during a one-day test1 map, so only the else
+    # part remains and it takes every test1 map as one that no condition map
     # is related to.
     (
         "if({during}, start_day(test2) > 15, test2, test1)",
@@ -235,23 +235,35 @@ def test_and_binds_stronger_than_or_only_in_the_core(
     assert _rows(vectors, expression) == _expected(*parts)
 
 
-def test_else_part_of_a_hash_condition_with_two_relations(vectors):
-    """if({equal|during}, test3 {#,contains} test2 > 1, test3, test1)
-
-    The then part is derived: the seven test3 maps with more than one test2
-    map inside (test3_44 to test3_50, see above), each equal to itself. The
-    else part is not: test1 maps of the days 0 to 8 lie in no condition map and
-    so belong to it by the rule of the manual, but those of the days 9 to 19
-    lie during true condition maps and are listed as well. The reference
-    implementation, the classic profile and the core agree on this (measured
-    19.10.2026 with grass.temporal.testing.expressions.outcome), so the
-    result is pinned as it is and the question is in OFFENE_PUNKTE.
-    """
-    rows = _rows(
-        vectors,
+# The manual reads if({R}, condition, A, B) as "condition R conclusion": a
+# map of A or B belongs to a condition map that is R to it. The else part
+# takes the maps of B whose related condition maps are false and, with a
+# relation beyond equal, the maps of B that no condition map is related to
+# (t.select.md, the corrections that apply to both algebras). The condition
+# maps here are the test3 maps, true for test3_44 to test3_50 (days 9 to 30,
+# see above). The then part is the true test3 maps, each equal to itself.
+HASH_ELSE = [
+    # A three-day test3 map is neither equal to nor during a one-day test1
+    # map, so no condition map is related to any test1 map and the else part
+    # takes all 20.
+    (
         "if({equal|during}, test3 {#,contains} test2 > 1, test3, test1)",
-    )
-    assert rows == _expected(("test3", _ones(44, 50)), ("test1", _ones(1, 20)))
+        [("test3", _ones(44, 50)), ("test1", _ones(1, 20))],
+    ),
+    # A test3 map contains the test1 maps of its three days: the days 0 to 8
+    # (test1_1 to test1_9) lie in the false maps test3_41 to test3_43, the
+    # days 9 to 19 in true ones. This case tells the reading of the manual
+    # from the opposite one, under which all 20 test1 maps would come back.
+    (
+        "if({equal|contains}, test3 {#,contains} test2 > 1, test3, test1)",
+        [("test3", _ones(44, 50)), ("test1", _ones(1, 9))],
+    ),
+]
+
+
+@pytest.mark.parametrize(("expression", "parts"), HASH_ELSE)
+def test_else_part_of_a_hash_condition_with_two_relations(vectors, expression, parts):
+    assert _rows(vectors, expression) == _expected(*parts)
 
 
 EMPTY = [
@@ -260,14 +272,33 @@ EMPTY = [
 ]
 
 
+def _creates(vectors, expression, name):
+    tools = Tools(session=vectors, overwrite=True, consistent_return_value=True)
+    tools.t_select(expression=f"{name} = {expression}", type="stvds")
+    return f"{name}@PERMANENT" in tools.t_list(type="stvds").text.split()
+
+
 @pytest.mark.parametrize("expression", EMPTY)
-def test_a_selection_without_maps_gives_the_result_the_algebra_makes(
+def test_today_only_the_core_creates_an_empty_vector_result(
     vectors, algebra, expression
 ):
     """The core registers nothing in a new, empty dataset and warns; the
     classic algebra creates no dataset at all for vector data (it does for
     raster data), as the reference implementation did, measured 19.10.2026"""
-    tools = Tools(session=vectors, overwrite=True, consistent_return_value=True)
-    tools.t_select(expression=f"empty_{algebra} = {expression}", type="stvds")
-    created = "empty_%s@PERMANENT" % algebra in tools.t_list(type="stvds").text.split()
+    created = _creates(vectors, expression, f"empty_{algebra}")
     assert created == (algebra == "core")
+
+
+@pytest.mark.parametrize("expression", EMPTY)
+def test_a_selection_without_maps_creates_an_empty_dataset(
+    request, vectors, algebra, expression
+):
+    # t.select.md: "An expression that selects no map creates an empty space
+    # time dataset in both algebras."
+    if algebra == "classic":
+        request.applymarker(
+            pytest.mark.xfail(
+                strict=True, reason="the classic algebra makes no empty stvds"
+            )
+        )
+    assert _creates(vectors, expression, f"empty2_{algebra}")
