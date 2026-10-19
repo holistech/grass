@@ -238,7 +238,10 @@ def test_today_the_l_flag_cannot_be_used(tools, colored):
     assert "Error in r.colors call" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.colors -l fails because the map list is passed to r.colors, which does not allow the list of rules with a map list",
+)
 def test_the_l_flag_lists_the_rules(tools, colored):
     name, _, _ = colored
 
