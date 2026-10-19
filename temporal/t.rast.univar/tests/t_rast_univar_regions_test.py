@@ -65,7 +65,10 @@ def test_today_a_map_without_a_valid_cell_gets_meaningless_statistics(tools, reg
     assert fields[7] == "-1.79769313486232e+308"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.univar prints the smallest double instead of nan as maximum for a map without a valid cell",
+)
 def test_a_map_without_a_valid_cell_has_no_value_for_min_and_max(tools, regions):
     result = tools.t_rast_univar(input=regions, where="start_time >= '2001-01-04'")
 
@@ -152,7 +155,10 @@ def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, regions)
     assert "Traceback" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.univar does not let the parser refuse a wrong region_relation, the library refuses it with a traceback",
+)
 def test_a_wrong_region_relation_is_refused_by_the_parser(tools, regions):
     with pytest.raises(ToolError) as error:
         tools.t_rast_univar(input=regions, region_relation="touches")
