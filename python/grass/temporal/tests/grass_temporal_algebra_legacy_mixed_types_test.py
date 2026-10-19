@@ -149,30 +149,24 @@ DRY_SHOULD = [
     pytest.param(
         "if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
         {"stdstype": "strds"},
-        {"register": 2, "stdstype": "strds"},
-        "classic",
-        id="different stds handling2 (dry run)-classic",
-    ),
-    pytest.param(
-        "if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
-        {"stdstype": "strds"},
-        {"register": 2, "stdstype": "strds"},
+        {"register": 2, "stdstype": "str3ds"},
         "core",
         id="different stds handling2 (dry run)-core",
     ),
 ]
 
-# What a runner plans today where it should plan what the reference plans.
-# The classic profile must give the results of the reference, so its str3ds
-# is a defect of the profile. The reference is not consistent either: its
-# plan names the stdstype of the call, while its run of the same expression
-# makes a str3ds ("different stds handling1"); the old test asserted the
-# plan. The core stops as in the cases above.
+# What the classic profile plans where it differs from the reference. Its run
+# of this expression makes a str3ds, as the run of the reference does
+# (test_mixed_runs_make_a_str3ds); its plan names that type, while the plan
+# of the reference names the stdstype of the call, which the old test
+# asserted. Decided 19.10.2026: the plan names what the run makes.
+DRY_CLASSIC = {
+    "different stds handling2 (dry run)": {"register": 2, "stdstype": "str3ds"},
+}
+
+# What a runner does today where it should plan what its run makes, as the
+# classic profile does (DRY_CLASSIC): the core stops as in the cases above.
 DRY_TODAY = {
-    ("different stds handling2 (dry run)", "classic"): {
-        "register": 2,
-        "stdstype": "str3ds",
-    },
     ("different stds handling2 (dry run)", "core"): (
         "ValueError",
         "A raster3d series cannot be related to a vector series",
@@ -235,17 +229,33 @@ def test_cases_the_core_should_run(data, expression, options, expected):
 @pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
 def test_dry_runs(data, request, runner, expression, options, expected):
-    today = DRY_TODAY.get((case_id(request), runner))
-    if isinstance(today, tuple):
+    name = case_id(request)
+    today = DRY_TODAY.get((name, runner))
+    if today is not None:
         with pytest.raises(ValueError, match=re.escape(today[1])):
             legacy_data.check_dry(KIND, runner, expression, options, expected)
-    else:
-        legacy_data.check_dry(KIND, runner, expression, options, today or expected)
+        return
+    if runner == "classic":
+        expected = DRY_CLASSIC.get(name, expected)
+    legacy_data.check_dry(KIND, runner, expression, options, expected)
+
+
+@pytest.mark.parametrize("runner", ["reference", "classic"])
+def test_mixed_runs_make_a_str3ds(data, runner):
+    # The run of the planned expression: the type of its result is what the
+    # plan of the classic profile names (DRY_CLASSIC).
+    legacy_data.check_case(
+        KIND,
+        runner,
+        "if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
+        {"result_type": "str3ds", "stdstype": "strds"},
+        [("2001-01-02", "2001-01-03", 2, 2), ("2001-01-03", "2001-01-04", 3, 3)],
+    )
 
 
 @pytest.mark.xfail(
     strict=True,
-    reason="the classic profile plans a str3ds and the core refuses the mixed expression, where the reference plans the stds type given",
+    reason="the core refuses the mixed expression, where it should plan the str3ds that the run makes",
 )
 @pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
 def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
@@ -264,3 +274,4 @@ def test_every_table_entry_belongs_to_a_case():
     assert set(CORE_TODAY_MESSAGE) <= set(CORE_TODAY)
     assert set(SHAPE_CORE) <= set(CORE)
     assert {name for name, _ in DRY_TODAY} <= {case.id for case in DRY}
+    assert set(DRY_CLASSIC) <= {case.id for case in DRY}

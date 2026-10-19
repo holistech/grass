@@ -46,7 +46,8 @@ class Profile:
         primitives (materialize())
     :param vector_dataset_if_empty: create the dataset of a vector result
         that has no map; False creates none and says nothing, as the parser
-        class for vector maps (materialize())
+        class for vector maps (materialize()). A selection creates it
+        always (evaluate())
     :param copies_by_position: number the copies of a selection by the
         position in the result, not by their own count (plan())
     :param empty_result_type_from_input: give a result without maps the

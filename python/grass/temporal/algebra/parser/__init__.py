@@ -127,10 +127,19 @@ def evaluate(
             temporal_type=empty_type,
             **options,
         )
-        # A vector result without maps has no dataset, if the profile says so
-        if profile.vector_dataset_if_empty or kind != "vector" or planned.maps:
+        # A vector result without maps has no dataset, if the profile says so.
+        # A selection always creates its dataset, as t.select.md promises for
+        # both algebras. The parser classes create none for an empty
+        # selection of vector maps; the classic algebra follows the manual
+        # since 19 October 2026.
+        dataset_if_empty = profile.vector_dataset_if_empty or selection
+        if dataset_if_empty or kind != "vector" or planned.maps:
             chain["STDS"] = {
                 "name": name,
+                # The type the run creates. The parser classes plan the type
+                # of the call, also where a mixed selection creates another
+                # one; the classic algebra plans what it creates since
+                # 19 October 2026.
                 "stdstype": planned.stds_type,
                 "temporal_type": planned.temporal_type,
             }
@@ -170,7 +179,7 @@ def evaluate(
                 temporal_type=empty_type,
                 classic_absence_check=profile.classic_absence_check,
                 keep_empty_vector_maps=profile.keep_empty_vector_maps,
-                vector_dataset_if_empty=profile.vector_dataset_if_empty,
+                vector_dataset_if_empty=dataset_if_empty,
                 **options,
             )
     except ValueError as error:
