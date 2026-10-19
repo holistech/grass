@@ -315,8 +315,6 @@ SHAPE = {
     "if({during},A # D == 1, C {#,contains} A)": (True, "2 days"),
 }
 
-DAYS = {"strds": "t_rast_list"}
-
 
 @pytest.fixture(scope="module")
 def monthly(algebra):
@@ -477,8 +475,13 @@ GRANULARITY_ONLY = {"granularity": True}
 # The cases of test_raster_algebra_fails and _granularity_fails that an
 # expression can show; the missing basename is an option of the tool, tested in
 # t_rast_algebra_options_test.py. The old test calls "R == ..." a syntax
-# error, here the doubled sign is the expression. In granularity mode a
-# failure of the pre-pass that samples the datasets is always a FatalError.
+# error, here the doubled sign is the expression. The old tests only asked for
+# a failure (assertModuleFail). In granularity mode the pre-pass that samples
+# the datasets fails first, with "Unable to process the expression in
+# granularity algebra mode" (FatalError) in all three runners: for a missing
+# brace, for operators with temporal relations in curly brackets, which the
+# manual rules out in this mode, and for maps that overlap (GO), checked
+# 19.10.2026.
 FAILS = [
     pytest.param(
         "= A {+,equal| precedes| follows,l} B",
@@ -557,6 +560,36 @@ def test_granularity_cases(monthly, request, runner, expression, options, expect
 @pytest.mark.parametrize(("expression", "options", "error"), FAILS)
 def test_failing_cases(monthly, runner, expression, options, error):
     assert run(runner, expression, options, f"lf{runner[:2]}")["error"] == error
+
+
+def test_every_shape_belongs_to_a_case():
+    # SHAPE is looked up by the expression; a key that matches no case would
+    # be skipped without notice.
+    def expressions(cases):
+        return {case.values[0] for case in cases}
+
+    assert set(SHAPE) <= expressions(ARITHMETIC + OPERATORS)
+    assert set(GRANULARITY_SHAPE) <= expressions(GRANULARITY)
+
+
+# The old tests ran the conditional case and every granularity case also with
+# the flag -d, which prints the computation instead of running it; they only
+# asked that this run succeeds.
+PRINT_RUNS = [
+    pytest.param("if({contains}, B == 5, A - 1,  A + 1)", "d", id="conditional"),
+    *(pytest.param(case.values[0], "gd", id=case.id) for case in GRANULARITY),
+]
+
+
+@pytest.mark.real_io
+@pytest.mark.parametrize(("expression", "flags"), PRINT_RUNS)
+def test_the_print_flag_runs_the_old_cases(monthly, expression, flags):
+    env = {**monthly.session.env, "GRASS_TEMPORAL_ALGEBRA": "core"}
+    tool = Tools(env=env, consistent_return_value=True)
+    printed = tool.t_rast_algebra(
+        expression=f"R = {expression}", basename="r", flags=flags
+    ).stdout
+    assert printed.strip()
 
 
 # The printed r.mapcalc calls of test_simple_arithmetic_time_function_expressions
