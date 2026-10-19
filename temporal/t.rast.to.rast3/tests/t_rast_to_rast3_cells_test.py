@@ -184,7 +184,10 @@ def test_today_the_tool_prints_a_line_about_the_granularity(tools, cells, prefix
     assert result.stdout == "Gran from stds 3.000000000000000\n"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.rast.to.rast3 prints the line "Gran from stds" to the standard output',
+)
 def test_the_tool_prints_nothing_to_the_standard_output(tools, cells, prefix):
     result = tools.t_rast_to_rast3(input=cells, output=prefix)
 
