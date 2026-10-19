@@ -124,7 +124,10 @@ def test_today_an_unknown_input_map_ends_with_a_traceback(
     assert "v.db.connect" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.observe.strds ends in a v.db.connect traceback for an unknown input map instead of a message",
+)
 def test_an_unknown_input_map_is_reported_as_a_message(tools, rasters, points, prefix):
     assert "Traceback" not in _refused(tools, points, prefix, input="ob_nothere")
 
@@ -141,7 +144,10 @@ def test_today_a_column_name_the_database_refuses_leaves_the_output_behind(
     assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) >= 1
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.observe.strds leaves the output dataset behind when the run fails",
+)
 def test_a_failed_run_leaves_no_output_dataset(tools, rasters, points, prefix):
     _refused(tools, points, prefix, columns="1bad")
 
@@ -171,7 +177,10 @@ def test_today_a_column_that_the_input_table_has_is_overwritten(
     assert text.split() == ["111", "112", "121", "122"]
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.observe.strds overwrites a column that the input table already has, v.db.addcolumn only prints an error and the run goes on",
+)
 def test_a_column_that_the_input_table_has_is_refused(tools, rasters, points, prefix):
     text = _refused(tools, points, prefix, columns="h")
 

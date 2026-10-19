@@ -105,7 +105,10 @@ def test_today_the_title_has_a_typo(tools, rasters, points, prefix):
     assert "Observaion" in text
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason='t.vect.observe.strds spells "Observaion" in the title of the output dataset',
+)
 def test_the_title_is_spelled_correctly(tools, rasters, points, prefix):
     _observe(tools, points, prefix)
 
@@ -209,7 +212,10 @@ def test_today_where_leaves_the_other_layers_empty(tools, rasters, points, prefi
     assert _rows(tools, vector, 2, "obs") == [("",)] * 4
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.vect.observe.strds applies where in the new layers, which have no such column, so every value stays NULL",
+)
 def test_where_selects_the_points_in_every_layer(tools, rasters, points, prefix):
     vector = _observe(tools, points, prefix, where="h > 2")
 
