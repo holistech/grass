@@ -235,7 +235,9 @@ def test_today_u_sets_the_semantic_type_to_mean(tools, make_dataset):
     assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True, reason="t.support -u resets the semantic type of the dataset to mean"
+)
 def test_u_keeps_the_semantic_type(tools, make_dataset):
     name, _ = make_dataset()
     tools.t_support(input=name, semantictype="sum")

@@ -141,7 +141,10 @@ def test_today_a_call_without_semantictype_sets_mean(tools, make_dataset):
     assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.support without semantictype resets the semantic type of the dataset to mean",
+)
 def test_a_call_without_semantictype_keeps_it(tools, make_dataset):
     name, _ = make_dataset()
     tools.t_support(input=name, semantictype="sum")
@@ -161,7 +164,10 @@ def test_today_aggr_type_on_a_vector_dataset_ignores_the_other_options(
     assert _title(info_text("stvds", name)) == "T0"
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.support with aggr_type on a vector dataset ignores the other options",
+)
 def test_aggr_type_on_a_vector_dataset_does_not_stop_the_other_options(
     tools, make_dataset, info_text
 ):
