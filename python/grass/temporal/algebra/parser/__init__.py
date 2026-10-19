@@ -138,8 +138,8 @@ def evaluate(
                 "name": name,
                 # The type the run creates. The parser classes plan the type
                 # of the call, also where a mixed selection creates another
-                # one; the classic algebra plans what it creates since
-                # 19 October 2026.
+                # one; the classic algebra plans what it creates, as decided
+                # on 19 October 2026.
                 "stdstype": planned.stds_type,
                 "temporal_type": planned.temporal_type,
             }
