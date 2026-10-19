@@ -93,8 +93,12 @@ CORE = {}
 
 CORE_MESSAGE = {}
 
-# Cases where the core differs although the manual does not say so; the first
-# table holds what the core does today, the case itself what is right
+# Cases where the core refuses what the manual promises: t.select.md says that
+# both algebras pull maps of another dataset type into a selection with
+# strds(), str3ds() and stvds(). The core relates a 3D raster series on the left
+# to a vector series ("temporal hash operator1") but not a vector series on
+# the left to a raster series. The first table holds what the core does
+# today, the case itself what is right.
 CORE_TODAY = {
     "different stds handling1": "Other:ValueError",
     "temporal hash operator2": "Other:ValueError",
@@ -158,7 +162,12 @@ DRY_SHOULD = [
     ),
 ]
 
-# What a runner makes of a planned run although the manual does not say so
+# What a runner plans today where it should plan what the reference plans.
+# The classic profile must give the results of the reference, so its str3ds
+# is a defect of the profile. The reference is not consistent either: its
+# plan names the stdstype of the call, while its run of the same expression
+# makes a str3ds ("different stds handling1"); the old test asserted the
+# plan. The core stops as in the cases above.
 DRY_TODAY = {
     ("different stds handling2 (dry run)", "classic"): {
         "register": 2,
@@ -234,7 +243,9 @@ def test_dry_runs(data, request, runner, expression, options, expected):
         legacy_data.check_dry(KIND, runner, expression, options, today or expected)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE, a runner plans another run")
+@pytest.mark.xfail(
+    strict=True, reason="see OFFENE_PUNKTE, the profile and the core plan another run"
+)
 @pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
 def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
     legacy_data.check_dry(KIND, runner, expression, options, expected)
