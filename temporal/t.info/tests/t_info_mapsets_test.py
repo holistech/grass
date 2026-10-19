@@ -91,7 +91,10 @@ def test_today_t_info_does_not_find_a_foreign_map_registered_in_the_current_maps
     )
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.info does not find a map of another mapset that is registered in the current mapset",
+)
 def test_t_info_finds_a_foreign_map_registered_in_the_current_mapset(
     two_mapsets, foreign_map
 ):
