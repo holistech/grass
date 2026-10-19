@@ -38,7 +38,10 @@ def test_today_merging_a_dataset_of_another_mapset_fails(two_mapsets, prefix, fo
         work.t_merge(inputs=f"{name}@other", output=f"{prefix}_out")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.merge of a dataset in another mapset fails when it registers the maps in the output",
+)
 def test_the_maps_of_a_dataset_of_another_mapset_are_merged(
     two_mapsets, prefix, foreign
 ):
@@ -60,7 +63,9 @@ def test_today_a_failed_merge_leaves_an_empty_output(two_mapsets, prefix, foreig
     assert f"{prefix}_out" in work.t_list(type="strds", columns="name").stdout
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True, reason="a failed t.merge leaves the empty output dataset behind"
+)
 def test_a_failed_merge_does_not_create_the_output(two_mapsets, prefix, foreign):
     work, _ = two_mapsets
     name, _ = foreign
