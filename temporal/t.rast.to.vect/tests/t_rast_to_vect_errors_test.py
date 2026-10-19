@@ -68,7 +68,10 @@ def test_today_a_failing_conversion_ends_with_a_traceback_and_leaves_nothing(
     assert prefix not in _datasets(tools)
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.to.vect ends in an r.to.vect traceback when the conversion fails instead of a message",
+)
 def test_a_failing_conversion_ends_with_a_message(tools, shapes, prefix):
     text = _refused(
         tools,

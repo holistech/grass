@@ -243,7 +243,10 @@ def test_today_the_b_flag_registers_the_empty_map_without_n(tools, quarterly, pr
     assert (info["number_of_maps"], info["points"]) == (5, "None")
 
 
-@pytest.mark.xfail(strict=True, reason="see OFFENE_PUNKTE")
+@pytest.mark.xfail(
+    strict=True,
+    reason="t.rast.to.vect -b registers the empty map when -n is not given, the primitives are None, not 0",
+)
 def test_the_b_flag_drops_the_empty_map_without_n(tools, quarterly, prefix):
     tools.t_rast_to_vect(
         input=quarterly, output=prefix, basename=prefix, type="point", flags="b"
