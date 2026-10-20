@@ -116,3 +116,12 @@ def test_known_maps_make_the_run_fail(tools, quarterly, prefix):
 
     with pytest.raises(ToolError):
         tools.t_vect_extract(output=f"{prefix}_b", **options)
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, quarterly, prefix):
+    text = _refused(tools, input=quarterly, output=prefix, where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

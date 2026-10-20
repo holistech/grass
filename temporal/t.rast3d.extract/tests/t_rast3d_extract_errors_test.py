@@ -138,3 +138,12 @@ def test_relative_time_keeps_the_time_and_the_unit(tools, relative, prefix):
     assert [
         (row.name, row.start, row.min) for row in list_maps(tools, "str3ds", prefix)
     ] == [(f"{prefix}_x_00002", 42, 400.0)]
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, quarterly, prefix):
+    text = _refused(tools, input=quarterly, output=prefix, where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

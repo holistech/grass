@@ -114,3 +114,20 @@ def test_a_value_outside_the_list_is_refused_by_the_parser(
     )
 
     assert f"Value <{value}> out of range for parameter <{option}>" in text
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, absolute, tmp_path
+):
+    text = _refused(
+        tools,
+        input=absolute,
+        output=str(tmp_path / "out"),
+        directory=str(tmp_path),
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert list(tmp_path.iterdir()) == []

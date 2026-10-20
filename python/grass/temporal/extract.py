@@ -19,6 +19,7 @@ from .abstract_map_dataset import AbstractMapDataset
 
 from .core import (
     SQLDatabaseInterfaceConnection,
+    SQLStatementError,
     get_current_mapset,
     get_tgis_message_interface,
     get_tgis_db_version,
@@ -169,15 +170,21 @@ def extract_dataset(
 
     # Check the new stds
     new_sp = check_new_stds(output, type, dbif, gs.overwrite())
-    if type == "vector":
-        rows = sp.get_registered_maps("id,name,mapset,layer", where, "start_time", dbif)
-    else:
-        rows = sp.get_registered_maps(
-            f"id{',semantic_label' if has_semantic_labels else ''}",
-            where,
-            "start_time",
-            dbif,
-        )
+    try:
+        if type == "vector":
+            rows = sp.get_registered_maps(
+                "id,name,mapset,layer", where, "start_time", dbif
+            )
+        else:
+            rows = sp.get_registered_maps(
+                f"id{',semantic_label' if has_semantic_labels else ''}",
+                where,
+                "start_time",
+                dbif,
+            )
+    except SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     new_maps = {}
     if not rows:

@@ -32,6 +32,7 @@ from pathlib import Path
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
+from .core import SQLStatementError
 from .open_stds import open_old_stds
 
 proj_file_name = "proj.txt"
@@ -360,7 +361,12 @@ def export_stds(
         columns = "name,start_time,end_time"
 
     sp = open_old_stds(input, type_)
-    rows = sp.get_registered_maps(columns, where, "start_time", None)
+    try:
+        rows = sp.get_registered_maps(columns, where, "start_time", None)
+    except SQLStatementError as error:
+        os.chdir(old_cwd)
+        shutil.rmtree(new_cwd, ignore_errors=True)
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     if compression == "gzip":
         flag = "w:gz"

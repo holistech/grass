@@ -70,3 +70,11 @@ def test_an_unknown_format_is_refused_by_the_parser(tools, values):
     text = _refused(tools, input=values, format="xml")
 
     assert "Value <xml> out of range for parameter <format>" in text
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, values):
+    text = _refused(tools, input=values, where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text

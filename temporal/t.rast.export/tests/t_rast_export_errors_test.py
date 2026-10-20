@@ -155,3 +155,20 @@ def test_a_failed_export_removes_its_working_directory(tools, tmp_path):
     _refused(tools, input="ex_empty_ds", output=str(tmp_path / "out"))
 
     assert _leftovers(tmp_path) == []
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, absolute, tmp_path
+):
+    text = _refused(
+        tools,
+        input=absolute,
+        output=str(tmp_path / "out"),
+        directory=str(tmp_path),
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert list(tmp_path.iterdir()) == []

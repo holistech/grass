@@ -181,14 +181,18 @@ def print_gridded_dataset_univar_statistics(
         if type == "strds"
         else "id,start_time,end_time"
     )
-    rows = sp.get_registered_maps(
-        strds_cols,
-        where,
-        "start_time",
-        dbif,
-        spatial_extent=spatial_extent,
-        spatial_relation=region_relation,
-    )
+    try:
+        rows = sp.get_registered_maps(
+            strds_cols,
+            where,
+            "start_time",
+            dbif,
+            spatial_extent=spatial_extent,
+            spatial_relation=region_relation,
+        )
+    except SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     if not rows and rows != [""]:
         dbif.close()
