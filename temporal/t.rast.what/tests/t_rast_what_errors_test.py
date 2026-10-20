@@ -4,6 +4,7 @@ from io import StringIO
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -94,3 +95,23 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, sampled):
     assert "Traceback" not in text
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
+
+
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_a_failing_r_what_is_reported_by_the_tool(tools, nprocs):
+    # The second map is still registered but gone from the mapset, so r.what
+    # fails on its input.
+    small_region(tools, 3, 3)
+    name = f"wh_gone_{nprocs}"
+    create_stds(
+        tools,
+        "strds",
+        name,
+        [MapSpec(f"{name}_{k}", "1", day(k), day(k + 1)) for k in range(2)],
+    )
+    tools.g_remove(type="raster", name=f"{name}_1", flags="f")
+
+    text = _refused(tools, strds=name, coordinates="1,1", nprocs=nprocs)
+
+    assert "Error running r.what" in text
+    assert "Traceback" not in text

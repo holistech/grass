@@ -99,6 +99,7 @@ import sys
 from contextlib import nullcontext
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
 
@@ -257,44 +258,12 @@ def main(options, flags):
     output_files = []
     output_time_list = []
 
-    count = 0
-    for loop in range(num_loops):
-        file_name = gs.tempfile() + "_%i" % (loop)
-        count = process_loop(
-            nprocs,
-            maps,
-            file_name,
-            count,
-            maps_per_process,
-            remaining_maps_per_loop,
-            output_files,
-            output_time_list,
-            r_what,
-            process_queue,
-        )
-
-    process_queue.wait()
-
-    gs.verbose(
-        "Number of raster map layers remaining for sampling %i" % (remaining_maps)
-    )
-    if remaining_maps > 0:
-        # Use a single process if less then 100 maps
-        if remaining_maps <= 100:
-            map_names = []
-            for i in range(remaining_maps):
-                map = maps[count]
-                map_names.append(map.get_id())
-                count += 1
-            mod = copy.deepcopy(r_what)
-            mod(map=map_names, output=file_name)
-            process_queue.put(mod)
-        else:
-            maps_per_process = int(remaining_maps / nprocs)
-            remaining_maps_per_loop = remaining_maps % nprocs
-
-            file_name = "out_remain"
-            process_loop(
+    # A failing r.what surfaces at put() or wait() of the queue.
+    try:
+        count = 0
+        for loop in range(num_loops):
+            file_name = gs.tempfile() + "_%i" % (loop)
+            count = process_loop(
                 nprocs,
                 maps,
                 file_name,
@@ -307,8 +276,44 @@ def main(options, flags):
                 process_queue,
             )
 
-    # Wait for unfinished processes
-    process_queue.wait()
+        process_queue.wait()
+
+        gs.verbose(
+            "Number of raster map layers remaining for sampling %i" % (remaining_maps)
+        )
+        if remaining_maps > 0:
+            # Use a single process if less then 100 maps
+            if remaining_maps <= 100:
+                map_names = []
+                for i in range(remaining_maps):
+                    map = maps[count]
+                    map_names.append(map.get_id())
+                    count += 1
+                mod = copy.deepcopy(r_what)
+                mod(map=map_names, output=file_name)
+                process_queue.put(mod)
+            else:
+                maps_per_process = int(remaining_maps / nprocs)
+                remaining_maps_per_loop = remaining_maps % nprocs
+
+                file_name = "out_remain"
+                process_loop(
+                    nprocs,
+                    maps,
+                    file_name,
+                    count,
+                    maps_per_process,
+                    remaining_maps_per_loop,
+                    output_files,
+                    output_time_list,
+                    r_what,
+                    process_queue,
+                )
+
+        # Wait for unfinished processes
+        process_queue.wait()
+    except CalledModuleError as error:
+        gs.fatal(_("Error running r.what: {}").format(error))
 
     # Out the output files in the correct order together
     if layout == "row":
