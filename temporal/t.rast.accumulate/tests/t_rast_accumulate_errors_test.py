@@ -155,27 +155,6 @@ def relative(tools, daily):
     )
 
 
-def test_today_relative_time_ends_with_a_traceback(tools, relative):
-    # The cycle is added to the start as text.
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_accumulate(
-            input="err_relative",
-            output="err_rel",
-            basename="err_rel",
-            start="0",
-            cycle="3",
-            granularity="1",
-            limits="0,40",
-            method="gdd",
-        )
-
-    assert "unsupported operand type(s) for +: 'int' and 'str'" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate with relative time fails because the cycle is added to the start as text",
-)
 def test_relative_time_accumulates(tools, relative):
     # Three maps of one day with 5, 10, 15 and the lower limit 0: sums 5, 15, 30.
     tools.t_rast_accumulate(
@@ -196,6 +175,37 @@ def test_relative_time_accumulates(tools, relative):
         (1, 2, 15),
         (2, 3, 30),
     ]
+
+
+def test_relative_time_restarts_after_the_cycle_and_the_offset(tools, relative):
+    # Six maps of one day with the value 5 and the lower limit 0. The first
+    # cycle [0, 3) sums 5 10 15, the offset 1 moves the next cycle to [4, 7),
+    # which holds the maps of the days 4 and 5 and restarts at 5.
+    create_stds(
+        tools,
+        "strds",
+        "err_relative_six",
+        [MapSpec(f"err_s{k}", 5, k, k + 1) for k in range(6)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    tools.t_rast_accumulate(
+        input="err_relative_six",
+        output="err_rel_off",
+        basename="err_rel_off",
+        start="0",
+        cycle="3",
+        offset="1",
+        granularity="1",
+        limits="0,40",
+        method="gdd",
+    )
+
+    assert [
+        (row.start, row.end, row.min)
+        for row in list_maps(tools, "strds", "err_rel_off")
+    ] == [(0, 1, 5), (1, 2, 10), (2, 3, 15), (4, 5, 5), (5, 6, 10)]
 
 
 def _run_with_timeout(session, arguments, seconds):

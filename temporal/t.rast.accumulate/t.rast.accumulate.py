@@ -290,6 +290,11 @@ def main():
     if input_strds.is_time_absolute():
         end = tgis.increment_datetime_by_string(start, cycle)
     else:
+        # The lengths of time were checked above as integers of the unit of
+        # the dataset; added to the start as text they would fail.
+        cycle = int(cycle)
+        granularity = int(granularity)
+        offset = int(offset) if offset else 0
         end = start + cycle
 
     # The keys of the relations as the topology builder files them.
