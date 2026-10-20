@@ -309,3 +309,5 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, make_stds):
     assert "Traceback" not in text
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
+    # The library leaves the report to the tool: one error, not also the SQL.
+    assert text.count("ERROR:") == 1

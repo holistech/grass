@@ -1635,7 +1635,9 @@ class DBConnection:
             else:
                 self.cursor.execute(statement)
         except db_errors as error:
-            self.msgr.error(_("Unable to execute :\n %(sql)s") % {"sql": statement})
+            # The exception keeps the statement; a tool that reports the
+            # error shows one message instead of the SQL as a second one.
+            self.msgr.debug(1, f"Unable to execute:\n {statement}")
             raise SQLStatementError(str(error), statement) from error
         finally:
             if connected:
@@ -1673,9 +1675,7 @@ class DBConnection:
                 self.cursor.execute(statement)
             self.connection.commit()
         except db_errors as error:
-            self.msgr.error(
-                _("Unable to execute transaction:\n %(sql)s") % {"sql": statement}
-            )
+            self.msgr.debug(1, f"Unable to execute transaction:\n {statement}")
             # executescript() has already sent BEGIN. Without the rollback
             # close() would commit the statements that ran before the
             # failing one and the database would keep a half written entry.
