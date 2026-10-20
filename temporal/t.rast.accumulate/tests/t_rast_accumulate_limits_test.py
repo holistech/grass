@@ -142,27 +142,6 @@ def test_a_threshold_map_that_the_granule_overlaps_last_is_used(tools, half_day_
     assert rows == _sums(5, 15, 25, 50, 70, 80, 85)
 
 
-def test_today_the_reverse_flag_takes_the_threshold_of_another_day(tools, daily):
-    # With -r the tool computes the last day first but reads the threshold
-    # of the granule at the same position of the list in time order. The
-    # lower values (0 on the days 1 to 3, 20 on the days 4 to 7) are read for
-    # the days 1 2 3 4 5 6 7 when the steps work on the days 7 6 5 4 3 2 1:
-    #   step day 7 (lower of day 1: 0): 5          sum 5
-    #   step day 6 (lower of day 2: 0): 10         sum 15
-    #   step day 5 (lower of day 3: 0): 20         sum 35
-    #   step day 4 (lower of day 4: 20): 35 - 20   sum 50
-    #   step day 3 (lower of day 5: 20): 0         sum 50
-    #   step day 2 (lower of day 6: 20): 0         sum 50
-    #   step day 1 (lower of day 7: 20): 0         sum 50
-    rows = _accumulate(tools, "lim_rev_today", lower="lim_lower", flags="r")
-
-    assert rows == _sums(50, 50, 50, 50, 35, 15, 5)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate -r reads the threshold of the mirrored day, the list in time order is indexed from the wrong end",
-)
 def test_the_reverse_flag_takes_the_threshold_of_the_day(tools, daily):
     # Each step uses the lower value of its own day: day 7, 6, 5 have 20 (all
     # increments 0), day 4 has 20 (15), days 3, 2, 1 have 0 (20, 10, 5), so
@@ -170,6 +149,23 @@ def test_the_reverse_flag_takes_the_threshold_of_the_day(tools, daily):
     rows = _accumulate(tools, "lim_rev", lower="lim_lower", flags="r")
 
     assert rows == _sums(50, 45, 35, 15, 0, 0, 0)
+
+
+def test_the_reverse_flag_takes_the_upper_threshold_of_the_day(tools, daily, zero):
+    # bedd with the lower limit 0 caps each value at the upper map of its own
+    # day (15 on the days 1 to 3, 40 on the days 4 to 7): 5 10 15 35 20 10 5.
+    # The steps run from day 7 back to day 1, so the sums by date are
+    # 100 95 85 70 35 15 5.
+    rows = _accumulate(
+        tools,
+        "lim_rev_up",
+        method="bedd",
+        lower="lim_equal_zero",
+        upper="lim_upper",
+        flags="r",
+    )
+
+    assert rows == _sums(100, 95, 85, 70, 35, 15, 5)
 
 
 @pytest.fixture(scope="module")

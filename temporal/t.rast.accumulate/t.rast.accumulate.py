@@ -335,7 +335,10 @@ def main():
         num_maps = len(gran_list)
 
         for i in range(num_maps):
-            map = gran_list[num_maps - i - 1] if reverse else gran_list[i]
+            # The threshold lists are in time order like gran_list, so they
+            # take the same index as the granule.
+            index = num_maps - i - 1 if reverse else i
+            map = gran_list[index]
             # Select input maps based on temporal topology relations
             input_maps = []
             if map.get_equal():
@@ -400,7 +403,7 @@ def main():
 
             lower_map_name = None
             if lower:
-                relations = gran_list_low[i].get_temporal_relations()
+                relations = gran_list_low[index].get_temporal_relations()
                 for relation in limit_relations:
                     if relation in relations:
                         lower_map_name = str(relations[relation][0].get_id())
@@ -408,7 +411,7 @@ def main():
 
             upper_map_name = None
             if upper:
-                relations = gran_list_up[i].get_temporal_relations()
+                relations = gran_list_up[index].get_temporal_relations()
                 for relation in limit_relations:
                     if relation in relations:
                         upper_map_name = str(relations[relation][0].get_id())
