@@ -210,18 +210,6 @@ def test_current_database_has_the_newer_indexes(project):
     assert indexes(database) >= NEWER_INDEXES
 
 
-def test_today_upgrade_does_not_create_the_newer_indexes(project):
-    tools, session, database = project
-    downgrade_to_version_2(session)
-
-    tools.t_upgrade()
-
-    assert not indexes(database) & NEWER_INDEXES
-
-
-@pytest.mark.xfail(
-    strict=True, reason="t.upgrade does not create the indexes that a new database has"
-)
 def test_upgrade_creates_the_same_indexes_as_a_new_database(project):
     tools, session, database = project
     expected = indexes(database)
