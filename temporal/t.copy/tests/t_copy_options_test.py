@@ -171,28 +171,6 @@ def test_c_in_the_same_mapset_is_refused_without_overwrite(tools, prefix):
     assert f"{prefix}_copy" not in tools.t_list(type="strds", columns="name").stdout
 
 
-def test_today_c_with_overwrite_takes_the_maps_out_of_their_other_datasets(
-    tools, prefix
-):
-    # The maps are in the current mapset, so nothing is copied; overwriting
-    # them in the temporal database unregisters them from the source.
-    name, maps = _make(tools, prefix)
-
-    result = tools.t_copy(
-        input=name, output=f"{prefix}_copy", flags="c", overwrite=True
-    )
-
-    assert "already in the current mapset, not copying" in " ".join(
-        result.stderr.split()
-    )
-    assert _names(tools, "strds", f"{prefix}_copy") == maps
-    assert _names(tools, "strds", name) == []
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.copy -c --overwrite unregisters the maps of the source dataset",
-)
 def test_c_with_overwrite_leaves_the_source_as_it_was(tools, prefix):
     name, maps = _make(tools, prefix)
 
@@ -201,18 +179,6 @@ def test_c_with_overwrite_leaves_the_source_as_it_was(tools, prefix):
     assert _names(tools, "strds", name) == maps
 
 
-@pytest.mark.parametrize(("stds_type", "map_type"), TYPES[1:])
-def test_today_c_fails_for_3d_and_vector_datasets(tools, prefix, stds_type, map_type):
-    name, _ = _make(tools, prefix, stds_type)
-
-    with pytest.raises(ToolError, match=r"has\s+no\s+attribute\s+'get_semantic_label'"):
-        tools.t_copy(type=stds_type, input=name, output=f"{prefix}_copy", flags="c")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.copy -c fails for 3D raster and vector datasets with an AttributeError on get_semantic_label",
-)
 @pytest.mark.parametrize(("stds_type", "map_type"), TYPES[1:])
 def test_c_copies_3d_and_vector_datasets(tools, prefix, stds_type, map_type):
     name, maps = _make(tools, prefix, stds_type)

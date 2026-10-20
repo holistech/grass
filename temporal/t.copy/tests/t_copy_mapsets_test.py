@@ -114,24 +114,6 @@ def test_the_output_in_another_mapset_is_refused(two_mapsets, prefix, source):
     assert f"{prefix}_copy" not in other.t_list(type="strds", columns="name").stdout
 
 
-def test_today_the_refusal_names_the_input_instead_of_the_output(
-    two_mapsets, prefix, source
-):
-    work, _ = two_mapsets
-    name, _ = source
-
-    with pytest.raises(ToolError) as error:
-        work.t_copy(input=f"{name}@other", output=f"{prefix}_copy@other")
-
-    assert f"The output dataset <{name}@other> must be" in " ".join(
-        str(error.value).split()
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.copy names the input in the refusal of an output in another mapset, not the output",
-)
 def test_the_refusal_names_the_output(two_mapsets, prefix, source):
     work, _ = two_mapsets
     name, _ = source
@@ -147,38 +129,14 @@ def test_the_refusal_names_the_output(two_mapsets, prefix, source):
 @pytest.mark.parametrize(
     ("stds_type", "map_type"), [("str3ds", "raster_3d"), ("stvds", "vector")]
 )
-def test_today_a_failed_c_has_copied_the_first_map(
-    two_mapsets, prefix, stds_type, map_type
-):
-    # -c fails for these datasets (see t_copy_options_test.py), but only after
-    # g.copy has copied the first map into the current mapset.
-    work, other = two_mapsets
-    maps = create_daily_stds(other, stds_type, [f"{prefix}_src"], 2, map_prefix=prefix)
-
-    with pytest.raises(ToolError):
-        work.t_copy(
-            type=stds_type,
-            input=f"{prefix}_src@other",
-            output=f"{prefix}_copy",
-            flags="c",
-        )
-
-    assert maps[0] in work.g_list(type=map_type, mapset="work").stdout.split()
-    assert f"{prefix}_copy" not in work.t_list(type=stds_type, columns="name").stdout
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="a failed t.copy -c of a 3D raster or vector dataset has already copied the first map into the current mapset",
-)
-@pytest.mark.parametrize(
-    ("stds_type", "map_type"), [("str3ds", "raster_3d"), ("stvds", "vector")]
-)
 def test_a_failed_c_does_not_copy_any_map(two_mapsets, prefix, stds_type, map_type):
     work, other = two_mapsets
-    create_daily_stds(other, stds_type, [f"{prefix}_src"], 2, map_prefix=prefix)
+    maps = create_daily_stds(other, stds_type, [f"{prefix}_src"], 2, map_prefix=prefix)
+    # The second map exists in the current mapset already, so -c has to refuse;
+    # the first map must not have been copied by then.
+    work.g_copy(**{map_type: f"{maps[1]}@other,{maps[1]}"})
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         work.t_copy(
             type=stds_type,
             input=f"{prefix}_src@other",
@@ -186,7 +144,9 @@ def test_a_failed_c_does_not_copy_any_map(two_mapsets, prefix, stds_type, map_ty
             flags="c",
         )
 
-    assert work.g_list(type=map_type, mapset="work").stdout.split() == []
+    assert "exists already in the current mapset" in message(error.value)
+    assert work.g_list(type=map_type, mapset="work").stdout.split() == [maps[1]]
+    assert f"{prefix}_copy" not in work.t_list(type=stds_type, columns="name").stdout
 
 
 def test_c_reports_its_progress_every_ten_maps(two_mapsets, prefix):

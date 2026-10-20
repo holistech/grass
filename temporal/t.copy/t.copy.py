@@ -42,6 +42,19 @@ import grass.script as gs
 ############################################################################
 
 
+def _name_and_mapset(map, mapset):
+    """Split the id of a map into its name and mapset"""
+    map_id = map.get_id()
+    if "@" in map_id:
+        return map_id.split("@")
+    return map_id, mapset
+
+
+def _layer(map, maptype):
+    """Return the layer of a vector map and None for all other maps"""
+    return map.get_layer() if maptype == "vector" else None
+
+
 def main():
     # lazy imports
     import grass.temporal as tgis
@@ -56,7 +69,7 @@ def main():
     element = "cell"
     if stdstype == "str3ds":
         maptype = "raster_3d"
-        element = "g3dcell"
+        element = "grid3"
     elif stdstype == "stvds":
         maptype = "vector"
         element = "vector"
@@ -79,7 +92,7 @@ def main():
         if outmapset != mapset:
             gs.fatal(
                 _("The output dataset <%s> must be in the current mapset<%s>.")
-                % (input, mapset)
+                % (output, mapset)
             )
 
     msgr = tgis.get_tgis_message_interface()
@@ -109,14 +122,10 @@ def main():
         num_maps = len(old_maps)
         count = 0
 
+        # Everything that can refuse the copy is checked before the first map
+        # is copied, so that a refusal does not leave copied maps behind.
         for map in old_maps:
-            count += 1
-            map_id = map.get_id()
-            map_name = map_id
-            map_mapset = mapset
-            if "@" in map_id:
-                map_name, map_mapset = map_id.split("@")
-
+            map_name, map_mapset = _name_and_mapset(map, mapset)
             if map_mapset != mapset:
                 found = gs.find_file(name=map_name, element=element, mapset=mapset)
                 if found["name"] is not None and len(found["name"]) > 0:
@@ -124,39 +133,42 @@ def main():
                         _("A %s map <%s> exists already in the current mapset <%s>.")
                         % (maptype, map_name, mapset)
                     )
+            tgis.check_new_map_dataset(
+                map_name, _layer(map, maptype), maptype, overwrite, dbif
+            )
 
-                kwargs = {maptype: "%s,%s" % (map_id, map_name)}
+        for map in old_maps:
+            count += 1
+            map_name, map_mapset = _name_and_mapset(map, mapset)
+
+            if map_mapset != mapset:
+                kwargs = {maptype: "%s,%s" % (map.get_id(), map_name)}
                 gs.run_command("g.copy", **kwargs)
+                new_map = tgis.open_new_map_dataset(
+                    map_name,
+                    _layer(map, maptype),
+                    type=maptype,
+                    temporal_extent=map.get_temporal_extent(),
+                    overwrite=overwrite,
+                    dbif=dbif,
+                )
+                # Semantic labels exist for raster maps only
+                if maptype == "raster":
+                    semantic_label = map.metadata.get_semantic_label()
+                    if semantic_label is not None and semantic_label != "None":
+                        new_map.metadata.set_semantic_label(semantic_label)
             else:
-                # the map is already in the current mapset
+                # The map is already in the current mapset. It keeps its entry
+                # in the temporal database, and so its registration in the
+                # source dataset, and joins the new dataset in addition.
                 gs.message(
                     _("The %s map <%s> is already in the current mapset, not copying")
                     % (maptype, map_name)
                 )
+                new_map = map
 
             if count % 10 == 0:
                 msgr.percent(count, num_maps, 1)
-
-            # We need to build the id
-            if maptype != "vector":
-                map_id = tgis.AbstractMapDataset.build_id(map_name, mapset)
-            else:
-                map_id = tgis.AbstractMapDataset.build_id(
-                    map_name, mapset, map.get_layer()
-                )
-
-            new_map = tgis.open_new_map_dataset(
-                map_name,
-                None,
-                type="raster",
-                temporal_extent=map.get_temporal_extent(),
-                overwrite=overwrite,
-                dbif=dbif,
-            )
-            # semantic label
-            semantic_label = map.metadata.get_semantic_label()
-            if semantic_label is not None and semantic_label != "None":
-                new_map.metadata.set_semantic_label(semantic_label)
 
             new_maps.append(new_map)
     else:
