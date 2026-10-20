@@ -1,9 +1,9 @@
 """Test the indicator dataset of t.rast.accdetect
 
 For every cell the indicator marks a run of occurrences: the start value where
-the previous map has no occurrence, the end value where the next map has none,
-the intermediate value between, and null where the cell has no occurrence. The
-data are in conftest.py (range 10 to 50): the occurrence is, by day,
+the previous map has no occurrence, the end value where the next map has none
+or the cycle ends, the intermediate value between, and null where the cell has
+no occurrence. The data are in conftest.py (range 10 to 50): the occurrence is, by day,
     0: N 0    1: 1 1    2: 2 N    3: 3 3    4: N 4    5: N N (empty)
 so the first cell has one run (days 1 to 3) and the second two (days 0 to 1
 and 3 to 4). N is null; the values below are start 1, intermediate 2, end 3.
@@ -58,12 +58,11 @@ def test_the_start_intermediate_and_end_values(indicate):
 
 def test_the_reverse_flag_marks_the_runs_from_the_end(indicate):
     # The runs are read from the last day: the start value is on the last day
-    # of a run, the end value on its first day. The first day of the second
-    # run of the second cell (day 0) is the last map computed: a run that goes
-    # on there is marked as intermediate and not as end (see the test of the
-    # last map below).
+    # of a run, the end value on its first day. Day 0 is the last map computed
+    # and the end of the cycle: the run of the second cell goes on there and
+    # ends (see the test of the last map below).
     assert indicate("rev", flags="r") == {
-        0: [N, 2],
+        0: [N, 3],
         1: [3, 1],
         2: [2, N],
         3: [1, 3],
@@ -91,24 +90,54 @@ def test_the_values_of_staend_replace_the_defaults(indicate):
 
 def test_a_cycle_restarts_the_runs(indicate):
     # Cycles of three days. The occurrence of the cycle [0,3) is
-    # 0: N 0   1: 1 1   2: 2 N, so the indicator is 0: N 1   1: 1 3   2: 2 N
-    # (the first cell goes on at the end of the cycle). The cycle [3,6) has
-    # 3: 0 0   4: N 1   5: empty, so 3: 1 1   4: N 3.
+    # 0: N 0   1: 1 1   2: 2 N, so the indicator is 0: N 1   1: 1 3   2: 3 N
+    # (the first cell goes on at the end of the cycle and ends there, see the
+    # test of the last map below). The cycle [3,6) has 3: 0 0   4: N 1   5:
+    # empty, so 3: 1 1   4: N 3.
     assert indicate("cyc", cycle="3 days") == {
         0: [N, 1],
         1: [1, 3],
-        2: [2, N],
+        2: [3, N],
         3: [1, 1],
         4: [N, 3],
     }
 
 
-def test_today_a_run_that_goes_on_at_the_last_map_is_intermediate(indicate):
-    # The first cell is in the range on the days 1 and 2 of the first cycle
-    # and the cycle ends with the day 2: the last map has the value
-    # intermediate, never the end value, because no later map shows that the
-    # run ended. The manual does not say; this is the behavior of the tool.
-    assert indicate("lastmap", cycle="3 days")[2][0] == 2
+def test_a_run_that_goes_on_at_the_last_map_of_a_cycle_ends(indicate):
+    # Cycles of three days, occurrence by day (N is null):
+    #   cycle [0,3)   0: N 0   1: 1 1   2: 2 N
+    #   cycle [3,6)   3: 0 0   4: N 1   5: empty
+    # The first cell is in the range on the days 1 and 2 and the cycle ends
+    # with the day 2: the run ends there, with the end value 3 (the day 3
+    # starts a run of its own in the next cycle). The second cell has the
+    # runs 0 to 1 (start 1 on the day 0, end 3 on the day 1) and 3 to 4.
+    assert indicate("lastmap", cycle="3 days") == {
+        0: [N, 1],
+        1: [1, 3],
+        2: [3, N],
+        3: [1, 1],
+        4: [N, 3],
+    }
+
+
+def test_a_run_that_goes_on_at_the_first_map_of_a_cycle_ends_with_the_flag_r(
+    indicate,
+):
+    # The same cycles, computed from the last day of each cycle back. Cycle
+    # [0,3), computed 2, 1, 0: the first cell has the start 1 on the day 2 and
+    # the end 3 on the day 1 (day 0 is null). The second cell is null on the
+    # day 2, starts on the day 1 (1) and goes on at the day 0, the last map
+    # computed in the cycle: the end value 3. Cycle [3,6), computed 5, 4, 3:
+    # the first cell is in the range only on the day 3, the last map computed,
+    # where the previous map (day 4) has none: start 1. The second cell is
+    # null on the day 5, starts on the day 4 (1) and ends on the day 3 (3).
+    assert indicate("lastmaprev", cycle="3 days", flags="r") == {
+        0: [N, 3],
+        1: [3, 1],
+        2: [1, N],
+        3: [1, 3],
+        4: [N, 1],
+    }
 
 
 def test_the_names_of_the_indicator_maps(indicate, tools):

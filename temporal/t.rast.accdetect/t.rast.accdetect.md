@@ -55,7 +55,10 @@ mark raster cells as beginning, intermediate state or end of an
 accumulation pattern. By default, the module uses 1 to indicate the
 start, 2 for the intermediate state and 3 to mark the end of the
 accumulation pattern in a cycle. These default values can be changed
-using the **staend** option.
+using the **staend** option. A pattern that is still going on at the last
+map of a cycle ends there, so that map gets the end value; with the **-r**
+flag, which works through the cycle from its last map back, this is the
+first map of the cycle.
 
 ## EXAMPLE
 

@@ -479,9 +479,10 @@ def main():
                             curr_map,
                             indicator_start,
                         )
+                        # The cycle ends here, so a run that goes on ends too.
                         subexpr3 = "if(isnull(%s), null(), %i)" % (
                             curr_map,
-                            indicator_mid,
+                            indicator_end,
                         )
                 else:  # noqa: PLR5501
                     if i == 0:
@@ -521,9 +522,10 @@ def main():
                             curr_map,
                             indicator_start,
                         )
+                        # The cycle ends here, so a run that goes on ends too.
                         subexpr3 = "if(isnull(%s), null(), %i)" % (
                             curr_map,
-                            indicator_mid,
+                            indicator_end,
                         )
 
                 expression = "%s = if(isnull(%s), %s, %s)" % (
