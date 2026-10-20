@@ -11,7 +11,8 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import list_maps, message
-from grass.tools import ToolError
+from grass.temporal.testing.session import project_session
+from grass.tools import ToolError, Tools
 
 # Most tests make maps and datasets with tools, which takes more than a second
 # (measured 18.10.2026 with a serial pytest --durations=0).
@@ -24,8 +25,7 @@ def _text(offset):
     return day(offset).strftime("%Y-%m-%d %H:%M:%S")
 
 
-@pytest.fixture(scope="module")
-def daily(tools):
+def _make_daily(tools):
     small_region(tools, 1, 2)
     create_stds(
         tools,
@@ -53,6 +53,11 @@ def daily(tools):
         [MapSpec(f"lim_e{k}", 10, day(k), day(k + 1)) for k in range(7)],
     )
     return "lim_daily"
+
+
+@pytest.fixture(scope="module")
+def daily(tools):
+    return _make_daily(tools)
 
 
 def _accumulate(tools, output, **options):
@@ -219,3 +224,28 @@ def test_the_refusals_of_the_threshold_datasets(request, tools, daily, options, 
         _accumulate(tools, f"lim_err_{request.node.callspec.id}", **options)
 
     assert text in message(error.value)
+
+
+@pytest.fixture(scope="module", params=["UTC", "Asia/Kathmandu"])
+def zone_tools(request, tmp_path_factory):
+    """Tools in a project of its own whose subprocesses run with TZ set"""
+    with project_session(tmp_path_factory.mktemp("zone") / "project") as session:
+        session.env["TZ"] = request.param
+        tools = Tools(
+            session=session, consistent_return_value=True, capture_stderr=True
+        )
+        _make_daily(tools)
+        yield tools
+
+
+def test_the_threshold_lookup_does_not_depend_on_the_time_zone(zone_tools, request):
+    # Without this the module would test one zone twice.
+    zone = request.node.callspec.params["zone_tools"]
+    offset = zone_tools.run_cmd(["date", "-d", "2001-01-01 12:00", "+%z"])
+    assert offset.stdout.strip() == {"UTC": "+0000", "Asia/Kathmandu": "+0545"}[zone]
+
+    # The same sums as for the lower dataset that changes over time: the
+    # lookup of the threshold of each day gives the same in every zone.
+    rows = _accumulate(zone_tools, "lim_zone", lower="lim_lower")
+
+    assert rows == _sums(5, 15, 35, 50, 50, 50, 50)
