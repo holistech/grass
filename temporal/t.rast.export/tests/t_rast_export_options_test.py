@@ -89,12 +89,11 @@ def test_type_is_skipped_for_the_other_formats_with_a_warning(
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.parametrize("fmt", ["pack", "AAIGrid"])
 def test_createopt_metaopt_and_nodata_are_skipped_with_a_warning(
-    tools, absolute, tmp_path, fmt
+    tools, absolute, tmp_path
 ):
     _, result = _export(
-        tools, absolute, tmp_path, format=fmt, type="Int16", createopt="A=B"
+        tools, absolute, tmp_path, format="pack", type="Int16", createopt="A=B"
     )
 
     assert "Createopt, metaopt and nodata options are not working" in " ".join(
@@ -104,13 +103,30 @@ def test_createopt_metaopt_and_nodata_are_skipped_with_a_warning(
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-@pytest.mark.parametrize("fmt", ["pack", "AAIGrid"])
-def test_createopt_without_type_is_skipped_with_a_warning(
-    tools, absolute, tmp_path, fmt
-):
-    _, result = _export(tools, absolute, tmp_path, format=fmt, createopt="A=B")
+def test_createopt_without_type_is_skipped_with_a_warning(tools, absolute, tmp_path):
+    _, result = _export(tools, absolute, tmp_path, format="pack", createopt="A=B")
 
     assert "not working" in message(result)
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+@pytest.mark.parametrize("options", [{}, {"type": "Int16"}])
+def test_aaigrid_applies_nodata_without_a_warning(tools, absolute, tmp_path, options):
+    # AAIGrid is written by r.out.gdal, which gets nodata= like GTiff does; the
+    # AAIGrid driver writes it as NODATA_value in the header and in the null
+    # cells. ex_c is null in columns 1 and 2 and 7 in column 3 of both rows.
+    archive, result = _export(
+        tools, absolute, tmp_path, format="AAIGrid", nodata=200, **options
+    )
+
+    assert "Createopt, metaopt and nodata options" not in " ".join(
+        message(result).split()
+    )
+    with tarfile.open(archive) as tar:
+        lines = tar.extractfile("ex_c.asc").read().decode().splitlines()
+    assert "NODATA_value 200" in [" ".join(line.split()) for line in lines]
+    assert [line.split() for line in lines[-2:]] == [["200", "200", "7"]] * 2
 
 
 # For an integer map without type= the tool takes the smallest unsigned type

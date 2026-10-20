@@ -116,19 +116,19 @@ def main():
         key: options[key] for key in ("createopt", "metaopt", "nodata") if options[key]
     }
 
-    if format_ in {"pack", "AAIGrid"}:
-        if type_:
-            gs.warning(
-                _("Type options is not working with pack format, it will be skipped")
+    if type_ and format_ in {"pack", "AAIGrid"}:
+        gs.warning(
+            _("Type options is not working with pack format, it will be skipped")
+        )
+    # AAIGrid is written by r.out.gdal, which takes these options; only pack
+    # has no use for them.
+    if format_ == "pack" and kws:
+        gs.warning(
+            _(
+                "Createopt, metaopt and nodata options are not "
+                "working with pack format, they will be skipped"
             )
-        if kws:
-            gs.warning(
-                _(
-                    "Createopt, metaopt and nodata options are not "
-                    "working with pack and AAIGrid formats, "
-                    "they will be skipped"
-                )
-            )
+        )
     # Make sure the temporal database exists
     tgis.init()
     # Export the space time raster dataset
