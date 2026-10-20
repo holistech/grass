@@ -105,21 +105,6 @@ def test_createopt_metaopt_and_nodata_are_skipped_with_a_warning(
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 @pytest.mark.parametrize("fmt", ["pack", "AAIGrid"])
-def test_today_createopt_without_type_is_skipped_without_a_warning(
-    tools, absolute, tmp_path, fmt
-):
-    _, result = _export(tools, absolute, tmp_path, format=fmt, createopt="A=B")
-
-    assert "not working" not in message(result)
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason='t.rast.export skips a createopt without a type silently, the warning "not working" is missing',
-)
-@pytest.mark.parametrize("fmt", ["pack", "AAIGrid"])
 def test_createopt_without_type_is_skipped_with_a_warning(
     tools, absolute, tmp_path, fmt
 ):

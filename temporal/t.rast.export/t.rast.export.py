@@ -116,10 +116,11 @@ def main():
         key: options[key] for key in ("createopt", "metaopt", "nodata") if options[key]
     }
 
-    if type_ and format_ in {"pack", "AAIGrid"}:
-        gs.warning(
-            _("Type options is not working with pack format, it will be skipped")
-        )
+    if format_ in {"pack", "AAIGrid"}:
+        if type_:
+            gs.warning(
+                _("Type options is not working with pack format, it will be skipped")
+            )
         if kws:
             gs.warning(
                 _(
