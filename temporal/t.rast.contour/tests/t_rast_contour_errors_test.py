@@ -139,3 +139,19 @@ def test_several_empty_maps_are_all_dropped(tools, ramps, prefix):
     )
 
     assert tools.g_list(type="vector", pattern=f"{prefix}_*").stdout.split() == []
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, quarterly, prefix):
+    text = _refused(
+        tools,
+        input=quarterly,
+        output=prefix,
+        basename=prefix,
+        step=1,
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

@@ -78,7 +78,11 @@ def main():
 
     sp = tgis.open_old_stds(input, "strds")
 
-    maps = sp.get_registered_maps_as_objects_with_gaps(where, dbif)
+    try:
+        maps = sp.get_registered_maps_as_objects_with_gaps(where, dbif)
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     num = len(maps)
 

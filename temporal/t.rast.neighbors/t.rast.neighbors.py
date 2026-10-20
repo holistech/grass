@@ -198,12 +198,16 @@ def main():
     if region_relation:
         spatial_extent = gs.parse_command("g.region", flags="3gu")
 
-    maps = sp.get_registered_maps_as_objects(
-        where=where,
-        spatial_extent=spatial_extent,
-        spatial_relation=region_relation,
-        dbif=dbif,
-    )
+    try:
+        maps = sp.get_registered_maps_as_objects(
+            where=where,
+            spatial_extent=spatial_extent,
+            spatial_relation=region_relation,
+            dbif=dbif,
+        )
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     if not maps:
         dbif.close()

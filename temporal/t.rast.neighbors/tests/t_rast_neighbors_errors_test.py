@@ -153,3 +153,14 @@ def test_relative_time_gets_numeric_names(tools, prefix):
     ]
     assert cell_values(tools, rows[1].name)[4] == 15.0
     assert stds_info(tools, "strds", prefix)["temporal_type"] == "relative"
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, ramp, prefix):
+    text = _refused(
+        tools, input=ramp, output=prefix, basename=prefix, where="nonsense ="
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

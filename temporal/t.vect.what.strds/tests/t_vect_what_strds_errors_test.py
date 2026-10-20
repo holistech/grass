@@ -111,13 +111,6 @@ def test_a_t_where_without_a_map_says_the_dataset_is_empty(tools, rasters, vecto
     assert "is empty" in text
 
 
-def test_a_t_where_with_a_syntax_error_ends_with_a_traceback(tools, rasters, vectors):
-    text = _refused(tools, input=vectors().dataset, strds="wh_a", t_where="nonsense =")
-
-    assert "Traceback" in text
-    assert "syntax error" in text
-
-
 def test_the_temporal_types_must_match(tools, rasters, vectors):
     text = _refused(tools, input=vectors().dataset, strds="wh_rel")
 
@@ -171,3 +164,19 @@ def test_today_a_second_run_with_the_same_column_writes_the_values_again(
         "121",
         "122",
     ]
+
+
+def test_a_t_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, rasters, vectors
+):
+    text = _refused(
+        tools,
+        input=vectors().dataset,
+        strds="wh_a",
+        column="m",
+        t_where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid t_where condition <nonsense =>" in text
+    assert "syntax error" in text

@@ -140,7 +140,11 @@ def main(options, flags):
     overwrite = gs.overwrite()
 
     sp = tgis.open_old_stds(input, "strds", dbif)
-    maps = sp.get_registered_maps_as_objects(where=where, dbif=dbif)
+    try:
+        maps = sp.get_registered_maps_as_objects(where=where, dbif=dbif)
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     if not maps:
         dbif.close()

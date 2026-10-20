@@ -93,3 +93,19 @@ def test_today_lines_of_a_map_that_is_not_thin_end_with_a_traceback(
 
     assert "Traceback" in text
     assert prefix not in _datasets(tools)
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, shapes, prefix):
+    text = _refused(
+        tools,
+        input=shapes,
+        output=prefix,
+        basename=prefix,
+        type="point",
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

@@ -256,3 +256,17 @@ def test_s_for_vector_maps_that_do_not_touch(tools, make_stds):
 
     blocks = _blocks(result.stdout)
     assert all(not SPATIAL & blocks[f"{m}@PERMANENT"].keys() for m in maps)
+
+
+def _topology_refused(tools, name, **options):
+    with pytest.raises(ToolError) as error:
+        tools.t_topology(input=name, **options)
+    return error.value.stderr
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, nested):
+    text = _topology_refused(tools, nested[0], where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text

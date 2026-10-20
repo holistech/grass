@@ -209,3 +209,17 @@ def test_overwrite_replaces_a_map_in_relative_time(tools, relative, prefix):
         f"{first}_b",
         f"{first}_c",
     ]
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, gappy, prefix):
+    text = _refused(
+        tools,
+        input=gappy({1: (100, 0), 3: (300, 90)}),
+        basename=prefix,
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert not tools.g_list(type="raster", pattern=f"{prefix}_2*").stdout.strip()

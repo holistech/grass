@@ -137,3 +137,14 @@ def test_an_existing_file_of_a_surface_is_refused_without_overwrite(
 
     assert "Unable to export raster map" in text
     assert existing.read_text() == "keep"
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, vtk_input, tmp_path
+):
+    text = _refused(tools, input=vtk_input, directory=str(tmp_path), where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert not list(tmp_path.glob("*.vtk"))

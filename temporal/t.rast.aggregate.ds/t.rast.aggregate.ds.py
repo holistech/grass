@@ -150,13 +150,16 @@ def main():
             )
         tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
-        input_series = ta.source(input, where=where)
-        if not input_series.slots:
-            gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
-        # where filters the sampler too, as the classic tool does.
-        sampler_maps = sampler_sp.get_registered_maps_as_objects(
-            where=where, order="start_time", dbif=dbif
-        )
+        try:
+            input_series = ta.source(input, where=where)
+            if not input_series.slots:
+                gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
+            # where filters the sampler too, as the classic tool does.
+            sampler_maps = sampler_sp.get_registered_maps_as_objects(
+                where=where, order="start_time", dbif=dbif
+            )
+        except tgis.SQLStatementError as error:
+            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
         if not sampler_maps:
             gs.fatal(_("Space time dataset <{}> is empty").format(sampler))
 

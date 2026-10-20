@@ -108,9 +108,13 @@ def main():
             )
         )
 
-    rows = sp.get_registered_maps(
-        "name,layer,mapset,start_time,end_time", tempwhere, "start_time", dbif
-    )
+    try:
+        rows = sp.get_registered_maps(
+            "name,layer,mapset,start_time,end_time", tempwhere, "start_time", dbif
+        )
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid t_where condition <{}>: {}").format(tempwhere, error))
 
     if not rows:
         dbif.close()

@@ -294,3 +294,18 @@ def test_t_list_lists_raster_3d_maps(tools, raster_3d_maps):
     )
 
     assert result.stdout.splitlines() == raster_3d_maps
+
+
+def _listing_refused(tools, **options):
+    with pytest.raises(ToolError) as error:
+        tools.t_list(type="strds", **options)
+    return message(error.value)
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, make_stds):
+    make_stds(1)
+    text = _listing_refused(tools, where="nonsense =")
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text

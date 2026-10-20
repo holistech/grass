@@ -206,9 +206,13 @@ def main():
     ) as out_file:
         for ttype in temporal_type.split(","):
             time = "absolute time" if ttype == "absolute" else "relative time"
-            stds_list = tgis.get_dataset_list(
-                stds_type, ttype, columns_for_db, where, order, dbif=dbif
-            )
+            try:
+                stds_list = tgis.get_dataset_list(
+                    stds_type, ttype, columns_for_db, where, order, dbif=dbif
+                )
+            except tgis.SQLStatementError as error:
+                dbif.close()
+                gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
             for mapset in dbif.tgis_mapsets:
                 rows = stds_list.get(mapset)

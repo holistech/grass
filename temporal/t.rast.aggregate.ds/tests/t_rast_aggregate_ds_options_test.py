@@ -564,3 +564,25 @@ def test_a_sampler_with_another_relative_unit_is_refused(tools, prefix):
     ) in message(error.value)
     assert tools.t_list(type="strds", columns="name").stdout.count(f"{prefix}_out") == 0
     assert tools.g_list(type="raster", pattern=f"{prefix}_out*").stdout == ""
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, prefix):
+    _half_days(tools, f"{prefix}_in", 2)
+    _daily_sampler(tools, f"{prefix}_smp", count=1)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate_ds(
+            input=f"{prefix}_in",
+            sample=f"{prefix}_smp",
+            type="strds",
+            output=f"{prefix}_out",
+            basename=f"{prefix}_out",
+            method="sum",
+            where="nonsense =",
+        )
+
+    text = message(error.value)
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout

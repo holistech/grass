@@ -103,7 +103,10 @@ def main():
         null_map = "temporary_null_map_%i" % os.getpid()
         gs.mapcalc("%s = null()" % (null_map))
     else:
-        maps = sp.get_registered_maps_as_objects(where, "start_time", None)
+        try:
+            maps = sp.get_registered_maps_as_objects(where, "start_time", None)
+        except tgis.SQLStatementError as error:
+            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     # To have scalar values with the same name, we need to copy the
     # raster maps using a single name

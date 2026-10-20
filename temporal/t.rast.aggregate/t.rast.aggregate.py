@@ -128,7 +128,10 @@ def main():
         absolute = sp.is_time_absolute()
         tgis.check_new_stds(output, "strds", dbif, gs.overwrite())
 
-        input_series = ta.source(input, where=where)
+        try:
+            input_series = ta.source(input, where=where)
+        except tgis.SQLStatementError as error:
+            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
         if not input_series.slots:
             gs.fatal(_("Space time raster dataset <{}> is empty").format(input))
 

@@ -163,7 +163,11 @@ def main(options, flags):
     dbif.connect()
 
     sp = tgis.open_old_stds(strds, "strds", dbif)
-    maps = sp.get_registered_maps_as_objects(where=where, order=order, dbif=dbif)
+    try:
+        maps = sp.get_registered_maps_as_objects(where=where, order=order, dbif=dbif)
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
     dbif.close()
     if not maps:
         gs.fatal(_("Space time raster dataset <%s> is empty") % sp.get_id())

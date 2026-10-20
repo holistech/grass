@@ -406,3 +406,27 @@ def test_the_numeric_suffix_has_five_digits_unless_told_otherwise(
     )
 
     assert _suffixes(_rows(tools, output), output) == names
+
+
+def _aggregate_refused(tools, **options):
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_aggregate(**options)
+    return message(error.value)
+
+
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(
+    tools, four_hourly, prefix
+):
+    text = _aggregate_refused(
+        tools,
+        input=four_hourly,
+        output=prefix,
+        basename=prefix,
+        granularity="1 day",
+        where="nonsense =",
+    )
+
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout

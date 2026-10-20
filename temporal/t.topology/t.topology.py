@@ -60,7 +60,12 @@ def main():
     sp = tgis.open_old_stds(name, type)
 
     # Get ordered map list
-    maps = sp.get_registered_maps_as_objects(where=where, order="start_time", dbif=None)
+    try:
+        maps = sp.get_registered_maps_as_objects(
+            where=where, order="start_time", dbif=None
+        )
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     spatial = None
 
