@@ -324,6 +324,26 @@ def main():
         offset = int(offset) if offset else 0
         end = start + cycle
 
+    # A cycle, a granule or an offset that does not move time forward would
+    # make the loops below run forever.
+    if input_strds.is_time_absolute():
+        granule_end = tgis.increment_datetime_by_string(start, granularity)
+    else:
+        granule_end = start + granularity
+    if end <= start:
+        dbif.close()
+        gs.fatal(_("The cycle must be longer than zero"))
+    if granule_end <= start:
+        dbif.close()
+        gs.fatal(_("The granularity must be longer than zero"))
+    if _next_cycle(end, cycle, offset, input_strds.is_time_absolute())[0] <= start:
+        dbif.close()
+        gs.fatal(
+            _(
+                "The offset must not move the next cycle back to or before the start of this one"
+            )
+        )
+
     # The keys of the relations as the topology builder files them.
     limit_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
 

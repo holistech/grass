@@ -211,22 +211,24 @@ def test_relative_time_restarts_after_the_cycle_and_the_offset(tools, relative):
 def _run_with_timeout(session, arguments, seconds):
     """Run a tool in a process group of its own; None if it did not end in time
 
-    The tool starts a Python process below the wrapper that subprocess knows,
-    so the whole group is killed.
+    Returns the return code and the messages. The tool starts a Python process
+    below the wrapper that subprocess knows, so the whole group is killed.
     """
     process = subprocess.Popen(
         arguments,
         env=session.env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
         start_new_session=True,
     )
     try:
-        return process.wait(timeout=seconds)
+        _, messages = process.communicate(timeout=seconds)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
-        process.wait()
+        process.communicate()
         return None
+    return process.returncode, messages
 
 
 @pytest.fixture
@@ -265,7 +267,7 @@ ARGUMENTS = [
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_a_cycle_without_a_map_is_skipped(gap):
-    assert _run_with_timeout(gap, ARGUMENTS, 8) == 0
+    assert _run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
 
     # The cycle of the days 1 to 3 holds two maps (sums 5, 10), the next two
     # cycles hold none, and the cycle from day 10 restarts at 5.
@@ -276,3 +278,47 @@ def test_a_cycle_without_a_map_is_skipped(gap):
         ("2001-01-02 00:00:00", 10.0),
         ("2001-01-10 00:00:00", 5.0),
     ]
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("option", "value", "text"),
+    [
+        ("cycle", "0 days", "The cycle must be longer than zero"),
+        ("cycle", "-3 days", "The cycle must be longer than zero"),
+        ("granularity", "0 days", "The granularity must be longer than zero"),
+        ("granularity", "-1 days", "The granularity must be longer than zero"),
+        ("offset", "-3 days", "The offset must not move the next cycle back"),
+        ("offset", "-5 days", "The offset must not move the next cycle back"),
+    ],
+)
+def test_a_length_of_time_that_does_not_move_forward_is_refused(
+    gap, option, value, text
+):
+    # Each of these ran until it was killed (checked 20.10.2026 with a timeout
+    # of 10 s per call).
+    arguments = [a for a in ARGUMENTS if not a.startswith(f"{option}=")]
+
+    result = _run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
+
+    assert result is not None, "the tool did not end"
+    code, messages = result
+    assert code != 0
+    assert text in messages
+    assert "Traceback" not in messages
+
+
+@pytest.mark.parametrize(
+    ("option", "text"),
+    [
+        ("cycle", "The cycle must be longer than zero"),
+        ("granularity", "The granularity must be longer than zero"),
+    ],
+)
+def test_a_relative_length_of_time_of_zero_is_refused(tools, relative, option, text):
+    options = {"start": "0", "cycle": "3", "granularity": "1", option: "0"}
+
+    with pytest.raises(ToolError) as error:
+        _run(tools, f"err_rel_zero_{option}", input="err_relative", **options)
+
+    assert text in message(error.value)
