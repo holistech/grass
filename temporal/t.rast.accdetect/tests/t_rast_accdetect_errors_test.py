@@ -157,25 +157,6 @@ def relative(tools, cells):
     )
 
 
-def test_today_relative_time_ends_with_a_traceback(tools, relative):
-    # The cycle is added to the start as text.
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_accdetect(
-            input="det_relative",
-            occurrence="err_rel",
-            basename="err_rel",
-            start="0",
-            cycle="3",
-            range="10,50",
-        )
-
-    assert "unsupported operand type(s) for +: 'int' and 'str'" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect with relative time fails because the cycle is added to the start as text",
-)
 def test_relative_time_detects(tools, relative):
     # Three maps of 20 days, one per day: the occurrence is the day number.
     tools.t_rast_accdetect(
@@ -194,6 +175,34 @@ def test_relative_time_detects(tools, relative):
         (1, 1),
         (2, 2),
     ]
+
+
+def test_relative_time_restarts_after_the_cycle_and_the_offset(tools, relative):
+    # Six maps of 20 days, one per day. The first cycle [0, 3) counts 0 1 2,
+    # the offset 1 moves the next cycle to [4, 7), which holds the maps of
+    # the days 4 and 5 and counts 0 1 from its start.
+    create_stds(
+        tools,
+        "strds",
+        "det_relative_six",
+        [MapSpec(f"det_s{k}", 20, k, k + 1) for k in range(6)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    tools.t_rast_accdetect(
+        input="det_relative_six",
+        occurrence="err_rel_off",
+        basename="err_rel_off",
+        start="0",
+        cycle="3",
+        offset="1",
+        range="10,50",
+    )
+
+    assert [
+        (row.start, row.min) for row in list_maps(tools, "strds", "err_rel_off")
+    ] == [(0, 0), (1, 1), (2, 2), (4, 0), (5, 1)]
 
 
 def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(

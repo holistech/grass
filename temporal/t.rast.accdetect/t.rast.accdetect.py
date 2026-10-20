@@ -301,6 +301,9 @@ def main():
     if input_strds.is_time_absolute():
         end = tgis.increment_datetime_by_string(start, cycle)
     else:
+        # Added to the start as text the cycle and the offset would fail.
+        cycle = int(cycle)
+        offset = int(offset) if offset else 0
         end = start + cycle
 
     count = 1
