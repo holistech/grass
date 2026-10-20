@@ -1024,8 +1024,11 @@ class AbstractMapDataset(AbstractDataset):
                     stds.select(dbif)
                     stds.update_from_registered_maps(dbif)
 
-        # Remove the timestamp from the file system
-        self.remove_timestamp_from_grass()
+        # Remove the timestamp from the file system. GRASS removes it by name in
+        # the current mapset, so for a map of another mapset it would remove
+        # the time stamp of a map of the same name here.
+        if self.get_mapset() == mapset:
+            self.remove_timestamp_from_grass()
 
         self.reset(None)
 

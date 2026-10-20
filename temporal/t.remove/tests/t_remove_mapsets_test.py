@@ -69,3 +69,18 @@ def test_df_does_not_remove_a_map_of_the_current_mapset_with_the_same_name(
     work.t_remove(inputs=name, flags="df")
 
     assert maps[0] in work.g_list(type="raster", mapset="work").stdout.split()
+
+
+def test_rf_keeps_the_time_stamp_of_a_map_of_the_current_mapset_with_the_same_name(
+    two_mapsets, foreign
+):
+    # The time stamp of a map is removed by name in the current mapset, so the
+    # removal of the foreign map must not reach the map of the same name here.
+    work, other = two_mapsets
+    name, maps = foreign
+    work.r_mapcalc(expression=f"{maps[0]} = 5")
+    work.r_timestamp(map=maps[0], date="1 Jan 2005")
+
+    work.t_remove(inputs=name, flags="rf")
+
+    assert work.r_timestamp(map=maps[0]).stdout.strip() == "1 Jan 2005"
