@@ -28,7 +28,6 @@
 # % required: no
 # % multiple: no
 # % options: min,max,sum,mean
-# % answer: mean
 # %end
 
 # %option G_OPT_STDS_TYPE
@@ -99,25 +98,30 @@ def main():
 
     stds = tgis.open_old_stds(name, type, dbif)
 
-    update = False
+    # The semantic type has no default: a call without it must not reset the
+    # semantic type of the dataset.
+    changed = False
     if aggr_type and type == "stvds":
-        return ()
-
-    if aggr_type and type != "stvds":
+        gs.warning(
+            _(
+                "A space time vector dataset has no aggregation type. Ignoring <{}>."
+            ).format("aggr_type")
+        )
+    elif aggr_type:
         stds.metadata.set_aggregation_type(aggregation_type=aggr_type)
-        update = True
+        changed = True
     if title:
         stds.metadata.set_title(title=title)
-        update = True
+        changed = True
         # Update only non-null entries
     if description:
         stds.metadata.set_description(description=description)
-        update = True
+        changed = True
     if semantic:
         stds.base.set_semantic_type(semantic_type=semantic)
-        update = True
+        changed = True
 
-    if update:
+    if changed:
         stds.update(dbif=dbif)
 
     if map_update:
@@ -170,7 +174,7 @@ def main():
             stds_new.select(dbif=dbif)
             stds_new.update_from_registered_maps(dbif=dbif)
 
-    if map_update or update:
+    if map_update or update or changed:
         stds.update_from_registered_maps(dbif=dbif)
 
     stds.update_command_string(dbif=dbif)

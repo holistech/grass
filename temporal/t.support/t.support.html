@@ -3,7 +3,11 @@
 The <em>t.support</em> module is dedicated to modify and update the metadata of
 a space time dataset.
 <p>
-The title, description and the semantic type can be modified.
+The title, description and the semantic type can be modified. A call
+without the option <em>semantictype</em> leaves the semantic type as it is. The
+aggregation type of a space time raster dataset can be set with
+<em>aggr_type</em>; a space time vector dataset has none, so <em>t.support</em>
+warns about <em>aggr_type</em> for it and applies the other options.
 <p>
 The flag <em>-u</em> allows updating the STDS metadata from registered
 map layers. This is useful in case the map layers have been modified

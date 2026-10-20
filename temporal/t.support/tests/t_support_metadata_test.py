@@ -4,9 +4,9 @@ The dataset has three maps (see the make_dataset fixture), the title "T0", the
 description "D0" and the semantic type mean. Title and description are read
 back from t.info, the semantic type and the aggregation type from t.info -g.
 
-Pinned as they are today: the option semantictype has the default mean, so
-every call that does not give one sets mean; and for a vector dataset an
-aggr_type ends the tool before it applies anything else.
+The option semantictype has no default, so a call without it keeps the
+semantic type; for a vector dataset an aggr_type is warned about and the other
+options are applied.
 """
 
 import pytest
@@ -132,19 +132,6 @@ def test_today_aggr_type_takes_any_text(tools, make_dataset):
     assert stds_info(tools, "strds", name)["aggregation_type"] == ("not an aggregation")
 
 
-def test_today_a_call_without_semantictype_sets_mean(tools, make_dataset):
-    name, _ = make_dataset()
-    tools.t_support(input=name, semantictype="sum")
-
-    tools.t_support(input=name, title="Another title")
-
-    assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.support without semantictype resets the semantic type of the dataset to mean",
-)
 def test_a_call_without_semantictype_keeps_it(tools, make_dataset):
     name, _ = make_dataset()
     tools.t_support(input=name, semantictype="sum")
@@ -154,20 +141,6 @@ def test_a_call_without_semantictype_keeps_it(tools, make_dataset):
     assert stds_info(tools, "strds", name)["semantic_type"] == "sum"
 
 
-def test_today_aggr_type_on_a_vector_dataset_ignores_the_other_options(
-    tools, make_dataset, info_text
-):
-    name, _ = make_dataset("stvds")
-
-    tools.t_support(type="stvds", input=name, aggr_type="average", title="Ignored")
-
-    assert _title(info_text("stvds", name)) == "T0"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.support with aggr_type on a vector dataset ignores the other options",
-)
 def test_aggr_type_on_a_vector_dataset_does_not_stop_the_other_options(
     tools, make_dataset, info_text
 ):
@@ -176,6 +149,14 @@ def test_aggr_type_on_a_vector_dataset_does_not_stop_the_other_options(
     tools.t_support(type="stvds", input=name, aggr_type="average", title="Applied")
 
     assert _title(info_text("stvds", name)) == "Applied"
+
+
+def test_aggr_type_on_a_vector_dataset_is_warned_about(tools, make_dataset):
+    name, _ = make_dataset("stvds")
+
+    result = tools.t_support(type="stvds", input=name, aggr_type="average")
+
+    assert "has no aggregation type" in message(result)
 
 
 def test_a_vector_dataset_has_no_aggregation_type(tools, make_dataset):

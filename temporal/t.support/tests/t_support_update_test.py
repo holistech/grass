@@ -123,14 +123,13 @@ def test_m_updates_every_dataset_that_held_the_missing_map(tools, prefix):
     }
 
 
-def test_m_sets_the_semantic_type_to_mean(tools, make_dataset):
-    # The same default as for the options: see t_support_metadata_test.py.
+def test_m_keeps_the_semantic_type(tools, make_dataset):
     name, _ = make_dataset()
     tools.t_support(input=name, semantictype="sum")
 
     tools.t_support(input=name, flags="m")
 
-    assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
+    assert stds_info(tools, "strds", name)["semantic_type"] == "sum"
 
 
 def _two_datasets(tools, prefix):
@@ -214,30 +213,17 @@ def test_u_repairs_a_dataset_with_stale_metadata(tools, prefix):
     assert info["number_of_maps"] == 3
 
 
-def test_today_a_call_without_u_repairs_it_as_well(tools, prefix):
-    # The flag is read into a variable that the next line overwrites, so it
-    # makes no difference. The update comes from the default of semantictype,
-    # which makes every call write the dataset (see t_support_metadata_test.py).
+def test_a_call_without_u_does_not_repair_the_dataset(tools, prefix):
+    # Only -u (or an option that changes the dataset) updates the extent from
+    # the registered maps.
     name = _stale_dataset(tools, prefix)
 
     tools.t_support(input=name)
 
     info = stds_info(tools, "strds", name)
-    assert (info["min_min"], info["max_max"]) == REPAIRED
+    assert (info["min_min"], info["max_max"]) != REPAIRED
 
 
-def test_today_u_sets_the_semantic_type_to_mean(tools, make_dataset):
-    name, _ = make_dataset()
-    tools.t_support(input=name, semantictype="sum")
-
-    tools.t_support(input=name, flags="u")
-
-    assert stds_info(tools, "strds", name)["semantic_type"] == "mean"
-
-
-@pytest.mark.xfail(
-    strict=True, reason="t.support -u resets the semantic type of the dataset to mean"
-)
 def test_u_keeps_the_semantic_type(tools, make_dataset):
     name, _ = make_dataset()
     tools.t_support(input=name, semantictype="sum")
