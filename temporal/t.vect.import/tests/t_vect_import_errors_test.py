@@ -12,7 +12,7 @@ import tarfile
 
 import pytest
 
-from grass.temporal.testing.readback import message
+from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
 
@@ -254,7 +254,6 @@ def test_a_relative_archive_without_a_unit_is_refused(
     assert "Key word relative_time_unit not found in init file." in text
 
 
-# The export offers GPKG, the import reads GML and pack only (stds_import.py).
 def _gpkg_archive(tools, tmp_path):
     archive = tmp_path / "gpkg.tar"
     tools.t_vect_export(
@@ -265,27 +264,7 @@ def _gpkg_archive(tools, tmp_path):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_gpkg_archive_cannot_be_imported(tools, archives, prefix, tmp_path):
-    archive = _gpkg_archive(tools, tmp_path)
-
-    text = _refused(
-        tools,
-        input=str(archive),
-        output=prefix,
-        basename=prefix,
-        directory=str(tmp_path),
-    )
-
-    assert "Unsupported input format" in text
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason='t.vect.import cannot import a GPKG archive, it ends with "Unsupported input format"',
-)
-def test_a_gpkg_archive_can_be_imported(tools, prefix, tmp_path):
+def test_a_gpkg_archive_can_be_imported(tools, archives, prefix, tmp_path):
     archive = _gpkg_archive(tools, tmp_path)
 
     tools.t_vect_import(
@@ -295,3 +274,31 @@ def test_a_gpkg_archive_can_be_imported(tools, prefix, tmp_path):
         directory=str(tmp_path),
         flags="o",
     )
+
+    rows = list_maps(tools, "stvds", prefix)
+    assert [(row.name, row.start) for row in rows] == [
+        (f"{prefix}_1", "2001-01-01 00:00:00"),
+        (f"{prefix}_2", "2001-02-01 00:00:00"),
+    ]
+    assert tools.v_db_select(map=rows[1].name, columns="value").stdout.split() == [
+        "value",
+        "21",
+        "22",
+    ]
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_a_gpkg_archive_without_its_file_is_refused(tools, archives, prefix, tmp_path):
+    archive = _gpkg_archive(tools, tmp_path)
+    broken = _damaged(archive, tmp_path / "broken.tar", drop=("vi_2.gpkg",))
+
+    text = _refused(
+        tools,
+        input=str(broken),
+        output=prefix,
+        basename=prefix,
+        directory=str(tmp_path),
+    )
+
+    assert "Unable to find GPKG vector file <vi_2.gpkg> in archive." in text

@@ -165,13 +165,14 @@ def _import_raster_maps(
 ############################################################################
 
 
-def _import_vector_maps_from_gml(
+def _import_vector_maps_from_ogr(
     maplist: list[dict[str, str]],
     *,
     overr: bool,
     exp: bool,
     location: str | None,
     link: bool,
+    suffix: Literal["xml", "gpkg"],
 ) -> None:
     impflags = ""
     if overr:
@@ -180,7 +181,7 @@ def _import_vector_maps_from_gml(
         impflags += "e"
     for row in maplist:
         name = row["name"]
-        filename = f"{row['filename']}.xml"
+        filename = f"{row['filename']}.{suffix}"
 
         try:
             if link:
@@ -524,6 +525,13 @@ def import_stds(
                     gs.fatal(
                         _("Unable to find GML vector file <%s> in archive.") % filename
                     )
+        elif format_ == "GPKG":
+            for row in maplist:
+                filename = Path(row["filename"]).with_suffix(".gpkg")
+                if not filename.exists():
+                    gs.fatal(
+                        _("Unable to find GPKG vector file <%s> in archive.") % filename
+                    )
         elif format_ == "pack":
             for row in maplist:
                 if type_ == "stvds":
@@ -579,9 +587,14 @@ def import_stds(
             if format_ == "pack":
                 _import_raster_maps(maplist, set_current_region=set_current_region)
         elif type_ == "stvds":
-            if format_ == "GML":
-                _import_vector_maps_from_gml(
-                    maplist, overr=overr, exp=exp, location=location, link=link
+            if format_ in {"GML", "GPKG"}:
+                _import_vector_maps_from_ogr(
+                    maplist,
+                    overr=overr,
+                    exp=exp,
+                    location=location,
+                    link=link,
+                    suffix="xml" if format_ == "GML" else "gpkg",
                 )
             if format_ == "pack":
                 _import_vector_maps(maplist)

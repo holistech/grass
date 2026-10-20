@@ -1,7 +1,9 @@
 ## DESCRIPTION
 
 *t.vect.import* imports a space time vector dataset archive that was
-exported with [t.vect.export](t.vect.export.md).
+exported with [t.vect.export](t.vect.export.md). The archive may hold the
+maps as GRASS pack files, as GML or as GeoPackage (GPKG) files; the maps of
+the last two are imported with *[v.in.ogr](v.in.ogr.md)*.
 
 ## NOTES
 
