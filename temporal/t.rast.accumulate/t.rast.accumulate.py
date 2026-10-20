@@ -139,6 +139,7 @@
 from copy import copy
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
 
@@ -160,6 +161,22 @@ def _next_cycle(end, cycle, offset, absolute):
     if offset:
         start = end + offset
     return start, start + cycle
+
+
+def _to_datetime(text, option, dbif):
+    """Convert the value of an option to a datetime or end with a message"""
+    import grass.temporal as tgis
+
+    # string_to_datetime ends in an AttributeError for text it cannot read
+    # (checked 20.10.2026 with "garbage"), the annotation says None.
+    try:
+        converted = tgis.string_to_datetime(text)
+    except (AttributeError, ValueError):
+        converted = None
+    if converted is None:
+        dbif.close()
+        gs.fatal(_("Invalid date <{}> of the option <{}>").format(text, option))
+    return converted
 
 
 def main():
@@ -185,6 +202,12 @@ def main():
     register_null = flags["n"]
     reverse = flags["r"]
     time_suffix = options["suffix"]
+
+    # r.series.accumulate refuses limits that do not rise, so refuse them
+    # before any map is made.
+    limits_lower, limits_upper = (float(value) for value in limits.split(","))
+    if limits_upper <= limits_lower:
+        gs.fatal(_("The upper limit must be above the lower limit"))
 
     # Make sure the temporal database exists
     tgis.init()
@@ -280,12 +303,16 @@ def main():
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
 
     if input_strds.is_time_absolute():
-        start = tgis.string_to_datetime(start)
-        stop = tgis.string_to_datetime(stop) if stop else input_strds_end
+        start = _to_datetime(start, "start", dbif)
+        stop = _to_datetime(stop, "stop", dbif) if stop else input_strds_end
         start = tgis.adjust_datetime_to_granularity(start, granularity)
     else:
-        start = int(start)
-        stop = int(stop) if stop else input_strds_end
+        try:
+            start = int(start)
+            stop = int(stop) if stop else input_strds_end
+        except ValueError:
+            dbif.close()
+            gs.fatal(_("The options start and stop must be integers"))
 
     if input_strds.is_time_absolute():
         end = tgis.increment_datetime_by_string(start, cycle)
@@ -422,10 +449,6 @@ def main():
                     map_start, map_end, map.get_relative_time_unit()
                 )
 
-            limits_vals = limits.split(",")
-            limits_lower = float(limits_vals[0])
-            limits_upper = float(limits_vals[1])
-
             lower_map_name = None
             if lower:
                 relations = gran_list_low[index].get_temporal_relations()
@@ -472,9 +495,9 @@ def main():
             if method:
                 accmod.inputs["method"].value = method
 
-            accmod.run()
-
-            if accmod.returncode != 0:
+            try:
+                accmod.run()
+            except CalledModuleError:
                 dbif.close()
                 gs.fatal(_("Error running r.series.accumulate"))
 

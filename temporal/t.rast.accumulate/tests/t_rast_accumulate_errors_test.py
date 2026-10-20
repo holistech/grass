@@ -96,50 +96,50 @@ def test_a_wrong_value_is_refused_by_the_parser(tools, daily, option, value):
 
 
 @pytest.mark.parametrize("limits", ["40,0", "10,10"])
-def test_today_limits_that_do_not_rise_end_with_a_traceback(tools, daily, limits):
-    # r.series.accumulate refuses an upper limit that is not above the lower
-    # one, and the tool does not catch the error of the call.
-    with pytest.raises(ToolError) as error:
-        _run(tools, "err_limits", limits=limits)
-
-    assert "CalledModuleError" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate ends in a CalledModuleError traceback for limits that do not rise instead of a message",
-)
-@pytest.mark.parametrize("limits", ["40,0", "10,10"])
 def test_limits_that_do_not_rise_are_refused_with_a_message(tools, daily, limits):
     with pytest.raises(ToolError) as error:
         _run(tools, "err_limits", limits=limits)
 
+    assert "The upper limit must be above the lower limit" in message(error.value)
     assert "Traceback" not in message(error.value)
 
 
-@pytest.mark.parametrize(
-    ("option", "value", "text"),
-    [
-        ("start", "garbage", "AttributeError"),
-        ("stop", "garbage", "TypeError"),
-    ],
-)
-def test_today_a_wrong_date_ends_with_a_traceback(tools, daily, option, value, text):
-    with pytest.raises(ToolError) as error:
-        _run(tools, f"err_{option}", **{option: value})
-
-    assert text in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate ends in a traceback for a wrong start or stop instead of a message",
-)
 @pytest.mark.parametrize("option", ["start", "stop"])
 def test_a_wrong_date_is_refused_with_a_message(tools, daily, option):
     with pytest.raises(ToolError) as error:
         _run(tools, f"err_{option}_x", **{option: "garbage"})
 
+    assert f"Invalid date <garbage> of the option <{option}>" in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
+@pytest.mark.parametrize("option", ["start", "stop"])
+def test_a_wrong_number_of_relative_time_is_refused_with_a_message(
+    tools, relative, option
+):
+    options = {"start": "0", "cycle": "3", "granularity": "1", option: "garbage"}
+
+    with pytest.raises(ToolError) as error:
+        _run(tools, f"err_rel_{option}", input="err_relative", **options)
+
+    assert "The options start and stop must be integers" in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
+def test_a_failing_series_run_is_reported_with_a_message(tools, daily):
+    # The map is registered but gone, so r.series.accumulate cannot open it.
+    create_stds(
+        tools,
+        "strds",
+        "err_gone",
+        [MapSpec("err_gone0", 5, day(0), day(1))],
+    )
+    tools.g_remove(type="raster", name="err_gone0", flags="f")
+
+    with pytest.raises(ToolError) as error:
+        _run(tools, "err_gone_out", input="err_gone")
+
+    assert "Error running r.series.accumulate" in message(error.value)
     assert "Traceback" not in message(error.value)
 
 
