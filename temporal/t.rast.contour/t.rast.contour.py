@@ -105,7 +105,7 @@ import copy
 import sys
 
 import grass.script as gs
-from grass.exceptions import FatalError
+from grass.exceptions import CalledModuleError, FatalError
 
 ############################################################################
 
@@ -130,6 +130,11 @@ def main(options, flags):
 
     register_null = flags["n"]
     t_flag = flags["t"]
+
+    # r.contour refuses this too, but only from inside the queue, where its
+    # error would surface as an exception after the output maps were opened.
+    if not step and not levels:
+        gs.fatal(_("Either <levels> or <step> option must be specified"))
 
     # Make sure the temporal database exists
     tgis.init()
@@ -227,13 +232,21 @@ def main(options, flags):
         mod = copy.deepcopy(contour_module)
         mod(input=map.get_id(), output=new_map.get_id())
         sys.stderr.write(mod.get_bash() + "\n")
-        process_queue.put(mod)
+        try:
+            process_queue.put(mod)
+        except CalledModuleError as error:
+            dbif.close()
+            gs.fatal(_("Error running r.contour: {}").format(error))
 
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
 
     # Wait for unfinished processes
-    process_queue.wait()
+    try:
+        process_queue.wait()
+    except CalledModuleError as error:
+        dbif.close()
+        gs.fatal(_("Error running r.contour: {}").format(error))
 
     # Open the new space time vector dataset
     ttype, stype, title, descr = sp.get_initial_values()

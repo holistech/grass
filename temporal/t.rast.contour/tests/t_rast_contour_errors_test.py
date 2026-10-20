@@ -26,31 +26,22 @@ def test_an_unknown_input_is_refused(tools, prefix):
     assert "Space time dataset <ctr_missing> of type <strds> not found" in text
 
 
-def test_today_levels_or_step_are_needed_and_the_refusal_has_a_traceback(
-    tools, quarterly, prefix
-):
-    text = _refused(tools, input=quarterly, output=prefix, basename=prefix)
-
-    assert "Either <levels> or <step> option must be specified" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.contour ends in a traceback when neither levels nor step is given instead of a plain message",
-)
 def test_levels_or_step_are_needed_and_the_refusal_is_a_message(
     tools, quarterly, prefix
 ):
     text = _refused(tools, input=quarterly, output=prefix, basename=prefix)
 
+    assert "Either <levels> or <step> option must be specified" in text
     assert "Traceback" not in text
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
 
 
 def test_a_step_of_zero_is_refused(tools, ramps, prefix):
     text = _refused(tools, input=ramps, output=prefix, basename=prefix, step=0)
 
     assert "This step value is not allowed" in text
+    assert "Traceback" not in text
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
 
 
 def test_a_level_that_is_no_number_is_refused_by_the_parser(tools, ramps, prefix):
