@@ -1468,6 +1468,28 @@ class DBConnection:
         self.cursor.close()
         self.connected = False
 
+    @staticmethod
+    def _sqlite_literal(arg) -> str:
+        """Write a python value as an SQLite literal
+
+        Text is put in single quotes with the quotes inside doubled, which is
+        how SQLite escapes them.
+        """
+        if arg is None:
+            return "NULL"
+        if isinstance(arg, int):
+            return "%d" % arg
+        if isinstance(arg, float) and not math.isfinite(arg):
+            # SQLite has no literal for inf and nan; "%f" would write
+            # the bare word inf, which the database reads as a column
+            # name. Statistics of a map with infinite values are
+            # unknown, which is what NULL says.
+            return "NULL"
+        if isinstance(arg, float):
+            return "%f" % arg
+        # Default is a string, this works for datetime objects too
+        return "'%s'" % str(arg).replace("'", "''")
+
     def mogrify_sql_statement(self, content):
         """Return the SQL statement and arguments as executable SQL string
 
@@ -1526,57 +1548,15 @@ class DBConnection:
             # and do it by ourself. :(
             # Doors are open for SQL injection because of the
             # limited python sqlite3 implementation!!!
-            pos = 0
-            count = 0
-            maxcount = 100
-            statement = sql
-
-            while count < maxcount:
-                pos = statement.find("?", pos + 1)
-                if pos == -1:
-                    break
-
-                if args[count] is None:
-                    statement = "%sNULL%s" % (
-                        statement[0:pos],
-                        statement[pos + 1 :],
-                    )
-                elif isinstance(args[count], int):
-                    statement = "%s%d%s" % (
-                        statement[0:pos],
-                        args[count],
-                        statement[pos + 1 :],
-                    )
-                elif isinstance(args[count], float) and not math.isfinite(args[count]):
-                    # SQLite has no literal for inf and nan; "%f" would write
-                    # the bare word inf, which the database reads as a column
-                    # name. Statistics of a map with infinite values are
-                    # unknown, which is what NULL says.
-                    statement = "%sNULL%s" % (
-                        statement[0:pos],
-                        statement[pos + 1 :],
-                    )
-                elif isinstance(args[count], float):
-                    statement = "%s%f%s" % (
-                        statement[0:pos],
-                        args[count],
-                        statement[pos + 1 :],
-                    )
-                elif isinstance(args[count], datetime):
-                    statement = "%s'%s'%s" % (
-                        statement[0:pos],
-                        str(args[count]),
-                        statement[pos + 1 :],
-                    )
-                else:
-                    # Default is a string, this works for datetime
-                    # objects too
-                    statement = "%s'%s'%s" % (
-                        statement[0:pos],
-                        str(args[count]),
-                        statement[pos + 1 :],
-                    )
-                count += 1
+            #
+            # The statement is cut at its placeholders and put together again
+            # in one pass. Searching the placeholders in the statement while
+            # it grows would take a question mark inside an inserted text for
+            # the next placeholder.
+            parts = sql.split("?")
+            statement = parts[0]
+            for count, part in enumerate(parts[1:]):
+                statement += self._sqlite_literal(args[count]) + part
 
             return statement
 

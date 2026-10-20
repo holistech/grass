@@ -1,30 +1,20 @@
-"""Pin how t.create treats an apostrophe and a question mark in title and description
+"""Test that t.create stores an apostrophe and a question mark in title and description
 
-The apostrophe ends the SQL string of the INSERT statement, and the question
-mark is taken for a placeholder by the library's mogrify_sql_statement(), so
-the call fails with a Python traceback instead of storing the text. Each case
-has a test for today's behaviour and a strict xfail test for the behaviour a
-user expects: the dataset is created and the text is read back as given.
+The text is put into the INSERT statement by the library; the dataset must be
+created and the text read back as given.
 """
 
 import re
 
 import pytest
 
-from grass.temporal.testing.readback import message, stds_info
-from grass.tools import ToolError
-
 CASES = {
-    "apostrophe_title": ({"title": "It's", "description": "d"}, "syntax error"),
-    "apostrophe_description": ({"title": "t", "description": "it's"}, "syntax error"),
-    "question_mark_title": ({"title": "Why?", "description": "d"}, "IndexError"),
-    "question_mark_description": ({"title": "t", "description": "what?"}, "IndexError"),
+    "apostrophe_title": {"title": "It's", "description": "d"},
+    "apostrophe_description": {"title": "t", "description": "it's"},
+    "question_mark_title": {"title": "Why?", "description": "d"},
+    "question_mark_description": {"title": "t", "description": "what?"},
+    "both": {"title": 'it\'s ? "quoted"', "description": "?'?"},
 }
-
-
-def _exists(tools, name):
-    result = tools.t_list(type="strds", where=f"name = '{name}'", format="json")
-    return bool(result.json)
 
 
 def _title_and_description(tools, name):
@@ -35,30 +25,9 @@ def _title_and_description(tools, name):
     return tuple(part.strip(" |\n") for part in match.groups())
 
 
-@pytest.mark.slow
-@pytest.mark.parametrize("case", CASES)
-def test_today_the_call_fails_and_leaves_no_dataset(tools, case):
-    options, reason = CASES[case]
-    name = f"quote_today_{case}"
-
-    with pytest.raises(ToolError) as raised:
-        tools.t_create(output=name, **options)
-
-    assert reason in message(raised.value)
-    assert not _exists(tools, name)
-    # The failed call leaves nothing behind that blocks the name.
-    tools.t_create(output=name, title="plain", description="plain")
-    assert stds_info(tools, "strds", name)["name"] == name
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=ToolError,
-    reason="t.create fails on a title or description with quotes or other special characters instead of storing the text as given",
-)
 @pytest.mark.parametrize("case", CASES)
 def test_text_is_stored_as_given(tools, case):
-    options, _ = CASES[case]
+    options = CASES[case]
     name = f"quote_right_{case}"
 
     tools.t_create(output=name, **options)
