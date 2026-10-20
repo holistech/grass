@@ -248,6 +248,7 @@ def register_maps_in_space_time_dataset(
 
     num_maps = len(maplist)
     map_object_list = []
+    maps_to_write = []
     statement = ""
     # Store the ids of datasets that must be updated
     datatsets_to_modify = {}
@@ -454,7 +455,7 @@ def register_maps_in_space_time_dataset(
             map_object.read_semantic_label_from_grass()
 
         # A dataset cannot hold times with and without a time zone, because
-        # their extent cannot be computed. Refuse before the map is written,
+        # their extent cannot be computed. Refuse before any map is written,
         # as the refusal would otherwise come after the maps were registered.
         if name and sp.is_time_absolute():
             start_time = map_object.temporal_extent.get_start_time()
@@ -479,6 +480,16 @@ def register_maps_in_space_time_dataset(
                         )
                     )
 
+        maps_to_write.append((map_object, is_in_db))
+
+        # Store the maps in a list to register in a space time dataset
+        if name:
+            map_object_list.append(map_object)
+
+    # Writing starts after all maps were checked: insert() and update_all()
+    # write the time stamp of the map at once, even with execute=False, so a
+    # refusal later in the list would leave the maps before it changed.
+    for count, (map_object, is_in_db) in enumerate(maps_to_write, start=1):
         if is_in_db:
             #  Gather the SQL update statement
             statement += map_object.update_all(dbif=dbif, execute=False)
@@ -493,10 +504,6 @@ def register_maps_in_space_time_dataset(
                 if statement is not None and statement != "":
                     dbif.execute_transaction(statement)
                     statement = ""
-
-        # Store the maps in a list to register in a space time dataset
-        if name:
-            map_object_list.append(map_object)
 
     msgr.percent(num_maps, num_maps, 1)
 

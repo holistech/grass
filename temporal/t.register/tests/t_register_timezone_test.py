@@ -238,3 +238,22 @@ def test_a_failed_call_does_not_change_the_dataset(zone_tools, prefix):
     # The refused map got no time stamp either (r.timestamp fails without one).
     with pytest.raises(ToolError):
         zone_tools.r_timestamp(map=maps[1])
+
+
+def test_a_refusal_later_in_the_list_writes_no_map(zone_tools, prefix, tmp_path):
+    # The first map of the file agrees with itself, the second has no time
+    # zone: the refusal must come before the first map is written.
+    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
+    file = register_file(
+        tmp_path / "maps.txt",
+        [(maps[0], "2001-01-01 10:00:00 +02:00"), (maps[1], "2001-01-02 10:00:00")],
+    )
+
+    with pytest.raises(ToolError, match="time zone"):
+        zone_tools.t_register(type="raster", input=name, file=file)
+
+    assert list_maps(zone_tools, "strds", name) == []
+    # Neither map got a time stamp (r.timestamp fails without one).
+    for map_name in maps:
+        with pytest.raises(ToolError):
+            zone_tools.r_timestamp(map=map_name)
