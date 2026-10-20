@@ -89,79 +89,85 @@ def main():
     # Make sure the temporal database exists
     tgis.init()
 
-    if not Path(expdir).exists():
+    if not Path(expdir).is_dir():
         gs.fatal(_("Export directory <%s> not found.") % expdir)
 
     os.chdir(expdir)
 
     sp = tgis.open_old_stds(input, "strds")
 
-    if use_granularity:
-        # Attention: A list of lists of maps will be returned
-        maps = sp.get_registered_maps_as_objects_by_granularity()
-        # Create a NULL map in case of granularity support
-        null_map = "temporary_null_map_%i" % os.getpid()
-        gs.mapcalc("%s = null()" % (null_map))
-    else:
-        try:
-            maps = sp.get_registered_maps_as_objects(where, "start_time", None)
-        except tgis.SQLStatementError as error:
-            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
-
     # To have scalar values with the same name, we need to copy the
     # raster maps using a single name
     map_name = "%s_%i" % (sp.base.get_name(), os.getpid())
+    null_map = "temporary_null_map_%i" % os.getpid()
 
-    count = 0
-    if maps is not None:
-        for map in maps:
-            if use_granularity:
-                if map and len(map) > 0:
-                    id = map[0].get_map_id()
-            else:
-                id = map.get_map_id()
-            # None ids will be replaced by NULL maps
-            if id is None:
-                id = null_map
-
-            gs.run_command("g.copy", raster="%s,%s" % (id, map_name), overwrite=True)
-            out_name = "%6.6i_%s.vtk" % (count, sp.base.get_name())
-
-            mflags = ""
-            if use_pdata:
-                mflags += "p"
-            if coorcorr:
-                mflags += "c"
-
-            # Export the raster map with r.out.vtk
+    # The copy and the null map are removed whatever stops the export; g.remove
+    # ignores a map that was never made.
+    try:
+        if use_granularity:
+            # Attention: A list of lists of maps will be returned
+            maps = sp.get_registered_maps_as_objects_by_granularity()
+            # Create a NULL map in case of granularity support
+            null_map = "temporary_null_map_%i" % os.getpid()
+            gs.mapcalc("%s = null()" % (null_map))
+        else:
             try:
-                if elevation:
-                    gs.run_command(
-                        "r.out.vtk",
-                        flags=mflags,
-                        null=null,
-                        input=map_name,
-                        elevation=elevation,
-                        output=out_name,
-                        overwrite=gs.overwrite(),
-                    )
+                maps = sp.get_registered_maps_as_objects(where, "start_time", None)
+            except tgis.SQLStatementError as error:
+                gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+        count = 0
+        if maps is not None:
+            for map in maps:
+                if use_granularity:
+                    if map and len(map) > 0:
+                        id = map[0].get_map_id()
                 else:
-                    gs.run_command(
-                        "r.out.vtk",
-                        flags=mflags,
-                        null=null,
-                        input=map_name,
-                        output=out_name,
-                        overwrite=gs.overwrite(),
-                    )
-            except CalledModuleError:
-                gs.fatal(_("Unable to export raster map <%s>") % map_name)
+                    id = map.get_map_id()
+                # None ids will be replaced by NULL maps
+                if id is None:
+                    id = null_map
 
-            count += 1
+                gs.run_command(
+                    "g.copy", raster="%s,%s" % (id, map_name), overwrite=True
+                )
+                out_name = "%6.6i_%s.vtk" % (count, sp.base.get_name())
 
-    if use_granularity:
-        gs.run_command("g.remove", flags="f", type="raster", name=null_map)
-    gs.run_command("g.remove", flags="f", type="raster", name=map_name)
+                mflags = ""
+                if use_pdata:
+                    mflags += "p"
+                if coorcorr:
+                    mflags += "c"
+
+                # Export the raster map with r.out.vtk
+                try:
+                    if elevation:
+                        gs.run_command(
+                            "r.out.vtk",
+                            flags=mflags,
+                            null=null,
+                            input=map_name,
+                            elevation=elevation,
+                            output=out_name,
+                            overwrite=gs.overwrite(),
+                        )
+                    else:
+                        gs.run_command(
+                            "r.out.vtk",
+                            flags=mflags,
+                            null=null,
+                            input=map_name,
+                            output=out_name,
+                            overwrite=gs.overwrite(),
+                        )
+                except CalledModuleError:
+                    gs.fatal(_("Unable to export raster map <%s>") % map_name)
+
+                count += 1
+    finally:
+        gs.run_command(
+            "g.remove", flags="f", type="raster", name=[map_name, null_map], quiet=True
+        )
 
 
 if __name__ == "__main__":
