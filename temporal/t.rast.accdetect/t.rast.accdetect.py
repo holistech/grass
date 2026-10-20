@@ -334,6 +334,19 @@ def main():
         offset = int(offset) if offset else 0
         end = start + cycle
 
+    # A cycle or an offset that does not move time forward would make the
+    # loop run forever.
+    if end <= start:
+        dbif.close()
+        gs.fatal(_("The cycle must be longer than zero"))
+    if _next_cycle(end, cycle, offset, input_strds.is_time_absolute())[0] <= start:
+        dbif.close()
+        gs.fatal(
+            _(
+                "The offset must not move the next cycle back to or before the start of this one"
+            )
+        )
+
     count = 1
     indi_count = 1
     occurrence_maps = {}

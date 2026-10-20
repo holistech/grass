@@ -301,3 +301,57 @@ def test_a_cycle_without_a_map_is_skipped(gap):
         ("2001-01-02 00:00:00", 1.0),
         ("2001-01-10 00:00:00", 0.0),
     ]
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("option", "value", "text"),
+    [
+        ("cycle", "0 days", "The cycle must be longer than zero"),
+        ("cycle", "-3 days", "The cycle must be longer than zero"),
+        ("offset", "-3 days", "The offset must not move the next cycle back"),
+        ("offset", "-5 days", "The offset must not move the next cycle back"),
+    ],
+)
+def test_a_length_of_time_that_does_not_move_forward_is_refused(
+    gap, option, value, text
+):
+    # Each of these ran until it was killed (checked 20.10.2026 with a timeout
+    # of 10 s per call).
+    arguments = [a for a in ARGUMENTS if not a.startswith(f"{option}=")]
+
+    result = _run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
+
+    assert result is not None, "the tool did not end"
+    code, messages = result
+    assert code != 0
+    assert text in messages
+    assert "Traceback" not in messages
+
+
+@pytest.mark.slow
+def test_a_relative_cycle_of_zero_is_refused(gap):
+    # Same timeout as above: without the check the tool runs until killed.
+    tools = Tools(session=gap, consistent_return_value=True)
+    create_stds(
+        tools,
+        "strds",
+        "gap_rel",
+        [MapSpec(f"gap_r{k}", 20, k, k + 1) for k in range(3)],
+        temporaltype="relative",
+        unit="days",
+    )
+    arguments = [
+        "t.rast.accdetect",
+        "input=gap_rel",
+        "occurrence=gap_rel_out",
+        "basename=gap_rel_out",
+        "start=0",
+        "cycle=0",
+        "range=10,50",
+    ]
+
+    result = _run_with_timeout(gap, arguments, 8)
+
+    assert result is not None, "the tool did not end"
+    assert "The cycle must be longer than zero" in result[1]
