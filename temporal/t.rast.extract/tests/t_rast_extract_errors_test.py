@@ -58,33 +58,6 @@ def test_an_existing_output_is_refused_without_overwrite(tools, quarterly, prefi
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_known_maps_are_reported_but_the_run_succeeds(tools, quarterly, prefix):
-    # The second run creates the same map names for another dataset. The
-    # maps are in the temporal database already, so each gets an error
-    # message and is skipped, but the exit code is 0 and an empty dataset
-    # is made.
-    options = {
-        "input": quarterly,
-        "where": "start_time > '2002-01-01'",
-        "expression": "ext_quarterly",
-        "basename": f"{prefix}_x",
-    }
-    tools.t_rast_extract(output=f"{prefix}_a", **options)
-
-    result = tools.t_rast_extract(output=f"{prefix}_b", **options)
-
-    assert result.returncode == 0
-    assert (
-        f"Map <{prefix}_x_2002_04@PERMANENT> is already in temporal database, use "
-        "overwrite flag to overwrite"
-    ) in message(result)
-    assert list_maps(tools, "strds", f"{prefix}_b") == []
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.extract reports maps that are already known as errors but ends with exit code 0 and an empty dataset",
-)
 def test_known_maps_make_the_run_fail(tools, quarterly, prefix):
     options = {
         "input": quarterly,
@@ -94,8 +67,20 @@ def test_known_maps_make_the_run_fail(tools, quarterly, prefix):
     }
     tools.t_rast_extract(output=f"{prefix}_a", **options)
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_rast_extract(output=f"{prefix}_b", **options)
+
+    # The text comparison "2002-01-01 00:00:00" > "2002-01-01" holds, so the
+    # first map of the selection is the one of January 2002.
+    assert (
+        f"Map <{prefix}_x_2002_01@PERMANENT> is already in temporal database, use "
+        "overwrite flag to overwrite"
+    ) in message(error.value)
+    # Nothing is made for the refused run.
+    assert (
+        f"{prefix}_b"
+        not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+    )
 
 
 @pytest.fixture(scope="module")

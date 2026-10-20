@@ -224,10 +224,11 @@ def extract_dataset(
             sp.base.get_name(),
             sp.base.get_map_id(),
         )
-        for count, row in enumerate(rows, 1):
-            if count % 10 == 0:
-                msgr.percent(count, num_rows, 1)
 
+        # Name every new map and refuse a known one before the first process
+        # starts: nothing is computed and no dataset is made for a refused run.
+        new_names = []
+        for count, row in enumerate(rows, 1):
             map_name = compile_new_map_name(
                 sp,
                 base,
@@ -237,6 +238,26 @@ def extract_dataset(
                 time_suffix,
                 dbif,
             )
+            if type != "vector":
+                map_id = AbstractMapDataset.build_id(map_name, mapset)
+            else:
+                map_id = AbstractMapDataset.build_id(map_name, mapset, row["layer"])
+            new_names.append((map_name, map_id))
+            if not gs.overwrite() and sp.get_new_map_instance(map_id).is_in_db(dbif):
+                dbif.close()
+                msgr.fatal(
+                    _(
+                        "Map <%s> is already in temporal database"
+                        ", use overwrite flag to overwrite"
+                    )
+                    % map_id
+                )
+
+        for count, row in enumerate(rows, 1):
+            if count % 10 == 0:
+                msgr.percent(count, num_rows, 1)
+
+            map_name, map_id = new_names[count - 1]
 
             # We need to modify the r(3).mapcalc expression
             if type != "vector":
@@ -244,28 +265,13 @@ def extract_dataset(
                 expr = expr.replace(sp.base.get_map_id(), row["id"])
                 expr = f"{map_name} = {expr}"
 
-                # We need to build the id
-                map_id = AbstractMapDataset.build_id(map_name, mapset)
-            else:
-                map_id = AbstractMapDataset.build_id(map_name, mapset, row["layer"])
-
             new_map = sp.get_new_map_instance(map_id)
 
-            # Check if new map is in the temporal database
+            # Remove the existing temporal database entry; without overwrite
+            # the check above has stopped the run
             if new_map.is_in_db(dbif):
-                if gs.overwrite():
-                    # Remove the existing temporal database entry
-                    new_map.delete(dbif)
-                    new_map = sp.get_new_map_instance(map_id)
-                else:
-                    msgr.error(
-                        _(
-                            "Map <%s> is already in temporal database"
-                            ", use overwrite flag to overwrite",
-                        )
-                        % (new_map.get_map_id()),
-                    )
-                    continue
+                new_map.delete(dbif)
+                new_map = sp.get_new_map_instance(map_id)
 
             # Add process to the process list
             if type == "raster":
