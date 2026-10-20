@@ -226,8 +226,10 @@ def test_basename_maps_that_exist_end_with_an_error_status(tools, series):
         "Map <sc_1@PERMANENT> is already in temporal database, "
         "use overwrite flag to overwrite"
     ) in message(error.value)
-    # The tool stops before it computes or makes anything.
+    # The tool stops before it computes or makes anything: the maps of the
+    # first run keep the values of S + 1, not S + 5.
     assert "S_base4" not in tools.t_list(type="strds", columns="name").stdout
+    assert [row.min for row in list_maps(tools, "strds", "S_base3")] == [2, 3, 4]
 
 
 @pytest.fixture(scope="module")
