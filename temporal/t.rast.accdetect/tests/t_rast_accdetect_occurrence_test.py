@@ -196,21 +196,6 @@ def test_a_maximum_dataset_alone(tools, cells, thresholds, detect):
     assert result == {1: [N, 1], 2: [2, N], 3: [3, N], 4: [N, 4]}
 
 
-def test_today_a_threshold_map_of_the_same_time_is_ignored(
-    tools, cells, thresholds, detect
-):
-    # The manual names the relation "equals" first, but the tool looks for
-    # EQUALS while the topology files equal times under EQUAL, so the range
-    # applies: 10 to 50 and the minimum dataset of 100 is not used.
-    result = detect("eqtoday", minimum="det_equal_min", range="10,50")
-
-    assert result == {0: [N, 0], 1: [1, 1], 2: [2, N], 3: [3, 3], 4: [N, 4]}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect ignores a threshold map of the same time, it looks for EQUALS but the topology files equal times under EQUAL",
-)
 def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds, detect):
     # Minimum 100 on each day: nothing lies above it.
     assert detect("eq", minimum="det_equal_min", range="10,50") == {}
@@ -232,22 +217,6 @@ def half_day_minimum(tools, cells):
     return "det_half_min"
 
 
-def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
-    tools, cells, half_day_minimum, detect
-):
-    # The tool looks for OVERLAPPING, the topology files the relation under
-    # OVERLAPPED. The granule of day 2 finds the minimum 100 (its cells 30
-    # and 5 are below it, so the map is empty), the granule of day 3 does not
-    # and takes the minimum 10 of the range: [3, 3].
-    result = detect("ovtoday", minimum=half_day_minimum, range="10,50")
-
-    assert result == {0: [N, 0], 1: [1, 1], 3: [3, 3], 4: [N, 4]}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect ignores a threshold map that the granule overlaps last, it looks for OVERLAPPING but the topology files OVERLAPPED",
-)
 def test_a_threshold_map_that_the_granule_overlaps_last_is_used(
     tools, cells, half_day_minimum, detect
 ):

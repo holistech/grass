@@ -126,7 +126,8 @@ import grass.script as gs
 
 ############################################################################
 
-range_relations = ["EQUALS", "DURING", "OVERLAPS", "OVERLAPPING", "CONTAINS"]
+# The keys of the relations as the topology builder files them.
+range_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
 
 
 def main():
