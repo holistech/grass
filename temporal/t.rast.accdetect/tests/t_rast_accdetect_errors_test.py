@@ -106,19 +106,6 @@ def test_a_refusal_comes_without_a_traceback(tools, cells):
     assert "Traceback" not in message(error.value)
 
 
-def test_today_an_unknown_input_ends_with_an_attribute_error(tools, cells):
-    # The message names a method (get_output_map_instance) that the dataset
-    # does not have.
-    with pytest.raises(ToolError) as error:
-        _run(tools, "no_such_dataset", "err_input")
-
-    assert "AttributeError" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect with an unknown input ends in an AttributeError (get_output_map_instance) instead of naming the missing dataset",
-)
 def test_an_unknown_input_is_refused_with_a_message(tools, cells):
     with pytest.raises(ToolError) as error:
         _run(tools, "no_such_dataset", "err_input2")

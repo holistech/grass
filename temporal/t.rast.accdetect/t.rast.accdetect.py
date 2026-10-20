@@ -162,7 +162,7 @@ def main():
         dbif.close()
         gs.fatal(
             _("Space time %s dataset <%s> not found")
-            % (input_strds.get_output_map_instance(None).get_type(), id)
+            % (input_strds.get_new_map_instance(None).get_type(), id)
         )
 
     input_strds.select(dbif)
