@@ -88,10 +88,10 @@ def test_the_b_flag_leaves_out_the_topology_but_keeps_the_table(tools, shapes, p
     assert len(_rows(tools, without_topology)[1]) == 9
 
 
-def test_today_a_column_that_is_no_sql_name_ends_with_a_traceback(
-    tools, shapes, prefix
-):
+def test_a_column_that_is_no_sql_name_is_refused_with_a_message(tools, shapes, prefix):
     with pytest.raises(ToolError) as error:
         _convert(tools, shapes, prefix, column="1x")
 
-    assert "Traceback" in str(error.value)
+    assert "Error running r.to.vect" in str(error.value)
+    assert "Traceback" not in str(error.value)
+    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0

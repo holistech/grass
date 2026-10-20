@@ -50,28 +50,6 @@ def test_an_existing_output_is_refused_without_overwrite(tools, shapes, prefix):
     assert len(list_maps(tools, "stvds", prefix)) == 3
 
 
-def test_today_a_failing_conversion_ends_with_a_traceback_and_leaves_nothing(
-    tools, shapes, prefix
-):
-    # The area of the first map (all cells filled) cannot be written with -z.
-    text = _refused(
-        tools,
-        input=shapes,
-        output=prefix,
-        basename=prefix,
-        type="area",
-        flags="z",
-    )
-
-    assert "Traceback" in text
-    assert "r.to.vect" in text
-    assert prefix not in _datasets(tools)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.to.vect ends in an r.to.vect traceback when the conversion fails instead of a message",
-)
 def test_a_failing_conversion_ends_with_a_message(tools, shapes, prefix):
     text = _refused(
         tools,
@@ -83,15 +61,18 @@ def test_a_failing_conversion_ends_with_a_message(tools, shapes, prefix):
     )
 
     assert "Traceback" not in text
+    assert "Error running r.to.vect" in text
+    assert prefix not in _datasets(tools)
 
 
-def test_today_lines_of_a_map_that_is_not_thin_end_with_a_traceback(
+def test_lines_of_a_map_that_is_not_thin_are_refused_with_a_message(
     tools, shapes, prefix
 ):
     # The first map is filled in every cell; r.to.vect finds no lines in it.
     text = _refused(tools, input=shapes, output=prefix, basename=prefix, type="line")
 
-    assert "Traceback" in text
+    assert "Traceback" not in text
+    assert "Error running r.to.vect" in text
     assert prefix not in _datasets(tools)
 
 

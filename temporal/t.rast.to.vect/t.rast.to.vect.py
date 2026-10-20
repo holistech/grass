@@ -105,6 +105,7 @@ import copy
 import sys
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
 
@@ -225,13 +226,21 @@ def main(options, flags):
         mod = copy.deepcopy(to_vector_module)
         mod(input=map.get_id(), output=new_map.get_id())
         sys.stderr.write(mod.get_bash() + "\n")
-        process_queue.put(mod)
+        try:
+            process_queue.put(mod)
+        except CalledModuleError as error:
+            dbif.close()
+            gs.fatal(_("Error running r.to.vect: {}").format(error))
 
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
 
     # Wait for unfinished processes
-    process_queue.wait()
+    try:
+        process_queue.wait()
+    except CalledModuleError as error:
+        dbif.close()
+        gs.fatal(_("Error running r.to.vect: {}").format(error))
 
     # Open the new space time vector dataset
     ttype, stype, title, descr = sp.get_initial_values()
@@ -252,7 +261,13 @@ def main(options, flags):
 
         # Do not register empty maps
         map.load()
-        if map.metadata.get_number_of_primitives() == 0:
+        primitives = map.metadata.get_number_of_primitives()
+        if primitives is None:
+            # Without topology (-b) the temporal library cannot count the
+            # primitives and stores None; v.info -t counts them from the
+            # coor file without writing a topology.
+            primitives = gs.vector_info_topo(map.get_id())["primitives"]
+        if primitives == 0:
             if not register_null:
                 empty_maps.append(map)
                 continue

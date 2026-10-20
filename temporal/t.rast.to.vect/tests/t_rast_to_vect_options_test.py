@@ -232,21 +232,6 @@ def test_overwrite_replaces_the_dataset(tools, quarterly, prefix):
     assert (info["number_of_maps"], info["areas"], info["points"]) == (4, 4, 0)
 
 
-def test_today_the_b_flag_registers_the_empty_map_without_n(tools, quarterly, prefix):
-    # Without topology the number of primitives of a map is not known (None,
-    # not 0), so the map without values is not seen as empty.
-    tools.t_rast_to_vect(
-        input=quarterly, output=prefix, basename=prefix, type="point", flags="b"
-    )
-
-    info = stds_info(tools, "stvds", prefix)
-    assert (info["number_of_maps"], info["points"]) == (5, "None")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.to.vect -b registers the empty map when -n is not given, the primitives are None, not 0",
-)
 def test_the_b_flag_drops_the_empty_map_without_n(tools, quarterly, prefix):
     tools.t_rast_to_vect(
         input=quarterly, output=prefix, basename=prefix, type="point", flags="b"
