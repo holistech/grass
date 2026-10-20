@@ -39,6 +39,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import math
 import os
 import tarfile
 from pathlib import Path
@@ -210,10 +211,11 @@ def _import_vector_maps_from_ogr(
 ############################################################################
 
 
-def _import_vector_maps(maplist: list[dict[str, str]]) -> None:
+def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) -> None:
     # We need to disable the projection check because of its
     # simple implementation
     impflags = "o"
+    unpacked = []
     for row in maplist:
         # Separate the name from the layer
         name = row["name"].split(":")[0]
@@ -237,6 +239,44 @@ def _import_vector_maps(maplist: list[dict[str, str]]) -> None:
             )
 
         imported_maps[name] = name
+        unpacked.append(name)
+
+    # v.unpack has no flag to extend the region, unlike v.in.ogr with -e
+    if extend and unpacked:
+        _extend_region_to_vector_maps(unpacked)
+
+
+def _extend_region_to_vector_maps(names: list[str]) -> None:
+    """Grow the region to cover the vector maps, as v.in.ogr -e does
+
+    In the PERMANENT mapset the default region of the project is the base and
+    is saved again; elsewhere the current region is the base. The new bounds
+    are aligned to the resolution from the north and west edges.
+    """
+    in_permanent = get_current_mapset() == "PERMANENT"
+    if in_permanent:
+        gs.run_command("g.region", flags="d")
+    region = gs.region()
+    north, south = region["n"], region["s"]
+    east, west = region["e"], region["w"]
+    for name in names:
+        info = gs.parse_command("v.info", map=name, flags="g")
+        north = max(north, float(info["north"]))
+        south = min(south, float(info["south"]))
+        east = max(east, float(info["east"]))
+        west = min(west, float(info["west"]))
+    rows = math.ceil((north - south) / region["nsres"])
+    cols = math.ceil((east - west) / region["ewres"])
+    gs.run_command(
+        "g.region",
+        n=north,
+        s=north - rows * region["nsres"],
+        e=west + cols * region["ewres"],
+        w=west,
+        rows=rows,
+        cols=cols,
+        flags="s" if in_permanent else None,
+    )
 
 
 ############################################################################
@@ -597,7 +637,7 @@ def import_stds(
                     suffix="xml" if format_ == "GML" else "gpkg",
                 )
             if format_ == "pack":
-                _import_vector_maps(maplist)
+                _import_vector_maps(maplist, extend=bool(exp or location))
 
         # Create the space time dataset
         if sp.is_in_db() and gs.overwrite() is True:

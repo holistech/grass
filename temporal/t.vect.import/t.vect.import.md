@@ -14,6 +14,10 @@ archive.
 The **directory** is used as work directory in case of import but can
 also be used as a data directory when using GML for the data exchange.
 
+With the **-e** flag the region is extended to the extent of the imported
+maps, for GML and GPKG archives by *[v.in.ogr](v.in.ogr.md)* and for pack
+archives by the module itself after *[v.unpack](v.unpack.md)*.
+
 ## EXAMPLE
 
 In this example, five vector maps are created and registered in a single

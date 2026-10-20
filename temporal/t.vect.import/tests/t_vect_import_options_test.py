@@ -100,19 +100,6 @@ def test_the_e_flag_extends_the_default_region_of_the_project(
     assert _extent(region) == EXTENDED
 
 
-def test_today_the_e_flag_does_not_extend_the_region_for_a_pack_archive(
-    archives, prefix, tmp_path
-):
-    # stds_import.py hands exp to the GML import only.
-    region = _region_after(archives, "pack", prefix, tmp_path, "e")
-
-    assert _extent(region) == DEFAULT
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.import -e does not extend the region for a pack archive, stds_import.py hands the flag to the GML import only",
-)
 def test_the_e_flag_extends_the_region_for_a_pack_archive(archives, prefix, tmp_path):
     region = _region_after(archives, "pack", prefix, tmp_path, "e")
 
