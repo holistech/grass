@@ -25,23 +25,6 @@ def foreign(two_mapsets, prefix):
     return f"{prefix}_src", maps
 
 
-def test_today_merging_a_dataset_of_another_mapset_fails(two_mapsets, prefix, foreign):
-    # The manual says that datasets of other mapsets in the search path can be
-    # merged. They cannot: registering their maps in the output fails.
-    work, _ = two_mapsets
-    name, _ = foreign
-
-    with pytest.raises(
-        ToolError,
-        match=r"Only\s+a\s+map\s+that\s+was\s+inserted\s+in\s+the\s+temporal\s+database",
-    ):
-        work.t_merge(inputs=f"{name}@other", output=f"{prefix}_out")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.merge of a dataset in another mapset fails when it registers the maps in the output",
-)
 def test_the_maps_of_a_dataset_of_another_mapset_are_merged(
     two_mapsets, prefix, foreign
 ):
@@ -53,25 +36,12 @@ def test_the_maps_of_a_dataset_of_another_mapset_are_merged(
     assert [r.name for r in list_maps(work, "strds", f"{prefix}_out")] == maps
 
 
-def test_today_a_failed_merge_leaves_an_empty_output(two_mapsets, prefix, foreign):
+def test_a_refused_merge_does_not_create_the_output(two_mapsets, prefix, foreign):
     work, _ = two_mapsets
     name, _ = foreign
 
     with pytest.raises(ToolError):
-        work.t_merge(inputs=f"{name}@other", output=f"{prefix}_out")
-
-    assert f"{prefix}_out" in work.t_list(type="strds", columns="name").stdout
-
-
-@pytest.mark.xfail(
-    strict=True, reason="a failed t.merge leaves the empty output dataset behind"
-)
-def test_a_failed_merge_does_not_create_the_output(two_mapsets, prefix, foreign):
-    work, _ = two_mapsets
-    name, _ = foreign
-
-    with pytest.raises(ToolError):
-        work.t_merge(inputs=f"{name}@other", output=f"{prefix}_out")
+        work.t_merge(inputs=f"{name}@other,{prefix}_missing", output=f"{prefix}_out")
 
     assert f"{prefix}_out" not in work.t_list(type="strds", columns="name").stdout
 

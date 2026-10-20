@@ -237,17 +237,6 @@ def test_an_unknown_type_is_refused(tools):
         tools.t_merge(type="raster", inputs="a", output="b")
 
 
-def test_today_an_output_with_the_current_mapset_ends_in_a_traceback(tools, prefix):
-    _make(tools, prefix)
-
-    with pytest.raises(ToolError, match="UnboundLocalError"):
-        tools.t_merge(inputs=f"{prefix}_a", output=f"{prefix}_out@PERMANENT")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.merge with an output that names the current mapset ends in an UnboundLocalError",
-)
 def test_the_output_may_name_the_current_mapset(tools, prefix):
     _make(tools, prefix)
 

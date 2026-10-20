@@ -62,6 +62,7 @@ def main():
 
     # Set the output name correct
     if output.find("@") >= 0:
+        output_id = output
         out_mapset = output.split("@")[1]
         if out_mapset != mapset:
             gs.fatal(
@@ -130,21 +131,33 @@ def main():
             for row in rows:
                 registered_output_maps[row["id"]] = row["id"]
 
-    for stds in stds_list:
-        # Avoid merging of already registered maps
-        if stds.get_id() != output_stds.get_id():
-            maps = stds.get_registered_maps_as_objects(dbif=dbif)
+    try:
+        for stds in stds_list:
+            # Avoid merging of already registered maps
+            if stds.get_id() != output_stds.get_id():
+                maps = stds.get_registered_maps_as_objects(dbif=dbif)
 
-            if maps:
-                for map in maps:
-                    # Jump over already registered maps
-                    if map.get_id() in registered_output_maps:
-                        continue
+                if maps:
+                    for map in maps:
+                        # Jump over already registered maps
+                        if map.get_id() in registered_output_maps:
+                            continue
 
-                    map.select(dbif=dbif)
-                    output_stds.register_map(map=map, dbif=dbif)
-                    # Update the registered map list
-                    registered_output_maps[map.get_id()] = map.get_id()
+                        map.select(dbif=dbif)
+                        # A map of another mapset is registered in the
+                        # temporal database of its own mapset only; the output
+                        # needs an entry for it in the current one.
+                        if not map.is_in_db(dbif, mapset):
+                            map.insert(dbif)
+                        output_stds.register_map(map=map, dbif=dbif)
+                        # Update the registered map list
+                        registered_output_maps[map.get_id()] = map.get_id()
+    except Exception:
+        # A new output that could not be filled would stay behind empty
+        if not output_exists:
+            output_stds.delete(dbif=dbif)
+        dbif.close()
+        raise
 
     output_stds.update_from_registered_maps(dbif=dbif)
 
