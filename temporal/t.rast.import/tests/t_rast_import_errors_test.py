@@ -130,28 +130,6 @@ def test_a_projection_that_differs_is_refused_without_the_o_flag(
     assert "Projection information does not match. Aborting." in text
 
 
-def test_today_an_unprojected_archive_cannot_create_a_project(
-    tools, archive, prefix, tmp_path
-):
-    # The archive of an unprojected project holds "XY location (unprojected)"
-    # as its projection, which the library hands to gs.create_location() as a
-    # PROJ string.
-    text = _refused(
-        tools,
-        input=str(archive),
-        output=prefix,
-        basename=prefix,
-        project=f"{prefix}_new",
-        directory=str(tmp_path),
-    )
-
-    assert "Can't parse PROJ.4-style parameter string" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason='t.rast.import cannot create a project for an unprojected archive, it passes "XY location (unprojected)" as a PROJ string',
-)
 def test_an_unprojected_archive_creates_an_unprojected_project(
     tools, archive, prefix, tmp_path
 ):
@@ -167,4 +145,8 @@ def test_an_unprojected_archive_creates_an_unprojected_project(
         directory=str(tmp_path),
     )
 
-    assert (gisdbase / f"{prefix}_new" / "PERMANENT" / "cell").is_dir()
+    created = gisdbase / f"{prefix}_new" / "PERMANENT"
+    assert (created / "cell" / f"{prefix}_1").is_file()
+    # The new project has no coordinate system, as the exporting one.
+    assert not (created / "PROJ_EPSG").exists()
+    assert not (created / "PROJ_INFO").exists()

@@ -426,9 +426,17 @@ def import_stds(
     if location:
         try:
             proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
-            gs.create_location(
-                dbase=old_env["GISDBASE"], location=location, proj4=proj4_string
-            )
+            # g.proj prints this text for an unprojected project, which is not
+            # a PROJ string; a project without a CRS is the XY project.
+            if proj4_string.startswith("XY location"):
+                gs.create_location(dbase=old_env["GISDBASE"], location=location)
+                # The GeoTIFFs of an unprojected project carry no CRS, which
+                # r.in.gdal accepts only with the override flag.
+                overr = True
+            else:
+                gs.create_location(
+                    dbase=old_env["GISDBASE"], location=location, proj4=proj4_string
+                )
             # Just create a new location and return
             if create:
                 os.chdir(old_cwd)

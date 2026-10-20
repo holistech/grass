@@ -13,6 +13,10 @@ The **directory** is used as work directory in case of import but can
 also be used as a data directory when using GeoTIFF for the data
 exchange.
 
+With the **project** option an archive of an unprojected project (the
+coordinate system "XY") creates an unprojected project; the maps are
+imported without a coordinate system check, as the GeoTIFF files hold none.
+
 ## EXAMPLE
 
 The North Carolina space time dataset contains a data package called
