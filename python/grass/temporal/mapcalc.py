@@ -309,13 +309,14 @@ def dataset_mapcalculator(
                     new_map.delete(dbif)
                     new_map = map_class(map_id)
                 else:
-                    msgr.error(
+                    # The batches run after this loop, so nothing is computed
+                    # and the result dataset is not made yet.
+                    msgr.fatal(
                         _(
                             "Map <{}> is already in temporal database, "
                             "use overwrite flag to overwrite"
                         ).format(map_id)
                     )
-                    continue
             extent = sample_extents[i]
             if is_absolute:
                 new_map.set_absolute_time(extent.start, extent.end)

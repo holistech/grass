@@ -22,7 +22,8 @@ STRDS. Empty maps resulting from map-calculation are not registered by
 default. This behavior can be changed with the <b>-n</b> flag. The
 flag <b>-s</b> can be used to assure that only spatially related maps
 in the STRDS's are processed. Spatially related means that temporally
-related maps overlap in their spatial extent.
+related maps overlap in their spatial extent. If a map of the base name exists and <b>--overwrite</b> is not given,
+the tool stops before it computes any map.
 <p>
 The module <em>t.rast.mapcalc</em> supports parallel processing. The option
 <b>nprocs</b> specifies the number of processes that can be started in

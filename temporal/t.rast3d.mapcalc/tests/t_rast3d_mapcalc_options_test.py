@@ -357,30 +357,17 @@ def test_the_flag_s_is_announced(tools, series, flags, announced, not_announced)
     assert not_announced not in text
 
 
-@pytest.mark.slow
-def test_basename_maps_that_exist_today_end_without_an_error_status(tools, series):
-    _call(tools, inputs="M1", output="MB1", expression="M1 + 1", basename="mb")
-
-    result = tools.t_rast3d_mapcalc(
-        inputs="M1", output="MB2", expression="M1 + 5", basename="mb"
-    )
-
-    text = message(result)
-    for number in (1, 2, 3):
-        assert (
-            f"Map <mb_{number}@PERMANENT> is already in temporal database, "
-            "use overwrite flag to overwrite"
-        ) in text
-    assert stds_info(tools, "str3ds", "MB2")["number_of_maps"] == 0
-
-
-@pytest.mark.xfail(
-    strict=True, reason="existing basename maps are reported as errors with status 0"
-)
 def test_basename_maps_that_exist_end_with_an_error_status(tools, series):
     _call(tools, inputs="M1", output="MB3", expression="M1 + 1", basename="mc")
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_rast3d_mapcalc(
             inputs="M1", output="MB4", expression="M1 + 5", basename="mc"
         )
+
+    assert (
+        "Map <mc_1@PERMANENT> is already in temporal database, "
+        "use overwrite flag to overwrite"
+    ) in message(error.value)
+    # The tool stops before it computes or makes anything.
+    assert "MB4" not in tools.t_list(type="str3ds", columns="name").stdout

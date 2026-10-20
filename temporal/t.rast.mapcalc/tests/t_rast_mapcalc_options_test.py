@@ -214,39 +214,20 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert not tools.g_list(type="raster", pattern="s_out*").stdout.strip()
 
 
-@pytest.mark.slow
-def test_basename_maps_that_exist_today_end_without_an_error_status(tools, series):
-    # The maps sk_1 to sk_3 belong to S_keep (see above). A second dataset
-    # with the same basename is not made, but the call reports success: the
-    # messages name an error for each map, the exit status is 0 and the output
-    # dataset exists with no maps.
-    _call(tools, inputs="S", output="S_base1", expression="S + 1", basename="sb")
-
-    result = tools.t_rast_mapcalc(
-        inputs="S", output="S_base2", expression="S + 5", basename="sb"
-    )
-
-    text = message(result)
-    for number in (1, 2, 3):
-        assert (
-            f"Map <sb_{number}@PERMANENT> is already in temporal database, "
-            "use overwrite flag to overwrite"
-        ) in text
-    assert list_maps(tools, "strds", "S_base2") == []
-    # The maps of the first dataset keep their values.
-    assert [row.min for row in list_maps(tools, "strds", "S_base1")] == [2, 3, 4]
-
-
-@pytest.mark.xfail(
-    strict=True, reason="existing basename maps are reported as errors with status 0"
-)
 def test_basename_maps_that_exist_end_with_an_error_status(tools, series):
     _call(tools, inputs="S", output="S_base3", expression="S + 1", basename="sc")
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_rast_mapcalc(
             inputs="S", output="S_base4", expression="S + 5", basename="sc"
         )
+
+    assert (
+        "Map <sc_1@PERMANENT> is already in temporal database, "
+        "use overwrite flag to overwrite"
+    ) in message(error.value)
+    # The tool stops before it computes or makes anything.
+    assert "S_base4" not in tools.t_list(type="strds", columns="name").stdout
 
 
 @pytest.fixture(scope="module")

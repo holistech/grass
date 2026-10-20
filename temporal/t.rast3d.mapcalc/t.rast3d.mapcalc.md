@@ -5,7 +5,8 @@
 [t.rast.mapcalc](t.rast.mapcalc.md) for documentation.
 
 It is a simple wrapper for [r3.mapcalc](r3.mapcalc.md) enhanced with
-temporal functions.
+temporal functions. If a map of the base name exists and **--overwrite** is
+not given, the tool stops before it computes any map.
 
 ## SEE ALSO
 

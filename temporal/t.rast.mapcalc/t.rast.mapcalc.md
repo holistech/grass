@@ -21,7 +21,8 @@ map-calculation are not registered by default. This behavior can be
 changed with the **-n** flag. The flag **-s** can be used to assure that
 only spatially related maps in the STRDS's are processed. Spatially
 related means that temporally related maps overlap in their spatial
-extent.
+extent. If a map of the base name exists and **--overwrite** is not given,
+the tool stops before it computes any map.
 
 The module *t.rast.mapcalc* supports parallel processing. The option
 **nprocs** specifies the number of processes that can be started in
