@@ -191,24 +191,24 @@ def test_grass_time_stamp_for_whole_hours_up_to_one(
     )
 
 
-def test_today_grass_time_stamp_of_two_hours_is_wrong(zone_tools, prefix):
-    # The offset is written in minutes ("+0120" for 120 minutes) where GRASS
-    # reads hours and minutes. The database holds the right +02:00.
+@pytest.mark.parametrize(
+    ("start", "expected"),
+    [
+        ("2001-01-01 10:00:00 +05:45", "1 Jan 2001 10:00:00 +0545"),
+        ("2001-01-01 10:00:00 -03:30", "1 Jan 2001 10:00:00 -0330"),
+        ("2001-01-01 10:00:00 +00:00", "1 Jan 2001 10:00:00 +0000"),
+    ],
+)
+def test_grass_time_stamp_has_hours_and_minutes_of_the_offset(
+    zone_tools, prefix, start, expected
+):
     maps, name = _maps_and_dataset(zone_tools, prefix, 1)
 
-    zone_tools.t_register(
-        type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00 +02:00"
-    )
+    zone_tools.t_register(type="raster", input=name, maps=maps[0], start=start)
 
-    assert zone_tools.r_timestamp(map=maps[0]).stdout.strip() == (
-        "1 Jan 2001 10:00:00 +0120"
-    )
+    assert zone_tools.r_timestamp(map=maps[0]).stdout.strip() == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.register writes the time zone offset into the GRASS time stamp in minutes (+0120 for +02:00), where GRASS reads hours and minutes",
-)
 def test_grass_time_stamp_of_two_hours(zone_tools, prefix):
     maps, name = _maps_and_dataset(zone_tools, prefix, 1)
 

@@ -857,16 +857,16 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
         >>> import dateutil.parser as parser
         >>> dt = parser.parse("2011-01-01 10:00:00 +01:30")
         >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0090'
+        '01 jan 2011 10:00:00 +0130'
         >>> dt = parser.parse("2011-01-01 10:00:00 +02:30")
         >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0150'
+        '01 jan 2011 10:00:00 +0230'
         >>> dt = parser.parse("2011-01-01 10:00:00 +12:00")
         >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 +0720'
+        '01 jan 2011 10:00:00 +1200'
         >>> dt = parser.parse("2011-01-01 10:00:00 -01:30")
         >>> tgis.datetime_to_grass_datetime_string(dt)
-        '01 jan 2011 10:00:00 -0090'
+        '01 jan 2011 10:00:00 -0130'
 
     """
     # GRASS datetime month names
@@ -892,10 +892,16 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
 
     # Check for time zone info in the datetime object
     if dt.tzinfo is not None:
-        tz = dt.tzinfo.utcoffset(0)
-        tz = (tz.seconds - 86400) / 60 if tz.seconds > 86400 / 2 else tz.seconds / 60
+        # GRASS reads the offset as hours and minutes (+0545 is 5:45), so the
+        # minutes of the offset must not be written as one number.
+        offset_minutes = int(dt.utcoffset().total_seconds() // 60)
+        tz = "%s%02i%02i" % (
+            "-" if offset_minutes < 0 else "+",
+            abs(offset_minutes) // 60,
+            abs(offset_minutes) % 60,
+        )
 
-        string = "%.2i %s %.2i %.2i:%.2i:%.2i %+.4i" % (
+        string = "%.2i %s %.2i %.2i:%.2i:%.2i %s" % (
             dt.day,
             month_names[dt.month],
             dt.year,
