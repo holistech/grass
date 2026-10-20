@@ -119,19 +119,6 @@ def test_region_relation_and_where_together(tools, regions):
     assert [row["id"].split("@")[0] for row in rows] == ["ur3_in", "ur3_part"]
 
 
-def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, regions):
-    with pytest.raises(ToolError) as error:
-        tools.t_rast3d_univar(input=regions, region_relation="touches")
-
-    text = message(error.value)
-    assert "Invalid spatial relation <touches> requested" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast3d.univar does not let the parser refuse a wrong region_relation, the library refuses it with a traceback",
-)
 def test_a_wrong_region_relation_is_refused_by_the_parser(tools, regions):
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_univar(input=regions, region_relation="touches")
