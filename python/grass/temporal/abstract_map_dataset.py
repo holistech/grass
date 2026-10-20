@@ -994,7 +994,7 @@ class AbstractMapDataset(AbstractDataset):
 
         if self.is_in_db(dbif, mapset=mapset):
             # SELECT all needed information from the database
-            self.metadata.select(dbif)
+            self.metadata.select(dbif, mapset=mapset)
 
             # Remember the datasets that hold the map: after the delete the
             # database no longer says which they were.

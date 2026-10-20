@@ -87,17 +87,6 @@ def test_inputs_and_file_exclude_each_other(tools, make_stds, has_dataset, tmp_p
     assert has_dataset(name)
 
 
-def test_today_the_exclusion_names_the_option_input(tools, tmp_path):
-    with pytest.raises(
-        ToolError, match=r"input=\s+and\s+file=\s+are\s+mutually\s+exclusive"
-    ):
-        tools.t_remove(inputs="a", file=tmp_path / "names.txt")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.remove names input= instead of inputs= when it refuses inputs together with file=",
-)
 def test_the_exclusion_names_the_options_inputs_and_file(tools, tmp_path):
     with pytest.raises(
         ToolError, match=r"inputs=\s+and\s+file=\s+are\s+mutually\s+exclusive"
@@ -105,20 +94,12 @@ def test_the_exclusion_names_the_options_inputs_and_file(tools, tmp_path):
         tools.t_remove(inputs="a", file=tmp_path / "names.txt")
 
 
-def test_today_a_missing_file_ends_in_a_traceback(tools, tmp_path):
-    with pytest.raises(ToolError, match="FileNotFoundError"):
-        tools.t_remove(file=tmp_path / "missing.txt", flags="f")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.remove ends in a FileNotFoundError traceback for a missing file instead of a message",
-)
 def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
     with pytest.raises(ToolError) as error:
         tools.t_remove(file=tmp_path / "missing.txt", flags="f")
 
     assert "Traceback" not in message(error.value)
+    assert "not found" in message(error.value)
 
 
 def test_an_unknown_dataset_is_refused(tools):
@@ -140,23 +121,6 @@ def test_an_unknown_dataset_after_a_known_one_removes_nothing(
     assert registered(maps) == [True] * 2
 
 
-def test_today_a_failed_call_with_r_has_unregistered_the_maps_before_the_error(
-    tools, make_stds, has_dataset, registered
-):
-    maps, (name,) = make_stds(2)
-
-    with pytest.raises(ToolError, match=r"not\s+found"):
-        tools.t_remove(inputs=f"{name},nope", flags="rf")
-
-    # The dataset stays, empty of maps that are no longer in the database.
-    assert has_dataset(name)
-    assert registered(maps) == [False] * 2
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="a failed t.remove -rf has already unregistered the maps of the datasets before the one that was not found",
-)
 def test_a_failed_call_does_not_change_anything(
     tools, make_stds, has_dataset, registered
 ):

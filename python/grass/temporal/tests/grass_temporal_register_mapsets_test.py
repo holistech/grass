@@ -126,7 +126,9 @@ def make_dataset(name):
     )
 
 
-def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(permanent):
+def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(
+    permanent, temporal_module_session
+):
     tools = permanent
     tools.r_mapcalc(expression="access_1 = 1")
     tools.r_mapcalc(expression="access_2 = 2")
@@ -167,7 +169,12 @@ def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(permanen
         datetime.datetime(2001, 1, 3),
     )
 
-    tools.t_remove(type="strds", inputs="access_abs@access_work", flags="rf")
+    result = Tools(
+        session=temporal_module_session,
+        overwrite=True,
+        consistent_return_value=True,
+        capture_stderr=True,
+    ).t_remove(type="strds", inputs="access_abs@access_work", flags="df")
 
     def in_db(name):
         return tgis.dataset_factory("strds", name).is_in_db()
@@ -175,8 +182,11 @@ def test_maps_of_another_mapset_go_into_a_dataset_of_the_current_mapset(permanen
     assert in_db("access_abs@access_work") is False
     # The dataset of the same name in PERMANENT is another one and stays.
     assert in_db("access_abs@PERMANENT") is True
-    # t.remove -f does not remove the maps of another mapset (seen
-    # 19.10.2026: both maps are still listed).
+    # GRASS writes to the current mapset only: -d leaves the maps of another
+    # mapset where they are and says so for each of them.
+    text = " ".join(result.stderr.split())
+    for name in ("access_1", "access_2"):
+        assert f"Map <{name}> is in mapset <PERMANENT> and is not removed" in text
     listed = tools.g_list(type="raster", mapset="PERMANENT").stdout.split()
     assert {"access_1", "access_2"} <= set(listed)
 

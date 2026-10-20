@@ -8,6 +8,12 @@ database using the recursive mode **-r** (recursive).
 Optionally, also the raster, 3D raster and vector maps of the space time
 datasets can be removed from the current mapset using the **-d**
 (delete) flag. All removals only work if **-f** (force) flag is used.
+GRASS writes to the current mapset only: a map of another mapset is not
+removed. *t.remove* warns for each such map and still removes the space time
+dataset.
+
+All space time datasets given are opened before the first one is removed, so
+an unknown name stops the run before anything has changed.
 
 ## EXAMPLE
 

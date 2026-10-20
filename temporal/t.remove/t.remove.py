@@ -57,6 +57,8 @@
 # % description: Remove stds, unregister maps from temporal database and delete them from mapset
 # %end
 
+from pathlib import Path
+
 import grass.script as gs
 
 # lazy imports at the end of the file
@@ -74,7 +76,7 @@ def main():
     clean = flags["d"]
 
     if datasets and file:
-        gs.fatal(_("%s= and %s= are mutually exclusive") % ("input", "file"))
+        gs.fatal(_("%s= and %s= are mutually exclusive") % ("inputs", "file"))
 
     # Make sure the temporal database exists
     tgis.init()
@@ -92,6 +94,8 @@ def main():
             dataset_list = tuple(datasets.split(","))
 
     if file:
+        if not Path(file).is_file():
+            gs.fatal(_("File <{}> not found").format(file))
         line = True
         with open(file) as fd:
             while True:
@@ -116,9 +120,11 @@ def main():
     if not force:
         gs.message(_("The following data base element files will be deleted:"))
 
-    for name in dataset_list:
-        name = name.strip()
-        sp = tgis.open_old_stds(name, type, dbif)
+    # All datasets are opened before the first one is removed, so that an
+    # unknown name stops the run before anything has changed.
+    stds_list = [tgis.open_old_stds(name.strip(), type, dbif) for name in dataset_list]
+
+    for sp in stds_list:
         if not force:
             gs.message(
                 _("{stds}: {gid}").format(stds=sp.get_type().upper(), gid=sp.get_id())
@@ -145,7 +151,9 @@ def main():
             count = 1
             name_list = []
             for map in maps:
-                map.select(dbif)
+                # A map of another mapset is registered in the database of
+                # the current mapset only, when no dataset there holds it.
+                map.select(dbif, mapset=current_mapset)
                 # We may have multiple layer for a single map, hence we need
                 # to avoid multiple deletions of the same map,
                 # but the database entries are still present and must be removed
@@ -153,7 +161,15 @@ def main():
                     gs.message(_("- %s") % map.get_name())
                     continue
                 if clean and force:
-                    if map.get_name() not in name_list:
+                    # g.remove works in the current mapset only
+                    if map.get_mapset() != current_mapset:
+                        gs.warning(
+                            _(
+                                "Map <{name}> is in mapset <{mapset}> and is "
+                                "not removed"
+                            ).format(name=map.get_name(), mapset=map.get_mapset())
+                        )
+                    elif map.get_name() not in name_list:
                         name_list.append(str(map.get_name()))
                 # The register of the current mapset, which delete() also
                 # uses: the map may belong to another mapset, whose temporal
