@@ -26,6 +26,7 @@ from .c_libraries_interface import CLibrariesInterface, RPCDefs, c_library_serve
 from .core import (
     DBConnection,
     SQLDatabaseInterfaceConnection,
+    SQLStatementError,
     create_temporal_database,
     get_available_temporal_mapsets,
     get_current_gisdbase,
@@ -224,6 +225,7 @@ __all__ = [
     "RelativeTemporalExtent",
     "SQLDatabaseInterface",
     "SQLDatabaseInterfaceConnection",
+    "SQLStatementError",
     "STDSAbsoluteTime",
     "STDSBase",
     "STDSMetadataBase",

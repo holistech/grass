@@ -98,7 +98,7 @@ def test_failed_insert_leaves_no_connection_open(session_with_maps):
 
     duplicate = _loaded_map("finite")
     duplicate.base.set_creator("someone else")
-    with pytest.raises(sqlite3.Error) as failure:
+    with pytest.raises(tgis.SQLStatementError) as failure:
         duplicate.insert()
 
     # The traceback of the failure keeps the frames and with them a

@@ -66,6 +66,20 @@ else:
     db_errors = (sqlite3.Error,)
 
 
+class SQLStatementError(RuntimeError):
+    """A SQL statement of the temporal database failed
+
+    The message is the one of the database driver; statement holds the SQL
+    text. Tools report it with a fatal error instead of a traceback. The class
+    does not derive from the driver's errors, so a caller does not depend on
+    the database backend.
+    """
+
+    def __init__(self, message, statement):
+        super().__init__(message)
+        self.statement = statement
+
+
 ###############################################################################
 # Register datetime adapters and converters for the temporal database
 def adapt_datetime_iso(value: datetime) -> str:
@@ -1620,9 +1634,9 @@ class DBConnection:
                 self.cursor.execute(statement, args)
             else:
                 self.cursor.execute(statement)
-        except db_errors:
+        except db_errors as error:
             self.msgr.error(_("Unable to execute :\n %(sql)s") % {"sql": statement})
-            raise
+            raise SQLStatementError(str(error), statement) from error
         finally:
             if connected:
                 self.close()
@@ -1658,7 +1672,7 @@ class DBConnection:
             else:
                 self.cursor.execute(statement)
             self.connection.commit()
-        except db_errors:
+        except db_errors as error:
             self.msgr.error(
                 _("Unable to execute transaction:\n %(sql)s") % {"sql": statement}
             )
@@ -1667,7 +1681,7 @@ class DBConnection:
             # failing one and the database would keep a half written entry.
             if self.dbmi.__name__ == "sqlite3" and self.connection.in_transaction:
                 self.connection.rollback()
-            raise
+            raise SQLStatementError(str(error), statement) from error
         finally:
             if connected:
                 self.close()
