@@ -254,6 +254,20 @@ def register_maps_in_space_time_dataset(
 
     option_end = end
 
+    # Whether the times of the dataset have a time zone; unknown for an
+    # empty dataset until the first new map is seen
+    zone_aware = None
+    if name and sp.is_time_absolute():
+        # The start time of the dataset itself loses its time zone, so the
+        # first registered map is looked at instead.
+        rows = sp.get_registered_maps("start_time", None, "start_time", dbif)
+        if rows:
+            dataset_start = rows[0]["start_time"]
+            if isinstance(dataset_start, str):
+                dataset_start = check_datetime_string(dataset_start)
+            if isinstance(dataset_start, datetime):
+                zone_aware = dataset_start.tzinfo is not None
+
     msgr.debug(2, "Gathering map information...")
 
     for count, row in enumerate(maplist):
@@ -424,6 +438,32 @@ def register_maps_in_space_time_dataset(
         else:
             # Try to read semantic label from GRASS data base if defined
             map_object.read_semantic_label_from_grass()
+
+        # A dataset cannot hold times with and without a time zone, because
+        # their extent cannot be computed. Refuse before the map is written,
+        # as the refusal would otherwise come after the maps were registered.
+        if name and sp.is_time_absolute():
+            start_time = map_object.temporal_extent.get_start_time()
+            if isinstance(start_time, datetime):
+                aware = start_time.tzinfo is not None
+                if zone_aware is None:
+                    zone_aware = aware
+                elif zone_aware != aware:
+                    dbif.close()
+                    msgr.fatal(
+                        _(
+                            "Unable to register {t} map <{mid}>. Its time "
+                            "{with_or_without} a time zone, the time of the "
+                            "maps in the space time dataset <{name}> "
+                            "{other}."
+                        ).format(
+                            t=map_object_type,
+                            mid=map_object_id,
+                            name=name,
+                            with_or_without=_("has") if aware else _("has no"),
+                            other=_("has none") if aware else _("has one"),
+                        )
+                    )
 
         if is_in_db:
             #  Gather the SQL update statement

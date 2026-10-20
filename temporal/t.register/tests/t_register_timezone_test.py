@@ -221,38 +221,20 @@ def test_grass_time_stamp_of_two_hours(zone_tools, prefix):
     )
 
 
-def test_today_a_time_without_offset_in_a_dataset_with_offsets_fails(
-    zone_tools, prefix
-):
-    maps, name = _maps_and_dataset(zone_tools, prefix, 2)
-    zone_tools.t_register(
-        type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00 +02:00"
-    )
-
-    with pytest.raises(
-        ToolError, match=r"can't\s+compare\s+offset-naive\s+and\s+offset-aware"
-    ):
-        zone_tools.t_register(
-            type="raster", input=name, maps=maps[1], start="2001-01-02 10:00:00"
-        )
-
-    # The map is in the dataset although the call failed.
-    assert stds_info(zone_tools, "strds", name)["number_of_maps"] == 2
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="a failed t.register of a time without offset into a dataset with offsets leaves the dataset changed",
-)
 def test_a_failed_call_does_not_change_the_dataset(zone_tools, prefix):
     maps, name = _maps_and_dataset(zone_tools, prefix, 2)
     zone_tools.t_register(
         type="raster", input=name, maps=maps[0], start="2001-01-01 10:00:00 +02:00"
     )
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         zone_tools.t_register(
             type="raster", input=name, maps=maps[1], start="2001-01-02 10:00:00"
         )
 
+    assert "time zone" in str(error.value)
+    assert "Traceback" not in str(error.value)
     assert stds_info(zone_tools, "strds", name)["number_of_maps"] == 1
+    # The refused map got no time stamp either (r.timestamp fails without one).
+    with pytest.raises(ToolError):
+        zone_tools.r_timestamp(map=maps[1])
