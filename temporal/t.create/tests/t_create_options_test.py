@@ -272,13 +272,12 @@ def test_required_option_is_checked(tools, missing):
 # with "." or contains a character up to " ", one of / " ' @ , = * or a byte
 # above 0176. A semicolon and a leading digit are legal there.
 LEGAL_NAMES = {"leading_digit": "1digit", "semicolon": "semi;colon"}
-# The value says whether t.create warns today; the comma passes silently.
 ILLEGAL_NAMES = {
-    "space": ("a b", True),
-    "slash": ("sl/ash", True),
-    "equals": ("eq=ual", True),
-    "star": ("st*ar", True),
-    "comma": ("com,ma", False),
+    "space": "a b",
+    "slash": "sl/ash",
+    "equals": "eq=ual",
+    "star": "st*ar",
+    "comma": "com,ma",
 }
 
 
@@ -295,64 +294,25 @@ def test_odd_but_legal_names_are_accepted(tools, case):
 
 
 @pytest.mark.parametrize("case", ILLEGAL_NAMES)
-def test_today_an_illegal_name_is_accepted(tools, case):
-    name, warns = ILLEGAL_NAMES[case]
-    name = f"today_{name}"
-
-    result = tools.t_create(output=name, **CREATE)
-
-    assert ("Illegal filename" in message(result)) == warns
-    assert _listed(tools, "strds", name) == [
-        {"name": name, "type": "strds", "semantic_type": "mean"}
-    ]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.create accepts a name that G_legal_filename refuses and only warns",
-)
-@pytest.mark.parametrize("case", ILLEGAL_NAMES)
 def test_an_illegal_name_is_refused(tools, case):
-    name, _ = ILLEGAL_NAMES[case]
-    name = f"right_{name}"
+    name = f"right_{ILLEGAL_NAMES[case]}"
 
-    with pytest.raises(ToolError):
+    with pytest.raises(ToolError) as error:
         tools.t_create(output=name, **CREATE)
 
+    assert "is not a valid name for a space time dataset" in message(error.value)
     assert _listed(tools, "strds", name) == []
 
 
-@pytest.mark.slow
-def test_today_a_leading_dot_gives_a_dataset_without_a_name(tmp_path):
-    # G_legal_filename refuses a leading dot, t.create only warns and then
-    # stores the dataset under the id "@<mapset>" with an empty name, so it
-    # cannot be found by the name it was given. A project of its own, because
-    # every such dataset has the same id.
-    with project_session(tmp_path / "project") as session:
-        tools = Tools(
-            session=session, consistent_return_value=True, capture_stderr=True
-        )
-
-        result = tools.t_create(output=".dot", **CREATE)
-
-        assert "Cannot start with '.'" in message(result)
-        rows = tools.t_list(type="strds", format="json").json
-        assert [(row["id"], row["name"]) for row in rows] == [("@PERMANENT", "")]
-        with pytest.raises(ToolError, match=r"not\s+found\s+in\s+temporal"):
-            tools.t_info(type="strds", input=".dot", flags="g")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.create accepts a name with a leading dot and stores the dataset under an empty name",
-)
 def test_a_leading_dot_is_refused(tmp_path):
     with project_session(tmp_path / "project") as session:
         tools = Tools(
             session=session, consistent_return_value=True, capture_stderr=True
         )
 
-        with pytest.raises(ToolError):
+        with pytest.raises(ToolError) as error:
             tools.t_create(output=".dot", **CREATE)
+
+        assert "is not a valid name for a space time dataset" in message(error.value)
 
         assert tools.t_list(type="strds", format="json").json == []

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 import contextlib
 
+import grass.script as gs
 from grass.exceptions import FatalError
 
 from .abstract_map_dataset import AbstractMapDataset
@@ -184,7 +185,14 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
 
     msgr = get_tgis_message_interface()
 
+    given_name = name
     name, mapset, _semantic_label = _parse_id(name, stds_type=stds_type)
+    # An empty name (".dot" of a strds is split into the name "" and the
+    # label "dot") would be stored under the id "@mapset" and could never be
+    # found by the name it was given. The command line parser only warns about
+    # a name that G_legal_filename() refuses, so the check is made here.
+    if not gs.legal_name(name):
+        msgr.fatal(_("<%s> is not a valid name for a space time dataset") % given_name)
     if mapset:
         if mapset != get_current_mapset():
             msgr.fatal(

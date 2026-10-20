@@ -14,6 +14,14 @@ Time stamped maps can registered in and unregistered from space time
 datasets. The spatio-temporal extent as well as the metadata of a space
 time dataset is derived from its registered maps. Hence the metadata is
 dependent from the dataset type (raster, 3D raster, vector).
+<p>
+The name of a space time dataset follows the rules for map names: it must not
+be empty or start with a dot, and it must not contain a space, a slash, a
+quotation mark, an apostrophe, <code>@</code>, a comma, <code>=</code>,
+<code>*</code> or <code>~</code>. <em>t.create</em> stops
+with an error for such a name. For a raster dataset (STRDS) the part of the
+name after the first dot is a semantic label, so the name before it must be
+legal as well.
 
 <h2>EXAMPLE</h2>
 

@@ -58,3 +58,18 @@ def test_new_raster_dataset_with_dot_can_be_read_again(project_session):
     tgis.open_new_stds("a.b", "raster", "absolute", "t", "d", "mean")
     sp = tgis.open_old_stds("a.b", "raster")
     assert sp.get_id() == f"a.b@{sp.get_mapset()}"
+
+
+@pytest.mark.parametrize(
+    ("stds_type", "name"),
+    [
+        ("strds", ".dot"),
+        ("raster", ".dot"),
+        ("stvds", "a b"),
+        ("strds", "a/b"),
+        ("strds", "a,b"),
+    ],
+)
+def test_a_name_that_is_not_legal_is_refused(project_session, stds_type, name):
+    with pytest.raises(FatalError, match="is not a valid name"):
+        tgis.check_new_stds(name, stds_type)

@@ -15,6 +15,13 @@ datasets. The spatio-temporal extent as well as the metadata of a space
 time dataset is derived from its registered maps. Hence the metadata is
 dependent from the dataset type (raster, 3D raster, vector).
 
+The name of a space time dataset follows the rules for map names: it must not
+be empty or start with a dot, and it must not contain a space, a slash, a
+quotation mark, an apostrophe, `@`, a comma, `=`, `*` or `~`. *t.create* stops
+with an error for such a name. For a raster dataset (STRDS) the part of the
+name after the first dot is a semantic label, so the name before it must be
+legal as well.
+
 ## EXAMPLE
 
 ### Absolute STRDS dataset
