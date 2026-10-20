@@ -180,28 +180,18 @@ def relative_threshold(tools, daily):
     )
 
 
-def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(
-    tools, relative_threshold
-):
-    # The tool means to refuse it, but compares the type of the dataset
-    # before the dataset is read. No map of the dataset relates to a granule,
-    # so the limits apply.
-    rows = _accumulate(tools, "lim_rel_today", lower="lim_relative")
-
-    assert rows == _sums(5, 15, 35, 70, 90, 100, 105)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate accepts a threshold dataset of the other time type, the check compares the type before the dataset is read",
-)
+@pytest.mark.parametrize("option", ["lower", "upper"])
 def test_a_threshold_dataset_of_the_other_time_type_is_refused(
-    tools, relative_threshold
+    tools, relative_threshold, option
 ):
-    with pytest.raises(ToolError) as error:
-        _accumulate(tools, "lim_rel", lower="lim_relative")
+    # The upper dataset is only read together with a lower one.
+    options = {"lower": "lim_lower"} if option == "upper" else {}
+    options[option] = "lim_relative"
 
-    assert "Temporal type of input strds and lower strds must be equal" in message(
+    with pytest.raises(ToolError) as error:
+        _accumulate(tools, f"lim_rel_{option}", **options)
+
+    assert f"Temporal type of input strds and {option} strds must be equal" in message(
         error.value
     )
 

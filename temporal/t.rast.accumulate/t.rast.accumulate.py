@@ -249,11 +249,11 @@ def main():
                 _("Space time raster dataset <%s> not found") % (lower_strds.get_id())
             )
 
+        # The type is read from the dataset, which select() loads.
+        lower_strds.select(dbif)
         if lower_strds.get_temporal_type() != input_strds.get_temporal_type():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and lower strds must be equal"))
-
-        lower_strds.select(dbif)
 
     # The upper threshold space time raster dataset
     if upper:
@@ -271,11 +271,11 @@ def main():
                 _("Space time raster dataset <%s> not found") % (upper_strds.get_id())
             )
 
+        # The type is read from the dataset, which select() loads.
+        upper_strds.select(dbif)
         if upper_strds.get_temporal_type() != input_strds.get_temporal_type():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and upper strds must be equal"))
-
-        upper_strds.select(dbif)
 
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
 
