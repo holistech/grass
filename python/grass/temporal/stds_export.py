@@ -495,6 +495,11 @@ def export_stds(
                     # 123456789012345678901234567890
                     read_file.write("       *.tif  -- GeoTIFF raster files\n")
                     read_file.write("     *.color  -- GRASS raster color rules\n")
+                elif format_ == "AAIGrid":
+                    read_file.write(
+                        "       *.asc  -- Arc/Info ASCII Grid raster files\n"
+                    )
+                    read_file.write("     *.color  -- GRASS raster color rules\n")
                 elif format_ == "pack":
                     read_file.write(
                         "      *.pack  -- GRASS raster files packed with r.pack\n"
@@ -503,6 +508,8 @@ def export_stds(
                 # 123456789012345678901234567890
                 if format_ == "GML":
                     read_file.write("       *.xml  -- Vector GML files\n")
+                elif format_ == "GPKG":
+                    read_file.write("      *.gpkg  -- Vector GeoPackage files\n")
                 else:
                     read_file.write(
                         "      *.pack  -- GRASS vector files packed with v.pack\n"

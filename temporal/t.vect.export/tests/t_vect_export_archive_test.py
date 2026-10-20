@@ -256,25 +256,11 @@ def test_readme_names_the_files_of_the_format(tools, absolute, tmp_path):
     )
 
 
-def test_today_readme_describes_a_gpkg_archive_as_packed_files(
-    tools, absolute, tmp_path
-):
-    archive = tmp_path / "out"
-
-    _export(tools, absolute, archive, format="GPKG", compression="no")
-
-    assert "*.pack  -- GRASS vector files packed with v.pack" in _read(
-        archive, "readme.txt"
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.export describes a GPKG archive in readme.txt as v.pack files",
-)
 def test_readme_names_the_gpkg_files_of_a_gpkg_archive(tools, absolute, tmp_path):
     archive = tmp_path / "out"
 
     _export(tools, absolute, archive, format="GPKG", compression="no")
 
-    assert "*.pack" not in _read(archive, "readme.txt")
+    text = _read(archive, "readme.txt")
+    assert "*.gpkg  -- Vector GeoPackage files" in text
+    assert "*.pack" not in text

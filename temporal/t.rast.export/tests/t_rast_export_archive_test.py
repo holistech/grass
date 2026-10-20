@@ -158,3 +158,21 @@ def test_the_packed_maps_are_not_compressed_again(tools, absolute, tmp_path):
         member.seek(0)
         with tarfile.open(fileobj=member, mode="r:") as inner:
             assert inner.getnames()
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("fmt", "line"),
+    [
+        ("GTiff", "*.tif  -- GeoTIFF raster files"),
+        ("AAIGrid", "*.asc  -- Arc/Info ASCII Grid raster files"),
+        ("pack", "*.pack  -- GRASS raster files packed with r.pack"),
+    ],
+)
+def test_readme_names_the_files_of_the_format(tools, absolute, tmp_path, fmt, line):
+    archive = tmp_path / "out"
+
+    _export(tools, absolute, archive, format=fmt, compression="no")
+
+    assert line in _read(archive, "readme.txt")
