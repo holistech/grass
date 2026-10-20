@@ -75,26 +75,6 @@ def test_the_registration_of_a_foreign_map_is_listed(two_mapsets, prefix, foreig
     assert result.text_split("\n") == ["name|mapset", f"{prefix}_loose|other"]
 
 
-def test_today_t_info_does_not_find_a_foreign_map_registered_in_the_current_mapset(
-    two_mapsets, foreign_map
-):
-    # t.info looks in the database of the mapset in the name, and the entry is
-    # in the database of the mapset that registered the map.
-    work, _ = two_mapsets
-
-    with pytest.raises(ToolError) as error:
-        work.t_info(type="raster", input=foreign_map, flags="g")
-
-    assert (
-        f"Dataset <{foreign_map}> of type <raster> not found in temporal database"
-        in (message(error.value))
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.info does not find a map of another mapset that is registered in the current mapset",
-)
 def test_t_info_finds_a_foreign_map_registered_in_the_current_mapset(
     two_mapsets, foreign_map
 ):

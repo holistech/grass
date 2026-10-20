@@ -97,14 +97,20 @@ def main():
     id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
     dataset = tgis.dataset_factory(type_, id_)
 
+    # The database of the mapset of the dataset is read by default. A map of
+    # another mapset can be registered in the current mapset only, so the
+    # current mapset is the second place to look.
+    mapset = None
     if not dataset.is_in_db(dbif):
-        gs.fatal(
-            _("Dataset <{n}> of type <{t}> not found in temporal database").format(
-                n=id_, t=type_
+        mapset = tgis.get_current_mapset()
+        if not dataset.is_in_db(dbif, mapset=mapset):
+            gs.fatal(
+                _("Dataset <{n}> of type <{t}> not found in temporal database").format(
+                    n=id_, t=type_
+                )
             )
-        )
 
-    dataset.select(dbif)
+    dataset.select(dbif, mapset=mapset)
 
     if history and type_ in {"strds", "stvds", "str3ds"}:
         dataset.print_history()
