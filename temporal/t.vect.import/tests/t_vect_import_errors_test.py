@@ -1,7 +1,9 @@
 """Test the refusals of t.vect.import
 
-The library reports its refusals with gs.fatal(), which in a tool called from a
-session ends with a traceback after the message. The archives come from
+The refusals of the archive itself (missing, no archive, cut off, wrong
+directory) end with a message. The later ones come from a gs.fatal() that
+raises ScriptError while the library runs, so the tool ends with a traceback
+after the message. The archives come from
 t.vect.export (conftest.py); the damaged ones are copies of them.
 """
 
@@ -54,26 +56,16 @@ def test_a_required_option_is_checked_by_the_parser(
     assert f"Required parameter <{missing}> not set" in _refused(tools, **options)
 
 
-def test_today_a_missing_archive_ends_with_a_traceback(tools, prefix, tmp_path):
+def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     text = _refused(
         tools, input=str(tmp_path / "none.tar"), output=prefix, directory=str(tmp_path)
     )
 
     assert "Space time raster dataset archive" in text
     assert "not found" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.import ends in a traceback for a missing archive instead of a message",
-)
-def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
-    text = _refused(
-        tools, input=str(tmp_path / "none.tar"), output=prefix, directory=str(tmp_path)
-    )
-
     assert "Traceback" not in text
+    assert f"{prefix}" not in tools.t_list(type="stvds", columns="name").stdout
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_missing_extraction_directory_is_refused(tools, archives, prefix, tmp_path):
@@ -87,26 +79,32 @@ def test_a_missing_extraction_directory_is_refused(tools, archives, prefix, tmp_
     assert f"Extraction directory <{tmp_path / 'nope'}> not found" in text
 
 
-def test_today_a_file_that_is_no_archive_ends_with_a_traceback(tools, prefix, tmp_path):
-    junk = tmp_path / "junk"
-    junk.write_text("no archive")
-
-    text = _refused(tools, input=str(junk), output=prefix, directory=str(tmp_path))
-
-    assert "tarfile.ReadError" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.import ends in a tarfile.ReadError traceback for a file that is no archive instead of a message",
-)
 def test_a_file_that_is_no_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     junk = tmp_path / "junk"
     junk.write_text("no archive")
 
     text = _refused(tools, input=str(junk), output=prefix, directory=str(tmp_path))
 
+    assert f"File <{junk}> is not a tar archive" in text
     assert "Traceback" not in text
+    assert f"{prefix}" not in tools.t_list(type="stvds", columns="name").stdout
+    assert [path.name for path in tmp_path.iterdir()] == ["junk"]
+
+
+def test_a_truncated_archive_is_reported_as_a_message(
+    tools, archives, prefix, tmp_path
+):
+    # The first header is readable, the last member is cut off.
+    truncated = tmp_path / "truncated.tar"
+    data = archives["GML"].read_bytes()
+    truncated.write_bytes(data[: len(data) // 2])
+
+    text = _refused(tools, input=str(truncated), output=prefix, directory=str(tmp_path))
+
+    assert f"Unable to read the archive <{truncated}>" in text
+    assert "Traceback" not in text
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
+    assert [path.name for path in tmp_path.iterdir()] == ["truncated.tar"]
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).

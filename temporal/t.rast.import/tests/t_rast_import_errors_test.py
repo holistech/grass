@@ -1,7 +1,8 @@
 """Test the refusals of t.rast.import
 
-The library reports its refusals with gs.fatal(), which in a tool called from a
-session ends with a traceback after the message.
+The refusals of the archive itself (missing, no archive, wrong directory) end
+with a message. The later ones come from a gs.fatal() that raises ScriptError
+while the library runs, so the tool ends with a traceback after the message.
 """
 
 from datetime import datetime
@@ -49,22 +50,14 @@ def test_a_required_option_is_checked_by_the_parser(tools, archive, prefix, miss
     assert f"Required parameter <{missing}> not set" in _refused(tools, **options)
 
 
-def test_today_a_missing_archive_ends_with_a_traceback(tools, prefix, tmp_path):
+def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
     text = _refused(tools, input=str(tmp_path / "none.tar"), output=prefix, flags="o")
 
     assert "Space time raster dataset archive" in text
     assert "not found" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.import ends in a traceback for a missing archive instead of a message",
-)
-def test_a_missing_archive_is_reported_as_a_message(tools, prefix, tmp_path):
-    text = _refused(tools, input=str(tmp_path / "none.tar"), output=prefix, flags="o")
-
     assert "Traceback" not in text
+    assert f"{prefix}" not in tools.t_list(type="strds", columns="name").stdout
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_missing_extraction_directory_is_refused(tools, archive, prefix, tmp_path):

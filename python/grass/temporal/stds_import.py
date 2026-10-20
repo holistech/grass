@@ -277,8 +277,19 @@ def import_stds(
                  extended using a numerical index.
     :param memory: Cache size for raster rows, used in r.in.gdal
     """
-    old_state = gs.get_raise_on_error()
-    gs.set_raise_on_error(True)
+    # The checks of the archive come first and use the plain gs.fatal(), which
+    # ends a tool with a message. The raise-on-error state set after the
+    # extraction makes every later gs.fatal() a ScriptError, which the tools do
+    # not catch, and is restored only when the import has run.
+    input_path = Path(input)
+    if not input_path.exists():
+        gs.fatal(_("Space time raster dataset archive <%s> not found") % str(input))
+    if not tarfile.is_tarfile(input_path):
+        gs.fatal(_("File <%s> is not a tar archive") % str(input))
+    if not create:
+        directory = directory or gs.tempdir()
+        if not Path(directory).exists():
+            gs.fatal(_("Extraction directory <%s> not found") % directory)
 
     if stds_type == "stvds" and not overr:
         gs.warning(
@@ -289,39 +300,40 @@ def import_stds(
         )
         overr = True
 
-    input_path = Path(input)
-    # Check if input file and extraction directory exits
-    if not input_path.exists():
-        gs.fatal(_("Space time raster dataset archive <%s> not found") % str(input))
-    if not create:
-        directory = directory or gs.tempdir()
-        if not Path(directory).exists():
-            gs.fatal(_("Extraction directory <%s> not found") % directory)
+    try:
+        with tarfile.open(name=input_path, mode="r") as tar:
+            # Check for important files
+            msgr = get_tgis_message_interface()
+            msgr.message(
+                _(
+                    "Checking validity of input file (size: %0.1f MB). Make take a while..."
+                )
+                % (input_path.stat().st_size / (1024 * 1024.0)),
+            )
+            # Make sure that the basenames of the files are used for comparison
+            member_basenames = [Path(name).name for name in tar.getnames()]
 
-    with tarfile.open(name=input_path, mode="r") as tar:
-        # Check for important files
-        msgr = get_tgis_message_interface()
-        msgr.message(
-            _("Checking validity of input file (size: %0.1f MB). Make take a while...")
-            % (input_path.stat().st_size / (1024 * 1024.0)),
-        )
-        # Make sure that the basenames of the files are used for comparison
-        member_basenames = [Path(name).name for name in tar.getnames()]
+            if str(init_file_name) not in member_basenames:
+                gs.fatal(_("Unable to find init file <%s>") % init_file_name)
+            if str(list_file_name) not in member_basenames:
+                gs.fatal(_("Unable to find list file <%s>") % list_file_name)
+            if str(proj_file_name) not in member_basenames:
+                gs.fatal(_("Unable to find projection file <%s>") % proj_file_name)
 
-        if str(init_file_name) not in member_basenames:
-            gs.fatal(_("Unable to find init file <%s>") % init_file_name)
-        if str(list_file_name) not in member_basenames:
-            gs.fatal(_("Unable to find list file <%s>") % list_file_name)
-        if str(proj_file_name) not in member_basenames:
-            gs.fatal(_("Unable to find projection file <%s>") % proj_file_name)
+            msgr.message(_("Extracting data..."))
+            # The 'data' extraction filter was added in Python 3.12 and backported to
+            # 3.11.4 (PEP 706). Refuse to extract without it rather than
+            # extracting unsafely.    if hasattr(tarfile, "data_filter"):
+            if not hasattr(tarfile, "data_filter"):
+                gs.fatal(
+                    _("Extracting may be unsafe; upgrade Python to 3.11.4 or newer")
+                )
+            tar.extractall(path=directory, filter="data")
+    except tarfile.TarError as error:
+        gs.fatal(_("Unable to read the archive <%s>: %s") % (input_path, error))
 
-        msgr.message(_("Extracting data..."))
-        # The 'data' extraction filter was added in Python 3.12 and backported to
-        # 3.11.4 (PEP 706). Refuse to extract without it rather than
-        # extracting unsafely.    if hasattr(tarfile, "data_filter"):
-        if not hasattr(tarfile, "data_filter"):
-            gs.fatal(_("Extracting may be unsafe; upgrade Python to 3.11.4 or newer"))
-        tar.extractall(path=directory, filter="data")
+    old_state = gs.get_raise_on_error()
+    gs.set_raise_on_error(True)
 
     # We use a new list file name for map registration
     new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
