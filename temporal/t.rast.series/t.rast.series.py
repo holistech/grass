@@ -124,7 +124,10 @@ def main():
 
     sp = tgis.open_old_stds(input, "strds")
 
-    rows = sp.get_registered_maps("id", where, order, None)
+    try:
+        rows = sp.get_registered_maps("id", where, order, None)
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
     if rows:
         # Create the r.series input file

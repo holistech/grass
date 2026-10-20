@@ -52,21 +52,13 @@ def test_methods_and_outputs_must_match(tools, stats, prefix, outputs):
     )
 
 
-def test_today_a_wrong_where_ends_with_a_traceback(tools, stats, prefix):
-    text = _refused(tools, input=stats, method="sum", output=f"{prefix}_o", where="x >")
-
-    assert "Unable to execute" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.series ends in a traceback for a wrong where instead of a message",
-)
 def test_a_wrong_where_is_refused_with_a_message(tools, stats, prefix):
     text = _refused(tools, input=stats, method="sum", output=f"{prefix}_o", where="x >")
 
     assert "Traceback" not in text
+    assert "Invalid where condition <x >>" in text
+    assert "syntax error" in text
+    assert not tools.g_list(type="raster", pattern=f"{prefix}_o*").stdout.strip()
 
 
 def test_a_where_that_selects_nothing_makes_no_map(tools, stats, prefix):
