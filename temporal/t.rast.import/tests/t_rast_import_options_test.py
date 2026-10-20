@@ -64,19 +64,6 @@ def test_the_maps_have_the_times_and_cells_of_the_exported_ones(tools, archive, 
     assert [cell_values(tools, row.name) for row in rows] == [[10.0] * 6, [7.0] * 6]
 
 
-def test_today_the_numbers_of_the_new_maps_start_at_two(tools, archive, prefix):
-    # stds_import.py counts the lines with enumerate(list_file, 1) and still
-    # adds 1, since b1701e510f (2026-07-17); before, the counter started at 0
-    # and the first map was <base>_1.
-    rows = _import(tools, archive, prefix)
-
-    assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.import numbers the new maps from 2, the counter starts at 1 and adds 1 again",
-)
 def test_the_numbers_of_the_new_maps_start_at_one(tools, archive, prefix):
     rows = _import(tools, archive, prefix)
 
@@ -260,5 +247,5 @@ def test_a_new_project_gets_the_maps(tools, projected_archive, prefix, tmp_path)
     )
 
     assert sorted(path.name for path in (created / "PERMANENT" / "cell").iterdir()) == [
-        f"{prefix}_2",
+        f"{prefix}_1",
     ]

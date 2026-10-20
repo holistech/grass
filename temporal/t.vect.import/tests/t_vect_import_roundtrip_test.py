@@ -220,7 +220,7 @@ def test_today_a_pack_archive_registers_the_map_without_its_layer(
     # under its name alone (stds_import.py writes mapname, not the layer).
     _import(tools, archives["layer pack"], prefix, tmp_path)
 
-    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_2|None"]
+    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_1|None"]
 
 
 @pytest.mark.xfail(
@@ -243,4 +243,4 @@ def test_today_a_gml_archive_holds_the_registered_layer_as_layer_1(
     # The export took the table of layer 2 (value 131 and 132); the new map
     # has the rows as layer 1.
     assert _table(tools, rows[0].name, "value") == [("131",), ("132",)]
-    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_2|None"]
+    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_1|None"]

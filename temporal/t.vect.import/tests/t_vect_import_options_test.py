@@ -28,21 +28,6 @@ def _import(tools, archive, prefix, tmp_path, **options):
 
 
 @pytest.mark.parametrize("fmt", ["GML", "pack"])
-def test_today_the_numbers_of_the_new_maps_start_at_two(
-    tools, archives, prefix, tmp_path, fmt
-):
-    # stds_import.py counts the lines with enumerate(list_file, 1) and still
-    # adds 1 (the same as in t.rast.import).
-    rows = _import(tools, archives[fmt], prefix, tmp_path)
-
-    assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.import numbers the new maps from 2, the counter starts at 1 and adds 1 again",
-)
-@pytest.mark.parametrize("fmt", ["GML", "pack"])
 def test_the_numbers_of_the_new_maps_start_at_one(
     tools, archives, prefix, tmp_path, fmt
 ):
@@ -220,7 +205,7 @@ def test_a_new_project_gets_the_maps(tools, projected_archive, prefix, tmp_path)
     assert sorted(
         path.name for path in (created / "PERMANENT" / "vector").iterdir()
     ) == [
-        f"{prefix}_2",
+        f"{prefix}_1",
     ]
 
 
@@ -229,4 +214,4 @@ def test_overwrite_replaces_the_dataset_and_the_maps(tools, archives, prefix, tm
 
     rows = _import(tools, archives["pack"], prefix, tmp_path, overwrite=True)
 
-    assert [row.name for row in rows] == [f"{prefix}_2", f"{prefix}_3"]
+    assert [row.name for row in rows] == [f"{prefix}_1", f"{prefix}_2"]

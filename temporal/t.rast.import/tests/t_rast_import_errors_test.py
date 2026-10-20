@@ -93,7 +93,7 @@ def test_existing_maps_are_refused_without_overwrite(tools, archive, prefix):
         tools, input=str(archive), output=f"{prefix}_2", basename=prefix, flags="o"
     )
 
-    assert f"Unable to import/link raster map <{prefix}_2> from file ime_a.tif" in text
+    assert f"Unable to import/link raster map <{prefix}_1> from file ime_a.tif" in text
 
 
 def test_the_maps_keep_their_names_without_a_basename_and_clash(tools, archive, prefix):
@@ -109,7 +109,7 @@ def test_a_file_without_projection_needs_the_o_flag_in_an_unprojected_project(
 ):
     text = _refused(tools, input=str(archive), output=prefix, basename=prefix)
 
-    assert f"Unable to import/link raster map <{prefix}_2> from file ime_a.tif" in text
+    assert f"Unable to import/link raster map <{prefix}_1> from file ime_a.tif" in text
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
