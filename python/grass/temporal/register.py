@@ -168,9 +168,14 @@ def register_maps_in_space_time_dataset(
 
         line = True
         while True:
-            line = fd.readline().strip()
+            line = fd.readline()
+            # The end of the file is the only empty string; an empty line
+            # still has its newline.
             if not line:
                 break
+            line = line.strip()
+            if not line:
+                continue
 
             line_list = line.split(fs)
 

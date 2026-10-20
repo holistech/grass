@@ -228,22 +228,6 @@ def test_wrong_separator_does_not_find_the_times(tools, make_maps, dataset, tmp_
         tools.t_register(type="raster", input=name, file=file)
 
 
-def test_today_an_empty_line_ends_the_list(tools, make_maps, dataset, tmp_path):
-    # The reader stops at the first empty line; the maps after it are ignored.
-    maps = make_maps(2)
-    name = dataset()
-    file = tmp_path / "maps.txt"
-    file.write_text(f"{maps[0]}|2001-01-01\n\n{maps[1]}|2001-01-02\n")
-
-    tools.t_register(type="raster", input=name, file=file)
-
-    assert [row.name for row in list_maps(tools, "strds", name)] == [maps[0]]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.register stops reading the file at the first empty line and ignores the maps after it",
-)
 def test_maps_after_an_empty_line_are_registered(tools, make_maps, dataset, tmp_path):
     maps = make_maps(2)
     name = dataset()
