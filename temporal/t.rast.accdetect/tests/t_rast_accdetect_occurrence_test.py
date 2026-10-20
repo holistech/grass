@@ -260,27 +260,6 @@ def test_the_reverse_flag_takes_the_maximum_of_the_day(
     assert result == {0: [N, 0], 1: [1, N], 3: [3, 3], 4: [N, 4]}
 
 
-def test_today_minimum_and_maximum_datasets_without_a_range_end_with_a_traceback(
-    tools, cells, thresholds, detect
-):
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_accdetect(
-            input="det_cells",
-            occurrence="norange",
-            basename="norange",
-            start="2001-01-01",
-            cycle="6 days",
-            minimum="det_min_all",
-            maximum="det_max_all",
-        )
-
-    assert "IndexError: list index out of range" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect with minimum and maximum datasets but no range ends in an IndexError",
-)
 def test_minimum_and_maximum_datasets_work_without_a_range(
     tools, cells, thresholds, detect
 ):
@@ -289,6 +268,27 @@ def test_minimum_and_maximum_datasets_work_without_a_range(
     )
 
     assert result == {1: [N, 1], 2: [2, N], 3: [3, N], 4: [N, 4]}
+
+
+def test_a_granule_without_a_threshold_map_needs_a_range(
+    tools, cells, thresholds, detect
+):
+    # The minimum covers the days 0 to 2 only, so the granule of day 3 has no
+    # minimum map and, without a range, no value to fall back on.
+    create_stds(
+        tools,
+        "strds",
+        "det_min_part",
+        [MapSpec("det_mp0", 15, day(0), day(3))],
+    )
+
+    with pytest.raises(ToolError) as error:
+        detect("part", minimum="det_min_part", maximum="det_max_all", range=None)
+
+    assert "No minimum map found for <det_c3@PERMANENT> and no range given" in message(
+        error.value
+    )
+    assert "Traceback" not in message(error.value)
 
 
 def test_the_occurrence_dataset_copies_the_description_of_the_input(

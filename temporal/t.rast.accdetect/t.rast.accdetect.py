@@ -679,7 +679,8 @@ def compute_occurrence(
                     % (occurrence_map.get_map_id())
                 )
 
-        range_vals = range_.split(",")
+        # Without a range every granule needs a map of the datasets.
+        range_vals = range_.split(",") if range_ else [None, None]
         min = range_vals[0]
         max = range_vals[1]
 
@@ -696,6 +697,14 @@ def compute_occurrence(
                 if relation in relations:
                     max = str(relations[relation][0].get_id())
                     break
+
+        for bound, name in ((min, "minimum"), (max, "maximum")):
+            if bound is None:
+                gs.fatal(
+                    _("No {} map found for <{}> and no range given").format(
+                        name, map.get_id()
+                    )
+                )
 
         expression = "%s = if(%s > %s && %s < %s, %s, null())" % (
             occurrence_map_name,
