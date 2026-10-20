@@ -95,8 +95,6 @@
 # %option G_OPT_T_WHERE
 # %end
 
-import os
-from pathlib import Path
 
 import grass.script as gs
 
@@ -117,12 +115,6 @@ def main():
     kws = {
         key: options[key] for key in ("createopt", "metaopt", "nodata") if options[key]
     }
-
-    if not directory or not Path(directory).exists():
-        gs.fatal(_("Directory {} not found").format(directory))
-
-    if not os.access(directory, os.W_OK):
-        gs.fatal(_("Directory {} is not writable").format(directory))
 
     if type_ and format_ in {"pack", "AAIGrid"}:
         gs.warning(

@@ -37,17 +37,6 @@ def _missing_directory(tools, absolute, tmp_path):
     )
 
 
-def test_today_a_missing_directory_ends_with_a_traceback(tools, absolute, tmp_path):
-    text = _missing_directory(tools, absolute, tmp_path)
-
-    assert "No such file or directory" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.export ends in a traceback for a missing directory instead of a message",
-)
 def test_a_missing_directory_is_refused_with_a_message(tools, absolute, tmp_path):
     text = _missing_directory(tools, absolute, tmp_path)
 
@@ -70,20 +59,6 @@ def _read_only_directory(tools, absolute, tmp_path):
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root can write to any directory")
-def test_today_a_directory_that_is_not_writable_ends_with_a_traceback(
-    tools, absolute, tmp_path
-):
-    text = _read_only_directory(tools, absolute, tmp_path)
-
-    assert "Permission denied" in text
-    assert "Traceback" in text
-
-
-@pytest.mark.skipif(os.geteuid() == 0, reason="root can write to any directory")
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.export ends in a PermissionError traceback for a directory that is not writable instead of a message",
-)
 def test_a_directory_that_is_not_writable_is_refused_with_a_message(
     tools, absolute, tmp_path
 ):
@@ -131,3 +106,32 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert list(tmp_path.iterdir()) == []
+
+
+def _leftovers(path):
+    return sorted(p.name for p in path.iterdir() if p.name.startswith("tmp"))
+
+
+def test_a_directory_that_is_a_file_is_refused(tools, absolute, tmp_path):
+    not_a_directory = tmp_path / "file"
+    not_a_directory.write_text("x")
+
+    text = _refused(
+        tools,
+        input=absolute,
+        output=str(tmp_path / "out"),
+        directory=str(not_a_directory),
+    )
+
+    assert f"Directory {not_a_directory} is not a directory" in text
+    assert "Traceback" not in text
+
+
+def test_an_output_in_a_missing_directory_is_refused(tools, absolute, tmp_path):
+    output = tmp_path / "nope" / "out"
+
+    text = _refused(tools, input=absolute, output=str(output), directory=str(tmp_path))
+
+    assert f"Output directory {output.parent} not found" in text
+    assert "Traceback" not in text
+    assert _leftovers(tmp_path) == []

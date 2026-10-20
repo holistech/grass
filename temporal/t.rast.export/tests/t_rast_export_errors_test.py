@@ -172,3 +172,28 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_directory_that_is_a_file_is_refused(tools, absolute, tmp_path):
+    not_a_directory = tmp_path / "file"
+    not_a_directory.write_text("x")
+
+    text = _refused(
+        tools,
+        input=absolute,
+        output=str(tmp_path / "out"),
+        directory=str(not_a_directory),
+    )
+
+    assert f"Directory {not_a_directory} is not a directory" in text
+    assert "Traceback" not in text
+
+
+def test_an_output_in_a_missing_directory_is_refused(tools, absolute, tmp_path):
+    output = tmp_path / "nope" / "out"
+
+    text = _refused(tools, input=absolute, output=str(output))
+
+    assert f"Output directory {output.parent} not found" in text
+    assert "Traceback" not in text
+    assert _leftovers(tmp_path) == []

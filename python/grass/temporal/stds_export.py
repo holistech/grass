@@ -299,6 +299,25 @@ def _export_raster3d_maps(rows, tar, list_file, new_cwd, fs) -> None:
 ############################################################################
 
 
+def _check_directory(directory) -> None:
+    """Stop with a message unless the work directory exists and is writable"""
+    if not directory or not Path(directory).exists():
+        gs.fatal(_("Directory {} not found").format(directory))
+    if not Path(directory).is_dir():
+        gs.fatal(_("Directory {} is not a directory").format(directory))
+    if not os.access(directory, os.W_OK):
+        gs.fatal(_("Directory {} is not writable").format(directory))
+
+
+def _check_output_directory(output) -> None:
+    """Stop with a message unless the archive can be written to its place"""
+    parent = Path(output).absolute().parent
+    if not parent.is_dir():
+        gs.fatal(_("Output directory {} not found").format(parent))
+    if not os.access(parent, os.W_OK):
+        gs.fatal(_("Output directory {} is not writable").format(parent))
+
+
 def export_stds(
     input,
     output,
@@ -324,7 +343,10 @@ def export_stds(
           - "gzip" GNU zip compression
           - "bzip2" Bzip compression
 
-    :param directory: The working directory used for extraction and packing
+    :param directory: The working directory used for extraction and packing. It
+                      must exist and be writable, as must the directory of
+                      output; otherwise the export stops with a message
+                      before it makes anything.
     :param where: The temporal WHERE SQL statement to select a subset
                   of maps from the space time dataset
     :param format\\_: The export format:
@@ -345,6 +367,9 @@ def export_stds(
           - "stvds" Space time vector dataset
     :param datatype: Force the output datatype for r.out.gdal
     """
+
+    _check_directory(directory)
+    _check_output_directory(output)
 
     # Save current working directory path
     old_cwd = Path.cwd()
