@@ -147,8 +147,6 @@ def main():
     reverse = flags["r"]
     time_suffix = options["suffix"]
 
-    gs.set_raise_on_error(True)
-
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface

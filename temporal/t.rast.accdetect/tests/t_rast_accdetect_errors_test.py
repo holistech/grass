@@ -92,23 +92,6 @@ def test_a_value_of_the_wrong_length_is_refused_by_the_parser(
     assert f"Option <{option}> must be provided in multiples of" in message(error.value)
 
 
-def test_today_a_refusal_comes_with_a_traceback(tools, cells):
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_accdetect(
-            input=cells,
-            occurrence="err_tb",
-            basename="err_tb",
-            start="2001-01-01",
-            cycle="6 days",
-        )
-
-    assert "ScriptError" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect ends a refusal with a ScriptError traceback instead of a message",
-)
 def test_a_refusal_comes_without_a_traceback(tools, cells):
     with pytest.raises(ToolError) as error:
         tools.t_rast_accdetect(
@@ -119,6 +102,7 @@ def test_a_refusal_comes_without_a_traceback(tools, cells):
             cycle="6 days",
         )
 
+    assert "You need to set the range to compute the occurrence" in message(error.value)
     assert "Traceback" not in message(error.value)
 
 
