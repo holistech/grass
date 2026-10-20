@@ -112,6 +112,14 @@ def _leftovers(path):
     return sorted(p.name for p in path.iterdir() if p.name.startswith("tmp"))
 
 
+def test_an_unknown_input_leaves_no_working_directory(tools, tmp_path):
+    _refused(
+        tools, input="vx_missing", output=str(tmp_path / "out"), directory=str(tmp_path)
+    )
+
+    assert _leftovers(tmp_path) == []
+
+
 def test_a_directory_that_is_a_file_is_refused(tools, absolute, tmp_path):
     not_a_directory = tmp_path / "file"
     not_a_directory.write_text("x")
@@ -135,3 +143,34 @@ def test_an_output_in_a_missing_directory_is_refused(tools, absolute, tmp_path):
     assert f"Output directory {output.parent} not found" in text
     assert "Traceback" not in text
     assert _leftovers(tmp_path) == []
+
+
+def test_a_map_that_is_gone_stops_the_export_and_leaves_nothing(
+    tools, absolute, tmp_path
+):
+    tools.v_random(output="vx_gone", npoints=2, seed=1, overwrite=True)
+    tools.t_create(
+        type="stvds",
+        temporaltype="absolute",
+        output="vx_gone_ds",
+        title="t",
+        description="d",
+        overwrite=True,
+    )
+    tools.t_register(
+        type="vector",
+        input="vx_gone_ds",
+        maps="vx_gone",
+        start="2001-01-01",
+        increment="1 months",
+        overwrite=True,
+    )
+    tools.g_remove(flags="f", type="vector", name="vx_gone")
+
+    text = _refused(
+        tools, input="vx_gone_ds", output=str(tmp_path / "out"), directory=str(tmp_path)
+    )
+
+    assert "Unable to export vector map <vx_gone>" in text
+    assert _leftovers(tmp_path) == []
+    assert not (tmp_path / "out").exists()

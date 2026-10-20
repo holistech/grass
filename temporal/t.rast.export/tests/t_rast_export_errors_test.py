@@ -135,20 +135,6 @@ def _leftovers(tmp_path):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_failed_export_leaves_its_working_directory(tools, tmp_path):
-    _failing_dataset(tools)
-
-    _refused(tools, input="ex_empty_ds", output=str(tmp_path / "out"))
-
-    assert len(_leftovers(tmp_path)) == 1
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.export leaves its working directory behind when the export fails",
-)
 def test_a_failed_export_removes_its_working_directory(tools, tmp_path):
     _failing_dataset(tools)
 
@@ -174,6 +160,12 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(
     assert list(tmp_path.iterdir()) == []
 
 
+def test_an_unknown_input_leaves_no_working_directory(tools, tmp_path):
+    _refused(tools, input="ex_missing", output=str(tmp_path / "out"))
+
+    assert _leftovers(tmp_path) == []
+
+
 def test_a_directory_that_is_a_file_is_refused(tools, absolute, tmp_path):
     not_a_directory = tmp_path / "file"
     not_a_directory.write_text("x")
@@ -197,3 +189,32 @@ def test_an_output_in_a_missing_directory_is_refused(tools, absolute, tmp_path):
     assert f"Output directory {output.parent} not found" in text
     assert "Traceback" not in text
     assert _leftovers(tmp_path) == []
+
+
+# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
+@pytest.mark.slow
+def test_a_map_that_is_gone_stops_the_export_and_leaves_nothing(tools, tmp_path):
+    tools.r_mapcalc(expression="ex_gone = 1", overwrite=True)
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output="ex_gone_ds",
+        title="t",
+        description="d",
+        overwrite=True,
+    )
+    tools.t_register(
+        type="raster",
+        input="ex_gone_ds",
+        maps="ex_gone",
+        start="2001-01-01",
+        increment="1 months",
+        overwrite=True,
+    )
+    tools.g_remove(flags="f", type="raster", name="ex_gone")
+
+    text = _refused(tools, input="ex_gone_ds", output=str(tmp_path / "out"))
+
+    assert "Unable to export raster map <ex_gone>" in text
+    assert _leftovers(tmp_path) == []
+    assert not (tmp_path / "out").exists()
