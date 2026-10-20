@@ -24,6 +24,7 @@ from subprocess import PIPE
 import json
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 from grass.pygrass.modules import Module
 
 from .core import SQLDatabaseInterfaceConnection, SQLStatementError, get_current_mapset
@@ -444,15 +445,21 @@ def print_vector_dataset_univar_statistics(
         if not mylayer:
             mylayer = layer
 
-        stats = gs.parse_command(
-            "v.univar",
-            map=id,
-            where=where,
-            column=column,
-            layer=mylayer,
-            type=type,
-            flags=flags,
-        )
+        try:
+            stats = gs.parse_command(
+                "v.univar",
+                map=id,
+                where=where,
+                column=column,
+                layer=mylayer,
+                type=type,
+                flags=flags,
+            )
+        except CalledModuleError as error:
+            dbif.close()
+            if output is not None:
+                out_file.close()
+            gs.fatal(_("Error running v.univar on <{}>: {}").format(id, error))
 
         string = ""
 

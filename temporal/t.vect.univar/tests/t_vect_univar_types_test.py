@@ -111,4 +111,5 @@ def test_the_layer_must_exist(tools, layers):
     with pytest.raises(ToolError) as error:
         tools.t_vect_univar(input=layers, column="value", layer=3)
 
-    assert "CalledModuleError" in message(error.value)
+    assert "Error running v.univar on <" in message(error.value)
+    assert "Traceback" not in message(error.value)

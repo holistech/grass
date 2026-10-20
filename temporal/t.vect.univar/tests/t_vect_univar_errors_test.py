@@ -67,23 +67,10 @@ FAILURES = [
 
 
 @pytest.mark.parametrize(("name", "options"), FAILURES)
-def test_today_a_failure_of_v_univar_ends_with_a_traceback(
-    tools, points, name, options
-):
-    text = _refused(tools, input=points, **{"column": "value", **options})
-
-    assert "Traceback" in text
-    assert "v.univar -g map=up_1@PERMANENT" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.univar ends in a traceback when v.univar fails instead of a message",
-)
-@pytest.mark.parametrize(("name", "options"), FAILURES)
 def test_a_failure_of_v_univar_is_reported_as_a_message(tools, points, name, options):
     text = _refused(tools, input=points, **{"column": "value", **options})
 
+    assert "Error running v.univar on <up_1@PERMANENT>" in text
     assert "Traceback" not in text
 
 
