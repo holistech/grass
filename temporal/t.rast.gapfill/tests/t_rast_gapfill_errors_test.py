@@ -104,10 +104,6 @@ def test_overwrite_replaces_a_map_of_another_dataset(tools, gappy, prefix):
     ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.gapfill --overwrite of a map of another dataset leaves number_of_maps of the first dataset unchanged, delete() does not update the metadata",
-)
 def test_the_first_dataset_counts_its_maps_after_an_overwrite(tools, gappy, prefix):
     first = gappy({1: (100, 0), 3: (300, 90)})
     tools.t_rast_gapfill(input=first, basename=prefix)

@@ -967,10 +967,12 @@ class AbstractMapDataset(AbstractDataset):
          - Remove the space time dataset register table
 
         :param dbif: The database interface to be used
-        :param update: Call for each unregister statement the update from
-                       registered maps of the space time dataset.
-                       This can slow down the un-registration process
-                       significantly.
+        :param update: Update each space time dataset that held the map from
+                       its registered maps once the map is deleted. This can
+                       slow down the deletion significantly. It has no effect
+                       with execute=False: the caller then updates the
+                       datasets, which it can list with get_registered_stds()
+                       before the call.
         :param execute: If True the SQL DELETE and DROP table statements
                         will be executed.
                         If False the prepared SQL statements are
@@ -988,10 +990,16 @@ class AbstractMapDataset(AbstractDataset):
 
         dbif, connection_state_changed = init_dbif(dbif)
         statement = ""
+        datasets = None
 
         if self.is_in_db(dbif, mapset=mapset):
             # SELECT all needed information from the database
             self.metadata.select(dbif)
+
+            # Remember the datasets that hold the map: after the delete the
+            # database no longer says which they were.
+            if execute and update:
+                datasets = self.get_registered_stds(dbif, mapset=mapset)
 
             # First we unregister from all dependent space time datasets
             statement += self.unregister(dbif=dbif, update=update, execute=False)
@@ -1008,6 +1016,13 @@ class AbstractMapDataset(AbstractDataset):
         if execute:
             dbif.execute_transaction(statement, mapset=mapset)
             statement = ""
+            # unregister() was asked for its statements only, so it could not
+            # update the datasets; do it now that the rows are gone.
+            if update and datasets:
+                for dataset_id in datasets:
+                    stds = self.get_new_stds_instance(dataset_id)
+                    stds.select(dbif)
+                    stds.update_from_registered_maps(dbif)
 
         # Remove the timestamp from the file system
         self.remove_timestamp_from_grass()

@@ -119,10 +119,6 @@ def test_overwrite_replaces_a_result_map_that_is_registered_elsewhere(
     assert list_maps(tools, "strds", f"{taken}_other") == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="The counter of the other dataset keeps the replaced maps (2, not 0).",
-)
 def test_the_other_dataset_counts_its_maps_after_an_overwrite(tools, cells, taken):
     _detect(tools, cells, taken, overwrite=True)
 
