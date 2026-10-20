@@ -53,6 +53,7 @@
 
 # %option
 # % key: region_relation
+# % type: string
 # % description: Process only maps with this spatial relation to the current computational region
 # % guisection: Selection
 # % options: overlaps,contains,is_contained
