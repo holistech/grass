@@ -39,6 +39,8 @@
 # % required: no
 # %end
 
+from pathlib import Path
+
 import grass.script as gs
 
 # lazy imports at the end of the file
@@ -57,10 +59,10 @@ def main():
     tgis.init()
 
     if maps and file:
-        gs.fatal(_("%s= and %s= are mutually exclusive") % ("input", "file"))
+        gs.fatal(_("%s= and %s= are mutually exclusive") % ("maps", "file"))
 
     if not maps and not file:
-        gs.fatal(_("%s= or %s= must be specified") % ("input", "file"))
+        gs.fatal(_("%s= or %s= must be specified") % ("maps", "file"))
 
     mapset = tgis.get_current_mapset()
 
@@ -88,6 +90,8 @@ def main():
 
     # Read the map list from file
     if file:
+        if not Path(file).is_file():
+            gs.fatal(_("File <{}> not found").format(file))
         with open(file) as fd:
             line = True
             while True:

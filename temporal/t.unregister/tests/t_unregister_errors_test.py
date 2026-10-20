@@ -30,17 +30,6 @@ def test_maps_and_file_exclude_each_other(tools, make_stds, tmp_path):
     )
 
 
-def test_today_the_exclusion_names_the_wrong_options(tools, tmp_path):
-    with pytest.raises(
-        ToolError, match=r"input=\s+and\s+file=\s+are\s+mutually\s+exclusive"
-    ):
-        tools.t_unregister(maps="a", file=tmp_path / "maps.txt")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.unregister names input= instead of maps= when it refuses maps together with file=",
-)
 def test_the_exclusion_names_the_options_maps_and_file(tools, tmp_path):
     with pytest.raises(
         ToolError, match=r"maps=\s+and\s+file=\s+are\s+mutually\s+exclusive"
@@ -58,15 +47,6 @@ def test_an_empty_maps_option_counts_as_missing(tools):
         tools.t_unregister(maps="")
 
 
-def test_today_the_requirement_names_the_wrong_options(tools):
-    with pytest.raises(ToolError, match=r"input=\s+or\s+file=\s+must\s+be\s+specified"):
-        tools.t_unregister()
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.unregister names input= instead of maps= when it requires maps= or file=",
-)
 def test_the_requirement_names_the_options_maps_and_file(tools):
     with pytest.raises(ToolError, match=r"maps=\s+or\s+file=\s+must\s+be\s+specified"):
         tools.t_unregister()
@@ -99,17 +79,9 @@ def test_an_unknown_type_is_refused(tools):
         tools.t_unregister(type="strds", maps="a")
 
 
-def test_today_a_missing_file_ends_in_a_traceback(tools, tmp_path):
-    with pytest.raises(ToolError, match="FileNotFoundError"):
-        tools.t_unregister(file=tmp_path / "missing.txt")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.unregister ends in a FileNotFoundError traceback for a missing file instead of a message",
-)
 def test_a_missing_file_is_refused_with_a_message(tools, tmp_path):
     with pytest.raises(ToolError) as error:
         tools.t_unregister(file=tmp_path / "missing.txt")
 
     assert "Traceback" not in message(error.value)
+    assert "not found" in message(error.value)
