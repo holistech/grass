@@ -116,25 +116,39 @@ def test_an_unknown_input_is_refused_with_a_message(tools, cells):
 
 
 @pytest.mark.parametrize(
-    ("option", "value"), [("start", "garbage"), ("cycle", "garbage")]
+    ("option", "text"),
+    [
+        ("start", "Invalid date <garbage> of the option <start>"),
+        ("stop", "Invalid date <garbage> of the option <stop>"),
+        ("cycle", "Invalid cycle"),
+        ("offset", "Invalid offset"),
+    ],
 )
-def test_today_a_wrong_time_ends_with_a_traceback(tools, cells, option, value):
-    with pytest.raises(ToolError) as error:
-        _run(tools, cells, f"err_{option}", **{option: value})
-
-    assert "TypeError" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect with a wrong start or cycle ends in a TypeError traceback instead of a message",
-)
-@pytest.mark.parametrize("option", ["start", "cycle"])
-def test_a_wrong_time_is_refused_with_a_message(tools, cells, option):
+def test_a_wrong_time_is_refused_with_a_message(tools, cells, option, text):
     with pytest.raises(ToolError) as error:
         _run(tools, cells, f"err_{option}_x", **{option: "garbage"})
 
-    assert "TypeError" not in message(error.value)
+    assert text in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
+@pytest.mark.parametrize("option", ["start", "stop"])
+def test_a_wrong_number_of_relative_time_is_refused_with_a_message(
+    tools, relative, option
+):
+    options = {"start": "0", "cycle": "3", option: "garbage"}
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_accdetect(
+            input="det_relative",
+            occurrence=f"err_rel_{option}",
+            basename=f"err_rel_{option}",
+            range="10,50",
+            **options,
+        )
+
+    assert "The options start and stop must be integers" in message(error.value)
+    assert "Traceback" not in message(error.value)
 
 
 @pytest.fixture(scope="module")

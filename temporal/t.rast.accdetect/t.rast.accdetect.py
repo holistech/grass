@@ -146,6 +146,20 @@ def _next_cycle(end, cycle, offset, absolute):
     return start, start + cycle
 
 
+def _to_datetime(text, option, dbif):
+    """Convert the value of an option to a datetime or end with a message"""
+    # string_to_datetime ends in an AttributeError for text it cannot read
+    # (checked 20.10.2026 with "garbage"), the annotation says None.
+    try:
+        converted = tgis.string_to_datetime(text)
+    except (AttributeError, ValueError):
+        converted = None
+    if converted is None:
+        dbif.close()
+        gs.fatal(_("Invalid date <{}> of the option <{}>").format(text, option))
+    return converted
+
+
 def main():
     # Get the options
     input = options["input"]
@@ -291,12 +305,26 @@ def main():
 
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
 
+    if not tgis.check_granularity_string(cycle, input_strds.get_temporal_type()):
+        dbif.close()
+        gs.fatal(_("Invalid cycle"))
+
+    if offset and not tgis.check_granularity_string(
+        offset, input_strds.get_temporal_type()
+    ):
+        dbif.close()
+        gs.fatal(_("Invalid offset"))
+
     if input_strds.is_time_absolute():
-        start = tgis.string_to_datetime(start)
-        stop = tgis.string_to_datetime(stop) if stop else input_strds_end
+        start = _to_datetime(start, "start", dbif)
+        stop = _to_datetime(stop, "stop", dbif) if stop else input_strds_end
     else:
-        start = int(start)
-        stop = int(stop) if stop else input_strds_end
+        try:
+            start = int(start)
+            stop = int(stop) if stop else input_strds_end
+        except ValueError:
+            dbif.close()
+            gs.fatal(_("The options start and stop must be integers"))
 
     if input_strds.is_time_absolute():
         end = tgis.increment_datetime_by_string(start, cycle)
