@@ -300,3 +300,30 @@ def test_the_occurrence_dataset_copies_the_description_of_the_input(
     assert info["semantic_type"] == "mean"
     assert info["granularity"] == "'1 day'"
     assert info["number_of_maps"] == 5
+
+
+def test_the_threshold_lookup_does_not_depend_on_the_time_zone(
+    zone_tools, zone_by_day, request
+):
+    # Without this the module would test one zone twice.
+    zone = request.node.callspec.params["zone_tools"]
+    offset = zone_tools.run_cmd(["date", "-d", "2001-01-01 12:00", "+%z"])
+    assert offset.stdout.strip() == {"UTC": "+0000", "Asia/Kathmandu": "+0545"}[zone]
+
+    # The result of the test of the minimum that changes over time.
+    zone_tools.t_rast_accdetect(
+        input="det_cells",
+        occurrence="zone_occ",
+        basename="zone_occ",
+        start="2001-01-01",
+        cycle="6 days",
+        minimum="det_min_step",
+        range="0,1000",
+    )
+
+    assert zone_by_day("zone_occ") == {
+        0: [N, 0],
+        1: [1, 1],
+        2: [2, N],
+        3: [3, N],
+    }
