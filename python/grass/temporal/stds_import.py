@@ -545,6 +545,16 @@ def import_stds(
 
             if line_count != int(init_data["number_of_maps"]):
                 gs.fatal(_("Number of maps mismatch in init and list file."))
+            # Checked here and not where the dataset is made, after the maps
+            # are imported: a refusal then leaves no imported map behind.
+            if (
+                init_data["temporal_type"] == "relative"
+                and "relative_time_unit" not in init_data
+            ):
+                gs.fatal(
+                    _("Key word %s not found in init file.") % ("relative_time_unit")
+                )
+
             format_ = "GTiff"
             type_ = "strds"
 
@@ -679,11 +689,6 @@ def import_stds(
             semantic_type = init_data["semantic_type"]
             relative_time_unit = None
             if temporal_type == "relative":
-                if "relative_time_unit" not in init_data:
-                    gs.fatal(
-                        _("Key word %s not found in init file.")
-                        % ("relative_time_unit")
-                    )
                 relative_time_unit = init_data["relative_time_unit"]
                 sp.set_relative_time_unit(relative_time_unit)
 
