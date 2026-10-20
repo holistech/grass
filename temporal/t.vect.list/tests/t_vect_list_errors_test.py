@@ -177,19 +177,12 @@ def test_the_delta_methods_of_an_empty_dataset_print_the_header_only(
     assert result.stdout.splitlines() == ["name|layer|mapset|start_time|end_time"]
 
 
-def test_a_where_with_a_syntax_error_today_ends_with_a_traceback(tools, series):
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     text = _refused(tools, input="err", where="nonsense =")
 
-    assert "Traceback" in text
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.list ends in a traceback for a where with a syntax error instead of a message",
-)
-def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
-    assert "Traceback" not in _refused(tools, input="err", where="nonsense =")
 
 
 def test_the_delta_method_with_a_database_column_today_ends_with_a_traceback(

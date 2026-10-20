@@ -236,16 +236,12 @@ def test_the_gran_method_of_an_empty_dataset_says_it_is_empty(tools, series):
     assert "Dataset is empty" in _refused(tools, input="void", method="gran")
 
 
-def test_a_where_with_a_syntax_error_today_ends_with_a_traceback(tools, series):
+def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     text = _refused(tools, input="err", where="nonsense =")
 
-    assert "Traceback" in text
+    assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
-
-
-@pytest.mark.xfail(strict=True, reason="an invalid where clause ends with a traceback")
-def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
-    assert "Traceback" not in _refused(tools, input="err", where="nonsense =")
 
 
 def test_the_delta_method_with_the_line_format_today_ends_with_a_traceback(

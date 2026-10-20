@@ -23,7 +23,7 @@ from contextlib import contextmanager
 
 import grass.script as gs
 
-from .core import get_tgis_message_interface, init_dbif
+from .core import SQLStatementError, get_tgis_message_interface, init_dbif
 from .datetime_math import time_delta_to_relative_time
 from .open_stds import open_old_stds
 
@@ -505,7 +505,11 @@ def _get_list_of_maps_stds(
         if not order:
             order = "start_time"
 
-        rows = dataset.get_registered_maps(",".join(columns), where, order, dbif)
+        try:
+            rows = dataset.get_registered_maps(",".join(columns), where, order, dbif)
+        except SQLStatementError as error:
+            dbif.close()
+            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
         # End with error for the old, custom formats. Proper formats simply return
         # empty result whatever empty is for each format (e.g., empty list for JSON).

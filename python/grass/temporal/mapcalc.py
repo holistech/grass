@@ -29,6 +29,7 @@ from .algebra.sources import source
 from .algebra.time_functions import timevar
 from .core import (
     SQLDatabaseInterfaceConnection,
+    SQLStatementError,
     get_current_mapset,
     get_tgis_message_interface,
 )
@@ -200,7 +201,10 @@ def dataset_mapcalculator(
     else:
         msgr.message(_("Starting temporal sampling..."))
 
-    first_series = source(names[0], where=where, stds_type=stds_type)
+    try:
+        first_series = source(names[0], where=where, stds_type=stds_type)
+    except SQLStatementError as error:
+        msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
     if len(first_series.slots) == 0:
         if not do_sampling:
             msgr.message(

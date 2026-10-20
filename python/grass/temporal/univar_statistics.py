@@ -26,7 +26,7 @@ import json
 import grass.script as gs
 from grass.pygrass.modules import Module
 
-from .core import SQLDatabaseInterfaceConnection, get_current_mapset
+from .core import SQLDatabaseInterfaceConnection, SQLStatementError, get_current_mapset
 from .factory import dataset_factory
 from .open_stds import open_old_stds
 
@@ -356,9 +356,13 @@ def print_vector_dataset_univar_statistics(
 
     sp.select(dbif)
 
-    rows = sp.get_registered_maps(
-        "id,name,mapset,start_time,end_time,layer", twhere, "start_time", dbif
-    )
+    try:
+        rows = sp.get_registered_maps(
+            "id,name,mapset,start_time,end_time,layer", twhere, "start_time", dbif
+        )
+    except SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid twhere condition <{}>: {}").format(twhere, error))
 
     if not rows:
         dbif.close()

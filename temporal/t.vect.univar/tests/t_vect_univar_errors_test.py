@@ -87,18 +87,9 @@ def test_a_failure_of_v_univar_is_reported_as_a_message(tools, points, name, opt
     assert "Traceback" not in text
 
 
-def test_today_a_twhere_with_a_syntax_error_ends_with_a_traceback(tools, points):
+def test_a_twhere_with_a_syntax_error_is_reported_as_a_message(tools, points):
     text = _refused(tools, input=points, column="value", twhere="nonsense =")
 
-    assert "Traceback" in text
+    assert "Traceback" not in text
+    assert "Invalid twhere condition <nonsense =>" in text
     assert "syntax error" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.univar ends in a traceback for a twhere with a syntax error instead of a message",
-)
-def test_a_twhere_with_a_syntax_error_is_reported_as_a_message(tools, points):
-    assert "Traceback" not in _refused(
-        tools, input=points, column="value", twhere="nonsense ="
-    )

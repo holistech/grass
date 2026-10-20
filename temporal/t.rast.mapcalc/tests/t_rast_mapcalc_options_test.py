@@ -196,21 +196,6 @@ def test_a_decimal_nprocs_is_reported_as_a_message(tools, series):
     assert "Traceback" not in text
 
 
-def test_a_where_with_a_syntax_error_today_ends_with_a_traceback(tools, series):
-    text = _refused(
-        tools,
-        inputs="S",
-        output="S_out",
-        expression="S + 1",
-        basename="s_out",
-        where="nonsense =",
-    )
-
-    assert "Traceback" in text
-    assert "syntax error" in text
-
-
-@pytest.mark.xfail(strict=True, reason="an invalid where clause ends with a traceback")
 def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     text = _refused(
         tools,
@@ -222,6 +207,11 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     )
 
     assert "Traceback" not in text
+    assert "Invalid where condition <nonsense =>" in text
+    assert "syntax error" in text
+    # Nothing was made before the refusal.
+    assert "S_out" not in tools.t_list(type="strds", columns="name").stdout
+    assert not tools.g_list(type="raster", pattern="s_out*").stdout.strip()
 
 
 @pytest.mark.slow
