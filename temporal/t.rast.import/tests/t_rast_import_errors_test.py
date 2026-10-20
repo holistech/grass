@@ -1,8 +1,7 @@
 """Test the refusals of t.rast.import
 
-The refusals of the archive itself (missing, no archive, wrong directory) end
-with a message. The later ones come from a gs.fatal() that raises ScriptError
-while the library runs, so the tool ends with a traceback after the message.
+Every refusal ends with a message and no traceback. A refusal after the
+archive is read leaves no dataset and no map of the run behind.
 """
 
 from datetime import datetime
@@ -39,7 +38,15 @@ def _work_in_tmp_path(tmp_path, monkeypatch):
 def _refused(tools, **options):
     with pytest.raises(ToolError) as error:
         tools.t_rast_import(**options)
-    return message(error.value)
+    text = message(error.value)
+    assert "Traceback" not in text
+    return text
+
+
+def _nothing_made(tools, output, basename):
+    """Assert that a refused run left no dataset and no map of the basename"""
+    assert output not in tools.t_list(type="strds", columns="name").stdout.split()
+    assert not tools.g_list(type="raster", pattern=f"{basename}*").stdout.strip()
 
 
 @pytest.mark.parametrize("missing", ["input", "output"])
@@ -94,6 +101,9 @@ def test_existing_maps_are_refused_without_overwrite(tools, archive, prefix):
     )
 
     assert f"Unable to import/link raster map <{prefix}_1> from file ime_a.tif" in text
+    assert (
+        f"{prefix}_2" not in tools.t_list(type="strds", columns="name").stdout.split()
+    )
 
 
 def test_the_maps_keep_their_names_without_a_basename_and_clash(tools, archive, prefix):
@@ -102,6 +112,7 @@ def test_the_maps_keep_their_names_without_a_basename_and_clash(tools, archive, 
     text = _refused(tools, input=str(archive), output=prefix, flags="o")
 
     assert "Unable to import/link raster map <ime_a> from file ime_a.tif" in text
+    assert prefix not in tools.t_list(type="strds", columns="name").stdout.split()
 
 
 def test_a_file_without_projection_needs_the_o_flag_in_an_unprojected_project(
@@ -110,6 +121,7 @@ def test_a_file_without_projection_needs_the_o_flag_in_an_unprojected_project(
     text = _refused(tools, input=str(archive), output=prefix, basename=prefix)
 
     assert f"Unable to import/link raster map <{prefix}_1> from file ime_a.tif" in text
+    _nothing_made(tools, prefix, prefix)
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -118,10 +130,11 @@ def test_a_projection_that_differs_is_refused_without_the_o_flag(
     archive, prefix, tmp_path
 ):
     with project_session(tmp_path / "other") as session:
-        other = Tools(session=session)
+        other = Tools(session=session, consistent_return_value=True)
         other.g_proj(flags="c", epsg=3358)
 
         text = _refused(other, input=str(archive), output=prefix, basename=prefix)
+        _nothing_made(other, prefix, prefix)
 
         other.t_rast_import(
             input=str(archive), output=prefix, basename=prefix, flags="o"

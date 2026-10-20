@@ -81,6 +81,7 @@
 # %end
 
 import grass.script as gs
+from grass.exceptions import ScriptError
 
 
 def main():
@@ -101,20 +102,24 @@ def main():
 
     tgis.init()
 
-    tgis.import_stds(
-        input,
-        output,
-        directory,
-        title,
-        descr,
-        location,
-        None,
-        exp,
-        overr,
-        create,
-        "stvds",
-        base,
-    )
+    # The library raises ScriptError for its refusals after the extraction.
+    try:
+        tgis.import_stds(
+            input,
+            output,
+            directory,
+            title,
+            descr,
+            location,
+            None,
+            exp,
+            overr,
+            create,
+            "stvds",
+            base,
+        )
+    except ScriptError as error:
+        gs.fatal(str(error))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,8 @@
 """Test the refusals of t.vect.import
 
-The refusals of the archive itself (missing, no archive, cut off, wrong
-directory) end with a message. The later ones come from a gs.fatal() that
-raises ScriptError while the library runs, so the tool ends with a traceback
-after the message. The archives come from
-t.vect.export (conftest.py); the damaged ones are copies of them.
+Every refusal ends with a message and no traceback. A refusal after the
+archive is read leaves no dataset and no map of the run behind. The archives
+come from t.vect.export (conftest.py); the damaged ones are copies of them.
 """
 
 import io
@@ -20,7 +18,15 @@ def _refused(tools, **options):
     options.setdefault("flags", "o")
     with pytest.raises(ToolError) as error:
         tools.t_vect_import(**options)
-    return message(error.value)
+    text = message(error.value)
+    assert "Traceback" not in text
+    return text
+
+
+def _nothing_made(tools, prefix):
+    """Assert that a refused run left no dataset and no map of the prefix"""
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout.split()
+    assert not tools.g_list(type="vector", pattern=f"{prefix}*").stdout.strip()
 
 
 def _damaged(archive, target, *, drop=(), replace=None):
@@ -138,6 +144,7 @@ def test_existing_maps_are_refused_without_overwrite(tools, archives, prefix, tm
     )
 
     assert "<vi_1> exists. To overwrite, use the --overwrite flag" in text
+    _nothing_made(tools, prefix)
 
 
 def test_a_raster_archive_is_refused(tools, archives, prefix, tmp_path):
@@ -153,6 +160,7 @@ def test_a_raster_archive_is_refused(tools, archives, prefix, tmp_path):
     text = _refused(tools, input=str(raster), output=prefix, directory=str(tmp_path))
 
     assert "The archive file is of wrong space time dataset type" in text
+    _nothing_made(tools, prefix)
 
 
 @pytest.mark.parametrize(
@@ -167,6 +175,7 @@ def test_an_archive_without_a_description_file_is_refused(
     text = _refused(tools, input=str(broken), output=prefix, directory=str(tmp_path))
 
     assert f"Unable to find {kind} file <{member}>" in text
+    _nothing_made(tools, prefix)
 
 
 @pytest.mark.parametrize(
@@ -184,6 +193,7 @@ def test_an_archive_without_a_map_file_is_refused(
     text = _refused(tools, input=str(broken), output=prefix, directory=str(tmp_path))
 
     assert f"Unable to find {kind} <{member}> in archive." in text
+    _nothing_made(tools, prefix)
 
 
 def test_a_number_of_maps_that_differs_from_the_list_is_refused(
@@ -200,6 +210,7 @@ def test_a_number_of_maps_that_differs_from_the_list_is_refused(
     text = _refused(tools, input=str(broken), output=prefix, directory=str(tmp_path))
 
     assert "Number of maps mismatch in init and list file." in text
+    _nothing_made(tools, prefix)
 
 
 def test_an_init_file_without_the_keywords_is_refused(
@@ -214,6 +225,7 @@ def test_an_init_file_without_the_keywords_is_refused(
     text = _refused(tools, input=str(broken), output=prefix, directory=str(tmp_path))
 
     assert "Key words temporal_type, semantic_type or number_of_maps not found" in text
+    _nothing_made(tools, prefix)
 
 
 def test_a_format_that_the_tool_cannot_read_is_refused(
@@ -230,6 +242,7 @@ def test_a_format_that_the_tool_cannot_read_is_refused(
     text = _refused(tools, input=str(broken), output=prefix, directory=str(tmp_path))
 
     assert "Unsupported input format" in text
+    _nothing_made(tools, prefix)
 
 
 def test_a_relative_archive_without_a_unit_is_refused(
@@ -252,6 +265,7 @@ def test_a_relative_archive_without_a_unit_is_refused(
     )
 
     assert "Key word relative_time_unit not found in init file." in text
+    _nothing_made(tools, prefix)
 
 
 def _gpkg_archive(tools, tmp_path):
@@ -302,3 +316,4 @@ def test_a_gpkg_archive_without_its_file_is_refused(tools, archives, prefix, tmp
     )
 
     assert "Unable to find GPKG vector file <vi_2.gpkg> in archive." in text
+    _nothing_made(tools, prefix)
