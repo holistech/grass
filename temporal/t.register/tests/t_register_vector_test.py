@@ -247,22 +247,6 @@ def test_layers_in_a_file(tools, prefix, dataset, tmp_path):
     ]
 
 
-def test_today_a_layer_the_map_does_not_have_is_registered(tools, prefix, dataset):
-    # Only the existence of the map is checked, not of the layer.
-    (map_name,) = _make(tools, prefix, 1)
-    name = dataset(stds_type="stvds")
-
-    tools.t_register(
-        type="vector", input=name, maps=f"{map_name}:7", start="2001-01-01"
-    )
-
-    assert _layers(tools, name) == [(map_name, "7", "2001-01-01 00:00:00", None)]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.register checks that the vector map exists but not the layer, and registers a layer the map does not have",
-)
 def test_a_layer_the_map_does_not_have_is_refused(tools, prefix, dataset):
     (map_name,) = _make(tools, prefix, 1)
     name = dataset(stds_type="stvds")

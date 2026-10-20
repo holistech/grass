@@ -288,6 +288,20 @@ def register_maps_in_space_time_dataset(
                 )
             )
 
+        # A vector map with a database link lists its layers; a layer that is
+        # not among them has no features and no table. A map without any link
+        # is not checked, because its layers cannot be listed this way.
+        if map_object_layer and map_object_type == "vector":
+            links = gs.vector_db(map_object_id)
+            if links and int(map_object_layer) not in links:
+                dbif.close()
+                msgr.fatal(
+                    _(
+                        "Unable to register vector map <{mid}>. The map has no "
+                        "layer {l}."
+                    ).format(mid=map_object_id, l=map_object_layer)
+                )
+
         # A row with a start time sets both times. Without an end time it
         # takes the end of the command line, not the end of the row before it.
         if "start" in row:
