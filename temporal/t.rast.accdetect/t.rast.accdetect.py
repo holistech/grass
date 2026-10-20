@@ -265,11 +265,11 @@ def main():
                 _("Space time raster dataset <%s> not found") % (minimum_strds.get_id())
             )
 
+        # The type is read from the dataset, which select() loads.
+        minimum_strds.select(dbif)
         if minimum_strds.get_temporal_type() != input_strds.get_temporal_type():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and minimum strds must be equal"))
-
-        minimum_strds.select(dbif)
 
     # The maximum threshold space time raster dataset
     maximum_strds = None
@@ -283,11 +283,11 @@ def main():
                 _("Space time raster dataset <%s> not found") % (maximum_strds.get_id())
             )
 
+        # The type is read from the dataset, which select() loads.
+        maximum_strds.select(dbif)
         if maximum_strds.get_temporal_type() != input_strds.get_temporal_type():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and maximum strds must be equal"))
-
-        maximum_strds.select(dbif)
 
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
 

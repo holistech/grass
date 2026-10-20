@@ -205,23 +205,14 @@ def test_relative_time_restarts_after_the_cycle_and_the_offset(tools, relative):
     ] == [(0, 0), (1, 1), (2, 2), (4, 0), (5, 1)]
 
 
-def test_today_a_threshold_dataset_of_the_other_time_type_is_accepted(
-    tools, cells, relative
+@pytest.mark.parametrize("option", ["minimum", "maximum"])
+def test_a_threshold_dataset_of_the_other_time_type_is_refused(
+    tools, cells, relative, option
 ):
-    # The tool means to refuse it (see t.rast.accumulate); no map of the
-    # dataset relates to a granule, so the range applies.
-    _run(tools, cells, "err_type", minimum="det_rel_min")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect accepts a threshold dataset of the other time type, the check compares the type before the dataset is read",
-)
-def test_a_threshold_dataset_of_the_other_time_type_is_refused(tools, cells, relative):
     with pytest.raises(ToolError) as error:
-        _run(tools, cells, "err_type2", minimum="det_rel_min")
+        _run(tools, cells, f"err_type_{option}", **{option: "det_rel_min"})
 
-    assert "Temporal type of input strds and minimum strds must be equal" in message(
+    assert f"Temporal type of input strds and {option} strds must be equal" in message(
         error.value
     )
 
