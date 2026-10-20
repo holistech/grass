@@ -254,18 +254,15 @@ ARGUMENTS = [
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_cycle_without_a_map_never_ends(gap):
-    # The loop leaves the cycle through "continue" before it advances the
-    # start, so it asks for the same empty cycle again and again. It had not
-    # ended after 8 seconds (measured 18.10.2026 with this test).
-    assert _run_with_timeout(gap, ARGUMENTS, 8) is None
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate loops forever on a cycle without a map, the loop continues before the start advances",
-)
 def test_a_cycle_without_a_map_is_skipped(gap):
     assert _run_with_timeout(gap, ARGUMENTS, 8) == 0
+
+    # The cycle of the days 1 to 3 holds two maps (sums 5, 10), the next two
+    # cycles hold none, and the cycle from day 10 restarts at 5.
+    tools = Tools(session=gap, consistent_return_value=True)
+    rows = [(row.start, row.min) for row in list_maps(tools, "strds", "gap_out")]
+    assert rows == [
+        ("2001-01-01 00:00:00", 5.0),
+        ("2001-01-02 00:00:00", 10.0),
+        ("2001-01-10 00:00:00", 5.0),
+    ]

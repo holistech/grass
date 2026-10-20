@@ -143,6 +143,25 @@ import grass.script as gs
 ############################################################################
 
 
+def _next_cycle(end, cycle, offset, absolute):
+    """Return the start and end of the cycle that follows the one ending at end
+
+    A cycle without maps is skipped through the same call, so that the loop
+    advances however a cycle ends.
+    """
+    # Imported here like in main(), after the parser has run.
+    import grass.temporal as tgis
+
+    start = end
+    if absolute:
+        if offset:
+            start = tgis.increment_datetime_by_string(end, offset)
+        return start, tgis.increment_datetime_by_string(start, cycle)
+    if offset:
+        start = end + offset
+    return start, start + cycle
+
+
 def main():
     # lazy imports
     import grass.temporal as tgis
@@ -290,6 +309,7 @@ def main():
         gs.message(_("Processing cycle %s - %s") % (str(start), str(end)))
 
         if len(input_maps) == 0:
+            start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
             continue
 
         # Lets create a dummy list of maps with granularity conform intervals
@@ -457,18 +477,7 @@ def main():
             old_map_name = output_map_name
             count += 1
 
-        # Increment the cycle
-        start = end
-        if input_strds.is_time_absolute():
-            start = end
-            if offset:
-                start = tgis.increment_datetime_by_string(end, offset)
-
-            end = tgis.increment_datetime_by_string(start, cycle)
-        else:
-            if offset:
-                start = end + offset
-            end = start + cycle
+        start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
 
     # Insert the maps into the output space time dataset
     if output_strds.is_in_db(dbif):
