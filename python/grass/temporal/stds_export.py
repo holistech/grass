@@ -290,6 +290,29 @@ def _export_raster3d_maps(rows, tar, list_file, fs) -> None:
 ############################################################################
 
 
+def _extent_of_maps(rows):
+    """Return (north, south, east, west, top, bottom) of the rows' maps
+
+    None for no row. A map without an extent in the temporal database is
+    left out; None also if no map has one.
+    """
+    boxes = [
+        tuple(row[key] for key in ("north", "south", "east", "west", "top", "bottom"))
+        for row in rows
+        if row["north"] is not None
+    ]
+    if not boxes:
+        return None
+    return (
+        max(box[0] for box in boxes),
+        min(box[1] for box in boxes),
+        max(box[2] for box in boxes),
+        min(box[3] for box in boxes),
+        max(box[4] for box in boxes),
+        min(box[5] for box in boxes),
+    )
+
+
 def _check_directory(directory) -> None:
     """Stop with a message unless the work directory exists and is writable"""
     if not directory or not Path(directory).exists():
@@ -378,6 +401,7 @@ def export_stds(
             columns = "name,start_time,end_time,layer"
         else:
             columns = "name,start_time,end_time"
+        columns += ",north,south,east,west,top,bottom"
 
         sp = open_old_stds(input, type_)
         try:
@@ -434,7 +458,11 @@ def export_stds(
         # replace sp.metadata.get_number_of_maps() with len(rows)
         # sp.metadata.get_number_of_maps() doesn't  work with where option
         string += "%s=%s\n" % ("number_of_maps", len(rows))
-        north, south, east, west, top, bottom = sp.get_spatial_extent_as_tuple()
+        # The extent of the selected maps; the dataset's own extent covers
+        # maps that where= left out.
+        north, south, east, west, top, bottom = (
+            _extent_of_maps(rows) or sp.get_spatial_extent_as_tuple()
+        )
         string += "%s=%s\n" % ("north", north)
         string += "%s=%s\n" % ("south", south)
         string += "%s=%s\n" % ("east", east)

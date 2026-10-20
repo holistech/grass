@@ -202,28 +202,6 @@ def test_today_a_selection_without_maps_gives_an_archive_without_maps(
     assert message(result) == ""
 
 
-def test_today_the_extent_of_a_selection_is_that_of_the_whole_dataset(
-    tools, absolute, tmp_path
-):
-    archive = tmp_path / "out"
-
-    _export(
-        tools,
-        absolute,
-        archive,
-        where="start_time >= '2001-02-01'",
-        compression="no",
-    )
-
-    # Maps 2 and 3 lie at x = 2 and 3, but init.txt keeps the west edge of
-    # map 1 (stds_export.py takes the extent from the dataset).
-    assert _init(archive)["west"] == "1.0"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.export writes the extent of the whole dataset into init.txt, not of the selected maps",
-)
 def test_the_extent_of_a_selection_is_that_of_the_selected_maps(
     tools, absolute, tmp_path
 ):
@@ -237,7 +215,14 @@ def test_the_extent_of_a_selection_is_that_of_the_selected_maps(
         compression="no",
     )
 
-    assert _init(archive)["west"] == "2.0"
+    # Maps 2 and 3 hold the points (2, 1), (2, 2), (3, 1) and (3, 2).
+    init = _init(archive)
+    assert [init[key] for key in ("north", "south", "east", "west")] == [
+        "2.0",
+        "1.0",
+        "3.0",
+        "2.0",
+    ]
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
