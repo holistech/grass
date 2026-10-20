@@ -73,6 +73,11 @@ def _export_raster_maps_as_gdal(
                 # Export the raster map with r.out.gdal as tif
                 out_name = name + ".tif"
                 if datatype == "CELL" and not type_:
+                    # A map without a valid cell has no minimum and maximum;
+                    # it is exported as the smallest type with the nodata
+                    # value 1, as a map whose only value is 0 would be.
+                    if max_val is None:
+                        min_val = max_val = 0
                     nodata = max_val + 1
                     if nodata < 256 and min_val >= 0:
                         gdal_type = "Byte"

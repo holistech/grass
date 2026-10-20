@@ -1,6 +1,7 @@
 """Test the refusals of t.rast.export"""
 
 import os
+import tarfile
 
 import pytest
 
@@ -82,8 +83,8 @@ def test_a_value_outside_the_list_is_refused_by_the_parser(
     assert f"Value <{value}> out of range for parameter <{option}>" in text
 
 
-def _failing_dataset(tools):
-    """A dataset with one map without values, which the export cannot handle"""
+def _empty_dataset(tools):
+    """A dataset with one map without values (it has no minimum and maximum)"""
     tools.r_mapcalc(expression="ex_empty = null()", overwrite=True)
     tools.t_create(
         type="strds",
@@ -105,42 +106,21 @@ def _failing_dataset(tools):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_map_without_values_ends_with_a_traceback(tools, tmp_path):
-    _failing_dataset(tools)
-
-    text = _refused(tools, input="ex_empty_ds", output=str(tmp_path / "out"))
-
-    assert "unsupported operand type(s) for +: 'NoneType' and 'int'" in text
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.export fails on a map without values with a TypeError (None + int)",
-)
 def test_a_map_without_values_can_be_exported(tools, tmp_path):
-    _failing_dataset(tools)
+    _empty_dataset(tools)
 
-    tools.t_rast_export(input="ex_empty_ds", output=str(tmp_path / "out"))
+    tools.t_rast_export(
+        input="ex_empty_ds", output=str(tmp_path / "out"), compression="no"
+    )
 
-    assert (tmp_path / "out").is_file()
+    with tarfile.open(tmp_path / "out") as tar:
+        assert "ex_empty.tif" in tar.getnames()
 
 
 def _leftovers(tmp_path):
     return sorted(
         path.name for path in tmp_path.iterdir() if path.name.startswith("tmp")
     )
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-def test_a_failed_export_removes_its_working_directory(tools, tmp_path):
-    _failing_dataset(tools)
-
-    _refused(tools, input="ex_empty_ds", output=str(tmp_path / "out"))
-
-    assert _leftovers(tmp_path) == []
 
 
 def test_a_where_with_a_syntax_error_is_reported_as_a_message(
