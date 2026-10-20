@@ -111,21 +111,6 @@ def test_a_lower_dataset_alone_uses_the_upper_limit(tools, daily):
     assert rows == _sums(0, 0, 10, 30, 40, 40, 40)
 
 
-def test_today_a_threshold_map_of_the_same_time_is_ignored(tools, daily):
-    # The tool looks for the relations EQUALS, DURING, OVERLAPS, OVERLAPPING
-    # and CONTAINS of the granule to the map of the threshold dataset. The
-    # topology files equal times under EQUAL, so a map with the time of the
-    # granule is never found and the limit applies: gdd with the lower limit
-    # 0 gives the sums 5 15 35 70 90 100 105.
-    rows = _accumulate(tools, "lim_eq_today", lower="lim_equal")
-
-    assert rows == _sums(5, 15, 35, 70, 90, 100, 105)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate ignores a threshold map of the same time, it looks for EQUALS but the topology files equal times under EQUAL",
-)
 def test_a_threshold_map_of_the_same_time_is_used(tools, daily):
     # The lower map 10 gives the increments 0 0 10 25 10 0 0, the sums
     # 0 0 10 35 45 45 45.
@@ -150,21 +135,6 @@ def half_day_lower(tools, daily):
     return "lim_half"
 
 
-def test_today_a_threshold_map_that_the_granule_overlaps_last_is_ignored(
-    tools, half_day_lower
-):
-    # The tool looks for OVERLAPPING, the topology files the relation under
-    # OVERLAPPED. Day 2 finds the lower 10 (increment 20 - 10 = 10), day 3
-    # does not and takes the limit 0 (increment 35): sums 5 15 25 60 80 90 95.
-    rows = _accumulate(tools, "lim_ov_today", lower=half_day_lower)
-
-    assert rows == _sums(5, 15, 25, 60, 80, 90, 95)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accumulate ignores a threshold map that the granule overlaps last, it looks for OVERLAPPING but the topology files OVERLAPPED",
-)
 def test_a_threshold_map_that_the_granule_overlaps_last_is_used(tools, half_day_lower):
     # Day 3 takes the lower 10 as well: increment 25, sums 5 15 25 50 70 80 85.
     rows = _accumulate(tools, "lim_ov", lower=half_day_lower)

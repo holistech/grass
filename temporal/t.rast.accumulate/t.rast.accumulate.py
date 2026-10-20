@@ -273,7 +273,8 @@ def main():
     else:
         end = start + cycle
 
-    limit_relations = ["EQUALS", "DURING", "OVERLAPS", "OVERLAPPING", "CONTAINS"]
+    # The keys of the relations as the topology builder files them.
+    limit_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
 
     count = 1
     output_maps = []
