@@ -97,6 +97,7 @@ def main():
     dbif.connect()
 
     stds = tgis.open_old_stds(name, type, dbif)
+    mapset = tgis.get_current_mapset()
 
     # The semantic type has no default: a call without it must not reset the
     # semantic type of the dataset.
@@ -139,7 +140,9 @@ def main():
             if count % 10 == 0:
                 gs.percent(count, len(maps), 1)
 
-            map.select(dbif=dbif)
+            # A map of another mapset is registered in the database of the
+            # current mapset only, when no dataset there holds it.
+            map.select(dbif=dbif, mapset=mapset)
 
             # Check if the map is present in the grass spatial database
             # Update if present, delete if not present
@@ -148,14 +151,14 @@ def main():
                 map.load()
                 statement += map.update(dbif=dbif, execute=False)
                 # Other datasets that hold the map must follow its new values
-                datasets = map.get_registered_stds(dbif)
+                datasets = map.get_registered_stds(dbif, mapset=mapset)
                 if datasets:
                     for dataset in datasets:
                         dataset_dict[dataset] = dataset
             else:
                 # Delete the map from the temporal database
                 # We need to update all effected space time datasets
-                datasets = map.get_registered_stds(dbif)
+                datasets = map.get_registered_stds(dbif, mapset=mapset)
                 if datasets:
                     for dataset in datasets:
                         dataset_dict[dataset] = dataset

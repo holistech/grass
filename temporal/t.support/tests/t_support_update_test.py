@@ -8,8 +8,7 @@ point (n, n)), on a region of one cell from 0,0 to 1,1.
 updates every other dataset that holds a map it read or removed (since
 18.10.2026, before only for removed maps);
 -u updates the dataset from the entries of the registered maps in the
-temporal database; the flag itself is ignored by the tool, but every call
-does it (pinned below).
+temporal database; a call without -u and without an option does not.
 """
 
 import sqlite3
@@ -250,3 +249,17 @@ def test_m_reports_its_progress_every_ten_maps(tools, make_stds):
 
     assert "100%" in message(result)
     assert stds_info(tools, "strds", name)["number_of_maps"] == 10
+
+
+def test_m_reads_a_map_of_another_mapset(two_mapsets, prefix):
+    # The map is registered in the database of the current mapset only; the
+    # mapset "other" has no dataset that holds it.
+    work, other = two_mapsets
+    other.r_mapcalc(expression=f"{prefix}_a = 1")
+    work.t_create(output=f"{prefix}_ds", title="t", description="t")
+    work.t_register(input=f"{prefix}_ds", maps=f"{prefix}_a@other", start="2001-01-01")
+    other.r_mapcalc(expression=f"{prefix}_a = 4", overwrite=True)
+
+    work.t_support(input=f"{prefix}_ds", flags="m")
+
+    assert stds_info(work, "strds", f"{prefix}_ds")["max_max"] == 4
