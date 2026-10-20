@@ -242,6 +242,8 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "Traceback" not in text
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
+    # The statement is not printed as an error of its own.
+    assert "Unable to execute" not in text
 
 
 def test_the_delta_method_with_the_line_format_today_ends_with_a_traceback(
