@@ -36,25 +36,11 @@ def test_rf_takes_the_maps_out_of_the_other_dataset(tools, make_stds, registered
     assert list_maps(tools, "strds", second) == []
 
 
-def test_today_rf_leaves_the_metadata_of_the_other_dataset_stale(tools, make_stds):
-    # Only the maps of the removed dataset are deleted by id: the maps of the
-    # other dataset are gone from the listing, but the dataset still counts
-    # and spans them.
-    maps, (first, second) = make_stds(6, datasets=2)
-    tools.t_remove(inputs=first, flags="rf")
-
-    info = stds_info(tools, "strds", second)
-
-    assert info["number_of_maps"] == 6
-    assert info["start_time"] == "'2001-01-01 00:00:00'"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.remove -rf leaves number_of_maps and the time range of another dataset that shared the removed maps unchanged",
-)
 def test_rf_updates_the_metadata_of_the_other_dataset(tools, make_stds):
     maps, (first, second) = make_stds(6, datasets=2)
     tools.t_remove(inputs=first, flags="rf")
 
-    assert stds_info(tools, "strds", second)["number_of_maps"] == 0
+    info = stds_info(tools, "strds", second)
+    assert info["number_of_maps"] == 0
+    assert info["start_time"] == "'None'"
+    assert info["end_time"] == "'None'"
