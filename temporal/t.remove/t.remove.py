@@ -104,6 +104,7 @@ def main():
                 dataset_list.append(dataset_name)
 
     statement = ""
+    current_mapset = tgis.get_current_mapset()
     # Datasets that held a deleted map. The maps are deleted without
     # execution, so delete() cannot update them.
     affected = set()
@@ -154,7 +155,12 @@ def main():
                 if clean and force:
                     if map.get_name() not in name_list:
                         name_list.append(str(map.get_name()))
-                affected.update(map.get_registered_stds(dbif) or ())
+                # The register of the current mapset, which delete() also
+                # uses: the map may belong to another mapset, whose temporal
+                # database knows nothing of the datasets here.
+                affected.update(
+                    map.get_registered_stds(dbif, mapset=current_mapset) or ()
+                )
                 map_statement += map.delete(dbif=dbif, execute=False)
 
                 count += 1
@@ -194,12 +200,8 @@ def main():
     else:
         # Execute the collected SQL statenents
         dbif.execute_transaction(statement)
-        # The datasets that are removed need no update, and the temporal
-        # database of this mapset holds no other mapset's datasets.
-        current = tgis.get_current_mapset()
+        # The datasets that are removed need no update.
         for dataset_id in sorted(affected - removed):
-            if dataset_id.split("@")[-1] != current:
-                continue
             stds = tgis.open_old_stds(dataset_id, type, dbif)
             stds.update_from_registered_maps(dbif)
         dbif.close()

@@ -44,3 +44,30 @@ def test_rf_updates_the_metadata_of_the_other_dataset(tools, make_stds):
     assert info["number_of_maps"] == 0
     assert info["start_time"] == "'None'"
     assert info["end_time"] == "'None'"
+
+
+def test_rf_updates_a_dataset_that_shares_maps_of_another_mapset(two_mapsets, prefix):
+    # The maps belong to "other" and are registered there as well, so that
+    # t.remove can read them; the two datasets of "work" share them.
+    work, other = two_mapsets
+    maps = [f"{prefix}_{i}" for i in range(3)]
+    for name in maps:
+        other.r_mapcalc(expression=f"{name} = 1")
+    other.t_create(output=f"{prefix}_own", title="t", description="t")
+    other.t_register(
+        input=f"{prefix}_own", maps=maps, start="2001-01-01", increment="1 days"
+    )
+    for dataset in ("first", "second"):
+        work.t_create(output=f"{prefix}_{dataset}", title="t", description="t")
+        work.t_register(
+            input=f"{prefix}_{dataset}",
+            maps=[f"{name}@other" for name in maps],
+            start="2001-01-01",
+            increment="1 days",
+        )
+
+    work.t_remove(inputs=f"{prefix}_first", flags="rf")
+
+    info = stds_info(work, "strds", f"{prefix}_second")
+    assert info["number_of_maps"] == 0
+    assert info["start_time"] == "'None'"
