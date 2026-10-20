@@ -427,10 +427,7 @@ def import_stds(
         mapset = get_current_mapset()
         semantic_label_column = 4
         line_count = 0
-        with (
-            list_file_name.open("r") as list_file,
-            new_list_file_name.open("w") as new_list_file,
-        ):
+        with list_file_name.open("r") as list_file:
             # get number of lines to correctly form the suffix
             max_count = len(list_file.readlines())
             list_file.seek(0)
@@ -445,7 +442,7 @@ def import_stds(
 
                 # The filename is actually the base name of the map
                 # that must be extended by the file suffix
-                filename = line_list[0].strip().split(":")[0]
+                filename, _separator, layer = line_list[0].strip().partition(":")
                 if base:
                     mapname = f"{base}_{gs.get_num_suffix(line_count, max_count)}"
                     mapid = f"{mapname}@{mapset}"
@@ -455,6 +452,7 @@ def import_stds(
 
                 row = {
                     "filename": filename,
+                    "layer": layer,
                     "name": mapname,
                     "id": mapid,
                     "start": line_list[1].strip(),
@@ -463,11 +461,6 @@ def import_stds(
                     if len(line_list) == semantic_label_column
                     else "",
                 }
-
-                new_list_file.write(
-                    f"{mapname}{fs}{row['start']}{fs}{row['end']}"
-                    f"{fs}{row['semantic_label']}\n",
-                )
 
                 maplist.append(row)
 
@@ -544,6 +537,19 @@ def import_stds(
                     )
         else:
             gs.fatal(_("Unsupported input format"))
+
+        # The list file for the registration. A pack archive holds the whole
+        # vector map with all its layers, so the layer that the exported
+        # dataset registered stays part of the map name; the GML and GPKG
+        # files hold the single layer as layer 1.
+        fs = "|"
+        with new_list_file_name.open("w") as new_list_file:
+            for row in maplist:
+                layer = f":{row['layer']}" if row["layer"] and format_ == "pack" else ""
+                new_list_file.write(
+                    f"{row['name']}{layer}{fs}{row['start']}{fs}{row['end']}"
+                    f"{fs}{row['semantic_label']}\n",
+                )
 
         # Check the space time dataset
         ident = f"{output}@{mapset}"

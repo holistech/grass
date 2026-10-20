@@ -213,29 +213,15 @@ def _layer_of_the_registered_map(tools, prefix):
     return text.splitlines()[1:]
 
 
-def test_today_a_pack_archive_registers_the_map_without_its_layer(
-    tools, archives, tmp_path, prefix
-):
-    # list.txt of the archive says vi_3:2, but the dataset registers the map
-    # under its name alone (stds_import.py writes mapname, not the layer).
-    _import(tools, archives["layer pack"], prefix, tmp_path)
-
-    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_1|None"]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.import registers a pack archive map without the layer that list.txt names, stds_import.py writes the map name alone",
-)
 def test_a_pack_archive_registers_the_layer_of_the_exported_map(
     tools, archives, tmp_path, prefix
 ):
     _import(tools, archives["layer pack"], prefix, tmp_path)
 
-    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_2|2"]
+    assert _layer_of_the_registered_map(tools, prefix) == [f"{prefix}_1|2"]
 
 
-def test_today_a_gml_archive_holds_the_registered_layer_as_layer_1(
+def test_a_gml_archive_holds_the_registered_layer_as_layer_1(
     tools, archives, tmp_path, prefix
 ):
     rows = _import(tools, archives["layer GML"], prefix, tmp_path)
