@@ -31,9 +31,10 @@
 
 # %option
 # % key: region_relation
+# % type: string
 # % description: Process only maps with this spatial relation to the current computational region
 # % guisection: Selection
-# % options: overlaps, contains, is_contained
+# % options: overlaps,contains, is_contained
 # % required: no
 # % multiple: no
 # %end
@@ -155,6 +156,7 @@
 import copy
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 
 def main():
@@ -288,18 +290,26 @@ def main():
         mod = copy.deepcopy(neighbor_module)
         mod(input=map.get_id(), output=new_map.get_id())
 
-        if use_raster_region is True:
-            reg = copy.deepcopy(gregion_module)
-            reg(raster=map.get_id())
-            gs.verbose(reg.get_bash())
-            mm = pymod.MultiModule([reg, mod], sync=False, set_temp_region=True)
-            process_queue.put(mm)
-        else:
-            process_queue.put(mod)
+        try:
+            if use_raster_region is True:
+                reg = copy.deepcopy(gregion_module)
+                reg(raster=map.get_id())
+                gs.verbose(reg.get_bash())
+                mm = pymod.MultiModule([reg, mod], sync=False, set_temp_region=True)
+                process_queue.put(mm)
+            else:
+                process_queue.put(mod)
+        except CalledModuleError as error:
+            dbif.close()
+            gs.fatal(_("Error running r.neighbors: {}").format(error))
         gs.verbose(mod.get_bash())
 
     # Wait for unfinished processes
-    process_queue.wait()
+    try:
+        process_queue.wait()
+    except CalledModuleError as error:
+        dbif.close()
+        gs.fatal(_("Error running r.neighbors: {}").format(error))
     proc_list = process_queue.get_finished_modules()
 
     # Check return status of all finished modules

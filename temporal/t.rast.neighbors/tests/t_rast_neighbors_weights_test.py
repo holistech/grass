@@ -169,26 +169,25 @@ def test_the_weighting_function_may_be_abbreviated(tools, spike, prefix):
     ],
     ids=["file-without-file", "even-size", "gaussian-without-factor"],
 )
-def test_today_a_failing_r_neighbors_ends_with_a_traceback(
-    tools, spike, prefix, options
-):
-    # The tool collects the exit codes of its r.neighbors runs in order to
-    # report them, but the queue raises on the first failing process before
-    # that code is reached.
+def test_a_failing_r_neighbors_is_reported_by_the_tool(tools, spike, prefix, options):
     with pytest.raises(ToolError) as error:
         tools.t_rast_neighbors(input=spike, output=prefix, basename=prefix, **options)
 
-    assert "CalledModuleError" in message(error.value)
-    assert "Error running modules." not in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.neighbors ends in a traceback when r.neighbors fails, the queue raises before the exit codes are collected",
-)
-@pytest.mark.parametrize("size", [4])
-def test_a_failing_r_neighbors_is_reported_by_the_tool(tools, spike, prefix, size):
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_neighbors(input=spike, output=prefix, basename=prefix, size=size)
-
     assert "Traceback" not in message(error.value)
+    assert "Error running r.neighbors" in message(error.value)
+    assert tools.t_list(type="strds", columns="name").stdout.count(prefix) == 0
+
+
+def test_a_failing_r_neighbors_with_the_raster_region_is_reported_by_the_tool(
+    tools, spike, prefix
+):
+    # The runs with -r happen in child processes of pygrass, which print their
+    # own traceback to stderr before the tool sees the failure; the tool
+    # cannot suppress it, so only its own message is checked.
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_neighbors(
+            input=spike, output=prefix, basename=prefix, size=4, flags="r"
+        )
+
+    assert "Error running r.neighbors" in message(error.value)
+    assert tools.t_list(type="strds", columns="name").stdout.count(prefix) == 0

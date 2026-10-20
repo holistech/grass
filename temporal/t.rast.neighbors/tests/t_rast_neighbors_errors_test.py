@@ -38,27 +38,6 @@ def test_a_wrong_value_is_refused_by_the_parser(tools, ramp, prefix, option, val
     assert f"Value <{value}> out of range for parameter <{option}>" in text
 
 
-def test_today_a_wrong_region_relation_is_refused_by_the_library(tools, ramp, prefix):
-    # The parser does not refuse the value although the parameter lists its
-    # options: the option block has no "type" line, so the type stays 0 and
-    # the parser checks the options only for integer, double and string
-    # (lib/gis/parser.c, check_an_opt()). The library refuses the value with
-    # its own message and a traceback.
-    text = _refused(
-        tools, input=ramp, output=prefix, basename=prefix, region_relation="bogus"
-    )
-
-    assert (
-        "Invalid spatial relation <bogus> requested. Only values 'overlaps', "
-        "'is_contained', and 'contains' are allowed." in text
-    )
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.neighbors does not let the parser refuse a wrong region_relation, the option block has no type line, so the library refuses it with a traceback",
-)
 def test_a_wrong_region_relation_is_refused_by_the_parser(tools, ramp, prefix):
     text = _refused(
         tools, input=ramp, output=prefix, basename=prefix, region_relation="bogus"
