@@ -130,6 +130,22 @@ import grass.script as gs
 range_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
 
 
+def _next_cycle(end, cycle, offset, absolute):
+    """Return the start and end of the cycle that follows the one ending at end
+
+    A cycle without maps is skipped through the same call, so that the loop
+    advances however a cycle ends.
+    """
+    start = end
+    if absolute:
+        if offset:
+            start = tgis.increment_datetime_by_string(end, offset)
+        return start, tgis.increment_datetime_by_string(start, cycle)
+    if offset:
+        start = end + offset
+    return start, start + cycle
+
+
 def main():
     # Get the options
     input = options["input"]
@@ -306,6 +322,7 @@ def main():
         input_topo.build(input_maps, input_maps)
 
         if len(input_maps) == 0:
+            start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
             continue
 
         gs.message(_("Processing cycle %s - %s") % (str(start), str(end)))
@@ -486,17 +503,7 @@ def main():
                 indicator_maps[map.get_id()] = indicator_map
                 indi_count += 1
 
-        # Increment the cycle
-        start = end
-        if input_strds.is_time_absolute():
-            start = end
-            if offset:
-                start = tgis.increment_datetime_by_string(end, offset)
-            end = tgis.increment_datetime_by_string(start, cycle)
-        else:
-            if offset:
-                start = end + offset
-            end = start + cycle
+        start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
 
     empty_maps = []
 

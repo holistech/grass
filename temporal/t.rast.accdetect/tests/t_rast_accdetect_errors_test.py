@@ -218,20 +218,26 @@ def test_a_threshold_dataset_of_the_other_time_type_is_refused(tools, cells, rel
 
 
 def _run_with_timeout(session, arguments, seconds):
-    """Run a tool in a process group of its own; None if it did not end in time"""
+    """Run a tool in a process group of its own; None if it did not end in time
+
+    Returns the return code and the messages. The tool starts a Python process
+    below the wrapper that subprocess knows, so the whole group is killed.
+    """
     process = subprocess.Popen(
         arguments,
         env=session.env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
         start_new_session=True,
     )
     try:
-        return process.wait(timeout=seconds)
+        _, messages = process.communicate(timeout=seconds)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
-        process.wait()
+        process.communicate()
         return None
+    return process.returncode, messages
 
 
 @pytest.fixture
@@ -268,17 +274,16 @@ ARGUMENTS = [
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_cycle_without_a_map_never_ends(gap):
-    # Same loop as in t.rast.accumulate: "continue" before the start advances.
-    # It had not ended after 8 seconds (measured 18.10.2026 with this test).
-    assert _run_with_timeout(gap, ARGUMENTS, 8) is None
-
-
-# More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect loops forever on a cycle without a map, the loop continues before the start advances",
-)
 def test_a_cycle_without_a_map_is_skipped(gap):
-    assert _run_with_timeout(gap, ARGUMENTS, 8) == 0
+    assert _run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
+
+    # The cycle of the days 1 to 3 holds two maps, the next two cycles hold
+    # none, and the cycle from day 10 counts its days from 0 again: the
+    # occurrence is the number of days from the start of the cycle.
+    tools = Tools(session=gap, consistent_return_value=True)
+    rows = [(row.start, row.min) for row in list_maps(tools, "strds", "gap_out")]
+    assert rows == [
+        ("2001-01-01 00:00:00", 0.0),
+        ("2001-01-02 00:00:00", 1.0),
+        ("2001-01-10 00:00:00", 0.0),
+    ]
