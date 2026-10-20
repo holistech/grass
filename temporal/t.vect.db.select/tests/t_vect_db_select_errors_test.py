@@ -52,24 +52,14 @@ FAILURES = [
 
 
 @pytest.mark.parametrize(("name", "options", "reason"), FAILURES)
-def test_today_a_failure_of_v_db_select_ends_with_its_message_and_a_traceback(
+def test_a_failure_of_v_db_select_is_reported_as_a_message(
     tools, intervals, name, options, reason
 ):
     text = _refused(tools, input=intervals, **options)
 
     assert reason in text
-    assert "Traceback" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.db.select ends with the message of v.db.select and a traceback instead of a message alone",
-)
-@pytest.mark.parametrize(("name", "options", "reason"), FAILURES)
-def test_a_failure_of_v_db_select_is_reported_as_a_message(
-    tools, intervals, name, options, reason
-):
-    assert "Traceback" not in _refused(tools, input=intervals, **options)
+    assert "Error running v.db.select" in text
+    assert "Traceback" not in text
 
 
 def test_today_a_column_that_only_some_maps_have_ends_with_an_error(tools, changing):
@@ -79,8 +69,9 @@ def test_today_a_column_that_only_some_maps_have_ends_with_an_error(tools, chang
     assert "no such column: b" in text
 
 
-def test_a_t_where_with_a_syntax_error_ends_with_a_traceback(tools, intervals):
+def test_a_t_where_with_a_syntax_error_is_reported_as_a_message(tools, intervals):
     text = _refused(tools, input=intervals, t_where="nonsense =")
 
-    assert "Traceback" in text
+    assert "Traceback" not in text
+    assert "Invalid t_where condition <nonsense =>" in text
     assert "syntax error" in text

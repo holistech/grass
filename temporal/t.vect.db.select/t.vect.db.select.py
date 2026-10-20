@@ -53,7 +53,7 @@
 import json
 
 import grass.script as gs
-from grass.tools import Tools
+from grass.tools import ToolError, Tools
 
 ############################################################################
 
@@ -98,9 +98,12 @@ def main():
 
     sp = tgis.open_old_stds(input, "stvds")
 
-    rows = sp.get_registered_maps(
-        "name,layer,mapset,start_time,end_time", tempwhere, "start_time", None
-    )
+    try:
+        rows = sp.get_registered_maps(
+            "name,layer,mapset,start_time,end_time", tempwhere, "start_time", None
+        )
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid t_where condition <{}>: {}").format(tempwhere, error))
 
     tools = Tools()
     json_output = []
@@ -114,14 +117,21 @@ def main():
             if row["layer"]:
                 layer = row["layer"]
 
-            res = tools.v_db_select(
-                map=vector_name,
-                layer=layer,
-                columns=columns,
-                separator=separator,
-                where=where,
-                format=output_format,
-            )
+            try:
+                res = tools.v_db_select(
+                    map=vector_name,
+                    layer=layer,
+                    columns=columns,
+                    separator=separator,
+                    where=where,
+                    format=output_format,
+                )
+            except ToolError as error:
+                gs.fatal(
+                    _("Error running v.db.select on <{}>: {}").format(
+                        vector_name, error
+                    )
+                )
 
             if output_format == "json":
                 records = res["records"]
