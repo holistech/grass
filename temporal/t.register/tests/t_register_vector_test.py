@@ -257,6 +257,19 @@ def test_a_layer_the_map_does_not_have_is_refused(tools, prefix, dataset):
         )
 
 
+def test_a_layer_with_categories_but_no_table_is_registered(tools, prefix, dataset):
+    # v.category adds categories in layer 2 without a database link for it.
+    (map_name,) = _make(tools, prefix, 1)
+    tools.v_category(input=map_name, output=f"{map_name}_l2", option="add", layer=2)
+    name = dataset(stds_type="stvds")
+
+    tools.t_register(
+        type="vector", input=name, maps=f"{map_name}_l2:2", start="2001-01-01"
+    )
+
+    assert [row[:2] for row in _layers(tools, name)] == [(f"{map_name}_l2", "2")]
+
+
 def test_vector_without_time_needs_a_start(tools, prefix, dataset):
     (map_name,) = _make(tools, prefix, 1)
     name = dataset(stds_type="stvds")

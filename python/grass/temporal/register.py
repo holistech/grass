@@ -289,12 +289,20 @@ def register_maps_in_space_time_dataset(
                 )
             )
 
-        # A vector map with a database link lists its layers; a layer that is
-        # not among them has no features and no table. A map without any link
-        # is not checked, because its layers cannot be listed this way.
+        # A vector map with a database link lists its layers. A layer can also
+        # have categories without a link (v.category option=add), so those are
+        # asked before a layer outside the links is refused. A map without any
+        # link is not checked, so any layer of it can still be registered.
         if map_object_layer and map_object_type == "vector":
-            links = gs.vector_db(map_object_id)
-            if links and int(map_object_layer) not in links:
+            layers = set(gs.vector_db(map_object_id))
+            if layers and int(map_object_layer) not in layers:
+                layers.update(
+                    int(layer)
+                    for layer in gs.read_command(
+                        "v.category", input=map_object_id, option="layers"
+                    ).split()
+                )
+            if layers and int(map_object_layer) not in layers:
                 dbif.close()
                 msgr.fatal(
                     _(
