@@ -601,7 +601,10 @@ def compute_occurrence(
     # Aggregate
     num_maps = len(input_maps)
     for i in range(num_maps):
-        map = input_maps[num_maps - i - 1] if reverse else input_maps[i]
+        # The lists of the threshold maps are in time order like input_maps,
+        # so they take the same index as the map.
+        index = num_maps - i - 1 if reverse else i
+        map = input_maps[index]
 
         # Compute the days since start
         input_start, input_end = map.get_temporal_extent_as_tuple()
@@ -643,14 +646,14 @@ def compute_occurrence(
         max = range_vals[1]
 
         if minimum_strds:
-            relations = input_maps_minimum[i].get_temporal_relations()
+            relations = input_maps_minimum[index].get_temporal_relations()
             for relation in range_relations:
                 if relation in relations:
                     min = str(relations[relation][0].get_id())
                     break
 
         if maximum_strds:
-            relations = input_maps_maximum[i].get_temporal_relations()
+            relations = input_maps_maximum[index].get_temporal_relations()
             for relation in range_relations:
                 if relation in relations:
                     max = str(relations[relation][0].get_id())

@@ -226,30 +226,38 @@ def test_a_threshold_map_that_the_granule_overlaps_last_is_used(
     assert result == {0: [N, 0], 1: [1, 1], 4: [N, 4]}
 
 
-def test_today_the_reverse_flag_takes_the_threshold_of_another_day(
-    tools, cells, thresholds, detect
-):
-    # The tool takes the threshold at the position i of the list in time
-    # order while it works on the map i from the end, so the day d gets the
-    # minimum of the day 5 - d: 35 for the days 0 to 2 and 15 for the days 3
-    # to 5. Day 3 (40, 20) and day 4 (5, 30) exceed 15 where the cells allow:
-    # [3, 3] and [N, 4]; the days 0 to 2 do not exceed 35. The days of the
-    # right minimum would have been 0 to 3 (see the case below).
-    result = detect("revtoday", minimum="det_min_step", range="0,1000", flags="r")
-
-    assert result == {3: [3, 3], 4: [N, 4]}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.accdetect -r takes the threshold of the mirrored day, the list in time order is indexed from the wrong end",
-)
 def test_the_reverse_flag_takes_the_threshold_of_the_day(
     tools, cells, thresholds, detect
 ):
     result = detect("rev_ok", minimum="det_min_step", range="0,1000", flags="r")
 
     assert result == detect("fwd_ok", minimum="det_min_step", range="0,1000")
+
+
+@pytest.fixture(scope="module")
+def maximum_step(tools, cells):
+    """A maximum of 25 for the days 0 to 2 and 45 for the days 3 to 5"""
+    create_stds(
+        tools,
+        "strds",
+        "det_max_step",
+        [
+            MapSpec("det_xs0", 25, day(0), day(3)),
+            MapSpec("det_xs1", 45, day(3), day(6)),
+        ],
+    )
+
+
+def test_the_reverse_flag_takes_the_maximum_of_the_day(
+    tools, cells, maximum_step, detect
+):
+    # Above 10 and below the maximum of the day: day 0 (cells 5, 20) only the
+    # second cell, day 1 (20, 30) the first, day 2 (30, 5) none, day 3 (40,
+    # 20) both, day 4 (5, 30) the second, day 5 none. A maximum read from the
+    # mirrored day would also let the second cell of day 1 (30) pass.
+    result = detect("rev_max", maximum="det_max_step", range="10,0", flags="r")
+
+    assert result == {0: [N, 0], 1: [1, N], 3: [3, 3], 4: [N, 4]}
 
 
 def test_today_minimum_and_maximum_datasets_without_a_range_end_with_a_traceback(
