@@ -319,9 +319,9 @@ def import_stds(
     :param memory: Cache size for raster rows, used in r.in.gdal
     """
     # The checks of the archive come first and use the plain gs.fatal(), which
-    # ends a tool with a message. The raise-on-error state set after the
-    # extraction makes every later gs.fatal() a ScriptError, which the tools do
-    # not catch, and is restored only when the import has run.
+    # ends a tool with a message. After the extraction every gs.fatal() raises
+    # ScriptError, which the tools report as a message; the finally at the end
+    # restores the raise-on-error state of the caller on every way out.
     input_path = Path(input)
     if not input_path.exists():
         gs.fatal(_("Space time raster dataset archive <%s> not found") % str(input))
@@ -375,341 +375,358 @@ def import_stds(
 
     old_state = gs.get_raise_on_error()
     gs.set_raise_on_error(True)
-
-    # We use a new list file name for map registration
-    new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
-    # Save current working directory path
-    old_cwd = Path.cwd()
-
-    # Switch into the data directory
-    os.chdir(directory)
-
-    # Check projection information
-    if not location:
-        temp_name = gs.tempfile()
-        proj_name = proj_file_name.absolute()
-
-        # We need to convert projection strings generated
-        # from other programs than g.proj into
-        # new line format so that the grass file comparison function
-        # can be used to compare the projections
-        proj_content = proj_name.read_text(encoding="utf-8")
-        proj_content = proj_content.replace(" +", "\n+")
-        proj_content = proj_content.replace("\t+", "\n+")
-
-        proj_name_tmp = f"{temp_name}_in_projection"
-        Path(proj_name_tmp).write_text(proj_content)
-
-        with Path(temp_name).open("w") as temp_file:
-            p = gs.start_command("g.proj", flags="p", format="proj4", stdout=temp_file)
-            p.communicate()
-
-        if not gs.compare_key_value_text_files(temp_name, proj_name_tmp, sep="="):
-            if overr:
-                gs.warning(_("Projection information does not match. Proceeding..."))
-            else:
-                diff = "".join(gs.diff_files(temp_name, proj_name))
-                gs.warning(
-                    _(
-                        "Difference between PROJ_INFO file of "
-                        "imported map and of current location:"
-                        "\n{diff}"
-                    ).format(diff=diff)
-                )
-                gs.fatal(_("Projection information does not match. Aborting."))
-
-    # Create a new location based on the projection information and switch
-    # into it
-    old_env = gs.gisenv()
-    target_gisrc = None
-    old_gisrc = os.environ.get("GISRC")
-    if location:
-        try:
-            proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
-            # g.proj prints this text for an unprojected project, which is not
-            # a PROJ string; a project without a CRS is the XY project.
-            if proj4_string.startswith("XY location"):
-                gs.create_location(dbase=old_env["GISDBASE"], location=location)
-                # The GeoTIFFs of an unprojected project carry no CRS, which
-                # r.in.gdal accepts only with the override flag.
-                overr = True
-            else:
-                gs.create_location(
-                    dbase=old_env["GISDBASE"], location=location, proj4=proj4_string
-                )
-            # Just create a new location and return
-            if create:
-                os.chdir(old_cwd)
-                return
-        except Exception as e:
-            gs.fatal(
-                _("Unable to create location %(l)s. Reason: %(e)s")
-                % {"l": location, "e": str(e)}
-            )
-        # Create a temporary environment
-        try:
-            target_gisrc, _target_env = gs.create_environment(
-                old_env["GISDBASE"], location, "PERMANENT"
-            )
-            os.environ["GISRC"] = target_gisrc
-
-        except OSError as e:
-            gs.fatal(
-                _("Unable to create environment for location %s. Reason: %s")
-                % (location, e)
-            )
-        # create default database connection
-        try:
-            gs.run_command("t.connect", flags="d")
-        except CalledModuleError:
-            gs.fatal(
-                _("Unable to create default temporal database in new location %s")
-                % location
-            )
-
     try:
-        # Make sure the temporal database exists
-        init()
+        # We use a new list file name for map registration
+        new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
+        # Save current working directory path
+        old_cwd = Path.cwd()
 
-        fs = "|"
-        maplist = []
-        mapset = get_current_mapset()
-        semantic_label_column = 4
-        line_count = 0
-        with list_file_name.open("r") as list_file:
-            # get number of lines to correctly form the suffix
-            max_count = len(list_file.readlines())
-            list_file.seek(0)
+        # Switch into the data directory
+        os.chdir(directory)
 
-            # Read the map list from file
-            for line_count, line in enumerate(list_file, 1):
-                map_line = line.rstrip()
-                if not map_line:
-                    continue
+        # Check projection information
+        if not location:
+            temp_name = gs.tempfile()
+            proj_name = proj_file_name.absolute()
 
-                line_list = map_line.split(fs)
+            # We need to convert projection strings generated
+            # from other programs than g.proj into
+            # new line format so that the grass file comparison function
+            # can be used to compare the projections
+            proj_content = proj_name.read_text(encoding="utf-8")
+            proj_content = proj_content.replace(" +", "\n+")
+            proj_content = proj_content.replace("\t+", "\n+")
 
-                # The filename is actually the base name of the map
-                # that must be extended by the file suffix
-                filename, _separator, layer = line_list[0].strip().partition(":")
-                if base:
-                    mapname = f"{base}_{gs.get_num_suffix(line_count, max_count)}"
-                    mapid = f"{mapname}@{mapset}"
+            proj_name_tmp = f"{temp_name}_in_projection"
+            Path(proj_name_tmp).write_text(proj_content)
+
+            with Path(temp_name).open("w") as temp_file:
+                p = gs.start_command(
+                    "g.proj", flags="p", format="proj4", stdout=temp_file
+                )
+                p.communicate()
+
+            if not gs.compare_key_value_text_files(temp_name, proj_name_tmp, sep="="):
+                if overr:
+                    gs.warning(
+                        _("Projection information does not match. Proceeding...")
+                    )
                 else:
-                    mapname = filename
-                    mapid = f"{mapname}@{mapset}"
-
-                row = {
-                    "filename": filename,
-                    "layer": layer,
-                    "name": mapname,
-                    "id": mapid,
-                    "start": line_list[1].strip(),
-                    "end": line_list[2].strip(),
-                    "semantic_label": line_list[3].strip()
-                    if len(line_list) == semantic_label_column
-                    else "",
-                }
-
-                maplist.append(row)
-
-        # Read the init file
-        fs = "="
-        init_data = {}
-        with init_file_name.open("r") as init_file:
-            for line in init_file:
-                init_line = line.rstrip()
-                if not init_line:
-                    continue
-
-                kv = init_line.split(fs)
-                init_data[kv[0]] = kv[1].strip()
-
-        if (
-            "temporal_type" not in init_data
-            or "semantic_type" not in init_data
-            or "number_of_maps" not in init_data
-        ):
-            gs.fatal(
-                _("Key words %(t)s, %(s)s or %(n)s not found in init file.")
-                % {"t": "temporal_type", "s": "semantic_type", "n": "number_of_maps"}
-            )
-
-        if line_count != int(init_data["number_of_maps"]):
-            gs.fatal(_("Number of maps mismatch in init and list file."))
-
-        format_ = "GTiff"
-        type_ = "strds"
-
-        if "stds_type" in init_data:
-            type_ = init_data["stds_type"]
-        if "format" in init_data:
-            format_ = init_data["format"]
-
-        if stds_type != type_:
-            gs.fatal(_("The archive file is of wrong space time dataset type"))
-
-        # Check the existence of the files
-        if format_ == "GTiff":
-            for row in maplist:
-                filename = Path(row["filename"]).with_suffix(".tif")
-                if not filename.exists():
-                    gs.fatal(
-                        _("Unable to find GeoTIFF raster file <%s> in archive.")
-                        % filename
+                    diff = "".join(gs.diff_files(temp_name, proj_name))
+                    gs.warning(
+                        _(
+                            "Difference between PROJ_INFO file of "
+                            "imported map and of current location:"
+                            "\n{diff}"
+                        ).format(diff=diff)
                     )
-        elif format_ == "AAIGrid":
-            for row in maplist:
-                filename = Path(row["filename"]).with_suffix(".asc")
-                if not filename.exists():
-                    gs.fatal(
-                        _("Unable to find AAIGrid raster file <%s> in archive.")
-                        % filename
-                    )
-        elif format_ == "GML":
-            for row in maplist:
-                filename = Path(row["filename"]).with_suffix(".xml")
-                if not filename.exists():
-                    gs.fatal(
-                        _("Unable to find GML vector file <%s> in archive.") % filename
-                    )
-        elif format_ == "GPKG":
-            for row in maplist:
-                filename = Path(row["filename"]).with_suffix(".gpkg")
-                if not filename.exists():
-                    gs.fatal(
-                        _("Unable to find GPKG vector file <%s> in archive.") % filename
-                    )
-        elif format_ == "pack":
-            for row in maplist:
-                if type_ == "stvds":
-                    filename = Path(row["filename"].split(":")[0]).with_suffix(".pack")
-                else:
-                    filename = Path(row["filename"]).with_suffix(".pack")
-                if not filename.exists():
-                    gs.fatal(
-                        _("Unable to find GRASS package file <%s> in archive.")
-                        % filename
-                    )
-        else:
-            gs.fatal(_("Unsupported input format"))
+                    gs.fatal(_("Projection information does not match. Aborting."))
 
-        # The list file for the registration. A pack archive holds the whole
-        # vector map with all its layers, so the layer that the exported
-        # dataset registered stays part of the map name; the GML and GPKG
-        # files hold the single layer as layer 1.
-        fs = "|"
-        with new_list_file_name.open("w") as new_list_file:
-            for row in maplist:
-                layer = f":{row['layer']}" if row["layer"] and format_ == "pack" else ""
-                new_list_file.write(
-                    f"{row['name']}{layer}{fs}{row['start']}{fs}{row['end']}"
-                    f"{fs}{row['semantic_label']}\n",
-                )
-
-        # Check the space time dataset
-        ident = f"{output}@{mapset}"
-        sp = dataset_factory(type_, ident)
-        if sp.is_in_db() and gs.overwrite() is False:
-            gs.fatal(
-                _(
-                    "Space time %(t)s dataset <%(sp)s> is already in"
-                    " the database. Use the overwrite flag."
-                )
-                % {"t": type_, "sp": sp.get_id()}
-            )
-
-        # Import the maps
-        if type_ == "strds":
-            if format_ in {"GTiff", "AAIGrid"}:
-                _import_raster_maps_from_gdal(
-                    maplist,
-                    overr=overr,
-                    exp=exp,
-                    location=location,
-                    link=link,
-                    format_=format_,
-                    set_current_region=set_current_region,
-                    memory=memory,
-                )
-            if format_ == "pack":
-                _import_raster_maps(maplist, set_current_region=set_current_region)
-        elif type_ == "stvds":
-            if format_ in {"GML", "GPKG"}:
-                _import_vector_maps_from_ogr(
-                    maplist,
-                    overr=overr,
-                    exp=exp,
-                    location=location,
-                    link=link,
-                    suffix="xml" if format_ == "GML" else "gpkg",
-                )
-            if format_ == "pack":
-                _import_vector_maps(maplist, extend=bool(exp or location))
-
-        # Create the space time dataset
-        if sp.is_in_db() and gs.overwrite() is True:
-            gs.info(
-                _(
-                    "Overwriting space time %(sp)s dataset "
-                    "<%(id)s> and unregister all maps."
-                )
-                % {"sp": sp.get_new_map_instance(None).get_type(), "id": sp.get_id()}
-            )
-            sp.delete()
-            sp = sp.get_new_instance(ident)
-
-        temporal_type = init_data["temporal_type"]
-        semantic_type = init_data["semantic_type"]
-        relative_time_unit = None
-        if temporal_type == "relative":
-            if "relative_time_unit" not in init_data:
-                gs.fatal(
-                    _("Key word %s not found in init file.") % ("relative_time_unit")
-                )
-            relative_time_unit = init_data["relative_time_unit"]
-            sp.set_relative_time_unit(relative_time_unit)
-
-        gs.verbose(
-            _("Create space time %s dataset.")
-            % sp.get_new_map_instance(None).get_type()
-        )
-
-        sp.set_initial_values(
-            temporal_type=temporal_type,
-            semantic_type=semantic_type,
-            title=title,
-            description=descr,
-        )
-        sp.insert()
-
-        # register the maps
-        fs = "|"
-        register_maps_in_space_time_dataset(
-            type=sp.get_new_map_instance(None).get_type(),
-            name=output,
-            file=new_list_file_name,
-            start="file",
-            end="file",
-            unit=relative_time_unit,
-            fs=fs,
-            update_cmd_list=False,
-        )
-
-    # Make sure the location is switched back correctly
-    finally:
-        os.chdir(old_cwd)
+        # Create a new location based on the projection information and switch
+        # into it
+        old_env = gs.gisenv()
+        target_gisrc = None
+        old_gisrc = os.environ.get("GISRC")
         if location:
-            # Restore the original session
-            if old_gisrc is not None:
-                os.environ["GISRC"] = old_gisrc
-            else:
-                os.environ.pop("GISRC", None)
+            try:
+                proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
+                # g.proj prints this text for an unprojected project, which is not
+                # a PROJ string; a project without a CRS is the XY project.
+                if proj4_string.startswith("XY location"):
+                    gs.create_location(dbase=old_env["GISDBASE"], location=location)
+                    # The GeoTIFFs of an unprojected project carry no CRS, which
+                    # r.in.gdal accepts only with the override flag.
+                    overr = True
+                else:
+                    gs.create_location(
+                        dbase=old_env["GISDBASE"], location=location, proj4=proj4_string
+                    )
+                # Just create a new location and return
+                if create:
+                    os.chdir(old_cwd)
+                    return
+            except Exception as e:
+                gs.fatal(
+                    _("Unable to create location %(l)s. Reason: %(e)s")
+                    % {"l": location, "e": str(e)}
+                )
+            # Create a temporary environment
+            try:
+                target_gisrc, _target_env = gs.create_environment(
+                    old_env["GISDBASE"], location, "PERMANENT"
+                )
+                os.environ["GISRC"] = target_gisrc
 
+            except OSError as e:
+                gs.fatal(
+                    _("Unable to create environment for location %s. Reason: %s")
+                    % (location, e)
+                )
+            # create default database connection
+            try:
+                gs.run_command("t.connect", flags="d")
+            except CalledModuleError:
+                gs.fatal(
+                    _("Unable to create default temporal database in new location %s")
+                    % location
+                )
+
+        try:
+            # Make sure the temporal database exists
             init()
 
-            # Delete the temporary session file
-            if target_gisrc:
-                gs.try_remove(target_gisrc)
+            fs = "|"
+            maplist = []
+            mapset = get_current_mapset()
+            semantic_label_column = 4
+            line_count = 0
+            with list_file_name.open("r") as list_file:
+                # get number of lines to correctly form the suffix
+                max_count = len(list_file.readlines())
+                list_file.seek(0)
 
+                # Read the map list from file
+                for line_count, line in enumerate(list_file, 1):
+                    map_line = line.rstrip()
+                    if not map_line:
+                        continue
+
+                    line_list = map_line.split(fs)
+
+                    # The filename is actually the base name of the map
+                    # that must be extended by the file suffix
+                    filename, _separator, layer = line_list[0].strip().partition(":")
+                    if base:
+                        mapname = f"{base}_{gs.get_num_suffix(line_count, max_count)}"
+                        mapid = f"{mapname}@{mapset}"
+                    else:
+                        mapname = filename
+                        mapid = f"{mapname}@{mapset}"
+
+                    row = {
+                        "filename": filename,
+                        "layer": layer,
+                        "name": mapname,
+                        "id": mapid,
+                        "start": line_list[1].strip(),
+                        "end": line_list[2].strip(),
+                        "semantic_label": line_list[3].strip()
+                        if len(line_list) == semantic_label_column
+                        else "",
+                    }
+
+                    maplist.append(row)
+
+            # Read the init file
+            fs = "="
+            init_data = {}
+            with init_file_name.open("r") as init_file:
+                for line in init_file:
+                    init_line = line.rstrip()
+                    if not init_line:
+                        continue
+
+                    kv = init_line.split(fs)
+                    init_data[kv[0]] = kv[1].strip()
+
+            if (
+                "temporal_type" not in init_data
+                or "semantic_type" not in init_data
+                or "number_of_maps" not in init_data
+            ):
+                gs.fatal(
+                    _("Key words %(t)s, %(s)s or %(n)s not found in init file.")
+                    % {
+                        "t": "temporal_type",
+                        "s": "semantic_type",
+                        "n": "number_of_maps",
+                    }
+                )
+
+            if line_count != int(init_data["number_of_maps"]):
+                gs.fatal(_("Number of maps mismatch in init and list file."))
+            format_ = "GTiff"
+            type_ = "strds"
+
+            if "stds_type" in init_data:
+                type_ = init_data["stds_type"]
+            if "format" in init_data:
+                format_ = init_data["format"]
+
+            if stds_type != type_:
+                gs.fatal(_("The archive file is of wrong space time dataset type"))
+
+            # Check the existence of the files
+            if format_ == "GTiff":
+                for row in maplist:
+                    filename = Path(row["filename"]).with_suffix(".tif")
+                    if not filename.exists():
+                        gs.fatal(
+                            _("Unable to find GeoTIFF raster file <%s> in archive.")
+                            % filename
+                        )
+            elif format_ == "AAIGrid":
+                for row in maplist:
+                    filename = Path(row["filename"]).with_suffix(".asc")
+                    if not filename.exists():
+                        gs.fatal(
+                            _("Unable to find AAIGrid raster file <%s> in archive.")
+                            % filename
+                        )
+            elif format_ == "GML":
+                for row in maplist:
+                    filename = Path(row["filename"]).with_suffix(".xml")
+                    if not filename.exists():
+                        gs.fatal(
+                            _("Unable to find GML vector file <%s> in archive.")
+                            % filename
+                        )
+            elif format_ == "GPKG":
+                for row in maplist:
+                    filename = Path(row["filename"]).with_suffix(".gpkg")
+                    if not filename.exists():
+                        gs.fatal(
+                            _("Unable to find GPKG vector file <%s> in archive.")
+                            % filename
+                        )
+            elif format_ == "pack":
+                for row in maplist:
+                    if type_ == "stvds":
+                        filename = Path(row["filename"].split(":")[0]).with_suffix(
+                            ".pack"
+                        )
+                    else:
+                        filename = Path(row["filename"]).with_suffix(".pack")
+                    if not filename.exists():
+                        gs.fatal(
+                            _("Unable to find GRASS package file <%s> in archive.")
+                            % filename
+                        )
+            else:
+                gs.fatal(_("Unsupported input format"))
+
+            # The list file for the registration. A pack archive holds the whole
+            # vector map with all its layers, so the layer that the exported
+            # dataset registered stays part of the map name; the GML and GPKG
+            # files hold the single layer as layer 1.
+            fs = "|"
+            with new_list_file_name.open("w") as new_list_file:
+                for row in maplist:
+                    layer = (
+                        f":{row['layer']}" if row["layer"] and format_ == "pack" else ""
+                    )
+                    new_list_file.write(
+                        f"{row['name']}{layer}{fs}{row['start']}{fs}{row['end']}"
+                        f"{fs}{row['semantic_label']}\n",
+                    )
+
+            # Check the space time dataset
+            ident = f"{output}@{mapset}"
+            sp = dataset_factory(type_, ident)
+            if sp.is_in_db() and gs.overwrite() is False:
+                gs.fatal(
+                    _(
+                        "Space time %(t)s dataset <%(sp)s> is already in"
+                        " the database. Use the overwrite flag."
+                    )
+                    % {"t": type_, "sp": sp.get_id()}
+                )
+
+            # Import the maps
+            if type_ == "strds":
+                if format_ in {"GTiff", "AAIGrid"}:
+                    _import_raster_maps_from_gdal(
+                        maplist,
+                        overr=overr,
+                        exp=exp,
+                        location=location,
+                        link=link,
+                        format_=format_,
+                        set_current_region=set_current_region,
+                        memory=memory,
+                    )
+                if format_ == "pack":
+                    _import_raster_maps(maplist, set_current_region=set_current_region)
+            elif type_ == "stvds":
+                if format_ in {"GML", "GPKG"}:
+                    _import_vector_maps_from_ogr(
+                        maplist,
+                        overr=overr,
+                        exp=exp,
+                        location=location,
+                        link=link,
+                        suffix="xml" if format_ == "GML" else "gpkg",
+                    )
+                if format_ == "pack":
+                    _import_vector_maps(maplist, extend=bool(exp or location))
+
+            # Create the space time dataset
+            if sp.is_in_db() and gs.overwrite() is True:
+                gs.info(
+                    _(
+                        "Overwriting space time %(sp)s dataset "
+                        "<%(id)s> and unregister all maps."
+                    )
+                    % {
+                        "sp": sp.get_new_map_instance(None).get_type(),
+                        "id": sp.get_id(),
+                    }
+                )
+                sp.delete()
+                sp = sp.get_new_instance(ident)
+
+            temporal_type = init_data["temporal_type"]
+            semantic_type = init_data["semantic_type"]
+            relative_time_unit = None
+            if temporal_type == "relative":
+                if "relative_time_unit" not in init_data:
+                    gs.fatal(
+                        _("Key word %s not found in init file.")
+                        % ("relative_time_unit")
+                    )
+                relative_time_unit = init_data["relative_time_unit"]
+                sp.set_relative_time_unit(relative_time_unit)
+
+            gs.verbose(
+                _("Create space time %s dataset.")
+                % sp.get_new_map_instance(None).get_type()
+            )
+
+            sp.set_initial_values(
+                temporal_type=temporal_type,
+                semantic_type=semantic_type,
+                title=title,
+                description=descr,
+            )
+            sp.insert()
+
+            # register the maps
+            fs = "|"
+            register_maps_in_space_time_dataset(
+                type=sp.get_new_map_instance(None).get_type(),
+                name=output,
+                file=new_list_file_name,
+                start="file",
+                end="file",
+                unit=relative_time_unit,
+                fs=fs,
+                update_cmd_list=False,
+            )
+
+        # Make sure the location is switched back correctly
+        finally:
+            os.chdir(old_cwd)
+            if location:
+                # Restore the original session
+                if old_gisrc is not None:
+                    os.environ["GISRC"] = old_gisrc
+                else:
+                    os.environ.pop("GISRC", None)
+
+                init()
+
+                # Delete the temporary session file
+                if target_gisrc:
+                    gs.try_remove(target_gisrc)
+    finally:
         gs.set_raise_on_error(old_state)
