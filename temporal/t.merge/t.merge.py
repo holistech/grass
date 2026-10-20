@@ -33,7 +33,6 @@
 import grass.script as gs
 
 ############################################################################
-gs.set_raise_on_error(True)
 
 
 def main():
@@ -131,6 +130,7 @@ def main():
             for row in rows:
                 registered_output_maps[row["id"]] = row["id"]
 
+    filled = False
     try:
         for stds in stds_list:
             # Avoid merging of already registered maps
@@ -152,12 +152,14 @@ def main():
                         output_stds.register_map(map=map, dbif=dbif)
                         # Update the registered map list
                         registered_output_maps[map.get_id()] = map.get_id()
-    except Exception:
-        # A new output that could not be filled would stay behind empty
-        if not output_exists:
-            output_stds.delete(dbif=dbif)
-        dbif.close()
-        raise
+        filled = True
+    finally:
+        # A refusal of the library ends the process through sys.exit(); a new
+        # output that could not be filled would stay behind empty.
+        if not filled:
+            if not output_exists:
+                output_stds.delete(dbif=dbif)
+            dbif.close()
 
     output_stds.update_from_registered_maps(dbif=dbif)
 

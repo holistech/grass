@@ -125,8 +125,12 @@ def test_an_existing_output_is_refused_without_overwrite(tools, prefix):
     _make(tools, prefix)
     tools.t_merge(inputs=f"{prefix}_a", output=f"{prefix}_out")
 
-    with pytest.raises(ToolError, match=r"please\s+use\s+the\s+overwrite\s+flag"):
+    with pytest.raises(
+        ToolError, match=r"please\s+use\s+the\s+overwrite\s+flag"
+    ) as error:
         tools.t_merge(inputs=f"{prefix}_b", output=f"{prefix}_out")
+
+    assert "Traceback" not in str(error.value)
 
     assert _numbers(tools, prefix, f"{prefix}_out") == [1, 2, 3]
 
@@ -201,8 +205,43 @@ def test_datasets_of_different_temporal_types_are_refused(tools, prefix):
     _make(tools, prefix)
     _make(tools, f"{prefix}_r", members={"a": (1,)}, temporaltype="relative")
 
-    with pytest.raises(ToolError, match=r"must\s+have\s+the\s+same\s+temporal\s+type"):
+    with pytest.raises(
+        ToolError, match=r"must\s+have\s+the\s+same\s+temporal\s+type"
+    ) as error:
         tools.t_merge(inputs=f"{prefix}_a,{prefix}_r_a", output=f"{prefix}_out")
+
+    assert "Traceback" not in str(error.value)
+
+    assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
+
+
+def test_a_failed_registration_leaves_no_output(tools, prefix):
+    # Both datasets have relative time, which passes the check of the temporal
+    # type, but in different units: registering the maps of the second one in
+    # the output, which took days from the first, fails in the library.
+    make_map(tools, "raster", f"{prefix}_d", 1)
+    make_map(tools, "raster", f"{prefix}_y", 2)
+    register_stds(
+        tools,
+        "strds",
+        f"{prefix}_days",
+        [MapSpec(f"{prefix}_d", 1, 0, 1)],
+        temporaltype="relative",
+        unit="days",
+    )
+    register_stds(
+        tools,
+        "strds",
+        f"{prefix}_years",
+        [MapSpec(f"{prefix}_y", 2, 1, 2)],
+        temporaltype="relative",
+        unit="years",
+    )
+
+    with pytest.raises(ToolError, match=r"Relative\s+time\s+units") as error:
+        tools.t_merge(inputs=f"{prefix}_days,{prefix}_years", output=f"{prefix}_out")
+
+    assert "Traceback" not in str(error.value)
 
     assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
 
@@ -212,8 +251,10 @@ def test_an_unknown_input_is_refused(tools, prefix):
 
     with pytest.raises(
         ToolError, match=r"Space\s+time\s+dataset\s+<nope>\s+of\s+type\s+<strds>"
-    ):
+    ) as error:
         tools.t_merge(inputs=f"{prefix}_a,nope", output=f"{prefix}_out")
+
+    assert "Traceback" not in str(error.value)
 
     assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
 
@@ -221,8 +262,10 @@ def test_an_unknown_input_is_refused(tools, prefix):
 def test_a_dataset_of_another_type_is_not_found(tools, prefix):
     _make(tools, prefix)
 
-    with pytest.raises(ToolError, match=r"of\s+type\s+<stvds>\s+not\s+found"):
+    with pytest.raises(ToolError, match=r"of\s+type\s+<stvds>\s+not\s+found") as error:
         tools.t_merge(type="stvds", inputs=f"{prefix}_a", output=f"{prefix}_out")
+
+    assert "Traceback" not in str(error.value)
 
 
 def test_inputs_and_output_are_required(tools):
