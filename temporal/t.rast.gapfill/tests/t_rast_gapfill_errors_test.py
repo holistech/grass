@@ -223,3 +223,18 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, gappy, pref
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert not tools.g_list(type="raster", pattern=f"{prefix}_2*").stdout.strip()
+
+
+def test_a_failing_r_series_interp_is_reported_by_the_tool(tools, gappy, prefix):
+    # The predecessor of the gap is still registered but gone from the
+    # mapset, so r.series.interp fails on its input.
+    name = gappy({1: (100, 0), 3: (300, 90)})
+    tools.g_remove(type="raster", name=f"{name}_m1", flags="f")
+
+    text = _refused(tools, input=name, basename=prefix)
+
+    assert "Error running r.series.interp" in text
+    assert "Traceback" not in text
+    assert [row[0] for row in _rows(tools, name)] == [f"{name}_m1", f"{name}_m3"]
+    # The map of the gap would be <prefix>_2001_02 (suffix gran).
+    assert not tools.g_list(type="raster", pattern=f"{prefix}_2*").stdout.strip()

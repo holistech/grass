@@ -51,6 +51,7 @@ import copy
 import sys
 
 import grass.script as gs
+from grass.exceptions import CalledModuleError
 
 ############################################################################
 
@@ -209,10 +210,18 @@ def main():
             samplingpos=map_positions,
         )
         sys.stderr.write(mod.get_bash() + "\n")
-        process_queue.put(mod)
+        try:
+            process_queue.put(mod)
+        except CalledModuleError as error:
+            dbif.close()
+            gs.fatal(_("Error running r.series.interp: {}").format(error))
 
     # Wait for unfinished processes
-    process_queue.wait()
+    try:
+        process_queue.wait()
+    except CalledModuleError as error:
+        dbif.close()
+        gs.fatal(_("Error running r.series.interp: {}").format(error))
 
     # Insert new interpolated maps in temporal database and dataset
     for map_ in result_list:
