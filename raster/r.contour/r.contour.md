@@ -10,6 +10,9 @@ map will be used.
 
 ## NOTES
 
+If the input map has no values, *r.contour* warns and creates an empty vector
+map, with a step as with a list of levels.
+
 *r.contour* will either step through incremental contours or produce
 contours from a list of levels, not both. If both a list of levels and a
 step are specified, the list will be produced and the step will be

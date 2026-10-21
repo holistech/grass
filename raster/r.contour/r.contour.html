@@ -11,6 +11,9 @@ in the <b>input</b> raster map will be used.
 
 <h2>NOTES</h2>
 
+If the input map has no values, <em>r.contour</em> warns and creates an empty vector
+map, with a step as with a list of levels.
+
 <em>r.contour</em> will either step through incremental contours or produce
 contours from a list of levels, not both. If both a list of levels and
 a step are specified, the list will be produced and the step will be ignored.

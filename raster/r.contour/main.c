@@ -298,6 +298,16 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
     }
     else { /* step */
 
+        /* The range of a map without values is null, so no level can be
+           computed from it; the counts below would be taken from garbage and
+           ask G_malloc() for an absurd size. */
+        if (Rast_is_d_null_value(&zmin) || Rast_is_d_null_value(&zmax)) {
+            G_warning(_("Raster map has no values, no contour lines are "
+                        "created"));
+            *num = 0;
+            return (double *)G_malloc(sizeof(double));
+        }
+
         dstep = atof(step->answer);
         /* fix if step < 1, Roger Bivand 1/2001: */
 

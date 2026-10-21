@@ -50,21 +50,6 @@ def test_a_level_that_is_no_number_is_refused_by_the_parser(tools, ramps, prefix
     assert "Invalid value <a> for parameter <levels>" in text
 
 
-def test_today_a_step_with_a_map_without_values_crashes(tools, quarterly, prefix):
-    # The map without values has no range, so r.contour asks for an absurd
-    # amount of memory to hold the levels; r.contour alone does the same on
-    # such a map (raster/r.contour/main.c:338), the defect is r.contour's.
-    # With explicit levels the same map is fine (the empty map of the other
-    # tests).
-    text = _refused(tools, input=quarterly, output=prefix, basename=prefix, step=1)
-
-    assert "G_malloc: unable to allocate" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.contour with step on a map without values crashes in r.contour with an absurd G_malloc request",
-)
 def test_a_step_leaves_a_map_without_values_empty(tools, quarterly, prefix):
     # The three maps with values and, with -n, the empty one.
     tools.t_rast_contour(
