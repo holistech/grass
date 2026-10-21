@@ -9,6 +9,7 @@ takes precedence over the one here.
 
 import os
 import re
+import shlex
 import shutil
 import zlib
 from types import SimpleNamespace
@@ -96,10 +97,11 @@ def broken_tools(tools, tmp_path):
     def make(*names, status=1):
         search = tools._original_env["PATH"]  # noqa: SLF001
         for name in names:
+            real = shlex.quote(shutil.which(name, path=search))
             stand_in = tmp_path / name
             stand_in.write_text(
                 f'#!/bin/sh\ncase "$1" in\n'
-                f'--interface-description) exec {shutil.which(name, path=search)} "$@" ;;\n'
+                f'--interface-description) exec {real} "$@" ;;\n'
                 f"esac\nexit {status}\n"
             )
             stand_in.chmod(0o755)
