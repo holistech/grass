@@ -237,3 +237,31 @@ def test_maps_after_an_empty_line_are_registered(tools, make_maps, dataset, tmp_
     tools.t_register(type="raster", input=name, file=file)
 
     assert [row.name for row in list_maps(tools, "strds", name)] == maps
+
+
+def test_a_refused_map_leaves_no_semantic_label_on_the_maps_before_it(
+    tools, make_maps, dataset, tmp_path
+):
+    # The second row has no time zone in a dataset whose first map has one, so
+    # the call is refused; the label of the first row must not be written.
+    maps = make_maps(2)
+    name = dataset()
+    file = register_file(
+        tmp_path / "maps.txt",
+        [
+            (
+                maps[0],
+                "2001-01-01 10:00:00 +02:00",
+                "2001-01-02 10:00:00 +02:00",
+                "S2_1",
+            ),
+            (maps[1], "2001-01-02 10:00:00", "2001-01-03 10:00:00", "S2_2"),
+        ],
+    )
+
+    with pytest.raises(ToolError, match="time zone"):
+        tools.t_register(type="raster", input=name, file=file)
+
+    info = tools.r_info(map=maps[0], flags="e").keyval
+    assert info["semantic_label"].strip('"') == "none"
+    assert list_maps(tools, "strds", name) == []

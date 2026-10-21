@@ -452,14 +452,11 @@ def register_maps_in_space_time_dataset(
                 interval=interval,
             )
 
-        # Set the semantic label (only raster type supported)
-        if semantic_label:
-            # semantic label defined in input file
-            # -> update raster metadata
-            # -> write band identifier to GRASS data base
-            map_object.set_semantic_label(semantic_label)
-        else:
-            # Try to read semantic label from GRASS data base if defined
+        # A semantic label of the input file is set after all maps were
+        # checked, because it is written to the GRASS database at once. Without
+        # one, the label is read from the GRASS database (only raster type
+        # supported).
+        if not semantic_label:
             map_object.read_semantic_label_from_grass()
 
         # A dataset cannot hold times with and without a time zone, because
@@ -488,7 +485,7 @@ def register_maps_in_space_time_dataset(
                         )
                     )
 
-        maps_to_write.append((map_object, is_in_db))
+        maps_to_write.append((map_object, is_in_db, semantic_label))
 
         # Store the maps in a list to register in a space time dataset
         if name:
@@ -497,7 +494,15 @@ def register_maps_in_space_time_dataset(
     # Writing starts after all maps were checked: insert() and update_all()
     # write the time stamp of the map at once, even with execute=False, so a
     # refusal later in the list would leave the maps before it changed.
-    for count, (map_object, is_in_db) in enumerate(maps_to_write, start=1):
+    for count, (map_object, is_in_db, semantic_label) in enumerate(
+        maps_to_write, start=1
+    ):
+        if semantic_label:
+            # semantic label defined in input file
+            # -> update raster metadata
+            # -> write band identifier to GRASS data base
+            map_object.set_semantic_label(semantic_label)
+
         if is_in_db:
             #  Gather the SQL update statement
             statement += map_object.update_all(dbif=dbif, execute=False)
