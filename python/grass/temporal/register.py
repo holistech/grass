@@ -37,6 +37,59 @@ from .open_stds import open_old_stds
 ###############################################################################
 
 
+def _refuse_other_time(sp, map_object, dbif):
+    """Stop if the dataset would not take the map for its time
+
+    Tests the temporal type and, for a relative dataset that holds maps, the
+    relative unit, as register_map() of the dataset does.
+    """
+    msgr = get_tgis_message_interface()
+    identifiers = {
+        "id": sp.get_id(),
+        "map": map_object.get_map_id(),
+        "l": map_object.get_layer(),
+    }
+    if sp.get_temporal_type() != map_object.get_temporal_type():
+        dbif.close()
+        if identifiers["l"]:
+            msgr.fatal(
+                _(
+                    "Temporal type of space time dataset "
+                    "<%(id)s> and map <%(map)s> with layer %(l)s"
+                    " are different"
+                )
+                % identifiers
+            )
+        msgr.fatal(
+            _(
+                "Temporal type of space time dataset <%(id)s> and map <%(map)s> are different"
+            )
+            % identifiers
+        )
+    # An empty relative dataset takes the unit of its first map
+    if (
+        sp.is_time_relative()
+        and sp.metadata.get_number_of_maps()
+        and sp.get_relative_time_unit() != map_object.get_relative_time_unit()
+    ):
+        dbif.close()
+        if identifiers["l"]:
+            msgr.fatal(
+                _(
+                    "Relative time units of space time dataset "
+                    "<%(id)s> and map <%(map)s> with layer %(l)s"
+                    " are different"
+                )
+                % identifiers
+            )
+        msgr.fatal(
+            _(
+                "Relative time units of space time dataset <%(id)s> and map <%(map)s> are different"
+            )
+            % identifiers
+        )
+
+
 def register_maps_in_space_time_dataset(
     type: str,
     name: str | None = None,
@@ -484,6 +537,12 @@ def register_maps_in_space_time_dataset(
                             other=_("has none") if aware else _("has one"),
                         )
                     )
+
+        # The dataset refuses a map of another temporal type or relative unit
+        # when it registers it, which is after the map was written. The same
+        # tests come first, with the messages of the dataset.
+        if name:
+            _refuse_other_time(sp, map_object, dbif)
 
         maps_to_write.append((map_object, is_in_db, semantic_label))
 

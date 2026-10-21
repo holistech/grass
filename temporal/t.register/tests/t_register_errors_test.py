@@ -180,3 +180,41 @@ def test_type_outside_the_options(tools, make_maps):
     message = _register(tools, type="bogus", maps=maps[0], start="2001-01-01")
 
     assert "Value <bogus> out of range for parameter <type>" in message
+
+
+def _timestamp(tools, name):
+    """The GRASS timestamp of a raster map, "" for a map without one"""
+    try:
+        return tools.r_timestamp(map=name).stdout
+    except ToolError:
+        return ""
+
+
+def _untouched(tools, name, timestamp):
+    """Assert that a refused run left the map out of the database and as it was"""
+    assert name not in tools.t_list(type="raster", columns="name").stdout.split()
+    assert _timestamp(tools, name) == timestamp
+
+
+def test_a_map_of_the_other_temporal_type_is_not_written(tools, make_maps, dataset):
+    maps = make_maps(1)
+    name = dataset()
+    before = _timestamp(tools, maps[0])
+
+    message = _register(tools, input=name, maps=maps[0], start=0, unit="days")
+
+    assert "are different" in message
+    assert f"Temporal type of space time dataset <{name}@PERMANENT>" in message
+    _untouched(tools, maps[0], before)
+
+
+def test_a_map_with_another_relative_unit_is_not_written(tools, make_maps, dataset):
+    first, second = make_maps(2)
+    name = dataset(temporaltype="relative")
+    tools.t_register(type="raster", input=name, maps=first, start=0, unit="days")
+    before = _timestamp(tools, second)
+
+    message = _register(tools, input=name, maps=second, start=5, unit="hours")
+
+    assert f"Relative time units of space time dataset <{name}@PERMANENT>" in message
+    _untouched(tools, second, before)
