@@ -93,6 +93,11 @@ def main():
         dbif.close()
         gs.fatal(_("Input and aggregation dataset must have the same temporal type"))
 
+    # An empty dataset has no map time either; say that it is empty
+    if not sp.get_registered_maps("id", None, None, dbif):
+        dbif.close()
+        gs.fatal(_("Space time vector dataset <%s> is empty") % sp.get_id())
+
     # Check if intervals are present in the sample dataset
     if sp.get_temporal_type() == "absolute":
         map_time = sp.absolute_time.get_map_time()
@@ -119,6 +124,33 @@ def main():
     if not rows:
         dbif.close()
         gs.fatal(_("Space time vector dataset <%s> is empty") % sp.get_id())
+
+    # v.what.rast only reports an error in the where condition and the run
+    # ends with status 0 and empty values, so the condition is tried on the
+    # table of each layer first.
+    if where:
+        for vectmap, layer in {
+            (f"{row['name']}@{row['mapset']}", int(row["layer"] or 1)) for row in rows
+        }:
+            connection = gs.vector_db(vectmap).get(layer)
+            if not connection:
+                continue
+            try:
+                gs.read_command(
+                    "db.select",
+                    sql="SELECT cat FROM {} WHERE {}".format(
+                        connection["table"], where
+                    ),
+                    driver=connection["driver"],
+                    database=connection["database"],
+                )
+            except CalledModuleError:
+                dbif.close()
+                gs.fatal(
+                    _("Invalid where condition <{}> for vector map <{}>").format(
+                        where, vectmap
+                    )
+                )
 
     # Sample the raster dataset with the vector dataset and run v.what.rast
     for row in rows:

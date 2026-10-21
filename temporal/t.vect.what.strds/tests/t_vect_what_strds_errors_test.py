@@ -68,26 +68,6 @@ def test_instants_are_refused(tools, rasters, prefix):
     )
 
 
-def test_today_an_empty_dataset_is_refused_as_a_dataset_of_instants(
-    tools, rasters, prefix
-):
-    tools.t_create(
-        type="stvds",
-        temporaltype="absolute",
-        output=f"{prefix}_void",
-        title="void",
-        description="no maps",
-    )
-
-    text = _refused(tools, input=f"{prefix}_void", strds="wh_a")
-
-    assert "must have time intervals" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.what.strds refuses an empty dataset as one that needs time intervals instead of saying it is empty",
-)
 def test_an_empty_dataset_is_reported_as_empty(tools, rasters, prefix):
     tools.t_create(
         type="stvds",
@@ -117,27 +97,6 @@ def test_the_temporal_types_must_match(tools, rasters, vectors):
     assert "Input and aggregation dataset must have the same temporal type" in text
 
 
-def test_today_a_where_with_a_syntax_error_leaves_every_value_empty(
-    tools, rasters, vectors
-):
-    data = vectors()
-
-    result = tools.t_vect_what_strds(
-        input=data.dataset, strds="wh_a", column="m", where="h >"
-    )
-
-    # v.what.rast reports the SQL errors and the tool ends with status 0.
-    assert "incomplete input" in message(result)
-    assert (
-        tools.v_db_select(map=data.maps[0], columns="m", flags="c").stdout.splitlines()
-        == [""] * 4
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.what.strds ends with status 0 for a where with a syntax error and leaves every value empty",
-)
 def test_a_where_with_a_syntax_error_is_refused(tools, rasters, vectors):
     assert "incomplete input" in _refused(
         tools, input=vectors().dataset, strds="wh_a", column="m", where="h >"
