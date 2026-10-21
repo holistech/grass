@@ -30,7 +30,10 @@ time vector dataset to stdout.
 <h2>NOTES</h2>
 
 The option <b>where</b> selects points of the input vector map. Points that
-it does not select are not in the output map, in none of its layers.
+it does not select are not in the output map, in none of its layers. The
+selection works on the table of layer 1; with <b>where</b> the output map
+keeps only layer 1 of the input map and its table, and every other layer is
+made anew for the samples, without the columns that the input had in it.
 
 <p>
 If a column named in <b>columns</b> exists in the table of a layer of the
