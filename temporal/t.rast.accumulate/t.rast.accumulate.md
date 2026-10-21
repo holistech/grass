@@ -28,6 +28,9 @@ temporally overlap the actual granules, until maps that have a temporal
 contain relation are detected. If no maps are found or lower/upper STRDS
 are not defined, then the **limits** option is used, eg.
 **limits=10,30**.
+The **limits** are checked even if every granule has lower and upper maps:
+an upper limit that is not above the lower limit is refused before any map
+is made.
 
 The **upper** **limit** is only used in the Biologically Effective
 Degree Days calculation.

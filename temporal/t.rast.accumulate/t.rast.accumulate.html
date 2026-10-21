@@ -32,6 +32,9 @@ are detected, then maps that temporally overlap the actual granules,
 until maps that have a temporal contain relation are detected. If no
 maps are found or lower/upper STRDS are not defined, then the
 <b>limits</b> option is used, eg. <b>limits=10,30</b>.
+The <b>limits</b> are checked even if every granule has lower and upper maps:
+an upper limit that is not above the lower limit is refused before any map
+is made.
 
 <p>
 The <b>upper</b> <b>limit</b> is only used in the Biologically
