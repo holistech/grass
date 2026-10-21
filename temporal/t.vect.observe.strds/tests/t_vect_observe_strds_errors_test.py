@@ -175,3 +175,24 @@ def test_a_raster_map_that_is_gone_ends_the_run(tools, points, prefix):
             vector_output=f"{prefix}_v",
             columns="obs",
         )
+
+
+def test_a_where_that_v_extract_refuses_is_reported(tools, rasters, points, prefix):
+    text = _refused(tools, points, prefix, where="nonsense =")
+
+    assert f"Unable to select the points of <{points}> with where" in text
+    assert "Traceback" not in text
+
+
+def test_a_failing_v_category_is_reported(broken_tools, rasters, points, prefix):
+    text = _refused(broken_tools("v.category"), points, prefix)
+
+    assert "Unable to create new layers for vector map" in text
+    assert prefix not in broken_tools().t_list(type="stvds", columns="name").stdout
+
+
+def test_a_failing_v_db_addcolumn_is_reported(broken_tools, rasters, points, prefix):
+    text = _refused(broken_tools("v.db.addcolumn"), points, prefix)
+
+    assert "Unable to add column" in text
+    assert "Traceback" not in text
