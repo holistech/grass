@@ -151,6 +151,15 @@ def main():
 
     sp = tgis.open_old_stds(input, "strds")
 
+    if list:
+        # r.colors -l lists the rules and refuses any map, so the maps of the
+        # dataset are not passed.
+        try:
+            gs.run_command("r.colors", flags="l")
+        except CalledModuleError:
+            gs.fatal(_("Error in r.colors call"))
+        return
+
     rows = sp.get_registered_maps("id", None, None, None)
 
     if rows and write:

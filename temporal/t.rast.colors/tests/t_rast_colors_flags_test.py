@@ -15,8 +15,6 @@ import math
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
-from grass.temporal.testing.readback import message
-from grass.tools import ToolError
 
 WHITE = ["nv 255:255:255", "default 255:255:255"]
 
@@ -225,23 +223,6 @@ def test_the_w_flag_sees_the_tables_of_maps_of_another_mapset(two_mapsets, prefi
     )
 
 
-def test_today_the_l_flag_cannot_be_used(tools, colored):
-    # The tool passes the list of maps to r.colors, which does not allow the
-    # list of rules together with a map list.
-    name, _, _ = colored
-
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_colors(input=name, flags="l")
-
-    text = message(error.value)
-    assert "Options <map>, <file> and <-l> are mutually exclusive" in text
-    assert "Error in r.colors call" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.colors -l fails because the map list is passed to r.colors, which does not allow the list of rules with a map list",
-)
 def test_the_l_flag_lists_the_rules(tools, colored):
     name, _, _ = colored
 
