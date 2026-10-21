@@ -85,3 +85,12 @@ def test_a_dataset_without_maps_is_left_alone(tools, prefix):
 
     assert result.returncode == 0
     assert message(result) == ""
+
+
+def test_a_failing_listing_of_the_rules_is_reported(broken_tools, colored):
+    name, _, _ = colored
+
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.colors").t_rast_colors(input=name, flags="l")
+
+    assert "Error in r.colors call" in message(error.value)
