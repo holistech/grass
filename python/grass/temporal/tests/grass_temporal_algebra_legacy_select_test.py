@@ -172,12 +172,6 @@ CORE = {}
 
 CORE_MESSAGE = {}
 
-# Cases where the core differs although the manual does not say so; the first
-# table holds what the core does today, the case itself what is right
-CORE_TODAY = {}
-
-CORE_TODAY_MESSAGE = {}
-
 NAMES = {}
 
 SHAPE = {
@@ -286,10 +280,6 @@ def test_cases(data, request, runner, expression, options, expected):
             expected = CORE[name]
             message = CORE_MESSAGE.get(name)
             shape = SHAPE_CORE.get(name, shape)
-        elif name in CORE_TODAY:
-            expected = CORE_TODAY[name]
-            message = CORE_TODAY_MESSAGE.get(name)
-            shape = None
     legacy_data.check_case(
         KIND,
         runner,
@@ -337,8 +327,6 @@ def test_every_table_entry_belongs_to_a_case():
     assert set(SHAPE) <= {case.values[0] for case in CASES}
     assert set(CORE) <= ids
     assert set(NAMES) <= ids
-    assert set(CORE_TODAY) <= ids
     assert set(CORE_MESSAGE) <= set(CORE)
-    assert set(CORE_TODAY_MESSAGE) <= set(CORE_TODAY)
     assert set(SHAPE_CORE) <= set(CORE)
     assert set(DRY_CORE) <= {case.id for case in DRY}
