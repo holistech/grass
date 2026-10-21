@@ -137,23 +137,6 @@ def test_the_e_flag_adds_the_quartiles_and_the_percentile(tools, points):
         assert [float(row[key]) for key in EXTENDED] == values, name
 
 
-def test_today_a_null_counts_as_zero_in_the_extended_statistics(tools, points):
-    rows = _table(tools.t_vect_univar(input=points, column="value", flags="e"))[1]
-
-    # v.univar sorts the NULL row as the value 0 (0, 2, 4, 6, 8) but takes the
-    # indexes of the four values: index 0 gives 0, the median is (2 + 4) / 2,
-    # index 2 gives 4 and index 3 gives 6. The defect is in v.univar, not in
-    # this tool: vector/v.univar/main.c sorts every row of the table, NULL
-    # rows included, and takes the indexes from the number of other values.
-    # v.univar -ge alone gives the same 0, 3, 4, 6 (checked 18.10.2026 on a
-    # map with the values 2, 4, 6, 8 and one NULL).
-    assert [float(rows[1][key]) for key in EXTENDED] == [0, 3, 4, 6]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="v.univar counts a NULL row as the value 0 in the extended statistics, so t.vect.univar -e gives wrong percentiles",
-)
 def test_a_null_is_left_out_of_the_extended_statistics(tools, points):
     rows = _table(tools.t_vect_univar(input=points, column="value", flags="e"))[1]
 
