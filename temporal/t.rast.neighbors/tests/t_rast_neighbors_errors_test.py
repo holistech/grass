@@ -2,7 +2,12 @@
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, small_region
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_daily_stds,
+    create_stds,
+    small_region,
+)
 from grass.temporal.testing.readback import cell_values, list_maps, message, stds_info
 from grass.tools import ToolError
 
@@ -143,3 +148,40 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, ramp, prefi
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+def test_a_failing_r_neighbors_is_reported(broken_tools, ramp, prefix):
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.neighbors").t_rast_neighbors(
+            input=ramp, output=prefix, basename=prefix
+        )
+
+    assert "Error running r.neighbors" in message(error.value)
+
+
+def test_a_failing_r_neighbors_is_reported_when_the_processes_are_waited_for(
+    tools, broken_tools, prefix
+):
+    # Three maps and four processes: nothing is waited for while the maps are
+    # queued, so the failure shows when the tool waits for the end of all.
+    small_region(tools, 3, 3)
+    create_daily_stds(tools, "strds", [f"{prefix}_in"], 3, map_prefix=prefix)
+
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.neighbors").t_rast_neighbors(
+            input=f"{prefix}_in", output=prefix, basename=prefix, nprocs=4
+        )
+
+    assert "Error running r.neighbors" in message(error.value)
+
+
+def test_the_progress_is_reported_every_ten_maps(tools, prefix):
+    small_region(tools, 3, 3)
+    create_daily_stds(tools, "strds", [f"{prefix}_in"], 10, map_prefix=prefix)
+
+    result = tools.t_rast_neighbors(
+        input=f"{prefix}_in", output=prefix, basename=prefix
+    )
+
+    # Once when the tenth map is registered and once at the end.
+    assert result.stderr.count("100%") == 2
