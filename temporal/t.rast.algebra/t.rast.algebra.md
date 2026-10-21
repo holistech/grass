@@ -967,8 +967,10 @@ datasets of the list above and, in addition, N with daily maps of the values
     time as the next map keeps its own end instead (corrected 21 October 2026).
     Earlier versions gave it the end of the next map, so the two maps swapped
     their ends. In the datasets above, the map of A on days 2 to 3 and the
-    map of C on days 2 to 4 start together; the map listed first keeps its
-    end:
+    map of C on days 2 to 4 start together. In the classic algebra (**-c**,
+    `GRASS_TEMPORAL_ALGEBRA=classic` and the previous implementation) the map
+    listed first keeps its end. The new algebra orders such maps by their
+    end instead, see item 10 of the differences above:
 
     ```sh
     D = tsnap(merge(A, C))
