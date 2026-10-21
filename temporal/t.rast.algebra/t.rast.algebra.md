@@ -947,16 +947,16 @@ datasets of the list above and, in addition, N with daily maps of the values
     ```
 
 13. **A map that starts with the next map in tsnap().** `tsnap()` sets the end
-   of each map to the start of the next map. A map that starts at the same
-   time as the next map keeps its own end instead (corrected 21 October 2026).
-   Earlier versions gave it the end of the next map, so the two maps swapped
-   their ends. In the datasets above, the map of A on days 2 to 3 and the
-   map of C on days 2 to 4 start together; the map listed first keeps its
-   end:
+    of each map to the start of the next map. A map that starts at the same
+    time as the next map keeps its own end instead (corrected 21 October 2026).
+    Earlier versions gave it the end of the next map, so the two maps swapped
+    their ends. In the datasets above, the map of A on days 2 to 3 and the
+    map of C on days 2 to 4 start together; the map listed first keeps its
+    end:
 
-   ```sh
-   D = tsnap(merge(A, C))
-   ```
+    ```sh
+    D = tsnap(merge(A, C))
+    ```
 
 #### Differences from the previous implementation
 
