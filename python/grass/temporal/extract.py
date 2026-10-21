@@ -345,7 +345,9 @@ def extract_dataset(
                 if exitcodes != 0:
                     dbif.close()
                     # A map that existed before the run and made a process
-                    # fail is not in the list and stays.
+                    # fail is not in the list and stays. A map that existed
+                    # before and was overwritten by a process that succeeded
+                    # is in the list and goes, as its old content is gone.
                     _remove_new_maps(type, created)
                     msgr.fatal(_("Error in computation process"))
 
