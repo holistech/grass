@@ -7,6 +7,7 @@ A conftest.py in a tests directory that defines a fixture of the same name
 takes precedence over the one here.
 """
 
+import os
 import re
 import zlib
 from types import SimpleNamespace
@@ -75,6 +76,32 @@ def tools(tmp_path_factory):
         )
         tools.g_region(n=1, s=0, e=1, w=0, res=1, b=0, t=1, res3=1)
         yield tools
+
+
+@pytest.fixture
+def broken_tools(tools, tmp_path):
+    """Function that gives Tools in which the named tools exit with an error
+
+    broken_tools("r.series") returns Tools in the session of the tools
+    fixture, with a stand-in for r.series in front of the real one in PATH
+    that exits with 1 without a message. It reaches the error branches of a
+    tool that calls another tool and has no way to make it fail by its
+    input. The stand-ins only exist for the Tools it returns.
+    """
+
+    def make(*names):
+        for name in names:
+            stand_in = tmp_path / name
+            stand_in.write_text("#!/bin/sh\nexit 1\n")
+            stand_in.chmod(0o755)
+        # Tools has no public access to the environment it runs the tools in
+        # (grass.tools of 21.10.2026); a session of its own would need the
+        # project of the module again.
+        env = dict(tools._original_env)  # noqa: SLF001
+        env["PATH"] = f"{tmp_path}{os.pathsep}{env['PATH']}"
+        return Tools(env=env, consistent_return_value=True, capture_stderr=True)
+
+    return make
 
 
 @pytest.fixture
