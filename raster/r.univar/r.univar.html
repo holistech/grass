@@ -23,6 +23,9 @@ specified saves the user from using a temporary raster map for the result of
 
 <h2>NOTES</h2>
 
+For a map without any valid cell, <em>r.univar</em> prints <code>nan</code> for the
+minimum and the maximum.
+
 As with most GRASS raster modules, <em>r.univar</em> operates on the raster
 array defined by the current region settings, not the original extent and
 resolution of the input map. See <em><a href="g.region.html">g.region</a></em>,

@@ -54,21 +54,6 @@ def test_the_statistics_are_taken_in_the_current_region(tools, regions):
     ]
 
 
-def test_today_a_map_without_a_valid_cell_gets_meaningless_statistics(tools, regions):
-    result = tools.t_rast_univar(input=regions, where="start_time >= '2001-01-04'")
-
-    fields = result.stdout.splitlines()[1].split("|")
-    # min is nan and max the smallest double instead of nan too. r.univar
-    # alone prints the same for a map outside the region; the tool passes
-    # its numbers on, the defect is r.univar's.
-    assert fields[6] == "nan"
-    assert fields[7] == "-1.79769313486232e+308"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.univar prints the smallest double instead of nan as maximum for a map without a valid cell",
-)
 def test_a_map_without_a_valid_cell_has_no_value_for_min_and_max(tools, regions):
     result = tools.t_rast_univar(input=regions, where="start_time >= '2001-01-04'")
 
