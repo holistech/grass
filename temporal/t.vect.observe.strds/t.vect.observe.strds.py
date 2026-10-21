@@ -269,8 +269,8 @@ def main():
 
     dummy = out_sp.get_new_map_instance(None)
 
-    # The dataset and its maps are removed if a step fails; the vector map
-    # with the layers stays
+    # The dataset, its map entries and the vector map that this run made are
+    # removed if a step fails
     registered = []
     try:
         # Sample the space time raster dataset with the vector
@@ -404,6 +404,14 @@ def main():
             vect.delete(dbif)
         out_sp.delete(dbif)
         dbif.close()
+        gs.run_command(
+            "g.remove",
+            flags="f",
+            type="vector",
+            name=vectmap,
+            quiet=True,
+            errors="ignore",
+        )
         raise
 
     out_sp.update_from_registered_maps(dbif)

@@ -119,14 +119,12 @@ def test_an_unknown_input_map_is_reported_as_a_message(tools, rasters, points, p
     assert "Traceback" not in _refused(tools, points, prefix, input="ob_nothere")
 
 
-def test_a_failed_run_leaves_the_vector_map_but_no_dataset_or_map_entries(
+def test_a_failed_run_leaves_no_vector_map_and_no_dataset(
     tools, rasters, points, prefix
 ):
     _refused(tools, points, prefix, columns="1bad")
 
-    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == [
-        f"{prefix}_v"
-    ]
+    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
     assert prefix not in tools.t_list(type="stvds", columns="name").stdout
 
 
