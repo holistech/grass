@@ -368,21 +368,6 @@ def test_a_list_is_not_possible_for_relative_time(tools, prefix):
     assert _times(tools, name) == [(0, 14), (14, 28)]
 
 
-def test_today_the_message_of_a_refused_shift_names_a_function(tools, mixed):
-    # The tool formats the builtin id instead of the id of the dataset.
-    with pytest.raises(ToolError) as error:
-        tools.t_shift(input=mixed, granularity="abc")
-
-    assert "Unable to temporally shift the space time raster dataset" in message(
-        error.value
-    )
-    assert "<built-in function id>" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.shift names the builtin function id, not the dataset, in the message of a refused shift",
-)
 def test_the_message_of_a_refused_shift_names_the_dataset(tools, mixed):
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=mixed, granularity="abc")
@@ -396,30 +381,26 @@ def end_of_month(tools, prefix):
     return _dataset(tools, prefix, [(day(30), day(40))])
 
 
-@pytest.mark.parametrize("granularity", ["1 month", "1 months, 1 days"])
-def test_today_a_month_shift_to_a_missing_day_ends_with_a_traceback(
-    tools, end_of_month, granularity
-):
-    with pytest.raises(ToolError) as error:
-        tools.t_shift(input=end_of_month, granularity=granularity)
-
-    assert "ValueError: day is out of range for month" in message(error.value)
-    # The dry run stops the shift before the first map is changed.
-    assert _times(tools, end_of_month) == [(_text(30), _text(40))]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.shift ends in a ValueError traceback (day is out of range for month) instead of a message when a month shift hits a missing day",
-)
 def test_a_month_shift_to_a_missing_day_ends_with_a_message(tools, end_of_month):
     # The manual: "an error will raise and the shifting will not performed
     # for the whole dataset". Tools end with a message, not with a traceback.
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=end_of_month, granularity="1 month")
 
-    assert "Traceback" not in message(error.value)
+    text = message(error.value)
+    assert "Traceback" not in text
+    assert f"Unable to shift dataset <{end_of_month}@PERMANENT> by <1 month>" in text
+    assert "day is out of range for month" in text
     assert _times(tools, end_of_month) == [(_text(30), _text(40))]
+
+
+def test_a_list_shift_to_a_missing_day_names_the_map(tools, end_of_month):
+    with pytest.raises(ToolError) as error:
+        tools.t_shift(input=end_of_month, granularity="1 months, 1 days")
+
+    assert f"map <{end_of_month.removesuffix('_ds')}_1@PERMANENT>" in message(
+        error.value
+    )
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).

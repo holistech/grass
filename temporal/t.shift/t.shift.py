@@ -89,9 +89,16 @@ def shift_by_list(stds, gran, dbif):
     date_list = []
     for map in maps:
         start, end = map.get_temporal_extent_as_tuple()
-        start = increment_datetime_by_string(start, gran)
-        if end is not None:
-            end = increment_datetime_by_string(end, gran)
+        try:
+            start = increment_datetime_by_string(start, gran)
+            if end is not None:
+                end = increment_datetime_by_string(end, gran)
+        except ValueError as error:
+            # A month shift onto a day the month does not have, such as the
+            # 31st; the caller names the dataset and the shift.
+            raise ValueError(
+                _("map <{map}>: {error}").format(map=map.get_id(), error=error)
+            ) from error
         date_list.append((start, end))
 
     # The dataset offers no public method that writes a list of new times and
@@ -115,16 +122,26 @@ def main():
     dbif.connect()
 
     stds = tgis.open_old_stds(name, type, dbif)
-    if stds.is_time_absolute() and "," in gran:
-        check = shift_by_list(stds, gran, dbif)
-    else:
-        check = stds.shift(gran=gran, dbif=dbif)
+    try:
+        if stds.is_time_absolute() and "," in gran:
+            check = shift_by_list(stds, gran, dbif)
+        else:
+            check = stds.shift(gran=gran, dbif=dbif)
+    except ValueError as error:
+        # shift() computes all new times before it changes a map, so the
+        # dataset is as it was.
+        dbif.close()
+        gs.fatal(
+            _("Unable to shift dataset <{ds}> by <{gran}>: {error}").format(
+                ds=stds.get_id(), gran=gran, error=error
+            )
+        )
 
     if check is False:
         dbif.close()
         gs.fatal(
             _("Unable to temporally shift the space time %s dataset <%s>")
-            % (stds.get_new_map_instance(None).get_type(), id)
+            % (stds.get_new_map_instance(None).get_type(), stds.get_id())
         )
 
     stds.update_command_string(dbif=dbif)
