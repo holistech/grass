@@ -135,21 +135,21 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (0, 1)
         ('PRECEDES', (1, 2))
         (1, 2)
-        ('PRECEDES', (2, 3))
         ('EQUAL', (1, 2))
+        ('PRECEDES', (2, 3))
         (2, 3)
+        ('EQUAL', (2, 3))
         ('FOLLOWS', (1, 2))
         ('PRECEDES', (3, 4))
-        ('EQUAL', (2, 3))
         (3, 4)
-        ('FOLLOWS', (2, 3))
         ('EQUAL', (3, 4))
+        ('FOLLOWS', (2, 3))
         ('PRECEDES', (4, 5))
 
         >>> mapsA = []
@@ -174,21 +174,21 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0))
         ('PRECEDES', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0)))
         (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0))
-        ('PRECEDES', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('EQUAL', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0)))
+        ('PRECEDES', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0))
+        ('EQUAL', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('FOLLOWS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
-        ('EQUAL', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0))
-        ('FOLLOWS', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('EQUAL', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('FOLLOWS', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2004, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
 
         >>> mapsA = []
@@ -213,26 +213,26 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0))
         ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
-        ('STARTS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('STARTS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0))
         ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
-        ('STARTS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
+        ('STARTS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0))
-        ('PRECEDES', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
-        ('FINISHES', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('FINISHES', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('PRECEDES', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
         ('STARTS', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
         (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0))
-        ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('DURING', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('FINISHES', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('STARTS', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
 
         >>> mapsA = []
@@ -257,32 +257,32 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2002, 1, 1, 0, 0))
-        ('OVERLAPS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
-        ('STARTS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('OVERLAPS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
+        ('STARTS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0))
+        ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('FINISHES', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('OVERLAPS', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
         ('PRECEDES', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
-        ('FINISHES', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
-        ('DURING', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
         ('STARTS', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0))
-        ('OVERLAPS', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
-        ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
-        ('FINISHES', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('DURING', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('FINISHES', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('OVERLAPS', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
         ('STARTS', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
         (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0))
-        ('OVERLAPPED', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
         ('DURING', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
         ('FINISHES', (datetime.datetime(2002, 1, 1, 0, 0), datetime.datetime(2005, 1, 1, 0, 0)))
-        ('STARTS', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
         ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2003, 1, 1, 0, 0)))
+        ('OVERLAPPED', (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2004, 1, 1, 0, 0)))
+        ('STARTS', (datetime.datetime(2003, 1, 1, 0, 0), datetime.datetime(2006, 1, 1, 0, 0)))
 
         >>> mapsA = []
         >>> mapsB = []
@@ -306,26 +306,26 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 1, 1, 0, 0, 2))
         ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
         (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3))
+        ('EQUAL', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
         ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
-        ('EQUAL', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4))
-        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
-        ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
-        ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 4), datetime.datetime(2000, 1, 1, 0, 0, 6)))
         ('EQUAL', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
+        ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
+        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
+        ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 4), datetime.datetime(2000, 1, 1, 0, 0, 6)))
         (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5))
-        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 4), datetime.datetime(2000, 1, 1, 0, 0, 6)))
+        ('EQUAL', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
         ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
-        ('EQUAL', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
+        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 4), datetime.datetime(2000, 1, 1, 0, 0, 6)))
 
         >>> mapsA = []
         >>> for i in range(4):
@@ -341,20 +341,20 @@ class SpatioTemporalTopologyBuilder:
         >>> for map in mapsA:
         ...     print(map.get_temporal_extent_as_tuple())
         ...     m = map.get_temporal_relations()
-        ...     for key in m.keys():
+        ...     for key in sorted(m.keys()):
         ...         if key not in ["NEXT", "PREV"]:
         ...             print((key, m[key][0].get_temporal_extent_as_tuple()))
         (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 1, 1, 0, 0, 2))
         ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
         (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3))
-        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
         ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 1, 1, 0, 0, 2)))
+        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))
         ('PRECEDES', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
         (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4))
-        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
         ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 1, 1, 0, 0, 2)))
         ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
+        ('OVERLAPS', (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5)))
         (datetime.datetime(2000, 1, 1, 0, 0, 3), datetime.datetime(2000, 1, 1, 0, 0, 5))
         ('FOLLOWS', (datetime.datetime(2000, 1, 1, 0, 0, 1), datetime.datetime(2000, 1, 1, 0, 0, 3)))
         ('OVERLAPPED', (datetime.datetime(2000, 1, 1, 0, 0, 2), datetime.datetime(2000, 1, 1, 0, 0, 4)))

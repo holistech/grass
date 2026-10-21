@@ -17,11 +17,11 @@ Two things differ from running a module with doctest.testmod():
   that does not assign ``_`` either.
 
 KNOWN_FAILURES lists the doctests that do not pass, with the number of failed
-examples and the reason (measured 19.10.2026 with this module). A test fails
-when a doctest fails that is not listed, when a listed one fails in another
-number of examples, and when a listed one passes: whoever repairs a doctest
-removes its entry. The doctests of the frozen modules are listed too; they
-are not changed.
+examples and the reason. A test fails when a doctest fails that is not listed,
+when a listed one fails in another number of examples, and when a listed one
+passes: whoever repairs a doctest removes its entry. It is empty since
+21.10.2026, when the docstrings were repaired (the two frozen modules only in
+the text of two docstrings).
 """
 
 import builtins
@@ -63,74 +63,9 @@ MODULES = [
     "temporal_vector_algebra",
 ]
 
-# The doctests of gs.run_command() expect its output 0, as the function
-# returned 0 once; it returns None now.
-STALE_RUN_COMMAND = "expects the output 0 of gs.run_command(), which returns None"
-
-# doctest name: (failed examples, reason). The frozen modules are
-# abstract_space_time_dataset and temporal_algebra.
-KNOWN_FAILURES = {
-    "grass.temporal.abstract_space_time_dataset.AbstractSpaceTimeDataset._update_where_statement_by_spatial_extent": (
-        1,
-        "calls the method by its bare name, which is not in the namespace",
-    ),
-    "grass.temporal.base.DictSQLSerializer.serialize": (
-        4,
-        "expects the columns of the SQL statements in another order than the one of today",
-    ),
-    "grass.temporal.base.SQLDatabaseInterface": (
-        8,
-        "expects the columns of the SQL statements in another order than the one of today",
-    ),
-    "grass.temporal.c_libraries_interface.CLibrariesInterface": (
-        14,
-        f"seven examples {STALE_RUN_COMMAND}; three print dictionaries whose "
-        "keys come in another order (and with u'' prefixes of Python 2); four "
-        "call fatal_error() and get the FatalError of today in place of the "
-        "message they expect",
-    ),
-    "grass.temporal.core.set_raise_on_error": (
-        1,
-        "expects the traceback text of fatal() with the exception named "
-        "FatalError and a frame in __init__.py; Python prints "
-        "grass.exceptions.FatalError and the full path",
-    ),
-    "grass.temporal.gui_support.tlist_grouped": (
-        1,
-        "expects the datasets precipitation and temperature of the North "
-        "Carolina sample project in PERMANENT, the project here is empty",
-    ),
-    "grass.temporal.metadata.STRDSMetadata": (
-        2,
-        "print_info() and print_shell_info() of a metadata object without a "
-        "table fail with sqlite3.OperationalError: no such table: None",
-    ),
-    "grass.temporal.space_time_datasets.Raster3DDataset": (5, STALE_RUN_COMMAND),
-    "grass.temporal.space_time_datasets.RasterDataset": (
-        6,
-        f"five examples {STALE_RUN_COMMAND}; print_info() prints the line "
-        "Semantic label that the doctest does not know",
-    ),
-    "grass.temporal.space_time_datasets.VectorDataset": (5, STALE_RUN_COMMAND),
-    "grass.temporal.spatio_temporal_relationships.SpatioTemporalTopologyBuilder": (
-        6,
-        "lists the relations of a map in the order of the keys of a "
-        "dictionary, which is another one today",
-    ),
-    "grass.temporal.temporal_algebra.TemporalAlgebraParser.set_granularity": (
-        1,
-        "lists the maps of the result in another order",
-    ),
-    "grass.temporal.temporal_granularity.get_time_tuple_function": (
-        1,
-        "passes a single map where the function indexes a list of maps",
-    ),
-    "grass.temporal.temporal_granularity.gran_to_gran": (
-        2,
-        "expects '87658.2 hours' and '5259492.0 minutes'; the floating point "
-        "results are 87658.20000000001 hours and 5259492.000000001 minutes",
-    ),
-}
+# doctest name: (failed examples, reason). Empty: every doctest of the library
+# passes; whoever breaks one fixes the docstring or the code.
+KNOWN_FAILURES = {}
 
 
 def doctest_globs():

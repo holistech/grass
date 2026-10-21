@@ -374,9 +374,8 @@ def set_raise_on_error(raise_exp: bool = True):
         False
         >>> msgr.fatal("Ohh no no no!")
         Traceback (most recent call last):
-          File "__init__.py", line 241, in fatal
-            raise FatalError(message)
-        FatalError: Ohh no no no!
+            ...
+        grass.exceptions.FatalError: Ohh no no no!
 
     :returns: current status
     """

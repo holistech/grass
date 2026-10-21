@@ -30,7 +30,10 @@ def tlist_grouped(type, group_type: bool = False, dbif=None):
       .. code-block:: pycon
 
         >>> import grass.temporal as tgis
-        >>> tgis.tlist_grouped("strds")["PERMANENT"]
+        >>> tgis.init()
+        >>> for name in ("precipitation", "temperature"):
+        ...     _ = tgis.open_new_stds(name, "strds", "absolute", name, name, "mean")
+        >>> sorted(tgis.tlist_grouped("strds")["PERMANENT"])
         ['precipitation', 'temperature']
 
     :param type: element type (strds, str3ds, stvds)
