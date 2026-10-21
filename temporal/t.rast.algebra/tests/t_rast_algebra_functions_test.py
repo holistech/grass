@@ -135,6 +135,18 @@ def test_tsnap_turns_instants_into_intervals(algebra):
     assert algebra.triples("tsnap(I)") == [(1, 2, 1), (2, 3, 2), (3, 4, 3)]
 
 
+def test_tsnap_keeps_the_end_of_a_map_that_starts_with_the_next_map(algebra):
+    """a2 [2,3] and c1 [2,4] start together; the map that comes first in the
+    list keeps its own end, it does not take the end of the other one"""
+    assert algebra.triples("tsnap(merge(A, C))") == [
+        (1, 2, 1),
+        (2, 3, 2),
+        (2, 3, 7),
+        (3, 4, 3),
+        (4, 5, 4),
+    ]
+
+
 def test_tsnap_closes_gaps(algebra):
     """The last map before a gap is extended up to the next map"""
     assert algebra.triples('tsnap(merge(A, tshift(A, "10 days")))') == [

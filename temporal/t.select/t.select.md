@@ -573,6 +573,17 @@ one of these forms need a new run.
    C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
    ```
 
+7. **A map that starts with the next map in tsnap().** `tsnap()` sets the end
+   of each map to the start of the next map. A map that starts at the same
+   time as the next map keeps its own end instead (corrected 21 October 2026).
+   Earlier versions gave it the end of the next map, so the two maps swapped
+   their ends. If a map on days 2 to 3 and a map on days 2 to 4 start together,
+   the one listed first keeps its end:
+
+   ```sh
+   D = tsnap(merge(A, C))
+   ```
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python

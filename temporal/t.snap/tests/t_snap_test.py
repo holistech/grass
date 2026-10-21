@@ -175,18 +175,6 @@ def test_maps_with_the_start_of_the_next_map_are_not_snapped(tools, prefix):
     assert times[f"{prefix}_3"] == (_text(5), _text(6))
 
 
-def test_today_a_map_with_the_start_of_the_next_map_takes_its_end(tools, prefix):
-    # The tool means to keep the times of such a map, but keeps the end of
-    # the next map: the other tied map ends where the snapped one ended.
-    times, ends, snapped, other = _snap_tied(tools, prefix)
-
-    assert times[other] == (_text(0), ends[snapped])
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.snap gives a map with the start of the next map the end of that next map instead of keeping its times",
-)
 def test_a_map_with_the_start_of_the_next_map_keeps_its_times(tools, prefix):
     times, ends, _, other = _snap_tied(tools, prefix)
 

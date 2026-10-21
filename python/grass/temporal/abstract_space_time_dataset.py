@@ -2175,7 +2175,9 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
         for i in range(len(maps) - 1):
             start, end = maps[i].get_temporal_extent_as_tuple()
-            start_next, end = maps[i + 1].get_temporal_extent_as_tuple()
+            # The end of the next map must not replace the own end, which a
+            # map keeps when it starts together with the next one.
+            start_next, _end_next = maps[i + 1].get_temporal_extent_as_tuple()
 
             # Maps with equal time stamps can not be snapped
             if start != start_next:
@@ -2242,7 +2244,9 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
         for i in range(len(maps) - 1):
             start, end = maps[i].get_temporal_extent_as_tuple()
-            start_next, end = maps[i + 1].get_temporal_extent_as_tuple()
+            # The end of the next map must not replace the own end, which a
+            # map keeps when it starts together with the next one.
+            start_next, _end_next = maps[i + 1].get_temporal_extent_as_tuple()
 
             # Maps with equal time stamps can not be snapped
             if start != start_next:

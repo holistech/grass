@@ -61,6 +61,8 @@ SAME = [
     # Shrinks the two-day maps of B to one day, so each keeps an interval.
     'buff_t(B, "-12 hours")',
     "tsnap(I)",
+    # a2 [2,3] and c1 [2,4] start together
+    "tsnap(merge(A, C))",
     "merge(A, D)",
     "A[1]",
     "A[-1]",
