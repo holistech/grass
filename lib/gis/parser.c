@@ -75,6 +75,7 @@
  */
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1317,7 +1318,11 @@ void check_opts(void)
         /* Check answer against options if any */
 
         if (opt->answer) {
-            if (opt->multiple == 0)
+            /* An option with a tuple as key_desc, such as rows,columns, is
+               not multiple but its answer holds several integers. */
+            if (opt->multiple == 0 &&
+                !(opt->type == TYPE_INTEGER && opt->key_desc &&
+                  strchr(opt->key_desc, ',')))
                 check_an_opt(opt->key, opt->type, opt->options, opt->opts,
                              &opt->answer);
             else {
@@ -1402,6 +1407,8 @@ void check_an_opt(const char *key, int type, const char *options,
 int check_int(const char *ans, const char **opts)
 {
     int d, i;
+    char *end;
+    long value;
 
     /* "-" is reserved for standard input */
     if (strcmp(ans, "-") == 0)
@@ -1410,8 +1417,14 @@ int check_int(const char *ans, const char **opts)
     if (!ans || !*ans)
         return MISSING_VALUE;
 
-    if (sscanf(ans, "%d", &d) != 1)
+    /* sscanf("%d") stops at the first character that is no digit, so "2.5"
+       and "3abc" were read as 2 and 3. The whole answer must be the number. */
+    errno = 0;
+    value = strtol(ans, &end, 10);
+    if (end == ans || *end != '\0' || errno == ERANGE || value < INT_MIN ||
+        value > INT_MAX)
         return INVALID_VALUE;
+    d = (int)value;
 
     if (!opts)
         return 0;

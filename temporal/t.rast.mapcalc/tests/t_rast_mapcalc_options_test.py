@@ -167,22 +167,6 @@ def test_nprocs_must_be_an_integer(tools, series):
     assert "Invalid value <x> for parameter <nprocs>" in text
 
 
-def test_a_decimal_nprocs_today_ends_with_a_traceback(tools, series):
-    # Observed 18.10.2026: the parser accepts 2.5 for the integer option and
-    # int() in the script then fails.
-    text = _refused(
-        tools,
-        inputs="S",
-        output="S_out",
-        expression="S + 1",
-        basename="s_out",
-        nprocs="2.5",
-    )
-
-    assert "ValueError: invalid literal for int() with base 10: '2.5'" in text
-
-
-@pytest.mark.xfail(strict=True, reason="a decimal nprocs ends with a traceback")
 def test_a_decimal_nprocs_is_reported_as_a_message(tools, series):
     text = _refused(
         tools,
