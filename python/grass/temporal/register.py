@@ -448,8 +448,12 @@ def register_maps_in_space_time_dataset(
                         ).format(t=map_object_type, mid=map_object_id)
                     )
 
-                # Simple registration is allowed
+                # Simple registration is allowed. The map keeps the time of
+                # its entry, so that time is checked against the dataset
+                # before any other map of the run is written.
                 if name:
+                    map_object.select(dbif, mapset)
+                    _refuse_other_time(sp, map_object, dbif)
                     map_object_list.append(map_object)
                 # Jump to next map
                 continue

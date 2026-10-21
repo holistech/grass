@@ -218,3 +218,27 @@ def test_a_map_with_another_relative_unit_is_not_written(tools, make_maps, datas
 
     assert f"Relative time units of space time dataset <{name}@PERMANENT>" in message
     _untouched(tools, second, before)
+
+
+def test_a_registered_map_of_the_other_type_stops_the_run_before_writing(
+    tools, make_maps, dataset
+):
+    fresh, registered = make_maps(2)
+    tools.t_register(
+        type="raster",
+        input=dataset(temporaltype="relative", suffix="_rel"),
+        maps=registered,
+        start=0,
+        unit="days",
+    )
+    name = dataset()
+    before = _timestamp(tools, fresh)
+
+    # Without --overwrite the registered map keeps its relative time, which
+    # the absolute dataset refuses; the first map must not be written.
+    message = _register(
+        tools, input=name, maps=f"{fresh},{registered}", start="2001-01-01"
+    )
+
+    assert f"Temporal type of space time dataset <{name}@PERMANENT>" in message
+    _untouched(tools, fresh, before)
