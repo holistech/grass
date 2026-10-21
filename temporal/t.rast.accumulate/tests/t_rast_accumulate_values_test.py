@@ -324,7 +324,7 @@ def test_a_null_in_the_middle_keeps_the_sum(tools, with_nulls):
     assert _values(rows) == [5, 5, 15]
 
 
-def test_today_a_null_at_the_start_makes_every_step_null(tools, with_nulls):
+def test_a_null_at_the_start_makes_every_step_null(tools, with_nulls):
     # The first step has no value and no map to keep; the later steps add to
     # that null and stay null (measured 18.10.2026 with
     # t.rast.accumulate in a temporary project). Without -n the empty maps

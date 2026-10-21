@@ -85,7 +85,7 @@ def test_register_with_a_non_ascii_description(locale_tools):
     )
 
 
-def test_today_a_non_ascii_description_fails_with_lc_all_c(tmp_path):
+def test_a_non_ascii_description_fails_with_lc_all_c(tmp_path):
     # With LC_ALL=C Python does not coerce the locale, and grass.script's
     # parser cannot decode the argument. This is the decoding of every Python
     # tool, not of t.register.

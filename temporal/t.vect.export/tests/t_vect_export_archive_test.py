@@ -187,7 +187,7 @@ def test_where_selects_the_maps_of_the_archive(tools, absolute, tmp_path):
         assert "vx_1.xml" not in tar.getnames()
 
 
-def test_today_a_selection_without_maps_gives_an_archive_without_maps(
+def test_a_selection_without_maps_gives_an_archive_without_maps(
     tools, absolute, tmp_path
 ):
     archive = tmp_path / "out"

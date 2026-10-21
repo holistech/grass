@@ -46,7 +46,7 @@ def test_a_refused_merge_does_not_create_the_output(two_mapsets, prefix, foreign
     assert f"{prefix}_out" not in work.t_list(type="strds", columns="name").stdout
 
 
-def test_today_an_input_without_a_mapset_is_taken_from_the_current_mapset(
+def test_an_input_without_a_mapset_is_taken_from_the_current_mapset(
     two_mapsets, prefix, foreign
 ):
     # t.copy finds such a dataset in the search path; t.merge adds the current

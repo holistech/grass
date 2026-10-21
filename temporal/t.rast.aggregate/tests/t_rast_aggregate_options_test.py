@@ -97,7 +97,7 @@ def test_one_day_sum_with_nprocs(tools, four_hourly, nprocs):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_nprocs_below_one_runs_one_process(tools, four_hourly):
+def test_nprocs_below_one_runs_one_process(tools, four_hourly):
     # No value is refused: 0 and -1 aggregate like 1.
     for nprocs in (0, -1):
         output = f"par_n{abs(nprocs)}"

@@ -62,7 +62,7 @@ def test_a_failure_of_v_db_select_is_reported_as_a_message(
     assert "Traceback" not in text
 
 
-def test_today_a_column_that_only_some_maps_have_ends_with_an_error(tools, changing):
+def test_a_column_that_only_some_maps_have_ends_with_an_error(tools, changing):
     # b exists in the first map only; the rows of the first map are lost.
     text = _refused(tools, input=changing, columns="b")
 

@@ -154,7 +154,7 @@ def test_overwrite_replaces_the_output(tools, prefix):
     assert f"Title of {name} " in _text(tools, "strds", existing)
 
 
-def test_today_copying_a_dataset_onto_itself_keeps_its_maps(tools, prefix):
+def test_copying_a_dataset_onto_itself_keeps_its_maps(tools, prefix):
     name, maps = _make(tools, prefix)
 
     tools.t_copy(input=name, output=name, overwrite=True)

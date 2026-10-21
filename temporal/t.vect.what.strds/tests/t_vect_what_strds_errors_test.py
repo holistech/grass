@@ -103,7 +103,7 @@ def test_a_where_with_a_syntax_error_is_refused(tools, rasters, vectors):
     )
 
 
-def test_today_a_second_run_with_the_same_column_writes_the_values_again(
+def test_a_second_run_with_the_same_column_writes_the_values_again(
     tools, rasters, vectors
 ):
     data = vectors()

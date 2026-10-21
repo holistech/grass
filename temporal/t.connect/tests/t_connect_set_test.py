@@ -138,7 +138,7 @@ def test_p_does_not_set_the_options_it_is_given(tools):
     assert _printed(tools) == ("sqlite", DEFAULT_DATABASE)
 
 
-def test_today_a_database_alone_sets_the_driver_to_its_default(tools):
+def test_a_database_alone_sets_the_driver_to_its_default(tools):
     tools.t_connect(driver="pg", database="dbname=x")
 
     tools.t_connect(database="other.db")
@@ -146,7 +146,7 @@ def test_today_a_database_alone_sets_the_driver_to_its_default(tools):
     assert _printed(tools) == ("sqlite", "other.db")
 
 
-def test_today_a_driver_alone_sets_the_database_to_its_default(tools):
+def test_a_driver_alone_sets_the_database_to_its_default(tools):
     tools.t_connect(driver="sqlite", database="other.db")
 
     tools.t_connect(driver="pg")
@@ -154,7 +154,7 @@ def test_today_a_driver_alone_sets_the_database_to_its_default(tools):
     assert _printed(tools) == ("pg", DEFAULT_DATABASE)
 
 
-def test_today_no_option_sets_the_defaults(tools):
+def test_no_option_sets_the_defaults(tools):
     tools.t_connect(driver="pg", database="dbname=x")
 
     tools.t_connect()

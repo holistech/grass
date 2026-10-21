@@ -124,7 +124,7 @@ def test_the_maps_are_not_touched(tools, make_dataset):
         assert after[key] == before[key]
 
 
-def test_today_aggr_type_takes_any_text(tools, make_dataset):
+def test_aggr_type_takes_any_text(tools, make_dataset):
     name, _ = make_dataset()
 
     tools.t_support(input=name, aggr_type="not an aggregation")

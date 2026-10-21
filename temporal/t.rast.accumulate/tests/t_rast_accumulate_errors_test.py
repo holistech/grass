@@ -1,8 +1,6 @@
-"""Test the refusals of t.rast.accumulate, and the defects around them
+"""Test the refusals of t.rast.accumulate, and the cases around them
 
-Most wrong input ends with a traceback instead of a message, or does not end
-at all; each such case is a test of the current behaviour and a strict xfail
-of the expected one.
+Wrong input ends with a message, not with a traceback, and the run ends.
 """
 
 import os

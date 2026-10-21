@@ -509,7 +509,7 @@ def test_semantic_label_is_read_from_the_map(tools, make_maps, dataset):
     assert [row["semantic_label"] for row in result.json["data"]] == ["S2_1", "S2_1"]
 
 
-def test_today_a_month_increment_from_day_31_fails(tools, make_maps, dataset):
+def test_a_month_increment_from_day_31_fails(tools, make_maps, dataset):
     # January 31 plus one month is no date. The call stops with the message of
     # the date arithmetic and registers nothing.
     maps = make_maps(2)

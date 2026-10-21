@@ -38,7 +38,7 @@ def test_an_unknown_input_is_refused(tools, prefix):
     assert "Space time dataset <gap_missing> of type <strds> not found" in text
 
 
-def test_today_an_unknown_suffix_counts_like_num(tools, gappy, prefix):
+def test_an_unknown_suffix_counts_like_num(tools, gappy, prefix):
     # Nothing checks the suffix: any other text gives the numeric form with
     # five digits (the name has two numbers, see the module docstring of
     # t_rast_gapfill_options_test.py).
@@ -151,7 +151,7 @@ def test_relative_time_with_a_numeric_width(tools, relative, prefix):
     ]
 
 
-def test_today_time_instants_cannot_be_filled(tools, prefix):
+def test_time_instants_cannot_be_filled(tools, prefix):
     # Points at the days 0, 3 and 4 have no intervals between them that a
     # gap could fill; the tool finds a gap but no neighbours.
     small_region(tools, 1, 2)

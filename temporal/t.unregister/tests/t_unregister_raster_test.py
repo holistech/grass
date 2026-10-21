@@ -159,9 +159,7 @@ def test_names_from_a_file_and_a_dataset(tools, make_stds, tmp_path):
     assert _in_database(tools, maps) == [True] * 4
 
 
-def test_today_a_blank_line_in_the_file_is_a_map_without_a_name(
-    tools, make_stds, tmp_path
-):
+def test_a_blank_line_in_the_file_is_a_map_without_a_name(tools, make_stds, tmp_path):
     # The blank line is read as a map name and warned about; the maps around
     # it are unregistered all the same.
     maps, _ = make_stds(3)

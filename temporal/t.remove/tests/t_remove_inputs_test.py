@@ -59,7 +59,7 @@ def test_names_come_from_a_file(tools, make_stds, has_dataset, tmp_path):
     ]
 
 
-def test_today_a_blank_line_in_the_file_is_a_dataset_without_a_name(
+def test_a_blank_line_in_the_file_is_a_dataset_without_a_name(
     tools, make_stds, has_dataset, tmp_path
 ):
     _, (first, second) = make_stds(1, datasets=2)

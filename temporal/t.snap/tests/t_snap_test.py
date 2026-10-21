@@ -135,7 +135,7 @@ def test_a_second_snap_changes_nothing(tools, prefix):
     assert _times(tools, name) == once
 
 
-def test_today_a_single_point_stays_a_point(tools, prefix):
+def test_a_single_point_stays_a_point(tools, prefix):
     # With one map the dataset has no granularity, so the map gets no end.
     name = _dataset(tools, prefix, [(day(0), None)])
 

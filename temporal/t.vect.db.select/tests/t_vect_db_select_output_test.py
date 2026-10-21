@@ -114,7 +114,7 @@ def test_t_where_selects_the_maps(tools, intervals):
     ]
 
 
-def test_today_a_t_where_without_a_map_prints_nothing(tools, intervals):
+def test_a_t_where_without_a_map_prints_nothing(tools, intervals):
     # t.vect.list and t.vect.univar refuse an empty selection; this tool ends
     # successfully with no output.
     result = tools.t_vect_db_select(

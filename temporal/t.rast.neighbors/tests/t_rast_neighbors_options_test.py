@@ -322,7 +322,7 @@ def test_without_extend_overwrite_replaces_the_dataset(tools, daily, prefix):
     assert _maps(tools, prefix) == [f"{prefix}_2001_01_04"]
 
 
-def test_today_extend_needs_overwrite_for_an_existing_dataset(tools, daily, prefix):
+def test_extend_needs_overwrite_for_an_existing_dataset(tools, daily, prefix):
     options = {"input": daily, "output": prefix, "basename": prefix}
     tools.t_rast_neighbors(where="start_time < '2001-01-03'", **options)
 

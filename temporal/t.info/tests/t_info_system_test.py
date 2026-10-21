@@ -18,7 +18,7 @@ def test_without_d_the_input_is_required(tools):
     assert "Required parameter <input> not set" in message(error.value)
 
 
-def test_today_d_with_h_and_no_input_looks_for_a_dataset_without_a_name(tools):
+def test_d_with_h_and_no_input_looks_for_a_dataset_without_a_name(tools):
     with pytest.raises(ToolError) as error:
         tools.t_info(flags="dh")
 

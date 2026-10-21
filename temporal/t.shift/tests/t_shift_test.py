@@ -405,7 +405,7 @@ def test_a_list_shift_to_a_missing_day_names_the_map(tools, end_of_month):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_today_a_dataset_without_maps_is_shifted_silently(tools, prefix):
+def test_a_dataset_without_maps_is_shifted_silently(tools, prefix):
     name = _dataset(tools, prefix, [])
 
     result = tools.t_shift(input=name, granularity="1 day")

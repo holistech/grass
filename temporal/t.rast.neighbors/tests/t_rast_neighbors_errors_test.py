@@ -60,7 +60,7 @@ def test_the_quantile_method_needs_a_quantile(tools, ramp, prefix):
     assert "The method <quantile> requires input in the 'quantile' option." in text
 
 
-def test_today_further_quantiles_are_ignored(tools, ramp, prefix):
+def test_further_quantiles_are_ignored(tools, ramp, prefix):
     # r.neighbors computes one quantile per output map; the tool gives it the
     # whole list and gets the first, the 0.25 quantile of the corner window
     # 1, 2, 4, 5: 1.75.

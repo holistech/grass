@@ -1,8 +1,7 @@
 """Test the refusals of t.unregister: option combinations, datasets and files
 
-The messages of the two checks on maps= and file= name the options input= and
-file=, although the options are maps= and file=. Each is pinned as it is today
-next to a strict xfail for the right text.
+The messages of the two checks on maps= and file= name the options maps= and
+file=.
 """
 
 import pytest
