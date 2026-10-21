@@ -261,26 +261,6 @@ def test_a_wrong_absolute_granularity_is_refused(tools, four_hourly, granularity
 
 
 @pytest.mark.parametrize("granularity", ["abc", "2"])
-def test_today_a_granularity_without_a_unit_ends_with_a_traceback(
-    tools, four_hourly, granularity
-):
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_aggregate(
-            input=four_hourly,
-            output="bad_gran",
-            basename="bad_gran",
-            granularity=granularity,
-            method="sum",
-        )
-
-    assert "IndexError: list index out of range" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.aggregate ends in an IndexError traceback for a granularity without a unit instead of a message",
-)
-@pytest.mark.parametrize("granularity", ["abc", "2"])
 def test_a_granularity_without_a_unit_is_refused_with_a_message(
     tools, four_hourly, granularity
 ):
@@ -293,6 +273,7 @@ def test_a_granularity_without_a_unit_is_refused_with_a_message(
             method="sum",
         )
 
+    assert "Invalid granularity <{}>".format(granularity) in message(error.value)
     assert "Traceback" not in message(error.value)
 
 

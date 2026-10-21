@@ -139,6 +139,13 @@ def main():
         last = input_series.slots[-1].extent
         start = first.start
         if absolute:
+            # check_granularity_string() would also refuse "1 fortnight" and
+            # "1.5 days" with a text of its own, and the messages of
+            # adjust_datetime_to_granularity() for them stay as they were.
+            # Only a granularity without a unit, which it fails on with an
+            # IndexError, is refused here.
+            if len(gran.split()) != 2:
+                gs.fatal(_("Invalid granularity <{}>").format(gran))
             start = tgis.adjust_datetime_to_granularity(start, gran)
         end = last.end
         if end is None:
