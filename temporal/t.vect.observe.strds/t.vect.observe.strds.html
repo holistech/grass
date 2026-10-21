@@ -27,6 +27,16 @@ table.
 Use <em>t.vect.db.select</em> to print attribute values of the space
 time vector dataset to stdout.
 
+<h2>NOTES</h2>
+
+The option <b>where</b> selects points of the input vector map. Points that
+it does not select are not in the output map, in none of its layers.
+
+<p>
+If a column named in <b>columns</b> exists in the table of a layer of the
+input map, the module stops with an error. With the overwrite flag it keeps
+the column and replaces its values with the sampled ones.
+
 <h2>EXAMPLE</h2>
 
 The example shows how to create a space time vector dataset and a vector

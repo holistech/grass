@@ -45,6 +45,9 @@
 # %option G_OPT_DB_WHERE
 # %end
 
+import atexit
+import os
+
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
@@ -99,6 +102,9 @@ def main():
                 "raster datasets"
             )
         )
+
+    if not gs.find_file(input, element="vector")["file"]:
+        gs.fatal(_("Vector map <%s> not found") % input)
 
     # Make sure the temporal database exists
     tgis.init()
@@ -188,6 +194,29 @@ def main():
 
     num_samples = len(samples)
 
+    input_name = input
+    if where:
+        # where selects points of the input: the other points are not in the
+        # output at all. Applying it in the new layers would fail, as they
+        # have no column of the input table.
+        selected = "tmp_t_vect_observe_strds_%d" % os.getpid()
+        try:
+            gs.run_command(
+                "v.extract", input=input, where=where, output=selected, quiet=True
+            )
+        except CalledModuleError:
+            dbif.close()
+            gs.fatal(_("Unable to select the points of <%s> with where") % input)
+        atexit.register(
+            gs.run_command,
+            "g.remove",
+            flags="f",
+            type="vector",
+            name=selected,
+            quiet=True,
+        )
+        input = selected
+
     # Get the layer and database connections of the input vector
     vector_db = gs.vector.vector_db(input)
 
@@ -221,10 +250,10 @@ def main():
     except CalledModuleError:
         gs.fatal(_("Unable to create new layers for vector map <%s>") % (vectmap))
 
-    title = _("Observaion of space time raster dataset(s) <%s>") % (strds)
+    title = _("Observation of space time raster dataset(s) <%s>") % (strds)
     description = _(
         "Observation of space time raster dataset(s) <%s> with vector map <%s>"
-    ) % (strds, input)
+    ) % (strds, input_name)
 
     # Create the output space time vector dataset
     out_sp = tgis.open_new_stds(
@@ -240,110 +269,142 @@ def main():
 
     dummy = out_sp.get_new_map_instance(None)
 
-    # Sample the space time raster dataset with the vector
-    # map at specific layer with v.what.rast
-    count = 1
-    for sample in samples:
-        raster_names = sample.raster_names
+    # The dataset and its maps are removed if a step fails; the vector map
+    # with the layers stays
+    registered = []
+    try:
+        # Sample the space time raster dataset with the vector
+        # map at specific layer with v.what.rast
+        count = 1
+        for sample in samples:
+            raster_names = sample.raster_names
 
-        if len(raster_names) != len(column_names):
-            gs.fatal(
-                _(
-                    "The number of raster maps in a granule must "
-                    "be equal to the number of column names"
-                )
-            )
-
-        # Create the columns creation string
-        columns_string = ""
-        for name, column in zip(raster_names, column_names, strict=False):
-            # The column is by default double precision
-            coltype = "DOUBLE PRECISION"
-            # Get raster map type
-            raster_map = tgis.RasterDataset(name)
-            raster_map.load()
-            if raster_map.metadata.get_datatype() == "CELL":
-                coltype = "INT"
-
-            tmp_string = "%s %s," % (column, coltype)
-            columns_string += tmp_string
-
-        # Remove last comma
-        columns_string = columns_string[0 : len(columns_string) - 1]
-
-        # Try to add a column
-        if vector_db and count in vector_db and vector_db[count]["table"]:
-            try:
-                gs.run_command(
-                    "v.db.addcolumn",
-                    map=vectmap,
-                    layer=count,
-                    column=columns_string,
-                    overwrite=overwrite,
-                )
-            except CalledModuleError:
-                dbif.close()
-                gs.fatal(
-                    _("Unable to add column %s to vector map <%s> with layer %i")
-                    % (columns_string, vectmap, count)
-                )
-        else:
-            # Try to add a new table
-            gs.message("Add table to layer %i" % (count))
-            try:
-                gs.run_command(
-                    "v.db.addtable",
-                    map=vectmap,
-                    layer=count,
-                    columns=columns_string,
-                    overwrite=overwrite,
-                )
-            except CalledModuleError:
-                dbif.close()
-                gs.fatal(
-                    _("Unable to add table to vector map <%s> with layer %i")
-                    % (vectmap, count)
-                )
-
-        # Call v.what.rast for each raster map
-        for name, column in zip(raster_names, column_names, strict=False):
-            try:
-                gs.run_command(
-                    "v.what.rast",
-                    map=vectmap,
-                    layer=count,
-                    raster=name,
-                    column=column,
-                    where=where,
-                )
-            except CalledModuleError:
-                dbif.close()
+            if len(raster_names) != len(column_names):
                 gs.fatal(
                     _(
-                        "Unable to run v.what.rast for vector map <%s> "
-                        "with layer %i and raster map <%s>"
+                        "The number of raster maps in a granule must "
+                        "be equal to the number of column names"
                     )
-                    % (vectmap, count, str(raster_names))
                 )
 
-        vect = out_sp.get_new_map_instance(dummy.build_id(vectmap, mapset, str(count)))
-        vect.load()
+            # Create the column definitions
+            column_defs = {}
+            for name, column in zip(raster_names, column_names, strict=False):
+                # The column is by default double precision
+                coltype = "DOUBLE PRECISION"
+                # Get raster map type
+                raster_map = tgis.RasterDataset(name)
+                raster_map.load()
+                if raster_map.metadata.get_datatype() == "CELL":
+                    coltype = "INT"
 
-        start = sample.start
-        end = sample.end
+                column_defs[column] = "%s %s" % (column, coltype)
 
-        if out_sp.is_time_absolute():
-            vect.set_absolute_time(start, end)
-        else:
-            vect.set_relative_time(start, end, first_strds.get_relative_time_unit())
+            # Try to add the columns
+            if vector_db and count in vector_db and vector_db[count]["table"]:
+                # v.db.addcolumn only prints an error for a column that the
+                # table has and the run would go on and replace its values
+                present = {
+                    column.lower() for column in gs.vector_columns(vectmap, layer=count)
+                }
+                for column in column_defs.copy():
+                    if column.lower() not in present:
+                        continue
+                    if not overwrite:
+                        dbif.close()
+                        gs.fatal(
+                            _(
+                                "Unable to add column {column} to vector map "
+                                "<{vector}> with layer {layer}: the column exists, "
+                                "use the overwrite flag to replace its values"
+                            ).format(column=column, vector=vectmap, layer=count)
+                        )
+                    del column_defs[column]
+                columns_string = ",".join(column_defs.values())
+                if columns_string:
+                    try:
+                        gs.run_command(
+                            "v.db.addcolumn",
+                            map=vectmap,
+                            layer=count,
+                            column=columns_string,
+                            overwrite=overwrite,
+                        )
+                    except CalledModuleError:
+                        dbif.close()
+                        gs.fatal(
+                            _(
+                                "Unable to add column %s to vector map <%s> with layer %i"
+                            )
+                            % (columns_string, vectmap, count)
+                        )
+            else:
+                columns_string = ",".join(column_defs.values())
+                # Try to add a new table
+                gs.message("Add table to layer %i" % (count))
+                try:
+                    gs.run_command(
+                        "v.db.addtable",
+                        map=vectmap,
+                        layer=count,
+                        columns=columns_string,
+                        overwrite=overwrite,
+                    )
+                except CalledModuleError:
+                    dbif.close()
+                    gs.fatal(
+                        _("Unable to add table to vector map <%s> with layer %i")
+                        % (vectmap, count)
+                    )
 
-        if vect.is_in_db(dbif):
-            vect.update_all(dbif)
-        else:
-            vect.insert(dbif)
+            # Call v.what.rast for each raster map
+            for name, column in zip(raster_names, column_names, strict=False):
+                try:
+                    gs.run_command(
+                        "v.what.rast",
+                        map=vectmap,
+                        layer=count,
+                        raster=name,
+                        column=column,
+                    )
+                except CalledModuleError:
+                    dbif.close()
+                    gs.fatal(
+                        _(
+                            "Unable to run v.what.rast for vector map <%s> "
+                            "with layer %i and raster map <%s>"
+                        )
+                        % (vectmap, count, str(raster_names))
+                    )
 
-        out_sp.register_map(vect, dbif)
-        count += 1
+            vect = out_sp.get_new_map_instance(
+                dummy.build_id(vectmap, mapset, str(count))
+            )
+            vect.load()
+
+            start = sample.start
+            end = sample.end
+
+            if out_sp.is_time_absolute():
+                vect.set_absolute_time(start, end)
+            else:
+                vect.set_relative_time(start, end, first_strds.get_relative_time_unit())
+
+            if vect.is_in_db(dbif):
+                vect.update_all(dbif)
+            else:
+                vect.insert(dbif)
+
+            out_sp.register_map(vect, dbif)
+            registered.append(vect)
+            count += 1
+
+    except BaseException:
+        for vect in registered:
+            vect.delete(dbif)
+        out_sp.delete(dbif)
+        dbif.close()
+        raise
 
     out_sp.update_from_registered_maps(dbif)
     dbif.close()

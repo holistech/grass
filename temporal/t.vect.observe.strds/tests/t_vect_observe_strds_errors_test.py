@@ -115,72 +115,45 @@ def test_an_existing_vector_output_is_refused_without_overwrite(
     assert f"<{points}> exists. To overwrite, use the --overwrite flag" in text
 
 
-def test_today_an_unknown_input_map_ends_with_a_traceback(
-    tools, rasters, points, prefix
-):
-    text = _refused(tools, points, prefix, input="ob_nothere")
-
-    assert "Traceback" in text
-    assert "v.db.connect" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.observe.strds ends in a v.db.connect traceback for an unknown input map instead of a message",
-)
 def test_an_unknown_input_map_is_reported_as_a_message(tools, rasters, points, prefix):
     assert "Traceback" not in _refused(tools, points, prefix, input="ob_nothere")
 
 
-def test_today_a_column_name_the_database_refuses_leaves_the_output_behind(
+def test_a_failed_run_leaves_the_vector_map_but_no_dataset_or_map_entries(
     tools, rasters, points, prefix
 ):
-    text = _refused(tools, points, prefix, columns="1bad")
+    _refused(tools, points, prefix, columns="1bad")
 
-    assert "Unable to add table to vector map" in text
     assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == [
         f"{prefix}_v"
     ]
-    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) >= 1
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.observe.strds leaves the output dataset behind when the run fails",
-)
 def test_a_failed_run_leaves_no_output_dataset(tools, rasters, points, prefix):
     _refused(tools, points, prefix, columns="1bad")
 
     assert prefix not in tools.t_list(type="stvds", columns="name").stdout
 
 
-def _observe_into_an_existing_column(tools, points, prefix):
-    return tools.t_vect_observe_strds(
+def test_a_column_that_the_input_table_has_is_overwritten_with_the_flag(
+    tools, rasters, points, prefix
+):
+    # Without the column in the output table v.what.rast replaces the values
+    # (1 to 4) of the copy with those of ra_1 (111 to 122).
+    tools.t_vect_observe_strds(
         input=points,
         strds="ob_a",
         output=prefix,
         vector_output=f"{prefix}_v",
         columns="h",
+        overwrite=True,
     )
 
-
-def test_today_a_column_that_the_input_table_has_is_overwritten(
-    tools, rasters, points, prefix
-):
-    # v.db.addcolumn only prints "Column <h> is already in the table.
-    # Skipping." as an error message, the run goes on and v.what.rast
-    # replaces the values (1 to 4) of the copy with those of ra_1.
-    result = _observe_into_an_existing_column(tools, points, prefix)
-
-    assert "Column <h> is already in the table" in message(result)
     text = tools.v_db_select(map=f"{prefix}_v", layer=1, columns="h", flags="c").stdout
     assert text.split() == ["111", "112", "121", "122"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.observe.strds overwrites a column that the input table already has, v.db.addcolumn only prints an error and the run goes on",
-)
 def test_a_column_that_the_input_table_has_is_refused(tools, rasters, points, prefix):
     text = _refused(tools, points, prefix, columns="h")
 

@@ -97,18 +97,6 @@ def test_the_output_dataset_takes_type_and_semantics_from_the_raster_dataset(
     assert info["points"] == 12
 
 
-def test_today_the_title_has_a_typo(tools, rasters, points, prefix):
-    _observe(tools, points, prefix)
-
-    text = tools.t_info(type="stvds", input=prefix).stdout
-
-    assert "Observaion" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason='t.vect.observe.strds spells "Observaion" in the title of the output dataset',
-)
 def test_the_title_is_spelled_correctly(tools, rasters, points, prefix):
     _observe(tools, points, prefix)
 
@@ -192,39 +180,17 @@ def test_relative_values_come_from_the_map_of_each_month(
     ]
 
 
-def test_where_selects_the_points_that_get_a_value(tools, rasters, points, prefix):
+def test_where_selects_the_points_of_the_input(tools, rasters, points, prefix):
     vector = _observe(tools, points, prefix, where="h > 2")
 
-    # Only p3 and p4 (h = 3 and 4) are read in layer 1.
-    assert _rows(tools, vector, 1, "cat,obs") == [
-        ("1", ""),
-        ("2", ""),
-        ("3", "121"),
-        ("4", "122"),
-    ]
-
-
-def test_today_where_leaves_the_other_layers_empty(tools, rasters, points, prefix):
-    vector = _observe(tools, points, prefix, where="h > 2")
-
-    # The new layers have no column h, so the condition fails there: v.what.rast
-    # only warns about the update errors and every value stays NULL.
-    assert _rows(tools, vector, 2, "obs") == [("",)] * 4
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.observe.strds applies where in the new layers, which have no such column, so every value stays NULL",
-)
-def test_where_selects_the_points_in_every_layer(tools, rasters, points, prefix):
-    vector = _observe(tools, points, prefix, where="h > 2")
-
-    assert _rows(tools, vector, 2, "cat,obs") == [
-        ("1", ""),
-        ("2", ""),
-        ("3", "221"),
-        ("4", "222"),
-    ]
+    # h = 3 and 4 for p3 and p4: only these two are in the output, in every
+    # layer. Map k gives them 100 k + 21 and 100 k + 22.
+    for layer in (1, 2, 3):
+        assert _rows(tools, vector, layer, "cat,obs") == [
+            ("3", str(100 * layer + 21)),
+            ("4", str(100 * layer + 22)),
+        ]
+    assert stds_info(tools, "stvds", prefix)["points"] == 6
 
 
 def test_an_input_with_layers_gets_the_columns_in_its_own_tables(

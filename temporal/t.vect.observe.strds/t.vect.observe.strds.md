@@ -24,6 +24,15 @@ raster map layer are written into a new time stamped attribute table.
 Use *t.vect.db.select* to print attribute values of the space time
 vector dataset to stdout.
 
+## NOTES
+
+The option **where** selects points of the input vector map. Points that it
+does not select are not in the output map, in none of its layers.
+
+If a column named in **columns** exists in the table of a layer of the input
+map, the module stops with an error. With the overwrite flag it keeps the
+column and replaces its values with the sampled ones.
+
 ## EXAMPLE
 
 The example shows how to create a space time vector dataset and a vector
