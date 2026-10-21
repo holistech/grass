@@ -176,8 +176,6 @@ def main():
             flags_ += "r"
         if write:
             flags_ += "w"
-        if list:
-            flags_ += "l"
         if invert:
             flags_ += "n"
         if log:
