@@ -548,6 +548,15 @@ class Translator:
             )
         # Then and else have time stamps of their own; each map is judged by
         # the conditions related to it.
+        if self._selection and "scalar" in {then.sort, otherwise.sort}:
+            # merge() would refuse the numbers beside maps with a message
+            # about sorts of series, which says nothing to a user of t.select.
+            msg = (
+                "A time function such as start_doy() cannot be the result of a "
+                "selection: t.select selects maps, and a time function belongs "
+                "in the condition of if()"
+            )
+            raise ValueError(msg)
         others = self._conditions(otherwise, condition, operator)
         return operations.merge(
             operations.choose(conditions, then, mixed_times=self.profile.mixed_times),

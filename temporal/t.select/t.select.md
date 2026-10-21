@@ -489,6 +489,17 @@ points differ:
    D = tsnap(merge(C, A))
    ```
 
+8. **Time functions as the conclusion of if().** A time function such as
+   `start_doy()` gives numbers, not maps, so the new algebra stops with the
+   error "A time function such as start_doy() cannot be the result of a
+   selection" when it is the conclusion of `if()` beside maps. A time
+   function belongs in the condition. The classic algebra accepts the
+   expression:
+
+   ```sh
+   C = if(start_doy(A) < 3, start_doy(A, 1), A)
+   ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises `ValueError` for an expression it

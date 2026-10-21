@@ -487,6 +487,17 @@ D = tsnap(merge(A, C))
 D = tsnap(merge(C, A))
 </pre></div>
 </li>
+<li><b>Time functions as the conclusion of if().</b> A time function such as
+<code>start_doy()</code> gives numbers, not maps, so the new algebra stops with
+the error "A time function such as start_doy() cannot be the result of a
+selection" when it is the conclusion of <code>if()</code> beside maps. A time
+function belongs in the condition. The classic algebra accepts the
+expression:
+
+<div class="code"><pre>
+C = if(start_doy(A) &lt; 3, start_doy(A, 1), A)
+</pre></div>
+</li>
 </ol>
 
 <p>

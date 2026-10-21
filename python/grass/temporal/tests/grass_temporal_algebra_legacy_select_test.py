@@ -15,7 +15,10 @@ import re
 
 import pytest
 
-from grass.temporal.testing import legacy_data
+import grass.script as gs
+import grass.temporal as tgis
+
+from grass.temporal.testing import expressions, legacy_data
 from grass.tools import Tools
 
 KIND = "select"
@@ -250,23 +253,14 @@ DRY = [
     ),
 ]
 
-DRY_SHOULD = [
-    pytest.param(
-        "if(start_doy(A)<3,start_doy(A, 1), A)",
-        {"stdstype": "strds"},
-        {"register": 4, "stdstype": "strds"},
-        "core",
-        id="time constant (dry run)-core",
-    ),
-]
+TIME_FUNCTION_REFUSED = (
+    "A time function such as start_doy() cannot be the result of a selection"
+)
 
-# What a runner makes of a planned run although the manual does not say so
-DRY_TODAY = {
-    ("time constant (dry run)", "core"): (
-        "ValueError",
-        "merge() needs series of one sort, fields or scalars",
-    )
-}
+# What the core makes of a planned run where the reference and the classic
+# profile plan maps: a time function as the conclusion of if() gives no map,
+# so the core refuses it, as t.select.md says (decided 20.10.2026).
+DRY_CORE = {"time constant (dry run)": ("ValueError", TIME_FUNCTION_REFUSED)}
 
 
 @pytest.fixture(scope="module")
@@ -311,21 +305,29 @@ def test_cases(data, request, runner, expression, options, expected):
 @pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
 def test_dry_runs(data, request, runner, expression, options, expected):
-    today = DRY_TODAY.get((case_id(request), runner))
-    if isinstance(today, tuple):
-        with pytest.raises(ValueError, match=re.escape(today[1])):
+    refused = DRY_CORE.get(case_id(request)) if runner == "core" else None
+    if refused is not None:
+        with pytest.raises(ValueError, match=re.escape(refused[1])):
             legacy_data.check_dry(KIND, runner, expression, options, expected)
     else:
-        legacy_data.check_dry(KIND, runner, expression, options, today or expected)
+        legacy_data.check_dry(KIND, runner, expression, options, expected)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the core stops the planned run with a ValueError from merge() where the reference plans four maps",
-)
-@pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
-def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
-    legacy_data.check_dry(KIND, runner, expression, options, expected)
+def test_the_core_refuses_a_time_function_as_the_selected_maps(data):
+    # The run of the planned expression of DRY_CORE stops before it creates
+    # the result dataset or a map. A basename of its own, so that the maps of
+    # the other cases do not hide a map of this run.
+    result = expressions.outcome(
+        KIND,
+        "if(start_doy(A)<3,start_doy(A, 1), A)",
+        expressions.RUNNERS["core"],
+        basename="tfco",
+        stdstype="strds",
+    )
+    assert result["error"] == "Other:ValueError"
+    assert result["msg"].startswith(TIME_FUNCTION_REFUSED)
+    assert not tgis.dataset_factory("strds", "Rtfco@PERMANENT").is_in_db()
+    assert gs.list_strings("raster", pattern="tfco*") == []
 
 
 def test_every_table_entry_belongs_to_a_case():
@@ -339,4 +341,4 @@ def test_every_table_entry_belongs_to_a_case():
     assert set(CORE_MESSAGE) <= set(CORE)
     assert set(CORE_TODAY_MESSAGE) <= set(CORE_TODAY)
     assert set(SHAPE_CORE) <= set(CORE)
-    assert {name for name, _ in DRY_TODAY} <= {case.id for case in DRY}
+    assert set(DRY_CORE) <= {case.id for case in DRY}
