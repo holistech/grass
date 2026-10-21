@@ -257,6 +257,21 @@ def test_a_layer_the_map_does_not_have_is_refused(tools, prefix, dataset):
         )
 
 
+def test_a_layer_that_is_no_number_is_refused_with_a_message(tools, prefix, dataset):
+    (map_name,) = _make(tools, prefix, 1)
+    name = dataset(stds_type="stvds")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_register(
+            type="vector", input=name, maps=f"{map_name}:abc", start="2001-01-01"
+        )
+
+    # The messenger wraps long lines.
+    text = " ".join(str(error.value).split())
+    assert "The layer <abc> is no integer." in text
+    assert "Traceback" not in text
+
+
 def test_a_layer_with_categories_but_no_table_is_registered(tools, prefix, dataset):
     # v.category adds categories in layer 2 without a database link for it.
     (map_name,) = _make(tools, prefix, 1)

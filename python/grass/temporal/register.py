@@ -347,6 +347,14 @@ def register_maps_in_space_time_dataset(
         # asked before a layer outside the links is refused. A map without any
         # link is not checked, so any layer of it can still be registered.
         if map_object_layer and map_object_type == "vector":
+            if not map_object_layer.isdecimal():
+                dbif.close()
+                msgr.fatal(
+                    _(
+                        "Unable to register vector map <{mid}>. The layer "
+                        "<{l}> is no integer."
+                    ).format(mid=map_object_id, l=map_object_layer)
+                )
             layers = set(gs.vector_db(map_object_id))
             if layers and int(map_object_layer) not in layers:
                 layers.update(
