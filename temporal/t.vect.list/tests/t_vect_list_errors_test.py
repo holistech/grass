@@ -175,21 +175,10 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "syntax error" in text
 
 
-def test_the_delta_method_with_a_database_column_today_ends_with_a_traceback(
+def test_the_delta_method_with_a_database_column_is_reported_as_a_message(
     tools, series
 ):
     text = _refused(tools, input="err", method="delta", columns="north")
 
-    assert "ValueError: Unsupported column 'north'" in text
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.list method=delta with a database column ends in a ValueError traceback instead of a message",
-)
-def test_the_delta_method_with_a_database_column_is_reported_as_a_message(
-    tools, series
-):
-    assert "Traceback" not in _refused(
-        tools, input="err", method="delta", columns="north"
-    )
+    assert "Traceback" not in text
+    assert "Unsupported column 'north'" in text

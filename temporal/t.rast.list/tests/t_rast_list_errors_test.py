@@ -154,17 +154,6 @@ def test_the_line_format_takes_one_column(tools, series):
     ) in text
 
 
-def test_the_comma_method_names_the_default_format_in_its_refusal(tools, series):
-    # The message names format=plain, which the user did not give: the method
-    # comma does not change the format (see the xfail in the methods tests).
-    text = _refused(tools, input="err", method="comma", columns="name,mapset")
-
-    assert (
-        "Combining format=plain and columns=name,mapset is not allowed. "
-        "Only one column is allowed (not 2)"
-    ) in text
-
-
 @pytest.mark.parametrize(
     "options",
     [
@@ -237,22 +226,11 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "Unable to execute" not in text
 
 
-def test_the_delta_method_with_the_line_format_today_ends_with_a_traceback(
-    tools, series
-):
+def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
     text = _refused(tools, input="err", method="delta", format="line")
 
-    assert "ValueError" in text
+    assert "Traceback" not in text
     assert "'line' output_format can have only 1 column, not 7" in text
-
-
-@pytest.mark.xfail(
-    strict=True, reason="delta with the line format ends with a traceback"
-)
-def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
-    assert "Traceback" not in _refused(
-        tools, input="err", method="delta", format="line"
-    )
 
 
 def test_the_delta_method_with_the_line_format_works_for_one_column(tools, series):

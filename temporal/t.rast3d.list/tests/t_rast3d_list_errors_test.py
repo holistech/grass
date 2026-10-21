@@ -236,22 +236,11 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "syntax error" in text
 
 
-def test_the_delta_method_with_the_line_format_today_ends_with_a_traceback(
-    tools, series
-):
+def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
     text = _refused(tools, input="err", method="delta", format="line")
 
-    assert "ValueError" in text
+    assert "Traceback" not in text
     assert "'line' output_format can have only 1 column, not 7" in text
-
-
-@pytest.mark.xfail(
-    strict=True, reason="delta with the line format ends with a traceback"
-)
-def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
-    assert "Traceback" not in _refused(
-        tools, input="err", method="delta", format="line"
-    )
 
 
 def test_the_delta_method_with_the_line_format_works_for_one_column(tools, series):

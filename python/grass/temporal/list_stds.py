@@ -615,17 +615,21 @@ def list_maps_of_stds(
         if isinstance(columns, str):
             columns = columns.split(",")
 
-    rows, columns = _get_list_of_maps_stds(
-        element_type=type,
-        name=input,
-        columns=columns,
-        order=order,
-        where=where,
-        method=method,
-        output_format=output_format,
-        gran=gran,
-        dbif=dbif,
-    )
+    try:
+        rows, columns = _get_list_of_maps_stds(
+            element_type=type,
+            name=input,
+            columns=columns,
+            order=order,
+            where=where,
+            method=method,
+            output_format=output_format,
+            gran=gran,
+            dbif=dbif,
+        )
+    except ValueError as error:
+        # A combination of columns, method and format that cannot be listed
+        gs.fatal(str(error))
 
     if output_format == "line":
         _write_line(
