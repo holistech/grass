@@ -493,8 +493,9 @@ points differ:
    `start_doy()` gives numbers, not maps, so the new algebra stops with the
    error "A time function such as start_doy() cannot be the result of a
    selection" when it is the conclusion of `if()` beside maps. A time
-   function belongs in the condition. The classic algebra accepts the
-   expression:
+   function belongs in the condition. The classic algebra plans the
+   expression with a dry run; what a real run of it gives is still an open
+   point:
 
    ```sh
    C = if(start_doy(A) < 3, start_doy(A, 1), A)
