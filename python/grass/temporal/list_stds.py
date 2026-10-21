@@ -30,6 +30,17 @@ from .open_stds import open_old_stds
 ###############################################################################
 
 
+def _view_name(dataset_type, temporal_type):
+    """Return the name of the database view of a dataset type
+
+    The views of 3D raster maps are named raster3d_view_*, the type is
+    raster_3d.
+    """
+    prefix = "raster3d" if dataset_type == "raster_3d" else dataset_type
+    suffix = "abs_time" if temporal_type == "absolute" else "rel_time"
+    return f"{prefix}_view_{suffix}"
+
+
 def get_dataset_list(
     type,
     temporal_type,
@@ -120,11 +131,7 @@ def get_dataset_list(
 
         type_schemas = []
         for dtype in stds_type:
-            table = (
-                dtype + "_view_abs_time"
-                if ttype == "absolute"
-                else dtype + "_view_rel_time"
-            )
+            table = _view_name(dtype, ttype)
             dbif.execute(f"SELECT * FROM {table} WHERE 0=1", mapset=mapset_for_schema)
             type_schemas.append(
                 [d[0] for d in dbif.connections[mapset_for_schema].cursor.description]
@@ -172,10 +179,7 @@ def get_dataset_list(
 
         for dtype in stds_type:
             for mapset in dbif.tgis_mapsets:
-                if ttype == "absolute":
-                    table = dtype + "_view_abs_time"
-                else:
-                    table = dtype + "_view_rel_time"
+                table = _view_name(dtype, ttype)
 
                 sql = f"SELECT {columns_to_query} FROM {table}"
 

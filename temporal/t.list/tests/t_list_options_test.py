@@ -277,17 +277,6 @@ def raster_3d_maps(tools):
     )
 
 
-def test_today_t_list_of_raster_3d_maps_fails_with_an_sql_error(tools, raster_3d_maps):
-    with pytest.raises(ToolError) as error:
-        tools.t_list(type="raster_3d")
-
-    assert "no such table: raster_3d_view_abs_time" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.list of type raster_3d fails with an SQL error, the view raster_3d_view_abs_time does not exist",
-)
 def test_t_list_lists_raster_3d_maps(tools, raster_3d_maps):
     result = tools.t_list(
         type="raster_3d", columns="name", where="name LIKE 'list_raster_3d%'"
