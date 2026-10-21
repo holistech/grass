@@ -271,6 +271,8 @@ def main():
 
     # The dataset, its map entries and the vector map that this run made are
     # removed if a step fails
+    # The cleanup below needs the open connection, so the refusals inside the
+    # try do not close it; the cleanup closes it.
     registered = []
     try:
         # Sample the space time raster dataset with the vector
@@ -311,7 +313,6 @@ def main():
                     if column.lower() not in present:
                         continue
                     if not overwrite:
-                        dbif.close()
                         gs.fatal(
                             _(
                                 "Unable to add column {column} to vector map "
@@ -331,7 +332,6 @@ def main():
                             overwrite=overwrite,
                         )
                     except CalledModuleError:
-                        dbif.close()
                         gs.fatal(
                             _(
                                 "Unable to add column %s to vector map <%s> with layer %i"
@@ -351,7 +351,6 @@ def main():
                         overwrite=overwrite,
                     )
                 except CalledModuleError:
-                    dbif.close()
                     gs.fatal(
                         _("Unable to add table to vector map <%s> with layer %i")
                         % (vectmap, count)
@@ -368,7 +367,6 @@ def main():
                         column=column,
                     )
                 except CalledModuleError:
-                    dbif.close()
                     gs.fatal(
                         _(
                             "Unable to run v.what.rast for vector map <%s> "
