@@ -149,6 +149,24 @@ def test_a_failed_c_does_not_copy_any_map(two_mapsets, prefix, stds_type, map_ty
     assert f"{prefix}_copy" not in work.t_list(type=stds_type, columns="name").stdout
 
 
+@pytest.mark.parametrize(
+    ("stds_type", "map_type"), [("str3ds", "raster_3d"), ("stvds", "vector")]
+)
+def test_c_copies_3d_and_vector_maps_into_the_current_mapset(
+    two_mapsets, prefix, stds_type, map_type
+):
+    work, other = two_mapsets
+    maps = create_daily_stds(other, stds_type, [f"{prefix}_src"], 2, map_prefix=prefix)
+
+    work.t_copy(
+        type=stds_type, input=f"{prefix}_src@other", output=f"{prefix}_copy", flags="c"
+    )
+
+    assert _rows(work, f"{prefix}_copy", stds_type) == [(m, "work") for m in maps]
+    copied = work.g_list(type=map_type, mapset="work", pattern=f"{prefix}_*")
+    assert copied.stdout.split() == maps
+
+
 def test_c_reports_its_progress_every_ten_maps(two_mapsets, prefix):
     work, other = two_mapsets
     maps = create_daily_stds(other, "strds", [f"{prefix}_src"], 10, map_prefix=prefix)

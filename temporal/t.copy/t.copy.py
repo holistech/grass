@@ -195,9 +195,11 @@ def main():
 
         # Insert map in temporal database
         if not map.is_in_db(dbif, mapset):
-            semantic_label = map.metadata.get_semantic_label()
+            # Only the metadata of raster maps has a semantic label.
+            semantic_label = (
+                map.metadata.get_semantic_label() if maptype == "raster" else None
+            )
             map.load()
-            # semantic labels are not yet properly implemented in TGIS
             if semantic_label is not None and semantic_label != "None":
                 map.metadata.set_semantic_label(semantic_label)
             map.insert(dbif)
