@@ -2,6 +2,7 @@
 
 import pytest
 
+from grass.temporal.testing.data import create_daily_stds, small_region
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
@@ -90,3 +91,43 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, shapes, pre
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+def test_a_failing_r_to_vect_is_reported(broken_tools, shapes, prefix):
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.to.vect").t_rast_to_vect(
+            input=shapes, output=prefix, basename=prefix, type="point"
+        )
+
+    assert "Error running r.to.vect" in message(error.value)
+
+
+def test_a_failing_r_to_vect_is_reported_when_the_processes_are_waited_for(
+    broken_tools, shapes, prefix
+):
+    # Three maps and four processes: nothing is waited for while the maps are
+    # queued, so the failure shows when the tool waits for the end of all.
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.to.vect").t_rast_to_vect(
+            input=shapes,
+            output=prefix,
+            basename=prefix,
+            type="point",
+            nprocs=4,
+            flags="t",
+        )
+
+    assert "Error running r.to.vect" in message(error.value)
+
+
+def test_the_progress_is_reported_every_ten_maps(tools, prefix):
+    small_region(tools, 3, 3)
+    create_daily_stds(tools, "strds", [f"{prefix}_in"], 10, map_prefix=prefix)
+
+    result = tools.t_rast_to_vect(
+        input=f"{prefix}_in", output=prefix, basename=prefix, type="point"
+    )
+
+    # Once when the tenth process is queued, once when the tenth map is
+    # registered and once at the end.
+    assert result.stderr.count("100%") == 3
