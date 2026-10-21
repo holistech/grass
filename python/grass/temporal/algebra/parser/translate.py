@@ -244,9 +244,10 @@ class Translator:
         """right as a series of the map type of left in a selection
 
         t.select relates maps of different dataset types (strds(A) :
-        stvds(B)), which the operations refuse. Only time and box matter for
-        the relation. Elsewhere the types are fixed by the tool and stay as
-        they are.
+        stvds(B)), which the operations refuse where the maps of both meet in
+        one result, as in A {+,during} stvds(B). Only time and box matter for
+        the relation, and plan() refuses a selection that computes maps.
+        Elsewhere the types are fixed by the tool and stay as they are.
         """
         if not self._selection or right.kind == left.kind:
             return right

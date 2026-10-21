@@ -182,6 +182,18 @@ def test_select_and_not_select_other_dataset_types(series, kind):
 
 
 @pytest.mark.parametrize(
+    ("kind", "maps"), [("strds", "strds(A)"), ("str3ds", "str3ds(A)")]
+)
+def test_vector_dataset_on_the_left_of_raster_maps(series, kind, maps):
+    """A vector dataset on the left is related to raster and 3D raster maps,
+    as these are to vector maps: d1 [5,45) contains a2, a3 and a4, so the
+    count is 3, and the condition takes the maps of A within d1."""
+    assert selected_names(series.session, f"D {{:,contains}} {maps}", "stvds") == ["d1"]
+    expression = f"if({{contains}}, stvds(D) {{#,contains}} {maps} == 3, {maps})"
+    assert selected_names(series.session, expression, kind) == ["a2", "a3", "a4"]
+
+
+@pytest.mark.parametrize(
     ("relations", "expected"),
     [
         ("precedes|follows", ["a2"]),

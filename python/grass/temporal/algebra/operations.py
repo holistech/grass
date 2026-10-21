@@ -59,15 +59,19 @@ def _check_option(name, value, allowed):
 MIXED_TIMES = ("error", "unrelated")
 
 
-def _check_comparable(first, second, mixed_times="error"):
-    """Relations exist only between series of one map and temporal type
+def _check_comparable(first, second, mixed_times="error", *, times_only=False):
+    """Relations exist only between series of one temporal type, and of one
+    map type where their contents meet
 
     related() does not check this itself: on mixed absolute and relative
     time, or on different units, it finds no relation instead of failing.
     mixed_times="unrelated" leaves it at that, as the classic algebra does.
+    times_only says that no map of second enters the result, only its time
+    stamps and boxes or its numbers, so that its map type does not matter:
+    t.select relates a vector series to a raster series.
     """
     _check_option("mixed_times", mixed_times, MIXED_TIMES)
-    if first.kind != second.kind:
+    if first.kind != second.kind and not times_only:
         msg = f"A {first.kind} series cannot be related to a {second.kind} series"
         raise ValueError(msg)
     if mixed_times == "unrelated":
@@ -308,7 +312,7 @@ def select(
     if extent != "left" and not related:
         msg = "A slot without partner has no time stamp to combine, so extent must be left"
         raise ValueError(msg)
-    _check_comparable(left, other, mixed_times)
+    _check_comparable(left, other, mixed_times, times_only=True)
     matches = related_indices(
         left.slots,
         relation,
@@ -393,7 +397,9 @@ def pairs(
     if fold_all and content is None:
         msg = "fold_all needs a content function to fold with"
         raise ValueError(msg)
-    _check_comparable(left, other, mixed_times)
+    _check_comparable(
+        left, other, mixed_times, times_only=content is None or other.sort == "scalar"
+    )
     matches = related_indices(
         left.slots,
         relation,
@@ -743,7 +749,12 @@ def gather(
     _check_option("failure", failure, FAILURES)
     _check_box(box, space)
     reducers.check(reduce, nulls)
-    _check_comparable(target, other, mixed_times)
+    _check_comparable(
+        target,
+        other,
+        mixed_times,
+        times_only=reduce in (None, "count") or other.sort == "scalar",
+    )
     sort = reducers.sort_of(reduce, target.sort, other.sort)
     if missing == "keep" and sort != target.sort:
         msg = (
@@ -883,7 +894,8 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
     :raises TypeError: if the condition is not a scalar series
     :raises ValueError: if a time stamp has several conditions and another
         number of slots in a branch, if a timed condition meets a branch map
-        without time stamp, or if the series cannot be related
+        without time stamp, if then and otherwise hold maps of different
+        types, or if the series cannot be related
     """
     check_series(condition, "condition")
     check_series(then, "then")
@@ -897,8 +909,12 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
         values[slot.extent].append(slot.content.value)
     branches = [then] if otherwise is None else [then, otherwise]
     slots = []
+    if otherwise is not None and otherwise.kind != then.kind:
+        msg = f"choose() cannot list {then.kind} and {otherwise.kind} maps together"
+        raise ValueError(msg)
     for branch, wanted in zip(branches, (True, False), strict=False):
-        _check_comparable(condition, branch, mixed_times)
+        # The condition gives numbers only, so its map type does not matter.
+        _check_comparable(condition, branch, mixed_times, times_only=True)
         slots.extend(_chosen(branch, values, wanted))
     spatial = any(part.spatial for part in (condition, *branches))
     if not condition.timeless:

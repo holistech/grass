@@ -20,9 +20,11 @@ from grass.temporal.algebra import (
     apply,
     buffer,
     cell_offset,
+    choose,
     equal,
     fold,
     gather,
+    merge,
     pairs,
     plan,
     relation,
@@ -340,3 +342,63 @@ def test_vector_maps_cannot_be_numbers_or_raster_expressions(
     message = f"{description} cannot be computed as a vector map"
     with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         plan(series, "R")
+
+
+def _mixed(make_series):
+    """A vector map from day 1 to 3 and the two daily raster maps within it"""
+    return (
+        make_series("v", (1, 3), kind="vector"),
+        make_series("r", (1, 2), (2, 3), kind="raster"),
+    )
+
+
+def test_series_of_different_map_types_are_related_by_time(make_series):
+    # t.select relates a vector series on the left to a raster series:
+    # only the time stamps of the right series are read.
+    vectors, rasters = _mixed(make_series)
+    contains = relation("contains")
+    for result in (
+        select(vectors, contains, rasters),
+        pairs(vectors, contains, rasters),
+        gather(vectors, contains, rasters, reduce=None),
+    ):
+        assert result.kind == "vector"
+        assert {slot.content for slot in result.slots} == {MapRef("v1@PERMANENT")}
+    assert len(select(vectors, contains, rasters, related=False)) == 0
+    counts = gather(vectors, contains, rasters, reduce="count")
+    assert [slot.content for slot in counts.slots] == [Const(2)]
+
+
+def test_numbers_of_another_map_type_choose_maps(make_series):
+    # The condition of if() in t.select may count maps of another type.
+    vectors, rasters = _mixed(make_series)
+    counts = gather(vectors, relation("contains"), rasters, reduce="count")
+    judged = gather(rasters, relation("during"), counts, reduce="first")
+    assert judged.kind == "raster"
+    assert [slot.content for slot in judged.slots] == [Const(2), Const(2)]
+    condition = make_series("c", (1, 2), (2, 3), values=[1, 0], kind="vector")
+    chosen = choose(condition, rasters)
+    assert chosen.kind == "raster"
+    assert [slot.content for slot in chosen.slots] == [MapRef("r1@PERMANENT")]
+
+
+@pytest.mark.parametrize(
+    "combine",
+    [
+        lambda v, r: pairs(v, relation("contains"), r, content=lambda a, b: a),
+        lambda v, r: gather(v, relation("contains"), r, reduce=fold("+")),
+        merge,
+    ],
+    ids=["pairs", "gather", "merge"],
+)
+def test_maps_of_different_types_do_not_meet_in_one_result(make_series, combine):
+    vectors, rasters = _mixed(make_series)
+    with pytest.raises(ValueError, match="vector series cannot be related to a raster"):
+        combine(vectors, rasters)
+
+
+def test_then_and_else_of_different_map_types_are_refused(make_series):
+    vectors, rasters = _mixed(make_series)
+    condition = make_series("c", (1, 3), values=[1])
+    with pytest.raises(ValueError, match="cannot list vector and raster maps"):
+        choose(condition, vectors, rasters)

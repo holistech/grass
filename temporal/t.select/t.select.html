@@ -395,7 +395,11 @@ Both algebras pull maps of another dataset type into a selection with the
 functions <code>strds()</code>, <code>str3ds()</code> and <code>stvds()</code>;
 the type of the function need not equal the parameter <b>type</b>, which gives
 the type of the result (since 17 October 2026 the new algebra reads them as
-well; before, only the classic algebra did). Besides the lower case spelling,
+well; before, only the classic algebra did). Since 21 October 2026 the new
+algebra also relates a vector dataset on the left to a raster or 3D raster
+dataset, as in
+<code>if({contains}, stvds(B) {#,contains} A == 2, A)</code>; before, it
+stopped with an error. Besides the lower case spelling,
 <code>str3ds(A)</code>, both read the capitals of the paper,
 <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>. A
 capital name is a function only before an opening parenthesis, so that a

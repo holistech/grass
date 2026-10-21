@@ -269,8 +269,8 @@ def test_dataset_functions_name_the_type_in_a_selection(datasets):
 
 
 def test_a_selection_relates_datasets_of_different_types(datasets):
-    """The right series gets the map type of the left one; the operations
-    refuse mixed types"""
+    """The right series gets the map type of the left one; a selection reads
+    only its time stamps, so the result is the same without that step"""
     vector = dataclasses.replace(datasets["B"], kind="vector")
     left = datasets["A"]
     assert vector.kind != left.kind
@@ -281,8 +281,7 @@ def test_a_selection_relates_datasets_of_different_types(datasets):
     result = selecting.statement(parse("R = A {:,during} V"))[1]
     assert result.slots == operations.select(left, during, datasets["B"]).slots
     plain = Translator(resolve=lambda name: vector if name == "V" else datasets[name])
-    with pytest.raises(ValueError, match="cannot be related"):
-        plain.statement(parse("R = A {:,during} V"))
+    assert plain.statement(parse("R = A {:,during} V"))[1].slots == result.slots
 
 
 @pytest.mark.parametrize("text", ["strds(A, B)", "strds(1)", "STVDS(A + B)"])

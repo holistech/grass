@@ -11,8 +11,6 @@ algebra"); SHAPE what the old test asserted besides the maps. The
 datasets are those of legacy_data, see its builder for the data.
 """
 
-import re
-
 import pytest
 
 from grass.temporal.testing import legacy_data
@@ -93,22 +91,6 @@ CORE = {}
 
 CORE_MESSAGE = {}
 
-# Cases where the core refuses what the manual promises: t.select.md says that
-# both algebras pull maps of another dataset type into a selection with
-# strds(), str3ds() and stvds(). The core relates a 3D raster series on the left
-# to a vector series ("temporal hash operator1") but not a vector series on
-# the left to a raster series. The first table holds what the core does
-# today, the case itself what is right.
-CORE_TODAY = {
-    "different stds handling1": "Other:ValueError",
-    "temporal hash operator2": "Other:ValueError",
-}
-
-CORE_TODAY_MESSAGE = {
-    "different stds handling1": "A\\ raster\\#d\\ series\\ cannot\\ be\\ related\\ to\\ a\\ vector\\ series",
-    "temporal hash operator2": "A\\ raster\\#d\\ series\\ cannot\\ be\\ related\\ to\\ a\\ vector\\ series",
-}
-
 NAMES = {}
 
 SHAPE = {
@@ -145,32 +127,13 @@ DRY = [
     ),
 ]
 
-DRY_SHOULD = [
-    pytest.param(
-        "if({contains}, (stvds(C) {#,contains} str3ds(A)) == 2, str3ds(A))",
-        {"stdstype": "strds"},
-        {"register": 2, "stdstype": "str3ds"},
-        "core",
-        id="different stds handling2 (dry run)-core",
-    ),
-]
-
-# What the classic profile plans where it differs from the reference. Its run
-# of this expression makes a str3ds, as the run of the reference does
-# (test_mixed_runs_make_a_str3ds); its plan names that type, while the plan
-# of the reference names the stdstype of the call, which the old test
-# asserted. Decided 19.10.2026: the plan names what the run makes.
-DRY_CLASSIC = {
+# What the classic profile and the core plan where they differ from the
+# reference. Their run of this expression makes a str3ds, as the run of the
+# reference does (test_mixed_runs_make_a_str3ds); their plan names that type,
+# while the plan of the reference names the stdstype of the call, which the
+# old test asserted. Decided 19.10.2026: the plan names what the run makes.
+DRY_AS_RUN = {
     "different stds handling2 (dry run)": {"register": 2, "stdstype": "str3ds"},
-}
-
-# What a runner does today where it should plan what its run makes, as the
-# classic profile does (DRY_CLASSIC): the core stops as in the cases above.
-DRY_TODAY = {
-    ("different stds handling2 (dry run)", "core"): (
-        "ValueError",
-        "A raster3d series cannot be related to a vector series",
-    ),
 }
 
 
@@ -197,10 +160,6 @@ def test_cases(data, request, runner, expression, options, expected):
             expected = CORE[name]
             message = CORE_MESSAGE.get(name)
             shape = SHAPE_CORE.get(name, shape)
-        elif name in CORE_TODAY:
-            expected = CORE_TODAY[name]
-            message = CORE_TODAY_MESSAGE.get(name)
-            shape = None
     legacy_data.check_case(
         KIND,
         runner,
@@ -213,37 +172,18 @@ def test_cases(data, request, runner, expression, options, expected):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the core refuses expressions that relate datasets of different types, which the earlier algebra and t.select.md allow",
-)
-@pytest.mark.parametrize(
-    ("expression", "options", "expected"), [c for c in CASES if c.id in CORE_TODAY]
-)
-def test_cases_the_core_should_run(data, expression, options, expected):
-    legacy_data.check_case(
-        KIND, "core", expression, options, expected, SHAPE.get(expression)
-    )
-
-
 @pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
 def test_dry_runs(data, request, runner, expression, options, expected):
-    name = case_id(request)
-    today = DRY_TODAY.get((name, runner))
-    if today is not None:
-        with pytest.raises(ValueError, match=re.escape(today[1])):
-            legacy_data.check_dry(KIND, runner, expression, options, expected)
-        return
-    if runner == "classic":
-        expected = DRY_CLASSIC.get(name, expected)
+    if runner != "reference":
+        expected = DRY_AS_RUN.get(case_id(request), expected)
     legacy_data.check_dry(KIND, runner, expression, options, expected)
 
 
-@pytest.mark.parametrize("runner", ["reference", "classic"])
+@pytest.mark.parametrize("runner", RUNNERS)
 def test_mixed_runs_make_a_str3ds(data, runner):
     # The run of the planned expression: the type of its result is what the
-    # plan of the classic profile names (DRY_CLASSIC).
+    # plans of the classic profile and the core name (DRY_AS_RUN).
     legacy_data.check_case(
         KIND,
         runner,
@@ -253,15 +193,6 @@ def test_mixed_runs_make_a_str3ds(data, runner):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="the core refuses the mixed expression, where it should plan the str3ds that the run makes",
-)
-@pytest.mark.parametrize(("expression", "options", "expected", "runner"), DRY_SHOULD)
-def test_dry_runs_the_runners_should_plan(data, runner, expression, options, expected):
-    legacy_data.check_dry(KIND, runner, expression, options, expected)
-
-
 def test_every_table_entry_belongs_to_a_case():
     # The tables are looked up by expression or id; a key that matches no case
     # would be skipped without notice.
@@ -269,9 +200,6 @@ def test_every_table_entry_belongs_to_a_case():
     assert set(SHAPE) <= {case.values[0] for case in CASES}
     assert set(CORE) <= ids
     assert set(NAMES) <= ids
-    assert set(CORE_TODAY) <= ids
     assert set(CORE_MESSAGE) <= set(CORE)
-    assert set(CORE_TODAY_MESSAGE) <= set(CORE_TODAY)
     assert set(SHAPE_CORE) <= set(CORE)
-    assert {name for name, _ in DRY_TODAY} <= {case.id for case in DRY}
-    assert set(DRY_CLASSIC) <= {case.id for case in DRY}
+    assert set(DRY_AS_RUN) <= {case.id for case in DRY}

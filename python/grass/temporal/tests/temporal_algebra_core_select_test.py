@@ -78,11 +78,18 @@ def test_series_of_different_units_cannot_be_related(make_series):
         pairs(days_, equal, weeks)
 
 
-def test_series_of_different_map_types_cannot_be_related(a):
+def test_series_of_different_map_types_meet_only_in_time(make_series, a, b):
+    # A selection reads only the time stamps of the other series; pairs()
+    # with a content function would put maps of both types into one result.
+    vectors = make_series("v", (1, 3), (3, 5), kind="vector")
+    assert select(a, during, vectors).slots == select(a, during, b).slots
+    paired = pairs(vectors, contains, a)
+    assert paired.kind == "vector"
+    assert [slot.extent for slot in paired.slots] == [
+        slot.extent for slot in pairs(b, contains, a).slots
+    ]
     with pytest.raises(ValueError, match="vector"):
-        select(a, equal, Series(kind="vector"))
-    with pytest.raises(ValueError, match="vector"):
-        pairs(Series(kind="vector"), equal, a)
+        pairs(vectors, contains, a, content=lambda mine, theirs: mine)
 
 
 def test_spatial_relation_marks_the_result(make_series):
