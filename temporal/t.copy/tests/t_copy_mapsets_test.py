@@ -167,6 +167,31 @@ def test_c_copies_3d_and_vector_maps_into_the_current_mapset(
     assert copied.stdout.split() == maps
 
 
+def test_c_copies_a_vector_map_registered_with_a_layer(two_mapsets, prefix):
+    work, other = two_mapsets
+    other.v_random(output=f"{prefix}_v", npoints=2, seed=1)
+    other.t_create(
+        type="stvds", output=f"{prefix}_src", title="layer", description="layer"
+    )
+    # The id of the map is <prefix>_v:1@other.
+    other.t_register(
+        type="vector", input=f"{prefix}_src", maps=f"{prefix}_v:1", start="2001-01-01"
+    )
+
+    work.t_copy(
+        type="stvds", input=f"{prefix}_src@other", output=f"{prefix}_copy", flags="c"
+    )
+
+    rows = work.t_vect_list(
+        input=f"{prefix}_copy", columns="name,layer,mapset", format="json"
+    ).json["data"]
+    assert [(row["name"], row["layer"], row["mapset"]) for row in rows] == [
+        (f"{prefix}_v", "1", "work")
+    ]
+    copied = work.g_list(type="vector", mapset="work", pattern=f"{prefix}_*")
+    assert copied.stdout.split() == [f"{prefix}_v"]
+
+
 def test_c_reports_its_progress_every_ten_maps(two_mapsets, prefix):
     work, other = two_mapsets
     maps = create_daily_stds(other, "strds", [f"{prefix}_src"], 10, map_prefix=prefix)

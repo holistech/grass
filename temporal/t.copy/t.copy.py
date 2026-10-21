@@ -42,14 +42,6 @@ import grass.script as gs
 ############################################################################
 
 
-def _name_and_mapset(map, mapset):
-    """Split the id of a map into its name and mapset"""
-    map_id = map.get_id()
-    if "@" in map_id:
-        return map_id.split("@")
-    return map_id, mapset
-
-
 def _layer(map, maptype):
     """Return the layer of a vector map and None for all other maps"""
     return map.get_layer() if maptype == "vector" else None
@@ -125,7 +117,7 @@ def main():
         # Everything that can refuse the copy is checked before the first map
         # is copied, so that a refusal does not leave copied maps behind.
         for map in old_maps:
-            map_name, map_mapset = _name_and_mapset(map, mapset)
+            map_name, map_mapset = map.get_name(), map.get_mapset()
             if map_mapset != mapset:
                 found = gs.find_file(name=map_name, element=element, mapset=mapset)
                 if found["name"] is not None and len(found["name"]) > 0:
@@ -139,10 +131,11 @@ def main():
 
         for map in old_maps:
             count += 1
-            map_name, map_mapset = _name_and_mapset(map, mapset)
+            map_name, map_mapset = map.get_name(), map.get_mapset()
 
             if map_mapset != mapset:
-                kwargs = {maptype: "%s,%s" % (map.get_id(), map_name)}
+                # The id of a vector map carries its layer, which g.copy refuses.
+                kwargs = {maptype: f"{map_name}@{map_mapset},{map_name}"}
                 gs.run_command("g.copy", **kwargs)
                 new_map = tgis.open_new_map_dataset(
                     map_name,
