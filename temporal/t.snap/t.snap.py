@@ -47,6 +47,17 @@ def main():
     dbif.connect()
 
     stds = tgis.open_old_stds(name, type, dbif)
+    # snap() fails with an IndexError on a dataset without maps; t.shift
+    # leaves such a dataset as it is as well.
+    if not stds.get_registered_maps_as_objects(dbif=dbif):
+        dbif.close()
+        gs.message(
+            _("Space time dataset <{}> has no maps, nothing to snap").format(
+                stds.get_id()
+            )
+        )
+        return
+
     stds.snap(dbif=dbif)
 
     stds.update_command_string(dbif=dbif)

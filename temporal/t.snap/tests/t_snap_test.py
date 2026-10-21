@@ -261,19 +261,6 @@ def test_the_command_is_added_to_the_history(tools, prefix):
     assert f't.snap input="{name}"' in history.replace("\\\n", "")
 
 
-def test_today_a_dataset_without_maps_ends_with_a_traceback(tools, prefix):
-    name = _dataset(tools, prefix, [])
-
-    with pytest.raises(ToolError) as error:
-        tools.t_snap(input=name)
-
-    assert "IndexError: list index out of range" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.snap ends in an IndexError traceback for a dataset without maps, t.shift leaves such a dataset as it is",
-)
 def test_a_dataset_without_maps_is_left_as_it_is(tools, prefix):
     # t.shift does nothing for such a dataset.
     name = _dataset(tools, prefix, [])
