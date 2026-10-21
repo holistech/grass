@@ -220,3 +220,17 @@ def test_a_failing_r_series_interp_is_reported_by_the_tool(tools, gappy, prefix)
     assert [row[0] for row in _rows(tools, name)] == [f"{name}_m1", f"{name}_m3"]
     # The map of the gap would be <prefix>_2001_02 (suffix gran).
     assert not tools.g_list(type="raster", pattern=f"{prefix}_2*").stdout.strip()
+
+
+def test_a_failing_r_series_interp_is_reported_when_the_processes_are_waited_for(
+    tools, gappy, prefix
+):
+    # Both gaps are queued at once with three processes, so the failure of the
+    # first shows when the tool waits for the end of all.
+    name = gappy({1: (100, 0), 3: (300, 90), 5: (500, 70)})
+    tools.g_remove(type="raster", name=f"{name}_m1", flags="f")
+
+    text = _refused(tools, input=name, basename=prefix, nprocs=3)
+
+    assert "Error running r.series.interp" in text
+    assert "Traceback" not in text
