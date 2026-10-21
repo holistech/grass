@@ -11,9 +11,6 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from grass.temporal.testing.readback import message
-from grass.tools import ToolError
-
 # Registering 520 maps takes about ten seconds (measured 18.10.2026).
 pytestmark = pytest.mark.slow
 
@@ -69,21 +66,6 @@ def test_400_maps_with_one_process_need_no_extra_call(tools, many):
     assert _values(result) == list(range(1, 401))
 
 
-def test_today_the_extra_call_for_the_remaining_maps_loses_the_last_map(tools, many):
-    # The 401st map starts on 2002-02-05, day 400 after 2001-01-01. Its call
-    # writes to the file name of the first loop and is not listed for the
-    # output, so only 400 values come back.
-    result = tools.t_rast_what(
-        strds=many, coordinates="0.5,0.5", where="start_time < '2002-02-06'"
-    )
-
-    assert _values(result) == list(range(1, 401))
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.what loses the last map when exactly one map remains after the loop of 100, its call writes to the file name of the first loop",
-)
 def test_all_maps_come_back_when_one_map_remains(tools, many):
     result = tools.t_rast_what(
         strds=many, coordinates="0.5,0.5", where="start_time < '2002-02-06'"
@@ -92,29 +74,6 @@ def test_all_maps_come_back_when_one_map_remains(tools, many):
     assert _values(result) == list(range(1, 402))
 
 
-def test_today_more_than_100_remaining_maps_leave_a_file_in_the_current_directory(
-    tools, many, tmp_path
-):
-    tools.t_rast_what(strds=many, coordinates="0.5,0.5")
-
-    assert (tmp_path / "out_remain_0").is_file()
-
-
-def test_today_a_second_run_with_more_than_100_remaining_maps_is_refused(tools, many):
-    tools.t_rast_what(strds=many, coordinates="0.5,0.5")
-
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_what(strds=many, coordinates="0.5,0.5")
-
-    assert "<out_remain_0> exists. To overwrite, use the --overwrite flag" in message(
-        error.value
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.what leaves the file out_remain_0 behind after more than 100 remaining maps",
-)
 def test_more_than_100_remaining_maps_leave_no_file_behind(tools, many, tmp_path):
     tools.t_rast_what(strds=many, coordinates="0.5,0.5")
 

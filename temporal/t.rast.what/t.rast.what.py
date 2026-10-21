@@ -96,7 +96,7 @@
 
 import copy
 import sys
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -184,8 +184,21 @@ def main(options, flags):
     if vcat is True:
         flags += "v"
 
-    # Configure the r.what module
-    if points:
+    # Flag -i comes first: its description says it ignores the coordinates option.
+    if use_stdin:
+        r_what = pymod.Module(
+            "r.what",
+            map="dummy",
+            output="dummy",
+            run_=False,
+            separator=separator,
+            stdin_=coordinates_stdin,
+            overwrite=overwrite,
+            flags=flags,
+            null_value=null_value,
+            quiet=True,
+        )
+    elif points:
         r_what = pymod.Module(
             "r.what",
             map="dummy",
@@ -208,19 +221,6 @@ def main(options, flags):
             run_=False,
             separator=separator,
             coordinates=coord_list,
-            overwrite=overwrite,
-            flags=flags,
-            null_value=null_value,
-            quiet=True,
-        )
-    elif use_stdin:
-        r_what = pymod.Module(
-            "r.what",
-            map="dummy",
-            output="dummy",
-            run_=False,
-            separator=separator,
-            stdin_=coordinates_stdin,
             overwrite=overwrite,
             flags=flags,
             null_value=null_value,
@@ -285,18 +285,23 @@ def main(options, flags):
             # Use a single process if less then 100 maps
             if remaining_maps <= 100:
                 map_names = []
+                map_list = []
                 for i in range(remaining_maps):
                     map = maps[count]
                     map_names.append(map.get_id())
+                    map_list.append(map)
                     count += 1
+                remain_file_name = gs.tempfile() + "_remain"
+                output_files.append(remain_file_name)
+                output_time_list.append(map_list)
                 mod = copy.deepcopy(r_what)
-                mod(map=map_names, output=file_name)
+                mod(map=map_names, output=remain_file_name)
                 process_queue.put(mod)
             else:
                 maps_per_process = int(remaining_maps / nprocs)
                 remaining_maps_per_loop = remaining_maps % nprocs
 
-                file_name = "out_remain"
+                file_name = gs.tempfile() + "_remain"
                 process_loop(
                     nprocs,
                     maps,
@@ -369,12 +374,16 @@ def one_point_per_row_output(
                 out_str += "x{sep}y{sep}start{sep}end{sep}value\n"
             out_file.write(out_str.format(sep=separator))
 
-        for count in range(len(output_files)):
-            file_name = output_files[count]
-            gs.verbose(_("Transforming r.what output file %s") % (file_name))
-            map_list = output_time_list[count]
-            with open(file_name) as in_file:
-                for line in in_file:
+        # Every r.what output file holds the same points in the same order, so
+        # reading the files side by side lists the rows point by point in the
+        # time order of the maps, whatever the number of processes was.
+        with ExitStack() as stack:
+            in_files = []
+            for file_name in output_files:
+                gs.verbose(_("Transforming r.what output file %s") % (file_name))
+                in_files.append(stack.enter_context(open(file_name)))
+            for point_lines in zip(*in_files, strict=True):
+                for line, map_list in zip(point_lines, output_time_list, strict=True):
                     line = line.split(separator)
                     if vcat:
                         cat = line[0]

@@ -140,21 +140,6 @@ def test_the_name_of_the_site_in_the_timerow_layout(tools, sampled):
     ]
 
 
-def test_today_coordinates_win_over_the_i_flag(tools, sampled):
-    result = tools.t_rast_what(
-        strds=sampled,
-        coordinates="0.5,2.5",
-        flags="i",
-        stdin=StringIO("2.5 0.5\n"),
-    )
-
-    assert _values(result) == ["11", "111", "211"]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.what -i uses the coordinates option, which wins over the standard input",
-)
 def test_the_i_flag_ignores_the_coordinates(tools, sampled):
     result = tools.t_rast_what(
         strds=sampled,
@@ -225,18 +210,6 @@ def test_nprocs_does_not_change_the_other_layouts(tools, sampled, layout):
     assert several.stdout == single.stdout
 
 
-def test_today_the_order_of_the_rows_depends_on_nprocs(tools, sampled):
-    # Every process writes the maps it got: with three processes each has one
-    # map, so the lines come map after map instead of point after point.
-    result = tools.t_rast_what(strds=sampled, coordinates=COORDINATES, nprocs=3)
-
-    assert _values(result) == ["11", "33", "111", "133", "211", "233"]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.what lists the rows map by map instead of point by point when nprocs is above 1",
-)
 def test_the_order_of_the_rows_does_not_depend_on_nprocs(tools, sampled):
     result = tools.t_rast_what(strds=sampled, coordinates=COORDINATES, nprocs=3)
 
