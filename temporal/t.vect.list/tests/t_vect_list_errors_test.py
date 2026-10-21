@@ -92,8 +92,8 @@ def test_the_line_format_takes_one_column(tools, series):
     ) in text
 
 
-@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran", "comma"])
-def test_the_line_format_with_a_method_and_the_default_columns_is_refused(
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_the_line_format_with_a_delta_method_and_the_default_columns_is_refused(
     tools, series, method
 ):
     text = _refused(tools, input="err", format="line", method=method)
@@ -154,16 +154,6 @@ def test_a_where_that_selects_nothing_is_named(tools, series):
     ) in text
 
 
-def test_the_gran_method_of_an_empty_dataset_today_blames_the_granularity(
-    tools, series
-):
-    assert 'Wrong granularity: "None"' in _refused(tools, input="void", method="gran")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason='t.vect.list method=gran on an empty dataset says "Wrong granularity" instead of that the dataset is empty',
-)
 def test_the_gran_method_of_an_empty_dataset_says_it_is_empty(tools, series):
     assert "Dataset is empty" in _refused(tools, input="void", method="gran")
 

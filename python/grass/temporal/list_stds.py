@@ -367,6 +367,20 @@ def _get_get_registered_maps_as_objects_with_method(dataset, where, method, gran
 def _get_get_registered_maps_as_objects_delta_gran(
     dataset, where, method, gran, dbif, msgr
 ):
+    if method == "gran" and not gran and not dataset.metadata.get_number_of_maps():
+        # Without maps the dataset has no granularity to list by; the method
+        # would end in a message about a wrong granularity "None".
+        dbif.close()
+        msgr.fatal(
+            _(
+                "Nothing found in the database for space time dataset <{name}> "
+                "(type: {element_type}): {detail}"
+            ).format(
+                name=dataset.get_id(),
+                element_type=dataset.get_type(),
+                detail=_("Dataset is empty"),
+            )
+        )
     maps = _get_get_registered_maps_as_objects_with_method(
         dataset=dataset, where=where, method=method, gran=gran, dbif=dbif
     )

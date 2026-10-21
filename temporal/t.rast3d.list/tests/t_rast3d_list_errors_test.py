@@ -224,15 +224,6 @@ def test_a_granule_of_the_wrong_kind_is_refused(tools, series):
     )
 
 
-def test_the_gran_method_of_an_empty_dataset_today_blames_the_granularity(
-    tools, series
-):
-    assert 'Wrong granularity: "None"' in _refused(tools, input="void", method="gran")
-
-
-@pytest.mark.xfail(
-    strict=True, reason="gran on an empty dataset reports a wrong granularity"
-)
 def test_the_gran_method_of_an_empty_dataset_says_it_is_empty(tools, series):
     assert "Dataset is empty" in _refused(tools, input="void", method="gran")
 
