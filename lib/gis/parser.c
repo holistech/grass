@@ -74,6 +74,7 @@
  * \author Soeren Gebbert added Dec. 2009 WPS process_description document
  */
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -1418,11 +1419,16 @@ int check_int(const char *ans, const char **opts)
         return MISSING_VALUE;
 
     /* sscanf("%d") stops at the first character that is no digit, so "2.5"
-       and "3abc" were read as 2 and 3. The whole answer must be the number. */
+       and "3abc" were read as 2 and 3. The whole answer must be the number;
+       spaces around it are allowed, as sscanf() and strtol() skip leading
+       ones and a list such as "1, 2 ,3" has both kinds. */
     errno = 0;
     value = strtol(ans, &end, 10);
-    if (end == ans || *end != '\0' || errno == ERANGE || value < INT_MIN ||
-        value > INT_MAX)
+    if (end == ans)
+        return INVALID_VALUE;
+    while (isspace((unsigned char)*end))
+        end++;
+    if (*end != '\0' || errno == ERANGE || value < INT_MIN || value > INT_MAX)
         return INVALID_VALUE;
     d = (int)value;
 

@@ -83,13 +83,29 @@ def test_an_integer_is_accepted(run, value):
 
 
 @pytest.mark.parametrize(
-    "value", ["2.5", "3abc", "3 4", "abc", "1e3", "0x10", "2147483648", "-2147483649"]
+    "value",
+    ["2.5", "3abc", "3 4", "abc", "1e3", "0x10", "2147483648", "-2147483649", " "],
 )
 def test_a_number_with_trailing_characters_is_refused(run, value):
     result = run(f"number={value}")
 
     assert result.returncode != 0
     assert f"Invalid value <{value}> for parameter <number>" in result.stderr
+
+
+@pytest.mark.parametrize("value", [" 3", "3 ", " 3 "])
+def test_spaces_around_an_integer_are_accepted(run, value):
+    # sscanf("%d") accepted them, and strtol() skips the leading ones; spaces
+    # between two numbers ("3 4") stay an error.
+    result = run(f"number={value}")
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_spaces_around_the_integers_of_a_list_are_accepted(run):
+    result = run("numbers=1, 2 ,3")
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_an_empty_value_counts_as_no_value(run):
