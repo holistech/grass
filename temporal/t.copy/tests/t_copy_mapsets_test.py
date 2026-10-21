@@ -157,3 +157,26 @@ def test_c_reports_its_progress_every_ten_maps(two_mapsets, prefix):
 
     assert "100%" in message(result)
     assert set(maps) <= set(work.g_list(type="raster", mapset="work").stdout.split())
+
+
+def test_c_keeps_the_semantic_label_of_a_raster_map(two_mapsets, prefix, source):
+    work, other = two_mapsets
+    name, maps = source
+    other.r_semantic_label(map=f"{maps[0]}@other", semantic_label="S2_1")
+    # The label is in the temporal metadata only after it has been read.
+    other.t_support(input=f"{name}@other", flags="m")
+
+    work.t_copy(input=f"{name}@other", output=f"{prefix}_copy", flags="c")
+
+    labels = work.t_rast_list(
+        input=f"{prefix}_copy", columns="name,semantic_label", format="json"
+    ).json["data"]
+    assert {row["name"]: row["semantic_label"] for row in labels} == {
+        maps[0]: "S2_1",
+        maps[1]: None,
+        maps[2]: None,
+    }
+    # The copy of the map carries the label itself, not only its entry.
+    # r.semantic.label prints the description of the label S2_1.
+    printed = work.r_semantic_label(map=f"{maps[0]}@work", operation="print")
+    assert "Coastal/Aerosol" in printed.stdout
