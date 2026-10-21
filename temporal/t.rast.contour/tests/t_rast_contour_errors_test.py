@@ -131,3 +131,51 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, quarterly, 
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+def test_a_failing_r_contour_is_reported(broken_tools, ramps, prefix):
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.contour").t_rast_contour(
+            input=ramps, output=prefix, basename=prefix, step=1
+        )
+
+    assert "Error running r.contour" in message(error.value)
+
+
+def test_a_failing_r_contour_is_reported_when_the_processes_are_waited_for(
+    broken_tools, ramps, prefix
+):
+    # With three processes the two maps are queued without a wait; the failure
+    # shows when the tool waits for the end of both.
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.contour").t_rast_contour(
+            input=ramps, output=prefix, basename=prefix, step=1, nprocs=3, flags="t"
+        )
+
+    assert "Error running r.contour" in message(error.value)
+
+
+def test_a_map_that_r_contour_did_not_make_is_not_registered(
+    tools, broken_tools, ramps, prefix
+):
+    # A run that ends with 0 and makes nothing leaves no vector map to register.
+    broken_tools("r.contour", status=0).t_rast_contour(
+        input=ramps, output=prefix, basename=prefix, step=1
+    )
+
+    assert stds_info(tools, "stvds", prefix)["number_of_maps"] == 0
+
+
+def test_the_progress_is_reported_every_ten_maps(tools, prefix):
+    from grass.temporal.testing.data import create_daily_stds, small_region
+
+    small_region(tools, 4, 4)
+    create_daily_stds(tools, "strds", [f"{prefix}_in"], 10, map_prefix=prefix)
+
+    result = tools.t_rast_contour(
+        input=f"{prefix}_in", output=prefix, basename=prefix, step=1
+    )
+
+    # Once when the tenth process is queued, once when the tenth map is
+    # registered and once at the end.
+    assert result.stderr.count("100%") == 3

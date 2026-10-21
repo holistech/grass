@@ -9,6 +9,7 @@ takes precedence over the one here.
 
 import os
 import re
+import shutil
 import zlib
 from types import SimpleNamespace
 from typing import NamedTuple
@@ -80,19 +81,27 @@ def tools(tmp_path_factory):
 
 @pytest.fixture
 def broken_tools(tools, tmp_path):
-    """Function that gives Tools in which the named tools exit with an error
+    """Function that gives Tools in which the named tools do not work
 
     broken_tools("r.series") returns Tools in the session of the tools
     fixture, with a stand-in for r.series in front of the real one in PATH
-    that exits with 1 without a message. It reaches the error branches of a
-    tool that calls another tool and has no way to make it fail by its
-    input. The stand-ins only exist for the Tools it returns.
+    that exits with 1 without a message; broken_tools("r.series", status=0)
+    exits with 0 and makes nothing. It reaches the branches of a tool that
+    calls another tool and has no way to make it fail or stay silent by its
+    input. The stand-in hands --interface-description to the real tool,
+    because pygrass asks for it before it runs a tool. The stand-ins only
+    exist for the Tools it returns.
     """
 
-    def make(*names):
+    def make(*names, status=1):
+        search = tools._original_env["PATH"]  # noqa: SLF001
         for name in names:
             stand_in = tmp_path / name
-            stand_in.write_text("#!/bin/sh\nexit 1\n")
+            stand_in.write_text(
+                f'#!/bin/sh\ncase "$1" in\n'
+                f'--interface-description) exec {shutil.which(name, path=search)} "$@" ;;\n'
+                f"esac\nexit {status}\n"
+            )
             stand_in.chmod(0o755)
         # Tools has no public access to the environment it runs the tools in
         # (grass.tools of 21.10.2026); a session of its own would need the
