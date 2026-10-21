@@ -83,7 +83,7 @@ def main():
         unit = granularity.split(" ")[1]
         granularity = float(granularity.split(" ")[0])
 
-        print("Gran from stds %0.15f" % (granularity))
+        gs.verbose(_("Gran from stds %0.15f") % (granularity))
 
         if unit in {"years", "year"}:
             bottom = float(start.year - 1900)
