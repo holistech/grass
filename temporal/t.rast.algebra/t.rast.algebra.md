@@ -752,6 +752,22 @@ start with A, and time instances in I.
     C = merge(start_day(A, 1), start_day(A, 1))
     ```
 
+10. **tsnap() of maps that start together.** Of maps with the same start,
+    `tsnap()` snaps only one to the start of the next later map; the others
+    keep their own ends. The new algebra takes the map that ends last, so
+    its result does not depend on the order of the maps. The classic
+    algebra takes the map listed last, so that the order of the arguments
+    of `merge()` matters. If C has a map from day 2 to day 4, it starts
+    with the map of A on days 2 to 3. The new algebra gives both
+    expressions the same maps, the map of C ends on day 3. The classic
+    algebra gives this result for the first expression only; in the second
+    the map of C keeps its end on day 4 and the map of A ends on day 3:
+
+    ```sh
+    D = tsnap(merge(A, C))
+    D = tsnap(merge(C, A))
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, the new algebra raises `ValueError` or
 `TypeError`, where the classic algebra raises `FatalError`. Both raise

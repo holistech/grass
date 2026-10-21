@@ -147,6 +147,27 @@ def test_tsnap_keeps_the_end_of_a_map_that_starts_with_the_next_map(algebra):
     ]
 
 
+@pytest.mark.fixed_algebra
+@pytest.mark.parametrize(
+    ("classic", "expected"),
+    [
+        # Sorted by start and end, a2 [2,3] comes before c1 [2,4]: a2 keeps
+        # its end, c1 ends at the start of a3.
+        (False, [(1, 2, 1), (2, 3, 2), (2, 3, 7), (3, 4, 3), (4, 5, 4)]),
+        # In list order c1 comes first and keeps its end, a2 ends at the
+        # start of a3.
+        (True, [(1, 2, 1), (2, 3, 2), (2, 4, 7), (3, 4, 3), (4, 5, 4)]),
+    ],
+)
+def test_tsnap_of_maps_that_start_together_in_the_order_of_the_list(
+    algebra, classic, expected
+):
+    """The new algebra orders maps that start together by their end, the
+    classic algebra by the list of merge(), so only the classic result
+    depends on the order of the arguments"""
+    assert algebra.triples("tsnap(merge(C, A))", classic=classic) == expected
+
+
 def test_tsnap_closes_gaps(algebra):
     """The last map before a gap is extended up to the next map"""
     assert algebra.triples('tsnap(merge(A, tshift(A, "10 days")))') == [

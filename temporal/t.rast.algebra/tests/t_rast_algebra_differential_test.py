@@ -120,6 +120,11 @@ DIFFERENT = {
         "maps",
         "with i, a map whose partners have no common intersection is left out",
     ),
+    # c1 [2,4] is listed before a2 [2,3]; tsnap(merge(A, C)) agrees.
+    "tsnap(merge(C, A))": (
+        "maps",
+        "tsnap() orders maps that start together by their end, not by the list",
+    ),
 }
 
 # The new grammar reads forms that the classic grammar has no rule for. Each
