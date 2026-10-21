@@ -192,34 +192,18 @@ def test_list_prints_name_mapset_and_times_by_start(tools, stds, scenario, metho
 
 
 @pytest.mark.parametrize("scenario", list(TIMES))
-def test_comma_today_prints_the_table_of_list_with_commas(tools, stds, scenario):
-    # The documented result of the method comma is one line of ids (see the
-    # strict xfail below). The format option has the default plain, so the
-    # library never turns the method into the line format; the script only
-    # sets the separator to a comma.
-    expected = [LIST_HEADER.replace("|", ",")] + [
-        ",".join([name, "PERMANENT", _time(start), _time(end)])
-        for name, start, end in _maps(scenario)
-    ]
-
-    assert _lines(tools, input=stds[scenario], method="comma") == expected
-
-
-@pytest.mark.xfail(
-    strict=True, reason="method=comma does not print the ids in one line"
-)
-@pytest.mark.parametrize("scenario", list(TIMES))
 def test_comma_prints_the_ids_in_one_line(tools, stds, scenario):
     ids = [f"{name}@PERMANENT" for name, _, _ in _maps(scenario)]
 
     assert _lines(tools, input=stds[scenario], method="comma") == [",".join(ids)]
 
 
-def test_comma_today_uses_the_separator_for_the_table(tools, stds):
-    lines = _lines(tools, input="adjacent", method="comma", separator=" | ")
+def test_comma_uses_the_separator_between_the_ids(tools, stds):
+    ids = [f"{name}@PERMANENT" for name in _names("adjacent")]
 
-    assert lines[0] == "name | mapset | start_time | end_time"
-    assert len(lines) == 7
+    assert _lines(tools, input="adjacent", method="comma", separator=" | ") == [
+        " | ".join(ids)
+    ]
 
 
 def test_the_line_format_prints_the_ids_in_one_line(tools, stds):

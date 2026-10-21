@@ -25,7 +25,9 @@ available with method *list*.
 
 Methods *cols* and *comma* are depreciated. The *cols* method is
 replaced by the *plain* format and the *comma* method is replaced by the
-*line* format.
+*line* format. The method *comma* prints the map ids in one line separated
+by commas, like the *line* format. The method *gran* refuses an empty space
+time dataset.
 
 The **format** option specifies the format of the output data. The
 default *plain* format will simply print user specified metadata columns

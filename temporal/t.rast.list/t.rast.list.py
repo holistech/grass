@@ -188,6 +188,8 @@ def main():
                 )
             )
     elif output_format == "line" or method == "comma":
+        # The method comma is the old name of the format line
+        output_format = "line"
         if not separator:
             separator = ","
         columns_list = columns.split(",")
