@@ -84,11 +84,8 @@ def test_the_other_orders_are_accepted(series, stats, order):
     assert series(stats, method="average", order=order) == [AVERAGE]
 
 
-def test_today_order_by_the_modification_time_fails_in_the_database(
-    tools, stats, prefix
-):
-    # The option lists modification_time, but the view of the maps has no such
-    # column.
+def test_the_modification_time_is_no_order(tools, stats, prefix):
+    # The view of the maps has no such column, so the parser does not offer it.
     with pytest.raises(ToolError) as error:
         tools.t_rast_series(
             input=stats,
@@ -97,15 +94,9 @@ def test_today_order_by_the_modification_time_fails_in_the_database(
             output=f"{prefix}_o",
         )
 
-    assert "no such column: modification_time" in message(error.value)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.series lists modification_time as an order but fails, the view of the maps has no such column",
-)
-def test_order_by_the_modification_time_is_accepted(series, stats):
-    assert series(stats, method="average", order="modification_time") == [AVERAGE]
+    assert "Value <modification_time> out of range for parameter <order>" in message(
+        error.value
+    )
 
 
 def test_where_selects_the_maps(series, stats):

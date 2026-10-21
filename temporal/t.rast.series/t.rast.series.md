@@ -11,6 +11,17 @@ aggregation (e.g.: slope). By default the maps are ordered by
 *t.rast.series* is a simple wrapper for the raster module **r.series**.
 It supports a subset of the aggregation methods of **r.series**.
 
+The method *quantile* can be given several times, once for each value of
+the **quantile** option and each output, for example
+`method=quantile,quantile quantile=0.1,0.9`. It can be combined with other
+methods; the quantiles are assigned to the *quantile* methods in order.
+
+Unless the **-t** flag is given, the time stamp of each output map spans
+the selected maps of the dataset, from the earliest start time to the latest
+end time, whatever the **order** option says. The option **order** does not offer
+`modification_time`, because the maps in the temporal database have no
+such column.
+
 ## NOTES
 
 To avoid problems with too many open files, by default, the maximum

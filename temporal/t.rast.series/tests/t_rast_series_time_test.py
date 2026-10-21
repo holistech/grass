@@ -120,27 +120,6 @@ def test_relative_time_spans_the_selected_maps(tools, relative, prefix):
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
-@pytest.mark.slow
-def test_order_by_a_value_changes_the_time_stamp_today(tools, stats, prefix):
-    # By maximum the first map is ser_e (January 2 to 3) and the last ser_c
-    # (January 5 to 6), so the output spans January 2 to 6 although the
-    # first map of the dataset starts on January 1. By name the first map is
-    # ser_a (January 3 to 4) and the last ser_e (January 2 to 3): start and
-    # end are both January 3, so the output is an instant.
-    assert _run(tools, f"{prefix}_o", stats, order="max") == (
-        "2001-01-02 00:00:00",
-        "2001-01-06 00:00:00",
-    )
-    assert _run(tools, f"{prefix}_p", stats, order="name") == (
-        "2001-01-03 00:00:00",
-        None,
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.series takes the start of the first and the end of the last map in the order of order=, so the time stamp of the result shrinks",
-)
 @pytest.mark.parametrize("order", ["max", "name"])
 def test_order_does_not_shrink_the_time_stamp(tools, stats, prefix, order):
     assert _run(tools, f"{prefix}_o", stats, order=order) == (

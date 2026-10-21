@@ -11,6 +11,18 @@ ordered by <b>start_time</b>.
 <em>t.rast.series</em> is a simple wrapper for the raster module
 <b>r.series</b>. It supports a subset of the aggregation methods of
 <b>r.series</b>.
+<p>
+The method <em>quantile</em> can be given several times, once for each value
+of the <b>quantile</b> option and each output, for example
+<code>method=quantile,quantile quantile=0.1,0.9</code>. It can be combined with
+other methods; the quantiles are assigned to the <em>quantile</em> methods in
+order.
+<p>
+Unless the <b>-t</b> flag is given, the time stamp of each output map spans
+the selected maps of the dataset, from the earliest start time to the latest
+end time, whatever the <b>order</b> option says. The option <b>order</b> does
+not offer <code>modification_time</code>, because the maps in the temporal
+database have no such column.
 
 <h2>NOTES</h2>
 

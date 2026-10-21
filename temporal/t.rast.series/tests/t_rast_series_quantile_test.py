@@ -59,22 +59,6 @@ def test_a_quantile_next_to_another_method(series, stats):
     assert result == [[3.0, 3.0], [10.0, 5.0]]
 
 
-def test_today_a_quantile_after_another_method_is_the_minimum(series, stats):
-    # r.series pairs the values of quantile= with the methods by position
-    # (its manual: the same number of values for all options) and uses 0.0
-    # where a position has none. t.rast.series passes quantile=0.9 unchanged,
-    # so it goes to maximum and the quantile at the second position is the
-    # quantile 0.0, the minimum. The form r.series expects, quantile=0,0.9,
-    # fails the count of t.rast.series (2 quantiles + 1 method, 2 outputs).
-    result = series(stats, outputs=2, method="maximum,quantile", quantile=0.9)
-
-    assert result == [[10.0, 5.0], [1.0, 2.0]]
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.series passes quantile unchanged to r.series, which pairs it with the methods by position, so a quantile after another method becomes the minimum",
-)
 def test_a_quantile_after_another_method_is_computed(series, stats):
     result = series(stats, outputs=2, method="maximum,quantile", quantile=0.9)
 
@@ -114,37 +98,20 @@ def test_a_quantile_method_needs_a_quantile(tools, stats, prefix):
     )
 
 
-def test_today_several_quantiles_are_refused(tools, stats, prefix):
-    # The tool counts every "quantile" in the method as one method less and
-    # each quantile as one output. method=quantile with three quantiles passes
-    # that check (0 + 3 outputs), but r.series then wants one method for each
-    # output; the form that r.series itself documents, method repeated per
-    # quantile, fails the check of the tool (2 + 3 is not 3).
+def test_a_quantile_method_needs_a_quantile_each(tools, stats, prefix):
+    # One method per quantile, as r.series documents; a single method with
+    # three quantiles is refused.
     outputs = ",".join(f"{prefix}_o{n}" for n in range(3))
     with pytest.raises(ToolError) as error:
         tools.t_rast_series(
             input=stats, method="quantile", quantile="0.1,0.5,0.9", output=outputs
         )
-    assert "output= and method= must have the same number of values" in message(
-        error.value
-    )
 
-    with pytest.raises(ToolError) as error:
-        tools.t_rast_series(
-            input=stats,
-            method="quantile,quantile,quantile",
-            quantile="0.1,0.5,0.9",
-            output=outputs,
-        )
     assert "Number requested methods and output maps do not match." in message(
         error.value
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.series refuses several quantiles, its count of methods and outputs does not fit the form r.series documents",
-)
 def test_several_quantiles_are_computed(series, stats):
     # The example of the r.series manual: method=quantile,quantile,quantile
     # quantile=0.1,0.5,0.9 with three outputs.
