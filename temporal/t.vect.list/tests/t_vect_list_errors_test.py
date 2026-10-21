@@ -96,9 +96,11 @@ def test_the_line_format_takes_one_column(tools, series):
 def test_the_line_format_with_a_delta_method_and_the_default_columns_is_refused(
     tools, series, method
 ):
+    # Without columns the library lists the eight columns of the table.
     text = _refused(tools, input="err", format="line", method=method)
 
-    assert "Only one column is allowed (not 5)" in text
+    assert "'line' output_format can have only 1 column, not 8" in text
+    assert "Traceback" not in text
 
 
 @pytest.mark.parametrize(
@@ -164,7 +166,9 @@ def test_the_delta_methods_of_an_empty_dataset_print_the_header_only(
 ):
     result = tools.t_vect_list(input="void", method=method)
 
-    assert result.stdout.splitlines() == ["name|layer|mapset|start_time|end_time"]
+    assert result.stdout.splitlines() == [
+        "id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin"
+    ]
 
 
 def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
@@ -181,4 +185,4 @@ def test_the_delta_method_with_a_database_column_is_reported_as_a_message(
     text = _refused(tools, input="err", method="delta", columns="north")
 
     assert "Traceback" not in text
-    assert "Unsupported column 'north'" in text
+    assert "Column 'north' is not available with the method 'delta'" in text

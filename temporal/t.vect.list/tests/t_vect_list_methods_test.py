@@ -10,11 +10,11 @@ time (reversed).
 The expected rows are written down from the times of the maps. The maps have
 no layer, so the column layer reads None.
 
-The option columns has a default in this tool (name,layer,mapset,start_time,
-end_time), and the parser does not offer interval_length and
-distance_from_begin. The methods delta, deltagaps and gran therefore list the
-maps, the gaps or the granules with the columns of cols and print no lengths;
-the table of the manual is pinned by a strict xfail test.
+The default columns of cols are name, layer, mapset, start_time and end_time;
+the methods delta, deltagaps and gran list id, name, layer, mapset, start_time,
+end_time, interval_length and distance_from_begin, as the manual shows. Most
+tests of these methods name the five columns of cols so that they check the
+maps, the gaps and the granules; the lengths have their own tests.
 """
 
 from datetime import datetime
@@ -28,6 +28,7 @@ from grass.tools import ToolError
 D = datetime
 
 HEADER = "name|layer|mapset|start_time|end_time"
+COLUMNS = "name,layer,mapset,start_time,end_time"
 
 POINTS = [D(2001, 1, 1), D(2001, 3, 1), D(2001, 4, 1), D(2001, 5, 1)] + [
     D(2001, 8, 1),
@@ -164,11 +165,15 @@ def _maps(scenario):
 
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
 def test_the_delta_methods_of_adjacent_intervals_list_the_maps(tools, stds, method):
-    assert _lines(tools, input="adjacent", method=method) == _table(_maps("adjacent"))
+    assert _lines(tools, input="adjacent", method=method, columns=COLUMNS) == _table(
+        _maps("adjacent")
+    )
 
 
 def test_delta_lists_the_maps_of_instants_without_an_end(tools, stds):
-    assert _lines(tools, input="points", method="delta") == _table(_maps("points"))
+    assert _lines(tools, input="points", method="delta", columns=COLUMNS) == _table(
+        _maps("points")
+    )
 
 
 def test_deltagaps_of_instants_lists_the_distance_between_two_as_a_gap(tools, stds):
@@ -181,11 +186,15 @@ def test_deltagaps_of_instants_lists_the_distance_between_two_as_a_gap(tools, st
         if following is not None:
             entries.append((None, start, following))
 
-    assert _lines(tools, input="points", method="deltagaps") == _table(entries)
+    assert _lines(tools, input="points", method="deltagaps", columns=COLUMNS) == _table(
+        entries
+    )
 
 
 def test_delta_of_intervals_with_gaps_skips_the_gaps(tools, stds):
-    assert _lines(tools, input="gaps", method="delta") == _table(_maps("gaps"))
+    assert _lines(tools, input="gaps", method="delta", columns=COLUMNS) == _table(
+        _maps("gaps")
+    )
 
 
 def test_deltagaps_of_intervals_with_gaps_adds_the_gaps(tools, stds):
@@ -196,17 +205,21 @@ def test_deltagaps_of_intervals_with_gaps_adds_the_gaps(tools, stds):
         if index < 5:
             entries.append((None, entry[2], maps[index + 1][1]))
 
-    assert _lines(tools, input="gaps", method="deltagaps") == _table(entries)
+    assert _lines(tools, input="gaps", method="deltagaps", columns=COLUMNS) == _table(
+        entries
+    )
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_deltagaps_of_nested_intervals_finds_no_gap(tools, stds):
     # Every map starts before the previous one ends or when it ends.
-    assert _lines(tools, input="nested", method="deltagaps") == _lines(
-        tools, input="nested", method="delta"
+    assert _lines(tools, input="nested", method="deltagaps", columns=COLUMNS) == _lines(
+        tools, input="nested", method="delta", columns=COLUMNS
     )
-    assert _lines(tools, input="nested", method="delta") == _table(_maps("nested"))
+    assert _lines(tools, input="nested", method="delta", columns=COLUMNS) == _table(
+        _maps("nested")
+    )
 
 
 def test_deltagaps_of_mixed_times_puts_gaps_after_instants(tools, stds):
@@ -222,7 +235,9 @@ def test_deltagaps_of_mixed_times_puts_gaps_after_instants(tools, stds):
         maps[5],
     ]
 
-    assert _lines(tools, input="mixed", method="deltagaps") == _table(entries)
+    assert _lines(tools, input="mixed", method="deltagaps", columns=COLUMNS) == _table(
+        entries
+    )
 
 
 def test_gran_of_instants_has_a_row_per_month(tools, stds):
@@ -240,7 +255,9 @@ def test_gran_of_instants_has_a_row_per_month(tools, stds):
         ("pts_6", D(2001, 9, 1), D(2001, 10, 1)),
     ]
 
-    assert _lines(tools, input="points", method="gran") == _table(entries)
+    assert _lines(tools, input="points", method="gran", columns=COLUMNS) == _table(
+        entries
+    )
 
 
 def test_gran_of_intervals_with_gaps_repeats_a_long_map(tools, stds):
@@ -260,13 +277,11 @@ def test_gran_of_intervals_with_gaps_repeats_a_long_map(tools, stds):
         (owner.get(index), month[index], month[index + 1]) for index in range(18)
     ]
 
-    assert _lines(tools, input="gaps", method="gran") == _table(entries)
+    assert _lines(tools, input="gaps", method="gran", columns=COLUMNS) == _table(
+        entries
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.list offers no column interval_length or distance_from_begin, so the delta methods print the lengths of the intervals nowhere",
-)
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
 def test_the_delta_methods_print_the_lengths_of_the_intervals(tools, stds, method):
     lines = _lines(tools, input="gaps", method=method)
@@ -275,27 +290,36 @@ def test_the_delta_methods_print_the_lengths_of_the_intervals(tools, stds, metho
 
 
 @pytest.mark.parametrize("column", ["interval_length", "distance_from_begin"])
-def test_the_parser_does_not_offer_the_columns_of_the_delta_methods(
+def test_the_columns_of_the_delta_methods_are_refused_by_the_other_methods(
     tools, stds, column
 ):
     with pytest.raises(ToolError) as error:
-        tools.t_vect_list(input="adjacent", method="delta", columns=column)
-    assert f"Value <{column}> out of range for parameter <columns>" in message(
+        tools.t_vect_list(input="adjacent", method="cols", columns=column)
+    assert f"Column '{column}' is not available with the method 'cols'" in message(
         error.value
     )
 
 
-def test_today_comma_prints_the_table_of_cols(tools, stds):
-    # The script does not read the method: the separator stays the pipe.
-    assert _lines(tools, input="adjacent", method="comma") == [
-        HEADER,
-        *_rows("adjacent"),
-    ]
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_a_database_column_is_refused_by_the_delta_methods(tools, stds, method):
+    with pytest.raises(ToolError) as error:
+        tools.t_vect_list(input="adjacent", method=method, columns="north")
+    assert f"Column 'north' is not available with the method '{method}'" in message(
+        error.value
+    )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="method=comma does not print the ids in one line"
-)
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_order_is_refused_by_the_delta_methods(tools, stds, method):
+    # The rows are always ordered by the start time, as in t.rast.list.
+    with pytest.raises(ToolError) as error:
+        tools.t_vect_list(input="reversed", method=method, columns="name", order="name")
+    assert (
+        f"The option order is not allowed with method={method}. "
+        "Values are always ordered by start_time"
+    ) in message(error.value)
+
+
 def test_comma_prints_the_ids_in_one_line(tools, stds):
     ids = [f"{name}@PERMANENT" for name in _names("adjacent")]
 
@@ -316,14 +340,6 @@ def test_the_line_format_uses_a_comma_by_default(tools, stds):
     ]
 
 
-def test_today_the_line_format_needs_a_column(tools, stds):
-    # The default of columns has five columns, which the line format refuses.
-    with pytest.raises(ToolError) as error:
-        tools.t_vect_list(input="adjacent", format="line")
-    assert "Only one column is allowed (not 5)" in message(error.value)
-
-
-@pytest.mark.xfail(strict=True, reason="the line format needs columns=")
 def test_the_line_format_lists_the_ids_without_columns(tools, stds):
     ids = [f"{name}@PERMANENT" for name in _names("adjacent")]
 
@@ -406,7 +422,11 @@ def test_where_selects_the_maps_of_the_listing(tools, stds):
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
 def test_where_applies_to_the_delta_methods(tools, stds, method):
     lines = _lines(
-        tools, input="adjacent", method=method, where="start_time >= '2001-04-01'"
+        tools,
+        input="adjacent",
+        method=method,
+        columns="name",
+        where="start_time >= '2001-04-01'",
     )
 
     assert [line.split("|")[0] for line in lines[1:]] == ["adj_4", "adj_5", "adj_6"]
@@ -429,16 +449,6 @@ def test_order_by_two_columns(tools, stds):
     )
 
     assert lines == [f"nes_{number}" for number in (2, 3, 4, 5, 1, 6)]
-
-
-def test_today_order_is_ignored_by_the_delta_methods(tools, stds):
-    # t.rast.list refuses the combination; here the rows keep the order of
-    # the start times.
-    lines = _lines(
-        tools, input="reversed", method="delta", columns="name", order="name", flags="u"
-    )
-
-    assert lines == [f"rev_{number}" for number in range(6, 0, -1)]
 
 
 ORDER_COLUMNS = [

@@ -5,6 +5,16 @@
 The <em>t.vect.list</em> module provides the same functionality as
 <a href="t.rast.list.html">t.rast.list</a>, the only difference is the
 vector map layer metadata.
+<p>
+The methods <em>delta</em>, <em>deltagaps</em> and <em>gran</em> offer the
+columns <em>interval_length</em> and <em>distance_from_begin</em> and list
+them by default; the other methods do not offer them. These methods support
+only the columns id, name, layer, mapset, start_time, end_time,
+interval_length and distance_from_begin, and the option <b>order</b> is not
+available with them, the rows are always ordered by start_time. The method
+<em>comma</em> prints the map ids in one line separated by commas, like the
+<em>line</em> format. The <em>line</em> format without <b>columns</b> lists
+the map ids. The method <em>gran</em> refuses an empty space time dataset.
 
 <h2>EXAMPLE</h2>
 
