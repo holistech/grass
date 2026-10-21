@@ -233,6 +233,17 @@ def test_where_selects_the_points_that_get_a_value(tools, rasters, vectors):
     assert _column(tools, data.maps[0], "m") == ["", "", "121", "122"]
 
 
+def test_where_works_with_a_table_whose_key_is_not_cat(tools, rasters, vectors):
+    data = vectors()
+    first = data.maps[0]
+    tools.db_execute(sql=f"CREATE TABLE {first}_k AS SELECT cat AS id, h FROM {first}")
+    tools.v_db_connect(map=first, table=f"{first}_k", key="id", layer=1, flags="o")
+
+    _what(tools, data, column="m", where="h > 2")
+
+    assert _column(tools, first, "m") == ["", "", "121", "122"]
+
+
 def test_t_where_selects_the_vector_maps(tools, rasters, vectors):
     data = vectors()
 

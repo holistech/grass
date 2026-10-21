@@ -138,8 +138,9 @@ def main():
             try:
                 gs.read_command(
                     "db.select",
-                    sql="SELECT cat FROM {} WHERE {}".format(
-                        connection["table"], where
+                    # The key column, as the table need not have one named cat
+                    sql="SELECT {} FROM {} WHERE {}".format(
+                        connection["key"], connection["table"], where
                     ),
                     driver=connection["driver"],
                     database=connection["database"],
