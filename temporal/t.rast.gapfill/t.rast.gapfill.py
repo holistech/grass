@@ -191,7 +191,7 @@ def main():
                             "Map with name <%s> already exists. "
                             "Please use another base name."
                         )
-                        % (id_)
+                        % (new_id)
                     )
                 elif new_map.is_in_db(dbif):
                     overwrite_flags[new_id] = True

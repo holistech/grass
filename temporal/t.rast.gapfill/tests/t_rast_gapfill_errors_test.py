@@ -50,24 +50,6 @@ def test_today_an_unknown_suffix_counts_like_num(tools, gappy, prefix):
     assert [row[0] for row in _rows(tools, name)][1] == f"{prefix}_00004_00001"
 
 
-def test_today_the_message_for_an_existing_map_names_the_base(tools, gappy, prefix):
-    first = gappy({1: (100, 0), 3: (300, 90)})
-    tools.t_rast_gapfill(input=first, basename=prefix)
-    second = gappy({1: (100, 0), 3: (300, 90)}, name=f"{prefix}_other")
-
-    text = _refused(tools, input=second, basename=prefix)
-
-    # The map that exists is <prefix>_2001_02; the message names the base.
-    assert (
-        f"Map with name <{prefix}@PERMANENT> already exists. "
-        "Please use another base name." in text
-    )
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.rast.gapfill names the base map in the message for an existing map, not the map that exists",
-)
 def test_the_message_for_an_existing_map_names_the_map(tools, gappy, prefix):
     first = gappy({1: (100, 0), 3: (300, 90)})
     tools.t_rast_gapfill(input=first, basename=prefix)
