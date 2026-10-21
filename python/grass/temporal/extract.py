@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 import sys
+from collections import Counter
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -238,11 +239,21 @@ def extract_dataset(
                 time_suffix,
                 dbif,
             )
+            new_names.append(map_name)
+        if type == "vector":
+            # Two layers of one vector map registered for the same time get
+            # the same name from the time suffixes, and v.extract refuses to
+            # replace the first of them. The layer tells them apart.
+            name_counts = Counter(new_names)
+            new_names = [
+                f"{name}_{row['layer'] or layer}" if name_counts[name] > 1 else name
+                for name, row in zip(new_names, rows, strict=True)
+            ]
+        for row, map_name in zip(rows, new_names, strict=True):
             if type != "vector":
                 map_id = AbstractMapDataset.build_id(map_name, mapset)
             else:
                 map_id = AbstractMapDataset.build_id(map_name, mapset, row["layer"])
-            new_names.append((map_name, map_id))
             if not gs.overwrite() and sp.get_new_map_instance(map_id).is_in_db(dbif):
                 dbif.close()
                 msgr.fatal(
@@ -253,11 +264,19 @@ def extract_dataset(
                     % map_id
                 )
 
+        # The maps that this run has made, to remove them if it fails
+        created = []
+        batch = []
+
         for count, row in enumerate(rows, 1):
             if count % 10 == 0:
                 msgr.percent(count, num_rows, 1)
 
-            map_name, map_id = new_names[count - 1]
+            map_name = new_names[count - 1]
+            if type != "vector":
+                map_id = AbstractMapDataset.build_id(map_name, mapset)
+            else:
+                map_id = AbstractMapDataset.build_id(map_name, mapset, row["layer"])
 
             # We need to modify the r(3).mapcalc expression
             if type != "vector":
@@ -310,6 +329,7 @@ def extract_dataset(
                     )
 
             proc_list[proc_count].start()
+            batch.append(map_name)
             proc_count += 1
 
             # Join processes if the maximum number of processes are
@@ -317,15 +337,21 @@ def extract_dataset(
             if proc_count == nprocs or count == num_rows:
                 proc_count = 0
                 exitcodes = 0
-                for proc in proc_list:
+                for proc, name in zip(proc_list, batch, strict=True):
                     proc.join()
                     exitcodes += proc.exitcode
+                    if proc.exitcode == 0:
+                        created.append(name)
                 if exitcodes != 0:
                     dbif.close()
+                    # A map that existed before the run and made a process
+                    # fail is not in the list and stays.
+                    _remove_new_maps(type, created)
                     msgr.fatal(_("Error in computation process"))
 
                 # Empty process list
                 proc_list = []
+                batch = []
 
             # Store the new maps
             new_maps[row["id"]] = new_map
@@ -460,6 +486,22 @@ def run_mapcalc3d(expr: str) -> None:
         )
     except CalledModuleError:
         sys.exit(1)
+
+
+def _remove_new_maps(type, names):
+    """Remove the maps that a failed extraction has made
+
+    :param type: The map type of the extraction, as in extract_dataset()
+    :param names: The names of the maps, empty for nothing to remove
+    """
+    if names:
+        gs.run_command(
+            "g.remove",
+            flags="f",
+            type=type.replace("_", ""),
+            name=",".join(names),
+            superquiet=True,
+        )
 
 
 def run_vector_extraction(

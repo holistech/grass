@@ -89,44 +89,43 @@ def test_type_selects_the_kind_of_primitives(tools, plain_layers, prefix):
     assert stds_info(tools, "stvds", f"{prefix}_point")["points"] == 4
 
 
-def test_today_two_layers_of_one_time_get_one_name(tools, same_time_layers, prefix):
-    # Both layers of vs_1 are registered for the first quarter; the new map of
-    # the second layer gets the name of the first, v.extract refuses to
-    # overwrite it, and the whole call ends.
+def test_two_layers_of_one_time_get_the_layer_in_the_name(
+    tools, same_time_layers, prefix
+):
+    tools.t_vect_extract(
+        input=same_time_layers,
+        output=prefix,
+        expression="value > 0",
+        basename=f"{prefix}_x",
+    )
+
+    # Both layers of vs_1 are registered for the first quarter: the time
+    # suffix is the same, so the layer follows it.
+    assert _primitives(tools, prefix) == [
+        (f"{prefix}_x_2001_01_1", 2),
+        (f"{prefix}_x_2001_01_2", 2),
+    ]
+
+
+def test_a_failed_extraction_leaves_no_new_map(tools, layered, prefix):
+    # The second new map exists already, v.extract refuses to replace it and
+    # the call ends after the first map was made.
+    tools.v_extract(input="vl_1", layer=1, output=f"{prefix}_x_2001_04", where="1")
+
     with pytest.raises(ToolError) as error:
         tools.t_vect_extract(
-            input=same_time_layers,
+            input=layered,
             output=prefix,
             expression="value > 0",
             basename=f"{prefix}_x",
+            nprocs=1,
         )
 
-    text = message(error.value)
-    assert (
-        f"<{prefix}_x_2001_01> exists. To overwrite, use the --overwrite flag" in text
-    )
-    assert "Error in computation process" in text
-    # The map of the first layer stays, but no dataset is made.
+    assert "Error in computation process" in message(error.value)
+    # The map that the run made is gone, the one that was there stays.
     assert tools.g_list(type="vector", pattern=f"{prefix}_x_*").stdout.split() == [
-        f"{prefix}_x_2001_01"
+        f"{prefix}_x_2001_04"
     ]
-    assert tools.t_list(type="stvds", columns="name").stdout.count(prefix) == 0
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="t.vect.extract leaves a new map behind when two layers of one time get one name and v.extract refuses to overwrite it",
-)
-def test_a_failed_extraction_leaves_no_new_map(tools, same_time_layers, prefix):
-    with pytest.raises(ToolError):
-        tools.t_vect_extract(
-            input=same_time_layers,
-            output=prefix,
-            expression="value > 0",
-            basename=f"{prefix}_x",
-        )
-
-    assert tools.g_list(type="vector", pattern=f"{prefix}_x_*").stdout == ""
 
 
 def test_a_numbered_suffix_keeps_the_layers_apart(tools, same_time_layers, prefix):
