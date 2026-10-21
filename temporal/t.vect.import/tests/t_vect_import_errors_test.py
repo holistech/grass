@@ -147,6 +147,27 @@ def test_existing_maps_are_refused_without_overwrite(tools, archives, prefix, tm
     _nothing_made(tools, prefix)
 
 
+@pytest.mark.slow
+@pytest.mark.parametrize("kind", ["GML", "pack"])
+def test_a_clash_on_the_second_map_leaves_the_first_unimported(
+    tools, archives, prefix, tmp_path, kind
+):
+    # vi_1 is moved away, so only vi_2 clashes and it is the second map.
+    tools.g_rename(vector="vi_1,vi_1_held")
+    try:
+        text = _refused(
+            tools, input=str(archives[kind]), output=prefix, directory=str(tmp_path)
+        )
+
+        assert "<vi_2> exists. To overwrite, use the --overwrite flag" in text
+        assert not tools.g_list(type="vector", pattern="vi_1").stdout.strip()
+        _nothing_made(tools, prefix)
+    finally:
+        # A run that imported vi_1 before the refusal would block the rename.
+        tools.g_remove(type="vector", name="vi_1", flags="f")
+        tools.g_rename(vector="vi_1_held,vi_1")
+
+
 def test_a_raster_archive_is_refused(tools, archives, prefix, tmp_path):
     raster = _damaged(
         archives["GML"],

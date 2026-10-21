@@ -64,6 +64,23 @@ imported_maps = {}
 ############################################################################
 
 
+def _refuse_existing_maps(
+    maplist: list[dict[str, str]], element: Literal["cell", "vector"], mapset: str
+) -> None:
+    """Stop before the first import if a map of the archive exists already
+
+    The import writes the maps one by one, so a clash found at the Nth map
+    would leave the N-1 maps before it behind. Without the overwrite flag every
+    name is checked first. The layer of a vector map is not part of its name.
+    """
+    if gs.overwrite():
+        return
+    for row in maplist:
+        name = row["name"].split(":")[0]
+        if gs.find_file(name=name, element=element, mapset=mapset)["name"]:
+            gs.fatal(_("<%s> exists. To overwrite, use the --overwrite flag") % name)
+
+
 def _import_raster_maps_from_gdal(
     maplist: list[dict[str, str]],
     *,
@@ -643,6 +660,9 @@ def import_stds(
                 )
 
             # Import the maps
+            _refuse_existing_maps(
+                maplist, "cell" if type_ == "strds" else "vector", mapset
+            )
             if type_ == "strds":
                 if format_ in {"GTiff", "AAIGrid"}:
                     _import_raster_maps_from_gdal(

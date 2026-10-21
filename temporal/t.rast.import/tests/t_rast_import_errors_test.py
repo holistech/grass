@@ -1,7 +1,8 @@
 """Test the refusals of t.rast.import
 
 Every refusal ends with a message and no traceback. A refusal after the
-archive is read leaves no dataset and no map of the run behind.
+archive is read leaves no dataset and no map of the run behind, also when it
+comes for a later map of the archive.
 """
 
 from datetime import datetime
@@ -100,10 +101,36 @@ def test_existing_maps_are_refused_without_overwrite(tools, archive, prefix):
         tools, input=str(archive), output=f"{prefix}_2", basename=prefix, flags="o"
     )
 
-    assert f"Unable to import/link raster map <{prefix}_1> from file ime_a.tif" in text
+    assert f"<{prefix}_1> exists. To overwrite, use the --overwrite flag" in text
     assert (
         f"{prefix}_2" not in tools.t_list(type="strds", columns="name").stdout.split()
     )
+
+
+def test_a_clash_on_the_second_map_leaves_the_first_unimported(
+    tools, tmp_path_factory, prefix
+):
+    small_region(tools, 2, 3)
+    first, second = f"{prefix}_a", f"{prefix}_b"
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(first, "10", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+            MapSpec(second, "20", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    path = tmp_path_factory.mktemp("ime_two") / "two.tar"
+    tools.t_rast_export(input=f"{prefix}_in", output=str(path), compression="no")
+    # Only the second map is left in the project, so only it clashes.
+    tools.g_remove(type="raster", name=first, flags="f")
+
+    text = _refused(tools, input=str(path), output=f"{prefix}_out", flags="o")
+
+    assert f"<{second}> exists. To overwrite, use the --overwrite flag" in text
+    assert not tools.g_list(type="raster", pattern=first).stdout.strip()
+    assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
 
 
 def test_the_maps_keep_their_names_without_a_basename_and_clash(tools, archive, prefix):
@@ -111,7 +138,7 @@ def test_the_maps_keep_their_names_without_a_basename_and_clash(tools, archive, 
     # exist in this project.
     text = _refused(tools, input=str(archive), output=prefix, flags="o")
 
-    assert "Unable to import/link raster map <ime_a> from file ime_a.tif" in text
+    assert "<ime_a> exists. To overwrite, use the --overwrite flag" in text
     assert prefix not in tools.t_list(type="strds", columns="name").stdout.split()
 
 
