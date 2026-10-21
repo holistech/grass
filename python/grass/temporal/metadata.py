@@ -1415,19 +1415,41 @@ class STRDSMetadata(STDSRasterMetadataBase):
         >>> meta.ewres_min
         >>> meta.ewres_max
         >>> meta.raster_register
-        >>> meta.print_info()  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-            ...
-        SQLStatementError
-        >>> meta.print_shell_info()  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-            ...
-        SQLStatementError
-
-        print_info() and print_shell_info() read the semantic labels from the
-        table of the map register, which a metadata object without a register
-        does not have (sqlite3: no such table: None); they print the metadata
-        of a dataset that is in the temporal database.
+        >>> meta.print_info()
+         +-------------------- Metadata information ----------------------------------+
+         | Raster register table:...... None
+         | North-South resolution min:. None
+         | North-South resolution max:. None
+         | East-west resolution min:... None
+         | East-west resolution max:... None
+         | Minimum value min:.......... None
+         | Minimum value max:.......... None
+         | Maximum value min:.......... None
+         | Maximum value max:.......... None
+         | Aggregation type:........... None
+         | Number of semantic labels:.. None
+         | Semantic labels:............ None
+         | Number of registered maps:.. None
+         |
+         | Title:
+         | Soils
+         | Description:
+         | Soils 1950 - 2010
+         | Command history:
+        >>> meta.print_shell_info()
+        raster_register=None
+        nsres_min=None
+        nsres_max=None
+        ewres_min=None
+        ewres_max=None
+        min_min=None
+        min_max=None
+        max_min=None
+        max_max=None
+        aggregation_type=None
+        number_of_semantic_labels=None
+        semantic_labels=None
+        number_of_maps=None
 
     """
 
@@ -1482,6 +1504,10 @@ class STRDSMetadata(STDSRasterMetadataBase):
         """
         if get_tgis_db_version_from_metadata() <= 2:
             # band names supported from TGIS DB version 3
+            return None
+        # A metadata object that is not read from the temporal database has
+        # no register table; the query would name the table None.
+        if self.get_raster_register() is None:
             return None
 
         sql = "SELECT distinct semantic_label FROM %s WHERE %s.id " % (
