@@ -216,6 +216,14 @@ def test_the_gran_method_of_an_empty_dataset_says_it_is_empty(tools, series):
     assert "Dataset is empty" in _refused(tools, input="void", method="gran")
 
 
+def test_the_gran_method_with_a_granule_says_an_empty_dataset_is_empty(tools, series):
+    # The manual says that gran refuses an empty dataset, with or without a
+    # granule of its own.
+    assert "Dataset is empty" in _refused(
+        tools, input="void", method="gran", granule="1 month"
+    )
+
+
 def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     text = _refused(tools, input="err", where="nonsense =")
 
