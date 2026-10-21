@@ -30,6 +30,14 @@ from .open_stds import open_old_stds
 ###############################################################################
 
 
+class _ListingError(ValueError):
+    """A combination of columns, method and format that cannot be listed
+
+    list_maps_of_stds() reports it as a message; any other ValueError is a
+    bug and keeps its traceback.
+    """
+
+
 def _view_name(dataset_type, temporal_type):
     """Return the name of the database view of a dataset type
 
@@ -361,7 +369,7 @@ def _get_get_registered_maps_as_objects_with_method(dataset, where, method, gran
             gran=gran, where=where, dbif=dbif
         )
     msg = f"Invalid method '{method}'"
-    raise ValueError(msg)
+    raise _ListingError(msg)
 
 
 def _get_get_registered_maps_as_objects_delta_gran(
@@ -443,7 +451,7 @@ def _get_list_of_maps_delta_gran(dataset, columns, where, method, gran, dbif, ms
                 row.append(delta_first)
             else:
                 msg = f"Unsupported column '{column}'"
-                raise ValueError(msg)
+                raise _ListingError(msg)
         rows.append(row)
     return rows
 
@@ -467,13 +475,13 @@ def _get_list_of_maps_stds(
     def check_columns(column_names, output_format, element_type):
         if element_type != "stvds" and "layer" in columns:
             msg = f"Column 'layer' is not allowed with temporal type '{element_type}'"
-            raise ValueError(msg)
+            raise _ListingError(msg)
         if output_format == "line" and len(column_names) > 1:
             msg = (
                 f"'{output_format}' output_format can have only 1 column, "
                 f"not {len(column_names)}"
             )
-            raise ValueError(msg)
+            raise _ListingError(msg)
 
     # This method expects a list of objects for gap detection
     if method in {"delta", "deltagaps", "gran"}:
@@ -627,8 +635,7 @@ def list_maps_of_stds(
             gran=gran,
             dbif=dbif,
         )
-    except ValueError as error:
-        # A combination of columns, method and format that cannot be listed
+    except _ListingError as error:
         gs.fatal(str(error))
 
     if output_format == "line":
