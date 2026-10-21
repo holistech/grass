@@ -472,6 +472,20 @@ points differ:
    C = buff_t(B, "-1 day")
    ```
 
+7. **tsnap() of maps that start together.** Of maps with the same start,
+   `tsnap()` snaps only one to the start of the next later map; the others
+   keep their own ends. The new algebra takes the map that ends last, so its
+   result does not depend on the order of the maps. The classic algebra
+   takes the map listed last, so that the order of the arguments of
+   `merge()` matters. If a map from day 2 to day 4 is in C and a map from
+   day 2 to day 3 in A, the new algebra gives both expressions the same
+   maps; the classic algebra lets the map of C keep its end in the second:
+
+   ```sh
+   D = tsnap(merge(A, C))
+   D = tsnap(merge(C, A))
+   ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises `ValueError` for an expression it
