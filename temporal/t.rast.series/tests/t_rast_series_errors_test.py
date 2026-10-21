@@ -72,3 +72,12 @@ def test_a_where_that_selects_nothing_makes_no_map(tools, stats, prefix):
 
     assert result.returncode == 0
     assert tools.g_list(type="raster", pattern=f"{prefix}_o").stdout.strip() == ""
+
+
+def test_a_failing_r_series_is_reported(broken_tools, stats, prefix):
+    with pytest.raises(ToolError) as error:
+        broken_tools("r.series").t_rast_series(
+            input=stats, method="sum", output=f"{prefix}_o"
+        )
+
+    assert "r.series failed. Check above error messages." in message(error.value)
