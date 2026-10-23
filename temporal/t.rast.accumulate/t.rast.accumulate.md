@@ -17,7 +17,9 @@ cycles, eg. **offset="4 months"**. Cycles and offsets in months or years
 are counted from the **start**, and a month step that ends behind the
 last day of a month ends on that day, so monthly cycles from 2001-01-31
 start on 2001-02-28 and 2001-03-31; the granules of a cycle are counted
-from its start in the same way.
+from its start in the same way. A cycle and an offset of different
+units, such as months and days, follow each other: each cycle starts
+one offset after the end of the cycle before.
 
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
