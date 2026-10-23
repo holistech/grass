@@ -15,7 +15,11 @@ To print interval length in days and distance from the begin use method
 *delta*. Method *deltagap* will additionally print temporal gaps between
 map layer. The *gran* method allows the listing of map layer sampled by
 a user defined **granule**. As default the granularity of the space time
-raster dataset is used for sampling.
+raster dataset is used for sampling. The first granule starts with the
+first map, and each later start is counted in whole granules from it. A
+month or year step that ends behind the last day of a shorter month ends on
+that day: with a granule of one month and a first map from 31 January the
+granules start on 31 January, 28 February, 31 March and 30 April.
 
 While method *list* supports all columns except for interval_length and
 distance_from_begin, methods *delta*, *deltagap*, and *gran* support
