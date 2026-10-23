@@ -93,6 +93,11 @@ def main():
     granularity = flags["g"]
     dry_run = flags["d"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     tgis.init(True)
     p = tgis.TemporalRasterAlgebraParser(
         run=True,
