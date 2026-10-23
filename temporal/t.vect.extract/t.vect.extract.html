@@ -4,6 +4,14 @@ The purpose of <b>t.vect.extract</b> is to extract a subset of a space
 time vector dataset and to store that subset in a different space time
 vector dataset.
 
+<p>
+Two different maps of one time (for example two maps of January 2001)
+get the same name from the <b>suffix</b>. The first of them, in the order of
+start time and map id, keeps the name; the second and every further map get
+the number <code>_2</code>, <code>_3</code> and so on after it. A number that another new map has
+as its name is skipped.
+</p>
+
 <h2>NOTES</h2>
 
 Two layers of one vector map can be registered for the same time. The names
