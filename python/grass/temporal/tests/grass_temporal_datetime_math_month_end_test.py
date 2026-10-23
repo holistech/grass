@@ -44,6 +44,19 @@ def test_a_year_step_back_ends_on_the_last_day_of_a_shorter_month():
     )
 
 
+@pytest.mark.parametrize(
+    ("start", "step", "expected"),
+    [
+        # January - 2 months crosses into the previous year: November has 30 days.
+        (datetime(2001, 1, 31), "2 months", datetime(2000, 11, 30)),
+        # March - 13 months is February of the leap year 2000.
+        (datetime(2001, 3, 31), "13 months", datetime(2000, 2, 29)),
+    ],
+)
+def test_a_month_step_back_across_a_year_ends_on_the_last_day(start, step, expected):
+    assert decrement_datetime_by_string(start, step) == expected
+
+
 def test_steps_up_to_day_28_are_unchanged():
     assert increment_datetime_by_string(datetime(2001, 1, 28), "1 months") == datetime(
         2001, 2, 28

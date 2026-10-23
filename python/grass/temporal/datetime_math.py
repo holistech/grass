@@ -286,7 +286,22 @@ def modify_datetime(
     mydate: datetime, years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0
 ) -> datetime:
     """Return a new datetime object incremented with the provided
-    relative dates and times"""
+    relative dates and times
+
+    A month or year step that ends behind the last day of the target month
+    ends on that last day. Months and years are each applied to mydate and
+    the two differences are added, so a step with both can end in another
+    month than a step of 12 * years + months:
+
+    .. code-block:: pycon
+
+        >>> modify_datetime(datetime(2001, 1, 31), months=1)
+        datetime.datetime(2001, 2, 28, 0, 0)
+        >>> modify_datetime(datetime(2003, 3, 31), months=23)
+        datetime.datetime(2005, 2, 28, 0, 0)
+        >>> modify_datetime(datetime(2003, 3, 31), years=1, months=11)
+        datetime.datetime(2005, 3, 1, 0, 0)
+    """
 
     tdelta_seconds = timedelta(seconds=seconds)
     tdelta_minutes = timedelta(minutes=minutes)
