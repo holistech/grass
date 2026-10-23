@@ -49,6 +49,7 @@
 
 import copy
 import sys
+from itertools import pairwise
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -90,20 +91,35 @@ def main():
         dbif.close()
         gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-    # A gap next to a time instant gets no predecessor or successor from the
-    # topology; this names the cause where the check of the gaps below would
-    # only say that it found none.
-    if any(
-        map_.get_id() is not None and map_.get_temporal_extent_as_tuple()[1] is None
-        for map_ in maps
+    # Time instants alone leave nothing that a gap could be filled from; a
+    # single instant is refused as well, although it has no gap.
+    selected = [map_ for map_ in maps if map_.get_id() is not None]
+    if selected and all(
+        map_.get_temporal_extent_as_tuple()[1] is None for map_ in selected
     ):
         dbif.close()
         gs.fatal(
             _(
-                "Space time raster dataset <{}> holds time instants, "
+                "Space time raster dataset <{}> holds only time instants, "
                 "only intervals can be filled"
             ).format(sp.get_id())
         )
+
+    # A gap after a time instant starts at the instant instead of following
+    # it, so the topology gives it no predecessor, and the check of the gaps
+    # below would not name the cause. Only such a gap is refused: a gap
+    # before an instant has the instant as its successor, and the gaps
+    # between the intervals of a dataset that also holds instants are filled
+    # as usual.
+    for previous, map_ in pairwise(maps):
+        if map_.get_id() is None and previous.get_temporal_extent_as_tuple()[1] is None:
+            dbif.close()
+            gs.fatal(
+                _(
+                    "The gap after the time instant <{}> cannot be filled, "
+                    "only gaps after an interval can be filled"
+                ).format(previous.get_id())
+            )
 
     num = len(maps)
 

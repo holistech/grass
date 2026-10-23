@@ -1,8 +1,8 @@
 """Test the refusals of t.rast.gapfill and the cases that other time types bring
 
 Relative time, time instants, existing results and overwrite. An unknown
-suffix and a dataset with time instants are refused before anything is
-written.
+suffix, a dataset of time instants alone and a gap after a time instant are
+refused before anything is written.
 """
 
 import pytest
@@ -161,42 +161,101 @@ def test_relative_time_with_a_numeric_width(tools, relative, prefix):
     ]
 
 
-@pytest.mark.parametrize(
-    "days",
-    [
-        # Points at the days 0, 3 and 4 have a gap but no intervals around it.
-        (0, 3, 4),
-        # A single point has no gap; it is refused all the same.
-        (1,),
-        # An interval of days 0 to 1, a gap, then a point at day 3: the
-        # point comes later than the first map.
-        ((0, 1), 3),
-    ],
-)
-def test_time_instants_are_refused_before_anything_is_written(tools, prefix, days):
+def _days(tools, name, entries):
+    """A dataset of maps <name>_m<number> with (span, value) entries
+
+    span is (start, end) for an interval of days or a start alone for a time
+    instant, in days after 2001-01-01.
+    """
     small_region(tools, 1, 2)
     specs = []
-    for number, span in enumerate(days):
+    for number, (span, value) in enumerate(entries):
         start, end = span if isinstance(span, tuple) else (span, None)
         specs.append(
             MapSpec(
-                f"{prefix}_p{number}",
-                100 * (number + 1),
+                f"{name}_m{number}",
+                value,
                 day(start),
                 None if end is None else day(end),
             )
         )
-    create_stds(tools, "strds", f"{prefix}_points", specs)
+    create_stds(tools, "strds", name, specs)
+    return name
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        # Points at the days 0, 3 and 4 have gaps but no intervals around them.
+        [(0, 100), (3, 300), (4, 400)],
+        # A single point has no gap; it is refused all the same.
+        [(1, 100)],
+    ],
+)
+def test_a_dataset_of_time_instants_is_refused_before_anything_is_written(
+    tools, prefix, entries
+):
+    name = _days(tools, f"{prefix}_points", entries)
     before = _inventory(tools)
 
-    text = _refused(tools, input=f"{prefix}_points", basename=prefix)
+    text = _refused(tools, input=name, basename=prefix)
 
     assert (
-        f"Space time raster dataset <{prefix}_points@PERMANENT> holds time "
+        f"Space time raster dataset <{name}@PERMANENT> holds only time "
         "instants, only intervals can be filled" in text
     )
     assert _inventory(tools) == before
-    assert stds_info(tools, "strds", f"{prefix}_points")["number_of_maps"] == len(days)
+    assert stds_info(tools, "strds", name)["number_of_maps"] == len(entries)
+
+
+def test_a_gap_after_a_time_instant_is_refused_before_anything_is_written(
+    tools, prefix
+):
+    # The gaps of the days 1 to 3 (after an interval) and 4 to 5 (before the
+    # point) could be filled; the gap of the days 5 to 7 after the point at
+    # day 5 is the third and cannot.
+    name = _days(
+        tools,
+        f"{prefix}_mixed",
+        [((0, 1), 100), ((3, 4), 400), (5, 500), ((7, 8), 800)],
+    )
+    before = _inventory(tools)
+
+    text = _refused(tools, input=name, basename=prefix)
+
+    assert (
+        f"The gap after the time instant <{name}_m2@PERMANENT> cannot be "
+        "filled, only gaps after an interval can be filled" in text
+    )
+    assert _inventory(tools) == before
+    assert stds_info(tools, "strds", name)["number_of_maps"] == 4
+
+
+@pytest.mark.parametrize(
+    ("entries", "values"),
+    [
+        # The gap of the days 1 to 3 lies between the interval of 100 and the
+        # point of 300, so its days 1 and 2 at 1/3 and 2/3 of the way are
+        # 100 + 200 / 3 and 100 + 400 / 3.
+        ([((0, 1), 100), (3, 300)], [100 + 200 / 3, 100 + 400 / 3]),
+        # The point at day 4 follows the last interval without a gap; the gap
+        # of the days 1 to 3 between 100 and 400 is 200 and 300.
+        ([((0, 1), 100), ((3, 4), 400), (4, 500)], [200, 300]),
+    ],
+)
+def test_a_gap_next_to_a_time_instant_is_filled_unless_it_follows_it(
+    tools, prefix, entries, values
+):
+    name = _days(tools, f"{prefix}_mixed", entries)
+
+    tools.t_rast_gapfill(input=name, basename=prefix)
+
+    rows = _rows(tools, name)
+    assert rows[1:3] == [
+        (f"{prefix}_2001_01_02", "2001-01-02 00:00:00", pytest.approx(values[0])),
+        (f"{prefix}_2001_01_03", "2001-01-03 00:00:00", pytest.approx(values[1])),
+    ]
+    assert len(rows) == len(entries) + 2
 
 
 def test_overwrite_replaces_a_map_in_relative_time(tools, relative, prefix):
