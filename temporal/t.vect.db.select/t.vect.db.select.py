@@ -105,9 +105,16 @@ def _check_columns(tools, rows, layer, columns):
                 ", ".join(without_table)
             )
         )
-    for name, labels in missing.items():
+    if missing:
+        # One message for all columns, so that a second run is not needed to
+        # learn about the next missing one.
         gs.fatal(
-            _("Column <{}> not found in the maps: {}").format(name, ", ".join(labels))
+            "\n".join(
+                _("Column <{}> not found in the maps: {}").format(
+                    name, ", ".join(labels)
+                )
+                for name, labels in missing.items()
+            )
         )
 
 

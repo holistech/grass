@@ -90,12 +90,20 @@ def test_a_column_missing_in_the_last_map_prints_nothing(tools, partial, output_
     assert result.stdout == ""
 
 
-def test_a_column_missing_in_several_maps_names_all_of_them(tools, changing):
+def test_a_column_missing_in_one_of_two_maps_names_only_that_map(tools, changing):
     # c exists in dc_2 only, so dc_1 lacks it; a is in both.
     text = _refused(tools, input=changing, columns="a,c")
 
     assert "Column <c> not found in the maps: dc_1@" in text
     assert "dc_2" not in text
+
+
+def test_every_missing_column_is_named_in_one_message(tools, changing):
+    # b is in dc_1 only and c in dc_2 only, so each lacks one of the two.
+    text = _refused(tools, input=changing, columns="b,c")
+
+    assert "Column <b> not found in the maps: dc_2@" in text
+    assert "Column <c> not found in the maps: dc_1@" in text
 
 
 def test_a_column_missing_in_every_map_names_all_maps(tools, intervals):
