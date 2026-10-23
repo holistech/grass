@@ -30,7 +30,7 @@
 # % key: column
 # % type: string
 # % label: Name of the vector column to be created and to store sampled raster values
-# % description: The use of a column name forces t.vect.what.rast to sample only values from the first map found in an interval. Otherwise the raster map names are used as column names
+# % description: The use of a column name forces t.vect.what.rast to sample only values from the first map found in an interval. Without it, the raster map names are used as column names, and the aggregate of an interval is stored in a column named <strds>_<method>
 # % required: no
 # % multiple: no
 # %end
@@ -220,12 +220,17 @@ def main():
                 )
 
     # All target columns are checked before the first one is written: a
-    # refusal found at the second map would leave the first one changed.
+    # refusal found at the second map would leave the first one changed. An
+    # aggregate column is checked too, although an aggregate without any
+    # value is skipped later: whether it is empty is known only after
+    # r.series has run, which is after the first write.
     targets = {}
+    interval_maps = []
     for row in rows:
         raster_maps = tgis.collect_map_names(
             strds_sp, dbif, row["start_time"], row["end_time"], sampling
         )
+        interval_maps.append(raster_maps)
         if raster_maps:
             key = (f"{row['name']}@{row['mapset']}", int(row["layer"] or 1))
             targets.setdefault(key, set()).update(
@@ -240,13 +245,11 @@ def main():
     existing = check_target_columns(targets, gs.overwrite(), dbif)
 
     # Sample the raster dataset with the vector dataset and run v.what.rast
-    for row in rows:
+    for row, raster_maps in zip(rows, interval_maps, strict=True):
         start = row["start_time"]
         end = row["end_time"]
         vectmap = row["name"] + "@" + row["mapset"]
         layer = int(row["layer"] or 1)
-
-        raster_maps = tgis.collect_map_names(strds_sp, dbif, start, end, sampling)
 
         aggreagated_map_name = None
 
