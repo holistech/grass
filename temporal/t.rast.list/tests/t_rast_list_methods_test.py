@@ -220,6 +220,19 @@ def test_the_line_format_prints_the_ids_in_one_line(tools, stds):
     ]
 
 
+def test_the_line_format_with_deltagaps_prints_None_for_a_gap(tools, stds):
+    # The dataset gaps has five gaps between its six maps; a gap has no id.
+    names = _names("gaps")
+    ids = []
+    for name in names[:-1]:
+        ids += [f"{name}@PERMANENT", "None"]
+    ids.append(f"{names[-1]}@PERMANENT")
+
+    assert _lines(tools, input="gaps", method="deltagaps", format="line") == [
+        ",".join(ids)
+    ]
+
+
 def test_list_with_separator(tools, stds):
     lines = _lines(tools, input="adjacent", separator=" | ")
 

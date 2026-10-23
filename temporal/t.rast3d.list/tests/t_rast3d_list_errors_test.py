@@ -236,11 +236,13 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "syntax error" in text
 
 
-def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
-    text = _refused(tools, input="err", method="delta", format="line")
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_the_line_format_with_a_delta_method_prints_the_ids(tools, series, method):
+    # Without columns the line format lists the ids, as it does with the
+    # method list; the three monthly maps leave no gap and no granule apart.
+    result = tools.t_rast3d_list(input="err", method=method, format="line")
 
-    assert "Traceback" not in text
-    assert "'line' output_format can have only 1 column, not 7" in text
+    assert result.stdout == "e_1@PERMANENT,e_2@PERMANENT,e_3@PERMANENT\n"
 
 
 def test_the_delta_method_with_the_line_format_works_for_one_column(tools, series):
@@ -249,11 +251,3 @@ def test_the_delta_method_with_the_line_format_works_for_one_column(tools, serie
     )
 
     assert result.stdout == "e_1,e_2,e_3\n"
-
-
-def test_where_is_refused_with_the_gran_method(tools, series):
-    text = _refused(tools, input="err", method="gran", where="name = 'e_1'")
-
-    assert (
-        "The option where is not allowed with method=gran. All maps are always listed"
-    ) in text

@@ -234,11 +234,13 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, series):
     assert "Unable to execute" not in text
 
 
-def test_the_delta_method_with_the_line_format_is_reported_as_a_message(tools, series):
-    text = _refused(tools, input="err", method="delta", format="line")
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_the_line_format_with_a_delta_method_prints_the_ids(tools, series, method):
+    # Without columns the line format lists the ids, as it does with the
+    # method list; the three monthly maps leave no gap and no granule apart.
+    result = tools.t_rast_list(input="err", method=method, format="line")
 
-    assert "Traceback" not in text
-    assert "'line' output_format can have only 1 column, not 7" in text
+    assert result.stdout == "e_1@PERMANENT,e_2@PERMANENT,e_3@PERMANENT\n"
 
 
 def test_the_delta_method_with_the_line_format_works_for_one_column(tools, series):

@@ -488,7 +488,7 @@ def _get_list_of_maps_stds(
     # This method expects a list of objects for gap detection
     if method in {"delta", "deltagaps", "gran"}:
         if not columns:
-            if output_format == "list":
+            if output_format == "line":
                 # Only one column is needed.
                 columns = ["id"]
             else:

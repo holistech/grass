@@ -93,14 +93,12 @@ def test_the_line_format_takes_one_column(tools, series):
 
 
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
-def test_the_line_format_with_a_delta_method_and_the_default_columns_is_refused(
-    tools, series, method
-):
-    # Without columns the library lists the eight columns of the table.
-    text = _refused(tools, input="err", format="line", method=method)
+def test_the_line_format_with_a_delta_method_prints_the_ids(tools, series, method):
+    # Without columns the line format lists the ids, as it does with the
+    # method list; the three monthly maps leave no gap and no granule apart.
+    result = tools.t_vect_list(input="err", format="line", method=method)
 
-    assert "'line' output_format can have only 1 column, not 8" in text
-    assert "Traceback" not in text
+    assert result.stdout == "e_1@PERMANENT,e_2@PERMANENT,e_3@PERMANENT\n"
 
 
 @pytest.mark.parametrize(
