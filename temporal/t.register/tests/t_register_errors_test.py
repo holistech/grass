@@ -6,7 +6,7 @@ whitespace-normalised, because the messenger wraps long lines.
 
 import pytest
 
-from grass.temporal.testing.readback import list_maps
+from grass.temporal.testing.readback import list_maps, stds_info
 from grass.tools import ToolError
 
 
@@ -282,3 +282,40 @@ def test_a_new_map_is_not_written_when_a_later_one_has_another_unit(
     _untouched(tools, new, before)
     assert list_maps(tools, "strds", name) == []
     assert _timestamp(tools, registered) == stamp
+
+
+def test_maps_with_grass_times_of_other_units_are_not_written(
+    tools, make_maps, dataset
+):
+    first, second = make_maps(2)
+    name = dataset(temporaltype="relative")
+    # Without start the units come from the GRASS database only: the first
+    # map sets days for the empty dataset, the second one has years.
+    tools.r_timestamp(map=first, date="5 days")
+    tools.r_timestamp(map=second, date="3 years")
+    stamps = (_timestamp(tools, first), _timestamp(tools, second))
+
+    message = _register(tools, input=name, maps=f"{first},{second}")
+
+    assert f"Relative time units of space time dataset <{name}@PERMANENT>" in message
+    _untouched(tools, first, stamps[0])
+    _untouched(tools, second, stamps[1])
+    assert list_maps(tools, "strds", name) == []
+
+
+def test_a_registered_and_a_new_map_of_one_unit_fill_an_empty_dataset(
+    tools, make_maps, dataset
+):
+    registered, new = make_maps(2)
+    name = dataset(temporaltype="relative")
+    tools.t_register(type="raster", maps=registered, start=1, unit="days")
+
+    # The registered map keeps 1 day and sets the unit; the new map takes
+    # start 5 and the unit days from the options, so nothing clashes.
+    tools.t_register(
+        type="raster", input=name, maps=f"{registered},{new}", start=5, unit="days"
+    )
+
+    rows = list_maps(tools, "strds", name)
+    assert [(row.name, row.start) for row in rows] == [(registered, 1), (new, 5)]
+    assert stds_info(tools, "strds", name)["unit"] == "days"
