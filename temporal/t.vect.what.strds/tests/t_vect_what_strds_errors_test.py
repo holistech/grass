@@ -203,9 +203,12 @@ def test_a_later_map_without_a_table_stops_the_run_before_the_first_write(
 # Unchecked, v.db.addcolumn fails on the map of the other mapset, or, with
 # overwrite and m already there, v.what.rast; both after the first map was
 # written.
-@pytest.mark.parametrize(("overwrite", "column"), [(False, "h"), (True, "m")])
-def test_a_later_map_of_another_mapset_stops_the_run_before_the_first_write(
-    two_mapsets, prefix, overwrite, column
+@pytest.mark.parametrize(
+    ("overwrite", "column", "foreign_first"),
+    [(False, "h", False), (True, "m", False), (False, "h", True)],
+)
+def test_a_map_of_another_mapset_stops_the_run_before_the_first_write(
+    two_mapsets, prefix, overwrite, column, foreign_first
 ):
     work, other = two_mapsets
     times = [(datetime(2001, 1, 1), datetime(2001, 2, 1))]
@@ -218,15 +221,13 @@ def test_a_later_map_of_another_mapset_stops_the_run_before_the_first_write(
     )
     vector_points(work, f"{prefix}_v1", [(0.5, 0.5)], attributes={"h": [1]})
     vector_points(other, f"{prefix}_v2", [(0.5, 0.5)], attributes={column: [7]})
-    register_stds(
-        work,
-        "stvds",
-        f"{prefix}_ds",
-        [
-            MapSpec(f"{prefix}_v1", None, *times[0]),
-            MapSpec(f"{prefix}_v2@other", None, *times[1]),
-        ],
-    )
+    local = MapSpec(f"{prefix}_v1", None, *times[0])
+    foreign = MapSpec(f"{prefix}_v2@other", None, *times[1])
+    if foreign_first:
+        # The foreign map takes the first interval
+        local = MapSpec(f"{prefix}_v1", None, *times[1])
+        foreign = MapSpec(f"{prefix}_v2@other", None, *times[0])
+    register_stds(work, "stvds", f"{prefix}_ds", [local, foreign])
 
     with pytest.raises(ToolError) as error:
         work.t_vect_what_strds(
