@@ -12,6 +12,7 @@ from datetime import datetime
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.readback import message
 
 # Most tests take more than a second (measured 19.10.2026 with a serial
 # pytest --durations=0): every test makes its own vector maps.
@@ -19,6 +20,7 @@ pytestmark = pytest.mark.slow
 
 # The cells of the points in the raster maps: 10 row + col (conftest.py)
 CELLS = [11, 12, 21, 22]
+NUMBER = "10 * row() + col()"
 
 
 def _values(k):
@@ -205,10 +207,61 @@ def test_the_aggregate_is_stored_in_a_column_named_after_a_temporary_map(
 
     _what(tools, data, sampling="during", method="average")
 
-    # Without column= the name is that of the aggregate, which is deleted.
+    # Without column= the name is that of the dataset and the method.
     (name,) = _columns(tools, data.maps[1])
-    assert name.startswith("aggreagated_map_name_")
+    assert name == "wh_a_average"
     assert tools.g_list(type="raster", pattern="aggreagated_map_name_*").stdout == ""
+
+
+@pytest.mark.parametrize(
+    ("strds", "column"),
+    [
+        ("wh-a-b", "wh_a_b_sum"),
+        # SQLite takes a column that starts with a digit when v.db.addcolumn
+        # quotes it, but v.what.rast does not quote it (probe 23.10.2026,
+        # "unrecognized token"), so the name gets a letter in front.
+        ("7wh-a", "c_7wh_a_sum"),
+    ],
+)
+def test_the_name_of_the_aggregate_column_is_a_valid_column_name(
+    tools, rasters, vectors, strds, column
+):
+    create_stds(
+        tools,
+        "strds",
+        strds,
+        [
+            MapSpec(
+                f"{column}_{k}",
+                f"{100 * k} + {NUMBER}",
+                datetime(2001, k + 2, 1),
+                datetime(2001, k + 3, 1),
+            )
+            for k in range(1, 7)
+        ],
+    )
+    data = vectors()
+
+    _what(tools, data, strds=strds, sampling="during", method="sum")
+
+    assert _columns(tools, data.maps[1]) == [column]
+    assert _column(tools, data.maps[1], column) == [
+        str(sum(100 * k + cell for k in (3, 4))) for cell in CELLS
+    ]
+
+
+def test_two_runs_with_overwrite_give_one_aggregate_column(tools, rasters, vectors):
+    data = vectors()
+    options = {"sampling": "during", "method": "average"}
+    _what(tools, data, **options)
+
+    result = _what(tools, data, overwrite=True, **options)
+
+    assert "ERROR" not in message(result)
+    assert _columns(tools, data.maps[1]) == ["wh_a_average"]
+    assert _column(tools, data.maps[1], "wh_a_average") == [
+        str(350 + cell) for cell in CELLS
+    ]
 
 
 def test_the_column_type_follows_the_raster_type(tools, rasters, vectors):

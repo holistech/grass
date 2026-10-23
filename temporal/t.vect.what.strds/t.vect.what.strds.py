@@ -56,12 +56,72 @@
 # %end
 
 import os
+import re
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 from grass.script import raster
 
 ############################################################################
+
+
+def aggregate_column_name(strds_name, method):
+    """Return the column that stores the aggregate of a dataset
+
+    Characters outside [A-Za-z0-9_] become underscores. v.db.addcolumn quotes
+    a name that starts with a digit, but v.what.rast does not and then fails
+    with "unrecognized token" (probe 23.10.2026 with SQLite), so such a name
+    gets the prefix c_.
+    """
+    name = re.sub(r"[^A-Za-z0-9_]", "_", f"{strds_name}_{method}")
+    return f"c_{name}" if name[0].isdigit() else name
+
+
+def sampled_column_names(raster_maps, column, aggregated, method, strds_name):
+    """Return the columns the tool writes for the raster maps of one interval
+
+    This repeats the naming of the write loop, so that all columns can be
+    checked before the first one is written.
+    """
+    if column:
+        return [column]
+    if aggregated:
+        return [aggregate_column_name(strds_name, method)]
+    return [name.split("@")[0].replace(".", "_") for name in raster_maps]
+
+
+def check_target_columns(targets, overwrite, dbif):
+    """Refuse existing columns before anything is written
+
+    targets maps (vector map, layer) to the column names to write. Names are
+    compared in lower case, as SQLite does, so that "M" is taken to be "m".
+    Without overwrite an existing column is an error; with it the column is
+    written again. Returns the existing columns of each (map, layer).
+    """
+    existing = {}
+    clashes = []
+    for (vectmap, layer), names in targets.items():
+        connection = gs.vector_db(vectmap).get(layer)
+        present = (
+            {name.lower() for name in gs.vector_columns(vectmap, layer)}
+            if connection
+            else set()
+        )
+        existing[vectmap, layer] = present
+        clashes.extend(
+            _(
+                "Column <{column}> exists in the table of vector map "
+                "<{vector}> layer {layer}"
+            ).format(column=name, vector=vectmap, layer=layer)
+            for name in sorted(names)
+            if name.lower() in present
+        )
+    if clashes and not overwrite:
+        dbif.close()
+        gs.fatal(
+            "\n".join(clashes) + "\n" + _("Use the overwrite flag to write it again.")
+        )
+    return existing
 
 
 def main():
@@ -153,12 +213,32 @@ def main():
                     )
                 )
 
+    # All target columns are checked before the first one is written: a
+    # refusal found at the second map would leave the first one changed.
+    targets = {}
+    for row in rows:
+        raster_maps = tgis.collect_map_names(
+            strds_sp, dbif, row["start_time"], row["end_time"], sampling
+        )
+        if raster_maps:
+            key = (f"{row['name']}@{row['mapset']}", int(row["layer"] or 1))
+            targets.setdefault(key, set()).update(
+                sampled_column_names(
+                    raster_maps,
+                    column,
+                    method != "disabled" and len(raster_maps) > 1,
+                    method,
+                    strds_sp.get_name(),
+                )
+            )
+    existing = check_target_columns(targets, gs.overwrite(), dbif)
+
     # Sample the raster dataset with the vector dataset and run v.what.rast
     for row in rows:
         start = row["start_time"]
         end = row["end_time"]
         vectmap = row["name"] + "@" + row["mapset"]
-        layer = row["layer"]
+        layer = int(row["layer"] or 1)
 
         raster_maps = tgis.collect_map_names(strds_sp, dbif, start, end, sampling)
 
@@ -188,7 +268,13 @@ def main():
             for rastermap in raster_maps:
                 # Create a new column with the SQL compliant
                 # name of the sampled raster map if not column
-                col_name = column or rastermap.split("@")[0].replace(".", "_")
+                (col_name,) = sampled_column_names(
+                    [rastermap],
+                    column,
+                    aggreagated_map_name is not None,
+                    method,
+                    strds_sp.get_name(),
+                )
 
                 coltype = "DOUBLE PRECISION"
                 # Get raster type
@@ -196,49 +282,35 @@ def main():
                 if rasterinfo["datatype"] == "CELL":
                     coltype = "INT"
 
-                try:
-                    if layer:
+                # A column that exists was accepted by the check above and
+                # is written again; adding it would only report an error.
+                if col_name.lower() not in existing[vectmap, layer]:
+                    try:
                         gs.run_command(
                             "v.db.addcolumn",
                             map=vectmap,
                             layer=layer,
                             column="%s %s" % (col_name, coltype),
-                            overwrite=gs.overwrite(),
                         )
-                    else:
-                        gs.run_command(
-                            "v.db.addcolumn",
-                            map=vectmap,
-                            column="%s %s" % (col_name, coltype),
-                            overwrite=gs.overwrite(),
+                    except CalledModuleError:
+                        dbif.close()
+                        gs.fatal(
+                            _(
+                                "Unable to add column {column} to vector map <{vector}>"
+                            ).format(column=col_name, vector=vectmap)
                         )
-                except CalledModuleError:
-                    dbif.close()
-                    gs.fatal(
-                        _(
-                            "Unable to add column {column} to vector map <{vector}>"
-                        ).format(column=col_name, vector=vectmap)
-                    )
+                    existing[vectmap, layer].add(col_name.lower())
 
                 # Call v.what.rast
                 try:
-                    if layer:
-                        gs.run_command(
-                            "v.what.rast",
-                            map=vectmap,
-                            layer=layer,
-                            raster=rastermap,
-                            column=col_name,
-                            where=where,
-                        )
-                    else:
-                        gs.run_command(
-                            "v.what.rast",
-                            map=vectmap,
-                            raster=rastermap,
-                            column=col_name,
-                            where=where,
-                        )
+                    gs.run_command(
+                        "v.what.rast",
+                        map=vectmap,
+                        layer=layer,
+                        raster=rastermap,
+                        column=col_name,
+                        where=where,
+                    )
                 except CalledModuleError:
                     dbif.close()
                     gs.fatal(

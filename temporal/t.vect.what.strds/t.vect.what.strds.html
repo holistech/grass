@@ -3,6 +3,23 @@
 The module <em>t.vect.what.strds</em> samples a space time raster dataset
 (STRDS) at the spatio-temporal locations of a space time vector dataset (STVDS).
 
+<h2>NOTES</h2>
+
+Without <b>column</b>, each sampled raster map gets a column named after it,
+with dots replaced by underscores. If the maps of an interval are aggregated
+with <b>method</b>, the aggregate is stored in a column named
+<code>&lt;strds&gt;_&lt;method&gt;</code>, for example
+<code>tempmean_monthly_average</code>: the name of the raster dataset without
+the mapset, every character outside <code>A-Za-z0-9_</code> replaced by an
+underscore. A name that would start with a digit gets the prefix
+<code>c_</code>, because <em>v.what.rast</em> cannot write such a column.
+<p>
+Before the first value is written, the module checks the target columns of all
+vector maps and layers. If one of them already exists, the module stops with
+an error and changes nothing. With the <b>--overwrite</b> flag, the existing
+columns are kept and their values are written again, so a second run does not
+add a second column.
+
 <h2>EXAMPLE</h2>
 
 The example is based on the space time vector dataset "precip_stations@climate_2009_2012"

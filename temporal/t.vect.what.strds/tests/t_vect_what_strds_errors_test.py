@@ -103,26 +103,78 @@ def test_a_where_with_a_syntax_error_is_refused(tools, rasters, vectors):
     )
 
 
+def _values(tools, vector, column="m"):
+    return tools.v_db_select(map=vector, columns=column, flags="c").stdout.split()
+
+
+def _names(tools, vector):
+    return tools.db_columns(table=vector).stdout.split()
+
+
 def test_a_second_run_with_the_same_column_writes_the_values_again(
     tools, rasters, vectors
 ):
     data = vectors()
     options = {"input": data.dataset, "strds": "wh_a", "column": "m"}
     tools.t_vect_what_strds(**options)
+    tools.v_db_update(map=data.maps[0], column="m", value="0")
 
-    result = tools.t_vect_what_strds(**options)
+    result = tools.t_vect_what_strds(**options, overwrite=True)
 
-    # v.db.addcolumn reports an error for the existing column, which the tool
-    # does not treat as one; v.what.rast reads the values again.
-    assert "Column <m> is already in the table" in message(result)
-    assert tools.v_db_select(
-        map=data.maps[0], columns="m", flags="c"
-    ).stdout.split() == [
-        "111",
-        "112",
-        "121",
-        "122",
-    ]
+    # The values are read again; the column exists, so v.db.addcolumn is not
+    # called and has no error to report.
+    assert "ERROR" not in message(result)
+    assert _values(tools, data.maps[0]) == ["111", "112", "121", "122"]
+
+
+def test_a_second_run_with_the_same_column_is_refused_without_overwrite(
+    tools, rasters, vectors
+):
+    data = vectors()
+    options = {"input": data.dataset, "strds": "wh_a", "column": "m"}
+    tools.t_vect_what_strds(**options)
+    tools.v_db_update(map=data.maps[0], column="m", value="0")
+
+    text = _refused(tools, **options)
+
+    assert "Column <m> exists in the table of vector map" in text
+    assert _values(tools, data.maps[0]) == ["0", "0", "0", "0"]
+
+
+def test_a_column_of_the_second_map_stops_the_run_before_the_first_write(
+    tools, rasters, vectors
+):
+    data = vectors()
+    first, second, _third = data.maps
+    tools.v_db_addcolumn(map=second, column="m INT")
+    tools.v_db_update(map=second, column="m", value="999")
+
+    text = _refused(tools, input=data.dataset, strds="wh_a", column="m")
+
+    # The first map is checked and written before the second one in the
+    # loop, so a check done only when a map is written leaves it changed.
+    assert f"<{second}@" in text
+    assert "m" not in _names(tools, first)
+    assert _values(tools, first, "h") == ["1", "2", "3", "4"]
+    assert _values(tools, second) == ["999"] * 4
+
+
+def test_overwrite_writes_all_maps_when_a_column_exists_in_one(tools, rasters, vectors):
+    data = vectors()
+    first, second, third = data.maps
+    tools.v_db_addcolumn(map=second, column="m INT")
+    tools.v_db_update(map=second, column="m", value="999")
+
+    result = tools.t_vect_what_strds(
+        input=data.dataset, strds="wh_a", column="m", overwrite=True
+    )
+
+    assert "ERROR" not in message(result)
+    # The raster values of the intervals: wr_1 (first), wr_3 (second, the first
+    # map found in the interval) and wr_6 (third), 100 k + cell.
+    assert _values(tools, first) == ["111", "112", "121", "122"]
+    assert _values(tools, second) == ["311", "312", "321", "322"]
+    assert _values(tools, third) == ["611", "612", "621", "622"]
 
 
 def test_a_t_where_with_a_syntax_error_is_reported_as_a_message(
