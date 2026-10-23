@@ -13,6 +13,7 @@ import tarfile
 import pytest
 
 from grass.temporal.testing.readback import message
+from grass.tools import ToolError
 
 pytestmark = pytest.mark.skipif(
     shutil.which("gdalinfo") is None, reason="gdalinfo is not installed"
@@ -85,9 +86,7 @@ def test_type_is_skipped_for_the_other_formats_with_a_warning(
     _, result = _export(tools, absolute, tmp_path, format=fmt, type="Int16")
 
     # The warning names the format the user chose, not always pack.
-    assert f"type option is not used with the {fmt} format" in " ".join(
-        message(result).split()
-    )
+    assert f"type option is not used with the {fmt} format" in message(result)
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -179,9 +178,11 @@ def test_the_type_of_an_integer_map_holds_its_values_and_a_nodata_value(
         assert band["noDataValue"] == nodata
 
 
-def _register_map_with_null(tools, name="ex_nd"):
-    """Register a map that holds 5 in the last column and NULL elsewhere"""
-    tools.r_mapcalc(expression=f"{name} = if(col() == 3, 5, null())", overwrite=True)
+def _register_map_with_null(
+    tools, name="ex_nd", expression="if(col() == 3, 5, null())"
+):
+    """Register a map of expression, by default 5 in column 3 and NULL elsewhere"""
+    tools.r_mapcalc(expression=f"{name} = {expression}", overwrite=True)
     tools.t_create(
         type="strds",
         temporaltype="absolute",
@@ -235,6 +236,35 @@ def test_a_nodata_value_inside_byte_gives_byte(tools, absolute, tmp_path):
     assert band["noDataValue"] == 200
 
 
+def test_a_map_without_a_valid_cell_takes_its_type_from_nodata(
+    tools, absolute, tmp_path
+):
+    dataset = _register_map_with_null(tools, "ex_nd", expression="null()")
+
+    archive, _ = _export(tools, dataset, tmp_path, nodata=-77)
+
+    # The map has no minimum and maximum; -77 alone needs a signed type, the
+    # smallest is Int16.
+    band = _gdalinfo(tmp_path, archive, "ex_nd.tif")["bands"][0]
+    assert band["type"] == "Int16"
+    assert band["noDataValue"] == -77
+
+
+@pytest.mark.parametrize("fmt", ["GTiff", "AAIGrid"])
+def test_a_nodata_value_no_integer_type_holds_stops_with_a_message(
+    tools, absolute, tmp_path, fmt
+):
+    dataset = _register_map_with_null(tools)
+
+    # The parser takes nan as a double. No integer type holds it, so the
+    # choice is left to r.out.gdal, which refuses it for the type it picks.
+    with pytest.raises(ToolError) as error:
+        _export(tools, dataset, tmp_path, format=fmt, nodata="nan")
+
+    assert "Unable to export raster map <ex_nd>" in message(error.value)
+    assert "Traceback" not in message(error.value)
+
+
 def test_aaigrid_with_a_nodata_value_outside_byte_succeeds(tools, absolute, tmp_path):
     dataset = _register_map_with_null(tools)
 
@@ -259,10 +289,10 @@ def test_aaigrid_warns_only_about_metaopt(tools, absolute, tmp_path):
     )
 
     # r.out.gdal writes metaopt to ex_*.asc.aux.xml, which the archive does not
-    # hold and t.rast.import does not read; nodata and createopt reach the .asc
-    # file and are not mentioned (r.out.gdal's own messages are in the text
-    # too, so only the tool's phrases are counted).
-    text = " ".join(message(result).split())
+    # hold; nodata and createopt reach the .asc file and are not mentioned
+    # (r.out.gdal's own messages are in the text too, so only the tool's
+    # phrases are counted).
+    text = message(result)
     assert "metaopt option is not used with the AAIGrid format" in text
     assert text.count("option is not used") == 1
     assert "Createopt, metaopt and nodata" not in text
@@ -286,4 +316,4 @@ def test_a_selection_without_maps_warns_and_keeps_the_archive(
     with tarfile.open(archive) as tar:
         init = tar.extractfile("init.txt").read().decode().splitlines()
     assert "number_of_maps=0" in init
-    assert "selection contains no map" in " ".join(message(result).split())
+    assert "selection contains no map" in message(result)

@@ -199,7 +199,7 @@ def test_a_selection_without_maps_gives_an_archive_without_maps_and_a_warning(
     with tarfile.open(archive) as tar:
         assert tar.getnames() == TEXT_FILES
     assert _init(archive)["number_of_maps"] == "0"
-    assert "selection contains no map" in " ".join(message(result).split())
+    assert "selection contains no map" in message(result)
 
 
 def test_the_extent_of_a_selection_is_that_of_the_selected_maps(

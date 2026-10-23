@@ -58,7 +58,8 @@ def _gdal_type_for_cell_map(minimum, maximum, nodata):
     if nodata is not a whole number or no candidate holds all three values;
     the caller then leaves the choice to r.out.gdal.
     """
-    if nodata is None or float(nodata) != int(nodata):
+    # is_integer() is False for nan and inf, which int() would refuse.
+    if nodata is None or not float(nodata).is_integer():
         return None
     nodata = int(nodata)
     lowest = min(minimum, maximum, nodata)
@@ -98,7 +99,7 @@ def _export_raster_maps_as_gdal(
                 # Export the raster map with r.out.gdal as tif
                 out_name = name + ".tif"
                 gdal_type = None
-                if datatype == "CELL" and not type_ and kwargs.get("nodata"):
+                if datatype == "CELL" and not type_ and "nodata" in kwargs:
                     # A map without a valid cell has no minimum and maximum.
                     gdal_type = _gdal_type_for_cell_map(
                         min_val or 0, max_val or 0, float(kwargs["nodata"])
@@ -164,7 +165,7 @@ def _export_raster_maps_as_gdal(
                 # Export the raster map with r.out.gdal as Arc/Info ASCII Grid
                 out_name = name + ".asc"
                 aai_type = {}
-                if datatype == "CELL" and kwargs.get("nodata"):
+                if datatype == "CELL" and "nodata" in kwargs:
                     # The same reason as for GTiff: a nodata value the default
                     # type cannot hold aborts r.out.gdal.
                     chosen = _gdal_type_for_cell_map(
@@ -476,7 +477,7 @@ def export_stds(
         if not rows:
             gs.warning(
                 _(
-                    "The selection contains no map of <{}>; the archive is empty."
+                    "The selection contains no map of <{}>; the archive holds no map."
                 ).format(input)
             )
         with open(list_file_name, "w") as list_file:

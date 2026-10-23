@@ -36,6 +36,9 @@ def test_the_smallest_type_that_holds_the_values_and_nodata(
     assert _gdal_type_for_cell_map(minimum, maximum, nodata) == expected
 
 
-@pytest.mark.parametrize("nodata", [None, 1.5, -0.1])
+# The parser of t.rast.export takes nan and inf as a double.
+@pytest.mark.parametrize(
+    "nodata", [None, 1.5, -0.1, float("nan"), float("inf"), float("-inf")]
+)
 def test_a_nodata_value_that_is_no_whole_number_gives_no_type(nodata):
     assert _gdal_type_for_cell_map(0, 5, nodata) is None
