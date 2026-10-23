@@ -116,6 +116,11 @@ def main():
     time_suffix = options["suffix"]
     stds_type = options["type"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     tgis.init()
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
