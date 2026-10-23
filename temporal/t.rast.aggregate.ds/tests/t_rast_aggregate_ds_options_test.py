@@ -14,6 +14,7 @@ from grass.temporal.testing.data import (
     create_stds,
     day,
     intervals,
+    make_map,
     register_stds,
 )
 from grass.temporal.testing.readback import list_maps, message, stds_info
@@ -586,3 +587,66 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, prefix):
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert f"{prefix}_out" not in tools.t_list(type="strds", columns="name").stdout
+
+
+@pytest.fixture(scope="module")
+def month_ends(tools):
+    """me1..me3 of one month each from 2001-01-31 and the sampler months
+
+    t.register -i with a step of one month counts from the anchor 31 January:
+    me1 [31 Jan, 28 Feb), me2 [28 Feb, 31 Mar), me3 [31 Mar, 30 Apr). The
+    sampler <months> holds January, February and March 2001.
+    """
+    for number in (1, 2, 3):
+        make_map(tools, "raster", f"me{number}", number)
+    tools.t_create(output="month_ends", title="t", description="d")
+    tools.t_register(
+        type="raster",
+        input="month_ends",
+        maps="me1,me2,me3",
+        start="2001-01-31",
+        increment="1 months",
+        flags="i",
+    )
+    create_stds(
+        tools,
+        "strds",
+        "months",
+        [
+            MapSpec(f"mo{k}", k, start, end)
+            for k, (start, end) in enumerate(intervals(3, granularity="month"))
+        ],
+    )
+
+
+def test_an_empty_result_warns_and_makes_no_dataset(tools, month_ends, has_dataset):
+    # The default sampling is "contains", and every map lasts a month, so none
+    # lies inside a sampler month.
+    result = tools.t_rast_aggregate_ds(
+        input="month_ends",
+        sample="months",
+        output="empty_out",
+        basename="empty_out",
+        method="sum",
+    )
+
+    text = message(result)
+    assert "No map is related to any granule" in text
+    assert "contains" in text
+    assert not has_dataset("empty_out")
+
+
+def test_overlaps_sampling_helps_monthly_maps_that_start_late(tools, month_ends):
+    # A map is related to a sampler month by overlaps when it starts inside
+    # the month and ends after it: me1 for January, me2 for February, me3 for
+    # March, so the sums are 1, 2 and 3.
+    tools.t_rast_aggregate_ds(
+        input="month_ends",
+        sample="months",
+        output="overlap_out",
+        basename="overlap_out",
+        method="sum",
+        sampling="overlaps",
+    )
+
+    assert [row[3] for row in _rows(tools, "overlap_out")] == [1.0, 2.0, 3.0]

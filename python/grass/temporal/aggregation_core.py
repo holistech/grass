@@ -122,8 +122,8 @@ def aggregate_series(
 ):
     """Aggregate input_series onto target and materialize the result
 
-    Returns the new space time dataset, or None if no granule has a related
-    map. The caller sets title, description, semantic type and aggregation
+    Returns the new space time dataset, or None, with a warning, if no granule
+    has a related map. The caller sets title, description, semantic type and aggregation
     type with set_output_metadata().
     """
     relation = ta.relation("|".join(sampling))
@@ -138,6 +138,18 @@ def aggregate_series(
         nulls="skip",
     )
     if not reduced.slots:
+        # A warning, not an error: the tools end with code 0 and no dataset
+        # (the behaviour before the warning existed), so a script that
+        # aggregates possibly empty periods keeps running. The text names
+        # what to look at: monthly granules and maps that start late in the
+        # month never meet under the default sampling "start".
+        get_tgis_message_interface().warning(
+            _(
+                "No map is related to any granule of the granularity <{gran}> "
+                "with the sampling <{sampling}>. No space time dataset <{out}> "
+                "was created."
+            ).format(gran=granularity, sampling=",".join(sampling), out=output)
+        )
         return None
     _report_granules(reduced)
     _warn_file_limit(reduced, int(file_limit))

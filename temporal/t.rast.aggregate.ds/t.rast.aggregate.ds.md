@@ -36,6 +36,13 @@ relation and the method depends on the order of the maps, that is
 `min_raster`, `max_raster`, `slope`, `offset` and `detcoeff`; the other
 methods give the same result.
 
+If no map is related to any sampling interval, the module warns, names the
+granularity and the sampling, and creates no space time dataset; it ends
+without an error. With monthly intervals and maps that do not start on the
+first day of a month, for example a series from 31 January, the default
+sampling `contains` finds nothing; `sampling=overlaps` relates each map to
+the interval in which it starts and which it outlasts.
+
 ## EXAMPLES
 
 ### Precipitation aggregation

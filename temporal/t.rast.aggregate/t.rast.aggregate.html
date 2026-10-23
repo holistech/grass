@@ -73,6 +73,14 @@ method depends on the order of the maps, that is <code>min_raster</code>,
 <code>max_raster</code>, <code>slope</code>, <code>offset</code> and
 <code>detcoeff</code>; the other methods give the same result.
 
+<p>
+If no map is related to any aggregation interval, the module warns, names the
+granularity and the sampling, and creates no space time dataset; it ends
+without an error. With monthly intervals and maps that do not start on the
+first day of a month, for example a series from 31 January, the default
+sampling <code>contains</code> finds nothing; <code>sampling=overlaps</code>
+relates a map to the interval in which it starts and which it outlasts.
+
 <h2>EXAMPLES</h2>
 
 <h3>Aggregation of monthly data into yearly data</h3>

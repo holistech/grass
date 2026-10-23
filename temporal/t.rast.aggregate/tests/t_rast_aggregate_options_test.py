@@ -9,7 +9,13 @@ from io import StringIO
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day, register_stds
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    day,
+    make_map,
+    register_stds,
+)
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
@@ -402,3 +408,65 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+@pytest.fixture(scope="module")
+def month_ends(tools):
+    """Three monthly intervals from 2001-01-31 in <month_ends>
+
+    t.register -i with a step of one month counts from the anchor 31 January:
+    me1 [31 Jan, 28 Feb), me2 [28 Feb, 31 Mar), me3 [31 Mar, 30 Apr). No map
+    starts on the first of a month.
+    """
+    for number in (1, 2, 3):
+        make_map(tools, "raster", f"me{number}", number)
+    tools.t_create(output="month_ends", title="t", description="d")
+    tools.t_register(
+        type="raster",
+        input="month_ends",
+        maps="me1,me2,me3",
+        start="2001-01-31",
+        increment="1 months",
+        flags="i",
+    )
+    return "month_ends"
+
+
+def test_an_empty_result_warns_and_makes_no_dataset(tools, month_ends, has_dataset):
+    # The default sampling is "contains", and every map lasts a month, so none
+    # lies inside a monthly granule.
+    result = tools.t_rast_aggregate(
+        input=month_ends,
+        output="empty_out",
+        basename="empty_out",
+        granularity="1 months",
+        method="sum",
+    )
+
+    text = message(result)
+    assert "No map is related to any granule" in text
+    assert "1 months" in text
+    assert "contains" in text
+    assert not has_dataset("empty_out")
+
+
+def test_overlaps_sampling_helps_monthly_maps_that_start_late(tools, month_ends):
+    # Granules: January, February and March 2001. A map is related by
+    # overlaps when it starts inside the granule and ends after it: me1
+    # (31 Jan, ends 28 Feb) for January, me2 (28 Feb, ends 31 Mar) for
+    # February, me3 (31 Mar, ends 30 Apr) for March. Each granule gets one
+    # map, so the sums are 1, 2 and 3.
+    tools.t_rast_aggregate(
+        input=month_ends,
+        output="overlap_out",
+        basename="overlap_out",
+        granularity="1 months",
+        method="sum",
+        sampling="overlaps",
+    )
+
+    assert _rows(tools, "overlap_out") == [
+        ("overlap_out_2001_01", "2001-01-01 00:00:00", "2001-02-01 00:00:00", 1.0),
+        ("overlap_out_2001_02", "2001-02-01 00:00:00", "2001-03-01 00:00:00", 2.0),
+        ("overlap_out_2001_03", "2001-03-01 00:00:00", "2001-04-01 00:00:00", 3.0),
+    ]
