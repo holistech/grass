@@ -55,7 +55,17 @@ month ends on that last day: with `start="2001-01-31"` and
 March 31 and April 30. With the **-i** flag each map of such an increment
 ends where the next one starts, so the map of February 28 ends on
 March 31. Years and months of an increment such as
-`20 years, 3 months` form one step of `12 * years + months` months.
+`20 years, 3 months` form one step of `12 * years + months` months. The
+**-i** flag creates consecutive intervals for every *increment*, also for a
+list such as `1 months, 15 days`: map n ends where map n+1 starts, n+1
+increments after the **start** time.
+
+The granularity of a space-time dataset (see *t.info*) counts months and
+years only if the start and the end of every interval lie on the first day
+of a month. A monthly series that starts on another day has the granularity
+in days: with `start="2001-01-31"` and `increment="1 months"` the intervals
+last 28, 31 and 30 days and the granularity is `1 day`, while the same
+series from `2001-01-01` has the granularity `1 month`.
 
 Start time and end time with absolute time must be provided using the
 format **yyyy-mm-dd HH:MM:SS +HHMM**. It is also supported to specify

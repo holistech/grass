@@ -57,6 +57,17 @@ March 31 and April 30. With the <b>-i</b> flag each map of such an increment
 ends where the next one starts, so the map of February 28 ends on
 March 31. Years and months of an increment such as
 <tt>20 years, 3 months</tt> form one step of <tt>12 * years + months</tt> months.
+The <b>-i</b> flag creates consecutive intervals for every <em>increment</em>,
+also for a list such as <tt>1 months, 15 days</tt>: map n ends where map n+1
+starts, n+1 increments after the <b>start</b> time.
+<p>
+The granularity of a space-time dataset (see <em>t.info</em>) counts months and
+years only if the start and the end of every interval lie on the first day
+of a month. A monthly series that starts on another day has the granularity
+in days: with <code>start="2001-01-31"</code> and <code>increment="1 months"</code>
+the intervals last 28, 31 and 30 days and the granularity is <tt>1 day</tt>,
+while the same series from <code>2001-01-01</code> has the granularity
+<tt>1 month</tt>.
 <p>
 Start time and end time with absolute time must be provided using the
 format <b>yyyy-mm-dd HH:MM:SS +HHMM</b>. It is also supported to specify

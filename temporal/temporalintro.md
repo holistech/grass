@@ -76,6 +76,14 @@ they do not register maps in the temporal database. However, maps with
 timestamps attached by means of \*.timestamp modules can be registered
 in space-time datasets using the existing timestamp.*
 
+The granularity of a space-time dataset counts months and years only if
+the start and the end of every interval lie on the first day of a month.
+A monthly series that starts on another day, for example on January 31
+with intervals of 28, 31 and 30 days, has the granularity `1 day`; the
+same series from January 1 has the granularity `1 month`. Tools that work
+on the granularity (for example *t.rast.to.rast3* or the **-g** flag of
+the algebra tools) then use days.
+
 The module [t.remove](t.remove.md) will remove the space-time datasets
 from the temporal database and optionally all registered maps. It will
 take care of multiple map registration, hence if maps are registered in
