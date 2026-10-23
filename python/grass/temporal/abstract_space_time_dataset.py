@@ -26,7 +26,11 @@ from .core import (
     get_tgis_db_version_from_metadata,
     init_dbif,
 )
-from .datetime_math import increment_datetime_by_string, string_to_datetime
+from .datetime_math import (
+    datetime_after_steps,
+    increment_datetime_by_string,
+    string_to_datetime,
+)
 from .spatio_temporal_relationships import (
     SpatioTemporalTopologyBuilder,
     count_temporal_topology_relationships,
@@ -1354,11 +1358,17 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
         first = maps[0]
 
-        # Build the gaplist
+        # Build the gaplist. An absolute granule counts from the first one, so
+        # that a cut to the end of a shorter month does not carry over: from
+        # 31 January the granules start on 28 February and 31 March, not on
+        # 28 February and 28 March.
         gap_list = []
+        anchor = start
+        count = 0
         while start < end:
+            count += 1
             if first.is_time_absolute():
-                next = increment_datetime_by_string(start, gran)
+                next = datetime_after_steps(anchor, gran, count)
             else:
                 next = start + gran
 
