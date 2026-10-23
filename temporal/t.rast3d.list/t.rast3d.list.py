@@ -270,16 +270,6 @@ def main():
                     )
                 )
 
-    if method == "gran" and where:
-        gs.fatal(
-            message_option_value_excludes_option(
-                option_name="method",
-                option_value=method,
-                excluded_option_name="where",
-                reason=_("All maps are always listed"),
-            )
-        )
-
     # Make sure the temporal database exists
     tgis.init()
 

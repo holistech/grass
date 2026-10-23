@@ -19,7 +19,13 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, intervals, register_stds, small_region
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    intervals,
+    register_stds,
+    small_region,
+)
 from grass.temporal.testing.readback import message, stds_info
 from grass.tools import ToolError
 
@@ -402,6 +408,41 @@ def test_gran_with_a_longer_granule_names_the_first_map_of_each(tools, stds):
     ]
 
     assert _lines(tools, input="adjacent", method="gran", granule="2 months") == (
+        _table(entries)
+    )
+
+
+def test_gran_with_where_lists_from_the_first_selected_map(tools, stds):
+    # The selection leaves adj_2 to adj_6; the granules of the dataset's
+    # granularity (one month) start with adj_2 on 2001-02-01.
+    entries = [(f"adj_{n}", D(2001, n, 1), D(2001, n + 1, 1)) for n in (2, 3, 4, 5, 6)]
+
+    assert _lines(
+        tools, input="adjacent", method="gran", where="start_time >= '2001-02-01'"
+    ) == _table(entries)
+
+
+def test_gran_of_months_from_day_31_counts_from_the_first_map(tools, stds):
+    # Granules from 31.01.: each start is 31.01. plus n months, cut to the
+    # last day of a shorter month, so [31.01., 28.02.], [28.02., 31.03.] and
+    # [31.03., 30.04.]. The maps are equal to the first and the last; the
+    # middle one is a gap.
+    create_stds(
+        tools,
+        "str3ds",
+        "month_end",
+        [
+            MapSpec("eom_1", 1, D(2001, 1, 31), D(2001, 2, 28)),
+            MapSpec("eom_3", 3, D(2001, 3, 31), D(2001, 4, 30)),
+        ],
+    )
+    entries = [
+        ("eom_1", D(2001, 1, 31), D(2001, 2, 28)),
+        (None, D(2001, 2, 28), D(2001, 3, 31)),
+        ("eom_3", D(2001, 3, 31), D(2001, 4, 30)),
+    ]
+
+    assert _lines(tools, input="month_end", method="gran", granule="1 months") == (
         _table(entries)
     )
 
