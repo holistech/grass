@@ -359,6 +359,65 @@ def modify_datetime(
     )
 
 
+def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime:
+    """Return the time stamp that lies count steps behind the anchor
+
+    A series that is built from a start time counts from this start: the n-th
+    time stamp is the anchor plus n steps, with one cut per time stamp. Adding
+    one step to the previous time stamp instead lets a cut at the end of a
+    short month carry over into all later time stamps (31 January, 28 February,
+    28 March, 28 April).
+
+    Only a pure month or year step is counted from the anchor. A composite step
+    such as "1 months, 1 days" stays chained, because counting it from the
+    anchor would give other dates even without a cut (28 January plus two
+    times "1 months, 1 days" is 2 April chained, but 30 March counted from the
+    anchor). Steps in seconds to weeks give the same result either way.
+
+    Usage:
+
+    .. code-block:: pycon
+
+        >>> anchor = datetime(2001, 1, 31)
+        >>> for n in range(4):
+        ...     print(datetime_after_steps(anchor, "1 months", n))
+        2001-01-31 00:00:00
+        2001-02-28 00:00:00
+        2001-03-31 00:00:00
+        2001-04-30 00:00:00
+
+        >>> datetime_after_steps(datetime(2001, 1, 28), "1 months, 1 days", 2)
+        datetime.datetime(2001, 4, 2, 0, 0)
+
+        >>> datetime_after_steps(anchor, "1 months", 0)
+        datetime.datetime(2001, 1, 31, 0, 0)
+
+    :param anchor: The first time stamp of the series
+    :param step: An increment string as for increment_datetime_by_string()
+    :param count: The number of steps, 0 or more
+    :return: The new datetime object or None in case of an error
+    """
+    if count == 0:
+        return anchor
+    parts = [part.strip().split() for part in step.split(",")]
+    if (
+        len(parts) == 1
+        and len(parts[0]) == 2
+        and parts[0][1].rstrip("s")
+        in {
+            "month",
+            "year",
+        }
+    ):
+        return increment_datetime_by_string(anchor, step, mult=count)
+    current = anchor
+    for _i in range(count):
+        current = increment_datetime_by_string(current, step)
+        if current is None:
+            return None
+    return current
+
+
 ###############################################################################
 
 
