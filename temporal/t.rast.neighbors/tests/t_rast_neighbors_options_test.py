@@ -402,6 +402,33 @@ def test_an_existing_raster_outside_the_dataset_stops_the_run_before_writing(
         assert prefix not in tools.t_list(type="strds", columns="name").stdout
 
 
+def test_overwrite_replaces_a_raster_outside_the_dataset(tools, daily, prefix):
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    tools.r_mapcalc(expression=f"{prefix}_2001_01_02 = 1000")
+
+    tools.t_rast_neighbors(where="start_time < '2001-01-03'", overwrite=True, **options)
+
+    # The centre of the average of day 2 is 5 + 10 * 1 = 15, not the old 1000.
+    assert _centres(tools, prefix) == [5.0, 15.0]
+
+
+def test_a_raster_of_another_mapset_does_not_block_the_run(two_mapsets, prefix):
+    # The output name is looked up in the current mapset only; a raster of
+    # the same name in the mapset other is not the one that would be written.
+    work, other = two_mapsets
+    create_stds(
+        work,
+        "strds",
+        f"{prefix}_in",
+        [MapSpec(f"{prefix}_m", 1, day(0), day(1))],
+    )
+    other.r_mapcalc(expression=f"{prefix}_2001_01_01 = 7")
+
+    work.t_rast_neighbors(input=f"{prefix}_in", output=prefix, basename=prefix)
+
+    assert _maps(work, prefix) == [f"{prefix}_2001_01_01"]
+
+
 def test_an_existing_dataset_is_refused_without_extend_and_overwrite(
     tools, daily, prefix
 ):
