@@ -142,7 +142,7 @@ def aggregate_series(
         # (the behaviour before the warning existed), so a script that
         # aggregates possibly empty periods keeps running. The text names
         # what to look at: monthly granules and maps that start late in the
-        # month never meet under the default sampling "start".
+        # month never meet under the default sampling "contains".
         get_tgis_message_interface().warning(
             _(
                 "No map is related to any granule of the granularity <{gran}> "
