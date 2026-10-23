@@ -77,6 +77,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1484,14 +1485,16 @@ int check_double(const char *ans, const char **opts)
     /* sscanf("%lf") stops at the first character that cannot belong to the
        number, so "2.5abc" was read as 2.5 and "1e400" as infinity. As in
        check_int(), the whole answer must be the number and spaces around it
-       are allowed. */
+       are allowed. strtod() sets ERANGE also on underflow ("1e-400" gives 0,
+       "1e-310" a subnormal number); sscanf() accepted those values, so only
+       an overflow to HUGE_VAL is refused. */
     errno = 0;
     d = strtod(ans, &end);
     if (end == ans)
         return INVALID_VALUE;
     while (isspace((unsigned char)*end))
         end++;
-    if (*end != '\0' || errno == ERANGE)
+    if (*end != '\0' || (errno == ERANGE && (d == HUGE_VAL || d == -HUGE_VAL)))
         return INVALID_VALUE;
 
     if (!opts)

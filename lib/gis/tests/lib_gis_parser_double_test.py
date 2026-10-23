@@ -104,6 +104,18 @@ def test_a_number_beyond_the_double_range_is_refused(run, value):
     assert f"Invalid value <{value}> for parameter <number>" in result.stderr
 
 
+@pytest.mark.parametrize("value", ["1e-400", "1e-310", "-1e-310"])
+def test_a_number_below_the_double_range_is_accepted(run, value):
+    # strtod() reports ERANGE also when the value underflows: 1e-400 is below
+    # the smallest subnormal double (about 4.9e-324) and becomes 0, 1e-310 is
+    # below the smallest normal one (about 2.2e-308) and becomes a subnormal
+    # number. sscanf("%lf") accepted both, so they stay valid.
+    result = run(f"number={value}")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == f"{value}|||"
+
+
 @pytest.mark.parametrize("value", [" 2.5", "2.5 ", " 2.5 "])
 def test_spaces_around_a_number_are_accepted(run, value):
     # Same rule as for integers: strtod() skips leading spaces and trailing
