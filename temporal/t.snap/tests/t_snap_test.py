@@ -271,6 +271,18 @@ def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
     assert _times(other, name) == [(_text(0), None), (_text(1), None)]
 
 
+def test_an_empty_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
+    work, other = two_mapsets
+    name = _dataset(other, prefix, [])
+
+    with pytest.raises(ToolError) as error:
+        work.t_snap(input=f"{name}@other")
+
+    text = message(error.value)
+    assert "The mapset of the database does not match the current mapset" in text
+    assert "has no maps" not in text
+
+
 def test_an_unknown_dataset_is_refused(tools):
     with pytest.raises(ToolError) as error:
         tools.t_snap(input="no_such_dataset")

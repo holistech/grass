@@ -48,8 +48,11 @@ def main():
 
     stds = tgis.open_old_stds(name, type, dbif)
     # snap() fails with an IndexError on a dataset without maps; t.shift
-    # leaves such a dataset as it is as well.
-    if not stds.get_registered_maps_as_objects(dbif=dbif):
+    # leaves such a dataset as it is as well. A dataset of another mapset is
+    # refused by snap(), so the refusal does not depend on its content.
+    if stds.get_mapset() == tgis.get_current_mapset() and not (
+        stds.get_registered_maps_as_objects(dbif=dbif)
+    ):
         dbif.close()
         gs.message(
             _("Space time dataset <{}> has no maps, nothing to snap").format(
