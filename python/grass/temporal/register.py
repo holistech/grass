@@ -649,7 +649,11 @@ def assign_valid_time_to_map(
                      weeks, months, years; format relative is integer 1)
     :param mult: A multiplier for the increment
     :param interval: If True, time intervals are created in case the start
-                     time and an increment is provided
+                     time and an increment is provided. With an increment of
+                     one unit, such as "1 months", the interval ends at the
+                     start of the next map, mult + 1 increments after the
+                     start. A composite increment such as "1 months, 1 days"
+                     ends the interval one increment after its own start.
     """
 
     msgr = get_tgis_message_interface()
