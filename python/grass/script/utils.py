@@ -252,6 +252,13 @@ class KeyValue(dict[str, VT]):
 
 
 def _get_encoding() -> str:
+    # Python's UTF-8 mode (PEP 540) is switched on automatically for the C and
+    # POSIX locales. It makes Python itself, e.g. sys.argv and subprocess text
+    # mode, use UTF-8, but locale.getencoding() ignores it and still reports
+    # ASCII, so output that was written as UTF-8 could not be decoded. Only
+    # the mode changes the answer; a real non-UTF-8 locale keeps its encoding.
+    if sys.flags.utf8_mode:
+        return "UTF-8"
     encoding = locale.getencoding()
     if not encoding:
         encoding = "UTF-8"
