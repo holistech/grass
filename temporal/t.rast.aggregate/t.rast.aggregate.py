@@ -120,6 +120,11 @@ def main():
     file_limit = options["file_limit"]
     time_suffix = options["suffix"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     tgis.init()
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()

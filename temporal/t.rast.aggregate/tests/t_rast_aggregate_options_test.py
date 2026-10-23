@@ -361,21 +361,10 @@ def half_days(tools):
     return "half_days"
 
 
-@pytest.mark.parametrize(
-    ("suffix", "names"),
-    [
-        # No number of digits: five.
-        ("num", ["00001", "00002"]),
-        # The value is not tested, and any text but gran and time counts as
-        # num (measured 18.10.2026 with t.rast.aggregate in a temporary
-        # project).
-        ("anything", ["00001", "00002"]),
-    ],
-)
-def test_the_numeric_suffix_has_five_digits_unless_told_otherwise(
-    tools, half_days, suffix, names
-):
-    output = f"suf_{suffix}"
+def test_the_numeric_suffix_has_five_digits_unless_told_otherwise(tools, half_days):
+    # Any other text than gran, time, num and num%NN is refused, see
+    # t_rast_aggregate_suffix_test.py.
+    output = "suf_num"
 
     tools.t_rast_aggregate(
         input=half_days,
@@ -383,10 +372,10 @@ def test_the_numeric_suffix_has_five_digits_unless_told_otherwise(
         basename=output,
         granularity="1 day",
         method="sum",
-        suffix=suffix,
+        suffix="num",
     )
 
-    assert _suffixes(_rows(tools, output), output) == names
+    assert _suffixes(_rows(tools, output), output) == ["00001", "00002"]
 
 
 def _aggregate_refused(tools, **options):
