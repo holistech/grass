@@ -253,8 +253,9 @@ TIME_FUNCTION_REFUSED = (
 
 # What the core and the classic profile make of a planned run where the
 # reference plans maps: a time function as the conclusion of if() gives no
-# map, so both refuse it, as t.select.md says (decided 20.10.2026 for the core,
-# 23.10.2026 for the profile).
+# map, so the core refuses it, and the classic profile refuses it because the
+# value for the first map of A would be selected, as t.select.md says (decided
+# 20.10.2026 for the core, 23.10.2026 for the profile).
 DRY_REFUSED = {"time constant (dry run)": ("ValueError", TIME_FUNCTION_REFUSED)}
 
 

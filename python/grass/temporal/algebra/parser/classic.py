@@ -323,9 +323,10 @@ class ClassicTranslator(Translator):
         # identifier; see statement().
         self._stored = {}
         self._sampled = False
-        # The results of time functions with an offset in a selection; see
-        # _if().
-        self._time_values = []
+        # The contents of the time functions with an offset in a selection, by
+        # id, held here so that no other content takes their id; see
+        # statement().
+        self._time_values = {}
         self._resolve = self._noting(self._resolve)
         self._resolve_map = self._noting(self._by_start(self._resolve_map))
 
@@ -364,8 +365,21 @@ class ClassicTranslator(Translator):
         """A selection and the vector algebra register a map unchanged if its
         time stamp is the stored one, also after tshift(), tsnap() and buff_t()
         moved it away and back; the classic algebra compares the time stamps
-        only. Raster maps are computed, so they are always new"""
+        only. Raster maps are computed, so they are always new. A selection
+        that would register the value of a time function is refused."""
         name, series = super().statement(node)
+        if self._selection and any(
+            id(slot.content) in self._time_values for slot in series.slots
+        ):
+            # In a selection the value of a time function stands for the map
+            # it is read from. The earlier implementation never computes it
+            # and fails when it copies it into the result, so the profile
+            # refuses that result before it writes anything. Where the value
+            # is not selected, as in if(start_doy(A) < 3, start_doy(A, -1), A)
+            # whose first map has no predecessor, the earlier implementation
+            # selects maps, and so does the profile; the core refuses every
+            # time function as the conclusion of if().
+            self._refuse_time_function()
         if not (self._selection or self._kind == "vector"):
             return name, series
         slots = [
@@ -1217,9 +1231,17 @@ class ClassicTranslator(Translator):
                         ).format(map=slot.origin or slot.extent.start)
                     )
         if self._selection and offset is not None:
+            # Copies of the neighbour contents, equal to them but with an
+            # identity of their own, which tshift(), merge() and the other
+            # operations of a selection keep: statement() finds them so in
+            # the result, also after they were moved in time.
             values = time_functions.neighbour(series, offset)
-            self._time_values.append(values)
-            return values
+            slots = []
+            for slot in values.slots:
+                content = dataclasses.replace(slot.content)
+                self._time_values[id(content)] = content
+                slots.append(dataclasses.replace(slot, content=content))
+            return _like(values, slots)
         if offset is not None:
             _check_time_variable(name, used)
             variable = time_functions.timevar(series, name)
@@ -1372,14 +1394,6 @@ class ClassicTranslator(Translator):
         the core lists those of then first."""
         # Without maps in then and else, the result is the list of the
         # condition as it stands, also if that list is not in time order.
-        if any(
-            branch is value for branch in arguments[1:] for value in self._time_values
-        ):
-            # In a selection the value of a time function stands for the map
-            # it is read from, which the earlier implementation never computes
-            # and fails to copy, so the profile refuses what it cannot select.
-            # A time function in the condition is not affected.
-            self._refuse_time_function()
         listed = not any(_timed(branch) for branch in arguments[1:])
         order = (lambda series: series) if listed else self._in_time_order
         if len(arguments) not in (2, 3):

@@ -81,6 +81,13 @@ DIFFERENT = {
         "ValueError",
         "a negative buffer must leave every map some time",
     ),
+    # The core refuses a time function as the conclusion of if(); the classic
+    # algebra only where its value would be selected. a1, the only map that
+    # meets the condition, has no predecessor, so else gives a2 to a4.
+    "if(start_doy(A) < 3, start_doy(A, -1), A)": (
+        "ValueError",
+        "the core refuses a time function as the conclusion of if()",
+    ),
 }
 
 
@@ -245,14 +252,23 @@ def test_profile_equals_reference(series, expression):
 
 TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
 
+# Results that hold a value of a time function, also one moved in time
+TIME_FUNCTION_RESULTS = [
+    TIME_FUNCTION_SELECTED,
+    "start_doy(A, 1)",
+    'tshift(start_doy(A, 1), "1 day")',
+]
 
-def selection_outcome(runner, basename):
+
+def selection_outcome(
+    runner, basename, expression=TIME_FUNCTION_SELECTED, stdstype="strds"
+):
     return expressions.outcome(
         "select",
-        TIME_FUNCTION_SELECTED,
+        expression,
         expressions.RUNNERS[runner],
         basename=basename,
-        stdstype="strds",
+        stdstype=stdstype,
     )
 
 
@@ -264,19 +280,21 @@ def test_the_reference_fails_on_a_time_function_as_the_selected_maps(series):
     assert "g.copy raster=tmp_map_name_" in reference["msg"]
 
 
-def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(series):
+@pytest.mark.parametrize("stdstype", ["strds", "stvds", "str3ds"])
+@pytest.mark.parametrize("expression", TIME_FUNCTION_RESULTS)
+def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(
+    series, expression, stdstype
+):
     """The profile refuses what the reference fails to copy, and the pair is
-    accepted for exactly this class"""
-    reference = selection_outcome("reference", "tfref")
-    profile = selection_outcome("classic", "tfpro")
+    accepted for exactly this class, whatever the map type"""
+    reference = selection_outcome("reference", "tfref", expression, stdstype)
+    profile = selection_outcome("classic", "tfpro", expression, stdstype)
+    assert reference["error"] == "Other:CalledModuleError"
     assert profile["error"] == "Other:ValueError"
     assert expressions.accepted_error_pair(
-        "select", TIME_FUNCTION_SELECTED, reference, profile
+        "select", expression, reference, profile
     ) == ("Other:CalledModuleError/Other:ValueError")
-    assert (
-        expressions.compare_runs("select", TIME_FUNCTION_SELECTED, reference, profile)
-        is None
-    )
+    assert expressions.compare_runs("select", expression, reference, profile) is None
 
 
 @pytest.mark.parametrize(

@@ -753,9 +753,10 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
 
 
 def test_the_classic_profile_refuses_a_time_function_as_the_selected_maps(series):
-    """-c stops with the message of the core before it creates anything: the
-    classic profile runs on the core, which has no maps to select where the
-    conclusion of if() is a time function"""
+    """-c stops with the message of the core before it creates anything where
+    a value of the time function would be selected: a1 (day 1) meets the
+    condition and takes the value of a2, a map that the earlier
+    implementation never computed"""
     tools = Tools(session=series.session, overwrite=True)
     rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
     with pytest.raises(ToolError) as error:
@@ -770,6 +771,19 @@ def test_the_classic_profile_refuses_a_time_function_as_the_selected_maps(series
     )
     assert "timefunction@PERMANENT" not in tools.t_list(type="strds").text.split()
     assert tools.g_list(type="raster", mapset="PERMANENT").text.split() == rasters
+
+
+def test_the_classic_profile_selects_where_no_value_of_a_time_function_is_chosen(
+    series,
+):
+    """-c refuses a time function only where its value would be selected, as
+    the earlier implementation failed only there; the core refuses the form,
+    see the list of differences in t.select.md. Only a1 (day 1) meets the
+    condition, and a1 has no predecessor, so no value of start_doy(A, -1) is
+    chosen and else gives a2, a3 and a4."""
+    assert run_select(
+        series.session, "if(start_doy(A) < 3, start_doy(A, -1), A)", flags="c"
+    ) == [("a2", 10, 20), ("a3", 20, 30), ("a4", 30, 40)]
 
 
 def test_classic_flag_runs_the_classic_profile(series):

@@ -383,8 +383,9 @@ _MIXED_TIME_REGISTRATION = re.compile(
 )
 # The selection of a value of a time function: the earlier implementation
 # copies the map it never computed (g.copy of a temporary map name), the
-# profile refuses the expression before it creates anything.
-_UNCOMPUTED_COPY = re.compile(r"g\.copy raster=tmp_map_name_")
+# profile refuses the expression before it creates anything. The option of
+# g.copy names the map type; outcome() replaces the 3 of raster_3d by #.
+_UNCOMPUTED_COPY = re.compile(r"g\.copy (?:raster|raster_[3#]d|vector)=tmp_map_name_")
 _TIME_FUNCTION_REFUSAL = (
     "A time function such as start_doy() cannot be the result of a selection"
 )
