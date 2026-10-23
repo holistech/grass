@@ -6,6 +6,7 @@ from dataclasses import replace
 from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
 from grass.temporal.datetime_math import (
     check_datetime_string,
+    datetime_after_steps,
     decrement_datetime_by_string,
     increment_datetime_by_string,
     time_delta_to_relative_time,
@@ -311,8 +312,14 @@ def granules(
         if increment_datetime_by_string(current, granularity) <= current:
             msg = f"The granularity {granularity!r} must be positive"
             raise ValueError(msg)
+        # Each start counts from the first one, so that a cut to the end of a
+        # shorter month does not carry over: from 31 January the granules
+        # start on 28 February and 31 March, not on 28 February and 28 March.
+        anchor = current
+        count = 0
         while current < stop:
-            following = increment_datetime_by_string(current, granularity)
+            count += 1
+            following = datetime_after_steps(anchor, granularity, count)
             slots.append(Slot(Extent(current, following), NULL))
             current = following
     elif temporal_type == "relative":
