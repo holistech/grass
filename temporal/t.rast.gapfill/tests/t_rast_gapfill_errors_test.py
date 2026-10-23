@@ -258,6 +258,26 @@ def test_a_gap_next_to_a_time_instant_is_filled_unless_it_follows_it(
     assert len(rows) == len(entries) + 2
 
 
+def test_a_gap_after_an_instant_at_the_end_of_an_interval_is_filled(tools, prefix):
+    # The point at day 1 lies at the end of the interval of 100, where the
+    # gap of the days 1 to 3 starts; the interval is the predecessor of the
+    # gap, as before the refusal of gaps after an instant, so its days 1 and
+    # 2 between 100 and 400 are 200 and 300 and the point is not used.
+    name = _days(tools, f"{prefix}_mixed", [((0, 1), 100), (1, 150), ((3, 4), 400)])
+
+    tools.t_rast_gapfill(input=name, basename=prefix)
+
+    # The gap map of day 1 and the point share the start time, so the rows
+    # are compared without their order.
+    assert sorted(_rows(tools, name)) == [
+        (f"{prefix}_2001_01_02", "2001-01-02 00:00:00", pytest.approx(200)),
+        (f"{prefix}_2001_01_03", "2001-01-03 00:00:00", pytest.approx(300)),
+        (f"{name}_m0", "2001-01-01 00:00:00", 100),
+        (f"{name}_m1", "2001-01-02 00:00:00", 150),
+        (f"{name}_m2", "2001-01-04 00:00:00", 400),
+    ]
+
+
 def test_overwrite_replaces_a_map_in_relative_time(tools, relative, prefix):
     # The second dataset holds 0 (days 1 to 2) and 30 (days 4 to 5) around
     # the gap, so its new maps are 10 and 20 where the first dataset had 300

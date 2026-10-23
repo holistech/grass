@@ -105,14 +105,17 @@ def main():
             ).format(sp.get_id())
         )
 
-    # A gap after a time instant starts at the instant instead of following
-    # it, so the topology gives it no predecessor, and the check of the gaps
-    # below would not name the cause. Only such a gap is refused: a gap
-    # before an instant has the instant as its successor, and the gaps
-    # between the intervals of a dataset that also holds instants are filled
-    # as usual.
+    # The predecessor of a gap is a map that ends where the gap starts. A gap
+    # after a time instant starts at the instant, and unless an interval ends
+    # there too, it has none: the check of the gaps below would not name the
+    # cause, or, after an earlier gap, the topology takes that gap as the
+    # predecessor and r.series.interp fails on its placeholder name after the
+    # earlier gap was written (probe 23.10.2026 with the tool of 8d102f4f15:
+    # interval days 0-1, point day 2, interval days 5-6). A gap before an
+    # instant has the instant as its successor and is filled.
+    ends = {map_.get_temporal_extent_as_tuple()[1] for map_ in selected}
     for previous, map_ in pairwise(maps):
-        if map_.get_id() is None and previous.get_temporal_extent_as_tuple()[1] is None:
+        if map_.get_id() is None and map_.get_temporal_extent_as_tuple()[0] not in ends:
             dbif.close()
             gs.fatal(
                 _(

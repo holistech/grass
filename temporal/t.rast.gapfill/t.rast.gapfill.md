@@ -16,8 +16,9 @@ Each gap is re-sampled by the space time raster dataset granularity.
 Therefore several time stamped raster map layers will be interpolated if
 the gap is larger than the STRDS granularity.
 
-A gap is filled from the map before and the map after it. A gap after a
-time instant starts at the instant and has no map before it, so it is
+A gap is filled from the map that ends where it starts and the map that
+starts where it ends. A gap after a time instant starts at the instant and,
+unless an interval ends there as well, has no map before it, so it is
 refused before any map is written, as is a dataset whose selected maps are
 all time instants. A gap before a time instant is filled from the interval
 before the gap and the instant.
