@@ -82,6 +82,14 @@ LARGE_CONSTANTS_WITH_TIME = [
     # before abs() takes the absolute value, 1294967296. The profile must
     # hand the number on, not fold abs(3000000000) to 3000000000 itself.
     "abs(if(td(A) <= 0.5, A, 3000000000))",
+    # Every map of A lasts one day, so each slot holds the number as well.
+    # -1294967296 + 1.0 = -1294967295.0, folded 3000000001.0.
+    "if(td(A) <= 0.5, A, 3000000000) + 1.0",
+    # C keeps the sign of the dividend: -1294967296 % 7 = 0, as
+    # 1294967296 = 7 * 184995328; folded 3000000000 % 7 = 4.
+    "if(td(A) <= 0.5, A, 3000000000) % 7",
+    # -1294967296 > 5 is false, so 2; folded 3000000000 > 5 gives 1.
+    "if(if(td(A) <= 0.5, A, 3000000000) > 5, 1, 2)",
 ]
 
 # A right-hand temporal operator makes a map of its own for each partner, so
