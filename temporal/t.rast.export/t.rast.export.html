@@ -32,6 +32,13 @@ following suffix can be used:
 <li><b>.tar.bzip2</b> in the case of <b>compress=bzip2</b></li>
 <li><b>.tar.gzip</b> in the case of <b>compress=gzip</b></li>
 </ul>
+<p>
+The <b>directory</b> option names the working directory. <em>t.rast.export</em>
+exports the maps into a temporary subdirectory of it, packs them there, moves
+the archive to the path given by <b>output</b> and removes the subdirectory. The
+archive is therefore not written to <b>directory</b>; a relative <b>output</b> is
+taken from the current directory. The working directory must exist and be
+writable, as must the directory of <b>output</b>.
 
 <h2>EXAMPLE</h2>
 

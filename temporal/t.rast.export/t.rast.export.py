@@ -28,8 +28,8 @@
 
 # %option G_OPT_M_DIR
 # % key: directory
-# % label: Path to the directory where output is written
-# % description: If not given, the default is the current working directory
+# % label: Working directory for the export (the archive is written to output)
+# % description: The maps are exported and packed in a temporary subdirectory of it, which is removed afterwards
 # % required: no
 # % multiple: no
 # % answer: ./

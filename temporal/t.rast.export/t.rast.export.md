@@ -30,6 +30,13 @@ following suffix can be used:
 - **.tar.bzip2** in the case of **compress=bzip2**
 - **.tar.gzip** in the case of **compress=gzip**
 
+The **directory** option names the working directory. *t.rast.export*
+exports the maps into a temporary subdirectory of it, packs them there, moves
+the archive to the path given by **output** and removes the subdirectory. The
+archive is therefore not written to **directory**; a relative **output** is
+taken from the current directory. The working directory must exist and be
+writable, as must the directory of **output**.
+
 ## EXAMPLE
 
 In this example, all the raster maps of 2012 of "tempmean_monthly" will
