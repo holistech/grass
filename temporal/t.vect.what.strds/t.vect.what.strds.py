@@ -93,8 +93,10 @@ def sampled_column_names(raster_maps, column, aggregated, method, strds_name):
 def check_target_columns(targets, overwrite, dbif):
     """Refuse missing tables and existing columns before anything is written
 
-    targets maps (vector map, layer) to the column names to write. A layer
-    without a table is always an error, as the column cannot be added to it.
+    targets maps (vector map, layer) to the column names to write. A map of
+    another mapset and a layer without a table are always an error: the
+    column can be added and written in the current mapset only, and only to
+    a table.
     Names are compared in lower case, as SQLite does, so that "M" is taken to
     be "m". Without overwrite an existing column is an error; with it the
     column is written again and keeps its type. Returns the existing columns
@@ -103,7 +105,16 @@ def check_target_columns(targets, overwrite, dbif):
     existing = {}
     errors = []
     clashes = []
+    mapset = gs.gisenv()["MAPSET"]
     for (vectmap, layer), names in targets.items():
+        if vectmap.split("@")[1] != mapset:
+            errors.append(
+                _(
+                    "Vector map <{vector}> is not in the current mapset, so its "
+                    "table cannot be written"
+                ).format(vector=vectmap)
+            )
+            continue
         if not gs.vector_db(vectmap).get(layer):
             errors.append(
                 _(

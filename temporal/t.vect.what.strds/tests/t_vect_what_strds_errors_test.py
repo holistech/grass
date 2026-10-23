@@ -200,6 +200,50 @@ def test_a_later_map_without_a_table_stops_the_run_before_the_first_write(
     assert "m" not in _names(tools, second)
 
 
+# Unchecked, v.db.addcolumn fails on the map of the other mapset, or, with
+# overwrite and m already there, v.what.rast; both after the first map was
+# written.
+@pytest.mark.parametrize(("overwrite", "column"), [(False, "h"), (True, "m")])
+def test_a_later_map_of_another_mapset_stops_the_run_before_the_first_write(
+    two_mapsets, prefix, overwrite, column
+):
+    work, other = two_mapsets
+    times = [(datetime(2001, 1, 1), datetime(2001, 2, 1))]
+    times.append((datetime(2001, 2, 1), datetime(2001, 3, 1)))
+    create_stds(
+        work,
+        "strds",
+        f"{prefix}_r",
+        [MapSpec(f"{prefix}_r{k}", k, *time) for k, time in enumerate(times, 1)],
+    )
+    vector_points(work, f"{prefix}_v1", [(0.5, 0.5)], attributes={"h": [1]})
+    vector_points(other, f"{prefix}_v2", [(0.5, 0.5)], attributes={column: [7]})
+    register_stds(
+        work,
+        "stvds",
+        f"{prefix}_ds",
+        [
+            MapSpec(f"{prefix}_v1", None, *times[0]),
+            MapSpec(f"{prefix}_v2@other", None, *times[1]),
+        ],
+    )
+
+    with pytest.raises(ToolError) as error:
+        work.t_vect_what_strds(
+            input=f"{prefix}_ds",
+            strds=f"{prefix}_r",
+            column="m",
+            overwrite=overwrite,
+        )
+
+    # v.db.addcolumn and v.what.rast write only in the current mapset.
+    assert f"Vector map <{prefix}_v2@other> is not in the current mapset" in (
+        message(error.value)
+    )
+    assert "Traceback" not in message(error.value)
+    assert "m" not in work.db_columns(table=f"{prefix}_v1").stdout.split()
+
+
 def test_overwrite_keeps_the_type_of_an_integer_column(tools, rasters, vectors, prefix):
     # The maps are the constant k, one month each from 2001-03-01, so the
     # average during May (k = 3) and June (k = 4) is 3.5.
