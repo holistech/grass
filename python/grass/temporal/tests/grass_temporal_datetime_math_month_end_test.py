@@ -7,6 +7,7 @@ from datetime import datetime
 
 import pytest
 
+from grass.temporal import datetime_math
 from grass.temporal.datetime_math import (
     datetime_after_steps,
     decrement_datetime_by_string,
@@ -124,3 +125,22 @@ def test_singular_and_multiple_month_steps_count_from_the_anchor(
 def test_a_negative_number_of_steps_is_an_error(step):
     with pytest.raises(ValueError, match="0 or more"):
         datetime_after_steps(datetime(2001, 3, 31), step, -1)
+
+
+@pytest.mark.parametrize("step", ["1 days", "6 hours, 30 minutes", "1 months"])
+def test_a_long_series_takes_one_step_per_time_stamp(monkeypatch, step):
+    # A loop that asks for each time stamp of a series from its anchor
+    # would add up count steps per time stamp if every step were chained,
+    # which makes a series of days or hours quadratic in its length.
+    calls = []
+
+    def counted(mydate, increment, mult=1):
+        calls.append(mult)
+        return increment_datetime_by_string(mydate, increment, mult)
+
+    monkeypatch.setattr(datetime_math, "increment_datetime_by_string", counted)
+    anchor = datetime(2001, 1, 31)
+    assert datetime_math.datetime_after_steps(anchor, step, 1000) == (
+        increment_datetime_by_string(anchor, step, 1000)
+    )
+    assert calls == [1000]

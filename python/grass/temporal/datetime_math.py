@@ -387,7 +387,9 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
     such as "1 months, 1 days" stays chained, because counting it from the
     anchor would give other dates even without a cut (28 January plus two
     times "1 months, 1 days" is 2 April chained, but 30 March counted from the
-    anchor). Steps in seconds to weeks give the same result either way.
+    anchor). Steps in seconds to weeks give the same result either way and are
+    multiplied, so that a loop which asks for every time stamp of a long
+    series of days or hours takes one step per time stamp, not count steps.
 
     Usage:
 
@@ -420,12 +422,11 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
     if count == 0:
         return anchor
     parts = step.split(",")
-    words = parts[0].split()
-    if (
-        len(parts) == 1
-        and len(words) == 2
-        and words[1].rstrip("s") in {"month", "year"}
-    ):
+    calendar_part = any(
+        len(words) == 2 and words[1].rstrip("s") in {"month", "year"}
+        for words in (part.split() for part in parts)
+    )
+    if len(parts) == 1 or not calendar_part:
         return increment_datetime_by_string(anchor, step, mult=count)
     current = anchor
     for _i in range(count):
