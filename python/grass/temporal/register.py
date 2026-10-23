@@ -37,11 +37,15 @@ from .open_stds import open_old_stds
 ###############################################################################
 
 
-def _refuse_other_time(sp, map_object, dbif):
+def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     """Stop if the dataset would not take the map for its time
 
-    Tests the temporal type and, for a relative dataset that holds maps, the
-    relative unit, as register_map() of the dataset does.
+    Tests the temporal type and the relative unit, as register_map() of the
+    dataset does. A relative dataset that holds maps sets the unit. An empty
+    one takes the unit of the first map it registers, so run_unit carries
+    the unit of the first map checked in this run.
+
+    Returns the unit the next map must have, None for an absolute dataset.
     """
     msgr = get_tgis_message_interface()
     identifiers = {
@@ -66,12 +70,13 @@ def _refuse_other_time(sp, map_object, dbif):
             )
             % identifiers
         )
-    # An empty relative dataset takes the unit of its first map
-    if (
-        sp.is_time_relative()
-        and sp.metadata.get_number_of_maps()
-        and sp.get_relative_time_unit() != map_object.get_relative_time_unit()
-    ):
+    if not sp.is_time_relative():
+        return None
+    if sp.metadata.get_number_of_maps():
+        expected = sp.get_relative_time_unit()
+    else:
+        expected = run_unit or map_object.get_relative_time_unit()
+    if expected != map_object.get_relative_time_unit():
         dbif.close()
         if identifiers["l"]:
             msgr.fatal(
@@ -88,6 +93,7 @@ def _refuse_other_time(sp, map_object, dbif):
             )
             % identifiers
         )
+    return expected
 
 
 def register_maps_in_space_time_dataset(
@@ -302,6 +308,7 @@ def register_maps_in_space_time_dataset(
     num_maps = len(maplist)
     map_object_list = []
     maps_to_write = []
+    run_unit = None
     statement = ""
     # Store the ids of datasets that must be updated
     datatsets_to_modify = {}
@@ -453,7 +460,7 @@ def register_maps_in_space_time_dataset(
                 # before any other map of the run is written.
                 if name:
                     map_object.select(dbif, mapset)
-                    _refuse_other_time(sp, map_object, dbif)
+                    run_unit = _refuse_other_time(sp, map_object, dbif, run_unit)
                     map_object_list.append(map_object)
                 # Jump to next map
                 continue
@@ -554,7 +561,7 @@ def register_maps_in_space_time_dataset(
         # when it registers it, which is after the map was written. The same
         # tests come first, with the messages of the dataset.
         if name:
-            _refuse_other_time(sp, map_object, dbif)
+            run_unit = _refuse_other_time(sp, map_object, dbif, run_unit)
 
         maps_to_write.append((map_object, is_in_db, semantic_label))
 

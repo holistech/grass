@@ -242,3 +242,43 @@ def test_a_registered_map_of_the_other_type_stops_the_run_before_writing(
 
     assert f"Temporal type of space time dataset <{name}@PERMANENT>" in message
     _untouched(tools, fresh, before)
+
+
+def test_an_empty_relative_dataset_takes_the_unit_of_the_first_map_only(
+    tools, make_maps, dataset
+):
+    first, second = make_maps(2)
+    name = dataset(temporaltype="relative")
+    # Both maps are in the temporal database and keep the time of their
+    # entry; the dataset is empty, so the first one sets the unit (days) and
+    # the second one (years) comes later in the run.
+    tools.t_register(type="raster", maps=first, start=1, unit="days")
+    tools.t_register(type="raster", maps=second, start=2, unit="years")
+    stamps = (_timestamp(tools, first), _timestamp(tools, second))
+
+    message = _register(tools, input=name, maps=f"{first},{second}")
+
+    assert f"Relative time units of space time dataset <{name}@PERMANENT>" in message
+    assert list_maps(tools, "strds", name) == []
+    assert (_timestamp(tools, first), _timestamp(tools, second)) == stamps
+
+
+def test_a_new_map_is_not_written_when_a_later_one_has_another_unit(
+    tools, make_maps, dataset
+):
+    new, registered = make_maps(2)
+    name = dataset(temporaltype="relative")
+    tools.t_register(type="raster", maps=registered, start=1, unit="days")
+    stamp = _timestamp(tools, registered)
+    before = _timestamp(tools, new)
+
+    # The new map comes first and sets the unit (years); the registered map
+    # keeps its days and is the one that clashes.
+    message = _register(
+        tools, input=name, maps=f"{new},{registered}", start=5, unit="years"
+    )
+
+    assert f"Relative time units of space time dataset <{name}@PERMANENT>" in message
+    _untouched(tools, new, before)
+    assert list_maps(tools, "strds", name) == []
+    assert _timestamp(tools, registered) == stamp
