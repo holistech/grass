@@ -187,7 +187,7 @@ def test_where_selects_the_maps_of_the_archive(tools, absolute, tmp_path):
         assert "vx_1.xml" not in tar.getnames()
 
 
-def test_a_selection_without_maps_gives_an_archive_without_maps(
+def test_a_selection_without_maps_gives_an_archive_without_maps_and_a_warning(
     tools, absolute, tmp_path
 ):
     archive = tmp_path / "out"
@@ -199,7 +199,7 @@ def test_a_selection_without_maps_gives_an_archive_without_maps(
     with tarfile.open(archive) as tar:
         assert tar.getnames() == TEXT_FILES
     assert _init(archive)["number_of_maps"] == "0"
-    assert message(result) == ""
+    assert "selection contains no map" in " ".join(message(result).split())
 
 
 def test_the_extent_of_a_selection_is_that_of_the_selected_maps(

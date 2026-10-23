@@ -50,6 +50,31 @@ exported_maps = {}
 ############################################################################
 
 
+def _gdal_type_for_cell_map(minimum, maximum, nodata):
+    """Return the smallest GDAL integer type that holds a CELL map and nodata
+
+    The candidates are Byte, UInt16, Int16, UInt32 and Int32, in the order of
+    their size, the unsigned type first where both of a size fit. Returns None
+    if nodata is not a whole number or no candidate holds all three values;
+    the caller then leaves the choice to r.out.gdal.
+    """
+    if nodata is None or float(nodata) != int(nodata):
+        return None
+    nodata = int(nodata)
+    lowest = min(minimum, maximum, nodata)
+    highest = max(minimum, maximum, nodata)
+    for name, low, high in (
+        ("Byte", 0, 2**8 - 1),
+        ("UInt16", 0, 2**16 - 1),
+        ("Int16", -(2**15), 2**15 - 1),
+        ("UInt32", 0, 2**32 - 1),
+        ("Int32", -(2**31), 2**31 - 1),
+    ):
+        if low <= lowest and highest <= high:
+            return name
+    return None
+
+
 def _export_raster_maps_as_gdal(
     rows, tar, list_file, fs, format_, type_, **kwargs
 ) -> None:
@@ -72,7 +97,26 @@ def _export_raster_maps_as_gdal(
             if format_ == "GTiff":
                 # Export the raster map with r.out.gdal as tif
                 out_name = name + ".tif"
-                if datatype == "CELL" and not type_:
+                gdal_type = None
+                if datatype == "CELL" and not type_ and kwargs.get("nodata"):
+                    # A map without a valid cell has no minimum and maximum.
+                    gdal_type = _gdal_type_for_cell_map(
+                        min_val or 0, max_val or 0, float(kwargs["nodata"])
+                    )
+                if gdal_type:
+                    # r.out.gdal refuses a nodata value its type cannot hold,
+                    # so the type is chosen to hold it. nodata comes from
+                    # kwargs, passing it twice is a TypeError.
+                    gs.run_command(
+                        "r.out.gdal",
+                        flags="c",
+                        input=name,
+                        output=out_name,
+                        type=gdal_type,
+                        format="GTiff",
+                        **kwargs,
+                    )
+                elif datatype == "CELL" and not type_ and "nodata" not in kwargs:
                     # A map without a valid cell has no minimum and maximum;
                     # it is exported as the smallest type with the nodata
                     # value 1, as a map whose only value is 0 would be.
@@ -119,12 +163,22 @@ def _export_raster_maps_as_gdal(
             elif format_ == "AAIGrid":
                 # Export the raster map with r.out.gdal as Arc/Info ASCII Grid
                 out_name = name + ".asc"
+                aai_type = {}
+                if datatype == "CELL" and kwargs.get("nodata"):
+                    # The same reason as for GTiff: a nodata value the default
+                    # type cannot hold aborts r.out.gdal.
+                    chosen = _gdal_type_for_cell_map(
+                        min_val or 0, max_val or 0, float(kwargs["nodata"])
+                    )
+                    if chosen:
+                        aai_type["type"] = chosen
                 gs.run_command(
                     "r.out.gdal",
                     flags="c",
                     input=name,
                     output=out_name,
                     format="AAIGrid",
+                    **aai_type,
                     **kwargs,
                 )
 
@@ -419,6 +473,12 @@ def export_stds(
         # Open the tar archive to add the files
         tar = tarfile.open(tmp_tar_file_name, flag)
         fs = "|"
+        if not rows:
+            gs.warning(
+                _(
+                    "The selection contains no map of <{}>; the archive is empty."
+                ).format(input)
+            )
         with open(list_file_name, "w") as list_file:
             if rows:
                 if type_ == "strds":
