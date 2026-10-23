@@ -2,8 +2,8 @@
 
 Before, years and months were each measured from the original date and the two
 differences were added, so a step of both could end in another month than a
-step of 12 * years + months, and a step back by a multiple of 12 months from
-December raised "bad month number 0".
+step of 12 * years + months, and a month step back to December of the year
+before last or earlier raised "bad month number 0".
 """
 
 import calendar

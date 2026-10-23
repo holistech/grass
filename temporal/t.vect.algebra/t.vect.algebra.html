@@ -769,11 +769,13 @@ C = tshift(M, "1 months")
 C = buff_t(M, "1 months")
 </pre></div>
 
-<p>A step back by a multiple of 12 months, for example <code>buff_t(A, "24 months")</code>
-on a map that starts on 1 December, ended in the error "bad month number
-0" and now gives a result (corrected 23 October 2026). Years and months
-of one step count as one step of 12 * years + months months, so
-<code>"1 years, 11 months"</code> and <code>"23 months"</code> end on the same day.
+<p>A month step back that ends in December of the year before last or
+earlier, for example <code>buff_t(A, "24 months")</code> on a map that starts on 1
+December or <code>tshift(A, "-13 months")</code> on one that starts in January,
+ended in the error "bad month number 0" and now gives a result
+(corrected 23 October 2026). Years and months of one step count as one
+step of 12 * years + months months, so <code>"1 years, 11 months"</code> and
+<code>"23 months"</code> end on the same day.
 </li>
 </ol>
 

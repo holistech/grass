@@ -343,8 +343,8 @@ def test_years_and_months_of_a_list_are_one_step(tools, prefix, granularity, exp
 
 def test_a_shift_back_by_24_months_from_december(tools, prefix):
     # 2003-12-01 - 24 months = 2001-12-01; 2004-01-01 - 24 months = 2002-01-01.
-    # Before, the step back by a multiple of 12 months from December raised
-    # "bad month number 0".
+    # Before, the step back by 24 months from December raised "bad month
+    # number 0".
     name = _dataset(tools, prefix, [(datetime(2003, 12, 1), datetime(2004, 1, 1))])
 
     tools.t_shift(input=name, granularity="-24 months")

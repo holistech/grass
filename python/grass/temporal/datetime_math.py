@@ -292,10 +292,7 @@ def modify_datetime(
     A month or year step that ends behind the last day of the target month
     ends on that last day. Years and months form one calendar step of
     12 * years + months months with one cut, so "1 years, 11 months" and
-    "23 months" end on the same day. Measuring both from mydate and adding the
-    two differences, as done before, ended in another month (1 March 2005
-    instead of 28 February) and failed for a step back by a multiple of 12
-    months from December:
+    "23 months" end on the same day:
 
     .. code-block:: pycon
 
