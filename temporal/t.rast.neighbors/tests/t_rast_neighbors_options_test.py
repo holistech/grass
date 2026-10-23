@@ -372,6 +372,36 @@ def test_extend_refuses_an_existing_map_without_overwrite_and_writes_nothing(
     assert tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split() == rasters
 
 
+@pytest.mark.parametrize("extend", [False, True])
+def test_an_existing_raster_outside_the_dataset_stops_the_run_before_writing(
+    tools, daily, prefix, extend
+):
+    # The run selects the first three days; the raster of the third, the last
+    # output of the run, exists but is in no dataset. With -e the dataset
+    # holds the map of the fourth day.
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    if extend:
+        tools.t_rast_neighbors(where="start_time >= '2001-01-04'", **options)
+    before = _maps(tools, prefix) if extend else []
+    tools.r_mapcalc(expression=f"{prefix}_2001_01_03 = 1")
+    rasters = tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split()
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_neighbors(
+            where="start_time < '2001-01-04'", flags="e" if extend else "", **options
+        )
+
+    assert (
+        f"Raster map <{prefix}_2001_01_03@PERMANENT> exists. To overwrite, use the "
+        "--overwrite flag."
+    ) in message(error.value)
+    assert tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split() == rasters
+    if extend:
+        assert _maps(tools, prefix) == before == [f"{prefix}_2001_01_04"]
+    else:
+        assert prefix not in tools.t_list(type="strds", columns="name").stdout
+
+
 def test_an_existing_dataset_is_refused_without_extend_and_overwrite(
     tools, daily, prefix
 ):

@@ -65,7 +65,7 @@ def test_the_quantile_method_needs_a_quantile(tools, ramp, prefix):
     assert "The method <quantile> requires input in the 'quantile' option." in text
 
 
-def test_a_list_of_quantiles_is_refused_by_the_parser(tools, ramp, prefix):
+def test_a_list_of_quantiles_is_refused(tools, ramp, prefix):
     # r.neighbors computes one quantile per output map, so the option takes
     # one value instead of a list of which only the first would count. The
     # parser lets the list through, the tool refuses it.

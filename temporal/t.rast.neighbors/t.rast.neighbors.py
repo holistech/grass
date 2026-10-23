@@ -177,8 +177,9 @@ def main():
     nprocs = options["nprocs"]
     time_suffix = options["suffix"]
     new_labels = options["semantic_labels"]
-    # The parser does not reject a list for a double option, so a second
-    # value is refused here instead of being dropped or failing in float().
+    # The parser accepts a comma separated list for a double option even with
+    # multiple: no, so a second value is refused here instead of ending in a
+    # traceback from float().
     try:
         quantile = float(options["quantile"]) if options["quantile"] else None
     except ValueError:
@@ -267,7 +268,10 @@ def main():
     new_maps = []
 
     # All output maps are checked before the first r.neighbors starts, so that
-    # an existing map stops the run before anything is written.
+    # an existing map stops the run before anything is written. The temporal
+    # database knows only registered maps; a raster of the same name outside
+    # it would otherwise stop only its own r.neighbors run while the others
+    # write their maps.
     for map in maps:
         count += 1
         suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
@@ -281,6 +285,13 @@ def main():
             overwrite=overwrite,
             dbif=dbif,
         )
+        if not overwrite and new_map.map_exists():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
+                ).format(new_map.get_id())
+            )
         semantic_label = map.metadata.get_semantic_label()
         if new_labels == "input":
             if semantic_label is not None:
