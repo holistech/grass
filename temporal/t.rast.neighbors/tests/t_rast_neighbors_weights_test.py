@@ -181,13 +181,11 @@ def test_a_failing_r_neighbors_is_reported_by_the_tool(tools, spike, prefix, opt
 def test_a_failing_r_neighbors_with_the_raster_region_is_reported_by_the_tool(
     tools, spike, prefix
 ):
-    # The runs with -r happen in child processes of pygrass, which print their
-    # own traceback to stderr before the tool sees the failure; the tool
-    # cannot suppress it, so only its own message is checked.
     with pytest.raises(ToolError) as error:
         tools.t_rast_neighbors(
             input=spike, output=prefix, basename=prefix, size=4, flags="r"
         )
 
+    assert "Traceback" not in message(error.value)
     assert "Error running r.neighbors" in message(error.value)
     assert tools.t_list(type="strds", columns="name").stdout.count(prefix) == 0
