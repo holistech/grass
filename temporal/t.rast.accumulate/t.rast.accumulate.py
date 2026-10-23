@@ -226,6 +226,11 @@ def main():
     if limits_upper <= limits_lower:
         gs.fatal(_("The upper limit must be above the lower limit"))
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     # Make sure the temporal database exists
     tgis.init()
 
@@ -458,18 +463,10 @@ def main():
                 continue
 
             # New output map
-            if input_strds.get_temporal_type() == "absolute" and time_suffix == "gran":
-                suffix = tgis.create_suffix_from_datetime(
-                    map.temporal_extent.get_start_time(), input_strds.get_granularity()
-                )
-                output_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-            elif (
-                input_strds.get_temporal_type() == "absolute" and time_suffix == "time"
-            ):
-                suffix = tgis.create_time_suffix(map)
-                output_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-            else:
-                output_map_name = tgis.create_numeric_suffix(base, count, time_suffix)
+            suffix = tgis.map_name_suffix(
+                map, time_suffix, input_strds.get_granularity(), count
+            )
+            output_map_name = f"{base}_{suffix}"
 
             output_map_id = map.build_id(output_map_name, mapset)
             output_map = input_strds.get_new_map_instance(output_map_id)
