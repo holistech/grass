@@ -132,6 +132,11 @@ def main(options, flags):
     b_flag = flags["b"]
     z_flag = flags["z"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface
@@ -203,16 +208,8 @@ def main(options, flags):
     # run r.to.vect all selected maps
     for map in maps:
         count += 1
-        if sp.get_temporal_type() == "absolute" and time_suffix == "gran":
-            suffix = tgis.create_suffix_from_datetime(
-                map.temporal_extent.get_start_time(), sp.get_granularity()
-            )
-            map_name = "{ba}_{su}".format(ba=base, su=suffix)
-        elif sp.get_temporal_type() == "absolute" and time_suffix == "time":
-            suffix = tgis.create_time_suffix(map)
-            map_name = "{ba}_{su}".format(ba=base, su=suffix)
-        else:
-            map_name = tgis.create_numeric_suffix(base, count, time_suffix)
+        suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
+        map_name = f"{base}_{suffix}"
         new_map = tgis.open_new_map_dataset(
             map_name,
             None,
