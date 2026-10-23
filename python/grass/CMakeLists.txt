@@ -80,6 +80,30 @@ set(pydir_targets ${PYDIRS} app)
 list(TRANSFORM pydir_targets REPLACE "/" "_")
 list(TRANSFORM pydir_targets PREPEND "python_")
 
+# The recorded outcomes that grass.temporal.testing.corpus reads; there may be
+# none, and cmake -E copy fails without a source file
+file(
+    GLOB TEMPORAL_CORPUS_FILES
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/temporal/testing/corpus/*.jsonl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/temporal/testing/corpus/*.jsonl.gz"
+)
+if(TEMPORAL_CORPUS_FILES)
+    set(TEMPORAL_CORPUS_DIR "${OUTDIR}/${PYDIR_GRASS}/temporal/testing/corpus")
+    add_custom_target(
+        python_temporal_testing_corpus
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${TEMPORAL_CORPUS_DIR}"
+        COMMAND
+            ${CMAKE_COMMAND} -E copy ${TEMPORAL_CORPUS_FILES}
+            "${TEMPORAL_CORPUS_DIR}"
+    )
+    set_target_properties(
+        python_temporal_testing_corpus
+        PROPERTIES FOLDER Python/API
+    )
+    list(APPEND pydir_targets python_temporal_testing_corpus)
+endif()
+
 add_custom_target(LIB_PYTHON VERBATIM DEPENDS ${pydir_targets})
 
 set_target_properties(LIB_PYTHON PROPERTIES FOLDER Misc)
