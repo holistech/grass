@@ -269,12 +269,17 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         "2400-02-07 12:00:00",
         "2499-11-16 21:00:00",
     ]
+    # The end of the fifth interval is its start plus one increment: 99 years
+    # and 9 months are one step of 1197 months, from February 2400 to
+    # November 2499 (2400 * 12 + 1 + 1197 = 29998 = 2499 * 12 + 10), day 7
+    # stays; plus 9 days 9 hours is 2499-11-16 21:00. Measuring the years and
+    # the months apart from the start gave a day more.
     assert third == [
         ("2001-01-01 00:00:00", "2100-10-10 09:00:00"),
         ("2100-10-10 09:00:00", "2200-07-19 18:00:00"),
         ("2200-07-19 18:00:00", "2300-04-29 03:00:00"),
         ("2300-04-29 03:00:00", "2400-02-07 12:00:00"),
-        ("2400-02-07 12:00:00", "2499-11-17 21:00:00"),
+        ("2400-02-07 12:00:00", "2499-11-16 21:00:00"),
         ("2499-11-16 21:00:00", "2599-08-26 06:00:00"),
     ]
     # The granularity is the greatest common divisor of the gaps between the
@@ -294,12 +299,13 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
     assert first_info["end_time"] == "'2102-04-06 20:00:00'"
     assert second_info["end_time"] == "'2499-11-16 21:00:00'"
     assert third_info["end_time"] == "'2599-08-26 06:00:00'"
-    # Points are valid; the intervals of the last round start where the one
-    # before ends only up to the clipped day (2499-11-16 against -17).
+    # Points are valid; the intervals of the last round are valid as well,
+    # because every end equals the next start (see the pairs above, the fifth
+    # ends on 2499-11-16 21:00 where the sixth starts).
     assert (first_topology, second_topology, third_topology) == (
         "valid",
         "valid",
-        "invalid",
+        "valid",
     )
     # The map time stamp follows the last registration.
     assert tools.r_timestamp(map=maps[2]).stdout.strip() == (

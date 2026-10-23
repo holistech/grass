@@ -55,7 +55,8 @@ month ends on that last day: with <code>start="2001-01-31"</code> and
 <code>increment="1 months"</code> the maps start on January 31, February 28,
 March 31 and April 30. With the <b>-i</b> flag each map of such an increment
 ends where the next one starts, so the map of February 28 ends on
-March 31.
+March 31. Years and months of an increment such as
+<tt>20 years, 3 months</tt> form one step of <tt>12 * years + months</tt> months.
 <p>
 Start time and end time with absolute time must be provided using the
 format <b>yyyy-mm-dd HH:MM:SS +HHMM</b>. It is also supported to specify

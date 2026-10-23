@@ -290,9 +290,12 @@ def modify_datetime(
     relative dates and times
 
     A month or year step that ends behind the last day of the target month
-    ends on that last day. Months and years are each applied to mydate and
-    the two differences are added, so a step with both can end in another
-    month than a step of 12 * years + months:
+    ends on that last day. Years and months form one calendar step of
+    12 * years + months months with one cut, so "1 years, 11 months" and
+    "23 months" end on the same day. Measuring both from mydate and adding the
+    two differences, as done before, ended in another month (1 March 2005
+    instead of 28 February) and failed for a step back by a multiple of 12
+    months from December:
 
     .. code-block:: pycon
 
@@ -301,77 +304,20 @@ def modify_datetime(
         >>> modify_datetime(datetime(2003, 3, 31), months=23)
         datetime.datetime(2005, 2, 28, 0, 0)
         >>> modify_datetime(datetime(2003, 3, 31), years=1, months=11)
-        datetime.datetime(2005, 3, 1, 0, 0)
+        datetime.datetime(2005, 2, 28, 0, 0)
+        >>> modify_datetime(datetime(2003, 12, 1), months=-24)
+        datetime.datetime(2001, 12, 1, 0, 0)
     """
 
-    tdelta_seconds = timedelta(seconds=seconds)
-    tdelta_minutes = timedelta(minutes=minutes)
-    tdelta_hours = timedelta(hours=hours)
-    tdelta_days = timedelta(days=days)
-    tdelta_weeks = timedelta(weeks=weeks)
-    tdelta_months = timedelta(0)
-    tdelta_years = timedelta(0)
+    total_months = 12 * int(years) + int(months)
+    if total_months != 0:
+        target_year, target_month = divmod(
+            mydate.year * 12 + mydate.month - 1 + total_months, 12
+        )
+        mydate = _replace_year_month(mydate, target_year, target_month + 1)
 
-    if months > 0:
-        # Compute the actual number of days in the month to add as timedelta
-        year = mydate.year
-        month = mydate.month
-
-        all_months = int(months) + int(month)
-        years_to_add = int(all_months / 12.001)
-        residual_months = all_months - (years_to_add * 12)
-
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
-
-        # Make sure the month starts with a 1
-        if residual_months == 0:
-            residual_months = 1
-
-        dt1 = _replace_year_month(dt1, year + years_to_add, residual_months)
-
-        tdelta_months = dt1 - mydate
-    elif months < 0:
-        # Compute the actual number of days in the month to add as timedelta
-        year = mydate.year
-        month = mydate.month
-        years_to_remove = 0
-
-        all_months = int(months) + int(month)
-        if all_months <= 0:
-            years_to_remove = abs(int(all_months / 12.001))
-            residual_months = all_months + (years_to_remove * 12)
-            years_to_remove += 1
-        else:
-            residual_months = all_months
-
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
-
-        # Correct the months
-        if residual_months <= 0:
-            residual_months += 12
-
-        dt1 = _replace_year_month(dt1, year - years_to_remove, residual_months)
-
-        tdelta_months = dt1 - mydate
-
-    if years != 0:
-        # Make a deep copy of the datetime object
-        dt1 = copy.copy(mydate)
-        # Compute the number of days
-        dt1 = _replace_year_month(dt1, mydate.year + int(years), mydate.month)
-        tdelta_years = dt1 - mydate
-
-    return (
-        mydate
-        + tdelta_seconds
-        + tdelta_minutes
-        + tdelta_hours
-        + tdelta_days
-        + tdelta_weeks
-        + tdelta_months
-        + tdelta_years
+    return mydate + timedelta(
+        weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
     )
 
 

@@ -31,7 +31,8 @@ KINDS = {
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session):
     """M with a map from 31.01.2001 to 31.03.2001, L with one from the leap
-    day 29.02.2004 to 31.03.2004, for each dataset type"""
+    day 29.02.2004 to 31.03.2004, D with one from 01.12.2003 to 01.01.2004,
+    for each dataset type"""
     tools = Tools(session=temporal_module_session)
     tools.g_region(n=1, s=0, e=1, w=0, res=1, b=0, t=1, res3=1)
     for stds_type, prefix in dict.fromkeys(KINDS.values()):
@@ -40,6 +41,12 @@ def datasets(temporal_module_session):
             stds_type,
             f"{prefix}M",
             [MapSpec(f"{prefix}m1", 1, datetime(2001, 1, 31), datetime(2001, 3, 31))],
+        )
+        create_stds(
+            tools,
+            stds_type,
+            f"{prefix}D",
+            [MapSpec(f"{prefix}d1", 1, datetime(2003, 12, 1), datetime(2004, 1, 1))],
         )
         create_stds(
             tools,
@@ -61,6 +68,13 @@ def datasets(temporal_module_session):
         ('buff_t({}M, "1 months")', "2000-12-31T00:00:00", "2001-04-30T00:00:00"),
         # 29.02.2004 + 1 year = 28.02.2005; 31.03.2004 + 1 year = 31.03.2005.
         ('tshift({}L, "1 years")', "2005-02-28T00:00:00", "2005-03-31T00:00:00"),
+        # 01.12.2003 - 24 months = 01.12.2001; 01.01.2004 + 24 months =
+        # 01.01.2006. A step back by 24 months from December raised "bad month
+        # number 0".
+        ('buff_t({}D, "24 months")', "2001-12-01T00:00:00", "2006-01-01T00:00:00"),
+        # 01.12.2003 - 24 months = 01.12.2001; 01.01.2004 - 24 months =
+        # 01.01.2002.
+        ('tshift({}D, "-24 months")', "2001-12-01T00:00:00", "2002-01-01T00:00:00"),
     ],
 )
 def test_month_and_year_steps_end_on_the_last_day_of_a_shorter_month(

@@ -9,10 +9,11 @@ an integer, unit is the temporal unit that can be one of year(s),
 month(s), week(s), day(s), hour(s), minute(s) or second(s). Since
 18.10.2026 a comma separated list such as `1 days, 2 hours` is accepted
 and shifts the maps by all parts at once; every part must be
-"number unit" and every unit may appear once. Each part is counted
-from the old time of a map and the lengths are added: shifted by
-`1 years, 1 months`, 2003-02-15 becomes 2004-03-14, since the month
-from 2003-02-15 has 28 days, while `13 months` give 2004-03-15.
+"number unit" and every unit may appear once. Years and months of a
+list form one step of `12 * years + months` months with one cut to the
+last day of the month: `1 years, 1 months` and `13 months` both turn
+2003-02-15 into 2004-03-15. The other parts (weeks to seconds) are added
+as lengths.
 Relative time takes a single integer.
 
 The granularity in case of relative time is an integer. The temporal

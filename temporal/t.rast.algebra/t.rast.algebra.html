@@ -1037,6 +1037,12 @@ February to 30 April 2001, the second one a map from 31 December 2000 to
 C = tshift(M, "1 months")
 C = buff_t(M, "1 months")
 </pre></div>
+
+<p>A step back by a multiple of 12 months, for example <code>buff_t(A, "24 months")</code>
+on a map that starts on 1 December, ended in the error "bad month number
+0" and now gives a result (corrected 23 October 2026). Years and months
+of one step count as one step of 12 * years + months months, so
+<code>"1 years, 11 months"</code> and <code>"23 months"</code> end on the same day.
 </li>
 </ol>
 

@@ -54,7 +54,8 @@ month ends on that last day: with `start="2001-01-31"` and
 `increment="1 months"` the maps start on January 31, February 28,
 March 31 and April 30. With the **-i** flag each map of such an increment
 ends where the next one starts, so the map of February 28 ends on
-March 31.
+March 31. Years and months of an increment such as
+`20 years, 3 months` form one step of `12 * years + months` months.
 
 Start time and end time with absolute time must be provided using the
 format **yyyy-mm-dd HH:MM:SS +HHMM**. It is also supported to specify

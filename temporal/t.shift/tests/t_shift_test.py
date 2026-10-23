@@ -326,22 +326,30 @@ def test_a_list_that_names_a_unit_twice_is_refused(tools, mixed, granularity):
 @pytest.mark.parametrize(
     ("granularity", "expected"),
     [
-        ("1 years, 1 months", "2004-03-14 00:00:00"),
+        ("1 years, 1 months", "2004-03-15 00:00:00"),
         ("13 months", "2004-03-15 00:00:00"),
     ],
 )
-def test_the_parts_of_a_list_are_measured_from_the_old_time(
-    tools, prefix, granularity, expected
-):
-    # Every part is counted from 2003-02-15 and the lengths are added: one
-    # month is 28 days (to 2003-03-15), one year 365 days (to 2004-02-15).
-    # 2004-02-15 plus 28 days is 2004-03-14, as February 2004 has 29 days.
-    # 13 months in one part land on 2004-03-15.
+def test_years_and_months_of_a_list_are_one_step(tools, prefix, granularity, expected):
+    # Years and months form one step of 12 * years + months months: from
+    # 2003-02-15, 13 months land on 2004-03-15 whether they are given as
+    # "13 months" or as "1 years, 1 months".
     name = _dataset(tools, prefix, [(datetime(2003, 2, 15), None)])
 
     tools.t_shift(input=name, granularity=granularity)
 
     assert _times(tools, name) == [(expected, None)]
+
+
+def test_a_shift_back_by_24_months_from_december(tools, prefix):
+    # 2003-12-01 - 24 months = 2001-12-01; 2004-01-01 - 24 months = 2002-01-01.
+    # Before, the step back by a multiple of 12 months from December raised
+    # "bad month number 0".
+    name = _dataset(tools, prefix, [(datetime(2003, 12, 1), datetime(2004, 1, 1))])
+
+    tools.t_shift(input=name, granularity="-24 months")
+
+    assert _times(tools, name) == [("2001-12-01 00:00:00", "2002-01-01 00:00:00")]
 
 
 def test_a_list_updates_the_granularity_and_the_history(tools, prefix):

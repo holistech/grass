@@ -635,6 +635,12 @@ used one of these forms need a new run.
    C = buff_t(M, "1 months")
    ```
 
+   A step back by a multiple of 12 months, for example `buff_t(A, "24 months")`
+   on a map that starts on 1 December, ended in the error "bad month number
+   0" and now gives a result (corrected 23 October 2026). Years and months
+   of one step count as one step of 12 * years + months months, so
+   `"1 years, 11 months"` and `"23 months"` end on the same day.
+
 9. **Time functions as the selected maps.** In a selection, a time function
    at an offset such as `start_doy(A, 1)` stands for the map it reads, whose
    value the previous implementation never computed. Where such a value was
