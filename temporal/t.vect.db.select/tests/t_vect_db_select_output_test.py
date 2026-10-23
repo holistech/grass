@@ -114,15 +114,19 @@ def test_t_where_selects_the_maps(tools, intervals):
     ]
 
 
-def test_a_t_where_without_a_map_prints_nothing(tools, intervals):
+@pytest.mark.parametrize(("output_format", "stdout"), [("plain", ""), ("json", "[]")])
+def test_a_t_where_without_a_map_warns_and_prints_nothing_else(
+    tools, intervals, output_format, stdout
+):
     # t.vect.list and t.vect.univar refuse an empty selection; this tool ends
-    # successfully with no output.
+    # successfully, but says on stderr why there is no output.
     result = tools.t_vect_db_select(
-        input=intervals, t_where="start_time > '2030-01-01'"
+        input=intervals, t_where="start_time > '2030-01-01'", format=output_format
     )
 
-    assert result.stdout == ""
+    assert result.stdout.strip() == stdout
     assert result.returncode == 0
+    assert "No map of the space time vector dataset <dbs_int" in result.stderr
 
 
 def test_a_where_without_a_row_prints_the_headers_only(tools, changing):

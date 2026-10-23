@@ -3,6 +3,18 @@
 The module *t.vect.db.select* prints attributes of vector maps
 registered in a space time vector dataset.
 
+## NOTES
+
+All maps are checked before the first line is printed. If a map has no
+attribute table in the layer used for it, or lacks a column named in
+**columns**, the module ends with an error that lists the maps and prints
+nothing. The names are compared without regard to case, as the database does.
+The star and SQL expressions in **columns** are not checked; *v.db.select*
+evaluates them in the table of each map.
+
+If **t_where** selects no map, the module prints a warning and ends
+successfully: the output is empty, or `[]` for the JSON format.
+
 ## EXAMPLE
 
 The example is querying the *shoreline* space time dataset:

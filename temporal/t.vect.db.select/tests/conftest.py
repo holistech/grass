@@ -11,6 +11,8 @@ attributes.
 - dbs_chg has dc_1 (January 2001; two points at (1, 1) and (2, 2); columns a =
   1, 2 and b = x, y) and dc_2 (February 2001; one point at (1, 1); a = 5 and c =
   2.5), whose tables differ,
+- dbs_part has dp_1 to dp_3 (January to March 2001) with the column a (k); dp_1
+  and dp_2 also have the column b (x), dp_3 does not,
 - dbs_nest has dx_1 (January to July 2001) and dx_2 (February to March 2001),
   one point each, whose start order differs from the end order,
 - dbs_lay has the map dl with two layers (a = 1, 2 in layer 1 and 101, 102 in
@@ -120,3 +122,23 @@ def nested(tools):
         ],
     )
     return "dbs_nest"
+
+
+@pytest.fixture(scope="module")
+def partial(tools):
+    """The dataset dbs_part described above; returns its name"""
+    for k in (1, 2, 3):
+        attributes = {"a": [k]}
+        if k < 3:
+            attributes["b"] = ["x"]
+        vector_points(tools, f"dp_{k}", [(k, 1)], attributes=attributes)
+    register_stds(
+        tools,
+        "stvds",
+        "dbs_part",
+        [
+            MapSpec(f"dp_{k}", None, datetime(2001, k, 1), datetime(2001, k + 1, 1))
+            for k in (1, 2, 3)
+        ],
+    )
+    return "dbs_part"

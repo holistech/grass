@@ -51,11 +51,64 @@
 # %end
 
 import json
+import re
 
 import grass.script as gs
 from grass.tools import ToolError, Tools
 
 ############################################################################
+
+
+def _check_columns(tools, rows, layer, columns):
+    """Refuse the run before the first output line if a map cannot deliver
+
+    The maps are printed one after the other, so a map that fails in the
+    middle would leave the output of the earlier maps behind. A map fails
+    if it has no table in its layer or lacks one of the requested columns.
+    Only plain column names are checked; "*" and SQL expressions are left
+    to v.db.select, which evaluates them in the table of each map.
+    The layer of each map is chosen as in the main loop: the layer of a
+    registered map replaces the layer option, and keeps doing so for the
+    maps after it.
+    """
+    wanted = []
+    if columns:
+        wanted = [
+            name.strip()
+            for name in columns.split(",")
+            if re.fullmatch(r"\s*\w+\s*", name)
+        ]
+
+    without_table = []
+    missing = {}
+    for row in rows:
+        vector_name = "%s@%s" % (row["name"], row["mapset"])
+        if row["layer"]:
+            layer = row["layer"]
+        label = "%s (layer %s)" % (vector_name, layer)
+        try:
+            listing = tools.v_info(map=vector_name, layer=layer, flags="c").text
+        except ToolError:
+            without_table.append(label)
+            continue
+        # One line per column: TYPE|name. SQLite compares names without case.
+        present = {
+            line.split("|", 1)[-1].strip().lower() for line in listing.split("\n")
+        }
+        for name in wanted:
+            if name.lower() not in present:
+                missing.setdefault(name, []).append(label)
+
+    if without_table:
+        gs.fatal(
+            _("No attribute table found for the maps: {}").format(
+                ", ".join(without_table)
+            )
+        )
+    for name, labels in missing.items():
+        gs.fatal(
+            _("Column <{}> not found in the maps: {}").format(name, ", ".join(labels))
+        )
 
 
 def main():
@@ -109,7 +162,16 @@ def main():
     json_output = []
     col_names = ""
 
+    if not rows:
+        gs.warning(
+            _("No map of the space time vector dataset <{}> matches t_where.").format(
+                input
+            )
+        )
+
     if rows:
+        _check_columns(tools, rows, layer, columns)
+
         for row in rows:
             vector_name = "%s@%s" % (row["name"], row["mapset"])
             # In case a layer is defined in the vector dataset,
