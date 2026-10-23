@@ -6,14 +6,17 @@ a space time dataset.
 The title, description and the semantic type can be modified. A call
 without the option *semantictype* leaves the semantic type as it is. The
 aggregation type of a space time raster dataset can be set with
-*aggr_type*; a space time vector dataset has none, so *t.support* warns
-about *aggr_type* for it and applies the other options. A call without *-u*,
-*-m* and any option changes nothing; it no longer updates the dataset as the
-former default of *semantictype* did.
+*aggr_type*, which takes any text and does not check it against the
+known aggregation methods; a space time vector dataset has none, so
+*t.support* warns about *aggr_type* for it and applies the other options. A
+call without *-u*, *-m* and any option changes nothing; it no longer updates
+the dataset as the former default of *semantictype* did.
 
 The flag *-u* allows updating the STDS metadata from registered map
-layers. This is useful in case the map layers have been modified without
-using temporal commands.
+layers. It computes the values from the entries of the registered maps in
+the temporal database and does not read the maps themselves. A map layer
+that was modified without using temporal commands is therefore not seen
+by *-u*; use *-m* for it.
 
 The flag *-m* will update the metadata from registered maps, but also
 checks if the registered map layers have been removed from the spatial
