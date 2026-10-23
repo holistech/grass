@@ -12,6 +12,7 @@ import grass.script as gs
 from grass.temporal.testing.readback import (
     Row,
     cell_values,
+    inventory,
     list_maps,
     map_info,
     message,
@@ -140,6 +141,17 @@ def test_map_info_of_a_registered_map(tools, map_type, name, start):
     info = map_info(tools, map_type, name)
     assert info["name"] == name
     assert info["start_time"] == start
+
+
+def test_inventory_lists_the_maps_and_the_datasets(tools):
+    maps, datasets = inventory(tools)
+
+    assert sorted(maps) == ["a", "b", "c", "va", "vb", "vv", "vw"]
+    assert datasets == [
+        ["empty@PERMANENT", "s@PERMANENT"],
+        ["s3@PERMANENT"],
+        ["sv@PERMANENT"],
+    ]
 
 
 def test_map_info_of_a_map_that_is_not_registered_is_none(tools):

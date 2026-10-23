@@ -8,7 +8,7 @@ refused before anything is written.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
-from grass.temporal.testing.readback import list_maps, message, stds_info
+from grass.temporal.testing.readback import inventory, list_maps, message, stds_info
 from grass.tools import ToolError
 
 # Nearly every test builds maps and datasets and runs the interpolation, which takes
@@ -20,14 +20,6 @@ def _refused(tools, **options):
     with pytest.raises(ToolError) as error:
         tools.t_rast_gapfill(**options)
     return message(error.value)
-
-
-def _inventory(tools):
-    """The maps of the mapset and the space time raster datasets"""
-    return (
-        tools.g_list(type="all", mapset=".").stdout.split(),
-        tools.t_list(type="strds", columns="id").stdout.split(),
-    )
 
 
 def _rows(tools, name):
@@ -51,13 +43,13 @@ def test_an_unknown_input_is_refused(tools, prefix):
 def test_an_unknown_suffix_is_refused_before_anything_is_written(tools, gappy, prefix):
     # gram used to count as num and fill the gap with <prefix>_00004_00001.
     name = gappy({1: (100, 0), 3: (300, 90)})
-    before = _inventory(tools)
+    before = inventory(tools)
 
     text = _refused(tools, input=name, basename=prefix, suffix="gram")
 
     assert "Invalid suffix <gram>, use gran, time, num or num%NN" in text
     assert "Traceback" not in text
-    assert _inventory(tools) == before
+    assert inventory(tools) == before
 
 
 def test_the_message_for_an_existing_map_names_the_map(tools, gappy, prefix):
@@ -196,7 +188,7 @@ def test_a_dataset_of_time_instants_is_refused_before_anything_is_written(
     tools, prefix, entries
 ):
     name = _days(tools, f"{prefix}_points", entries)
-    before = _inventory(tools)
+    before = inventory(tools)
 
     text = _refused(tools, input=name, basename=prefix)
 
@@ -204,7 +196,7 @@ def test_a_dataset_of_time_instants_is_refused_before_anything_is_written(
         f"Space time raster dataset <{name}@PERMANENT> holds only time "
         "instants, only intervals can be filled" in text
     )
-    assert _inventory(tools) == before
+    assert inventory(tools) == before
     assert stds_info(tools, "strds", name)["number_of_maps"] == len(entries)
 
 
@@ -219,7 +211,7 @@ def test_a_gap_after_a_time_instant_is_refused_before_anything_is_written(
         f"{prefix}_mixed",
         [((0, 1), 100), ((3, 4), 400), (5, 500), ((7, 8), 800)],
     )
-    before = _inventory(tools)
+    before = inventory(tools)
 
     text = _refused(tools, input=name, basename=prefix)
 
@@ -227,7 +219,7 @@ def test_a_gap_after_a_time_instant_is_refused_before_anything_is_written(
         f"The gap after the time instant <{name}_m2@PERMANENT> cannot be "
         "filled, only gaps after an interval can be filled" in text
     )
-    assert _inventory(tools) == before
+    assert inventory(tools) == before
     assert stds_info(tools, "strds", name)["number_of_maps"] == 4
 
 

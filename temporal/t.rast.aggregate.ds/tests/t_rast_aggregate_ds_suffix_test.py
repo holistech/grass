@@ -9,19 +9,8 @@ dataset of a single time instant gets the date of its sampler interval.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
-from grass.temporal.testing.readback import list_maps, message
+from grass.temporal.testing.readback import inventory, list_maps, message
 from grass.tools import ToolError
-
-
-def _inventory(tools):
-    """The maps of the mapset and the space time datasets of the project"""
-    return (
-        tools.g_list(type="all", mapset=".").stdout.split(),
-        [
-            tools.t_list(type=stds_type, columns="id").stdout.split()
-            for stds_type in ("strds", "str3ds", "stvds")
-        ],
-    )
 
 
 def test_a_single_time_instant_gets_the_date_of_its_sampler_interval(tools, prefix):
@@ -56,7 +45,7 @@ def test_an_unknown_suffix_is_refused_before_anything_is_written(tools, prefix):
     create_stds(
         tools, "strds", f"{prefix}_sampler", [MapSpec(f"{prefix}_s", 0, day(0), day(3))]
     )
-    before = _inventory(tools)
+    before = inventory(tools)
 
     with pytest.raises(ToolError) as error:
         tools.t_rast_aggregate_ds(
@@ -70,4 +59,4 @@ def test_an_unknown_suffix_is_refused_before_anything_is_written(tools, prefix):
     text = message(error.value)
     assert "Invalid suffix <gram>, use gran, time, num or num%NN" in text
     assert "Traceback" not in text
-    assert _inventory(tools) == before
+    assert inventory(tools) == before

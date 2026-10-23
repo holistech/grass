@@ -78,6 +78,24 @@ def stds_info(tools, stds_type, name):
     return tools.t_info(type=stds_type, input=name, flags="g").keyval
 
 
+def inventory(tools):
+    """The maps of the current mapset and the space time datasets
+
+    Returns the names that g.list type=all gives for the current mapset and,
+    for strds, str3ds and stvds in this order, the ids that t.list gives for
+    the mapsets of the search path. Tests compare it before and after a
+    refused run to show that the run left no new map and no new dataset
+    behind; maps registered in an existing dataset do not show here.
+    """
+    return (
+        tools.g_list(type="all", mapset=".").stdout.split(),
+        [
+            tools.t_list(type=stds_type, columns="id").stdout.split()
+            for stds_type in ("strds", "str3ds", "stvds")
+        ],
+    )
+
+
 def map_info(tools, map_type, name):
     """t.info -g of a map as a dict, or None if the map is not in the database
 
