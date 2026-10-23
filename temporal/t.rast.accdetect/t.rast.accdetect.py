@@ -195,6 +195,11 @@ def main():
     reverse = flags["r"]
     time_suffix = options["suffix"]
 
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface
@@ -420,29 +425,10 @@ def main():
             for i in range(num_maps):
                 map = input_maps[num_maps - i - 1] if reverse else input_maps[i]
 
-                if (
-                    input_strds.get_temporal_type() == "absolute"
-                    and time_suffix == "gran"
-                ):
-                    suffix = tgis.create_suffix_from_datetime(
-                        map.temporal_extent.get_start_time(),
-                        input_strds.get_granularity(),
-                    )
-                    indicator_map_name = "{ba}_indicator_{su}".format(
-                        ba=base, su=suffix
-                    )
-                elif (
-                    input_strds.get_temporal_type() == "absolute"
-                    and time_suffix == "time"
-                ):
-                    suffix = tgis.create_time_suffix(map)
-                    indicator_map_name = "{ba}_indicator_{su}".format(
-                        ba=base, su=suffix
-                    )
-                else:
-                    indicator_map_name = tgis.create_numeric_suffix(
-                        base + "_indicator", indi_count, time_suffix
-                    )
+                suffix = tgis.map_name_suffix(
+                    map, time_suffix, input_strds.get_granularity(), indi_count
+                )
+                indicator_map_name = f"{base}_indicator_{suffix}"
                 indicator_map_id = dummy.build_id(indicator_map_name, mapset)
                 indicator_map = input_strds.get_new_map_instance(indicator_map_id)
 
@@ -693,16 +679,10 @@ def compute_occurrence(
         td = input_start - start
         days = tgis.time_delta_to_relative_time(td) if map.is_time_absolute() else td
 
-        if input_strds.get_temporal_type() == "absolute" and tsuffix == "gran":
-            suffix = tgis.create_suffix_from_datetime(
-                map.temporal_extent.get_start_time(), input_strds.get_granularity()
-            )
-            occurrence_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-        elif input_strds.get_temporal_type() == "absolute" and tsuffix == "time":
-            suffix = tgis.create_time_suffix(map)
-            occurrence_map_name = "{ba}_{su}".format(ba=base, su=suffix)
-        else:
-            occurrence_map_name = tgis.create_numeric_suffix(base, count, tsuffix)
+        suffix = tgis.map_name_suffix(
+            map, tsuffix, input_strds.get_granularity(), count
+        )
+        occurrence_map_name = f"{base}_{suffix}"
 
         occurrence_map_id = map.build_id(occurrence_map_name, mapset)
         occurrence_map = input_strds.get_new_map_instance(occurrence_map_id)

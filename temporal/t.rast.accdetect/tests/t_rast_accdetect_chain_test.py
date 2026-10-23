@@ -333,7 +333,7 @@ def test_numeric_suffix_of_both_datasets(tools, monthly, existing):
         basename="result_num",
         start="2001-01-01",
         cycle="12 months",
-        suffix="count%03",
+        suffix="num%03",
         range="1,8",
     )
 
