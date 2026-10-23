@@ -1320,10 +1320,10 @@ void check_opts(void)
 
         if (opt->answer) {
             /* An option with a tuple as key_desc, such as rows,columns, is
-               not multiple but its answer holds several integers. */
+               not multiple but its answer holds several numbers. */
             if (opt->multiple == 0 &&
-                !(opt->type == TYPE_INTEGER && opt->key_desc &&
-                  strchr(opt->key_desc, ',')))
+                !((opt->type == TYPE_INTEGER || opt->type == TYPE_DOUBLE) &&
+                  opt->key_desc && strchr(opt->key_desc, ',')))
                 check_an_opt(opt->key, opt->type, opt->options, opt->opts,
                              &opt->answer);
             else {
@@ -1472,6 +1472,7 @@ int check_double(const char *ans, const char **opts)
 {
     double d;
     int i;
+    char *end;
 
     /* "-" is reserved for standard input */
     if (strcmp(ans, "-") == 0)
@@ -1480,7 +1481,17 @@ int check_double(const char *ans, const char **opts)
     if (!ans || !*ans)
         return MISSING_VALUE;
 
-    if (sscanf(ans, "%lf", &d) != 1)
+    /* sscanf("%lf") stops at the first character that cannot belong to the
+       number, so "2.5abc" was read as 2.5 and "1e400" as infinity. As in
+       check_int(), the whole answer must be the number and spaces around it
+       are allowed. */
+    errno = 0;
+    d = strtod(ans, &end);
+    if (end == ans)
+        return INVALID_VALUE;
+    while (isspace((unsigned char)*end))
+        end++;
+    if (*end != '\0' || errno == ERANGE)
         return INVALID_VALUE;
 
     if (!opts)
