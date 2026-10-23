@@ -10,6 +10,8 @@ import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.readback import message
 from grass.temporal.testing.reference import reference_parser
 from grass.tools import ToolError, Tools
 
@@ -403,6 +405,30 @@ def test_syntax_error_fails(algebra, tool, expression):
         tool.t_rast_algebra(expression=expression, basename="opt_err")
     with pytest.raises(ToolError):
         tool.t_info(input="OPT_ERR")
+
+
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_a_failed_module_is_reported_without_traceback(algebra, tool, nprocs):
+    """A module that fails at run time ends the tool with a message that
+    names the module, not with a traceback. The temporal database still
+    lists the second map after its raster map was removed, so planning
+    cannot see the failure; r.mapcalc finds the map missing."""
+    dataset, result = f"OPT_GONE{nprocs}", f"OPT_GONE_RESULT{nprocs}"
+    maps = [MapSpec(f"opt_gone{nprocs}_{i}", i, day(i), day(i + 1)) for i in range(3)]
+    create_stds(tool, "strds", dataset, maps)
+    tool.g_remove(type="raster", name=maps[1].name, flags="f")
+    with pytest.raises(ToolError) as error:
+        tool.t_rast_algebra(
+            expression=f"{result} = {dataset} * 2",
+            basename=result.lower(),
+            nprocs=nprocs,
+        )
+    # r.mapcalc ends with G_fatal_error(), whose exit code is 1, and so does
+    # the tool with gs.fatal().
+    assert error.value.returncode == 1
+    assert "Module <r.mapcalc> failed with return code 1" in message(error.value)
+    assert "Traceback" not in error.value.stderr
+    assert result not in tool.t_list(type="strds", columns="name").stdout.split()
 
 
 def test_unknown_dataset_is_named_in_the_error(algebra, tool):

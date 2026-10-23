@@ -657,9 +657,9 @@ The classic algebra gives the results of the previous implementation, with
 the exceptions below. In these cases the previous implementation ended in an
 error that had no reason or reported the wrong error. **-c** now gives the
 result described here. The new algebra never had these errors; only the
-items on month steps and on dates beyond the year 9999 concerned the library
-and with it both algebras. Results of earlier GRASS versions that used one
-of these forms need a new run.
+items on month steps, on dates beyond the year 9999 and on a failed module
+concerned the library and with it both algebras. Results of earlier GRASS
+versions that used one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
    maps, the result is empty like any other empty result: the classic
@@ -760,6 +760,13 @@ of these forms need a new run.
    meets at a corner the box of a map of B from 2 to 3 January keeps the
    time 1 to 2 January in the inverse selection above, where it took 2 to 3
    January. Without **-s** nothing changes.
+
+9. **A failed module.** If a module fails while the maps are computed, for
+   example *v.patch*, both algebras ended with a Python traceback. They now end
+   with an error that names the module and its return code, such as
+   `Module <v.patch> failed with return code 1, see the error output above`
+   (corrected 24 October 2026); the cause is in the error output of the module
+   above it. No dataset is created.
 
 #### Differences from the previous implementation
 

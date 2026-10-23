@@ -12,7 +12,13 @@ import pytest
 
 from grass.temporal.testing import fakes
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
+from grass.temporal.testing.expressions import (
+    RUNNERS,
+    compare,
+    failed_module_pair,
+    outcome,
+    prepare,
+)
 from grass.tools import Tools
 
 KIND = "raster"
@@ -469,6 +475,17 @@ def cached_io(datasets):
     """Replace the fixture of conftest.py: the caches run through datasets"""
 
 
+def difference(expression, reference, profile):
+    """compare() of the outcomes, except for a module that failed at run time
+    in both, which the profile reports as the FatalError of materialize()
+
+    No other pair of error classes is accepted here, unlike in compare_runs().
+    """
+    if failed_module_pair(reference, profile):
+        return None
+    return compare(KIND, expression, reference, profile)
+
+
 def assert_equal(expression, *, maps=None, **options):
     """The profile gives what the reference gives, with maps maps if given"""
     options = {"register_null": True, **options}
@@ -476,7 +493,7 @@ def assert_equal(expression, *, maps=None, **options):
         KIND, expression, RUNNERS["reference"], basename="fa", **options
     )
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
-    assert compare(KIND, expression, reference, profile) is None
+    assert difference(expression, reference, profile) is None
     if maps is not None:
         assert len(profile["maps"]) == maps
 
@@ -503,6 +520,22 @@ def test_floating_point_operands_of_logical_operators(datasets, expression):
 @pytest.mark.parametrize("expression", TIME_AND_CELL_CONDITIONS)
 def test_time_and_cell_conditions(datasets, expression):
     assert_equal(expression)
+
+
+def test_only_the_report_of_a_failed_module_is_accepted(datasets):
+    """A failed module of the reference equals the report of a failed module
+    by the profile, not another FatalError of the profile"""
+    failed = {
+        "error": "Other:CalledModuleError",
+        "msg": "Module run `r.mapcalc expression=B_#=a#` ended with an error.",
+    }
+    reported = {
+        "error": "FatalError",
+        "msg": "Module # failed with return code #, see the error output above",
+    }
+    other = {"error": "FatalError", "msg": "Dataset # not found"}
+    assert difference("A", failed, reported) is None
+    assert difference("A", failed, other) is not None
 
 
 # A time function of a map read at an offset, joined with a condition on

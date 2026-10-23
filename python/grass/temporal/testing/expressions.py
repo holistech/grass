@@ -389,6 +389,33 @@ _UNCOMPUTED_COPY = re.compile(r"g\.copy (?:raster|raster_[3#]d|vector)=tmp_map_n
 _TIME_FUNCTION_REFUSAL = (
     "A time function such as start_doy() cannot be the result of a selection"
 )
+# A module that fails at run time: the earlier implementation lets the
+# CalledModuleError through, the profile reports it as the FatalError of
+# materialize(). outcome() replaces the module name and the numbers by #.
+_MODULE_RUN = "Module run `"
+_MODULE_FAILURE = "Module # failed with return code #, see the error output above"
+
+
+def failed_module_pair(first, second):
+    """Name the pair if a module failed at run time in both outcomes
+
+    The classic profile computes its maps with materialize(), which reports
+    a failed module as a ``FatalError``; the earlier implementation lets the
+    ``CalledModuleError`` of the same failing module call through. Before
+    materialize() reported it, both outcomes had the same class.
+
+    :param first: The outcome of the earlier implementation
+    :param second: The outcome of the classic profile
+    :return: ``"Other:CalledModuleError/FatalError"``, or None
+    """
+    if (first.get("error"), second.get("error")) != (
+        "Other:CalledModuleError",
+        "FatalError",
+    ):
+        return None
+    failed = first.get("msg", "").startswith(_MODULE_RUN)
+    reported = second.get("msg", "") == _MODULE_FAILURE
+    return "Other:CalledModuleError/FatalError" if failed and reported else None
 
 
 def accepted_error_pair(kind, expression, first, second, **options):
@@ -413,8 +440,13 @@ def accepted_error_pair(kind, expression, first, second, **options):
     result is a time function (``if(start_doy(A) < 3, start_doy(A, 1), A)``):
     the earlier implementation fails to copy the map it never computed with a
     ``CalledModuleError`` of ``g.copy``, and the profile refuses the
-    expression with a ``ValueError`` of the message of the core. Every other
-    pair is a difference.
+    expression with a ``ValueError`` of the message of the core. Or a module
+    fails at run time in both, as r.mapcalc on a floating point operand of
+    ``&&`` (``failed_module_pair``): the profile runs on materialize(),
+    which reports the failure as a ``FatalError``, the earlier
+    implementation lets the ``CalledModuleError`` of the same call through.
+    Before that report both had the same class, so this pair accepts no
+    more than before. Every other pair is a difference.
 
     :param first: The outcome of the earlier implementation
     :param second: The outcome of the classic profile
@@ -436,6 +468,8 @@ def accepted_error_pair(kind, expression, first, second, **options):
         crash = _MIXED_TIME_CRASH.search(first.get("msg", ""))
         refusal = _MIXED_TIME_REGISTRATION.search(second.get("msg", "").lower())
         return label if crash and refusal else None
+    if pair == ("Other:CalledModuleError", "FatalError"):
+        return failed_module_pair(first, second)
     if pair == ("Other:CalledModuleError", "Other:ValueError"):
         copy = _UNCOMPUTED_COPY.search(first.get("msg", ""))
         refusal = second.get("msg", "").startswith(_TIME_FUNCTION_REFUSAL)

@@ -19,6 +19,7 @@ and the map tm (7) registered with [1, 2] in no dataset, and the map m
 import dataclasses
 import datetime
 import importlib
+import multiprocessing
 from io import StringIO
 
 import pytest
@@ -26,6 +27,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import CalledModuleError, FatalError
+from grass.pygrass.modules import Module
 from grass.temporal import algebra as ta
 from grass.temporal.algebra.content import Const, MapRef
 from grass.temporal.algebra.series import Series, Slot, Space
@@ -315,14 +317,9 @@ def test_parallel_processes_give_the_same_result(core_session):
     assert registered("parallel_series") == [(day(1), day(3), 4)]
 
 
-@pytest.mark.filterwarnings(
-    "ignore:This process .* is multi-threaded:DeprecationWarning"
-)
-@pytest.mark.timeout(60)
-def test_parallel_failure_of_a_sequence_of_calls_is_raised(core_session, monkeypatch):
-    """r.series reads a missing map after r.mapcalc has written the temporary
-    maps; the background process reports the failure instead of waiting
-    forever"""
+def series_reading_a_missing_map(monkeypatch):
+    """The series b1 = sum(z1 * 2, z2 * 2) of B and Z, whose r.series reads
+    a missing map after r.mapcalc has written the temporary maps"""
     b, z = ta.source("B"), ta.source("Z")
     reduced = ta.gather(b, ta.contains, z * 2, reduce="sum", nulls="skip")
     run_module = materialize_module._module
@@ -334,8 +331,63 @@ def test_parallel_failure_of_a_sequence_of_calls_is_raised(core_session, monkeyp
         return module
 
     monkeypatch.setattr(materialize_module, "_module", failing_module)
-    with pytest.raises(CalledModuleError, match="no_such_map"):
-        ta.materialize(reduced, "parallel_failing", overwrite=True, nprocs=2)
+    return reduced
+
+
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded:DeprecationWarning"
+)
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("nprocs", [1, 2])
+def test_a_failed_module_is_a_fatal_error(core_session, monkeypatch, nprocs):
+    """The failure of r.series is reported as a FatalError, which the tools
+    print as a message, for a single process and for the background process
+    of a sequence of calls, which reports it instead of waiting forever"""
+    reduced = series_reading_a_missing_map(monkeypatch)
+    with pytest.raises(FatalError) as error:
+        ta.materialize(reduced, "failing_module", overwrite=True, nprocs=nprocs)
+    # r.series ends with G_fatal_error(), whose exit code is 1.
+    assert str(error.value) == (
+        "Module <r.series> failed with return code 1, see the error output above"
+    )
+    assert isinstance(error.value.__cause__, CalledModuleError)
+    assert "no_such_map" in str(error.value.__cause__)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:This process .* is multi-threaded:DeprecationWarning"
+)
+@pytest.mark.skipif(
+    multiprocessing.get_start_method() != "fork",
+    reason="the child process sees the patch of the test only with fork",
+)
+@pytest.mark.timeout(60)
+def test_a_background_process_that_fails_otherwise_is_a_fatal_error(
+    core_session, monkeypatch
+):
+    """An exception other than a failed module in the background process
+    stops the run; the result map of an earlier run is not registered as if
+    it had been computed again"""
+    b, z = ta.source("B"), ta.source("Z")
+    reduced = ta.gather(b, ta.contains, z * 2, reduce="sum", nulls="skip")
+    ta.materialize(reduced, "failing_child", overwrite=True, nprocs=2)
+    run = Module.run
+
+    def run_failing_series(module):
+        # Before Popen, so the module has no return code. The patch is made
+        # before the background process is forked, so it applies there.
+        if module.name == "r.series":
+            msg = "simulated failure in the background process"
+            raise OSError(msg)
+        return run(module)
+
+    monkeypatch.setattr(Module, "run", run_failing_series)
+    with pytest.raises(FatalError) as error:
+        ta.materialize(reduced, "failing_child", overwrite=True, nprocs=2)
+    # The exception ends the background process with exit code 1.
+    assert str(error.value) == (
+        "Module <r.series> failed with return code 1, see the error output above"
+    )
 
 
 def test_removed_empty_maps_leave_no_row_in_the_temporal_database(core_session):

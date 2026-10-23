@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 import grass.script as gs
-from grass.exceptions import FatalError
+from grass.exceptions import CalledModuleError, FatalError
 from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
 from grass.temporal.core import (
     get_current_mapset,
@@ -732,7 +732,8 @@ def materialize(
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
     :raises FatalError: if the dataset or a result map exists and overwrite
-        is False; nothing is computed then
+        is False; nothing is computed then. Also if a module fails; the
+        message names the module and its return code
     :raises ValueError: as plan(), or for nprocs other than 1 with vector
         maps
     :return: the space time dataset, or None for a vector result without maps
@@ -768,6 +769,16 @@ def materialize(
             _check_absent(chain, mapset, dbif, classic_absence_check)
         try:
             dropped = _run(chain, overwrite, nprocs)
+        except CalledModuleError as error:
+            # The tools report a FatalError as a message; a CalledModuleError
+            # would reach the user as a traceback. The module has written its
+            # own error output already.
+            raise FatalError(
+                _(
+                    "Module <{module}> failed with return code {code}, see the "
+                    "error output above"
+                ).format(module=error.module, code=error.returncode)
+            ) from error
         finally:
             # Also when a call fails part-way: its temporary maps would
             # otherwise stay in the mapset. g.remove ignores names that were

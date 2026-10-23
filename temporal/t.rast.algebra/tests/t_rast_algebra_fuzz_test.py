@@ -162,6 +162,31 @@ def test_other_pairs_of_errors_are_differences(datasets):
         assert compare_runs(KIND, expression, first, second) is not None
 
 
+def test_a_failed_module_is_accepted_only_against_its_report(datasets):
+    """A failed module of the earlier implementation is accepted against the
+    FatalError by which materialize() reports a failed module in the profile,
+    not against another FatalError, and that report not against another
+    CalledModuleError"""
+    expression = "A + N"
+    failed = {
+        "error": "Other:CalledModuleError",
+        "msg": "Module run `r.mapcalc expression=B_#=a#` ended with an error.",
+    }
+    reported = {
+        "error": "FatalError",
+        "msg": "Module # failed with return code #, see the error output above",
+    }
+    other_called = {"error": "Other:CalledModuleError", "msg": ""}
+    other_fatal = {"error": "FatalError", "msg": "Dataset <A> not found"}
+    assert accepted_error_pair(KIND, expression, failed, reported) == (
+        "Other:CalledModuleError/FatalError"
+    )
+    assert compare_runs(KIND, expression, failed, reported) is None
+    for first, second in ((failed, other_fatal), (other_called, reported)):
+        assert accepted_error_pair(KIND, expression, first, second) is None
+        assert compare_runs(KIND, expression, first, second) is not None
+
+
 def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
     """The profile's FatalError is accepted against a SyntaxError of the
     earlier implementation only if it refuses a dataset of another temporal
