@@ -20,7 +20,8 @@ has no attribute table, a vector map belongs to another mapset, or the same
 layer of one map is registered under two ids (for example <code>c</code> and
 <code>c:1</code>) and both would write the <b>column</b> option's column, the
 module stops with an error and changes nothing. Without <b>column</b> the same
-layer under two ids is allowed, as each raster map gets a column of its own;
+layer under two ids is refused only if both intervals reach one raster map, as
+they would write its column twice, and is otherwise allowed;
 two different layers of one map (<code>c:1</code> and <code>c:2</code>) are
 allowed with <b>column</b>, as each has its own table. With the <b>--overwrite</b> flag, the
 existing columns are kept and their values are written again, so a second run

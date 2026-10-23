@@ -204,11 +204,13 @@ def main():
 
     # v.what.rast only reports an error in the where condition and the run
     # ends with status 0 and empty values, so the condition is tried on the
-    # table of each layer first.
+    # table of each layer first. The layers are taken in the order of the
+    # dataset: a set would name any of several failing tables, differing from
+    # run to run with the hash seed of the interpreter.
     if where:
-        for vectmap, layer in {
+        for vectmap, layer in dict.fromkeys(
             (f"{row['name']}@{row['mapset']}", int(row["layer"] or 1)) for row in rows
-        }:
+        ):
             connection = gs.vector_db(vectmap).get(layer)
             if not connection:
                 continue

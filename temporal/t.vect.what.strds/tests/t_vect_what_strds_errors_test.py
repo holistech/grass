@@ -403,3 +403,41 @@ def test_two_layers_of_one_map_with_column_are_allowed(tools, rasters, prefix):
     assert tools.db_select(
         sql=f"SELECT w FROM {prefix}_c_2", flags="c"
     ).stdout.split() == ["211", "212", "221", "222"]
+
+
+def test_a_where_failing_at_two_tables_names_the_first_in_dataset_order(
+    tools, rasters, vectors
+):
+    data = vectors()
+    first, second, third = data.maps
+    tools.v_db_addcolumn(map=first, columns="foo integer")
+
+    text = _refused(
+        tools, input=data.dataset, strds="wh_a", column="m", where="foo = 1"
+    )
+
+    # The second and the third table lack foo. The dataset lists the second
+    # map before the third (May before August), so it is the one named.
+    assert f"for vector map <{second}@" in text
+    assert f"<{third}@" not in text
+
+
+def test_one_layer_under_two_ids_hitting_one_raster_map_is_refused(
+    tools, rasters, prefix
+):
+    vector_points(tools, f"{prefix}_c", CENTRES, attributes={"h": [1, 2, 3, 4]})
+    register_stds(
+        tools,
+        "stvds",
+        f"{prefix}_ds",
+        [
+            MapSpec(f"{prefix}_c", None, datetime(2001, 3, 1), datetime(2001, 4, 1)),
+            MapSpec(f"{prefix}_c:1", None, datetime(2001, 3, 1), datetime(2001, 4, 1)),
+        ],
+    )
+
+    text = _refused(tools, input=f"{prefix}_ds", strds="wh_a")
+
+    # Both intervals are March, so both ids would write the column wr_1.
+    assert "would both write column <wr_1>" in text
+    assert "wr_1" not in _names(tools, f"{prefix}_c")

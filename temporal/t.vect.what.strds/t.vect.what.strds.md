@@ -20,7 +20,8 @@ written has no attribute table, a vector map belongs to another mapset, or the
 same layer of one map is registered under two ids (for example `c` and `c:1`)
 and both would write the **column** option's column, the module stops with an
 error and changes nothing. Without **column** the same layer under two ids is
-allowed, as each raster map gets a column of its own; two different layers of
+refused only if both intervals reach one raster map, as they would write its
+column twice, and is otherwise allowed; two different layers of
 one map (`c:1` and `c:2`) are allowed with **column**, as each has its own
 table. With the **--overwrite** flag,
 the existing columns are kept and their values are written again, so a second
