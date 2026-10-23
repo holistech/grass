@@ -219,10 +219,12 @@ both corrections.
 
 The classic algebra gives the results of the previous implementation, with
 the exceptions below. In these cases the previous implementation computed
-wrongly or reported the wrong error. **-c** now gives the result described
-here; the new algebra never computed these cases wrongly. Results of earlier
-GRASS versions that used one of these forms need a new run. The examples
-use the datasets of the list above and, in addition, N with daily maps.
+wrongly, ended in an error that had no reason, or reported the wrong error.
+**-c** now gives the result described here. The new algebra never computed
+these cases wrongly; only the item on month steps concerned the library and
+with it both algebras. Results of earlier GRASS versions that used one of
+these forms need a new run. The examples use the datasets of the list above
+and, in addition, N with daily maps.
 
 1. **td() of an expression** on the right of an operator used the value of
    the expression instead of the duration of its maps. With daily maps in N
@@ -353,6 +355,20 @@ use the datasets of the list above and, in addition, N with daily maps.
 
     ```sh
     C = A {+,equal|equivalent,l} N
+    ```
+
+12. **Month and year steps from the end of a month.** `tshift()` and
+    `buff_t()` by months or years ended in an error ("day is out of range for
+    month") when a time stamp moved to a day that the target month lacks, in
+    both algebras. Such a step now ends on the last day of that month
+    (corrected 23 October 2026). With a dataset M whose map lasts from 31
+    January to 31 March 2001, the first expression gives a map from 28
+    February to 30 April 2001, the second one a map from 31 December 2000 to
+    30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+
+    ```sh
+    C = tshift(M, "1 months")
+    C = buff_t(M, "1 months")
     ```
 
 #### Differences from the previous implementation
