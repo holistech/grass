@@ -323,11 +323,21 @@ def main():
             gs.fatal(_("Temporal type of input strds and upper strds must be equal"))
 
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
-
     if input_strds.is_time_absolute():
         start = _to_datetime(start, "start", dbif)
         stop = _to_datetime(stop, "stop", dbif) if stop else input_strds_end
+        given_start = start
         start = tgis.adjust_datetime_to_granularity(start, granularity)
+        if start != given_start:
+            # The cycles count from the start, so a start in the middle of a
+            # month or week would give other cycles than t.rast.accdetect,
+            # which does not move it, gives for the same start.
+            gs.warning(
+                _(
+                    "The start <{given}> is moved to <{used}>, the beginning "
+                    "of the granularity <{granularity}>."
+                ).format(given=given_start, used=start, granularity=granularity)
+            )
     else:
         try:
             start = int(start)

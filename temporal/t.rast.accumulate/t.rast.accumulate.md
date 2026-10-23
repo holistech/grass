@@ -21,6 +21,13 @@ from its start in the same way. If only one of cycle and offset is in
 months or years, such as a cycle in months with an offset in days, each
 cycle starts one offset after the end of the cycle before.
 
+The **start** is moved to the beginning of the **granularity**: to the
+first day of a month, to the Monday of a week. The module then warns and
+names both times. Monthly cycles from 2001-01-31 with the granularity
+"1 months" therefore run from 2001-01-01. For the same cycles in
+*t.rast.accdetect*, which does not move the start, give it the moved
+start.
+
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
 values for all raster cells and time steps. The raster maps that specify
