@@ -16,6 +16,11 @@ Each gap is re-sampled by the space time raster dataset granularity.
 Therefore several time stamped raster map layers will be interpolated if
 the gap is larger than the STRDS granularity.
 
+Only gaps between time intervals can be filled. A gap next to a time
+instant has no predecessor or successor to interpolate from, so a dataset
+whose selected maps include a time instant is refused before any map is
+written.
+
 The flag **-t** was removed on 18.10.2026. It had no effect since 2012.
 A call that still uses it is refused by the parser.
 

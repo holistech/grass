@@ -1,6 +1,8 @@
 """Test the refusals of t.rast.gapfill and the cases that other time types bring
 
-Relative time, time instants, existing results and overwrite.
+Relative time, time instants, existing results and overwrite. An unknown
+suffix and a dataset with time instants are refused before anything is
+written.
 """
 
 import pytest
@@ -18,6 +20,14 @@ def _refused(tools, **options):
     with pytest.raises(ToolError) as error:
         tools.t_rast_gapfill(**options)
     return message(error.value)
+
+
+def _inventory(tools):
+    """The maps of the mapset and the space time raster datasets"""
+    return (
+        tools.g_list(type="all", mapset=".").stdout.split(),
+        tools.t_list(type="strds", columns="id").stdout.split(),
+    )
 
 
 def _rows(tools, name):
@@ -38,16 +48,16 @@ def test_an_unknown_input_is_refused(tools, prefix):
     assert "Space time dataset <gap_missing> of type <strds> not found" in text
 
 
-def test_an_unknown_suffix_counts_like_num(tools, gappy, prefix):
-    # Nothing checks the suffix: any other text gives the numeric form with
-    # five digits (the name has two numbers, see the module docstring of
-    # t_rast_gapfill_options_test.py).
+def test_an_unknown_suffix_is_refused_before_anything_is_written(tools, gappy, prefix):
+    # gram used to count as num and fill the gap with <prefix>_00004_00001.
     name = gappy({1: (100, 0), 3: (300, 90)})
+    before = _inventory(tools)
 
-    tools.t_rast_gapfill(input=name, basename=prefix, suffix="bogus")
+    text = _refused(tools, input=name, basename=prefix, suffix="gram")
 
-    # Three entries (map, gap, map) plus the gap count 1 give 4.
-    assert [row[0] for row in _rows(tools, name)][1] == f"{prefix}_00004_00001"
+    assert "Invalid suffix <gram>, use gran, time, num or num%NN" in text
+    assert "Traceback" not in text
+    assert _inventory(tools) == before
 
 
 def test_the_message_for_an_existing_map_names_the_map(tools, gappy, prefix):
@@ -151,25 +161,42 @@ def test_relative_time_with_a_numeric_width(tools, relative, prefix):
     ]
 
 
-def test_time_instants_cannot_be_filled(tools, prefix):
-    # Points at the days 0, 3 and 4 have no intervals between them that a
-    # gap could fill; the tool finds a gap but no neighbours.
+@pytest.mark.parametrize(
+    "days",
+    [
+        # Points at the days 0, 3 and 4 have a gap but no intervals around it.
+        (0, 3, 4),
+        # A single point has no gap; it is refused all the same.
+        (1,),
+        # An interval of days 0 to 1, a gap, then a point at day 3: the
+        # point comes later than the first map.
+        ((0, 1), 3),
+    ],
+)
+def test_time_instants_are_refused_before_anything_is_written(tools, prefix, days):
     small_region(tools, 1, 2)
-    create_stds(
-        tools,
-        "strds",
-        f"{prefix}_points",
-        [
-            MapSpec(f"{prefix}_p0", 100, day(0)),
-            MapSpec(f"{prefix}_p1", 400, day(3)),
-            MapSpec(f"{prefix}_p2", 500, day(4)),
-        ],
-    )
+    specs = []
+    for number, span in enumerate(days):
+        start, end = span if isinstance(span, tuple) else (span, None)
+        specs.append(
+            MapSpec(
+                f"{prefix}_p{number}",
+                100 * (number + 1),
+                day(start),
+                None if end is None else day(end),
+            )
+        )
+    create_stds(tools, "strds", f"{prefix}_points", specs)
+    before = _inventory(tools)
 
     text = _refused(tools, input=f"{prefix}_points", basename=prefix)
 
-    assert "Unable to determine successor and predecessor of a gap." in text
-    assert stds_info(tools, "strds", f"{prefix}_points")["number_of_maps"] == 3
+    assert (
+        f"Space time raster dataset <{prefix}_points@PERMANENT> holds time "
+        "instants, only intervals can be filled" in text
+    )
+    assert _inventory(tools) == before
+    assert stds_info(tools, "strds", f"{prefix}_points")["number_of_maps"] == len(days)
 
 
 def test_overwrite_replaces_a_map_in_relative_time(tools, relative, prefix):

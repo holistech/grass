@@ -70,6 +70,11 @@ def main():
 
     mapset = gs.gisenv()["MAPSET"]
 
+    try:
+        tgis.check_suffix(tsuffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
     # Make sure the temporal database exists
     tgis.init()
 
@@ -84,6 +89,21 @@ def main():
     except tgis.SQLStatementError as error:
         dbif.close()
         gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+    # A gap next to a time instant gets no predecessor or successor from the
+    # topology; this names the cause where the check of the gaps below would
+    # only say that it found none.
+    if any(
+        map_.get_id() is not None and map_.get_temporal_extent_as_tuple()[1] is None
+        for map_ in maps
+    ):
+        dbif.close()
+        gs.fatal(
+            _(
+                "Space time raster dataset <{}> holds time instants, "
+                "only intervals can be filled"
+            ).format(sp.get_id())
+        )
 
     num = len(maps)
 
@@ -163,23 +183,8 @@ def main():
         for intp_list in map_matrix:
             new_map = intp_list[0]
             count += 1
-            if sp.get_temporal_type() == "absolute" and tsuffix == "gran":
-                suffix = tgis.create_suffix_from_datetime(
-                    new_map.temporal_extent.get_start_time(), sp.get_granularity()
-                )
-                new_id = "{ba}_{su}@{ma}".format(
-                    ba=new_map.get_name(), su=suffix, ma=mapset
-                )
-            elif sp.get_temporal_type() == "absolute" and tsuffix == "time":
-                suffix = tgis.create_time_suffix(new_map)
-                new_id = "{ba}_{su}@{ma}".format(
-                    ba=new_map.get_name(), su=suffix, ma=mapset
-                )
-            else:
-                map_name = tgis.create_numeric_suffix(
-                    new_map.get_name(), count, tsuffix
-                )
-                new_id = "{name}@{ma}".format(name=map_name, ma=mapset)
+            suffix = tgis.map_name_suffix(new_map, tsuffix, sp.get_granularity(), count)
+            new_id = f"{new_map.get_name()}_{suffix}@{mapset}"
 
             new_map.set_id(new_id)
 
