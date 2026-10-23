@@ -1,6 +1,7 @@
 """Test the refusals of t.vect.what.strds and the cases it lets pass"""
 
 from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,9 @@ from grass.tools import ToolError
 # Most tests take more than a second (measured 19.10.2026 with a serial
 # pytest --durations=0): every test makes its own vector maps.
 pytestmark = pytest.mark.slow
+
+# The points of the maps from the fixture vectors() in conftest.py
+CENTRES = [(0.5, 1.5), (1.5, 1.5), (0.5, 0.5), (1.5, 0.5)]
 
 
 def _refused(tools, **options):
@@ -316,3 +320,86 @@ def test_a_where_that_fails_at_a_later_table_is_refused(tools, rasters, vectors)
     # Nothing is written before the third map is found to fail.
     assert "m" not in _names(tools, first)
     assert "m" not in _names(tools, second)
+
+
+@pytest.fixture
+def one_layer_twice(tools, rasters, prefix):
+    """The map <prefix>_c under the ids c and c:1, one month each
+
+    The raster dataset wh_a has wr_1 for March and wr_2 for April 2001, so
+    c (March) samples wr_1 and c:1 (April) samples wr_2. Both ids name layer
+    1 of one map.
+    """
+    vector_points(tools, f"{prefix}_c", CENTRES, attributes={"h": [1, 2, 3, 4]})
+    register_stds(
+        tools,
+        "stvds",
+        f"{prefix}_ds",
+        [
+            MapSpec(f"{prefix}_c", None, datetime(2001, 3, 1), datetime(2001, 4, 1)),
+            MapSpec(f"{prefix}_c:1", None, datetime(2001, 4, 1), datetime(2001, 5, 1)),
+        ],
+    )
+    return SimpleNamespace(dataset=f"{prefix}_ds", vector=f"{prefix}_c")
+
+
+def test_one_layer_under_two_ids_with_column_is_refused(
+    tools, rasters, one_layer_twice, prefix
+):
+    text = _refused(tools, input=one_layer_twice.dataset, strds="wh_a", column="w")
+
+    # Both ids would write the column w of one table; the value of the
+    # earlier interval would be lost without a word.
+    assert f"<{prefix}_c@" in text
+    assert f"<{prefix}_c:1@" in text
+    assert "would both write column <w>" in text
+    assert "w" not in _names(tools, one_layer_twice.vector)
+
+
+def test_one_layer_under_two_ids_without_column_is_allowed(
+    tools, rasters, one_layer_twice
+):
+    tools.t_vect_what_strds(input=one_layer_twice.dataset, strds="wh_a")
+
+    # Each raster map has its own column, so nothing is overwritten: the
+    # points read 100 k + cell for the map k.
+    assert _values(tools, one_layer_twice.vector, "wr_1") == [
+        "111",
+        "112",
+        "121",
+        "122",
+    ]
+    assert _values(tools, one_layer_twice.vector, "wr_2") == [
+        "211",
+        "212",
+        "221",
+        "222",
+    ]
+
+
+def test_two_layers_of_one_map_with_column_are_allowed(tools, rasters, prefix):
+    vector_points(
+        tools,
+        f"{prefix}_c",
+        CENTRES,
+        attributes={"h": [1, 2, 3, 4]},
+        layers=(1, 2),
+    )
+    register_stds(
+        tools,
+        "stvds",
+        f"{prefix}_ds",
+        [
+            MapSpec(f"{prefix}_c:1", None, datetime(2001, 3, 1), datetime(2001, 4, 1)),
+            MapSpec(f"{prefix}_c:2", None, datetime(2001, 4, 1), datetime(2001, 5, 1)),
+        ],
+    )
+
+    tools.t_vect_what_strds(input=f"{prefix}_ds", strds="wh_a", column="w")
+
+    # Each layer has its own table, so w is written once in each: wr_1 for
+    # layer 1 and wr_2 for layer 2.
+    assert _values(tools, f"{prefix}_c", "w") == ["111", "112", "121", "122"]
+    assert tools.db_select(
+        sql=f"SELECT w FROM {prefix}_c_2", flags="c"
+    ).stdout.split() == ["211", "212", "221", "222"]

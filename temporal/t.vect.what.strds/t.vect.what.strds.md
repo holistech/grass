@@ -16,8 +16,13 @@ prefix `c_`, because *v.what.rast* cannot write such a column.
 
 Before the first value is written, the module checks the target columns of
 all vector maps and layers. If one of them already exists, a layer to be
-written has no attribute table, or a vector map belongs to another mapset, the
-module stops with an error and changes nothing. With the **--overwrite** flag,
+written has no attribute table, a vector map belongs to another mapset, or the
+same layer of one map is registered under two ids (for example `c` and `c:1`)
+and both would write the **column** option's column, the module stops with an
+error and changes nothing. Without **column** the same layer under two ids is
+allowed, as each raster map gets a column of its own; two different layers of
+one map (`c:1` and `c:2`) are allowed with **column**, as each has its own
+table. With the **--overwrite** flag,
 the existing columns are kept and their values are written again, so a second
 run does not add a second column. An existing column keeps its type: values
 of a floating-point raster map written into an integer column lose their

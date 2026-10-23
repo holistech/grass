@@ -16,8 +16,13 @@ underscore. A name that would start with a digit gets the prefix
 <p>
 Before the first value is written, the module checks the target columns of all
 vector maps and layers. If one of them already exists, a layer to be written
-has no attribute table, or a vector map belongs to another mapset, the module
-stops with an error and changes nothing. With the <b>--overwrite</b> flag, the
+has no attribute table, a vector map belongs to another mapset, or the same
+layer of one map is registered under two ids (for example <code>c</code> and
+<code>c:1</code>) and both would write the <b>column</b> option's column, the
+module stops with an error and changes nothing. Without <b>column</b> the same
+layer under two ids is allowed, as each raster map gets a column of its own;
+two different layers of one map (<code>c:1</code> and <code>c:2</code>) are
+allowed with <b>column</b>, as each has its own table. With the <b>--overwrite</b> flag, the
 existing columns are kept and their values are written again, so a second run
 does not add a second column. An existing column keeps its type: values of a floating-point raster map written into an
 integer column lose their fractional part, and <em>v.what.rast</em> warns about

@@ -236,6 +236,9 @@ def main():
     # value is skipped later: whether it is empty is known only after
     # r.series has run, which is after the first write.
     targets = {}
+    # Which id wrote a column first. The ids c and c:1 name the same layer,
+    # so they share a key in targets and only this tells them apart.
+    column_owners = {}
     interval_maps = []
     for row in rows:
         raster_maps = tgis.collect_map_names(
@@ -244,15 +247,28 @@ def main():
         interval_maps.append(raster_maps)
         if raster_maps:
             key = (f"{row['name']}@{row['mapset']}", int(row["layer"] or 1))
-            targets.setdefault(key, set()).update(
-                sampled_column_names(
-                    raster_maps,
-                    column,
-                    method != "disabled" and len(raster_maps) > 1,
-                    method,
-                    strds_sp.get_name(),
-                )
+            names = sampled_column_names(
+                raster_maps,
+                column,
+                method != "disabled" and len(raster_maps) > 1,
+                method,
+                strds_sp.get_name(),
             )
+            targets.setdefault(key, set()).update(names)
+            # The second write would replace the first one without a word.
+            map_id = row["name"] + (f":{row['layer']}" if row["layer"] else "")
+            map_id += "@" + row["mapset"]
+            for name in names:
+                owner = column_owners.setdefault((key, name.lower()), map_id)
+                if owner != map_id:
+                    dbif.close()
+                    gs.fatal(
+                        _(
+                            "Vector maps <{first}> and <{second}> are the same "
+                            "layer of one map and would both write column "
+                            "<{column}>"
+                        ).format(first=owner, second=map_id, column=name)
+                    )
     existing = check_target_columns(targets, gs.overwrite(), dbif)
 
     # Sample the raster dataset with the vector dataset and run v.what.rast
