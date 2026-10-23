@@ -28,6 +28,9 @@ names both times. Monthly cycles from 2001-01-31 with the granularity
 *t.rast.accdetect*, which does not move the start, give it the moved
 start.
 
+Without **stop** the run ends with the input dataset. A time instant at
+the end of the dataset is processed as well.
+
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
 values for all raster cells and time steps. The raster maps that specify
