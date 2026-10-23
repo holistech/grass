@@ -47,9 +47,9 @@ manual page of [r.series.accumulate](r.series.accumulate.md) for
 detailed option description.
 
 A cell without a value (NULL) in the first step of a cycle stays NULL in
-every later step of that cycle: there is no earlier sum to continue from, and
-the values of the later maps are added to nothing. A NULL cell in a later step
-keeps the sum of the steps before it.
+every later step of that cycle, because there is no earlier sum to add the
+later values to. A NULL cell in a later step keeps the sum of the steps
+before it.
 
 The **output** is a new space time raster dataset with the provided
 start time, end time and granularity containing the accumulated raster
