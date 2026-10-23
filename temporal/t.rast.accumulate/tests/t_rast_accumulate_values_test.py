@@ -425,3 +425,117 @@ def test_every_cell_has_its_own_thresholds(tools, cells):
         [40, 150],
         [40, 160],
     ]
+
+
+# Five daily maps around the ends of the months, from the start of each day
+# (day 0 is 2001-01-01) and with the value: 2001-02-27 (57) 1, 2001-02-28
+# (58) 2, 2001-03-29 (87) 4, 2001-03-31 (89) 8 and 2001-04-29 (118) 16. The
+# data end on 2001-04-30.
+MONTH_ENDS = [(57, 1), (58, 2), (87, 4), (89, 8), (118, 16)]
+
+
+@pytest.fixture(scope="module")
+def month_ends(tools):
+    small_region(tools, 1, 2)
+    create_stds(
+        tools,
+        "strds",
+        "acc_month_ends",
+        [MapSpec(f"acc_me{n}", v, day(n), day(n + 1)) for n, v in MONTH_ENDS],
+    )
+
+
+def _month_end_sums(tools, output, **options):
+    """The (date, sum) of the result maps of monthly cycles from 2001-01-31"""
+    tools.t_rast_accumulate(
+        input="acc_month_ends",
+        output=output,
+        basename=output,
+        start="2001-01-31",
+        cycle="1 months",
+        limits="0,100",
+        method="gdd",
+        **options,
+    )
+    return [(row.start[:10], row.min) for row in list_maps(tools, "strds", output)]
+
+
+def test_monthly_cycles_from_day_31_count_from_the_start(tools, month_ends):
+    # Cycle k runs from k to k + 1 months after January 31, counted from it:
+    # [01-31, 02-28), [02-28, 03-31) and [03-31, 04-30). Chained from the end
+    # of the cycle before, the later cycles would start on 03-28 and 04-28.
+    # The sums are 1 | 2, 2 + 4 | 8, 8 + 16.
+    assert _month_end_sums(tools, "me_cycle") == [
+        ("2001-02-27", 1),
+        ("2001-02-28", 2),
+        ("2001-03-29", 6),
+        ("2001-03-31", 8),
+        ("2001-04-29", 24),
+    ]
+
+
+def test_monthly_cycles_and_offsets_from_day_31_count_from_the_start(tools, month_ends):
+    # Cycle k runs from 2k to 2k + 1 months after January 31: [01-31, 02-28)
+    # and [03-31, 04-30). The maps of 02-28 and 03-29 lie between the
+    # cycles. Chained, the second cycle would be [03-28, 04-28). The sums are
+    # 1 | 8, 8 + 16.
+    assert _month_end_sums(tools, "me_offset", offset="1 months") == [
+        ("2001-02-27", 1),
+        ("2001-03-31", 8),
+        ("2001-04-29", 24),
+    ]
+
+
+def test_a_monthly_cycle_with_an_offset_in_days_is_chained(tools, month_ends):
+    # A month and a day do not add up to one step, so each cycle starts a
+    # day after the end of the one before and lasts one month from its own
+    # start: [01-31, 02-28), [03-01, 04-01) and [04-02, 05-02), cut to 04-30
+    # at the end of the data. The map of 02-28 lies between the first two
+    # cycles. The sums are 1 | 4, 4 + 8 | 16.
+    assert _month_end_sums(tools, "me_days", offset="1 days") == [
+        ("2001-02-27", 1),
+        ("2001-03-29", 4),
+        ("2001-03-31", 12),
+        ("2001-04-29", 16),
+    ]
+
+
+@pytest.fixture(scope="module")
+def month_granules(tools):
+    """Daily maps on 2001-04-30 (day 119) 1, 2001-05-30 (149) 2, 2001-05-31 (150) 4"""
+    small_region(tools, 1, 2)
+    create_stds(
+        tools,
+        "strds",
+        "acc_month_granules",
+        [
+            MapSpec(f"acc_mg{n}", v, day(n), day(n + 1))
+            for n, v in [(119, 1), (149, 2), (150, 4)]
+        ],
+    )
+
+
+def test_monthly_granules_count_from_the_start_of_the_cycle(tools, month_granules):
+    # Cycles of 89 days from January 1: [01-01, 03-31) holds no map, the
+    # second cycle starts on 03-31 and is cut at the end of the data
+    # (06-01). Its granules of one month count from 03-31: [03-31, 04-30),
+    # [04-30, 05-31) and [05-31, 06-30). Chained, the third granule would
+    # start on 05-30. The second granule holds the maps of 04-30 and 05-30
+    # with the mean 1.5, the third the map of 05-31: sums 1.5 and 5.5.
+    output = "me_granules"
+    tools.t_rast_accumulate(
+        input="acc_month_granules",
+        output=output,
+        basename=output,
+        start="2001-01-01",
+        cycle="89 days",
+        granularity="1 months",
+        limits="0,100",
+        method="gdd",
+    )
+
+    rows = list_maps(tools, "strds", output)
+    assert [(row.start[:10], row.min) for row in rows] == [
+        ("2001-04-30", 1.5),
+        ("2001-05-31", 5.5),
+    ]

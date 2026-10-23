@@ -13,7 +13,11 @@ be set, eg. **start="2000-03-01" end="2011-01-01"**. In addition, a
 **cycle**, eg. **cycle="8 months"**, can be specified, that defines
 after which interval of time the accumulation process restarts. The
 **offset** option specifies the time that should be skipped between two
-cycles, eg. **offset="4 months"**.
+cycles, eg. **offset="4 months"**. Cycles and offsets in months or years
+are counted from the **start**, and a month step that ends behind the
+last day of a month ends on that day, so monthly cycles from 2001-01-31
+start on 2001-02-28 and 2001-03-31; the granules of a cycle are counted
+from its start in the same way.
 
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed

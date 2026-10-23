@@ -144,23 +144,40 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
-def _next_cycle(end, cycle, offset, absolute):
-    """Return the start and end of the cycle that follows the one ending at end
+def _months(step):
+    """The length of a month or year step in months, None for other units"""
+    number, unit = step.split()
+    factor = {"month": 1, "year": 12}.get(unit.rstrip("s"))
+    return None if factor is None else factor * int(number)
 
-    A cycle without maps is skipped through the same call, so that the loop
-    advances however a cycle ends.
+
+def _next_cycle(origin, number, end, cycle, offset, absolute):
+    """Return the start and end of cycle number, which follows the one ending at end
+
+    The first cycle, number 0, starts at origin. A cycle without maps is
+    skipped through the same call, so that the loop advances however a cycle
+    ends.
     """
     # Imported here like in main(), after the parser has run.
     import grass.temporal as tgis
 
-    start = end
-    if absolute:
-        if offset:
-            start = tgis.increment_datetime_by_string(end, offset)
-        return start, tgis.increment_datetime_by_string(start, cycle)
-    if offset:
+    if not absolute:
         start = end + offset
-    return start, start + cycle
+        return start, start + cycle
+    months = (_months(cycle), _months(offset) if offset else 0)
+    if None not in months:
+        # Month and year steps count from the origin, so that a cut at the end
+        # of a short month does not carry over: monthly cycles from January 31
+        # start on February 28 and March 31, not on February 28 and March 28.
+        period = number * (months[0] + months[1])
+        return (
+            tgis.modify_datetime(origin, months=period),
+            tgis.modify_datetime(origin, months=period + months[0]),
+        )
+    # A cycle and an offset of different kinds, such as a month and a day, do
+    # not add up to one step that could be counted from the origin.
+    start = tgis.increment_datetime_by_string(end, offset) if offset else end
+    return start, tgis.increment_datetime_by_string(start, cycle)
 
 
 def _to_datetime(text, option, dbif):
@@ -336,7 +353,11 @@ def main():
     if granule_end <= start:
         dbif.close()
         gs.fatal(_("The granularity must be longer than zero"))
-    if _next_cycle(end, cycle, offset, input_strds.is_time_absolute())[0] <= start:
+    origin = start
+    if (
+        _next_cycle(origin, 1, end, cycle, offset, input_strds.is_time_absolute())[0]
+        <= start
+    ):
         dbif.close()
         gs.fatal(
             _(
@@ -349,6 +370,7 @@ def main():
 
     count = 1
     output_maps = []
+    number = 0
 
     while input_strds_end > start and stop > start:
         # Make sure that the cyclic computation will stop at the correct time
@@ -361,7 +383,10 @@ def main():
         gs.message(_("Processing cycle %s - %s") % (str(start), str(end)))
 
         if len(input_maps) == 0:
-            start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
+            number += 1
+            start, end = _next_cycle(
+                origin, number, end, cycle, offset, input_strds.is_time_absolute()
+            )
             continue
 
         # Lets create a dummy list of maps with granularity conform intervals
@@ -369,18 +394,22 @@ def main():
         gran_list_low = []
         gran_list_up = []
         gran_start = start
+        granule = 0
         while gran_start < end:
             map = input_strds.get_new_map_instance("%i@%i" % (count, count))
+            granule += 1
             if input_strds.is_time_absolute():
-                gran_end = tgis.increment_datetime_by_string(gran_start, granularity)
+                # Counted from the start of the cycle, as the cycles are from
+                # the origin, so that a cut at the end of a short month does
+                # not carry over into the later granules.
+                gran_end = tgis.datetime_after_steps(start, granularity, granule)
                 map.set_absolute_time(gran_start, gran_end)
-                gran_start = tgis.increment_datetime_by_string(gran_start, granularity)
             else:
                 gran_end = gran_start + granularity
                 map.set_relative_time(
                     gran_start, gran_end, input_strds.get_relative_time_unit()
                 )
-                gran_start += granularity
+            gran_start = gran_end
             gran_list.append(copy(map))
             gran_list_low.append(copy(map))
             gran_list_up.append(copy(map))
@@ -525,7 +554,10 @@ def main():
             old_map_name = output_map_name
             count += 1
 
-        start, end = _next_cycle(end, cycle, offset, input_strds.is_time_absolute())
+        number += 1
+        start, end = _next_cycle(
+            origin, number, end, cycle, offset, input_strds.is_time_absolute()
+        )
 
     # Insert the maps into the output space time dataset
     if output_strds.is_in_db(dbif):
