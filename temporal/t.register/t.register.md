@@ -48,6 +48,14 @@ work only in conjunction with the **start** option. If an input file
 with timestamps (either start time or start time and end time) is used,
 then the *increment* option and the **-i** flag are not supported.
 
+The n-th map starts n increments after the **start** time, counted from
+this start. A month or year increment that ends behind the last day of a
+month ends on that last day: with `start="2001-01-31"` and
+`increment="1 months"` the maps start on January 31, February 28,
+March 31 and April 30. With the **-i** flag each map of such an increment
+ends where the next one starts, so the map of February 28 ends on
+March 31.
+
 Start time and end time with absolute time must be provided using the
 format **yyyy-mm-dd HH:MM:SS +HHMM**. It is also supported to specify
 only the date **yyyy-mm-dd**. In case of relative time, the temporal

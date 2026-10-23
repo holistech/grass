@@ -509,19 +509,52 @@ def test_semantic_label_is_read_from_the_map(tools, make_maps, dataset):
     assert [row["semantic_label"] for row in result.json["data"]] == ["S2_1", "S2_1"]
 
 
-def test_a_month_increment_from_day_31_fails(tools, make_maps, dataset):
-    # January 31 plus one month is no date. The call stops with the message of
-    # the date arithmetic and registers nothing.
-    maps = make_maps(2)
+def test_a_month_increment_from_day_31_ends_on_the_last_day_of_shorter_months(
+    tools, make_maps, dataset
+):
+    # Map number n starts n months after January 31, counted from the start:
+    # February and April have no day 31, so their maps start on the last day
+    # of the month (28 and 30), and the map of March starts on March 31 again.
+    maps = make_maps(4)
     name = dataset()
 
-    with pytest.raises(ToolError, match=r"day\s+is\s+out\s+of\s+range\s+for\s+month"):
-        tools.t_register(
-            type="raster",
-            input=name,
-            maps=",".join(maps),
-            start="2001-01-31",
-            increment="1 months",
-        )
+    tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-31",
+        increment="1 months",
+    )
 
-    assert list_maps(tools, "strds", name) == []
+    assert [(row.start, row.end) for row in list_maps(tools, "strds", name)] == [
+        ("2001-01-31 00:00:00", None),
+        ("2001-02-28 00:00:00", None),
+        ("2001-03-31 00:00:00", None),
+        ("2001-04-30 00:00:00", None),
+    ]
+
+
+def test_month_intervals_from_day_31_have_no_gaps(tools, make_maps, dataset):
+    # Each map ends where the next one starts, 1 to 4 months after January 31
+    # counted from the start: February 28, March 31, April 30 and May 31. One
+    # month added to the start of the map instead would end the map of
+    # February on March 28 and leave a gap of three days.
+    maps = make_maps(4)
+    name = dataset()
+
+    tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-31",
+        increment="1 months",
+        flags="i",
+    )
+
+    assert [(row.start, row.end) for row in list_maps(tools, "strds", name)] == [
+        ("2001-01-31 00:00:00", "2001-02-28 00:00:00"),
+        ("2001-02-28 00:00:00", "2001-03-31 00:00:00"),
+        ("2001-03-31 00:00:00", "2001-04-30 00:00:00"),
+        ("2001-04-30 00:00:00", "2001-05-31 00:00:00"),
+    ]
+    assert _topology(tools, name) == "valid"

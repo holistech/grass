@@ -673,11 +673,23 @@ def assign_valid_time_to_map(
 
         # Add the increment
         if increment:
-            start_time = increment_datetime_by_string(start_time, increment, mult)
+            anchor = start_time
+            start_time = increment_datetime_by_string(anchor, increment, mult)
             if start_time is None:
                 msgr.fatal(_("Error occurred in increment computation"))
             if interval:
-                end_time = increment_datetime_by_string(start_time, increment, 1)
+                # The end of a map is the start of the next one, counted from
+                # the anchor like that start. One month added to the start
+                # February 28 of a series from January 31 would end the map on
+                # March 28, three days before the next map. A composite
+                # increment such as "1 months, 1 days" keeps the end one
+                # increment after the start: its starts multiply each unit
+                # separately, so the start of the next map would change the end
+                # of such maps from every start day, not only from day 29 to 31.
+                if "," in increment:
+                    end_time = increment_datetime_by_string(start_time, increment)
+                else:
+                    end_time = increment_datetime_by_string(anchor, increment, mult + 1)
                 if end_time is None:
                     msgr.fatal(_("Error occurred in increment computation"))
 
