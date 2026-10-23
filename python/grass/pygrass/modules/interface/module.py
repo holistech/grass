@@ -1089,10 +1089,11 @@ def _run_until_failure(module_list):
     """Run the modules in serial and stop at the first one that fails
 
     The failure stays visible to the parent process through the return code
-    of the failed module, which ParallelModuleQueue.wait() turns into a
+    of the failed module, which MultiModule.wait() turns into a
     CalledModuleError. Letting the exception leave the child process would
-    only print its traceback to stderr, because nothing in a
-    multiprocessing.Process catches it.
+    add nothing: multiprocessing.Process only prints its traceback to stderr
+    and sets the exit code of the process, which MultiModule.wait() does
+    not read.
 
     :param module_list: The list of modules to run in serial
     """
