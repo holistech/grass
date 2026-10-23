@@ -36,6 +36,13 @@ If a column named in **columns** exists in the table of a layer of the input
 map, the module stops with an error. With the overwrite flag it keeps the
 column and replaces its values with the sampled ones.
 
+If a run fails, the module removes the vector map and the space time vector
+dataset it made, so nothing is left behind. With the overwrite flag the
+previous output map and dataset of the same names have already been replaced
+when the run fails, so they are gone as well and are not restored. Without the
+overwrite flag an existing output is refused before anything is made and stays
+as it was. To keep a result, give the new run another name.
+
 ## EXAMPLE
 
 The example shows how to create a space time vector dataset and a vector
