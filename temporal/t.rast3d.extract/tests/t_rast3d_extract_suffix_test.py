@@ -52,3 +52,34 @@ def test_an_unknown_suffix_is_refused_before_anything_is_written(tools, prefix):
     assert "Invalid suffix <gram>, use gran, time, num or num%NN" in text
     assert "Traceback" not in text
     assert inventory(tools) == before
+
+
+def _mean(tools, tool, name):
+    return float(getattr(tools, tool)(map=name, flags="g").keyval["mean"])
+
+
+def test_two_maps_of_one_time_are_numbered(tools, prefix):
+    # Both maps cover January 2001, so the time suffix of both is 2001_01.
+    # The maps run in the order of start time and id: _a before _b, so _a
+    # keeps the name and _b becomes the second. The expression doubles the value: 3 -> 6, 7 -> 14.
+    create_stds(
+        tools,
+        "str3ds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_a", 3, day(0), day(31)),
+            MapSpec(f"{prefix}_b", 7, day(0), day(31)),
+        ],
+    )
+
+    tools.t_rast3d_extract(
+        input=f"{prefix}_in",
+        output=prefix,
+        basename=f"{prefix}_b",
+        expression=f"{prefix}_in * 2",
+    )
+
+    names = [row.name for row in list_maps(tools, "str3ds", prefix)]
+    assert sorted(names) == [f"{prefix}_b_2001_01", f"{prefix}_b_2001_01_2"]
+    assert _mean(tools, "r3_univar", f"{prefix}_b_2001_01") == 6.0
+    assert _mean(tools, "r3_univar", f"{prefix}_b_2001_01_2") == 14.0

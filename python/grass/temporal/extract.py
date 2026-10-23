@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 import sys
-from collections import Counter
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -58,6 +57,32 @@ def compile_new_map_name(
     old_map.select(dbif)
     suffix = map_name_suffix(old_map, time_suffix, sp.get_granularity(), count)
     return f"{base}_{suffix}"
+
+
+def number_clashing_names(names: list[str]) -> list[str]:
+    """Give every repeated name after its first use the number _2, _3, ...
+
+    Two different maps at one time get the same name from the time suffix.
+    The first map in the given order keeps its name, so a name that works
+    without numbering stays as it is. A number is skipped when another map
+    already has that name, because the natural name of a later map (for
+    example base_2001_01_2 from a granularity of one month) must not be taken
+    from it. Names of maps that exist outside this run are not considered;
+    the caller refuses those as it does for any other name.
+    """
+    taken = set(names)
+    seen = set()
+    result = []
+    for name in names:
+        if name in seen:
+            number = 2
+            while f"{name}_{number}" in taken:
+                number += 1
+            name = f"{name}_{number}"
+            taken.add(name)
+        seen.add(name)
+        result.append(name)
+    return result
 
 
 def replace_stds_names(expression: str, simple_name: str, full_name: str) -> str:
@@ -162,13 +187,13 @@ def extract_dataset(
     try:
         if type == "vector":
             rows = sp.get_registered_maps(
-                "id,name,mapset,layer", where, "start_time", dbif
+                "id,name,mapset,layer", where, "start_time,id", dbif
             )
         else:
             rows = sp.get_registered_maps(
                 f"id{',semantic_label' if has_semantic_labels else ''}",
                 where,
-                "start_time",
+                "start_time,id",
                 dbif,
             )
     except SQLStatementError as error:
@@ -231,12 +256,17 @@ def extract_dataset(
         if type == "vector":
             # Two layers of one vector map registered for the same time get
             # the same name from the time suffixes, and v.extract refuses to
-            # replace the first of them. The layer tells them apart.
-            name_counts = Counter(new_names)
+            # replace the first of them. The layer tells them apart. Maps
+            # that share the name and the layer are two different maps of one
+            # time; the layer cannot tell those apart, they are numbered below.
+            layers_of = {}
+            for name, row in zip(new_names, rows, strict=True):
+                layers_of.setdefault(name, set()).add(row["layer"] or layer)
             new_names = [
-                f"{name}_{row['layer'] or layer}" if name_counts[name] > 1 else name
+                f"{name}_{row['layer'] or layer}" if len(layers_of[name]) > 1 else name
                 for name, row in zip(new_names, rows, strict=True)
             ]
+        new_names = number_clashing_names(new_names)
         for row, map_name in zip(rows, new_names, strict=True):
             if type != "vector":
                 map_id = AbstractMapDataset.build_id(map_name, mapset)
