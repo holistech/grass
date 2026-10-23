@@ -64,11 +64,10 @@ def number_clashing_names(names: list[str]) -> list[str]:
 
     Two different maps at one time get the same name from the time suffix.
     The first map in the given order keeps its name, so a name that works
-    without numbering stays as it is. A number is skipped when another map
-    already has that name, because the natural name of a later map (for
-    example base_2001_01_2 from a granularity of one month) must not be taken
-    from it. Names of maps that exist outside this run are not considered;
-    the caller refuses those as it does for any other name.
+    without numbering stays as it is. A number that another name of the list
+    already has is skipped, so the result has no repeated name. Names of maps
+    that exist outside this run are not considered; the caller refuses those
+    as it does for any other name.
     """
     taken = set(names)
     seen = set()
