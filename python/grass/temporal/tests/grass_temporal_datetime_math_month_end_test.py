@@ -101,3 +101,26 @@ def test_zero_steps_return_the_anchor():
     anchor = datetime(2001, 1, 31, 5)
     assert datetime_after_steps(anchor, "1 months", 0) == anchor
     assert datetime_after_steps(anchor, "1 months, 1 days", 0) == anchor
+
+
+@pytest.mark.parametrize(
+    ("anchor", "step", "count", "expected"),
+    [
+        # Chained, the cut to 28.02. would carry over: 28.03. instead of 31.03.
+        (datetime(2001, 1, 31), "1 month", 2, datetime(2001, 3, 31)),
+        # Chained: 31.12. + 2 months = 28.02., + 2 months = 28.04.
+        (datetime(2000, 12, 31), "2 months", 2, datetime(2001, 4, 30)),
+        # Chained: 29.02.2004 + 1 year = 28.02.2005, then 28.02. for good.
+        (datetime(2004, 2, 29), "1 year", 4, datetime(2008, 2, 29)),
+    ],
+)
+def test_singular_and_multiple_month_steps_count_from_the_anchor(
+    anchor, step, count, expected
+):
+    assert datetime_after_steps(anchor, step, count) == expected
+
+
+@pytest.mark.parametrize("step", ["1 months", "10 days", "1 months, 1 days"])
+def test_a_negative_number_of_steps_is_an_error(step):
+    with pytest.raises(ValueError, match="0 or more"):
+        datetime_after_steps(datetime(2001, 3, 31), step, -1)

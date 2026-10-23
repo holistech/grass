@@ -374,8 +374,8 @@ def modify_datetime(
     )
 
 
-def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime:
-    """Return the time stamp that lies count steps behind the anchor
+def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | None:
+    """Return the time stamp that lies count steps after the anchor
 
     A series that is built from a start time counts from this start: the n-th
     time stamp is the anchor plus n steps, with one cut per time stamp. Adding
@@ -410,19 +410,21 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime:
     :param anchor: The first time stamp of the series
     :param step: An increment string as for increment_datetime_by_string()
     :param count: The number of steps, 0 or more
-    :return: The new datetime object or None in case of an error
+    :return: The new datetime object or None if the step cannot be read
+    :raises ValueError: If count is negative. A month step would go back in
+                        time while a chained step would return the anchor.
     """
+    if count < 0:
+        msg = f"The number of steps must be 0 or more, not {count}"
+        raise ValueError(msg)
     if count == 0:
         return anchor
-    parts = [part.strip().split() for part in step.split(",")]
+    parts = step.split(",")
+    words = parts[0].split()
     if (
         len(parts) == 1
-        and len(parts[0]) == 2
-        and parts[0][1].rstrip("s")
-        in {
-            "month",
-            "year",
-        }
+        and len(words) == 2
+        and words[1].rstrip("s") in {"month", "year"}
     ):
         return increment_datetime_by_string(anchor, step, mult=count)
     current = anchor
