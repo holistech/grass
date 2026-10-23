@@ -768,6 +768,18 @@ start with A, and time instances in I.
     D = tsnap(merge(C, A))
     ```
 
+11. **Integers beyond 32 bits.** The new algebra keeps an integer
+    constant beyond 32 bits and writes it as a floating point number, so the
+    result map is of type DCELL. The classic algebra reads it as *r.mapcalc*
+    does, which keeps only its lower 32 bits: 3000000000 becomes
+    -1294967296, and 2147483648 becomes null. Each map of A lasts one day,
+    so this expression gives 3000000001 in the new algebra and -1294967295
+    in the classic algebra:
+
+    ```sh
+    C = if(td(A) <= 0.5, A, 3000000000) + td(A)
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, the new algebra raises `ValueError` or
 `TypeError`, where the classic algebra raises `FatalError`. Both raise

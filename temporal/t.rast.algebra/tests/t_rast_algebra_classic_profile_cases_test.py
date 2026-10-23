@@ -11,7 +11,9 @@ t_rast_algebra_classic_profile_test.py do not cover.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
+from grass.tools import Tools
 
 KIND = "raster"
 
@@ -90,6 +92,39 @@ LARGE_CONSTANTS_WITH_TIME = [
     "if(td(A) <= 0.5, A, 3000000000) % 7",
     # -1294967296 > 5 is false, so 2; folded 3000000000 > 5 gives 1.
     "if(if(td(A) <= 0.5, A, 3000000000) > 5, 1, 2)",
+]
+
+# Where two series meet, the classic algebra writes both numbers for r.mapcalc,
+# which reads an integer beyond 32 bits with atoi() and keeps 32 bits of it.
+# Every map of A lasts one day, so td(A) is 1.0 and the condition puts
+# 3000000000 into each slot; r.mapcalc reads 3000000000 - 2^32 = -1294967296.
+# The outcomes have 6 significant digits.
+LARGE_CONSTANTS_BETWEEN_SERIES = [
+    # -1294967296 + 1.0 = -1294967295.0, -1294970000; folded 3000000000.
+    "if(td(A) <= 0.5, A, 3000000000) + td(A)",
+    # -1294967296 / 1.0 = -1294967296.0, -1294970000.
+    "if(td(A) <= 0.5, A, 3000000000) / td(A)",
+    "if(td(A) <= 0.5, A, 3000000000) {+,equal,r} td(A)",
+    # -1294967296 * 2.0 = -2589934592.0, -2589930000; folded 6000000000.
+    "if(td(A) <= 0.5, A, 3000000000) {*,equal} if(td(A) <= 0.5, A, 2.0)",
+    # C keeps the sign of the dividend: -1294967296 % 7 = 0, as
+    # 1294967296 = 7 * 184995328; folded 3000000000 % 7 = 4.
+    "if(td(A) <= 0.5, A, 3000000000) {%,equal} if(td(A) <= 0.5, A, 7)",
+    # -1294967296 > 5 is false, so 2; folded 1.
+    "if(if(td(A) <= 0.5, A, 3000000000) {>,equal} if(td(A) <= 0.5, A, 5), 1, 2)",
+    # The minus is an operator on the number read: -(-1294967296) + 1.0 =
+    # 1294967297.0, 1294970000; folded -2999999999.0.
+    "if(td(A) <= 0.5, A, -3000000000) + td(A)",
+    # 2147483648 - 2^32 = -2147483648 is the null of a CELL map, so null.
+    "if(td(A) <= 0.5, A, 2147483648) + td(A)",
+    # A condition on a time function joined with one on cells takes the cells
+    # of the argument (see the profile): 4294967296 - 2^32 = 0 is false, so 2;
+    # folded 1 && 4294967296 is true, 1.
+    "if(if(td(A) <= 0.5, A, 5) > 1 && start_month(if(td(A) <= 0.5, A, 4294967296)) "
+    "== 1, 1, 2)",
+    # A floating point number is no integer literal and stays 3000000001.0,
+    # 3000000000.
+    "if(td(A) <= 0.5, A, 3000000000.0) + td(A)",
 ]
 
 # A right-hand temporal operator makes a map of its own for each partner, so
@@ -663,6 +698,49 @@ def test_constants_beyond_32_bits_next_to_time_functions(
     datasets, expression, granularity
 ):
     assert_equal(expression, granularity=granularity)
+
+
+# The operators in braces fail in the granularity mode in both algebras, so
+# there the forms with + and / carry the test.
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LARGE_CONSTANTS_BETWEEN_SERIES)
+def test_constants_beyond_32_bits_between_two_series(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
+
+
+@pytest.fixture(scope="module")
+def long_durations(datasets, temporal_module_session):
+    """RS: two maps of relative time in seconds, each 3000000000 seconds long"""
+    create_stds(
+        Tools(session=temporal_module_session),
+        "strds",
+        "RS",
+        [MapSpec("rs1", 1, 0, 3000000000), MapSpec("rs2", 2, 3000000000, 6000000000)],
+        temporaltype="relative",
+        unit="seconds",
+        via="library",
+    )
+
+
+# td() of relative time is an integer, which the classic algebra writes for
+# r.mapcalc like a constant: 1.5 + 3000000000 is 1.5 - 1294967296 =
+# -1294967294.5, -1294970000; folded 3000000001.5.
+def test_a_duration_beyond_32_bits_between_two_series(long_durations):
+    assert_equal("if(td(RS) <= 0.5, RS, 1.5) + td(RS)")
+
+
+def test_the_core_keeps_a_constant_beyond_32_bits_between_two_series(datasets):
+    """The core writes the integer as a floating point number: 3000000000 +
+    1.0 = 3000000001.0, 3000000000 in 6 significant digits, for each of the
+    four maps of A"""
+    result = outcome(
+        KIND,
+        "if(td(A) <= 0.5, A, 3000000000) + td(A)",
+        RUNNERS["core"],
+        basename="fc",
+        register_null=True,
+    )
+    assert [row[3:] for row in result["maps"]] == [[3e9, 3e9]] * 4
 
 
 @pytest.mark.parametrize("expression", PARTNER_MAPS)

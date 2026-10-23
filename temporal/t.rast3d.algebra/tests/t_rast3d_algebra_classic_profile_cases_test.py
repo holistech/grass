@@ -91,6 +91,25 @@ LARGE_CONSTANTS = ["2.0 + 3000000000 - B", "3000000000 - B", "A + 3000000000 + 1
 # abs() gives 1294967296, which the profile must reach as well.
 LARGE_CONSTANTS_IN_A_SERIES = ["abs(if(td(B) <= 0.5, B, 3000000000))"]
 
+# Where two series meet, the classic algebra writes both numbers for
+# r3.mapcalc, which reads 3000000000 as 3000000000 - 2^32 = -1294967296. Every
+# map of B lasts one day, so td(B) is 1.0 and the condition puts 3000000000
+# into each slot. The outcomes have 6 significant digits.
+LARGE_CONSTANTS_BETWEEN_SERIES = [
+    # -1294967296 + 1.0 = -1294967295.0, -1294970000; folded 3000000000.
+    "if(td(B) <= 0.5, B, 3000000000) + td(B)",
+    # -1294967296 / 1.0 = -1294967296.0, -1294970000.
+    "if(td(B) <= 0.5, B, 3000000000) / td(B)",
+    "if(td(B) <= 0.5, B, 3000000000) {+,equal,r} td(B)",
+    # -1294967296 * 2.0 = -2589934592.0, -2589930000; folded 6000000000.
+    "if(td(B) <= 0.5, B, 3000000000) {*,equal} if(td(B) <= 0.5, B, 2.0)",
+    # C keeps the sign of the dividend: -1294967296 % 7 = 0, as
+    # 1294967296 = 7 * 184995328; folded 3000000000 % 7 = 4.
+    "if(td(B) <= 0.5, B, 3000000000) {%,equal} if(td(B) <= 0.5, B, 7)",
+    # -1294967296 > 5 is false, so 2; folded 1.
+    "if(if(td(B) <= 0.5, B, 3000000000) {>,equal} if(td(B) <= 0.5, B, 5), 1, 2)",
+]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -180,6 +199,28 @@ def test_constants_beyond_32_bits(datasets, expression):
 @pytest.mark.parametrize("expression", LARGE_CONSTANTS_IN_A_SERIES)
 def test_constants_beyond_32_bits_in_a_series(datasets, expression, granularity):
     assert_equal(expression, granularity=granularity)
+
+
+# The operators in braces fail in the granularity mode in both algebras, so
+# there the forms with + and / carry the test.
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LARGE_CONSTANTS_BETWEEN_SERIES)
+def test_constants_beyond_32_bits_between_two_series(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
+
+
+def test_the_core_keeps_a_constant_beyond_32_bits_between_two_series(datasets):
+    """The core writes the integer as a floating point number: 3000000000 +
+    1.0 = 3000000001.0, 3000000000 in 6 significant digits, for each of the
+    four maps of B"""
+    result = outcome(
+        KIND,
+        "if(td(B) <= 0.5, B, 3000000000) + td(B)",
+        RUNNERS["core"],
+        basename="fc",
+        register_null=True,
+    )
+    assert [row[3:] for row in result["maps"]] == [[3e9, 3e9]] * 4
 
 
 @pytest.mark.parametrize(

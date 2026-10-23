@@ -160,3 +160,30 @@ def test_clearing_a_count_keeps_the_map_it_counted(in_memory_datasets, monkeypat
                     old.content
                 )
     assert cleared
+
+
+# Measured 2026-10-23 with r.mapcalc "x = <literal>" and r.stats in a
+# temporary project, one literal per run.
+@pytest.mark.parametrize(
+    ("value", "read"),
+    [
+        (2147483647, 2147483647),
+        # 3000000000 - 2^32
+        (3000000000, -1294967296),
+        # 5000000000 - 2^32
+        (5000000000, 705032704),
+        # 2147483648 - 2^32 = -2^31, the null of a CELL map
+        (2147483648, None),
+        (4294967296, 0),
+        # atoi() saturates at 2^63 - 1, whose lower 32 bits are all set
+        (2**63 - 1, -1),
+        (2**63, -1),
+        (10**20 - 1, -1),
+        # The minus is an operator on the number read without it
+        (-3000000000, 1294967296),
+        (-(10**20 - 1), 1),
+        (-2147483648, None),
+    ],
+)
+def test_an_integer_constant_is_read_as_r_mapcalc_reads_it(value, read):
+    assert classic._as_mapcalc_reads(value) == read

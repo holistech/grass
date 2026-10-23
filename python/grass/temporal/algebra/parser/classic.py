@@ -72,6 +72,7 @@ _BUFFERS = ("buff_p", "buff_l", "buff_a")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 _INT32_MAX = 2**31 - 1
+_INT64_MAX = 2**63 - 1
 
 
 def _beyond_int32(content):
@@ -81,6 +82,56 @@ def _beyond_int32(content):
         isinstance(content, Const)
         and isinstance(content.value, int)
         and abs(content.value) > _INT32_MAX
+    )
+
+
+def _as_mapcalc_reads(value):
+    """The number that r.mapcalc computes for the integer value written in
+    its expression, None for null
+
+    The scanner of r.mapcalc reads the digits with atoi(), which glibc
+    implements as strtol() cast to int: the number saturates at 2**63 - 1 and
+    keeps its lower 32 bits, and -2**31 is the null of a CELL map. A minus in
+    front is an operator on the number read. Measured 2026-10-23 with
+    r.mapcalc "x = <literal>" in a temporary project, one literal per run;
+    the values are those of temporal_algebra_classic_profile_test.py.
+    """
+    if value < 0:
+        read = _as_mapcalc_reads(-value)
+        return None if read is None else -read
+    read = min(value, _INT64_MAX) % 2**32
+    if read > _INT32_MAX:
+        read -= 2**32
+    return None if read == -(2**31) else read
+
+
+def _read_as_mapcalc(operand):
+    """operand with each integer constant beyond 32 bits in its slots
+    replaced by the number r.mapcalc reads for it
+
+    Where two series meet, the classic algebra writes the numbers of both,
+    also those of time functions such as td() of relative time, into the
+    expression of r.mapcalc, while the core folds two constants in Python.
+    Conditions on time (start_month(A) > 3000000000) are decided before, see
+    _applied(), and reach these operations as truth values.
+    """
+    if not isinstance(operand, Series) or not any(
+        _beyond_int32(slot.content) for slot in operand.slots
+    ):
+        return operand
+    return _like(
+        operand,
+        (
+            dataclasses.replace(
+                slot,
+                content=dataclasses.replace(
+                    slot.content, value=_as_mapcalc_reads(slot.content.value)
+                ),
+            )
+            if _beyond_int32(slot.content)
+            else slot
+            for slot in operand.slots
+        ),
     )
 
 
@@ -920,6 +971,7 @@ class ClassicTranslator(Translator):
         everything but the overlays of vector maps that are not "and".
         """
         relation = self._relation(operator)
+        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
         right = self._aligned(left, right)
         box = space if self._kind == "vector" and space != "keep" else "intersection"
         if operator.temporal == "r":
@@ -1059,6 +1111,7 @@ class ClassicTranslator(Translator):
             left, right = self._as_command(left), self._as_command(right)
         if not (_timed(left) and _timed(right)):
             return super()._logical(symbol, left, right, operator)
+        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
         if operator is None:
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
@@ -1183,6 +1236,7 @@ class ClassicTranslator(Translator):
         without related map gives no map.
         """
         left, right = self._cells(left), self._cells(self._aligned(left, right))
+        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
         relation = self._relation(operator)
         join = "&&" if operator.aggregate == "&" else "||"
         conditions = []
