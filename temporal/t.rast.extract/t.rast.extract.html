@@ -19,6 +19,14 @@ If no <em>r.mapcalc</em> expression is defined, the selected maps are
 simply registered in the new created output space time raster dataset
 to avoid data duplication.
 
+<p>
+Two different maps of one time (for example two maps of January 2001)
+get the same name from the <b>suffix</b>. The first of them, in the order of
+start time and map id, keeps the name; the second and every further map get
+the number <code>_2</code>, <code>_3</code> and so on after it. A number that another new map has
+as its name is skipped.
+</p>
+
 <h2>NOTES</h2>
 
 The <em>r.mapcalc</em> sub-expression should not contain the left side

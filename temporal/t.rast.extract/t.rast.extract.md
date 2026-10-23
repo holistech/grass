@@ -18,6 +18,12 @@ If no *r.mapcalc* expression is defined, the selected maps are simply
 registered in the new created output space time raster dataset to avoid
 data duplication.
 
+Two different maps of one time (for example two maps of January 2001)
+get the same name from the **suffix**. The first of them, in the order of
+start time and map id, keeps the name; the second and every further map get
+the number `_2`, `_3` and so on after it. A number that another new map has
+as its name is skipped.
+
 ## NOTES
 
 The *r.mapcalc* sub-expression should not contain the left side
