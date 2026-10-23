@@ -84,7 +84,10 @@ def test_type_is_skipped_for_the_other_formats_with_a_warning(
 ):
     _, result = _export(tools, absolute, tmp_path, format=fmt, type="Int16")
 
-    assert "Type options is not working with pack format" in message(result)
+    # The warning names the format the user chose, not always pack.
+    assert f"type option is not used with the {fmt} format" in " ".join(
+        message(result).split()
+    )
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -174,3 +177,113 @@ def test_the_type_of_an_integer_map_holds_its_values_and_a_nodata_value(
     assert band["type"] == data_type
     if data_type != "Int32":
         assert band["noDataValue"] == nodata
+
+
+def _register_map_with_null(tools, name="ex_nd"):
+    """Register a map that holds 5 in the last column and NULL elsewhere"""
+    tools.r_mapcalc(expression=f"{name} = if(col() == 3, 5, null())", overwrite=True)
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output=f"{name}_ds",
+        title="t",
+        description="d",
+        overwrite=True,
+    )
+    tools.t_register(
+        type="raster",
+        input=f"{name}_ds",
+        maps=name,
+        start="2001-01-01",
+        increment="1 months",
+        overwrite=True,
+    )
+    return f"{name}_ds"
+
+
+def test_a_nodata_value_outside_byte_gives_the_smallest_type_that_holds_it(
+    tools, absolute, tmp_path
+):
+    dataset = _register_map_with_null(tools)
+
+    archive, _ = _export(tools, dataset, tmp_path, nodata=-77)
+
+    # The values are 5 and NULL. Byte (0 to 255) and UInt16 (0 to 65535)
+    # cannot hold -77, Int16 (-32768 to 32767) can and is the smallest signed
+    # type.
+    band = _gdalinfo(tmp_path, archive, "ex_nd.tif")["bands"][0]
+    assert band["type"] == "Int16"
+    assert band["noDataValue"] == -77
+    # The NULL cells stay NULL when the file is read back: 2 rows with one
+    # value in column 3 give 2 valid and 4 NULL cells.
+    tools.r_in_gdal(
+        input=str(tmp_path / "x" / "ex_nd.tif"), output="ex_nd_back", flags="o"
+    )
+    stats = tools.r_univar(map="ex_nd_back", format="json")
+    assert stats["n"] == 2
+    assert stats["null_cells"] == 4
+
+
+def test_a_nodata_value_inside_byte_gives_byte(tools, absolute, tmp_path):
+    dataset = _register_map_with_null(tools)
+
+    archive, _ = _export(tools, dataset, tmp_path, nodata=200)
+
+    # 5 and 200 are in 0 to 255.
+    band = _gdalinfo(tmp_path, archive, "ex_nd.tif")["bands"][0]
+    assert band["type"] == "Byte"
+    assert band["noDataValue"] == 200
+
+
+def test_aaigrid_with_a_nodata_value_outside_byte_succeeds(tools, absolute, tmp_path):
+    dataset = _register_map_with_null(tools)
+
+    archive, _ = _export(tools, dataset, tmp_path, format="AAIGrid", nodata=-77)
+
+    # NULL in the columns 1 and 2 and 5 in column 3 of both rows.
+    with tarfile.open(archive) as tar:
+        lines = tar.extractfile("ex_nd.asc").read().decode().splitlines()
+    assert "NODATA_value -77" in [" ".join(line.split()) for line in lines]
+    assert [line.split() for line in lines[-2:]] == [["-77", "-77", "5"]] * 2
+
+
+def test_aaigrid_warns_only_about_metaopt(tools, absolute, tmp_path):
+    _, result = _export(
+        tools,
+        absolute,
+        tmp_path,
+        format="AAIGrid",
+        metaopt="TAG=x",
+        createopt="DECIMAL_PRECISION=3",
+        nodata=200,
+    )
+
+    # r.out.gdal writes metaopt to ex_*.asc.aux.xml, which the archive does not
+    # hold and t.rast.import does not read; nodata and createopt reach the .asc
+    # file and are not mentioned (r.out.gdal's own messages are in the text
+    # too, so only the tool's phrases are counted).
+    text = " ".join(message(result).split())
+    assert "metaopt option is not used with the AAIGrid format" in text
+    assert text.count("option is not used") == 1
+    assert "Createopt, metaopt and nodata" not in text
+
+
+def test_aaigrid_without_metaopt_gives_no_warning(tools, absolute, tmp_path):
+    _, result = _export(
+        tools, absolute, tmp_path, format="AAIGrid", createopt="DECIMAL_PRECISION=3"
+    )
+
+    assert "option is not used" not in message(result)
+
+
+def test_a_selection_without_maps_warns_and_keeps_the_archive(
+    tools, absolute, tmp_path
+):
+    archive, result = _export(
+        tools, absolute, tmp_path, where="start_time > '2020-01-01'"
+    )
+
+    with tarfile.open(archive) as tar:
+        init = tar.extractfile("init.txt").read().decode().splitlines()
+    assert "number_of_maps=0" in init
+    assert "selection contains no map" in " ".join(message(result).split())

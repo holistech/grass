@@ -39,6 +39,18 @@ the archive to the path given by <b>output</b> and removes the subdirectory. The
 archive is therefore not written to <b>directory</b>; a relative <b>output</b> is
 taken from the current directory. The working directory must exist and be
 writable, as must the directory of <b>output</b>.
+<p>
+The <b>nodata</b> option sets the nodata value of the exported files. For a
+map of integer cells without <b>type</b>, <em>t.rast.export</em> chooses the smallest
+of the types Byte, UInt16, Int16, UInt32 and Int32 that holds the values of
+the map and the nodata value, so that a map of the values 5 and NULL with
+<b>nodata=-77</b> becomes an Int16 file. The <b>type</b> option is not used with
+the AAIGrid and pack formats, and <b>createopt</b>, <b>metaopt</b> and <b>nodata</b>
+are not used with the pack format. <b>metaopt</b> is not used with AAIGrid
+either: <em>r.out.gdal</em> writes it into a side file next to the ASCII file,
+which the archive does not hold. A <b>where</b> option that selects no map
+gives a warning and an archive without maps (<code>number_of_maps=0</code> in
+"init.txt").
 
 <h2>EXAMPLE</h2>
 

@@ -29,6 +29,9 @@ following suffix can be used:
 - **.tar.bzip2** in the case of **compress=bzip2**
 - **.tar.gzip** in the case of **compress=gzip**
 
+A **where** option that selects no map gives a warning and an archive
+without maps (`number_of_maps=0` in "init.txt").
+
 ## EXAMPLE
 
 In this example, five vector maps are created and registered in a single

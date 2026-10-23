@@ -37,6 +37,18 @@ archive is therefore not written to **directory**; a relative **output** is
 taken from the current directory. The working directory must exist and be
 writable, as must the directory of **output**.
 
+The **nodata** option sets the nodata value of the exported files. For a
+map of integer cells without **type**, *t.rast.export* chooses the smallest
+of the types Byte, UInt16, Int16, UInt32 and Int32 that holds the values of
+the map and the nodata value, so that a map of the values 5 and NULL with
+**nodata=-77** becomes an Int16 file. The **type** option is not used with
+the AAIGrid and pack formats, and **createopt**, **metaopt** and **nodata**
+are not used with the pack format. **metaopt** is not used with AAIGrid
+either: *r.out.gdal* writes it into a side file next to the ASCII file,
+which the archive does not hold. A **where** option that selects no map
+gives a warning and an archive without maps (`number_of_maps=0` in
+"init.txt").
+
 ## EXAMPLE
 
 In this example, all the raster maps of 2012 of "tempmean_monthly" will

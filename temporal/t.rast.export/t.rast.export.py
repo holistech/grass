@@ -118,10 +118,20 @@ def main():
 
     if type_ and format_ in {"pack", "AAIGrid"}:
         gs.warning(
-            _("Type options is not working with pack format, it will be skipped")
+            _(
+                "The type option is not used with the {} format, it will be skipped."
+            ).format(format_)
         )
-    # AAIGrid is written by r.out.gdal, which takes these options; only pack
-    # has no use for them.
+    # AAIGrid is written by r.out.gdal, which takes nodata and createopt like
+    # for GTiff. metaopt ends up in a side file (<map>.asc.aux.xml) that the
+    # archive does not hold, so it is lost for AAIGrid.
+    if format_ == "AAIGrid" and kws.get("metaopt"):
+        gs.warning(
+            _(
+                "The metaopt option is not used with the AAIGrid format, "
+                "it will be skipped."
+            )
+        )
     if format_ == "pack" and kws:
         gs.warning(
             _(
