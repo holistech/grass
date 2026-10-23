@@ -379,6 +379,32 @@ def test_merge_packs_a_corpus_above_the_limit(setting, reference, monkeypatch):
     assert (setting / "corpus" / "raster.jsonl").read_bytes() == plain
 
 
+def test_merge_packs_all_kinds_when_together_above_the_limit(
+    setting, reference, monkeypatch
+):
+    """The limit holds for the corpus, so kinds below it alone are packed too
+
+    The limit is set to the larger of the two plain files: neither is above it
+    alone, both together are. The vector file comes from an earlier recording
+    and is packed with the same content.
+    """
+    write_corpus(setting / "corpus", "vector", [("kept", MAPS)])
+    vector_bytes = (setting / "corpus" / "vector.jsonl").read_bytes()
+    monkeypatch.setenv(corpus.MODE_VARIABLE, "record")
+    corpus.reference_outcome("raster", "A")
+    corpus.merge_records(setting / "records", setting / "corpus")
+    raster_bytes = (setting / "corpus" / "raster.jsonl").read_bytes()
+    monkeypatch.setattr(corpus, "SIZE_LIMIT", max(len(raster_bytes), len(vector_bytes)))
+    corpus.merge_records(setting / "records", setting / "corpus")
+    assert sorted(path.name for path in (setting / "corpus").iterdir()) == [
+        "raster.jsonl.gz",
+        "vector.jsonl.gz",
+    ]
+    for kind, plain in [("raster", raster_bytes), ("vector", vector_bytes)]:
+        packed = (setting / "corpus" / f"{kind}.jsonl.gz").read_bytes()
+        assert gzip.decompress(packed) == plain
+
+
 def test_merge_packs_without_a_time_stamp(setting, reference, monkeypatch):
     """The same corpus gives the same bytes, so a new recording diffs cleanly
 

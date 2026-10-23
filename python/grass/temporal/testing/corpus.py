@@ -20,7 +20,8 @@ Two functions take the place of the runs of the earlier implementation:
 
 The corpus is the directory ``corpus`` next to this module, one file per kind
 (``raster``, ``raster3d``, ``vector``, ``select``): ``<kind>.jsonl``, or
-``<kind>.jsonl.gz`` when the plain file would be larger than ``SIZE_LIMIT``.
+``<kind>.jsonl.gz`` for every kind when the plain files together would be
+larger than ``SIZE_LIMIT``.
 Each line is a JSON object with ``key`` and ``value``. The key is
 ``corpus_key()``: the node id of the test (``case_id()``), the kind, the
 expression and the options, plus the mark ``"dry_run"`` for the run without
@@ -92,7 +93,8 @@ CORPUS_DIR = Path(__file__).with_name("corpus")
 #: Where ``merge`` writes without ``--corpus-dir``, relative to the root of the
 #: source tree
 SOURCE_CORPUS_DIR = Path("python/grass/temporal/testing/corpus")
-#: Bytes of a plain file above which ``merge`` writes it with gzip
+#: Bytes of all plain files together above which ``merge`` packs every kind
+#: with gzip
 SIZE_LIMIT = 1_000_000
 
 _PHASE = re.compile(r" \((?:setup|call|teardown)\)$")
@@ -260,23 +262,26 @@ def load(kind, directory=None):
     directory = Path(directory or CORPUS_DIR)
     if (directory, kind) in _loaded:
         return _loaded[directory, kind]
+    entries = {}
+    for line in _plain_bytes(directory, kind).decode("utf-8").splitlines():
+        record = json.loads(line)
+        entries[record["key"]] = record["value"]
+    _loaded[directory, kind] = entries
+    return entries
+
+
+def _plain_bytes(directory, kind):
+    """Return the content of the file of a kind unpacked, empty without file"""
     plain = directory / f"{kind}.jsonl"
     packed = directory / f"{kind}.jsonl.gz"
     if plain.exists() and packed.exists():
         msg = f"Both {plain} and {packed} exist; remove the one that is stale"
         raise RuntimeError(msg)
     if packed.exists():
-        text = gzip.decompress(packed.read_bytes()).decode("utf-8")
-    elif plain.exists():
-        text = plain.read_text(encoding="utf-8")
-    else:
-        text = ""
-    entries = {}
-    for line in text.splitlines():
-        record = json.loads(line)
-        entries[record["key"]] = record["value"]
-    _loaded[directory, kind] = entries
-    return entries
+        return gzip.decompress(packed.read_bytes())
+    if plain.exists():
+        return plain.read_bytes()
+    return b""
 
 
 def _append(kind, key, value):
@@ -300,9 +305,10 @@ def merge_records(record_dir, corpus_dir):
     Reads every ``*.jsonl`` file of ``record_dir`` before it writes. A key
     that occurs more than once with the same value is kept once. The file of
     each kind is replaced, sorted by key; a kind without records keeps its
-    file. A file larger than ``SIZE_LIMIT`` bytes is written with gzip
-    (without time stamp, so the same corpus gives the same bytes), and the
-    other form of the kind is removed.
+    entries. When the plain files of all kinds together are larger than
+    ``SIZE_LIMIT`` bytes, every kind is written with gzip (without time stamp,
+    so the same corpus gives the same bytes), otherwise every kind is written
+    plain; the other form of each kind is removed.
 
     :return: The number of entries by kind
     :raises ValueError: when one key has two values, or no record exists
@@ -324,25 +330,34 @@ def merge_records(record_dir, corpus_dir):
         msg = f"There are no records in {record_dir}"
         raise ValueError(msg)
     corpus_dir = Path(corpus_dir)
-    corpus_dir.mkdir(parents=True, exist_ok=True)
+    contents = {}
     counts = {}
-    for kind in sorted(entries):
-        values = entries[kind]
-        data = "".join(
+    for kind, values in entries.items():
+        contents[kind] = "".join(
             json.dumps({"key": key, "value": values[key]}, sort_keys=True) + "\n"
             for key in sorted(values)
         ).encode("utf-8")
+        counts[kind] = len(values)
+    # The limit is meant for the whole corpus in version control; a limit per
+    # file would leave four files just below it plain. So the kinds that this
+    # recording leaves alone count too and take the chosen form.
+    for path in [*corpus_dir.glob("*.jsonl"), *corpus_dir.glob("*.jsonl.gz")]:
+        kind = path.name.split(".")[0]
+        if kind not in contents:
+            contents[kind] = _plain_bytes(corpus_dir, kind)
+    packing = sum(len(data) for data in contents.values()) > SIZE_LIMIT
+    corpus_dir.mkdir(parents=True, exist_ok=True)
+    for kind, data in sorted(contents.items()):
         plain = corpus_dir / f"{kind}.jsonl"
         packed = corpus_dir / f"{kind}.jsonl.gz"
-        if len(data) > SIZE_LIMIT:
+        if packing:
             packed.write_bytes(gzip.compress(data, mtime=0))
             plain.unlink(missing_ok=True)
         else:
             plain.write_bytes(data)
             packed.unlink(missing_ok=True)
         _loaded.pop((corpus_dir, kind), None)
-        counts[kind] = len(values)
-    return counts
+    return dict(sorted(counts.items()))
 
 
 def main(argv=None):
