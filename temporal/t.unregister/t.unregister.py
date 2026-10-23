@@ -100,6 +100,10 @@ def main():
                     break
 
                 mapname = line.strip()
+                # An empty line is no map name; an editor often leaves one at
+                # the end of a file.
+                if not mapname:
+                    continue
                 mapid = dummy.build_id(mapname, mapset)
                 maplist.append(mapid)
 

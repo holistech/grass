@@ -8,7 +8,8 @@ Map layer that should be unregistered from the temporal database can be
 specified as a list of comma separated map names or using a text file,
 that contains one map layer name per line. By default the map type that
 should be unregistered is set to raster. The option*type* must be used
-to specify 3D raster or vector map layer types.
+to specify 3D raster or vector map layer types. Empty lines in the text
+file are skipped.
 
 ## INPUT FILE FORMAT
 

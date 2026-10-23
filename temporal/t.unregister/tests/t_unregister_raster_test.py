@@ -159,18 +159,16 @@ def test_names_from_a_file_and_a_dataset(tools, make_stds, tmp_path):
     assert _in_database(tools, maps) == [True] * 4
 
 
-def test_a_blank_line_in_the_file_is_a_map_without_a_name(tools, make_stds, tmp_path):
-    # The blank line is read as a map name and warned about; the maps around
-    # it are unregistered all the same.
+def test_a_blank_line_in_the_file_is_skipped(tools, make_stds, tmp_path):
+    # The blank line lies before a later valid name, so that a tool which
+    # stopped at the blank line would leave the last map registered.
     maps, _ = make_stds(3)
     file = tmp_path / "maps.txt"
     file.write_text(f"{maps[0]}\n\n{maps[2]}\n")
 
     result = tools.t_unregister(file=file)
 
-    assert "Unable to find raster map <@PERMANENT> in temporal database" in (
-        _message(result)
-    )
+    assert "WARNING" not in result.stderr
     assert _in_database(tools, maps) == [False, True, False]
 
 
