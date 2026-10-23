@@ -377,28 +377,70 @@ def test_the_message_of_a_refused_shift_names_the_dataset(tools, mixed):
 
 @pytest.fixture
 def end_of_month(tools, prefix):
-    """A map from 2001-01-31 to 2001-02-10: one month later has no day 31"""
-    return _dataset(tools, prefix, [(day(30), day(40))])
+    """A map from 2001-01-31 to 2001-02-28: one month later has no day 31"""
+    return _dataset(tools, prefix, [(day(30), day(58))])
 
 
-def test_a_month_shift_to_a_missing_day_ends_with_a_message(tools, end_of_month):
-    # The manual: "an error will raise and the shifting will not performed
-    # for the whole dataset". Tools end with a message, not with a traceback.
+def test_a_month_shift_from_day_31_ends_on_the_last_day_of_february(
+    tools, end_of_month
+):
+    # January 31 plus one month is February 28, the last day of February
+    # 2001; February 28 plus one month is March 28.
+    tools.t_shift(input=end_of_month, granularity="1 month")
+
+    assert _times(tools, end_of_month) == [
+        ("2001-02-28 00:00:00", "2001-03-28 00:00:00")
+    ]
+
+
+def test_a_list_shift_from_day_31_cuts_the_month_before_adding_the_day(
+    tools, end_of_month
+):
+    # Each part is counted from the old time: January 31 plus one month is
+    # February 28, plus one day March 1; February 28 plus one month is
+    # March 28, plus one day March 29.
+    tools.t_shift(input=end_of_month, granularity="1 months, 1 days")
+
+    assert _times(tools, end_of_month) == [
+        ("2001-03-01 00:00:00", "2001-03-29 00:00:00")
+    ]
+
+
+def test_a_month_shift_back_from_day_31_ends_on_the_last_day_of_february(tools, prefix):
+    # March 31 minus one month is February 28, the last day of February 2001.
+    name = _dataset(tools, prefix, [(datetime(2001, 3, 31), None)])
+
+    tools.t_shift(input=name, granularity="-1 months")
+
+    assert _times(tools, name) == [("2001-02-28 00:00:00", None)]
+
+
+@pytest.fixture
+def end_of_time(tools, prefix):
+    """A map from 9999-06-01 to 9999-12-01: one year later is no date"""
+    return _dataset(tools, prefix, [(datetime(9999, 6, 1), datetime(9999, 12, 1))])
+
+
+def test_a_shift_behind_the_year_9999_ends_with_a_message(tools, end_of_time):
+    # The manual: the shifting is not performed for the whole dataset. Tools
+    # end with a message, not with a traceback.
     with pytest.raises(ToolError) as error:
-        tools.t_shift(input=end_of_month, granularity="1 month")
+        tools.t_shift(input=end_of_time, granularity="1 year")
 
     text = message(error.value)
     assert "Traceback" not in text
-    assert f"Unable to shift dataset <{end_of_month}@PERMANENT> by <1 month>" in text
-    assert "day is out of range for month" in text
-    assert _times(tools, end_of_month) == [(_text(30), _text(40))]
+    assert f"Unable to shift dataset <{end_of_time}@PERMANENT> by <1 year>" in text
+    assert "year 10000 is out of range" in text
+    assert _times(tools, end_of_time) == [
+        ("9999-06-01 00:00:00", "9999-12-01 00:00:00")
+    ]
 
 
-def test_a_list_shift_to_a_missing_day_names_the_map(tools, end_of_month):
+def test_a_list_shift_behind_the_year_9999_names_the_map(tools, end_of_time):
     with pytest.raises(ToolError) as error:
-        tools.t_shift(input=end_of_month, granularity="1 months, 1 days")
+        tools.t_shift(input=end_of_time, granularity="1 years, 1 days")
 
-    assert f"map <{end_of_month.removesuffix('_ds')}_1@PERMANENT>" in message(
+    assert f"map <{end_of_time.removesuffix('_ds')}_1@PERMANENT>" in message(
         error.value
     )
 

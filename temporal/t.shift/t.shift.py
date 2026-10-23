@@ -83,9 +83,9 @@ def shift_by_list(stds, gran, dbif):
         return False
 
     # All new times are computed before the first map changes, as in shift(),
-    # so that an impossible date such as 2001-04-31 leaves the dataset as it
-    # was. Shifting by one part after the other with shift() would not:
-    # a later part could fail after the earlier ones were written.
+    # so that a date behind the year 9999 leaves the dataset as it was.
+    # Shifting by one part after the other with shift() would not: a later
+    # part could fail after the earlier ones were written.
     date_list = []
     for map in maps:
         start, end = map.get_temporal_extent_as_tuple()
@@ -94,8 +94,8 @@ def shift_by_list(stds, gran, dbif):
             if end is not None:
                 end = increment_datetime_by_string(end, gran)
         except ValueError as error:
-            # A month shift onto a day the month does not have, such as the
-            # 31st; the caller names the dataset and the shift.
+            # A shift behind the year 9999, which datetime cannot represent;
+            # the caller names the dataset and the shift.
             raise ValueError(
                 _("map <{map}>: {error}").format(map=map.get_id(), error=error)
             ) from error
