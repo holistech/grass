@@ -3,10 +3,11 @@
 <em>t.list</em> lists any dataset that is registered in the temporal
 database. Datasets are raster, 3D raster and vector maps as well as
 their corresponding space time datasets (STRDS, STR3DS and STVDS). The
-type of the dataset can be specified using the <em>type</em> option,
-default is STRDS. By default all datasets with relative and absolute
-time are listed. However, the user has the ability to specify a single
-temporal type with the <em>temporaltype</em> option. The user can
+type of the dataset can be specified using the <em>type</em> option
+(default is STRDS). Multiple comma-separated types can be provided, such
+as <em>type=strds,stvds</em>. By default all datasets with relative and
+absolute time are listed. However, the user has the ability to specify a
+single temporal type with the <em>temporaltype</em> option. The user can
 define the columns that should be printed for each dataset and the
 order of the datasets. In addition a SQL WHERE statement can be
 specified to select a subset of the requested datasets.
@@ -17,24 +18,53 @@ The SQL <em>where</em> and <em>sort</em> expression will be applied for
 each temporal database that was found in accessible mapsets. Hence
 sorting works only on mapset basis.
 <p>
-Temporal databases stored in other mapsets can be used as long as they
-are in the user's current mapset search path (managed with
+The <b>mapset</b> option allows the user to filter the output to one
+or multiple specific mapsets, or to query all mapsets in the project
+regardless of the current search path. By default (if the <b>mapset</b>
+option is not provided), temporal datasets are listed from all mapsets in
+the user's current search path (managed with
 <a href="g.mapsets.html">g.mapsets</a>).
-
 <p>
-The flag <b>-c</b> prints the column names as the first row of the
-<tt>plain</tt> output. The <tt>csv</tt> output always starts with the column
-names, with or without <b>-c</b>.
+The <b>mapset</b> parameter accepts the following inputs:
+<tt>mapset='.'</tt> lists datasets only in the current mapset.
+<tt>mapset='*'</tt> lists datasets in all mapsets in the project (location),
+bypassing the search path.
+<tt>mapset=name1,name2</tt> lists datasets strictly from the explicitly named
+mapsets, even if they are outside the current search path.
 
 <h2>EXAMPLES</h2>
 
-Obtain the list of space time raster dataset(s):
+Obtain the list of space time raster dataset(s) in the current search path:
 
 <div class="code"><pre>
 t.list strds
 ----------------------------------------------
 Space time raster datasets with absolute time available in mapset &#60;climate_2000_2012&#62;:
 tempmean_monthly@climate_2000_2012
+</pre></div>
+
+Obtain the list of space time raster datasets in a specific mapset, even if it is
+not in the search path:
+
+<div class="code"><pre>
+t.list strds mapset=modis2002lst
+----------------------------------------------
+Space time raster datasets with absolute time available in mapset &#60;modis2002lst&#62;:
+mini_set@modis2002lst
+</pre></div>
+
+Obtain the list of space time raster datasets across all mapsets in the project
+(location) using '*':
+
+<div class="code"><pre>
+t.list type=strds mapset='*'
+----------------------------------------------
+Space time raster datasets with absolute time available in mapset &#60;climate_2000_2012&#62;:
+precip_abs@climate_2000_2012
+precipitation@climate_2000_2012
+tempmean@climate_2000_2012
+Space time raster datasets with absolute time available in mapset &#60;modis2002lst&#62;:
+mini_set@modis2002lst
 </pre></div>
 
 Obtain the list of space time raster datasets in a specific mapset (Note
@@ -82,6 +112,91 @@ Time stamped raster maps with absolute time available in mapset &#60;climate_200
 2012_10_tempmean@climate_2000_2012
 2012_11_tempmean@climate_2000_2012
 2012_12_tempmean@climate_2000_2012
+</pre></div>
+
+You can also use the <em>format=</em> option with <tt>plain</tt> (default),
+<tt>csv</tt>, <tt>line</tt>, and <tt>json</tt>. For <tt>plain</tt>,
+<tt>csv</tt>, and <tt>line</tt>, you can also use the <em>separator=</em>
+option to change the output delimiter.
+
+<p>
+The flag <b>-c</b> prints the column names as the first row of the
+<tt>plain</tt> output. The <tt>csv</tt> output always starts with the column
+names, with or without <b>-c</b>.
+
+<p>
+To output the list in JSON format, use <tt>format=json</tt>. By default, if no
+columns are specified in json format, it will output all available metadata. You
+can restrict the output using the <tt>columns</tt> parameter.
+
+<div class="code"><pre>
+t.list type=raster format=json columns=id,start_time
+</pre></div>
+<div class="code"><pre>
+[
+    {
+        "id": "2009_01_tempmean@climate_2000_2012",
+        "start_time": "2009-01-01 00:00:00"
+    },
+    {
+        "id": "2009_02_tempmean@climate_2000_2012",
+        "start_time": "2009-02-01 00:00:00"
+    },
+    {
+        "id": "2009_03_tempmean@climate_2000_2012",
+        "start_time": "2009-03-01 00:00:00"
+    },
+    ...
+    {
+        "id": "2012_11_tempmean@climate_2000_2012",
+        "start_time": "2012-11-01 00:00:00"
+    },
+    {
+        "id": "2012_12_tempmean@climate_2000_2012",
+        "start_time": "2012-12-01 00:00:00"
+    }
+]
+</pre></div>
+
+To list multiple dataset types at once, specify a comma-separated list of
+types (e.g., <tt>type=strds,stvds</tt>).
+
+<p>
+<b>Note:</b> The <tt>type</tt> column is automatically included in the
+<b>csv</b> and <b>json</b> output formats when multiple types are requested to
+clearly identify the dataset type of each record. It can also be explicitly
+requested for single types using <tt>columns=id,type</tt>.
+
+<div class="code"><pre>
+t.list type=strds,stvds columns=id format=json
+</pre></div>
+<div class="code"><pre>
+[
+    {
+        "id": "lst_daily@PERMANENT",
+        "type": "strds"
+    },
+    {
+        "id": "mini_set@PERMANENT",
+        "type": "strds"
+    },
+    {
+        "id": "nc_lst_daily@PERMANENT",
+        "type": "strds"
+    },
+    {
+        "id": "precip_abs1@PERMANENT",
+        "type": "strds"
+    },
+    {
+        "id": "prec_observer@PERMANENT",
+        "type": "stvds"
+    },
+    {
+        "id": "schools_stds@PERMANENT",
+        "type": "stvds"
+    }
+]
 </pre></div>
 
 <h2>SEE ALSO</h2>
