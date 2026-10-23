@@ -444,6 +444,21 @@ def test_a_shift_behind_the_year_9999_ends_with_a_message(tools, end_of_time):
     ]
 
 
+def test_a_shift_of_days_behind_the_year_9999_ends_with_a_message(tools, end_of_time):
+    # 01.12.9999 + 365 days is in the year 10000. The step in days overflowed
+    # in the date sum and ended the tool with a traceback.
+    with pytest.raises(ToolError) as error:
+        tools.t_shift(input=end_of_time, granularity="365 days")
+
+    text = message(error.value)
+    assert "Traceback" not in text
+    assert f"Unable to shift dataset <{end_of_time}@PERMANENT> by <365 days>" in text
+    assert "beyond the year 9999" in text
+    assert _times(tools, end_of_time) == [
+        ("9999-06-01 00:00:00", "9999-12-01 00:00:00")
+    ]
+
+
 def test_a_list_shift_behind_the_year_9999_names_the_map(tools, end_of_time):
     with pytest.raises(ToolError) as error:
         tools.t_shift(input=end_of_time, granularity="1 years, 1 days")

@@ -128,3 +128,20 @@ def test_pure_steps_are_unchanged():
         if month + steps <= -12 and (month + steps) % 12 == 0
     }
     assert set(broken) == expected
+
+
+@pytest.mark.parametrize("days", [365, 31])
+def test_a_day_step_beyond_9999_is_a_value_error(days):
+    # 01.12.9999 + 31 days is 01.01.10000, which datetime cannot hold. Callers
+    # catch ValueError, as for a month step; OverflowError escaped them and
+    # ended tools with a traceback.
+    with pytest.raises(ValueError, match="beyond the year 9999") as error:
+        modify_datetime(datetime(9999, 12, 1), days=days)
+    assert not isinstance(error.value, OverflowError)
+    assert error.value.__cause__ is None
+    assert error.value.__suppress_context__
+
+
+def test_a_step_back_before_year_1_is_a_value_error():
+    with pytest.raises(ValueError, match="before the year 1"):
+        modify_datetime(datetime(1, 1, 10), days=-365)

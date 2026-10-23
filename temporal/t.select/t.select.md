@@ -535,12 +535,13 @@ corrections.
 #### Corrections to the classic algebra
 
 The classic algebra gives the results of the previous implementation, with
-the exceptions below. In these cases the previous implementation ended in
-an error that had no reason, reported the wrong error, or did not do what
-this manual describes. **-c** now gives the result described here. The new
-algebra never had these errors; only the item on month steps concerned the
-library and with it both algebras. Results of earlier GRASS versions that
-used one of these forms need a new run.
+the exceptions below. In these cases the previous implementation ended in an
+error that had no reason, reported the wrong error, or did not do what this
+manual describes. **-c** now gives the result described here. The new
+algebra never had these errors; only the items on month steps and on dates
+beyond the year 9999 concerned the library and with it both algebras.
+Results of earlier GRASS versions that used one of these forms need a new
+run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside selects
    no map, the result is an empty dataset, like any other selection of no
@@ -657,6 +658,13 @@ used one of these forms need a new run.
    C = if(start_doy(A) < 3, start_doy(A, 1), A)
    C = tshift(start_doy(A, 1), "1 day")
    ```
+
+10. **A date beyond the year 9999.** A step that ends behind the year 9999
+    or before the year 1, for example `buff_t(A, "365 days")` on a map that ends
+    on 1 December 9999, ended with a traceback ("date value out of range")
+    in both algebras. It now ends with the error "... is beyond the year
+    9999" or "... is before the year 1" (corrected 23 October 2026); no map
+    and no dataset is created.
 
 #### Differences from the previous implementation
 

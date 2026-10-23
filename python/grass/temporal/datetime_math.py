@@ -304,6 +304,9 @@ def modify_datetime(
         datetime.datetime(2005, 2, 28, 0, 0)
         >>> modify_datetime(datetime(2003, 12, 1), months=-24)
         datetime.datetime(2001, 12, 1, 0, 0)
+
+    :raises ValueError: If the result lies beyond the year 9999 or before the
+                        year 1, which datetime cannot hold
     """
 
     total_months = 12 * int(years) + int(months)
@@ -313,9 +316,24 @@ def modify_datetime(
         )
         mydate = _replace_year_month(mydate, target_year, target_month + 1)
 
-    return mydate + timedelta(
+    step = timedelta(
         weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
     )
+    try:
+        return mydate + step
+    except OverflowError:
+        # Callers catch ValueError, which the month and year step raises
+        # beyond the same limits; OverflowError passed them and ended tools
+        # with a traceback. "from None" drops the bare "date value out of range".
+        if step < timedelta(0):
+            msg = _("The date {date} minus {step} is before the year 1").format(
+                date=mydate, step=-step
+            )
+        else:
+            msg = _("The date {date} plus {step} is beyond the year 9999").format(
+                date=mydate, step=step
+            )
+        raise ValueError(msg) from None
 
 
 def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | None:
