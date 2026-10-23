@@ -105,19 +105,28 @@ def _as_mapcalc_reads(value):
     return None if read == -(2**31) else read
 
 
-def _read_as_mapcalc(operand):
-    """operand with each integer constant beyond 32 bits in its slots
-    replaced by the number r.mapcalc reads for it
+def _read_as_mapcalc(left, right):
+    """left and right, where one of them is a series of cells, with each
+    integer constant beyond 32 bits in their slots replaced by the number
+    r.mapcalc reads for it
 
-    Where two series meet, the classic algebra writes the numbers of both,
-    also those of time functions such as td() of relative time, into the
-    expression of r.mapcalc, while the core folds two constants in Python.
-    Conditions on time (start_month(A) > 3000000000) are decided before, see
-    _applied(), and reach these operations as truth values.
+    Where a series of cells meets another series, the classic algebra writes
+    the numbers of both, also those of time functions such as td() of
+    relative time, into the expression of r.mapcalc, while the core folds two
+    constants in Python. Two series of time function values stay as they
+    are: the profile decides a condition on them in Python, as on a single
+    time function (see _applied()), and cut numbers would decide it
+    otherwise. The reference computes such a condition (td(A) * td(A) > 5)
+    in r.mapcalc, which the profile does not follow yet.
     """
-    if not isinstance(operand, Series) or not any(
-        _beyond_int32(slot.content) for slot in operand.slots
-    ):
+    if "field" not in (left.sort, right.sort):
+        return left, right
+    return _read_operand_as_mapcalc(left), _read_operand_as_mapcalc(right)
+
+
+def _read_operand_as_mapcalc(operand):
+    """operand with the integer constants of _read_as_mapcalc() replaced"""
+    if not any(_beyond_int32(slot.content) for slot in operand.slots):
         return operand
     return _like(
         operand,
@@ -971,7 +980,7 @@ class ClassicTranslator(Translator):
         everything but the overlays of vector maps that are not "and".
         """
         relation = self._relation(operator)
-        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
+        left, right = _read_as_mapcalc(left, right)
         right = self._aligned(left, right)
         box = space if self._kind == "vector" and space != "keep" else "intersection"
         if operator.temporal == "r":
@@ -1111,7 +1120,7 @@ class ClassicTranslator(Translator):
             left, right = self._as_command(left), self._as_command(right)
         if not (_timed(left) and _timed(right)):
             return super()._logical(symbol, left, right, operator)
-        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
+        left, right = _read_as_mapcalc(left, right)
         if operator is None:
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
@@ -1236,7 +1245,7 @@ class ClassicTranslator(Translator):
         without related map gives no map.
         """
         left, right = self._cells(left), self._cells(self._aligned(left, right))
-        left, right = _read_as_mapcalc(left), _read_as_mapcalc(right)
+        left, right = _read_as_mapcalc(left, right)
         relation = self._relation(operator)
         join = "&&" if operator.aggregate == "&" else "||"
         conditions = []

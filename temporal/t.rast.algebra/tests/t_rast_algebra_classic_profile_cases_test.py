@@ -729,6 +729,27 @@ def test_a_duration_beyond_32_bits_between_two_series(long_durations):
     assert_equal("if(td(RS) <= 0.5, RS, 1.5) + td(RS)")
 
 
+def test_a_condition_on_two_durations_compares_the_numbers_as_they_are(
+    long_durations,
+):
+    """The profile decides a condition on time functions in Python, also one
+    on two of them combined, so the durations keep all their bits there:
+    3000000000 * 3000000000 = 9e18 > 1.8e18 holds and both maps of RS (cell
+    values 1 and 2) are taken. With the durations read as r.mapcalc reads
+    them, (-1294967296)^2 = 1.677e18 would not exceed 1.8e18.
+
+    The reference gives the same maps by another way: it computes this
+    condition in r.mapcalc, where the product wraps around to -494665728 and
+    1800000000000000000 reads as -1816920064, so the condition holds as well.
+    """
+    expression = "if(td(RS) * td(RS) > 1800000000000000000, RS, 1)"
+    for runner, basename in (("classic", "fb"), ("reference", "fa")):
+        result = outcome(
+            KIND, expression, RUNNERS[runner], basename=basename, register_null=True
+        )
+        assert [row[3:] for row in result["maps"]] == [[1.0, 1.0], [2.0, 2.0]]
+
+
 def test_the_core_keeps_a_constant_beyond_32_bits_between_two_series(datasets):
     """The core writes the integer as a floating point number: 3000000000 +
     1.0 = 3000000001.0, 3000000000 in 6 significant digits, for each of the
