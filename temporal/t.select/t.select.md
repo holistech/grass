@@ -666,6 +666,21 @@ run.
     9999" or "... is before the year 1" (corrected 23 October 2026); no map
     and no dataset is created.
 
+11. **A selection with r or u under -s and maps whose boxes only touch.**
+    With **-s** two maps are related when they are related in time and in
+    space; boxes that meet at an edge or a corner only are not related in
+    space. A selection such as `A {:,precedes,r} B` took the time of every
+    map that was related in time, also of one whose box only touches the box
+    of the map of A, and the last such map won. An inverse selection such as
+    `A {!:,precedes,r} B` kept a map without a related partner, as it
+    should, but gave it the time of a partner that only touches it. The time
+    is now taken only from maps that are related in time and in space, and
+    `!:` keeps a map without such a partner with its own time (corrected 23
+    October 2026). For example, a map of A from 1 to 2 January whose box
+    meets at a corner the box of a map of B from 2 to 3 January keeps the
+    time 1 to 2 January in the inverse selection above, where it took 2 to 3
+    January. Without **-s** nothing changes.
+
 #### Differences from the previous implementation
 
 The differences in message texts, in the debug output of the Python
