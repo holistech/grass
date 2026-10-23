@@ -14,6 +14,11 @@ using shell style.
 parameters have been set, and if not will set them to use GRASS's
 default values.
 <p>The <b>-d</b> flag will set the default TGIS connection parameters.
+<p>An option that is not given is set to its default: a call with only
+<b>database</b> sets the driver to <tt>sqlite</tt>, a call with only
+<b>driver</b> sets the database to
+<tt>$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db</tt>, and a call without
+any option sets both. To change one value and keep the other, give both.
 
 <h2>NOTES</h2>
 
