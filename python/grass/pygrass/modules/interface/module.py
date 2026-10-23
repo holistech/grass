@@ -1085,6 +1085,25 @@ class MultiModule:
             return proc_list
 
 
+def _run_until_failure(module_list):
+    """Run the modules in serial and stop at the first one that fails
+
+    The failure stays visible to the parent process through the return code
+    of the failed module, which ParallelModuleQueue.wait() turns into a
+    CalledModuleError. Letting the exception leave the child process would
+    only print its traceback to stderr, because nothing in a
+    multiprocessing.Process catches it.
+
+    :param module_list: The list of modules to run in serial
+    """
+    for proc in module_list:
+        try:
+            proc.run()
+            proc.wait()
+        except CalledModuleError:
+            return
+
+
 def run_modules_in_temp_region(module_list, q):
     """Run the modules in a temporary region environment
 
@@ -1096,9 +1115,7 @@ def run_modules_in_temp_region(module_list, q):
     """
     use_temp_region()
     try:
-        for proc in module_list:
-            proc.run()
-            proc.wait()
+        _run_until_failure(module_list)
     finally:
         q.put(module_list)
         del_temp_region()
@@ -1114,9 +1131,7 @@ def run_modules(module_list, q):
     :param q: The process queue to put the finished process list
     """
     try:
-        for proc in module_list:
-            proc.run()
-            proc.wait()
+        _run_until_failure(module_list)
     finally:
         q.put(module_list)
 
