@@ -14,7 +14,7 @@ from grass.exceptions import CalledModuleError
 from grass.temporal.testing.data import make_map
 from grass.temporal.testing.readback import list_maps, stds_info
 from grass.temporal.testing.session import project_session
-from grass.tools import ToolError, Tools
+from grass.tools import Tools
 
 # Almost every test of the module runs longer than one second (measured
 # 18.10.2026 with pytest --durations).
@@ -85,15 +85,15 @@ def test_register_with_a_non_ascii_description(locale_tools):
     )
 
 
-def test_a_non_ascii_description_fails_with_lc_all_c(tmp_path):
-    # With LC_ALL=C Python does not coerce the locale, and grass.script's
-    # parser cannot decode the argument. This is the decoding of every Python
-    # tool, not of t.register.
+def test_a_non_ascii_description_works_with_lc_all_c(tmp_path):
+    # With LC_ALL set, Python does not coerce the locale (PEP 538) but still
+    # runs in its UTF-8 mode (PEP 540), which grass.script's parser follows.
     with project_session(tmp_path / "project") as session:
         session.env["LC_ALL"] = "C"
         tools = Tools(
             session=session, consistent_return_value=True, capture_stderr=True
         )
 
-        with pytest.raises(ToolError, match="UnicodeDecodeError"):
-            tools.t_create(output="pluies", title="t", description=DESCRIPTION)
+        tools.t_create(output="pluies", title="t", description=DESCRIPTION)
+
+        assert DESCRIPTION in tools.t_info(type="strds", input="pluies").stdout
