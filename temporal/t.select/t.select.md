@@ -489,6 +489,22 @@ points differ:
    D = tsnap(merge(C, A))
    ```
 
+8. **Time functions as the conclusion of if().** A time function such as
+   `start_doy()` gives numbers, not maps, so the new algebra stops with the
+   error "A time function such as start_doy() cannot be the result of a
+   selection" whenever it is the conclusion of `if()` beside maps. A time
+   function belongs in the condition. The classic algebra stops with this
+   error only where a value of the time function would be among the
+   selected maps (see the corrections below). If the first map of A starts
+   on 1 January, only that map meets the condition, and it has no
+   predecessor: the classic algebra selects the other maps of A with the
+   first expression and stops with the second:
+
+   ```sh
+   C = if(start_doy(A) < 3, start_doy(A, -1), A)
+   C = if(start_doy(A) < 3, start_doy(A, 1), A)
+   ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises `ValueError` for an expression it
@@ -619,17 +635,19 @@ used one of these forms need a new run.
    C = buff_t(M, "1 months")
    ```
 
-9. **Time functions as the conclusion of if().** A time function such as
-   `start_doy()` gives numbers, not maps. Both algebras stop with the error
-   "A time function such as start_doy() cannot be the result of a selection"
-   when it is the conclusion of `if()` beside maps, before they create a
-   dataset or a map (corrected 23 October 2026). A time function belongs in
-   the condition. The previous implementation planned the expression with a
-   dry run and failed in the real run, when it copied a map that it had
-   never computed:
+9. **Time functions as the selected maps.** In a selection, a time function
+   at an offset such as `start_doy(A, 1)` stands for the map it reads, whose
+   value the previous implementation never computed. Where such a value was
+   among the selected maps, a dry run listed it and the real run failed when
+   it copied that map. The classic algebra now stops with the error "A time
+   function such as start_doy() cannot be the result of a selection" before
+   it creates a dataset or a map (corrected 23 October 2026); where no value
+   of the time function is selected, the result is the same as before. A
+   time function belongs in the condition:
 
    ```sh
    C = if(start_doy(A) < 3, start_doy(A, 1), A)
+   C = tshift(start_doy(A, 1), "1 day")
    ```
 
 #### Differences from the previous implementation
