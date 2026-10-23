@@ -24,6 +24,13 @@ month ends on that day, so monthly cycles from 2001-01-31 start on
 or years, such as a cycle in months with an offset in days, each cycle
 starts one offset after the end of the cycle before.
 
+*t.rast.accumulate* moves its **start** to the beginning of its
+**granularity**, a month to its first day, and *t.rast.accdetect* does
+not. For the same cycles give *t.rast.accdetect* the moved start.
+
+Without **stop** the run ends with the input dataset. A time instant at
+the end of the dataset is processed as well.
+
 The **minimum** and **maximum** values for the pattern detection process
 can be set either by using space time raster datasets or by using fixed
 values for all raster cells and time steps.

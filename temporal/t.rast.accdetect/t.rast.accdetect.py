@@ -326,6 +326,19 @@ def main():
             gs.fatal(_("Temporal type of input strds and maximum strds must be equal"))
 
     input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
+    # The loop below ends before input_strds_end and before stop, so an
+    # instant at the end of the dataset would be left out. One unit behind it
+    # keeps it in, as in t.rast.aggregate.
+    if input_strds.get_registered_maps_as_objects(
+        where="start_time = '%s' AND end_time IS NULL" % str(input_strds_end),
+        dbif=dbif,
+    ):
+        if input_strds.is_time_absolute():
+            input_strds_end = tgis.increment_datetime_by_string(
+                input_strds_end, "1 second"
+            )
+        else:
+            input_strds_end += 1
 
     if not tgis.check_granularity_string(cycle, input_strds.get_temporal_type()):
         dbif.close()

@@ -26,6 +26,14 @@ If only one of cycle and offset is in months or years, such as a cycle
 in months with an offset in days, each cycle starts one offset after the
 end of the cycle before.
 <p>
+<em>t.rast.accumulate</em> moves its <b>start</b> to the beginning of its
+<b>granularity</b>, a month to its first day, and
+<em>t.rast.accdetect</em> does not. For the same cycles give
+<em>t.rast.accdetect</em> the moved start.
+<p>
+Without <b>stop</b> the run ends with the input dataset. A time instant
+at the end of the dataset is processed as well.
+<p>
 The <b>minimum</b> and <b>maximum</b> values for the pattern detection
 process can be set either by using space time raster datasets or
 by using fixed values for all raster cells and time steps.
