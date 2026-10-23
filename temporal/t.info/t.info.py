@@ -91,8 +91,10 @@ def main():
                 print("%s='%s'" % (row[0], row[1]))
         return
 
-    if not system and not name:
-        gs.fatal(_("Please specify %s=") % ("name"))
+    # With -d alone the report ends above; -d with -h asks for the history of
+    # a dataset and needs the input like every other case.
+    if not name:
+        gs.fatal(_("Please specify %s=") % ("input"))
 
     id_ = name if name.find("@") >= 0 else name + "@" + gs.gisenv()["MAPSET"]
     dataset = tgis.dataset_factory(type_, id_)

@@ -12,7 +12,9 @@ information about raster, 3D raster and vector maps, since not all map
 specific information and metadata are stored in the temporal database.
 
 In addition, information about the chosen temporal database backend can
-be reported.
+be reported. The flag **-d** alone needs no **input**; together with **-h**
+it asks for the history of a space time dataset, and the module ends with
+"Please specify input=" if **input** is missing.
 
 ## NOTES
 
