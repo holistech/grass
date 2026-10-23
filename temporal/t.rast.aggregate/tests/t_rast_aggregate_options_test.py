@@ -282,8 +282,9 @@ def test_a_granularity_without_a_unit_is_refused_with_a_message(
 @pytest.mark.parametrize(
     ("granularity", "text"),
     [
-        ("1 day", "invalid literal for int() with base 10: '1 day'"),
-        ("1.5", "invalid literal for int() with base 10: '1.5'"),
+        ("1 day", "Invalid granularity <1 day>"),
+        ("abc", "Invalid granularity <abc>"),
+        ("1.5", "Invalid granularity <1.5>"),
         ("0", "The granularity 0 must be positive"),
         ("-1", "The granularity -1 must be positive"),
     ],
@@ -309,6 +310,7 @@ def test_a_wrong_relative_granularity_is_refused(tools, granularity, text):
         )
 
     assert text in message(error.value)
+    assert "Traceback" not in message(error.value)
 
 
 @pytest.mark.parametrize(

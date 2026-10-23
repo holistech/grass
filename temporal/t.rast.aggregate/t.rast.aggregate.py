@@ -164,10 +164,18 @@ def main():
             else:
                 end = last.start + 1
 
+        if not absolute:
+            # int() accepts neither "1 day" nor "1.5"; the library would
+            # report them with the text of the ValueError.
+            try:
+                gran = int(gran)
+            except ValueError:
+                gs.fatal(_("Invalid granularity <{}>").format(gran))
+
         target = ta.granules(
             start,
             end,
-            gran if absolute else int(gran),
+            gran,
             temporal_type="absolute" if absolute else "relative",
             unit=sp.get_relative_time_unit(),
         )
