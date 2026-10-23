@@ -113,11 +113,11 @@ def test_pure_steps_are_unchanged():
                         compared += 1
     assert compared > 0
     # The old computation breaks exactly where start month + months is a
-    # multiple of 12 that is -12 or less: the target month is then 0. That is
-    # a step back by a multiple of 12 months from December (-24, -36), or a
-    # step to the month before (-13 from January, -25, ...). Nothing else
-    # breaks: for -12 from December start month + months is 0 and the old
-    # computation lands on December of the previous year.
+    # multiple of 12 that is -12 or less: the target month is then December
+    # of the year before last or earlier (-24 from December, -13 from
+    # January, -25 from January, ...). Nothing else breaks: for -12 from
+    # December start month + months is 0 and the old computation lands on
+    # December of the previous year; -24 from March has a result as well.
     expected = {
         (datetime(year, month, day), steps)
         for year in (2003, 2004)
