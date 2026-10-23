@@ -51,16 +51,21 @@ Outside a pytest test there is no case to look up; the earlier
 implementation runs in every mode but ``record``, which needs the case.
 
 To record the corpus again, run all test directories that use the earlier
-implementation in one recording, then merge the files of the processes from
-the root of the source tree and install the package::
+implementation in both settings of the algebra into the same record
+directory, then merge the files of the processes once, from the root of the
+source tree, and install the package::
 
     export GRASS_TEMPORAL_REFERENCE=record
     export GRASS_TEMPORAL_REFERENCE_RECORD_DIR=/tmp/corpus-records
     pytest -n auto <test directories>
+    GRASS_TEMPORAL_ALGEBRA=classic pytest -n auto -m "not fixed_algebra" \\
+        <test directories>
     python3 -m grass.temporal.testing.corpus merge /tmp/corpus-records
     make -C python/grass/temporal
 
-The record directory should be empty before the recording. ``merge`` writes
+The record directory should be empty before the recording. A merge after
+each setting would keep only the cases of the second, because ``merge``
+replaces the file of each kind (see below). ``merge`` writes
 into ``python/grass/temporal/testing/corpus`` below the current directory,
 because the tests import the installed package, whose directory is not the
 one in version control; ``--corpus-dir`` names another directory. ``merge``
