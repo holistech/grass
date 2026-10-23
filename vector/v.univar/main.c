@@ -781,7 +781,6 @@ void summary(void)
             median = (values[nvals / 2 - 1] + values[nvals / 2]) / 2.0;
         quartile_75 = values[qpos_75];
         quartile_perc = values[qpos_perc];
-        G_free(values);
 
         if (format == JSON) {
             G_json_object_set_number(root_object, "first_quartile",
@@ -826,6 +825,10 @@ void summary(void)
                 fprintf(stdout, "%dth percentile: %g\n", perc, quartile_perc);
         }
     }
+
+    /* The block above is skipped for incompatible types with -w, but the
+     * values were collected all the same. */
+    G_free(values);
 
     if (format == JSON) {
         char *serialized_string = G_json_serialize_to_string_pretty(root_value);
