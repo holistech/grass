@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import calendar
 import copy
+import re
 from datetime import datetime, timedelta
 from typing import TypedDict
 
@@ -1094,6 +1095,50 @@ def create_numeric_suffix(base, count: int, zeros: str) -> str:
         zero = "05"
     s = "{ba}_{i:" + zero + "d}"
     return s.format(ba=base, i=count)
+
+
+def check_suffix(suffix: str) -> None:
+    """Refuse a value of the suffix option other than gran, time, num or num%NN
+
+    The tools used to take any other text as num, so that a typing error such
+    as "gram" silently gave numbered maps instead of dated ones.
+
+    :param suffix: The value of the suffix option
+    :raises ValueError: for any other value
+    """
+    if suffix in {"gran", "time", "num"} or re.fullmatch(r"num%\d+", suffix):
+        return
+    msg = _("Invalid suffix <{}>, use gran, time, num or num%NN").format(suffix)
+    raise ValueError(msg)
+
+
+def map_name_suffix(map, suffix: str, granularity: str | None, number: int) -> str:
+    """Return the part of a new map name after the basename and an underscore
+
+    gran cuts the start time of map to the largest unit of granularity, time
+    takes the full start time, num and num%NN the number with five or NN
+    digits. In relative time every suffix gives the number, because a
+    relative time stamp has no calendar date. A dataset of a single time
+    instant has no granularity; gran then gives the full start time like
+    time, because there is no unit to cut it to and the full time is unique.
+
+    :param map: The map whose start time names the new map; its temporal type
+                must be set (selected from the temporal database or set with
+                set_absolute_time() or set_relative_time())
+    :param suffix: The value of the suffix option
+    :param granularity: The granularity for gran, None if there is none
+    :param number: The number for num and for relative time
+    :raises ValueError: for a suffix that check_suffix() refuses
+    """
+    check_suffix(suffix)
+    if suffix in {"gran", "time"} and map.is_time_absolute():
+        if suffix == "gran" and granularity is not None:
+            return create_suffix_from_datetime(
+                map.temporal_extent.get_start_time(), granularity
+            )
+        return create_time_suffix(map)
+    # The name with an empty basename starts with the underscore.
+    return create_numeric_suffix("", number, suffix)[1:]
 
 
 if __name__ == "__main__":

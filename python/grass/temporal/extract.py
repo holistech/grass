@@ -25,11 +25,7 @@ from .core import (
     get_tgis_message_interface,
     get_tgis_db_version,
 )
-from .datetime_math import (
-    create_numeric_suffix,
-    create_suffix_from_datetime,
-    create_time_suffix,
-)
+from .datetime_math import map_name_suffix
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 
 ############################################################################
@@ -41,7 +37,7 @@ def compile_new_map_name(
     count: int,
     map_id: str,
     semantic_label: str | None,
-    time_suffix: str | None,
+    time_suffix: str,
     dbif: SQLDatabaseInterfaceConnection,
 ) -> str:
     """Compile new map name with suffix and semantic label.
@@ -49,26 +45,18 @@ def compile_new_map_name(
     :param sp: An open SpaceTimeDataSet (STDS)
     :param count: Running number of the map to be used as numeric suffix (if not time suffix)
     :param map_id: Map ID to compile new map name for
-    :param time_suffix: Type of time suffix to use (or None)
+    :param time_suffix: Type of suffix to use: gran, time, num or num%NN
     :param dbif: initialized TGIS database interface
+    :raises ValueError: for another time_suffix
     """
     if semantic_label:
         base = f"{base}_{semantic_label}"
-    if (
-        sp.get_temporal_type() != "absolute"
-        or not time_suffix
-        or time_suffix.startswith("num")
-    ):
-        return create_numeric_suffix(base, count, time_suffix)
+    # The temporal type of a new map instance is absolute until select()
+    # reads the real one (checked 23.10.2026 with is_time_absolute() of a new
+    # RasterDataset), so a relative dataset would get time suffixes.
     old_map = sp.get_new_map_instance(map_id)
     old_map.select(dbif)
-    if time_suffix == "gran":
-        suffix = create_suffix_from_datetime(
-            old_map.temporal_extent.get_start_time(),
-            sp.get_granularity(),
-        )
-    else:
-        suffix = create_time_suffix(old_map)
+    suffix = map_name_suffix(old_map, time_suffix, sp.get_granularity(), count)
     return f"{base}_{suffix}"
 
 

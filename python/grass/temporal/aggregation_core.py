@@ -11,11 +11,7 @@ import grass.temporal.algebra as ta
 from grass.temporal.algebra._adapters import as_map
 from grass.temporal.algebra.materialize import reject_input_names
 from grass.temporal.core import get_tgis_message_interface
-from grass.temporal.datetime_math import (
-    create_numeric_suffix,
-    create_suffix_from_datetime,
-    create_time_suffix,
-)
+from grass.temporal.datetime_math import map_name_suffix
 
 
 def sampler_target(maps, unit):
@@ -58,17 +54,12 @@ def _names(target, surviving, basename, granularity, time_suffix, offset):
             following += 1
         position.append(following + 1)
         following += 1
-    absolute = target.temporal_type == "absolute"
     names = []
     for slot, number in zip(surviving.slots, position, strict=True):
-        if absolute and time_suffix == "gran":
-            suffix = create_suffix_from_datetime(slot.extent.start, granularity)
-            names.append(f"{basename}_{suffix}")
-        elif absolute and time_suffix == "time":
-            names.append(f"{basename}_{create_time_suffix(as_map(slot.extent))}")
-        else:
-            count = number + int(offset)
-            names.append(create_numeric_suffix(basename, count, time_suffix))
+        suffix = map_name_suffix(
+            as_map(slot.extent), time_suffix, granularity, number + int(offset)
+        )
+        names.append(f"{basename}_{suffix}")
     return names
 
 
