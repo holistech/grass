@@ -61,7 +61,8 @@ def _mean(tools, tool, name):
 def test_two_maps_of_one_time_are_numbered(tools, prefix):
     # Both maps cover January 2001, so the time suffix of both is 2001_01.
     # The maps run in the order of start time and id: _a before _b, so _a
-    # keeps the name and _b becomes the second. The expression doubles the value: 3 -> 6, 7 -> 14.
+    # keeps the name and _b becomes the second. The expression doubles the
+    # value: 3 -> 6, 7 -> 14.
     create_stds(
         tools,
         "str3ds",
