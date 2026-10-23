@@ -123,8 +123,11 @@ def main():
 
     stds = tgis.open_old_stds(name, type, dbif)
     # As in t.snap: a dataset without maps is reported and left as it is,
-    # also in the history.
-    if not stds.get_registered_maps_as_objects(dbif=dbif):
+    # also in the history. A dataset of another mapset is not reported but
+    # refused by shift(), so the refusal does not depend on its content.
+    if stds.get_mapset() == tgis.get_current_mapset() and not (
+        stds.get_registered_maps_as_objects(dbif=dbif)
+    ):
         dbif.close()
         gs.message(
             _("Space time dataset <{}> has no maps, nothing to shift").format(
