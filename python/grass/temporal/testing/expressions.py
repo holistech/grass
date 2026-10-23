@@ -381,6 +381,13 @@ _MIXED_TIME_CRASH = re.compile(r"not supported between instances of")
 _MIXED_TIME_REGISTRATION = re.compile(
     r"temporal type of space time dataset .* and its maps are different"
 )
+# The selection of a value of a time function: the earlier implementation
+# copies the map it never computed (g.copy of a temporary map name), the
+# profile refuses the expression before it creates anything.
+_UNCOMPUTED_COPY = re.compile(r"g\.copy raster=tmp_map_name_")
+_TIME_FUNCTION_REFUSAL = (
+    "A time function such as start_doy() cannot be the result of a selection"
+)
 
 
 def accepted_error_pair(kind, expression, first, second, **options):
@@ -401,8 +408,12 @@ def accepted_error_pair(kind, expression, first, second, **options):
     that list as one result with a ``FatalError``; the earlier
     implementation refuses the same list with that error where it does not
     order it first (``merge(tmap(sinst), RT)``), and the manual names the
-    crash among the differences of the classic algebra. Every other pair is
-    a difference.
+    crash among the differences of the classic algebra. Or a selection whose
+    result is a time function (``if(start_doy(A) < 3, start_doy(A, 1), A)``):
+    the earlier implementation fails to copy the map it never computed with a
+    ``CalledModuleError`` of ``g.copy``, and the profile refuses the
+    expression with a ``ValueError`` of the message of the core. Every other
+    pair is a difference.
 
     :param first: The outcome of the earlier implementation
     :param second: The outcome of the classic profile
@@ -424,6 +435,10 @@ def accepted_error_pair(kind, expression, first, second, **options):
         crash = _MIXED_TIME_CRASH.search(first.get("msg", ""))
         refusal = _MIXED_TIME_REGISTRATION.search(second.get("msg", "").lower())
         return label if crash and refusal else None
+    if pair == ("Other:CalledModuleError", "Other:ValueError"):
+        copy = _UNCOMPUTED_COPY.search(first.get("msg", ""))
+        refusal = second.get("msg", "").startswith(_TIME_FUNCTION_REFUSAL)
+        return label if copy and refusal else None
     if second["error"] != "SyntaxError":
         return None
     options = {**options, "run": False, "debug": False}

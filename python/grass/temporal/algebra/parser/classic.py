@@ -323,6 +323,9 @@ class ClassicTranslator(Translator):
         # identifier; see statement().
         self._stored = {}
         self._sampled = False
+        # The results of time functions with an offset in a selection; see
+        # _if().
+        self._time_values = []
         self._resolve = self._noting(self._resolve)
         self._resolve_map = self._noting(self._by_start(self._resolve_map))
 
@@ -1214,7 +1217,9 @@ class ClassicTranslator(Translator):
                         ).format(map=slot.origin or slot.extent.start)
                     )
         if self._selection and offset is not None:
-            return time_functions.neighbour(series, offset)
+            values = time_functions.neighbour(series, offset)
+            self._time_values.append(values)
+            return values
         if offset is not None:
             _check_time_variable(name, used)
             variable = time_functions.timevar(series, name)
@@ -1367,6 +1372,14 @@ class ClassicTranslator(Translator):
         the core lists those of then first."""
         # Without maps in then and else, the result is the list of the
         # condition as it stands, also if that list is not in time order.
+        if any(
+            branch is value for branch in arguments[1:] for value in self._time_values
+        ):
+            # In a selection the value of a time function stands for the map
+            # it is read from, which the earlier implementation never computes
+            # and fails to copy, so the profile refuses what it cannot select.
+            # A time function in the condition is not affected.
+            self._refuse_time_function()
         listed = not any(_timed(branch) for branch in arguments[1:])
         order = (lambda series: series) if listed else self._in_time_order
         if len(arguments) not in (2, 3):

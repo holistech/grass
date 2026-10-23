@@ -731,7 +731,8 @@ def test_classic_flag_overrides_the_variable(series):
 def test_core_refuses_a_time_function_as_the_selected_maps(series):
     """A time function as a conclusion of if() gives numbers, not maps: the
     core stops with a message before it creates anything, as the list of
-    differences in t.select.md says. The classic algebra selects maps, see
+    differences in t.select.md says. The classic profile refuses it as well,
+    see below; the earlier implementation does not, see
     t_select_differential_test.py."""
     tools = Tools(session=series.session, overwrite=True)
     env = dict(series.session.env, GRASS_TEMPORAL_ALGEBRA="core")
@@ -743,6 +744,26 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
         )
     assert "Traceback" not in error.value.stderr
     # The message is wrapped over several lines.
+    assert (
+        "A time function such as start_doy() cannot be the result of a selection"
+        in " ".join(error.value.stderr.split())
+    )
+    assert "timefunction@PERMANENT" not in tools.t_list(type="strds").text.split()
+    assert tools.g_list(type="raster", mapset="PERMANENT").text.split() == rasters
+
+
+def test_the_classic_profile_refuses_a_time_function_as_the_selected_maps(series):
+    """-c stops with the message of the core before it creates anything: the
+    classic profile runs on the core, which has no maps to select where the
+    conclusion of if() is a time function"""
+    tools = Tools(session=series.session, overwrite=True)
+    rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
+    with pytest.raises(ToolError) as error:
+        tools.t_select(
+            expression="timefunction = if(start_doy(A) < 3, start_doy(A, 1), A)",
+            flags="c",
+        )
+    assert "Traceback" not in error.value.stderr
     assert (
         "A time function such as start_doy() cannot be the result of a selection"
         in " ".join(error.value.stderr.split())

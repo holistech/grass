@@ -14,6 +14,7 @@ import grass.temporal as tgis
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.algebra.profile import CLASSIC
+from grass.temporal.testing import expressions
 from grass.temporal.testing.reference import run_reference
 from grass.tools import Tools
 
@@ -240,3 +241,72 @@ def test_profile_equals_reference(series, expression):
         # Two errors or two empty results are equal and would compare nothing.
         assert classic
         assert classic[0][1] != "None"
+
+
+TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
+
+
+def selection_outcome(runner, basename):
+    return expressions.outcome(
+        "select",
+        TIME_FUNCTION_SELECTED,
+        expressions.RUNNERS[runner],
+        basename=basename,
+        stdstype="strds",
+    )
+
+
+def test_the_reference_fails_on_a_time_function_as_the_selected_maps(series):
+    """The earlier implementation never computes the value of start_doy(A, 1)
+    and fails when it copies that map into the result"""
+    reference = selection_outcome("reference", "tfref")
+    assert reference["error"] == "Other:CalledModuleError"
+    assert "g.copy raster=tmp_map_name_" in reference["msg"]
+
+
+def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(series):
+    """The profile refuses what the reference fails to copy, and the pair is
+    accepted for exactly this class"""
+    reference = selection_outcome("reference", "tfref")
+    profile = selection_outcome("classic", "tfpro")
+    assert profile["error"] == "Other:ValueError"
+    assert expressions.accepted_error_pair(
+        "select", TIME_FUNCTION_SELECTED, reference, profile
+    ) == ("Other:CalledModuleError/Other:ValueError")
+    assert (
+        expressions.compare_runs("select", TIME_FUNCTION_SELECTED, reference, profile)
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        # A failed copy of a map that is not a temporary one
+        (
+            {"error": "Other:CalledModuleError", "msg": "g.copy raster=a@x,b"},
+            {
+                "error": "Other:ValueError",
+                "msg": "A time function such as start_doy()"
+                " cannot be the result of a selection: more",
+            },
+        ),
+        # Another ValueError of the profile
+        (
+            {"error": "Other:CalledModuleError", "msg": "g.copy raster=tmp_map_name_1"},
+            {"error": "Other:ValueError", "msg": "t.select selects maps"},
+        ),
+        # Another failing module of the reference
+        (
+            {"error": "Other:CalledModuleError", "msg": "r.mapcalc expression=a"},
+            {
+                "error": "Other:ValueError",
+                "msg": "A time function such as start_doy()"
+                " cannot be the result of a selection: more",
+            },
+        ),
+    ],
+)
+def test_other_pairs_with_a_value_error_are_differences(first, second):
+    """Only the class of the time function is accepted"""
+    assert expressions.accepted_error_pair("select", "A", first, second) is None

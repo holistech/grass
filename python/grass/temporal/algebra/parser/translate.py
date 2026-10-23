@@ -551,12 +551,7 @@ class Translator:
         if self._selection and "scalar" in {then.sort, otherwise.sort}:
             # merge() would refuse the numbers beside maps with a message
             # about sorts of series, which says nothing to a user of t.select.
-            msg = (
-                "A time function such as start_doy() cannot be the result of a "
-                "selection: t.select selects maps, and a time function belongs "
-                "in the condition of if()"
-            )
-            raise ValueError(msg)
+            self._refuse_time_function()
         others = self._conditions(otherwise, condition, operator)
         return operations.merge(
             operations.choose(conditions, then, mixed_times=self.profile.mixed_times),
@@ -566,6 +561,16 @@ class Translator:
                 mixed_times=self.profile.mixed_times,
             ),
         )
+
+    @staticmethod
+    def _refuse_time_function():
+        """Stop a selection whose result would be a time function"""
+        msg = (
+            "A time function such as start_doy() cannot be the result of a "
+            "selection: t.select selects maps, and a time function belongs "
+            "in the condition of if()"
+        )
+        raise ValueError(msg)
 
     def _field_if(self, condition, then, otherwise, relation):
         """Choose by a condition per cell between then and else
