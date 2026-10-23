@@ -215,7 +215,7 @@ def _shrink(series, buffer):
                 start = increment_datetime_by_string(extent.start, size)
                 end = decrement_datetime_by_string(extent.end, size)
             except ValueError as error:
-                # E.g. 31 January plus one month, which is no date.
+                # E.g. a month or year step past the year 9999.
                 msg = f"Buffering {shown} failed: {error}"
                 raise ValueError(msg) from error
         else:

@@ -296,10 +296,18 @@ def test_months_are_compared_after_the_calendar_arithmetic():
         retime(february, buffer="-1 months")
 
 
-def test_month_buffer_that_is_no_date_is_an_error():
-    """1 March plus 1 month is fine, 31 January plus 1 month does not exist"""
-    x = month_series(((31, 1), (31, 3)))
-    with pytest.raises(ValueError, match=r"slot 1 .*day is out of range"):
+def test_month_buffer_from_day_31_ends_on_the_last_day_of_the_month():
+    """A month step that ends behind the last day of a shorter month ends on
+    that day"""
+    # 31.01. + 1 month = 28.02. (2001 is no leap year); 31.05. - 1 month = 30.04.
+    x = month_series(((31, 1), (31, 5)))
+    assert retime(x, buffer="-1 months").times() == [(day(28, 2), day(30, 4))]
+
+
+def test_a_month_buffer_past_the_year_9999_is_an_error():
+    # 01.12.9999 + 1 month would be in the year 10000, which datetime lacks.
+    x = Series((Slot(Extent(day(1, 12, 9999), day(31, 12, 9999)), Const(1)),))
+    with pytest.raises(ValueError, match=r"slot 1 .*failed: year 10000"):
         retime(x, buffer="-1 months")
 
 
