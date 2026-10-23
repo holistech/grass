@@ -447,13 +447,19 @@ def test_a_list_shift_behind_the_year_9999_names_the_map(tools, end_of_time):
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
-def test_a_dataset_without_maps_is_shifted_silently(tools, prefix):
+def test_a_dataset_without_maps_is_reported(tools, prefix):
     name = _dataset(tools, prefix, [])
+    history = tools.t_info(type="strds", input=name, flags="h").stdout
 
     result = tools.t_shift(input=name, granularity="1 day")
 
     assert result.returncode == 0
+    assert f"Space time dataset <{name}@PERMANENT> has no maps, nothing to shift" in (
+        " ".join(result.stderr.split())
+    )
     assert _times(tools, name) == []
+    # The call changed nothing, so it is not part of the history either.
+    assert tools.t_info(type="strds", input=name, flags="h").stdout == history
 
 
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
@@ -501,7 +507,8 @@ def test_input_and_granularity_are_required(tools, mixed, missing):
     assert f"Required parameter <{missing}> not set" in message(error.value)
 
 
-def test_a_list_for_a_dataset_without_maps_ends_like_one_unit(tools, prefix):
+@pytest.mark.parametrize("granularity", ["1 days", "1 days, 2 hours"])
+def test_a_list_for_a_dataset_without_maps_is_reported(tools, prefix, granularity):
     tools.t_create(
         type="strds",
         temporaltype="absolute",
@@ -510,8 +517,7 @@ def test_a_list_for_a_dataset_without_maps_ends_like_one_unit(tools, prefix):
         description="empty",
     )
 
-    # Both end without an error and without a map to move.
-    tools.t_shift(input=f"{prefix}_empty", granularity="1 days")
-    tools.t_shift(input=f"{prefix}_empty", granularity="1 days, 2 hours")
+    result = tools.t_shift(input=f"{prefix}_empty", granularity=granularity)
 
-    assert stds_info(tools, "strds", f"{prefix}_empty")["number_of_maps"] == 0
+    assert "has no maps, nothing to shift" in " ".join(result.stderr.split())
+    assert _times(tools, f"{prefix}_empty") == []

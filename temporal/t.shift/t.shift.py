@@ -122,6 +122,16 @@ def main():
     dbif.connect()
 
     stds = tgis.open_old_stds(name, type, dbif)
+    # As in t.snap: a dataset without maps is reported and left as it is,
+    # also in the history.
+    if not stds.get_registered_maps_as_objects(dbif=dbif):
+        dbif.close()
+        gs.message(
+            _("Space time dataset <{}> has no maps, nothing to shift").format(
+                stds.get_id()
+            )
+        )
+        return
     try:
         if stds.is_time_absolute() and "," in gran:
             check = shift_by_list(stds, gran, dbif)

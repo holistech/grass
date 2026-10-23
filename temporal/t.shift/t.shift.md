@@ -30,6 +30,10 @@ a map are shifted each for itself, so the length of such a map can
 change. A shift behind the year 9999 raises an error, and no map of the
 dataset is shifted.
 
+A space time dataset without maps is left as it is, also in its command
+history; *t.shift* reports "has no maps, nothing to shift" and ends without
+an error.
+
 You can use the extraction module to shift only a subset of maps from a
 space time dataset. Be aware that the shifting of maps affect all space
 time datasets in which they are registered.
