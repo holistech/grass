@@ -483,12 +483,17 @@ def test_an_empty_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
     work, other = two_mapsets
     name = _dataset(other, prefix, [])
 
+    history = other.t_info(type="strds", input=name, flags="h").stdout
+
     with pytest.raises(ToolError) as error:
         work.t_shift(input=f"{name}@other", granularity="1 day")
 
     text = message(error.value)
     assert "The mapset of the database does not match the current mapset" in text
     assert "has no maps" not in text
+    # The refusal changed nothing: no map, and no new line in the history.
+    assert _times(other, name) == []
+    assert other.t_info(type="strds", input=name, flags="h").stdout == history
 
 
 def test_an_unknown_dataset_is_refused(tools):
