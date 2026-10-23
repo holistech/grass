@@ -50,16 +50,18 @@ def main():
 
     sp = tgis.open_old_stds(input, "strds")
 
+    # Checked before the granularity is used, which an empty dataset lacks.
+    if not sp.metadata.get_number_of_maps():
+        gs.fatal(_("Space time raster dataset <{}> is empty").format(sp.get_id()))
+
     gs.use_temp_region()
 
     maps = sp.get_registered_maps_as_objects_by_granularity()
+
     num_maps = len(maps)
     # get datatype of the first map
-    if maps:
-        maps[0][0].select()
-        datatype = maps[0][0].metadata.get_datatype()
-    else:
-        datatype = None
+    maps[0][0].select()
+    datatype = maps[0][0].metadata.get_datatype()
 
     # Get the granularity and set bottom, top and top-bottom resolution
     granularity = sp.get_granularity()

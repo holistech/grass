@@ -12,7 +12,7 @@ used to set the resolution of the 3D raster map layer and to sample the
 registered time stamped raster map layers.
 
 Gaps between raster map layer in the STRDS will be represented by NULL
-values in the voxel map layer.
+values in the voxel map layer. A STRDS without maps is refused.
 
 ## NOTES
 

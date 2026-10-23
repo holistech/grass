@@ -175,7 +175,8 @@ def test_a_dataset_without_maps_is_refused(tools, prefix):
 
     text = _refused(tools, input=f"{prefix}_empty", output=prefix)
 
-    assert 'Wrong granularity: "None"' in text
+    assert f"Space time raster dataset <{prefix}_empty@PERMANENT> is empty" in text
+    assert "Wrong granularity" not in text
 
 
 def test_the_tool_prints_nothing_to_the_standard_output(tools, cells, prefix):
