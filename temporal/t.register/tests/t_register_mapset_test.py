@@ -10,7 +10,7 @@ the time of the map.
 import pytest
 
 from grass.temporal.testing.data import make_map
-from grass.temporal.testing.readback import list_maps
+from grass.temporal.testing.readback import list_maps, map_info
 from grass.tools import ToolError
 
 # Almost every test of the module runs longer than one second (measured
@@ -69,3 +69,29 @@ def test_dataset_in_another_mapset_is_refused(work):
         tools.t_register(
             type="raster", input="nothing@other", maps="foreign_4", start="2001-01-01"
         )
+
+
+def test_a_dataset_of_another_mapset_is_refused_before_any_write(two_mapsets):
+    work, other = two_mapsets.work, two_mapsets.other
+    for name in ("own_1", "own_2"):
+        make_map(work, "raster", name, 1)
+    other.t_create(output="alien", title="t", description="d")
+
+    # Two own maps in one call: the refusal must come before the first one is
+    # entered, not after it.
+    with pytest.raises(ToolError, match=r"does\s+not\s+match\s+the\s+current\s+mapset"):
+        work.t_register(
+            type="raster",
+            input="alien@other",
+            maps="own_1,own_2",
+            start="2001-01-01",
+            increment="1 days",
+            flags="i",
+        )
+
+    for name in ("own_1", "own_2"):
+        assert map_info(work, "raster", name) is None
+        # r.timestamp fails for a map without a time stamp.
+        with pytest.raises(ToolError):
+            work.r_timestamp(map=name)
+    assert list_maps(other, "strds", "alien") == []

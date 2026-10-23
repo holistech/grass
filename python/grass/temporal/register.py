@@ -199,6 +199,19 @@ def register_maps_in_space_time_dataset(
     if name:
         sp = open_old_stds(name, type, dbif)
 
+        # The dataset is written only at the very end, after the maps were
+        # entered and their time stamps set, so a dataset of another mapset
+        # would be refused too late to undo those writes.
+        if sp.get_mapset() != mapset:
+            dbif.close()
+            msgr.fatal(
+                _(
+                    "Unable to register maps in the space time dataset <{name}>. "
+                    "The mapset of the dataset does not match the current "
+                    "mapset"
+                ).format(name=sp.get_id())
+            )
+
         if sp.is_time_relative() and (start or end) and not unit:
             dbif.close()
             msgr.fatal(
