@@ -74,6 +74,16 @@ _EQUAL = TemporalOperator(None)
 _INT32_MAX = 2**31 - 1
 
 
+def _beyond_int32(content):
+    """Whether content is an integer constant that r.mapcalc reads with an
+    overflow"""
+    return (
+        isinstance(content, Const)
+        and isinstance(content.value, int)
+        and abs(content.value) > _INT32_MAX
+    )
+
+
 def _unit(series):
     """The temporal type and unit of a series: the unit of relative time,
     None for absolute time, _ABSENT for a map without time stamp"""
@@ -624,13 +634,19 @@ class ClassicTranslator(Translator):
             _timed(operand) and operand.sort == "scalar" for operand in operands
         )
         if not on_time and any(
-            isinstance(operand, Const)
-            and isinstance(operand.value, int)
-            and abs(operand.value) > _INT32_MAX
+            _beyond_int32(constant)
             for operand in operands
+            for constant in (
+                (slot.content for slot in operand.slots)
+                if isinstance(operand, Series)
+                else (operand,)
+            )
         ):
             # r.mapcalc reads such an integer with an overflow, so folding the
             # constants here would give another number than the classic text.
+            # This holds for a number in the slots of a series as well
+            # (abs(if(td(A) <= 0.5, A, 3000000000))): abs() of the folded
+            # number would skip the overflow the classic text runs into.
             unfolded = self._unfolded(function, operands)
             if unfolded is not None:
                 return unfolded

@@ -86,6 +86,11 @@ LOGICAL_WITH_ALL_PARTNERS = [
 # are not folded before it computes them.
 LARGE_CONSTANTS = ["2.0 + 3000000000 - B", "3000000000 - B", "A + 3000000000 + 1"]
 
+# The same cut inside the slots of a series that a condition on time decided:
+# r3.mapcalc cuts 3000000000 to 32 bits (3000000000 - 2^32 = -1294967296) and
+# abs() gives 1294967296, which the profile must reach as well.
+LARGE_CONSTANTS_IN_A_SERIES = ["abs(if(td(B) <= 0.5, B, 3000000000))"]
+
 
 @pytest.fixture(scope="module")
 def datasets(temporal_module_session, tmp_path_factory):
@@ -169,6 +174,12 @@ def test_td_of_a_counted_map_is_td_of_the_map(datasets, runner):
 @pytest.mark.parametrize("expression", LARGE_CONSTANTS)
 def test_constants_beyond_32_bits(datasets, expression):
     assert_equal(expression, spatial=True)
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", LARGE_CONSTANTS_IN_A_SERIES)
+def test_constants_beyond_32_bits_in_a_series(datasets, expression, granularity):
+    assert_equal(expression, granularity=granularity)
 
 
 @pytest.mark.parametrize(

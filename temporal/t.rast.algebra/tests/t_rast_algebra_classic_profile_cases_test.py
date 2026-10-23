@@ -78,6 +78,10 @@ LARGE_CONSTANTS_WITH_TIME = [
     "3000000000 % start_dow(N, 1) / tsnap(AF)",
     "3000000000 + A",
     "4000000000 * 2 - A",
+    # r.mapcalc cuts 3000000000 to 32 bits (3000000000 - 2^32 = -1294967296)
+    # before abs() takes the absolute value, 1294967296. The profile must
+    # hand the number on, not fold abs(3000000000) to 3000000000 itself.
+    "abs(if(td(A) <= 0.5, A, 3000000000))",
 ]
 
 # A right-hand temporal operator makes a map of its own for each partner, so
