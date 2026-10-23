@@ -297,3 +297,22 @@ def test_a_t_where_with_a_syntax_error_is_reported_as_a_message(
     assert "Traceback" not in text
     assert "Invalid t_where condition <nonsense =>" in text
     assert "syntax error" in text
+
+
+def test_a_where_that_fails_at_a_later_table_is_refused(tools, rasters, vectors):
+    data = vectors()
+    first, second, third = data.maps
+    # Only the third table lacks the column foo, so the condition holds at
+    # the first two and fails at the last one. Two failing tables would leave
+    # open which one is named, as the maps are tried in set order.
+    for name in (first, second):
+        tools.v_db_addcolumn(map=name, columns="foo integer")
+
+    text = _refused(
+        tools, input=data.dataset, strds="wh_a", column="m", where="foo = 1"
+    )
+
+    assert f"Invalid where condition <foo = 1> for vector map <{third}@" in text
+    # Nothing is written before the third map is found to fail.
+    assert "m" not in _names(tools, first)
+    assert "m" not in _names(tools, second)
