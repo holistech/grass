@@ -656,8 +656,10 @@ both corrections.
 The classic algebra gives the results of the previous implementation, with
 the exceptions below. In these cases the previous implementation ended in
 an error that had no reason or reported the wrong error. **-c** now gives
-the result described here; the new algebra never had these errors. Results
-of earlier GRASS versions that used one of these forms need a new run.
+the result described here. The new algebra never had these errors; only the
+item on month steps concerned the library and with it both algebras.
+Results of earlier GRASS versions that used one of these forms need a new
+run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
    maps, the result is empty like any other empty result: the classic
@@ -713,6 +715,20 @@ of earlier GRASS versions that used one of these forms need a new run.
 
    ```sh
    C = A {&,equal|equivalent,l} B
+   ```
+
+6. **Month and year steps from the end of a month.** `tshift()` and
+   `buff_t()` by months or years ended in an error ("day is out of range for
+   month") when a time stamp moved to a day that the target month lacks, in
+   both algebras. Such a step now ends on the last day of that month
+   (corrected 23 October 2026). With a dataset M whose map lasts from 31
+   January to 31 March 2001, the first expression gives a map from 28
+   February to 30 April 2001, the second one a map from 31 December 2000 to
+   30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+
+   ```sh
+   C = tshift(M, "1 months")
+   C = buff_t(M, "1 months")
    ```
 
 #### Differences from the previous implementation
