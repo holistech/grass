@@ -78,6 +78,11 @@ def main():
     if datasets and file:
         gs.fatal(_("%s= and %s= are mutually exclusive") % ("inputs", "file"))
 
+    # Without a target the call would end silently, which hides an empty
+    # variable in the calling script.
+    if not datasets and not file:
+        gs.fatal(_("%s= or %s= must be specified") % ("inputs", "file"))
+
     # Make sure the temporal database exists
     tgis.init()
 
@@ -103,8 +108,11 @@ def main():
                 if not line:
                     break
 
-                line_list = line.split("\n")
-                dataset_name = line_list[0]
+                dataset_name = line.split("\n")[0]
+                # An empty line is no dataset name; an editor often leaves
+                # one at the end of a file.
+                if not dataset_name.strip():
+                    continue
                 dataset_list.append(dataset_name)
 
     statement = ""

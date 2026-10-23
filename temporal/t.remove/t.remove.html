@@ -13,6 +13,11 @@ GRASS writes to the current mapset only: a map of another mapset is not
 removed. <em>t.remove</em> warns for each such map and still removes the space
 time dataset.
 <p>
+The datasets are given with <b>inputs</b> or with a text file in <b>file</b>
+that holds one name per line; empty lines in the file are skipped. Without
+<b>inputs</b> and <b>file</b> the module ends with an error and removes
+nothing.
+<p>
 All space time datasets given are opened before the first one is removed, so
 an unknown name stops the run before anything has changed.
 

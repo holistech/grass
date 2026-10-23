@@ -59,21 +59,18 @@ def test_names_come_from_a_file(tools, make_stds, has_dataset, tmp_path):
     ]
 
 
-def test_a_blank_line_in_the_file_is_a_dataset_without_a_name(
-    tools, make_stds, has_dataset, tmp_path
-):
+def test_a_blank_line_in_the_file_is_skipped(tools, make_stds, has_dataset, tmp_path):
+    # The blank line lies before a later valid name, so that a tool which
+    # stopped at the blank line would leave the second dataset.
     _, (first, second) = make_stds(1, datasets=2)
     file = tmp_path / "names.txt"
     file.write_text(f"{first}\n\n{second}\n")
 
-    with pytest.raises(
-        ToolError, match=r"Space\s+time\s+dataset\s+<>\s+of\s+type\s+<strds>"
-    ):
-        tools.t_remove(file=file, flags="f")
+    result = tools.t_remove(file=file, flags="f")
 
-    # The error comes before anything is executed, so both datasets remain.
-    assert has_dataset(first)
-    assert has_dataset(second)
+    assert result.stderr.strip() == ""
+    assert not has_dataset(first)
+    assert not has_dataset(second)
 
 
 def test_inputs_and_file_exclude_each_other(tools, make_stds, has_dataset, tmp_path):

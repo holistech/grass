@@ -8,6 +8,7 @@ remove. -f removes the dataset, -r also the maps from the temporal database,
 
 import pytest
 
+from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
 # Every test makes maps and datasets with tools, which takes more than a second
@@ -139,10 +140,14 @@ def test_the_old_sequence_removing_twice_fails_the_second_time(
     assert registered(maps) == [False] * 6
 
 
-def test_f_without_inputs_does_nothing(tools, make_stds, has_dataset):
-    _, (name,) = make_stds(1)
+def test_f_without_inputs_is_refused(tools, make_stds, has_dataset):
+    _, (first, second) = make_stds(1, datasets=2)
 
-    result = tools.t_remove(flags="f")
+    with pytest.raises(ToolError) as error:
+        tools.t_remove(flags="f")
 
-    assert result.stderr == ""
-    assert has_dataset(name)
+    assert "inputs= or file= must be specified" in " ".join(
+        message(error.value).split()
+    )
+    assert has_dataset(first)
+    assert has_dataset(second)
