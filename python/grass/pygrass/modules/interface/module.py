@@ -1,4 +1,5 @@
 from multiprocessing import Process, Queue
+from queue import Empty
 import time
 from xml.etree.ElementTree import fromstring
 
@@ -13,6 +14,12 @@ from .read import GETFROMTAG, DOC
 from .env import G_debug
 
 from itertools import zip_longest
+
+# How long MultiModule.wait() waits for the modules of its child process
+# before it checks whether the child is still alive. The modules come back as
+# soon as the child sends them, so this only delays the report of a child that
+# ended without sending them.
+_POLL_SECONDS = 1
 
 
 def _get_bash(self, *args, **kargs):
@@ -1065,15 +1072,17 @@ class MultiModule:
 
         :return: The process list with finished processes to check their return states
         :raises CalledModuleError: if a module failed; the modules after it
-            were not run
+            were not run. Also if the child process failed otherwise, for
+            example by another exception or a signal; the error then names
+            the exit code of the child process, and its stderr has the details.
         """
         if self.p:
-            proc_list = self.q.get()
+            proc_list = self._receive()
             self.p.join()
 
             # The module raised in the child process, where the exception
             # stays; raise it again here, as Module.wait() does.
-            for module in proc_list:
+            for module in proc_list or []:
                 if module.returncode:
                     raise CalledModuleError(
                         returncode=module.returncode,
@@ -1082,7 +1091,48 @@ class MultiModule:
                         errors=module.outputs["stderr"].value,
                     )
 
+            # The child catches only a failed module. Any other exception
+            # leaves it with exit code 1, a signal ends it with a negative
+            # exit code, and the modules come back only if the child reached
+            # q.put() and the queue could pickle them.
+            if proc_list is None or self.p.exitcode:
+                not_run = [
+                    module
+                    for module in proc_list or self.module_list
+                    if module.returncode is None
+                ]
+                raise CalledModuleError(
+                    returncode=self.p.exitcode,
+                    code=str(self),
+                    module=(not_run or self.module_list)[0].name,
+                    errors=(
+                        f"The child process ended with exit code {self.p.exitcode};"
+                        " see the error output above"
+                    ),
+                )
+
             return proc_list
+
+    def _receive(self):
+        """Return the modules that the child process sent back, or None if
+        it ended without sending them
+
+        A blocking get() would wait forever for a child that ended before
+        it sent the modules: an exception before the queue was filled, a
+        module the queue could not pickle, or a signal.
+        """
+        while True:
+            try:
+                return self.q.get(timeout=_POLL_SECONDS)
+            except Empty:
+                if not self.p.is_alive():
+                    break
+        # The child may have sent the modules between the timeout and the
+        # check; a child that ends normally flushes its queue first.
+        try:
+            return self.q.get_nowait()
+        except Empty:
+            return None
 
 
 def _run_until_failure(module_list):
@@ -1090,10 +1140,10 @@ def _run_until_failure(module_list):
 
     The failure stays visible to the parent process through the return code
     of the failed module, which MultiModule.wait() turns into a
-    CalledModuleError. Letting the exception leave the child process would
-    add nothing: multiprocessing.Process only prints its traceback to stderr
-    and sets the exit code of the process, which MultiModule.wait() does
-    not read.
+    CalledModuleError with the error output of the module. Letting the
+    exception leave the child process would add nothing but a traceback on
+    stderr: multiprocessing.Process prints it and sets exit code 1, and
+    MultiModule.wait() reports the failed module first anyway.
 
     :param module_list: The list of modules to run in serial
     """

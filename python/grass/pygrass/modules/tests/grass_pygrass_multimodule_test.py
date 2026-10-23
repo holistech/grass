@@ -1,13 +1,24 @@
 """Test failing modules in PyGRASS Module and MultiModule"""
 
+import multiprocessing
 import os
 import pickle
+import signal
+import time
 
 import pytest
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
+from grass.pygrass.modules.interface import module as module_interface
+
+# The tests below patch functions that only the child process of MultiModule
+# calls. The patch reaches the child only if it is forked from the test.
+needs_fork = pytest.mark.skipif(
+    multiprocessing.get_start_method() != "fork",
+    reason="the child process sees the patches of the test only with fork",
+)
 
 
 @pytest.fixture
@@ -85,3 +96,105 @@ def test_parallel_module_queue_reports_failure_without_traceback(
     with pytest.raises(CalledModuleError, match="no_such_map"):
         queue.wait()
     assert "Traceback" not in capfd.readouterr().err
+
+
+def fail_with_os_error(*args, **kwargs):
+    msg = "simulated failure in the child process"
+    raise OSError(msg)
+
+
+@needs_fork
+@pytest.mark.timeout(60)
+def test_an_exception_before_the_module_starts_is_reported(session, monkeypatch):
+    """A failure before Popen leaves every return code unset but is an error"""
+    monkeypatch.setattr(Module, "run", fail_with_os_error)
+    first = Module("r.mapcalc", expression="first = 1", run_=False, quiet=True)
+    later = Module("r.mapcalc", expression="later = 1", run_=False, quiet=True)
+    multi = MultiModule([first, later], sync=False)
+    multi.run()
+    with pytest.raises(CalledModuleError, match="exit code 1") as error:
+        multi.wait()
+    # The OSError leaves the child process, and multiprocessing ends it with
+    # exit code 1.
+    assert error.value.returncode == 1
+    assert error.value.module == "r.mapcalc"
+
+
+@needs_fork
+@pytest.mark.timeout(60)
+def test_an_exception_after_the_module_started_is_reported(session, monkeypatch):
+    """A failure after Popen leaves a module that cannot be sent back"""
+    # Module.run() calls wait() itself for finish_=True, so the exception
+    # comes after Popen, while the module still holds its process handle.
+    monkeypatch.setattr(Module, "wait", fail_with_os_error)
+    first = Module("r.mapcalc", expression="first = 1", run_=False, quiet=True)
+    multi = MultiModule([first], sync=False)
+    multi.run()
+    with pytest.raises(CalledModuleError, match="exit code 1") as error:
+        multi.wait()
+    assert error.value.returncode == 1
+
+
+@needs_fork
+@pytest.mark.timeout(60)
+def test_a_failing_temporary_region_is_reported(session, monkeypatch):
+    """A failure in use_temp_region() comes before any module runs"""
+    monkeypatch.setattr(module_interface, "use_temp_region", fail_with_os_error)
+    first = Module("r.mapcalc", expression="first = 1", run_=False, quiet=True)
+    multi = MultiModule([first], sync=False, set_temp_region=True)
+    multi.run()
+    with pytest.raises(CalledModuleError, match="exit code 1") as error:
+        multi.wait()
+    assert error.value.returncode == 1
+    maps = gs.read_command("g.list", type="raster", env=session.env)
+    assert "first" not in maps
+
+
+@needs_fork
+@pytest.mark.timeout(60)
+def test_a_killed_child_is_reported(session, monkeypatch):
+    """A child process killed by a signal sends nothing back"""
+    # The sleep only keeps the child alive until the signal arrives.
+    monkeypatch.setattr(
+        module_interface, "_run_until_failure", lambda module_list: time.sleep(30)
+    )
+    first = Module("r.mapcalc", expression="first = 1", run_=False, quiet=True)
+    multi = MultiModule([first], sync=False)
+    multi.run()
+    os.kill(multi.p.pid, signal.SIGKILL)
+    with pytest.raises(CalledModuleError) as error:
+        multi.wait()
+    # multiprocessing gives a process ended by a signal the negative signal
+    # number as exit code.
+    assert error.value.returncode == -signal.SIGKILL
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("set_temp_region", [False, True])
+def test_a_slow_healthy_child_is_no_failure(session, monkeypatch, set_temp_region):
+    """Waiting longer than one poll interval for the child is no failure"""
+    # Each r.mapcalc takes far longer than 10 ms, so wait() polls many times
+    # while the child is alive and has not sent the modules back yet.
+    monkeypatch.setattr(module_interface, "_POLL_SECONDS", 0.01)
+    modules = [
+        Module("r.mapcalc", expression=f"slow_{i} = {i}", run_=False, quiet=True)
+        for i in range(3)
+    ]
+    multi = MultiModule(modules, sync=False, set_temp_region=set_temp_region)
+    multi.run()
+    finished = multi.wait()
+    assert [module.returncode for module in finished] == [0, 0, 0]
+    maps = gs.read_command("g.list", type="raster", env=session.env).split()
+    assert sorted(maps) == ["slow_0", "slow_1", "slow_2"]
+
+
+@needs_fork
+@pytest.mark.timeout(60)
+def test_parallel_module_queue_reports_a_failed_child(session, monkeypatch):
+    """ParallelModuleQueue.wait() passes the failure of the child on"""
+    monkeypatch.setattr(Module, "run", fail_with_os_error)
+    first = Module("r.mapcalc", expression="first = 1", run_=False, quiet=True)
+    queue = ParallelModuleQueue(nprocs=2)
+    queue.put(MultiModule([first], sync=False))
+    with pytest.raises(CalledModuleError, match="exit code 1"):
+        queue.wait()
