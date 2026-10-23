@@ -177,17 +177,7 @@ def main():
     nprocs = options["nprocs"]
     time_suffix = options["suffix"]
     new_labels = options["semantic_labels"]
-    # The parser accepts a comma separated list for a double option even with
-    # multiple: no, so a second value is refused here instead of ending in a
-    # traceback from float().
-    try:
-        quantile = float(options["quantile"]) if options["quantile"] else None
-    except ValueError:
-        gs.fatal(
-            _("Option <quantile> takes a single number, not <{}>.").format(
-                options["quantile"]
-            )
-        )
+    quantile = float(options["quantile"]) if options["quantile"] else None
 
     if method == "quantile" and not options["quantile"]:
         gs.fatal(_("The method <quantile> requires input in the 'quantile' option."))
