@@ -118,6 +118,10 @@ You can also use the *format=* option with `plain` (default), `csv`, `line`, and
 For `plain`, `csv`, and `line`, you can also use the *separator=* option to change
  the output delimiter.
 
+The flag **-c** prints the column names as the first row of the `plain`
+output. The `csv` output always starts with the column names, with or without
+**-c**.
+
 To output the list in JSON format, use `format=json`. By default, if no
 columns are specified in json format, it will output all available metadata. You
 can restrict the output using the `columns` parameter.

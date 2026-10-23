@@ -89,7 +89,7 @@
 
 # %flag
 # % key: c
-# % description: Print the column names as first row
+# % description: Print the column names as first row (format=csv always prints them)
 # % guisection: Formatting
 # %end
 
