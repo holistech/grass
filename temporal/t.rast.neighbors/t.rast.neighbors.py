@@ -95,7 +95,7 @@
 # % key: quantile
 # % type: double
 # % required: no
-# % multiple: yes
+# % multiple: no
 # % options: 0.0-1.0
 # % description: Quantile to calculate for method=quantile
 # % guisection: Neighborhood
@@ -177,11 +177,16 @@ def main():
     nprocs = options["nprocs"]
     time_suffix = options["suffix"]
     new_labels = options["semantic_labels"]
-    quantiles = (
-        [float(quant) for quant in options["quantile"].split(",")]
-        if options["quantile"]
-        else None
-    )
+    # The parser does not reject a list for a double option, so a second
+    # value is refused here instead of being dropped or failing in float().
+    try:
+        quantile = float(options["quantile"]) if options["quantile"] else None
+    except ValueError:
+        gs.fatal(
+            _("Option <quantile> takes a single number, not <{}>.").format(
+                options["quantile"]
+            )
+        )
 
     if method == "quantile" and not options["quantile"]:
         gs.fatal(_("The method <quantile> requires input in the 'quantile' option."))
@@ -221,7 +226,10 @@ def main():
         gs.warning(_("Space time raster dataset <{}> is empty").format(sp.get_id()))
         return
 
-    output_strds = tgis.check_new_stds(output, "strds", dbif=dbif, overwrite=overwrite)
+    # -e appends to an existing dataset, so only the maps can clash.
+    output_strds = tgis.check_new_stds(
+        output, "strds", dbif=dbif, overwrite=overwrite or flags["e"]
+    )
     output_exists = output_strds.is_in_db(dbif)
     # Configure the r.neighbor module
     neighbor_module = pymod.Module(
@@ -234,7 +242,7 @@ def main():
         selection=options["selection"],
         size=int(size),
         method=method,
-        quantile=quantiles,
+        quantile=quantile,
         weighting_function=options["weighting_function"],
         weighting_factor=(
             float(options["weighting_factor"]) if options["weighting_factor"] else None
@@ -258,7 +266,8 @@ def main():
     num_maps = len(maps)
     new_maps = []
 
-    # run r.neighbors all selected maps
+    # All output maps are checked before the first r.neighbors starts, so that
+    # an existing map stops the run before anything is written.
     for map in maps:
         count += 1
         suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
@@ -284,6 +293,7 @@ def main():
             new_map.set_semantic_label(semantic_label)
         new_maps.append(new_map)
 
+    for map, new_map in zip(maps, new_maps, strict=True):
         mod = copy.deepcopy(neighbor_module)
         mod(input=map.get_id(), output=new_map.get_id())
 

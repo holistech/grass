@@ -322,14 +322,67 @@ def test_without_extend_overwrite_replaces_the_dataset(tools, daily, prefix):
     assert _maps(tools, prefix) == [f"{prefix}_2001_01_04"]
 
 
-def test_extend_needs_overwrite_for_an_existing_dataset(tools, daily, prefix):
+def test_extend_adds_maps_to_an_existing_dataset_without_overwrite(
+    tools, daily, prefix
+):
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    tools.t_rast_neighbors(where="start_time < '2001-01-03'", **options)
+    assert len(_maps(tools, prefix)) == 2
+
+    tools.t_rast_neighbors(where="start_time >= '2001-01-03'", flags="e", **options)
+
+    # Two maps before and the two of the third and fourth day.
+    assert _maps(tools, prefix) == [f"{prefix}_2001_01_0{n}" for n in (1, 2, 3, 4)]
+    assert _centres(tools, prefix) == [5.0, 15.0, 25.0, 35.0]
+
+
+def test_extend_makes_a_new_dataset_when_there_is_none(tools, daily, prefix):
+    tools.t_rast_neighbors(
+        input=daily,
+        output=prefix,
+        basename=prefix,
+        where="start_time < '2001-01-03'",
+        flags="e",
+    )
+
+    assert _maps(tools, prefix) == [f"{prefix}_2001_01_0{n}" for n in (1, 2)]
+
+
+def test_extend_refuses_an_existing_map_without_overwrite_and_writes_nothing(
+    tools, daily, prefix
+):
+    # The dataset holds the map of the third day. The second run selects the
+    # first three days, so the maps of the first and second day are new and
+    # the third, the last one of the run, exists.
+    options = {"input": daily, "output": prefix, "basename": prefix}
+    tools.t_rast_neighbors(
+        where="start_time >= '2001-01-03' and start_time < '2001-01-04'", **options
+    )
+    before = _maps(tools, prefix)
+    rasters = tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split()
+    assert before == [f"{prefix}_2001_01_03"]
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_neighbors(where="start_time < '2001-01-04'", flags="e", **options)
+
+    assert f"Map <{prefix}_2001_01_03@PERMANENT> is already in temporal database" in (
+        message(error.value)
+    )
+    assert _maps(tools, prefix) == before
+    assert tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split() == rasters
+
+
+def test_an_existing_dataset_is_refused_without_extend_and_overwrite(
+    tools, daily, prefix
+):
     options = {"input": daily, "output": prefix, "basename": prefix}
     tools.t_rast_neighbors(where="start_time < '2001-01-03'", **options)
 
     with pytest.raises(ToolError) as error:
-        tools.t_rast_neighbors(where="start_time >= '2001-01-03'", flags="e", **options)
+        tools.t_rast_neighbors(where="start_time >= '2001-01-03'", **options)
 
     assert (
         f"Space time raster dataset <{prefix}> is already in the database"
         in message(error.value)
     )
+    assert len(_maps(tools, prefix)) == 2

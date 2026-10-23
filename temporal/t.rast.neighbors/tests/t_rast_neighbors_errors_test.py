@@ -65,16 +65,28 @@ def test_the_quantile_method_needs_a_quantile(tools, ramp, prefix):
     assert "The method <quantile> requires input in the 'quantile' option." in text
 
 
-def test_further_quantiles_are_ignored(tools, ramp, prefix):
-    # r.neighbors computes one quantile per output map; the tool gives it the
-    # whole list and gets the first, the 0.25 quantile of the corner window
-    # 1, 2, 4, 5: 1.75.
-    tools.t_rast_neighbors(
+def test_a_list_of_quantiles_is_refused_by_the_parser(tools, ramp, prefix):
+    # r.neighbors computes one quantile per output map, so the option takes
+    # one value instead of a list of which only the first would count. The
+    # parser lets the list through, the tool refuses it.
+    text = _refused(
+        tools,
         input=ramp,
         output=prefix,
         basename=prefix,
         method="quantile",
         quantile="0.25,0.5",
+    )
+
+    assert "Option <quantile> takes a single number, not <0.25,0.5>." in text
+    assert "Traceback" not in text
+    assert tools.t_list(type="strds", columns="name").stdout.count(prefix) == 0
+
+
+def test_one_quantile_is_calculated(tools, ramp, prefix):
+    # The 0.25 quantile of the corner window 1, 2, 4, 5 of the ramp: 1.75.
+    tools.t_rast_neighbors(
+        input=ramp, output=prefix, basename=prefix, method="quantile", quantile=0.25
     )
 
     (row,) = list_maps(tools, "strds", prefix)

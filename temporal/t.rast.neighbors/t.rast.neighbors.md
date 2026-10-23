@@ -8,10 +8,12 @@ The user must provide an input and an output space time raster dataset
 and the basename of the resulting raster maps. The resulting STRDS will
 have the same temporal resolution as the input dataset. With the **-e**
 flag, resulting maps can be registered in an existing STRDS, that e.g.
-may have been created with a previous run of *t.rast.neighbors*. All
-maps will be processed using the current region settings unless the
-**-r** flag is selected. In the latter case, the computaional region is
-set to each raster map selected from the input STRDS.
+may have been created with a previous run of *t.rast.neighbors*; the
+dataset keeps its maps and **overwrite** is needed only when one of the
+new output maps already exists. All maps will be processed using the
+current region settings unless the **-r** flag is selected. In the latter
+case, the computaional region is set to each raster map selected from the
+input STRDS.
 
 The user can select a subset of the input space time raster dataset for
 processing using a SQL WHERE statement or using the **region_relation**
