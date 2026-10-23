@@ -55,6 +55,12 @@ Please refer to the manual page of
 option description.
 
 <p>
+A cell without a value (NULL) in the first step of a cycle stays NULL in
+every later step of that cycle: there is no earlier sum to continue from, and
+the values of the later maps are added to nothing. A NULL cell in a later step
+keeps the sum of the steps before it.
+
+<p>
 The <b>output</b> is a new space time raster dataset with the provided
 start time, end time and granularity containing the accumulated raster
 maps. The <b>base</b> name of the generated maps must always be set.
