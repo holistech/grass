@@ -106,11 +106,17 @@ def main():
     if not gs.find_file(input, element="vector")["file"]:
         gs.fatal(_("Vector map <%s> not found") % input)
 
+    input_db = gs.vector.vector_db(input)
     if where:
         # v.extract copies layer 1 only: the other layers of the input would
-        # be missing in the output without a word.
+        # be missing in the output without a word. A layer may have
+        # categories without a table or a table without categories, so both
+        # are asked.
+        with_categories = gs.read_command(
+            "v.category", input=input, option="layers"
+        ).split()
         other_layers = sorted(
-            layer for layer in gs.vector.vector_db(input) if layer != 1
+            {int(layer) for layer in with_categories}.union(input_db) - {1}
         )
         if other_layers:
             gs.fatal(
@@ -212,9 +218,6 @@ def main():
     num_samples = len(samples)
 
     input_name = input
-    # The helper map below gives layer 1 its own name: the output must keep
-    # the name that layer 1 has in the input
-    layer_one = gs.vector.vector_db(input).get(1)
     if where:
         # where selects points of the input: the other points are not in the
         # output at all. Applying it in the new layers would fail, as they
@@ -270,6 +273,7 @@ def main():
     except CalledModuleError:
         gs.fatal(_("Unable to create new layers for vector map <%s>") % (vectmap))
 
+    layer_one = input_db.get(1)
     if where and layer_one:
         # v.extract names layer 1 after the helper map, which is removed at
         # the end of the run. Without where the output has the layer name of
@@ -278,13 +282,13 @@ def main():
         try:
             gs.run_command(
                 "v.db.connect",
-                flags="o",
                 map=vectmap,
                 layer="1/%s" % layer_one["name"] if layer_one["name"] else "1",
                 table=copied["table"],
                 key=copied["key"],
                 database=copied["database"],
                 driver=copied["driver"],
+                overwrite=True,
                 quiet=True,
             )
         except CalledModuleError:

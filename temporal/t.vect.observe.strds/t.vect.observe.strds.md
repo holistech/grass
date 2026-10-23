@@ -29,8 +29,9 @@ vector dataset to stdout.
 The option **where** selects points of the input vector map. Points that it
 does not select are not in the output map, in none of its layers. The
 selection works on the table of layer 1, so the module stops with an error
-before it writes anything if the input map has other layers besides layer 1.
-Layer 1 of the output keeps the layer name that it has in the input map.
+before it writes anything if the input map has other layers besides layer 1,
+with categories or with a table. Layer 1 of the output keeps the layer name
+that it has in the input map.
 
 If a column named in **columns** exists in the table of a layer of the input
 map, the module stops with an error. With the overwrite flag it keeps the

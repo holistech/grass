@@ -196,8 +196,19 @@ def test_where_selects_the_points_of_the_input(tools, rasters, points, prefix):
 def test_layer_one_of_the_output_is_not_named_after_the_helper_map(
     tools, rasters, points, prefix
 ):
-    vector = _observe(tools, points, prefix, where="h > 2")
+    result = tools.t_vect_observe_strds(
+        input=points,
+        strds="ob_a",
+        output=prefix,
+        vector_output=f"{prefix}_v",
+        columns="obs",
+        where="h > 2",
+    )
+    vector = f"{prefix}_v"
 
+    # v.db.connect renamed its flag o to --overwrite and warns on the old
+    # name, which the user would see on every run with where.
+    assert "Please update the usage" not in result.stderr
     # With where the tool selects the points into a helper map first. Without
     # where, layer 1 keeps the layer name of the input (here the name of the
     # map, measured 23.10.2026 with v.db.connect -g), so it must with where.

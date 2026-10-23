@@ -202,6 +202,29 @@ def test_a_where_with_an_input_of_several_layers_is_refused_before_any_write(
     assert prefix not in tools.t_list(type="stvds", columns="name").stdout
 
 
+@pytest.mark.parametrize("kind", ["categories", "table"])
+def test_a_where_with_an_input_layer_of_only_categories_or_a_table_is_refused(
+    tools, rasters, points, prefix, kind
+):
+    # Layer 3 has either the categories of layer 1 and no table, or a table
+    # and no categories. v.extract keeps the categories and the table of
+    # layer 1 only, so either would be lost.
+    name = f"{prefix}_{kind}"
+    if kind == "categories":
+        tools.v_category(input=points, output=name, option="transfer", layer="1,3")
+    else:
+        tools.g_copy(vector=(points, name))
+        tools.db_copy(from_table=name, to_table=f"{name}_3")
+        tools.v_db_connect(map=name, table=f"{name}_3", layer=3, key="cat")
+
+    text = _refused(tools, name, prefix, where="h > 2")
+
+    assert f"<{name}>" in text
+    assert "layers 3 besides layer 1" in text
+    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
+
+
 def test_overwrite_after_a_failed_run_removes_the_previous_output_too(
     tools, rasters, points, prefix
 ):
