@@ -659,8 +659,8 @@ def assign_valid_time_to_map(
                      time and an increment is provided. With an increment of
                      one unit, such as "1 months", the interval ends at the
                      start of the next map, mult + 1 increments after the
-                     start. A composite increment such as "1 months, 1 days"
-                     ends the interval one increment after its own start.
+                     anchor, also for a composite increment such as
+                     "1 months, 1 days".
     """
 
     msgr = get_tgis_message_interface()
@@ -690,17 +690,12 @@ def assign_valid_time_to_map(
                 msgr.fatal(_("Error occurred in increment computation"))
             if interval:
                 # The end of a map is the start of the next one, counted from
-                # the anchor like that start. One month added to the start
-                # February 28 of a series from January 31 would end the map on
-                # March 28, three days before the next map. A composite
-                # increment such as "1 months, 1 days" keeps the end one
-                # increment after the start: its starts multiply each unit
-                # separately, so the start of the next map would change the end
-                # of such maps from every start day, not only from day 29 to 31.
-                if "," in increment:
-                    end_time = increment_datetime_by_string(start_time, increment)
-                else:
-                    end_time = increment_datetime_by_string(anchor, increment, mult + 1)
+                # the anchor like that start. One increment added to the start
+                # would end a map of a series from January 31 on March 28 where
+                # the next map starts on March 31, and would not meet the next
+                # start of a list increment either, because the calendar step
+                # is cut to the month end once per start.
+                end_time = increment_datetime_by_string(anchor, increment, mult + 1)
                 if end_time is None:
                     msgr.fatal(_("Error occurred in increment computation"))
 

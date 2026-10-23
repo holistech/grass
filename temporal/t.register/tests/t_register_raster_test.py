@@ -5,6 +5,8 @@ module shares one project. Map number n has the value n. Times are derived
 from the start and the increment in the comments of each case.
 """
 
+from itertools import pairwise
+
 import pytest
 
 from grass.temporal.testing.readback import list_maps, stds_info
@@ -221,8 +223,8 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
     # and map 3 at 2041-07-03 08:00 (twice the increment). The later maps and
     # the second round are the values of the former gunittest, kept as they
     # were: six maps, "99 years, 9 months, 9 days, 9 hours", and with the
-    # interval flag the end of an interval is the start plus one increment of
-    # the start, not the start of the next map.
+    # interval flag the end of an interval is the start of the next map,
+    # k + 1 increments after the anchor for the map k counted from 0.
     maps = make_maps(6)
     name = dataset()
     options = {"type": "raster", "input": name, "maps": ",".join(maps)}
@@ -269,11 +271,14 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
         "2400-02-07 12:00:00",
         "2499-11-16 21:00:00",
     ]
-    # The end of the fifth interval is its start plus one increment: 99 years
-    # and 9 months are one step of 1197 months, from February 2400 to
-    # November 2499 (2400 * 12 + 1 + 1197 = 29998 = 2499 * 12 + 10), day 7
-    # stays; plus 9 days 9 hours is 2499-11-16 21:00. Measuring the years and
-    # the months apart from the start gave a day more.
+    # Map k ends at the anchor plus k + 1 increments, which is the start of
+    # map k + 1 in the second round, so the ends of the first five maps are
+    # the second to the sixth start of the second round. The sixth map ends
+    # after 6 increments: 6 * 1197 months = 7182 months = 598 years 6 months,
+    # 2001-01-01 + that is 2599-07-01; plus 6 * 9 days 9 hours = 54 days
+    # 54 hours = 56 days 6 hours is 2599-08-26 06:00. The fifth end is
+    # 5 * 1197 = 5985 months = 498 years 9 months, 2499-10-01, plus 45 days
+    # 45 hours = 46 days 21 hours: 2499-11-16 21:00.
     assert third == [
         ("2001-01-01 00:00:00", "2100-10-10 09:00:00"),
         ("2100-10-10 09:00:00", "2200-07-19 18:00:00"),
@@ -300,7 +305,7 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
     assert second_info["end_time"] == "'2499-11-16 21:00:00'"
     assert third_info["end_time"] == "'2599-08-26 06:00:00'"
     # Points are valid; the intervals of the last round are valid as well,
-    # because every end equals the next start (see the pairs above, the fifth
+    # because every end equals the next start by construction (the fifth
     # ends on 2499-11-16 21:00 where the sixth starts).
     assert (first_topology, second_topology, third_topology) == (
         "valid",
@@ -311,6 +316,111 @@ def test_complex_increment_and_re_registering(tools, make_maps, dataset):
     assert tools.r_timestamp(map=maps[2]).stdout.strip() == (
         "19 Jul 2200 18:00:00 / 29 Apr 2300 03:00:00"
     )
+
+
+def test_interval_list_increment_leaves_no_gap(tools, make_maps, dataset):
+    # "1 months, 15 days" from 2001-01-01: the start of map k (k from 0) is
+    # the anchor plus k months and 15 * k days, the end of map k is the
+    # anchor plus k + 1 months and 15 * (k + 1) days, which is the start of
+    # map k + 1. Added to the start, one increment ended map 2 on 2001-03-31
+    # + 1 month + 15 days = 2001-05-15, while map 3 starts on 2001-05-16
+    # (3 months after the anchor is 2001-04-01, plus 45 days).
+    maps = make_maps(24)
+    name = dataset()
+
+    tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-01",
+        increment="1 months, 15 days",
+        flags="i",
+    )
+
+    rows = [(row.start, row.end) for row in list_maps(tools, "strds", name)]
+    assert len(rows) == 24
+    for (_, end), (next_start, _) in pairwise(rows):
+        assert end == next_start
+    assert _topology(tools, name) == "valid"
+
+
+def test_interval_long_list_increment_leaves_no_gap(tools, make_maps, dataset):
+    # "1 years, 2 months, 3 days, 4 hours" from 2001-01-01: map 3 (k = 2)
+    # ends where map 4 (k = 3) starts, 3 * (14 months, 3 days 4 hours) after
+    # the anchor: 42 months is 2004-07-01, plus 9 days 12 hours is
+    # 2004-07-10 12:00.
+    maps = make_maps(5)
+    name = dataset()
+
+    tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-01",
+        increment="1 years, 2 months, 3 days, 4 hours",
+        flags="i",
+    )
+
+    rows = [(row.start, row.end) for row in list_maps(tools, "strds", name)]
+    assert rows[3][0] == "2004-07-10 12:00:00"
+    assert rows[2][1] == rows[3][0]
+
+
+def test_interval_list_increment_from_a_month_end_leaves_no_gap(
+    tools, make_maps, dataset
+):
+    # "1 years, 1 months" is one step of 13 months from 2001-01-31. Map 2
+    # (k = 1) starts 13 months after the anchor: 2002-02-31 cut to
+    # 2002-02-28. Its end is 26 months after the anchor, 2003-03-31, where
+    # map 3 starts. One increment added to the start gave 2002-02-28 + 13
+    # months = 2003-03-28, three days before the next start.
+    maps = make_maps(4)
+    name = dataset()
+
+    tools.t_register(
+        type="raster",
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-31",
+        increment="1 years, 1 months",
+        flags="i",
+    )
+
+    rows = [(row.start, row.end) for row in list_maps(tools, "strds", name)]
+    assert rows[1] == ("2002-02-28 00:00:00", "2003-03-31 00:00:00")
+    assert rows[2][0] == "2003-03-31 00:00:00"
+    for (_, end), (next_start, _) in pairwise(rows):
+        assert end == next_start
+
+
+def test_granularity_of_a_monthly_series_counts_months_only_on_the_first(
+    tools, make_maps, dataset
+):
+    # The manual states that months are recognised only when starts and ends
+    # lie on the first of a month. From 2001-01-01 the intervals are
+    # [01-01, 02-01], [02-01, 03-01], [03-01, 04-01]: one month. From
+    # 2001-01-31 they are [01-31, 02-28], [02-28, 03-31], [03-31, 04-30] with
+    # 28, 31 and 30 days, whose greatest common divisor is 1 day.
+    # Each dataset gets its own three maps, because a map has one time.
+    all_maps = make_maps(6)
+    granularities = {}
+    for number, start in enumerate(("2001-01-01", "2001-01-31")):
+        maps = all_maps[3 * number : 3 * number + 3]
+        name = dataset(suffix="_" + start[-2:])
+        tools.t_register(
+            type="raster",
+            input=name,
+            maps=",".join(maps),
+            start=start,
+            increment="1 months",
+            flags="i",
+        )
+        granularities[start] = stds_info(tools, "strds", name)["granularity"]
+
+    assert granularities == {
+        "2001-01-01": "'1 month'",
+        "2001-01-31": "'1 day'",
+    }
 
 
 def test_a_registered_map_keeps_its_time_without_overwrite(tools, make_maps, dataset):
