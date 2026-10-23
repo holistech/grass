@@ -200,7 +200,7 @@ def test_the_disabled_method_is_the_default(tools, rasters, vectors):
     assert _columns(tools, data.maps[1]) == ["wr_3", "wr_4"]
 
 
-def test_the_aggregate_is_stored_in_a_column_named_after_a_temporary_map(
+def test_the_aggregate_is_stored_in_a_column_named_after_the_dataset(
     tools, rasters, vectors
 ):
     data = vectors()

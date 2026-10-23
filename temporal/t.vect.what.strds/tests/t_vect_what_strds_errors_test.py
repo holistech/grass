@@ -4,7 +4,12 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, register_stds, vector_points
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    register_stds,
+    vector_points,
+)
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -111,9 +116,7 @@ def _names(tools, vector):
     return tools.db_columns(table=vector).stdout.split()
 
 
-def test_a_second_run_with_the_same_column_writes_the_values_again(
-    tools, rasters, vectors
-):
+def test_a_second_run_with_overwrite_writes_the_values_again(tools, rasters, vectors):
     data = vectors()
     options = {"input": data.dataset, "strds": "wh_a", "column": "m"}
     tools.t_vect_what_strds(**options)
@@ -175,6 +178,64 @@ def test_overwrite_writes_all_maps_when_a_column_exists_in_one(tools, rasters, v
     assert _values(tools, first) == ["111", "112", "121", "122"]
     assert _values(tools, second) == ["311", "312", "321", "322"]
     assert _values(tools, third) == ["611", "612", "621", "622"]
+
+
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_a_later_map_without_a_table_stops_the_run_before_the_first_write(
+    tools, rasters, vectors, overwrite
+):
+    data = vectors()
+    first, second, third = data.maps
+    tools.v_db_droptable(map=third, flags="f")
+
+    text = _refused(
+        tools, input=data.dataset, strds="wh_a", column="m", overwrite=overwrite
+    )
+
+    # Adding the column to the third map fails; found only there, the first
+    # two maps would already have the column and their values.
+    assert f"Vector map <{third}@" in text
+    assert "has no attribute table in layer 1" in text
+    assert "m" not in _names(tools, first)
+    assert "m" not in _names(tools, second)
+
+
+def test_overwrite_keeps_the_type_of_an_integer_column(tools, rasters, vectors, prefix):
+    # The maps are the constant k, one month each from 2001-03-01, so the
+    # average during May (k = 3) and June (k = 4) is 3.5.
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_k",
+        [
+            MapSpec(
+                f"{prefix}_k{k}",
+                f"{k}",
+                datetime(2001, k + 2, 1),
+                datetime(2001, k + 3, 1),
+            )
+            for k in range(1, 7)
+        ],
+    )
+    data = vectors()
+    options = {
+        "input": data.dataset,
+        "strds": f"{prefix}_k",
+        "column": "m",
+        "sampling": "during",
+    }
+    # The integer map of May makes m an INTEGER column.
+    tools.t_vect_what_strds(**options)
+    tools.v_db_update(map=data.maps[1], column="m", value="0")
+
+    result = tools.t_vect_what_strds(**options, method="average", overwrite=True)
+
+    # The column is not replaced. SQLite keeps 3.5 (probe 23.10.2026 with
+    # CAST(m AS TEXT) in db.select), but GRASS reads the INTEGER column as 3;
+    # v.what.rast warns about it.
+    assert "some data lost" in message(result)
+    assert "m:INTEGER" in tools.db_describe(table=data.maps[1], flags="c").stdout
+    assert _values(tools, data.maps[1]) == ["3"] * 4
 
 
 def test_a_t_where_with_a_syntax_error_is_reported_as_a_message(

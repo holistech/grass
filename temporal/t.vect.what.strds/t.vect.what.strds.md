@@ -15,10 +15,14 @@ replaced by an underscore. A name that would start with a digit gets the
 prefix `c_`, because *v.what.rast* cannot write such a column.
 
 Before the first value is written, the module checks the target columns of
-all vector maps and layers. If one of them already exists, the module stops
-with an error and changes nothing. With the **--overwrite** flag, the
-existing columns are kept and their values are written again, so a second
-run does not add a second column.
+all vector maps and layers. If one of them already exists, or a layer to be
+written has no attribute table, the module stops with an error and changes
+nothing. With the **--overwrite** flag, the existing columns are kept and
+their values are written again, so a second run does not add a second
+column. An existing column keeps its type: values of a floating-point raster
+map written into an integer column lose their fractional part, and
+*v.what.rast* warns about it. To get a column of the new type, drop the
+column with *v.db.dropcolumn* first.
 
 ## EXAMPLE
 

@@ -80,8 +80,8 @@ def aggregate_column_name(strds_name, method):
 def sampled_column_names(raster_maps, column, aggregated, method, strds_name):
     """Return the columns the tool writes for the raster maps of one interval
 
-    This repeats the naming of the write loop, so that all columns can be
-    checked before the first one is written.
+    The check before the first write and the write loop both take the names
+    from here, so that the check sees the columns that are written.
     """
     if column:
         return [column]
@@ -91,22 +91,27 @@ def sampled_column_names(raster_maps, column, aggregated, method, strds_name):
 
 
 def check_target_columns(targets, overwrite, dbif):
-    """Refuse existing columns before anything is written
+    """Refuse missing tables and existing columns before anything is written
 
-    targets maps (vector map, layer) to the column names to write. Names are
-    compared in lower case, as SQLite does, so that "M" is taken to be "m".
-    Without overwrite an existing column is an error; with it the column is
-    written again. Returns the existing columns of each (map, layer).
+    targets maps (vector map, layer) to the column names to write. A layer
+    without a table is always an error, as the column cannot be added to it.
+    Names are compared in lower case, as SQLite does, so that "M" is taken to
+    be "m". Without overwrite an existing column is an error; with it the
+    column is written again and keeps its type. Returns the existing columns
+    of each (map, layer).
     """
     existing = {}
+    errors = []
     clashes = []
     for (vectmap, layer), names in targets.items():
-        connection = gs.vector_db(vectmap).get(layer)
-        present = (
-            {name.lower() for name in gs.vector_columns(vectmap, layer)}
-            if connection
-            else set()
-        )
+        if not gs.vector_db(vectmap).get(layer):
+            errors.append(
+                _(
+                    "Vector map <{vector}> has no attribute table in layer {layer}"
+                ).format(vector=vectmap, layer=layer)
+            )
+            continue
+        present = {name.lower() for name in gs.vector_columns(vectmap, layer)}
         existing[vectmap, layer] = present
         clashes.extend(
             _(
@@ -117,10 +122,11 @@ def check_target_columns(targets, overwrite, dbif):
             if name.lower() in present
         )
     if clashes and not overwrite:
+        errors.extend(clashes)
+        errors.append(_("Use the overwrite flag to write the values again."))
+    if errors:
         dbif.close()
-        gs.fatal(
-            "\n".join(clashes) + "\n" + _("Use the overwrite flag to write it again.")
-        )
+        gs.fatal("\n".join(errors))
     return existing
 
 
