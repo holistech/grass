@@ -165,8 +165,8 @@ def main():
                 end = last.start + 1
 
         if not absolute:
-            # int() accepts neither "1 day" nor "1.5"; the library would
-            # report them with the text of the ValueError.
+            # int() accepts neither "1 day" nor "1.5"; the handler below would
+            # report its ValueError, whose text does not name the option.
             try:
                 gran = int(gran)
             except ValueError:
