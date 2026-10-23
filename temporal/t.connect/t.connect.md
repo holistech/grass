@@ -30,11 +30,11 @@ default values.
 
 The **-d** flag will set the default TGIS connection parameters.
 
-An option that is not given is set to its default: a call with only
-**database** sets the driver to `sqlite`, a call with only **driver** sets
-the database to `$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db`, and a call
-without any option sets both. To change one value and keep the other, give
-both.
+As in [db.connect](db.connect.md), an option that is not given is set to its
+default: a call with only **database** sets the driver to `sqlite`, a call
+with only **driver** sets the database to
+`$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db`, and a call without any
+option sets both. To change one value and keep the other, give both.
 
 ## NOTES
 
