@@ -193,6 +193,21 @@ def test_where_selects_the_points_of_the_input(tools, rasters, points, prefix):
     assert stds_info(tools, "stvds", prefix)["points"] == 6
 
 
+def test_layer_one_of_the_output_is_not_named_after_the_helper_map(
+    tools, rasters, points, prefix
+):
+    vector = _observe(tools, points, prefix, where="h > 2")
+
+    # With where the tool selects the points into a helper map first. Without
+    # where, layer 1 keeps the layer name of the input (here the name of the
+    # map, measured 23.10.2026 with v.db.connect -g), so it must with where.
+    link = tools.v_db_connect(map=vector, flags="g").stdout
+    assert "tmp_t_vect_observe_strds" not in link
+    first = link.splitlines()[0].split("|")
+    assert first[0] == f"1/{points}"
+    assert first[1] == vector
+
+
 def test_an_input_with_layers_gets_the_columns_in_its_own_tables(
     tools, rasters, prefix
 ):

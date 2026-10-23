@@ -4,7 +4,7 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.data import MapSpec, create_stds, vector_points
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -182,6 +182,66 @@ def test_a_where_that_v_extract_refuses_is_reported(tools, rasters, points, pref
 
     assert f"Unable to select the points of <{points}> with where" in text
     assert "Traceback" not in text
+
+
+def test_a_where_with_an_input_of_several_layers_is_refused_before_any_write(
+    tools, rasters, prefix
+):
+    name = f"{prefix}_two"
+    vector_points(
+        tools, name, [(0.5, 1.5), (1.5, 0.5)], attributes={"h": [1, 2]}, layers=(1, 2)
+    )
+
+    text = _refused(tools, name, prefix, where="h > 2")
+
+    # v.extract keeps only layer 1 of its input, so the layers 2 and following
+    # of the input would be lost silently.
+    assert f"<{name}>" in text
+    assert "where" in text
+    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
+
+
+def test_overwrite_after_a_failed_run_removes_the_previous_output_too(
+    tools, rasters, points, prefix
+):
+    # The first run makes the output map and dataset.
+    tools.t_vect_observe_strds(
+        input=points,
+        strds="ob_a",
+        output=prefix,
+        vector_output=f"{prefix}_v",
+        columns="obs",
+    )
+    assert f"{prefix}_v" in tools.g_list(type="vector").stdout.split()
+    # In the second dataset the map of the second granule is gone: the first
+    # granule is sampled, the second one fails, after v.category has replaced
+    # the previous output map.
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_part",
+        [
+            MapSpec(f"{prefix}_p1", "1", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+            MapSpec(f"{prefix}_p2", "2", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    tools.g_remove(type="raster", name=f"{prefix}_p2", flags="f")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_vect_observe_strds(
+            input=points,
+            strds=f"{prefix}_part",
+            output=prefix,
+            vector_output=f"{prefix}_v",
+            columns="obs",
+            overwrite=True,
+        )
+
+    # The failure is in the sampling step, after the output was replaced.
+    assert "Unable to run v.what.rast" in message(error.value)
+    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
 
 
 def test_a_failing_v_category_is_reported(broken_tools, rasters, points, prefix):

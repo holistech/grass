@@ -106,6 +106,23 @@ def main():
     if not gs.find_file(input, element="vector")["file"]:
         gs.fatal(_("Vector map <%s> not found") % input)
 
+    if where:
+        # v.extract copies layer 1 only: the other layers of the input would
+        # be missing in the output without a word.
+        other_layers = sorted(
+            layer for layer in gs.vector.vector_db(input) if layer != 1
+        )
+        if other_layers:
+            gs.fatal(
+                _(
+                    "The where option cannot be used with vector map <{vector}>: "
+                    "it has the layers {layers} besides layer 1 and the selection "
+                    "would drop them"
+                ).format(
+                    vector=input, layers=", ".join(str(layer) for layer in other_layers)
+                )
+            )
+
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface
@@ -195,6 +212,9 @@ def main():
     num_samples = len(samples)
 
     input_name = input
+    # The helper map below gives layer 1 its own name: the output must keep
+    # the name that layer 1 has in the input
+    layer_one = gs.vector.vector_db(input).get(1)
     if where:
         # where selects points of the input: the other points are not in the
         # output at all. Applying it in the new layers would fail, as they
@@ -249,6 +269,29 @@ def main():
         )
     except CalledModuleError:
         gs.fatal(_("Unable to create new layers for vector map <%s>") % (vectmap))
+
+    if where and layer_one:
+        # v.extract names layer 1 after the helper map, which is removed at
+        # the end of the run. Without where the output has the layer name of
+        # the input, so the layer is connected again under that name.
+        copied = gs.vector.vector_db(vectmap)[1]
+        try:
+            gs.run_command(
+                "v.db.connect",
+                flags="o",
+                map=vectmap,
+                layer="1/%s" % layer_one["name"] if layer_one["name"] else "1",
+                table=copied["table"],
+                key=copied["key"],
+                database=copied["database"],
+                driver=copied["driver"],
+                quiet=True,
+            )
+        except CalledModuleError:
+            gs.run_command(
+                "g.remove", flags="f", type="vector", name=vectmap, quiet=True
+            )
+            gs.fatal(_("Unable to name layer 1 of vector map <%s>") % (vectmap))
 
     title = _("Observation of space time raster dataset(s) <%s>") % (strds)
     description = _(
