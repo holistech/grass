@@ -487,18 +487,6 @@ D = tsnap(merge(A, C))
 D = tsnap(merge(C, A))
 </pre></div>
 </li>
-<li><b>Time functions as the conclusion of if().</b> A time function such as
-<code>start_doy()</code> gives numbers, not maps, so the new algebra stops with
-the error "A time function such as start_doy() cannot be the result of a
-selection" when it is the conclusion of <code>if()</code> beside maps. A time
-function belongs in the condition. The classic algebra plans the
-expression with a dry run; what a real run of it gives is still an open
-point:
-
-<div class="code"><pre>
-C = if(start_doy(A) &lt; 3, start_doy(A, 1), A)
-</pre></div>
-</li>
 </ol>
 
 <p>
@@ -639,6 +627,19 @@ February to 30 April 2001, the second one a map from 31 December 2000 to
 <div class="code"><pre>
 C = tshift(M, "1 months")
 C = buff_t(M, "1 months")
+</pre></div>
+</li>
+<li><b>Time functions as the conclusion of if().</b> A time function such as
+<code>start_doy()</code> gives numbers, not maps. Both algebras stop with the
+error "A time function such as start_doy() cannot be the result of a
+selection" when it is the conclusion of <code>if()</code> beside maps, before
+they create a dataset or a map (corrected 23 October 2026). A time function
+belongs in the condition. The previous implementation planned the expression
+with a dry run and failed in the real run, when it copied a map that it had
+never computed:
+
+<div class="code"><pre>
+C = if(start_doy(A) &lt; 3, start_doy(A, 1), A)
 </pre></div>
 </li>
 </ol>

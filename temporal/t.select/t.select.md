@@ -489,18 +489,6 @@ points differ:
    D = tsnap(merge(C, A))
    ```
 
-8. **Time functions as the conclusion of if().** A time function such as
-   `start_doy()` gives numbers, not maps, so the new algebra stops with the
-   error "A time function such as start_doy() cannot be the result of a
-   selection" when it is the conclusion of `if()` beside maps. A time
-   function belongs in the condition. The classic algebra plans the
-   expression with a dry run; what a real run of it gives is still an open
-   point:
-
-   ```sh
-   C = if(start_doy(A) < 3, start_doy(A, 1), A)
-   ```
-
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read, and `FatalError` for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises `ValueError` for an expression it
@@ -629,6 +617,19 @@ used one of these forms need a new run.
    ```sh
    C = tshift(M, "1 months")
    C = buff_t(M, "1 months")
+   ```
+
+9. **Time functions as the conclusion of if().** A time function such as
+   `start_doy()` gives numbers, not maps. Both algebras stop with the error
+   "A time function such as start_doy() cannot be the result of a selection"
+   when it is the conclusion of `if()` beside maps, before they create a
+   dataset or a map (corrected 23 October 2026). A time function belongs in
+   the condition. The previous implementation planned the expression with a
+   dry run and failed in the real run, when it copied a map that it had
+   never computed:
+
+   ```sh
+   C = if(start_doy(A) < 3, start_doy(A, 1), A)
    ```
 
 #### Differences from the previous implementation
