@@ -16,7 +16,11 @@ time interval the accumulation pattern detection process restarts. The
 cycles, eg. "4 months". The **cycle** and **offset** options must be
 exactly the same that were used in the accumulation process that
 generated the input space time raster dataset, otherwise the
-accumulation pattern detection will produce wrong results.
+accumulation pattern detection will produce wrong results. Cycles and
+offsets in months or years are counted from the **start**, as in
+*t.rast.accumulate*, and a month step that ends behind the last day of a
+month ends on that day, so monthly cycles from 2001-01-31 start on
+2001-02-28 and 2001-03-31.
 
 The **minimum** and **maximum** values for the pattern detection process
 can be set either by using space time raster datasets or by using fixed

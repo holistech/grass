@@ -8,7 +8,7 @@ in conftest.py; N below is null.
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
@@ -94,6 +94,85 @@ def test_the_start_moves_the_first_cycle(tools, cells, detect):
 def test_the_reverse_flag_keeps_the_days_since_the_start(tools, cells, detect):
     # The occurrence does not depend on the direction.
     assert detect("rev", flags="r") == detect("fwd")
+
+
+# Five daily maps around the ends of the months, by the day of their start
+# (day 0 is 2001-01-01): 2001-02-27 (57), 2001-02-28 (58), 2001-03-29 (87),
+# 2001-03-31 (89) and 2001-04-29 (118). The data end on 2001-04-30.
+MONTH_ENDS = [57, 58, 87, 89, 118]
+
+
+@pytest.fixture(scope="module")
+def month_ends(tools):
+    small_region(tools, 1, 2)
+    create_stds(
+        tools,
+        "strds",
+        "det_month_ends",
+        [MapSpec(f"det_me{n}", 20, day(n), day(n + 1)) for n in MONTH_ENDS],
+    )
+
+
+@pytest.fixture
+def detect_month_ends(tools, month_ends, by_day):
+    """Function that detects monthly cycles from 2001-01-31 (day 30)"""
+
+    def run(name, **options):
+        tools.t_rast_accdetect(
+            input="det_month_ends",
+            occurrence=name,
+            basename=name,
+            start="2001-01-31",
+            cycle="1 months",
+            range="10,50",
+            **options,
+        )
+        return by_day(name)
+
+    return run
+
+
+def test_monthly_cycles_from_day_31_count_from_the_start(detect_month_ends):
+    # Cycle k runs from k to k + 1 months after January 31, counted from it:
+    # [01-31, 02-28), [02-28, 03-31) and [03-31, 04-30), the days [30, 58),
+    # [58, 89) and [89, 119). Chained from the end of the cycle before, the
+    # later cycles would start on 03-28 and 04-28. The days since the start
+    # of the cycle: 57 - 30, 58 - 58, 87 - 58, 89 - 89, 118 - 89.
+    assert detect_month_ends("me_cycle") == {
+        57: [27, 27],
+        58: [0, 0],
+        87: [29, 29],
+        89: [0, 0],
+        118: [29, 29],
+    }
+
+
+def test_monthly_cycles_and_offsets_from_day_31_count_from_the_start(
+    detect_month_ends,
+):
+    # Cycle k runs from 2k to 2k + 1 months after January 31: [01-31, 02-28)
+    # and [03-31, 04-30), the days [30, 58) and [89, 119). The maps of the
+    # days 58 and 87 lie between the cycles. Chained, the second cycle would
+    # be [03-28, 04-28).
+    assert detect_month_ends("me_offset", offset="1 months") == {
+        57: [27, 27],
+        89: [0, 0],
+        118: [29, 29],
+    }
+
+
+def test_a_monthly_cycle_with_an_offset_in_days_is_chained(detect_month_ends):
+    # A month and a day do not add up to one step, so each cycle starts a
+    # day after the end of the one before and lasts one month from its own
+    # start: [01-31, 02-28), [03-01, 04-01) and [04-02, 05-02), the days
+    # [30, 58), [59, 90) and [91, 121). The map of the day 58 lies between
+    # the first two cycles.
+    assert detect_month_ends("me_days", offset="1 days") == {
+        57: [27, 27],
+        87: [28, 28],
+        89: [30, 30],
+        118: [27, 27],
+    }
 
 
 @pytest.mark.parametrize(
