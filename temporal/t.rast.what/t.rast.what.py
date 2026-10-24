@@ -125,10 +125,6 @@ def main(options, flags):
     use_stdin = flags["i"]
     vcat = flags["v"]
 
-    # output_cat_label = flags["f"]
-    # output_color = flags["r"]
-    # output_cat = flags["i"]
-
     overwrite = gs.overwrite()
 
     if coordinates and points:
@@ -173,14 +169,7 @@ def main(options, flags):
     if not maps:
         gs.fatal(_("Space time raster dataset <%s> is empty") % sp.get_id())
 
-    # Setup flags are disabled due to test issues
     flags = ""
-    # if output_cat_label is True:
-    #    flags += "f"
-    # if output_color is True:
-    #    flags += "r"
-    # if output_cat is True:
-    #    flags += "i"
     if vcat is True:
         flags += "v"
 
@@ -286,7 +275,7 @@ def main(options, flags):
             if remaining_maps <= 100:
                 map_names = []
                 map_list = []
-                for i in range(remaining_maps):
+                for _i in range(remaining_maps):
                     map = maps[count]
                     map_names.append(map.get_id())
                     map_list.append(map)
@@ -624,7 +613,7 @@ def process_loop(
 
         map_names = []
         map_list = []
-        for i in range(num):
+        for _i in range(num):
             map = maps[count]
             map_names.append(map.get_id())
             map_list.append(map)
@@ -644,7 +633,6 @@ def process_loop(
         )
         mod = copy.deepcopy(r_what)
         mod(map=map_names, output=final_file_name)
-        # print(mod.get_bash())
         process_queue.put(mod)
 
     return count
