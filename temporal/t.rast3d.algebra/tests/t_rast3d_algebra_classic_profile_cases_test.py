@@ -10,7 +10,9 @@ import pytest
 
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
+from grass.tools import Tools
 
 KIND = "raster3d"
 
@@ -109,6 +111,19 @@ LARGE_CONSTANTS_BETWEEN_SERIES = [
     "if(td(B) <= 0.5, B, 3000000000) {%,equal} if(td(B) <= 0.5, B, 7)",
     # -1294967296 > 5 is false, so 2; folded 1.
     "if(if(td(B) <= 0.5, B, 3000000000) {>,equal} if(td(B) <= 0.5, B, 5), 1, 2)",
+]
+
+
+# The classic algebra writes arithmetic on time function values into the
+# expression of r3.mapcalc, as for raster maps (see
+# t_rast_algebra_classic_profile_cases_test.py). RS3 has two maps of
+# 3000000000 seconds (cell values 1 and 2), which r3.mapcalc reads as
+# -1294967296.
+TIME_VALUE_CONDITIONS = [
+    # The product wraps around to -494665728, which is not above 5: 1, 1.
+    "if(td(RS3) * td(RS3) > 5, RS3, 1)",
+    # -494665728 > -1816920064, as 1800000000000000000 reads: RS3.
+    "if(td(RS3) * td(RS3) > 1800000000000000000, RS3, 1)",
 ]
 
 
@@ -220,6 +235,32 @@ def test_the_core_keeps_a_constant_beyond_32_bits_between_two_series(datasets):
         register_null=True,
     )
     assert [row[3:] for row in result["maps"]] == [[3e9, 3e9]] * 4
+
+
+@pytest.fixture(scope="module")
+def long_durations(datasets, temporal_module_session):
+    """RS3: two 3D maps of relative time in seconds, each 3000000000 seconds
+    long"""
+    create_stds(
+        Tools(session=temporal_module_session),
+        "str3ds",
+        "RS3",
+        [
+            MapSpec("rs3a", 1, 0, 3000000000),
+            MapSpec("rs3b", 2, 3000000000, 6000000000),
+        ],
+        temporaltype="relative",
+        unit="seconds",
+        via="library",
+    )
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", TIME_VALUE_CONDITIONS)
+def test_conditions_on_time_values_follow_the_reference(
+    long_durations, expression, granularity
+):
+    assert_equal(expression, granularity=granularity)
 
 
 @pytest.mark.parametrize(

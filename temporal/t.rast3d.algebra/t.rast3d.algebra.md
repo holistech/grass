@@ -198,6 +198,19 @@ that start with A, and time instances in I.
     C = if(td(A) <= 0.5, A, 3000000000) + td(A)
     ```
 
+    The classic algebra also computes arithmetic on time function values
+    as *r3.mapcalc* does, in 32 bits, also in a condition; the new algebra
+    computes with all digits. If the two maps of RS last 3000000000 seconds
+    each, `td(RS) * td(RS)` wraps around to -494665728 in the classic
+    algebra, so this expression gives the value 1 for both maps there and
+    the maps of RS in the new algebra. A time function on its own, as in
+    `if(td(RS) > 2000000000, RS, 1)`, keeps all its digits in both
+    algebras.
+
+    ```sh
+    C = if(td(RS) * td(RS) > 5, RS, 1)
+    ```
+
 In Python, both algebras raise `SyntaxError` for an expression they cannot
 read. For one they cannot compute, such as `if(end_doy(I) > 0, I)`, the new
 algebra raises `ValueError` or `TypeError`, where the classic algebra

@@ -135,6 +135,61 @@ LARGE_CONSTANTS_BETWEEN_SERIES = [
     "if(td(A) <= 0.5, A, 3000000000.0) + td(A)",
 ]
 
+# The classic algebra writes arithmetic on time function values into the
+# expression of r.mapcalc, so a comparison on it is a condition on cells with
+# the 32-bit integers of r.mapcalc; only a time function on its own is
+# compared in Python. RS has two maps of 3000000000 seconds (cell values 1
+# and 2), which r.mapcalc reads as -1294967296; RN one map of 2147483648
+# seconds, which r.mapcalc reads as null.
+TIME_VALUE_CONDITIONS = [
+    # The product wraps around to -494665728, which is not above 5: 1, 1.
+    "if(td(RS) * td(RS) > 5, RS, 1)",
+    # -494665728 > -1816920064, as 1800000000000000000 reads: RS.
+    "if(td(RS) * td(RS) > 1800000000000000000, RS, 1)",
+    # The grammar refuses + and - of two time functions in a condition.
+    "if(td(RS) + td(RS) > 2000000000, RS, 1)",
+    # -1294967296 * 2 wraps around to 1705032704, not above 2000000000: 1, 1.
+    "if(td(RS) * 2 > 2000000000, RS, 1)",
+    # -1294967296 * 1.5 = -1942450944.0: 1, 1.
+    "if(td(RS) * 1.5 > 5, RS, 1)",
+    # A single time function is compared in Python: RS.
+    "if(td(RS) > 2000000000, RS, 1)",
+    # -494665728 for both maps.
+    "td(RS) * td(RS)",
+    # A lasts one day per map, 1.0 * 1.0 > 0: A.
+    "if(td(A) * td(A) > 0, A, 1)",
+    # null * 1 is null, and so is if() on it.
+    "if(td(RN) * 1 > 5, RN, 1)",
+    # -1294967296 / -1294967296 = 1: RS.
+    "if(td(RS) / td(RS) == 1, RS, 1)",
+]
+
+# Arithmetic on time function values that fit in 32 bits wraps around in
+# r.mapcalc where its result does not. RQ has two maps of 65536 seconds, so
+# td(RQ) * td(RQ) = 2^32 is 0; RM two maps of 2000000000 seconds, so
+# td(RM) * 2 is 4000000000 - 2^32 = -294967296. The cell values are 1 and 2.
+TIME_VALUE_OVERFLOWS = [
+    "if(td(RQ) * td(RQ) > 5, RQ, 1)",
+    # 0 == 0: RQ.
+    "if(td(RQ) * td(RQ) == 0, RQ, 1)",
+    "if(td(RM) * 2 > 5, RM, 1)",
+    # Without else, if() of r.mapcalc gives 0 where the condition is false.
+    "if(td(RM) * 2 > 5, RM)",
+    # Numbers as then and else: 2, 2.
+    "if(td(RQ) * td(RQ) > 5, 1, 2)",
+    # The condition on cells is false, the one on time true: 3, 3.
+    "if(td(RQ) * td(RQ) > 5 && td(RQ) > 1, RQ, 3)",
+    "if(td(RQ) * td(RQ) > 5 || RQ > 100, RQ, 3)",
+    "if({equal}, td(RQ) * td(RQ) > 5, RQ, 1)",
+    # 2000000000 * 2000000000 wraps around to -1651507200, divided by
+    # 2000000000 0 in integers: 1, 1.
+    "if(td(RM) * td(RM) / td(RM) > 5, RM, 1)",
+    "if(td(RQ) {*,equal} td(RQ) > 5, RQ, 1)",
+    "if(td(RQ) {*,equal,r} td(RQ) > 5, RQ, 1)",
+    # Division by zero is null in r.mapcalc.
+    "if(td(RM) / 0 > 5, RM, 1)",
+]
+
 # A right-hand temporal operator makes a map of its own for each partner, so
 # the maps stay apart in an inverse selection although they come from one map.
 PARTNER_MAPS = [
@@ -762,18 +817,14 @@ def test_a_duration_beyond_32_bits_between_two_series(long_durations):
     assert_equal("if(td(RS) <= 0.5, RS, 1.5) + td(RS)")
 
 
-def test_a_condition_on_two_durations_compares_the_numbers_as_they_are(
+def test_a_condition_on_two_durations_reads_them_as_r_mapcalc_does(
     long_durations,
 ):
-    """The profile decides a condition on time functions in Python, also one
-    on two of them combined, so the durations keep all their bits there:
-    3000000000 * 3000000000 = 9e18 > 1.8e18 holds and both maps of RS (cell
-    values 1 and 2) are taken. With the durations read as r.mapcalc reads
-    them, (-1294967296)^2 = 1.677e18 would not exceed 1.8e18.
-
-    The reference gives the same maps by another way: it computes this
-    condition in r.mapcalc, where the product wraps around to -494665728 and
-    1800000000000000000 reads as -1816920064, so the condition holds as well.
+    """The profile and the reference compute the product of the durations
+    as r.mapcalc does, -494665728, and r.mapcalc reads 1800000000000000000
+    as -1816920064, so the condition holds and both maps of RS (cell values
+    1 and 2) are taken. Compared with the constant as it is written, the
+    product would not exceed it, and both maps would have the value 1.
     """
     expression = "if(td(RS) * td(RS) > 1800000000000000000, RS, 1)"
     for runner, basename in (("classic", "fb"), ("reference", "fa")):
@@ -781,6 +832,72 @@ def test_a_condition_on_two_durations_compares_the_numbers_as_they_are(
             KIND, expression, RUNNERS[runner], basename=basename, register_null=True
         )
         assert [row[3:] for row in result["maps"]] == [[1.0, 1.0], [2.0, 2.0]]
+
+
+@pytest.fixture(scope="module")
+def null_duration(datasets, temporal_module_session):
+    """RN: one map of relative time in seconds, 2147483648 seconds long,
+    a duration that r.mapcalc reads as null"""
+    create_stds(
+        Tools(session=temporal_module_session),
+        "strds",
+        "RN",
+        [MapSpec("rn1", 1, 0, 2147483648)],
+        temporaltype="relative",
+        unit="seconds",
+        via="library",
+    )
+
+
+@pytest.fixture(scope="module")
+def wrapping_durations(datasets, temporal_module_session):
+    """RQ and RM: two maps each of relative time in seconds, 65536 and
+    2000000000 seconds long"""
+    tools = Tools(session=temporal_module_session)
+    for name, length in (("RQ", 65536), ("RM", 2000000000)):
+        prefix = name.lower()
+        create_stds(
+            tools,
+            "strds",
+            name,
+            [
+                MapSpec(f"{prefix}1", 1, 0, length),
+                MapSpec(f"{prefix}2", 2, length, 2 * length),
+            ],
+            temporaltype="relative",
+            unit="seconds",
+            via="library",
+        )
+
+
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", TIME_VALUE_CONDITIONS)
+def test_conditions_on_time_values_follow_the_reference(
+    long_durations, null_duration, expression, granularity
+):
+    assert_equal(expression, granularity=granularity)
+
+
+# The operators in braces fail in the granularity mode in both algebras.
+@pytest.mark.parametrize("granularity", [False, True])
+@pytest.mark.parametrize("expression", TIME_VALUE_OVERFLOWS)
+def test_time_values_wrap_around_as_in_r_mapcalc(
+    wrapping_durations, expression, granularity
+):
+    assert_equal(expression, granularity=granularity)
+
+
+def test_the_core_keeps_all_bits_of_time_values(long_durations):
+    """The core computes 3000000000 * 3000000000 = 9e18 > 5 and takes both
+    maps of RS, cell values 1 and 2"""
+    result = outcome(
+        KIND,
+        "if(td(RS) * td(RS) > 5, RS, 1)",
+        RUNNERS["core"],
+        basename="fc",
+        register_null=True,
+    )
+    assert [row[3:] for row in result["maps"]] == [[1.0, 1.0], [2.0, 2.0]]
 
 
 def test_the_core_keeps_a_constant_beyond_32_bits_between_two_series(datasets):

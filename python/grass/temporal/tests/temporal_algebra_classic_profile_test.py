@@ -187,3 +187,41 @@ def test_clearing_a_count_keeps_the_map_it_counted(in_memory_datasets, monkeypat
 )
 def test_an_integer_constant_is_read_as_r_mapcalc_reads_it(value, read):
     assert classic._as_mapcalc_reads(value) == read
+
+
+# Measured 2026-10-24 with r.mapcalc "x = <left> <symbol> <right>" and
+# r.stats -n1 in a temporary project, one expression per run; the left
+# integer -1294967296 is what r.mapcalc reads for 3000000000.
+@pytest.mark.parametrize(
+    ("symbol", "left", "right", "expected"),
+    [
+        # 3000000000 * 3000000000 keeps the lower 32 bits of the product
+        ("*", -1294967296, -1294967296, -494665728),
+        # 3000000000 + 3000000000 = 6000000000 - 2^32
+        ("+", -1294967296, -1294967296, 1705032704),
+        # A floating point operand makes the product a floating point number
+        ("*", -1294967296, 1.5, -1942450944.0),
+        # 2^31 wraps around to -2^31, the null of a CELL map
+        ("*", 65536, 32768, None),
+        ("+", 2147483647, 1, None),
+        # Integers divide like C, truncating towards zero
+        ("/", 7, 2, 3),
+        ("/", -7, 2, -3),
+        ("/", 7, 0, None),
+        # The remainder keeps the sign of the dividend
+        ("%", -7, 2, -1),
+        ("%", 7, 0, None),
+        ("*", None, 2, None),
+        ("/", 7.0, 0, None),
+    ],
+)
+def test_time_values_are_computed_as_r_mapcalc_computes_them(
+    symbol, left, right, expected
+):
+    result = classic._mapcalc_arithmetic(symbol, left, right)
+    if isinstance(expected, float):
+        assert isinstance(result, float)
+        assert result == pytest.approx(expected)
+    else:
+        assert result == expected
+        assert type(result) is type(expected)

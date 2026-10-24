@@ -211,6 +211,19 @@ in the new algebra and -1294967295 in the classic algebra:
 <div class="code"><pre>
 C = if(td(A) &lt;= 0.5, A, 3000000000) + td(A)
 </pre></div>
+
+The classic algebra also computes arithmetic on time function values as
+<em>r3.mapcalc</em> does, in 32 bits, also in a condition; the new algebra computes
+with all digits. If the two maps of RS last 3000000000 seconds each,
+<code>td(RS) * td(RS)</code> wraps around to -494665728 in the classic algebra,
+so this expression gives the value 1 for both maps there and the maps of RS in
+the new algebra. A time function on its own, as in
+<code>if(td(RS) &gt; 2000000000, RS, 1)</code>, keeps all its digits in both
+algebras.
+
+<div class="code"><pre>
+C = if(td(RS) * td(RS) &gt; 5, RS, 1)
+</pre></div>
 </li>
 </ol>
 

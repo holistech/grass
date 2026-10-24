@@ -40,6 +40,7 @@ from grass.temporal.algebra.content import (
     MapRef,
     ScalarFunctionError,
     call,
+    evaluate,
 )
 from grass.temporal.algebra.maptypes import DIMENSIONS
 from grass.temporal.algebra.profile import Profile
@@ -71,6 +72,7 @@ _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
 _BUFFERS = ("buff_p", "buff_l", "buff_a")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
+_ARITHMETIC = ("+", "-", "*", "/", "%")
 _INT32_MAX = 2**31 - 1
 _INT64_MAX = 2**63 - 1
 
@@ -105,6 +107,65 @@ def _as_mapcalc_reads(value):
     return None if read == -(2**31) else read
 
 
+def _mapcalc_arithmetic(symbol, left, right):
+    """The number that r.mapcalc computes for left symbol right, None for
+    null
+
+    left and right are numbers as r.mapcalc holds them: int for a CELL
+    value, float for a DCELL value and None for null, as _as_mapcalc_reads()
+    gives them. Two integers give an integer of 32 bits, whose value -2**31
+    is null; the product of two such integers stays below the saturation of
+    _as_mapcalc_reads(), so it keeps exactly the lower 32 bits. Division and
+    remainder are those of the core (C rules, null for a divisor 0).
+    Measured 2026-10-24 with r.mapcalc "x = <left> <symbol> <right>" in a
+    temporary project, one expression per run, value with r.stats -n1; the
+    values are those of temporal_algebra_classic_profile_test.py.
+    """
+    value = evaluate(symbol, [left, right])
+    if isinstance(value, int):
+        return _as_mapcalc_reads(value)
+    return value
+
+
+def _mapcalc_number(content):
+    """The number of a constant as r.mapcalc holds it, see
+    _mapcalc_arithmetic()"""
+    value = content.value
+    return _as_mapcalc_reads(value) if isinstance(value, int) else value
+
+
+def _time_values(operand):
+    """Whether operand is a series of numbers that time functions such as
+    td() gave, which the classic algebra writes into the expression of
+    r.mapcalc when it computes with them"""
+    return (
+        isinstance(operand, Series)
+        and not operand.timeless
+        and operand.sort == "scalar"
+        and all(_number(slot.content) for slot in operand.slots)
+    )
+
+
+def _number(content):
+    """Whether content is a number or null; a time function such as
+    start_time() gives a date instead"""
+    return isinstance(content, Const) and (
+        content.value is None or type(content.value) in {int, float}
+    )
+
+
+def _same_times(series):
+    """Whether all series have the time stamps of the first, in its order"""
+    first = series[0]
+    return all(
+        len(other.slots) == len(first.slots)
+        and all(
+            a.extent == b.extent for a, b in zip(other.slots, first.slots, strict=True)
+        )
+        for other in series
+    )
+
+
 def _read_as_mapcalc(left, right):
     """left and right, where one of them is a series of cells, with each
     integer constant beyond 32 bits in their slots replaced by the number
@@ -113,11 +174,9 @@ def _read_as_mapcalc(left, right):
     Where a series of cells meets another series, the classic algebra writes
     the numbers of both, also those of time functions such as td() of
     relative time, into the expression of r.mapcalc, while the core folds two
-    constants in Python. Two series of time function values stay as they
-    are: the profile decides a condition on them in Python, as on a single
-    time function (see _applied()), and cut numbers would decide it
-    otherwise. The reference computes such a condition (td(A) * td(A) > 5)
-    in r.mapcalc, which the profile does not follow yet.
+    constants in Python. Two series of time function values are computed by
+    _mapcalc_arithmetic() instead (see _combine()), which reads their
+    integers as r.mapcalc does.
     """
     if "field" not in (left.sort, right.sort):
         return left, right
@@ -705,6 +764,10 @@ class ClassicTranslator(Translator):
         """Functions of time constants such as sqrt(start_doy(A, 0)) are
         computed by r.mapcalc per map in the classic algebra, while the core
         computes scalars in Python and lacks most of the functions"""
+        if function in _ARITHMETIC and self._kind != "vector":
+            computed = self._computed_time_values(function, operands)
+            if computed is not None:
+                return computed
         # A condition on time (start_month(A) > 3000000000) is decided in
         # Python by the classic algebra, so it is folded here as well.
         on_time = function in _COMPARISONS and any(
@@ -742,6 +805,47 @@ class ClassicTranslator(Translator):
         return super()._apply(function, *fields)
 
     @staticmethod
+    def _computed_time_values(function, operands):
+        """function of time function values and numbers as r.mapcalc computes
+        it, one value per map, or None for other operands
+
+        The classic algebra writes such arithmetic (td(A) * 2) into the
+        expression of r.mapcalc, so the result is a series of cells and a
+        comparison on it a condition on cells, decided with the integers of
+        r.mapcalc (see _mapcalc_arithmetic()). Probes of 2026-10-24 with
+        GRASS_TEMPORAL_REFERENCE=live: if(td(RM) * 2 > 5, RM, 1) with maps of
+        2000000000 seconds gives 1 for each map in the reference, as the
+        product wraps around to -294967296; if(td(RM) * 2 > 5, RM) gives 0.
+        The grammars of the vector algebra and of t.select refuse such
+        arithmetic in a condition (same probes).
+        """
+        if not any(map(_time_values, operands)):
+            return None
+        if not all(_time_values(operand) or _number(operand) for operand in operands):
+            return None
+        series = [operand for operand in operands if isinstance(operand, Series)]
+        if not _same_times(series):
+            return None
+        first = series[0]
+        slots = [
+            dataclasses.replace(
+                slot,
+                content=Const(
+                    _mapcalc_arithmetic(
+                        function,
+                        *(
+                            _mapcalc_number(operations._content_at(operand, index))  # noqa: SLF001
+                            for operand in operands
+                        ),
+                    )
+                ),
+                origin=None,
+            )
+            for index, slot in enumerate(first.slots)
+        ]
+        return dataclasses.replace(first, slots=tuple(slots), sort="field")
+
+    @staticmethod
     def _unfolded(function, operands):
         """The call of function for each slot of the series among operands,
         or for numbers alone, without computing it; None where the series do
@@ -749,16 +853,9 @@ class ClassicTranslator(Translator):
         series = [operand for operand in operands if isinstance(operand, Series)]
         if not series:
             return Call(function, operands)
-        first = series[0]
-        if any(
-            len(other.slots) != len(first.slots)
-            or any(
-                a.extent != b.extent
-                for a, b in zip(other.slots, first.slots, strict=True)
-            )
-            for other in series
-        ):
+        if not _same_times(series):
             return None
+        first = series[0]
         slots = [
             dataclasses.replace(
                 slot,
@@ -982,6 +1079,28 @@ class ClassicTranslator(Translator):
         relation = self._relation(operator)
         left, right = _read_as_mapcalc(left, right)
         right = self._aligned(left, right)
+        if (
+            symbol in _ARITHMETIC
+            and self._kind != "vector"
+            and _time_values(left)
+            and _time_values(right)
+        ):
+            # The classic algebra writes the fold into the expression of
+            # r.mapcalc, see _computed_time_values(). Probe of 2026-10-24 with
+            # GRASS_TEMPORAL_REFERENCE=live, maps of 3000000000 seconds:
+            # if(td(RS) * td(RS) > 5, RS, 1) gives 1 for each map in the
+            # reference, as the product wraps around to -494665728.
+            folds = []
+            for slot, found in zip(
+                left.slots, self._related(left, relation, right), strict=True
+            ):
+                value = _mapcalc_number(slot.content)
+                for index in found:
+                    value = _mapcalc_arithmetic(
+                        symbol, value, _mapcalc_number(right.slots[index].content)
+                    )
+                folds.append(Const(value))
+            return self._place(left, relation, right, folds, operator.temporal, "field")
         box = space if self._kind == "vector" and space != "keep" else "intersection"
         if operator.temporal == "r":
             result = operations.pairs(
@@ -1189,8 +1308,9 @@ class ClassicTranslator(Translator):
         return self._place(left, relation, right, joined, "r")
 
     def _place(self, left, relation, right, conditions, temporal, sort=None):
-        """The conditions of the left maps, with the time stamps that the
-        temporal reference gives the pairs of a map and its related maps
+        """The conditions of the left maps, or other contents computed per
+        left map, with the time stamps that the temporal reference gives the
+        pairs of a map and its related maps
 
         :param conditions: One content for each slot of left, in its order
         :param temporal: l, r, u, i or d; r gives a map per partner that
