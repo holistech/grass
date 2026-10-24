@@ -55,20 +55,10 @@ from grass.exceptions import CalledModuleError
 
 
 class Sample:
-    def __init__(self, start=None, end=None, raster_names=None):
+    def __init__(self, start, end, raster_names):
         self.start = start
         self.end = end
-        if raster_names is not None:
-            self.raster_names = raster_names
-        else:
-            self.raster_names = []
-
-    def __str__(self):
-        return "Start: %s\nEnd: %s\nNames: %s\n" % (
-            str(self.start),
-            str(self.end),
-            str(self.raster_names),
-        )
+        self.raster_names = raster_names
 
 
 ############################################################################
