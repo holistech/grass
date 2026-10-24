@@ -12,7 +12,6 @@ from abc import ABCMeta, abstractmethod
 from datetime import datetime
 
 import grass.script as gs
-from grass.exceptions import ImplementationError
 
 from .abstract_dataset import AbstractDataset
 from .core import (
@@ -67,23 +66,6 @@ class AbstractMapDataset(AbstractDataset):
         :param ident: The identifier of the space time dataset
         :return: The new space time dataset instance
         """
-
-    def check_resolution_with_current_region(self):
-        """Check if the raster or voxel resolution is
-        finer than the current resolution
-
-        - Return "finer" in case the raster/voxel resolution is finer
-          than the current region
-        - Return "coarser" in case the raster/voxel resolution is coarser
-          than the current region
-
-        Vector maps have no resolution, since they store the coordinates
-        directly.
-
-        :return: "finer" or "coarser"
-        """
-        msg = "This method must be implemented in the subclasses"
-        raise ImplementationError(msg)
 
     @abstractmethod
     def has_grass_timestamp(self):
