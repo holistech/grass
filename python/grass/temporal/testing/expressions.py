@@ -56,9 +56,10 @@ Python. A batch runs in a temporary project and gives each expression
 ``timeout`` seconds (SIGALRM, main thread only).
 
 The test modules that use this fuzzer run the seeds 0 to 199 per map type
-through ``check_seed``, ``check_agreement`` and ``check_difference_seen``.
-``GRASS_TEMPORAL_FUZZ_COUNT`` sets another count and
-``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
+through ``check_seed``, ``check_agreement`` and ``check_difference_seen``,
+which take the outcome of the earlier implementation from the corpus of
+``grass.temporal.testing.corpus``. ``GRASS_TEMPORAL_FUZZ_COUNT`` sets another
+count and ``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """
@@ -78,6 +79,7 @@ from pathlib import Path
 import grass.script as gs
 import grass.temporal as tgis
 
+from . import corpus
 from .expressions_data import build
 from .expressions_generator import KINDS, boundary_forms, generate
 
@@ -454,7 +456,8 @@ def accepted_error_pair(kind, expression, first, second, **options):
         out of the run without computing: that run must reach the syntax
         check, and the granularity mode first reads the datasets and samples
         them, which stops it with the errors of a computation before it
-        parses.
+        parses. In a pytest test the result of that run comes from the
+        corpus, see ``corpus.reference_rejects_syntax``.
     :return: ``"<class of first>/<class of second>"``, or None
     """
     if not error_classes_differ(first, second):
@@ -476,17 +479,9 @@ def accepted_error_pair(kind, expression, first, second, **options):
         return label if copy and refusal else None
     if second["error"] != "SyntaxError":
         return None
-    options = {**options, "run": False, "debug": False}
-    options.pop("granularity", None)
-    try:
-        RUNNERS["reference"](
-            kind, f"Rfa = {expression}", basename="fa", overwrite=True, **options
-        )
-    except SyntaxError:
-        return label
-    except Exception:  # noqa: BLE001, any other error means: not rejected
-        return None
-    return None
+    return (
+        label if corpus.reference_rejects_syntax(kind, expression, **options) else None
+    )
 
 
 def compare_runs(kind, expression, first, second, **options):
@@ -509,11 +504,18 @@ DIFFERENTIAL = ("reference", "classic")
 def check_agreement(kind, expression, **options):
     """Run an expression on the runners of ``DIFFERENTIAL`` and compare them
 
+    The outcome of the earlier implementation is ``corpus.reference_outcome``:
+    in a pytest test it comes from the corpus, so that the comparison
+    outlives that implementation.
+
     :raises AssertionError: with the text of ``compare`` when they differ
     """
-    first = outcome(
-        kind, expression, RUNNERS[DIFFERENTIAL[0]], basename="fa", **options
-    )
+    if DIFFERENTIAL[0] == "reference":
+        first = corpus.reference_outcome(kind, expression, **options)
+    else:
+        first = outcome(
+            kind, expression, RUNNERS[DIFFERENTIAL[0]], basename="fa", **options
+        )
     second = outcome(
         kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
     )
@@ -539,13 +541,14 @@ def check_seed(kind, seed, **generate_options):
 def check_difference_seen(kind, expression, **options):
     """Show that ``compare`` sees a known difference of the core
 
-    Runs the expression on the earlier implementation and on the core, whose
+    Takes the outcome of the earlier implementation from
+    ``corpus.reference_outcome``, runs the expression on the core, whose
     results are known to differ, and requires ``compare`` to say so. This is
     the negative test of the fuzzer.
 
     :raises AssertionError: when ``compare`` finds the outcomes equal
     """
-    first = outcome(kind, expression, RUNNERS["reference"], basename="fa", **options)
+    first = corpus.reference_outcome(kind, expression, **options)
     second = outcome(kind, expression, RUNNERS["core"], basename="fb", **options)
     if compare(kind, expression, first, second) is None:
         msg = f"{kind}: {expression}: the known difference was not seen: {first}"

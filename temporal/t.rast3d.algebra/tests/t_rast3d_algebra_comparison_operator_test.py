@@ -8,6 +8,7 @@ days, so a >= b is false on each day and the else part B is the result.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
 
 KIND = "raster3d"
@@ -49,7 +50,7 @@ def test_a_comparison_by_hand(datasets, runner, expression, values):
 
 @pytest.mark.parametrize(("expression", "values"), EXPRESSIONS)
 def test_the_profile_computes_what_the_reference_computes(datasets, expression, values):
-    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    reference = reference_outcome(KIND, expression)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert compare(KIND, expression, reference, profile) is None
     assert reference["maps"]

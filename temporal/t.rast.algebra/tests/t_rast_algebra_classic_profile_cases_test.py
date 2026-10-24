@@ -11,6 +11,7 @@ t_rast_algebra_classic_profile_test.py do not cover.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.expressions import (
     RUNNERS,
@@ -489,9 +490,7 @@ def difference(expression, reference, profile):
 def assert_equal(expression, *, maps=None, **options):
     """The profile gives what the reference gives, with maps maps if given"""
     options = {"register_null": True, **options}
-    reference = outcome(
-        KIND, expression, RUNNERS["reference"], basename="fa", **options
-    )
+    reference = reference_outcome(KIND, expression, **options)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert difference(expression, reference, profile) is None
     if maps is not None:
@@ -977,8 +976,6 @@ def test_a_relation_over_absolute_and_relative_time(datasets, expression, unmixe
     profile = outcome(
         KIND, expression, RUNNERS["classic"], basename="fb", register_null=True
     )
-    expected = outcome(
-        KIND, unmixed, RUNNERS["reference"], basename="fb", register_null=True
-    )
+    expected = reference_outcome(KIND, unmixed, register_null=True)
     assert "error" not in expected
     assert compare(KIND, expression, expected, profile) is None

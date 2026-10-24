@@ -12,6 +12,7 @@ in the relations listed there.
 import pytest
 
 from grass.temporal.testing import expressions
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 from grass.tools import Tools
 
@@ -37,7 +38,9 @@ def run(runner, expression, basename):
 
 
 def test_the_profile_selects_what_the_reference_selects(series, str3ds_result):
-    reference = run("reference", LOWER_CASE, "fa")
+    reference = reference_outcome(
+        "select", LOWER_CASE, stdstype="str3ds", register_null=True
+    )
     profile = run("classic", LOWER_CASE, "fb")
     assert compare("select", LOWER_CASE, reference, profile) is None
     # By hand from the table in conftest.py: during includes starts and

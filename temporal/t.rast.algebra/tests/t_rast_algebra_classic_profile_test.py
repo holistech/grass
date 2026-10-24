@@ -11,6 +11,7 @@ borders of its grammar.
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
@@ -119,9 +120,7 @@ SPATIAL = [
 def both(expression, **options):
     """The outcomes of the reference and of the profile"""
     options = {"register_null": True, **options}
-    reference = outcome(
-        "raster", expression, RUNNERS["reference"], basename="fa", **options
-    )
+    reference = reference_outcome("raster", expression, **options)
     profile = outcome(
         "raster", expression, RUNNERS["classic"], basename="fb", **options
     )

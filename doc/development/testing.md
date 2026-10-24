@@ -276,6 +276,16 @@ basename=..., **options)` computes an expression like the parse method of
 the parser classes, for the kinds `raster`, `raster3d`, `vector` and
 `select`. Do not use it outside tests.
 
+The tests that compare the profile or the core with that implementation do
+not run it. The module `grass.temporal.testing.corpus` holds what it computed
+for each such case of the test suite, and
+`reference_outcome(kind, expression, **options)` returns the stored outcome.
+With `GRASS_TEMPORAL_REFERENCE=live` the implementation runs instead, and a
+case fails where it no longer computes what the corpus holds;
+`GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
+docstring describes. Tests of the implementation itself, and tests that check
+it against values derived by hand, still run it.
+
 The module `grass.temporal.testing.expressions` generates seeded random
 expressions of the classic grammar, runs them on two implementations and
 compares the error class or the registered maps, with their time stamps and
@@ -283,7 +293,8 @@ values. The same seed gives the same expression, so a difference can be
 reproduced from its seed alone. The test modules `*_fuzz_test.py` of the four
 tools run the seeds 0 to 199 per kind in the normal run; they carry the marker
 `slow`, which `-m "not slow"` deselects, and `fixed_algebra`. Two variables
-widen a run for an acceptance:
+widen a run for an acceptance; with either of them set, the tests compute on
+the earlier implementation instead of reading the corpus:
 
 ```bash
 GRASS_TEMPORAL_FUZZ_COUNT=4000 GRASS_TEMPORAL_FUZZ_SEED=0 \

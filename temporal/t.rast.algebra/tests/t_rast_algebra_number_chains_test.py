@@ -16,6 +16,7 @@ import datetime
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 from grass.tools import Tools
@@ -188,7 +189,7 @@ def test_forms_without_a_production_stay_refused(chains, runner, expression):
 )
 def test_the_profile_computes_what_the_reference_computes(chains, expression):
     """Also the time stamps and names, which the tests above leave out"""
-    reference = run("reference", expression, "fa")
+    reference = reference_outcome(KIND, expression, register_null=True)
     profile = run("classic", expression, "fb")
     assert compare(KIND, expression, reference, profile) is None
 

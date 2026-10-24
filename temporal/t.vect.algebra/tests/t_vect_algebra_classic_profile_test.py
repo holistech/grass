@@ -7,6 +7,7 @@ and areas are compared, or the class of the error.
 
 import pytest
 
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
@@ -61,7 +62,7 @@ EXPRESSIONS = [
 
 def both(expression):
     """The outcomes of the reference and of the profile"""
-    reference = outcome("vector", expression, RUNNERS["reference"], basename="fa")
+    reference = reference_outcome("vector", expression)
     profile = outcome("vector", expression, RUNNERS["classic"], basename="fb")
     return reference, profile
 

@@ -9,6 +9,7 @@ maps or fail with the same class of error.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import (
     RUNNERS,
     accepted_error_pair,
@@ -75,9 +76,7 @@ def cached_io(datasets):
 
 def assert_equal(expression, *, maps=None, **options):
     """The profile gives what the reference gives, with maps maps if given"""
-    reference = outcome(
-        KIND, expression, RUNNERS["reference"], basename="fa", **options
-    )
+    reference = reference_outcome(KIND, expression, **options)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
     if maps is not None:
@@ -134,7 +133,7 @@ def test_the_class_of_an_error_may_differ_for_an_invalid_expression(datasets):
     expression, so the fuzzer counts it apart and does not call it a
     difference."""
     expression = "if(end_year(ab) > 3, rel, buff_t(ab, 2) : aa)"
-    reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    reference = reference_outcome(KIND, expression)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert (reference["error"], profile["error"]) == ("SyntaxError", "FatalError")
     assert accepted_error_pair(KIND, expression, reference, profile) == (
@@ -210,6 +209,6 @@ def test_a_relation_over_absolute_and_relative_time(datasets):
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert reference["error"] == "Other:TypeError"
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
-    expected = outcome(KIND, "rel : rel", RUNNERS["reference"], basename="fb")
+    expected = reference_outcome(KIND, "rel : rel")
     assert "error" not in expected
     assert compare(KIND, expression, expected, profile) is None

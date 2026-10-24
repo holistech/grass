@@ -21,6 +21,7 @@ datasets.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import (
     RUNNERS,
     accepted_error_pair,
@@ -131,7 +132,7 @@ def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
     time instance stops it before it reads the syntax error after it. The
     profile reports the syntax error."""
     expression = 'if(end_date(I) <= "2001-01-01", 3)'
-    first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    first = reference_outcome(KIND, expression)
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     assert first["error"] == "FatalError"
     assert second["error"] == "SyntaxError"
@@ -215,7 +216,7 @@ def test_the_crash_on_mixed_time_against_its_refusal_is_accepted(datasets):
     refuses to register that list, as the earlier implementation does
     without tsnap()"""
     expression = "tsnap(merge(tmap(sinst), RT))"
-    first = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
+    first = reference_outcome(KIND, expression)
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
     plain = outcome(KIND, "merge(tmap(sinst), RT)", RUNNERS["reference"], basename="fc")
     assert first["error"] == "Other:TypeError"

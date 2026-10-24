@@ -15,7 +15,7 @@ from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.algebra.profile import CLASSIC
 from grass.temporal.testing import expressions
-from grass.temporal.testing.reference import run_reference
+from grass.temporal.testing.corpus import reference_outcome
 from grass.tools import Tools
 
 DAY0 = datetime(2001, 1, 1)
@@ -124,57 +124,31 @@ def test_same_result(series, expression):
     assert core, "the expression selects no map and compares nothing"
 
 
-def outcome(expression, algebra, spatial=False, detail=False):
-    """The registered maps, None for no dataset, or the name of the error
+def outcome(expression, algebra, spatial=False):
+    """The word "maps" for a result dataset, None for none, or the error name
 
     The parsers run in this process, so that the error class is visible; the
-    core and the classic profile take evaluate(..., selection=True), the
-    reference (the earlier implementation of the classic algebra) the base
-    parser, each into its own result dataset. With detail the registered maps
-    are listed instead of "maps": (identifier without the result name, start,
-    end).
+    core and the classic profile take evaluate(..., selection=True), each into
+    its own result dataset.
     """
     name = f"diff_{algebra}_{next(counter)}"
     try:
-        if algebra == "reference":
-            run_reference(
-                "select",
-                f"{name} = {expression}",
-                basename=name,
-                overwrite=True,
-                run=True,
-                debug=False,
-                spatial=spatial,
-            )
-        else:
-            evaluate(
-                f"{name} = {expression}",
-                kind="raster",
-                basename=name,
-                overwrite=True,
-                run=True,
-                spatial=spatial,
-                selection=True,
-                **({"profile": CLASSIC} if algebra == "classic" else {}),
-            )
+        evaluate(
+            f"{name} = {expression}",
+            kind="raster",
+            basename=name,
+            overwrite=True,
+            run=True,
+            spatial=spatial,
+            selection=True,
+            **({"profile": CLASSIC} if algebra == "classic" else {}),
+        )
     except (SyntaxError, ValueError, TypeError, tgis.FatalError) as error:
         return type(error).__name__
     dataset = tgis.dataset_factory("strds", f"{name}@{tgis.get_current_mapset()}")
     if not dataset.is_in_db():
         return None
-    if not detail:
-        return "maps"
-    result = []
-    stds = tgis.open_old_stds(name, "strds")
-    for raster in stds.get_registered_maps_as_objects(order="start_time") or []:
-        raster.select()
-        result.append(
-            (
-                raster.get_id().replace(name, "C", 1),
-                *map(str, raster.get_temporal_extent_as_tuple()),
-            )
-        )
-    return sorted(result)
+    return "maps"
 
 
 @pytest.mark.parametrize("expression", sorted(DIFFERENT))
@@ -242,12 +216,16 @@ def test_mixed_result_copies_are_numbered_differently(series):
 def test_profile_equals_reference(series, expression):
     """-c selects what the earlier implementation of the classic algebra
     selected, also where the core differs"""
-    classic = outcome(expression, "classic", detail=True)
-    assert classic == outcome(expression, "reference", detail=True)
+    # The result of the earlier implementation comes from the recorded corpus,
+    # which stores the form of expressions.outcome(), so the profile is read in
+    # that form as well.
+    reference = reference_outcome("select", expression, stdstype="strds")
+    profile = selection_outcome("classic", "fb", expression)
+    assert expressions.compare("select", expression, reference, profile) is None
     if expression in SAME:
         # Two errors or two empty results are equal and would compare nothing.
-        assert classic
-        assert classic[0][1] != "None"
+        assert profile.get("maps")
+        assert profile["maps"][0][1] is not None
 
 
 TIME_FUNCTION_SELECTED = "if(start_doy(A)<3,start_doy(A, 1), A)"
@@ -287,7 +265,7 @@ def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(
 ):
     """The profile refuses what the reference fails to copy, and the pair is
     accepted for exactly this class, whatever the map type"""
-    reference = selection_outcome("reference", "tfref", expression, stdstype)
+    reference = reference_outcome("select", expression, stdstype=stdstype)
     profile = selection_outcome("classic", "tfpro", expression, stdstype)
     assert reference["error"] == "Other:CalledModuleError"
     assert profile["error"] == "Other:ValueError"

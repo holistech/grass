@@ -15,7 +15,8 @@ import random
 import pytest
 
 from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
-from grass.temporal.testing.reference import run_reference
+from grass.temporal.testing import expressions
+from grass.temporal.testing.corpus import reference_outcome
 
 # Every test sets the algebra itself, see the marker in pyproject.toml.
 pytestmark = pytest.mark.fixed_algebra
@@ -175,29 +176,27 @@ GRANULARITY_DIFFERENT = {
 def outcome(algebra, monkeypatch, expression, parser, **keywords):
     """The registered maps, or the name of the error
 
-    parser is "core", "classic" (the profile) or "reference" (the earlier
-    implementation of the classic algebra).
+    parser is "core" or "classic" (the profile).
     """
     monkeypatch.setenv(ALGEBRA_VARIABLE, parser)
     try:
-        if parser == "reference":
-            algebra.remove("R")
-            run_reference(
-                "raster",
-                f"R = {expression}",
-                basename=f"d{parser}",
-                overwrite=True,
-                run=True,
-                debug=False,
-                register_null=True,
-                **keywords,
-            )
-            rows = algebra.maps("R")
-        else:
-            rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
+        rows = algebra.run(expression, f"d{parser}", register_null=True, **keywords)
     except (*algebra.errors, SyntaxError, ValueError, TypeError) as error:
         return type(error).__name__
     return [(row.start, row.end, row.min, row.max) for row in rows]
+
+
+# The result of the earlier implementation comes from the recorded corpus,
+# which stores the form of expressions.outcome(), so the profile is read in
+# that form as well.
+def profile_difference(expression, **options):
+    """What compare() finds between the earlier implementation and -c"""
+    options = {"register_null": True, **options}
+    reference = reference_outcome("raster", expression, **options)
+    profile = expressions.outcome(
+        "raster", expression, expressions.RUNNERS["classic"], basename="fb", **options
+    )
+    return expressions.compare("raster", expression, reference, profile)
 
 
 @pytest.mark.parametrize("expression", SAME)
@@ -226,22 +225,18 @@ def test_extended_syntax(algebra, monkeypatch, expression, equivalent):
 @pytest.mark.parametrize(
     "expression", [*SAME, *sorted(DIFFERENT), *EXTENDED, *EXTENDED.values()]
 )
-def test_profile_equals_reference(algebra, monkeypatch, expression):
+def test_profile_equals_reference(algebra, expression):
     """-c computes what the earlier implementation of the classic algebra
     computed, also where the core differs and where the classic grammar has no
     rule"""
-    assert outcome(algebra, monkeypatch, expression, "classic") == outcome(
-        algebra, monkeypatch, expression, "reference"
-    )
+    assert profile_difference(expression) is None
 
 
 @pytest.mark.parametrize(
     "expression", [*GRANULARITY_SAME, *sorted(GRANULARITY_DIFFERENT)]
 )
-def test_granularity_profile_equals_reference(algebra, monkeypatch, expression):
-    assert outcome(
-        algebra, monkeypatch, expression, "classic", granularity=True
-    ) == outcome(algebra, monkeypatch, expression, "reference", granularity=True)
+def test_granularity_profile_equals_reference(algebra, expression):
+    assert profile_difference(expression, granularity=True) is None
 
 
 RANDOM_DATASETS = ("A", "N", "D", "HA")

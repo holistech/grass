@@ -9,6 +9,7 @@ maps or fail with the same class of error.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
 
 KIND = "raster3d"
@@ -127,9 +128,7 @@ def cached_io(datasets):
 def assert_equal(expression, *, maps=None, **options):
     """The profile gives what the reference gives, with maps maps if given"""
     options = {"register_null": True, **options}
-    reference = outcome(
-        KIND, expression, RUNNERS["reference"], basename="fa", **options
-    )
+    reference = reference_outcome(KIND, expression, **options)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
     if maps is not None:
@@ -341,8 +340,6 @@ def test_a_relation_over_absolute_and_relative_time(datasets):
     profile = outcome(
         KIND, expression, RUNNERS["classic"], basename="fb", register_null=True
     )
-    expected = outcome(
-        KIND, "RT : RT", RUNNERS["reference"], basename="fb", register_null=True
-    )
+    expected = reference_outcome(KIND, "RT : RT", register_null=True)
     assert "error" not in expected
     assert compare(KIND, expression, expected, profile) is None

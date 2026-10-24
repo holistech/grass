@@ -21,6 +21,7 @@ import datetime
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome
 from grass.tools import Tools
@@ -256,7 +257,7 @@ def test_the_profile_computes_what_the_reference_computes(
     paper, expression, options, data
 ):
     assert data == "paper"
-    reference = run("reference", expression, "fa", **options)
+    reference = reference_outcome(KIND, expression, register_null=True, **options)
     profile = run("classic", expression, "fb", **options)
     assert compare(KIND, expression, reference, profile) is None
     # Two refusals would make the comparison vacuous.
@@ -277,7 +278,7 @@ def test_the_core_computes_what_the_reference_computes(
     with partners. The map with partners is the same.
     """
     assert data == "paper"
-    reference = run("reference", expression, "fa", **options)
+    reference = reference_outcome(KIND, expression, register_null=True, **options)
     core = run("core", expression, "fc", **options)
     assert "error" not in core, core
     assert core["maps"]

@@ -25,6 +25,7 @@ from grass.exceptions import FatalError
 from grass.temporal.algebra import MapcalcStyle, Profile
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.testing import expressions as ex
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.reference import run_reference
 from grass.tools import Tools
@@ -77,9 +78,7 @@ def measured(session, kind, expression, profile, **options):
     """The outcome of the earlier implementation and of the profile, and what
     differs between them (None if nothing)"""
     number = next(COUNTER)
-    reference = ex.outcome(
-        kind, expression, ex.reference_runner, basename=f"r{number}", **options
-    )
+    reference = reference_outcome(kind, expression, **options)
     found = ex.outcome(
         kind, expression, with_profile(profile), basename=f"p{number}", **options
     )

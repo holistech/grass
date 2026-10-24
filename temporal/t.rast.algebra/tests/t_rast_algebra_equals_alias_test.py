@@ -7,6 +7,7 @@ classic profile and the reference read equals as another name of equal.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
 
 KIND = "raster"
@@ -70,7 +71,7 @@ def test_equals_beside_equal_names_the_relation_twice(datasets):
     A relation named twice relates a partner twice in the classic algebra
     (a + n + n), so equals|equal is not equal, as equal|equal is not.
     """
-    reference = run("reference", "A {+,equal|equal,l} N", "fa")
+    reference = reference_outcome(KIND, "A {+,equal|equal,l} N")
     profile = run("classic", "A {+,equals|equal,l} N", "fb")
     written = run("reference", "A {+,equals|equal,l} N", "fd")
     once = run("classic", "A {+,equal,l} N", "fc")

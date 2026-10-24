@@ -9,6 +9,7 @@ must register the same maps or fail with the same class of error.
 import pytest
 
 from grass.temporal.testing import fakes
+from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
 
 KIND = "select"
@@ -110,9 +111,7 @@ def cached_io(datasets):
 
 
 def assert_equal(expression, **options):
-    reference = outcome(
-        KIND, expression, RUNNERS["reference"], basename="fa", **options
-    )
+    reference = reference_outcome(KIND, expression, **options)
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb", **options)
     assert compare(KIND, expression, reference, profile) is None
 
@@ -187,6 +186,6 @@ def test_a_relation_over_absolute_and_relative_time(datasets, expression, unmixe
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert reference["error"] == "Other:TypeError"
     profile = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
-    expected = outcome(KIND, unmixed, RUNNERS["reference"], basename="fb")
+    expected = reference_outcome(KIND, unmixed)
     assert "error" not in expected
     assert compare(KIND, expression, expected, profile) is None
