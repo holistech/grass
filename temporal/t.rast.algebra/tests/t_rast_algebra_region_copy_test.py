@@ -18,7 +18,9 @@ map    value  box                 time
 a1     1      0..10, 0..10        01.-02.01.
 a2     2      100..110, 0..10     01.-02.01.
 a3     3      0..10, 100..110     01.-02.01.
+a4     4      10..20, 0..10       01.-02.01.
 b1     11     0..10, 0..10        02.-03.01.
+w1     21     0..20, 0..10        02.-03.01.
 z1     null   0..10, 0..10        01.-02.01.
 =====  =====  ==================  ===========
 
@@ -26,6 +28,10 @@ A holds a1 to a3, B holds b1, Z holds z1 and P holds a2. Every map of A, Z
 and P precedes b1, so "X {:,precedes,r} B" copies each of them with the time
 of b1, 02.-03.01., and "X {:,precedes} B" with its own time; one copy per map
 in the core and in the classic profile alike, as B has one map.
+
+Q holds a1 and a4, W holds w1. The box of w1 contains those of a1 and a4,
+so both are related to w1 in space as well, and "Q {:,precedes,r} W" under
+-s copies both with the time of w1.
 """
 
 import re
@@ -45,10 +51,19 @@ MAPS = {
     "a1": (1, 0, 10, 0, 10, 1, 2),
     "a2": (2, 100, 110, 0, 10, 1, 2),
     "a3": (3, 0, 10, 100, 110, 1, 2),
+    "a4": (4, 10, 20, 0, 10, 1, 2),
     "b1": (11, 0, 10, 0, 10, 2, 3),
+    "w1": (21, 0, 20, 0, 10, 2, 3),
     "z1": ("null()", 0, 10, 0, 10, 1, 2),
 }
-DATASETS = {"A": ["a1", "a2", "a3"], "B": ["b1"], "Z": ["z1"], "P": ["a2"]}
+DATASETS = {
+    "A": ["a1", "a2", "a3"],
+    "B": ["b1"],
+    "Z": ["z1"],
+    "P": ["a2"],
+    "Q": ["a1", "a4"],
+    "W": ["w1"],
+}
 FLAGS = {"core": "", "classic": "c"}
 WARNING = re.compile(
     r"Map <(\S+)> is empty in the current region and is not registered; it "
@@ -123,6 +138,21 @@ def test_a_copy_outside_the_region_is_reported(
         assert copy_name.startswith(f"{name.lower()}_")
         assert mapset == maps.mapset
         assert not maps.tools.g_list(type="raster", pattern=copy_name).stdout.split()
+
+
+@pytest.mark.parametrize("runner", ["core", "classic"])
+def test_a_copy_under_s_keeps_its_data(maps, runner):
+    # Under -s r.mapcalc computes in the union of the regions of its inputs,
+    # so the copy of a4 keeps its value 4 although the region covers a1 only.
+    maps.tools.g_region(w=0, e=10, s=0, n=10, res=10)
+    text, registered = run(
+        maps.tools, f"SPATIAL_{runner}", "Q {:,precedes,r} W", runner, flags="s"
+    )
+    assert registered == [
+        (1, "2001-01-02", "2001-01-03"),
+        (4, "2001-01-02", "2001-01-03"),
+    ]
+    assert "is empty in the current region" not in text
 
 
 @pytest.mark.parametrize("runner", ["core", "classic"])
