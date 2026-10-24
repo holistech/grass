@@ -254,7 +254,6 @@ def main():
     process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
     count = 0
-    num_maps = len(maps)
     new_maps = []
 
     # All output maps are checked before the first r.neighbors starts, so that
@@ -318,21 +317,6 @@ def main():
     except CalledModuleError as error:
         dbif.close()
         gs.fatal(_("Error running r.neighbors: {}").format(error))
-    proc_list = process_queue.get_finished_modules()
-
-    # Check return status of all finished modules
-    error = 0
-    for proc in proc_list:
-        if proc.returncode != 0:
-            gs.error(
-                _("Error running module: {mod}\n    stderr: {error}").format(
-                    mod=proc.get_bash(), error=proc.outputs.stderr
-                )
-            )
-            error += 1
-
-    if error > 0:
-        gs.fatal(_("Error running modules."))
 
     # Open a new space time raster dataset
     if not output_exists or (overwrite and not flags["e"]):
