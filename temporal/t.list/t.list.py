@@ -119,7 +119,9 @@ def main():
     if not columns:
         columns = "all" if output_format == "json" else "id"
 
-    # lazy imports
+    # Lazy imports: the tool imports grass.temporal only after gs.parser() has
+    # run, so that --help and --interface-description need no temporal code.
+    import grass.temporal as tgis
     from grass.temporal.list_stds import checked_separator
 
     if output_format != "line":
@@ -163,9 +165,6 @@ def main():
     # so get_dataset_list doesn't implicitly inject the 'type' column.
     if len(stds_type) == 1 and not (columns and "type" in columns.split(",")):
         stds_type = stds_type[0]
-
-    # Lazy import and initialize TGIS
-    import grass.temporal as tgis
 
     tgis.init(skip_db_init=True)
 
