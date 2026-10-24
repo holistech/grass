@@ -29,6 +29,212 @@ from .open_stds import open_old_stds
 
 ###############################################################################
 
+#: Columns the delta methods cannot list, because the values come from the
+#: database and not from the maps the methods work on.
+_LIST_ONLY_COLUMNS = ("interval_length", "distance_from_begin")
+
+
+def message_option_value_excludes_option_value(
+    option_name, option_value, excluded_option_name, excluded_option_value, reason
+):
+    """Return the message for a combination of two option values that is refused"""
+    return _(
+        "Combining {option_name}={option_value} and "
+        "{excluded_option_name}={excluded_option_value} is not allowed. {reason}"
+    ).format(
+        option_name=option_name,
+        option_value=option_value,
+        excluded_option_name=excluded_option_name,
+        excluded_option_value=excluded_option_value,
+        reason=reason,
+    )
+
+
+def message_option_value_excludes_option(
+    option_name, option_value, excluded_option_name, reason
+):
+    """Return the message for an option that is refused with a value of another"""
+    return _(
+        "The option {excluded_option_name} is not allowed with "
+        "{option_name}={option_value}. {reason}"
+    ).format(
+        excluded_option_name=excluded_option_name,
+        option_name=option_name,
+        option_value=option_value,
+        reason=reason,
+    )
+
+
+def message_option_value_excludes_flag(option_name, option_value, flag_name, reason):
+    """Return the message for a flag that is refused with a value of an option"""
+    return _(
+        "The flag -{flag_name} is not allowed with {option_name}={option_value}."
+        " {reason}"
+    ).format(
+        flag_name=flag_name,
+        option_name=option_name,
+        option_value=option_value,
+        reason=reason,
+    )
+
+
+def check_list_format(
+    output_format,
+    separator,
+    method,
+    columns,
+    header,
+    header_flag,
+    separator_reason=None,
+):
+    """Check format, separator, columns and header flag of a list tool
+
+    The method comma is the old name of the format line and is treated as
+    such unless the format names another one.
+
+    :param output_format: The value of the option format
+    :param separator: The separator, already converted by gs.separator(), an
+                      empty string if the user gave none
+    :param method: The value of the option method
+    :param columns: The value of the option columns
+    :param header: True if the flag that suppresses the column names is set
+    :param header_flag: The letter of that flag, for the message
+    :param separator_reason: The reason given when a separator is refused with
+                             json or yaml, a default text if None
+    :return: The tuple (output_format, separator) with the format line for the
+             method comma and the default separator filled in
+    :raises ValueError: with the message for the combination that is refused
+    """
+    if separator_reason is None:
+        separator_reason = _("Separator is part of the format")
+    if output_format == "csv":
+        if not separator:
+            separator = ","
+        elif len(separator) > 1:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="separator",
+                    excluded_option_value=separator,
+                    reason=_(
+                        "A standard CSV separator (delimiter) is only one character "
+                        "long"
+                    ),
+                )
+            )
+    elif output_format in {"json", "yaml"}:
+        if header:
+            raise ValueError(
+                message_option_value_excludes_flag(
+                    option_name="format",
+                    option_value=output_format,
+                    flag_name=header_flag,
+                    reason=_("Column names are always included"),
+                )
+            )
+        if separator:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="separator",
+                    excluded_option_value=separator,
+                    reason=separator_reason,
+                )
+            )
+    elif output_format == "line" or method == "comma":
+        output_format = "line"
+        if not separator:
+            separator = ","
+        columns_list = columns.split(",")
+        if len(columns_list) > 1:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="format",
+                    option_value=output_format,
+                    excluded_option_name="columns",
+                    excluded_option_value=columns,
+                    reason=_("Only one column is allowed (not {num_columns})").format(
+                        num_columns=len(columns_list)
+                    ),
+                )
+            )
+    elif not separator:  # output_format = "plain"
+        separator = "|"
+    return output_format, separator
+
+
+def check_list_method(method, order, columns, delta_excluded_columns):
+    """Check the columns and the order of a list tool against its method
+
+    :param method: The value of the option method
+    :param order: The value of the option order
+    :param columns: The value of the option columns
+    :param delta_excluded_columns: The columns that the methods delta,
+                                   deltagaps and gran cannot list
+    :raises ValueError: with the message for the combination that is refused
+    """
+    columns_list = columns.split(",") if columns else []
+    if method in {"delta", "deltagaps", "gran"}:
+        if order:
+            raise ValueError(
+                message_option_value_excludes_option(
+                    option_name="method",
+                    option_value=method,
+                    excluded_option_name="order",
+                    reason=_("Values are always ordered by start_time"),
+                )
+            )
+        excluded = delta_excluded_columns
+    else:
+        excluded = _LIST_ONLY_COLUMNS
+    for column in excluded:
+        if column in columns_list:
+            raise ValueError(
+                message_option_value_excludes_option_value(
+                    option_name="method",
+                    option_value=method,
+                    excluded_option_name="columns",
+                    excluded_option_value=columns,
+                    reason=_(
+                        "Column '{name}' is not available with the method '{method}'"
+                    ).format(name=column, method=method),
+                )
+            )
+
+
+def check_list_options(
+    options, flags, *, header_flag, delta_excluded_columns, separator_reason=None
+):
+    """Check the options of a list tool against each other
+
+    Format and separator are checked before method, order and columns, as the
+    tools did before.
+
+    :param options: The options of the tool as returned by gs.parser()
+    :param flags: The flags of the tool as returned by gs.parser()
+    :param header_flag: The letter of the flag that suppresses the column names
+    :param delta_excluded_columns: The columns that the methods delta,
+                                   deltagaps and gran cannot list
+    :param separator_reason: See check_list_format()
+    :return: The tuple (output_format, separator) to list with
+    :raises ValueError: with the message for the combination that is refused
+    """
+    output_format, separator = check_list_format(
+        options["format"],
+        gs.separator(options["separator"]),
+        options["method"],
+        options["columns"],
+        flags[header_flag],
+        header_flag,
+        separator_reason,
+    )
+    check_list_method(
+        options["method"], options["order"], options["columns"], delta_excluded_columns
+    )
+    return output_format, separator
+
 
 class _ListingError(ValueError):
     """A combination of columns, method and format that cannot be listed

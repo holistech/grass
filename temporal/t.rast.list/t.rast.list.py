@@ -91,52 +91,12 @@
 import grass.script as gs
 
 
-def message_option_value_excludes_option_value(
-    option_name, option_value, excluded_option_name, excluded_option_value, reason
-):
-    return _(
-        "Combining {option_name}={option_value} and "
-        "{excluded_option_name}={excluded_option_value} is not allowed. {reason}"
-    ).format(
-        option_name=option_name,
-        option_value=option_value,
-        excluded_option_name=excluded_option_name,
-        excluded_option_value=excluded_option_value,
-        reason=reason,
-    )
-
-
-def message_option_value_excludes_option(
-    option_name, option_value, excluded_option_name, reason
-):
-    return _(
-        "The option {excluded_option_name} is not allowed with "
-        "{option_name}={option_value}. {reason}"
-    ).format(
-        excluded_option_name=excluded_option_name,
-        option_name=option_name,
-        option_value=option_value,
-        reason=reason,
-    )
-
-
-def message_option_value_excludes_flag(option_name, option_value, flag_name, reason):
-    return _(
-        "The flag -{flag_name} is not allowed with {option_name}={option_value}."
-        " {reason}"
-    ).format(
-        flag_name=flag_name,
-        option_name=option_name,
-        option_value=option_value,
-        reason=reason,
-    )
-
-
 def main():
     options, flags = gs.parser()
 
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.list_stds import check_list_options
 
     # Get the options
     # Parser does not ensure that the input exists.
@@ -144,128 +104,37 @@ def main():
     columns = options["columns"]
     order = options["order"]
     where = options["where"]
-    separator = gs.separator(options["separator"])
     method = options["method"]
     granule = options["granule"]
     header = flags["u"]
     output = options["output"]
-    output_format = options["format"]
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_(
-                        "A standard CSV separator (delimiter) is only one character "
-                        "long"
-                    ),
-                )
-            )
-    elif output_format in {"json", "yaml"}:
-        if header:
-            gs.fatal(
-                message_option_value_excludes_flag(
-                    option_name="format",
-                    option_value=output_format,
-                    flag_name="u",
-                    reason=_("Column names are always included"),
-                )
-            )
-        if separator:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_("Separator is part of the format"),
-                )
-            )
-    elif output_format == "line" or method == "comma":
-        # The method comma is the old name of the format line
-        output_format = "line"
-        if not separator:
-            separator = ","
-        columns_list = columns.split(",")
-        if len(columns_list) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="columns",
-                    excluded_option_value=columns,
-                    reason=_("Only one column is allowed (not {num_columns})").format(
-                        num_columns=len(columns_list)
-                    ),
-                )
-            )
-    elif not separator:  # output_format = "plain"
-        separator = "|"
-
-    if method in {"delta", "deltagaps", "gran"}:
-        if order:
-            gs.fatal(
-                message_option_value_excludes_option(
-                    option_name="method",
-                    option_value=method,
-                    excluded_option_name="order",
-                    reason=_("Values are always ordered by start_time"),
-                )
-            )
-        if columns:
-            columns_list = columns.split(",")
-            for column in [
-                "semantic_label",
-                "creator",
-                "temporal_type",
-                "creation_time",
-                "north",
-                "south",
-                "west",
-                "east",
-                "nsres",
-                "ewres",
-                "cols",
-                "rows",
-                "number_of_cells",
-                "min",
-                "max",
-            ]:
-                if column in columns_list:
-                    gs.fatal(
-                        message_option_value_excludes_option_value(
-                            option_name="method",
-                            option_value=method,
-                            excluded_option_name="columns",
-                            excluded_option_value=columns,
-                            reason=_(
-                                "Column '{name}' is not available with the method "
-                                "'{method}'"
-                            ).format(name=column, method=method),
-                        )
-                    )
-    elif columns:
-        columns_list = columns.split(",")
-        for column in ["interval_length", "distance_from_begin"]:
-            if column in columns_list:
-                gs.fatal(
-                    message_option_value_excludes_option_value(
-                        option_name="method",
-                        option_value=method,
-                        excluded_option_name="columns",
-                        excluded_option_value=columns,
-                        reason=_(
-                            "Column '{name}' is not available with the method "
-                            "'{method}'"
-                        ).format(name=column, method=method),
-                    )
-                )
+    delta_excluded_columns = [
+        "semantic_label",
+        "creator",
+        "temporal_type",
+        "creation_time",
+        "north",
+        "south",
+        "west",
+        "east",
+        "nsres",
+        "ewres",
+        "cols",
+        "rows",
+        "number_of_cells",
+        "min",
+        "max",
+    ]
+    try:
+        output_format, separator = check_list_options(
+            options,
+            flags,
+            header_flag="u",
+            delta_excluded_columns=delta_excluded_columns,
+        )
+    except ValueError as error:
+        gs.fatal(str(error))
 
     # Make sure the temporal database exists
     tgis.init()

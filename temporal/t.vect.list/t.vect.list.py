@@ -83,54 +83,11 @@
 import grass.script as gs
 
 
-def message_option_value_excludes_option_value(
-    option_name, option_value, excluded_option_name, excluded_option_value, reason
-):
-    return _(
-        "Combining {option_name}={option_value} and "
-        "{excluded_option_name}={excluded_option_value} is not allowed. {reason}"
-    ).format(
-        option_name=option_name,
-        option_value=option_value,
-        excluded_option_name=excluded_option_name,
-        excluded_option_value=excluded_option_value,
-        reason=reason,
-    )
-
-
-def message_option_value_excludes_option(
-    option_name, option_value, excluded_option_name, reason
-):
-    return _(
-        "The option {excluded_option_name} is not allowed with "
-        "{option_name}={option_value}. {reason}"
-    ).format(
-        excluded_option_name=excluded_option_name,
-        option_name=option_name,
-        option_value=option_value,
-        reason=reason,
-    )
-
-
-def message_option_value_excludes_flag(option_name, option_value, flag_name, reason):
-    return _(
-        "The flag -{flag_name} is not allowed with {option_name}={option_value}."
-        " {reason}"
-    ).format(
-        flag_name=flag_name,
-        option_name=option_name,
-        option_value=option_value,
-        reason=reason,
-    )
-
-
-############################################################################
-
-
 def main():
     options, flags = gs.parser()
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.list_stds import check_list_format, check_list_method
 
     # Get the options
     input = options["input"]
@@ -143,67 +100,33 @@ def main():
     output = options["output"]
     output_format = options["format"]
 
-    if method in {"delta", "deltagaps", "gran"}:
-        if order:
-            gs.fatal(
-                message_option_value_excludes_option(
-                    option_name="method",
-                    option_value=method,
-                    excluded_option_name="order",
-                    reason=_("Values are always ordered by start_time"),
-                )
-            )
-        # Columns that come from the database and not from the map objects
-        # the method works on
-        for column in [
-            "creator",
-            "temporal_type",
-            "creation_time",
-            "north",
-            "south",
-            "west",
-            "east",
-            "points",
-            "lines",
-            "boundaries",
-            "centroids",
-            "faces",
-            "kernels",
-            "primitives",
-            "nodes",
-            "areas",
-            "islands",
-            "holes",
-            "volumes",
-        ]:
-            if column in columns.split(","):
-                gs.fatal(
-                    message_option_value_excludes_option_value(
-                        option_name="method",
-                        option_value=method,
-                        excluded_option_name="columns",
-                        excluded_option_value=columns,
-                        reason=_(
-                            "Column '{name}' is not available with the method "
-                            "'{method}'"
-                        ).format(name=column, method=method),
-                    )
-                )
-    else:
-        for column in ["interval_length", "distance_from_begin"]:
-            if column in columns.split(","):
-                gs.fatal(
-                    message_option_value_excludes_option_value(
-                        option_name="method",
-                        option_value=method,
-                        excluded_option_name="columns",
-                        excluded_option_value=columns,
-                        reason=_(
-                            "Column '{name}' is not available with the method "
-                            "'{method}'"
-                        ).format(name=column, method=method),
-                    )
-                )
+    # Columns that come from the database and not from the map objects the
+    # methods delta, deltagaps and gran work on
+    delta_excluded_columns = [
+        "creator",
+        "temporal_type",
+        "creation_time",
+        "north",
+        "south",
+        "west",
+        "east",
+        "points",
+        "lines",
+        "boundaries",
+        "centroids",
+        "faces",
+        "kernels",
+        "primitives",
+        "nodes",
+        "areas",
+        "islands",
+        "holes",
+        "volumes",
+    ]
+    try:
+        check_list_method(method, order, columns, delta_excluded_columns)
+    except ValueError as error:
+        gs.fatal(str(error))
 
     # The method comma is the old name of the format line
     if method == "comma" and output_format == "plain":
@@ -224,62 +147,12 @@ def main():
     ):
         columns = "name,layer,mapset,start_time,end_time"
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_(
-                        "A standard CSV separator (delimiter) is only one character "
-                        "long"
-                    ),
-                )
-            )
-
-    elif output_format in {"json", "yaml"}:
-        if header:
-            gs.fatal(
-                message_option_value_excludes_flag(
-                    option_name="format",
-                    option_value=output_format,
-                    flag_name="u",
-                    reason=_("Column names are always included"),
-                )
-            )
-        if separator:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="separator",
-                    excluded_option_value=separator,
-                    reason=_("Separator is part of the format"),
-                )
-            )
-
-    elif output_format == "line":
-        if not separator:
-            separator = ","
-        columns_list = columns.split(",")
-        if len(columns_list) > 1:
-            gs.fatal(
-                message_option_value_excludes_option_value(
-                    option_name="format",
-                    option_value=output_format,
-                    excluded_option_name="columns",
-                    excluded_option_value=columns,
-                    reason=_("Only one column is allowed (not {num_columns})").format(
-                        num_columns=len(columns_list)
-                    ),
-                )
-            )
-    elif not separator:  # output_format = "plain"
-        separator = "|"
+    try:
+        output_format, separator = check_list_format(
+            output_format, separator, method, columns, header, header_flag="u"
+        )
+    except ValueError as error:
+        gs.fatal(str(error))
 
     # Make sure the temporal database exists
     tgis.init()
