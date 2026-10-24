@@ -198,3 +198,73 @@ def test_parallel_module_queue_reports_a_failed_child(session, monkeypatch):
     queue.put(MultiModule([first], sync=False))
     with pytest.raises(CalledModuleError, match="exit code 1"):
         queue.wait()
+
+
+def writing_module(name):
+    return Module("r.mapcalc", expression=f"{name} = 1", run_=False, quiet=True)
+
+
+def other_failing_module():
+    return Module(
+        "r.mapcalc", expression="other = no_such_other_map", run_=False, quiet=True
+    )
+
+
+def map_exists(session, name):
+    return bool(gs.find_file(name, element="cell", env=session.env)["name"])
+
+
+@pytest.mark.timeout(60)
+def test_the_queue_waits_for_every_process_before_it_raises(session):
+    """A failure does not leave the later processes running unobserved"""
+    queue = ParallelModuleQueue(nprocs=4)
+    queue.put(failing_module())
+    first = writing_module("first")
+    second = writing_module("second")
+    queue.put(first)
+    queue.put(second)
+    with pytest.raises(CalledModuleError, match="no_such_map"):
+        queue.wait()
+    assert map_exists(session, "first")
+    assert map_exists(session, "second")
+    assert queue.get_finished_modules() == [first, second]
+
+
+@pytest.mark.timeout(60)
+def test_the_first_failure_is_raised_with_the_count_of_the_others(session):
+    """The first failure is raised; the others are only counted in a note
+
+    The queue has room for one more process, so that wait() and not put()
+    collects the three.
+    """
+    queue = ParallelModuleQueue(nprocs=4)
+    queue.put(failing_module())
+    queue.put(writing_module("between"))
+    queue.put(other_failing_module())
+    with pytest.raises(CalledModuleError, match="no_such_map") as excinfo:
+        queue.wait()
+    assert "no_such_other_map" not in str(excinfo.value)
+    assert excinfo.value.__notes__ == ["1 other module(s) of the queue failed as well"]
+
+
+@pytest.mark.timeout(60)
+def test_the_queue_is_usable_after_a_failure(session):
+    """The failed round is dropped from the queue"""
+    queue = ParallelModuleQueue(nprocs=2)
+    queue.put(failing_module())
+    with pytest.raises(CalledModuleError):
+        queue.wait()
+    assert queue.get_num_run_procs() == 0
+    queue.put(writing_module("again"))
+    queue.wait()
+    assert map_exists(session, "again")
+
+
+@pytest.mark.timeout(60)
+def test_a_full_queue_waits_for_every_process_before_it_raises(session):
+    """put() waits for the whole round when the queue is full"""
+    queue = ParallelModuleQueue(nprocs=2)
+    queue.put(failing_module())
+    with pytest.raises(CalledModuleError, match="no_such_map"):
+        queue.put(writing_module("late"))
+    assert map_exists(session, "late")

@@ -40,12 +40,15 @@ class ParallelModuleQueue:
     To finish the queue before the maximum number of parallel
     processes was reached, call :py:meth:`wait`.
 
-    This class will raise a GrassError in case a Module process exits
-    with a return code other than 0.
-
-    Processes that were run asynchronously with the :py:class:`MultiModule` class
-    will not raise a GrassError in case of failure. This must be manually checked
-    by accessing finished modules by calling :py:meth:`get_finished_modules`.
+    :py:meth:`wait` waits for every process of the queue, also after one of
+    them failed, so that nothing keeps running (and writing maps) after it
+    returns. It then raises the first
+    :py:class:`~grass.exceptions.CalledModuleError` of a Module process that
+    exited with a return code other than 0. A note on the exception gives the
+    number of the further processes that failed as well. This holds for
+    :py:class:`MultiModule` processes run asynchronously, too: they report the
+    failure of their child process. :py:meth:`put` waits in the same way when
+    the queue is full.
 
     :Usage:
 
@@ -320,21 +323,33 @@ class ParallelModuleQueue:
         """Wait for all Module processes that are in the list to finish
         and set the modules stdout and stderr output options
 
-        :return: A list of modules that were run
+        A failing process does not stop the waiting: the remaining processes
+        are waited for as well and the queue is emptied. Afterwards the first
+        :py:class:`~grass.exceptions.CalledModuleError` is raised, with a note
+        that gives the number of further failures. Any other exception is
+        raised at once.
         """
-        for proc in self._list:
-            if proc:
-                if isinstance(proc, Module):
-                    self._finished_modules.extend(
-                        [
-                            proc.wait(),
-                        ]
-                    )
-                else:
-                    self._finished_modules.extend(proc.wait())
-
-        self._list = self._num_procs * [None]
-        self._proc_count = 0
+        failures = []
+        try:
+            for proc in self._list:
+                if not proc:
+                    continue
+                try:
+                    if isinstance(proc, Module):
+                        self._finished_modules.append(proc.wait())
+                    else:
+                        self._finished_modules.extend(proc.wait())
+                except CalledModuleError as error:
+                    failures.append(error)
+        finally:
+            self._list = self._num_procs * [None]
+            self._proc_count = 0
+        if failures:
+            if len(failures) > 1:
+                failures[0].add_note(
+                    f"{len(failures) - 1} other module(s) of the queue failed as well"
+                )
+            raise failures[0]
 
 
 class Module:
