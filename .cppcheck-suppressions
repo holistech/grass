@@ -153,7 +153,6 @@ syntaxError:scripts/windows_sh_launch.bat:11
 syntaxError:scripts/windows_launch.bat:1
 
 # temporal
-syntaxError:temporal/benchmark.sh:19
 syntaxError:temporal/temporalintro.html
 
 # testsuite
