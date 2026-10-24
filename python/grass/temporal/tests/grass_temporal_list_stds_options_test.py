@@ -1,4 +1,8 @@
-"""Tests for the option checks shared by t.rast.list, t.rast3d.list and t.vect.list
+"""Tests for the option checks of the list and table output tools in list_stds
+
+check_list_format, check_list_method and check_list_options serve
+t.rast.list, t.rast3d.list and t.vect.list; checked_separator serves t.list,
+t.rast.univar, t.rast3d.univar and t.vect.db.select.
 
 The messages are the ones the tools print, so each is pinned word for word.
 """
@@ -260,6 +264,6 @@ def test_a_refused_separator_gives_its_message(
     assert text == message
 
 
-@pytest.mark.parametrize("output_format", ["plain", "csv"])
-def test_the_flag_for_the_column_names_is_free_outside_json(output_format):
-    assert checked_separator(output_format, "", column_names=True) in {",", "|"}
+@pytest.mark.parametrize(("output_format", "expected"), [("plain", "|"), ("csv", ",")])
+def test_the_flag_for_the_column_names_is_free_outside_json(output_format, expected):
+    assert checked_separator(output_format, "", column_names=True) == expected

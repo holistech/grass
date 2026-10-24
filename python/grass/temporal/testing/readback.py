@@ -161,9 +161,10 @@ def days_text(value):
 
 
 def delta_row(name, start, end, first):
-    """The row of delta, deltagaps and gran for a map or a gap
+    """Return the row of delta, deltagaps and gran for a map or a gap
 
-    name is None for a gap. first is the start of the first row.
+    The map is in the mapset PERMANENT; name is None for a gap. first is the
+    start of the first row.
     """
     length = None if end is None else (end - start).days
     return [
