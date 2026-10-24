@@ -72,15 +72,9 @@ def main():
     # Get the current mapset to create the id of the space time dataset
     mapset = gs.gisenv()["MAPSET"]
 
-    inname = input
-    inmapset = mapset
-    if "@" in input:
-        inname, inmapset = input.split("@")
-
-    outname = output
     outmapset = mapset
     if "@" in output:
-        outname, outmapset = output.split("@")
+        _outname, outmapset = output.split("@")
         if outmapset != mapset:
             gs.fatal(
                 _("The output dataset <%s> must be in the current mapset<%s>.")
