@@ -440,7 +440,6 @@ def _write_timestamp(lock: _LockLike, conn: Connection, data):
     try:
         maptype = data[1]
         name = data[2]
-        # mapset = data[3]
         layer = data[4]
         timestring = data[5]
         ts = libgis.TimeStamp()
@@ -521,7 +520,6 @@ def _read_semantic_label(lock: _LockLike, conn: Connection, data):
         maptype = data[1]
         name = data[2]
         mapset = data[3]
-        # layer = data[4]
 
         if maptype == RPCDefs.TYPE_RASTER:
             # Must use temporary variable to work around
@@ -558,8 +556,6 @@ def _write_semantic_label(lock: _LockLike, conn: Connection, data):
     try:
         maptype = data[1]
         name = data[2]
-        # mapset = data[3]
-        # layer = data[4]
         semantic_label = data[5]
 
         if maptype == RPCDefs.TYPE_RASTER:
@@ -595,8 +591,6 @@ def _remove_semantic_label(lock: _LockLike, conn: Connection, data):
     try:
         maptype = data[1]
         name = data[2]
-        # mapset = data[3]
-        # layer = data[4]
 
         if maptype == RPCDefs.TYPE_RASTER:
             check = libgis.G_remove_misc("cell_misc", "semantic_label", name)
@@ -1194,7 +1188,6 @@ def c_library_server(lock: _LockLike, conn: Connection) -> None:
 
     def error_handler(data) -> None:
         """This function will be called in case of a fatal error in libgis"""
-        # sys.stderr.write("Error handler was called\n")
         # We send an exception that will be handled in
         # the parent process, then close the pipe.
         conn.send(FatalError())

@@ -369,11 +369,6 @@ class SpatioTemporalTopologyBuilder:
     def _reset(self) -> None:
         self._store = {}
         self._first = None
-        self._iteratable = False
-
-    def _set_first(self, first) -> None:
-        self._first = first
-        self._insert(first)
 
     def _detect_first(self) -> None:
         if len(self) > 0:
@@ -422,17 +417,6 @@ class SpatioTemporalTopologyBuilder:
         :param maps: A sorted (by start_time)list of abstract_dataset
                      objects with initiated temporal extent
         """
-        #        for i in xrange(len(maps)):
-        #            offset = i + 1
-        #            for j in xrange(offset, len(maps)):
-        #                # Get the temporal relationship
-        #                relation = maps[j].temporal_relation(maps[i])
-        #
-        #                # Build the next reference
-        #                if relation != "equal" and relation != "started":
-        #                    maps[i].set_next(maps[j])
-        #                    break
-
         # First we need to order the map list chronologically
         sorted_maps = sorted(maps, key=AbstractDatasetComparisonKeyStartTime)
 

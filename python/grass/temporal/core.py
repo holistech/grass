@@ -1219,9 +1219,6 @@ class SQLDatabaseInterfaceConnection:
                         entry is the SQL statement with DBMI specific
                         place holder (?), the second entry is the argument
                         list that should substitute the place holder.
-        :param mapset: The mapset of the abstract dataset or temporal
-                       database location, if None the current mapset
-                       will be used
         """
         if mapset is None:
             mapset = self.current_mapset
@@ -1244,10 +1241,6 @@ class SQLDatabaseInterfaceConnection:
                        database location, if None the current mapset
                        will be used
         :returns: True if the table exists, False otherwise
-
-        TODO:
-        There may be several temporal databases in a location, hence
-        the mapset is used to query the correct temporal database.
         """
         if mapset is None:
             mapset = self.current_mapset
@@ -1434,7 +1427,6 @@ class DBConnection:
                 )
             elif self.dbmi.__name__ == "psycopg2":
                 self.connection = self.dbmi.connect(dbstring)
-                # self.connection.set_isolation_level(dbmi.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
                 self.cursor = self.connection.cursor(
                     cursor_factory=self.dbmi.extras.DictCursor
                 )
@@ -1457,12 +1449,7 @@ class DBConnection:
             )
 
     def close(self) -> None:
-        """Close the DBMI connection
-        TODO:
-        There may be several temporal databases in a location, hence
-        close all temporal databases that have been opened. Use a dictionary
-        to manage different connections.
-        """
+        """Close the DBMI connection"""
         self.connection.commit()
         self.cursor.close()
         self.connected = False
@@ -1491,9 +1478,6 @@ class DBConnection:
 
     def mogrify_sql_statement(self, content):
         """Return the SQL statement and arguments as executable SQL string
-
-        TODO:
-        Use the mapset argument to identify the correct database driver
 
         :param content: The content as tuple with two entries, the first
                         entry is the SQL statement with DBMI specific
@@ -1564,10 +1548,6 @@ class DBConnection:
 
         :param table_name: The name of the table to be checked for existence
         :returns: True if the table exists, False otherwise
-
-        .. TODO::
-            There may be several temporal databases in a location, hence
-            the mapset is used to query the correct temporal database.
         """
         table_exists = False
         connected = False

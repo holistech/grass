@@ -655,7 +655,7 @@ def assign_valid_time_to_map(
 
     :param ttype: The temporal type which should be assigned
                   and which the time format is of
-    :param map: A map dataset object derived from abstract_map_dataset
+    :param map_object: A map dataset object derived from abstract_map_dataset
     :param start: The start date and time of the first map
                   (format absolute: "yyyy-mm-dd HH:MM:SS" or "yyyy-mm-dd",
                   format relative is integer 5)

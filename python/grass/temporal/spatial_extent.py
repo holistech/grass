@@ -1748,7 +1748,7 @@ class SpatialExtent(SQLDatabaseInterface):
         self.set_west(west)
 
     def set_spatial_extent_2d(self, spatial_extent) -> None:
-        """Set the three dimensional spatial extent
+        """Set the two dimensional spatial extent (north, south, east, west)
 
         :param spatial_extent: An object of type SpatialExtent or its subclasses
         """
