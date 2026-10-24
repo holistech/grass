@@ -26,11 +26,6 @@ pytestmark = pytest.mark.real_io
 BOOM = "boom"
 
 
-def real_mapsets(mapsets=None):
-    """The uncached answer; the caches are not installed outside the tests"""
-    return core.get_available_temporal_mapsets(mapsets)
-
-
 def interface_state(name="r.mapcalc"):
     """Return the XML and the command line pygrass builds for a tool"""
     options = {"expression": "x = 1"} if name == "r.mapcalc" else {}

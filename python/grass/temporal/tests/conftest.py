@@ -8,7 +8,7 @@ import grass.temporal as tgis
 from grass.temporal.algebra.content import Const, MapRef
 from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.temporal.testing import fakes
-from grass.temporal.testing.session import project_session, temporal_session
+from grass.temporal.testing.session import temporal_session
 
 
 def _extent(span, unit):
@@ -88,17 +88,6 @@ def temporal_exit_session(temporal_module_session):
     """
     tgis.set_raise_on_error(False)
     return temporal_module_session
-
-
-@pytest.fixture(scope="module")
-def xy_module_session(tmp_path_factory):
-    """Session in an XY project for a whole module, without touching os.environ
-
-    For tests that run tools only; pass env=session.env or Tools(session=...).
-    Use temporal_module_session when the test calls grass.temporal itself.
-    """
-    with project_session(tmp_path_factory.mktemp("temporal") / "project") as session:
-        yield session
 
 
 @pytest.fixture(scope="module")
