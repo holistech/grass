@@ -144,42 +144,6 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
-def _months(step):
-    """The length of a month or year step in months, None for other units"""
-    number, unit = step.split()
-    factor = {"month": 1, "year": 12}.get(unit.rstrip("s"))
-    return None if factor is None else factor * int(number)
-
-
-def _next_cycle(origin, number, end, cycle, offset, absolute):
-    """Return the start and end of cycle number, which follows the one ending at end
-
-    The first cycle, number 0, starts at origin. A cycle without maps is
-    skipped through the same call, so that the loop advances however a cycle
-    ends.
-    """
-    # Imported here like in main(), after the parser has run.
-    import grass.temporal as tgis
-
-    if not absolute:
-        start = end + offset
-        return start, start + cycle
-    months = (_months(cycle), _months(offset) if offset else 0)
-    if None not in months:
-        # Month and year steps count from the origin, so that a cut at the end
-        # of a short month does not carry over: monthly cycles from January 31
-        # start on February 28 and March 31, not on February 28 and March 28.
-        period = number * (months[0] + months[1])
-        return (
-            tgis.modify_datetime(origin, months=period),
-            tgis.modify_datetime(origin, months=period + months[0]),
-        )
-    # A cycle and an offset of different kinds, such as a month and a day, do
-    # not add up to one step that could be counted from the origin.
-    start = tgis.increment_datetime_by_string(end, offset) if offset else end
-    return start, tgis.increment_datetime_by_string(start, cycle)
-
-
 def _to_datetime(text, option, dbif):
     """Convert the value of an option to a datetime or end with a message"""
     import grass.temporal as tgis
@@ -384,7 +348,9 @@ def main():
         gs.fatal(_("The granularity must be longer than zero"))
     origin = start
     if (
-        _next_cycle(origin, 1, end, cycle, offset, input_strds.is_time_absolute())[0]
+        tgis.next_cycle(origin, 1, end, cycle, offset, input_strds.is_time_absolute())[
+            0
+        ]
         <= start
     ):
         dbif.close()
@@ -413,7 +379,7 @@ def main():
 
         if len(input_maps) == 0:
             number += 1
-            start, end = _next_cycle(
+            start, end = tgis.next_cycle(
                 origin, number, end, cycle, offset, input_strds.is_time_absolute()
             )
             continue
@@ -576,7 +542,7 @@ def main():
             count += 1
 
         number += 1
-        start, end = _next_cycle(
+        start, end = tgis.next_cycle(
             origin, number, end, cycle, offset, input_strds.is_time_absolute()
         )
 

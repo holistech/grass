@@ -1058,6 +1058,57 @@ def create_numeric_suffix(base, count: int, zeros: str) -> str:
     return s.format(ba=base, i=count)
 
 
+def _months_of_step(step: str) -> int | None:
+    """Return the length of a month or year step in months, None for other units"""
+    number, unit = step.split()
+    factor = {"month": 1, "year": 12}.get(unit.rstrip("s"))
+    return None if factor is None else factor * int(number)
+
+
+def next_cycle(
+    origin: datetime | float,
+    number: int,
+    end: datetime | float,
+    cycle: str | float,
+    offset: str | float | None,
+    absolute: bool,
+) -> tuple[datetime | float, datetime | float]:
+    """Return the start and end of cycle number, which follows the one ending at end
+
+    The first cycle, number 0, starts at origin. A cycle without maps is
+    skipped through the same call, so that the loop advances however a cycle
+    ends.
+
+    Month and year steps count from origin, so that a cut at the end of a
+    short month does not carry over: monthly cycles from January 31 start on
+    February 28 and March 31, not on February 28 and March 28. A cycle and an
+    offset of different kinds, such as a month and a day, do not add up to
+    one step that could be counted from origin; they count from end.
+
+    :param origin: The start of the first cycle
+    :param number: The number of the cycle to return
+    :param end: The end of the previous cycle
+    :param cycle: The length of a cycle, a granularity string in absolute
+                  time, a number in relative time
+    :param offset: The gap between a cycle and the next, same kind as cycle,
+                   None for no gap (absolute time only)
+    :param absolute: True for absolute time, False for relative time
+    :return: The tuple (start, end) of the cycle
+    """
+    if not absolute:
+        start = end + offset
+        return start, start + cycle
+    months = (_months_of_step(cycle), _months_of_step(offset) if offset else 0)
+    if None not in months:
+        period = number * (months[0] + months[1])
+        return (
+            modify_datetime(origin, months=period),
+            modify_datetime(origin, months=period + months[0]),
+        )
+    start = increment_datetime_by_string(end, offset) if offset else end
+    return start, increment_datetime_by_string(start, cycle)
+
+
 def check_suffix(suffix: str) -> None:
     """Refuse a value of the suffix option other than gran, time, num or num%NN
 
