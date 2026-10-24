@@ -4,6 +4,7 @@ plan() runs nothing, so these tests need no session.
 """
 
 import datetime
+from dataclasses import replace
 
 import pytest
 
@@ -20,7 +21,7 @@ from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, where
 from grass.temporal.algebra.relations import contains
 from grass.temporal.algebra.series import Series, Slot
-from grass.temporal.algebra.time_functions import timevar
+from grass.temporal.algebra.time_functions import retime, timevar
 
 A1 = MapRef("a1@PERMANENT")
 A2 = MapRef("a2@PERMANENT")
@@ -244,6 +245,23 @@ def test_series_that_is_not_spatial_sets_no_region(make_series):
     a = make_series("a", (1, 2))
     (call,) = plan(a * 1, "R").processes
     assert "region" not in call.parameters
+
+
+def test_a_copy_names_its_source(make_series):
+    """A planned map that copies a map unchanged names it, so materialize()
+    can tell an empty copy of a map with data from an empty result"""
+    a = make_series("a", (1, 2))
+    retimed = Series((replace(a.slots[0], origin=None),))
+    assert plan(retimed, "R").maps[0].source == "a1@PERMANENT"
+    # r.mapcalc copies a slot that kept its origin as well.
+    assert plan(a, "R").maps[0].source == "a1@PERMANENT"
+    assert plan(a + 1, "R").maps[0].source is None
+    offset = Series((Slot(a.slots[0].extent, MapRef("a1@PERMANENT", (1, 0))),))
+    assert plan(offset, "R").maps[0].source is None
+    selected = plan(retime(a, shift="1 day"), "R", selection=True)
+    assert selected.maps[0].source == "a1@PERMANENT"
+    # A selection registers a slot with an origin itself, without a copy.
+    assert plan(a, "R", selection=True).maps[0].source is None
 
 
 def test_skip_reduction_of_maps_writes_the_result_with_r_series(make_series):

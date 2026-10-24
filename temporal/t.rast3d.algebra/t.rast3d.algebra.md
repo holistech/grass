@@ -40,6 +40,13 @@ Maps that are related in space are computed in the current 3D region, in
 both algebras: *r3.mapcalc* cannot compute in the union of the regions of
 its input maps.
 
+A map that the result takes over unchanged, for example one that a
+selection stamps with a new time, is copied in the current 3D region as
+well, with or without **-s**. A copy of a map that lies outside the region
+has no data. Like any map without data it is not registered unless **-n**
+is given, and since 24 October 2026 a warning names it and the map it
+copies. Set the region with *g.region* so that it covers the maps.
+
 ### Core and classic algebra
 
 Since GRASS 8.6, *t.rast3d.algebra* computes its expressions with the

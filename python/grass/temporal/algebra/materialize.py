@@ -30,11 +30,16 @@ TIME_SUFFIXES = (None, "gran", "time")
 
 @dataclass(frozen=True)
 class PlannedMap:
-    """A result map: its name, its time stamp and the calls that compute it"""
+    """A result map: its name, its time stamp and the calls that compute it
+
+    source is the identifier of the map that the calls copy unchanged, None
+    for a map they compute otherwise and for a registered map without calls.
+    """
 
     name: str
     extent: object
     calls: tuple
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -333,9 +338,18 @@ def plan(
             spatial=series.spatial or union_region,
             style=mapcalc,
         )
-        maps.append(PlannedMap(map_name, slot.extent, tuple(calls)))
+        maps.append(
+            PlannedMap(map_name, slot.extent, tuple(calls), _copied_map(slot.content))
+        )
         remove.extend(temporaries)
     return ProcessChain(name, stds_type, result_type, tuple(maps), tuple(remove))
+
+
+def _copied_map(content):
+    """The identifier of the map that content copies unchanged, or None"""
+    if isinstance(content, MapRef) and not content.offset:
+        return content.ident
+    return None
 
 
 def _plan_selection(
@@ -381,7 +395,7 @@ def _plan_selection(
         call = ModuleCall(
             "g.copy", {ELEMENTS[series.kind]: (slot.content.ident, map_name)}
         )
-        maps.append(PlannedMap(map_name, slot.extent, (call,)))
+        maps.append(PlannedMap(map_name, slot.extent, (call,), slot.content.ident))
     return ProcessChain(name, stds_type, result_type, tuple(maps), ())
 
 
@@ -669,6 +683,23 @@ def _is_empty(map_, kind):
     return map_.metadata.get_min() is None and map_.metadata.get_max() is None
 
 
+def _emptied_by_region(planned, kind):
+    """Tell whether an empty computed map copies a raster or 3D raster map
+    that has data
+
+    A computed map can be empty by right, as if(A > 1000, A) of small values
+    is. A copy of a map with data is empty only because r.mapcalc and
+    r3.mapcalc compute it in the current region, whose extent (or
+    resolution) can miss the data of the map.
+    g.copy, which copies a vector map and any map of a selection, takes the
+    whole map, and its copy is never empty for this reason.
+    """
+    if planned.source is None or kind == "vector":
+        return False
+    source = MAP_CLASSES[kind](planned.source)
+    return source.load() and not _is_empty(source, kind)
+
+
 def _forget(ident, kind, dbif):
     """Delete a map from the temporal database, which also unregisters it
     from the datasets"""
@@ -702,7 +733,9 @@ def materialize(
     Needs a GRASS session and a temporal database. Maps without any valid
     cell are removed and not registered unless register_null is True; if
     that leaves no map, the dataset stays empty and a warning says so. Their
-    entries in the temporal database are deleted as well.
+    entries in the temporal database are deleted as well. A warning names
+    each such map that copies a raster or 3D raster map with data, which the
+    current region missed.
     Result maps registered with the other temporal type are replaced when
     overwriting.
 
@@ -834,6 +867,15 @@ def materialize(
                 )
             _set_time(map_, planned.extent)
             if not keep_empty and _is_empty(map_, _kind(chain)):
+                if _emptied_by_region(planned, _kind(chain)):
+                    get_tgis_message_interface().warning(
+                        _(
+                            "Map <{map}> is empty in the current region and is "
+                            "not registered; it copies <{source}>, which has data "
+                            "outside the region. Set the region with g.region, or "
+                            "register empty maps with -n where the tool offers it."
+                        ).format(map=map_.get_id(), source=planned.source)
+                    )
                 empty.append(planned.name)
                 # An earlier run may have registered a map of this name.
                 _forget(map_.get_id(), _kind(chain), dbif)
