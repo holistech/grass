@@ -78,9 +78,14 @@ def _results(first, second):
     return results
 
 
-# Each pair gives the methods that compute in the plane and those that compute
-# in space. The volume methods are used when the other dataset is a 3D raster
-# map or a space time 3D raster dataset (and when both have the same type).
+# Each pair gives the results of the first dataset's methods with the second.
+# A 3D raster map computes in space when the other dataset is a 3D raster map
+# or a space time 3D raster dataset, and in the plane otherwise. The classes
+# without a third dimension always compute in the plane. A space time 3D raster
+# dataset is the exception: it takes the second dataset as a volume for
+# overlapping and relation only when that is a space time 3D raster dataset,
+# and for the other three methods also when it is a 3D raster map (the pair
+# str3ds and raster3d below).
 PAIRS = [
     ("raster", "raster", PLANAR),
     ("raster3d", "raster3d", VOLUME),
