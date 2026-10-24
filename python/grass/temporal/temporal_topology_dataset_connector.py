@@ -16,6 +16,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import copy
 
+from .spatial_topology_dataset_connector import _map_list_string
+
 
 class TemporalTopologyDatasetConnector:
     """This class implements a temporal topology access structure to connect
@@ -471,20 +473,7 @@ class TemporalTopologyDatasetConnector:
             return None
         return self._temporal_topology["CONTAINS"]
 
-    def _generate_map_list_string(self, map_list, line_wrap: bool = True):
-        count = 0
-        string = ""
-        for map_ in map_list:
-            if line_wrap and count > 0 and count % 3 == 0:
-                string += "\n | ............................ "
-                count = 0
-            if count == 0:
-                string += map_.get_id()
-            else:
-                string += ",%s" % map_.get_id()
-            count += 1
-
-        return string
+    _generate_map_list_string = staticmethod(_map_list_string)
 
     # Set the properties
     equal = property(fget=get_equal, fset=append_equal)

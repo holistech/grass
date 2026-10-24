@@ -15,6 +15,26 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import copy
 
 
+def _map_list_string(map_list, line_wrap: bool = True) -> str:
+    """Return the identifiers of the maps, three per line if line_wrap is set
+
+    Shared by the spatial and the temporal topology connector.
+    """
+    count = 0
+    string = ""
+    for map_ in map_list:
+        if line_wrap and count > 0 and (count % 3 == 0):
+            string += "\n | ............................ "
+            count = 0
+        if count == 0:
+            string += map_.get_id()
+        else:
+            string += ",%s" % map_.get_id()
+        count += 1
+
+    return string
+
+
 class SpatialTopologyDatasetConnector:
     """This class implements a spatial topology access structure to connect
     spatial related datasets
@@ -289,20 +309,7 @@ class SpatialTopologyDatasetConnector:
             return None
         return self._spatial_topology["COVERED"]
 
-    def _generate_map_list_string(self, map_list, line_wrap: bool = True):
-        count = 0
-        string = ""
-        for map_ in map_list:
-            if line_wrap and count > 0 and (count % 3 == 0):
-                string += "\n | ............................ "
-                count = 0
-            if count == 0:
-                string += map_.get_id()
-            else:
-                string += ",%s" % map_.get_id()
-            count += 1
-
-        return string
+    _generate_map_list_string = staticmethod(_map_list_string)
 
     # Set the properties
     equivalent = property(fget=get_equivalent, fset=append_equivalent)
