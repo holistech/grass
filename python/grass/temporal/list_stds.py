@@ -29,9 +29,10 @@ from .open_stds import open_old_stds
 
 ###############################################################################
 
-#: Columns the delta methods cannot list, because the values come from the
-#: database and not from the maps the methods work on.
-_LIST_ONLY_COLUMNS = ("interval_length", "distance_from_begin")
+#: Columns that only the methods delta, deltagaps and gran can list: they
+#: compute the values from the times of the maps, the temporal database has
+#: no such columns.
+_DELTA_ONLY_COLUMNS = ("interval_length", "distance_from_begin")
 
 
 def message_option_value_excludes_option_value(
@@ -220,7 +221,7 @@ def check_list_method(method, order, columns, delta_excluded_columns):
             )
         excluded = delta_excluded_columns
     else:
-        excluded = _LIST_ONLY_COLUMNS
+        excluded = _DELTA_ONLY_COLUMNS
     for column in excluded:
         if column in columns_list:
             raise ValueError(
@@ -241,8 +242,9 @@ def check_list_options(
 ):
     """Check the options of a list tool against each other
 
-    Format and separator are checked before method, order and columns, as the
-    tools did before.
+    Format and separator are checked before method, order and columns, so
+    that a call with several refused combinations reports the same one as
+    t.rast.list and t.rast3d.list did when each carried its own checks.
 
     :param options: The options of the tool as returned by gs.parser()
     :param flags: The flags of the tool as returned by gs.parser()
