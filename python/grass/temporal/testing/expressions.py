@@ -505,8 +505,8 @@ def check_agreement(kind, expression, **options):
     """Run an expression on the runners of ``DIFFERENTIAL`` and compare them
 
     The outcome of the earlier implementation is ``corpus.reference_outcome``:
-    in a pytest test it comes from the corpus, so that the comparison
-    outlives that implementation.
+    in a pytest test it comes from the corpus, which is faster than a run;
+    ``GRASS_TEMPORAL_REFERENCE=live`` computes it on that implementation.
 
     :raises AssertionError: with the text of ``compare`` when they differ
     """

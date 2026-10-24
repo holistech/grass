@@ -268,10 +268,11 @@ classic run, selects with `-m "not fixed_algebra"`.
 
 `-c` and `GRASS_TEMPORAL_ALGEBRA=classic` compute on a profile of the algebra
 core. The implementation that predates the profile stays in the repository
-only as a reference for tests, and is deleted once the profile has proven
-itself. It has no switch and no value of `GRASS_TEMPORAL_ALGEBRA`; the private
-helper `grass.temporal.testing.reference` reaches it, whatever the variable and
-the `classic` argument say. Its function `run_reference(kind, expression,
+for good, as the classic algebra that publications refer to; the profile has
+to reproduce its results completely. It has no switch and no value of
+`GRASS_TEMPORAL_ALGEBRA`; the private helper
+`grass.temporal.testing.reference` reaches it, whatever the variable and the
+`classic` argument say. Its function `run_reference(kind, expression,
 basename=..., **options)` computes an expression like the parse method of
 the parser classes, for the kinds `raster`, `raster3d`, `vector` and
 `select`. Do not use it outside tests.
@@ -286,9 +287,8 @@ case fails where it no longer computes what the corpus holds;
 `GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
 docstring describes. The corpus key hangs on the node id of the test: a test
 that is renamed or moved finds no entry and fails, and its old entries stay in
-the corpus as orphans that nothing reports. While the implementation exists,
-record the corpus again; after it is deleted, rename the keys in the corpus
-files instead. Tests of the implementation itself, tests that check it
+the corpus as orphans that nothing reports. Record the corpus again for a
+renamed test. Tests of the implementation itself, tests that check it
 against values derived by hand, and the comparisons of the planned chain and of
 the error texts in `temporal_algebra_core_plan_options_io_test.py`, which have
 no outcome to store, still run it.

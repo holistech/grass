@@ -9,11 +9,10 @@ turns every production into nodes of ``grass.temporal.algebra.parser.ast``.
 What the classic grammar reads, what it rejects and how it groups therefore
 stays as it was, while the meaning is given by a translator of the core.
 
-The copy is frozen because the parser classes are going to be removed; the
-grammar must not depend on their ``p_`` methods then. The lexers are still
-those of the parser modules and move here together with them. As long as the
-parser classes exist, a test compares every production text, the precedence
-and the tokens with the copy, so that a change of one of them is noticed.
+The copy is frozen so that it states what the classic grammar reads
+independently of the ``p_`` methods of the parser classes. A test compares
+every production text, the precedence and the tokens with the copy, so that a
+change of either side is noticed.
 
 The PLY version of the package builds its tables in memory and writes nothing
 next to the source; debug=False also keeps it from writing a parser.out.

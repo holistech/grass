@@ -2,11 +2,12 @@
 
 The differential tests compare the classic profile of the algebra core, and
 in places the core itself, with the earlier implementation of the classic
-algebra (``grass.temporal.testing.reference``). That implementation is to be
-deleted after the profile has served one release, and the comparison has to
-outlive it. This module keeps what the earlier implementation computed for
-each case of the test suite in a corpus and hands the stored outcome to the
-tests in place of a run.
+algebra (``grass.temporal.testing.reference``). That implementation stays in
+the repository for good: publications refer to it, and the profile has to
+reproduce its results completely. This module keeps what the earlier
+implementation computed for each case of the test suite in a corpus and hands
+the stored outcome to the tests in place of a run, which is the fast default
+way of the comparisons.
 
 Two functions take the place of the runs of the earlier implementation:
 
@@ -29,8 +30,7 @@ computing. So the same expression in two tests has two entries, and a test
 that changes its data or its options cannot read an outcome of other data.
 The key hangs on the node id: a test that is renamed or moved finds no entry
 and goes red, and its old entries stay in the corpus as orphans that nothing
-reports. While the earlier implementation exists, record the corpus again;
-after it is deleted, rename the keys in the corpus files instead.
+reports. Record the corpus again for a renamed test.
 The value is the outcome or, for the run without computing, true or false.
 
 The variable ``GRASS_TEMPORAL_REFERENCE`` chooses where the outcome comes
