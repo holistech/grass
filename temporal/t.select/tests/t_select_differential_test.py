@@ -218,7 +218,8 @@ def test_profile_equals_reference(series, expression):
     selected, also where the core differs"""
     # The result of the earlier implementation comes from the recorded corpus,
     # which stores the form of expressions.outcome(), so the profile is read in
-    # that form as well.
+    # that form as well. That form names each map without its mapset and
+    # rounds its values to 6 significant digits.
     reference = reference_outcome("select", expression, stdstype="strds")
     profile = selection_outcome("classic", "fb", expression)
     assert expressions.compare("select", expression, reference, profile) is None

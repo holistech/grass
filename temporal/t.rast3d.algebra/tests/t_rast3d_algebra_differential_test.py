@@ -138,6 +138,9 @@ def outcome(monkeypatch, expression, algebra, granularity=False):
 # The result of the earlier implementation comes from the recorded corpus,
 # which stores the form of expressions.outcome(), so the profile is read in
 # that form as well.
+# That form rounds minimum and maximum to 6 significant digits, so this
+# comparison is coarser than the one of the core with the profile, which
+# outcome() above reads in full.
 def profile_difference(expression, **options):
     """What compare() finds between the earlier implementation and -c"""
     options = {"register_null": True, **options}

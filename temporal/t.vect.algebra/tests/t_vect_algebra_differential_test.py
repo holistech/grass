@@ -178,7 +178,9 @@ def test_profile_equals_reference(vector_series, expression):
     computed, also where the core differs"""
     # The result of the earlier implementation comes from the recorded
     # corpus, which stores the form of expressions.outcome(), so the profile
-    # is read in that form as well.
+    # is read in that form as well. That form holds the numbers of points,
+    # lines and areas but not of centroids, which outcome() above also reads
+    # for the comparison of the core with the profile.
     reference = reference_outcome("vector", expression)
     profile = expressions.outcome(
         "vector", expression, expressions.RUNNERS["classic"], basename="fb"

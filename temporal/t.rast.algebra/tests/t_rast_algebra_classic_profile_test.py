@@ -1,8 +1,9 @@
 """The classic profile of the algebra core against the classic algebra
 
 Each expression runs on the classic profile (``CLASSIC``, what ``-c`` runs)
-and on the classic algebra of the parser classes, which stays as the
-reference. The registered maps (name, start, end, minimum, maximum) or the
+and is compared with the outcome of the classic algebra of the parser
+classes, the reference, that grass.temporal.testing.corpus holds. The
+registered maps (name, start, end, minimum, maximum) or the
 class of the error must be equal. The expressions are the hard cases of the
 classic algebra: the rules in which it differs from the core, and the
 borders of its grammar.

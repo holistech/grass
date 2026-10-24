@@ -1,9 +1,9 @@
 """Cases where the classic profile once differed from the classic algebra
 
-Each expression runs on the classic profile (what -c runs) and on the classic
-algebra of the parser classes, the reference, on the datasets of the
-expression fuzzer. The registered maps or the class of the error must be
-equal. The cases came from fuzz runs and from the analysis of single
+Each expression runs on the classic profile (what -c runs), on the datasets
+of the expression fuzzer, and is compared with the outcome of the classic
+algebra of the parser classes, the reference, that grass.temporal.testing.corpus
+holds. The registered maps or the class of the error must be equal. The cases came from fuzz runs and from the analysis of single
 differences; they are the rules that the hard cases in
 t_rast_algebra_classic_profile_test.py do not cover.
 """

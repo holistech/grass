@@ -1,13 +1,15 @@
 """Tests that run the options of plan(), materialize() and evaluate()
 
 Each option that gives the classic rules is measured against the classic
-algebra on real datasets: the earlier implementation
-(grass.temporal.testing.reference) and evaluate() with the option compute
-the same expression, and the result maps (names, times, values) or the
-exception class are compared with grass.temporal.testing.expressions. A
-negative check with the default options shows that the comparison can see
-the difference. The expected values are the results of the earlier
-implementation, run on 2026-10-16; none was adjusted to a result.
+algebra on real datasets: evaluate() with the option computes an expression,
+and the result maps (names, times, values) or the exception class are compared
+with grass.temporal.testing.expressions to the outcome of the earlier
+implementation (grass.temporal.testing.reference) that
+grass.temporal.testing.corpus holds. The tests of the planned chain and of the
+error texts run the earlier implementation itself. A negative check with the
+default options shows that the comparison can see the difference. The expected
+values are the results of the earlier implementation, run on 2026-10-16; none
+was adjusted to a result.
 
 The datasets of grass.temporal.testing.expressions_data are used (raster
 and vector), and the dataset D, whose maps start on the same day.
@@ -86,8 +88,8 @@ def measured(session, kind, expression, profile, **options):
 
 
 def agrees(session, kind, expression, profile, **options):
-    """Run the expression with the earlier implementation and the profile and
-    assert that they give the same; return the outcome"""
+    """Assert that the profile gives what the earlier implementation gave;
+    return the outcome of the earlier implementation"""
     difference, reference, _ = measured(session, kind, expression, profile, **options)
     assert difference is None, f"{expression}: {difference}"
     return reference

@@ -1,12 +1,13 @@
 """Differential fuzzing of the algebras for the selection of maps (t.select)
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
-run on two implementations of the algebra, and the registered maps must agree.
-Which two is set in one place, DIFFERENTIAL in that module: the earlier
-implementation and the classic profile of the core. That must give 0
-differences. The test of the listed differences shows that the fuzzer sees one
-where there is one: the expressions of the differential test of this directory,
-run on the reference and on the core.
+must register the same maps in two implementations of the algebra. Which two
+is set in one place, DIFFERENTIAL in that module: the earlier implementation,
+whose outcomes grass.temporal.testing.corpus holds, and the classic profile of
+the core. That must give 0 differences. The test of the listed differences
+shows that the fuzzer sees one where there is one: the expressions of the
+differential test of this directory, run on the core and compared with the
+recorded outcomes of the reference.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
