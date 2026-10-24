@@ -6,8 +6,8 @@ algebra (``grass.temporal.testing.reference``). That implementation stays in
 the repository for good: publications refer to it, and the profile has to
 reproduce its results completely. This module keeps what the earlier
 implementation computed for each case of the test suite in a corpus and hands
-the stored outcome to the tests in place of a run, which is the fast default
-way of the comparisons.
+the stored outcome to the tests in place of a run; this is the default way of
+the comparisons.
 
 Two functions take the place of the runs of the earlier implementation:
 
