@@ -162,7 +162,7 @@ def main():
         # don't copy maps, use old maps
         new_maps = old_maps
 
-    temporal_type, semantic_type, title, description = old_sp.get_initial_values()
+    _temporal_type, semantic_type, title, description = old_sp.get_initial_values()
     new_sp = tgis.open_new_stds(
         output,
         stdstype,
