@@ -119,21 +119,17 @@ def main():
     if not columns:
         columns = "all" if output_format == "json" else "id"
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                _("A standard CSV separator (delimiter) is only one character long")
+    # lazy imports
+    from grass.temporal.list_stds import checked_separator
+
+    if output_format != "line":
+        try:
+            separator = checked_separator(
+                output_format, separator, column_names=colhead
             )
-
-    elif output_format == "json":
-        if colhead:
-            gs.fatal(_("Column names are always included in JSON output"))
-        if separator:
-            gs.fatal(_("Separator option is not allowed with JSON format"))
-
-    elif output_format == "line":
+        except ValueError as error:
+            gs.fatal(str(error))
+    else:
         if colhead:
             gs.fatal(_("Column names are not allowed with line format"))
         if len(stds_type) > 1:
@@ -143,9 +139,6 @@ def main():
         columns_list = columns.split(",") if columns else []
         if columns == "all" or len(columns_list) > 1:
             gs.fatal(_("Only one column is allowed for line format"))
-
-    elif not separator:
-        separator = "|"
 
     if set(stds_type) & {"raster", "raster_3d", "vector"} and set(stds_type) & {
         "strds",

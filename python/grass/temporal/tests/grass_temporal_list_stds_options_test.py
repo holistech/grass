@@ -9,6 +9,7 @@ from grass.temporal.list_stds import (
     check_list_format,
     check_list_method,
     check_list_options,
+    checked_separator,
     message_option_value_excludes_flag,
     message_option_value_excludes_option,
     message_option_value_excludes_option_value,
@@ -203,3 +204,62 @@ def test_the_format_is_checked_before_the_method():
             header_flag="u",
             delta_excluded_columns=DELTA_COLUMNS,
         )
+
+
+@pytest.mark.parametrize(
+    ("output_format", "separator", "expected"),
+    [
+        ("csv", "", ","),
+        ("csv", ";", ";"),
+        ("plain", "", "|"),
+        ("plain", "\t", "\t"),
+        ("json", "", ""),
+    ],
+)
+def test_the_separator_gets_its_default_per_format(output_format, separator, expected):
+    assert checked_separator(output_format, separator, column_names=False) == expected
+
+
+@pytest.mark.parametrize(
+    ("output_format", "separator", "column_names", "message"),
+    [
+        (
+            "csv",
+            ";;",
+            False,
+            "A standard CSV separator (delimiter) is only one character long",
+        ),
+        (
+            "json",
+            "",
+            True,
+            "Column names are always included in JSON output",
+        ),
+        (
+            "json",
+            ",",
+            False,
+            "Separator option is not allowed with JSON format",
+        ),
+        # The flag is checked before the separator.
+        (
+            "json",
+            ",",
+            True,
+            "Column names are always included in JSON output",
+        ),
+    ],
+)
+def test_a_refused_separator_gives_its_message(
+    output_format, separator, column_names, message
+):
+    text = _refusal(
+        checked_separator, output_format, separator, column_names=column_names
+    )
+
+    assert text == message
+
+
+@pytest.mark.parametrize("output_format", ["plain", "csv"])
+def test_the_flag_for_the_column_names_is_free_outside_json(output_format):
+    assert checked_separator(output_format, "", column_names=True) in {",", "|"}

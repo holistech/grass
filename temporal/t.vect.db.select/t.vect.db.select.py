@@ -135,23 +135,15 @@ def main():
     if columns in {"", " ", "\n"}:
         columns = None
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                _("A standard CSV separator (delimiter) is only one character long")
-            )
-
-    elif output_format == "json":
-        if separator:
-            gs.fatal(_("Separator option is not allowed with JSON format"))
-
-    elif not separator:  # output_format == "plain"
-        separator = "|"
-
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
+
+    # The format json has no flag for the column names here.
+    try:
+        separator = checked_separator(output_format, separator, column_names=False)
+    except ValueError as error:
+        gs.fatal(str(error))
 
     # Make sure the temporal database exists
     tgis.init()

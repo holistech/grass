@@ -112,22 +112,14 @@ def main():
     separator = gs.separator(options["separator"])
     output_format = options.get("format", "plain")
 
-    if output_format == "csv":
-        if not separator:
-            separator = ","
-        elif len(separator) > 1:
-            gs.fatal(
-                _("A standard CSV separator (delimiter) is only one character long")
-            )
+    # lazy imports
+    import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
 
-    elif output_format == "json":
-        if no_header:
-            gs.fatal(_("Column names are always included in JSON output"))
-        if separator:
-            gs.fatal(_("Separator option is not allowed with JSON format"))
-
-    elif not separator:
-        separator = "|"
+    try:
+        separator = checked_separator(output_format, separator, column_names=no_header)
+    except ValueError as error:
+        gs.fatal(str(error))
 
     percentile = None
     if options["percentile"]:
@@ -139,9 +131,6 @@ def main():
                     options["percentile"]
                 )
             )
-
-    # lazy imports
-    import grass.temporal as tgis
 
     # Make sure the temporal database exists
     tgis.init()

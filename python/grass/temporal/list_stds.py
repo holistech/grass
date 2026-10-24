@@ -78,6 +78,38 @@ def message_option_value_excludes_flag(option_name, option_value, flag_name, rea
     )
 
 
+def checked_separator(output_format, separator, *, column_names):
+    """Check the separator of a tool that prints a table as plain, csv or json
+
+    :param output_format: The value of the option format
+    :param separator: The separator, already converted by gs.separator(), an
+                      empty string if the user gave none
+    :param column_names: True if the user set the flag that changes whether
+                         the column names are printed
+    :return: The separator, the comma for csv and the bar for the other
+             formats if the user gave none
+    :raises ValueError: for a csv separator of more than one character, and
+                        for a separator or the flag with json, whose output
+                        has its own structure and always names the columns
+    """
+    if output_format == "csv":
+        if not separator:
+            return ","
+        if len(separator) > 1:
+            msg = _("A standard CSV separator (delimiter) is only one character long")
+            raise ValueError(msg)
+    elif output_format == "json":
+        if column_names:
+            msg = _("Column names are always included in JSON output")
+            raise ValueError(msg)
+        if separator:
+            msg = _("Separator option is not allowed with JSON format")
+            raise ValueError(msg)
+    elif not separator:
+        return "|"
+    return separator
+
+
 def check_list_format(
     output_format,
     separator,
