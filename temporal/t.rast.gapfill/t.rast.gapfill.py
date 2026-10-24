@@ -185,8 +185,8 @@ def main():
         successor = map_.get_precedes()[0]
 
         gran = sp.get_granularity()
-        tmpval, start = predecessor.get_temporal_extent_as_tuple()
-        end, tmpval = successor.get_temporal_extent_as_tuple()
+        _predecessor_end, start = predecessor.get_temporal_extent_as_tuple()
+        end, _successor_end = successor.get_temporal_extent_as_tuple()
 
         # Now resample the gap
         map_matrix = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
@@ -270,22 +270,6 @@ def main():
     sp.update_from_registered_maps(dbif)
     sp.update_command_string(dbif=dbif)
     dbif.close()
-
-
-###############################################################################
-
-
-def run_interp(inputs, dpos, output, outpos):
-    """Helper function to run r.series.interp in parallel"""
-    return gs.run_command(
-        "r.series.interp",
-        input=inputs,
-        datapos=dpos,
-        output=output,
-        samplingpos=outpos,
-        overwrite=gs.overwrite(),
-        quiet=True,
-    )
 
 
 if __name__ == "__main__":
