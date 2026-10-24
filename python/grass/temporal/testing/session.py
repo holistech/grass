@@ -11,6 +11,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 import contextlib
 import os
+import signal
+import subprocess
 from pathlib import Path
 
 import grass.script as gs
@@ -110,3 +112,26 @@ def temporal_session(path, *, crs=None, mapset=None):
         get_msgr().set_raise_on_error(saved_msgr_flag)
         os.environ.clear()
         os.environ.update(saved_environ)
+
+
+def run_with_timeout(session, arguments, seconds):
+    """Run a tool in a process group of its own; None if it did not end in time
+
+    Returns the return code and the messages. The tool starts a Python process
+    below the wrapper that subprocess knows, so the whole group is killed.
+    """
+    process = subprocess.Popen(
+        arguments,
+        env=session.env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        _, messages = process.communicate(timeout=seconds)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
+        return None
+    return process.returncode, messages

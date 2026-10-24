@@ -5,7 +5,7 @@ The expected values capture the output of t.info as it is now, so that later
 changes to the interface can be checked against the established behavior.
 """
 
-import grass.script as gs
+from grass.temporal.testing.readback import shell_info
 from grass.tools import Tools
 
 # Keys whose values differ between runs, systems, or users.
@@ -72,11 +72,6 @@ RASTER3D_SHELL_KEYS = [
     "tbres",
     "registered_datasets",
 ]
-
-
-def shell_info(tools, **kwargs):
-    """Return the shell style output of t.info parsed into a dictionary"""
-    return gs.parse_key_val(tools.t_info(flags="g", **kwargs).text)
 
 
 def stable_items(info):

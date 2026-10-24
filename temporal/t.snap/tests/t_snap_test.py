@@ -11,7 +11,13 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day, register_stds
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    create_timed_stds,
+    day,
+    register_stds,
+)
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
@@ -25,16 +31,6 @@ def _text(offset, *, hours=0):
     return day(offset, hours=hours).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _dataset(tools, prefix, times, *, stds_type="strds", **options):
-    """Make a dataset <prefix>_ds of constant maps with the times (start, end)"""
-    maps = [
-        MapSpec(f"{prefix}_{number}", number, start, end)
-        for number, (start, end) in enumerate(times, 1)
-    ]
-    create_stds(tools, stds_type, f"{prefix}_ds", maps, **options)
-    return f"{prefix}_ds"
-
-
 def _times(tools, name, stds_type="strds"):
     return [(row.start, row.end) for row in list_maps(tools, stds_type, name)]
 
@@ -42,7 +38,9 @@ def _times(tools, name, stds_type="strds"):
 def test_points_become_adjacent_intervals(tools, prefix):
     # Points on day 0, 2 and 6: the steps are 2 and 4 days, so the granularity
     # is 2 days and the last map ends on day 6 + 2 = 8.
-    name = _dataset(tools, prefix, [(day(0), None), (day(2), None), (day(6), None)])
+    name = create_timed_stds(
+        tools, prefix, [(day(0), None), (day(2), None), (day(6), None)]
+    )
     assert stds_info(tools, "strds", name)["granularity"] == "'2 days'"
 
     tools.t_snap(input=name)
@@ -62,7 +60,7 @@ def test_the_points_of_the_old_shell_test(tools, prefix):
     # Six points 14 days apart, from 2001-01-01 12:00:00. The sixth is on
     # day 70 (2001-03-12), its end 14 days later.
     starts = [day(14 * number, hours=12) for number in range(6)]
-    name = _dataset(tools, prefix, [(start, None) for start in starts])
+    name = create_timed_stds(tools, prefix, [(start, None) for start in starts])
 
     tools.t_snap(input=name)
 
@@ -79,7 +77,7 @@ def test_overlapping_intervals_become_adjacent(tools, prefix):
     # start of the next map; the sixth keeps its end.
     first = [datetime(2001, month, 1) for month in range(1, 7)]
     ends = [datetime(2001, month, 1) for month in (7, 4, 4, 6, 6, 7)]
-    name = _dataset(tools, prefix, list(zip(first, ends, strict=True)))
+    name = create_timed_stds(tools, prefix, list(zip(first, ends, strict=True)))
 
     tools.t_snap(input=name)
 
@@ -95,7 +93,7 @@ def test_overlapping_intervals_become_adjacent(tools, prefix):
 
 def test_gaps_between_intervals_are_closed(tools, prefix):
     # (day 0, 1), (3, 4), (10, 12): the gaps end on day 3 and day 10.
-    name = _dataset(
+    name = create_timed_stds(
         tools, prefix, [(day(0), day(1)), (day(3), day(4)), (day(10), day(12))]
     )
 
@@ -113,7 +111,7 @@ def test_months_are_calendar_months(tools, prefix):
     # Points on the first of January, February and March: the granularity is
     # one month, so the last map ends on 1 April, not 30 days after 1 March.
     starts = [datetime(2001, month, 1) for month in (1, 2, 3)]
-    name = _dataset(tools, prefix, [(start, None) for start in starts])
+    name = create_timed_stds(tools, prefix, [(start, None) for start in starts])
     assert stds_info(tools, "strds", name)["granularity"] == "'1 month'"
 
     tools.t_snap(input=name)
@@ -126,7 +124,9 @@ def test_months_are_calendar_months(tools, prefix):
 
 
 def test_a_second_snap_changes_nothing(tools, prefix):
-    name = _dataset(tools, prefix, [(day(0), None), (day(2), None), (day(6), None)])
+    name = create_timed_stds(
+        tools, prefix, [(day(0), None), (day(2), None), (day(6), None)]
+    )
     tools.t_snap(input=name)
     once = _times(tools, name)
 
@@ -137,7 +137,7 @@ def test_a_second_snap_changes_nothing(tools, prefix):
 
 def test_a_single_point_stays_a_point(tools, prefix):
     # With one map the dataset has no granularity, so the map gets no end.
-    name = _dataset(tools, prefix, [(day(0), None)])
+    name = create_timed_stds(tools, prefix, [(day(0), None)])
 
     result = tools.t_snap(input=name)
 
@@ -157,7 +157,9 @@ def _snap_tied(tools, prefix):
     original ends of maps 1 and 2, and the names of the map snapped to day 5
     and of the other tied map.
     """
-    name = _dataset(tools, prefix, [(day(0), day(1)), (day(0), day(3)), (day(5), None)])
+    name = create_timed_stds(
+        tools, prefix, [(day(0), day(1)), (day(0), day(3)), (day(5), None)]
+    )
     tools.t_snap(input=name)
     times = {row.name: (row.start, row.end) for row in list_maps(tools, "strds", name)}
     ends = {f"{prefix}_1": _text(1), f"{prefix}_2": _text(3)}
@@ -183,7 +185,7 @@ def test_a_map_with_the_start_of_the_next_map_keeps_its_times(tools, prefix):
 
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
 def test_each_dataset_type_with_absolute_time(tools, prefix, stds_type):
-    name = _dataset(
+    name = create_timed_stds(
         tools, prefix, [(day(0), None), (day(1), None)], stds_type=stds_type
     )
 
@@ -198,7 +200,7 @@ def test_each_dataset_type_with_absolute_time(tools, prefix, stds_type):
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
 def test_each_dataset_type_with_relative_time(tools, prefix, stds_type):
     # Points at 0, 3 and 5: the steps are 3 and 2, the granularity is 1.
-    name = _dataset(
+    name = create_timed_stds(
         tools,
         prefix,
         [(0, None), (3, None), (5, None)],
@@ -215,7 +217,7 @@ def test_each_dataset_type_with_relative_time(tools, prefix, stds_type):
 
 def test_the_points_of_the_old_shell_test_with_relative_time(tools, prefix):
     # Points 0, 14, ..., 70; the last map ends at 70 + 14.
-    name = _dataset(
+    name = create_timed_stds(
         tools,
         prefix,
         [(14 * n, None) for n in range(6)],
@@ -241,7 +243,7 @@ def test_a_map_in_two_datasets_is_snapped_in_both(tools, prefix):
 
 
 def test_the_command_is_added_to_the_history(tools, prefix):
-    name = _dataset(tools, prefix, [(day(0), None), (day(1), None)])
+    name = create_timed_stds(tools, prefix, [(day(0), None), (day(1), None)])
 
     tools.t_snap(input=name)
 
@@ -251,7 +253,7 @@ def test_the_command_is_added_to_the_history(tools, prefix):
 
 def test_a_dataset_without_maps_is_left_as_it_is(tools, prefix):
     # t.shift does nothing for such a dataset.
-    name = _dataset(tools, prefix, [])
+    name = create_timed_stds(tools, prefix, [])
 
     result = tools.t_snap(input=name)
 
@@ -260,7 +262,7 @@ def test_a_dataset_without_maps_is_left_as_it_is(tools, prefix):
 
 def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
     work, other = two_mapsets
-    name = _dataset(other, prefix, [(day(0), None), (day(1), None)])
+    name = create_timed_stds(other, prefix, [(day(0), None), (day(1), None)])
 
     with pytest.raises(ToolError) as error:
         work.t_snap(input=f"{name}@other")
@@ -273,7 +275,7 @@ def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
 
 def test_an_empty_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
     work, other = two_mapsets
-    name = _dataset(other, prefix, [])
+    name = create_timed_stds(other, prefix, [])
 
     history = other.t_info(type="strds", input=name, flags="h").stdout
 
@@ -298,7 +300,7 @@ def test_an_unknown_dataset_is_refused(tools):
 
 
 def test_the_type_selects_the_dataset(tools, prefix):
-    name = _dataset(tools, prefix, [(day(0), None), (day(1), None)])
+    name = create_timed_stds(tools, prefix, [(day(0), None), (day(1), None)])
 
     with pytest.raises(ToolError) as error:
         tools.t_snap(type="stvds", input=name)

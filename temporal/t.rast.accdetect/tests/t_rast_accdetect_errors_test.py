@@ -5,15 +5,11 @@ user inside a traceback; the messages are checked for what they say, and the
 traceback is one defect (the current behavior and the expected one).
 """
 
-import os
-import signal
-import subprocess
-
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps, message
-from grass.temporal.testing.session import project_session
+from grass.temporal.testing.session import project_session, run_with_timeout
 from grass.tools import ToolError, Tools
 
 OPTIONS = {"start": "2001-01-01", "cycle": "6 days", "range": "10,50"}
@@ -231,29 +227,6 @@ def test_a_threshold_dataset_of_the_other_time_type_is_refused(
     )
 
 
-def _run_with_timeout(session, arguments, seconds):
-    """Run a tool in a process group of its own; None if it did not end in time
-
-    Returns the return code and the messages. The tool starts a Python process
-    below the wrapper that subprocess knows, so the whole group is killed.
-    """
-    process = subprocess.Popen(
-        arguments,
-        env=session.env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
-    try:
-        _, messages = process.communicate(timeout=seconds)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
-        return None
-    return process.returncode, messages
-
-
 @pytest.fixture
 def gap(tmp_path):
     """A project whose dataset has a gap of more than the cycle (3 days)
@@ -289,7 +262,7 @@ ARGUMENTS = [
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_a_cycle_without_a_map_is_skipped(gap):
-    assert _run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
+    assert run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
 
     # The cycle of the days 1 to 3 holds two maps, the next two cycles hold
     # none, and the cycle from day 10 counts its days from 0 again: the
@@ -320,7 +293,7 @@ def test_a_length_of_time_that_does_not_move_forward_is_refused(
     # of 10 s per call).
     arguments = [a for a in ARGUMENTS if not a.startswith(f"{option}=")]
 
-    result = _run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
+    result = run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
 
     assert result is not None, "the tool did not end"
     code, messages = result
@@ -351,7 +324,7 @@ def test_a_relative_cycle_of_zero_is_refused(gap):
         "range=10,50",
     ]
 
-    result = _run_with_timeout(gap, arguments, 8)
+    result = run_with_timeout(gap, arguments, 8)
 
     assert result is not None, "the tool did not end"
     assert "The cycle must be longer than zero" in result[1]

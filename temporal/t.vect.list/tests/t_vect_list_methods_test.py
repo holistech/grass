@@ -22,7 +22,7 @@ from datetime import datetime
 import pytest
 
 from grass.temporal.testing.data import MapSpec, intervals, make_map, register_stds
-from grass.temporal.testing.readback import message
+from grass.temporal.testing.readback import message, time_text
 from grass.tools import ToolError
 
 D = datetime
@@ -78,17 +78,13 @@ PREFIX = {
 }
 
 
-def _time(moment):
-    return "None" if moment is None else moment.strftime("%Y-%m-%d %H:%M:%S")
-
-
 def _names(scenario):
     return [f"{PREFIX[scenario]}_{number}" for number in range(1, 7)]
 
 
 def _rows(scenario, separator="|"):
     return [
-        separator.join([name, "None", "PERMANENT", _time(start), _time(end)])
+        separator.join([name, "None", "PERMANENT", time_text(start), time_text(end)])
         for name, (start, end) in zip(_names(scenario), TIMES[scenario], strict=True)
     ]
 
@@ -146,8 +142,8 @@ def _entry(name, start, end):
             "None" if name is None else name,
             "None",
             "None" if name is None else "PERMANENT",
-            _time(start),
-            _time(end),
+            time_text(start),
+            time_text(end),
         ]
     )
 

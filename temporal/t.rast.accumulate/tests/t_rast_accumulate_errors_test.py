@@ -3,15 +3,11 @@
 Wrong input ends with a message, not with a traceback, and the run ends.
 """
 
-import os
-import signal
-import subprocess
-
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
 from grass.temporal.testing.readback import list_maps, message
-from grass.temporal.testing.session import project_session
+from grass.temporal.testing.session import project_session, run_with_timeout
 from grass.tools import ToolError, Tools
 
 OPTIONS = {
@@ -206,29 +202,6 @@ def test_relative_time_restarts_after_the_cycle_and_the_offset(tools, relative):
     ] == [(0, 1, 5), (1, 2, 10), (2, 3, 15), (4, 5, 5), (5, 6, 10)]
 
 
-def _run_with_timeout(session, arguments, seconds):
-    """Run a tool in a process group of its own; None if it did not end in time
-
-    Returns the return code and the messages. The tool starts a Python process
-    below the wrapper that subprocess knows, so the whole group is killed.
-    """
-    process = subprocess.Popen(
-        arguments,
-        env=session.env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
-    try:
-        _, messages = process.communicate(timeout=seconds)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
-        return None
-    return process.returncode, messages
-
-
 @pytest.fixture
 def gap(tmp_path):
     """A project whose dataset has a gap of more than the cycle (3 days)
@@ -265,7 +238,7 @@ ARGUMENTS = [
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_a_cycle_without_a_map_is_skipped(gap):
-    assert _run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
+    assert run_with_timeout(gap, ARGUMENTS, 8)[0] == 0
 
     # The cycle of the days 1 to 3 holds two maps (sums 5, 10), the next two
     # cycles hold none, and the cycle from day 10 restarts at 5.
@@ -297,7 +270,7 @@ def test_a_length_of_time_that_does_not_move_forward_is_refused(
     # of 10 s per call).
     arguments = [a for a in ARGUMENTS if not a.startswith(f"{option}=")]
 
-    result = _run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
+    result = run_with_timeout(gap, [*arguments, f"{option}={value}"], 8)
 
     assert result is not None, "the tool did not end"
     code, messages = result

@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.data import create_timed_stds, day
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
@@ -19,16 +19,6 @@ def _text(offset, *, hours=0):
     return day(offset, hours=hours).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _dataset(tools, prefix, times, *, stds_type="strds", **options):
-    """Make a dataset <prefix>_ds of constant maps with the times (start, end)"""
-    maps = [
-        MapSpec(f"{prefix}_{number}", number, start, end)
-        for number, (start, end) in enumerate(times, 1)
-    ]
-    create_stds(tools, stds_type, f"{prefix}_ds", maps, **options)
-    return f"{prefix}_ds"
-
-
 def _times(tools, name, stds_type="strds"):
     return [(row.start, row.end) for row in list_maps(tools, stds_type, name)]
 
@@ -36,7 +26,7 @@ def _times(tools, name, stds_type="strds"):
 @pytest.fixture
 def mixed(tools, prefix):
     """An interval from day 0 to day 14 and a time point on day 19"""
-    return _dataset(tools, prefix, [(day(0), day(14)), (day(19), None)])
+    return create_timed_stds(tools, prefix, [(day(0), day(14)), (day(19), None)])
 
 
 # Day 0 is 2001-01-01, so day 14 is 2001-01-15 and day 19 is 2001-01-20. The
@@ -172,7 +162,7 @@ def test_a_map_in_two_datasets_moves_in_both(tools, make_stds):
 @pytest.mark.slow
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
 def test_each_dataset_type_with_absolute_time(tools, prefix, stds_type):
-    name = _dataset(
+    name = create_timed_stds(
         tools, prefix, [(day(0), day(1)), (day(1), day(2))], stds_type=stds_type
     )
 
@@ -188,7 +178,7 @@ def test_each_dataset_type_with_absolute_time(tools, prefix, stds_type):
 @pytest.mark.slow
 @pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
 def test_each_dataset_type_with_relative_time(tools, prefix, stds_type):
-    name = _dataset(
+    name = create_timed_stds(
         tools,
         prefix,
         [(0, 14), (14, 28)],
@@ -214,7 +204,7 @@ def test_each_dataset_type_with_relative_time(tools, prefix, stds_type):
     ],
 )
 def test_relative_time_adds_the_number(tools, prefix, granularity, expected):
-    name = _dataset(
+    name = create_timed_stds(
         tools,
         prefix,
         [(0, 2), (2, None)],
@@ -249,7 +239,7 @@ def test_a_granularity_in_the_wrong_form_is_refused(tools, mixed, granularity):
 def test_a_granularity_in_the_wrong_form_for_relative_time_is_refused(
     tools, prefix, granularity
 ):
-    name = _dataset(
+    name = create_timed_stds(
         tools, prefix, [(0, 14), (14, 28)], temporaltype="relative", unit="days"
     )
 
@@ -334,7 +324,7 @@ def test_years_and_months_of_a_list_are_one_step(tools, prefix, granularity, exp
     # Years and months form one step of 12 * years + months months: from
     # 2003-02-15, 13 months land on 2004-03-15 whether they are given as
     # "13 months" or as "1 years, 1 months".
-    name = _dataset(tools, prefix, [(datetime(2003, 2, 15), None)])
+    name = create_timed_stds(tools, prefix, [(datetime(2003, 2, 15), None)])
 
     tools.t_shift(input=name, granularity=granularity)
 
@@ -345,7 +335,9 @@ def test_a_shift_back_by_24_months_from_december(tools, prefix):
     # 2003-12-01 - 24 months = 2001-12-01; 2004-01-01 - 24 months = 2002-01-01.
     # Before, the step back by 24 months from December raised "bad month
     # number 0".
-    name = _dataset(tools, prefix, [(datetime(2003, 12, 1), datetime(2004, 1, 1))])
+    name = create_timed_stds(
+        tools, prefix, [(datetime(2003, 12, 1), datetime(2004, 1, 1))]
+    )
 
     tools.t_shift(input=name, granularity="-24 months")
 
@@ -353,7 +345,7 @@ def test_a_shift_back_by_24_months_from_december(tools, prefix):
 
 
 def test_a_list_updates_the_granularity_and_the_history(tools, prefix):
-    name = _dataset(tools, prefix, [(day(0), day(1)), (day(1), day(2))])
+    name = create_timed_stds(tools, prefix, [(day(0), day(1)), (day(1), day(2))])
 
     tools.t_shift(input=name, granularity="1 days, 2 hours")
 
@@ -365,7 +357,7 @@ def test_a_list_updates_the_granularity_and_the_history(tools, prefix):
 
 
 def test_a_list_is_not_possible_for_relative_time(tools, prefix):
-    name = _dataset(
+    name = create_timed_stds(
         tools, prefix, [(0, 14), (14, 28)], temporaltype="relative", unit="days"
     )
 
@@ -386,7 +378,7 @@ def test_the_message_of_a_refused_shift_names_the_dataset(tools, mixed):
 @pytest.fixture
 def end_of_month(tools, prefix):
     """A map from 2001-01-31 to 2001-02-28: one month later has no day 31"""
-    return _dataset(tools, prefix, [(day(30), day(58))])
+    return create_timed_stds(tools, prefix, [(day(30), day(58))])
 
 
 def test_a_month_shift_from_day_31_ends_on_the_last_day_of_february(
@@ -416,7 +408,7 @@ def test_a_list_shift_from_day_31_cuts_the_month_before_adding_the_day(
 
 def test_a_month_shift_back_from_day_31_ends_on_the_last_day_of_february(tools, prefix):
     # March 31 minus one month is February 28, the last day of February 2001.
-    name = _dataset(tools, prefix, [(datetime(2001, 3, 31), None)])
+    name = create_timed_stds(tools, prefix, [(datetime(2001, 3, 31), None)])
 
     tools.t_shift(input=name, granularity="-1 months")
 
@@ -426,7 +418,9 @@ def test_a_month_shift_back_from_day_31_ends_on_the_last_day_of_february(tools, 
 @pytest.fixture
 def end_of_time(tools, prefix):
     """A map from 9999-06-01 to 9999-12-01: one year later is no date"""
-    return _dataset(tools, prefix, [(datetime(9999, 6, 1), datetime(9999, 12, 1))])
+    return create_timed_stds(
+        tools, prefix, [(datetime(9999, 6, 1), datetime(9999, 12, 1))]
+    )
 
 
 def test_a_shift_behind_the_year_9999_ends_with_a_message(tools, end_of_time):
@@ -471,7 +465,7 @@ def test_a_list_shift_behind_the_year_9999_names_the_map(tools, end_of_time):
 # More than a second (measured 18.10.2026 with a serial pytest --durations=0).
 @pytest.mark.slow
 def test_a_dataset_without_maps_is_reported(tools, prefix):
-    name = _dataset(tools, prefix, [])
+    name = create_timed_stds(tools, prefix, [])
     history = tools.t_info(type="strds", input=name, flags="h").stdout
 
     result = tools.t_shift(input=name, granularity="1 day")
@@ -490,7 +484,7 @@ def test_a_dataset_without_maps_is_reported(tools, prefix):
 @pytest.mark.parametrize("granularity", ["1 day", "1 days, 2 hours"])
 def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix, granularity):
     work, other = two_mapsets
-    name = _dataset(other, prefix, [(day(0), day(1))])
+    name = create_timed_stds(other, prefix, [(day(0), day(1))])
 
     with pytest.raises(ToolError) as error:
         work.t_shift(input=f"{name}@other", granularity=granularity)
@@ -504,7 +498,7 @@ def test_a_dataset_of_another_mapset_is_refused(two_mapsets, prefix, granularity
 @pytest.mark.slow
 def test_an_empty_dataset_of_another_mapset_is_refused(two_mapsets, prefix):
     work, other = two_mapsets
-    name = _dataset(other, prefix, [])
+    name = create_timed_stds(other, prefix, [])
 
     history = other.t_info(type="strds", input=name, flags="h").stdout
 

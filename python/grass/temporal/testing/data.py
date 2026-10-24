@@ -411,3 +411,17 @@ def create_stds(tools, stds_type, name, maps, **options):
                 raise ValueError(msg)
             tools.r_support(map=spec.name, semantic_label=spec.semantic_label)
     register_stds(tools, stds_type, name, maps, **options)
+
+
+def create_timed_stds(tools, prefix, times, *, stds_type="strds", **options):
+    """Make a dataset <prefix>_ds of constant maps with the times (start, end)
+
+    The maps are called <prefix>_1, <prefix>_2 and so on and hold their number.
+    Returns the name of the dataset.
+    """
+    maps = [
+        MapSpec(f"{prefix}_{number}", number, start, end)
+        for number, (start, end) in enumerate(times, 1)
+    ]
+    create_stds(tools, stds_type, f"{prefix}_ds", maps, **options)
+    return f"{prefix}_ds"

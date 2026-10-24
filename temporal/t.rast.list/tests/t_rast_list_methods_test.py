@@ -25,7 +25,7 @@ from grass.temporal.testing.data import (
     register_stds,
     small_region,
 )
-from grass.temporal.testing.readback import message, stds_info
+from grass.temporal.testing.readback import delta_row, message, stds_info, time_text
 from grass.tools import ToolError
 
 # Short names for the dates of the datasets.
@@ -84,36 +84,11 @@ PREFIX = {
 }
 
 
-def _time(moment):
-    return "None" if moment is None else moment.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _days(value):
-    return "None" if value is None else f"{float(value)}"
-
-
-def _row(name, start, end, first):
-    """The row of delta, deltagaps and gran for a map or a gap
-
-    name is None for a gap. first is the start of the first row.
-    """
-    length = None if end is None else (end - start).days
-    return [
-        "None" if name is None else f"{name}@PERMANENT",
-        "None" if name is None else name,
-        "None" if name is None else "PERMANENT",
-        _time(start),
-        _time(end),
-        _days(length),
-        _days((start - first).days),
-    ]
-
-
 def _table(entries, separator="|", header=DELTA_HEADER):
     """Lines of the table for entries, tuples (name, start, end)"""
     first = entries[0][1]
     lines = [header.replace("|", separator)]
-    lines.extend(separator.join(_row(*entry, first)) for entry in entries)
+    lines.extend(separator.join(delta_row(*entry, first)) for entry in entries)
     return lines
 
 
@@ -189,7 +164,7 @@ def test_list_prints_name_mapset_and_times_by_start(tools, stds, scenario, metho
     # accepted and does the same as list: the script has no branch of its own
     # for it.
     expected = [LIST_HEADER] + [
-        "|".join([name, "PERMANENT", _time(start), _time(end)])
+        "|".join([name, "PERMANENT", time_text(start), time_text(end)])
         for name, start, end in _maps(scenario)
     ]
 

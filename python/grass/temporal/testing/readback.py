@@ -9,6 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from typing import NamedTuple
 
+import grass.script as gs
 from grass.tools import ToolError
 
 # Maps the dataset type to the list tool and whether it reports min and max;
@@ -142,3 +143,35 @@ def message(source):
     if text is None:
         text = str(source)
     return " ".join(text.split())
+
+
+def shell_info(tools, **kwargs):
+    """Return the shell style output of t.info parsed into a dictionary"""
+    return gs.parse_key_val(tools.t_info(flags="g", **kwargs).text)
+
+
+def time_text(moment):
+    """Return a time as the list tools print it, "None" for no time"""
+    return "None" if moment is None else moment.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def days_text(value):
+    """Return a number of days as the list tools print it, "None" for none"""
+    return "None" if value is None else f"{float(value)}"
+
+
+def delta_row(name, start, end, first):
+    """The row of delta, deltagaps and gran for a map or a gap
+
+    name is None for a gap. first is the start of the first row.
+    """
+    length = None if end is None else (end - start).days
+    return [
+        "None" if name is None else f"{name}@PERMANENT",
+        "None" if name is None else name,
+        "None" if name is None else "PERMANENT",
+        time_text(start),
+        time_text(end),
+        days_text(length),
+        days_text((start - first).days),
+    ]
