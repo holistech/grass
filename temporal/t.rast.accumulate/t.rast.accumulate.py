@@ -347,12 +347,10 @@ def main():
         dbif.close()
         gs.fatal(_("The granularity must be longer than zero"))
     origin = start
-    if (
-        tgis.next_cycle(origin, 1, end, cycle, offset, input_strds.is_time_absolute())[
-            0
-        ]
-        <= start
-    ):
+    next_start, _next_end = tgis.next_cycle(
+        origin, 1, end, cycle, offset, input_strds.is_time_absolute()
+    )
+    if next_start <= start:
         dbif.close()
         gs.fatal(
             _(
