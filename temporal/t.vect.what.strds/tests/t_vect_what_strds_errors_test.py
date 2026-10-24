@@ -308,7 +308,7 @@ def test_a_where_that_fails_at_a_later_table_is_refused(tools, rasters, vectors)
     first, second, third = data.maps
     # Only the third table lacks the column foo, so the condition holds at
     # the first two and fails at the last one. Two failing tables would leave
-    # open which one is named, as the maps are tried in set order.
+    # open which one is named, as the where pre-check runs in dataset order.
     for name in (first, second):
         tools.v_db_addcolumn(map=name, columns="foo integer")
 
