@@ -265,6 +265,10 @@ def test_a_full_queue_waits_for_every_process_before_it_raises(session):
     """put() waits for the whole round when the queue is full"""
     queue = ParallelModuleQueue(nprocs=2)
     queue.put(failing_module())
+    late = writing_module("late")
     with pytest.raises(CalledModuleError, match="no_such_map"):
-        queue.put(writing_module("late"))
+        queue.put(late)
+    # The map alone may also appear when nobody waited for its process, so
+    # the finished list tells that put() waited for it.
+    assert queue.get_finished_modules() == [late]
     assert map_exists(session, "late")
