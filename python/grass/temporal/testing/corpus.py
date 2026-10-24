@@ -27,6 +27,10 @@ Each line is a JSON object with ``key`` and ``value``. The key is
 expression and the options, plus the mark ``"dry_run"`` for the run without
 computing. So the same expression in two tests has two entries, and a test
 that changes its data or its options cannot read an outcome of other data.
+The key hangs on the node id: a test that is renamed or moved finds no entry
+and goes red, and its old entries stay in the corpus as orphans that nothing
+reports. While the earlier implementation exists, record the corpus again;
+after it is deleted, rename the keys in the corpus files instead.
 The value is the outcome or, for the run without computing, true or false.
 
 The variable ``GRASS_TEMPORAL_REFERENCE`` chooses where the outcome comes

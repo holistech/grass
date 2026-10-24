@@ -284,7 +284,11 @@ the test suite, and
 With `GRASS_TEMPORAL_REFERENCE=live` the implementation runs instead, and a
 case fails where it no longer computes what the corpus holds;
 `GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
-docstring describes. Tests of the implementation itself, tests that check it
+docstring describes. The corpus key hangs on the node id of the test: a test
+that is renamed or moved finds no entry and fails, and its old entries stay in
+the corpus as orphans that nothing reports. While the implementation exists,
+record the corpus again; after it is deleted, rename the keys in the corpus
+files instead. Tests of the implementation itself, tests that check it
 against values derived by hand, and the comparisons of the planned chain and of
 the error texts in `temporal_algebra_core_plan_options_io_test.py`, which have
 no outcome to store, still run it.
