@@ -1,7 +1,7 @@
 """Tests for the spatial extent methods of the dataset classes and the map list string
 
-The dataset objects are built without a database: an identifier and a spatial
-extent are enough for the spatial methods. The expected values are those of the
+The dataset objects are not registered in a database: an identifier and a
+spatial extent are enough for the spatial methods. The expected values are those of the
 classes before their shared methods moved into a mixin.
 """
 
@@ -21,6 +21,9 @@ from grass.temporal.spatial_topology_dataset_connector import (
 from grass.temporal.temporal_topology_dataset_connector import (
     TemporalTopologyDatasetConnector,
 )
+
+# The space time datasets look up the temporal database when they are built.
+pytestmark = pytest.mark.usefixtures("temporal_module_session")
 
 CLASSES = {
     "raster": RasterDataset,
