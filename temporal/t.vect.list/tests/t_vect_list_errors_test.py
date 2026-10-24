@@ -92,6 +92,40 @@ def test_the_line_format_takes_one_column(tools, series):
     ) in text
 
 
+def test_the_comma_method_is_refused_as_the_line_format(tools, series):
+    # The tool sets the format to line for the method comma, and the message
+    # names it although the user did not give it.
+    text = _refused(tools, input="err", method="comma", columns="name,mapset")
+
+    assert (
+        "Combining format=line and columns=name,mapset is not allowed. "
+        "Only one column is allowed (not 2)"
+    ) in text
+
+
+@pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
+def test_order_is_refused_with_the_delta_methods(tools, series, method):
+    text = _refused(tools, input="err", method=method, order="name")
+
+    assert (
+        f"The option order is not allowed with method={method}. "
+        "Values are always ordered by start_time"
+    ) in text
+
+
+@pytest.mark.parametrize("column", ["interval_length", "distance_from_begin"])
+@pytest.mark.parametrize("method", ["cols", "comma"])
+def test_columns_of_the_delta_methods_are_refused_with_list(
+    tools, series, method, column
+):
+    text = _refused(tools, input="err", method=method, columns=column)
+
+    assert (
+        f"Combining method={method} and columns={column} is not allowed. "
+        f"Column '{column}' is not available with the method '{method}'"
+    ) in text
+
+
 @pytest.mark.parametrize("method", ["delta", "deltagaps", "gran"])
 def test_the_line_format_with_a_delta_method_prints_the_ids(tools, series, method):
     # Without columns the line format lists the ids, as it does with the

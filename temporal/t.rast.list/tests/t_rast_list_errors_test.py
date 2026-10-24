@@ -154,6 +154,17 @@ def test_the_line_format_takes_one_column(tools, series):
     ) in text
 
 
+def test_the_comma_method_is_refused_as_the_line_format(tools, series):
+    # The tool sets the format to line for the method comma, and the message
+    # names it although the user did not give it.
+    text = _refused(tools, input="err", method="comma", columns="name,mapset")
+
+    assert (
+        "Combining format=line and columns=name,mapset is not allowed. "
+        "Only one column is allowed (not 2)"
+    ) in text
+
+
 @pytest.mark.parametrize(
     "options",
     [
