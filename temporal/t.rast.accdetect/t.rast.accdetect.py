@@ -325,7 +325,7 @@ def main():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and maximum strds must be equal"))
 
-    input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
+    _input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
     # The loop below ends before input_strds_end and before stop, so an
     # instant at the end of the dataset would be left out. One unit behind it
     # keeps it in, as in t.rast.aggregate.
@@ -687,7 +687,7 @@ def compute_occurrence(
         map = input_maps[index]
 
         # Compute the days since start
-        input_start, input_end = map.get_temporal_extent_as_tuple()
+        input_start, _input_end = map.get_temporal_extent_as_tuple()
 
         td = input_start - start
         days = tgis.time_delta_to_relative_time(td) if map.is_time_absolute() else td
