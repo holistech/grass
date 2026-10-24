@@ -31,8 +31,6 @@ from grass.temporal.testing.data import (
 
 CENTRES = [(0.5, 1.5), (1.5, 1.5), (0.5, 0.5), (1.5, 0.5)]
 NUMBER = "10 * row() + col()"
-# The cells of the points in the raster maps: 10 row + col
-CELLS = [11, 12, 21, 22]
 
 
 @pytest.fixture(autouse=True)

@@ -29,7 +29,6 @@ pytestmark = pytest.mark.slow
 
 FIRST_GAP = [(200, 10), (300, 20)]
 SECOND_GAP = [(500 + 100 * i, 38 + 8 * i) for i in range(7)]
-FIRST = {"start_time": "'2001-01-01 00:00:00'", "end_time": "'2002-01-01 00:00:00'"}
 
 
 def _approx(pairs):

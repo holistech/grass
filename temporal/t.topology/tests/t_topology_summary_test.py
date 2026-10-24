@@ -58,11 +58,6 @@ def _make_maps(tools, prefix, count=6):
     return names
 
 
-def _register(tools, name, rows, *, temporaltype="absolute", **options):
-    tools.t_create(output=name, temporaltype=temporaltype, title="t", description="d")
-    tools.t_register(input=name, **options, **rows)
-
-
 # Scenario: id, kind, register options, expected summary.
 # Monthly intervals p1 to p6 as registered by start and increment.
 ABSOLUTE = [

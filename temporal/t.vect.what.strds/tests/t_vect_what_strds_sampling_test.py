@@ -18,7 +18,7 @@ from grass.temporal.testing.readback import message
 # pytest --durations=0): every test makes its own vector maps.
 pytestmark = pytest.mark.slow
 
-# The cells of the points in the raster maps: 10 row + col (conftest.py)
+# The cells of the points in the raster maps: 10 row + col
 CELLS = [11, 12, 21, 22]
 NUMBER = "10 * row() + col()"
 

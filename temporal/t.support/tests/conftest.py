@@ -10,8 +10,6 @@ import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, relative_intervals
 
-KINDS = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
-
 
 @pytest.fixture
 def make_dataset(tools, prefix):
