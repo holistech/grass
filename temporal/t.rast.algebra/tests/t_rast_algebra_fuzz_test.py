@@ -14,9 +14,10 @@ GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
 grass.temporal.testing.expressions. The tests carry slow, because the seeds
 cost seconds, and fixed_algebra, because they choose their runners themselves.
 
-Normal run: 48.9 s for 329 tests, measured 2026-10-16 with
-`python3 -m pytest -p no:cacheprovider -q <this file>`, including the creation of the
-datasets.
+Normal run: 28.8 s for 333 tests, measured 2026-10-24 with
+`python3 -m pytest -p no:cacheprovider -q <this file>`, with the outcomes of
+the earlier implementation read from the corpus, including the creation of
+the datasets.
 """
 
 import pytest

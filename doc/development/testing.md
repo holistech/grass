@@ -276,15 +276,18 @@ basename=..., **options)` computes an expression like the parse method of
 the parser classes, for the kinds `raster`, `raster3d`, `vector` and
 `select`. Do not use it outside tests.
 
-The tests that compare the profile or the core with that implementation do
-not run it. The module `grass.temporal.testing.corpus` holds what it computed
-for each such case of the test suite, and
+The tests that compare the outcome of the profile or the core with that of
+this implementation do not run it. The module
+`grass.temporal.testing.corpus` holds what it computed for each such case of
+the test suite, and
 `reference_outcome(kind, expression, **options)` returns the stored outcome.
 With `GRASS_TEMPORAL_REFERENCE=live` the implementation runs instead, and a
 case fails where it no longer computes what the corpus holds;
 `GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
-docstring describes. Tests of the implementation itself, and tests that check
-it against values derived by hand, still run it.
+docstring describes. Tests of the implementation itself, tests that check it
+against values derived by hand, and the comparisons of the planned chain and of
+the error texts in `temporal_algebra_core_plan_options_io_test.py`, which have
+no outcome to store, still run it.
 
 The module `grass.temporal.testing.expressions` generates seeded random
 expressions of the classic grammar, runs them on two implementations and
