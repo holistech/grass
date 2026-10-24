@@ -1219,6 +1219,9 @@ class SQLDatabaseInterfaceConnection:
                         entry is the SQL statement with DBMI specific
                         place holder (?), the second entry is the argument
                         list that should substitute the place holder.
+        :param mapset: The mapset of the abstract dataset or temporal
+                       database location, if None the current mapset
+                       will be used
         """
         if mapset is None:
             mapset = self.current_mapset
@@ -1483,9 +1486,6 @@ class DBConnection:
                         entry is the SQL statement with DBMI specific
                         place holder (?), the second entry is the argument
                         list that should substitute the place holder.
-        :param mapset: The mapset of the abstract dataset or temporal
-                       database location, if None the current mapset
-                       will be used
 
         Usage:
 
