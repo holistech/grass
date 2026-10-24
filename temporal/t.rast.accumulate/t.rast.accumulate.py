@@ -322,7 +322,7 @@ def main():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and upper strds must be equal"))
 
-    input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
+    _input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
     # The loop below ends before input_strds_end and before stop, so an
     # instant at the end of the dataset would be left out. One unit behind it
     # keeps it in, as in t.rast.aggregate.
