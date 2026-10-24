@@ -185,7 +185,9 @@ used from any test; the fixtures that wrap it are in
   and yield a session. `add_mapset()` adds a mapset to it, and
   `mapset_session()` opens a second session in another mapset of the same
   project, as the `two_mapsets` fixture of `temporal/conftest.py` does for
-  tests of tools that cross mapsets.
+  tests of tools that cross mapsets. `run_with_timeout()` runs a tool in a
+  process group of its own and kills the group when the tool does not end
+  in time, for tests of tools that may hang.
 - `data`: `create_stds()`, `register_stds()` and `make_map()` build
   datasets and maps from a few lines of description;
   `create_daily_stds()` makes the same maps of one day each and registers
@@ -194,7 +196,8 @@ used from any test; the fixtures that wrap it are in
   makes a point map with an attribute table, in one or more layers;
   `register_file()` writes the input file of _t.register_ and
   _t.unregister_; `small_region()` sets a region of a few cells for tests
-  that query values at coordinates.
+  that query values at coordinates. `create_timed_stds()` makes a dataset of
+  constant maps from a list of (start, end) times.
 - `readback`: `list_maps()` and `stds_info()` read the registered maps and
   the output of _t.info_ back as values that a test compares; `map_info()`
   does the same for a single map and gives `None` for one that is not in the
@@ -202,7 +205,10 @@ used from any test; the fixtures that wrap it are in
   cells as a list, null as `None`. `message()` returns the
   messages of a call or of the error it raised as one line; compare messages
   through it, because GRASS wraps them and an absence check on the raw text
-  passes whatever the text says.
+  passes whatever the text says. `shell_info()` parses the output of
+  `t.info -g` into a dictionary. `time_text()`, `days_text()` and
+  `delta_row()` format times, day counts and a row of the methods delta,
+  deltagaps and gran the way the list tools print them.
 
 Tests of the `t.*` tools and of _grass.temporal_ build all their data with
 these helpers, in a project created in `tmp_path`, and do not read the North
