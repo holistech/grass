@@ -3417,8 +3417,9 @@ class TemporalAlgebraParser:
                 self._check_increment(
                     "tshift", maplist, self._increment(t), with_unit=len(t) == 10
                 )
-                # shift_map_list() fails on an empty list and returns None
-                # for an increment the library does not accept.
+                # shift_map_list() returns None for an empty list as well as
+                # for an increment the library does not accept, and an empty
+                # list is no error here.
                 shifted = (
                     AbstractSpaceTimeDataset.shift_map_list(maplist, self._increment(t))
                     if maplist

@@ -47,9 +47,9 @@ def main():
     dbif.connect()
 
     stds = tgis.open_old_stds(name, type, dbif)
-    # snap() fails with an IndexError on a dataset without maps; t.shift
-    # leaves such a dataset as it is as well. A dataset of another mapset is
-    # refused by snap(), so the refusal does not depend on its content.
+    # snap() leaves a dataset without maps as it is, but the user is told that
+    # nothing happened, as in t.shift. A dataset of another mapset is refused
+    # by snap(), so the refusal does not depend on its content.
     if stds.get_mapset() == tgis.get_current_mapset() and not (
         stds.get_registered_maps_as_objects(dbif=dbif)
     ):
