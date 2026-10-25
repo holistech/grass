@@ -15,10 +15,64 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-from .db import SQLDatabaseInterfaceConnection
-from .state import get_current_mapset, get_tgis_message_interface
+from .algebra.sources import source
 from .datetime_math import time_delta_to_relative_time
+from .db import SQLDatabaseInterfaceConnection
 from .factory import dataset_factory
+from .related_maps import (
+    method_relations,
+    related_per_granule,
+    sampler_refused,
+    with_gaps,
+)
+from .state import get_current_mapset, get_tgis_message_interface
+
+
+def _map_object(stds, ident, extent, space):
+    """A map object of the type of the dataset with the given extents
+
+    The objects of the map matrix hold the identifier and the spatio-temporal
+    extent, as the objects that get_registered_maps_as_objects() makes; whoever
+    needs more calls select() on them.
+    """
+    map_ = stds.get_new_map_instance(ident)
+    if extent.unit is None:
+        map_.set_absolute_time(extent.start, extent.end)
+    else:
+        map_.set_relative_time(extent.start, extent.end, extent.unit)
+    map_.set_spatial_extent_from_values(
+        space.north, space.south, space.east, space.west, space.top, space.bottom
+    )
+    return map_
+
+
+def _map_matrix(sampler, stds, granules, rows):
+    """The entries of the map matrix of one input dataset
+
+    :param sampler: the sampler dataset, whose maps the granules are
+    :param stds: the input dataset
+    :param granules: the Series of the granules, gap slots included
+    :param rows: the slots of the input related to each granule
+    :return: for each granule a dictionary with the map object of the
+        "granule" and the list of its "samples"; a granule without a related
+        map has one sample without an identifier, with the extents of the
+        granule
+    """
+    matrix = []
+    for granule, related in zip(granules.slots, rows, strict=True):
+        samples = [
+            _map_object(stds, slot.content.ident, slot.extent, slot.space)
+            for slot in related
+        ] or [_map_object(stds, None, granule.extent, granule.space)]
+        matrix.append(
+            {
+                "granule": _map_object(
+                    sampler, granule.origin, granule.extent, granule.space
+                ),
+                "samples": samples,
+            }
+        )
+    return matrix
 
 
 def sample_stds_by_stds_topology(
@@ -98,10 +152,28 @@ def sample_stds_by_stds_topology(
     if separator is None or separator == "" or separator.find(",") >= 0:
         separator = " | "
 
+    try:
+        names = method_relations(method)
+    except ValueError as error:
+        msgr.fatal(str(error))
+    granules = None
     mapmatrizes = []
     for st in sts:
-        mapmatrix = st.sample_by_dataset(sst, method, spatial, dbif)
-        if mapmatrix and len(mapmatrix) > 0:
+        # An input that cannot be sampled is reported and left out
+        if sampler_refused(sst, st, msgr):
+            continue
+        # Only an interval sampler can be given gaps, so this waits for the
+        # check above
+        if granules is None:
+            granules = with_gaps(source(sst.get_id(), stds_type=sampletype))
+        rows = related_per_granule(
+            granules,
+            names,
+            source(st.get_id(), stds_type=intype),
+            spatial=spatial,
+        )
+        mapmatrix = _map_matrix(sst, st, granules, rows)
+        if mapmatrix:
             mapmatrizes.append(mapmatrix)
 
     if len(mapmatrizes) > 0:

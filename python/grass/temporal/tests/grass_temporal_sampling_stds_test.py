@@ -236,3 +236,8 @@ def test_a_missing_dataset_stops(datasets):
         tgis.sample_stds_by_stds_topology(
             "strds", "strds", ["inp"], "missing", False, None, ["equal"], False, False
         )
+
+
+def test_an_unknown_method_stops(datasets):
+    with pytest.raises(tgis.FatalError, match="Unknown sampling method <sideways>"):
+        sample(["inp"], ["equal", "sideways"], False)
