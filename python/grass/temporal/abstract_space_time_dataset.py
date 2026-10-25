@@ -1683,6 +1683,10 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
             return None
 
+        def text(value):
+            """The value for the inside of an SQL string literal"""
+            return value.replace("'", "''")
+
         # initialized WHERE statement
         if where:
             where += " AND "
@@ -1692,7 +1696,7 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         # be case-insensitive
         if "_" in self.semantic_label:
             # fully-qualified semantic label, do not modify
-            where += "semantic_label IN ('{}'".format(self.semantic_label)
+            where += "semantic_label IN ('{}'".format(text(self.semantic_label))
 
             # be zero-padding less sensitive
             try:
@@ -1700,7 +1704,7 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 identifier_zp = leading_zero(identifier)
                 if identifier_zp:
                     where += ", '{fl}_{zp}'".format(
-                        fl=shortcut.upper(), zp=identifier_zp.upper()
+                        fl=text(shortcut.upper()), zp=text(identifier_zp.upper())
                     )
             except ValueError:
                 # any number of "_" is allowed in semantic labels
@@ -1717,13 +1721,13 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                     "{br} LIKE '{orig}\\_%' {esc} OR "
                     "{br} LIKE '%\\_{orig}' {esc}".format(
                         br="semantic_label",
-                        si=shortcut_identifier,
-                        orig=self.semantic_label.upper(),
+                        si=text(shortcut_identifier),
+                        orig=text(self.semantic_label.upper()),
                         esc="ESCAPE '\\'",
                     )
                 )
             else:
-                where += "semantic_label = '{}'".format(self.semantic_label)
+                where += "semantic_label = '{}'".format(text(self.semantic_label))
 
         return where
 

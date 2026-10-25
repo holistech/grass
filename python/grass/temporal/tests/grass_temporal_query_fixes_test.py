@@ -161,3 +161,16 @@ def test_common_granularity_of_an_invalid_granule_is_false_with_dates():
     )
 
     assert result is False
+
+
+@pytest.mark.parametrize(
+    "label", ["x' OR '1'='1", "x' OR '1'='1_1", "it's", "it's_01", "0' OR '1'='1"]
+)
+def test_semantic_label_with_a_quote_is_text(small_strds, label):
+    # The map has no semantic label, so no label can select it. A label that
+    # leaves its quotes opens the statement: the first one selects every map.
+    small_strds.semantic_label = label
+
+    rows = small_strds.get_registered_maps("name")
+
+    assert not rows
