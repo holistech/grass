@@ -22,7 +22,7 @@ from .base import (
     VectorBase,
     VectorSTDSRegister,
 )
-from .c_libraries_interface import CLibrariesInterface, RPCDefs, c_library_server
+from .c_libraries_interface import CLibrariesInterface
 from .db import (
     DBConnection,
     SQLDatabaseInterfaceConnection,
@@ -214,7 +214,6 @@ __all__ = [
     "DictSQLSerializer",
     "FatalError",
     "GlobalTemporalVar",
-    "RPCDefs",
     "Raster3DAbsoluteTime",
     "Raster3DBase",
     "Raster3DDataset",
@@ -283,7 +282,6 @@ __all__ = [
     "aggregate_by_topology",
     "aggregate_raster_maps",
     "assign_valid_time_to_map",
-    "c_library_server",
     "check_datetime_string",
     "check_granularity_string",
     "check_new_map_dataset",

@@ -17,6 +17,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal import c_libraries_interface
 from grass.pygrass.messages import FatalError
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -296,3 +297,23 @@ def test_an_unknown_request_is_answered_with_an_error(ciface, number):
 
     assert ciface.get_mapset()
     assert ciface.server.pid == pid
+
+
+def test_a_call_by_an_unknown_name_is_answered_with_an_error(ciface):
+    pid = ciface.server.pid
+
+    with pytest.raises(FatalError, match="no function no_such_function"):
+        ciface.call("no_such_function")
+
+    assert ciface.get_mapset()
+    assert ciface.server.pid == pid
+
+
+def test_a_function_is_registered_once():
+    # A second registration under the same name would replace the first
+    # silently, so the decorator refuses it.
+    with pytest.raises(ValueError, match="registered twice"):
+
+        @c_libraries_interface._handler("get_mapset")
+        def other(**_):
+            return None
