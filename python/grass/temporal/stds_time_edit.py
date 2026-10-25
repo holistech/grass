@@ -358,7 +358,7 @@ def snap(stds, dbif=None) -> None:
     with connection(dbif) as dbif:
         maps = stds.get_registered_maps_as_objects(dbif=dbif)
 
-        if maps is None:
+        if not maps:
             return
 
         extents = [item.get_temporal_extent_as_tuple() for item in maps]

@@ -738,3 +738,10 @@ def test_shifting_a_dataset_without_maps_gives_false(pair):
 
     assert stds.shift("1 day") is False
     assert register_ids(stds) == []
+
+
+def test_snapping_a_dataset_without_maps_changes_nothing(pair):
+    stds = stds_of(pair, "other")
+
+    assert stds.snap() is None
+    assert register_ids(stds) == []
