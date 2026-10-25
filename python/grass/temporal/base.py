@@ -666,13 +666,10 @@ class DatasetBase(SQLDatabaseInterface):
         SQLDatabaseInterface.__init__(self, table, ident)
 
         self.set_id(ident)
-        if ident is not None and name is None and mapset is None:
-            if ident.find("@") >= 0:
-                name, mapset = ident.split("@")
-            if name.find(":") >= 0:
-                name, layer = ident.split(":")
-        self.set_name(name)
-        self.set_mapset(mapset)
+        # set_id() has derived name and mapset from the identifier
+        if ident is None or name is not None or mapset is not None:
+            self.set_name(name)
+            self.set_mapset(mapset)
         self.set_creator(creator)
         self.set_ctime(ctime)
         self.set_ttype(ttype)
@@ -686,17 +683,22 @@ class DatasetBase(SQLDatabaseInterface):
         """
         self.ident = ident
         self.D["id"] = ident
-        name = ""
 
         if ident is not None:
-            if ident.find("@") >= 0:
-                name, mapset = ident.split("@")
-                self.set_mapset(mapset)
-                self.set_name(name)
-            else:
+            if ident.find("@") < 0:
                 self.msgr.fatal(_("Wrong identifier, the mapset is missing"))
+            parts = ident.split("@")
+            name = parts[0]
+            if len(parts) != 2 or name.count(":") > 1:
+                self.msgr.fatal(
+                    _(
+                        "Wrong identifier <{ident}>, it must be name@mapset "
+                        "or name:layer@mapset"
+                    ).format(ident=ident)
+                )
+            self.set_mapset(parts[1])
             if name.find(":") >= 0:
-                name, layer = ident.split(":")
+                name, layer = name.split(":")
                 self.set_layer(layer)
             self.set_name(name)
 

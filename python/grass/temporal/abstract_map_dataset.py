@@ -19,6 +19,7 @@ from .core import (
     get_enable_mapset_check,
     get_enable_timestamp_write,
     get_tgis_c_library_interface,
+    get_tgis_message_interface,
     init_dbif,
 )
 from .datetime_math import (
@@ -172,13 +173,23 @@ class AbstractMapDataset(AbstractDataset):
                  layer is optional
         """
 
+        # More than one @ or : cannot be an identifier; cutting the rest
+        # off would silently address another map.
+        if name.count("@") > 1 or name.partition("@")[0].count(":") > 1:
+            get_tgis_message_interface().fatal(
+                _(
+                    "Wrong identifier <{ident}>, it must be name@mapset "
+                    "or name:layer@mapset"
+                ).format(ident=name)
+            )
+
         # Check if the name includes any mapset
         if name.find("@") >= 0:
-            name, mapset = name.split("@")[0:2]
+            name, mapset = name.split("@")
 
         # Check for layer number in map name
         if name.find(":") >= 0:
-            name, layer = name.split(":")[0:2]
+            name, layer = name.split(":")
 
         return name, layer, mapset
 

@@ -40,3 +40,22 @@ def test_an_unknown_mapset_is_refused(tools, prefix):
 def test_an_unknown_type_is_refused(tools):
     with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_copy(type="raster", input="a", output="b")
+
+
+@pytest.mark.parametrize("identifier", ["a@b@c", "a:b:c@m"])
+def test_an_input_with_too_many_parts_is_refused(tools, prefix, identifier):
+    with pytest.raises(ToolError) as error:
+        tools.t_copy(input=identifier, output=f"{prefix}_copy")
+
+    assert "Wrong identifier" in error.value.stderr
+    assert "Traceback" not in error.value.stderr
+
+
+def test_an_output_with_two_mapsets_is_refused(tools, make_stds):
+    _, (name,) = make_stds(1)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_copy(input=name, output="a@b@c")
+
+    assert "Wrong identifier" in error.value.stderr
+    assert "Traceback" not in error.value.stderr

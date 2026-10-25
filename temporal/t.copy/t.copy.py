@@ -74,6 +74,13 @@ def main():
 
     outmapset = mapset
     if "@" in output:
+        if output.count("@") > 1:
+            gs.fatal(
+                _(
+                    "Wrong identifier <{ident}>, it must be name@mapset "
+                    "or name:layer@mapset"
+                ).format(ident=output)
+            )
         _outname, outmapset = output.split("@")
         if outmapset != mapset:
             gs.fatal(
