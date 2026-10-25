@@ -2552,9 +2552,17 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             )
 
         dbif, connection_state_changed = init_dbif(dbif)
+        try:
+            return self._register_map(map, dbif, mapset)
+        finally:
+            # A connection that was handed in belongs to the caller, also
+            # when the registration stops with an error.
+            if connection_state_changed:
+                dbif.close()
 
+    def _register_map(self, map, dbif, mapset) -> bool:
+        """Register the map over the open connection, see register_map()"""
         if map.is_in_db(dbif, mapset=self.get_mapset()) is False:
-            dbif.close()
             self.msgr.fatal(
                 _(
                     "Only a map that was inserted in the temporal "
@@ -2678,7 +2686,6 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 )
 
         if stds_mapset != mapset:
-            dbif.close()
             self.msgr.fatal(
                 _("Maps can only registered in a database in the current mapset")
             )
@@ -2712,9 +2719,6 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         # Now execute the insert transaction
         # only databases in the current mapset can be modified
         dbif.execute_transaction(statement, mapset=stds_mapset)
-
-        if connection_state_changed:
-            dbif.close()
 
         # increase the counter
         self.map_counter += 1

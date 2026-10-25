@@ -1,5 +1,7 @@
 """Regression tests for faults in queries, registration and topology"""
 
+from pathlib import Path
+
 import pytest
 
 import grass.temporal as tgis
@@ -8,6 +10,19 @@ from grass.temporal.testing.session import mapset_session, temporal_session
 from grass.tools import Tools
 
 pytestmark = pytest.mark.real_io
+
+
+def _open_handles(path):
+    """Count the file descriptors of this process that point to the file"""
+    target = Path(path).resolve()
+    count = 0
+    for descriptor in Path("/proc/self/fd").iterdir():
+        try:
+            if descriptor.readlink().resolve() == target:
+                count += 1
+        except OSError:
+            continue
+    return count
 
 
 @pytest.fixture(scope="module")
@@ -94,3 +109,41 @@ def test_where_with_a_semicolon_is_not_cut_into_a_valid_statement(small_strds):
     # hide that the condition is not valid SQL.
     with pytest.raises(tgis.SQLStatementError):
         small_strds.get_registered_maps("name", where="name = 'b15_map'; --")
+
+
+def _unregistered_map():
+    return tgis.RasterDataset("b16_not_in_db@" + tgis.get_current_mapset())
+
+
+def test_register_map_leaves_a_given_connection_open_on_abort(small_strds):
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    with pytest.raises(tgis.FatalError, match="inserted in the temporal"):
+        small_strds.register_map(_unregistered_map(), dbif)
+
+    assert dbif.is_connected()
+    dbif.close()
+
+
+def test_register_map_closes_its_own_connection_on_abort(small_strds):
+    path = tgis.get_tgis_database_string()
+    before = _open_handles(path)
+
+    with pytest.raises(tgis.FatalError) as error:
+        small_strds.register_map(_unregistered_map())
+
+    assert error.tb is not None
+    assert _open_handles(path) == before
+
+
+def test_register_map_leaves_a_given_connection_open_when_done(small_strds):
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    # The map is registered already: the call ends with a warning and False
+    done = tgis.RasterDataset("b15_map@" + tgis.get_current_mapset())
+
+    assert small_strds.register_map(done, dbif) is False
+
+    assert dbif.is_connected()
+    dbif.close()
