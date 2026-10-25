@@ -1378,7 +1378,7 @@ class DBConnection:
 
         if dbstring is None:
             global tgis_database_string
-            self.dbstring = tgis_database_string
+            dbstring = tgis_database_string
 
         self.dbstring = dbstring
 
@@ -1458,7 +1458,7 @@ class DBConnection:
                 % (
                     {
                         "db": self.dbmi.__name__,
-                        "string": tgis_database_string,
+                        "string": dbstring,
                         "ex": e,
                     }
                 )

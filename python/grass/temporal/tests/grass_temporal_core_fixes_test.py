@@ -149,3 +149,24 @@ def test_second_session_has_running_servers(two_projects, monkeypatch):
     forks = [w for w in caught if "fork()" in str(w.message)]
     assert forks == []
     assert not [u for u in unraisable if "fork()" in str(u.exc_value)]
+
+
+def test_db_connection_defaults_to_the_current_database(temporal_module_session):
+    tgis.init()
+
+    connection = core.DBConnection()
+
+    assert connection.dbstring == core.tgis_database_string
+    assert connection.dbstring
+
+
+def test_connect_error_names_the_own_database(temporal_module_session, tmp_path):
+    tgis.init(raise_fatal_error=True)
+    own = str(tmp_path / "missing_directory" / "own.db")
+    connection = core.DBConnection(backend="sqlite", dbstring=own)
+
+    with pytest.raises(FatalError) as error:
+        connection.connect()
+
+    assert own in str(error.value)
+    assert core.tgis_database_string not in str(error.value)
