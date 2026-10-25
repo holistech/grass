@@ -4,37 +4,43 @@
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   },
   "RasterDataset": {
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   },
   "SpaceTimeRaster3DDataset": {
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   },
   "SpaceTimeRasterDataset": {
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   },
   "SpaceTimeVectorDataset": {
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   },
   "VectorDataset": {
    "absolute_time": "repo",
    "base": "repo",
    "metadata": "addons+repo",
-   "relative_time": "repo"
+   "relative_time": "repo",
+   "temporal_extent": "repo"
   }
  },
  "members": {
