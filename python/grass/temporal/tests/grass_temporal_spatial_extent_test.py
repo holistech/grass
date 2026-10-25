@@ -4,6 +4,8 @@ Extents are plain value objects, so no GRASS session and no temporal database
 are needed here.
 """
 
+from types import SimpleNamespace
+
 import pytest
 
 from grass.temporal.spatial_extent import SpatialExtent
@@ -169,3 +171,33 @@ def test_spatial_relation_of_separate_extents_is_disjoint() -> None:
 
     assert one.spatial_relation_2d(other) == "disjoint"
     assert one.spatial_relation(other) == "disjoint"
+
+
+@pytest.mark.parametrize(
+    ("method", "named"),
+    [
+        ("overlapping", "overlapping_2d"),
+        ("overlapping_2d", "overlapping_2d"),
+        ("is_in", "is_in_2d"),
+        ("is_in_2d", "is_in_2d"),
+        ("equivalent", "equivalent_2d"),
+        ("equivalent_2d", "equivalent_2d"),
+        ("cover", "cover"),
+        ("cover_2d", "cover_2d"),
+    ],
+)
+def test_different_projections_are_reported_and_never_related(
+    method, named, monkeypatch
+) -> None:
+    # The 3D methods ask their 2D twin first, so their message names that
+    # twin. Only cover has a message of its own for each.
+    errors = []
+    monkeypatch.setattr(
+        "grass.temporal.rows.get_tgis_message_interface",
+        lambda: SimpleNamespace(error=errors.append),
+    )
+    other = SpatialExtent(**{**REFERENCE, "proj": "LL"})
+    assert getattr(extent(), method)(other) is False
+    assert errors == [
+        f"Projections are different. Unable to compute {named} for spatial extents"
+    ]
