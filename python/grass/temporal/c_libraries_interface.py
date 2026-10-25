@@ -1080,30 +1080,37 @@ def _read_vector_history(name, mapset):
 ###############################################################################
 
 
-# The unit a relative GRASS datetime is written in, as the name and the field
-# that holds its value. A compound value such as "1 year 6 months" is read in
-# its leading unit.
-_RELATIVE_UNITS = {
-    libdate.DATETIME_YEAR: ("years", "year"),
-    libdate.DATETIME_MONTH: ("months", "month"),
-    libdate.DATETIME_DAY: ("days", "day"),
-    libdate.DATETIME_HOUR: ("hours", "hour"),
-    libdate.DATETIME_MINUTE: ("minutes", "minute"),
-    libdate.DATETIME_SECOND: ("seconds", "second"),
-}
+# The units a relative GRASS datetime can be written in, from the largest to the
+# smallest, as the name and the field that holds the value.
+_RELATIVE_UNITS = (
+    (libdate.DATETIME_YEAR, "years", "year"),
+    (libdate.DATETIME_MONTH, "months", "month"),
+    (libdate.DATETIME_DAY, "days", "day"),
+    (libdate.DATETIME_HOUR, "hours", "hour"),
+    (libdate.DATETIME_MINUTE, "minutes", "minute"),
+    (libdate.DATETIME_SECOND, "seconds", "second"),
+)
 
 
 def _relative_value(datetime_):
     """Return the signed value and the unit of a relative GRASS datetime
 
-    The unit is the one the timestamp was written in, so "0 days" is zero and
-    not a missing value. The sign is the one of the C structure.
+    A single value is read in the unit it was written in, so "0 days" is zero
+    and not a missing value. A compound value such as "1 year 6 months" is
+    read in its leading unit, or in the first unit that is not zero when the
+    leading one is zero ("0 years 6 months" is six months, as it always was).
+    The sign is the one of the C structure.
     """
-    unit, field = _RELATIVE_UNITS.get(getattr(datetime_, "from"), (None, None))
-    if unit is None:
+    leading = getattr(datetime_, "from")
+    # The constants grow from DATETIME_YEAR to DATETIME_SECOND
+    units = [unit for unit in _RELATIVE_UNITS if unit[0] >= leading]
+    if not units:
         return None, None
+    _, name, field = next(
+        (unit for unit in units if getattr(datetime_, unit[2]) != 0), units[0]
+    )
     value = getattr(datetime_, field)
-    return (value if datetime_.positive else -value), unit
+    return (value if datetime_.positive else -value), name
 
 
 def _convert_timestamp_from_grass(ts):

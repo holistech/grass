@@ -227,6 +227,11 @@ RELATIVE = [
     ("2 days / 5 days", (2, 5, "days")),
     ("-3 days / 0 days", (-3, 0, "days")),
     ("0 seconds", (0, None, "seconds")),
+    # compound values are read in their leading unit as before, and in the
+    # first unit that is not zero if the leading one is zero
+    ("1 year 6 months", (1, None, "years")),
+    ("0 years 6 months", (6, None, "months")),
+    ("0 days 5 hours", (5, None, "hours")),
 ]
 
 
