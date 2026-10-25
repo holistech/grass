@@ -1127,7 +1127,7 @@ class AbstractMapDataset(AbstractDataset):
         """
         self.msgr.debug(2, "AbstractMapDataset.add_stds_to_register")
 
-        with connection(None) as dbif:
+        with connection(dbif) as dbif:
             # only modify database in current mapset
             mapset = get_current_mapset()
             datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)

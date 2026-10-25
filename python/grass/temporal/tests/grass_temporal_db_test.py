@@ -434,3 +434,26 @@ def test_connection_leaves_a_connected_one_open_on_an_error():
         assert dbif.is_connected()
     finally:
         dbif.close()
+
+
+def test_add_stds_to_register_works_on_the_connection_it_is_given(monkeypatch):
+    # A second connection would not see what the caller has written and not
+    # yet committed over the first one.
+    opened = []
+    connect = tgis.SQLDatabaseInterfaceConnection.connect
+
+    def counting(self, *args, **kwargs):
+        opened.append(self)
+        return connect(self, *args, **kwargs)
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    monkeypatch.setattr(tgis.SQLDatabaseInterfaceConnection, "connect", counting)
+    try:
+        tgis.RasterDataset("registering@PERMANENT").add_stds_to_register(
+            "some@PERMANENT", dbif=dbif, execute=False
+        )
+    finally:
+        dbif.close()
+
+    assert opened == []
