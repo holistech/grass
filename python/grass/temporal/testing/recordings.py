@@ -565,6 +565,134 @@ def datetime_math_cases():
                 for number in range(5)
             ],
         )
+    yield from _datetime_conversion_cases(dates)
+
+
+_TEXTS = (
+    "2001-01-31",
+    "2001-01-31 12:30:45",
+    "2000-02-29 00:00:00",
+    "2001-02-29",
+    "2001-13-01",
+    "2001-01-31 25:00:00",
+    "2001-01-31T12:30:45",
+    "2001-01-31 12:30:45+02:00",
+    "2001-01-31 12:30:45.5",
+    "31.01.2001",
+    "0",
+    "-1",
+    "1 day",
+    "",
+    "x",
+)
+_MODIFIERS = (
+    {"months": 1},
+    {"months": -1},
+    {"years": 1},
+    {"years": 1, "months": 11},
+    {"months": 23},
+    {"weeks": 1, "days": 1},
+    {"hours": 25, "minutes": 61, "seconds": 61},
+    {"months": 1, "days": 1},
+    {"years": -1},
+    {},
+)
+
+
+def _datetime_conversion_cases(dates):
+    """Modification, parsing and formatting of dates, suffixes and deltas"""
+    import grass.temporal as tgis  # noqa: PLC0415
+    from grass.temporal import datetime_math  # noqa: PLC0415
+
+    for index, modifier in enumerate(_MODIFIERS):
+        yield (
+            f"modify/{index}/{modifier}",
+            lambda modifier=modifier: [
+                outcome(lambda date: datetime_math.modify_datetime(date, **modifier), d)
+                for d in dates
+            ],
+        )
+    for step in _STEPS:
+        for mult, sign in ((1, 1), (2, -1), (0, 1)):
+            yield (
+                f"modify_by_string/{step}/{mult}/{sign}",
+                lambda step=step, mult=mult, sign=sign: [
+                    outcome(
+                        datetime_math.modify_datetime_by_string, date, step, mult, sign
+                    )
+                    for date in dates
+                ],
+            )
+    for text in _TEXTS:
+        yield (
+            f"string_to_datetime/{text}",
+            lambda text=text: [
+                outcome(tgis.string_to_datetime, text),
+                outcome(datetime_math.check_datetime_string, text),
+                outcome(datetime_math.check_datetime_string, text, False),
+            ],
+        )
+    yield (
+        "to_grass_string",
+        lambda: [
+            outcome(tgis.datetime_to_grass_datetime_string, date)
+            for date in (*dates, None)
+        ],
+    )
+    for gran in (*_GRANULARITIES, "1 fortnight"):
+        yield (
+            f"suffix_from_datetime/{gran}",
+            lambda gran=gran: [
+                outcome(datetime_math.create_suffix_from_datetime, date, gran)
+                for date in dates
+            ],
+        )
+    yield (
+        "numeric_suffix",
+        lambda: [
+            outcome(datetime_math.create_numeric_suffix, base, count, zeros)
+            for base in ("m", "")
+            for count in (0, 1, 9, 10, 123)
+            for zeros in ("%05d", "%d", "%02d", "")
+        ],
+    )
+    yield (
+        "relative_conversions",
+        lambda: (
+            [
+                outcome(function, value)
+                for function in (
+                    datetime_math.relative_time_to_time_delta,
+                    datetime_math.relative_time_to_time_delta_seconds,
+                )
+                for value in (0, 1, 1.5, -2, 86400, 86400.25)
+            ]
+            + [
+                outcome(function, timedelta(**kwargs))
+                for function in (
+                    datetime_math.time_delta_to_relative_time,
+                    datetime_math.time_delta_to_relative_time_seconds,
+                )
+                for kwargs in (
+                    {},
+                    {"days": 1},
+                    {"days": 1, "seconds": 1, "microseconds": 250000},
+                    {"days": -2},
+                    {"hours": 36},
+                )
+            ]
+        ),
+    )
+    yield (
+        "gcd",
+        lambda: (
+            [outcome(tgis.gcd, a, b) for a in (0, 1, 6, 12, 35) for b in (0, 1, 4, 18)]
+            + [
+                outcome(tgis.gcd_list, items)
+                for items in ([], [4], [4, 6], [12, 18, 8])
+            ]
+        ),
+    )
 
 
 ###############################################################################
