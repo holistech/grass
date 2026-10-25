@@ -8,12 +8,13 @@ relations: a consumer that walks them sees a stable order.
 
 import contextlib
 import copy
+import datetime
 import io
 import pickle
 
 import pytest
 
-from grass.temporal import RasterDataset
+from grass.temporal import RasterDataset, SpaceTimeRasterDataset
 from grass.temporal.topology import (
     print_spatial_topology_info,
     print_spatial_topology_shell_info,
@@ -408,3 +409,64 @@ def test_a_shallow_copy_shares_the_links():
     set_temporal_relationship(a, b, "during")
 
     assert copy.copy(a).get_contains() == [b]
+
+
+def timed_maps(*extents):
+    """Raster map objects with absolute times, a list of (start, end) tuples"""
+    maps = []
+    for number, (start, end) in enumerate(extents):
+        map_ = RasterDataset(f"t{number}@p")
+        map_.set_absolute_time(start, end)
+        maps.append(map_)
+    return maps
+
+
+def day(number):
+    return datetime.datetime(2001, 1, number)
+
+
+@pytest.fixture
+def stds():
+    return SpaceTimeRasterDataset("s@p")
+
+
+def test_the_temporal_types_of_map_objects_are_counted(stds):
+    maps = timed_maps((day(1), day(2)), (day(2), None), (day(3), day(4)))
+
+    assert stds.count_temporal_types(maps) == {
+        "point": 1,
+        "interval": 2,
+        "invalid": 0,
+    }
+
+
+def test_the_temporal_types_of_database_rows_are_counted(stds):
+    rows = [
+        {"start_time": day(1), "end_time": day(2)},
+        {"start_time": day(2), "end_time": None},
+        {"start_time": None, "end_time": None},
+        {"start_time": None, "end_time": day(2)},
+    ]
+
+    assert stds.count_temporal_types(rows) == {"point": 1, "interval": 1, "invalid": 2}
+
+
+def test_no_maps_have_no_temporal_types(stds):
+    assert stds.count_temporal_types([]) == {"point": 0, "interval": 0, "invalid": 0}
+
+
+def test_the_gaps_between_neighbours_are_counted(stds):
+    maps = timed_maps(
+        (day(1), day(2)),
+        (day(2), day(3)),
+        (day(5), day(6)),
+        (day(6), day(7)),
+        (day(9), day(10)),
+    )
+
+    assert stds.count_gaps(maps) == 2
+
+
+@pytest.mark.parametrize("count", [0, 1])
+def test_fewer_than_two_maps_have_no_gaps(stds, count):
+    assert stds.count_gaps(timed_maps(*[(day(1), day(2))] * count)) == 0
