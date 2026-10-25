@@ -4,12 +4,19 @@ Extents are plain value objects, so no GRASS session and no temporal database
 are needed here.
 """
 
+import copy
 import itertools
+import pickle
 from datetime import datetime
 
 import pytest
 
-from grass.temporal.temporal_extent import RelativeTemporalExtent, TemporalExtent
+from grass.temporal.kinds import KINDS
+from grass.temporal.temporal_extent import (
+    AbsoluteTimeRow,
+    RelativeTemporalExtent,
+    TemporalExtent,
+)
 
 # The order in which the first matching predicate names the relation. It is the
 # order of the chain that temporal_relation() used before it read a table.
@@ -100,3 +107,24 @@ def test_relative_extents_with_different_units_have_no_relation():
 
     assert a.temporal_relation(b) is None
     assert a.temporal_relation(c) == "equal"
+
+
+def test_extents_survive_copy_and_pickle():
+    extents = [
+        TemporalExtent(start_time=1, end_time=2),
+        AbsoluteTimeRow(
+            KINDS["strds"],
+            ident="a@PERMANENT",
+            start_time=datetime(2001, 1, 1),
+            granularity="1 days",
+            map_time="point",
+        ),
+    ]
+    for extent in extents:
+        for clone in (
+            copy.copy(extent),
+            copy.deepcopy(extent),
+            pickle.loads(pickle.dumps(extent)),  # noqa: S301
+        ):
+            assert type(clone) is type(extent)
+            assert clone.D == extent.D

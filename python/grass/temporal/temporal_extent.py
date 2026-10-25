@@ -43,6 +43,123 @@ _STDS_COLUMNS = (
 )
 
 
+# The relation of two extents A and B is a function of four comparisons, each -1,
+# 0 or 1 (A less than, equal to, greater than B), or None when an end time is
+# missing: start of A with start of B, end with end, start of A with end of B,
+# end of A with start of B. The table was derived on 25.10.2026 from the chain of
+# the predicates in their former order (equal, during, contains, ...) over all
+# pairs of extents with start times and end times 0 to 5 and without end times:
+# 72 keys, none with two names. It keeps the order of that chain also for the
+# keys of an end before its start, for which the names of the predicates
+# (e.g. starts, follows) and the table do not always agree.
+_RELATION_KEYS = {
+    "equal": (
+        (0, None, None, None),
+        (0, 0, -1, 1),
+        (0, 0, 0, 0),
+        (0, 0, 1, -1),
+    ),
+    "during": (
+        (0, None, -1, None),
+        (1, None, -1, None),
+        (1, -1, -1, -1),
+        (1, -1, -1, 0),
+        (1, -1, -1, 1),
+        (1, -1, 0, -1),
+        (1, -1, 0, 0),
+        (1, -1, 0, 1),
+        (1, -1, 1, -1),
+        (1, -1, 1, 0),
+        (1, -1, 1, 1),
+    ),
+    "contains": (
+        (-1, None, None, 1),
+        (-1, 1, -1, -1),
+        (-1, 1, -1, 0),
+        (-1, 1, -1, 1),
+        (-1, 1, 0, -1),
+        (-1, 1, 0, 0),
+        (-1, 1, 0, 1),
+        (-1, 1, 1, -1),
+        (-1, 1, 1, 0),
+        (-1, 1, 1, 1),
+        (0, None, None, 1),
+    ),
+    "overlaps": ((-1, -1, -1, 1),),
+    "overlapped": ((1, 1, -1, 1),),
+    "after": (
+        (-1, None, 1, None),
+        (-1, -1, 1, -1),
+        (-1, 0, 1, -1),
+        (0, None, 1, None),
+        (0, -1, 1, -1),
+        (0, 1, 1, -1),
+        (0, 1, 1, 0),
+        (0, 1, 1, 1),
+        (1, None, None, None),
+        (1, None, None, -1),
+        (1, None, None, 0),
+        (1, None, None, 1),
+        (1, None, 1, None),
+        (1, 0, 1, -1),
+        (1, 0, 1, 0),
+        (1, 0, 1, 1),
+        (1, 1, 1, -1),
+        (1, 1, 1, 0),
+        (1, 1, 1, 1),
+    ),
+    "before": (
+        (-1, None, None, None),
+        (-1, None, None, -1),
+        (-1, None, -1, None),
+        (-1, None, 0, None),
+        (-1, -1, -1, -1),
+        (-1, -1, 0, -1),
+        (-1, 0, -1, -1),
+        (-1, 0, 0, -1),
+        (0, None, None, -1),
+        (0, -1, -1, -1),
+        (0, -1, 0, -1),
+    ),
+    "starts": (
+        (0, -1, -1, 0),
+        (0, -1, -1, 1),
+    ),
+    "finishes": (
+        (1, 0, -1, 1),
+        (1, 0, 0, 1),
+    ),
+    "started": (
+        (0, 1, -1, 1),
+        (0, 1, 0, 1),
+    ),
+    "finished": (
+        (-1, 0, -1, 0),
+        (-1, 0, -1, 1),
+    ),
+    "follows": (
+        (0, None, 0, None),
+        (1, None, 0, None),
+        (1, 1, 0, 1),
+    ),
+    "precedes": (
+        (-1, None, None, 0),
+        (-1, -1, -1, 0),
+        (0, None, None, 0),
+    ),
+}
+_RELATIONS = {
+    key: relation for relation, keys in _RELATION_KEYS.items() for key in keys
+}
+
+
+def _compare(a, b):
+    """Return -1, 0 or 1 for a less than, equal to or greater than b, or None"""
+    if a is None or b is None:
+        return None
+    return (a > b) - (a < b)
+
+
 class TemporalExtent(Row):
     """This is the abstract time base class for relative and absolute time
     objects.
@@ -919,33 +1036,16 @@ class TemporalExtent(Row):
         if self.D["start_time"] is None or extent.D["start_time"] is None:
             return None
 
-        if self.equal(extent):
-            return "equal"
-        if self.during(extent):
-            return "during"
-        if self.contains(extent):
-            return "contains"
-        if self.overlaps(extent):
-            return "overlaps"
-        if self.overlapped(extent):
-            return "overlapped"
-        if self.after(extent):
-            return "after"
-        if self.before(extent):
-            return "before"
-        if self.starts(extent):
-            return "starts"
-        if self.finishes(extent):
-            return "finishes"
-        if self.started(extent):
-            return "started"
-        if self.finished(extent):
-            return "finished"
-        if self.follows(extent):
-            return "follows"
-        if self.precedes(extent):
-            return "precedes"
-        return None
+        start, end = self.D["start_time"], self.D["end_time"]
+        other_start, other_end = extent.D["start_time"], extent.D["end_time"]
+        return _RELATIONS.get(
+            (
+                _compare(start, other_start),
+                _compare(end, other_end),
+                _compare(start, other_end),
+                _compare(end, other_start),
+            )
+        )
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
@@ -979,6 +1079,21 @@ class AbsoluteTemporalExtent(TemporalExtent):
     def print_shell_info(self) -> None:
         """Print information about this class in shell style"""
         TemporalExtent.print_shell_info(self)
+
+
+def _set_dataset_fields(row, granularity, map_time) -> None:
+    """Set the columns that only the time of a space time dataset has"""
+    if row.kind.is_stds:
+        row.set_granularity(granularity)
+        row.set_map_time(map_time)
+
+
+def _print_dataset_info(row) -> None:
+    """Print the columns that only the time of a space time dataset has"""
+    if row.kind.is_stds:
+        #      0123456789012345678901234567890
+        print(" | Granularity:................ " + str(row.get_granularity()))
+        print(" | Temporal type of maps:...... " + str(row.get_map_time()))
 
 
 class AbsoluteTimeRow(AbsoluteTemporalExtent):
@@ -1050,17 +1165,12 @@ class AbsoluteTimeRow(AbsoluteTemporalExtent):
         )
         self.kind = kind
 
-        if kind.is_stds:
-            self.set_granularity(granularity)
-            self.set_map_time(map_time)
+        _set_dataset_fields(self, granularity, map_time)
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         AbsoluteTemporalExtent.print_info(self)
-        if self.kind.is_stds:
-            #      0123456789012345678901234567890
-            print(" | Granularity:................ " + str(self.get_granularity()))
-            print(" | Temporal type of maps:...... " + str(self.get_map_time()))
+        _print_dataset_info(self)
 
     def print_shell_info(self) -> None:
         """Print information about this class in shell style"""
@@ -1233,17 +1343,12 @@ class RelativeTimeRow(RelativeTemporalExtent):
         )
         self.kind = kind
 
-        if kind.is_stds:
-            self.set_granularity(granularity)
-            self.set_map_time(map_time)
+        _set_dataset_fields(self, granularity, map_time)
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         RelativeTemporalExtent.print_info(self)
-        if self.kind.is_stds:
-            #      0123456789012345678901234567890
-            print(" | Granularity:................ " + str(self.get_granularity()))
-            print(" | Temporal type of maps:...... " + str(self.get_map_time()))
+        _print_dataset_info(self)
 
     def print_shell_info(self) -> None:
         """Print information about this class in shell style"""
