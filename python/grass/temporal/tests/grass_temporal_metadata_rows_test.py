@@ -377,3 +377,13 @@ def test_insert_select_update_delete(kind):
 
     row.delete()
     assert row.is_in_db() is False
+
+
+def test_a_3d_raster_dataset_prints_its_own_top_bottom_resolution(capsys):
+    # The human readable text used to show the east-west resolution on these
+    # two lines.
+    make("str3ds", filled=True).print_info()
+
+    lines = capsys.readouterr().out.splitlines()
+    assert " | Top-bottom resolution min:.. 5.5" in lines
+    assert " | Top-bottom resolution max:.. 6.6" in lines

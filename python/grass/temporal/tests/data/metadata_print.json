@@ -191,7 +191,7 @@
    "tbres_min",
    "tbres_max"
   ],
-  "info": " +-------------------- Metadata information ----------------------------------+\n | 3D raster register table:... str3ds_map_register_abc\n | Top-bottom resolution min:.. 3.3\n | Top-bottom resolution max:.. 4.4\n | North-South resolution min:. 1.1\n | North-South resolution max:. 2.2\n | East-west resolution min:... 3.3\n | East-west resolution max:... 4.4\n | Minimum value min:.......... -1.5\n | Minimum value max:.......... 2.0\n | Maximum value min:.......... 3.25\n | Maximum value max:.......... 4.125\n | Aggregation type:........... mean\n | Number of registered maps:.. 3\n |\n | Title:\n | A title\n | Description:\n | A description\n | Command history:\n | t.create output=a\n | t.register input=a\n",
+  "info": " +-------------------- Metadata information ----------------------------------+\n | 3D raster register table:... str3ds_map_register_abc\n | Top-bottom resolution min:.. 5.5\n | Top-bottom resolution max:.. 6.6\n | North-South resolution min:. 1.1\n | North-South resolution max:. 2.2\n | East-west resolution min:... 3.3\n | East-west resolution max:... 4.4\n | Minimum value min:.......... -1.5\n | Minimum value max:.......... 2.0\n | Maximum value min:.......... 3.25\n | Maximum value max:.......... 4.125\n | Aggregation type:........... mean\n | Number of registered maps:.. 3\n |\n | Title:\n | A title\n | Description:\n | A description\n | Command history:\n | t.create output=a\n | t.register input=a\n",
   "shell": "raster3d_register=str3ds_map_register_abc\ntbres_min=5.5\ntbres_max=6.6\nnsres_min=1.1\nnsres_max=2.2\newres_min=3.3\newres_max=4.4\nmin_min=-1.5\nmin_max=2.0\nmax_min=3.25\nmax_max=4.125\naggregation_type=mean\nnumber_of_maps=3\n"
  },
  "stvds_empty": {

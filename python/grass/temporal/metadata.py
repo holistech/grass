@@ -1726,8 +1726,8 @@ class STR3DSMetadata(STDSRasterMetadataBase):
             print(
                 " | 3D raster register table:... " + str(self.get_raster3d_register())
             )
-            print(" | Top-bottom resolution min:.. " + str(self.get_ewres_min()))
-            print(" | Top-bottom resolution max:.. " + str(self.get_ewres_max()))
+            print(" | Top-bottom resolution min:.. " + str(self.get_tbres_min()))
+            print(" | Top-bottom resolution max:.. " + str(self.get_tbres_max()))
         super()._print_info_body(shell)
 
 
