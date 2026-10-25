@@ -166,7 +166,7 @@ def test_a_failed_write_is_reported(
     assert messages.errors == [text.format(label=label, map_id=dataset.get_map_id())]
 
 
-@pytest.mark.parametrize(("cls", "ident", "kind", "label"), MAPS[:2], ids=IDS[:2])
+@pytest.mark.parametrize(("cls", "ident", "kind", "label"), MAPS, ids=IDS)
 def test_an_internal_error_of_the_write_is_reported(
     cls, ident, kind, label, ciface, messages
 ):

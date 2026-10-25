@@ -1055,6 +1055,10 @@ class VectorDataset(_PlanarExtentMethods, AbstractMapDataset):
             )
             return False
 
+        if check == -3:
+            self.msgr.error(_("Internal error"))
+            return False
+
         return True
 
     def remove_timestamp_from_grass(self) -> bool:
