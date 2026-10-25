@@ -113,7 +113,7 @@ the SQL object serialization, all classes that represent table entries, datetime
 :mod:`~grass.temporal.metadata`
 """""""""""""""""""""""""""""""
 
-    Implements the metadata base classes and datatype specific derivatives for all datasets [#allds]_.
+    Implements the metadata of all datasets [#allds]_ in the class :class:`~grass.temporal.metadata.MetadataRow`, which has the columns of the type of the dataset.
 
 :mod:`~grass.temporal.spatial_topology_dataset_connector`
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""

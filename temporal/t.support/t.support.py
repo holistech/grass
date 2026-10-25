@@ -109,14 +109,14 @@ def main():
             ).format("aggr_type")
         )
     elif aggr_type:
-        stds.metadata.set_aggregation_type(aggregation_type=aggr_type)
+        stds.metadata.set_aggregation_type(aggr_type)
         changed = True
     if title:
-        stds.metadata.set_title(title=title)
+        stds.metadata.set_title(title)
         changed = True
         # Update only non-null entries
     if description:
-        stds.metadata.set_description(description=description)
+        stds.metadata.set_description(description)
         changed = True
     if semantic:
         stds.base.set_semantic_type(semantic)

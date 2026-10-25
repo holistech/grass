@@ -15,6 +15,7 @@ result: where a line there is wrong, the code is repaired and the line with it
 in a commit of its own.
 """
 
+import functools
 import json
 from pathlib import Path
 
@@ -33,12 +34,7 @@ KIND_NAMES = ("raster", "raster3d", "vector", "strds", "str3ds", "stvds")
 
 # kind -> constructor. This is the only place that names the classes.
 _CLASSES = {
-    "raster": tgis.RasterMetadata,
-    "raster3d": tgis.Raster3DMetadata,
-    "vector": tgis.VectorMetadata,
-    "strds": tgis.STRDSMetadata,
-    "str3ds": tgis.STR3DSMetadata,
-    "stvds": tgis.STVDSMetadata,
+    kind: functools.partial(tgis.MetadataRow, KINDS[kind]) for kind in KIND_NAMES
 }
 
 # The values the database computes for a space time dataset; they have a
@@ -184,7 +180,9 @@ def session(temporal_module_session):
 def no_semantic_labels_query(monkeypatch):
     """Let semantic_labels answer without a register table to read"""
     monkeypatch.setattr(
-        tgis.STRDSMetadata, "get_semantic_labels", lambda self, dbif=None: "S2_1,S2_2"
+        type(_CLASSES["strds"]()),
+        "get_semantic_labels",
+        lambda self, dbif=None: "S2_1,S2_2",
     )
 
 
@@ -390,11 +388,11 @@ def test_a_3d_raster_dataset_prints_its_own_top_bottom_resolution(capsys):
 
 
 def test_a_raster_keeps_the_semantic_label_it_is_given():
-    row = tgis.RasterMetadata(ident="a@PERMANENT", semantic_label="S2_1")
+    row = _CLASSES["raster"](ident="a@PERMANENT", semantic_label="S2_1")
 
     assert row.get_semantic_label() == "S2_1"
 
 
 def test_a_raster_without_a_semantic_label_has_no_such_column():
     # The column is left out of INSERT and UPDATE until a label is set.
-    assert "semantic_label" not in tgis.RasterMetadata(ident="a@PERMANENT").D
+    assert "semantic_label" not in _CLASSES["raster"](ident="a@PERMANENT").D

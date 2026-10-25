@@ -75,17 +75,7 @@ from .factory import dataset_factory
 from .gui_support import registered_maps_grouped, tlist, tlist_grouped
 from .list_stds import get_dataset_list, list_maps_of_stds
 from .mapcalc import dataset_mapcalculator
-from .metadata import (
-    Raster3DMetadata,
-    RasterMetadata,
-    RasterMetadataBase,
-    STDSMetadataBase,
-    STDSRasterMetadataBase,
-    STR3DSMetadata,
-    STRDSMetadata,
-    STVDSMetadata,
-    VectorMetadata,
-)
+from .metadata import MetadataRow
 from .open_stds import (
     check_new_map_dataset,
     check_new_stds,
@@ -184,11 +174,9 @@ __all__ = [
     "DictSQLSerializer",
     "FatalError",
     "GlobalTemporalVar",
+    "MetadataRow",
     "Raster3DDataset",
-    "Raster3DMetadata",
     "RasterDataset",
-    "RasterMetadata",
-    "RasterMetadataBase",
     "RegisterRow",
     "RelativeTemporalExtent",
     "RelativeTimeRow",
@@ -196,11 +184,6 @@ __all__ = [
     "SQLDatabaseInterface",
     "SQLDatabaseInterfaceConnection",
     "SQLStatementError",
-    "STDSMetadataBase",
-    "STDSRasterMetadataBase",
-    "STR3DSMetadata",
-    "STRDSMetadata",
-    "STVDSMetadata",
     "SpaceTimeRaster3DDataset",
     "SpaceTimeRasterDataset",
     "SpaceTimeVectorDataset",
@@ -221,7 +204,6 @@ __all__ = [
     "TemporalVectorAlgebraLexer",
     "TemporalVectorAlgebraParser",
     "VectorDataset",
-    "VectorMetadata",
     "adjust_datetime_to_granularity",
     "aggregate_by_topology",
     "aggregate_raster_maps",

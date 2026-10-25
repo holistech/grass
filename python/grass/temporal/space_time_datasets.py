@@ -19,14 +19,7 @@ from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .base import BaseRow, RegisterRow
 from .kinds import KINDS
-from .metadata import (
-    Raster3DMetadata,
-    RasterMetadata,
-    STR3DSMetadata,
-    STRDSMetadata,
-    STVDSMetadata,
-    VectorMetadata,
-)
+from .metadata import MetadataRow
 from .spatial_extent import SpatialExtentRow
 from .temporal_extent import AbsoluteTimeRow, RelativeTimeRow
 
@@ -267,7 +260,7 @@ class RasterDataset(_PlanarExtentMethods, AbstractMapDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["raster"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["raster"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["raster"], ident=ident)
-        self.metadata = RasterMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["raster"], ident=ident)
         self.stds_register = RegisterRow(KINDS["raster"], ident=ident)
 
     def has_grass_timestamp(self):
@@ -696,7 +689,7 @@ class Raster3DDataset(AbstractMapDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["raster3d"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["raster3d"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["raster3d"], ident=ident)
-        self.metadata = Raster3DMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["raster3d"], ident=ident)
         self.stds_register = RegisterRow(KINDS["raster3d"], ident=ident)
 
     def has_grass_timestamp(self):
@@ -997,7 +990,7 @@ class VectorDataset(_PlanarExtentMethods, AbstractMapDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["vector"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["vector"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["vector"], ident=ident)
-        self.metadata = VectorMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["vector"], ident=ident)
         self.stds_register = RegisterRow(KINDS["vector"], ident=ident)
 
     def has_grass_timestamp(self):
@@ -1223,7 +1216,7 @@ class SpaceTimeRasterDataset(_PlanarExtentMethods, AbstractSpaceTimeDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["strds"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["strds"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["strds"], ident=ident)
-        self.metadata = STRDSMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["strds"], ident=ident)
 
 
 ###############################################################################
@@ -1344,7 +1337,7 @@ class SpaceTimeRaster3DDataset(AbstractSpaceTimeDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["str3ds"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["str3ds"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["str3ds"], ident=ident)
-        self.metadata = STR3DSMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["str3ds"], ident=ident)
 
 
 ###############################################################################
@@ -1419,7 +1412,7 @@ class SpaceTimeVectorDataset(_PlanarExtentMethods, AbstractSpaceTimeDataset):
         self.absolute_time = AbsoluteTimeRow(KINDS["stvds"], ident=ident)
         self.relative_time = RelativeTimeRow(KINDS["stvds"], ident=ident)
         self.spatial_extent = SpatialExtentRow(KINDS["stvds"], ident=ident)
-        self.metadata = STVDSMetadata(ident=ident)
+        self.metadata = MetadataRow(KINDS["stvds"], ident=ident)
 
 
 ###############################################################################

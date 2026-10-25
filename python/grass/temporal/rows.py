@@ -565,12 +565,21 @@ class Column:
     :param convert: Applied to a value before it is stored, such as float
                     for an edge of a spatial extent; None passes the value on
     :param doc: What the column holds, for the docstrings of the accessors
+    :param writable: False for a value the database computes, which gets a
+                     getter and a read-only property but no setter
+    :param init: Whether a constructor that stores the columns (the metadata
+                 rows) puts the column in the row when no value is given: a
+                 bool, or a function that decides when the row is made
+    :param default: The value that constructor stores when none is given
     """
 
     name: str
     alias: str | None = None
     convert: Callable[[object], object] | None = None
     doc: str | None = None
+    writable: bool = True
+    init: bool | Callable[[], bool] = True
+    default: object = None
 
     @property
     def accessor(self) -> str:
@@ -580,6 +589,8 @@ class Column:
 
 def _generate_accessors(cls: type, column: Column) -> None:
     """Add get_<name>, set_<name> and the property <name> of a column to cls
+
+    A column that is not writable gets no setter, and its property no fset.
 
     A name that the class or a base class already has is left alone: the
     identifier of a dataset, a default time or a validated type are written
@@ -595,10 +606,12 @@ def _generate_accessors(cls: type, column: Column) -> None:
     def setter(self, value) -> None:
         self.D[key] = value if convert is None else convert(value)
 
-    for prefix, function, text in (
-        ("get", getter, f"Get {what}\n\n        :return: None if not found\n        "),
-        ("set", setter, f"Set {what}"),
-    ):
+    accessors = [
+        ("get", getter, f"Get {what}\n\n        :return: None if not found\n        ")
+    ]
+    if column.writable:
+        accessors.append(("set", setter, f"Set {what}"))
+    for prefix, function, text in accessors:
         name = f"{prefix}_{accessor}"
         if not hasattr(cls, name):
             function.__name__ = name
@@ -606,10 +619,10 @@ def _generate_accessors(cls: type, column: Column) -> None:
             function.__doc__ = text
             setattr(cls, name, function)
     if not hasattr(cls, accessor):
-        setattr(cls, accessor, _property(accessor))
+        setattr(cls, accessor, accessor_property(accessor, column.writable))
 
 
-def _property(accessor: str) -> property:
+def accessor_property(accessor: str, writable: bool = True) -> property:
     """Return the property that calls get_<accessor> and set_<accessor>
 
     The accessors are looked up on the instance, so that a class that
@@ -618,7 +631,9 @@ def _property(accessor: str) -> property:
     """
     return property(
         fget=lambda self: getattr(self, f"get_{accessor}")(),
-        fset=lambda self, value: getattr(self, f"set_{accessor}")(value),
+        fset=(lambda self, value: getattr(self, f"set_{accessor}")(value))
+        if writable
+        else None,
     )
 
 
@@ -647,7 +662,7 @@ class Row(SQLDatabaseInterface):
         """
         return self.D.get("id")
 
-    id = _property("id")
+    id = accessor_property("id")
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)

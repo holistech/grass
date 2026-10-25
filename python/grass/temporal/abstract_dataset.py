@@ -145,7 +145,7 @@ class AbstractDataset(
             self.absolute_time = AbsoluteTimeRow(KINDS["vector"], ident=ident)
             self.relative_time = RelativeTimeRow(KINDS["vector"], ident=ident)
             self.spatial_extent = SpatialExtentRow(KINDS["vector"], ident=ident)
-            self.metadata = VectorMetadata(ident=ident)
+            self.metadata = MetadataRow(KINDS["vector"], ident=ident)
 
         :param ident: The identifier of the dataset that  "name@mapset" or
                       in case of vector maps "name:layer@mapset"
