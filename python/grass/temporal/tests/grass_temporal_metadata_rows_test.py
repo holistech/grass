@@ -387,3 +387,14 @@ def test_a_3d_raster_dataset_prints_its_own_top_bottom_resolution(capsys):
     lines = capsys.readouterr().out.splitlines()
     assert " | Top-bottom resolution min:.. 5.5" in lines
     assert " | Top-bottom resolution max:.. 6.6" in lines
+
+
+def test_a_raster_keeps_the_semantic_label_it_is_given():
+    row = tgis.RasterMetadata(ident="a@PERMANENT", semantic_label="S2_1")
+
+    assert row.get_semantic_label() == "S2_1"
+
+
+def test_a_raster_without_a_semantic_label_has_no_such_column():
+    # The column is left out of INSERT and UPDATE until a label is set.
+    assert "semantic_label" not in tgis.RasterMetadata(ident="a@PERMANENT").D

@@ -400,6 +400,10 @@ class RasterMetadata(RasterMetadataBase):
             max,
         )
 
+        # The column stays out of the row until a label is given.
+        if semantic_label is not None:
+            self.set_semantic_label(semantic_label)
+
     def set_semantic_label(self, semantic_label) -> None:
         """Set the semantic label identifier"""
         self.D["semantic_label"] = semantic_label
