@@ -566,7 +566,8 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
 
     :param gran_list: List of granularities
     :param start_date_list: List of the start times of related space time datasets
-    :return: The common granularity
+    :return: The common granularity, None for an empty list of granules and
+             False if a granule is invalid
 
     .. code-block:: pycon
 
@@ -745,7 +746,7 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
 
     common_granule = compute_common_absolute_time_granularity_simple(gran_list)
 
-    if start_date_list is None:
+    if not common_granule or start_date_list is None:
         return common_granule
 
     num, granule = common_granule.split()

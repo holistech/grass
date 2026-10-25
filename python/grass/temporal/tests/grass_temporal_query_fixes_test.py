@@ -1,5 +1,6 @@
 """Regression tests for faults in queries, registration and topology"""
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -147,3 +148,16 @@ def test_register_map_leaves_a_given_connection_open_when_done(small_strds):
 
     assert dbif.is_connected()
     dbif.close()
+
+
+@pytest.mark.parametrize("dates", [None, [], [datetime(2001, 1, 1)]])
+def test_common_granularity_of_no_granules_is_none(dates):
+    assert tgis.compute_common_absolute_time_granularity([], dates) is None
+
+
+def test_common_granularity_of_an_invalid_granule_is_false_with_dates():
+    result = tgis.compute_common_absolute_time_granularity(
+        ["nonsense"], [datetime(2001, 1, 1)]
+    )
+
+    assert result is False
