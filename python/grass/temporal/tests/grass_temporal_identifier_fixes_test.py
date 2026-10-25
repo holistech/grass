@@ -149,3 +149,10 @@ def test_text_statements_quote_the_identifier(victim):
     assert evil.get_select_statement_mogrified().endswith(
         "WHERE id = 'x'' OR 1=1 --@" + tgis.get_current_mapset() + "';\n"
     )
+
+
+@pytest.mark.parametrize("stds_type", ["rast3d", "raster3d", "raster_3d", "str3ds"])
+def test_check_new_stds_knows_every_name_of_the_3d_type(raising, stds_type):
+    dataset = tgis.check_new_stds("b8_new", stds_type)
+
+    assert dataset.get_type() == "str3ds"
