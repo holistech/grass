@@ -197,7 +197,7 @@ space time datasets.
     Used in *t.rast.extract*, *t.rast3d.extract* and *t.vect.extract*.
 
 :mod:`~grass.temporal.kinds`
-"""""""""""""""""""""""""""
+""""""""""""""""""""""""""""
 
     The six dataset types (raster, 3D raster, vector maps and their space
     time datasets) with their names, aliases and tables in the temporal
