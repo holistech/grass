@@ -396,3 +396,22 @@ def test_a_raster_keeps_the_semantic_label_it_is_given():
 def test_a_raster_without_a_semantic_label_has_no_such_column():
     # The column is left out of INSERT and UPDATE until a label is set.
     assert "semantic_label" not in _CLASSES["raster"](ident="a@PERMANENT").D
+
+
+@pytest.mark.parametrize(
+    "kind", ["raster", "raster3d", "vector", "strds", "str3ds", "stvds"]
+)
+def test_metadata_survives_deepcopy_and_pickle(kind):
+    # The made classes have no hand-written place in the module; copying a
+    # dataset or sending it to a process must still find them.
+    import copy  # noqa: PLC0415
+    import pickle  # noqa: PLC0415
+
+    dataset = tgis.dataset_factory(kind, "a@PERMANENT")
+
+    for clone in (
+        copy.deepcopy(dataset),
+        pickle.loads(pickle.dumps(dataset)),  # noqa: S301
+    ):
+        assert type(clone.metadata) is type(dataset.metadata)
+        assert clone.metadata.D == dataset.metadata.D

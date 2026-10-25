@@ -326,7 +326,9 @@ class MetadataRow(Row):
     # Set for each class that is made for a kind
     lines: tuple[Line, ...] = ()
 
-    def __new__(cls, kind: Kind, *_args, **_values):
+    def __new__(cls, kind: Kind | None = None, *_args, **_values):
+        # copy and pickle call cls.__new__(cls) of the class that was made, so
+        # the kind is only needed to choose that class
         target = _CLASSES[kind.name] if cls is MetadataRow else cls
         return super().__new__(target)
 
@@ -628,6 +630,10 @@ _CLASSES: dict[str, type[MetadataRow]] = {
         _SpaceTimeMetadata,
     ),
 }
+
+# Pickle finds a class by its name in the module, so the made classes are
+# named there, as the hand-written classes were.
+globals().update({cls.__name__: cls for cls in _CLASSES.values()})
 
 
 if __name__ == "__main__":
