@@ -170,3 +170,31 @@ def test_connect_error_names_the_own_database(temporal_module_session, tmp_path)
 
     assert own in str(error.value)
     assert core.tgis_database_string not in str(error.value)
+
+
+class _RecordingConnection:
+    def __init__(self, name, calls):
+        self.name = name
+        self.calls = calls
+
+    def rollback(self):
+        self.calls.append(self.name)
+
+
+def test_rollback_reaches_the_connection_of_the_mapset(temporal_module_session):
+    # DBConnection.rollback() acts for PostgreSQL only, so a transaction of
+    # the SQLite default cannot show the delegation; recorders do.
+    tgis.init()
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    calls = []
+    current = dbif.current_mapset
+    dbif.connections = {
+        current: _RecordingConnection("current", calls),
+        "other": _RecordingConnection("other", calls),
+    }
+
+    dbif.rollback()
+    dbif.rollback(mapset="other")
+    dbif.rollback(mapset=b"other")
+
+    assert calls == ["current", "other", "other"]

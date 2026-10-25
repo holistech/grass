@@ -1169,6 +1169,8 @@ class SQLDatabaseInterfaceConnection:
         if mapset is None:
             mapset = self.current_mapset
 
+        self.connections[decode(mapset)].rollback()
+
     def connect(self) -> None:
         """Connect to the DBMI to execute SQL statements
 
