@@ -121,7 +121,7 @@ def shift_map_list(maps, gran):
          | Relative time unit:......... years
 
     """  # noqa: E501
-    if maps is None:
+    if not maps:
         return None
 
     if not check_granularity_string(gran, maps[-1].get_temporal_type()):

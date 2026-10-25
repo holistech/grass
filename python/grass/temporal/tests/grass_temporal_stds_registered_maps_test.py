@@ -727,3 +727,7 @@ def test_other_map_times_have_no_correct_topology(map_time):
 
 def test_no_counted_relations_is_no_correct_topology():
     assert topology.has_correct_temporal_topology(None, "interval") is False
+
+
+def test_shifting_an_empty_list_of_maps_gives_none():
+    assert tgis.AbstractSpaceTimeDataset.shift_map_list([], "1 day") is None
