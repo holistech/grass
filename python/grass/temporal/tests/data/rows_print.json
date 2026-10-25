@@ -1,0 +1,331 @@
+{
+ "raster_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\n"
+ },
+ "raster3d_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\n"
+ },
+ "vector_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type",
+   "layer"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\n"
+ },
+ "strds_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type",
+   "semantic_type",
+   "modification_time"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n | Modification time:.......... 2001-01-01 00:00:00\n | Semantic type:.............. mean\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\nmodification_time='2001-01-01 00:00:00'\nsemantic_type=mean\n"
+ },
+ "str3ds_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type",
+   "semantic_type",
+   "modification_time"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n | Modification time:.......... 2001-01-01 00:00:00\n | Semantic type:.............. mean\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\nmodification_time='2001-01-01 00:00:00'\nsemantic_type=mean\n"
+ },
+ "stvds_base": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type",
+   "semantic_type",
+   "modification_time"
+  ],
+  "info": " +-------------------- Basic information -------------------------------------+\n | Id: ........................ a@PERMANENT\n | Name: ...................... a\n | Mapset: .................... PERMANENT\n | Creator: ................... u\n | Temporal type: ............. absolute\n | Creation time: ............. 2001-01-01 00:00:00\n | Modification time:.......... 2001-01-01 00:00:00\n | Semantic type:.............. mean\n",
+  "shell": "id=a@PERMANENT\nname=a\nmapset=PERMANENT\ncreator=u\ntemporal_type=absolute\ncreation_time='2001-01-01 00:00:00'\nmodification_time='2001-01-01 00:00:00'\nsemantic_type=mean\n"
+ },
+ "raster_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\n"
+ },
+ "raster3d_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\n"
+ },
+ "vector_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\n"
+ },
+ "strds_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n | Granularity:................ 1 day\n | Temporal type of maps:...... None\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\ngranularity='1 day'\nmap_time=None\n"
+ },
+ "str3ds_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n | Granularity:................ 1 day\n | Temporal type of maps:...... None\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\ngranularity='1 day'\nmap_time=None\n"
+ },
+ "stvds_absolute_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Absolute time -----------------------------------------+\n | Start time:................. 2001-01-01 00:00:00\n | End time:................... 2002-01-01 00:00:00\n | Granularity:................ 1 day\n | Temporal type of maps:...... None\n",
+  "shell": "start_time='2001-01-01 00:00:00'\nend_time='2002-01-01 00:00:00'\ngranularity='1 day'\nmap_time=None\n"
+ },
+ "raster_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\n"
+ },
+ "raster3d_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\n"
+ },
+ "vector_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\n"
+ },
+ "strds_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n | Granularity:................ 1\n | Temporal type of maps:...... interval\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\ngranularity=1\nmap_time=interval\n"
+ },
+ "str3ds_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n | Granularity:................ 1\n | Temporal type of maps:...... interval\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\ngranularity=1\nmap_time=interval\n"
+ },
+ "stvds_relative_time": {
+  "columns": [
+   "id",
+   "start_time",
+   "end_time",
+   "unit",
+   "granularity",
+   "map_time"
+  ],
+  "info": " +-------------------- Relative time -----------------------------------------+\n | Start time:................. 1\n | End time:................... 2\n | Relative time unit:......... days\n | Granularity:................ 1\n | Temporal type of maps:...... interval\n",
+  "shell": "start_time='1'\nend_time='2'\nunit=days\ngranularity=1\nmap_time=interval\n"
+ },
+ "raster_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "raster3d_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "vector_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "strds_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "str3ds_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "stvds_spatial_extent": {
+  "columns": [
+   "id",
+   "north",
+   "south",
+   "east",
+   "west",
+   "top",
+   "bottom",
+   "proj"
+  ],
+  "info": " +-------------------- Spatial extent ----------------------------------------+\n | North:...................... 4.0\n | South:...................... 1.0\n | East:.. .................... 3.0\n | West:....................... 2.0\n | Top:........................ 6.0\n | Bottom:..................... 5.0\n",
+  "shell": "north=4.0\nsouth=1.0\neast=3.0\nwest=2.0\ntop=6.0\nbottom=5.0\n"
+ },
+ "raster_register": {
+  "columns": [
+   "id",
+   "registered_stds"
+  ]
+ },
+ "raster3d_register": {
+  "columns": [
+   "id",
+   "registered_stds"
+  ]
+ },
+ "vector_register": {
+  "columns": [
+   "id",
+   "registered_stds"
+  ]
+ },
+ "vector_base_layer": {
+  "columns": [
+   "mapset",
+   "id",
+   "layer",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type"
+  ]
+ },
+ "vector_base_no_id": {
+  "columns": [
+   "mapset",
+   "id",
+   "name",
+   "creator",
+   "creation_time",
+   "temporal_type",
+   "layer"
+  ]
+ }
+}
