@@ -11,7 +11,9 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
 from grass.temporal import core
+from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.session import temporal_session
+from grass.tools import Tools
 
 pytestmark = pytest.mark.real_io
 
@@ -118,7 +120,6 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.grassdb.create import create_mapset
 from grass.temporal import core
-from grass.temporal.testing.session import temporal_session
 
 unraisable = []
 sys.unraisablehook = unraisable.append
@@ -331,3 +332,48 @@ def test_failed_metadata_read_closes_its_own_connection(without_metadata_table):
 
     assert error.tb is not None
     assert _open_handles(core.tgis_database_string) == before
+
+
+@pytest.fixture
+def labelled_strds(temporal_module_session):
+    tgis.init()
+    tools = Tools(session=temporal_module_session, consistent_return_value=True)
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    specs = [
+        MapSpec("sl_a", 1, day(0), day(1), semantic_label="S2_1"),
+        MapSpec("sl_b", 2, day(1), day(2), semantic_label="S2_2"),
+    ]
+    create_stds(tools, "strds", "sl_strds", specs, via="library", overwrite=True)
+    return tgis.open_old_stds("sl_strds", "strds")
+
+
+@pytest.fixture
+def connection_count(monkeypatch):
+    """List that receives one entry for every connect() of the interface"""
+    calls = []
+    original = core.SQLDatabaseInterfaceConnection.connect
+
+    def counted(self):
+        calls.append(self)
+        return original(self)
+
+    monkeypatch.setattr(core.SQLDatabaseInterfaceConnection, "connect", counted)
+    return calls
+
+
+def test_semantic_labels_use_one_connection(labelled_strds, connection_count):
+    assert labelled_strds.metadata.semantic_labels == "S2_1,S2_2"
+
+    assert len(connection_count) == 1
+
+
+def test_semantic_labels_use_the_given_connection(labelled_strds, connection_count):
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    connection_count.clear()
+
+    assert labelled_strds.metadata.get_semantic_labels(dbif) == "S2_1,S2_2"
+
+    assert connection_count == []
+    assert dbif.is_connected()
+    dbif.close()

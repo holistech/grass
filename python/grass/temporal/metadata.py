@@ -22,10 +22,11 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from .base import SQLDatabaseInterface
 from .core import (
-    SQLDatabaseInterfaceConnection,
     get_tgis_database_string,
     get_tgis_db_version,
     get_tgis_db_version_from_metadata,
+    get_tgis_metadata,
+    init_dbif,
 )
 
 ###############################################################################
@@ -1495,16 +1496,15 @@ class STRDSMetadata(STDSRasterMetadataBase):
             return self.D["number_of_semantic_labels"]
         return None
 
-    def get_semantic_labels(self):
+    def get_semantic_labels(self, dbif=None):
         """Get the distinct semantic labels of registered maps
            The distinct semantic labels are not stored in the metadata table
            and fetched on-the-fly
 
+        :param dbif: The database interface to be used, if None a
+                     connection is opened for this call and closed again
         :return: None if not found
         """
-        if get_tgis_db_version_from_metadata() <= 2:
-            # band names supported from TGIS DB version 3
-            return None
         # A metadata object that is not read from the temporal database has
         # no register table; the query would name the table None.
         if self.get_raster_register() is None:
@@ -1517,11 +1517,18 @@ class STRDSMetadata(STDSRasterMetadataBase):
 
         sql += "IN (SELECT id FROM %s)" % (str(self.get_raster_register()))
 
-        dbif = SQLDatabaseInterfaceConnection()
-        dbif.connect()
-        dbif.execute(sql, mapset=self.mapset)
-        rows = dbif.fetchall(mapset=self.mapset)
-        dbif.close()
+        # One connection serves the version check and the query. Every
+        # SQLDatabaseInterfaceConnection runs t.connect for each mapset.
+        dbif, connection_state_changed = init_dbif(dbif)
+        try:
+            if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) <= 2:
+                # band names supported from TGIS DB version 3
+                return None
+            dbif.execute(sql, mapset=self.mapset)
+            rows = dbif.fetchall(mapset=self.mapset)
+        finally:
+            if connection_state_changed:
+                dbif.close()
 
         if not rows:
             return None
