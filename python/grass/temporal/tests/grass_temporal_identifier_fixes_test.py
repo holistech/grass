@@ -322,3 +322,10 @@ def test_creation_time_under_the_german_locale():
         locale.setlocale(locale.LC_TIME, previous)
 
     assert parsed == datetime(2001, 1, 1, 12, 0, 0)
+
+
+def test_temporal_extent_has_no_adjacent_method():
+    # follows() and precedes() are the relations of intervals that touch; the
+    # removed method answered both orders with True and had no caller.
+    assert not hasattr(tgis.TemporalExtent, "adjacent")
+    assert hasattr(tgis.TemporalExtent, "follows")

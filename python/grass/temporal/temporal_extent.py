@@ -607,49 +607,6 @@ class TemporalExtent(SQLDatabaseInterface):
 
         return self.D["end_time"] < extent.D["start_time"]
 
-    def adjacent(self, extent) -> bool:
-        """Return True if this temporal extent (A) is a meeting neighbor the
-        provided temporal extent (B)
-        ::
-
-            A            |---------|
-            B  |---------|
-            A  |---------|
-            B            |---------|
-
-        :param extent: The temporal extent object that is a meeting neighbor
-                       of this extent
-
-        Usage:
-
-        .. code-block:: pycon
-
-            >>> A = TemporalExtent(start_time=5, end_time=7)
-            >>> B = TemporalExtent(start_time=7, end_time=9)
-            >>> A.adjacent(B)
-            True
-            >>> B.adjacent(A)
-            True
-            >>> A = TemporalExtent(start_time=5, end_time=7)
-            >>> B = TemporalExtent(start_time=3, end_time=5)
-            >>> A.adjacent(B)
-            True
-            >>> B.adjacent(A)
-            True
-
-        """
-        if self.D["end_time"] is None and extent.D["end_time"] is None:
-            return False
-
-        return bool(
-            self.D["start_time"] is not None
-            and extent.D["end_time"] is not None
-            and (
-                self.D["start_time"] == extent.D["end_time"]
-                or self.D["end_time"] == extent.D["start_time"]
-            )
-        )
-
     def follows(self, extent) -> bool:
         """Return True if this temporal extent (A) follows the
         provided temporal extent (B)
