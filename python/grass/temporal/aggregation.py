@@ -222,6 +222,21 @@ def aggregate_raster_maps(
 ##############################################################################
 
 
+# The relations of a granule whose maps are aggregated, in the order of the
+# list of maps that r.series gets.
+_AGGREGATED_RELATIONS = (
+    "equal",
+    "contains",
+    "during",
+    "starts",
+    "started",
+    "finishes",
+    "finished",
+    "overlaps",
+    "overlapped",
+)
+
+
 def aggregate_by_topology(
     granularity_list,
     granularity,
@@ -303,33 +318,11 @@ def aggregate_by_topology(
 
             aggregation_list = []
 
-            if "equal" in topo_list and granule.equal:
-                for map_layer in granule.equal:
-                    aggregation_list.append(map_layer.get_name())
-            if "contains" in topo_list and granule.contains:
-                for map_layer in granule.contains:
-                    aggregation_list.append(map_layer.get_name())
-            if "during" in topo_list and granule.during:
-                for map_layer in granule.during:
-                    aggregation_list.append(map_layer.get_name())
-            if "starts" in topo_list and granule.starts:
-                for map_layer in granule.starts:
-                    aggregation_list.append(map_layer.get_name())
-            if "started" in topo_list and granule.started:
-                for map_layer in granule.started:
-                    aggregation_list.append(map_layer.get_name())
-            if "finishes" in topo_list and granule.finishes:
-                for map_layer in granule.finishes:
-                    aggregation_list.append(map_layer.get_name())
-            if "finished" in topo_list and granule.finished:
-                for map_layer in granule.finished:
-                    aggregation_list.append(map_layer.get_name())
-            if "overlaps" in topo_list and granule.overlaps:
-                for map_layer in granule.overlaps:
-                    aggregation_list.append(map_layer.get_name())
-            if "overlapped" in topo_list and granule.overlapped:
-                for map_layer in granule.overlapped:
-                    aggregation_list.append(map_layer.get_name())
+            relations = granule.get_temporal_relations()
+            for relation in _AGGREGATED_RELATIONS:
+                if relation in topo_list:
+                    for map_layer in relations.get(relation.upper()) or []:
+                        aggregation_list.append(map_layer.get_name())
 
             if aggregation_list:
                 msgr.verbose(
