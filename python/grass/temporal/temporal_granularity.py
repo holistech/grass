@@ -32,6 +32,94 @@ CONVERT_GRAN["month"] = "30.436875 day"
 CONVERT_GRAN["day"] = "24 hour"
 CONVERT_GRAN["hour"] = "60 minute"
 CONVERT_GRAN["minute"] = "60 second"
+
+# The units a granularity is computed in, from the smallest to the largest.
+# Weeks are valid in a granularity string but not in a computation: a week is
+# neither a unit the algebra counts in nor does the result use it.
+_UNITS = ("second", "minute", "hour", "day", "month", "year")
+
+# Seconds in the units of a fixed length
+_SECONDS_PER_UNIT = {"second": 1, "minute": 60, "hour": 3600, "day": 86400}
+
+# A month and a year have no fixed number of days. A granule that holds for a
+# month or a year must hold for each length, so each one is a value of its own.
+_DAYS_PER_UNIT = {"month": (28, 29, 30, 31), "year": (365, 366)}
+
+_MONTHS_PER_YEAR = 12
+
+# How many units of a smaller kind make the next larger one, as the common
+# granule of start dates may reach: seconds in a minute, minutes in an hour,
+# hours in a day, days in a year, months in a year.
+_HIERARCHY_LIMIT = {"second": 60, "minute": 60, "hour": 24, "day": 365, "month": 12}
+
+
+def _singular_unit(unit):
+    """Return the unit of a granularity string without the plural s"""
+    return unit.removesuffix("s")
+
+
+def _unit_factor(base_unit, unit):
+    """Return how many base units are in a unit of the datetime delta, or None
+
+    The units of a datetime delta are the _UNITS and max_days, the number of
+    days of the whole delta. Only units of a fixed length can be counted in a
+    smaller one, and the year in months.
+    """
+    unit = "day" if unit == "max_days" else unit
+    if base_unit in _SECONDS_PER_UNIT and unit in _SECONDS_PER_UNIT:
+        if _SECONDS_PER_UNIT[unit] >= _SECONDS_PER_UNIT[base_unit]:
+            return _SECONDS_PER_UNIT[unit] // _SECONDS_PER_UNIT[base_unit]
+    elif base_unit == "month" and unit == "year":
+        return _MONTHS_PER_YEAR
+    return None
+
+
+def _add_delta(granularity_units, delta):
+    """Add the value of a datetime delta to the set of its smallest unit
+
+    The keys of granularity_units are in the order of increasing length, so the
+    first unit with a value above zero is the smallest one. The days of the
+    whole delta, max_days, are added besides the unit.
+    """
+    for time_unit, values in granularity_units.items():
+        if time_unit in delta and delta[time_unit] > 0:
+            values.add(delta[time_unit])
+            if time_unit != "max_days":
+                break
+
+
+def _gcd_in_unit(units, base_unit):
+    """Return the greatest common divisor of the counts in the base unit
+
+    The counts of the base unit are used as they are. Of each larger unit that
+    is present the smallest count is converted into the base unit, because a
+    larger count of the same unit is a multiple of it and changes nothing.
+
+    :param units: A dictionary of the units that are present with the list of
+                  their counts
+    :param base_unit: The smallest unit that is present, one of _UNITS
+    :return: The greatest common divisor in the base unit
+    """
+    values = list(units[base_unit])
+    for unit in _UNITS[_UNITS.index(base_unit) + 1 :]:
+        if unit not in units:
+            continue
+        smallest = min(units[unit])
+        if base_unit in _SECONDS_PER_UNIT:
+            per_unit = _SECONDS_PER_UNIT[base_unit]
+            if unit in _SECONDS_PER_UNIT:
+                values.append(smallest * (_SECONDS_PER_UNIT[unit] // per_unit))
+            else:
+                values.extend(
+                    smallest * days * (_SECONDS_PER_UNIT["day"] // per_unit)
+                    for days in _DAYS_PER_UNIT[unit]
+                )
+        else:
+            # The base unit is the month, the only larger one is the year.
+            values.append(smallest * _MONTHS_PER_YEAR)
+    return gcd_list(values)
+
+
 ###############################################################################
 
 
@@ -451,15 +539,7 @@ def compute_absolute_time_granularity(maps):
         start, end = get_time_tuple(stds_map)
         # start time is required in TGIS and expected to be present
         if end:
-            map_datetime_delta = compute_datetime_delta(start, end)
-            for time_unit in granularity_units.keys():  # noqa: PLC0206
-                if (
-                    time_unit in map_datetime_delta
-                    and map_datetime_delta[time_unit] > 0
-                ):
-                    granularity_units[time_unit].add(map_datetime_delta[time_unit])
-                    if time_unit != "max_days":
-                        break
+            _add_delta(granularity_units, compute_datetime_delta(start, end))
         # Compute the timedelta of the gaps
         if _is_after(start, previous_start, previous_end):
             # Gaps are between intervals, intervals and
@@ -469,28 +549,13 @@ def compute_absolute_time_granularity(maps):
                 gap_datetime_delta = compute_datetime_delta(previous_end, start)
             else:
                 gap_datetime_delta = compute_datetime_delta(previous_start, start)
-            # Add to the set of the smallest granularity in the granularity_units dict
-            for time_unit in granularity_units.keys():  # noqa: PLC0206
-                if (
-                    time_unit in gap_datetime_delta
-                    and gap_datetime_delta[time_unit] > 0
-                ):
-                    granularity_units[time_unit].add(gap_datetime_delta[time_unit])
-                    if time_unit != "max_days":
-                        break
+            _add_delta(granularity_units, gap_datetime_delta)
         # Keep the temporal extent to compare to the following/next map
         previous_start, previous_end = start, end
 
     # Create a set with a single time unit only
     dlist = set()
     assigned_time_unit = None
-    time_unit_multipliers = {
-        "second": {"minute": 60, "hour": 3600, "day": 24 * 3600, "max_days": 24 * 3600},
-        "minute": {"hour": 60, "day": 24 * 60, "max_days": 24 * 60},
-        "hour": {"day": 24, "max_days": 24},
-        "day": {"max_days": 1},
-        "month": {"year": 12},
-    }
 
     for time_unit, granularity_set in granularity_units.items():
         # The smallest granularity unit is used so as soon as a non-zero
@@ -506,12 +571,10 @@ def compute_absolute_time_granularity(maps):
         return None
 
     dlist.update(granularity_units[assigned_time_unit])
-    if assigned_time_unit in time_unit_multipliers:
-        for unit, unit_factor in time_unit_multipliers[assigned_time_unit].items():
-            if granularity_units[unit]:
-                dlist.update(
-                    {time_value * unit_factor for time_value in granularity_units[unit]}
-                )
+    for unit, values in granularity_units.items():
+        unit_factor = _unit_factor(assigned_time_unit, unit)
+        if unit != assigned_time_unit and unit_factor and values:
+            dlist.update({time_value * unit_factor for time_value in values})
 
     if not dlist:
         return None
@@ -750,66 +813,20 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         return common_granule
 
     num, granule = common_granule.split()
+    unit = _singular_unit(granule)
 
-    if granule in {"seconds", "second"}:
-        # If the start seconds are different between the start dates
-        # set the granularity to one second
+    if unit in _HIERARCHY_LIMIT:
+        limit = _HIERARCHY_LIMIT[unit]
+        # If the start dates differ in the field of the unit, the granule
+        # cannot be longer than one unit
         for start_time in start_date_list:
-            if start_time.second != start_date_list[0].second:
-                return "1 second"
+            if getattr(start_time, unit) != getattr(start_date_list[0], unit):
+                return f"1 {unit}"
         # Make sure the granule does not exceed the hierarchy limit
-        if int(num) > 60:
-            if int(num) % 60 == 0:
-                return "60 seconds"
-            return "1 second"
-
-    if granule in {"minutes", "minute"}:
-        # If the start minutes are different between the start dates
-        # set the granularity to one minute
-        for start_time in start_date_list:
-            if start_time.minute != start_date_list[0].minute:
-                return "1 minute"
-        # Make sure the granule does not exceed the hierarchy limit
-        if int(num) > 60:
-            if int(num) % 60 == 0:
-                return "60 minutes"
-            return "1 minute"
-
-    if granule in {"hours", "hour"}:
-        # If the start hours are different between the start dates
-        # set the granularity to one hour
-        for start_time in start_date_list:
-            if start_time.hour != start_date_list[0].hour:
-                return "1 hour"
-        # Make sure the granule does not exceed the hierarchy limit
-        if int(num) > 24:
-            if int(num) % 24 == 0:
-                return "24 hours"
-            return "1 hour"
-
-    if granule in {"days", "day"}:
-        # If the start days are different between the start dates
-        # set the granularity to one day
-        for start_time in start_date_list:
-            if start_time.day != start_date_list[0].day:
-                return "1 day"
-        # Make sure the granule does not exceed the hierarchy limit
-        if int(num) > 365:
-            if int(num) % 365 == 0:
-                return "365 days"
-            return "1 day"
-
-    if granule in {"months", "month"}:
-        # If the start months are different between the start dates
-        # set the granularity to one month
-        for start_time in start_date_list:
-            if start_time.month != start_date_list[0].month:
-                return "1 month"
-        # Make sure the granule does not exceed the hierarchy limit
-        if int(num) > 12:
-            if int(num) % 12 == 0:
-                return "12 months"
-            return "1 month"
+        if int(num) > limit:
+            if int(num) % limit == 0:
+                return f"{limit} {unit}s"
+            return f"1 {unit}"
 
     return common_granule
 
@@ -896,183 +913,22 @@ def compute_common_absolute_time_granularity_simple(gran_list):
         '1 year'
     """
 
-    has_seconds = False  # 0
-    has_minutes = False  # 1
-    has_hours = False  # 2
-    has_days = False  # 3
-    has_months = False  # 4
-    has_years = False  # 5
-
-    seconds = []
-    minutes = []
-    hours = []
-    days = []
-    months = []
-    years = []
-
-    min_gran = 6
-    max_gran = -1
-
+    units = {}
     for entry in gran_list:
         if not check_granularity_string(entry, "absolute"):
             return False
 
         num, gran = entry.split()
+        unit = _singular_unit(gran)
+        if unit in _UNITS:
+            units.setdefault(unit, []).append(int(num))
 
-        if gran in {"seconds", "second"}:
-            has_seconds = True
-            min_gran = min(min_gran, 0)
-            max_gran = max(max_gran, 0)
+    for unit in _UNITS:
+        if unit in units:
+            num = _gcd_in_unit(units, unit)
+            return f"{num} {unit}{'s' if num > 1 else ''}"
 
-            seconds.append(int(num))
-
-        if gran in {"minutes", "minute"}:
-            has_minutes = True
-            min_gran = min(min_gran, 1)
-            max_gran = max(max_gran, 1)
-
-            minutes.append(int(num))
-
-        if gran in {"hours", "hour"}:
-            has_hours = True
-            min_gran = min(min_gran, 2)
-            max_gran = max(max_gran, 2)
-
-            hours.append(int(num))
-
-        if gran in {"days", "day"}:
-            has_days = True
-            min_gran = min(min_gran, 3)
-            max_gran = max(max_gran, 3)
-
-            days.append(int(num))
-
-        if gran in {"months", "month"}:
-            has_months = True
-            min_gran = min(min_gran, 4)
-            max_gran = max(max_gran, 4)
-
-            months.append(int(num))
-
-        if gran in {"years", "year"}:
-            has_years = True
-            min_gran = min(min_gran, 5)
-            max_gran = max(max_gran, 5)
-
-            years.append(int(num))
-
-    if has_seconds:
-        if has_minutes:
-            minutes.sort()
-            seconds.append(minutes[0] * 60)
-        if has_hours:
-            hours.sort()
-            seconds.append(hours[0] * 60 * 60)
-        if has_days:
-            days.sort()
-            seconds.append(days[0] * 60 * 60 * 24)
-        if has_months:
-            months.sort()
-            seconds.extend(
-                (
-                    months[0] * 60 * 60 * 24 * 28,
-                    months[0] * 60 * 60 * 24 * 29,
-                    months[0] * 60 * 60 * 24 * 30,
-                    months[0] * 60 * 60 * 24 * 31,
-                )
-            )
-        if has_years:
-            years.sort()
-            seconds.extend(
-                (years[0] * 60 * 60 * 24 * 365, years[0] * 60 * 60 * 24 * 366)
-            )
-
-        num = gcd_list(seconds)
-        gran = "second"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
-
-    if has_minutes:
-        if has_hours:
-            hours.sort()
-            minutes.append(hours[0] * 60)
-        if has_days:
-            days.sort()
-            minutes.append(days[0] * 60 * 24)
-        if has_months:
-            months.sort()
-            minutes.extend(
-                (
-                    months[0] * 60 * 24 * 28,
-                    months[0] * 60 * 24 * 29,
-                    months[0] * 60 * 24 * 30,
-                    months[0] * 60 * 24 * 31,
-                )
-            )
-        if has_years:
-            years.sort()
-            minutes.extend((years[0] * 60 * 24 * 365, years[0] * 60 * 24 * 366))
-        num = gcd_list(minutes)
-        gran = "minute"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
-
-    if has_hours:
-        if has_days:
-            days.sort()
-            hours.append(days[0] * 24)
-        if has_months:
-            months.sort()
-            hours.extend(
-                (
-                    months[0] * 24 * 28,
-                    months[0] * 24 * 29,
-                    months[0] * 24 * 30,
-                    months[0] * 24 * 31,
-                )
-            )
-        if has_years:
-            years.sort()
-            hours.extend((years[0] * 24 * 365, years[0] * 24 * 366))
-        num = gcd_list(hours)
-        gran = "hour"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
-
-    if has_days:
-        if has_months:
-            months.sort()
-            days.extend(
-                (months[0] * 28, months[0] * 29, months[0] * 30, months[0] * 31)
-            )
-        if has_years:
-            years.sort()
-            days.extend((years[0] * 365, years[0] * 366))
-        num = gcd_list(days)
-        gran = "day"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
-
-    if has_months:
-        if has_years:
-            years.sort()
-            months.append(years[0] * 12)
-        num = gcd_list(months)
-        gran = "month"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
-
-    if has_years:
-        num = gcd_list(years)
-        gran = "year"
-        if num > 1:
-            gran += "s"
-        return f"{num} {gran}"
+    return None
 
 
 #######################################################################
@@ -1122,7 +978,7 @@ def gran_singular_unit(gran):
 
 
 def gran_plural_unit(gran):
-    """Return the absolute granularity unit in its singular term
+    """Return the absolute granularity unit in its plural term
 
     :param gran: input granularity
     :return: granularity unit
@@ -1131,17 +987,17 @@ def gran_plural_unit(gran):
 
         >>> import grass.temporal as tgis
         >>> tgis.init()
-        >>> tgis.gran_singular_unit("1 month")
-        'month'
+        >>> tgis.gran_plural_unit("1 month")
+        'months'
 
-        >>> tgis.gran_singular_unit("2 months")
-        'month'
+        >>> tgis.gran_plural_unit("2 months")
+        'months'
 
-        >>> tgis.gran_singular_unit("6 seconds")
-        'second'
+        >>> tgis.gran_plural_unit("6 seconds")
+        'seconds'
 
-        >>> tgis.gran_singular_unit("1 year")
-        'year'
+        >>> tgis.gran_plural_unit("1 year")
+        'years'
     """
     if check_granularity_string(gran, "absolute"):
         output, unit = gran.split(" ")

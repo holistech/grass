@@ -819,8 +819,6 @@ def check_datetime_string(time_string: str, use_dateutil: bool = True):
 
     """
 
-    global has_dateutil
-
     if has_dateutil and use_dateutil is True:
         # First check if there is only a single number, which specifies
         # relative time. dateutil will interpret a single number as a valid
