@@ -2751,7 +2751,6 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
         if self.get_mapset() != mapset:
             self.msgr.debug(1, "STDS name <%s>" % self.get_name())
-            dbif.close()
             self.msgr.fatal(
                 _("Maps can only unregistered in a database in the current mapset")
             )

@@ -235,3 +235,38 @@ def test_order_with_a_semicolon_in_a_value_is_kept_when_grouping(small_strds):
     )
 
     assert [row["name"] for row in rows] == ["b15_map"]
+
+
+def _stds_of_another_mapset(two_mapsets):
+    work, other = two_mapsets
+    make_map(other, "raster", "unreg_map", 1, overwrite=True)
+    register_stds(
+        other,
+        "strds",
+        "unreg_ds",
+        [MapSpec("unreg_map", None, day(0), day(1))],
+        via="tool",
+        overwrite=True,
+    )
+    return tgis.open_old_stds("unreg_ds@other", "strds")
+
+
+def test_unregister_map_refuses_a_foreign_mapset_without_a_connection(two_mapsets):
+    stds = _stds_of_another_mapset(two_mapsets)
+    stds_map = tgis.RasterDataset("unreg_map@other")
+
+    with pytest.raises(tgis.FatalError, match="current mapset"):
+        stds.unregister_map(stds_map)
+
+
+def test_unregister_map_leaves_a_given_connection_open_on_refusal(two_mapsets):
+    stds = _stds_of_another_mapset(two_mapsets)
+    stds_map = tgis.RasterDataset("unreg_map@other")
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    with pytest.raises(tgis.FatalError, match="current mapset"):
+        stds.unregister_map(stds_map, dbif)
+
+    assert dbif.is_connected()
+    dbif.close()
