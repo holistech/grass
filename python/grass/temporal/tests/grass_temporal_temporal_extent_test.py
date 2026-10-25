@@ -7,6 +7,7 @@ are needed here.
 import copy
 import itertools
 import pickle
+from collections import Counter
 from datetime import datetime
 
 import pytest
@@ -19,7 +20,7 @@ from grass.temporal.temporal_extent import (
 )
 
 # The order in which the first matching predicate names the relation. It is the
-# order of the chain that temporal_relation() used before it read a table.
+# order in which temporal_relation() asks the predicates.
 CHAIN = (
     "equal",
     "during",
@@ -49,11 +50,37 @@ def chain(a, b):
     return None
 
 
-def test_the_table_names_every_pair_as_the_chain_of_predicates():
+def test_the_relation_names_every_pair_as_the_chain_of_predicates():
     for (start, end), (other_start, other_end) in itertools.product(EXTENTS, EXTENTS):
         a = TemporalExtent(start_time=start, end_time=end)
         b = TemporalExtent(start_time=other_start, end_time=other_end)
         assert a.temporal_relation(b) == chain(a, b), (a.D, b.D)
+
+
+def test_the_relations_of_all_pairs_are_counted_as_before():
+    # Counted on 25.10.2026 with the chain of predicates before any change; a
+    # different order of the chain moves pairs from one name to another.
+    names = Counter(
+        TemporalExtent(start_time=a, end_time=b).temporal_relation(
+            TemporalExtent(start_time=c, end_time=d)
+        )
+        for (a, b), (c, d) in itertools.product(EXTENTS, EXTENTS)
+    )
+    assert names == {
+        "after": 550,
+        "before": 400,
+        "contains": 260,
+        "during": 260,
+        "equal": 42,
+        "finished": 35,
+        "finishes": 35,
+        "follows": 41,
+        "overlapped": 15,
+        "overlaps": 15,
+        "precedes": 41,
+        "started": 35,
+        "starts": 35,
+    }
 
 
 @pytest.mark.parametrize(

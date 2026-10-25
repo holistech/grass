@@ -43,121 +43,28 @@ _STDS_COLUMNS = (
 )
 
 
-# The relation of two extents A and B is a function of four comparisons, each -1,
-# 0 or 1 (A less than, equal to, greater than B), or None when an end time is
-# missing: start of A with start of B, end with end, start of A with end of B,
-# end of A with start of B. The table was derived on 25.10.2026 from the chain of
-# the predicates in their former order (equal, during, contains, ...) over all
-# pairs of extents with start times and end times 0 to 5 and without end times:
-# 72 keys, none with two names. It keeps the order of that chain also for the
-# keys of an end before its start, for which the names of the predicates
-# (e.g. starts, follows) and the table do not always agree.
-_RELATION_KEYS = {
-    "equal": (
-        (0, None, None, None),
-        (0, 0, -1, 1),
-        (0, 0, 0, 0),
-        (0, 0, 1, -1),
-    ),
-    "during": (
-        (0, None, -1, None),
-        (1, None, -1, None),
-        (1, -1, -1, -1),
-        (1, -1, -1, 0),
-        (1, -1, -1, 1),
-        (1, -1, 0, -1),
-        (1, -1, 0, 0),
-        (1, -1, 0, 1),
-        (1, -1, 1, -1),
-        (1, -1, 1, 0),
-        (1, -1, 1, 1),
-    ),
-    "contains": (
-        (-1, None, None, 1),
-        (-1, 1, -1, -1),
-        (-1, 1, -1, 0),
-        (-1, 1, -1, 1),
-        (-1, 1, 0, -1),
-        (-1, 1, 0, 0),
-        (-1, 1, 0, 1),
-        (-1, 1, 1, -1),
-        (-1, 1, 1, 0),
-        (-1, 1, 1, 1),
-        (0, None, None, 1),
-    ),
-    "overlaps": ((-1, -1, -1, 1),),
-    "overlapped": ((1, 1, -1, 1),),
-    "after": (
-        (-1, None, 1, None),
-        (-1, -1, 1, -1),
-        (-1, 0, 1, -1),
-        (0, None, 1, None),
-        (0, -1, 1, -1),
-        (0, 1, 1, -1),
-        (0, 1, 1, 0),
-        (0, 1, 1, 1),
-        (1, None, None, None),
-        (1, None, None, -1),
-        (1, None, None, 0),
-        (1, None, None, 1),
-        (1, None, 1, None),
-        (1, 0, 1, -1),
-        (1, 0, 1, 0),
-        (1, 0, 1, 1),
-        (1, 1, 1, -1),
-        (1, 1, 1, 0),
-        (1, 1, 1, 1),
-    ),
-    "before": (
-        (-1, None, None, None),
-        (-1, None, None, -1),
-        (-1, None, -1, None),
-        (-1, None, 0, None),
-        (-1, -1, -1, -1),
-        (-1, -1, 0, -1),
-        (-1, 0, -1, -1),
-        (-1, 0, 0, -1),
-        (0, None, None, -1),
-        (0, -1, -1, -1),
-        (0, -1, 0, -1),
-    ),
-    "starts": (
-        (0, -1, -1, 0),
-        (0, -1, -1, 1),
-    ),
-    "finishes": (
-        (1, 0, -1, 1),
-        (1, 0, 0, 1),
-    ),
-    "started": (
-        (0, 1, -1, 1),
-        (0, 1, 0, 1),
-    ),
-    "finished": (
-        (-1, 0, -1, 0),
-        (-1, 0, -1, 1),
-    ),
-    "follows": (
-        (0, None, 0, None),
-        (1, None, 0, None),
-        (1, 1, 0, 1),
-    ),
-    "precedes": (
-        (-1, None, None, 0),
-        (-1, -1, -1, 0),
-        (0, None, None, 0),
-    ),
-}
-_RELATIONS = {
-    key: relation for relation, keys in _RELATION_KEYS.items() for key in keys
-}
-
-
-def _compare(a, b):
-    """Return -1, 0 or 1 for a less than, equal to or greater than b, or None"""
-    if a is None or b is None:
-        return None
-    return (a > b) - (a < b)
+# The order in which temporal_relation() asks the predicates: the first one that
+# holds names the relation. The order matters because the predicates overlap for
+# points and for intervals whose end lies before the start, which the database
+# accepts. A table over the comparisons of the four times gave the same names
+# but needed 72 keys, a second statement of the semantics beside the predicates,
+# and saved 0.4 us per pair (measured 25.10.2026 over the 1764 pairs of the
+# extent test: 0.27 us against 0.67 us), so it was dropped.
+_RELATION_ORDER = (
+    "equal",
+    "during",
+    "contains",
+    "overlaps",
+    "overlapped",
+    "after",
+    "before",
+    "starts",
+    "finishes",
+    "started",
+    "finished",
+    "follows",
+    "precedes",
+)
 
 
 class TemporalExtent(Row):
@@ -1036,16 +943,10 @@ class TemporalExtent(Row):
         if self.D["start_time"] is None or extent.D["start_time"] is None:
             return None
 
-        start, end = self.D["start_time"], self.D["end_time"]
-        other_start, other_end = extent.D["start_time"], extent.D["end_time"]
-        return _RELATIONS.get(
-            (
-                _compare(start, other_start),
-                _compare(end, other_end),
-                _compare(start, other_end),
-                _compare(end, other_start),
-            )
-        )
+        for name in _RELATION_ORDER:
+            if getattr(self, name)(extent):
+                return name
+        return None
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
