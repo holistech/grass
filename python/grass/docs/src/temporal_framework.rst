@@ -179,6 +179,14 @@ temporal processing algorithms and temporal GRASS modules.
       the table, the registration and un-registration of a map, the selection of the registered maps
       and the update of the extent and the metadata of the dataset
 
+:mod:`~grass.temporal.stds_time_edit`
+"""""""""""""""""""""""""""""""""""""
+
+    - Shifts and snaps the time of the maps of a Space Time Dataset, in memory
+      (:func:`~grass.temporal.stds_time_edit.shift_map_list`,
+      :func:`~grass.temporal.stds_time_edit.snap_map_list`) or in the temporal database
+      (:func:`~grass.temporal.stds_time_edit.shift`, :func:`~grass.temporal.stds_time_edit.snap`)
+
 :mod:`~grass.temporal.datasets`
 """""""""""""""""""""""""""""""
 

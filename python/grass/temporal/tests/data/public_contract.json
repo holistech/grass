@@ -717,7 +717,7 @@
    "update_all": "addons+repo"
   },
   "AbstractSpaceTimeDataset": {
-   "_update_map_timestamps": "repo",
+   "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",
    "contains": "repo",
    "count_gaps": "repo",
@@ -901,7 +901,7 @@
    "get_dbmi": "repo"
   },
   "SpaceTimeRaster3DDataset": {
-   "_update_map_timestamps": "repo",
+   "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",
    "contains": "repo",
    "count_gaps": "repo",
@@ -964,7 +964,7 @@
    "update_from_registered_maps": "addons+repo"
   },
   "SpaceTimeRasterDataset": {
-   "_update_map_timestamps": "repo",
+   "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",
    "contains": "repo",
    "count_gaps": "repo",
@@ -1028,7 +1028,7 @@
    "update_from_registered_maps": "addons+repo"
   },
   "SpaceTimeVectorDataset": {
-   "_update_map_timestamps": "repo",
+   "update_map_timestamps": "repo",
    "check_temporal_topology": "repo",
    "contains": "repo",
    "count_gaps": "repo",

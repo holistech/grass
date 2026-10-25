@@ -53,6 +53,7 @@ MODULES = [
     "space_time_datasets",
     "spatial_extent",
     "state",
+    "stds_time_edit",
     "temporal_algebra",
     "temporal_extent",
     "temporal_granularity",

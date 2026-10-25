@@ -391,7 +391,7 @@ def test_update_map_timestamps_changes_the_maps_and_other_datasets(pair):
     stds = stds_of(pair, "abs")
     maps = stds.get_registered_maps_as_objects(order="start_time")
 
-    stds._update_map_timestamps(
+    stds.update_map_timestamps(
         maps, [(day(10), day(11)), (day(11), day(13))], stds_dbif()
     )
 

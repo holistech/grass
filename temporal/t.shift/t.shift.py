@@ -101,9 +101,9 @@ def shift_by_list(stds, gran, dbif):
             ) from error
         date_list.append((start, end))
 
-    # The dataset offers no public method that writes a list of new times and
-    # updates the datasets of the maps; shift() uses this one.
-    stds._update_map_timestamps(maps, date_list, dbif)
+    # shift() of the dataset would compute the times again, without the check
+    # of every map above; this writes the times computed here.
+    stds.update_map_timestamps(maps, date_list, dbif)
     return True
 
 
