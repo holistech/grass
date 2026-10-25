@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal import core, space_time_datasets
+from grass.temporal import core, datasets
 from grass.temporal.kinds import KINDS
 from grass.pygrass.messages import FatalError
 from grass.tools import Tools
@@ -277,13 +277,13 @@ def test_missing_map_message_has_no_indentation(raising):
     ],
 )
 def test_creation_time_of_the_c_library_is_read(text, expected):
-    assert space_time_datasets.parse_c_creation_time(text) == expected
+    assert datasets.parse_c_creation_time(text) == expected
 
 
 @pytest.mark.parametrize("text", ["", "Mon Foo  1 12:00:00 2001", "Mon Jan  1 2001"])
 def test_creation_time_that_is_not_valid_is_refused(text):
     with pytest.raises(ValueError, match="creation time"):
-        space_time_datasets.parse_c_creation_time(text)
+        datasets.parse_c_creation_time(text)
 
 
 @pytest.fixture
@@ -312,9 +312,9 @@ def test_creation_time_does_not_depend_on_the_names_of_the_locale(german_names):
     with pytest.raises(ValueError, match="does not match"):
         datetime.strptime("Mon Jan  1 12:00:00 2001", "%a %b  %d %H:%M:%S %Y")
 
-    assert space_time_datasets.parse_c_creation_time(
-        "Mon Jan  1 12:00:00 2001"
-    ) == datetime(2001, 1, 1, 12, 0, 0)
+    assert datasets.parse_c_creation_time("Mon Jan  1 12:00:00 2001") == datetime(
+        2001, 1, 1, 12, 0, 0
+    )
 
 
 def test_creation_time_under_the_german_locale():
@@ -324,7 +324,7 @@ def test_creation_time_under_the_german_locale():
     except locale.Error:
         pytest.skip("The locale de_DE.UTF-8 is not installed")
     try:
-        parsed = space_time_datasets.parse_c_creation_time("Mon Jan  1 12:00:00 2001")
+        parsed = datasets.parse_c_creation_time("Mon Jan  1 12:00:00 2001")
     finally:
         locale.setlocale(locale.LC_TIME, previous)
 

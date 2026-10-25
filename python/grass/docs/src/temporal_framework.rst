@@ -181,6 +181,14 @@ temporal processing algorithms and temporal GRASS modules.
       access methods to map layer objects and so on
     - Provides the interface to all Space Time Dataset specific information in the temporal database
 
+:mod:`~grass.temporal.datasets`
+"""""""""""""""""""""""""""""""
+
+    The two generic classes ``MapDataset`` and ``StdsDataset``. They read the
+    names of the tables, the prefix of the C interface and the map register
+    from the kind of the dataset, so the six classes below only state their
+    kind and what is specific to them.
+
 :mod:`~grass.temporal.space_time_datasets`
 """"""""""""""""""""""""""""""""""""""""""
 

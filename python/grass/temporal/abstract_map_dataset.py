@@ -30,7 +30,7 @@ from .state import (
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
 
-class AbstractMapDataset(AbstractDataset):
+class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
     """This is the base class for all maps (raster, vector, raster3d).
 
     The temporal extent, the spatial extent and the metadata of maps
@@ -52,8 +52,6 @@ class AbstractMapDataset(AbstractDataset):
       subclasses
 
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self) -> None:
         AbstractDataset.__init__(self)

@@ -45,7 +45,7 @@ from .temporal_granularity import (
 ###############################################################################
 
 
-class AbstractSpaceTimeDataset(AbstractDataset):
+class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     """Abstract space time dataset class
 
     Base class for all space time datasets.
@@ -59,8 +59,6 @@ class AbstractSpaceTimeDataset(AbstractDataset):
     database, like the computation of the temporal and spatial extent as
     well as the collecting of metadata.
     """
-
-    __metaclass__ = ABCMeta
 
     def __init__(self, ident) -> None:
         AbstractDataset.__init__(self)

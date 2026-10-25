@@ -21,12 +21,12 @@ from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnecto
 
 
 class AbstractDataset(
-    SpatialTopologyDatasetConnector, TemporalTopologyDatasetConnector
+    SpatialTopologyDatasetConnector,
+    TemporalTopologyDatasetConnector,
+    metaclass=ABCMeta,
 ):
     """This is the base class for all datasets
     (raster, vector, raster3d, strds, stvds, str3ds)"""
-
-    __metaclass__ = ABCMeta
 
     def __init__(self) -> None:
         SpatialTopologyDatasetConnector.__init__(self)

@@ -120,8 +120,8 @@ def get_time_tuple_function(maps):
 
     .. code-block:: pycon
 
-        >>> from grass.temporal.abstract_map_dataset import AbstractMapDataset
-        >>> maps = [AbstractMapDataset()]
+        >>> from grass.temporal.space_time_datasets import RasterDataset
+        >>> maps = [RasterDataset("a@PERMANENT")]
         >>> get_time_tuple_function(maps).__name__
         '_get_map_time_tuple'
         >>> get_time_tuple_function([{"start_time": 1, "end_time": 2}]).__name__
