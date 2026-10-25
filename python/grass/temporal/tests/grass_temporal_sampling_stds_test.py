@@ -73,6 +73,16 @@ METHODS = [
 ]
 
 
+NAMES = json.loads(
+    (Path(__file__).parent / "data" / "sampling_stds_names.json").read_text()
+)
+# Names that the function accepted before it was rebuilt, besides the values of
+# the option: the relations of the topology builder, in any case and with white
+# space, "over" for "overlap", and "equals", which selects nothing. The expected
+# values come from the function of the commit before the rebuild.
+ACCEPTED = [key.split("|") for key in NAMES["matrix"]]
+
+
 def day(number):
     return f"2001-01-{number + 1:02d}"
 
@@ -178,6 +188,29 @@ def test_relative_time(datasets, method):
     )
 
     assert result == EXPECTED["relative"]["|".join(method)]
+
+
+@pytest.mark.parametrize("spatial", [False, True])
+@pytest.mark.parametrize("method", ACCEPTED, ids="-".join)
+def test_a_name_that_was_accepted_before_gives_the_same_map_matrix(
+    datasets, method, spatial
+):
+    result = matrix_of(sample(["inp", "oth"], method, spatial))
+
+    assert result == NAMES["matrix"]["|".join(method)][str(spatial)]
+
+
+@pytest.mark.parametrize("method", ACCEPTED, ids="-".join)
+def test_a_name_that_was_accepted_before_gives_the_same_relative_matrix(
+    datasets, method
+):
+    result = matrix_of(
+        tgis.sample_stds_by_stds_topology(
+            "strds", "strds", ["rin"], "rsm", False, None, method, False, False
+        )
+    )
+
+    assert result == NAMES["relative"]["|".join(method)]
 
 
 def test_the_methods_as_a_comma_separated_string(datasets):

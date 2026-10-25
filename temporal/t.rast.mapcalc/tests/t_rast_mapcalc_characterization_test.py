@@ -794,7 +794,7 @@ def method_datasets(mapcalc_session):
         # topology says "equal". Granule 4 is missing although its map starts
         # inside it and runs on: seen from the granule that is "overlaps"
         # (the granule starts first and ends inside the map), and the method
-        # "start" lists "overlapped" but not "overlaps" (_METHOD_RELATIONS in
+        # "start" lists "overlapped" but not "overlaps" (_METHOD_GROUPS in
         # related_maps.py). "overlapped" would need a map that starts before
         # the granule and ends inside it.
         ("start", [2, 7, 8]),

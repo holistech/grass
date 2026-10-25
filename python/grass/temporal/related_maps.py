@@ -46,18 +46,33 @@ from .algebra.series import Extent, Series, Slot, Space
 # method=equal lists an equal map, method=start prints None for it). The name
 # is left out here, which keeps that result, and the core would reject it as an
 # unknown relation.
-_METHOD_RELATIONS = {
-    "equal": ("equal",),
-    "during": ("during",),
-    "contain": ("contains",),
-    "overlap": ("overlapped", "overlaps"),
-    "follows": ("follows",),
-    "precedes": ("precedes",),
-    "start": ("overlapped", "starts", "started", "finishes", "contains"),
+# A plain name is read as sample_by_dataset() read it: stripped and upper-cased,
+# then looked up among the relations of the builder. "equals" is no such
+# relation (the builder files "EQUAL"), so it selects nothing, as it always did;
+# every name of another kind selected nothing too, and is refused here.
+_PLAIN_RELATIONS = {
+    "EQUAL": ("equal",),
+    "EQUALS": (),
+    "DURING": ("during",),
+    "CONTAINS": ("contains",),
+    "OVERLAPS": ("overlaps",),
+    "OVERLAPPED": ("overlapped",),
+    "FOLLOWS": ("follows",),
+    "PRECEDES": ("precedes",),
+    "STARTS": ("starts",),
+    "STARTED": ("started",),
+    "FINISHES": ("finishes",),
+    "FINISHED": ("finished",),
 }
 # These names stand for a group of relations that sample_by_dataset() appends
-# after the plain method names.
-_METHOD_GROUPS = ("start", "overlap", "contain")
+# after the plain method names, in this order. They are read as written, not
+# upper-cased. "over" is an old short form of "overlap".
+_METHOD_GROUPS = {
+    "start": ("overlapped", "starts", "started", "finishes", "contains"),
+    "overlap": ("overlapped", "overlaps"),
+    "over": ("overlapped", "overlaps"),
+    "contain": ("contains",),
+}
 
 
 def method_relations(method):
@@ -65,31 +80,33 @@ def method_relations(method):
     which sample_by_dataset() tries them
 
     The plain names come first, in the order of the list, then the groups
-    "start", "overlap" and "contain", each as far as not yet in the list. The
-    order matters because the first relation with a map decides which map a
-    caller that takes only one uses.
+    "start", "overlap" ("over") and "contain", each as far as not yet in the
+    list. The order matters because the first relation with a map decides
+    which map a caller that takes only one uses.
 
-    :param method: names from "start", "during", "overlap", "contain",
-        "equal", "follows" and "precedes", the values that the standard
-        option G_OPT_T_SAMPLE offers
+    :param method: the names "start", "overlap", "over", "contain", or the
+        name of a relation of the builder, in any case: equal, during,
+        contains, overlaps, overlapped, follows, precedes, starts, started,
+        finishes, finished. The standard option G_OPT_T_SAMPLE offers only
+        start, during, overlap, contain, equal, follows and precedes.
     :raises ValueError: for another name
     """
     for name in method:
-        if name not in _METHOD_RELATIONS:
+        if name not in _METHOD_GROUPS and name.strip().upper() not in _PLAIN_RELATIONS:
             msg = f"Unknown sampling method <{name}>"
             raise ValueError(msg)
     names = []
     for name in method:
         if name in _METHOD_GROUPS:
             continue
-        for relation_name in _METHOD_RELATIONS[name]:
+        for relation_name in _PLAIN_RELATIONS[name.strip().upper()]:
             if relation_name not in names:
                 names.append(relation_name)
-    for group in _METHOD_GROUPS:
+    for group, relation_names in _METHOD_GROUPS.items():
         if group in method:
             names.extend(
                 relation_name
-                for relation_name in _METHOD_RELATIONS[group]
+                for relation_name in relation_names
                 if relation_name not in names
             )
     return names

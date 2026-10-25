@@ -202,7 +202,7 @@ def methods(tools):
         ("follows", [6]),
         ("precedes", [5]),
         # The method start takes the relations overlapped, starts, started,
-        # finishes and contains (_METHOD_RELATIONS in related_maps.py), not
+        # finishes and contains (_METHOD_GROUPS in related_maps.py), not
         # equal and not overlaps: so granule 1 (equal) and granule 4
         # (overlaps) have no partner. The maps 2 and 7 lie in their granule
         # (contains), map 8 starts with it and runs on.
