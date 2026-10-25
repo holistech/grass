@@ -270,3 +270,31 @@ def test_unregister_map_leaves_a_given_connection_open_on_refusal(two_mapsets):
 
     assert dbif.is_connected()
     dbif.close()
+
+
+@pytest.mark.parametrize(
+    ("where", "order"),
+    [
+        ("name = 'b15_map';", "name;"),
+        ("name = 'b15_map' ; ", " name ;; "),
+        ("name = 'b15_map';\n", None),
+        ("name = 'a;b' OR name = 'b15_map';", "name"),
+    ],
+)
+def test_trailing_semicolon_of_where_and_order_is_tolerated(small_strds, where, order):
+    rows = small_strds.get_registered_maps("name", where=where, order=order)
+
+    assert [row["name"] for row in rows] == ["b15_map"]
+
+
+def test_trailing_semicolon_with_a_group_is_tolerated(small_strds):
+    rows = small_strds.get_registered_maps(
+        "name", where="name = 'b15_map';", order="name;", group="name"
+    )
+
+    assert [row["name"] for row in rows] == ["b15_map"]
+
+
+def test_a_semicolon_inside_the_condition_is_still_an_error(small_strds):
+    with pytest.raises(tgis.SQLStatementError):
+        small_strds.get_registered_maps("name", where="name = 'b15_map'; name = 'x'")

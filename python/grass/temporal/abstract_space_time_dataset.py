@@ -1887,6 +1887,14 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 the group option, in case no maps are found, None is returned
         """
 
+        # Callers have always been allowed to end a condition with a
+        # semicolon. Only the end is stripped; a semicolon inside is part of
+        # the condition, as in name = 'a;b'.
+        if where is not None:
+            where = where.rstrip("; \t\r\n").lstrip()
+        if order is not None:
+            order = order.rstrip("; \t\r\n").lstrip()
+
         dbif, connection_state_changed = init_dbif(dbif)
 
         rows = None
