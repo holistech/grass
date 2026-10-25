@@ -6,6 +6,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
+from grass.tools import Tools
 
 pytestmark = pytest.mark.real_io
 
@@ -156,3 +157,21 @@ def test_check_new_stds_knows_every_name_of_the_3d_type(raising, stds_type):
     dataset = tgis.check_new_stds("b8_new", stds_type)
 
     assert dataset.get_type() == "str3ds"
+
+
+def test_unknown_map_type_is_reported_before_anything_is_written(
+    temporal_module_session,
+):
+    tgis.init(raise_fatal_error=True)
+    tools = Tools(session=temporal_module_session, consistent_return_value=True)
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    tools.r_mapcalc(expression="b18_map = 1", overwrite=True)
+    mapset = tgis.get_current_mapset()
+    map_id = f"b18_map@{mapset}"
+
+    with pytest.raises(FatalError, match=r"Unknown map type"):
+        tgis.register_maps_in_space_time_dataset(
+            "nonsense", None, maps=map_id, start="2001-01-01"
+        )
+
+    assert tgis.RasterDataset(map_id).is_in_db() is False

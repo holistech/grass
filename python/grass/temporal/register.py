@@ -34,6 +34,11 @@ from .datetime_math import (
 from .factory import dataset_factory
 from .open_stds import open_old_stds
 
+# The names of the map types that dataset_factory() knows
+MAP_TYPES = frozenset(
+    {"rast", "raster", "raster_3d", "rast3d", "raster3d", "vect", "vector"}
+)
+
 ###############################################################################
 
 
@@ -182,6 +187,15 @@ def register_maps_in_space_time_dataset(
 
     if not maps and not file:
         msgr.fatal(_("Please specify maps or file"))
+
+    # dataset_factory() would return None for any other name and the loop over
+    # the maps would stop with an AttributeError.
+    if type not in MAP_TYPES:
+        msgr.fatal(
+            _("Unknown map type <{type}>, use one of: {types}").format(
+                type=type, types=", ".join(sorted(MAP_TYPES))
+            )
+        )
 
     if dbif is not None:
         msgr.warning(
