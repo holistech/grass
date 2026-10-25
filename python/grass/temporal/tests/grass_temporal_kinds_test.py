@@ -163,3 +163,57 @@ def test_open_old_stds_reads_a_map_type_as_its_dataset(alias):
         "kinds_old", "strds", "absolute", "t", "d", "mean", overwrite=True
     )
     assert tgis.open_old_stds("kinds_old", alias).get_type() == "strds"
+
+
+class _StubMap:
+    """A map object with the calls that register_map_object_list() makes"""
+
+    def __init__(self, name, empty):
+        self.name = name
+        self.empty = empty
+        self.metadata = self
+
+    def load(self):
+        pass
+
+    def get_min(self):
+        return None if self.empty else 1
+
+    get_max = get_min
+
+    def get_number_of_primitives(self):
+        return 0 if self.empty else 3
+
+    def get_temporal_extent_as_tuple(self):
+        return ("2001-01-01", None)
+
+    def get_id(self):
+        return f"{self.name}@PERMANENT"
+
+    def get_name(self):
+        # No name: nothing is removed from the mapset by the test
+        return None
+
+    def is_in_db(self, dbif):
+        return False
+
+
+@pytest.mark.parametrize("alias", sorted(kinds.MAP_ALIASES))
+def test_register_map_object_list_skips_empty_maps_of_every_alias(
+    temporal_module_session, monkeypatch, alias
+):
+    # "raster3d" and "vect" were accepted but their empty maps were registered
+    # all the same, because the check compared the type with a list of its own.
+    registered = []
+
+    def read_file(type, stds, unit=None, file=None):
+        registered.append(Path(file).read_text())
+
+    monkeypatch.setattr(tgis.register, "register_maps_in_space_time_dataset", read_file)
+    tgis.init(raise_fatal_error=True)
+
+    tgis.register_map_object_list(
+        alias, [_StubMap("full", False), _StubMap("empty", True)], None, True
+    )
+
+    assert registered == ["full@PERMANENT|2001-01-01|2001-01-01\n"]
