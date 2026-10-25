@@ -3366,7 +3366,17 @@
   "same start": null,
   "week": "7 days",
   "leap": "1 month",
-  "seconds interval": "15 seconds"
+  "seconds interval": "15 seconds",
+  "day and hours": "29 hours",
+  "month and days": "41 days",
+  "year and months": "2 months",
+  "hour and minutes": "325 minutes",
+  "minute and seconds": "200 seconds",
+  "day hour minute": "1747 minutes",
+  "gap day and hours": "29 hours",
+  "gap month and days": "41 days",
+  "gap year and months": "2 months",
+  "gap with intervals": "1 hour"
  },
  "specs": {
   "month points": [
@@ -3571,6 +3581,82 @@
    [
     "2000-01-01 00:00:45",
     "2000-01-01 00:02:00"
+   ]
+  ],
+  "day and hours": [
+   [
+    "2000-01-01",
+    "2000-01-02 05:00:00"
+   ]
+  ],
+  "month and days": [
+   [
+    "2000-01-01",
+    "2000-02-11"
+   ]
+  ],
+  "year and months": [
+   [
+    "2000-01-01",
+    "2001-03-01"
+   ]
+  ],
+  "hour and minutes": [
+   [
+    "2000-01-01 00:00:00",
+    "2000-01-01 05:25:00"
+   ]
+  ],
+  "minute and seconds": [
+   [
+    "2000-01-01 00:00:00",
+    "2000-01-01 00:03:20"
+   ]
+  ],
+  "day hour minute": [
+   [
+    "2000-01-01",
+    "2000-01-02 05:07:00"
+   ]
+  ],
+  "gap day and hours": [
+   [
+    "2000-01-01",
+    null
+   ],
+   [
+    "2000-01-02 05:00:00",
+    null
+   ]
+  ],
+  "gap month and days": [
+   [
+    "2000-01-01",
+    null
+   ],
+   [
+    "2000-02-11",
+    null
+   ]
+  ],
+  "gap year and months": [
+   [
+    "2000-01-01",
+    null
+   ],
+   [
+    "2001-03-01",
+    null
+   ]
+  ],
+  "gap with intervals": [
+   [
+    "2000-01-01",
+    "2000-01-03"
+   ],
+   [
+    "2000-01-04 05:00:00",
+    "2000-01-06"
    ]
   ]
  }
