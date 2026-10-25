@@ -5,7 +5,7 @@ from .abstract_dataset import (
 )
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-from .aggregation import aggregate_by_topology, aggregate_raster_maps, collect_map_names
+from .aggregation import aggregate_raster_maps, collect_map_names
 from .base import BaseRow, RegisterRow
 from .c_libraries_interface import CLibrariesInterface
 from .db import (
@@ -198,7 +198,6 @@ __all__ = [
     "TemporalVectorAlgebraParser",
     "VectorDataset",
     "adjust_datetime_to_granularity",
-    "aggregate_by_topology",
     "aggregate_raster_maps",
     "assign_valid_time_to_map",
     "check_datetime_string",
