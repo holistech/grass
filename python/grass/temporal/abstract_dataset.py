@@ -84,17 +84,13 @@ class AbstractDataset(
         :return: The dictionary with relations as keys and number as values or
                  None in case the topology wasn't built
         """
-        if self.is_temporal_topology_build() and not self.is_spatial_topology_build():
-            return self.get_number_of_temporal_relations()
-        if self.is_spatial_topology_build() and not self.is_temporal_topology_build():
-            self.get_number_of_spatial_relations()
-        else:
-            return (
-                self.get_number_of_temporal_relations()
-                + self.get_number_of_spatial_relations()
-            )
-
-        return None
+        temporal = self.get_number_of_temporal_relations()
+        spatial = self.get_number_of_spatial_relations()
+        if temporal is None:
+            return spatial
+        if spatial is None:
+            return temporal
+        return {**temporal, **spatial}
 
     def set_topology_build_true(self) -> None:
         """Use this method when the spatio-temporal topology was build"""

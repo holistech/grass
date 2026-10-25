@@ -313,3 +313,30 @@ def test_a_map_without_links_prints_only_the_header():
     assert printed(a.print_temporal_topology_info) == TEMPORAL_INFO.splitlines(True)[0]
     assert printed(a.print_temporal_topology_shell_info) == ""
     assert printed(a.print_spatial_topology_shell_info) == ""
+
+
+def test_the_numbers_of_both_topologies_are_one_dictionary():
+    a = RasterDataset("a@p")
+    set_temporal_relationship(RasterDataset("x@p"), a, "equal")
+    set_spatial_relationship(RasterDataset("y@p"), a, "meet")
+    a.set_topology_build_true()
+
+    numbers = a.get_number_of_relations()
+
+    assert numbers == {
+        **a.get_number_of_temporal_relations(),
+        **a.get_number_of_spatial_relations(),
+    }
+    assert (numbers["equal"], numbers["meet"], numbers["follows"]) == (1, 1, 0)
+
+
+def test_the_numbers_of_the_spatial_topology_alone():
+    a = RasterDataset("a@p")
+    set_spatial_relationship(RasterDataset("y@p"), a, "meet")
+    a.set_spatial_topology_build_true()
+
+    assert a.get_number_of_relations() == a.get_number_of_spatial_relations()
+
+
+def test_there_are_no_numbers_without_a_topology():
+    assert RasterDataset("a@p").get_number_of_relations() is None
