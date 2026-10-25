@@ -32,12 +32,11 @@ from .datetime_math import (
     string_to_datetime,
 )
 from .factory import dataset_factory
+from .kinds import MAP_ALIASES, find_kind, stds_kind_of
 from .open_stds import open_old_stds
 
 # The names of the map types that dataset_factory() knows
-MAP_TYPES = frozenset(
-    {"rast", "raster", "raster_3d", "rast3d", "raster3d", "vect", "vector"}
-)
+MAP_TYPES = MAP_ALIASES
 
 ###############################################################################
 
@@ -649,12 +648,7 @@ def register_maps_in_space_time_dataset(
     # Update affected datasets
     if datatsets_to_modify:
         for dataset in datatsets_to_modify:
-            if type in {"rast", "raster"}:
-                ds = dataset_factory("strds", dataset)
-            elif type in {"raster_3d", "rast3d", "raster3d"}:
-                ds = dataset_factory("str3ds", dataset)
-            elif type in {"vect", "vector"}:
-                ds = dataset_factory("stvds", dataset)
+            ds = dataset_factory(stds_kind_of(type).name, dataset)
             ds.select(dbif)
             ds.update_from_registered_maps(dbif)
 
@@ -831,14 +825,16 @@ def register_map_object_list(
             map_layer.load()
             # In case of a empty map continue, do not register empty maps
             if delete_empty:
-                if type in {"raster", "raster_3d", "rast", "rast3d"}:
+                kind = find_kind(type)
+                map_kind = kind.name if kind else None
+                if map_kind in {"raster", "raster3d"}:
                     if (
                         map_layer.metadata.get_min() is None
                         and map_layer.metadata.get_max() is None
                     ):
                         empty_maps.append(map_layer)
                         continue
-                if type == "vector":
+                if map_kind == "vector":
                     if map_layer.metadata.get_number_of_primitives() == 0:
                         empty_maps.append(map_layer)
                         continue

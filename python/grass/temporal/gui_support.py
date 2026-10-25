@@ -15,6 +15,7 @@ from grass.exceptions import ScriptError
 
 from .core import init_dbif
 from .factory import dataset_factory
+from .kinds import KINDS
 
 ###############################################################################
 
@@ -154,12 +155,14 @@ def registered_maps_grouped(dbif=None):
 
     :return: nested dictionary {dataset type: {dataset id: list of maps}}
     """
-    stds_map_types = {"strds": "raster", "stvds": "vector", "str3ds": "raster3d"}
+    stds_map_types = {
+        name: KINDS[KINDS[name].map_kind] for name in ("strds", "stvds", "str3ds")
+    }
     result = {stds_type: {} for stds_type in stds_map_types}
     dbif, connection_state_changed = init_dbif(dbif)
 
     try:
-        for stds_type, map_type in stds_map_types.items():
+        for stds_type, map_kind in stds_map_types.items():
             datasets = result[stds_type]
             # One row per map registered in at least one dataset. A map has
             # either absolute or relative time, so exactly one of the joined
@@ -169,9 +172,11 @@ def registered_maps_grouped(dbif=None):
                 " abs_t.start_time AS abs_start, abs_t.end_time AS abs_end,"
                 " rel_t.start_time AS rel_start, rel_t.end_time AS rel_end,"
                 " rel_t.unit AS unit"
-                f" FROM {map_type}_stds_register AS reg"
-                f" LEFT JOIN {map_type}_absolute_time AS abs_t ON reg.id = abs_t.id"
-                f" LEFT JOIN {map_type}_relative_time AS rel_t ON reg.id = rel_t.id"
+                f" FROM {map_kind.table('register')} AS reg"
+                f" LEFT JOIN {map_kind.table('absolute_time')} AS abs_t"
+                " ON reg.id = abs_t.id"
+                f" LEFT JOIN {map_kind.table('relative_time')} AS rel_t"
+                " ON reg.id = rel_t.id"
                 " WHERE reg.registered_stds IS NOT NULL"
                 " AND reg.registered_stds != ''"
             )

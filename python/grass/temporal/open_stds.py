@@ -29,6 +29,7 @@ from grass.exceptions import FatalError
 from .abstract_map_dataset import AbstractMapDataset
 from .core import get_current_mapset, get_tgis_message_interface, init_dbif
 from .factory import dataset_factory
+from .kinds import find_kind, stds_kind_of
 
 ###############################################################################
 
@@ -83,18 +84,8 @@ def open_old_stds(name, type, dbif=None):
     """
     msgr = get_tgis_message_interface()
     stds_type = type
-    if stds_type not in {
-        "strds",
-        "str3ds",
-        "stvds",
-        "raster",
-        "rast",
-        "raster3d",
-        "rast3d",
-        "raster_3d",
-        "vector",
-        "vect",
-    }:
+    kind = find_kind(stds_type)
+    if kind is None:
         msgr.fatal(_("Unknown type: %s") % (stds_type))
 
     def try_get_stds(
@@ -103,15 +94,13 @@ def open_old_stds(name, type, dbif=None):
         semantic_label: str | None,
         dbif: SQLDatabaseInterfaceConnection,
     ) -> AbstractSpaceTimeDataset | None:
-        if stds_type in {"str3ds", "raster3d", "rast3d", "raster_3d"}:
-            sp = dataset_factory("str3ds", ds_id)
-        elif stds_type in {"stvds", "vect", "vector"}:
-            sp = dataset_factory("stvds", ds_id)
-        else:
-            sp = dataset_factory("strds", ds_id)
-            # Set the semantic label if it was given
-            if semantic_label:
-                sp.set_semantic_label(semantic_label)
+        # A map type selects the datasets that hold such maps: "raster" is a
+        # space time raster dataset here.
+        stds_kind = stds_kind_of(stds_type).name
+        sp = dataset_factory(stds_kind, ds_id)
+        # Set the semantic label if it was given
+        if semantic_label and stds_kind == "strds":
+            sp.set_semantic_label(semantic_label)
 
         with contextlib.suppress(SystemExit, FatalError):
             if sp.is_in_db(dbif):
@@ -202,15 +191,10 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
     else:
         id = f"{name}@{get_current_mapset()}"
 
-    if stds_type in {"strds", "rast", "raster"}:
-        sp = dataset_factory("strds", id)
-    elif stds_type in {"str3ds", "raster3d", "rast3d", "raster_3d"}:
-        sp = dataset_factory("str3ds", id)
-    elif stds_type in {"stvds", "vect", "vector"}:
-        sp = dataset_factory("stvds", id)
-    else:
+    if find_kind(stds_type) is None:
         msgr.error(_("Unknown type: %s") % (stds_type))
         return None
+    sp = dataset_factory(stds_kind_of(stds_type).name, id)
 
     dbif, connection_state_changed = init_dbif(dbif)
 

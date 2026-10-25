@@ -25,6 +25,7 @@ import grass.script as gs
 
 from .core import SQLStatementError, get_tgis_message_interface, init_dbif
 from .datetime_math import time_delta_to_relative_time
+from .kinds import find_kind
 from .open_stds import open_old_stds
 
 ###############################################################################
@@ -284,7 +285,10 @@ def _view_name(dataset_type, temporal_type):
     The views of 3D raster maps are named raster3d_view_*, the type is
     raster_3d.
     """
-    prefix = "raster3d" if dataset_type == "raster_3d" else dataset_type
+    kind = find_kind(dataset_type)
+    # An unknown type stays in the name, so that the query reports the missing
+    # view as it always did.
+    prefix = kind.table_prefix if kind else dataset_type
     suffix = "abs_time" if temporal_type == "absolute" else "rel_time"
     return f"{prefix}_view_{suffix}"
 
