@@ -187,6 +187,13 @@ temporal processing algorithms and temporal GRASS modules.
       :func:`~grass.temporal.stds_time_edit.snap_map_list`) or in the temporal database
       (:func:`~grass.temporal.stds_time_edit.shift`, :func:`~grass.temporal.stds_time_edit.snap`)
 
+:mod:`~grass.temporal.granule_sampling`
+"""""""""""""""""""""""""""""""""""""""
+
+    - Splits the maps of a Space Time Dataset into granules of a granularity
+      (:func:`~grass.temporal.granule_sampling.registered_maps_by_granularity`,
+      :func:`~grass.temporal.granule_sampling.resample_maplist_by_granularity`)
+
 :mod:`~grass.temporal.datasets`
 """""""""""""""""""""""""""""""
 

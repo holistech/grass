@@ -619,3 +619,39 @@ def test_a_new_register_name_has_the_form_of_the_check(pair):
     assert len(name) == len("raster_map_register_") + 32
     assert name != stds.create_map_register_name()
     assert stds.map_register.table_name() == stds.get_map_register()
+
+
+def test_resample_counts_the_months_from_the_start_not_from_the_last_cut():
+    # From 31 January the granules start on 28 February and 31 March; a
+    # count from the cut of the previous granule would give 28 March.
+    whole = timed_map(
+        "whole", datetime.datetime(2001, 1, 31), datetime.datetime(2001, 4, 30)
+    )
+
+    granules = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
+        [whole],
+        datetime.datetime(2001, 1, 31),
+        datetime.datetime(2001, 4, 30),
+        "1 month",
+    )
+
+    assert [granule[0].get_temporal_extent_as_tuple() for granule in granules] == [
+        (datetime.datetime(2001, 1, 31), datetime.datetime(2001, 2, 28)),
+        (datetime.datetime(2001, 2, 28), datetime.datetime(2001, 3, 31)),
+        (datetime.datetime(2001, 3, 31), datetime.datetime(2001, 4, 30)),
+    ]
+
+
+def test_registered_maps_by_granularity_of_relative_instants_reaches_the_last(pair):
+    fill(pair, "rel", start="0", increment="2", unit="days", interval=False)
+    stds = stds_of(pair, "rel")
+    mapset = tgis.get_current_mapset()
+
+    granules = stds.get_registered_maps_as_objects_by_granularity(gran=1)
+
+    # The instants at 0 and 2 each fall in the granule that starts there
+    assert [[item.get_id() for item in granule][:1] for granule in granules] == [
+        [f"{pair['m1']}@{mapset}"],
+        [None],
+        [f"{pair['m2']}@{mapset}"],
+    ]

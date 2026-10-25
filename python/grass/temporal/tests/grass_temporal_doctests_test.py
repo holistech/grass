@@ -46,6 +46,7 @@ MODULES = [
     "c_libraries_interface",
     "datetime_math",
     "db",
+    "granule_sampling",
     "gui_support",
     "list_stds",
     "metadata",

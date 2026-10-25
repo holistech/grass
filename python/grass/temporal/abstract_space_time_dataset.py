@@ -18,10 +18,6 @@ from datetime import datetime
 
 
 from .abstract_dataset import AbstractDataset
-from .datetime_math import (
-    datetime_after_steps,
-    increment_datetime_by_string,
-)
 from .db import connection
 from .topology import (
     SpatioTemporalTopologyBuilder,
@@ -29,7 +25,7 @@ from .topology import (
     print_spatio_temporal_topology_relationships,
 )
 from .state import get_current_mapset
-from . import stds_time_edit
+from . import granule_sampling, stds_time_edit
 from .stds_map_register import StdsMapRegister
 from .temporal_granularity import (
     check_granularity_string,
@@ -855,38 +851,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 granule, or None in case nothing found
         """
 
-        with connection(dbif) as dbif:
-            if gran is None:
-                gran = self.get_granularity()
-
-            check = check_granularity_string(gran, self.get_temporal_type())
-            if not check:
-                self.msgr.fatal(_('Wrong granularity: "%s"') % str(gran))
-
-            maps = self.get_registered_maps_as_objects(
-                dbif=dbif, order="start_time", where=where
-            )
-
-            if not maps:
-                return None
-
-            start = maps[0].get_temporal_extent_as_tuple()[0]
-            end_extend = maps[-1].get_temporal_extent_as_tuple()
-            end = end_extend[1] if end_extend[1] is not None else end_extend[0]
-
-            if start is None or end is None:
-                return None
-            # We need to adjust the end time in case the dataset has no
-            # interval time, so we can catch time instances at the end
-            if self.get_map_time() != "interval":
-                if self.is_time_absolute():
-                    end = increment_datetime_by_string(end, gran)
-                else:
-                    end += gran
-
-            return AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-                maps, start, end, gran
-            )
+        return granule_sampling.registered_maps_by_granularity(self, gran, where, dbif)
 
     @staticmethod
     def resample_maplist_by_granularity(maps, start, end, gran):
@@ -894,232 +859,19 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
         The provided map list must be sorted by start time.
         A valid temporal topology (no overlapping or inclusion allowed)
-        is needed to receive correct results.
-
-        Maps with interval time, time instances and mixed
-        time are supported.
-
-        The temporal topology search order is as follows:
-
-        1. Maps that are equal to the actual granule are used
-        2. If no equal found then maps that contain the actual granule
-           are used
-        3. If no maps are found that contain the actual granule then maps
-           are used that overlaps the actual granule
-        4. If no overlaps maps found then overlapped maps are used
-        5. If no overlapped maps are found then maps are used that are
-           during the actual granule
-
-
-        Each entry in the resulting list is a list of
-        AbstractMapDatasets objects.
-        Hence for each granule a list of AbstractMapDatasets can be
-        expected.
-
-        Gaps between maps are identified as unregistered maps with id==None.
+        is needed to receive correct results. See
+        :func:`grass.temporal.granule_sampling.resample_maplist_by_granularity`.
 
         :param maps: An ordered list (by start time) of AbstractMapDatasets
                 objects. All maps must have the same temporal type
                 and the same unit in case of relative time.
         :param start: The start time of the provided map list
         :param end:   The end time of the provided map list
-        :param gran: The granularity string to be used, if None the
-                granularity of the space time dataset is used.
-                Absolute time has the format "number unit", relative
-                time has the format "number".
-                The unit in case of absolute time can be one of "second,
-                seconds, minute, minutes, hour, hours, day, days, week,
-                weeks, month, months, year, years". The unit of the
-                relative time granule is always the space time dataset
-                unit and can not be changed.
-
+        :param gran: The granularity string
         :return: ordered list of map lists. Each list represents a single
             granule, or None in case nothing found
-
-        Usage:
-
-        .. code-block:: pycon
-
-            >>> import grass.temporal as tgis
-            >>> maps = []
-            >>> for i in range(3):
-            ...     map = tgis.RasterDataset("map%i@PERMANENT" % i)
-            ...     check = map.set_relative_time(i + 2, i + 3, "days")
-            ...     maps.append(map)
-            >>> grans = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-            ...     maps, 0, 8, 1
-            ... )
-            >>> for map_list in grans:
-            ...     print(
-            ...         map_list[0].get_id(),
-            ...         map_list[0].get_temporal_extent_as_tuple(),
-            ...     )
-            None (0, 1)
-            None (1, 2)
-            map0@PERMANENT (2, 3)
-            map1@PERMANENT (3, 4)
-            map2@PERMANENT (4, 5)
-            None (5, 6)
-            None (6, 7)
-            None (7, 8)
-
-            >>> maps = []
-            >>> map1 = tgis.RasterDataset("map1@PERMANENT")
-            >>> check = map1.set_relative_time(2, 6, "days")
-            >>> maps.append(map1)
-            >>> map2 = tgis.RasterDataset("map2@PERMANENT")
-            >>> check = map2.set_relative_time(7, 13, "days")
-            >>> maps.append(map2)
-            >>> grans = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-            ...     maps, 0, 16, 2
-            ... )
-            >>> for map_list in grans:
-            ...     print(
-            ...         map_list[0].get_id(),
-            ...         map_list[0].get_temporal_extent_as_tuple(),
-            ...     )
-            None (0, 2)
-            map1@PERMANENT (2, 4)
-            map1@PERMANENT (4, 6)
-            map2@PERMANENT (6, 8)
-            map2@PERMANENT (8, 10)
-            map2@PERMANENT (10, 12)
-            map2@PERMANENT (12, 14)
-            None (14, 16)
-
-            >>> maps = []
-            >>> map1 = tgis.RasterDataset("map1@PERMANENT")
-            >>> check = map1.set_relative_time(2, None, "days")
-            >>> maps.append(map1)
-            >>> map2 = tgis.RasterDataset("map2@PERMANENT")
-            >>> check = map2.set_relative_time(7, None, "days")
-            >>> maps.append(map2)
-            >>> grans = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-            ...     maps, 0, 16, 2
-            ... )
-            >>> for map_list in grans:
-            ...     print(
-            ...         map_list[0].get_id(),
-            ...         map_list[0].get_temporal_extent_as_tuple(),
-            ...     )
-            None (0, 2)
-            map1@PERMANENT (2, 4)
-            None (4, 6)
-            map2@PERMANENT (6, 8)
-            None (8, 10)
-            None (10, 12)
-            None (12, 14)
-            None (14, 16)
-
-            >>> maps = []
-            >>> map1 = tgis.RasterDataset("map1@PERMANENT")
-            >>> check = map1.set_absolute_time(
-            ...     datetime(2000, 4, 1), datetime(2000, 6, 1)
-            ... )
-            >>> maps.append(map1)
-            >>> map2 = tgis.RasterDataset("map2@PERMANENT")
-            >>> check = map2.set_absolute_time(
-            ...     datetime(2000, 8, 1), datetime(2000, 12, 1)
-            ... )
-            >>> maps.append(map2)
-            >>> grans = tgis.AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-            ...     maps, datetime(2000, 1, 1), datetime(2001, 4, 1), "1 month"
-            ... )
-            >>> for map_list in grans:
-            ...     print(
-            ...         map_list[0].get_id(),
-            ...         map_list[0].get_temporal_extent_as_tuple(),
-            ...     )
-            None (datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 2, 1, 0, 0))
-            None (datetime.datetime(2000, 2, 1, 0, 0), datetime.datetime(2000, 3, 1, 0, 0))
-            None (datetime.datetime(2000, 3, 1, 0, 0), datetime.datetime(2000, 4, 1, 0, 0))
-            map1@PERMANENT (datetime.datetime(2000, 4, 1, 0, 0), datetime.datetime(2000, 5, 1, 0, 0))
-            map1@PERMANENT (datetime.datetime(2000, 5, 1, 0, 0), datetime.datetime(2000, 6, 1, 0, 0))
-            None (datetime.datetime(2000, 6, 1, 0, 0), datetime.datetime(2000, 7, 1, 0, 0))
-            None (datetime.datetime(2000, 7, 1, 0, 0), datetime.datetime(2000, 8, 1, 0, 0))
-            map2@PERMANENT (datetime.datetime(2000, 8, 1, 0, 0), datetime.datetime(2000, 9, 1, 0, 0))
-            map2@PERMANENT (datetime.datetime(2000, 9, 1, 0, 0), datetime.datetime(2000, 10, 1, 0, 0))
-            map2@PERMANENT (datetime.datetime(2000, 10, 1, 0, 0), datetime.datetime(2000, 11, 1, 0, 0))
-            map2@PERMANENT (datetime.datetime(2000, 11, 1, 0, 0), datetime.datetime(2000, 12, 1, 0, 0))
-            None (datetime.datetime(2000, 12, 1, 0, 0), datetime.datetime(2001, 1, 1, 0, 0))
-            None (datetime.datetime(2001, 1, 1, 0, 0), datetime.datetime(2001, 2, 1, 0, 0))
-            None (datetime.datetime(2001, 2, 1, 0, 0), datetime.datetime(2001, 3, 1, 0, 0))
-            None (datetime.datetime(2001, 3, 1, 0, 0), datetime.datetime(2001, 4, 1, 0, 0))
-
-        """  # noqa: E501
-
-        if not maps:
-            return None
-
-        first = maps[0]
-
-        # Build the gaplist. An absolute granule counts from the first one, so
-        # that a cut to the end of a shorter month does not carry over: from
-        # 31 January the granules start on 28 February and 31 March, not on
-        # 28 February and 28 March.
-        gap_list = []
-        anchor = start
-        count = 0
-        while start < end:
-            count += 1
-            if first.is_time_absolute():
-                next = datetime_after_steps(anchor, gran, count)
-            else:
-                next = start + gran
-
-            map = first.get_new_instance(None)
-            map.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
-            if first.is_time_absolute():
-                map.set_absolute_time(start, next)
-            else:
-                map.set_relative_time(start, next, first.get_relative_time_unit())
-
-            gap_list.append(copy.copy(map))
-            start = next
-
-        tb = SpatioTemporalTopologyBuilder()
-        tb.build(gap_list, maps)
-
-        relations_order = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
-
-        gran_list = []
-        for gap in gap_list:
-            # If not temporal relations then gap
-            if not gap.get_temporal_relations():
-                gran_list.append(
-                    [
-                        gap,
-                    ]
-                )
-            else:
-                relations = gap.get_temporal_relations()
-
-                map_list = []
-
-                for relation in relations_order:
-                    if relation in relations:
-                        map_list += relations[relation]
-                        break
-
-                if map_list:
-                    new_maps = []
-                    for map in map_list:
-                        new_map = map.get_new_instance(map.get_id())
-                        new_map.set_temporal_extent(gap.get_temporal_extent())
-                        new_map.set_spatial_extent(map.get_spatial_extent())
-                        new_maps.append(new_map)
-                    gran_list.append(new_maps)
-                else:
-                    gran_list.append(
-                        [
-                            gap,
-                        ]
-                    )
-
-        if gran_list:
-            return gran_list
-
-        return None
+        """
+        return granule_sampling.resample_maplist_by_granularity(maps, start, end, gran)
 
     def get_registered_maps_as_objects_with_gaps(
         self, where=None, dbif=None, spatial_extent=None, spatial_relation=None
