@@ -247,3 +247,12 @@ def test_relative_timestamp_of_the_map_dataset(timestamped_map, text, expected):
     assert dataset.read_timestamp_from_grass() is True
 
     assert dataset.get_relative_time() == expected
+
+
+def test_missing_map_message_has_no_indentation(raising):
+    with pytest.raises(FatalError) as error:
+        tgis.RasterDataset.build_id_from_search_path("b22_does_not_exist", "cell")
+
+    assert str(error.value) == (
+        "Map <b22_does_not_exist> of element type 'cell' not found on search path"
+    )

@@ -223,10 +223,10 @@ class AbstractMapDataset(AbstractDataset):
             if result["mapset"]:
                 mapset = result["mapset"]
             else:
-                gs.fatal(
+                get_tgis_message_interface().fatal(
                     _(
-                        "Map <{map_name}> of element type '{element}' not found on \
-                            search path"
+                        "Map <{map_name}> of element type '{element}' not found "
+                        "on search path"
                     ).format(element=element, map_name=name)
                 )
 
