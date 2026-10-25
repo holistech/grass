@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # The kinds of maps the server knows. The names are the prefixes of the
-# functions of the client, such as has_raster3d_timestamp.
+# methods of the client for the existence of a map, such as raster3d_map_exists.
 _KINDS = ("raster", "raster3d", "vector")
 
 # What a handler sends when it raises. A handler without an answer on error
@@ -881,26 +881,36 @@ class CLibrariesInterface(RPCServerBase):
         >>> check = ciface.raster_map_exists("test", tgis.get_current_mapset())
         >>> print(check)
         True
-        >>> ciface.read_raster_info("test", tgis.get_current_mapset())
+        >>> ciface.call("read_info", "raster", "test", tgis.get_current_mapset())
         {'north': 80.0, 'south': 0.0, 'east': 120.0, 'west': 0.0, 'nsres': 10.0, 'ewres': 10.0, 'rows': 8, 'cols': 12, 'datatype': 'CELL', 'min': 1, 'max': 1}
 
-        >>> check = ciface.has_raster_timestamp("test", tgis.get_current_mapset())
+        >>> check = ciface.call(
+        ...     "has_timestamp", "raster", "test", tgis.get_current_mapset()
+        ... )
         >>> print(check)
         True
         >>> if check:
-        ...     res = ciface.read_raster_timestamp("test", tgis.get_current_mapset())
+        ...     res = ciface.call(
+        ...         "read_timestamp", "raster", "test", tgis.get_current_mapset()
+        ...     )
         ...     if res[0]:
         ...         print(str(res[1][0]), str(res[1][0]))
-        ...         ciface.remove_raster_timestamp("test", tgis.get_current_mapset())
+        ...         ciface.call(
+        ...             "remove_timestamp", "raster", "test", tgis.get_current_mapset()
+        ...         )
         1995-03-12 10:34:40 1995-03-12 10:34:40
         1
-        >>> ciface.has_raster_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "raster", "test", tgis.get_current_mapset())
         False
-        >>> ciface.write_raster_timestamp(
-        ...     "test", tgis.get_current_mapset(), "13 Jan 1999 14:30:05"
+        >>> ciface.call(
+        ...     "write_timestamp",
+        ...     "raster",
+        ...     "test",
+        ...     tgis.get_current_mapset(),
+        ...     timestring="13 Jan 1999 14:30:05",
         ... )
         1
-        >>> ciface.has_raster_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "raster", "test", tgis.get_current_mapset())
         True
 
 
@@ -908,25 +918,38 @@ class CLibrariesInterface(RPCServerBase):
         >>> check = ciface.raster3d_map_exists("test", tgis.get_current_mapset())
         >>> print(check)
         True
-        >>> ciface.read_raster3d_info("test", tgis.get_current_mapset())
+        >>> ciface.call("read_info", "raster3d", "test", tgis.get_current_mapset())
         {'north': 80.0, 'south': 0.0, 'east': 120.0, 'west': 0.0, 'nsres': 10.0, 'ewres': 10.0, 'tbres': 1.0, 'rows': 8, 'cols': 12, 'depths': 1, 'top': 1.0, 'bottom': 0.0, 'datatype': 'DCELL', 'min': 1.0, 'max': 1.0}
-        >>> check = ciface.has_raster3d_timestamp("test", tgis.get_current_mapset())
+        >>> check = ciface.call(
+        ...     "has_timestamp", "raster3d", "test", tgis.get_current_mapset()
+        ... )
         >>> print(check)
         True
         >>> if check:
-        ...     res = ciface.read_raster3d_timestamp("test", tgis.get_current_mapset())
+        ...     res = ciface.call(
+        ...         "read_timestamp", "raster3d", "test", tgis.get_current_mapset()
+        ...     )
         ...     if res[0]:
         ...         print(str(res[1][0]), str(res[1][0]))
-        ...         ciface.remove_raster3d_timestamp("test", tgis.get_current_mapset())
+        ...         ciface.call(
+        ...             "remove_timestamp",
+        ...             "raster3d",
+        ...             "test",
+        ...             tgis.get_current_mapset(),
+        ...         )
         1995-03-12 10:34:40 1995-03-12 10:34:40
         1
-        >>> ciface.has_raster3d_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "raster3d", "test", tgis.get_current_mapset())
         False
-        >>> ciface.write_raster3d_timestamp(
-        ...     "test", tgis.get_current_mapset(), "13 Jan 1999 14:30:05"
+        >>> ciface.call(
+        ...     "write_timestamp",
+        ...     "raster3d",
+        ...     "test",
+        ...     tgis.get_current_mapset(),
+        ...     timestring="13 Jan 1999 14:30:05",
         ... )
         1
-        >>> ciface.has_raster3d_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "raster3d", "test", tgis.get_current_mapset())
         True
 
 
@@ -934,27 +957,37 @@ class CLibrariesInterface(RPCServerBase):
         >>> check = ciface.vector_map_exists("test", tgis.get_current_mapset())
         >>> print(check)
         True
-        >>> kvp = ciface.read_vector_info("test", tgis.get_current_mapset())
+        >>> kvp = ciface.call("read_info", "vector", "test", tgis.get_current_mapset())
         >>> kvp["points"]
         10
 
-        >>> check = ciface.has_vector_timestamp("test", tgis.get_current_mapset(), None)
+        >>> check = ciface.call(
+        ...     "has_timestamp", "vector", "test", tgis.get_current_mapset()
+        ... )
         >>> print(check)
         True
         >>> if check:
-        ...     res = ciface.read_vector_timestamp("test", tgis.get_current_mapset())
+        ...     res = ciface.call(
+        ...         "read_timestamp", "vector", "test", tgis.get_current_mapset()
+        ...     )
         ...     if res[0]:
         ...         print(str(res[1][0]), str(res[1][0]))
-        ...         ciface.remove_vector_timestamp("test", tgis.get_current_mapset())
+        ...         ciface.call(
+        ...             "remove_timestamp", "vector", "test", tgis.get_current_mapset()
+        ...         )
         1995-03-12 10:34:40 1995-03-12 10:34:40
         1
-        >>> ciface.has_vector_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "vector", "test", tgis.get_current_mapset())
         False
-        >>> ciface.write_vector_timestamp(
-        ...     "test", tgis.get_current_mapset(), "13 Jan 1999 14:30:05"
+        >>> ciface.call(
+        ...     "write_timestamp",
+        ...     "vector",
+        ...     "test",
+        ...     tgis.get_current_mapset(),
+        ...     timestring="13 Jan 1999 14:30:05",
         ... )
         1
-        >>> ciface.has_vector_timestamp("test", tgis.get_current_mapset())
+        >>> ciface.call("has_timestamp", "vector", "test", tgis.get_current_mapset())
         True
 
         >>> ciface.get_driver_name()
@@ -995,8 +1028,9 @@ class CLibrariesInterface(RPCServerBase):
         """Call a function of the C-library server and return its answer
 
         The functions are the ones registered with the decorator _handler,
-        such as ``has_timestamp``. The methods of this class are the
-        calls the library makes; this method is for a function that has none.
+        such as ``has_timestamp``. Some of them have a method of this class, such
+        as the one for the existence of a map; the timestamp, info and history
+        functions are only called through this method.
 
         :param function: The name of the function of the server
         :param kind: The kind of the map: raster, raster3d or vector
@@ -1020,84 +1054,6 @@ class CLibrariesInterface(RPCServerBase):
         :returns: True if exists, False if not
         """
         return self.call("map_exists", "raster", name, mapset)
-
-    def read_raster_info(self, name, mapset):
-        """Read the raster map info from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map specific metadata,
-                  or None in case of an error
-        """
-        return self.call("read_info", "raster", name, mapset)
-
-    def read_raster_history(self, name, mapset):
-        """Read the raster map history from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map history (creator, creation_time),
-                  or None in case of an error
-        """
-        return self.call("read_history", "raster", name, mapset)
-
-    def has_raster_timestamp(self, name, mapset):
-        """Check if a file based raster timestamp exists
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: True if exists, False if not
-        """
-        return self.call("has_timestamp", "raster", name, mapset)
-
-    def remove_raster_timestamp(self, name, mapset):
-        """Remove a file based raster timestamp
-
-        Please have a look at the documentation of G_remove_raster_timestamp
-        for the return values description.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The return value of G_remove_raster_timestamp
-        """
-        return self.call("remove_timestamp", "raster", name, mapset)
-
-    def read_raster_timestamp(self, name, mapset):
-        """Read a file based raster timestamp
-
-        Please have a look at the documentation of G_read_raster_timestamp
-        for the return values description.
-
-        The timestamps are tuples of values:
-            - relative time (start, end, unit), start and end are of type
-              integer, unit is of type string.
-            - absolute time (start, end), start and end are of type datetime
-
-        The end time may be None in case of a time instance.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The return value of G_read_raster_timestamp and the timestamps
-        """
-        return self.call("read_timestamp", "raster", name, mapset)
-
-    def write_raster_timestamp(self, name, mapset, timestring):
-        """Write a file based raster timestamp
-
-        Please have a look at the documentation of G_write_raster_timestamp
-        for the return values description.
-
-        .. note::
-            Only timestamps of maps from the current mapset can be written.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param timestring: A GRASS datetime C-library compatible string
-        :returns: The return value of G_write_raster_timestamp
-        """
-        return self.call(
-            "write_timestamp", "raster", name, mapset, timestring=timestring
-        )
 
     def read_raster_semantic_label(self, name, mapset):
         """Read a file based raster semantic label
@@ -1136,84 +1092,6 @@ class CLibrariesInterface(RPCServerBase):
         """
         return self.call("map_exists", "raster3d", name, mapset)
 
-    def read_raster3d_info(self, name, mapset):
-        """Read the 3D raster map info from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map specific metadata,
-                  or None in case of an error
-        """
-        return self.call("read_info", "raster3d", name, mapset)
-
-    def read_raster3d_history(self, name, mapset):
-        """Read the 3D raster map history from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map history (creator, creation_time),
-                  or None in case of an error
-        """
-        return self.call("read_history", "raster3d", name, mapset)
-
-    def has_raster3d_timestamp(self, name, mapset):
-        """Check if a file based 3D raster timestamp exists
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: True if exists, False if not
-        """
-        return self.call("has_timestamp", "raster3d", name, mapset)
-
-    def remove_raster3d_timestamp(self, name, mapset):
-        """Remove a file based 3D raster timestamp
-
-        Please have a look at the documentation of G_remove_raster3d_timestamp
-        for the return values description.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The return value of G_remove_raster3d_timestamp
-        """
-        return self.call("remove_timestamp", "raster3d", name, mapset)
-
-    def read_raster3d_timestamp(self, name, mapset):
-        """Read a file based 3D raster timestamp
-
-        Please have a look at the documentation of G_read_raster3d_timestamp
-        for the return values description.
-
-        The timestamps are tuples of values:
-            - relative time (start, end, unit), start and end are of type
-              integer, unit is of type string.
-            - absolute time (start, end), start and end are of type datetime
-
-        The end time may be None in case of a time instance.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The return value of G_read_raster3d_timestamp and the timestamps
-        """
-        return self.call("read_timestamp", "raster3d", name, mapset)
-
-    def write_raster3d_timestamp(self, name, mapset, timestring):
-        """Write a file based 3D raster timestamp
-
-        Please have a look at the documentation of G_write_raster3d_timestamp
-        for the return values description.
-
-        .. note::
-            Only timestamps of maps from the current mapset can be written.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param timestring: A GRASS datetime C-library compatible string
-        :returns: The return value of G_write_raster3d_timestamp
-        """
-        return self.call(
-            "write_timestamp", "raster3d", name, mapset, timestring=timestring
-        )
-
     def vector_map_exists(self, name, mapset):
         """Check if a vector map exists in the spatial database
 
@@ -1222,93 +1100,6 @@ class CLibrariesInterface(RPCServerBase):
         :returns: True if exists, False if not
         """
         return self.call("map_exists", "vector", name, mapset)
-
-    def read_vector_info(self, name, mapset):
-        """Read the vector map info from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map specific metadata,
-                  or None in case of an error
-        """
-        return self.call("read_info", "vector", name, mapset)
-
-    def read_vector_history(self, name, mapset):
-        """Read the vector map history from the file system into a dictionary
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :returns: The key value pairs of the map history (creator, creation_time),
-                  or None in case of an error
-        """
-        return self.call("read_history", "vector", name, mapset)
-
-    def has_vector_timestamp(self, name, mapset, layer=None):
-        """Check if a file based vector timestamp exists
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param layer: The layer of the vector map
-        :returns: True if exists, False if not
-        """
-        return self.call("has_timestamp", "vector", name, mapset, layer=layer)
-
-    def remove_vector_timestamp(self, name, mapset, layer=None):
-        """Remove a file based vector timestamp
-
-        Please have a look at the documentation of G_remove_vector_timestamp
-        for the return values description.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param layer: The layer of the vector map
-        :returns: The return value of G_remove_vector_timestamp
-        """
-        return self.call("remove_timestamp", "vector", name, mapset, layer=layer)
-
-    def read_vector_timestamp(self, name, mapset, layer=None):
-        """Read a file based vector timestamp
-
-        Please have a look at the documentation of G_read_vector_timestamp
-        for the return values description.
-
-        The timestamps are tuples of values:
-            - relative time (start, end, unit), start and end are of type
-              integer, unit is of type string.
-            - absolute time (start, end), start and end are of type datetime
-
-        The end time may be None in case of a time instance.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param layer: The layer of the vector map
-        :returns: The return value of G_read_vector_timestamp and the timestamps
-        """
-        return self.call("read_timestamp", "vector", name, mapset, layer=layer)
-
-    def write_vector_timestamp(self, name, mapset, timestring, layer=None):
-        """Write a file based vector timestamp
-
-        Please have a look at the documentation of G_write_vector_timestamp
-        for the return values description.
-
-        .. note::
-            Only timestamps of maps from the current mapset can be written.
-
-        :param name: The name of the map
-        :param mapset: The mapset of the map
-        :param timestring: A GRASS datetime C-library compatible string
-        :param layer: The layer of the vector map
-        :returns: The return value of G_write_vector_timestamp
-        """
-        return self.call(
-            "write_timestamp",
-            "vector",
-            name,
-            mapset,
-            layer=layer,
-            timestring=timestring,
-        )
 
     def available_mapsets(self):
         """Return all available mapsets the user can access as a list of strings

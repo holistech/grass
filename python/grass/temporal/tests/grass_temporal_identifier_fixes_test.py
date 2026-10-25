@@ -187,9 +187,18 @@ def test_unconvertible_timestamp_returns_minus_two(raising):
     ciface = tgis.get_tgis_c_library_interface()
     mapset = tgis.get_current_mapset()
 
-    assert ciface.write_raster_timestamp("b9_map", mapset, "not a timestamp") == -2
-    assert ciface.write_raster3d_timestamp("b9_map", mapset, "not a timestamp") == -2
-    assert ciface.write_vector_timestamp("b9_map", mapset, "not a timestamp", 1) == -2
+    for kind, layer in (("raster", None), ("raster3d", None), ("vector", 1)):
+        assert (
+            ciface.call(
+                "write_timestamp",
+                kind,
+                "b9_map",
+                mapset,
+                layer,
+                timestring="not a timestamp",
+            )
+            == -2
+        )
 
 
 def test_dataset_reports_the_invalid_timestamp(raising, monkeypatch):
@@ -241,8 +250,8 @@ RELATIVE = [
 def test_relative_timestamp_from_the_c_library(timestamped_map, text, expected):
     name, mapset = timestamped_map(text)
 
-    check, dates = tgis.get_tgis_c_library_interface().read_raster_timestamp(
-        name, mapset
+    check, dates = tgis.get_tgis_c_library_interface().call(
+        "read_timestamp", "raster", name, mapset
     )
 
     assert check == 1

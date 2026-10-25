@@ -32,7 +32,7 @@ def test_raster_rows_and_cols(session_with_maps):
     tgis.init()
     ciface = tgis.get_tgis_c_library_interface()
 
-    kvp = ciface.read_raster_info("test_raster", tgis.get_current_mapset())
+    kvp = ciface.call("read_info", "raster", "test_raster", tgis.get_current_mapset())
     info = tools.r_info(map="test_raster", format="json").json
 
     assert kvp["rows"] == ROWS
@@ -47,7 +47,9 @@ def test_raster3d_rows_and_cols(session_with_maps):
     tgis.init()
     ciface = tgis.get_tgis_c_library_interface()
 
-    kvp = ciface.read_raster3d_info("test_raster_3d", tgis.get_current_mapset())
+    kvp = ciface.call(
+        "read_info", "raster3d", "test_raster_3d", tgis.get_current_mapset()
+    )
     info = tools.r3_info(map="test_raster_3d", format="json").json
 
     assert kvp["rows"] == ROWS

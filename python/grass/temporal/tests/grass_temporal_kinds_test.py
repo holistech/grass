@@ -86,7 +86,7 @@ def test_stds_and_map_kinds_point_at_each_other():
             assert kind.ciface_prefix is None
         else:
             assert kinds.KINDS[kind.stds_kind].map_kind == kind.name
-            assert hasattr(tgis.CLibrariesInterface, f"read_{kind.ciface_prefix}_info")
+            assert hasattr(tgis.CLibrariesInterface, f"{kind.ciface_prefix}_map_exists")
 
 
 def test_the_dataset_classes_name_their_kind():

@@ -125,8 +125,9 @@ def dataset_time(kind, name):
 def write_timestamp(kind, name, text):
     """Set the time stamp of a map in the C library, as g.timestamp does"""
     ciface = tgis.get_tgis_c_library_interface()
-    write = getattr(ciface, f"write_{kind}_timestamp")
-    write(name, tgis.get_current_mapset(), text)
+    ciface.call(
+        "write_timestamp", kind, name, tgis.get_current_mapset(), timestring=text
+    )
 
 
 KINDS = ["raster", "vector"]

@@ -61,8 +61,22 @@ def maps(session):
 
 
 def method(ciface, pattern, kind):
-    """Return the client method of kind, such as has_raster3d_timestamp"""
+    """Return the client method of kind, such as raster3d_map_exists"""
     return getattr(ciface, pattern.format(kind=kind))
+
+
+def function(ciface, name, kind):
+    """Return a caller of the server function name for maps of kind
+
+    The caller takes the map name and mapset, the timestring of a write and
+    the layer of a vector map, as the client methods of the kinds did.
+    """
+
+    def run(map_name, mapset, timestring=None, layer=None):
+        extra = {} if timestring is None else {"timestring": timestring}
+        return ciface.call(name, kind, map_name, mapset, layer, **extra)
+
+    return run
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -77,7 +91,7 @@ def test_map_exists(ciface, maps, kind):
 def test_raster_info(ciface, maps):
     mapset = tgis.get_current_mapset()
 
-    assert ciface.read_raster_info("rast", mapset) == {
+    assert function(ciface, "read_info", "raster")("rast", mapset) == {
         "north": 80.0,
         "south": 0.0,
         "east": 120.0,
@@ -95,7 +109,7 @@ def test_raster_info(ciface, maps):
 def test_raster3d_info(ciface, maps):
     mapset = tgis.get_current_mapset()
 
-    assert ciface.read_raster3d_info("rast3", mapset) == {
+    assert function(ciface, "read_info", "raster3d")("rast3", mapset) == {
         "north": 80.0,
         "south": 0.0,
         "east": 120.0,
@@ -115,7 +129,7 @@ def test_raster3d_info(ciface, maps):
 
 
 def test_vector_info(ciface, maps):
-    info = ciface.read_vector_info("vect", tgis.get_current_mapset())
+    info = function(ciface, "read_info", "vector")("vect", tgis.get_current_mapset())
 
     assert info["points"] == 10
     assert info["primitives"] == 10
@@ -150,14 +164,14 @@ def test_vector_info(ciface, maps):
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_info_of_a_missing_map_is_none(ciface, maps, kind):
-    read = method(ciface, "read_{kind}_info", kind)
+    read = function(ciface, "read_info", kind)
 
     assert read("no_such_map", tgis.get_current_mapset()) is None
 
 
 @pytest.mark.parametrize("kind", KINDS)
 def test_history(ciface, maps, kind):
-    read = method(ciface, "read_{kind}_history", kind)
+    read = function(ciface, "read_history", kind)
     mapset = tgis.get_current_mapset()
 
     history = read(KINDS[kind], mapset)
@@ -172,10 +186,10 @@ def test_history(ciface, maps, kind):
 def test_timestamp_cycle(ciface, maps, kind):
     name = KINDS[kind]
     mapset = tgis.get_current_mapset()
-    has = method(ciface, "has_{kind}_timestamp", kind)
-    read = method(ciface, "read_{kind}_timestamp", kind)
-    write = method(ciface, "write_{kind}_timestamp", kind)
-    remove = method(ciface, "remove_{kind}_timestamp", kind)
+    has = function(ciface, "has_timestamp", kind)
+    read = function(ciface, "read_timestamp", kind)
+    write = function(ciface, "write_timestamp", kind)
+    remove = function(ciface, "remove_timestamp", kind)
 
     assert has(name, mapset) is False
     assert write(name, mapset, TIMESTRING) == 1
@@ -191,11 +205,11 @@ def test_an_interval_has_a_start_and_an_end(ciface, maps, kind):
     name = KINDS[kind]
     mapset = tgis.get_current_mapset()
 
-    method(ciface, "write_{kind}_timestamp", kind)(
+    function(ciface, "write_timestamp", kind)(
         name, mapset, "13 Jan 1999 14:30:05 / 14 Jan 1999 14:30:05"
     )
 
-    assert method(ciface, "read_{kind}_timestamp", kind)(name, mapset) == (
+    assert function(ciface, "read_timestamp", kind)(name, mapset) == (
         1,
         (TIMESTAMP, TIMESTAMP + datetime.timedelta(days=1)),
     )
@@ -206,9 +220,9 @@ def test_a_relative_timestamp_is_read_with_its_unit(ciface, maps, kind):
     name = KINDS[kind]
     mapset = tgis.get_current_mapset()
 
-    method(ciface, "write_{kind}_timestamp", kind)(name, mapset, "5 days")
+    function(ciface, "write_timestamp", kind)(name, mapset, "5 days")
 
-    assert method(ciface, "read_{kind}_timestamp", kind)(name, mapset) == (
+    assert function(ciface, "read_timestamp", kind)(name, mapset) == (
         1,
         (5, None, "days"),
     )
@@ -218,29 +232,37 @@ def test_a_relative_timestamp_is_read_with_its_unit(ciface, maps, kind):
 def test_an_unreadable_timestamp_is_not_written(ciface, maps, kind):
     name = KINDS[kind]
     mapset = tgis.get_current_mapset()
-    write = method(ciface, "write_{kind}_timestamp", kind)
+    write = function(ciface, "write_timestamp", kind)
 
     assert write(name, mapset, "not a time") == -2
-    assert method(ciface, "has_{kind}_timestamp", kind)(name, mapset) is False
+    assert function(ciface, "has_timestamp", kind)(name, mapset) is False
     # The server answered and went on.
     assert write(name, mapset, TIMESTRING) == 1
 
 
 def test_vector_timestamps_are_kept_per_layer(ciface, maps):
     mapset = tgis.get_current_mapset()
+    has = function(ciface, "has_timestamp", "vector")
 
-    assert ciface.write_vector_timestamp("vect", mapset, TIMESTRING, layer="1") == 1
+    assert (
+        function(ciface, "write_timestamp", "vector")(
+            "vect", mapset, TIMESTRING, layer="1"
+        )
+        == 1
+    )
 
-    assert ciface.has_vector_timestamp("vect", mapset, layer="1") is True
-    assert ciface.read_vector_timestamp("vect", mapset, layer="1") == (
+    assert has("vect", mapset, layer="1") is True
+    assert function(ciface, "read_timestamp", "vector")("vect", mapset, layer="1") == (
         1,
         (TIMESTAMP, None),
     )
-    assert ciface.has_vector_timestamp("vect", mapset, layer="2") is False
+    assert has("vect", mapset, layer="2") is False
     # No layer means the first one.
-    assert ciface.has_vector_timestamp("vect", mapset) is True
-    assert ciface.remove_vector_timestamp("vect", mapset, layer="1") == 1
-    assert ciface.has_vector_timestamp("vect", mapset, layer="1") is False
+    assert has("vect", mapset) is True
+    assert (
+        function(ciface, "remove_timestamp", "vector")("vect", mapset, layer="1") == 1
+    )
+    assert has("vect", mapset, layer="1") is False
 
 
 def test_semantic_label_cycle(ciface, maps):
