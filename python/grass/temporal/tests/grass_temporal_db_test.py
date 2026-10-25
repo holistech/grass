@@ -363,3 +363,74 @@ def test_sqlite_literals_unchanged():
 
 def test_postgresql_calls_unchanged():
     assert scenario() == PG_CALLS
+
+
+@pytest.mark.parametrize(("value", "literal"), list(zip(VALUES, LITERALS, strict=True)))
+def test_sql_literal_is_what_mogrify_writes(value, literal):
+    from grass.temporal.db import sql_literal  # noqa: PLC0415
+
+    assert literal == f"SELECT {sql_literal(value)}"
+
+
+def test_sql_literal_needs_a_connection_for_postgresql():
+    from grass.temporal.db import sql_literal  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="pyformat"):
+        sql_literal("a", "pyformat")
+
+
+def test_connection_closes_the_one_it_made():
+    from grass.temporal.db import connection  # noqa: PLC0415
+
+    with connection() as dbif:
+        assert dbif.is_connected()
+    assert not dbif.is_connected()
+
+
+def test_connection_leaves_a_connected_one_open():
+    from grass.temporal.db import connection  # noqa: PLC0415
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        with connection(dbif) as given:
+            assert given is dbif
+        assert dbif.is_connected()
+    finally:
+        dbif.close()
+
+
+def test_connection_connects_and_closes_one_that_was_not_connected():
+    from grass.temporal.db import connection  # noqa: PLC0415
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    with connection(dbif):
+        assert dbif.is_connected()
+    assert not dbif.is_connected()
+
+
+def test_connection_closes_on_a_fatal_error():
+    from grass.pygrass.messages import FatalError  # noqa: PLC0415
+    from grass.temporal.db import connection  # noqa: PLC0415
+
+    with pytest.raises(FatalError, match="stop"), connection() as dbif:
+        tgis.get_tgis_message_interface().fatal("stop")
+    assert not dbif.is_connected()
+
+
+def _boom():
+    msg = "boom"
+    raise RuntimeError(msg)
+
+
+def test_connection_leaves_a_connected_one_open_on_an_error():
+    from grass.temporal.db import connection  # noqa: PLC0415
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        with pytest.raises(RuntimeError, match="boom"), connection(dbif):
+            _boom()
+        assert dbif.is_connected()
+    finally:
+        dbif.close()

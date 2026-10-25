@@ -31,7 +31,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import atexit
-import math
 import multiprocessing.util  # noqa: F401
 import os
 import sqlite3
@@ -45,6 +44,7 @@ from grass.pygrass import messages
 from grass.script.utils import decode
 
 from .c_libraries_interface import CLibrariesInterface
+from .db import sql_literal
 
 
 tools = Tools()
@@ -1473,28 +1473,6 @@ class DBConnection:
             self.connection.close()
             self.connected = False
 
-    @staticmethod
-    def _sqlite_literal(arg) -> str:
-        """Write a python value as an SQLite literal
-
-        Text is put in single quotes with the quotes inside doubled, which is
-        how SQLite escapes them.
-        """
-        if arg is None:
-            return "NULL"
-        if isinstance(arg, int):
-            return "%d" % arg
-        if isinstance(arg, float) and not math.isfinite(arg):
-            # SQLite has no literal for inf and nan; "%f" would write
-            # the bare word inf, which the database reads as a column
-            # name. Statistics of a map with infinite values are
-            # unknown, which is what NULL says.
-            return "NULL"
-        if isinstance(arg, float):
-            return "%f" % arg
-        # Default is a string, this works for datetime objects too
-        return "'%s'" % str(arg).replace("'", "''")
-
     def mogrify_sql_statement(self, content):
         """Return the SQL statement and arguments as executable SQL string
 
@@ -1555,7 +1533,7 @@ class DBConnection:
             parts = sql.split("?")
             statement = parts[0]
             for count, part in enumerate(parts[1:]):
-                statement += self._sqlite_literal(args[count]) + part
+                statement += sql_literal(args[count]) + part
 
             return statement
 
