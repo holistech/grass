@@ -313,8 +313,8 @@ def register_maps_in_space_time_dataset(
 
             maplist.append(row)
 
-        if start_time_in_file is True and increment:
-            increment = None
+        times_in_file = any("start" in row for row in maplist)
+        if times_in_file and increment:
             msgr.warning(
                 _(
                     "The increment option will be ignored because of time stamps in "
@@ -322,8 +322,7 @@ def register_maps_in_space_time_dataset(
                 )
             )
 
-        if start_time_in_file is True and interval:
-            increment = None
+        if times_in_file and interval:
             msgr.warning(
                 _(
                     "The interval flag will be ignored because of time stamps in input "
@@ -340,6 +339,7 @@ def register_maps_in_space_time_dataset(
     # Store the ids of datasets that must be updated
     datatsets_to_modify = {}
 
+    option_start = start
     option_end = end
 
     # Whether the times of the dataset have a time zone; unknown for an
@@ -408,9 +408,17 @@ def register_maps_in_space_time_dataset(
 
         # A row with a start time sets both times. Without an end time it
         # takes the end of the command line, not the end of the row before it.
+        # A row without a start time takes the options of the command line,
+        # not what the row before it set. The increment applies to these rows
+        # only: a row with its own time is not moved.
         if "start" in row:
             start = row["start"]
             end = row.get("end", option_end)
+            row_increment = None
+        else:
+            start = option_start
+            end = option_end
+            row_increment = increment
 
         # Use the semantic label from file
         semantic_label = row.get("semantic_label", None)
@@ -536,17 +544,13 @@ def register_maps_in_space_time_dataset(
 
         # Set the valid time
         if start:
-            # In case the time is in the input file we ignore the increment
-            # counter
-            if start_time_in_file:
-                count = 1
             assign_valid_time_to_map(
                 ttype=map_object.get_temporal_type(),
                 map_object=map_object,
                 start=start,
                 end=end,
                 unit=unit,
-                increment=increment,
+                increment=row_increment,
                 mult=count,
                 interval=interval,
             )
