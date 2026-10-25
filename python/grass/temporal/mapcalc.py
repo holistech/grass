@@ -227,7 +227,7 @@ def dataset_mapcalculator(
     # on a single map does not return it (measured 2026-10-14 with a map
     # labelled by r.support before t.register), load() reads the GRASS map
     # instead of the temporal database. 3D rasters have no semantic label
-    # (Raster3DMetadata has no get_semantic_label), so it is only read for
+    # (the 3D raster metadata has no semantic label), so it is only read for
     # raster; the shared function serves both types.
     mapset = get_current_mapset()
     map_class = RasterDataset if type == "raster" else Raster3DDataset
