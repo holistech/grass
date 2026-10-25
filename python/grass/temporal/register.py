@@ -20,16 +20,16 @@ from datetime import datetime
 import grass.script as gs
 
 from .abstract_map_dataset import AbstractMapDataset
-from .db import SQLDatabaseInterfaceConnection, init_dbif
-from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     check_datetime_string,
     increment_datetime_by_string,
     string_to_datetime,
 )
+from .db import SQLDatabaseInterfaceConnection, connection
 from .factory import dataset_factory
 from .kinds import MAP_ALIASES, find_kind, stds_kind_of
 from .open_stds import open_old_stds
+from .state import get_current_mapset, get_tgis_message_interface
 
 # The names of the map types that dataset_factory() knows
 MAP_TYPES = MAP_ALIASES
@@ -811,64 +811,62 @@ def register_map_object_list(
 
     import grass.pygrass.modules as pymod
 
-    dbif, connection_state_changed = init_dbif(None)
+    with connection(None) as dbif:
+        filename = gs.tempfile(True)
+        with open(filename, "w") as register_file:
+            empty_maps = []
+            for map_layer in map_list:
+                # Read the map data
+                map_layer.load()
+                # In case of a empty map continue, do not register empty maps
+                if delete_empty:
+                    kind = find_kind(type)
+                    map_kind = kind.name if kind else None
+                    if map_kind in {"raster", "raster3d"}:
+                        if (
+                            map_layer.metadata.get_min() is None
+                            and map_layer.metadata.get_max() is None
+                        ):
+                            empty_maps.append(map_layer)
+                            continue
+                    if map_kind == "vector":
+                        if map_layer.metadata.get_number_of_primitives() == 0:
+                            empty_maps.append(map_layer)
+                            continue
 
-    filename = gs.tempfile(True)
-    with open(filename, "w") as register_file:
-        empty_maps = []
-        for map_layer in map_list:
-            # Read the map data
-            map_layer.load()
-            # In case of a empty map continue, do not register empty maps
-            if delete_empty:
-                kind = find_kind(type)
-                map_kind = kind.name if kind else None
-                if map_kind in {"raster", "raster3d"}:
-                    if (
-                        map_layer.metadata.get_min() is None
-                        and map_layer.metadata.get_max() is None
-                    ):
-                        empty_maps.append(map_layer)
-                        continue
-                if map_kind == "vector":
-                    if map_layer.metadata.get_number_of_primitives() == 0:
-                        empty_maps.append(map_layer)
-                        continue
+                start, end = map_layer.get_temporal_extent_as_tuple()
+                id = map_layer.get_id()
+                if not end:
+                    end = start
+                string = f"{id}|{start}|{end}\n"
+                register_file.write(string)
 
-            start, end = map_layer.get_temporal_extent_as_tuple()
-            id = map_layer.get_id()
-            if not end:
-                end = start
-            string = f"{id}|{start}|{end}\n"
-            register_file.write(string)
+        output_stds_id = output_stds.get_id() if output_stds else None
 
-    output_stds_id = output_stds.get_id() if output_stds else None
+        register_maps_in_space_time_dataset(
+            type,
+            output_stds_id,
+            unit=unit,
+            file=filename,
+        )
 
-    register_maps_in_space_time_dataset(
-        type,
-        output_stds_id,
-        unit=unit,
-        file=filename,
-    )
-
-    # Remove empty maps and unregister them from the temporal database
-    g_remove = pymod.Module("g.remove", flags="f", quiet=True, run_=False, finish_=True)
-    if len(empty_maps) > 0:
-        for map_object in empty_maps:
-            mod = copy.deepcopy(g_remove)
-            if map_object.get_name():
-                if map_object.get_type() == "raster":
-                    mod(type="raster", name=map_object.get_name())
-                if map_object.get_type() == "raster3d":
-                    mod(type="raster_3d", name=map_object.get_name())
-                if map_object.get_type() == "vector":
-                    mod(type="vector", name=map_object.get_name())
-                mod.run()
-            if map_object.is_in_db(dbif):
-                map_object.delete(dbif)
-
-    if connection_state_changed:
-        dbif.close()
+        # Remove empty maps and unregister them from the temporal database
+        g_remove = pymod.Module(
+            "g.remove", flags="f", quiet=True, run_=False, finish_=True
+        )
+        if len(empty_maps) > 0:
+            for map_object in empty_maps:
+                mod = copy.deepcopy(g_remove)
+                if map_object.get_name():
+                    if map_object.get_type() == "raster":
+                        mod(type="raster", name=map_object.get_name())
+                    if map_object.get_type() == "raster3d":
+                        mod(type="raster_3d", name=map_object.get_name())
+                    if map_object.get_type() == "vector":
+                        mod(type="vector", name=map_object.get_name())
+                    mod.run()
+                if map_object.is_in_db(dbif):
+                    map_object.delete(dbif)
 
 
 if __name__ == "__main__":

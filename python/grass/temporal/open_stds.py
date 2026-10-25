@@ -19,18 +19,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .db import SQLDatabaseInterfaceConnection
     from .abstract_space_time_dataset import AbstractSpaceTimeDataset
+    from .db import SQLDatabaseInterfaceConnection
 import contextlib
 
 import grass.script as gs
 from grass.exceptions import FatalError
 
 from .abstract_map_dataset import AbstractMapDataset
-from .db import init_dbif
-from .state import get_current_mapset, get_tgis_message_interface
+from .db import connection
 from .factory import dataset_factory
 from .kinds import find_kind, stds_kind_of
+from .state import get_current_mapset, get_tgis_message_interface
 
 ###############################################################################
 
@@ -111,46 +111,41 @@ def open_old_stds(name, type, dbif=None):
     # Check if the dataset name contains the mapset and the semantic label as well
     name, mapset, semantic_label = _parse_id(name, stds_type=stds_type)
 
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    # Check user given ID
-    sp = None
-    if mapset:
-        dbif.add_mapset(mapset)
-        sp = try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
-    else:
-        # Check current mapset first
-        sp = try_get_stds(
-            f"{name}@{get_current_mapset()}",
-            stds_type,
-            semantic_label,
-            dbif,
-        )
+    with connection(dbif) as dbif:
+        # Check user given ID
+        sp = None
+        if mapset:
+            dbif.add_mapset(mapset)
+            sp = try_get_stds(f"{name}@{mapset}", stds_type, semantic_label, dbif)
+        else:
+            # Check current mapset first
+            sp = try_get_stds(
+                f"{name}@{get_current_mapset()}",
+                stds_type,
+                semantic_label,
+                dbif,
+            )
+            if not sp:
+                for tgis_mapset in dbif.tgis_mapsets:
+                    if tgis_mapset == get_current_mapset():
+                        continue
+                    sp = try_get_stds(
+                        f"{name}@{tgis_mapset}",
+                        stds_type,
+                        semantic_label,
+                        dbif,
+                    )
+                    if sp:
+                        break
         if not sp:
-            for tgis_mapset in dbif.tgis_mapsets:
-                if tgis_mapset == get_current_mapset():
-                    continue
-                sp = try_get_stds(
-                    f"{name}@{tgis_mapset}",
-                    stds_type,
-                    semantic_label,
-                    dbif,
-                )
-                if sp:
-                    break
-    if not sp:
-        if connection_state_changed:
-            dbif.close()
-        msgr.fatal(
-            _("Space time dataset <%(name)s> of type <%(sp)s> not found")
-            % {"name": name, "sp": stds_type},
-        )
-    # Read content from temporal database
-    sp.select(dbif)
-    if connection_state_changed:
-        dbif.close()
+            msgr.fatal(
+                _("Space time dataset <%(name)s> of type <%(sp)s> not found")
+                % {"name": name, "sp": stds_type},
+            )
+        # Read content from temporal database
+        sp.select(dbif)
 
-    return sp
+        return sp
 
 
 ###############################################################################
@@ -197,20 +192,17 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
         return None
     sp = dataset_factory(stds_kind_of(stds_type).name, id)
 
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    if sp.is_in_db(dbif) and overwrite is False:
-        msgr.fatal(
-            _(
-                "Space time %(sp)s dataset <%(name)s> is already in the"
-                " database. Use the overwrite flag.",
+    with connection(dbif) as dbif:
+        if sp.is_in_db(dbif) and overwrite is False:
+            msgr.fatal(
+                _(
+                    "Space time %(sp)s dataset <%(name)s> is already in the"
+                    " database. Use the overwrite flag.",
+                )
+                % {"sp": sp.get_new_map_instance(None).get_type(), "name": name},
             )
-            % {"sp": sp.get_new_map_instance(None).get_type(), "name": name},
-        )
-    if connection_state_changed:
-        dbif.close()
 
-    return sp
+        return sp
 
 
 ###############################################################################
@@ -242,40 +234,37 @@ def open_new_stds(
 
     This function will raise a FatalError in case of an error.
     """
-    dbif, connection_state_changed = init_dbif(dbif)
-    msgr = get_tgis_message_interface()
-    sp = check_new_stds(name, type, dbif, overwrite)
+    with connection(dbif) as dbif:
+        msgr = get_tgis_message_interface()
+        sp = check_new_stds(name, type, dbif, overwrite)
 
-    if sp.is_in_db(dbif):
-        msgr.warning(
-            _(
-                "Overwriting space time %(sp)s dataset <%(name)s> and "
-                "unregistering all maps",
+        if sp.is_in_db(dbif):
+            msgr.warning(
+                _(
+                    "Overwriting space time %(sp)s dataset <%(name)s> and "
+                    "unregistering all maps",
+                )
+                % {"sp": sp.get_new_map_instance(None).get_type(), "name": name},
             )
-            % {"sp": sp.get_new_map_instance(None).get_type(), "name": name},
+            id = sp.get_id()
+            sp.delete(dbif)
+            sp = sp.get_new_instance(id)
+
+        msgr.verbose(
+            _("Creating a new space time %s dataset")
+            % sp.get_new_map_instance(None).get_type(),
         )
-        id = sp.get_id()
-        sp.delete(dbif)
-        sp = sp.get_new_instance(id)
 
-    msgr.verbose(
-        _("Creating a new space time %s dataset")
-        % sp.get_new_map_instance(None).get_type(),
-    )
+        sp.set_initial_values(
+            temporal_type=temporaltype,
+            semantic_type=semantic,
+            title=title,
+            description=descr,
+        )
 
-    sp.set_initial_values(
-        temporal_type=temporaltype,
-        semantic_type=semantic,
-        title=title,
-        description=descr,
-    )
+        sp.insert(dbif)
 
-    sp.insert(dbif)
-
-    if connection_state_changed:
-        dbif.close()
-
-    return sp
+        return sp
 
 
 ############################################################################
@@ -304,26 +293,21 @@ def check_new_map_dataset(
     mapset = get_current_mapset()
     msgr = get_tgis_message_interface()
 
-    dbif, connection_state_changed = init_dbif(dbif)
-    map_id = AbstractMapDataset.build_id(name, mapset, layer)
+    with connection(dbif) as dbif:
+        map_id = AbstractMapDataset.build_id(name, mapset, layer)
 
-    new_map = dataset_factory(type, map_id)
-    # Check if new map is in the temporal database
-    if new_map.is_in_db(dbif) and not overwrite:
-        if connection_state_changed:
-            dbif.close()
-        msgr.fatal(
-            _(
-                "Map <%s> is already in temporal database,"
-                " use overwrite flag to overwrite",
+        new_map = dataset_factory(type, map_id)
+        # Check if new map is in the temporal database
+        if new_map.is_in_db(dbif) and not overwrite:
+            msgr.fatal(
+                _(
+                    "Map <%s> is already in temporal database,"
+                    " use overwrite flag to overwrite",
+                )
+                % (map_id),
             )
-            % (map_id),
-        )
 
-    if connection_state_changed:
-        dbif.close()
-
-    return new_map
+        return new_map
 
 
 ############################################################################
@@ -349,20 +333,17 @@ def open_new_map_dataset(
     :return: A map dataset object
 
     """
-    dbif, connection_state_changed = init_dbif(dbif)
-    new_map = check_new_map_dataset(name, layer, type, overwrite, dbif)
+    with connection(dbif) as dbif:
+        new_map = check_new_map_dataset(name, layer, type, overwrite, dbif)
 
-    # Check if new map is in the temporal database
-    if new_map.is_in_db(dbif):
-        # Remove the existing temporal database entry
-        map_id = new_map.get_id()
-        new_map.delete(dbif)
-        new_map = new_map.get_new_instance(map_id)
+        # Check if new map is in the temporal database
+        if new_map.is_in_db(dbif):
+            # Remove the existing temporal database entry
+            map_id = new_map.get_id()
+            new_map.delete(dbif)
+            new_map = new_map.get_new_instance(map_id)
 
-    if temporal_extent:
-        new_map.set_temporal_extent(temporal_extent)
+        if temporal_extent:
+            new_map.set_temporal_extent(temporal_extent)
 
-    if connection_state_changed:
-        dbif.close()
-
-    return new_map
+        return new_map

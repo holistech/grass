@@ -23,11 +23,11 @@ from contextlib import contextmanager
 
 import grass.script as gs
 
-from .db import SQLStatementError, init_dbif
-from .state import get_tgis_message_interface
 from .datetime_math import time_delta_to_relative_time
+from .db import SQLStatementError, connection
 from .kinds import find_kind
 from .open_stds import open_old_stds
+from .state import get_tgis_message_interface
 
 ###############################################################################
 
@@ -366,103 +366,100 @@ def get_dataset_list(
     """
     msgr = get_tgis_message_interface()
 
-    dbif, connection_state_changed = init_dbif(dbif)
+    with connection(dbif) as dbif:
+        is_list_input = isinstance(type, list)
+        stds_type = [type] if isinstance(type, str) else type
+        if isinstance(temporal_type, str):
+            temporal_type = [temporal_type]
 
-    is_list_input = isinstance(type, list)
-    stds_type = [type] if isinstance(type, str) else type
-    if isinstance(temporal_type, str):
-        temporal_type = [temporal_type]
+        result = {}
 
-    result = {}
-
-    for ttype in temporal_type:
-        mapset_for_schema = (
-            list(dbif.tgis_mapsets.keys())[0] if dbif.tgis_mapsets else None
-        )
-        if not mapset_for_schema:
-            continue
-
-        type_schemas = []
-        for dtype in stds_type:
-            table = _view_name(dtype, ttype)
-            dbif.execute(f"SELECT * FROM {table} WHERE 0=1", mapset=mapset_for_schema)
-            type_schemas.append(
-                [d[0] for d in dbif.connections[mapset_for_schema].cursor.description]
+        for ttype in temporal_type:
+            mapset_for_schema = (
+                list(dbif.tgis_mapsets.keys())[0] if dbif.tgis_mapsets else None
             )
+            if not mapset_for_schema:
+                continue
 
-        common_columns = [
-            col
-            for col in type_schemas[0]
-            if all(col in schema for schema in type_schemas[1:])
-        ]
-        valid_columns_set = set(common_columns)
-
-        if columns and columns.find("all") == -1:
-            requested_columns = [
-                col.strip() for col in columns.split(",") if col != "type"
-            ]
-            for col in requested_columns:
-                if col not in valid_columns_set:
-                    if connection_state_changed:
-                        dbif.close()
-                    if len(stds_type) == 1:
-                        msgr.fatal(
-                            _(
-                                "Column '%s' is not available for the requested dataset type"
-                            )
-                            % col
-                        )
-                    else:
-                        msgr.fatal(
-                            _(
-                                "Column '%s' is not available for the requested combination of dataset types"
-                            )
-                            % col
-                        )
-            final_columns = requested_columns
-        else:
-            final_columns = common_columns
-
-        if not final_columns:
-            if connection_state_changed:
-                dbif.close()
-            msgr.fatal(_("No valid database columns were requested"))
-
-        columns_to_query = ",".join(final_columns)
-
-        for dtype in stds_type:
-            for mapset in dbif.tgis_mapsets:
+            type_schemas = []
+            for dtype in stds_type:
                 table = _view_name(dtype, ttype)
+                dbif.execute(
+                    f"SELECT * FROM {table} WHERE 0=1", mapset=mapset_for_schema
+                )
+                type_schemas.append(
+                    [
+                        d[0]
+                        for d in dbif.connections[mapset_for_schema].cursor.description
+                    ]
+                )
 
-                sql = f"SELECT {columns_to_query} FROM {table}"
+            common_columns = [
+                col
+                for col in type_schemas[0]
+                if all(col in schema for schema in type_schemas[1:])
+            ]
+            valid_columns_set = set(common_columns)
 
-                if where:
-                    # In brackets: an OR in the condition would otherwise
-                    # take the rows of every mapset
-                    sql += f" WHERE ({where})"
-                    sql += " AND mapset = '%s'" % (mapset)
-                else:
-                    sql += " WHERE mapset = '%s'" % (mapset)
+            if columns and columns.find("all") == -1:
+                requested_columns = [
+                    col.strip() for col in columns.split(",") if col != "type"
+                ]
+                for col in requested_columns:
+                    if col not in valid_columns_set:
+                        if len(stds_type) == 1:
+                            msgr.fatal(
+                                _(
+                                    "Column '%s' is not available for the requested dataset type"
+                                )
+                                % col
+                            )
+                        else:
+                            msgr.fatal(
+                                _(
+                                    "Column '%s' is not available for the requested combination of dataset types"
+                                )
+                                % col
+                            )
+                final_columns = requested_columns
+            else:
+                final_columns = common_columns
 
-                if order:
-                    sql += " ORDER BY " + order
+            if not final_columns:
+                msgr.fatal(_("No valid database columns were requested"))
 
-                dbif.execute(sql, mapset=mapset)
-                rows = dbif.fetchall(mapset=mapset)
+            columns_to_query = ",".join(final_columns)
 
-                if rows:
-                    if mapset not in result:
-                        result[mapset] = []
-                    if is_list_input:
-                        for row in rows:
-                            result[mapset].append({**dict(row), "type": dtype})
+            for dtype in stds_type:
+                for mapset in dbif.tgis_mapsets:
+                    table = _view_name(dtype, ttype)
+
+                    sql = f"SELECT {columns_to_query} FROM {table}"
+
+                    if where:
+                        # In brackets: an OR in the condition would otherwise
+                        # take the rows of every mapset
+                        sql += f" WHERE ({where})"
+                        sql += " AND mapset = '%s'" % (mapset)
                     else:
-                        result[mapset].extend(rows)
+                        sql += " WHERE mapset = '%s'" % (mapset)
 
-    if connection_state_changed:
-        dbif.close()
+                    if order:
+                        sql += " ORDER BY " + order
 
-    return result
+                    dbif.execute(sql, mapset=mapset)
+                    rows = dbif.fetchall(mapset=mapset)
+
+                    if rows:
+                        if mapset not in result:
+                            result[mapset] = []
+                        if is_list_input:
+                            for row in rows:
+                                result[mapset].append({**dict(row), "type": dtype})
+                        else:
+                            result[mapset].extend(rows)
+
+        return result
 
 
 ###############################################################################
@@ -716,100 +713,100 @@ def _get_list_of_maps_stds(
     gran=None,
     dbif=None,
 ):
-    dbif, connection_state_changed = init_dbif(dbif)
-    msgr = get_tgis_message_interface()
+    with connection(dbif) as dbif:
+        msgr = get_tgis_message_interface()
 
-    dataset = open_old_stds(name, element_type, dbif)
+        dataset = open_old_stds(name, element_type, dbif)
 
-    def check_columns(column_names, output_format, element_type):
-        if element_type != "stvds" and "layer" in columns:
-            msg = f"Column 'layer' is not allowed with temporal type '{element_type}'"
-            raise _ListingError(msg)
-        if output_format == "line" and len(column_names) > 1:
-            msg = (
-                f"'{output_format}' output_format can have only 1 column, "
-                f"not {len(column_names)}"
-            )
-            raise _ListingError(msg)
-
-    # This method expects a list of objects for gap detection
-    if method in {"delta", "deltagaps", "gran"}:
-        if not columns:
-            if output_format == "line":
-                # Only one column is needed.
-                columns = ["id"]
-            else:
-                columns = ["id", "name"]
-                if element_type == "stvds":
-                    columns.append("layer")
-                columns.extend(
-                    [
-                        "mapset",
-                        "start_time",
-                        "end_time",
-                        "interval_length",
-                        "distance_from_begin",
-                    ]
+        def check_columns(column_names, output_format, element_type):
+            if element_type != "stvds" and "layer" in columns:
+                msg = (
+                    f"Column 'layer' is not allowed with temporal type '{element_type}'"
                 )
-        check_columns(
-            column_names=columns,
-            output_format=output_format,
-            element_type=element_type,
-        )
-        rows = _get_list_of_maps_delta_gran(
-            dataset=dataset,
-            columns=columns,
-            where=where,
-            method=method,
-            gran=gran,
-            dbif=dbif,
-            msgr=msgr,
-        )
-    else:
-        if columns:
+                raise _ListingError(msg)
+            if output_format == "line" and len(column_names) > 1:
+                msg = (
+                    f"'{output_format}' output_format can have only 1 column, "
+                    f"not {len(column_names)}"
+                )
+                raise _ListingError(msg)
+
+        # This method expects a list of objects for gap detection
+        if method in {"delta", "deltagaps", "gran"}:
+            if not columns:
+                if output_format == "line":
+                    # Only one column is needed.
+                    columns = ["id"]
+                else:
+                    columns = ["id", "name"]
+                    if element_type == "stvds":
+                        columns.append("layer")
+                    columns.extend(
+                        [
+                            "mapset",
+                            "start_time",
+                            "end_time",
+                            "interval_length",
+                            "distance_from_begin",
+                        ]
+                    )
             check_columns(
                 column_names=columns,
                 output_format=output_format,
                 element_type=element_type,
             )
-        elif output_format == "line":
-            # For list of values, only one column is needed.
-            columns = ["id"]
-        else:
-            columns = ["name", "mapset", "start_time", "end_time"]
-        if not order:
-            order = "start_time"
-
-        try:
-            rows = dataset.get_registered_maps(",".join(columns), where, order, dbif)
-        except SQLStatementError as error:
-            dbif.close()
-            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
-
-        # End with error for the old, custom formats. Proper formats simply return
-        # empty result whatever empty is for each format (e.g., empty list for JSON).
-        if not rows and (output_format in {"plain", "line"}):
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Nothing found in the database for space time dataset <{name}> "
-                    "(type: {element_type}): {detail}"
-                ).format(
-                    name=dataset.get_id(),
-                    element_type=element_type,
-                    detail=(
-                        _(
-                            "Dataset is empty or where clause is too constrained or "
-                            "incorrect"
-                        )
-                        if where
-                        else _("Dataset is empty")
-                    ),
-                )
+            rows = _get_list_of_maps_delta_gran(
+                dataset=dataset,
+                columns=columns,
+                where=where,
+                method=method,
+                gran=gran,
+                dbif=dbif,
+                msgr=msgr,
             )
-    if connection_state_changed:
-        dbif.close()
-    return rows, columns
+        else:
+            if columns:
+                check_columns(
+                    column_names=columns,
+                    output_format=output_format,
+                    element_type=element_type,
+                )
+            elif output_format == "line":
+                # For list of values, only one column is needed.
+                columns = ["id"]
+            else:
+                columns = ["name", "mapset", "start_time", "end_time"]
+            if not order:
+                order = "start_time"
+
+            try:
+                rows = dataset.get_registered_maps(
+                    ",".join(columns), where, order, dbif
+                )
+            except SQLStatementError as error:
+                gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+            # End with error for the old, custom formats. Proper formats simply return
+            # empty result whatever empty is for each format (e.g., empty list for JSON).
+            if not rows and (output_format in {"plain", "line"}):
+                gs.fatal(
+                    _(
+                        "Nothing found in the database for space time dataset <{name}> "
+                        "(type: {element_type}): {detail}"
+                    ).format(
+                        name=dataset.get_id(),
+                        element_type=element_type,
+                        detail=(
+                            _(
+                                "Dataset is empty or where clause is too constrained or "
+                                "incorrect"
+                            )
+                            if where
+                            else _("Dataset is empty")
+                        ),
+                    )
+                )
+        return rows, columns
 
 
 # The code is compatible with pre-v8.2 versions, but for v9, it needs to be reviewed

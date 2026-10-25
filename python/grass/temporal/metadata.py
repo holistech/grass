@@ -21,7 +21,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 from .base import SQLDatabaseInterface
-from .db import init_dbif
+from .db import connection
 from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
 from .state import get_tgis_database_string, get_tgis_db_version
 
@@ -1515,32 +1515,28 @@ class STRDSMetadata(STDSRasterMetadataBase):
 
         # One connection serves the version check and the query. Every
         # SQLDatabaseInterfaceConnection runs t.connect for each mapset.
-        dbif, connection_state_changed = init_dbif(dbif)
-        try:
+        with connection(dbif) as dbif:
             if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) <= 2:
                 # band names supported from TGIS DB version 3
                 return None
             dbif.execute(sql, mapset=self.mapset)
             rows = dbif.fetchall(mapset=self.mapset)
-        finally:
-            if connection_state_changed:
-                dbif.close()
 
-        if not rows:
+            if not rows:
+                return None
+            string = ""
+            count = 0
+            for row in rows:
+                if row["semantic_label"]:
+                    if count == 0:
+                        string += row["semantic_label"]
+                    else:
+                        string += ",%s" % row["semantic_label"]
+                    count += 1
+
+            if count > 0:
+                return string
             return None
-        string = ""
-        count = 0
-        for row in rows:
-            if row["semantic_label"]:
-                if count == 0:
-                    string += row["semantic_label"]
-                else:
-                    string += ",%s" % row["semantic_label"]
-                count += 1
-
-        if count > 0:
-            return string
-        return None
 
     raster_register = property(fget=get_raster_register, fset=set_raster_register)
     number_of_semantic_labels = property(fget=get_number_of_semantic_labels)

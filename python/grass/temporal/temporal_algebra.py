@@ -451,8 +451,6 @@ from grass.exceptions import FatalError
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-from .db import SQLDatabaseInterfaceConnection, init_dbif
-from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
@@ -460,11 +458,13 @@ from .datetime_math import (
     string_to_datetime,
     time_delta_to_relative_time,
 )
+from .db import SQLDatabaseInterfaceConnection, connection
 from .factory import dataset_factory
 from .open_stds import open_new_stds, open_old_stds
 from .ply import lex, yacc
 from .space_time_datasets import RasterDataset
 from .spatio_temporal_relationships import SpatioTemporalTopologyBuilder
+from .state import get_current_mapset, get_tgis_message_interface
 from .temporal_extent import TemporalExtent
 from .temporal_granularity import (
     compute_absolute_time_granularity,
@@ -472,7 +472,6 @@ from .temporal_granularity import (
     compute_common_relative_time_granularity,
 )
 from .temporal_operator import TemporalOperatorParser
-
 
 # Capital spellings of the dataset functions and their token types
 _UPPER_CASE_FUNCTIONS = {"STRDS": "STRDS", "STR3DS": "STR3DS", "STVDS": "STVDS"}
@@ -956,43 +955,45 @@ class TemporalAlgebraParser:
             )
             return False
 
-        dbif, _connection_state_changed = init_dbif(self.dbif)
-        granularities = []
-        start_times = []
-        temporal_types = set()
-        for name in self._stds_names_in(expression, lexer):
-            stds = open_old_stds(name, stdstype, dbif)
-            # We need valid temporal topology
-            if stds.check_temporal_topology() is False:
-                self.msgr.error(
-                    _(
-                        "All input space time datasets must have a valid temporal "
-                        "topology."
+        with connection(self.dbif) as dbif:
+            granularities = []
+            start_times = []
+            temporal_types = set()
+            for name in self._stds_names_in(expression, lexer):
+                stds = open_old_stds(name, stdstype, dbif)
+                # We need valid temporal topology
+                if stds.check_temporal_topology() is False:
+                    self.msgr.error(
+                        _(
+                            "All input space time datasets must have a valid temporal "
+                            "topology."
+                        )
                     )
+                    return False
+
+                granularities.append(stds.get_granularity())
+                start_times.append(stds.get_temporal_extent_as_tuple()[0])
+                temporal_types.add(stds.get_temporal_type())
+
+            # Only one temporal type is allowed
+            if len(temporal_types) > 1:
+                self.msgr.error(
+                    _("All input space time datasets must have the same temporal type.")
                 )
                 return False
 
-            granularities.append(stds.get_granularity())
-            start_times.append(stds.get_temporal_extent_as_tuple()[0])
-            temporal_types.add(stds.get_temporal_type())
+            if "absolute" in temporal_types:
+                self.granularity = compute_common_absolute_time_granularity(
+                    granularities, start_times
+                )
+            else:
+                self.granularity = compute_common_relative_time_granularity(
+                    granularities
+                )
 
-        # Only one temporal type is allowed
-        if len(temporal_types) > 1:
-            self.msgr.error(
-                _("All input space time datasets must have the same temporal type.")
-            )
-            return False
+            self.use_granularity = True
 
-        if "absolute" in temporal_types:
-            self.granularity = compute_common_absolute_time_granularity(
-                granularities, start_times
-            )
-        else:
-            self.granularity = compute_common_relative_time_granularity(granularities)
-
-        self.use_granularity = True
-
-        return True
+            return True
 
     @staticmethod
     def _stds_names_in(expression, lexer=None):
@@ -2411,8 +2412,7 @@ class TemporalAlgebraParser:
         :param maps: The maps of the expression, possibly with commands
         :return: The list of result maps
         """
-        dbif, connection_state_changed = init_dbif(self.dbif)
-        try:
+        with connection(self.dbif) as dbif:
             names = self._result_map_names(maps, stds_name)
             needs_new = [self._needs_new_map(map_i, dbif) for map_i in maps]
             # All names are checked before any map is created, so that no
@@ -2426,10 +2426,7 @@ class TemporalAlgebraParser:
             else:
                 self._handle_empty_result(stds_name)
             self.remove_maps()
-        finally:
-            if connection_state_changed:
-                dbif.close()
-        return result_maps
+            return result_maps
 
     def _handle_empty_result(self, stds_name) -> None:
         """Hook: warn about a result without maps and create the empty dataset."""

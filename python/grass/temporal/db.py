@@ -679,6 +679,10 @@ def init_dbif(dbif):
     If the database interface exists but is not connected, the connection
     will be established.
 
+    Library code uses connection(), which closes what it opened even if the
+    block ends with an error; this function stays for scripts and tools that
+    close by hand.
+
     :returns: the tuple (dbif, connection_state_changed)
 
     Usage code sample:

@@ -20,18 +20,18 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .db import init_dbif
-from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
     create_time_suffix,
 )
+from .db import connection
 from .space_time_datasets import RasterDataset
 from .spatio_temporal_relationships import (
     SpatioTemporalTopologyBuilder,
     create_temporal_relation_sql_where_statement,
 )
+from .state import get_current_mapset, get_tgis_message_interface
 
 ###############################################################################
 
@@ -272,138 +272,134 @@ def aggregate_by_topology(
 
     msgr = get_tgis_message_interface()
 
-    dbif, connection_state_changed = init_dbif(dbif)
+    with connection(dbif) as dbif:
+        topo_builder = SpatioTemporalTopologyBuilder()
+        topo_builder.build(mapsA=granularity_list, mapsB=map_list, spatial=spatial)
 
-    topo_builder = SpatioTemporalTopologyBuilder()
-    topo_builder.build(mapsA=granularity_list, mapsB=map_list, spatial=spatial)
+        # The module queue for parallel execution
+        process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
-    # The module queue for parallel execution
-    process_queue = pymod.ParallelModuleQueue(int(nprocs))
+        # Dummy process object that will be deep copied
+        # and be put into the process queue
+        r_series = pymod.Module(
+            "r.series",
+            output="spam",
+            nprocs=1,
+            method=[method],
+            overwrite=overwrite,
+            quiet=True,
+            run_=False,
+            finish_=False,
+        )
+        g_copy = pymod.Module(
+            "g.copy", raster=["spam", "spamspam"], quiet=True, run_=False, finish_=False
+        )
+        output_list = []
+        count = 0
 
-    # Dummy process object that will be deep copied
-    # and be put into the process queue
-    r_series = pymod.Module(
-        "r.series",
-        output="spam",
-        nprocs=1,
-        method=[method],
-        overwrite=overwrite,
-        quiet=True,
-        run_=False,
-        finish_=False,
-    )
-    g_copy = pymod.Module(
-        "g.copy", raster=["spam", "spamspam"], quiet=True, run_=False, finish_=False
-    )
-    output_list = []
-    count = 0
+        for granule in granularity_list:
+            msgr.percent(count, len(granularity_list), 1)
+            count += 1
 
-    for granule in granularity_list:
-        msgr.percent(count, len(granularity_list), 1)
-        count += 1
+            aggregation_list = []
 
-        aggregation_list = []
+            if "equal" in topo_list and granule.equal:
+                for map_layer in granule.equal:
+                    aggregation_list.append(map_layer.get_name())
+            if "contains" in topo_list and granule.contains:
+                for map_layer in granule.contains:
+                    aggregation_list.append(map_layer.get_name())
+            if "during" in topo_list and granule.during:
+                for map_layer in granule.during:
+                    aggregation_list.append(map_layer.get_name())
+            if "starts" in topo_list and granule.starts:
+                for map_layer in granule.starts:
+                    aggregation_list.append(map_layer.get_name())
+            if "started" in topo_list and granule.started:
+                for map_layer in granule.started:
+                    aggregation_list.append(map_layer.get_name())
+            if "finishes" in topo_list and granule.finishes:
+                for map_layer in granule.finishes:
+                    aggregation_list.append(map_layer.get_name())
+            if "finished" in topo_list and granule.finished:
+                for map_layer in granule.finished:
+                    aggregation_list.append(map_layer.get_name())
+            if "overlaps" in topo_list and granule.overlaps:
+                for map_layer in granule.overlaps:
+                    aggregation_list.append(map_layer.get_name())
+            if "overlapped" in topo_list and granule.overlapped:
+                for map_layer in granule.overlapped:
+                    aggregation_list.append(map_layer.get_name())
 
-        if "equal" in topo_list and granule.equal:
-            for map_layer in granule.equal:
-                aggregation_list.append(map_layer.get_name())
-        if "contains" in topo_list and granule.contains:
-            for map_layer in granule.contains:
-                aggregation_list.append(map_layer.get_name())
-        if "during" in topo_list and granule.during:
-            for map_layer in granule.during:
-                aggregation_list.append(map_layer.get_name())
-        if "starts" in topo_list and granule.starts:
-            for map_layer in granule.starts:
-                aggregation_list.append(map_layer.get_name())
-        if "started" in topo_list and granule.started:
-            for map_layer in granule.started:
-                aggregation_list.append(map_layer.get_name())
-        if "finishes" in topo_list and granule.finishes:
-            for map_layer in granule.finishes:
-                aggregation_list.append(map_layer.get_name())
-        if "finished" in topo_list and granule.finished:
-            for map_layer in granule.finished:
-                aggregation_list.append(map_layer.get_name())
-        if "overlaps" in topo_list and granule.overlaps:
-            for map_layer in granule.overlaps:
-                aggregation_list.append(map_layer.get_name())
-        if "overlapped" in topo_list and granule.overlapped:
-            for map_layer in granule.overlapped:
-                aggregation_list.append(map_layer.get_name())
-
-        if aggregation_list:
-            msgr.verbose(
-                _("Aggregating %(len)i raster maps from %(start)s to %(end)s")
-                % (
-                    {
-                        "len": len(aggregation_list),
-                        "start": str(granule.temporal_extent.get_start_time()),
-                        "end": str(granule.temporal_extent.get_end_time()),
-                    }
-                )
-            )
-
-            if granule.is_time_absolute() is True and time_suffix == "gran":
-                suffix = create_suffix_from_datetime(
-                    granule.temporal_extent.get_start_time(), granularity
-                )
-                output_name = "{ba}_{su}".format(ba=basename, su=suffix)
-            elif granule.is_time_absolute() is True and time_suffix == "time":
-                suffix = create_time_suffix(granule)
-                output_name = "{ba}_{su}".format(ba=basename, su=suffix)
-            else:
-                output_name = create_numeric_suffix(
-                    basename, count + int(offset), time_suffix
-                )
-
-            map_layer = RasterDataset("%s@%s" % (output_name, get_current_mapset()))
-            map_layer.set_temporal_extent(granule.get_temporal_extent())
-
-            if map_layer.map_exists() is True and overwrite is False:
-                msgr.fatal(
-                    _(
-                        "Unable to perform aggregation. Output raster "
-                        "map <%(name)s> exists and overwrite flag was "
-                        "not set"
+            if aggregation_list:
+                msgr.verbose(
+                    _("Aggregating %(len)i raster maps from %(start)s to %(end)s")
+                    % (
+                        {
+                            "len": len(aggregation_list),
+                            "start": str(granule.temporal_extent.get_start_time()),
+                            "end": str(granule.temporal_extent.get_end_time()),
+                        }
                     )
-                    % ({"name": output_name})
                 )
 
-            output_list.append(map_layer)
+                if granule.is_time_absolute() is True and time_suffix == "gran":
+                    suffix = create_suffix_from_datetime(
+                        granule.temporal_extent.get_start_time(), granularity
+                    )
+                    output_name = "{ba}_{su}".format(ba=basename, su=suffix)
+                elif granule.is_time_absolute() is True and time_suffix == "time":
+                    suffix = create_time_suffix(granule)
+                    output_name = "{ba}_{su}".format(ba=basename, su=suffix)
+                else:
+                    output_name = create_numeric_suffix(
+                        basename, count + int(offset), time_suffix
+                    )
 
-            if len(aggregation_list) > 1:
-                # Create the r.series input file
-                filename = gs.tempfile(True)
-                with open(filename, "w") as out_file:
-                    for name in aggregation_list:
-                        string = "%s\n" % (name)
-                        out_file.write(string)
+                map_layer = RasterDataset("%s@%s" % (output_name, get_current_mapset()))
+                map_layer.set_temporal_extent(granule.get_temporal_extent())
 
-                mod = copy.deepcopy(r_series)
-                mod(file=filename, output=output_name)
-                if len(aggregation_list) > int(file_limit):
-                    msgr.warning(
+                if map_layer.map_exists() is True and overwrite is False:
+                    msgr.fatal(
                         _(
-                            "The limit of open files (%i) was "
-                            "reached (%i). The module r.series will "
-                            "be run with flag z, to avoid open "
-                            "files limit exceeding."
+                            "Unable to perform aggregation. Output raster "
+                            "map <%(name)s> exists and overwrite flag was "
+                            "not set"
                         )
-                        % (int(file_limit), len(aggregation_list))
+                        % ({"name": output_name})
                     )
-                    mod(flags="z")
-                process_queue.put(mod)
-            else:
-                mod = copy.deepcopy(g_copy)
-                mod(raster=[aggregation_list[0], output_name])
-                process_queue.put(mod)
 
-    process_queue.wait()
+                output_list.append(map_layer)
 
-    if connection_state_changed:
-        dbif.close()
+                if len(aggregation_list) > 1:
+                    # Create the r.series input file
+                    filename = gs.tempfile(True)
+                    with open(filename, "w") as out_file:
+                        for name in aggregation_list:
+                            string = "%s\n" % (name)
+                            out_file.write(string)
 
-    msgr.percent(1, 1, 1)
+                    mod = copy.deepcopy(r_series)
+                    mod(file=filename, output=output_name)
+                    if len(aggregation_list) > int(file_limit):
+                        msgr.warning(
+                            _(
+                                "The limit of open files (%i) was "
+                                "reached (%i). The module r.series will "
+                                "be run with flag z, to avoid open "
+                                "files limit exceeding."
+                            )
+                            % (int(file_limit), len(aggregation_list))
+                        )
+                        mod(flags="z")
+                    process_queue.put(mod)
+                else:
+                    mod = copy.deepcopy(g_copy)
+                    mod(raster=[aggregation_list[0], output_name])
+                    process_queue.put(mod)
 
-    return output_list
+        process_queue.wait()
+
+        msgr.percent(1, 1, 1)
+
+        return output_list

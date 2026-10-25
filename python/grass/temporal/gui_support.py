@@ -13,7 +13,7 @@ from datetime import datetime
 import grass.script as gs
 from grass.exceptions import ScriptError
 
-from .db import init_dbif
+from .db import connection
 from .factory import dataset_factory
 from .kinds import KINDS
 
@@ -46,44 +46,40 @@ def tlist_grouped(type, group_type: bool = False, dbif=None):
     """
     result = {}
     type_ = type
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    mapset = None
-    types = ["strds", "str3ds", "stvds"] if type_ == "stds" else [type_]
-    for type_ in types:
-        try:
-            tlist_result = tlist(type=type_, dbif=dbif)
-        except ScriptError as e:
-            gs.warning(e)
-            continue
-
-        for line in tlist_result:
+    with connection(dbif) as dbif:
+        mapset = None
+        types = ["strds", "str3ds", "stvds"] if type_ == "stds" else [type_]
+        for type_ in types:
             try:
-                name, mapset = line.split("@")
-            except ValueError:
-                gs.warning(_("Invalid element '%s'") % line)
+                tlist_result = tlist(type=type_, dbif=dbif)
+            except ScriptError as e:
+                gs.warning(e)
                 continue
 
-            if mapset not in result:
+            for line in tlist_result:
+                try:
+                    name, mapset = line.split("@")
+                except ValueError:
+                    gs.warning(_("Invalid element '%s'") % line)
+                    continue
+
+                if mapset not in result:
+                    if group_type:
+                        result[mapset] = {}
+                    else:
+                        result[mapset] = []
+
                 if group_type:
-                    result[mapset] = {}
+                    if type_ in result[mapset]:
+                        result[mapset][type_].append(name)
+                    else:
+                        result[mapset][type_] = [
+                            name,
+                        ]
                 else:
-                    result[mapset] = []
+                    result[mapset].append(name)
 
-            if group_type:
-                if type_ in result[mapset]:
-                    result[mapset][type_].append(name)
-                else:
-                    result[mapset][type_] = [
-                        name,
-                    ]
-            else:
-                result[mapset].append(name)
-
-    if connection_state_changed is True:
-        dbif.close()
-
-    return result
+        return result
 
 
 ###############################################################################
@@ -99,38 +95,34 @@ def tlist(type, dbif=None):
     type_ = type
     id = None
     sp = dataset_factory(type_, id)
-    dbif, connection_state_changed = init_dbif(dbif)
+    with connection(dbif) as dbif:
+        mapsets = dbif.tgis_mapsets
 
-    mapsets = dbif.tgis_mapsets
+        output = []
+        temporal_type = ["absolute", "relative"]
+        for type_ in temporal_type:
+            # For each available mapset
+            for mapset in mapsets.keys():
+                # Table name
+                if type_ == "absolute":
+                    table = sp.get_type() + "_view_abs_time"
+                else:
+                    table = sp.get_type() + "_view_rel_time"
 
-    output = []
-    temporal_type = ["absolute", "relative"]
-    for type_ in temporal_type:
-        # For each available mapset
-        for mapset in mapsets.keys():
-            # Table name
-            if type_ == "absolute":
-                table = sp.get_type() + "_view_abs_time"
-            else:
-                table = sp.get_type() + "_view_rel_time"
+                # Create the sql selection statement
+                sql = "SELECT id FROM " + table
+                sql += " WHERE mapset = '%s'" % (mapset)
+                sql += " ORDER BY id"
 
-            # Create the sql selection statement
-            sql = "SELECT id FROM " + table
-            sql += " WHERE mapset = '%s'" % (mapset)
-            sql += " ORDER BY id"
+                dbif.execute(sql, mapset=mapset)
+                rows = dbif.fetchall(mapset=mapset)
 
-            dbif.execute(sql, mapset=mapset)
-            rows = dbif.fetchall(mapset=mapset)
+                # Append the ids of the space time datasets
+                for row in rows:
+                    for col in row:
+                        output.append(str(col))
 
-            # Append the ids of the space time datasets
-            for row in rows:
-                for col in row:
-                    output.append(str(col))
-
-    if connection_state_changed is True:
-        dbif.close()
-
-    return output
+        return output
 
 
 ###############################################################################
@@ -159,9 +151,7 @@ def registered_maps_grouped(dbif=None):
         name: KINDS[KINDS[name].map_kind] for name in ("strds", "stvds", "str3ds")
     }
     result = {stds_type: {} for stds_type in stds_map_types}
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    try:
+    with connection(dbif) as dbif:
         for stds_type, map_kind in stds_map_types.items():
             datasets = result[stds_type]
             # One row per map registered in at least one dataset. A map has
@@ -211,8 +201,5 @@ def registered_maps_grouped(dbif=None):
         for datasets in result.values():
             for maps in datasets.values():
                 maps.sort(key=sort_key)
-    finally:
-        if connection_state_changed:
-            dbif.close()
 
-    return result
+        return result

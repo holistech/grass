@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
-from .db import init_dbif
-from .state import get_current_mapset, get_tgis_message_interface
+from .db import connection
 from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
+from .state import get_current_mapset, get_tgis_message_interface
 from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnector
 
 ###############################################################################
@@ -373,21 +373,17 @@ class AbstractDataset(
         :param mapset: The dbif connection to be used
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # default mapset is mapset of this instance
+            if mapset is None:
+                mapset = self.get_mapset()
 
-        # default mapset is mapset of this instance
-        if mapset is None:
-            mapset = self.get_mapset()
-
-        self.base.select(dbif, mapset=mapset)
-        self.temporal_extent.select(dbif, mapset=mapset)
-        self.spatial_extent.select(dbif, mapset=mapset)
-        self.metadata.select(dbif, mapset=mapset)
-        if self.is_stds() is False:
-            self.stds_register.select(dbif, mapset=mapset)
-
-        if connection_state_changed:
-            dbif.close()
+            self.base.select(dbif, mapset=mapset)
+            self.temporal_extent.select(dbif, mapset=mapset)
+            self.spatial_extent.select(dbif, mapset=mapset)
+            self.metadata.select(dbif, mapset=mapset)
+            if self.is_stds() is False:
+                self.stds_register.select(dbif, mapset=mapset)
 
     def is_in_db(self, dbif=None, mapset=None):
         """Check if the dataset is registered in the database
@@ -401,23 +397,6 @@ class AbstractDataset(
     @abstractmethod
     def delete(self):
         """Delete dataset from database if it exists"""
-
-    @staticmethod
-    def _execute_and_close_on_error(dbif, statement, owns_connection, mapset=None):
-        """Execute a transaction and close the connection if it fails
-
-        A connection opened by the caller of this method is closed here when
-        the transaction fails, because the caller never reaches its close()
-        and an open connection in the failed transaction keeps the
-        temporal database locked for other processes. A connection the
-        caller got from outside stays open, it is the owner's to close.
-        """
-        try:
-            dbif.execute_transaction(statement, mapset=mapset)
-        except BaseException:
-            if owns_connection:
-                dbif.close()
-            raise
 
     def insert(self, dbif=None, execute: bool = True):
         """Insert dataset into database
@@ -434,34 +413,27 @@ class AbstractDataset(
         # mapset in the temporal database of the current mapset
         # the temporal database must be in the current mapset
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            self.msgr.debug(2, "AbstractDataset.insert...")
 
-        self.msgr.debug(2, "AbstractDataset.insert...")
+            # only modify database in current mapset
+            mapset = get_current_mapset()
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
+            # Build the INSERT SQL statement
+            statement = self.base.get_insert_statement_mogrified(dbif)
+            statement += self.temporal_extent.get_insert_statement_mogrified(dbif)
+            statement += self.spatial_extent.get_insert_statement_mogrified(dbif)
+            statement += self.metadata.get_insert_statement_mogrified(dbif)
+            if self.is_stds() is False:
+                statement += self.stds_register.get_insert_statement_mogrified(dbif)
 
-        # Build the INSERT SQL statement
-        statement = self.base.get_insert_statement_mogrified(dbif)
-        statement += self.temporal_extent.get_insert_statement_mogrified(dbif)
-        statement += self.spatial_extent.get_insert_statement_mogrified(dbif)
-        statement += self.metadata.get_insert_statement_mogrified(dbif)
-        if self.is_stds() is False:
-            statement += self.stds_register.get_insert_statement_mogrified(dbif)
+            self.msgr.debug(2, "insert with %s" % statement)
+            if execute:
+                # database to be modified must be in the current mapset
+                dbif.execute_transaction(statement, mapset=mapset)
+                return ""
 
-        self.msgr.debug(2, "insert with %s" % statement)
-        if execute:
-            # database to be modified must be in the current mapset
-            self._execute_and_close_on_error(
-                dbif, statement, connection_state_changed, mapset=mapset
-            )
-            if connection_state_changed:
-                dbif.close()
-            return ""
-
-        if connection_state_changed:
-            dbif.close()
-        return statement
+            return statement
 
     def update(self, dbif=None, execute: bool = True, ident=None):
         """Update the dataset entry in the database from the internal structure
@@ -476,26 +448,25 @@ class AbstractDataset(
                  empty string otherwise
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # Build the UPDATE SQL statement
+            statement = self.base.get_update_statement_mogrified(dbif, ident)
+            statement += self.temporal_extent.get_update_statement_mogrified(
+                dbif, ident
+            )
+            statement += self.spatial_extent.get_update_statement_mogrified(dbif, ident)
+            statement += self.metadata.get_update_statement_mogrified(dbif, ident)
 
-        # Build the UPDATE SQL statement
-        statement = self.base.get_update_statement_mogrified(dbif, ident)
-        statement += self.temporal_extent.get_update_statement_mogrified(dbif, ident)
-        statement += self.spatial_extent.get_update_statement_mogrified(dbif, ident)
-        statement += self.metadata.get_update_statement_mogrified(dbif, ident)
+            if self.is_stds() is False:
+                statement += self.stds_register.get_update_statement_mogrified(
+                    dbif, ident
+                )
 
-        if self.is_stds() is False:
-            statement += self.stds_register.get_update_statement_mogrified(dbif, ident)
+            if execute:
+                dbif.execute_transaction(statement)
+                return ""
 
-        if execute:
-            self._execute_and_close_on_error(dbif, statement, connection_state_changed)
-            if connection_state_changed:
-                dbif.close()
-            return ""
-
-        if connection_state_changed:
-            dbif.close()
-        return statement
+            return statement
 
     def update_all(self, dbif=None, execute: bool = True, ident=None):
         """Update the dataset entry in the database from the internal structure
@@ -510,30 +481,27 @@ class AbstractDataset(
                  empty string otherwise
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
-
-        # Build the UPDATE SQL statement
-        statement = self.base.get_update_all_statement_mogrified(dbif, ident)
-        statement += self.temporal_extent.get_update_all_statement_mogrified(
-            dbif, ident
-        )
-        statement += self.spatial_extent.get_update_all_statement_mogrified(dbif, ident)
-        statement += self.metadata.get_update_all_statement_mogrified(dbif, ident)
-
-        if self.is_stds() is False:
-            statement += self.stds_register.get_update_all_statement_mogrified(
+        with connection(dbif) as dbif:
+            # Build the UPDATE SQL statement
+            statement = self.base.get_update_all_statement_mogrified(dbif, ident)
+            statement += self.temporal_extent.get_update_all_statement_mogrified(
                 dbif, ident
             )
+            statement += self.spatial_extent.get_update_all_statement_mogrified(
+                dbif, ident
+            )
+            statement += self.metadata.get_update_all_statement_mogrified(dbif, ident)
 
-        if execute:
-            self._execute_and_close_on_error(dbif, statement, connection_state_changed)
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            if self.is_stds() is False:
+                statement += self.stds_register.get_update_all_statement_mogrified(
+                    dbif, ident
+                )
 
-        if connection_state_changed:
-            dbif.close()
-        return statement
+            if execute:
+                dbif.execute_transaction(statement)
+                return ""
+
+            return statement
 
     def is_time_absolute(self) -> bool | None:
         """Return True in case the temporal type is absolute

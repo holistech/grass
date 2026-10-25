@@ -21,8 +21,8 @@ from datetime import datetime
 from grass.lib import gis, rtree, vector
 
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
-from .db import init_dbif
 from .datetime_math import time_delta_to_relative_time_seconds
+from .db import connection
 
 ###############################################################################
 
@@ -714,14 +714,10 @@ def print_temporal_topology_relationships(maps1, maps2=None, dbif=None) -> None:
 
     tb.build(maps1, maps2)
 
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    for map_ in tb:
-        map_.select(dbif)
-        map_.print_info()
-
-    if connection_state_changed:
-        dbif.close()
+    with connection(dbif) as dbif:
+        for map_ in tb:
+            map_.select(dbif)
+            map_.print_info()
 
 
 ###############################################################################
@@ -747,14 +743,10 @@ def print_spatio_temporal_topology_relationships(
 
     tb.build(maps1, maps2, spatial)
 
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    for map_ in tb:
-        map_.select(dbif)
-        map_.print_info()
-
-    if connection_state_changed:
-        dbif.close()
+    with connection(dbif) as dbif:
+        for map_ in tb:
+            map_.select(dbif)
+            map_.print_info()
 
 
 ###############################################################################
@@ -775,22 +767,18 @@ def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
     tb = SpatioTemporalTopologyBuilder()
     tb.build(maps1, maps2)
 
-    dbif, connection_state_changed = init_dbif(dbif)
+    with connection(dbif) as dbif:
+        relations = None
 
-    relations = None
+        for map_ in tb:
+            if relations is not None:
+                r = map_.get_number_of_relations()
+                for k in r.keys():
+                    relations[k] += r[k]
+            else:
+                relations = map_.get_number_of_relations()
 
-    for map_ in tb:
-        if relations is not None:
-            r = map_.get_number_of_relations()
-            for k in r.keys():
-                relations[k] += r[k]
-        else:
-            relations = map_.get_number_of_relations()
-
-    if connection_state_changed:
-        dbif.close()
-
-    return relations
+        return relations
 
 
 ###############################################################################

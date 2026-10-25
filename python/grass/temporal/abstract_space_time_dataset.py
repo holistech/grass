@@ -17,23 +17,24 @@ import uuid
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from pathlib import Path
+
 from grass.exceptions import FatalError
 
 from .abstract_dataset import AbstractDataset, AbstractDatasetComparisonKeyStartTime
-from .db import init_dbif
-from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
-from .state import get_current_mapset
 from .datetime_math import (
     datetime_after_steps,
     increment_datetime_by_string,
     string_to_datetime,
 )
+from .db import connection
+from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
 from .spatio_temporal_relationships import (
     SpatioTemporalTopologyBuilder,
     count_temporal_topology_relationships,
     create_temporal_relation_sql_where_statement,
     print_spatio_temporal_topology_relationships,
 )
+from .state import get_current_mapset
 from .temporal_granularity import (
     check_granularity_string,
     compute_absolute_time_granularity,
@@ -386,59 +387,55 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                  empty string otherwise
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # We need to create the register table if it does not exist
+            stds_register_table = self.get_map_register()
 
-        # We need to create the register table if it does not exist
-        stds_register_table = self.get_map_register()
-
-        # Create the map register table
-        sql_path = get_sql_template_path()
-        statement = ""
-
-        # We need to create the map register table
-        if stds_register_table is None:
-            # Create table name
-            stds_register_table = self.create_map_register_name()
-            # Assure that the table and index do not exist
-            # dbif.execute_transaction("DROP INDEX IF EXISTS %s; DROP TABLE IF EXISTS
-            # %s;"%(stds_register_table + "_index", stds_register_table))
-
-            # Read the SQL template
-            sql = Path(sql_path, "stds_map_register_table_template.sql").read_text()
-
-            # Create a raster, raster3d or vector tables
-            sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-            statement += sql
-
-            if dbif.get_dbmi().__name__ == "sqlite3":
-                statement += "CREATE INDEX %s_index ON %s (id);" % (
-                    stds_register_table,
-                    stds_register_table,
-                )
-
-            # Set the map register table name
-            self.set_map_register(stds_register_table)
-
-            self.msgr.debug(
-                1,
-                _("Created register table <%s> for space time %s  dataset <%s>")
-                % (
-                    stds_register_table,
-                    self.get_new_map_instance(None).get_type(),
-                    self.get_id(),
-                ),
-            )
-
-        statement += AbstractDataset.insert(self, dbif=dbif, execute=False)
-
-        if execute:
-            dbif.execute_transaction(statement)
+            # Create the map register table
+            sql_path = get_sql_template_path()
             statement = ""
 
-        if connection_state_changed:
-            dbif.close()
+            # We need to create the map register table
+            if stds_register_table is None:
+                # Create table name
+                stds_register_table = self.create_map_register_name()
+                # Assure that the table and index do not exist
+                # dbif.execute_transaction("DROP INDEX IF EXISTS %s; DROP TABLE IF EXISTS
+                # %s;"%(stds_register_table + "_index", stds_register_table))
 
-        return statement
+                # Read the SQL template
+                sql = Path(sql_path, "stds_map_register_table_template.sql").read_text()
+
+                # Create a raster, raster3d or vector tables
+                sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+                statement += sql
+
+                if dbif.get_dbmi().__name__ == "sqlite3":
+                    statement += "CREATE INDEX %s_index ON %s (id);" % (
+                        stds_register_table,
+                        stds_register_table,
+                    )
+
+                # Set the map register table name
+                self.set_map_register(stds_register_table)
+
+                self.msgr.debug(
+                    1,
+                    _("Created register table <%s> for space time %s  dataset <%s>")
+                    % (
+                        stds_register_table,
+                        self.get_new_map_instance(None).get_type(),
+                        self.get_id(),
+                    ),
+                )
+
+            statement += AbstractDataset.insert(self, dbif=dbif, execute=False)
+
+            if execute:
+                dbif.execute_transaction(statement)
+                statement = ""
+
+            return statement
 
     def get_map_time(self):
         """Return the type of the map time, interval, point, mixed or invalid"""
@@ -768,84 +765,83 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             )
             return None
 
-        dbif, connection_state_changed = init_dbif(dbif)
-        relations = copy.deepcopy(method)
+        with connection(dbif) as dbif:
+            relations = copy.deepcopy(method)
 
-        # Tune the temporal relations
-        if "start" in relations:
-            if "overlapped" not in relations:
-                relations.append("overlapped")
-            if "starts" not in relations:
-                relations.append("starts")
-            if "started" not in relations:
-                relations.append("started")
-            if "finishes" not in relations:
-                relations.append("finishes")
-            if "contains" not in relations:
-                relations.append("contains")
-            if "equals" not in relations:
-                relations.append("equals")
+            # Tune the temporal relations
+            if "start" in relations:
+                if "overlapped" not in relations:
+                    relations.append("overlapped")
+                if "starts" not in relations:
+                    relations.append("starts")
+                if "started" not in relations:
+                    relations.append("started")
+                if "finishes" not in relations:
+                    relations.append("finishes")
+                if "contains" not in relations:
+                    relations.append("contains")
+                if "equals" not in relations:
+                    relations.append("equals")
 
-        if "overlap" in relations or "over" in relations:
-            if "overlapped" not in relations:
-                relations.append("overlapped")
-            if "overlaps" not in relations:
-                relations.append("overlaps")
+            if "overlap" in relations or "over" in relations:
+                if "overlapped" not in relations:
+                    relations.append("overlapped")
+                if "overlaps" not in relations:
+                    relations.append("overlaps")
 
-        if "contain" in relations:
-            if "contains" not in relations:
-                relations.append("contains")
+            if "contain" in relations:
+                if "contains" not in relations:
+                    relations.append("contains")
 
-        # Remove start, equal, contain and overlap
-        relations = [
-            relation.upper().strip()
-            for relation in relations
-            if relation not in {"start", "overlap", "contain"}
-        ]
+            # Remove start, equal, contain and overlap
+            relations = [
+                relation.upper().strip()
+                for relation in relations
+                if relation not in {"start", "overlap", "contain"}
+            ]
 
-        #  print(relations)
+            #  print(relations)
 
-        tb = SpatioTemporalTopologyBuilder()
-        spatial = "2D" if spatial else None
+            tb = SpatioTemporalTopologyBuilder()
+            spatial = "2D" if spatial else None
 
-        mapsA = self.get_registered_maps_as_objects(where=where, dbif=dbif)
-        mapsB = stds.get_registered_maps_as_objects_with_gaps(where=where, dbif=dbif)
-        tb.build(mapsB, mapsA, spatial)
+            mapsA = self.get_registered_maps_as_objects(where=where, dbif=dbif)
+            mapsB = stds.get_registered_maps_as_objects_with_gaps(
+                where=where, dbif=dbif
+            )
+            tb.build(mapsB, mapsA, spatial)
 
-        obj_list = []
-        for map in mapsB:
-            result = {}
-            maplist = []
-            # Get map relations
-            map_relations = map.get_temporal_relations()
-            # print(map.get_temporal_extent_as_tuple())
-            # for key in map_relations.keys():
-            #    if key not in ["NEXT", "PREV"]:
-            #        print(key, map_relations[key][0].get_temporal_extent_as_tuple())
+            obj_list = []
+            for map in mapsB:
+                result = {}
+                maplist = []
+                # Get map relations
+                map_relations = map.get_temporal_relations()
+                # print(map.get_temporal_extent_as_tuple())
+                # for key in map_relations.keys():
+                #    if key not in ["NEXT", "PREV"]:
+                #        print(key, map_relations[key][0].get_temporal_extent_as_tuple())
 
-            result["granule"] = map
-            # Append the maps that fulfill the relations
-            for relation in relations:
-                if relation in map_relations.keys():
-                    for sample_map in map_relations[relation]:
-                        if sample_map not in maplist:
-                            maplist.append(sample_map)
+                result["granule"] = map
+                # Append the maps that fulfill the relations
+                for relation in relations:
+                    if relation in map_relations.keys():
+                        for sample_map in map_relations[relation]:
+                            if sample_map not in maplist:
+                                maplist.append(sample_map)
 
-            # Add an empty map if no map was found
-            if not maplist:
-                empty_map = self.get_new_map_instance(None)
-                empty_map.set_spatial_extent(map.get_spatial_extent())
-                empty_map.set_temporal_extent(map.get_temporal_extent())
-                maplist.append(empty_map)
+                # Add an empty map if no map was found
+                if not maplist:
+                    empty_map = self.get_new_map_instance(None)
+                    empty_map.set_spatial_extent(map.get_spatial_extent())
+                    empty_map.set_temporal_extent(map.get_temporal_extent())
+                    maplist.append(empty_map)
 
-            result["samples"] = maplist
+                result["samples"] = maplist
 
-            obj_list.append(result)
+                obj_list.append(result)
 
-        if connection_state_changed:
-            dbif.close()
-
-        return obj_list
+            return obj_list
 
     def sample_by_dataset_sql(
         self, stds, method=None, spatial: bool = False, dbif=None
@@ -1039,69 +1035,65 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             use_follows = False
             use_precedes = False
 
-        dbif, connection_state_changed = init_dbif(dbif)
-
-        obj_list = []
-        sample_maps = stds.get_registered_maps_as_objects_with_gaps(
-            where=None, dbif=dbif
-        )
-
-        for granule in sample_maps:
-            # Read the spatial extent
-            if spatial:
-                granule.spatial_extent.select(dbif)
-            start, end = granule.get_temporal_extent_as_tuple()
-
-            where = create_temporal_relation_sql_where_statement(
-                start,
-                end,
-                use_start,
-                use_during,
-                use_overlap,
-                use_contain,
-                use_equal,
-                use_follows,
-                use_precedes,
+        with connection(dbif) as dbif:
+            obj_list = []
+            sample_maps = stds.get_registered_maps_as_objects_with_gaps(
+                where=None, dbif=dbif
             )
 
-            maps = self.get_registered_maps_as_objects(where, "start_time", dbif)
+            for granule in sample_maps:
+                # Read the spatial extent
+                if spatial:
+                    granule.spatial_extent.select(dbif)
+                start, end = granule.get_temporal_extent_as_tuple()
 
-            result = {}
-            result["granule"] = granule
-            num_samples = 0
-            maplist = []
+                where = create_temporal_relation_sql_where_statement(
+                    start,
+                    end,
+                    use_start,
+                    use_during,
+                    use_overlap,
+                    use_contain,
+                    use_equal,
+                    use_follows,
+                    use_precedes,
+                )
 
-            if maps is not None:
-                for map in maps:
-                    # Read the spatial extent
-                    if spatial:
-                        map.spatial_extent.select(dbif)
-                        # Ignore spatial disjoint maps
-                        if not granule.spatial_overlapping(map):
-                            continue
+                maps = self.get_registered_maps_as_objects(where, "start_time", dbif)
 
-                    num_samples += 1
+                result = {}
+                result["granule"] = granule
+                num_samples = 0
+                maplist = []
+
+                if maps is not None:
+                    for map in maps:
+                        # Read the spatial extent
+                        if spatial:
+                            map.spatial_extent.select(dbif)
+                            # Ignore spatial disjoint maps
+                            if not granule.spatial_overlapping(map):
+                                continue
+
+                        num_samples += 1
+                        maplist.append(copy.copy(map))
+
+                # Fill with empty map in case no spatio-temporal relations found
+                if maps is None or num_samples == 0:
+                    map = self.get_new_map_instance(None)
+
+                    if self.is_time_absolute():
+                        map.set_absolute_time(start, end)
+                    elif self.is_time_relative():
+                        map.set_relative_time(start, end, self.get_relative_time_unit())
+
                     maplist.append(copy.copy(map))
 
-            # Fill with empty map in case no spatio-temporal relations found
-            if maps is None or num_samples == 0:
-                map = self.get_new_map_instance(None)
+                result["samples"] = maplist
 
-                if self.is_time_absolute():
-                    map.set_absolute_time(start, end)
-                elif self.is_time_relative():
-                    map.set_relative_time(start, end, self.get_relative_time_unit())
+                obj_list.append(copy.copy(result))
 
-                maplist.append(copy.copy(map))
-
-            result["samples"] = maplist
-
-            obj_list.append(copy.copy(result))
-
-        if connection_state_changed:
-            dbif.close()
-
-        return obj_list
+            return obj_list
 
     def get_registered_maps_as_objects_by_granularity(
         self, gran: str | None = None, where: str | None = None, dbif=None
@@ -1152,43 +1144,38 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 granule, or None in case nothing found
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            if gran is None:
+                gran = self.get_granularity()
 
-        if gran is None:
-            gran = self.get_granularity()
+            check = check_granularity_string(gran, self.get_temporal_type())
+            if not check:
+                self.msgr.fatal(_('Wrong granularity: "%s"') % str(gran))
 
-        check = check_granularity_string(gran, self.get_temporal_type())
-        if not check:
-            self.msgr.fatal(_('Wrong granularity: "%s"') % str(gran))
+            maps = self.get_registered_maps_as_objects(
+                dbif=dbif, order="start_time", where=where
+            )
 
-        maps = self.get_registered_maps_as_objects(
-            dbif=dbif, order="start_time", where=where
-        )
+            if not maps:
+                return None
 
-        if not maps:
-            return None
+            start = maps[0].get_temporal_extent_as_tuple()[0]
+            end_extend = maps[-1].get_temporal_extent_as_tuple()
+            end = end_extend[1] if end_extend[1] is not None else end_extend[0]
 
-        start = maps[0].get_temporal_extent_as_tuple()[0]
-        end_extend = maps[-1].get_temporal_extent_as_tuple()
-        end = end_extend[1] if end_extend[1] is not None else end_extend[0]
+            if start is None or end is None:
+                return None
+            # We need to adjust the end time in case the dataset has no
+            # interval time, so we can catch time instances at the end
+            if self.get_map_time() != "interval":
+                if self.is_time_absolute():
+                    end = increment_datetime_by_string(end, gran)
+                else:
+                    end += gran
 
-        if start is None or end is None:
-            return None
-        # We need to adjust the end time in case the dataset has no
-        # interval time, so we can catch time instances at the end
-        if self.get_map_time() != "interval":
-            if self.is_time_absolute():
-                end = increment_datetime_by_string(end, gran)
-            else:
-                end += gran
-
-        maplist = AbstractSpaceTimeDataset.resample_maplist_by_granularity(
-            maps, start, end, gran
-        )
-        if connection_state_changed:
-            dbif.close()
-
-        return maplist
+            return AbstractSpaceTimeDataset.resample_maplist_by_granularity(
+                maps, start, end, gran
+            )
 
     @staticmethod
     def resample_maplist_by_granularity(maps, start, end, gran):
@@ -1460,41 +1447,37 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         :return: Ordered object list, in case nothing found None is returned
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            obj_list = []
 
-        obj_list = []
+            maps = self.get_registered_maps_as_objects(
+                where, "start_time", dbif, spatial_extent, spatial_relation
+            )
 
-        maps = self.get_registered_maps_as_objects(
-            where, "start_time", dbif, spatial_extent, spatial_relation
-        )
+            if maps is not None and len(maps) > 0:
+                for i in range(len(maps)):
+                    obj_list.append(maps[i])
+                    # Detect and insert gaps
+                    if i < len(maps) - 1:
+                        relation = maps[i + 1].temporal_relation(maps[i])
+                        if relation == "after":
+                            start1, end1 = maps[i].get_temporal_extent_as_tuple()
+                            start2, end2 = maps[i + 1].get_temporal_extent_as_tuple()
+                            end = start2
+                            start = end1 if end1 is not None else start1
 
-        if maps is not None and len(maps) > 0:
-            for i in range(len(maps)):
-                obj_list.append(maps[i])
-                # Detect and insert gaps
-                if i < len(maps) - 1:
-                    relation = maps[i + 1].temporal_relation(maps[i])
-                    if relation == "after":
-                        start1, end1 = maps[i].get_temporal_extent_as_tuple()
-                        start2, end2 = maps[i + 1].get_temporal_extent_as_tuple()
-                        end = start2
-                        start = end1 if end1 is not None else start1
+                            map = self.get_new_map_instance(None)
 
-                        map = self.get_new_map_instance(None)
+                            if self.is_time_absolute():
+                                map.set_absolute_time(start, end)
+                            elif self.is_time_relative():
+                                map.set_relative_time(
+                                    start, end, self.get_relative_time_unit()
+                                )
+                            map.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
+                            obj_list.append(copy.copy(map))
 
-                        if self.is_time_absolute():
-                            map.set_absolute_time(start, end)
-                        elif self.is_time_relative():
-                            map.set_relative_time(
-                                start, end, self.get_relative_time_unit()
-                            )
-                        map.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
-                        obj_list.append(copy.copy(map))
-
-        if connection_state_changed:
-            dbif.close()
-
-        return obj_list
+            return obj_list
 
     def get_registered_maps_as_objects_with_temporal_topology(
         self,
@@ -1537,18 +1520,15 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 In case nothing found None is returned
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
-        obj_list = self.get_registered_maps_as_objects(
-            where, order, dbif, spatial_extent, spatial_relation
-        )
+        with connection(dbif) as dbif:
+            obj_list = self.get_registered_maps_as_objects(
+                where, order, dbif, spatial_extent, spatial_relation
+            )
 
-        tb = SpatioTemporalTopologyBuilder()
-        tb.build(obj_list)
+            tb = SpatioTemporalTopologyBuilder()
+            tb.build(obj_list)
 
-        if connection_state_changed:
-            dbif.close()
-
-        return obj_list
+            return obj_list
 
     def get_registered_maps_as_objects(
         self,
@@ -1592,73 +1572,69 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 In case nothing is found, an empty list is returned
         """
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            obj_list = []
 
-        obj_list = []
+            # use all columns
+            rows = self.get_registered_maps(
+                columns=None,
+                where=where,
+                order=order,
+                dbif=dbif,
+                spatial_extent=spatial_extent,
+                spatial_relation=spatial_relation,
+            )
 
-        # use all columns
-        rows = self.get_registered_maps(
-            columns=None,
-            where=where,
-            order=order,
-            dbif=dbif,
-            spatial_extent=spatial_extent,
-            spatial_relation=spatial_relation,
-        )
+            if rows:
+                # Older temporal databases have no bottom and top columns
+                # in their views so we need a work around to set the full
+                # spatial extent as well
 
-        if rows:
-            # Older temporal databases have no bottom and top columns
-            # in their views so we need a work around to set the full
-            # spatial extent as well
-
-            # check keys in first row
-            # note that 'if "bottom" in row' does not work
-            # because row is not a dict but some db backend object
-            has_bt_columns = "bottom" in rows[0].keys()
-            has_semantic_label = "semantic_label" in rows[0].keys()
-        else:
-            return obj_list
-
-        for row in rows:
-            map = self.get_new_map_instance(row["id"])
-            # time
-            if self.is_time_absolute():
-                map.set_absolute_time(row["start_time"], row["end_time"])
-            elif self.is_time_relative():
-                map.set_relative_time(
-                    row["start_time"],
-                    row["end_time"],
-                    self.get_relative_time_unit(),
-                )
-            # space
-            # The fast way
-            if has_bt_columns:
-                map.set_spatial_extent_from_values(
-                    west=row["west"],
-                    east=row["east"],
-                    south=row["south"],
-                    top=row["top"],
-                    north=row["north"],
-                    bottom=row["bottom"],
-                )
-            # The slow work around
+                # check keys in first row
+                # note that 'if "bottom" in row' does not work
+                # because row is not a dict but some db backend object
+                has_bt_columns = "bottom" in rows[0].keys()
+                has_semantic_label = "semantic_label" in rows[0].keys()
             else:
-                map.spatial_extent.select(dbif)
+                return obj_list
 
-            # labels
-            if (
-                has_semantic_label
-                and row["semantic_label"] is not None
-                and row["semantic_label"] != "None"
-            ):
-                map.metadata.set_semantic_label(row["semantic_label"])
+            for row in rows:
+                map = self.get_new_map_instance(row["id"])
+                # time
+                if self.is_time_absolute():
+                    map.set_absolute_time(row["start_time"], row["end_time"])
+                elif self.is_time_relative():
+                    map.set_relative_time(
+                        row["start_time"],
+                        row["end_time"],
+                        self.get_relative_time_unit(),
+                    )
+                # space
+                # The fast way
+                if has_bt_columns:
+                    map.set_spatial_extent_from_values(
+                        west=row["west"],
+                        east=row["east"],
+                        south=row["south"],
+                        top=row["top"],
+                        north=row["north"],
+                        bottom=row["bottom"],
+                    )
+                # The slow work around
+                else:
+                    map.spatial_extent.select(dbif)
 
-            obj_list.append(copy.copy(map))
+                # labels
+                if (
+                    has_semantic_label
+                    and row["semantic_label"] is not None
+                    and row["semantic_label"] != "None"
+                ):
+                    map.metadata.set_semantic_label(row["semantic_label"])
 
-        if connection_state_changed:
-            dbif.close()
+                obj_list.append(copy.copy(map))
 
-        return obj_list
+            return obj_list
 
     def _update_where_statement_by_semantic_label(self, where):
         """Update given SQL WHERE statement by semantic label.
@@ -1892,79 +1868,77 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         if order is not None:
             order = order.rstrip("; \t\r\n").lstrip()
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            rows = None
 
-        rows = None
-
-        if self.get_map_register() is not None:
-            # Use the correct temporal table
-            if self.get_temporal_type() == "absolute":
-                map_view = self.get_new_map_instance(None).get_type() + "_view_abs_time"
-            else:
-                map_view = self.get_new_map_instance(None).get_type() + "_view_rel_time"
-
-            if group:
-                if not columns:
-                    columns = f"{group},group_concat(id,',') AS id"
+            if self.get_map_register() is not None:
+                # Use the correct temporal table
+                if self.get_temporal_type() == "absolute":
+                    map_view = (
+                        self.get_new_map_instance(None).get_type() + "_view_abs_time"
+                    )
                 else:
-                    columns = (
-                        group
-                        + ", "
-                        + ", ".join(
-                            [
-                                f"group_concat({column},',') AS {column}"
-                                for column in columns.split(",")
-                            ]
+                    map_view = (
+                        self.get_new_map_instance(None).get_type() + "_view_rel_time"
+                    )
+
+                if group:
+                    if not columns:
+                        columns = f"{group},group_concat(id,',') AS id"
+                    else:
+                        columns = (
+                            group
+                            + ", "
+                            + ", ".join(
+                                [
+                                    f"group_concat({column},',') AS {column}"
+                                    for column in columns.split(",")
+                                ]
+                            )
+                        )
+                    if order is not None and order != "":
+                        order = f"{group},{order}"
+
+                else:
+                    columns = columns or "*"
+
+                # filter by semantic label identifier
+                if self.semantic_label:
+                    where = self._update_where_statement_by_semantic_label(where)
+
+                # filter by spatial extent
+                if spatial_extent and spatial_relation:
+                    where = self._update_where_statement_by_spatial_extent(
+                        where, spatial_extent, spatial_relation
+                    )
+
+                sql = "SELECT %s FROM %s WHERE %s.id IN (SELECT id FROM %s)" % (
+                    columns,
+                    map_view,
+                    map_view,
+                    self.get_map_register(),
+                )
+
+                if where is not None and where != "":
+                    sql += " AND (%s)" % where
+                if group:
+                    sql += f" GROUP BY {group}"
+                if order is not None and order != "":
+                    sql += " ORDER BY %s" % order
+                sql += ";"
+
+                try:
+                    dbif.execute(sql, mapset=self.base.mapset)
+                    rows = dbif.fetchall(mapset=self.base.mapset)
+                except RuntimeError:
+                    self.msgr.error(
+                        _("Unable to get map ids from register table <{}>").format(
+                            self.get_map_register()
                         )
                     )
-                if order is not None and order != "":
-                    order = f"{group},{order}"
+                    raise
 
-            else:
-                columns = columns or "*"
-
-            # filter by semantic label identifier
-            if self.semantic_label:
-                where = self._update_where_statement_by_semantic_label(where)
-
-            # filter by spatial extent
-            if spatial_extent and spatial_relation:
-                where = self._update_where_statement_by_spatial_extent(
-                    where, spatial_extent, spatial_relation
-                )
-
-            sql = "SELECT %s FROM %s WHERE %s.id IN (SELECT id FROM %s)" % (
-                columns,
-                map_view,
-                map_view,
-                self.get_map_register(),
-            )
-
-            if where is not None and where != "":
-                sql += " AND (%s)" % where
-            if group:
-                sql += f" GROUP BY {group}"
-            if order is not None and order != "":
-                sql += " ORDER BY %s" % order
-            sql += ";"
-
-            try:
-                dbif.execute(sql, mapset=self.base.mapset)
-                rows = dbif.fetchall(mapset=self.base.mapset)
-            except RuntimeError:
-                if connection_state_changed:
-                    dbif.close()
-                self.msgr.error(
-                    _("Unable to get map ids from register table <{}>").format(
-                        self.get_map_register()
-                    )
-                )
-                raise
-
-        if connection_state_changed:
-            dbif.close()
-
-        return rows
+            return rows
 
     @staticmethod
     def shift_map_list(maps, gran):
@@ -2080,37 +2054,34 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             self.msgr.error(_("Wrong granularity format: %s") % (gran))
             return False
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            maps = self.get_registered_maps_as_objects(dbif=dbif)
 
-        maps = self.get_registered_maps_as_objects(dbif=dbif)
+            if maps is None:
+                return False
 
-        if maps is None:
-            return False
+            date_list = []
 
-        date_list = []
+            # We need to make a dry run to avoid a break
+            # in the middle of the update process when the increment
+            # results in wrong number of days in a month
+            for map in maps:
+                start, end = map.get_temporal_extent_as_tuple()
 
-        # We need to make a dry run to avoid a break
-        # in the middle of the update process when the increment
-        # results in wrong number of days in a month
-        for map in maps:
-            start, end = map.get_temporal_extent_as_tuple()
+                if self.is_time_absolute():
+                    start = increment_datetime_by_string(start, gran)
+                    if end is not None:
+                        end = increment_datetime_by_string(end, gran)
+                elif self.is_time_relative():
+                    start += int(gran)
+                    if end is not None:
+                        end += int(gran)
 
-            if self.is_time_absolute():
-                start = increment_datetime_by_string(start, gran)
-                if end is not None:
-                    end = increment_datetime_by_string(end, gran)
-            elif self.is_time_relative():
-                start += int(gran)
-                if end is not None:
-                    end += int(gran)
+                date_list.append((start, end))
 
-            date_list.append((start, end))
+            self._update_map_timestamps(maps, date_list, dbif)
 
-        self._update_map_timestamps(maps, date_list, dbif)
-
-        if connection_state_changed:
-            dbif.close()
-        return True
+            return True
 
     @staticmethod
     def snap_map_list(maps):
@@ -2254,44 +2225,40 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 % {"ds": self.get_id(), "type": self.get_type()}
             )
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            maps = self.get_registered_maps_as_objects(dbif=dbif)
 
-        maps = self.get_registered_maps_as_objects(dbif=dbif)
+            if maps is None:
+                return
 
-        if maps is None:
-            return
+            date_list = []
 
-        date_list = []
+            for i in range(len(maps) - 1):
+                start, end = maps[i].get_temporal_extent_as_tuple()
+                # The end of the next map must not replace the own end, which a
+                # map keeps when it starts together with the next one.
+                start_next, _end_next = maps[i + 1].get_temporal_extent_as_tuple()
 
-        for i in range(len(maps) - 1):
-            start, end = maps[i].get_temporal_extent_as_tuple()
-            # The end of the next map must not replace the own end, which a
-            # map keeps when it starts together with the next one.
-            start_next, _end_next = maps[i + 1].get_temporal_extent_as_tuple()
+                # Maps with equal time stamps can not be snapped
+                if start != start_next:
+                    date_list.append((start, start_next))
+                else:
+                    # Keep the original time stamps
+                    date_list.append((start, end))
 
-            # Maps with equal time stamps can not be snapped
-            if start != start_next:
-                date_list.append((start, start_next))
-            else:
-                # Keep the original time stamps
-                date_list.append((start, end))
+            # Last map
+            start, end = maps[-1].get_temporal_extent_as_tuple()
+            # We increment the start time with the dataset
+            # granularity if the end time is None
+            if end is None:
+                if self.is_time_absolute():
+                    end = increment_datetime_by_string(start, self.get_granularity())
+                elif self.is_time_relative():
+                    end = start + self.get_granularity()
 
-        # Last map
-        start, end = maps[-1].get_temporal_extent_as_tuple()
-        # We increment the start time with the dataset
-        # granularity if the end time is None
-        if end is None:
-            if self.is_time_absolute():
-                end = increment_datetime_by_string(start, self.get_granularity())
-            elif self.is_time_relative():
-                end = start + self.get_granularity()
+            date_list.append((start, end))
 
-        date_list.append((start, end))
-
-        self._update_map_timestamps(maps, date_list, dbif)
-
-        if connection_state_changed:
-            dbif.close()
+            self._update_map_timestamps(maps, date_list, dbif)
 
     def _update_map_timestamps(self, maps, date_list, dbif) -> None:
         """Update the timestamps of maps with the start and end time
@@ -2363,60 +2330,58 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 % {"ds": self.get_id(), "type": self.get_type()}
             )
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            if dbif.get_dbmi().__name__ != "sqlite3":
+                self.msgr.fatal(
+                    _(
+                        "Renaming of space time datasets is not supported for PostgreSQL."
+                    )
+                )
 
-        if dbif.get_dbmi().__name__ != "sqlite3":
-            self.msgr.fatal(
-                _("Renaming of space time datasets is not supported for PostgreSQL.")
-            )
+            # SELECT all needed information from the database
+            self.select(dbif)
 
-        # SELECT all needed information from the database
-        self.select(dbif)
+            # We need to select the registered maps here
+            maps = self.get_registered_maps_as_objects(None, "start_time", dbif)
 
-        # We need to select the registered maps here
-        maps = self.get_registered_maps_as_objects(None, "start_time", dbif)
+            # Safe old identifier
+            old_ident = self.get_id()
+            # We need to rename the old table
+            old_map_register_table = self.get_map_register()
 
-        # Safe old identifier
-        old_ident = self.get_id()
-        # We need to rename the old table
-        old_map_register_table = self.get_map_register()
+            # Set new identifier
+            self.set_id(ident)
+            # Create map register table name from new identifier
+            new_map_register_table = self.create_map_register_name()
+            # Set new map register table name
+            self.set_map_register(new_map_register_table)
 
-        # Set new identifier
-        self.set_id(ident)
-        # Create map register table name from new identifier
-        new_map_register_table = self.create_map_register_name()
-        # Set new map register table name
-        self.set_map_register(new_map_register_table)
+            # Get the update statement, we update the table entry of the old
+            # identifier
+            statement = self.update(dbif, execute=False, ident=old_ident)
 
-        # Get the update statement, we update the table entry of the old
-        # identifier
-        statement = self.update(dbif, execute=False, ident=old_ident)
-
-        # We need to rename the raster register table
-        statement += 'ALTER TABLE %s RENAME TO "%s";\n' % (
-            old_map_register_table,
-            new_map_register_table,
-        )
-
-        # We need to take care of the stds index in the sqlite3 database
-        if dbif.get_dbmi().__name__ == "sqlite3":
-            statement += "DROP INDEX %s_index;\n" % (old_map_register_table)
-            statement += "CREATE INDEX %s_index ON %s (id);" % (
-                new_map_register_table,
+            # We need to rename the raster register table
+            statement += 'ALTER TABLE %s RENAME TO "%s";\n' % (
+                old_map_register_table,
                 new_map_register_table,
             )
 
-        # We need to rename the space time dataset in the maps register table
-        if maps:
-            for map in maps:
-                map.remove_stds_from_register(stds_id=old_ident, dbif=dbif)
-                map.add_stds_to_register(stds_id=ident, dbif=dbif)
+            # We need to take care of the stds index in the sqlite3 database
+            if dbif.get_dbmi().__name__ == "sqlite3":
+                statement += "DROP INDEX %s_index;\n" % (old_map_register_table)
+                statement += "CREATE INDEX %s_index ON %s (id);" % (
+                    new_map_register_table,
+                    new_map_register_table,
+                )
 
-        # Execute the accumulated statements
-        dbif.execute_transaction(statement)
+            # We need to rename the space time dataset in the maps register table
+            if maps:
+                for map in maps:
+                    map.remove_stds_from_register(stds_id=old_ident, dbif=dbif)
+                    map.add_stds_to_register(stds_id=ident, dbif=dbif)
 
-        if connection_state_changed:
-            dbif.close()
+            # Execute the accumulated statements
+            dbif.execute_transaction(statement)
 
     def delete(self, dbif=None, execute: bool = True):
         """Delete a space time dataset from the temporal database
@@ -2453,43 +2418,41 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             )
 
         statement = ""
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # SELECT all needed information from the database
+            self.metadata.select(dbif)
 
-        # SELECT all needed information from the database
-        self.metadata.select(dbif)
+            if self.get_map_register() is not None:
+                self.msgr.debug(
+                    1, _("Drop map register table: %s") % (self.get_map_register())
+                )
+                rows = self.get_registered_maps(
+                    columns="id", where=None, order=None, dbif=dbif
+                )
+                # Unregister each registered map in the table
+                if rows is not None:
+                    for row in rows:
+                        # Unregister map
+                        map = self.get_new_map_instance(row["id"])
+                        statement += self.unregister_map(
+                            map=map, dbif=dbif, execute=False
+                        )
 
-        if self.get_map_register() is not None:
-            self.msgr.debug(
-                1, _("Drop map register table: %s") % (self.get_map_register())
-            )
-            rows = self.get_registered_maps(
-                columns="id", where=None, order=None, dbif=dbif
-            )
-            # Unregister each registered map in the table
-            if rows is not None:
-                for row in rows:
-                    # Unregister map
-                    map = self.get_new_map_instance(row["id"])
-                    statement += self.unregister_map(map=map, dbif=dbif, execute=False)
+                # Safe the DROP table statement
+                statement += "DROP TABLE IF EXISTS " + self.get_map_register() + ";\n"
 
-            # Safe the DROP table statement
-            statement += "DROP TABLE IF EXISTS " + self.get_map_register() + ";\n"
+            # Remove the primary key, the foreign keys will be removed by trigger
+            statement += self.base.get_delete_statement()
 
-        # Remove the primary key, the foreign keys will be removed by trigger
-        statement += self.base.get_delete_statement()
+            if execute:
+                dbif.execute_transaction(statement)
 
-        if execute:
-            dbif.execute_transaction(statement)
+            self.reset(None)
 
-        self.reset(None)
+            if execute:
+                return ""
 
-        if connection_state_changed:
-            dbif.close()
-
-        if execute:
-            return ""
-
-        return statement
+            return statement
 
     def is_map_registered(self, map_id, dbif=None):
         """Check if a map is registered in the space time dataset
@@ -2500,34 +2463,30 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         """
         stds_register_table = self.get_map_register()
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            is_registered = False
 
-        is_registered = False
+            # TODO: use mapset of the corresponding stds
 
-        # TODO: use mapset of the corresponding stds
+            # Check if map is already registered
+            if stds_register_table is not None:
+                if dbif.get_dbmi().paramstyle == "qmark":
+                    sql = "SELECT id FROM " + stds_register_table + " WHERE id = (?)"
+                else:
+                    sql = "SELECT id FROM " + stds_register_table + " WHERE id = (%s)"
+                try:
+                    dbif.execute(sql, (map_id,), mapset=self.base.mapset)
+                    row = dbif.fetchone(mapset=self.base.mapset)
+                except FatalError:
+                    raise
+                except Exception:
+                    self.msgr.warning(_("Error in register table request"))
+                    raise
 
-        # Check if map is already registered
-        if stds_register_table is not None:
-            if dbif.get_dbmi().paramstyle == "qmark":
-                sql = "SELECT id FROM " + stds_register_table + " WHERE id = (?)"
-            else:
-                sql = "SELECT id FROM " + stds_register_table + " WHERE id = (%s)"
-            try:
-                dbif.execute(sql, (map_id,), mapset=self.base.mapset)
-                row = dbif.fetchone(mapset=self.base.mapset)
-            except FatalError:
-                raise
-            except Exception:
-                self.msgr.warning(_("Error in register table request"))
-                raise
+                if row is not None and row[0] == map_id:
+                    is_registered = True
 
-            if row is not None and row[0] == map_id:
-                is_registered = True
-
-        if connection_state_changed is True:
-            dbif.close()
-
-        return is_registered
+            return is_registered
 
     def register_map(self, map, dbif=None) -> bool:
         """Register a map in the space time dataset.
@@ -2560,14 +2519,10 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                 % {"ds": self.get_id(), "type": self.get_type()}
             )
 
-        dbif, connection_state_changed = init_dbif(dbif)
-        try:
+        with connection(dbif) as dbif:
             return self._register_map(map, dbif, mapset)
-        finally:
             # A connection that was handed in belongs to the caller, also
             # when the registration stops with an error.
-            if connection_state_changed:
-                dbif.close()
 
     def _register_map(self, map, dbif, mapset) -> bool:
         """Register the map over the open connection, see register_map()"""
@@ -2762,61 +2717,55 @@ class AbstractSpaceTimeDataset(AbstractDataset):
 
         statement = ""
 
-        dbif, connection_state_changed = init_dbif(dbif)
-
-        # Check if the map is registered in the space time raster dataset
-        if self.is_map_registered(map.get_id(), dbif) is False:
-            if map.get_layer() is not None:
-                self.msgr.warning(
-                    _(
-                        "Map <%(map)s> with layer %(l)s is not "
-                        "registered in space time dataset "
-                        "<%(base)s>"
+        with connection(dbif) as dbif:
+            # Check if the map is registered in the space time raster dataset
+            if self.is_map_registered(map.get_id(), dbif) is False:
+                if map.get_layer() is not None:
+                    self.msgr.warning(
+                        _(
+                            "Map <%(map)s> with layer %(l)s is not "
+                            "registered in space time dataset "
+                            "<%(base)s>"
+                        )
+                        % {
+                            "map": map.get_map_id(),
+                            "l": map.get_layer(),
+                            "base": self.base.get_id(),
+                        }
                     )
-                    % {
-                        "map": map.get_map_id(),
-                        "l": map.get_layer(),
-                        "base": self.base.get_id(),
-                    }
-                )
-            else:
-                self.msgr.warning(
-                    _(
-                        "Map <%(map)s> is not registered in space "
-                        "time dataset <%(base)s>"
+                else:
+                    self.msgr.warning(
+                        _(
+                            "Map <%(map)s> is not registered in space "
+                            "time dataset <%(base)s>"
+                        )
+                        % {"map": map.get_map_id(), "base": self.base.get_id()}
                     )
-                    % {"map": map.get_map_id(), "base": self.base.get_id()}
-                )
-            if connection_state_changed is True:
-                dbif.close()
-            return ""
+                return ""
 
-        # Remove the space time dataset from the dataset register
-        # We need to execute the statement here, otherwise the space time
-        # dataset will not be removed correctly
-        map.remove_stds_from_register(self.base.get_id(), dbif=dbif, execute=True)
+            # Remove the space time dataset from the dataset register
+            # We need to execute the statement here, otherwise the space time
+            # dataset will not be removed correctly
+            map.remove_stds_from_register(self.base.get_id(), dbif=dbif, execute=True)
 
-        # Remove the map from the space time dataset register
-        stds_register_table = self.get_map_register()
-        if stds_register_table is not None:
-            if dbif.get_dbmi().paramstyle == "qmark":
-                sql = "DELETE FROM " + stds_register_table + " WHERE id = ?;\n"
-            else:
-                sql = "DELETE FROM " + stds_register_table + " WHERE id = %s;\n"
+            # Remove the map from the space time dataset register
+            stds_register_table = self.get_map_register()
+            if stds_register_table is not None:
+                if dbif.get_dbmi().paramstyle == "qmark":
+                    sql = "DELETE FROM " + stds_register_table + " WHERE id = ?;\n"
+                else:
+                    sql = "DELETE FROM " + stds_register_table + " WHERE id = %s;\n"
 
-            statement += dbif.mogrify_sql_statement((sql, (map.get_id(),)))
+                statement += dbif.mogrify_sql_statement((sql, (map.get_id(),)))
 
-        if execute:
-            dbif.execute_transaction(statement, mapset=mapset)
-            statement = ""
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
 
-        if connection_state_changed:
-            dbif.close()
+            # decrease the counter
+            self.map_counter -= 1
 
-        # decrease the counter
-        self.map_counter -= 1
-
-        return statement
+            return statement
 
     def update_from_registered_maps(self, dbif=None) -> None:
         """This methods updates the modification time, the spatial and
@@ -2857,192 +2806,190 @@ class AbstractSpaceTimeDataset(AbstractDataset):
         if not self.get_map_register():
             return
 
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # The templates read below use the UPDATE-FROM syntax, which SQLite
+            # supports only since 3.33.
+            dbmi = dbif.get_dbmi()
+            if dbmi.__name__ == "sqlite3" and dbmi.sqlite_version_info < (3, 33):
+                self.msgr.fatal(
+                    _(
+                        "The temporal framework requires SQLite 3.33 or later to "
+                        "update a space time dataset, but the Python sqlite3 module "
+                        "uses SQLite {version}. Please update SQLite or switch the "
+                        "temporal database to the PostgreSQL backend with t.connect."
+                    ).format(version=dbmi.sqlite_version)
+                )
 
-        # The templates read below use the UPDATE-FROM syntax, which SQLite
-        # supports only since 3.33.
-        dbmi = dbif.get_dbmi()
-        if dbmi.__name__ == "sqlite3" and dbmi.sqlite_version_info < (3, 33):
-            self.msgr.fatal(
-                _(
-                    "The temporal framework requires SQLite 3.33 or later to "
-                    "update a space time dataset, but the Python sqlite3 module "
-                    "uses SQLite {version}. Please update SQLite or switch the "
-                    "temporal database to the PostgreSQL backend with t.connect."
-                ).format(version=dbmi.sqlite_version)
-            )
+            map_time = None
 
-        map_time = None
+            use_start_time = False
 
-        use_start_time = False
+            # Get basic info
+            sql_path = get_sql_template_path()
+            stds_register_table = self.get_map_register()
 
-        # Get basic info
-        sql_path = get_sql_template_path()
-        stds_register_table = self.get_map_register()
+            # We create a transaction
+            sql_script = ""
 
-        # We create a transaction
-        sql_script = ""
+            # Update the spatial and temporal extent from registered maps
+            # Read the SQL template
+            sql = Path(
+                sql_path, "update_stds_spatial_temporal_extent_template.sql"
+            ).read_text()
+            sql = sql.replace("GRASS_MAP", self.get_new_map_instance(None).get_type())
+            sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+            sql = sql.replace("SPACETIME_ID", self.base.get_id())
+            sql = sql.replace("STDS", self.get_type())
 
-        # Update the spatial and temporal extent from registered maps
-        # Read the SQL template
-        sql = Path(
-            sql_path, "update_stds_spatial_temporal_extent_template.sql"
-        ).read_text()
-        sql = sql.replace("GRASS_MAP", self.get_new_map_instance(None).get_type())
-        sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-        sql = sql.replace("SPACETIME_ID", self.base.get_id())
-        sql = sql.replace("STDS", self.get_type())
+            sql_script += sql
+            sql_script += "\n"
 
-        sql_script += sql
-        sql_script += "\n"
+            # Update type specific metadata
+            sql = Path(
+                sql_path, f"update_{self.get_type()}_metadata_template.sql"
+            ).read_text()
 
-        # Update type specific metadata
-        sql = Path(
-            sql_path, f"update_{self.get_type()}_metadata_template.sql"
-        ).read_text()
+            # Comment out update of semantic labels for DB version < 3
+            if get_tgis_db_version_from_metadata() < 3:
+                sql = sql.replace(
+                    "number_of_semantic_labels = number_of_semantic_labels_new,",
+                    "-- number_of_semantic_labels = number_of_semantic_labels_new,",
+                )
+                sql = sql.replace(
+                    "count(distinct semantic_label)",
+                    "-- count(distinct semantic_label)",
+                )
 
-        # Comment out update of semantic labels for DB version < 3
-        if get_tgis_db_version_from_metadata() < 3:
-            sql = sql.replace(
-                "number_of_semantic_labels = number_of_semantic_labels_new,",
-                "-- number_of_semantic_labels = number_of_semantic_labels_new,",
-            )
-            sql = sql.replace(
-                "count(distinct semantic_label)",
-                "-- count(distinct semantic_label)",
-            )
+            sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+            sql = sql.replace("SPACETIME_ID", self.base.get_id())
 
-        sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-        sql = sql.replace("SPACETIME_ID", self.base.get_id())
+            sql_script += sql
+            sql_script += "\n"
 
-        sql_script += sql
-        sql_script += "\n"
+            dbif.execute_transaction(sql_script, mapset=self.base.mapset)
 
-        dbif.execute_transaction(sql_script, mapset=self.base.mapset)
+            # Read and validate the selected end time
+            self.select(dbif)
 
-        # Read and validate the selected end time
-        self.select(dbif)
-
-        if self.is_time_absolute():
-            start_time, end_time = self.get_absolute_time()
-        else:
-            start_time, end_time, unit = self.get_relative_time()
-
-        # In case no end time is set, use the maximum start time of
-        # all registered maps as end time
-        if end_time is None:
-            use_start_time = True
-        else:
-            # Check if the end time is smaller than the maximum start time
             if self.is_time_absolute():
-                sql = """SELECT max(start_time) FROM GRASS_MAP_absolute_time
+                start_time, end_time = self.get_absolute_time()
+            else:
+                start_time, end_time, unit = self.get_relative_time()
+
+            # In case no end time is set, use the maximum start time of
+            # all registered maps as end time
+            if end_time is None:
+                use_start_time = True
+            else:
+                # Check if the end time is smaller than the maximum start time
+                if self.is_time_absolute():
+                    sql = """SELECT max(start_time) FROM GRASS_MAP_absolute_time
                          WHERE GRASS_MAP_absolute_time.id IN
                         (SELECT id FROM SPACETIME_REGISTER_TABLE);"""
-                sql = sql.replace(
-                    "GRASS_MAP", self.get_new_map_instance(None).get_type()
-                )
-                sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-            else:
-                sql = """SELECT max(start_time) FROM GRASS_MAP_relative_time
+                    sql = sql.replace(
+                        "GRASS_MAP", self.get_new_map_instance(None).get_type()
+                    )
+                    sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+                else:
+                    sql = """SELECT max(start_time) FROM GRASS_MAP_relative_time
                          WHERE GRASS_MAP_relative_time.id IN
                         (SELECT id FROM SPACETIME_REGISTER_TABLE);"""
-                sql = sql.replace(
-                    "GRASS_MAP", self.get_new_map_instance(None).get_type()
-                )
-                sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+                    sql = sql.replace(
+                        "GRASS_MAP", self.get_new_map_instance(None).get_type()
+                    )
+                    sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
 
-            dbif.execute(sql, mapset=self.base.mapset)
-            row = dbif.fetchone(mapset=self.base.mapset)
+                dbif.execute(sql, mapset=self.base.mapset)
+                row = dbif.fetchone(mapset=self.base.mapset)
 
-            if row is not None:
-                # This seems to be a bug in sqlite3 Python driver
-                # datetime format can be parsed if the connection is
-                # established with: detect_types=sqlite3.PARSE_DECLTYPES
-                if dbif.get_dbmi().__name__ == "sqlite3":
-                    tstring = row[0]
-                    # Convert the unicode string into the datetime format
-                    if self.is_time_absolute():
-                        max_start_time = string_to_datetime(tstring)
-                        if max_start_time is None:
-                            max_start_time = end_time
+                if row is not None:
+                    # This seems to be a bug in sqlite3 Python driver
+                    # datetime format can be parsed if the connection is
+                    # established with: detect_types=sqlite3.PARSE_DECLTYPES
+                    if dbif.get_dbmi().__name__ == "sqlite3":
+                        tstring = row[0]
+                        # Convert the unicode string into the datetime format
+                        if self.is_time_absolute():
+                            max_start_time = string_to_datetime(tstring)
+                            if max_start_time is None:
+                                max_start_time = end_time
+                        else:
+                            max_start_time = row[0]
                     else:
                         max_start_time = row[0]
-                else:
-                    max_start_time = row[0]
 
-                if end_time < max_start_time:
-                    use_start_time = True
+                    if end_time < max_start_time:
+                        use_start_time = True
 
-        # Set the maximum start time as end time
-        if use_start_time:
-            if self.is_time_absolute():
-                sql = """UPDATE STDS_absolute_time SET end_time =
+            # Set the maximum start time as end time
+            if use_start_time:
+                if self.is_time_absolute():
+                    sql = """UPDATE STDS_absolute_time SET end_time =
                (SELECT max(start_time) FROM GRASS_MAP_absolute_time WHERE
                GRASS_MAP_absolute_time.id IN
                         (SELECT id FROM SPACETIME_REGISTER_TABLE)
                ) WHERE id = 'SPACETIME_ID';"""
-                sql = sql.replace(
-                    "GRASS_MAP", self.get_new_map_instance(None).get_type()
-                )
-                sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-                sql = sql.replace("SPACETIME_ID", self.base.get_id())
-                sql = sql.replace("STDS", self.get_type())
-            elif self.is_time_relative():
-                sql = """UPDATE STDS_relative_time SET end_time =
+                    sql = sql.replace(
+                        "GRASS_MAP", self.get_new_map_instance(None).get_type()
+                    )
+                    sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+                    sql = sql.replace("SPACETIME_ID", self.base.get_id())
+                    sql = sql.replace("STDS", self.get_type())
+                elif self.is_time_relative():
+                    sql = """UPDATE STDS_relative_time SET end_time =
                (SELECT max(start_time) FROM GRASS_MAP_relative_time WHERE
                GRASS_MAP_relative_time.id IN
                         (SELECT id FROM SPACETIME_REGISTER_TABLE)
                ) WHERE id = 'SPACETIME_ID';"""
-                sql = sql.replace(
-                    "GRASS_MAP", self.get_new_map_instance(None).get_type()
-                )
-                sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
-                sql = sql.replace("SPACETIME_ID", self.base.get_id())
-                sql = sql.replace("STDS", self.get_type())
+                    sql = sql.replace(
+                        "GRASS_MAP", self.get_new_map_instance(None).get_type()
+                    )
+                    sql = sql.replace("SPACETIME_REGISTER_TABLE", stds_register_table)
+                    sql = sql.replace("SPACETIME_ID", self.base.get_id())
+                    sql = sql.replace("STDS", self.get_type())
 
-            dbif.execute_transaction(sql, mapset=self.base.mapset)
+                dbif.execute_transaction(sql, mapset=self.base.mapset)
 
-        # Count the temporal map types
-        maps = self.get_registered_maps(order="start_time", dbif=dbif)
-        tlist = self.count_temporal_types(maps)
+            # Count the temporal map types
+            maps = self.get_registered_maps(order="start_time", dbif=dbif)
+            tlist = self.count_temporal_types(maps)
 
-        if tlist["interval"] > 0 and tlist["point"] == 0 and tlist["invalid"] == 0:
-            map_time = "interval"
-        elif tlist["interval"] == 0 and tlist["point"] > 0 and tlist["invalid"] == 0:
-            map_time = "point"
-        elif tlist["interval"] > 0 and tlist["point"] > 0 and tlist["invalid"] == 0:
-            map_time = "mixed"
-        else:
-            map_time = "invalid"
+            if tlist["interval"] > 0 and tlist["point"] == 0 and tlist["invalid"] == 0:
+                map_time = "interval"
+            elif (
+                tlist["interval"] == 0 and tlist["point"] > 0 and tlist["invalid"] == 0
+            ):
+                map_time = "point"
+            elif tlist["interval"] > 0 and tlist["point"] > 0 and tlist["invalid"] == 0:
+                map_time = "mixed"
+            else:
+                map_time = "invalid"
 
-        # Compute the granularity
+            # Compute the granularity
 
-        if map_time != "invalid":
-            # Smallest supported temporal resolution
-            if self.is_time_absolute():
-                gran = compute_absolute_time_granularity(maps)
-            elif self.is_time_relative():
-                gran = compute_relative_time_granularity(maps)
-        else:
-            gran = None
+            if map_time != "invalid":
+                # Smallest supported temporal resolution
+                if self.is_time_absolute():
+                    gran = compute_absolute_time_granularity(maps)
+                elif self.is_time_relative():
+                    gran = compute_relative_time_granularity(maps)
+            else:
+                gran = None
 
-        # Set the map time type and update the time objects
-        self.temporal_extent.select(dbif)
-        self.metadata.select(dbif)
-        if self.metadata.get_number_of_maps() > 0:
-            self.temporal_extent.set_map_time(map_time)
-            self.temporal_extent.set_granularity(gran)
-        else:
-            self.temporal_extent.set_map_time(None)
-            self.temporal_extent.set_granularity(None)
-        self.temporal_extent.update_all(dbif)
+            # Set the map time type and update the time objects
+            self.temporal_extent.select(dbif)
+            self.metadata.select(dbif)
+            if self.metadata.get_number_of_maps() > 0:
+                self.temporal_extent.set_map_time(map_time)
+                self.temporal_extent.set_granularity(gran)
+            else:
+                self.temporal_extent.set_map_time(None)
+                self.temporal_extent.set_granularity(None)
+            self.temporal_extent.update_all(dbif)
 
-        # Set the modification time
-        self.base.set_mtime(datetime.now())
-        self.base.update(dbif)
-
-        if connection_state_changed:
-            dbif.close()
+            # Set the modification time
+            self.base.set_mtime(datetime.now())
+            self.base.update(dbif)
 
 
 ###############################################################################

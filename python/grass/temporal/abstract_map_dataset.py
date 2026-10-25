@@ -14,18 +14,18 @@ from datetime import datetime
 import grass.script as gs
 
 from .abstract_dataset import AbstractDataset
-from .db import init_dbif
+from .datetime_math import (
+    datetime_to_grass_datetime_string,
+    decrement_datetime_by_string,
+    increment_datetime_by_string,
+)
+from .db import connection
 from .state import (
     get_current_mapset,
     get_enable_mapset_check,
     get_enable_timestamp_write,
     get_tgis_c_library_interface,
     get_tgis_message_interface,
-)
-from .datetime_math import (
-    datetime_to_grass_datetime_string,
-    decrement_datetime_by_string,
-    increment_datetime_by_string,
 )
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
@@ -529,12 +529,9 @@ class AbstractMapDataset(AbstractDataset):
             )
 
         if self.set_absolute_time(start_time, end_time):
-            dbif, connection_state_changed = init_dbif(dbif)
-            self.absolute_time.update_all(dbif)
-            self.base.update(dbif)
-
-            if connection_state_changed:
-                dbif.close()
+            with connection(dbif) as dbif:
+                self.absolute_time.update_all(dbif)
+                self.base.update(dbif)
 
             if get_enable_timestamp_write():
                 self.write_timestamp_to_grass()
@@ -650,12 +647,9 @@ class AbstractMapDataset(AbstractDataset):
             )
 
         if self.set_relative_time(start_time, end_time, unit):
-            dbif, connection_state_changed = init_dbif(dbif)
-            self.relative_time.update_all(dbif)
-            self.base.update(dbif)
-
-            if connection_state_changed:
-                dbif.close()
+            with connection(dbif) as dbif:
+                self.relative_time.update_all(dbif)
+                self.base.update(dbif)
 
             if get_enable_timestamp_write():
                 self.write_timestamp_to_grass()
@@ -990,54 +984,51 @@ class AbstractMapDataset(AbstractDataset):
 
         mapset = get_current_mapset()
 
-        dbif, connection_state_changed = init_dbif(dbif)
-        statement = ""
-        datasets = None
-
-        if self.is_in_db(dbif, mapset=mapset):
-            # SELECT all needed information from the database
-            self.metadata.select(dbif, mapset=mapset)
-
-            # Remember the datasets that hold the map: after the delete the
-            # database no longer says which they were.
-            if execute and update:
-                datasets = self.get_registered_stds(dbif, mapset=mapset)
-
-            # First we unregister from all dependent space time datasets
-            statement += self.unregister(dbif=dbif, update=update, execute=False)
-
-            self.msgr.verbose(
-                _("Delete %s dataset <%s> from temporal database")
-                % (self.get_type(), self.get_id())
-            )
-
-            # Delete yourself from the database, trigger functions will
-            # take care of dependencies
-            statement += self.base.get_delete_statement()
-
-        if execute:
-            dbif.execute_transaction(statement, mapset=mapset)
+        with connection(dbif) as dbif:
             statement = ""
-            # unregister() was asked for its statements only, so it could not
-            # update the datasets; do it now that the rows are gone.
-            if update and datasets:
-                for dataset_id in datasets:
-                    stds = self.get_new_stds_instance(dataset_id)
-                    stds.select(dbif)
-                    stds.update_from_registered_maps(dbif)
+            datasets = None
 
-        # Remove the timestamp from the file system. GRASS removes it by name in
-        # the current mapset, so for a map of another mapset it would remove
-        # the time stamp of a map of the same name here.
-        if self.get_mapset() == mapset:
-            self.remove_timestamp_from_grass()
+            if self.is_in_db(dbif, mapset=mapset):
+                # SELECT all needed information from the database
+                self.metadata.select(dbif, mapset=mapset)
 
-        self.reset(None)
+                # Remember the datasets that hold the map: after the delete the
+                # database no longer says which they were.
+                if execute and update:
+                    datasets = self.get_registered_stds(dbif, mapset=mapset)
 
-        if connection_state_changed:
-            dbif.close()
+                # First we unregister from all dependent space time datasets
+                statement += self.unregister(dbif=dbif, update=update, execute=False)
 
-        return statement
+                self.msgr.verbose(
+                    _("Delete %s dataset <%s> from temporal database")
+                    % (self.get_type(), self.get_id())
+                )
+
+                # Delete yourself from the database, trigger functions will
+                # take care of dependencies
+                statement += self.base.get_delete_statement()
+
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
+                # unregister() was asked for its statements only, so it could not
+                # update the datasets; do it now that the rows are gone.
+                if update and datasets:
+                    for dataset_id in datasets:
+                        stds = self.get_new_stds_instance(dataset_id)
+                        stds.select(dbif)
+                        stds.update_from_registered_maps(dbif)
+
+            # Remove the timestamp from the file system. GRASS removes it by name in
+            # the current mapset, so for a map of another mapset it would remove
+            # the time stamp of a map of the same name here.
+            if self.get_mapset() == mapset:
+                self.remove_timestamp_from_grass()
+
+            self.reset(None)
+
+            return statement
 
     def unregister(self, dbif=None, update: bool = True, execute: bool = True):
         """Remove the map entry in each space time dataset in which this map
@@ -1077,32 +1068,28 @@ class AbstractMapDataset(AbstractDataset):
         mapset = get_current_mapset()
 
         statement = ""
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # Get all datasets in which this map is registered
+            datasets = self.get_registered_stds(dbif, mapset=mapset)
 
-        # Get all datasets in which this map is registered
-        datasets = self.get_registered_stds(dbif, mapset=mapset)
+            # For each stds in which the map is registered
+            if datasets is not None:
+                for dataset in datasets:
+                    # Create a space time dataset object to remove the map
+                    # from its register
+                    stds = self.get_new_stds_instance(dataset)
+                    stds.metadata.select(dbif)
+                    statement += stds.unregister_map(self, dbif, False)
+                    # Take care to update the space time dataset after
+                    # the map has been unregistered
+                    if update is True and execute is True:
+                        stds.update_from_registered_maps(dbif)
 
-        # For each stds in which the map is registered
-        if datasets is not None:
-            for dataset in datasets:
-                # Create a space time dataset object to remove the map
-                # from its register
-                stds = self.get_new_stds_instance(dataset)
-                stds.metadata.select(dbif)
-                statement += stds.unregister_map(self, dbif, False)
-                # Take care to update the space time dataset after
-                # the map has been unregistered
-                if update is True and execute is True:
-                    stds.update_from_registered_maps(dbif)
+            if execute:
+                dbif.execute_transaction(statement, mapset=mapset)
+                statement = ""
 
-        if execute:
-            dbif.execute_transaction(statement, mapset=mapset)
-            statement = ""
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def get_registered_stds(self, dbif=None, mapset=None):
         """Return all space time dataset ids in which this map is registered
@@ -1113,20 +1100,16 @@ class AbstractMapDataset(AbstractDataset):
         :return: A list of ids of all space time datasets in
                      which this map is registered
         """
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            self.stds_register.select(dbif, mapset)
+            datasets = self.stds_register.get_registered_stds()
 
-        self.stds_register.select(dbif, mapset)
-        datasets = self.stds_register.get_registered_stds()
+            if datasets is not None and datasets != "" and datasets.find("@") >= 0:
+                datasets = datasets.split(",")
+            else:
+                datasets = None
 
-        if datasets is not None and datasets != "" and datasets.find("@") >= 0:
-            datasets = datasets.split(",")
-        else:
-            datasets = None
-
-        if connection_state_changed:
-            dbif.close()
-
-        return datasets
+            return datasets
 
     # this fn should not be in a class for maps,
     # but instead in a class for stds: AbstractSpaceTimeDataset ?
@@ -1144,40 +1127,34 @@ class AbstractMapDataset(AbstractDataset):
         """
         self.msgr.debug(2, "AbstractMapDataset.add_stds_to_register")
 
-        dbif, connection_state_changed = init_dbif(dbif=dbif)
+        with connection(None) as dbif:
+            # only modify database in current mapset
+            mapset = get_current_mapset()
+            datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
-        datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
+            if stds_id is None or stds_id == "":
+                return ""
 
-        if stds_id is None or stds_id == "":
-            return ""
+            # Check if no datasets are present
+            if datasets is None:
+                datasets = []
 
-        # Check if no datasets are present
-        if datasets is None:
-            datasets = []
+            # Check if the dataset is already present
+            if stds_id in datasets:
+                return ""
 
-        # Check if the dataset is already present
-        if stds_id in datasets:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            datasets.append(stds_id)
 
-        datasets.append(stds_id)
+            self.stds_register.set_registered_stds(",".join(datasets))
 
-        self.stds_register.set_registered_stds(",".join(datasets))
+            statement = ""
 
-        statement = ""
+            if execute is True:
+                self.stds_register.update(dbif=dbif)
+            else:
+                statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
 
-        if execute is True:
-            self.stds_register.update(dbif=dbif)
-        else:
-            statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def remove_stds_from_register(self, stds_id, dbif=None, execute: bool = True):
         """Remove a space time dataset from the register
@@ -1193,39 +1170,31 @@ class AbstractMapDataset(AbstractDataset):
         :return: The SQL statements if execute=False, else an empty string
         """
         self.msgr.debug(2, "AbstractMapDataset.remove_stds_from_register")
-        dbif, connection_state_changed = init_dbif(dbif)
+        with connection(dbif) as dbif:
+            # only modify database in current mapset
+            mapset = get_current_mapset()
+            datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
 
-        # only modify database in current mapset
-        mapset = get_current_mapset()
-        datasets = self.get_registered_stds(dbif=dbif, mapset=mapset)
+            # Check if no datasets are present
+            if datasets is None:
+                return ""
 
-        # Check if no datasets are present
-        if datasets is None:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            # Check if the dataset is already present
+            if stds_id not in datasets:
+                return ""
 
-        # Check if the dataset is already present
-        if stds_id not in datasets:
-            if connection_state_changed:
-                dbif.close()
-            return ""
+            datasets.remove(stds_id)
 
-        datasets.remove(stds_id)
+            self.stds_register.set_registered_stds(",".join(datasets))
 
-        self.stds_register.set_registered_stds(",".join(datasets))
+            statement = ""
 
-        statement = ""
+            if execute is True:
+                self.stds_register.update(dbif=dbif)
+            else:
+                statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
 
-        if execute is True:
-            self.stds_register.update(dbif=dbif)
-        else:
-            statement = self.stds_register.get_update_statement_mogrified(dbif=dbif)
-
-        if connection_state_changed:
-            dbif.close()
-
-        return statement
+            return statement
 
     def read_semantic_label_from_grass(self) -> None:
         """Read the band identifier of this map from the map metadata

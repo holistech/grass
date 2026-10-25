@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from .db import SQLDatabaseInterfaceConnection, SQLStatementError, init_dbif
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
 from .state import (
     STATE,
     get_tgis_database_string,
@@ -51,25 +51,21 @@ def get_tgis_metadata(dbif=None):
     :returns: The selected rows with key/value columns
     """
 
-    dbif, connection_state_changed = init_dbif(dbif)
-
-    try:
-        dbif.execute("SELECT * FROM tgis_metadata;\n")
-        rows = dbif.fetchall()
-    except SQLStatementError:
-        # A caller that used to get None reported this same text itself.
-        get_tgis_message_interface().fatal(
-            _(
-                "Unable to receive temporal database metadata.\n"
-                "Current temporal database info:%(info)s"
+    with connection(dbif) as dbif:
+        try:
+            dbif.execute("SELECT * FROM tgis_metadata;\n")
+            rows = dbif.fetchall()
+        except SQLStatementError:
+            # A caller that used to get None reported this same text itself.
+            get_tgis_message_interface().fatal(
+                _(
+                    "Unable to receive temporal database metadata.\n"
+                    "Current temporal database info:%(info)s"
+                )
+                % ({"info": get_database_info_string()})
             )
-            % ({"info": get_database_info_string()})
-        )
-    finally:
-        if connection_state_changed:
-            dbif.close()
 
-    return rows
+        return rows
 
 
 def get_sql_template_path() -> str:
@@ -273,16 +269,15 @@ def _create_tgis_metadata_table(content, dbif=None) -> None:
                    that should be stored in the metadata table
     :param dbif: The database interface to be used
     """
-    dbif, connection_state_changed = init_dbif(dbif)
-    statement = "CREATE TABLE tgis_metadata (key VARCHAR NOT NULL, value VARCHAR);\n"
-    dbif.execute_transaction(statement)
-
-    for key in content:
+    with connection(dbif) as dbif:
         statement = (
-            "INSERT INTO tgis_metadata (key, value) VALUES "
-            + "('%s' , '%s');\n" % (str(key), str(content[key]))
+            "CREATE TABLE tgis_metadata (key VARCHAR NOT NULL, value VARCHAR);\n"
         )
         dbif.execute_transaction(statement)
 
-    if connection_state_changed:
-        dbif.close()
+        for key in content:
+            statement = (
+                "INSERT INTO tgis_metadata (key, value) VALUES "
+                + "('%s' , '%s');\n" % (str(key), str(content[key]))
+            )
+            dbif.execute_transaction(statement)

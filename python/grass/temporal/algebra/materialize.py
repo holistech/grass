@@ -5,20 +5,20 @@ from dataclasses import dataclass
 import grass.script as gs
 from grass.exceptions import CalledModuleError, FatalError
 from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
-from grass.temporal.db import init_dbif
-from grass.temporal.state import get_current_mapset, get_tgis_message_interface
 from grass.temporal.datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
     create_time_suffix,
 )
+from grass.temporal.db import connection
 from grass.temporal.factory import dataset_factory
 from grass.temporal.open_stds import open_new_stds
 from grass.temporal.space_time_datasets import VectorDataset
+from grass.temporal.state import get_current_mapset, get_tgis_message_interface
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
 from ._adapters import as_map
-from .backends import MapcalcStyle, ModuleCall, describe, backend_for
+from .backends import MapcalcStyle, ModuleCall, backend_for, describe
 from .content import Call, MapRef, SeriesAggregate, SeriesReduce
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES
 
@@ -483,12 +483,8 @@ def check_absent(chain, *, classic=False):
         classes, do not look at the dataset
     :raises FatalError: if the dataset or a result map exists
     """
-    dbif, connection_state_changed = init_dbif(None)
-    try:
+    with connection(None) as dbif:
         _check_absent(chain, get_current_mapset(), dbif, classic, dry_run=True)
-    finally:
-        if connection_state_changed:
-            dbif.close()
 
 
 def _module(call, overwrite):
@@ -793,8 +789,7 @@ def materialize(
     if no_dataset and not chain.maps:
         return None
     mapset = get_current_mapset()
-    dbif, connection_state_changed = init_dbif(None)
-    try:
+    with connection(None) as dbif:
         if not overwrite:
             _check_absent(chain, mapset, dbif, classic_absence_check)
         try:
@@ -888,7 +883,4 @@ def materialize(
                 ).format(name=name)
             )
         _remove(empty, _kind(chain))
-    finally:
-        if connection_state_changed:
-            dbif.close()
-    return dataset
+        return dataset
