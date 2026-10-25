@@ -9,8 +9,10 @@ project, so that the code behind them can move without changing what it
 does.
 """
 
+import copy
 import datetime
 import itertools
+import pickle
 
 import pytest
 
@@ -127,6 +129,11 @@ def test_register_into_a_filled_dataset_counts_up(pair):
 
     assert only_first.map_counter == 2
     assert register_ids(only_first) == [first.get_id(), second.get_id()]
+
+    assert only_first.unregister_map(first) == ""
+
+    assert only_first.map_counter == 1
+    assert register_ids(only_first) == [second.get_id()]
 
 
 def test_registering_a_registered_map_again_gives_false(pair):
@@ -567,3 +574,48 @@ def test_point_topology_forbids_only_equal_instants(pair):
 def test_topology_of_a_dataset_without_maps_is_wrong(pair):
     # No map pair, hence no relation counts, hence not "correct".
     assert stds_of(pair, "other").check_temporal_topology() is False
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "x; DROP TABLE raster_base",
+        "raster_map_register_xyz",
+        "raster_map_register_" + "A" * 32,
+        "raster_map_register_" + "a" * 32 + " ",
+    ],
+)
+def test_a_register_table_name_of_another_form_is_refused(pair, name):
+    stds = stds_of(pair, "abs")
+    stds.set_map_register(name)
+
+    with pytest.raises(tgis.FatalError, match="Invalid name"):
+        stds.get_registered_maps("id")
+    with pytest.raises(tgis.FatalError, match="Invalid name"):
+        stds.is_map_registered("a@PERMANENT")
+
+
+@pytest.mark.parametrize("how", ["copy", "deepcopy", "pickle"])
+def test_a_copy_of_a_dataset_has_a_register_of_its_own(pair, how):
+    fill(pair, "abs", start="2001-01-01", increment="1 day", interval=True)
+    stds = stds_of(pair, "abs")
+
+    if how == "pickle":
+        clone = pickle.loads(pickle.dumps(stds))  # noqa: S301
+    else:
+        clone = getattr(copy, how)(stds)
+
+    assert clone.map_register.table_name() == stds.map_register.table_name()
+    assert clone.map_register._stds is clone
+    assert register_ids(clone) == register_ids(stds)
+
+
+def test_a_new_register_name_has_the_form_of_the_check(pair):
+    stds = stds_of(pair, "abs")
+
+    name = stds.create_map_register_name()
+
+    assert name.startswith("raster_map_register_")
+    assert len(name) == len("raster_map_register_") + 32
+    assert name != stds.create_map_register_name()
+    assert stds.map_register.table_name() == stds.get_map_register()

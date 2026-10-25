@@ -171,6 +171,14 @@ temporal processing algorithms and temporal GRASS modules.
       access methods to map layer objects and so on
     - Provides the interface to all Space Time Dataset specific information in the temporal database
 
+:mod:`~grass.temporal.stds_map_register`
+""""""""""""""""""""""""""""""""""""""""
+
+    - Implements the class :class:`~grass.temporal.stds_map_register.StdsMapRegister`
+      that holds the table of registered maps of a Space Time Dataset: creating, renaming and dropping
+      the table, the registration and un-registration of a map, the selection of the registered maps
+      and the update of the extent and the metadata of the dataset
+
 :mod:`~grass.temporal.datasets`
 """""""""""""""""""""""""""""""
 
