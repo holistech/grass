@@ -141,10 +141,10 @@ class AbstractDataset(
 
         .. code-block:: python
 
-            self.base = VectorBase(ident=ident)
-            self.absolute_time = VectorAbsoluteTime(ident=ident)
-            self.relative_time = VectorRelativeTime(ident=ident)
-            self.spatial_extent = VectorSpatialExtent(ident=ident)
+            self.base = BaseRow(KINDS["vector"], ident=ident)
+            self.absolute_time = AbsoluteTimeRow(KINDS["vector"], ident=ident)
+            self.relative_time = RelativeTimeRow(KINDS["vector"], ident=ident)
+            self.spatial_extent = SpatialExtentRow(KINDS["vector"], ident=ident)
             self.metadata = VectorMetadata(ident=ident)
 
         :param ident: The identifier of the dataset that  "name@mapset" or

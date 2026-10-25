@@ -49,6 +49,7 @@ MODULES = [
     "gui_support",
     "list_stds",
     "metadata",
+    "rows",
     "space_time_datasets",
     "spatial_extent",
     "spatial_topology_dataset_connector",

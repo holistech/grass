@@ -665,14 +665,16 @@ class AbstractMapDataset(AbstractDataset):
             >>> import datetime
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> temp_ext = tgis.RasterRelativeTime(
-            ...     start_time=1, end_time=2, unit="years"
+            >>> from grass.temporal.kinds import KINDS
+            >>> temp_ext = tgis.RelativeTimeRow(
+            ...     KINDS["raster"], start_time=1, end_time=2, unit="years"
             ... )
             >>> map.set_temporal_extent(temp_ext)
             >>> print(map.get_temporal_extent_as_tuple())
             (1, 2)
             >>> map = tgis.VectorDataset(None)
-            >>> temp_ext = tgis.VectorAbsoluteTime(
+            >>> temp_ext = tgis.AbsoluteTimeRow(
+            ...     KINDS["vector"],
             ...     start_time=datetime.datetime(2000, 1, 1),
             ...     end_time=datetime.datetime(2001, 1, 1),
             ... )

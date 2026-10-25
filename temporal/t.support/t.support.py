@@ -119,7 +119,7 @@ def main():
         stds.metadata.set_description(description=description)
         changed = True
     if semantic:
-        stds.base.set_semantic_type(semantic_type=semantic)
+        stds.base.set_semantic_type(semantic)
         changed = True
 
     if changed:

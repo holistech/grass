@@ -11,6 +11,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
 from grass.temporal import core
+from grass.temporal.kinds import KINDS
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -276,7 +277,7 @@ def test_failed_statement_does_not_leave_the_connection_open(
     temporal_module_session, monkeypatch, method
 ):
     tgis.init()
-    base = tgis.RasterBase(ident="broken@" + tgis.get_current_mapset())
+    base = tgis.BaseRow(KINDS["raster"], ident="broken@" + tgis.get_current_mapset())
     # The database refuses every statement on a table that does not exist.
     monkeypatch.setattr(base, "get_table_name", lambda: "table_that_does_not_exist")
     before = _open_handles(tgis.get_tgis_database_string())

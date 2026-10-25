@@ -20,7 +20,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-from .base import SQLDatabaseInterface
+from .rows import SQLDatabaseInterface
 from .db import connection
 from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
 from .state import get_tgis_database_string, get_tgis_db_version

@@ -37,51 +37,27 @@ LATER = datetime(2003, 1, 1)
 MAPS = ("raster", "raster3d", "vector")
 DATASETS = ("strds", "str3ds", "stvds")
 
-# part -> kind name -> class. This is the only place that names the classes.
-_CLASSES = {
-    "base": {
-        "raster": tgis.RasterBase,
-        "raster3d": tgis.Raster3DBase,
-        "vector": tgis.VectorBase,
-        "strds": tgis.STRDSBase,
-        "str3ds": tgis.STR3DSBase,
-        "stvds": tgis.STVDSBase,
-    },
-    "absolute_time": {
-        "raster": tgis.RasterAbsoluteTime,
-        "raster3d": tgis.Raster3DAbsoluteTime,
-        "vector": tgis.VectorAbsoluteTime,
-        "strds": tgis.STRDSAbsoluteTime,
-        "str3ds": tgis.STR3DSAbsoluteTime,
-        "stvds": tgis.STVDSAbsoluteTime,
-    },
-    "relative_time": {
-        "raster": tgis.RasterRelativeTime,
-        "raster3d": tgis.Raster3DRelativeTime,
-        "vector": tgis.VectorRelativeTime,
-        "strds": tgis.STRDSRelativeTime,
-        "str3ds": tgis.STR3DSRelativeTime,
-        "stvds": tgis.STVDSRelativeTime,
-    },
-    "spatial_extent": {
-        "raster": tgis.RasterSpatialExtent,
-        "raster3d": tgis.Raster3DSpatialExtent,
-        "vector": tgis.VectorSpatialExtent,
-        "strds": tgis.STRDSSpatialExtent,
-        "str3ds": tgis.STR3DSSpatialExtent,
-        "stvds": tgis.STVDSSpatialExtent,
-    },
-    "register": {
-        "raster": tgis.RasterSTDSRegister,
-        "raster3d": tgis.Raster3DSTDSRegister,
-        "vector": tgis.VectorSTDSRegister,
-    },
+# part -> constructor of the row of a kind. This is the only place that
+# names the classes.
+_ROWS = {
+    "base": tgis.BaseRow,
+    "absolute_time": tgis.AbsoluteTimeRow,
+    "relative_time": tgis.RelativeTimeRow,
+    "spatial_extent": tgis.SpatialExtentRow,
+    "register": tgis.RegisterRow,
+}
+_PARTS = {
+    "base": MAPS + DATASETS,
+    "absolute_time": MAPS + DATASETS,
+    "relative_time": MAPS + DATASETS,
+    "spatial_extent": MAPS + DATASETS,
+    "register": MAPS,
 }
 
 # Arguments that fill every column of a part, by the name of the part and
 # whether the type is a space time dataset.
 _ARGUMENTS = {
-    ("base", False): {"creator": "u", "creation_time": START},
+    ("base", False): {"creator": "u", "ctime": START},
     ("base", True): {"semantic_type": "mean", "creator": "u", "ctime": START},
     ("absolute_time", False): {"start_time": START, "end_time": END},
     ("absolute_time", True): {
@@ -123,14 +99,14 @@ def build(kind, part, ident, **override):
     """Build the row of a part for a type, filled with the arguments above"""
     arguments = dict(_ARGUMENTS[part, KINDS[kind].is_stds])
     arguments.update(override)
-    row = _CLASSES[part][kind](ident=ident, **arguments)
+    row = _ROWS[part](KINDS[kind], ident=ident, **arguments)
     if part == "base" and KINDS[kind].is_stds:
         # The constructors of the datasets take the time of the call.
         row.set_mtime(START)
     return row
 
 
-CASES = [(kind, part) for part, kinds in _CLASSES.items() for kind in kinds]
+CASES = [(kind, part) for part, kinds in _PARTS.items() for kind in kinds]
 
 
 def case_id(case):
@@ -381,3 +357,46 @@ def test_an_empty_edge_stays_empty():
 
     assert extent.get_north() is None
     assert extent.get_south() == 1.0
+
+
+class Sample(tgis.Row):
+    columns = (
+        tgis.Column("size", alias="extent", convert=int, doc="the size"),
+        tgis.Column("label"),
+    )
+
+    def set_label(self, value) -> None:
+        self.D["label"] = value.upper()
+
+
+def test_a_column_gets_getter_setter_and_property_under_its_alias():
+    row = Sample("sample", "a@PERMANENT")
+
+    row.set_extent("7")
+    assert row.get_extent() == 7
+    assert row.D["size"] == 7
+    row.extent = 8
+    assert row.extent == 8
+    assert row.get_label() is None
+    assert "the size" in Sample.get_extent.__doc__
+    assert not hasattr(row, "size")
+
+
+def test_a_setter_written_by_hand_is_kept_and_reached_by_the_property():
+    row = Sample("sample", "a@PERMANENT")
+
+    row.label = "abc"
+
+    assert row.D["label"] == "ABC"
+
+
+def test_the_property_of_a_base_class_calls_the_setter_of_the_subclass():
+    class Other(Sample):
+        def set_id(self, ident) -> None:
+            super().set_id(ident + "!")
+
+    row = Other("sample", "a@PERMANENT")
+    row.id = "b@PERMANENT"
+
+    assert row.D["id"] == "b@PERMANENT!"
+    assert row.ident == "b@PERMANENT!"

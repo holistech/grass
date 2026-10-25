@@ -14,7 +14,7 @@ import types
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal import base
+from grass.temporal import rows
 
 # What the get_*_statement() methods return for a raster map when the
 # parameter style of the backend is pyformat (PostgreSQL), as repr() text.
@@ -325,7 +325,7 @@ def scenario():
 
 
 def test_pyformat_statements_unchanged(monkeypatch):
-    monkeypatch.setattr(base, "get_tgis_dbmi_paramstyle", lambda: "pyformat")
+    monkeypatch.setattr(rows, "get_tgis_dbmi_paramstyle", lambda: "pyformat")
     ds = tgis.RasterDataset("soil@PERMANENT")
     ds.set_absolute_time(datetime.datetime(2001, 1, 1), datetime.datetime(2001, 2, 1))
     ds.set_spatial_extent_from_values(north=2, south=1, east=4, west=3, top=6, bottom=5)

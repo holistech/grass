@@ -67,18 +67,27 @@ the SQL object serialization, all classes that represent table entries, datetime
     The names of the three modules above under their former module, for
     scripts and addons that use ``tgis.core``.
 
+:mod:`~grass.temporal.rows`
+"""""""""""""""""""""""""""
+
+    Implements the SQL conversion of the rows of the temporal database:
+
+    - Definition of the SQL serialize class :class:`~grass.temporal.rows.DictSQLSerializer`
+      that converts the content of temporal
+      classes into SQL SELECT, INSERT or UPDATE statements
+    - Definition of :class:`~grass.temporal.rows.SQLDatabaseInterface`
+      that is the base class for all temporal datatype subclasses
+    - Definition of :class:`~grass.temporal.rows.Row`, whose subclasses list
+      their columns and get the accessors generated
+
 :mod:`~grass.temporal.base`
 """""""""""""""""""""""""""
 
-    Implements of basic dataset information and SQL conversion of such information:
+    Implements basic dataset information:
 
-    - Definition of the SQL serialize class :class:`~grass.temporal.base.DictSQLSerializer`
-      that converts the content of temporal
-      classes into SQL SELECT, INSERT or UPDATE statements
-    - Definition of :class:`~grass.temporal.base.SQLDatabaseInterface`
-      that is the base class for all temporal datatype subclasses
-    - Contains classes for all datasets [#allds]_ that contain
-      basic information (id, name, mapset, creator, ...)
+    - Contains the classes :class:`~grass.temporal.base.BaseRow` and
+      :class:`~grass.temporal.base.RegisterRow` for all datasets [#allds]_
+      that contain basic information (id, name, mapset, creator, ...)
 
 :mod:`~grass.temporal.spatial_extent`
 """""""""""""""""""""""""""""""""""""

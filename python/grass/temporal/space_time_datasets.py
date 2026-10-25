@@ -17,17 +17,8 @@ import grass.script.array as garray
 
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-from .base import (
-    Raster3DBase,
-    Raster3DSTDSRegister,
-    RasterBase,
-    RasterSTDSRegister,
-    STR3DSBase,
-    STRDSBase,
-    STVDSBase,
-    VectorBase,
-    VectorSTDSRegister,
-)
+from .base import BaseRow, RegisterRow
+from .kinds import KINDS
 from .metadata import (
     Raster3DMetadata,
     RasterMetadata,
@@ -36,28 +27,8 @@ from .metadata import (
     STVDSMetadata,
     VectorMetadata,
 )
-from .spatial_extent import (
-    Raster3DSpatialExtent,
-    RasterSpatialExtent,
-    STR3DSSpatialExtent,
-    STRDSSpatialExtent,
-    STVDSSpatialExtent,
-    VectorSpatialExtent,
-)
-from .temporal_extent import (
-    Raster3DAbsoluteTime,
-    Raster3DRelativeTime,
-    RasterAbsoluteTime,
-    RasterRelativeTime,
-    STR3DSAbsoluteTime,
-    STR3DSRelativeTime,
-    STRDSAbsoluteTime,
-    STRDSRelativeTime,
-    STVDSAbsoluteTime,
-    STVDSRelativeTime,
-    VectorAbsoluteTime,
-    VectorRelativeTime,
-)
+from .spatial_extent import SpatialExtentRow
+from .temporal_extent import AbsoluteTimeRow, RelativeTimeRow
 
 _C_MONTHS = {
     name: number
@@ -292,12 +263,12 @@ class RasterDataset(_PlanarExtentMethods, AbstractMapDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = RasterBase(ident=ident)
-        self.absolute_time = RasterAbsoluteTime(ident=ident)
-        self.relative_time = RasterRelativeTime(ident=ident)
-        self.spatial_extent = RasterSpatialExtent(ident=ident)
+        self.base = BaseRow(KINDS["raster"], ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["raster"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["raster"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["raster"], ident=ident)
         self.metadata = RasterMetadata(ident=ident)
-        self.stds_register = RasterSTDSRegister(ident=ident)
+        self.stds_register = RegisterRow(KINDS["raster"], ident=ident)
 
     def has_grass_timestamp(self):
         """Check if a grass file based time stamp exists for this map.
@@ -721,12 +692,12 @@ class Raster3DDataset(AbstractMapDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = Raster3DBase(ident=ident)
-        self.absolute_time = Raster3DAbsoluteTime(ident=ident)
-        self.relative_time = Raster3DRelativeTime(ident=ident)
-        self.spatial_extent = Raster3DSpatialExtent(ident=ident)
+        self.base = BaseRow(KINDS["raster3d"], ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["raster3d"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["raster3d"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["raster3d"], ident=ident)
         self.metadata = Raster3DMetadata(ident=ident)
-        self.stds_register = Raster3DSTDSRegister(ident=ident)
+        self.stds_register = RegisterRow(KINDS["raster3d"], ident=ident)
 
     def has_grass_timestamp(self):
         """Check if a grass file bsased time stamp exists for this map.
@@ -1022,12 +993,12 @@ class VectorDataset(_PlanarExtentMethods, AbstractMapDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = VectorBase(ident=ident)
-        self.absolute_time = VectorAbsoluteTime(ident=ident)
-        self.relative_time = VectorRelativeTime(ident=ident)
-        self.spatial_extent = VectorSpatialExtent(ident=ident)
+        self.base = BaseRow(KINDS["vector"], ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["vector"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["vector"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["vector"], ident=ident)
         self.metadata = VectorMetadata(ident=ident)
-        self.stds_register = VectorSTDSRegister(ident=ident)
+        self.stds_register = RegisterRow(KINDS["vector"], ident=ident)
 
     def has_grass_timestamp(self):
         """Check if a grass file bsased time stamp exists for this map."""
@@ -1247,11 +1218,11 @@ class SpaceTimeRasterDataset(_PlanarExtentMethods, AbstractSpaceTimeDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = STRDSBase(ident=ident)
+        self.base = BaseRow(KINDS["strds"], ident=ident)
         self.base.set_creator(str(getpass.getuser()))
-        self.absolute_time = STRDSAbsoluteTime(ident=ident)
-        self.relative_time = STRDSRelativeTime(ident=ident)
-        self.spatial_extent = STRDSSpatialExtent(ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["strds"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["strds"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["strds"], ident=ident)
         self.metadata = STRDSMetadata(ident=ident)
 
 
@@ -1368,11 +1339,11 @@ class SpaceTimeRaster3DDataset(AbstractSpaceTimeDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = STR3DSBase(ident=ident)
+        self.base = BaseRow(KINDS["str3ds"], ident=ident)
         self.base.set_creator(str(getpass.getuser()))
-        self.absolute_time = STR3DSAbsoluteTime(ident=ident)
-        self.relative_time = STR3DSRelativeTime(ident=ident)
-        self.spatial_extent = STR3DSSpatialExtent(ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["str3ds"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["str3ds"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["str3ds"], ident=ident)
         self.metadata = STR3DSMetadata(ident=ident)
 
 
@@ -1443,11 +1414,11 @@ class SpaceTimeVectorDataset(_PlanarExtentMethods, AbstractSpaceTimeDataset):
 
     def reset(self, ident) -> None:
         """Reset the internal structure and set the identifier"""
-        self.base = STVDSBase(ident=ident)
+        self.base = BaseRow(KINDS["stvds"], ident=ident)
         self.base.set_creator(str(getpass.getuser()))
-        self.absolute_time = STVDSAbsoluteTime(ident=ident)
-        self.relative_time = STVDSRelativeTime(ident=ident)
-        self.spatial_extent = STVDSSpatialExtent(ident=ident)
+        self.absolute_time = AbsoluteTimeRow(KINDS["stvds"], ident=ident)
+        self.relative_time = RelativeTimeRow(KINDS["stvds"], ident=ident)
+        self.spatial_extent = SpatialExtentRow(KINDS["stvds"], ident=ident)
         self.metadata = STVDSMetadata(ident=ident)
 
 

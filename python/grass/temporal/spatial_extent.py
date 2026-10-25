@@ -68,12 +68,23 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-from typing import Literal
+from __future__ import annotations
 
-from .base import SQLDatabaseInterface
+from typing import TYPE_CHECKING, Literal
+
+from .kinds import KINDS
+from .rows import Column, Row
+
+if TYPE_CHECKING:
+    from .kinds import Kind
 
 
-class SpatialExtent(SQLDatabaseInterface):
+def _optional_float(value) -> float | None:
+    """Convert an edge to float, an edge that is not set stays None"""
+    return None if value is None else float(value)
+
+
+class SpatialExtent(Row):
     """This is the spatial extent base class for all maps and space time datasets
 
     This class implements a three dimensional axis aligned bounding box
@@ -126,6 +137,15 @@ class SpatialExtent(SQLDatabaseInterface):
 
     """
 
+    columns = (
+        Column("north", convert=_optional_float, doc="the northern edge of the map"),
+        Column("south", convert=_optional_float, doc="the southern edge of the map"),
+        Column("east", convert=_optional_float, doc="the eastern edge of the map"),
+        Column("west", convert=_optional_float, doc="the western edge of the map"),
+        Column("top", convert=_optional_float, doc="the top edge of the map"),
+        Column("bottom", convert=_optional_float, doc="the bottom edge of the map"),
+    )
+
     def __init__(
         self,
         table=None,
@@ -138,7 +158,7 @@ class SpatialExtent(SQLDatabaseInterface):
         bottom=None,
         proj="XY",
     ) -> None:
-        SQLDatabaseInterface.__init__(self, table, ident)
+        Row.__init__(self, table, ident)
         self.set_id(ident)
         self.set_spatial_extent_from_values(north, south, east, west, top, bottom)
         self.set_projection(proj)
@@ -1758,62 +1778,6 @@ class SpatialExtent(SQLDatabaseInterface):
         self.set_east(spatial_extent.east)
         self.set_west(spatial_extent.west)
 
-    def set_id(self, ident) -> None:
-        """Convenient method to set the unique identifier (primary key)"""
-        self.ident = ident
-        self.D["id"] = ident
-
-    def set_north(self, north) -> None:
-        """Set the northern edge of the map"""
-        if north is not None:
-            self.D["north"] = float(north)
-        else:
-            self.D["north"] = None
-
-    def set_south(self, south) -> None:
-        """Set the southern edge of the map"""
-        if south is not None:
-            self.D["south"] = float(south)
-        else:
-            self.D["south"] = None
-
-    def set_west(self, west) -> None:
-        """Set the western edge of the map"""
-        if west is not None:
-            self.D["west"] = float(west)
-        else:
-            self.D["west"] = None
-
-    def set_east(self, east) -> None:
-        """Set the eastern edge of the map"""
-        if east is not None:
-            self.D["east"] = float(east)
-        else:
-            self.D["east"] = None
-
-    def set_top(self, top) -> None:
-        """Set the top edge of the map"""
-        if top is not None:
-            self.D["top"] = float(top)
-        else:
-            self.D["top"] = None
-
-    def set_bottom(self, bottom) -> None:
-        """Set the bottom edge of the map"""
-        if bottom is not None:
-            self.D["bottom"] = float(bottom)
-        else:
-            self.D["bottom"] = None
-
-    def get_id(self):
-        """Convenient method to get the unique identifier (primary key)
-
-        :return: None if not found
-        """
-        if "id" in self.D:
-            return self.D["id"]
-        return None
-
     def get_projection(self):
         """Get the projection of the spatial extent"""
         return self.D["proj"]
@@ -1859,68 +1823,6 @@ class SpatialExtent(SQLDatabaseInterface):
         """Return a tuple (north, south, east, west,) of the 2d spatial extent"""
         return (self.north, self.south, self.east, self.west)
 
-    def get_north(self):
-        """Get the northern edge of the map
-
-        :return: None if not found
-        """
-        if "north" in self.D:
-            return self.D["north"]
-        return None
-
-    def get_south(self):
-        """Get the southern edge of the map
-
-        :return: None if not found
-        """
-        if "south" in self.D:
-            return self.D["south"]
-        return None
-
-    def get_east(self):
-        """Get the eastern edge of the map
-
-        :return: None if not found
-        """
-        if "east" in self.D:
-            return self.D["east"]
-        return None
-
-    def get_west(self):
-        """Get the western edge of the map
-
-        :return: None if not found
-        """
-        if "west" in self.D:
-            return self.D["west"]
-        return None
-
-    def get_top(self):
-        """Get the top edge of the map
-
-        :return: None if not found
-        """
-        if "top" in self.D:
-            return self.D["top"]
-        return None
-
-    def get_bottom(self):
-        """Get the bottom edge of the map
-
-        :return: None if not found
-        """
-        if "bottom" in self.D:
-            return self.D["bottom"]
-        return None
-
-    id = property(fget=get_id, fset=set_id)
-    north = property(fget=get_north, fset=set_north)
-    south = property(fget=get_south, fset=set_south)
-    east = property(fget=get_east, fset=set_east)
-    west = property(fget=get_west, fset=set_west)
-    top = property(fget=get_top, fset=set_top)
-    bottom = property(fget=get_bottom, fset=set_bottom)
-
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         #      0123456789012345678901234567890
@@ -1944,28 +1846,15 @@ class SpatialExtent(SQLDatabaseInterface):
         print("bottom=" + str(self.get_bottom()))
 
 
-###############################################################################
+class SpatialExtentRow(SpatialExtent):
+    """The spatial extent of a map or a space time dataset of a kind
 
+    The kind selects the table. The projection is XY until it is set.
+    """
 
-class RasterSpatialExtent(SpatialExtent):
     def __init__(
         self,
-        ident=None,
-        north=None,
-        south=None,
-        east=None,
-        west=None,
-        top=None,
-        bottom=None,
-    ) -> None:
-        SpatialExtent.__init__(
-            self, "raster_spatial_extent", ident, north, south, east, west, top, bottom
-        )
-
-
-class Raster3DSpatialExtent(SpatialExtent):
-    def __init__(
-        self,
+        kind: Kind,
         ident=None,
         north=None,
         south=None,
@@ -1976,7 +1865,7 @@ class Raster3DSpatialExtent(SpatialExtent):
     ) -> None:
         SpatialExtent.__init__(
             self,
-            "raster3d_spatial_extent",
+            kind.table("spatial_extent"),
             ident,
             north,
             south,
@@ -1985,10 +1874,13 @@ class Raster3DSpatialExtent(SpatialExtent):
             top,
             bottom,
         )
+        self.kind = kind
 
 
-class VectorSpatialExtent(SpatialExtent):
-    def __init__(
+def _extent_class(name: str, kind_name: str) -> type[SpatialExtentRow]:
+    """Make the class that is named for a kind, which the interface keeps"""
+
+    def initialize(
         self,
         ident=None,
         north=None,
@@ -1998,60 +1890,28 @@ class VectorSpatialExtent(SpatialExtent):
         top=None,
         bottom=None,
     ) -> None:
-        SpatialExtent.__init__(
-            self, "vector_spatial_extent", ident, north, south, east, west, top, bottom
+        SpatialExtentRow.__init__(
+            self, KINDS[kind_name], ident, north, south, east, west, top, bottom
         )
 
-
-class STRDSSpatialExtent(SpatialExtent):
-    def __init__(
-        self,
-        ident=None,
-        north=None,
-        south=None,
-        east=None,
-        west=None,
-        top=None,
-        bottom=None,
-    ) -> None:
-        SpatialExtent.__init__(
-            self, "strds_spatial_extent", ident, north, south, east, west, top, bottom
-        )
+    return type(
+        name,
+        (SpatialExtentRow,),
+        {
+            "__init__": initialize,
+            "__doc__": f"The spatial extent of a {kind_name}",
+            "__module__": __name__,
+        },
+    )
 
 
-class STR3DSSpatialExtent(SpatialExtent):
-    def __init__(
-        self,
-        ident=None,
-        north=None,
-        south=None,
-        east=None,
-        west=None,
-        top=None,
-        bottom=None,
-    ) -> None:
-        SpatialExtent.__init__(
-            self, "str3ds_spatial_extent", ident, north, south, east, west, top, bottom
-        )
+RasterSpatialExtent = _extent_class("RasterSpatialExtent", "raster")
+Raster3DSpatialExtent = _extent_class("Raster3DSpatialExtent", "raster3d")
+VectorSpatialExtent = _extent_class("VectorSpatialExtent", "vector")
+STRDSSpatialExtent = _extent_class("STRDSSpatialExtent", "strds")
+STR3DSSpatialExtent = _extent_class("STR3DSSpatialExtent", "str3ds")
+STVDSSpatialExtent = _extent_class("STVDSSpatialExtent", "stvds")
 
-
-class STVDSSpatialExtent(SpatialExtent):
-    def __init__(
-        self,
-        ident=None,
-        north=None,
-        south=None,
-        east=None,
-        west=None,
-        top=None,
-        bottom=None,
-    ) -> None:
-        SpatialExtent.__init__(
-            self, "stvds_spatial_extent", ident, north, south, east, west, top, bottom
-        )
-
-
-###############################################################################
 
 if __name__ == "__main__":
     import doctest

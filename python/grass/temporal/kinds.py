@@ -50,6 +50,8 @@ class Kind:
     :param table_prefix: Prefix of the tables and views of the kind
     :param ciface_prefix: Prefix of the functions of the C interface that
                           read and write a map, None for datasets
+    :param has_layer: True if a map of the kind has layers, which is only
+                      the vector map
     """
 
     name: str
@@ -59,6 +61,7 @@ class Kind:
     stds_kind: str | None
     table_prefix: str
     ciface_prefix: str | None
+    has_layer: bool = False
 
     def table(self, part: str) -> str:
         """Return the name of the table or view of a part
@@ -93,7 +96,16 @@ KINDS: dict[str, Kind] = {
             "raster3d",
             "raster3d",
         ),
-        Kind("vector", ("vector", "vect"), False, None, "stvds", "vector", "vector"),
+        Kind(
+            "vector",
+            ("vector", "vect"),
+            False,
+            None,
+            "stvds",
+            "vector",
+            "vector",
+            has_layer=True,
+        ),
         Kind("strds", ("strds",), True, "raster", None, "strds", None),
         Kind("str3ds", ("str3ds",), True, "raster3d", None, "str3ds", None),
         Kind("stvds", ("stvds",), True, "vector", None, "stvds", None),

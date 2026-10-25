@@ -9,6 +9,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal import core, space_time_datasets
+from grass.temporal.kinds import KINDS
 from grass.pygrass.messages import FatalError
 from grass.tools import Tools
 
@@ -20,9 +21,9 @@ def raising(temporal_module_session):
     tgis.init(raise_fatal_error=True)
 
 
-@pytest.mark.parametrize("cls", [tgis.RasterBase, tgis.VectorBase, tgis.STRDSBase])
-def test_set_id_splits_name_layer_and_mapset(raising, cls):
-    base = cls(ident="old@PERMANENT")
+@pytest.mark.parametrize("kind", ["raster", "vector", "strds"])
+def test_set_id_splits_name_layer_and_mapset(raising, kind):
+    base = tgis.BaseRow(KINDS[kind], ident="old@PERMANENT")
 
     base.set_id("roads:2@PERMANENT")
 
@@ -35,7 +36,7 @@ def test_set_id_splits_name_layer_and_mapset(raising, cls):
 
 
 def test_constructor_splits_the_identifier_the_same_way(raising):
-    base = tgis.VectorBase(ident="roads:2@PERMANENT")
+    base = tgis.BaseRow(KINDS["vector"], ident="roads:2@PERMANENT")
 
     assert (base.get_name(), base.get_layer(), base.get_mapset()) == (
         "roads",
@@ -59,7 +60,7 @@ def test_dataset_set_id_reaches_every_part(raising):
 
 @pytest.mark.parametrize("ident", ["a:b:c@m", "a@b@c", "nomapset"])
 def test_wrong_identifier_is_reported(raising, ident):
-    base = tgis.RasterBase(ident="old@PERMANENT")
+    base = tgis.BaseRow(KINDS["raster"], ident="old@PERMANENT")
 
     with pytest.raises(FatalError, match="Wrong identifier"):
         base.set_id(ident)
@@ -92,13 +93,14 @@ def victim(temporal_module_session):
     mapset = tgis.get_current_mapset()
 
     def make(name):
-        return tgis.RasterBase(
+        return tgis.BaseRow(
+            KINDS["raster"],
             ident=f"{name}@{mapset}",
             name=name,
             mapset=mapset,
             creator="user",
-            creation_time=datetime(2001, 1, 1),
-            temporal_type="absolute",
+            ctime=datetime(2001, 1, 1),
+            ttype="absolute",
         )
 
     own = make("b6_victim")
