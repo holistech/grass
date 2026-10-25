@@ -1,13 +1,13 @@
 """Regression tests for faults of the infrastructure in grass.temporal.core"""
 
+import json
+import subprocess
 import sys
-import warnings
 
 import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
-from grass.grassdb.create import create_mapset
 from grass.pygrass.messages import FatalError
 from grass.temporal import core
 
@@ -107,48 +107,76 @@ def test_second_init_without_raise_fatal_error_switches_the_mode_off(
     assert core.get_tgis_message_interface().get_raise_on_error() is False
 
 
-@pytest.fixture
-def two_projects(tmp_path):
-    projects = []
-    for name in ("a", "b"):
-        gs.create_project(tmp_path / name)
-        create_mapset(tmp_path / name / name)
-        projects.append(tmp_path / name / name)
-    return projects
+SECOND_SESSION_SCRIPT = """
+import json
+import sys
+import warnings
+
+import grass.script as gs
+import grass.temporal as tgis
+from grass.grassdb.create import create_mapset
+from grass.temporal import core
+
+unraisable = []
+sys.unraisablehook = unraisable.append
+root = sys.argv[1]
+mapsets = []
+for name in ("a", "b"):
+    gs.create_project(f"{root}/{name}")
+    create_mapset(f"{root}/{name}/{name}")
+    mapsets.append(f"{root}/{name}/{name}")
+
+result = {}
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    with gs.setup.init(mapsets[0]):
+        tgis.init()
+        first = tgis.RasterDataset("map@a")
+        result["first"] = first.ciface.available_mapsets()
+    with gs.setup.init(mapsets[1]):
+        tgis.init()
+        msgr = core.get_tgis_message_interface()
+        pid = msgr.server.pid
+        result["alive"] = msgr.server.is_alive()
+        result["same_ciface"] = first.ciface is tgis.get_tgis_c_library_interface()
+        result["second"] = first.ciface.available_mapsets()
+        result["same_msgr"] = first.msgr is msgr
+        first.msgr.message("answered by the second session")
+        result["same_pid"] = msgr.server.pid == pid
+result["forks"] = [str(w.message) for w in caught if "fork()" in str(w.message)]
+result["unraisable"] = [str(u.exc_value) for u in unraisable]
+print(json.dumps(result))
+"""
 
 
-def test_second_session_has_running_servers(two_projects, monkeypatch):
+def test_second_session_has_running_servers(tmp_path):
     """Objects of the first session reach the servers of the second one
 
     The restart of the servers must not warn about fork() in a process with
-    threads. The warning is raised in a thread of the C interface, where it
-    reaches sys.unraisablehook instead of the warnings filter.
+    threads. The warning reaches sys.unraisablehook when a thread of the C
+    interface raises it. The check runs in a process of its own: a worker of
+    pytest-xdist has threads of its own, so every fork() there warns.
     """
-    unraisable = []
-    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
-    project_a, project_b = two_projects
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        with gs.setup.init(project_a):
-            tgis.init()
-            first = tgis.RasterDataset("map@a")
-            assert first.ciface.available_mapsets() == ["a", "PERMANENT"]
+    run = subprocess.run(
+        [sys.executable, "-c", SECOND_SESSION_SCRIPT, str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
 
-        with gs.setup.init(project_b):
-            tgis.init()
-            msgr = core.get_tgis_message_interface()
-            server_pid = msgr.server.pid
-            assert msgr.server.is_alive()
-
-            assert first.ciface is tgis.get_tgis_c_library_interface()
-            assert first.ciface.available_mapsets() == ["b", "PERMANENT"]
-            assert first.msgr is msgr
-            first.msgr.message("answered by the second session")
-            assert msgr.server.pid == server_pid
-
-    forks = [w for w in caught if "fork()" in str(w.message)]
-    assert forks == []
-    assert not [u for u in unraisable if "fork()" in str(u.exc_value)]
+    assert run.returncode == 0, run.stderr
+    result = json.loads(run.stdout.splitlines()[-1])
+    assert result == {
+        "first": ["a", "PERMANENT"],
+        "alive": True,
+        "same_ciface": True,
+        "second": ["b", "PERMANENT"],
+        "same_msgr": True,
+        "same_pid": True,
+        "forks": [],
+        "unraisable": [],
+    }
 
 
 def test_db_connection_defaults_to_the_current_database(temporal_module_session):
