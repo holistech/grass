@@ -196,6 +196,13 @@ space time datasets.
     map algebra and vector selection statements.
     Used in *t.rast.extract*, *t.rast3d.extract* and *t.vect.extract*.
 
+:mod:`~grass.temporal.kinds`
+"""""""""""""""""""""""""""
+
+    The six dataset types (raster, 3D raster, vector maps and their space
+    time datasets) with their names, aliases and tables in the temporal
+    database. The entry functions below look a type up here.
+
 :mod:`~grass.temporal.factory`
 """"""""""""""""""""""""""""""
 
