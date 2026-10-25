@@ -14,14 +14,34 @@ the same commit.
 """
 
 import importlib
+import inspect
 import json
 from pathlib import Path
+
+import pytest
 
 import grass.temporal as tgis
 
 CONTRACT = json.loads(
     Path(__file__).with_name("data").joinpath("public_contract.json").read_text()
 )
+
+
+# The dataset constructors read the temporal database as soon as an earlier
+# test of the process has initialised grass.temporal, so the two tests that
+# build datasets run in a session. Without it they pass or fail with the order
+# of the tests.
+_ABSENT = object()
+
+
+def _has(obj, name):
+    """Tell whether the object has the attribute without reading it
+
+    hasattr() runs properties, and the metadata property semantic_labels
+    starts a tool to read the database. That fails or succeeds depending on
+    the session an earlier test left behind.
+    """
+    return inspect.getattr_static(obj, name, _ABSENT) is not _ABSENT
 
 
 def _report(missing):
@@ -77,6 +97,7 @@ def test_methods_exist():
     assert not missing, _report(missing)
 
 
+@pytest.mark.usefixtures("temporal_module_session")
 def test_instance_attributes_exist():
     missing = []
     for class_name, attributes in CONTRACT["attributes"].items():
@@ -84,11 +105,12 @@ def test_instance_attributes_exist():
         missing.extend(
             (f"{class_name}().{name}", origin)
             for name, origin in attributes.items()
-            if not hasattr(obj, name)
+            if not _has(obj, name)
         )
     assert not missing, _report(missing)
 
 
+@pytest.mark.usefixtures("temporal_module_session")
 def test_member_methods_exist():
     # Code outside calls e.g. map.metadata.get_min(); the classes behind
     # these attributes are part of the interface although they are not exported.
@@ -99,7 +121,7 @@ def test_member_methods_exist():
         missing.extend(
             (f"{class_name}().{attribute}.{name}", origin)
             for name, origin in members.items()
-            if not hasattr(member, name)
+            if not _has(member, name)
         )
     assert not missing, _report(missing)
 
