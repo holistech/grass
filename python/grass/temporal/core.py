@@ -687,22 +687,17 @@ def init(
     ciface = get_tgis_c_library_interface()
     current_mapset = decode(gs.gisenv().get("MAPSET"))
 
-    # Set the mapset check and the timestamp write
-    if "TGIS_DISABLE_MAPSET_CHECK" in grassenv:
-        if (
-            gs.encode(grassenv["TGIS_DISABLE_MAPSET_CHECK"]) == "True"
-            or gs.encode(grassenv["TGIS_DISABLE_MAPSET_CHECK"]) == "1"
-        ):
-            enable_mapset_check = False
-            msgr.warning("TGIS_DISABLE_MAPSET_CHECK is True")
+    # Both switches are read anew by every init(), so removing the variable
+    # from the gisenv switches the check back on.
+    enable_mapset_check = True
+    if grassenv.get("TGIS_DISABLE_MAPSET_CHECK") in {"True", "1"}:
+        enable_mapset_check = False
+        msgr.warning("TGIS_DISABLE_MAPSET_CHECK is True")
 
-    if "TGIS_DISABLE_TIMESTAMP_WRITE" in grassenv:
-        if (
-            gs.encode(grassenv["TGIS_DISABLE_TIMESTAMP_WRITE"]) == "True"
-            or gs.encode(grassenv["TGIS_DISABLE_TIMESTAMP_WRITE"]) == "1"
-        ):
-            enable_timestamp_write = False
-            msgr.warning("TGIS_DISABLE_TIMESTAMP_WRITE is True")
+    enable_timestamp_write = True
+    if grassenv.get("TGIS_DISABLE_TIMESTAMP_WRITE") in {"True", "1"}:
+        enable_timestamp_write = False
+        msgr.warning("TGIS_DISABLE_TIMESTAMP_WRITE is True")
 
     if skip_db_init:
         return
