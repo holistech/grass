@@ -318,7 +318,7 @@ def shift(stds, gran, dbif=None) -> bool:
     with connection(dbif) as dbif:
         maps = stds.get_registered_maps_as_objects(dbif=dbif)
 
-        if maps is None:
+        if not maps:
             return False
 
         # All new times are computed before the first map is written: a

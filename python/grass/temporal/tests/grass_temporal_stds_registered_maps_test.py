@@ -731,3 +731,10 @@ def test_no_counted_relations_is_no_correct_topology():
 
 def test_shifting_an_empty_list_of_maps_gives_none():
     assert tgis.AbstractSpaceTimeDataset.shift_map_list([], "1 day") is None
+
+
+def test_shifting_a_dataset_without_maps_gives_false(pair):
+    stds = stds_of(pair, "other")
+
+    assert stds.shift("1 day") is False
+    assert register_ids(stds) == []
