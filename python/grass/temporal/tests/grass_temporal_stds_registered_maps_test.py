@@ -581,9 +581,9 @@ def test_topology_of_a_dataset_without_maps_is_wrong(pair):
     "name",
     [
         "x; DROP TABLE raster_base",
-        "raster_map_register_xyz",
-        "raster_map_register_" + "A" * 32,
         "raster_map_register_" + "a" * 32 + " ",
+        "raster_map_register_a-b",
+        'raster_map_register_"x"',
     ],
 )
 def test_a_register_table_name_of_another_form_is_refused(pair, name):
@@ -594,6 +594,26 @@ def test_a_register_table_name_of_another_form_is_refused(pair, name):
         stds.get_registered_maps("id")
     with pytest.raises(tgis.FatalError, match="Invalid name"):
         stds.is_map_registered("a@PERMANENT")
+
+
+def test_a_register_table_of_an_older_form_is_used(pair):
+    # GRASS 7 made the name from a uuid with underscores instead of the plain
+    # hex digits, and a database may still hold such tables.
+    fill(pair, "abs", start="2001-01-01", increment="1 day", interval=True)
+    stds = stds_of(pair, "abs")
+    old = "raster_map_register_1B2C3D4E_5f6a_4b7c_8d9e_0f1a2b3c4d5e"
+    dbif = stds_dbif()
+    dbif.execute_transaction(
+        f'ALTER TABLE {stds.get_map_register()} RENAME TO "{old}";'
+    )
+    stds.set_map_register(old)
+    stds.update(dbif=dbif)
+    dbif.close()
+
+    stds = stds_of(pair, "abs")
+    assert stds.get_map_register() == old
+    assert len(register_ids(stds)) == 2
+    assert stds.is_map_registered(register_ids(stds)[0]) is True
 
 
 @pytest.mark.parametrize("how", ["copy", "deepcopy", "pickle"])

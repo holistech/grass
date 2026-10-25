@@ -8,8 +8,11 @@ and the metadata of the dataset up to date with them.
 
 The table name comes from the temporal database and goes into SQL text,
 because SQL has no placeholder for a table name. It is therefore checked
-against the one form that this module creates before it is used; a value that
-does not match stops the call with a fatal error.
+against the plain identifier form before it is used; a value that does not
+match stops the call with a fatal error. The form is not the one that
+create_name() makes: databases written by older versions hold tables named
+differently, for example with underscores in the uuid, and the SQL of those
+versions only worked for names of this plain form either.
 
 SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -35,8 +38,9 @@ from .temporal_granularity import (
     compute_relative_time_granularity,
 )
 
-# <map type>_map_register_<32 hex digits>, as create_name() makes it.
-_TABLE_NAME = re.compile(r"(?:raster|raster3d|vector)_map_register_[0-9a-f]{32}")
+# A name that needs no quoting in SQL. This is all that an unquoted statement,
+# as older versions made them, could handle.
+_TABLE_NAME = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _placeholder(dbif) -> str:
@@ -60,8 +64,8 @@ class StdsMapRegister:
     def table_name(self) -> str | None:
         """Return the name of the register table, None if there is none yet
 
-        :raises ~grass.exceptions.FatalError: if the name is not of the form
-            that create_name() makes
+        :raises ~grass.exceptions.FatalError: if the name is not a plain
+            identifier
         """
         name = self._stds.get_map_register()
         if name is not None and not _TABLE_NAME.fullmatch(name):
