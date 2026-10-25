@@ -48,6 +48,26 @@ def _optional_float(value) -> float | None:
     return None if value is None else float(value)
 
 
+def _shift_into(west: float, east: float, e_west: float, e_east: float):
+    """Shift an interval by whole turns of the globe until it meets the first
+
+    This is how the relations compare longitudes in a LL projection, where an
+    extent that crosses the date line has its east edge beyond 180 or its west
+    edge below -180. The interval (e_west, e_east) moves up by 360 while it
+    lies west of (west, east), then down while it lies east of it.
+
+    :return: The shifted (e_west, e_east)
+    """
+    while e_east < west:
+        e_east += 360.0
+        e_west += 360.0
+
+    while e_west > east:
+        e_east -= 360.0
+        e_west -= 360.0
+    return e_west, e_east
+
+
 class SpatialExtent(Row):
     """This is the spatial extent base class for all maps and space time datasets
 
@@ -165,15 +185,8 @@ class SpatialExtent(Row):
         E = extent.get_east()
         W = extent.get_west()
 
-        # Adjust the east and west in case of LL projection
         if self.get_projection() == "LL":
-            while self.get_west() > E:
-                E += 360.0
-                W += 360.0
-
-            while self.get_east() < W:
-                E -= 360.0
-                W -= 360.0
+            W, E = _shift_into(self.get_west(), self.get_east(), W, E)
 
         return not (
             self.get_north() <= S
@@ -240,15 +253,8 @@ class SpatialExtent(Row):
         E = self.get_east()
         W = self.get_west()
 
-        # Adjust the east and west in case of LL projection
         if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
+            eW, eE = _shift_into(W, E, eW, eE)
 
         # Compute the extent
         nN = N
@@ -404,15 +410,8 @@ class SpatialExtent(Row):
         E = self.get_east()
         W = self.get_west()
 
-        # Adjust the east and west in case of LL projection
         if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
+            eW, eE = _shift_into(W, E, eW, eE)
 
         # Compute the extent
         nN = N
@@ -597,15 +596,8 @@ class SpatialExtent(Row):
         E = self.get_east()
         W = self.get_west()
 
-        # Adjust the east and west in case of LL projection
         if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
+            eW, eE = _shift_into(W, E, eW, eE)
 
         return not (eW >= W or eE <= E or eN <= N or eS >= S)
 
@@ -723,15 +715,8 @@ class SpatialExtent(Row):
         E = self.get_east()
         W = self.get_west()
 
-        # Adjust the east and west in case of LL projection
         if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
+            eW, eE = _shift_into(W, E, eW, eE)
 
         return not (eW != W or eE != E or eN != N or eS != S)
 
@@ -800,66 +785,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute"
-                    " cover_2d for spatial extents"
-                )
-            )
-            return False
-
-        # Exclude equivalent_2d
-        if self.equivalent_2d(extent):
-            return False
-
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
-
-        # Edges of extent located outside of self are not allowed
-        if eW >= E:
-            return False
-        if eE <= W:
-            return False
-        if eS >= N:
-            return False
-        if eN <= S:
-            return False
-
-        # First we check that at least one edge of extent meets an edge of self
-        if eW != W and eE != E and eN != N and eS != S:
-            return False
-
-        # We check that at least one edge of extent is located in self
-        edge_count = 0
-        if W < eW < E:
-            edge_count += 1
-        if W < eE < E:
-            edge_count += 1
-        if S < eN < N:
-            edge_count += 1
-        if S < eS < N:
-            edge_count += 1
-
-        return edge_count != 0
+        return self._cover(extent, 2, "cover_2d")
 
     def cover(self, extent) -> bool:
         """Return True if this extent covers the provided spatial
@@ -874,73 +800,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "cover for spatial extents"
-                )
-            )
-            return False
-
-        # Exclude equivalent_2d
-        if self.equivalent_2d(extent):
-            return False
-
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
-
-        # Edges of extent located outside of self are not allowed
-        if (eW >= E) or (eE <= W) or (eS >= N) or (eN <= S) or (eB >= T) or (eT <= B):
-            return False
-
-        # First we check that at least one edge of extent meets an edge of self
-        if eW != W and eE != E and eN != N and eS != S and eB != B and eT != T:
-            return False
-
-        # We check that at least one edge of extent is located in self
-        edge_count = 0
-        if W < eW < E:
-            edge_count += 1
-        if W < eE < E:
-            edge_count += 1
-        if S < eN < N:
-            edge_count += 1
-        if S < eS < N:
-            edge_count += 1
-        if S < eN < N:
-            edge_count += 1
-        if S < eS < N:
-            edge_count += 1
-        if B < eT < T:
-            edge_count += 1
-        if B < eB < T:
-            edge_count += 1
-
-        return edge_count != 0
+        return self._cover(extent, 3, "cover")
 
     def covered_2d(self, extent):
         """Return True if this extent is covered by the provided spatial
@@ -999,43 +859,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        if self.contain_2d(extent):
-            return False
-
-        if self.is_in_2d(extent):
-            return False
-
-        if self.cover_2d(extent):
-            return False
-
-        if self.covered_2d(extent):
-            return False
-
-        if self.equivalent_2d(extent):
-            return False
-
-        N = extent.get_north()
-        S = extent.get_south()
-        E = extent.get_east()
-        W = extent.get_west()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while self.get_west() > E:
-                E += 360.0
-                W += 360.0
-
-            while self.get_east() < W:
-                E -= 360.0
-                W -= 360.0
-
-        return not (
-            self.get_north() <= S
-            or self.get_south() >= N
-            or self.get_east() <= W
-            or self.get_west() >= E
-        )
+        return self._overlap(extent, 2)
 
     def overlap(self, extent) -> bool:
         """Return True if this extent overlaps with the provided spatial
@@ -1052,47 +876,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        if self.is_in(extent):
-            return False
-
-        if self.contain(extent):
-            return False
-
-        if self.cover(extent):
-            return False
-
-        if self.covered(extent):
-            return False
-
-        if self.equivalent(extent):
-            return False
-
-        N = extent.get_north()
-        S = extent.get_south()
-        E = extent.get_east()
-        W = extent.get_west()
-        T = extent.get_top()
-        B = extent.get_bottom()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while self.get_west() > E:
-                E += 360.0
-                W += 360.0
-
-            while self.get_east() < W:
-                E -= 360.0
-                W -= 360.0
-
-        return not (
-            self.get_north() <= S
-            or self.get_south() >= N
-            or self.get_east() <= W
-            or self.get_west() >= E
-            or self.get_top() <= B
-            or self.get_bottom() >= T
-        )
+        return self._overlap(extent, 3)
 
     def meet_2d(self, extent) -> bool:
         """Return True if this extent (A) meets with the provided spatial
@@ -1127,57 +911,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
-
-        edge = None
-        edge_count = 0
-
-        if eW == E:
-            edge = "E"
-            edge_count += 1
-        if eE == W:
-            edge = "W"
-            edge_count += 1
-        if eS == N:
-            edge = "N"
-            edge_count += 1
-        if eN == S:
-            edge = "S"
-            edge_count += 1
-
-        # Meet a single edge only
-        if edge_count != 1:
-            return False
-
-        # Check boundaries of the faces
-        if edge in {"E", "W"}:
-            if eS > N or eN < S:
-                return False
-
-        if edge in {"N", "S"}:
-            if eW > E or eE < W:
-                return False
-
-        return True
+        return self._meet(extent, 2)
 
     def meet(self, extent) -> bool:
         """Return True if this extent meets with the provided spatial
@@ -1186,78 +920,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        # Adjust the east and west in case of LL projection
-        if self.get_projection() == "LL":
-            while eE < W:
-                eE += 360.0
-                eW += 360.0
-
-            while eW > E:
-                eE -= 360.0
-                eW -= 360.0
-
-        edge = None
-        edge_count = 0
-
-        if eW == E:
-            edge = "E"
-            edge_count += 1
-        if eE == W:
-            edge = "W"
-            edge_count += 1
-        if eS == N:
-            edge = "N"
-            edge_count += 1
-        if eN == S:
-            edge = "S"
-            edge_count += 1
-        if eB == T:
-            edge = "T"
-            edge_count += 1
-        if eT == B:
-            edge = "B"
-            edge_count += 1
-
-        # Meet a single edge only
-        if edge_count != 1:
-            return False
-
-        # Check boundaries of the faces
-        if edge in {"E", "W"}:
-            if eS > N or eN < S:
-                return False
-            if eB > T or eT < B:
-                return False
-
-        if edge in {"N", "S"}:
-            if eW > E or eE < W:
-                return False
-            if eB > T or eT < B:
-                return False
-
-        if edge in {"T", "B"}:
-            if eW > E or eE < W:
-                return False
-            if eS > N or eN < S:
-                return False
-
-        return True
+        return self._meet(extent, 3)
 
     def disjoint_2d(self, extent) -> bool:
         """Return True if this extent (A) is disjoint with the provided spatial
@@ -1303,6 +966,123 @@ class SpatialExtent(Row):
             or self.equivalent(extent)
             or self.overlapping(extent)
             or self.meet(extent)
+        )
+
+    def _intervals(self, extent, dims: int):
+        """Return the intervals (low, high) of both extents on the first axes
+
+        The axes are east-west, north-south and bottom-top, and dims says how
+        many are used. On the east-west axis of a LL projection the interval of
+        the other extent is shifted by whole turns until it meets this one.
+
+        :return: The intervals of this extent and the intervals of the other
+        """
+        mine = [
+            (self.get_west(), self.get_east()),
+            (self.get_south(), self.get_north()),
+            (self.get_bottom(), self.get_top()),
+        ][:dims]
+        theirs = [
+            (extent.get_west(), extent.get_east()),
+            (extent.get_south(), extent.get_north()),
+            (extent.get_bottom(), extent.get_top()),
+        ][:dims]
+        if self.get_projection() == "LL":
+            theirs[0] = _shift_into(*mine[0], *theirs[0])
+        return mine, theirs
+
+    def _cover(self, extent, dims: int, name: str) -> bool:
+        """Tell whether this extent covers the other in dims dimensions
+
+        The relation is explained at cover_2d(). A pair that is equivalent in
+        two dimensions is excluded in three, too: the exclusion has always
+        looked at the plane only, which the recordings of the relation keep.
+
+        :param name: The method that reports a difference of the projections
+        """
+        if self.get_projection() != extent.get_projection():
+            self.msgr.error(
+                _(
+                    "Projections are different. Unable to compute "
+                    "{name} for spatial extents"
+                ).format(name=name)
+            )
+            return False
+
+        # Exclude equivalent_2d
+        if self.equivalent_2d(extent):
+            return False
+
+        mine, theirs = self._intervals(extent, dims)
+        pairs = list(zip(mine, theirs, strict=True))
+
+        # Edges of extent located outside of self are not allowed
+        if any(
+            e_low >= high or e_high <= low for (low, high), (e_low, e_high) in pairs
+        ):
+            return False
+
+        # First we check that at least one edge of extent meets an edge of self
+        if all(
+            e_low != low and e_high != high for (low, high), (e_low, e_high) in pairs
+        ):
+            return False
+
+        # We check that at least one edge of extent is located in self
+        return any(
+            low < edge < high
+            for (low, high), (e_low, e_high) in pairs
+            for edge in (e_low, e_high)
+        )
+
+    def _overlap(self, extent, dims: int) -> bool:
+        """Tell whether this extent overlaps the other in dims dimensions
+
+        The relation is explained at overlap_2d(): the other relations are
+        excluded, then what is left must share a volume.
+        """
+        # The order differs between the two, which changes nothing but the
+        # order of the messages about different projections.
+        names = (
+            ("contain", "is_in", "cover", "covered", "equivalent")
+            if dims == 2
+            else ("is_in", "contain", "cover", "covered", "equivalent")
+        )
+        suffix = "_2d" if dims == 2 else ""
+        if any(getattr(self, name + suffix)(extent) for name in names):
+            return False
+
+        mine, theirs = self._intervals(extent, dims)
+        return not any(
+            high <= e_low or low >= e_high
+            for (low, high), (e_low, e_high) in zip(mine, theirs, strict=True)
+        )
+
+    def _meet(self, extent, dims: int) -> bool:
+        """Tell whether this extent meets the other in dims dimensions
+
+        They meet when exactly one face of one lies on a face of the other and
+        the two overlap or touch on every other axis.
+        """
+        mine, theirs = self._intervals(extent, dims)
+        faces = [
+            axis
+            for axis, ((low, high), (e_low, e_high)) in enumerate(
+                zip(mine, theirs, strict=True)
+            )
+            for touching in (e_low == high, e_high == low)
+            if touching
+        ]
+        # Meet a single face only
+        if len(faces) != 1:
+            return False
+        # Check boundaries of the faces
+        return not any(
+            e_low > high or e_high < low
+            for axis, ((low, high), (e_low, e_high)) in enumerate(
+                zip(mine, theirs, strict=True)
+            )
+            if axis != faces[0]
         )
 
     def spatial_relation_2d(
@@ -1717,52 +1497,9 @@ class SpatialExtent(Row):
         else:
             self.D["proj"] = proj
 
-    def set_spatial_extent_from_values_2d(self, north, south, east, west) -> None:
-        """Set the two dimensional spatial extent from values
-
-        :param north: The northern edge
-        :param south: The southern edge
-        :param east: The eastern edge
-        :param west: The western edge
-        """
-
-        self.set_north(north)
-        self.set_south(south)
-        self.set_east(east)
-        self.set_west(west)
-
-    def set_spatial_extent_2d(self, spatial_extent) -> None:
-        """Set the two dimensional spatial extent (north, south, east, west)
-
-        :param spatial_extent: An object of type SpatialExtent or its subclasses
-        """
-
-        self.set_north(spatial_extent.north)
-        self.set_south(spatial_extent.south)
-        self.set_east(spatial_extent.east)
-        self.set_west(spatial_extent.west)
-
     def get_projection(self):
         """Get the projection of the spatial extent"""
         return self.D["proj"]
-
-    def get_volume(self):
-        """Compute the volume of the extent, in case z is zero
-        (top == bottom or top - bottom = 1) the area is returned"""
-
-        if self.get_projection() == "LL":
-            self.msgr.error(_("Volume computation is not supported for LL projections"))
-
-        area = self.get_area()
-
-        bbox = self.get_spatial_extent_as_tuple()
-
-        z = abs(bbox[4] - bbox[5])
-
-        if z == 0:
-            z = 1.0
-
-        return area * z
 
     def get_area(self):
         """Compute the area of the extent, extent in z direction is ignored"""
@@ -1782,10 +1519,6 @@ class SpatialExtent(Row):
         of the spatial extent"""
 
         return (self.north, self.south, self.east, self.west, self.top, self.bottom)
-
-    def get_spatial_extent_as_tuple_2d(self):
-        """Return a tuple (north, south, east, west,) of the 2d spatial extent"""
-        return (self.north, self.south, self.east, self.west)
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""

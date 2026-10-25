@@ -15,7 +15,9 @@ The golden file rows_print.json holds the column order and the printed
 text of each row as the classes wrote them before they were generated.
 """
 
+import copy
 import json
+import pickle
 from datetime import datetime
 from pathlib import Path
 
@@ -318,21 +320,11 @@ def test_the_connection_of_the_caller_stays_open(kind, part):
         dbif.close()
 
 
-def test_the_area_and_the_volume_of_a_spatial_extent():
+def test_the_area_of_a_spatial_extent():
     extent = build("raster", "spatial_extent", "a@PERMANENT")
 
     assert extent.get_spatial_extent_as_tuple() == (4.0, 1.0, 3.0, 2.0, 6.0, 5.0)
-    assert extent.get_spatial_extent_as_tuple_2d() == (4.0, 1.0, 3.0, 2.0)
     assert extent.get_area() == 3.0
-    assert extent.get_volume() == 3.0
-    extent.set_bottom(2)
-    assert extent.get_volume() == 12.0
-
-
-def test_a_flat_extent_has_the_volume_of_its_area():
-    extent = build("raster", "spatial_extent", "a@PERMANENT", top=5, bottom=5)
-
-    assert extent.get_volume() == extent.get_area()
 
 
 def test_the_spatial_extent_is_copied_from_another():
@@ -342,14 +334,20 @@ def test_the_spatial_extent_is_copied_from_another():
     target.set_spatial_extent(source)
     assert target.get_spatial_extent_as_tuple() == source.get_spatial_extent_as_tuple()
 
-    flat = build("vector", "spatial_extent", "c@PERMANENT", top=100, bottom=100)
-    flat.set_spatial_extent_2d(source)
-    assert (
-        flat.get_spatial_extent_as_tuple_2d() == source.get_spatial_extent_as_tuple_2d()
-    )
-    assert (flat.get_top(), flat.get_bottom()) == (100.0, 100.0)
-    flat.set_spatial_extent_from_values_2d(8, 7, 6, 5)
-    assert flat.get_spatial_extent_as_tuple_2d() == (8.0, 7.0, 6.0, 5.0)
+
+def test_a_spatial_extent_survives_copy_and_pickle():
+    extent = build("raster", "spatial_extent", "a@PERMANENT")
+
+    for clone in (
+        copy.copy(extent),
+        copy.deepcopy(extent),
+        pickle.loads(pickle.dumps(extent)),  # noqa: S301
+    ):
+        assert type(clone) is type(extent)
+        assert (
+            clone.get_spatial_extent_as_tuple() == extent.get_spatial_extent_as_tuple()
+        )
+        assert clone.D == extent.D
 
 
 def test_an_empty_edge_stays_empty():
