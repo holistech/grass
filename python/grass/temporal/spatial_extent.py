@@ -171,29 +171,7 @@ class SpatialExtent(Row):
         :return: True or False
         """
 
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "overlapping_2d for spatial extents"
-                )
-            )
-            return False
-
-        N = extent.get_north()
-        S = extent.get_south()
-        E = extent.get_east()
-        W = extent.get_west()
-
-        if self.get_projection() == "LL":
-            W, E = _shift_into(self.get_west(), self.get_east(), W, E)
-
-        return not (
-            self.get_north() <= S
-            or self.get_south() >= N
-            or self.get_east() <= W
-            or self.get_west() >= E
-        )
+        return self._overlapping(extent)
 
     def overlapping(self, extent) -> bool:
         """Return True if this (A) and the provided spatial
@@ -224,13 +202,7 @@ class SpatialExtent(Row):
         :return: True or False
         """
 
-        if not self.overlapping_2d(extent):
-            return False
-
-        T = extent.get_top()
-        B = extent.get_bottom()
-
-        return not (self.get_top() <= B or self.get_bottom() >= T)
+        return self._overlapping(extent, 3)
 
     def intersect_2d(self, extent):
         """Return the two dimensional intersection as spatial_extent
@@ -243,43 +215,7 @@ class SpatialExtent(Row):
         if not self.overlapping_2d(extent):
             return None
 
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        if self.get_projection() == "LL":
-            eW, eE = _shift_into(W, E, eW, eE)
-
-        # Compute the extent
-        nN = N
-        nS = S
-        nE = E
-        nW = W
-
-        if eW > W:
-            nW = eW
-        if eE < E:
-            nE = eE
-        if eN < N:
-            nN = eN
-        if eS > S:
-            nS = eS
-
-        return SpatialExtent(
-            north=nN,
-            south=nS,
-            east=nE,
-            west=nW,
-            top=0,
-            bottom=0,
-            proj=self.get_projection(),
-        )
+        return self._merge(extent, 2, inner=True)
 
     def intersect(self, extent):
         """Return the three dimensional intersection as spatial_extent
@@ -361,26 +297,7 @@ class SpatialExtent(Row):
         if not self.overlapping(extent):
             return None
 
-        new = self.intersect_2d(extent)
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        nT = T
-        nB = B
-
-        if eB > B:
-            nB = eB
-        if eT < T:
-            nT = eT
-
-        new.set_top(nT)
-        new.set_bottom(nB)
-
-        return new
+        return self._merge(extent, 3, inner=True)
 
     def union_2d(self, extent):
         """Return the two dimensional union as spatial_extent
@@ -400,43 +317,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent to create a union with
         :return: The union spatial extent
         """
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        if self.get_projection() == "LL":
-            eW, eE = _shift_into(W, E, eW, eE)
-
-        # Compute the extent
-        nN = N
-        nS = S
-        nE = E
-        nW = W
-
-        if eW < W:
-            nW = eW
-        if eE > E:
-            nE = eE
-        if eN > N:
-            nN = eN
-        if eS < S:
-            nS = eS
-
-        return SpatialExtent(
-            north=nN,
-            south=nS,
-            east=nE,
-            west=nW,
-            top=0,
-            bottom=0,
-            proj=self.get_projection(),
-        )
+        return self._merge(extent, 2, inner=False)
 
     def union(self, extent):
         """Return the three dimensional union as spatial_extent
@@ -541,26 +422,7 @@ class SpatialExtent(Row):
         :return: The union spatial extent
         """  # noqa: E501
 
-        new = self.disjoint_union_2d(extent)
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        nT = T
-        nB = B
-
-        if eB < B:
-            nB = eB
-        if eT > T:
-            nT = eT
-
-        new.set_top(nT)
-        new.set_bottom(nB)
-
-        return new
+        return self._merge(extent, 3, inner=False)
 
     def is_in_2d(self, extent) -> bool:
         """Return True if this extent (A) is located in the provided spatial
@@ -577,29 +439,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "is_in_2d for spatial extents"
-                )
-            )
-            return False
-
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        if self.get_projection() == "LL":
-            eW, eE = _shift_into(W, E, eW, eE)
-
-        return not (eW >= W or eE <= E or eN <= N or eS >= S)
+        return self._is_in(extent, 2)
 
     def is_in(self, extent) -> bool:
         """Return True if this extent (A) is located in the provided spatial
@@ -623,16 +463,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-        if not self.is_in_2d(extent):
-            return False
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        return not (eB >= B or eT <= T)
+        return self._is_in(extent, 3)
 
     def contain_2d(self, extent):
         """Return True if this extent (A) contains the provided spatial
@@ -696,29 +527,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "equivalent_2d for spatial extents"
-                )
-            )
-            return False
-
-        eN = extent.get_north()
-        eS = extent.get_south()
-        eE = extent.get_east()
-        eW = extent.get_west()
-
-        N = self.get_north()
-        S = self.get_south()
-        E = self.get_east()
-        W = self.get_west()
-
-        if self.get_projection() == "LL":
-            eW, eE = _shift_into(W, E, eW, eE)
-
-        return not (eW != W or eE != E or eN != N or eS != S)
+        return self._equivalent(extent, 2)
 
     def equivalent(self, extent) -> bool:
         """Return True if this extent (A) is equal to the provided spatial
@@ -742,17 +551,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        if not self.equivalent_2d(extent):
-            return False
-
-        eT = extent.get_top()
-        eB = extent.get_bottom()
-
-        T = self.get_top()
-        B = self.get_bottom()
-
-        return not (eB != B or eT != T)
+        return self._equivalent(extent, 3)
 
     def cover_2d(self, extent) -> bool:
         """Return True if this extent (A) covers the provided spatial
@@ -939,16 +738,7 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
-
-        return not (
-            self.is_in_2d(extent)
-            or self.contain_2d(extent)
-            or self.cover_2d(extent)
-            or self.covered_2d(extent)
-            or self.equivalent_2d(extent)
-            or self.overlapping_2d(extent)
-            or self.meet_2d(extent)
-        )
+        return self._disjoint(extent, "_2d")
 
     def disjoint(self, extent) -> bool:
         """Return True if this extent is disjoint with the provided spatial
@@ -957,16 +747,111 @@ class SpatialExtent(Row):
         :param extent: The spatial extent
         :return: True or False
         """
+        return self._disjoint(extent, "")
 
-        return not (
-            self.is_in(extent)
-            or self.contain(extent)
-            or self.cover(extent)
-            or self.covered(extent)
-            or self.equivalent(extent)
-            or self.overlapping(extent)
-            or self.meet(extent)
+    def _check_projection(self, extent, name: str) -> bool:
+        """Return False and report it if the projections of the extents differ
+
+        :param name: The method named in the message
+        """
+        if self.get_projection() != extent.get_projection():
+            self.msgr.error(
+                _(
+                    "Projections are different. Unable to compute "
+                    "{name} for spatial extents"
+                ).format(name=name)
+            )
+            return False
+        return True
+
+    def _overlapping(self, extent, dims: int = 2) -> bool:
+        """Tell whether the extents share a volume or an area, see overlapping_2d()
+
+        The message of a difference of projections names the 2D method also for
+        three dimensions, because the 3D method has always asked the 2D one
+        first.
+        """
+        if not self._check_projection(extent, "overlapping_2d"):
+            return False
+        mine, theirs = self._intervals(extent, dims)
+        return not any(
+            high <= e_low or low >= e_high
+            for (low, high), (e_low, e_high) in zip(mine, theirs, strict=True)
         )
+
+    def _is_in(self, extent, dims: int) -> bool:
+        """Tell whether this extent lies strictly inside the other, see is_in_2d()"""
+        if not self._check_projection(extent, "is_in_2d"):
+            return False
+        mine, theirs = self._intervals(extent, dims)
+        return not any(
+            e_low >= low or e_high <= high
+            for (low, high), (e_low, e_high) in zip(mine, theirs, strict=True)
+        )
+
+    def _equivalent(self, extent, dims: int) -> bool:
+        """Tell whether both extents have the same edges, see equivalent_2d()"""
+        if not self._check_projection(extent, "equivalent_2d"):
+            return False
+        mine, theirs = self._intervals(extent, dims)
+        return not any(
+            e_low != low or e_high != high
+            for (low, high), (e_low, e_high) in zip(mine, theirs, strict=True)
+        )
+
+    def _merge(self, extent, dims: int, inner: bool):
+        """Return the intersection (inner) or the bounding union of both extents
+
+        The caller has decided that the relation is allowed. A result in two
+        dimensions has top and bottom 0, as it always had.
+        """
+        mine, theirs = self._intervals(extent, dims)
+        first, second = (max, min) if inner else (min, max)
+        (west, east), (south, north), *vertical = (
+            (first(low, e_low), second(high, e_high))
+            for (low, high), (e_low, e_high) in zip(mine, theirs, strict=True)
+        )
+        bottom, top = vertical[0] if vertical else (0, 0)
+        return SpatialExtent(
+            north=north,
+            south=south,
+            east=east,
+            west=west,
+            top=top,
+            bottom=bottom,
+            proj=self.get_projection(),
+        )
+
+    def _disjoint(self, extent, suffix: str) -> bool:
+        """Tell whether none of the other relations holds, suffix is "_2d" or an empty string"""
+        return not any(
+            getattr(self, name + suffix)(extent)
+            for name in (
+                "is_in",
+                "contain",
+                "cover",
+                "covered",
+                "equivalent",
+                "overlapping",
+                "meet",
+            )
+        )
+
+    def _relation(self, extent, suffix: str) -> str:
+        """Return the name of the relation, suffix is "_2d" or an empty string"""
+        for name, relation in (
+            ("equivalent", "equivalent"),
+            ("contain", "contain"),
+            ("is_in", "in"),
+            ("cover", "cover"),
+            ("covered", "covered"),
+            ("overlap", "overlap"),
+            ("meet", "meet"),
+            ("disjoint", "disjoint"),
+        ):
+            if getattr(self, name + suffix)(extent):
+                return relation
+        return "unknown"
 
     def _intervals(self, extent, dims: int):
         """Return the intervals (low, high) of both extents on the first axes
@@ -1114,25 +999,7 @@ class SpatialExtent(Row):
 
         Usage: see self.spatial_relation()
         """
-
-        if self.equivalent_2d(extent):
-            return "equivalent"
-        if self.contain_2d(extent):
-            return "contain"
-        if self.is_in_2d(extent):
-            return "in"
-        if self.cover_2d(extent):
-            return "cover"
-        if self.covered_2d(extent):
-            return "covered"
-        if self.overlap_2d(extent):
-            return "overlap"
-        if self.meet_2d(extent):
-            return "meet"
-        if self.disjoint_2d(extent):
-            return "disjoint"
-
-        return "unknown"
+        return self._relation(extent, "_2d")
 
     def spatial_relation(
         self, extent
@@ -1435,25 +1302,7 @@ class SpatialExtent(Row):
             'meet'
 
         """
-
-        if self.equivalent(extent):
-            return "equivalent"
-        if self.contain(extent):
-            return "contain"
-        if self.is_in(extent):
-            return "in"
-        if self.cover(extent):
-            return "cover"
-        if self.covered(extent):
-            return "covered"
-        if self.overlap(extent):
-            return "overlap"
-        if self.meet(extent):
-            return "meet"
-        if self.disjoint(extent):
-            return "disjoint"
-
-        return "unknown"
+        return self._relation(extent, "")
 
     def set_spatial_extent_from_values(
         self, north, south, east, west, top, bottom
