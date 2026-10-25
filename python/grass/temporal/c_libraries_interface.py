@@ -49,7 +49,6 @@ class RPCDefs:
     WRITE_TIMESTAMP = 2
     READ_TIMESTAMP = 3
     REMOVE_TIMESTAMP = 4
-    READ_MAP_INFO = 5
     MAP_EXISTS = 6
     READ_MAP_INFO = 7
     AVAILABLE_MAPSETS = 8
@@ -1232,8 +1231,17 @@ def c_library_server(lock: _LockLike, conn: Connection) -> None:
         # Avoid busy waiting
         conn.poll(None)
         data = conn.recv()
+        number = data[0]
+        # Unassigned slots hold 0, and a negative number would index from the
+        # end of the list. The client waits for an answer, so a request that
+        # no function serves gets an error instead of killing the server.
+        in_range = isinstance(number, int) and 0 <= number < len(functions)
+        function = functions[number] if in_range else 0
+        if not callable(function):
+            conn.send(FatalError(f"The C-library server has no function {number}"))
+            continue
         with lock:
-            functions[data[0]](lock, conn, data)
+            function(lock, conn, data)
 
 
 class CLibrariesInterface(RPCServerBase):

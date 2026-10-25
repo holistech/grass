@@ -1,5 +1,6 @@
 """Regression tests for faults of the infrastructure in grass.temporal.core"""
 
+import ast
 import json
 import subprocess
 import sys
@@ -10,7 +11,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
-from grass.temporal import core
+from grass.temporal import c_libraries_interface, core
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -377,3 +378,48 @@ def test_semantic_labels_use_the_given_connection(labelled_strds, connection_cou
     assert connection_count == []
     assert dbif.is_connected()
     dbif.close()
+
+
+def test_rpc_defs_have_no_name_defined_twice():
+    # A second definition replaces the first at run time, so only the source
+    # shows it.
+    source = Path(c_libraries_interface.__file__).read_text(encoding="utf-8")
+    definition = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ClassDef) and node.name == "RPCDefs"
+    )
+    names = [
+        target.id
+        for node in definition.body
+        if isinstance(node, ast.Assign)
+        for target in node.targets
+    ]
+    assert sorted(name for name in set(names) if names.count(name) > 1) == []
+
+
+def test_rpc_defs_function_numbers_are_unique():
+    numbers = {
+        name: value
+        for name, value in vars(c_libraries_interface.RPCDefs).items()
+        if name.isupper() and not name.startswith("TYPE_")
+    }
+    assert len(set(numbers.values())) == len(numbers)
+
+
+@pytest.mark.parametrize("number", [5, 40, 50, 99, -1])
+def test_unknown_function_number_is_answered_with_an_error(
+    temporal_module_session, number
+):
+    tgis.init(raise_fatal_error=True)
+    ciface = tgis.get_tgis_c_library_interface()
+    ciface.check_server()
+    pid = ciface.server.pid
+
+    ciface.client_conn.send([number])
+    with pytest.raises(FatalError, match="function"):
+        ciface.safe_receive("unknown function")
+
+    # The server went on serving; it was not restarted either.
+    assert ciface.available_mapsets()
+    assert ciface.server.pid == pid
