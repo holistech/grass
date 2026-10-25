@@ -1,5 +1,7 @@
 """Regression tests for faults in identifiers, types and timestamps"""
 
+from datetime import datetime
+
 import pytest
 
 import grass.temporal as tgis
@@ -70,4 +72,80 @@ def test_split_name_keeps_the_defaults(raising):
         "a",
         "2",
         "n",
+    )
+
+
+# The mapset after the @ becomes part of the string, so the payload ends in a
+# comment; "x' OR '1'='1" would only compare '1' with '1@PERMANENT'.
+EVIL = "x' OR 1=1 --"
+
+
+@pytest.fixture
+def victim(temporal_module_session):
+    """A registered map and a map object whose identifier is an injection"""
+    tgis.init(raise_fatal_error=True)
+    mapset = tgis.get_current_mapset()
+
+    def make(name):
+        return tgis.RasterBase(
+            ident=f"{name}@{mapset}",
+            name=name,
+            mapset=mapset,
+            creator="user",
+            creation_time=datetime(2001, 1, 1),
+            temporal_type="absolute",
+        )
+
+    own = make("b6_victim")
+    own.insert()
+    evil = make(EVIL)
+    evil.ident = f"{EVIL}@{mapset}"
+    evil.D["id"] = evil.ident
+    yield own, evil
+    own.delete()
+
+
+def test_delete_binds_the_identifier(victim):
+    own, evil = victim
+
+    evil.delete()
+
+    assert own.is_in_db()
+
+
+def test_is_in_db_binds_the_identifier(victim):
+    own, evil = victim
+
+    assert evil.is_in_db() is False
+
+
+def test_select_binds_the_identifier(victim):
+    own, evil = victim
+
+    assert evil.select() is False
+
+
+def test_update_and_update_all_bind_the_identifier(victim):
+    own, evil = victim
+    evil.set_creator("evil")
+
+    evil.update()
+    evil.update_all()
+
+    own.select()
+    assert own.D["creator"] == "user"
+
+
+def test_text_statements_quote_the_identifier(victim):
+    own, evil = victim
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        dbif.execute_transaction(evil.get_delete_statement())
+    finally:
+        dbif.close()
+
+    assert own.is_in_db()
+    assert evil.get_select_statement_mogrified().endswith(
+        "WHERE id = 'x'' OR 1=1 --@" + tgis.get_current_mapset() + "';\n"
     )

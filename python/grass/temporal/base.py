@@ -42,7 +42,7 @@ class DictSQLSerializer:
         self.D = {}
         self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
 
-    def serialize(self, type, table, where=None):
+    def serialize(self, type, table, where=None, where_args=()):
         """Convert the internal dictionary into a string of semicolon
         separated SQL statements The keys are the column names and
         the values are the row entries
@@ -71,6 +71,8 @@ class DictSQLSerializer:
         :param type: must be SELECT. INSERT, UPDATE
         :param table: The name of the table to select, insert or update
         :param where: The optional where statement
+        :param where_args: The values of the placeholders in the where statement,
+                           appended to the arguments of the statement
         :return: a tuple containing the SQL string and the arguments
 
         """  # noqa: E501
@@ -172,7 +174,7 @@ class DictSQLSerializer:
                 sql += where
             sql += ";\n"
 
-        return sql, tuple(args)
+        return sql, (*args, *where_args)
 
     def deserialize(self, row) -> None:
         """Convert the content of the dbmi dictionary like row into the
@@ -223,9 +225,9 @@ class SQLDatabaseInterface(DictSQLSerializer):
         >>> t.get_delete_statement()
         "DELETE FROM raster WHERE id = 'soil@PERMANENT';\\n"
         >>> t.get_is_in_db_statement()
-        "SELECT id FROM raster WHERE id = 'soil@PERMANENT';\\n"
+        ('SELECT id FROM raster WHERE id = ?;\\n', ('soil@PERMANENT',))
         >>> t.get_select_statement()
-        ("SELECT  name  , mapset  , creator  , creation_time  FROM raster WHERE id = 'soil@PERMANENT';\\n", ())
+        ('SELECT  name  , mapset  , creator  , creation_time  FROM raster WHERE id = ?;\\n', ('soil@PERMANENT',))
         >>> t.get_select_statement_mogrified()
         "SELECT  name  , mapset  , creator  , creation_time  FROM raster WHERE id = 'soil@PERMANENT';\\n"
         >>> t.get_insert_statement()
@@ -233,11 +235,11 @@ class SQLDatabaseInterface(DictSQLSerializer):
         >>> t.get_insert_statement_mogrified()
         "INSERT INTO raster ( name  ,mapset  ,creator  ,creation_time ) VALUES ('soil' ,'PERMANENT' ,'soeren' ,'2001-01-01 00:00:00') ;\\n"
         >>> t.get_update_statement()
-        ("UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = 'soil@PERMANENT';\\n", ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0)))
+        ('UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = ?;\\n', ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), 'soil@PERMANENT'))
         >>> t.get_update_statement_mogrified()
         "UPDATE raster SET  name = 'soil'  ,mapset = 'PERMANENT'  ,creator = 'soeren'  ,creation_time = '2001-01-01 00:00:00' WHERE id = 'soil@PERMANENT';\\n"
         >>> t.get_update_all_statement()
-        ("UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = 'soil@PERMANENT';\\n", ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0)))
+        ('UPDATE raster SET  name = ?  ,mapset = ?  ,creator = ?  ,creation_time = ? WHERE id = ?;\\n', ('soil', 'PERMANENT', 'soeren', datetime.datetime(2001, 1, 1, 0, 0), 'soil@PERMANENT'))
         >>> t.get_update_all_statement_mogrified()
         "UPDATE raster SET  name = 'soil'  ,mapset = 'PERMANENT'  ,creator = 'soeren'  ,creation_time = '2001-01-01 00:00:00' WHERE id = 'soil@PERMANENT';\\n"
 
@@ -281,10 +283,25 @@ class SQLDatabaseInterface(DictSQLSerializer):
         return (
             "DELETE FROM "
             + self.get_table_name()
-            + " WHERE id = '"
-            + str(self.ident)
-            + "';\n"
+            + " WHERE id = "
+            + self._quoted_id(self.ident)
+            + ";\n"
         )
+
+    @staticmethod
+    def _quoted_id(ident) -> str:
+        """Return the identifier as an SQL string literal
+
+        For statements that are joined to a script and executed as text,
+        where no argument can be bound. Statements that are executed on their
+        own bind the identifier as argument.
+        """
+        return "'%s'" % str(ident).replace("'", "''")
+
+    def _where_id(self, ident):
+        """Return the where statement for an identifier and its argument"""
+        placeholder = "?" if self.dbmi_paramstyle == "qmark" else "%s"
+        return f"WHERE id = {placeholder}", (str(ident),)
 
     def delete(self, dbif=None) -> None:
         """Delete the entry of this object from the temporal database
@@ -292,18 +309,19 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :param dbif: The database interface to be used,
                      if None a temporary connection will be established
         """
-        sql = self.get_delete_statement()
+        where, args = self._where_id(self.ident)
+        sql = f"DELETE FROM {self.get_table_name()} {where};\n"
 
         # must use the temporal database of the current mapset,
         # also if the map to be deleted is in a different mapset
         mapset = get_current_mapset()
         if dbif:
-            dbif.execute(sql, mapset=mapset)
+            dbif.execute(sql, args, mapset=mapset)
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
             try:
-                dbif.execute(sql, mapset=mapset)
+                dbif.execute(sql, args, mapset=mapset)
             finally:
                 dbif.close()
 
@@ -311,15 +329,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
         """Return the selection string that checks if this object is registered in the
         temporal database
 
-        :return: The SELECT string
+        :return: The SELECT string and the argument list
         """
-        return (
-            "SELECT id FROM "
-            + self.get_table_name()
-            + " WHERE id = '"
-            + str(self.ident)
-            + "';\n"
-        )
+        where, args = self._where_id(self.ident)
+        return f"SELECT id FROM {self.get_table_name()} {where};\n", args
 
     def is_in_db(self, dbif=None, mapset=None) -> bool:
         """Check if this object is present in the temporal database
@@ -333,20 +346,20 @@ class SQLDatabaseInterface(DictSQLSerializer):
                  False otherwise
         """
 
-        sql = self.get_is_in_db_statement()
+        sql, args = self.get_is_in_db_statement()
 
         # default: search temporal database in the mapset of the map
         if mapset is None:
             mapset = self.mapset
 
         if dbif:
-            dbif.execute(sql, mapset=mapset)
+            dbif.execute(sql, args, mapset=mapset)
             row = dbif.fetchone(mapset=mapset)
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
             try:
-                dbif.execute(sql, mapset=mapset)
+                dbif.execute(sql, args, mapset=mapset)
                 row = dbif.fetchone(mapset=mapset)
             finally:
                 dbif.close()
@@ -361,7 +374,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :return: The SELECT string
         """
         return self.serialize(
-            "SELECT", self.get_table_name(), "WHERE id = '" + str(self.ident) + "'"
+            "SELECT", self.get_table_name(), *self._where_id(self.ident)
         )
 
     def get_select_statement_mogrified(self, dbif=None):
@@ -474,12 +487,8 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :param ident: The identifier to be updated, useful for renaming
         :return: The UPDATE string
         """
-        if ident:
-            return self.serialize(
-                "UPDATE", self.get_table_name(), "WHERE id = '" + str(ident) + "'"
-            )
         return self.serialize(
-            "UPDATE", self.get_table_name(), "WHERE id = '" + str(self.ident) + "'"
+            "UPDATE", self.get_table_name(), *self._where_id(ident or self.ident)
         )
 
     def get_update_statement_mogrified(self, dbif=None, ident=None):
@@ -536,14 +545,8 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :param ident: The identifier to be updated, useful for renaming
         :return: The UPDATE string
         """
-        if ident:
-            return self.serialize(
-                "UPDATE ALL", self.get_table_name(), "WHERE id = '" + str(ident) + "'"
-            )
         return self.serialize(
-            "UPDATE ALL",
-            self.get_table_name(),
-            "WHERE id = '" + str(self.ident) + "'",
+            "UPDATE ALL", self.get_table_name(), *self._where_id(ident or self.ident)
         )
 
     def get_update_all_statement_mogrified(self, dbif=None, ident=None):

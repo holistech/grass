@@ -270,26 +270,16 @@ def test_interface_close_releases_every_connection(temporal_module_session):
     assert dbif.is_connected() is False
 
 
-BROKEN = "SELECT * FROM table_that_does_not_exist WHERE ("
-
-
 @pytest.mark.parametrize(
-    ("method", "statement_getter", "statement"),
-    [
-        ("delete", "get_delete_statement", BROKEN),
-        ("is_in_db", "get_is_in_db_statement", BROKEN),
-        ("select", "get_select_statement", (BROKEN, [])),
-        ("insert", "get_insert_statement", (BROKEN, [])),
-        ("update", "get_update_statement", (BROKEN, [])),
-        ("update_all", "get_update_all_statement", (BROKEN, [])),
-    ],
+    "method", ["delete", "is_in_db", "select", "insert", "update", "update_all"]
 )
 def test_failed_statement_does_not_leave_the_connection_open(
-    temporal_module_session, monkeypatch, method, statement_getter, statement
+    temporal_module_session, monkeypatch, method
 ):
     tgis.init()
     base = tgis.RasterBase(ident="broken@" + tgis.get_current_mapset())
-    monkeypatch.setattr(base, statement_getter, lambda *args: statement)
+    # The database refuses every statement on a table that does not exist.
+    monkeypatch.setattr(base, "get_table_name", lambda: "table_that_does_not_exist")
     before = _open_handles(core.tgis_database_string)
 
     with pytest.raises(tgis.SQLStatementError) as error:
