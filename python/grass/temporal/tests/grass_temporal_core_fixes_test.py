@@ -11,6 +11,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
 from grass.temporal import core
+from grass.temporal.testing.session import temporal_session
 
 pytestmark = pytest.mark.real_io
 
@@ -117,6 +118,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.grassdb.create import create_mapset
 from grass.temporal import core
+from grass.temporal.testing.session import temporal_session
 
 unraisable = []
 sys.unraisablehook = unraisable.append
@@ -294,5 +296,38 @@ def test_failed_statement_does_not_leave_the_connection_open(
     # The traceback keeps the frame, and with it the connection, alive; a
     # connection that was only forgotten would be closed by garbage collection
     # as soon as the exception is gone and the test would not see it.
+    assert error.tb is not None
+    assert _open_handles(core.tgis_database_string) == before
+
+
+@pytest.fixture
+def without_metadata_table(tmp_path):
+    """A session of its own whose temporal database has lost tgis_metadata"""
+    with temporal_session(tmp_path / "project"):
+        dbif = tgis.SQLDatabaseInterfaceConnection()
+        dbif.connect()
+        dbif.execute("DROP TABLE tgis_metadata;")
+        dbif.close()
+        yield
+
+
+def test_missing_metadata_table_is_reported_by_get_tgis_metadata(
+    without_metadata_table,
+):
+    with pytest.raises(FatalError, match="Unable to receive temporal database meta"):
+        tgis.get_tgis_metadata()
+
+
+def test_missing_metadata_table_does_not_end_in_a_type_error(without_metadata_table):
+    with pytest.raises(FatalError, match="Unable to receive temporal database meta"):
+        tgis.get_tgis_db_version_from_metadata()
+
+
+def test_failed_metadata_read_closes_its_own_connection(without_metadata_table):
+    before = _open_handles(core.tgis_database_string)
+
+    with pytest.raises(FatalError) as error:
+        tgis.get_tgis_metadata()
+
     assert error.tb is not None
     assert _open_handles(core.tgis_database_string) == before

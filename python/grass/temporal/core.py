@@ -455,25 +455,32 @@ def get_tgis_db_version_from_metadata(metadata=None):
 
 
 def get_tgis_metadata(dbif=None):
-    """Return the tgis metadata table as a list of rows (dicts) or None if not
-    present
+    """Return the tgis metadata table as a list of rows (dicts)
+
+    A fatal error is reported if the table cannot be read, so the result is
+    never None.
 
     :param dbif: The database interface to be used
-    :returns: The selected rows with key/value columns or None
+    :returns: The selected rows with key/value columns
     """
 
     dbif, connection_state_changed = init_dbif(dbif)
 
-    # Select metadata if the table is present
     try:
-        statement = "SELECT * FROM tgis_metadata;\n"
-        dbif.execute(statement)
+        dbif.execute("SELECT * FROM tgis_metadata;\n")
         rows = dbif.fetchall()
-    except Exception:
-        rows = None
-
-    if connection_state_changed:
-        dbif.close()
+    except SQLStatementError:
+        # A caller that used to get None reported this same text itself.
+        get_tgis_message_interface().fatal(
+            _(
+                "Unable to receive temporal database metadata.\n"
+                "Current temporal database info:%(info)s"
+            )
+            % ({"info": get_database_info_string()})
+        )
+    finally:
+        if connection_state_changed:
+            dbif.close()
 
     return rows
 
@@ -833,16 +840,10 @@ def init(
 
         # Check the version of the temporal database
         dbif.connect()
-        metadata = get_tgis_metadata(dbif)
-        dbif.close()
-        if metadata is None:
-            msgr.fatal(
-                _(
-                    "Unable to receive temporal database metadata.\n"
-                    "Current temporal database info:%(info)s"
-                )
-                % ({"info": get_database_info_string()})
-            )
+        try:
+            metadata = get_tgis_metadata(dbif)
+        finally:
+            dbif.close()
 
         # temporal framework version check
         for entry in metadata:
@@ -1052,14 +1053,6 @@ def upgrade_temporal_database(dbif) -> None:
     metadata = get_tgis_metadata(dbif)
 
     msgr = get_tgis_message_interface()
-    if metadata is None:
-        msgr.fatal(
-            _(
-                "Unable to receive temporal database metadata.\n"
-                "Current temporal database info:%(info)s"
-            )
-            % ({"info": get_database_info_string()})
-        )
     upgrade_db_from = None
     for entry in metadata:
         if "tgis_db_version" in entry and entry[1] != str(tgis_db_version):
