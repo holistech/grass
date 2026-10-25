@@ -109,14 +109,8 @@ from .space_time_datasets import (
     VectorDataset,
 )
 from .spatial_extent import (
-    Raster3DSpatialExtent,
-    RasterSpatialExtent,
     SpatialExtent,
     SpatialExtentRow,
-    STR3DSSpatialExtent,
-    STRDSSpatialExtent,
-    STVDSSpatialExtent,
-    VectorSpatialExtent,
 )
 from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
 from .spatio_temporal_relationships import (
@@ -192,11 +186,9 @@ __all__ = [
     "GlobalTemporalVar",
     "Raster3DDataset",
     "Raster3DMetadata",
-    "Raster3DSpatialExtent",
     "RasterDataset",
     "RasterMetadata",
     "RasterMetadataBase",
-    "RasterSpatialExtent",
     "RegisterRow",
     "RelativeTemporalExtent",
     "RelativeTimeRow",
@@ -207,11 +199,8 @@ __all__ = [
     "STDSMetadataBase",
     "STDSRasterMetadataBase",
     "STR3DSMetadata",
-    "STR3DSSpatialExtent",
     "STRDSMetadata",
-    "STRDSSpatialExtent",
     "STVDSMetadata",
-    "STVDSSpatialExtent",
     "SpaceTimeRaster3DDataset",
     "SpaceTimeRasterDataset",
     "SpaceTimeVectorDataset",
@@ -233,7 +222,6 @@ __all__ = [
     "TemporalVectorAlgebraParser",
     "VectorDataset",
     "VectorMetadata",
-    "VectorSpatialExtent",
     "adjust_datetime_to_granularity",
     "aggregate_by_topology",
     "aggregate_raster_maps",

@@ -6,61 +6,26 @@ Usage:
 .. code-block:: pycon
 
     >>> import grass.temporal as tgis
+    >>> from grass.temporal.kinds import KINDS
     >>> tgis.init()
-    >>> extent = tgis.RasterSpatialExtent(
-    ...     ident="raster@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
-    >>> extent = tgis.Raster3DSpatialExtent(
-    ...     ident="raster3d@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
-    >>> extent = tgis.VectorSpatialExtent(
-    ...     ident="vector@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
-    >>> extent = tgis.STRDSSpatialExtent(
-    ...     ident="strds@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
-    >>> extent = tgis.STR3DSSpatialExtent(
-    ...     ident="str3ds@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
-    >>> extent = tgis.STVDSSpatialExtent(
-    ...     ident="stvds@PERMANENT",
-    ...     north=90,
-    ...     south=90,
-    ...     east=180,
-    ...     west=180,
-    ...     top=100,
-    ...     bottom=-20,
-    ... )
+    >>> for name in ("raster", "raster3d", "vector", "strds", "str3ds", "stvds"):
+    ...     extent = tgis.SpatialExtentRow(
+    ...         KINDS[name],
+    ...         ident=f"{name}@PERMANENT",
+    ...         north=90,
+    ...         south=90,
+    ...         east=180,
+    ...         west=180,
+    ...         top=100,
+    ...         bottom=-20,
+    ...     )
+    ...     print(extent.get_table_name())
+    raster_spatial_extent
+    raster3d_spatial_extent
+    vector_spatial_extent
+    strds_spatial_extent
+    str3ds_spatial_extent
+    stvds_spatial_extent
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -72,7 +37,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from .kinds import KINDS
 from .rows import Column, Row
 
 if TYPE_CHECKING:
@@ -1875,42 +1839,6 @@ class SpatialExtentRow(SpatialExtent):
             bottom,
         )
         self.kind = kind
-
-
-def _extent_class(name: str, kind_name: str) -> type[SpatialExtentRow]:
-    """Make the class that is named for a kind, which the interface keeps"""
-
-    def initialize(
-        self,
-        ident=None,
-        north=None,
-        south=None,
-        east=None,
-        west=None,
-        top=None,
-        bottom=None,
-    ) -> None:
-        SpatialExtentRow.__init__(
-            self, KINDS[kind_name], ident, north, south, east, west, top, bottom
-        )
-
-    return type(
-        name,
-        (SpatialExtentRow,),
-        {
-            "__init__": initialize,
-            "__doc__": f"The spatial extent of a {kind_name}",
-            "__module__": __name__,
-        },
-    )
-
-
-RasterSpatialExtent = _extent_class("RasterSpatialExtent", "raster")
-Raster3DSpatialExtent = _extent_class("Raster3DSpatialExtent", "raster3d")
-VectorSpatialExtent = _extent_class("VectorSpatialExtent", "vector")
-STRDSSpatialExtent = _extent_class("STRDSSpatialExtent", "strds")
-STR3DSSpatialExtent = _extent_class("STR3DSSpatialExtent", "str3ds")
-STVDSSpatialExtent = _extent_class("STVDSSpatialExtent", "stvds")
 
 
 if __name__ == "__main__":

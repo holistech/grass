@@ -829,20 +829,6 @@
    "update": "addons+repo",
    "update_all": "addons+repo"
   },
-  "Raster3DSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
-  },
   "RasterDataset": {
    "build_id": "repo",
    "contains": "repo",
@@ -889,20 +875,6 @@
    "update": "addons+repo",
    "update_all": "addons+repo"
   },
-  "RasterSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
-  },
   "RelativeTemporalExtent": {
    "clear": "repo",
    "contains": "repo",
@@ -927,48 +899,6 @@
    "execute_transaction": "repo",
    "fetchall": "repo",
    "get_dbmi": "repo"
-  },
-  "STR3DSSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
-  },
-  "STRDSSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
-  },
-  "STVDSSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
   },
   "SpaceTimeRaster3DDataset": {
    "_update_map_timestamps": "repo",
@@ -1237,20 +1167,6 @@
    "set_semantic_label": "repo",
    "set_temporal_extent": "addons+repo",
    "temporal_relation": "addons",
-   "update": "addons+repo",
-   "update_all": "addons+repo"
-  },
-  "VectorSpatialExtent": {
-   "clear": "repo",
-   "delete": "repo",
-   "get_id": "addons+repo",
-   "insert": "addons+repo",
-   "is_in_db": "addons+repo",
-   "print_info": "repo",
-   "print_shell_info": "repo",
-   "select": "addons+repo",
-   "set_id": "repo",
-   "union": "repo",
    "update": "addons+repo",
    "update_all": "addons+repo"
   }
