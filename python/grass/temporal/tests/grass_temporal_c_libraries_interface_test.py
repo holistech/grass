@@ -317,3 +317,28 @@ def test_a_function_is_registered_once():
         @c_libraries_interface._handler("get_mapset")
         def other(**_):
             return None
+
+
+def test_an_unknown_map_type_is_answered_also_by_a_function_without_answer_on_error(
+    ciface,
+):
+    # get_mapset sends nothing when it fails; with a map type it does not
+    # read, the call used to leave the client waiting for ever.
+    pid = ciface.server.pid
+
+    with pytest.raises(FatalError, match="Unknown map type bogus"):
+        ciface.call("get_mapset", "bogus")
+
+    assert ciface.get_mapset()
+    assert ciface.server.pid == pid
+
+
+def test_a_request_of_the_wrong_length_is_answered_with_an_error(ciface):
+    pid = ciface.server.pid
+
+    ciface.client_conn.send(("get_mapset", None))
+    with pytest.raises(FatalError, match="no function"):
+        ciface.safe_receive("short request")
+
+    assert ciface.get_mapset()
+    assert ciface.server.pid == pid

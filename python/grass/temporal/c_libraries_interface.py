@@ -771,9 +771,8 @@ def c_library_server(lock: _LockLike, conn: Connection) -> None:
             libgis.G_debug(1, "Stop C-interface server")
             conn.close()
             sys.exit()
-        function = (
-            message[0] if isinstance(message, (list, tuple)) and message else None
-        )
+        well_formed = isinstance(message, (list, tuple)) and len(message) == 6
+        function = message[0] if well_formed else None
         # The client waits for an answer, so a request that no function serves
         # gets an error instead of killing the server.
         if not isinstance(function, str) or function not in _HANDLERS:
@@ -787,7 +786,13 @@ def c_library_server(lock: _LockLike, conn: Connection) -> None:
                     "Unknown map type %(maptype)s in %(function)s",
                     {"maptype": kind, "function": function},
                 )
-                answer = on_error
+                # A function without an answer on error would leave the
+                # client waiting for ever.
+                answer = (
+                    FatalError(f"Unknown map type {kind} in {function}")
+                    if on_error is _NO_ANSWER
+                    else on_error
+                )
             else:
                 try:
                     answer = handler(
