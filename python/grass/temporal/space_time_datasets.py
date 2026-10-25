@@ -59,7 +59,37 @@ from .temporal_extent import (
     VectorRelativeTime,
 )
 
-GRASS_TIMESTAMP_FMT = "%a %b  %d %H:%M:%S %Y"
+_C_MONTHS = {
+    name: number
+    for number, name in enumerate(
+        ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov")
+        + ("Dec",),
+        start=1,
+    )
+}
+
+
+def parse_c_creation_time(text: str) -> datetime:
+    """Read the creation time of the GRASS C library
+
+    The format is "Mon Jan  1 12:00:00 2001".
+
+    The names of the month and the weekday are always English there.
+    datetime.strptime() with %a and %b would read them in the language of the
+    locale of the process, so a German session could not read its own maps.
+    The weekday is not needed for the date and is not checked.
+
+    :raises ValueError: if the text is not such a time
+    """
+    parts = text.split()
+    if len(parts) != 5 or parts[1] not in _C_MONTHS:
+        msg = f"Not a creation time of the C library: {text!r}"
+        raise ValueError(msg)
+    _weekday, month, day, clock, year = parts
+    return datetime.strptime(
+        f"{year}-{_C_MONTHS[month]}-{day} {clock}", "%Y-%m-%d %H:%M:%S"
+    )
+
 
 ###############################################################################
 
@@ -424,9 +454,7 @@ class RasterDataset(_PlanarExtentMethods, AbstractMapDataset):
 
         if kvp:
             self.base.set_creator(kvp["creator"])
-            self.base.set_ctime(
-                datetime.strptime(kvp["creation_time"], GRASS_TIMESTAMP_FMT)
-            )
+            self.base.set_ctime(parse_c_creation_time(kvp["creation_time"]))
         else:
             self.base.set_creator(str(getpass.getuser()))
             self.base.set_ctime()
@@ -814,9 +842,7 @@ class Raster3DDataset(AbstractMapDataset):
 
         if kvp:
             self.base.set_creator(kvp["creator"])
-            self.base.set_ctime(
-                datetime.strptime(kvp["creation_time"], GRASS_TIMESTAMP_FMT)
-            )
+            self.base.set_ctime(parse_c_creation_time(kvp["creation_time"]))
         else:
             self.base.set_creator(str(getpass.getuser()))
             self.base.set_ctime()
@@ -1109,9 +1135,7 @@ class VectorDataset(_PlanarExtentMethods, AbstractMapDataset):
 
         if kvp:
             self.base.set_creator(kvp["creator"])
-            self.base.set_ctime(
-                datetime.strptime(kvp["creation_time"], GRASS_TIMESTAMP_FMT)
-            )
+            self.base.set_ctime(parse_c_creation_time(kvp["creation_time"]))
         else:
             self.base.set_creator(str(getpass.getuser()))
             self.base.set_ctime()

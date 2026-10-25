@@ -1,11 +1,14 @@
 """Regression tests for faults in identifiers, types and timestamps"""
 
+import _strptime
+import calendar
+import locale
 from datetime import datetime
 
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal import core
+from grass.temporal import core, space_time_datasets
 from grass.pygrass.messages import FatalError
 from grass.tools import Tools
 
@@ -256,3 +259,66 @@ def test_missing_map_message_has_no_indentation(raising):
     assert str(error.value) == (
         "Map <b22_does_not_exist> of element type 'cell' not found on search path"
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Mon Jan  1 12:00:00 2001", datetime(2001, 1, 1, 12, 0, 0)),
+        ("Sat Dec 31 23:59:59 1999", datetime(1999, 12, 31, 23, 59, 59)),
+        ("Wed Feb 29 00:00:01 2012", datetime(2012, 2, 29, 0, 0, 1)),
+    ],
+)
+def test_creation_time_of_the_c_library_is_read(text, expected):
+    assert space_time_datasets.parse_c_creation_time(text) == expected
+
+
+@pytest.mark.parametrize("text", ["", "Mon Foo  1 12:00:00 2001", "Mon Jan  1 2001"])
+def test_creation_time_that_is_not_valid_is_refused(text):
+    with pytest.raises(ValueError, match="creation time"):
+        space_time_datasets.parse_c_creation_time(text)
+
+
+@pytest.fixture
+def german_names(monkeypatch):
+    """Make strptime read German names for %a and %b, as under de_DE
+
+    de_DE is not installed on every machine, so the names of the locale are
+    put in place of the ones of the calendar module, which strptime reads, and
+    the cache of its patterns is rebuilt for them.
+    """
+    days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    months = ["", "Jan", "Feb", "Mär", "Apr", "Mai", "Jun"]
+    months += ["Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+    monkeypatch.setattr(calendar, "day_abbr", days)
+    monkeypatch.setattr(calendar, "month_abbr", months)
+    monkeypatch.setattr(_strptime, "_getlang", lambda: ("de_DE", "UTF-8"))
+    monkeypatch.setattr(_strptime, "_TimeRE_cache", _strptime.TimeRE())
+    _strptime._regex_cache.clear()
+    yield
+    _strptime._regex_cache.clear()
+
+
+def test_creation_time_does_not_depend_on_the_names_of_the_locale(german_names):
+    # Guard for the fixture: the names of the C library are English, and
+    # strptime with %a and %b would not read them under these names.
+    with pytest.raises(ValueError, match="does not match"):
+        datetime.strptime("Mon Jan  1 12:00:00 2001", "%a %b  %d %H:%M:%S %Y")
+
+    assert space_time_datasets.parse_c_creation_time(
+        "Mon Jan  1 12:00:00 2001"
+    ) == datetime(2001, 1, 1, 12, 0, 0)
+
+
+def test_creation_time_under_the_german_locale():
+    previous = locale.setlocale(locale.LC_TIME)
+    try:
+        locale.setlocale(locale.LC_TIME, "de_DE.UTF-8")
+    except locale.Error:
+        pytest.skip("The locale de_DE.UTF-8 is not installed")
+    try:
+        parsed = space_time_datasets.parse_c_creation_time("Mon Jan  1 12:00:00 2001")
+    finally:
+        locale.setlocale(locale.LC_TIME, previous)
+
+    assert parsed == datetime(2001, 1, 1, 12, 0, 0)
