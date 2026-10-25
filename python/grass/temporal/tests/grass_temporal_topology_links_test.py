@@ -340,3 +340,29 @@ def test_the_numbers_of_the_spatial_topology_alone():
 
 def test_there_are_no_numbers_without_a_topology():
     assert RasterDataset("a@p").get_number_of_relations() is None
+
+
+def test_the_temporal_shell_output_is_one_line_per_relation():
+    m = RasterDataset("m@p")
+    for i in range(4):
+        set_temporal_relationship(RasterDataset(f"s{i}@p"), m, "starts")
+        set_temporal_relationship(RasterDataset(f"f{i}@p"), m, "finishes")
+
+    lines = printed(m.print_temporal_topology_shell_info).splitlines()
+
+    assert "starts=s0@p,s1@p,s2@p,s3@p" in lines
+    assert "finishes=f0@p,f1@p,f2@p,f3@p" in lines
+    assert all("=" in line for line in lines)
+
+
+def test_the_spatial_shell_output_is_one_line_per_relation():
+    m = RasterDataset("m@p")
+    for relation in ("overlap", "contain", "in", "meet"):
+        for i in range(4):
+            set_spatial_relationship(RasterDataset(f"{relation}{i}@p"), m, relation)
+
+    lines = printed(m.print_spatial_topology_shell_info).splitlines()
+
+    assert "overlap=overlap0@p,overlap1@p,overlap2@p,overlap3@p" in lines
+    assert "meet=meet0@p,meet1@p,meet2@p,meet3@p" in lines
+    assert all("=" in line for line in lines)

@@ -579,13 +579,13 @@ class TemporalTopologyDatasetConnector:
         if self.contains is not None:
             print("contains=" + self._generate_map_list_string(self.contains, False))
         if self.starts is not None:
-            print("starts=" + self._generate_map_list_string(self.starts))
+            print("starts=" + self._generate_map_list_string(self.starts, False))
         if self.started is not None:
-            print("started=" + self._generate_map_list_string(self.started))
+            print("started=" + self._generate_map_list_string(self.started, False))
         if self.finishes is not None:
-            print("finishes=" + self._generate_map_list_string(self.finishes))
+            print("finishes=" + self._generate_map_list_string(self.finishes, False))
         if self.finished is not None:
-            print("finished=" + self._generate_map_list_string(self.finished))
+            print("finished=" + self._generate_map_list_string(self.finished, False))
 
 
 ###############################################################################

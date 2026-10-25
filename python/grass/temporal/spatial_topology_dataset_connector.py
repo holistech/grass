@@ -375,13 +375,13 @@ class SpatialTopologyDatasetConnector:
         if self.covered is not None:
             print("covered=" + self._generate_map_list_string(self.covered, False))
         if self.overlap is not None:
-            print("overlap=" + self._generate_map_list_string(self.overlap))
+            print("overlap=" + self._generate_map_list_string(self.overlap, False))
         if self.in_ is not None:
-            print("in=" + self._generate_map_list_string(self.in_))
+            print("in=" + self._generate_map_list_string(self.in_, False))
         if self.contain is not None:
-            print("contain=" + self._generate_map_list_string(self.contain))
+            print("contain=" + self._generate_map_list_string(self.contain, False))
         if self.meet is not None:
-            print("meet=" + self._generate_map_list_string(self.meet))
+            print("meet=" + self._generate_map_list_string(self.meet, False))
 
 
 ###############################################################################
