@@ -17,6 +17,7 @@ import pickle
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal import topology
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -655,3 +656,54 @@ def test_registered_maps_by_granularity_of_relative_instants_reaches_the_last(pa
         [None],
         [f"{pair['m2']}@{mapset}"],
     ]
+
+
+ALL_RELATIONS = (
+    "equal",
+    "during",
+    "contains",
+    "overlaps",
+    "overlapped",
+    "starts",
+    "finishes",
+    "started",
+    "finished",
+    "follows",
+    "precedes",
+)
+FORBIDDEN_FOR_INTERVALS = ALL_RELATIONS[:9]
+
+
+@pytest.mark.parametrize("map_time", ["interval", "mixed"])
+@pytest.mark.parametrize("relation", ALL_RELATIONS)
+def test_counted_relations_against_the_rules_for_intervals(map_time, relation):
+    counts = dict.fromkeys(ALL_RELATIONS, 0)
+    counts[relation] = 3
+
+    result = topology.has_correct_temporal_topology(counts, map_time)
+
+    assert result is (relation not in FORBIDDEN_FOR_INTERVALS)
+
+
+@pytest.mark.parametrize("relation", ALL_RELATIONS)
+def test_counted_relations_against_the_rules_for_instants(relation):
+    counts = dict.fromkeys(ALL_RELATIONS, 0)
+    counts[relation] = 3
+
+    assert topology.has_correct_temporal_topology(counts, "point") is (
+        relation != "equal"
+    )
+
+
+@pytest.mark.parametrize("map_time", ["interval", "mixed", "point"])
+def test_a_missing_count_is_no_relation(map_time):
+    assert topology.has_correct_temporal_topology({}, map_time) is True
+
+
+@pytest.mark.parametrize("map_time", ["invalid", None, "fuzzy"])
+def test_other_map_times_have_no_correct_topology(map_time):
+    assert topology.has_correct_temporal_topology({}, map_time) is False
+
+
+def test_no_counted_relations_is_no_correct_topology():
+    assert topology.has_correct_temporal_topology(None, "interval") is False

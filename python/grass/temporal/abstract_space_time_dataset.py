@@ -22,6 +22,7 @@ from .db import connection
 from .topology import (
     SpatioTemporalTopologyBuilder,
     count_temporal_topology_relationships,
+    has_correct_temporal_topology,
     print_spatio_temporal_topology_relationships,
 )
 from .state import get_current_mapset
@@ -547,37 +548,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
         relations = count_temporal_topology_relationships(maps1=maps, dbif=dbif)
 
-        if relations is None:
-            return False
-
-        map_time = self.get_map_time()
-
-        if map_time in {"interval", "mixed"}:
-            if "equal" in relations and relations["equal"] > 0:
-                return False
-            if "during" in relations and relations["during"] > 0:
-                return False
-            if "contains" in relations and relations["contains"] > 0:
-                return False
-            if "overlaps" in relations and relations["overlaps"] > 0:
-                return False
-            if "overlapped" in relations and relations["overlapped"] > 0:
-                return False
-            if "starts" in relations and relations["starts"] > 0:
-                return False
-            if "finishes" in relations and relations["finishes"] > 0:
-                return False
-            if "started" in relations and relations["started"] > 0:
-                return False
-            if "finished" in relations and relations["finished"] > 0:
-                return False
-        elif map_time == "point":
-            if "equal" in relations and relations["equal"] > 0:
-                return False
-        else:
-            return False
-
-        return True
+        return has_correct_temporal_topology(relations, self.get_map_time())
 
     def sample_by_dataset(
         self, stds, method=None, spatial: bool = False, dbif=None, where=None

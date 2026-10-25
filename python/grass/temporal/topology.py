@@ -1089,6 +1089,46 @@ def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
         return relations
 
 
+# The relations, counted between neighbouring maps, that a dataset with a
+# correct temporal topology must not have. Intervals may only follow or
+# precede each other. Instants may only be told apart by their time, hence
+# only "equal" is forbidden. A dataset with mixed time is checked like one
+# with intervals.
+_FORBIDDEN_RELATIONS = {
+    "interval": (
+        "equal",
+        "during",
+        "contains",
+        "overlaps",
+        "overlapped",
+        "starts",
+        "finishes",
+        "started",
+        "finished",
+    ),
+    "point": ("equal",),
+}
+_FORBIDDEN_RELATIONS["mixed"] = _FORBIDDEN_RELATIONS["interval"]
+
+
+def has_correct_temporal_topology(relations, map_time) -> bool:
+    """Check counted temporal relations against the topology rules
+
+    :param relations: The dictionary of count_temporal_topology_relationships(),
+                      None if no relation was counted
+    :param map_time: The map time of the dataset: "interval", "point" or
+                     "mixed"
+    :return: True if none of the relations that the map time forbids was
+             counted; False for no counts and for any other map time (a
+             dataset with invalid time has no correct topology)
+    """
+    if relations is None or map_time not in _FORBIDDEN_RELATIONS:
+        return False
+    return not any(
+        relations.get(name, 0) > 0 for name in _FORBIDDEN_RELATIONS[map_time]
+    )
+
+
 def create_temporal_relation_sql_where_statement(
     start,
     end,
