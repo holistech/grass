@@ -1932,11 +1932,11 @@ class AbstractSpaceTimeDataset(AbstractDataset):
             )
 
             if where is not None and where != "":
-                sql += " AND (%s)" % (where.split(";")[0])
+                sql += " AND (%s)" % where
             if group:
                 sql += f" GROUP BY {group}"
             if order is not None and order != "":
-                sql += " ORDER BY %s" % (order.split(";")[0])
+                sql += " ORDER BY %s" % order
             sql += ";"
 
             try:

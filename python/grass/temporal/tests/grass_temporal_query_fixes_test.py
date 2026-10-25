@@ -64,3 +64,33 @@ def test_where_with_or_does_not_return_rows_of_another_mapset(two_mapsets):
     # of that mapset; the map of "other" is registered in the database of
     # "work" but belongs to "other".
     assert rows == {("work", "b14_work", "work")}
+
+
+@pytest.fixture
+def small_strds(two_mapsets):
+    work, _other = two_mapsets
+    make_map(work, "raster", "b15_map", 1, overwrite=True)
+    register_stds(
+        work,
+        "strds",
+        "b15_ds",
+        [MapSpec("b15_map", None, day(0), day(1))],
+        via="library",
+        overwrite=True,
+    )
+    return tgis.open_old_stds("b15_ds", "strds")
+
+
+def test_where_with_a_semicolon_in_a_value_is_kept(small_strds):
+    rows = small_strds.get_registered_maps(
+        "name", where="name = 'a;b' OR name = 'b15_map'", order="name"
+    )
+
+    assert [row["name"] for row in rows] == ["b15_map"]
+
+
+def test_where_with_a_semicolon_is_not_cut_into_a_valid_statement(small_strds):
+    # Cutting at the semicolon used to turn this into "name = 'b15_map'" and
+    # hide that the condition is not valid SQL.
+    with pytest.raises(tgis.SQLStatementError):
+        small_strds.get_registered_maps("name", where="name = 'b15_map'; --")
