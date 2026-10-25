@@ -538,35 +538,35 @@ class SpatioTemporalTopologyBuilder:
                 map_.reset_topology()
 
         tree = self._build_rtree(mapsA, spatial)
-
         list_ = gis.G_new_ilist()
+        # The tree and the list belong to the C library, the garbage collector
+        # does not free them, and an error in the loop must not leak them.
+        try:
+            for j in range(len(mapsB)):
+                rect = self._map_to_rect(tree, mapsB[j], spatial)
+                vector.RTreeSearch2(tree, rect, list_)
+                rtree.RTreeFreeRect(rect)
 
-        for j in range(len(mapsB)):
-            rect = self._map_to_rect(tree, mapsB[j], spatial)
-            vector.RTreeSearch2(tree, rect, list_)
-            rtree.RTreeFreeRect(rect)
+                for k in range(list_.contents.n_values):
+                    i = list_.contents.value[k] - 1
 
-            for k in range(list_.contents.n_values):
-                i = list_.contents.value[k] - 1
+                    # Get the temporal relationship
+                    relation = mapsB[j].temporal_relation(mapsA[i])
 
-                # Get the temporal relationship
-                relation = mapsB[j].temporal_relation(mapsA[i])
+                    A = mapsA[i]
+                    B = mapsB[j]
+                    set_temporal_relationship(A, B, relation)
 
-                A = mapsA[i]
-                B = mapsB[j]
-                set_temporal_relationship(A, B, relation)
+                    if spatial is not None:
+                        relation = mapsB[j].spatial_relation(mapsA[i])
+                        set_spatial_relationship(A, B, relation)
 
-                if spatial is not None:
-                    relation = mapsB[j].spatial_relation(mapsA[i])
-                    set_spatial_relationship(A, B, relation)
-
-        self._build_internal_iteratable(mapsA, spatial)
-        if not identical and mapsB is not None:
-            self._build_iteratable(mapsB, spatial)
-
-        gis.G_free_ilist(list_)
-
-        rtree.RTreeDestroyTree(tree)
+            self._build_internal_iteratable(mapsA, spatial)
+            if not identical and mapsB is not None:
+                self._build_iteratable(mapsB, spatial)
+        finally:
+            gis.G_free_ilist(list_)
+            rtree.RTreeDestroyTree(tree)
 
     def __iter__(self):
         start_ = self._first

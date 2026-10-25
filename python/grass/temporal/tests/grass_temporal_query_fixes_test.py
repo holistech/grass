@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal import spatio_temporal_relationships
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.temporal.testing.session import mapset_session, temporal_session
 from grass.tools import Tools
@@ -174,3 +175,53 @@ def test_semantic_label_with_a_quote_is_text(small_strds, label):
     rows = small_strds.get_registered_maps("name")
 
     assert not rows
+
+
+@pytest.fixture
+def freed(monkeypatch):
+    """Record the calls that free the R-tree and the list of the builder"""
+    calls = []
+    for module, name in (
+        (spatio_temporal_relationships.rtree, "RTreeDestroyTree"),
+        (spatio_temporal_relationships.gis, "G_free_ilist"),
+    ):
+        original = getattr(module, name)
+
+        def record(*args, _original=original, _name=name):
+            calls.append(_name)
+            return _original(*args)
+
+        monkeypatch.setattr(module, name, record)
+    return calls
+
+
+def _maps(count):
+    maps = []
+    for number in range(count):
+        item = tgis.RasterDataset(f"b21_{number}@" + tgis.get_current_mapset())
+        item.set_absolute_time(day(number), day(number + 1))
+        maps.append(item)
+    return maps
+
+
+def test_build_frees_the_tree_and_the_list(two_mapsets, freed):
+    tgis.SpatioTemporalTopologyBuilder().build(_maps(3))
+
+    assert sorted(freed) == ["G_free_ilist", "RTreeDestroyTree"]
+
+
+def test_build_frees_the_tree_and_the_list_when_it_fails(
+    two_mapsets, freed, monkeypatch
+):
+    def refuse(*args):
+        msg = "stop"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(
+        spatio_temporal_relationships, "set_temporal_relationship", refuse
+    )
+
+    with pytest.raises(RuntimeError, match="stop"):
+        tgis.SpatioTemporalTopologyBuilder().build(_maps(3))
+
+    assert sorted(freed) == ["G_free_ilist", "RTreeDestroyTree"]
