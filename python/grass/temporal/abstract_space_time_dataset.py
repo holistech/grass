@@ -28,7 +28,7 @@ from .datetime_math import (
 )
 from .db import connection
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
-from .spatio_temporal_relationships import (
+from .topology import (
     SpatioTemporalTopologyBuilder,
     count_temporal_topology_relationships,
     create_temporal_relation_sql_where_statement,

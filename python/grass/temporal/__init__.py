@@ -102,8 +102,7 @@ from .spatial_extent import (
     SpatialExtent,
     SpatialExtentRow,
 )
-from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
-from .spatio_temporal_relationships import (
+from .topology import (
     SpatioTemporalTopologyBuilder,
     count_temporal_topology_relationships,
     create_temporal_relation_sql_where_statement,
@@ -148,7 +147,6 @@ from .temporal_raster_base_algebra import (
     TemporalRasterAlgebraLexer,
     TemporalRasterBaseAlgebraParser,
 )
-from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnector
 from .temporal_vector_algebra import (
     TemporalVectorAlgebraLexer,
     TemporalVectorAlgebraParser,
@@ -189,7 +187,6 @@ __all__ = [
     "SpaceTimeVectorDataset",
     "SpatialExtent",
     "SpatialExtentRow",
-    "SpatialTopologyDatasetConnector",
     "SpatioTemporalTopologyBuilder",
     "TemporalAlgebraLexer",
     "TemporalAlgebraParser",
@@ -200,7 +197,6 @@ __all__ = [
     "TemporalRasterAlgebraLexer",
     "TemporalRasterAlgebraParser",
     "TemporalRasterBaseAlgebraParser",
-    "TemporalTopologyDatasetConnector",
     "TemporalVectorAlgebraLexer",
     "TemporalVectorAlgebraParser",
     "VectorDataset",

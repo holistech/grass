@@ -796,6 +796,18 @@ def _topology_maps(kind, series):
     return maps
 
 
+def _relation_list(map_, getter):
+    """The maps of the relation a getter is named after
+
+    Read from the relation dictionaries, which the algebra and the tools read
+    as well, so the record does not depend on one accessor method per
+    relation. Temporal and spatial names do not overlap: overlaps and overlap,
+    contains and contain, equal and equivalent.
+    """
+    links = {**map_.get_temporal_relations(), **map_.get_spatial_relations()}
+    return links.get(getter.removeprefix("get_").upper())
+
+
 def _topology_result(maps, builder, getters):
     """The relation lists as "<index>:<id>" in the order the builder made them
 
@@ -816,7 +828,7 @@ def _topology_result(maps, builder, getters):
                 "map": f"{index}:{map_.get_id()}",
                 "next": named([map_.next()] if map_.next() else []),
                 "prev": named([map_.prev()] if map_.prev() else []),
-                **{name: named(getattr(map_, name)()) for name in getters},
+                **{name: named(_relation_list(map_, name)) for name in getters},
             }
         )
     result.append({"iteration": named(list(builder)), "length": len(builder)})

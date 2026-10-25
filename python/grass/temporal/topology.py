@@ -1,5 +1,12 @@
 """
-Class to build the spatio-temporal topology between map lists
+Topology of datasets: the links a map keeps to its related maps and the
+builder that finds them
+
+A map links to the maps it is temporally and spatially related to. The
+relations come in pairs, because A follows B exactly when B precedes A; the
+tables INVERSE_TEMPORAL_RELATION and INVERSE_SPATIAL_RELATION hold the pairs and
+are the only place that knows them. The SpatioTemporalTopologyBuilder finds the
+related maps of one or two lists of maps with an R*-tree and enters the links.
 
 Usage:
 
@@ -10,21 +17,401 @@ Usage:
     tgis.print_temporal_relations(maps)
 
 
-SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
+SPDX-FileCopyrightText: 2012-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 
 :authors: Soeren Gebbert
 """
 
+from __future__ import annotations
+
+import copy
 from datetime import datetime
 
 from grass.lib import gis, rtree, vector
 
-from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
 from .datetime_math import time_delta_to_relative_time_seconds
 from .db import connection
 
-###############################################################################
+# The temporal relations of a map to another map, each with the relation the
+# other map has to it. The order is the one of the counts of the relations.
+INVERSE_TEMPORAL_RELATION = {
+    "equal": "equal",
+    "follows": "precedes",
+    "precedes": "follows",
+    "overlaps": "overlapped",
+    "overlapped": "overlaps",
+    "during": "contains",
+    "contains": "during",
+    "starts": "started",
+    "started": "starts",
+    "finishes": "finished",
+    "finished": "finishes",
+}
+
+# The same for the spatial relations
+INVERSE_SPATIAL_RELATION = {
+    "equivalent": "equivalent",
+    "overlap": "overlap",
+    "in": "contain",
+    "contain": "in",
+    "meet": "meet",
+    "cover": "covered",
+    "covered": "cover",
+}
+
+# A map that starts or finishes another one is during it, too, and a map that
+# is started or finished by another one contains it. The relation is entered
+# after the one it implies, which fixes the order of the keys of the map.
+_IMPLIED_RELATION = {
+    "starts": "during",
+    "finishes": "during",
+    "started": "contains",
+    "finished": "contains",
+}
+
+# What the printed topology shows, in its order: the name of the relation
+# and the text before the list of maps. The two kinds of output differ in
+# the wording only, the shell output has the name and an equals sign.
+_TEMPORAL_PRINT = (
+    ("equal", " | Equal:...................... "),
+    ("follows", " | Follows: ................... "),
+    ("precedes", " | Precedes: .................. "),
+    ("overlaps", " | Overlaps: .................. "),
+    ("overlapped", " | Overlapped: ................ "),
+    ("during", " | During: .................... "),
+    ("contains", " | Contains: .................. "),
+    ("starts", " | Starts:.. .................. "),
+    ("started", " | Started:. .................. "),
+    ("finishes", " | Finishes:................... "),
+    ("finished", " | Finished:................... "),
+)
+_SPATIAL_PRINT = (
+    ("equivalent", " | Equivalent: ................ "),
+    ("cover", " | Cover: ..................... "),
+    ("covered", " | Covered: ................... "),
+    ("overlap", " | Overlap: ................... "),
+    ("in", " | In: ........................ "),
+    ("contain", " | Contain: ................... "),
+    ("meet", " | Meet: ...................... "),
+)
+
+
+def map_list_string(map_list, line_wrap: bool = True) -> str:
+    """Return the identifiers of the maps, three per line if line_wrap is set"""
+    count = 0
+    string = ""
+    for map_ in map_list:
+        if line_wrap and count > 0 and (count % 3 == 0):
+            string += "\n | ............................ "
+            count = 0
+        if count == 0:
+            string += map_.get_id()
+        else:
+            string += ",%s" % map_.get_id()
+        count += 1
+
+    return string
+
+
+def _temporal_getter(relation: str):
+    """Return the method that returns the maps of a temporal relation"""
+
+    def getter(self):
+        return self._links["temporal"].get(relation.upper())
+
+    getter.__name__ = f"get_{relation}"
+    getter.__doc__ = f"""Return the list of maps this map has the relation "{relation}" to
+
+    :return: A list of map objects or None
+    """
+    return getter
+
+
+class TopologyLinks:
+    """The links of a map to the maps it is temporally and spatially related to
+
+    The links are set up by the SpatioTemporalTopologyBuilder. Two maps are
+    equal only if they are the same object, whatever their identifiers say,
+    so a map is linked once per relation and object. The links keep the order
+    in which they were entered, and so do the keys of the relation
+    dictionaries.
+
+    If the temporal topology is built, next() and prev() let the user walk
+    forward and backward in time:
+
+    .. code-block:: python
+
+        # We have build the temporal topology and we know the first map
+        start = first
+        while start:
+            # Print all maps this map temporally contains
+            for map in start.get_contains() or []:
+                map.print_info()
+
+            start = start.next()
+
+    .. code-block:: pycon
+
+        >>> import grass.temporal as tgis
+        >>> tgis.init()
+        >>> a = tgis.RasterDataset("a@P")
+        >>> b = tgis.RasterDataset("b@P")
+        >>> set_temporal_relationship(a, b, "starts")
+        >>> set_spatial_relationship(a, b, "cover")
+        >>> [m.get_id() for m in b.get_during()]
+        ['a@P']
+        >>> [m.get_id() for m in a.get_temporal_relations()["CONTAINS"]]
+        ['b@P']
+        >>> print_temporal_topology_info(b)
+         +-------------------- Temporal Topology -------------------------------------+
+         | During: .................... a@P
+         | Starts:.. .................. a@P
+        >>> print_temporal_topology_shell_info(a)
+        contains=b@P
+        started=b@P
+        >>> print_spatial_topology_shell_info(a)
+        covered=b@P
+        >>> b.set_next(a)
+        >>> sorted(b.get_temporal_relations())
+        ['DURING', 'NEXT', 'STARTS']
+    """
+
+    def __init__(self) -> None:
+        self.reset_topology()
+
+    def reset_topology(self) -> None:
+        """Reset any information about the temporal and spatial topology"""
+        # Per scope the relation lists by name in upper case, for the temporal
+        # topology with the maps NEXT and PREV among them, and per relation
+        # the set of the maps in the list for the check whether a map is
+        # linked already. Plain containers, so that copy and pickle work.
+        self._links = {"temporal": {}, "spatial": {}}
+        self._members = {"temporal": {}, "spatial": {}}
+        self._built = {"temporal": False, "spatial": False}
+
+    def _link(self, scope: str, relation: str, map_) -> None:
+        """Append a map to the list of a relation, unless it is linked already"""
+        key = relation.upper()
+        members = self._members[scope].setdefault(key, set())
+        if map_ in members:
+            return
+        members.add(map_)
+        self._links[scope].setdefault(key, []).append(map_)
+
+    def get_temporal_relations(self):
+        """Return the dictionary of temporal relationships
+
+        Keys are the temporal relationships in upper case,
+        values are lists of abstract map objects. The maps of next() and
+        prev() are entered as NEXT and PREV.
+
+        :return: The temporal relations dictionary
+        """
+        return copy.copy(self._links["temporal"])
+
+    def get_spatial_relations(self):
+        """Return the dictionary of spatial relationships
+
+        Keys are the spatial relationships in upper case,
+        values are lists of abstract map objects.
+
+        :return: The spatial relations dictionary
+        """
+        return copy.copy(self._links["spatial"])
+
+    def _number_of(self, scope: str, relations):
+        """Return the number of links per relation, None if not built"""
+        if not self._built[scope]:
+            return None
+        return {
+            name: len(self._links[scope].get(name.upper(), ())) for name in relations
+        }
+
+    def get_number_of_temporal_relations(self):
+        """Return a dictionary in which the keys are the relation names and
+        the value are the number of relations.
+
+        The following relations are available:
+
+        - equal
+        - follows
+        - precedes
+        - overlaps
+        - overlapped
+        - during (including starts, finishes)
+        - contains (including started, finished)
+        - starts
+        - started
+        - finishes
+        - finished
+
+        To access topological information the temporal topology must be build
+        first using the SpatioTemporalTopologyBuilder.
+
+        :return: the dictionary with relations as keys and number as values
+                 or None in case the topology wasn't build
+        """
+        return self._number_of("temporal", INVERSE_TEMPORAL_RELATION)
+
+    def get_number_of_spatial_relations(self):
+        """Return a dictionary in which the keys are the relation names and the value
+        are the number of relations.
+
+        The following relations are available:
+
+        - equivalent
+        - overlap
+        - in
+        - contain
+        - meet
+        - cover
+        - covered
+
+        To access topological information the spatial topology must be
+        build first using the SpatioTemporalTopologyBuilder.
+
+        :return: the dictionary with relations as keys and number as
+                 values or None in case the topology wasn't build
+        """
+        return self._number_of("spatial", INVERSE_SPATIAL_RELATION)
+
+    def set_temporal_topology_build_true(self) -> None:
+        """Same as name"""
+        self._built["temporal"] = True
+
+    def set_temporal_topology_build_false(self) -> None:
+        """Same as name"""
+        self._built["temporal"] = False
+
+    def is_temporal_topology_build(self):
+        """Check if the temporal topology was build"""
+        return self._built["temporal"]
+
+    def set_spatial_topology_build_true(self) -> None:
+        """Same as name"""
+        self._built["spatial"] = True
+
+    def set_spatial_topology_build_false(self) -> None:
+        """Same as name"""
+        self._built["spatial"] = False
+
+    def is_spatial_topology_build(self):
+        """Check if the spatial topology was build"""
+        return self._built["spatial"]
+
+    def set_next(self, map) -> None:
+        """Set the map that is temporally as closest located after this map.
+
+        Temporally located means that the start time of the "next" map is
+        temporally located AFTER the start time of this map, but temporally
+        near than other maps of the same dataset.
+
+        :param map: This object should be of type AbstractMapDataset
+                    or derived classes
+        """
+        self._links["temporal"]["NEXT"] = map
+
+    def set_prev(self, map) -> None:
+        """Set the map that is temporally as closest located before this map.
+
+        Temporally located means that the start time of the "previous" map
+        is temporally located BEFORE the start time of this map, but
+        temporally near than other maps of the same dataset.
+
+        :param map: This object should be of type AbstractMapDataset
+                    or derived classes
+        """
+        self._links["temporal"]["PREV"] = map
+
+    def next(self):
+        """Return the map with a start time temporally located after
+        the start time of this map, but temporal closer than other maps
+
+        :return: A map object or None
+        """
+        return self._links["temporal"].get("NEXT")
+
+    def prev(self):
+        """Return the map with a start time temporally located before
+        the start time of this map, but temporal closer than other maps
+
+        :return: A map object or None
+        """
+        return self._links["temporal"].get("PREV")
+
+    get_equal = _temporal_getter("equal")
+    get_follows = _temporal_getter("follows")
+    get_precedes = _temporal_getter("precedes")
+    get_overlaps = _temporal_getter("overlaps")
+    get_overlapped = _temporal_getter("overlapped")
+    get_during = _temporal_getter("during")
+    get_contains = _temporal_getter("contains")
+    get_starts = _temporal_getter("starts")
+
+    # The only accessor that is a property: the public contract names it.
+    contains = property(get_contains)
+
+
+def _print_header(scope: str) -> None:
+    """Print the title line of the human readable topology"""
+    if scope == "temporal":
+        print(
+            " +-------------------- Temporal Topology -------------------------------------+"  # noqa: E501
+        )
+    else:
+        print(
+            " +-------------------- Spatial Topology --------------------------------------+"  # noqa: E501
+        )
+
+
+def print_temporal_topology_info(map_) -> None:
+    """Print the temporal topology of a map in human readable style"""
+    _print_header("temporal")
+    #          0123456789012345678901234567890
+    if map_.next() is not None:
+        print(" | Next: ...................... " + str(map_.next().get_id()))
+    if map_.prev() is not None:
+        print(" | Previous: .................. " + str(map_.prev().get_id()))
+    links = map_.get_temporal_relations()
+    for name, text in _TEMPORAL_PRINT:
+        if name.upper() in links:
+            print(text + map_list_string(links[name.upper()]))
+
+
+def print_temporal_topology_shell_info(map_) -> None:
+    """Print the temporal topology of a map in shell style"""
+    if map_.next() is not None:
+        print("next=" + map_.next().get_id())
+    if map_.prev() is not None:
+        print("prev=" + map_.prev().get_id())
+    links = map_.get_temporal_relations()
+    for name, _text in _TEMPORAL_PRINT:
+        if name.upper() in links:
+            print(f"{name}=" + map_list_string(links[name.upper()], False))
+
+
+def print_spatial_topology_info(map_) -> None:
+    """Print the spatial topology of a map in human readable style"""
+    _print_header("spatial")
+    #          0123456789012345678901234567890
+    links = map_.get_spatial_relations()
+    for name, text in _SPATIAL_PRINT:
+        if name.upper() in links:
+            print(text + map_list_string(links[name.upper()]))
+
+
+def print_spatial_topology_shell_info(map_) -> None:
+    """Print the spatial topology of a map in shell style"""
+    links = map_.get_spatial_relations()
+    for name, _text in _SPATIAL_PRINT:
+        if name.upper() in links:
+            print(f"{name}=" + map_list_string(links[name.upper()], False))
+
+
+def _start_time(map_):
+    """Return the start time of a map, the key to sort maps chronologically"""
+    return map_.get_temporal_extent_as_tuple()[0]
 
 
 class SpatioTemporalTopologyBuilder:
@@ -418,7 +805,7 @@ class SpatioTemporalTopologyBuilder:
                      objects with initiated temporal extent
         """
         # First we need to order the map list chronologically
-        sorted_maps = sorted(maps, key=AbstractDatasetComparisonKeyStartTime)
+        sorted_maps = sorted(maps, key=_start_time)
 
         for i in range(len(sorted_maps) - 1):
             sorted_maps[i].set_next(sorted_maps[i + 1])
@@ -584,119 +971,46 @@ class SpatioTemporalTopologyBuilder:
         return map_ in self._store.values()
 
 
-###############################################################################
-
-
 def set_temporal_relationship(A, B, relation) -> None:
-    if relation in {"equal", "equals"}:
-        if A != B:
-            if not B.get_equal() or (B.get_equal() and A not in B.get_equal()):
-                B.append_equal(A)
-            if not A.get_equal() or (A.get_equal() and B not in A.get_equal()):
-                A.append_equal(B)
-    elif relation == "follows":
-        if not B.get_follows() or (B.get_follows() and A not in B.get_follows()):
-            B.append_follows(A)
-        if not A.get_precedes() or (A.get_precedes() and B not in A.get_precedes()):
-            A.append_precedes(B)
-    elif relation == "precedes":
-        if not B.get_precedes() or (B.get_precedes() and A not in B.get_precedes()):
-            B.append_precedes(A)
-        if not A.get_follows() or (A.get_follows() and B not in A.get_follows()):
-            A.append_follows(B)
-    elif relation in {"during", "starts", "finishes"}:
-        if not B.get_during() or (B.get_during() and A not in B.get_during()):
-            B.append_during(A)
-        if not A.get_contains() or (A.get_contains() and B not in A.get_contains()):
-            A.append_contains(B)
-        if relation == "starts":
-            if not B.get_starts() or (B.get_starts() and A not in B.get_starts()):
-                B.append_starts(A)
-            if not A.get_started() or (A.get_started() and B not in A.get_started()):
-                A.append_started(B)
-        if relation == "finishes":
-            if not B.get_finishes() or (B.get_finishes() and A not in B.get_finishes()):
-                B.append_finishes(A)
-            if not A.get_finished() or (A.get_finished() and B not in A.get_finished()):
-                A.append_finished(B)
-    elif relation in {"contains", "started", "finished"}:
-        if not B.get_contains() or (B.get_contains() and A not in B.get_contains()):
-            B.append_contains(A)
-        if not A.get_during() or (A.get_during() and B not in A.get_during()):
-            A.append_during(B)
-        if relation == "started":
-            if not B.get_started() or (B.get_started() and A not in B.get_started()):
-                B.append_started(A)
-            if not A.get_starts() or (A.get_starts() and B not in A.get_starts()):
-                A.append_starts(B)
-        if relation == "finished":
-            if not B.get_finished() or (B.get_finished() and A not in B.get_finished()):
-                B.append_finished(A)
-            if not A.get_finishes() or (A.get_finishes() and B not in A.get_finishes()):
-                A.append_finishes(B)
-    elif relation == "overlaps":
-        if not B.get_overlaps() or (B.get_overlaps() and A not in B.get_overlaps()):
-            B.append_overlaps(A)
-        if not A.get_overlapped() or (
-            A.get_overlapped() and B not in A.get_overlapped()
-        ):
-            A.append_overlapped(B)
-    elif relation == "overlapped":
-        if not B.get_overlapped() or (
-            B.get_overlapped() and A not in B.get_overlapped()
-        ):
-            B.append_overlapped(A)
-        if not A.get_overlaps() or (A.get_overlaps() and B not in A.get_overlaps()):
-            A.append_overlaps(B)
+    """Link two maps by the temporal relation of B to A, both ways
 
+    B gets A in the list of the relation, A gets B in the list of the inverse
+    relation. A relation that is none of the temporal relations links nothing.
+    A map is not equal to itself in this sense.
 
-###############################################################################
+    :param A: A map, the one the relation of B is given to
+    :param B: A map
+    :param relation: The name of the relation, "equals" is "equal"
+    """
+    if relation == "equals":
+        relation = "equal"
+    if relation not in INVERSE_TEMPORAL_RELATION:
+        return
+    if relation == "equal" and A == B:
+        return
+    implied = _IMPLIED_RELATION.get(relation)
+    for name in (relation,) if implied is None else (implied, relation):
+        B._link("temporal", name, A)
+        A._link("temporal", INVERSE_TEMPORAL_RELATION[name], B)
 
 
 def set_spatial_relationship(A, B, relation) -> None:
-    if relation == "equivalent":
-        if A != B:
-            if not B.get_equivalent() or (
-                B.get_equivalent() and A not in B.get_equivalent()
-            ):
-                B.append_equivalent(A)
-            if not A.get_equivalent() or (
-                A.get_equivalent() and B not in A.get_equivalent()
-            ):
-                A.append_equivalent(B)
-    elif relation == "overlap":
-        if not B.get_overlap() or (B.get_overlap() and A not in B.get_overlap()):
-            B.append_overlap(A)
-        if not A.get_overlap() or (A.get_overlap() and B not in A.get_overlap()):
-            A.append_overlap(B)
-    elif relation == "meet":
-        if not B.get_meet() or (B.get_meet() and A not in B.get_meet()):
-            B.append_meet(A)
-        if not A.get_meet() or (A.get_meet() and B not in A.get_meet()):
-            A.append_meet(B)
-    elif relation == "contain":
-        if not B.get_contain() or (B.get_contain() and A not in B.get_contain()):
-            B.append_contain(A)
-        if not A.get_in() or (A.get_in() and B not in A.get_in()):
-            A.append_in(B)
-    elif relation == "in":
-        if not B.get_in() or (B.get_in() and A not in B.get_in()):
-            B.append_in(A)
-        if not A.get_contain() or (A.get_contain() and B not in A.get_contain()):
-            A.append_contain(B)
-    elif relation == "cover":
-        if not B.get_cover() or (B.get_cover() and A not in B.get_cover()):
-            B.append_cover(A)
-        if not A.get_covered() or (A.get_covered() and B not in A.get_covered()):
-            A.append_covered(B)
-    elif relation == "covered":
-        if not B.get_covered() or (B.get_covered() and A not in B.get_covered()):
-            B.append_covered(A)
-        if not A.get_cover() or (A.get_cover() and B not in A.get_cover()):
-            A.append_cover(B)
+    """Link two maps by the spatial relation of B to A, both ways
 
+    B gets A in the list of the relation, A gets B in the list of the inverse
+    relation. A relation that is none of the spatial relations links nothing.
+    A map is not equivalent to itself in this sense.
 
-###############################################################################
+    :param A: A map, the one the relation of B is given to
+    :param B: A map
+    :param relation: The name of the relation
+    """
+    if relation not in INVERSE_SPATIAL_RELATION:
+        return
+    if relation == "equivalent" and A == B:
+        return
+    B._link("spatial", relation, A)
+    A._link("spatial", INVERSE_SPATIAL_RELATION[relation], B)
 
 
 def print_temporal_topology_relationships(maps1, maps2=None, dbif=None) -> None:
@@ -718,9 +1032,6 @@ def print_temporal_topology_relationships(maps1, maps2=None, dbif=None) -> None:
         for map_ in tb:
             map_.select(dbif)
             map_.print_info()
-
-
-###############################################################################
 
 
 def print_spatio_temporal_topology_relationships(
@@ -747,9 +1058,6 @@ def print_spatio_temporal_topology_relationships(
         for map_ in tb:
             map_.select(dbif)
             map_.print_info()
-
-
-###############################################################################
 
 
 def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
@@ -779,9 +1087,6 @@ def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
                 relations = map_.get_number_of_relations()
 
         return relations
-
-
-###############################################################################
 
 
 def create_temporal_relation_sql_where_statement(

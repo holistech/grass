@@ -260,7 +260,7 @@ def test_sampling_list(read):
     [day 5, day 15] and [day 15, day 25]. Each granule collects p3, p5, p7,
     p1 and p2 and sums to 3 + 5 + 7 + 1 + 2 = 18. The topology builder files
     a pair related by "starts" or "finishes" under "during" as well (see
-    spatio_temporal_relationships.py), so "during" also selects the maps
+    topology.py), so "during" also selects the maps
     that share the start or the end of the granule: p3 and p7 share the start
     of the first granule, p3 and p5 the end of the second. First granule:
     p3 [5,25] and p7 [5,20] share its start and run past its end; p5 [10,25],

@@ -27,7 +27,7 @@ from .datetime_math import (
 )
 from .db import connection
 from .space_time_datasets import RasterDataset
-from .spatio_temporal_relationships import (
+from .topology import (
     SpatioTemporalTopologyBuilder,
     create_temporal_relation_sql_where_statement,
 )

@@ -115,16 +115,6 @@ the SQL object serialization, all classes that represent table entries, datetime
 
     Implements the metadata of all datasets [#allds]_ in the class :class:`~grass.temporal.metadata.MetadataRow`, which has the columns of the type of the dataset.
 
-:mod:`~grass.temporal.spatial_topology_dataset_connector`
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-    Implements the interface to link datasets by spatial topological relations
-
-:mod:`~grass.temporal.temporal_topology_dataset_connector`
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-    Implements the interface to link datasets by temporal topological relations
-
 :mod:`~grass.temporal.c_libraries_interface`
 """"""""""""""""""""""""""""""""""""""""""""
 
@@ -196,12 +186,13 @@ temporal processing algorithms and temporal GRASS modules.
     A module developer uses these map layer and Space Time Dataset object
     representations to perform spatio-temporal tasks.
 
-:mod:`~grass.temporal.spatio_temporal_relationships`
-""""""""""""""""""""""""""""""""""""""""""""""""""""
+:mod:`~grass.temporal.topology`
+"""""""""""""""""""""""""""""""
 
-    The logic to compute spatio-temporal topology for a single list or two lists of :class:`~grass.temporal.abstract_dataset.AbstractDataset` objects
-    is implemented in this module.
-    The class :class:`~grass.temporal.spatio_temporal_relationships.SpatioTemporalTopologyBuilder`
+    The links a dataset keeps to the datasets it is spatially and temporally related to
+    (class :class:`~grass.temporal.topology.TopologyLinks`, with the tables of the relations and their inverses)
+    and the logic to compute the spatio-temporal topology for a single list or two lists of :class:`~grass.temporal.abstract_dataset.AbstractDataset` objects.
+    The class :class:`~grass.temporal.topology.SpatioTemporalTopologyBuilder`
     provides a convenient interface for topology computation.
 
 :mod:`~grass.temporal.gui_support`

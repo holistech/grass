@@ -15,12 +15,7 @@ from grass.temporal import (
     SpaceTimeVectorDataset,
     VectorDataset,
 )
-from grass.temporal.spatial_topology_dataset_connector import (
-    SpatialTopologyDatasetConnector,
-)
-from grass.temporal.temporal_topology_dataset_connector import (
-    TemporalTopologyDatasetConnector,
-)
+from grass.temporal.topology import map_list_string
 
 # The space time datasets look up the temporal database when they are built.
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -130,18 +125,13 @@ def test_every_dataset_class_can_be_instantiated(kind):
     assert CLASSES[kind]("a@mapset").get_type() == kind
 
 
-@pytest.mark.parametrize(
-    "connector", [SpatialTopologyDatasetConnector, TemporalTopologyDatasetConnector]
-)
-def test_the_map_list_string_wraps_after_three_maps(connector):
+def test_the_map_list_string_wraps_after_three_maps():
     maps = [RasterDataset(f"m{n}@mapset") for n in range(1, 5)]
 
-    assert connector()._generate_map_list_string(maps) == (
+    assert map_list_string(maps) == (
         "m1@mapset,m2@mapset,m3@mapset\n | ............................ m4@mapset"
     )
-    assert connector()._generate_map_list_string(maps[:2], line_wrap=False) == (
-        "m1@mapset,m2@mapset"
-    )
-    assert connector()._generate_map_list_string(maps, line_wrap=False) == (
+    assert map_list_string(maps[:2], line_wrap=False) == ("m1@mapset,m2@mapset")
+    assert map_list_string(maps, line_wrap=False) == (
         "m1@mapset,m2@mapset,m3@mapset,m4@mapset"
     )

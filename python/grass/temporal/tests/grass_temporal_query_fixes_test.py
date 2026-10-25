@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal import spatio_temporal_relationships
+from grass.temporal import topology
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.temporal.testing.session import mapset_session, temporal_session
 from grass.tools import Tools
@@ -182,8 +182,8 @@ def freed(monkeypatch):
     """Record the calls that free the R-tree and the list of the builder"""
     calls = []
     for module, name in (
-        (spatio_temporal_relationships.rtree, "RTreeDestroyTree"),
-        (spatio_temporal_relationships.gis, "G_free_ilist"),
+        (topology.rtree, "RTreeDestroyTree"),
+        (topology.gis, "G_free_ilist"),
     ):
         original = getattr(module, name)
 
@@ -217,9 +217,7 @@ def test_build_frees_the_tree_and_the_list_when_it_fails(
         msg = "stop"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr(
-        spatio_temporal_relationships, "set_temporal_relationship", refuse
-    )
+    monkeypatch.setattr(topology, "set_temporal_relationship", refuse)
 
     with pytest.raises(RuntimeError, match="stop"):
         tgis.SpatioTemporalTopologyBuilder().build(_maps(3))

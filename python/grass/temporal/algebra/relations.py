@@ -9,7 +9,7 @@ and follows are adjacent intervals; intervals with a gap have no relation.
 
 from dataclasses import dataclass, field
 
-from grass.temporal.spatio_temporal_relationships import SpatioTemporalTopologyBuilder
+from grass.temporal.topology import SpatioTemporalTopologyBuilder
 
 from ._adapters import as_map
 

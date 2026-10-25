@@ -17,7 +17,7 @@ from grass.temporal.abstract_dataset import (
     AbstractDatasetComparisonKeyStartTime,
 )
 from grass.temporal.space_time_datasets import RasterDataset
-from grass.temporal.spatio_temporal_relationships import SpatioTemporalTopologyBuilder
+from grass.temporal.topology import SpatioTemporalTopologyBuilder
 
 
 def maps_from(intervals):

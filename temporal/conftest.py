@@ -235,7 +235,7 @@ _SAMPLING_MAPS = [
 
 # GRASS files a map that starts or finishes together with the granule under
 # "during" as well, and the inverse under "contains" (see
-# spatio_temporal_relationships.py), so "contains" collects c, s1 and f1
+# topology.py), so "contains" collects c, s1 and f1
 # (2 + 32 + 128) and "during" collects d, s2 and f2 (4 + 64 + 256).
 _SAMPLING_SUMS = {
     "equal": 1,

@@ -52,8 +52,6 @@ MODULES = [
     "rows",
     "space_time_datasets",
     "spatial_extent",
-    "spatial_topology_dataset_connector",
-    "spatio_temporal_relationships",
     "state",
     "temporal_algebra",
     "temporal_extent",
@@ -61,7 +59,7 @@ MODULES = [
     "temporal_operator",
     "temporal_raster_algebra",
     "temporal_raster_base_algebra",
-    "temporal_topology_dataset_connector",
+    "topology",
     "temporal_vector_algebra",
 ]
 

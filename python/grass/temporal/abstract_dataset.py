@@ -13,24 +13,24 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 
 from .db import connection
-from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
 from .state import get_current_mapset, get_tgis_message_interface
-from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnector
+from .topology import (
+    TopologyLinks,
+    print_spatial_topology_info,
+    print_spatial_topology_shell_info,
+    print_temporal_topology_info,
+    print_temporal_topology_shell_info,
+)
 
 ###############################################################################
 
 
-class AbstractDataset(
-    SpatialTopologyDatasetConnector,
-    TemporalTopologyDatasetConnector,
-    metaclass=ABCMeta,
-):
+class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
     """This is the base class for all datasets
     (raster, vector, raster3d, strds, stvds, str3ds)"""
 
     def __init__(self) -> None:
-        SpatialTopologyDatasetConnector.__init__(self)
-        TemporalTopologyDatasetConnector.__init__(self)
+        TopologyLinks.__init__(self)
 
     @property
     def msgr(self):
@@ -41,12 +41,6 @@ class AbstractDataset(
         the stopped server.
         """
         return get_tgis_message_interface()
-
-    def reset_topology(self) -> None:
-        """Reset any information about temporal topology"""
-
-        self.reset_spatial_topology()
-        self.reset_temporal_topology()
 
     def get_number_of_relations(self):
         """Return a dictionary in which the keys are the relation names and the
@@ -115,15 +109,15 @@ class AbstractDataset(
 
     def print_topology_info(self) -> None:
         if self.is_temporal_topology_build():
-            self.print_temporal_topology_info()
+            print_temporal_topology_info(self)
         if self.is_spatial_topology_build():
-            self.print_spatial_topology_info()
+            print_spatial_topology_info(self)
 
     def print_topology_shell_info(self) -> None:
         if self.is_temporal_topology_build():
-            self.print_temporal_topology_shell_info()
+            print_temporal_topology_shell_info(self)
         if self.is_spatial_topology_build():
-            self.print_spatial_topology_shell_info()
+            print_spatial_topology_shell_info(self)
 
     @abstractmethod
     def reset(self, ident):

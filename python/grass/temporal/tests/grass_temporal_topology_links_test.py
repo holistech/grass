@@ -7,12 +7,18 @@ relations: a consumer that walks them sees a stable order.
 """
 
 import contextlib
+import copy
 import io
+import pickle
 
 import pytest
 
 from grass.temporal import RasterDataset
-from grass.temporal.spatio_temporal_relationships import (
+from grass.temporal.topology import (
+    print_spatial_topology_info,
+    print_spatial_topology_shell_info,
+    print_temporal_topology_info,
+    print_temporal_topology_shell_info,
     set_spatial_relationship,
     set_temporal_relationship,
 )
@@ -300,19 +306,22 @@ SPATIAL_INFO = """\
 
 
 def test_the_temporal_topology_is_printed_in_the_order_of_the_table():
-    assert printed(crowded().print_temporal_topology_info) == TEMPORAL_INFO
+    assert printed(lambda: print_temporal_topology_info(crowded())) == TEMPORAL_INFO
 
 
 def test_the_spatial_topology_is_printed_in_the_order_of_the_table():
-    assert printed(crowded().print_spatial_topology_info) == SPATIAL_INFO
+    assert printed(lambda: print_spatial_topology_info(crowded())) == SPATIAL_INFO
 
 
 def test_a_map_without_links_prints_only_the_header():
     a = RasterDataset("a@p")
 
-    assert printed(a.print_temporal_topology_info) == TEMPORAL_INFO.splitlines(True)[0]
-    assert printed(a.print_temporal_topology_shell_info) == ""
-    assert printed(a.print_spatial_topology_shell_info) == ""
+    assert (
+        printed(lambda: print_temporal_topology_info(a))
+        == TEMPORAL_INFO.splitlines(True)[0]
+    )
+    assert printed(lambda: print_temporal_topology_shell_info(a)) == ""
+    assert printed(lambda: print_spatial_topology_shell_info(a)) == ""
 
 
 def test_the_numbers_of_both_topologies_are_one_dictionary():
@@ -348,7 +357,7 @@ def test_the_temporal_shell_output_is_one_line_per_relation():
         set_temporal_relationship(RasterDataset(f"s{i}@p"), m, "starts")
         set_temporal_relationship(RasterDataset(f"f{i}@p"), m, "finishes")
 
-    lines = printed(m.print_temporal_topology_shell_info).splitlines()
+    lines = printed(lambda: print_temporal_topology_shell_info(m)).splitlines()
 
     assert "starts=s0@p,s1@p,s2@p,s3@p" in lines
     assert "finishes=f0@p,f1@p,f2@p,f3@p" in lines
@@ -361,8 +370,41 @@ def test_the_spatial_shell_output_is_one_line_per_relation():
         for i in range(4):
             set_spatial_relationship(RasterDataset(f"{relation}{i}@p"), m, relation)
 
-    lines = printed(m.print_spatial_topology_shell_info).splitlines()
+    lines = printed(lambda: print_spatial_topology_shell_info(m)).splitlines()
 
     assert "overlap=overlap0@p,overlap1@p,overlap2@p,overlap3@p" in lines
     assert "meet=meet0@p,meet1@p,meet2@p,meet3@p" in lines
     assert all("=" in line for line in lines)
+
+
+@pytest.mark.parametrize(
+    "clone",
+    [copy.deepcopy, lambda maps: pickle.loads(pickle.dumps(maps))],  # noqa: S301
+    ids=["deepcopy", "pickle"],
+)
+def test_linked_maps_survive_a_copy_with_their_links(clone):
+    a, b = RasterDataset("a@p"), RasterDataset("b@p")
+    set_temporal_relationship(a, b, "starts")
+    set_spatial_relationship(a, b, "cover")
+    a.set_next(b)
+
+    a2, b2 = clone([a, b])
+
+    assert a2.get_contains() == [b2]
+    assert b2.get_during() == [a2]
+    assert a2.next() is b2
+    assert a2.get_spatial_relations()["COVERED"] == [b2]
+    # The membership check knows the copies: linking again adds nothing.
+    set_temporal_relationship(a2, b2, "starts")
+    set_spatial_relationship(a2, b2, "cover")
+    assert a2.get_contains() == [b2]
+    assert a2.get_spatial_relations()["COVERED"] == [b2]
+    # The original is untouched.
+    assert a.get_contains() == [b]
+
+
+def test_a_shallow_copy_shares_the_links():
+    a, b = RasterDataset("a@p"), RasterDataset("b@p")
+    set_temporal_relationship(a, b, "during")
+
+    assert copy.copy(a).get_contains() == [b]
