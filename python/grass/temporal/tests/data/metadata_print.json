@@ -1,0 +1,246 @@
+{
+ "raster_empty": {
+  "columns": [
+   "id",
+   "datatype",
+   "cols",
+   "rows",
+   "number_of_cells",
+   "nsres",
+   "ewres",
+   "min",
+   "max"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Datatype:................... None\n | Number of columns:.......... None\n | Number of rows:............. None\n | Number of cells:............ None\n | North-South resolution:..... None\n | East-west resolution:....... None\n | Minimum value:.............. None\n | Maximum value:.............. None\n | Semantic label:............. None\n",
+  "shell": "datatype=None\ncols=None\nrows=None\nnumber_of_cells=None\nnsres=None\newres=None\nmin=None\nmax=None\nsemantic_label=None\n"
+ },
+ "raster_filled": {
+  "columns": [
+   "id",
+   "datatype",
+   "cols",
+   "rows",
+   "number_of_cells",
+   "nsres",
+   "ewres",
+   "min",
+   "max",
+   "semantic_label"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Datatype:................... FCELL\n | Number of columns:.......... 7\n | Number of rows:............. 8\n | Number of cells:............ 56\n | North-South resolution:..... 0.1\n | East-west resolution:....... 2.0\n | Minimum value:.............. 1.0\n | Maximum value:.............. 2.5\n | Semantic label:............. S2_1\n",
+  "shell": "datatype=FCELL\ncols=7\nrows=8\nnumber_of_cells=56\nnsres=0.1\newres=2.0\nmin=1.0\nmax=2.5\nsemantic_label=S2_1\n"
+ },
+ "raster3d_empty": {
+  "columns": [
+   "id",
+   "datatype",
+   "cols",
+   "rows",
+   "number_of_cells",
+   "nsres",
+   "ewres",
+   "min",
+   "max",
+   "tbres",
+   "depths"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Datatype:................... None\n | Number of columns:.......... None\n | Number of rows:............. None\n | Number of cells:............ None\n | North-South resolution:..... None\n | East-west resolution:....... None\n | Minimum value:.............. None\n | Maximum value:.............. None\n | Number of depths:........... None\n | Top-Bottom resolution:...... None\n",
+  "shell": "datatype=None\ncols=None\nrows=None\nnumber_of_cells=None\nnsres=None\newres=None\nmin=None\nmax=None\ndepths=None\ntbres=None\n"
+ },
+ "raster3d_filled": {
+  "columns": [
+   "id",
+   "datatype",
+   "cols",
+   "rows",
+   "number_of_cells",
+   "nsres",
+   "ewres",
+   "min",
+   "max",
+   "tbres",
+   "depths"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Datatype:................... DCELL\n | Number of columns:.......... 7\n | Number of rows:............. 8\n | Number of cells:............ 504\n | North-South resolution:..... 0.1\n | East-west resolution:....... 0.2\n | Minimum value:.............. -1.0\n | Maximum value:.............. 12345678.12345679\n | Number of depths:........... 9\n | Top-Bottom resolution:...... 0.3\n",
+  "shell": "datatype=DCELL\ncols=7\nrows=8\nnumber_of_cells=504\nnsres=0.1\newres=0.2\nmin=-1.0\nmax=12345678.12345679\ndepths=9\ntbres=0.3\n"
+ },
+ "vector_empty": {
+  "columns": [
+   "id",
+   "is_3d",
+   "points",
+   "lines",
+   "boundaries",
+   "centroids",
+   "faces",
+   "kernels",
+   "primitives",
+   "nodes",
+   "areas",
+   "islands",
+   "holes",
+   "volumes"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Is map 3d .................. False\n | Number of points ........... None\n | Number of lines ............ None\n | Number of boundaries ....... None\n | Number of centroids ........ None\n | Number of faces ............ None\n | Number of kernels .......... None\n | Number of primitives ....... None\n | Number of nodes ............ None\n | Number of areas ............ None\n | Number of islands .......... None\n | Number of holes ............ None\n | Number of volumes .......... None\n",
+  "shell": "is_3d=False\npoints=None\nlines=None\nboundaries=None\ncentroids=None\nfaces=None\nkernels=None\nprimitives=None\nnodes=None\nareas=None\nislands=None\nholes=None\nvolumes=None\n"
+ },
+ "vector_filled": {
+  "columns": [
+   "id",
+   "is_3d",
+   "points",
+   "lines",
+   "boundaries",
+   "centroids",
+   "faces",
+   "kernels",
+   "primitives",
+   "nodes",
+   "areas",
+   "islands",
+   "holes",
+   "volumes"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Is map 3d .................. True\n | Number of points ........... 1\n | Number of lines ............ 2\n | Number of boundaries ....... 3\n | Number of centroids ........ 4\n | Number of faces ............ 5\n | Number of kernels .......... 6\n | Number of primitives ....... 7\n | Number of nodes ............ 8\n | Number of areas ............ 9\n | Number of islands .......... 10\n | Number of holes ............ 11\n | Number of volumes .......... 12\n",
+  "shell": "is_3d=True\npoints=1\nlines=2\nboundaries=3\ncentroids=4\nfaces=5\nkernels=6\nprimitives=7\nnodes=8\nareas=9\nislands=10\nholes=11\nvolumes=12\n"
+ },
+ "strds_empty": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "min_max",
+   "max_max",
+   "min_min",
+   "max_min",
+   "nsres_min",
+   "nsres_max",
+   "ewres_min",
+   "ewres_max",
+   "aggregation_type",
+   "number_of_semantic_labels",
+   "raster_register"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Raster register table:...... None\n | North-South resolution min:. None\n | North-South resolution max:. None\n | East-west resolution min:... None\n | East-west resolution max:... None\n | Minimum value min:.......... None\n | Minimum value max:.......... None\n | Maximum value min:.......... None\n | Maximum value max:.......... None\n | Aggregation type:........... None\n | Number of semantic labels:.. None\n | Semantic labels:............ S2_1,S2_2\n | Number of registered maps:.. None\n |\n | Title:\n | None\n | Description:\n | None\n | Command history:\n",
+  "shell": "raster_register=None\nnsres_min=None\nnsres_max=None\newres_min=None\newres_max=None\nmin_min=None\nmin_max=None\nmax_min=None\nmax_max=None\naggregation_type=None\nnumber_of_semantic_labels=None\nsemantic_labels=S2_1,S2_2\nnumber_of_maps=None\n"
+ },
+ "strds_filled": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "min_max",
+   "max_max",
+   "min_min",
+   "max_min",
+   "nsres_min",
+   "nsres_max",
+   "ewres_min",
+   "ewres_max",
+   "aggregation_type",
+   "number_of_semantic_labels",
+   "raster_register"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Raster register table:...... strds_map_register_abc\n | North-South resolution min:. 0.30000000000000004\n | North-South resolution max:. 10.0\n | East-west resolution min:... 0.5\n | East-west resolution max:... 25.25\n | Minimum value min:.......... 0.1234567890123456\n | Minimum value max:.......... 1e-07\n | Maximum value min:.......... 123456789.12345679\n | Maximum value max:.......... 3\n | Aggregation type:........... mean\n | Number of semantic labels:.. 2\n | Semantic labels:............ S2_1,S2_2\n | Number of registered maps:.. 12\n |\n | Title:\n | A title\n | Description:\n | A description\n | Command history:\n | t.create output=a\n | t.register input=a\n",
+  "shell": "raster_register=strds_map_register_abc\nnsres_min=0.30000000000000004\nnsres_max=10.0\newres_min=0.5\newres_max=25.25\nmin_min=0.1234567890123456\nmin_max=1e-07\nmax_min=123456789.12345679\nmax_max=3\naggregation_type=mean\nnumber_of_semantic_labels=2\nsemantic_labels=S2_1,S2_2\nnumber_of_maps=12\n"
+ },
+ "str3ds_empty": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "min_max",
+   "max_max",
+   "min_min",
+   "max_min",
+   "nsres_min",
+   "nsres_max",
+   "ewres_min",
+   "ewres_max",
+   "aggregation_type",
+   "raster3d_register",
+   "tbres_min",
+   "tbres_max"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | 3D raster register table:... None\n | Top-bottom resolution min:.. None\n | Top-bottom resolution max:.. None\n | North-South resolution min:. None\n | North-South resolution max:. None\n | East-west resolution min:... None\n | East-west resolution max:... None\n | Minimum value min:.......... None\n | Minimum value max:.......... None\n | Maximum value min:.......... None\n | Maximum value max:.......... None\n | Aggregation type:........... None\n | Number of registered maps:.. None\n |\n | Title:\n | None\n | Description:\n | None\n | Command history:\n",
+  "shell": "raster3d_register=None\ntbres_min=None\ntbres_max=None\nnsres_min=None\nnsres_max=None\newres_min=None\newres_max=None\nmin_min=None\nmin_max=None\nmax_min=None\nmax_max=None\naggregation_type=None\nnumber_of_maps=None\n"
+ },
+ "str3ds_filled": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "min_max",
+   "max_max",
+   "min_min",
+   "max_min",
+   "nsres_min",
+   "nsres_max",
+   "ewres_min",
+   "ewres_max",
+   "aggregation_type",
+   "raster3d_register",
+   "tbres_min",
+   "tbres_max"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | 3D raster register table:... str3ds_map_register_abc\n | Top-bottom resolution min:.. 3.3\n | Top-bottom resolution max:.. 4.4\n | North-South resolution min:. 1.1\n | North-South resolution max:. 2.2\n | East-west resolution min:... 3.3\n | East-west resolution max:... 4.4\n | Minimum value min:.......... -1.5\n | Minimum value max:.......... 2.0\n | Maximum value min:.......... 3.25\n | Maximum value max:.......... 4.125\n | Aggregation type:........... mean\n | Number of registered maps:.. 3\n |\n | Title:\n | A title\n | Description:\n | A description\n | Command history:\n | t.create output=a\n | t.register input=a\n",
+  "shell": "raster3d_register=str3ds_map_register_abc\ntbres_min=5.5\ntbres_max=6.6\nnsres_min=1.1\nnsres_max=2.2\newres_min=3.3\newres_max=4.4\nmin_min=-1.5\nmin_max=2.0\nmax_min=3.25\nmax_max=4.125\naggregation_type=mean\nnumber_of_maps=3\n"
+ },
+ "stvds_empty": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "vector_register",
+   "points",
+   "lines",
+   "boundaries",
+   "centroids",
+   "faces",
+   "kernels",
+   "primitives",
+   "nodes",
+   "areas",
+   "islands",
+   "holes",
+   "volumes"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Vector register table:...... None\n | Number of points ........... None\n | Number of lines ............ None\n | Number of boundaries ....... None\n | Number of centroids ........ None\n | Number of faces ............ None\n | Number of kernels .......... None\n | Number of primitives ....... None\n | Number of nodes ............ None\n | Number of areas ............ None\n | Number of islands .......... None\n | Number of holes ............ None\n | Number of volumes .......... None\n | Number of registered maps:.. None\n |\n | Title:\n | None\n | Description:\n | None\n | Command history:\n",
+  "shell": "vector_register=None\npoints=None\nlines=None\nboundaries=None\ncentroids=None\nfaces=None\nkernels=None\nprimitives=None\nnodes=None\nareas=None\nislands=None\nholes=None\nvolumes=None\nnumber_of_maps=None\n"
+ },
+ "stvds_filled": {
+  "columns": [
+   "id",
+   "title",
+   "description",
+   "command",
+   "number_of_maps",
+   "vector_register",
+   "points",
+   "lines",
+   "boundaries",
+   "centroids",
+   "faces",
+   "kernels",
+   "primitives",
+   "nodes",
+   "areas",
+   "islands",
+   "holes",
+   "volumes"
+  ],
+  "info": " +-------------------- Metadata information ----------------------------------+\n | Vector register table:...... stvds_map_register_abc\n | Number of points ........... 11\n | Number of lines ............ 12\n | Number of boundaries ....... 13\n | Number of centroids ........ 14\n | Number of faces ............ 15\n | Number of kernels .......... 16\n | Number of primitives ....... 17\n | Number of nodes ............ 18\n | Number of areas ............ 19\n | Number of islands .......... 20\n | Number of holes ............ 21\n | Number of volumes .......... 22\n | Number of registered maps:.. 5\n |\n | Title:\n | A title\n | Description:\n | A description\n | Command history:\n | t.create output=a\n | t.register input=a\n",
+  "shell": "vector_register=stvds_map_register_abc\npoints=11\nlines=12\nboundaries=13\ncentroids=14\nfaces=15\nkernels=16\nprimitives=17\nnodes=18\nareas=19\nislands=20\nholes=21\nvolumes=22\nnumber_of_maps=5\n"
+ },
+ "strds_history": "# Title:\n# A title\n# Description:\n# A description\n# Command history:\nt.create output=a \\\nt.register input=a\n"
+}
