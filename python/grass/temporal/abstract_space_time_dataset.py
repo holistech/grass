@@ -1913,7 +1913,7 @@ class AbstractSpaceTimeDataset(AbstractDataset):
                         )
                     )
                 if order is not None and order != "":
-                    order = f"{group},{order.split(';')[0]}"
+                    order = f"{group},{order}"
 
             else:
                 columns = columns or "*"

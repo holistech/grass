@@ -225,3 +225,13 @@ def test_build_frees_the_tree_and_the_list_when_it_fails(
         tgis.SpatioTemporalTopologyBuilder().build(_maps(3))
 
     assert sorted(freed) == ["G_free_ilist", "RTreeDestroyTree"]
+
+
+def test_order_with_a_semicolon_in_a_value_is_kept_when_grouping(small_strds):
+    # The group option puts its column in front of the order; that path cut
+    # the order at a semicolon as well.
+    rows = small_strds.get_registered_maps(
+        "name", group="name", order="CASE WHEN name = 'a;b' THEN 1 ELSE 0 END"
+    )
+
+    assert [row["name"] for row in rows] == ["b15_map"]
