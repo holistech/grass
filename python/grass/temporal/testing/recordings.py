@@ -380,7 +380,6 @@ def granularity_cases():
             lambda gran=gran: tgis.check_granularity_string(gran, "absolute"),
         )
         yield f"singular/{gran}", lambda gran=gran: tgis.gran_singular_unit(gran)
-        yield f"plural/{gran}", lambda gran=gran: tgis.gran_plural_unit(gran)
     for gran in (1, 2.5, "1", "1 day", "x", -1, 0):
         yield (
             f"check_relative/{gran!r}",
@@ -669,14 +668,6 @@ def _datetime_conversion_cases(dates):
         "relative_conversions",
         lambda: (
             [
-                outcome(function, value)
-                for function in (
-                    datetime_math.relative_time_to_time_delta,
-                    datetime_math.relative_time_to_time_delta_seconds,
-                )
-                for value in (0, 1, 1.5, -2, 86400, 86400.25)
-            ]
-            + [
                 outcome(function, timedelta(**kwargs))
                 for function in (
                     datetime_math.time_delta_to_relative_time,

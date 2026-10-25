@@ -29,24 +29,9 @@ DAY_IN_SECONDS = 86400
 SECOND_AS_DAY = 1.1574074074074073e-05
 
 
-def relative_time_to_time_delta(value: float) -> timedelta:
-    """Convert the double value representing days into a timedelta object."""
-    days = int(value)
-    seconds = value % 1
-    seconds = round(seconds * DAY_IN_SECONDS)
-    return timedelta(days, seconds)
-
-
 def time_delta_to_relative_time(delta: timedelta) -> float:
     """Convert the time delta into a double value, representing days."""
     return float(delta.days) + float(delta.seconds * SECOND_AS_DAY)
-
-
-def relative_time_to_time_delta_seconds(value: float) -> timedelta:
-    """Convert the double value representing seconds into a timedelta object."""
-    days = value / 86400
-    seconds = int(value % 86400)
-    return timedelta(days, seconds)
 
 
 def time_delta_to_relative_time_seconds(delta: timedelta) -> float:

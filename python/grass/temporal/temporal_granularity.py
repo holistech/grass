@@ -977,46 +977,6 @@ def gran_singular_unit(gran):
 #######################################################################
 
 
-def gran_plural_unit(gran):
-    """Return the absolute granularity unit in its plural term
-
-    :param gran: input granularity
-    :return: granularity unit
-
-    .. code-block:: pycon
-
-        >>> import grass.temporal as tgis
-        >>> tgis.init()
-        >>> tgis.gran_plural_unit("1 month")
-        'months'
-
-        >>> tgis.gran_plural_unit("2 months")
-        'months'
-
-        >>> tgis.gran_plural_unit("6 seconds")
-        'seconds'
-
-        >>> tgis.gran_plural_unit("1 year")
-        'years'
-    """
-    if check_granularity_string(gran, "absolute"):
-        output, unit = gran.split(" ")
-        if unit in PLURAL_GRAN:
-            return unit
-        if unit in SINGULAR_GRAN:
-            return f"{unit}s"
-        lists = ", ".join(SUPPORTED_GRAN)
-        print(
-            _(
-                "Output granularity seems not to be valid. Please use "
-                "one of the following values : {gr}"
-            ).format(gr=lists)
-        )
-    else:
-        print(_("Invalid absolute granularity"))
-        return False
-
-
 ########################################################################
 
 
