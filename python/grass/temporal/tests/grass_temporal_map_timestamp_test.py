@@ -92,8 +92,14 @@ def test_an_absolute_timestamp_is_read(cls, ident, kind, label, ciface):
 
     assert dataset.read_timestamp_from_grass() is True
     assert dataset.get_absolute_time() == (start, end)
-    # The layer is not passed when the timestamp is read.
-    assert ciface.calls[1] == ("read_timestamp", kind, "m", "PERMANENT", None, {})
+    assert ciface.calls[1] == (
+        "read_timestamp",
+        kind,
+        "m",
+        "PERMANENT",
+        layer_of(kind),
+        {},
+    )
 
 
 @pytest.mark.parametrize(("cls", "ident", "kind", "label"), MAPS, ids=IDS)
@@ -179,11 +185,13 @@ def test_an_internal_error_of_the_write_is_reported(
 
 
 @pytest.mark.parametrize(("cls", "ident", "kind", "label"), MAPS, ids=IDS)
-def test_the_timestamp_is_removed_without_the_layer(cls, ident, kind, label, ciface):
+def test_the_timestamp_is_removed_with_the_layer(cls, ident, kind, label, ciface):
     ciface.answers["remove_timestamp"] = 1
 
     assert cls(ident).remove_timestamp_from_grass() is True
-    assert ciface.calls == [("remove_timestamp", kind, "m", "PERMANENT", None, {})]
+    assert ciface.calls == [
+        ("remove_timestamp", kind, "m", "PERMANENT", layer_of(kind), {})
+    ]
 
 
 @pytest.mark.parametrize(("cls", "ident", "kind", "label"), MAPS, ids=IDS)

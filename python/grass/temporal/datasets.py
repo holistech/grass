@@ -153,15 +153,12 @@ class MapDataset(AbstractMapDataset):
         set the internal time stamp that should be inserted/updated
         in the temporal database.
 
-        The layer of a vector map is not passed: the timestamp of the layer
-        is written and asked for, but read and removed without it.
-
         :return: True if success, False on error
         """
         if not self.has_grass_timestamp():
             return False
 
-        check, dates = self._call("read_timestamp")
+        check, dates = self._call("read_timestamp", self._layer())
 
         if check < 1:
             self.msgr.error(
@@ -221,7 +218,7 @@ class MapDataset(AbstractMapDataset):
 
         :return: True if success, False on error
         """
-        check = self._call("remove_timestamp")
+        check = self._call("remove_timestamp", self._layer())
 
         if check == -1:
             self.msgr.error(
