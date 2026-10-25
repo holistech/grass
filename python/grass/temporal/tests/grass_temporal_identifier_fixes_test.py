@@ -196,3 +196,54 @@ def test_dataset_reports_the_invalid_timestamp(raising, monkeypatch):
     assert dataset.write_timestamp_to_grass() is False
 
     assert errors == ["Invalid datetime in timestamp for raster map <b9_map@PERMANENT>"]
+
+
+@pytest.fixture
+def timestamped_map(temporal_module_session):
+    tgis.init(raise_fatal_error=True)
+    tools = Tools(session=temporal_module_session, consistent_return_value=True)
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    tools.r_mapcalc(expression="b10_map = 1", overwrite=True)
+
+    def stamp(text):
+        tools.r_timestamp(map="b10_map", date=text)
+        return "b10_map", tgis.get_current_mapset()
+
+    return stamp
+
+
+RELATIVE = [
+    ("0 days", (0, None, "days")),
+    ("-5 days", (-5, None, "days")),
+    ("5 days", (5, None, "days")),
+    ("3 months", (3, None, "months")),
+    ("1 year", (1, None, "years")),
+    ("2 hours", (2, None, "hours")),
+    ("30 minutes", (30, None, "minutes")),
+    ("45 seconds", (45, None, "seconds")),
+    ("2 days / 5 days", (2, 5, "days")),
+    ("-3 days / 0 days", (-3, 0, "days")),
+    ("0 seconds", (0, None, "seconds")),
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), RELATIVE)
+def test_relative_timestamp_from_the_c_library(timestamped_map, text, expected):
+    name, mapset = timestamped_map(text)
+
+    check, dates = tgis.get_tgis_c_library_interface().read_raster_timestamp(
+        name, mapset
+    )
+
+    assert check == 1
+    assert dates == expected
+
+
+@pytest.mark.parametrize(("text", "expected"), RELATIVE)
+def test_relative_timestamp_of_the_map_dataset(timestamped_map, text, expected):
+    name, mapset = timestamped_map(text)
+    dataset = tgis.RasterDataset(f"{name}@{mapset}")
+
+    assert dataset.read_timestamp_from_grass() is True
+
+    assert dataset.get_relative_time() == expected

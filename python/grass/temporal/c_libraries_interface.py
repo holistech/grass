@@ -1080,6 +1080,32 @@ def _read_vector_history(name, mapset):
 ###############################################################################
 
 
+# The unit a relative GRASS datetime is written in, as the name and the field
+# that holds its value. A compound value such as "1 year 6 months" is read in
+# its leading unit.
+_RELATIVE_UNITS = {
+    libdate.DATETIME_YEAR: ("years", "year"),
+    libdate.DATETIME_MONTH: ("months", "month"),
+    libdate.DATETIME_DAY: ("days", "day"),
+    libdate.DATETIME_HOUR: ("hours", "hour"),
+    libdate.DATETIME_MINUTE: ("minutes", "minute"),
+    libdate.DATETIME_SECOND: ("seconds", "second"),
+}
+
+
+def _relative_value(datetime_):
+    """Return the signed value and the unit of a relative GRASS datetime
+
+    The unit is the one the timestamp was written in, so "0 days" is zero and
+    not a missing value. The sign is the one of the C structure.
+    """
+    unit, field = _RELATIVE_UNITS.get(getattr(datetime_, "from"), (None, None))
+    if unit is None:
+        return None, None
+    value = getattr(datetime_, field)
+    return (value if datetime_.positive else -value), unit
+
+
 def _convert_timestamp_from_grass(ts):
     """Convert a GRASS file based timestamp into the temporal framework
     format datetime or integer.
@@ -1126,41 +1152,13 @@ def _convert_timestamp_from_grass(ts):
         # ATTENTION: We ignore the time zone
         # TODO: Write time zone support
         return (pdt1, pdt2)
-    unit = None
     start = None
     end = None
+    unit = None
     if count.value >= 1:
-        if dt1.year > 0:
-            unit = "years"
-            start = dt1.year
-        elif dt1.month > 0:
-            unit = "months"
-            start = dt1.month
-        elif dt1.day > 0:
-            unit = "days"
-            start = dt1.day
-        elif dt1.hour > 0:
-            unit = "hours"
-            start = dt1.hour
-        elif dt1.minute > 0:
-            unit = "minutes"
-            start = dt1.minute
-        elif dt1.second > 0:
-            unit = "seconds"
-            start = dt1.second
+        start, unit = _relative_value(dt1)
     if count.value == 2:
-        if dt2.year > 0:
-            end = dt2.year
-        elif dt2.month > 0:
-            end = dt2.month
-        elif dt2.day > 0:
-            end = dt2.day
-        elif dt2.hour > 0:
-            end = dt2.hour
-        elif dt2.minute > 0:
-            end = dt2.minute
-        elif dt2.second > 0:
-            end = dt2.second
+        end, _end_unit = _relative_value(dt2)
     return (start, end, unit)
 
 
