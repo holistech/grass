@@ -432,7 +432,9 @@ def get_dataset_list(
                 sql = f"SELECT {columns_to_query} FROM {table}"
 
                 if where:
-                    sql += " WHERE " + where
+                    # In brackets: an OR in the condition would otherwise
+                    # take the rows of every mapset
+                    sql += f" WHERE ({where})"
                     sql += " AND mapset = '%s'" % (mapset)
                 else:
                     sql += " WHERE mapset = '%s'" % (mapset)
