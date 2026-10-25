@@ -153,7 +153,7 @@ def sample_stds_by_stds_topology(
         separator = " | "
 
     try:
-        names = method_relations(method)
+        names = method_relations(method, any_relation=True)
     except ValueError as error:
         msgr.fatal(str(error))
     granules = None

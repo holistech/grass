@@ -46,10 +46,12 @@ from .algebra.series import Extent, Series, Slot, Space
 # method=equal lists an equal map, method=start prints None for it). The name
 # is left out here, which keeps that result, and the core would reject it as an
 # unknown relation.
-# A plain name is read as sample_by_dataset() read it: stripped and upper-cased,
-# then looked up among the relations of the builder. "equals" is no such
-# relation (the builder files "EQUAL"), so it selects nothing, as it always did;
-# every name of another kind selected nothing too, and is refused here.
+# The names of the standard option G_OPT_T_SAMPLE, other than the groups below
+_OPTION_NAMES = ("equal", "during", "follows", "precedes")
+# sample_by_dataset() read every other name as a relation of the topology
+# builder: stripped and upper-cased, then looked up among the relations it
+# files. "equals" is no such relation (the builder files "EQUAL"), so it selects
+# nothing, as it always did.
 _PLAIN_RELATIONS = {
     "EQUAL": ("equal",),
     "EQUALS": (),
@@ -75,34 +77,50 @@ _METHOD_GROUPS = {
 }
 
 
-def method_relations(method):
+def method_relations(method, any_relation: bool = False):
     """The relation names of a list of sampling method names, in the order in
     which sample_by_dataset() tries them
 
     The plain names come first, in the order of the list, then the groups
-    "start", "overlap" ("over") and "contain", each as far as not yet in the
-    list. The order matters because the first relation with a map decides
-    which map a caller that takes only one uses.
+    "start", "overlap" and "contain", each as far as not yet in the list. The
+    order matters because the first relation with a map decides which map a
+    caller that takes only one uses.
 
-    :param method: the names "start", "overlap", "over", "contain", or the
-        name of a relation of the builder, in any case: equal, during,
-        contains, overlaps, overlapped, follows, precedes, starts, started,
-        finishes, finished. The standard option G_OPT_T_SAMPLE offers only
-        start, during, overlap, contain, equal, follows and precedes.
+    :param method: names from "start", "during", "overlap", "contain",
+        "equal", "follows" and "precedes", the values that the standard
+        option G_OPT_T_SAMPLE offers
+    :param any_relation: Also accept what sample_by_dataset() accepted: the
+        name of any relation of the topology builder (contains, overlaps,
+        overlapped, starts, started, finishes, finished, equals), in any case
+        and with white space, and "over" for "overlap"
     :raises ValueError: for another name
     """
+    groups = (
+        _METHOD_GROUPS
+        if any_relation
+        else {k: v for k, v in _METHOD_GROUPS.items() if k != "over"}
+    )
+
+    def plain_key(name):
+        return name.strip().upper() if any_relation else name.upper()
+
     for name in method:
-        if name not in _METHOD_GROUPS and name.strip().upper() not in _PLAIN_RELATIONS:
+        known = name in groups or (
+            plain_key(name) in _PLAIN_RELATIONS
+            if any_relation
+            else name in _OPTION_NAMES
+        )
+        if not known:
             msg = f"Unknown sampling method <{name}>"
             raise ValueError(msg)
     names = []
     for name in method:
-        if name in _METHOD_GROUPS:
+        if name in groups:
             continue
-        for relation_name in _PLAIN_RELATIONS[name.strip().upper()]:
+        for relation_name in _PLAIN_RELATIONS[plain_key(name)]:
             if relation_name not in names:
                 names.append(relation_name)
-    for group, relation_names in _METHOD_GROUPS.items():
+    for group, relation_names in groups.items():
         if group in method:
             names.extend(
                 relation_name
