@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal import core
 from grass.pygrass.messages import FatalError
 from grass.tools import Tools
 
@@ -175,3 +176,23 @@ def test_unknown_map_type_is_reported_before_anything_is_written(
         )
 
     assert tgis.RasterDataset(map_id).is_in_db() is False
+
+
+def test_unconvertible_timestamp_returns_minus_two(raising):
+    ciface = tgis.get_tgis_c_library_interface()
+    mapset = tgis.get_current_mapset()
+
+    assert ciface.write_raster_timestamp("b9_map", mapset, "not a timestamp") == -2
+    assert ciface.write_raster3d_timestamp("b9_map", mapset, "not a timestamp") == -2
+    assert ciface.write_vector_timestamp("b9_map", mapset, "not a timestamp", 1) == -2
+
+
+def test_dataset_reports_the_invalid_timestamp(raising, monkeypatch):
+    dataset = tgis.RasterDataset("b9_map@" + tgis.get_current_mapset())
+    monkeypatch.setattr(dataset, "_convert_timestamp", lambda: "not a timestamp")
+    errors = []
+    monkeypatch.setattr(core.get_tgis_message_interface(), "error", errors.append)
+
+    assert dataset.write_timestamp_to_grass() is False
+
+    assert errors == ["Invalid datetime in timestamp for raster map <b9_map@PERMANENT>"]

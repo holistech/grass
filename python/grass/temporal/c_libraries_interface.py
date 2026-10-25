@@ -449,9 +449,9 @@ def _write_timestamp(lock: _LockLike, conn: Connection, data):
                 "Unable to convert the timestamp: %(timestring)s",
                 {"timestring": timestring},
             )
-            return -2
-
-        if maptype == RPCDefs.TYPE_RASTER:
+            # The finally clause sends check, a returned value would be lost.
+            check = -2
+        elif maptype == RPCDefs.TYPE_RASTER:
             check = libgis.G_write_raster_timestamp(name, byref(ts))
         elif maptype == RPCDefs.TYPE_VECTOR:
             check = libgis.G_write_vector_timestamp(name, layer, byref(ts))
