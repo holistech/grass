@@ -30,7 +30,16 @@ class AbstractDataset(
     def __init__(self) -> None:
         SpatialTopologyDatasetConnector.__init__(self)
         TemporalTopologyDatasetConnector.__init__(self)
-        self.msgr = get_tgis_message_interface()
+
+    @property
+    def msgr(self):
+        """The messenger of the current session
+
+        Fetched at each use: a session change replaces the messenger server,
+        and an object that kept the one of its construction would talk to
+        the stopped server.
+        """
+        return get_tgis_message_interface()
 
     def reset_topology(self) -> None:
         """Reset any information about temporal topology"""

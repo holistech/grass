@@ -254,12 +254,16 @@ class SQLDatabaseInterface(DictSQLSerializer):
 
         self.table = table  # Name of the table, set in the subclass
         self.ident = ident
-        self.msgr = get_tgis_message_interface()
 
         if self.ident and self.ident.find("@") >= 0:
             self.mapset = self.ident.split("@")[1]
         else:
             self.mapset = None
+
+    @property
+    def msgr(self):
+        """The messenger of the current session, fetched at each use"""
+        return get_tgis_message_interface()
 
     def get_table_name(self):
         """Return the name of the table in which the internal

@@ -300,6 +300,17 @@ def _init_tgis_message_interface(raise_on_error: bool = False) -> None:
     global message_interface
     if message_interface is None:
         message_interface = messages.get_msgr(raise_on_error=raise_on_error)
+    # get_msgr() hands out one messenger per process, so the mode of an
+    # earlier init() would stay.
+    message_interface.set_raise_on_error(raise_on_error)
+    # The messenger of an earlier session was stopped by init(), but
+    # get_msgr() returns it again. Restart its server here, before the C
+    # interface starts its threads: a restart on first use would fork a
+    # process with threads.
+    if not message_interface.server.is_alive():
+        message_interface.client_conn.close()
+        message_interface.server_conn.close()
+        message_interface.start_server()
 
 
 def get_tgis_message_interface():
@@ -1136,7 +1147,10 @@ class SQLDatabaseInterfaceConnection:
 
             self.connections[mapset] = self.unique_connections[dbstring]
 
-        self.msgr = get_tgis_message_interface()
+    @property
+    def msgr(self):
+        """The messenger of the current session, fetched at each use"""
+        return get_tgis_message_interface()
 
     def get_dbmi(self, mapset=None):
         if mapset is None:
@@ -1368,13 +1382,17 @@ class DBConnection:
 
         self.dbstring = dbstring
 
-        self.msgr = get_tgis_message_interface()
         self.msgr.debug(
             1,
             "DBConnection constructor:"
             "\n  backend: %s"
             "\n  dbstring: %s" % (backend, self.dbstring),
         )
+
+    @property
+    def msgr(self):
+        """The messenger of the current session, fetched at each use"""
+        return get_tgis_message_interface()
 
     def __del__(self) -> None:
         if self.connected is True:

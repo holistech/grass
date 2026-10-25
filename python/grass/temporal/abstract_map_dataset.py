@@ -56,7 +56,16 @@ class AbstractMapDataset(AbstractDataset):
 
     def __init__(self) -> None:
         AbstractDataset.__init__(self)
-        self.ciface = get_tgis_c_library_interface()
+
+    @property
+    def ciface(self):
+        """The C-library interface of the current session
+
+        Fetched at each use: a session change replaces the C-library
+        interface, and an object that kept the one of its construction would
+        talk to the stopped server.
+        """
+        return get_tgis_c_library_interface()
 
     @abstractmethod
     def get_new_stds_instance(self, ident):

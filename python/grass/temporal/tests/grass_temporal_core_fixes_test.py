@@ -1,9 +1,14 @@
 """Regression tests for faults of the infrastructure in grass.temporal.core"""
 
+import sys
+import warnings
+
 import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.grassdb.create import create_mapset
+from grass.pygrass.messages import FatalError
 from grass.temporal import core
 
 pytestmark = pytest.mark.real_io
@@ -71,3 +76,76 @@ def test_other_values_leave_the_switches_on(warnings_of_init):
 
     assert tgis.get_enable_mapset_check() is True
     assert warnings_of_init == []
+
+
+@pytest.fixture
+def raise_mode_restored(temporal_module_session):
+    """Leave the error mode of the messenger as the session fixture set it"""
+    yield
+    core.get_tgis_message_interface().set_raise_on_error(True)
+    tgis.set_raise_on_error(True)
+
+
+def test_raise_fatal_error_applies_on_second_init(raise_mode_restored):
+    tgis.init(raise_fatal_error=False, skip_db_init=True)
+    msgr = core.get_tgis_message_interface()
+    msgr.set_raise_on_error(False)
+
+    tgis.init(raise_fatal_error=True, skip_db_init=True)
+
+    with pytest.raises(FatalError, match="raised by the test"):
+        core.get_tgis_message_interface().fatal("raised by the test")
+
+
+def test_second_init_without_raise_fatal_error_switches_the_mode_off(
+    raise_mode_restored,
+):
+    tgis.init(raise_fatal_error=True, skip_db_init=True)
+
+    tgis.init(raise_fatal_error=False, skip_db_init=True)
+
+    assert core.get_tgis_message_interface().get_raise_on_error() is False
+
+
+@pytest.fixture
+def two_projects(tmp_path):
+    projects = []
+    for name in ("a", "b"):
+        gs.create_project(tmp_path / name)
+        create_mapset(tmp_path / name / name)
+        projects.append(tmp_path / name / name)
+    return projects
+
+
+def test_second_session_has_running_servers(two_projects, monkeypatch):
+    """Objects of the first session reach the servers of the second one
+
+    The restart of the servers must not warn about fork() in a process with
+    threads. The warning is raised in a thread of the C interface, where it
+    reaches sys.unraisablehook instead of the warnings filter.
+    """
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    project_a, project_b = two_projects
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with gs.setup.init(project_a):
+            tgis.init()
+            first = tgis.RasterDataset("map@a")
+            assert first.ciface.available_mapsets() == ["a", "PERMANENT"]
+
+        with gs.setup.init(project_b):
+            tgis.init()
+            msgr = core.get_tgis_message_interface()
+            server_pid = msgr.server.pid
+            assert msgr.server.is_alive()
+
+            assert first.ciface is tgis.get_tgis_c_library_interface()
+            assert first.ciface.available_mapsets() == ["b", "PERMANENT"]
+            assert first.msgr is msgr
+            first.msgr.message("answered by the second session")
+            assert msgr.server.pid == server_pid
+
+    forks = [w for w in caught if "fork()" in str(w.message)]
+    assert forks == []
+    assert not [u for u in unraisable if "fork()" in str(u.exc_value)]
