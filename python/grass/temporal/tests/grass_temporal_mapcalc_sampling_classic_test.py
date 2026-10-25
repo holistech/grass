@@ -1,7 +1,7 @@
 """The sampling of t.rast.mapcalc against the classic sample_by_dataset()
 
 The tool has no switch to the classic algebra, so its choice of the map per
-sampler granule must stay that of AbstractSpaceTimeDataset.sample_by_dataset(),
+sampler granule must stay that of the classic sample_by_dataset(),
 which the classic dataset_mapcalculator used: gap granules skipped, and per
 granule the first sample. Both paths get the same random time stamps; the
 sampler is always an interval series (sample_by_dataset requires it).
@@ -33,6 +33,7 @@ from grass.temporal.algebra.sources import source
 from grass.temporal.core import get_tgis_message_interface
 from grass.temporal.mapcalc import _sample_column
 from grass.temporal.related_maps import method_relations
+from grass.temporal.testing import reference
 
 SINGLE_METHODS = [
     ["equal"],
@@ -158,8 +159,8 @@ def classic_column(input_stds, sampler_stds, method, spatial):
     Gap granules (id None) are skipped as the classic dataset_mapcalculator
     loop did.
     """
-    entries = input_stds.sample_by_dataset(
-        stds=sampler_stds, method=method, spatial=spatial
+    entries = reference.sample_by_dataset(
+        input_stds, sampler_stds, method, spatial=spatial
     )
     column = []
     for entry in entries:

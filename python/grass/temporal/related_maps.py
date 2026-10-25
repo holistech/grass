@@ -2,7 +2,8 @@
 
 t.rast.mapcalc, t.rast3d.mapcalc and t.sample have no switch between the
 classic and the core algebra, so their results must stay those of
-AbstractSpaceTimeDataset.sample_by_dataset(). This module is the one place
+the classic sample_by_dataset(), which grass.temporal.testing.reference keeps
+as the reference. This module is the one place
 that reproduces its rules on the temporal algebra core, so that the tools do
 not carry diverging copies:
 

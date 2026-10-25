@@ -14,6 +14,7 @@ The module does not import pytest and does not touch ``os.environ``.
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+import copy
 import functools
 
 KINDS = ("raster", "raster3d", "vector", "select")
@@ -140,3 +141,100 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
     if granularity:
         setup_granularity(parser, kind, expression)
     return parser.parse(expression, basename=basename, overwrite=overwrite)
+
+
+def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=None):
+    """Sample a dataset with the granules of a sampler dataset, the earlier way
+
+    This is the classic AbstractSpaceTimeDataset.sample_by_dataset(), kept as
+    the reference that t.sample, t.rast.mapcalc, t.rast3d.mapcalc and
+    sample_stds_by_stds_topology() are compared with. These now take their
+    granules and related maps from grass.temporal.related_maps.
+
+    The sampler must have interval time and the temporal type of stds,
+    otherwise the function reports an error and returns None. A gap between
+    the maps of the sampler is a granule whose map has no identifier. Each
+    entry of the result is a dictionary with the map object of the "granule"
+    and the list of its "samples"; a granule without a related map has one
+    sample without identifier and with the extents of the granule.
+
+    The methods are "start", "during", "overlap", "contain", "equal",
+    "follows" and "precedes" as names of the standard option, or relation
+    names of the topology builder in lower case. "start" appends the relation
+    "equals", which the topology builder never files (it files "EQUAL"), so
+    that "start" finds no map of the same time as a granule. That is the
+    measured behaviour, which related_maps keeps (see there).
+
+    :param stds: The space time dataset to sample
+    :param sampler: The space time dataset whose maps are the granules
+    :param method: A list of method names
+    :param spatial: If True a map must also overlap the granule in 2D
+    :param dbif: The database interface to be used
+    :param where: Temporal WHERE condition to filter the maps of both datasets
+    :return: A list of dictionaries, None if the datasets cannot be sampled
+    """
+    from grass.temporal.db import connection
+    from grass.temporal.topology import SpatioTemporalTopologyBuilder
+
+    if stds.get_temporal_type() != sampler.get_temporal_type():
+        stds.msgr.error(_("The space time datasets must be of the same temporal type"))
+        return None
+
+    if sampler.get_map_time() != "interval":
+        stds.msgr.error(
+            _("The temporal map type of the sample dataset must be interval")
+        )
+        return None
+
+    with connection(dbif) as dbif:
+        relations = copy.deepcopy(method)
+
+        # Tune the temporal relations
+        if "start" in relations:
+            for name in ("overlapped", "starts", "started", "finishes", "contains"):
+                if name not in relations:
+                    relations.append(name)
+            if "equals" not in relations:
+                relations.append("equals")
+
+        if "overlap" in relations or "over" in relations:
+            for name in ("overlapped", "overlaps"):
+                if name not in relations:
+                    relations.append(name)
+
+        if "contain" in relations and "contains" not in relations:
+            relations.append("contains")
+
+        # Remove start, equal, contain and overlap
+        relations = [
+            relation.upper().strip()
+            for relation in relations
+            if relation not in {"start", "overlap", "contain"}
+        ]
+
+        mapsA = stds.get_registered_maps_as_objects(where=where, dbif=dbif)
+        mapsB = sampler.get_registered_maps_as_objects_with_gaps(where=where, dbif=dbif)
+        SpatioTemporalTopologyBuilder().build(mapsB, mapsA, "2D" if spatial else None)
+
+        obj_list = []
+        for granule in mapsB:
+            map_relations = granule.get_temporal_relations()
+
+            # Append the maps that fulfill the relations
+            maplist = []
+            for relation in relations:
+                if relation in map_relations:
+                    for sample_map in map_relations[relation]:
+                        if sample_map not in maplist:
+                            maplist.append(sample_map)
+
+            # Add an empty map if no map was found
+            if not maplist:
+                empty_map = stds.get_new_map_instance(None)
+                empty_map.set_spatial_extent(granule.get_spatial_extent())
+                empty_map.set_temporal_extent(granule.get_temporal_extent())
+                maplist.append(empty_map)
+
+            obj_list.append({"granule": granule, "samples": maplist})
+
+        return obj_list

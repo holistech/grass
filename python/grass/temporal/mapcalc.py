@@ -8,8 +8,8 @@ the slot extents. The expression itself stays a text, and the dataset names
 and function tokens are substituted textually, as before, so the result maps,
 their names and the warnings are unchanged. The tool has no switch between
 the classic and the core algebra, so the sampling follows the classic rules of
-AbstractSpaceTimeDataset.sample_by_dataset() exactly, through
-grass.temporal.related_maps.
+the classic sample_by_dataset() exactly (kept as the reference in
+grass.temporal.testing.reference), through grass.temporal.related_maps.
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
