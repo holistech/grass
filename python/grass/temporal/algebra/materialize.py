@@ -5,11 +5,8 @@ from dataclasses import dataclass
 import grass.script as gs
 from grass.exceptions import CalledModuleError, FatalError
 from grass.pygrass.modules import Module, MultiModule, ParallelModuleQueue
-from grass.temporal.core import (
-    get_current_mapset,
-    get_tgis_message_interface,
-    init_dbif,
-)
+from grass.temporal.db import init_dbif
+from grass.temporal.state import get_current_mapset, get_tgis_message_interface
 from grass.temporal.datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,

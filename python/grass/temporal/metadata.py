@@ -21,13 +21,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 from .base import SQLDatabaseInterface
-from .core import (
-    get_tgis_database_string,
-    get_tgis_db_version,
-    get_tgis_db_version_from_metadata,
-    get_tgis_metadata,
-    init_dbif,
-)
+from .db import init_dbif
+from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
+from .state import get_tgis_database_string, get_tgis_db_version
 
 ###############################################################################
 

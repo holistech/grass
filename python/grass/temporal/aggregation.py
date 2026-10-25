@@ -20,7 +20,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .core import get_current_mapset, get_tgis_message_interface, init_dbif
+from .db import init_dbif
+from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,

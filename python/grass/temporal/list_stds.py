@@ -23,7 +23,8 @@ from contextlib import contextmanager
 
 import grass.script as gs
 
-from .core import SQLStatementError, get_tgis_message_interface, init_dbif
+from .db import SQLStatementError, init_dbif
+from .state import get_tgis_message_interface
 from .datetime_math import time_delta_to_relative_time
 from .kinds import find_kind
 from .open_stds import open_old_stds

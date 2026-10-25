@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timedelta
 from typing import TypedDict
 
-from .core import get_tgis_message_interface
+from .state import get_tgis_message_interface
 
 try:
     from dateutil import parser

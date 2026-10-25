@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
-from .core import get_current_mapset, get_tgis_message_interface, init_dbif
+from .db import init_dbif
+from .state import get_current_mapset, get_tgis_message_interface
 from .spatial_topology_dataset_connector import SpatialTopologyDatasetConnector
 from .temporal_topology_dataset_connector import TemporalTopologyDatasetConnector
 

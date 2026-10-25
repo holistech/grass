@@ -14,13 +14,13 @@ from datetime import datetime
 import grass.script as gs
 
 from .abstract_dataset import AbstractDataset
-from .core import (
+from .db import init_dbif
+from .state import (
     get_current_mapset,
     get_enable_mapset_check,
     get_enable_timestamp_write,
     get_tgis_c_library_interface,
     get_tgis_message_interface,
-    init_dbif,
 )
 from .datetime_math import (
     datetime_to_grass_datetime_string,

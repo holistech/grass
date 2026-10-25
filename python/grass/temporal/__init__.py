@@ -23,36 +23,40 @@ from .base import (
     VectorSTDSRegister,
 )
 from .c_libraries_interface import CLibrariesInterface, RPCDefs, c_library_server
-from .core import (
+from .db import (
     DBConnection,
     SQLDatabaseInterfaceConnection,
     SQLStatementError,
-    create_temporal_database,
     get_available_temporal_mapsets,
+    init_dbif,
+)
+from .schema import (
+    create_temporal_database,
+    get_database_info_string,
+    get_sql_template_path,
+    get_tgis_db_version_from_metadata,
+    get_tgis_metadata,
+    upgrade_temporal_database,
+)
+from .state import (
     get_current_gisdbase,
     get_current_location,
     get_current_mapset,
-    get_database_info_string,
     get_enable_mapset_check,
     get_enable_timestamp_write,
     get_raise_on_error,
-    get_sql_template_path,
     get_tgis_backend,
     get_tgis_c_library_interface,
     get_tgis_database,
     get_tgis_database_string,
     get_tgis_db_version,
-    get_tgis_db_version_from_metadata,
     get_tgis_dbmi_paramstyle,
     get_tgis_message_interface,
-    get_tgis_metadata,
     get_tgis_version,
     init,
-    init_dbif,
     profile_function,
     set_raise_on_error,
     stop_subprocesses,
-    upgrade_temporal_database,
 )
 from .datetime_math import (
     adjust_datetime_to_granularity,

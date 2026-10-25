@@ -11,7 +11,7 @@ import warnings
 from collections import Counter, defaultdict
 from dataclasses import replace
 
-from grass.temporal.core import get_tgis_message_interface
+from grass.temporal.state import get_tgis_message_interface
 from grass.temporal.spatial_extent import SpatialExtent
 
 from . import reducers

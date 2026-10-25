@@ -189,7 +189,7 @@ def test_db_connection_defaults_to_the_current_database(temporal_module_session)
 
     connection = core.DBConnection()
 
-    assert connection.dbstring == core.tgis_database_string
+    assert connection.dbstring == tgis.get_tgis_database_string()
     assert connection.dbstring
 
 
@@ -202,7 +202,7 @@ def test_connect_error_names_the_own_database(temporal_module_session, tmp_path)
         connection.connect()
 
     assert own in str(error.value)
-    assert core.tgis_database_string not in str(error.value)
+    assert tgis.get_tgis_database_string() not in str(error.value)
 
 
 class _RecordingConnection:
@@ -248,25 +248,25 @@ def _open_handles(path):
 
 def test_close_releases_the_sqlite_file(temporal_module_session):
     tgis.init()
-    before = _open_handles(core.tgis_database_string)
+    before = _open_handles(tgis.get_tgis_database_string())
     connection = core.DBConnection()
     connection.connect()
-    assert _open_handles(core.tgis_database_string) == before + 1
+    assert _open_handles(tgis.get_tgis_database_string()) == before + 1
 
     connection.close()
 
-    assert _open_handles(core.tgis_database_string) == before
+    assert _open_handles(tgis.get_tgis_database_string()) == before
 
 
 def test_interface_close_releases_every_connection(temporal_module_session):
     tgis.init()
-    before = _open_handles(core.tgis_database_string)
+    before = _open_handles(tgis.get_tgis_database_string())
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
     dbif.close()
 
-    assert _open_handles(core.tgis_database_string) == before
+    assert _open_handles(tgis.get_tgis_database_string()) == before
     assert dbif.is_connected() is False
 
 
@@ -280,7 +280,7 @@ def test_failed_statement_does_not_leave_the_connection_open(
     base = tgis.RasterBase(ident="broken@" + tgis.get_current_mapset())
     # The database refuses every statement on a table that does not exist.
     monkeypatch.setattr(base, "get_table_name", lambda: "table_that_does_not_exist")
-    before = _open_handles(core.tgis_database_string)
+    before = _open_handles(tgis.get_tgis_database_string())
 
     with pytest.raises(tgis.SQLStatementError) as error:
         getattr(base, method)()
@@ -289,7 +289,7 @@ def test_failed_statement_does_not_leave_the_connection_open(
     # connection that was only forgotten would be closed by garbage collection
     # as soon as the exception is gone and the test would not see it.
     assert error.tb is not None
-    assert _open_handles(core.tgis_database_string) == before
+    assert _open_handles(tgis.get_tgis_database_string()) == before
 
 
 @pytest.fixture
@@ -316,13 +316,13 @@ def test_missing_metadata_table_does_not_end_in_a_type_error(without_metadata_ta
 
 
 def test_failed_metadata_read_closes_its_own_connection(without_metadata_table):
-    before = _open_handles(core.tgis_database_string)
+    before = _open_handles(tgis.get_tgis_database_string())
 
     with pytest.raises(FatalError) as error:
         tgis.get_tgis_metadata()
 
     assert error.tb is not None
-    assert _open_handles(core.tgis_database_string) == before
+    assert _open_handles(tgis.get_tgis_database_string()) == before
 
 
 @pytest.fixture

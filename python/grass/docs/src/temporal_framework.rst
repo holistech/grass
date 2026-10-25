@@ -36,18 +36,36 @@ for example the database interface, the temporal database creation and initializ
 the SQL object serialization, all classes that represent table entries, datetime mathematics and many more.
 
 
+:mod:`~grass.temporal.state`
+""""""""""""""""""""""""""""
+
+    The state of the temporal session and its initialization:
+
+    - Initialization function :func:`~grass.temporal.state.init()`
+    - The object that holds the state of the session
+    - Several global functions to access TGIS specific variables
+    - Interfaces to the TGIS C-library and PyGRASS messenger objects
+
+:mod:`~grass.temporal.db`
+"""""""""""""""""""""""""
+
+    The connections to the temporal database:
+
+    - Database interface connection class :class:`~grass.temporal.db.SQLDatabaseInterfaceConnection`
+      to sqlite3 and postgresql database backends
+    - The context manager :func:`~grass.temporal.db.connection()` that closes
+      the connection it opened
+
+:mod:`~grass.temporal.schema`
+"""""""""""""""""""""""""""""
+
+    Functions to create, check and upgrade the temporal database.
+
 :mod:`~grass.temporal.core`
 """""""""""""""""""""""""""
 
-    The core functionality of the temporal framework:
-
-    - Initialization function :func:`~grass.temporal.core.init()`
-    - Definition of global variables
-    - Several global functions to access TGIS specific variables
-    - Interfaces to the TGIS C-library and PyGRASS messenger objects
-    - Database interface connection class :class:`~grass.temporal.core.SQLDatabaseInterfaceConnection`
-      to sqlite3 and postgresql database backends
-    - Functions to create the temporal database
+    The names of the three modules above under their former module, for
+    scripts and addons that use ``tgis.core``.
 
 :mod:`~grass.temporal.base`
 """""""""""""""""""""""""""

@@ -21,7 +21,7 @@ from datetime import datetime
 from grass.lib import gis, rtree, vector
 
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
-from .core import init_dbif
+from .db import init_dbif
 from .datetime_math import time_delta_to_relative_time_seconds
 
 ###############################################################################

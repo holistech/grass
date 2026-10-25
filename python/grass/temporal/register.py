@@ -20,12 +20,8 @@ from datetime import datetime
 import grass.script as gs
 
 from .abstract_map_dataset import AbstractMapDataset
-from .core import (
-    get_current_mapset,
-    get_tgis_message_interface,
-    init_dbif,
-    SQLDatabaseInterfaceConnection,
-)
+from .db import SQLDatabaseInterfaceConnection, init_dbif
+from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     check_datetime_string,
     increment_datetime_by_string,

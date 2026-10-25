@@ -32,7 +32,7 @@ from pathlib import Path
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .core import SQLStatementError
+from .db import SQLStatementError
 from .open_stds import open_old_stds
 
 proj_file_name = "proj.txt"

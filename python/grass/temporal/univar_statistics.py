@@ -27,7 +27,8 @@ import grass.script as gs
 from grass.exceptions import CalledModuleError
 from grass.pygrass.modules import Module
 
-from .core import SQLDatabaseInterfaceConnection, SQLStatementError, get_current_mapset
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError
+from .state import get_current_mapset
 from .factory import dataset_factory
 from .open_stds import open_old_stds
 

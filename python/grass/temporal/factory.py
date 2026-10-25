@@ -9,7 +9,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from .core import get_tgis_message_interface
+from .state import get_tgis_message_interface
 from .kinds import find_kind
 from .space_time_datasets import (
     Raster3DDataset,

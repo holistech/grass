@@ -233,7 +233,7 @@ def session(temporal_module_session):
 
 def db_module():
     """The module that holds DBConnection"""
-    return tgis.core
+    return tgis.db
 
 
 class Cursor:

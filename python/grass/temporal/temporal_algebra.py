@@ -451,12 +451,8 @@ from grass.exceptions import FatalError
 from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-from .core import (
-    SQLDatabaseInterfaceConnection,
-    get_current_mapset,
-    get_tgis_message_interface,
-    init_dbif,
-)
+from .db import SQLDatabaseInterfaceConnection, init_dbif
+from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,

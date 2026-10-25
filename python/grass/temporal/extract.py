@@ -17,13 +17,8 @@ from grass.script.utils import _get_multiprocessing_context
 
 from .abstract_map_dataset import AbstractMapDataset
 
-from .core import (
-    SQLDatabaseInterfaceConnection,
-    SQLStatementError,
-    get_current_mapset,
-    get_tgis_message_interface,
-    get_tgis_db_version,
-)
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError
+from .state import get_current_mapset, get_tgis_db_version, get_tgis_message_interface
 from .datetime_math import map_name_suffix
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 

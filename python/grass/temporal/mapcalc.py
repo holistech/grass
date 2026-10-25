@@ -27,12 +27,8 @@ from .algebra.content import Const
 from .algebra.series import Series, Slot
 from .algebra.sources import source
 from .algebra.time_functions import timevar
-from .core import (
-    SQLDatabaseInterfaceConnection,
-    SQLStatementError,
-    get_current_mapset,
-    get_tgis_message_interface,
-)
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError
+from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import time_delta_to_relative_time
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 from .related_maps import method_relations, related_per_granule, sampler_refused

@@ -13,7 +13,7 @@ from datetime import datetime
 import grass.script as gs
 from grass.exceptions import ScriptError
 
-from .core import init_dbif
+from .db import init_dbif
 from .factory import dataset_factory
 from .kinds import KINDS
 

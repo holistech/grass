@@ -27,8 +27,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from .core import (
-    SQLDatabaseInterfaceConnection,
+from .db import SQLDatabaseInterfaceConnection
+from .state import (
     get_current_mapset,
     get_tgis_dbmi_paramstyle,
     get_tgis_message_interface,

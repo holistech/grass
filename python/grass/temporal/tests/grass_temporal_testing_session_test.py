@@ -12,6 +12,7 @@ import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.pygrass.messages import get_msgr
+from grass.temporal.state import STATE
 from grass.temporal.testing.session import (
     add_mapset,
     mapset_session,
@@ -87,14 +88,14 @@ def test_messenger_created_by_the_block_is_left_in_exit_mode(tmp_path):
 
     This pins the restore rule for a process without a messenger: later tests
     expect sys.exit on fatal errors. The cache of get_msgr() and
-    tgis.core.message_interface are emptied for the test, because there is no
+    STATE.message_interface are emptied for the test, because there is no
     other way to start from "no messenger", and both are put back afterwards.
     """
     cache = get_msgr.__defaults__[0]
     original = cache[0]
-    original_interface = tgis.core.message_interface
+    original_interface = STATE.message_interface
     cache[0] = None
-    tgis.core.message_interface = None
+    STATE.message_interface = None
     try:
         with temporal_session(tmp_path / "p"):
             assert get_msgr().raise_on_error is True
@@ -104,7 +105,7 @@ def test_messenger_created_by_the_block_is_left_in_exit_mode(tmp_path):
         created.server.terminate()
     finally:
         cache[0] = original
-        tgis.core.message_interface = original_interface
+        STATE.message_interface = original_interface
 
 
 def test_mapset_is_created_and_entered(tmp_path):

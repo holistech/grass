@@ -1,7 +1,7 @@
 """Read space time datasets and single maps as series"""
 
 from grass.exceptions import FatalError
-from grass.temporal.core import get_current_mapset
+from grass.temporal.state import get_current_mapset
 from grass.temporal.factory import dataset_factory
 from grass.temporal.open_stds import _parse_id, open_old_stds
 

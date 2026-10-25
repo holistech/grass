@@ -48,7 +48,7 @@ from typing import Literal
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .core import get_current_mapset, get_tgis_message_interface, init
+from .state import get_current_mapset, get_tgis_message_interface, init
 from .factory import dataset_factory
 from .register import register_maps_in_space_time_dataset
 

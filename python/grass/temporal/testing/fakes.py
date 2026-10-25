@@ -22,7 +22,7 @@ from types import SimpleNamespace
 
 import grass.pygrass.modules.interface.module as pygrass_module
 import grass.temporal as tgis
-from grass.temporal import core
+from grass.temporal import core, db, schema, state
 
 
 def _gisrc_state():
@@ -135,12 +135,13 @@ def _replaced(owner_names):
 
 @contextlib.contextmanager
 def mapsets_cache(key=mapsets_key, cache=None):
-    """Memoise grass.temporal.core.get_available_temporal_mapsets
+    """Memoise grass.temporal.db.get_available_temporal_mapsets
 
-    Replaces the module attribute in grass.temporal.core, which is where the
+    Replaces the module attribute in grass.temporal.db, which is where the
     library calls it (SQLDatabaseInterfaceConnection and its add_mapset), and
-    the re-export in grass.temporal. Only non-empty answers are cached: an
-    empty one is what comes back before the first init() of a session. The
+    the re-exports in grass.temporal.core and grass.temporal. Only non-empty
+    answers are cached: an empty one is what comes back before the first
+    init() of a session. The
     cache is also emptied when create_temporal_database() or init() run
     through the module attributes; code that bound init at import time (as
     stds_import does) does not reach the wrapper, which is harmless because
@@ -151,7 +152,7 @@ def mapsets_cache(key=mapsets_key, cache=None):
     is a parameter only so that a test can show that a weaker key goes stale.
     Yields an object with the counters hits and misses.
     """
-    real = core.get_available_temporal_mapsets
+    real = db.get_available_temporal_mapsets
     stats = _Stats(hits=0, misses=0)
     cache = {} if cache is None else cache
 
@@ -178,16 +179,22 @@ def mapsets_cache(key=mapsets_key, cache=None):
         wrapper.__doc__ = function.__doc__
         return wrapper
 
-    # grass.temporal re-exports init and create_temporal_database from core;
-    # the pairs below keep both names in step.
-    names = [(core, "get_available_temporal_mapsets", cached)]
-    if hasattr(tgis, "get_available_temporal_mapsets"):
-        names.append((tgis, "get_available_temporal_mapsets", cached))
-    for name in ("create_temporal_database", "init"):
-        wrapper = clearing(getattr(core, name))
-        names.append((core, name, wrapper))
-        if getattr(tgis, name, None) is getattr(core, name):
-            names.append((tgis, name, wrapper))
+    # grass.temporal.core and grass.temporal re-export the functions of db.py,
+    # schema.py and state.py; the pairs below keep every name in step.
+    names = [(db, "get_available_temporal_mapsets", cached)]
+    names.extend(
+        (module, "get_available_temporal_mapsets", cached)
+        for module in (core, tgis)
+        if hasattr(module, "get_available_temporal_mapsets")
+    )
+    for name, home in (("create_temporal_database", schema), ("init", state)):
+        wrapper = clearing(getattr(home, name))
+        names.append((home, name, wrapper))
+        names.extend(
+            (module, name, wrapper)
+            for module in (core, tgis)
+            if getattr(module, name, None) is getattr(home, name)
+        )
     with _replaced(names):
         yield stats
 

@@ -20,12 +20,9 @@ from pathlib import Path
 from grass.exceptions import FatalError
 
 from .abstract_dataset import AbstractDataset, AbstractDatasetComparisonKeyStartTime
-from .core import (
-    get_current_mapset,
-    get_sql_template_path,
-    get_tgis_db_version_from_metadata,
-    init_dbif,
-)
+from .db import init_dbif
+from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
+from .state import get_current_mapset
 from .datetime_math import (
     datetime_after_steps,
     increment_datetime_by_string,

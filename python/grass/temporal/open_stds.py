@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .core import SQLDatabaseInterfaceConnection
+    from .db import SQLDatabaseInterfaceConnection
     from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 import contextlib
 
@@ -27,7 +27,8 @@ import grass.script as gs
 from grass.exceptions import FatalError
 
 from .abstract_map_dataset import AbstractMapDataset
-from .core import get_current_mapset, get_tgis_message_interface, init_dbif
+from .db import init_dbif
+from .state import get_current_mapset, get_tgis_message_interface
 from .factory import dataset_factory
 from .kinds import find_kind, stds_kind_of
 
