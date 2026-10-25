@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -226,3 +227,72 @@ def test_rollback_reaches_the_connection_of_the_mapset(temporal_module_session):
     dbif.rollback(mapset=b"other")
 
     assert calls == ["current", "other", "other"]
+
+
+def _open_handles(path):
+    """Count the file descriptors of this process that point to the file"""
+    target = Path(path).resolve()
+    count = 0
+    for descriptor in Path("/proc/self/fd").iterdir():
+        try:
+            if descriptor.readlink().resolve() == target:
+                count += 1
+        except OSError:
+            continue
+    return count
+
+
+def test_close_releases_the_sqlite_file(temporal_module_session):
+    tgis.init()
+    before = _open_handles(core.tgis_database_string)
+    connection = core.DBConnection()
+    connection.connect()
+    assert _open_handles(core.tgis_database_string) == before + 1
+
+    connection.close()
+
+    assert _open_handles(core.tgis_database_string) == before
+
+
+def test_interface_close_releases_every_connection(temporal_module_session):
+    tgis.init()
+    before = _open_handles(core.tgis_database_string)
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    dbif.close()
+
+    assert _open_handles(core.tgis_database_string) == before
+    assert dbif.is_connected() is False
+
+
+BROKEN = "SELECT * FROM table_that_does_not_exist WHERE ("
+
+
+@pytest.mark.parametrize(
+    ("method", "statement_getter", "statement"),
+    [
+        ("delete", "get_delete_statement", BROKEN),
+        ("is_in_db", "get_is_in_db_statement", BROKEN),
+        ("select", "get_select_statement", (BROKEN, [])),
+        ("insert", "get_insert_statement", (BROKEN, [])),
+        ("update", "get_update_statement", (BROKEN, [])),
+        ("update_all", "get_update_all_statement", (BROKEN, [])),
+    ],
+)
+def test_failed_statement_does_not_leave_the_connection_open(
+    temporal_module_session, monkeypatch, method, statement_getter, statement
+):
+    tgis.init()
+    base = tgis.RasterBase(ident="broken@" + tgis.get_current_mapset())
+    monkeypatch.setattr(base, statement_getter, lambda *args: statement)
+    before = _open_handles(core.tgis_database_string)
+
+    with pytest.raises(tgis.SQLStatementError) as error:
+        getattr(base, method)()
+
+    # The traceback keeps the frame, and with it the connection, alive; a
+    # connection that was only forgotten would be closed by garbage collection
+    # as soon as the exception is gone and the test would not see it.
+    assert error.tb is not None
+    assert _open_handles(core.tgis_database_string) == before

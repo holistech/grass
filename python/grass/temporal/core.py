@@ -1467,10 +1467,18 @@ class DBConnection:
             )
 
     def close(self) -> None:
-        """Close the DBMI connection"""
-        self.connection.commit()
-        self.cursor.close()
-        self.connected = False
+        """Close the DBMI connection, also when it is closed already"""
+        if not self.connected:
+            return
+        try:
+            self.connection.commit()
+        finally:
+            # The file stays open and, for PostgreSQL, the session stays
+            # alive until the connection object is collected if only the
+            # cursor is closed.
+            self.cursor.close()
+            self.connection.close()
+            self.connected = False
 
     @staticmethod
     def _sqlite_literal(arg) -> str:

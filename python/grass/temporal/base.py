@@ -302,8 +302,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            dbif.execute(sql, mapset=mapset)
-            dbif.close()
+            try:
+                dbif.execute(sql, mapset=mapset)
+            finally:
+                dbif.close()
 
     def get_is_in_db_statement(self):
         """Return the selection string that checks if this object is registered in the
@@ -343,9 +345,11 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            dbif.execute(sql, mapset=mapset)
-            row = dbif.fetchone(mapset=mapset)
-            dbif.close()
+            try:
+                dbif.execute(sql, mapset=mapset)
+                row = dbif.fetchone(mapset=mapset)
+            finally:
+                dbif.close()
 
         # Nothing found
         return row is not None
@@ -398,12 +402,14 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            if len(args) == 0:
-                dbif.execute(sql, mapset=mapset)
-            else:
-                dbif.execute(sql, args, mapset=mapset)
-            row = dbif.fetchone(mapset=mapset)
-            dbif.close()
+            try:
+                if len(args) == 0:
+                    dbif.execute(sql, mapset=mapset)
+                else:
+                    dbif.execute(sql, args, mapset=mapset)
+                row = dbif.fetchone(mapset=mapset)
+            finally:
+                dbif.close()
 
         # Nothing found
         if row is None:
@@ -456,8 +462,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            dbif.execute(sql, args, mapset=mapset)
-            dbif.close()
+            try:
+                dbif.execute(sql, args, mapset=mapset)
+            finally:
+                dbif.close()
 
     def get_update_statement(self, ident=None):
         """Return the sql statement and the argument list
@@ -516,8 +524,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            dbif.execute(sql, args, mapset=mapset)
-            dbif.close()
+            try:
+                dbif.execute(sql, args, mapset=mapset)
+            finally:
+                dbif.close()
 
     def get_update_all_statement(self, ident=None):
         """Return the sql statement and the argument
@@ -570,8 +580,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
         else:
             dbif = SQLDatabaseInterfaceConnection()
             dbif.connect()
-            dbif.execute(sql, args, mapset=mapset)
-            dbif.close()
+            try:
+                dbif.execute(sql, args, mapset=mapset)
+            finally:
+                dbif.close()
 
 
 ###############################################################################
