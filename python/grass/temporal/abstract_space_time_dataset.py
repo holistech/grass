@@ -21,17 +21,16 @@ from .abstract_dataset import AbstractDataset
 from .db import connection
 from .topology import (
     SpatioTemporalTopologyBuilder,
+    count_gaps,
     count_temporal_topology_relationships,
+    count_temporal_types,
     has_correct_temporal_topology,
     print_spatio_temporal_topology_relationships,
 )
 from .state import get_current_mapset
 from . import granule_sampling, stds_time_edit
 from .stds_map_register import StdsMapRegister
-from .temporal_granularity import (
-    check_granularity_string,
-    get_time_tuple_function,
-)
+from .temporal_granularity import check_granularity_string
 
 ###############################################################################
 
@@ -419,27 +418,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         :param dbif: The database interface to be used
         """
 
-        tcount = {"point": 0, "interval": 0, "invalid": 0}
-
         if maps is None:
             maps = self.get_registered_maps(where=None, order="start_time", dbif=dbif)
 
-        if not maps:
-            return tcount
-
-        get_time_tuple = get_time_tuple_function(maps)
-
-        for map_reference in maps:
-            # Check for point and interval data
-            start, end = get_time_tuple(map_reference)
-            if start is not None and end is not None:
-                tcount["interval"] += 1
-            elif start is not None and end is None:
-                tcount["point"] += 1
-            else:
-                tcount["invalid"] += 1
-
-        return tcount
+        return count_temporal_types(maps)
 
     def count_gaps(self, maps=None, dbif=None):
         """Count the number of gaps between temporal neighbors
@@ -454,16 +436,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 where=None, order="start_time", dbif=dbif
             )
 
-        gaps = 0
-
-        # Check for gaps
-        for i in range(len(maps)):
-            if i < len(maps) - 1:
-                relation = maps[i + 1].temporal_relation(maps[i])
-                if relation == "after":
-                    gaps += 1
-
-        return gaps
+        return count_gaps(maps)
 
     def print_spatio_temporal_relationships(
         self, maps=None, spatial=None, dbif=None

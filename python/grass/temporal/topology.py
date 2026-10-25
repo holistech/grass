@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import copy
 from datetime import datetime
+from itertools import pairwise
 
 from grass.lib import gis, rtree, vector
 
@@ -1058,6 +1059,48 @@ def print_spatio_temporal_topology_relationships(
         for map_ in tb:
             map_.select(dbif)
             map_.print_info()
+
+
+def count_temporal_types(maps) -> dict:
+    """Count the maps that are points, intervals or have no valid time
+
+    :param maps: A list of AbstractMapDataset objects or of database rows
+    :return: A dictionary with the numbers under "point" (only the start
+             time), "interval" (start and end time) and "invalid" (no start
+             time)
+    """
+    # temporal_granularity reads the datasets, which read this module.
+    from .temporal_granularity import get_time_tuple_function  # noqa: PLC0415
+
+    tcount = {"point": 0, "interval": 0, "invalid": 0}
+
+    if not maps:
+        return tcount
+
+    get_time_tuple = get_time_tuple_function(maps)
+
+    for map_reference in maps:
+        start, end = get_time_tuple(map_reference)
+        if start is not None and end is not None:
+            tcount["interval"] += 1
+        elif start is not None:
+            tcount["point"] += 1
+        else:
+            tcount["invalid"] += 1
+
+    return tcount
+
+
+def count_gaps(maps) -> int:
+    """Count the gaps between temporal neighbors
+
+    :param maps: A list of map objects sorted by start time
+    :return: The number of neighbors of which the later one is "after" the
+             earlier one
+    """
+    return sum(
+        later.temporal_relation(earlier) == "after" for earlier, later in pairwise(maps)
+    )
 
 
 def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
