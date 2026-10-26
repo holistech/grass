@@ -218,3 +218,21 @@ def test_register_map_object_list_skips_empty_maps_of_every_alias(
     )
 
     assert registered == ["full@PERMANENT|2001-01-01|2001-01-01\n"]
+
+
+@pytest.mark.parametrize(
+    ("name", "remove_type", "mapcalc_module"),
+    [
+        ("raster", "raster", "r.mapcalc"),
+        ("raster3d", "raster_3d", "r3.mapcalc"),
+        ("vector", "vector", None),
+        ("strds", None, None),
+        ("str3ds", None, None),
+        ("stvds", None, None),
+    ],
+)
+def test_the_plain_facts_of_a_kind(name, remove_type, mapcalc_module):
+    kind = kinds.KINDS[name]
+
+    assert kind.remove_type == remove_type
+    assert kind.mapcalc_module == mapcalc_module

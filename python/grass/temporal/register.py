@@ -911,14 +911,13 @@ def _remove_empty_maps(empty_maps, dbif):
     """Remove empty maps from the GRASS database and the temporal database"""
     import grass.pygrass.modules as pymod
 
-    g_remove_types = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}
     g_remove = pymod.Module("g.remove", flags="f", quiet=True, run_=False, finish_=True)
     for map_object in empty_maps:
         mod = copy.deepcopy(g_remove)
         if map_object.get_name():
-            g_remove_type = g_remove_types.get(map_object.get_type())
-            if g_remove_type:
-                mod(type=g_remove_type, name=map_object.get_name())
+            kind = find_kind(map_object.get_type())
+            if kind and kind.remove_type:
+                mod(type=kind.remove_type, name=map_object.get_name())
             mod.run()
         if map_object.is_in_db(dbif):
             map_object.delete(dbif)

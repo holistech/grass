@@ -372,7 +372,7 @@ def dataset_mapcalculator(
         # r3.mapcalc is left to decide its number of threads, as it always was
         runner = partial(
             run_mapcalc,
-            "r.mapcalc" if map_kind == "raster" else "r3.mapcalc",
+            KINDS[map_kind].mapcalc_module,
             nprocs=1 if map_kind == "raster" else None,
         )
         result_maps, statements = _plan_statements(
@@ -447,7 +447,7 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
                     n_empty, n_tot, n_empty * 100.0 / n_tot
                 )
             )
-            element = "raster" if stds_type == "strds" else "raster_3d"
+            element = KINDS[stds_kind_of(type).map_kind].remove_type
             gs.run_command(
                 "g.remove",
                 flags="f",

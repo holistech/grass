@@ -3,9 +3,11 @@
 Three kinds of maps (raster, 3D raster, vector) and the three kinds of space
 time datasets that hold them (strds, str3ds, stvds) differ in their names:
 the names the user may type, the tables of the temporal database and the
-prefix of the functions of the C interface. This module is the only table of
-these names; the entry functions of the library look a type up here and
-never compare a type with a list of strings of their own.
+prefix of the functions of the C interface, and in the plain facts that go
+with the type, such as the type that g.remove takes. The entry functions of
+the library look a type up here and do not compare it with a list of strings
+of their own. What stays at the place of use is wording that a translator
+has to see inside _(), such as a message that names the module.
 
 A name can mean different things to different entry functions. "raster" is
 a map to dataset_factory() but names the space time dataset type in
@@ -52,6 +54,10 @@ class Kind:
                           read and write a map, None for datasets
     :param has_layer: True if a map of the kind has layers, which is only
                       the vector map
+    :param remove_type: The value of the type option of g.remove for a map of
+                        the kind, None for datasets
+    :param mapcalc_module: The module that computes a raster map of the kind
+                           from an expression, None where there is none
     """
 
     name: str
@@ -62,6 +68,8 @@ class Kind:
     table_prefix: str
     ciface_prefix: str | None
     has_layer: bool = False
+    remove_type: str | None = None
+    mapcalc_module: str | None = None
 
     def table(self, part: str) -> str:
         """Return the name of the table or view of a part
@@ -86,7 +94,17 @@ class Kind:
 KINDS: dict[str, Kind] = {
     kind.name: kind
     for kind in (
-        Kind("raster", ("raster", "rast"), False, None, "strds", "raster", "raster"),
+        Kind(
+            "raster",
+            ("raster", "rast"),
+            False,
+            None,
+            "strds",
+            "raster",
+            "raster",
+            remove_type="raster",
+            mapcalc_module="r.mapcalc",
+        ),
         Kind(
             "raster3d",
             ("raster3d", "raster_3d", "rast3d"),
@@ -95,6 +113,8 @@ KINDS: dict[str, Kind] = {
             "str3ds",
             "raster3d",
             "raster3d",
+            remove_type="raster_3d",
+            mapcalc_module="r3.mapcalc",
         ),
         Kind(
             "vector",
@@ -105,6 +125,7 @@ KINDS: dict[str, Kind] = {
             "vector",
             "vector",
             has_layer=True,
+            remove_type="vector",
         ),
         Kind("strds", ("strds",), True, "raster", None, "strds", None),
         Kind("str3ds", ("str3ds",), True, "raster3d", None, "str3ds", None),
