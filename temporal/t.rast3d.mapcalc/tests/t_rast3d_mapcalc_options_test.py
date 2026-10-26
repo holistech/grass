@@ -362,3 +362,39 @@ def test_basename_maps_that_exist_end_with_an_error_status(tools, series):
     ) in message(error.value)
     # The tool stops before it computes or makes anything.
     assert "MB4" not in tools.t_list(type="str3ds", columns="name").stdout
+
+
+def test_an_empty_result_map_is_removed_from_the_mapset(tools, series):
+    # The values of M1 are 100, 200 and 300. The first two results are null in
+    # every voxel, so the tool neither registers nor keeps them. The removal
+    # must name the 3D raster type, or g.remove leaves the maps behind.
+    _call(
+        tools,
+        inputs="M1",
+        output="ME",
+        expression="if(M1 > 250, M1, null())",
+        basename="me",
+    )
+
+    assert [(name, value) for name, _, value in _maps(tools, "ME")] == [
+        ("me_3", "300.0")
+    ]
+    listed = tools.g_list(type="raster_3d", pattern="me_*").stdout.split()
+    assert listed == ["me_3"]
+
+
+def test_the_flag_n_keeps_the_empty_result_maps(tools, series):
+    # Counterpart of the test above: the maps are only gone because the tool
+    # removes them, not because the expression never made them.
+    _call(
+        tools,
+        flags="n",
+        inputs="M1",
+        output="MK",
+        expression="if(M1 > 250, M1, null())",
+        basename="mk",
+    )
+
+    assert len(_maps(tools, "MK")) == 3
+    listed = tools.g_list(type="raster_3d", pattern="mk_*").stdout.split()
+    assert sorted(listed) == ["mk_1", "mk_2", "mk_3"]

@@ -313,3 +313,18 @@ def test_an_empty_dataset_warns_without_the_hint_on_where(tools, quarterly, pref
         "(type: raster3d): Dataset is empty"
     ) in message(result)
     assert "where clause" not in message(result)
+
+
+def test_the_empty_result_maps_are_removed_from_the_mapset(tools, quarterly, prefix):
+    # The expression is null for the first four maps (100 to 400). They are
+    # neither registered nor kept as 3D rasters; the two others stay.
+    tools.t_rast3d_extract(
+        input=quarterly,
+        output=prefix,
+        expression=LARGE,
+        basename=f"{prefix}_x",
+    )
+
+    assert len(_maps(tools, prefix)) == 2
+    listed = tools.g_list(type="raster_3d", pattern=f"{prefix}_x_*").stdout.split()
+    assert sorted(listed) == [f"{prefix}_x_2002_01", f"{prefix}_x_2002_04"]
