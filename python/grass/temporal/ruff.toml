@@ -1,0 +1,55 @@
+# Ruff settings of the top-level modules of the temporal library.
+#
+# The repository ignores these rules everywhere (pyproject.toml, "GRASS TODO").
+# The library has been cleaned of them, so they are selected again here, where
+# a new violation can be fixed at once. Ruff offers no per-path selection in
+# pyproject.toml, only per-path ignores; a configuration file in the directory
+# is the one way to select a rule for a directory without deselecting it for
+# the rest of the repository. Measured 2026-10-26 with
+# `ruff check --isolated --select <rule> python/grass/temporal/*.py`: every rule
+# below had hits before the clean-up (UP031 97, UP032 14, A001 25, BLE001 4,
+# S608 18, SIM102 5, SIM118 10, PERF401 4, C901 25 at the default 10) and has
+# none now, except S608 (see below) and the sites that carry a noqa with a reason.
+extend = "../../../pyproject.toml"
+
+[lint]
+extend-select = [
+    "A001",    # builtin-variable-shadowing
+    "BLE001",  # blind-except
+    "C901",    # complex-structure
+    "PERF401", # manual-list-comprehension
+    "PLW0602", # global-variable-not-assigned
+    "PLW0603", # global-statement
+    "RUF012",  # mutable-class-default
+    "S604",    # call-with-shell-equals-true
+    "S608",    # hardcoded-sql-expression
+    "SIM102",  # collapsible-if
+    "SIM118",  # in-dict-keys
+    "UP031",   # printf-string-formatting
+    "UP032",   # f-string
+]
+
+[lint.mccabe]
+# Measured 2026-10-26: the most complex function of the modules rates 15;
+# radon rates none D or worse. A function above 15 is split.
+max-complexity = 15
+
+[lint.extend-per-file-ignores]
+# The classic engine is the reference that publications cite: its content is
+# not changed for style. The algebra core, the test helpers and the tests are
+# outside this clean-up.
+"classic/*" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"algebra/**" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"testing/**" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+"tests/**" = ["A001", "BLE001", "C901", "PERF401", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP031", "UP032"]
+# The SQL of these modules is made of table, view and column names that the
+# library chooses; no user input is part of it, values go as parameters, and
+# the where option of the tools is SQL by design. A parameter cannot stand in
+# for an identifier, so these statements cannot be bound.
+"db.py" = ["S608"]
+"gui_support.py" = ["S608"]
+"list_stds.py" = ["S608"]
+"metadata.py" = ["S608"]
+"rows.py" = ["S608"]
+"schema.py" = ["S608"]
+"stds_map_register.py" = ["S608"]

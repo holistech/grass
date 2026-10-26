@@ -116,6 +116,21 @@ def _print_matrices(sst, sts, mapmatrizes, separator, header):
         print(separator.join(str(field) for field in fields))
 
 
+def _open_datasets(intype, sampletype, inputs, sampler, mapset):
+    """Make the dataset objects of the inputs and of the sampler
+
+    A name without a mapset gets the current one.
+
+    :return: the input datasets, the sampler dataset and the sampler's identifier
+    """
+    sts = []
+    for input_ in inputs:
+        id_ = input_ if input_.find("@") >= 0 else input_ + "@" + mapset
+        sts.append(dataset_factory(intype, id_))
+    sid = sampler if sampler.find("@") >= 0 else sampler + "@" + mapset
+    return sts, dataset_factory(sampletype, sid), sid
+
+
 def sample_stds_by_stds_topology(
     intype,
     sampletype,
@@ -167,15 +182,7 @@ def sample_stds_by_stds_topology(
     if not issubclass(type(inputs), type([])):
         inputs = inputs.split(",")
 
-    sts = []
-
-    for input_ in inputs:
-        id_ = input_ if input_.find("@") >= 0 else input_ + "@" + mapset
-        st = dataset_factory(intype, id_)
-        sts.append(st)
-
-    sid = sampler if sampler.find("@") >= 0 else sampler + "@" + mapset
-    sst = dataset_factory(sampletype, sid)
+    sts, sst, sid = _open_datasets(intype, sampletype, inputs, sampler, mapset)
 
     dbif = SQLDatabaseInterfaceConnection()
     dbif.connect()

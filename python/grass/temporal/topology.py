@@ -1336,20 +1336,26 @@ def create_temporal_relation_sql_where_statement(
         (use_start, f"(start_time >= {s} and start_time < {e}) "),
         (
             use_during,
-            f"((start_time > {s} and end_time < {e}) OR "
-            f"(start_time >= {s} and end_time < {e}) OR "
-            f"(start_time > {s} and end_time <= {e}))",
+            (
+                f"((start_time > {s} and end_time < {e}) OR "
+                f"(start_time >= {s} and end_time < {e}) OR "
+                f"(start_time > {s} and end_time <= {e}))"
+            ),
         ),
         (
             use_overlap,
-            f"((start_time < {s} and end_time > {s} and end_time < {e}) OR "
-            f"(start_time < {e} and start_time > {s} and end_time > {e}))",
+            (
+                f"((start_time < {s} and end_time > {s} and end_time < {e}) OR "
+                f"(start_time < {e} and start_time > {s} and end_time > {e}))"
+            ),
         ),
         (
             use_contain,
-            f"((start_time < {s} and end_time > {e}) OR "
-            f"(start_time <= {s} and end_time > {e}) OR "
-            f"(start_time < {s} and end_time >= {e}))",
+            (
+                f"((start_time < {s} and end_time > {e}) OR "
+                f"(start_time <= {s} and end_time > {e}) OR "
+                f"(start_time < {s} and end_time >= {e}))"
+            ),
         ),
         (use_equal, f"(start_time = {s} and end_time = {e})"),
         (use_follows, f"(start_time = {e})"),
