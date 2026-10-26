@@ -23,7 +23,11 @@ from datetime import datetime
 
 import grass.script as gs
 
-from .abstract_map_dataset import AbstractMapDataset, describe_map
+from .abstract_map_dataset import (
+    AbstractMapDataset,
+    other_temporal_type_message,
+    other_time_unit_message,
+)
 from .datetime_math import (
     check_datetime_string,
     increment_datetime_by_string,
@@ -52,14 +56,8 @@ def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     Returns the unit the next map must have, None for an absolute dataset.
     """
     msgr = get_tgis_message_interface()
-    identifiers = {"id": sp.get_id(), "map": describe_map(map_object)}
     if sp.get_temporal_type() != map_object.get_temporal_type():
-        msgr.fatal(
-            _(
-                "Temporal type of space time dataset <%(id)s> and map %(map)s are different"
-            )
-            % identifiers
-        )
+        msgr.fatal(other_temporal_type_message(sp.get_id(), map_object))
     if not sp.is_time_relative():
         return None
     if sp.metadata.get_number_of_maps():
@@ -67,12 +65,7 @@ def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     else:
         expected = run_unit or map_object.get_relative_time_unit()
     if expected != map_object.get_relative_time_unit():
-        msgr.fatal(
-            _(
-                "Relative time units of space time dataset <%(id)s> and map %(map)s are different"
-            )
-            % identifiers
-        )
+        msgr.fatal(other_time_unit_message(sp.get_id(), map_object))
     return expected
 
 
@@ -364,12 +357,27 @@ def _row_times(run, row):
 def _check_new_map_time(run, map_object, start):
     """Refuse a new map without a usable start time and set its time type"""
     if (start == "" or start is None) and not map_object.has_grass_timestamp():
-        get_tgis_message_interface().fatal(
-            _(
-                "Unable to register {t} map {map}. The map has no timestamp "
-                "and the start time is not set."
-            ).format(t=map_object.get_type(), map=describe_map(map_object))
-        )
+        msgr = get_tgis_message_interface()
+        if map_object.get_layer():
+            msgr.fatal(
+                _(
+                    "Unable to register {t} map <{mid}> with "
+                    "layer {l}. The map has no timestamp and "
+                    "the start time is not set."
+                ).format(
+                    t=map_object.get_type(),
+                    mid=map_object.get_map_id(),
+                    l=map_object.get_layer(),
+                )
+            )
+        else:
+            msgr.fatal(
+                _(
+                    "Unable to register {t} map <{mid}>. The"
+                    " map has no timestamp and the start time "
+                    "is not set."
+                ).format(t=map_object.get_type(), mid=map_object.get_map_id())
+            )
     if start == "" or start is None:
         return
     # We need to check if the time is absolute and the unit was specified
@@ -389,12 +397,28 @@ def _check_new_map_time(run, map_object, start):
 
 def _warn_known_map(run, map_object):
     """Warn that a known map is not updated without the overwrite flag"""
-    get_tgis_message_interface().warning(
-        _(
-            "Map is already registered in temporal database. Unable to "
-            "update {t} map {map}. Overwrite flag is not set."
-        ).format(t=map_object.get_type(), map=describe_map(map_object))
-    )
+    msgr = get_tgis_message_interface()
+    if map_object.get_layer():
+        msgr.warning(
+            _(
+                "Map is already registered in temporal "
+                "database. Unable to update {t} map "
+                "<{mid}> with layer {l}. Overwrite flag"
+                " is not set."
+            ).format(
+                t=map_object.get_type(),
+                mid=map_object.get_map_id(),
+                l=str(map_object.get_layer()),
+            )
+        )
+    else:
+        msgr.warning(
+            _(
+                "Map is already registered in temporal "
+                "database. Unable to update {t} map "
+                "<{mid}>. Overwrite flag is not set."
+            ).format(t=map_object.get_type(), mid=map_object.get_map_id())
+        )
 
 
 def _reload_known_map(run, map_object):
@@ -411,11 +435,26 @@ def _reload_known_map(run, map_object):
             run.other_datasets[dataset] = dataset
 
     if run.name and map_object.get_temporal_type() != run.sp.get_temporal_type():
-        get_tgis_message_interface().fatal(
-            _(
-                "Unable to update {t} map {map}. The temporal types are different."
-            ).format(t=map_object.get_type(), map=describe_map(map_object))
-        )
+        msgr = get_tgis_message_interface()
+        if map_object.get_layer():
+            msgr.fatal(
+                _(
+                    "Unable to update {t} map <{mid}> "
+                    "with layer {l}. The temporal types "
+                    "are different."
+                ).format(
+                    t=map_object.get_type(),
+                    mid=map_object.get_map_id(),
+                    l=map_object.get_layer(),
+                )
+            )
+        else:
+            msgr.fatal(
+                _(
+                    "Unable to update {t} map <{mid}>. "
+                    "The temporal types are different."
+                ).format(t=map_object.get_type(), mid=map_object.get_map_id())
+            )
 
 
 def _check_zone_consistency(run, map_object):
@@ -772,27 +811,60 @@ def assign_valid_time_to_map(
 
     if ttype == "absolute":
         start_time, end_time = _absolute_times(start, end, increment, mult, interval)
-        msgr.debug(
-            1,
-            _("Set absolute valid time for map {map} to {start} - {end}").format(
-                map=describe_map(map_object), start=str(start_time), end=str(end_time)
-            ),
-        )
+        if map_object.get_layer():
+            msgr.debug(
+                1,
+                _(
+                    "Set absolute valid time for map <{id}> with layer {layer} "
+                    "to {start} - {end}"
+                ).format(
+                    id=map_object.get_map_id(),
+                    layer=map_object.get_layer(),
+                    start=str(start_time),
+                    end=str(end_time),
+                ),
+            )
+        else:
+            msgr.debug(
+                1,
+                _(
+                    "Set absolute valid time for map <{mid}> to {start_time} - {end_time}"
+                ).format(
+                    mid=map_object.get_map_id(),
+                    start_time=str(start_time),
+                    end_time=str(end_time),
+                ),
+            )
         map_object.set_absolute_time(start_time, end_time)
     else:
         start_time, end_time = _relative_times(start, end, increment, mult, interval)
-        msgr.debug(
-            1,
-            _(
-                "Set relative valid time for map {map} to {start} - {end} "
-                "with unit {unit}"
-            ).format(
-                map=describe_map(map_object),
-                start=start_time,
-                end=str(end_time),
-                unit=unit,
-            ),
-        )
+        if map_object.get_layer():
+            msgr.debug(
+                1,
+                _(
+                    "Set relative valid time for map <{mid}> with layer"
+                    " {layer} to {start} - {end} with unit {unit}"
+                ).format(
+                    mid=map_object.get_map_id(),
+                    layer=map_object.get_layer(),
+                    start=start_time,
+                    end=str(end_time),
+                    unit=unit,
+                ),
+            )
+        else:
+            msgr.debug(
+                1,
+                _(
+                    "Set relative valid time for map <{mid}> to {start} - {end} "
+                    "with unit {unit}"
+                ).format(
+                    mid=map_object.get_map_id(),
+                    start=start_time,
+                    end=str(end_time),
+                    unit=unit,
+                ),
+            )
         map_object.set_relative_time(start_time, end_time, unit)
 
 

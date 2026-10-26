@@ -213,12 +213,17 @@ def test_a_map_whose_interval_ends_before_it_starts(layer, messages):
 @pytest.mark.parametrize(
     ("layer", "text"),
     [
-        (None, "<x@PERMANENT>"),
-        ("", "<x@PERMANENT>"),
-        ("2", "<x@PERMANENT> with layer 2"),
+        (None, "map <x@PERMANENT> are"),
+        ("", "map <x@PERMANENT> are"),
+        ("2", "map <x@PERMANENT> with layer 2 are"),
     ],
 )
-def test_a_map_is_named_with_its_layer(layer, text):
+def test_a_map_with_an_empty_layer_has_the_message_without_a_layer(layer, text):
     item = tgis.VectorDataset("x:2@PERMANENT" if layer else "x@PERMANENT")
 
-    assert tgis.abstract_map_dataset.describe_map(item) == text
+    message = tgis.abstract_map_dataset.other_temporal_type_message("s@PERMANENT", item)
+
+    assert (
+        message
+        == f"Temporal type of space time dataset <s@PERMANENT> and {text} different"
+    )

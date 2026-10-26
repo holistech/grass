@@ -29,7 +29,10 @@ from pathlib import Path
 
 from grass.exceptions import FatalError
 
-from .abstract_map_dataset import describe_map
+from .abstract_map_dataset import (
+    other_temporal_type_message,
+    other_time_unit_message,
+)
 from .datetime_math import string_to_datetime
 from .db import connection
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
@@ -47,6 +50,38 @@ _TABLE_NAME = re.compile(r"[A-Za-z0-9_]+")
 def _placeholder(dbif) -> str:
     """The placeholder of the parameter style of the backend"""
     return "?" if dbif.get_dbmi().paramstyle == "qmark" else "%s"
+
+
+# A map with a layer has a sentence of its own in each of these messages rather
+# than the plain one with words inserted, so that a translator can inflect it.
+def _invalid_time_message(map_) -> str:
+    if map_.get_layer():
+        return _("Map <%(id)s> with layer %(l)s has invalid time") % {
+            "id": map_.get_map_id(),
+            "l": map_.get_layer(),
+        }
+    return _("Map <%s> has invalid time") % map_.get_map_id()
+
+
+def _already_registered_message(map_) -> str:
+    if map_.get_layer():
+        return _("Map <%(map)s> with layer %(l)s is already registered.") % {
+            "map": map_.get_map_id(),
+            "l": map_.get_layer(),
+        }
+    return _("Map <%s> is already registered.") % map_.get_map_id()
+
+
+def _not_registered_message(map_, stds_id: str) -> str:
+    if map_.get_layer():
+        return _(
+            "Map <%(map)s> with layer %(l)s is not registered in space time "
+            "dataset <%(base)s>"
+        ) % {"map": map_.get_map_id(), "l": map_.get_layer(), "base": stds_id}
+    return _("Map <%(map)s> is not registered in space time dataset <%(base)s>") % {
+        "map": map_.get_map_id(),
+        "base": stds_id,
+    }
 
 
 def _map_time_of(counts: dict) -> str:
@@ -209,14 +244,15 @@ class StdsMapRegister:
 
         stds.msgr.debug(
             1,
-            f"Register {map_.get_type()} map {describe_map(map_)} in space time {map_.get_type()} dataset <{stds.get_id()}>",
+            f"Register {map_.get_type()} map <{map_.get_map_id()}> in space time "
+            f"{map_.get_type()} dataset <{stds.get_id()}>",
         )
 
         # First select all data from the database in the current mapset
         map_.select(dbif, mapset=mapset)
 
         if not map_.check_for_correct_time():
-            stds.msgr.fatal(_("Map %s has invalid time") % describe_map(map_))
+            stds.msgr.fatal(_invalid_time_message(map_))
 
         map_id = map_.base.get_id()
         map_rel_time_unit = map_.get_relative_time_unit()
@@ -226,13 +262,7 @@ class StdsMapRegister:
         statement = ""
 
         if stds.get_temporal_type() != map_.get_temporal_type():
-            stds.msgr.fatal(
-                _(
-                    "Temporal type of space time dataset "
-                    "<%(id)s> and map %(map)s are different"
-                )
-                % {"id": stds.get_id(), "map": describe_map(map_)}
-            )
+            stds.msgr.fatal(other_temporal_type_message(stds.get_id(), map_))
 
         # In case no map has been registered yet, set the
         # relative time unit from the first map
@@ -257,13 +287,7 @@ class StdsMapRegister:
         if stds.is_time_relative() and (
             stds.get_relative_time_unit() != map_rel_time_unit
         ):
-            stds.msgr.fatal(
-                _(
-                    "Relative time units of space time dataset "
-                    "<%(id)s> and map %(map)s are different"
-                )
-                % {"id": stds.get_id(), "map": describe_map(map_)}
-            )
+            stds.msgr.fatal(other_time_unit_message(stds.get_id(), map_))
 
         stds_mapset = stds.base.get_mapset()
         if stds_mapset != mapset:
@@ -272,7 +296,7 @@ class StdsMapRegister:
             )
 
         if self.contains(map_id, dbif):
-            stds.msgr.warning(_("Map %s is already registered.") % describe_map(map_))
+            stds.msgr.warning(_already_registered_message(map_))
             return False
 
         # Register the stds in the map stds register table column
@@ -316,10 +340,7 @@ class StdsMapRegister:
 
         with connection(dbif) as dbif:
             if not self.contains(map_.get_id(), dbif):
-                stds.msgr.warning(
-                    _("Map %(map)s is not registered in space time dataset <%(base)s>")
-                    % {"map": describe_map(map_), "base": stds.base.get_id()}
-                )
+                stds.msgr.warning(_not_registered_message(map_, stds.base.get_id()))
                 return ""
 
             # Remove the space time dataset from the dataset register of the

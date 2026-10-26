@@ -48,6 +48,33 @@ def _optional_float(value) -> float | None:
     return None if value is None else float(value)
 
 
+def _projections_differ(name: str) -> str:
+    """Return the message for the relation name, one whole sentence each
+
+    The method is part of the message id, so that a translation of the
+    sentence is found for each of them.
+    """
+    return {
+        "overlapping_2d": _(
+            "Projections are different. Unable to compute overlapping_2d "
+            "for spatial extents"
+        ),
+        "is_in_2d": _(
+            "Projections are different. Unable to compute is_in_2d for spatial extents"
+        ),
+        "equivalent_2d": _(
+            "Projections are different. Unable to compute equivalent_2d "
+            "for spatial extents"
+        ),
+        "cover_2d": _(
+            "Projections are different. Unable to compute cover_2d for spatial extents"
+        ),
+        "cover": _(
+            "Projections are different. Unable to compute cover for spatial extents"
+        ),
+    }[name]
+
+
 def _shift_into(west: float, east: float, e_west: float, e_east: float):
     """Shift an interval by whole turns of the globe until it meets the first
 
@@ -755,12 +782,7 @@ class SpatialExtent(Row):
         :param name: The method named in the message
         """
         if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "{name} for spatial extents"
-                ).format(name=name)
-            )
+            self.msgr.error(_projections_differ(name))
             return False
         return True
 
@@ -885,13 +907,7 @@ class SpatialExtent(Row):
 
         :param name: The method that reports a difference of the projections
         """
-        if self.get_projection() != extent.get_projection():
-            self.msgr.error(
-                _(
-                    "Projections are different. Unable to compute "
-                    "{name} for spatial extents"
-                ).format(name=name)
-            )
+        if not self._check_projection(extent, name):
             return False
 
         # Exclude equivalent_2d

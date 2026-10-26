@@ -151,8 +151,8 @@ def _selected_rows(sp, columns, where, option, dbif, **kwargs):
     :param sp: The space time dataset
     :param columns: The columns of the map register to read
     :param where: The condition on the registered maps
-    :param option: The name of the option that holds the condition, for the
-                   message
+    :param option: The option that holds the condition, "where" or "twhere",
+                   which selects the message
     :param dbif: The connected database interface
     :param kwargs: The spatial selection that get_registered_maps() takes
     """
@@ -160,9 +160,10 @@ def _selected_rows(sp, columns, where, option, dbif, **kwargs):
         return sp.get_registered_maps(columns, where, "start_time", dbif, **kwargs)
     except SQLStatementError as error:
         get_tgis_message_interface().fatal(
-            _("Invalid {option} condition <{where}>: {error}").format(
-                option=option, where=where, error=error
-            )
+            {
+                "where": _("Invalid where condition <{}>: {}"),
+                "twhere": _("Invalid twhere condition <{}>: {}"),
+            }[option].format(where, error)
         )
 
 

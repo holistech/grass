@@ -39,12 +39,40 @@ _C_MONTHS = {
     )
 }
 
-# What a message calls a map of each kind
-_MAP_LABELS = {
-    "raster": "raster map",
-    "raster3d": "3D raster map",
-    "vector": "vector map",
-}
+
+# Each kind has the whole sentence of each message rather than one sentence
+# with the name of the kind inserted, so that translators can inflect it.
+def _cannot_read_timestamp(kind: str) -> str:
+    return {
+        "raster": _("Unable to read timestamp file for raster map <%s>"),
+        "raster3d": _("Unable to read timestamp file for 3D raster map <%s>"),
+        "vector": _("Unable to read timestamp file for vector map <%s>"),
+    }[kind]
+
+
+def _cannot_create_timestamp(kind: str) -> str:
+    return {
+        "raster": _("Unable to create timestamp file for raster map <%s>"),
+        "raster3d": _("Unable to create timestamp file for 3D raster map <%s>"),
+        "vector": _("Unable to create timestamp file for vector map <%s>"),
+    }[kind]
+
+
+def _invalid_timestamp(kind: str) -> str:
+    return {
+        "raster": _("Invalid datetime in timestamp for raster map <%s>"),
+        "raster3d": _("Invalid datetime in timestamp for 3D raster map <%s>"),
+        "vector": _("Invalid datetime in timestamp for vector map <%s>"),
+    }[kind]
+
+
+def _cannot_remove_timestamp(kind: str) -> str:
+    return {
+        "raster": _("Unable to remove timestamp for raster map <%s>"),
+        "raster3d": _("Unable to remove timestamp for 3D raster map <%s>"),
+        "vector": _("Unable to remove timestamp for vector map <%s>"),
+    }[kind]
+
 
 # The public class of each kind. get_new_instance() and its relatives return
 # exactly this class, also when they are called on a subclass of it.
@@ -161,11 +189,7 @@ class MapDataset(AbstractMapDataset):
         check, dates = self._call("read_timestamp", self._layer())
 
         if check < 1:
-            self.msgr.error(
-                _("Unable to read timestamp file for {} <{}>").format(
-                    _MAP_LABELS[self.kind.name], self.get_map_id()
-                )
-            )
+            self.msgr.error(_cannot_read_timestamp(self.kind.name) % self.get_map_id())
             return False
 
         if len(dates) == 2:
@@ -186,22 +210,15 @@ class MapDataset(AbstractMapDataset):
         check = self._call(
             "write_timestamp", self._layer(), timestring=self._convert_timestamp()
         )
-        label = _MAP_LABELS[self.kind.name]
 
         if check == -1:
             self.msgr.error(
-                _("Unable to create timestamp file for {} <{}>").format(
-                    label, self.get_map_id()
-                )
+                _cannot_create_timestamp(self.kind.name) % self.get_map_id()
             )
             return False
 
         if check == -2:
-            self.msgr.error(
-                _("Invalid datetime in timestamp for {} <{}>").format(
-                    label, self.get_map_id()
-                )
-            )
+            self.msgr.error(_invalid_timestamp(self.kind.name) % self.get_map_id())
             return False
 
         if check == -3:
@@ -221,11 +238,7 @@ class MapDataset(AbstractMapDataset):
         check = self._call("remove_timestamp", self._layer())
 
         if check == -1:
-            self.msgr.error(
-                _("Unable to remove timestamp for {} <{}>").format(
-                    _MAP_LABELS[self.kind.name], self.get_name()
-                )
-            )
+            self.msgr.error(_cannot_remove_timestamp(self.kind.name) % self.get_name())
             return False
 
         return True

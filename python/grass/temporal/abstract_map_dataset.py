@@ -30,18 +30,46 @@ from .state import (
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
 
-def describe_map(map_) -> str:
-    """Name a map in a message: "<id>", or "<id> with layer N" for a layer
+# A map with a layer has a sentence of its own in each of these messages rather
+# than the plain one with words inserted, so that a translator can inflect it.
+def other_temporal_type_message(stds_id: str, map_) -> str:
+    """Return the message that a dataset and a map differ in the temporal type"""
+    values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
+    if values["l"]:
+        return (
+            _(
+                "Temporal type of space time dataset "
+                "<%(id)s> and map <%(map)s> with layer %(l)s"
+                " are different"
+            )
+            % values
+        )
+    return (
+        _(
+            "Temporal type of space time dataset <%(id)s> and map <%(map)s> are different"
+        )
+        % values
+    )
 
-    The id is the map id without the layer, as get_map_id() returns it. A map
-    without a layer, or with an empty one, is named by its id alone.
 
-    :param map_: An AbstractMapDataset object
-    """
-    layer = map_.get_layer()
-    if layer:
-        return f"<{map_.get_map_id()}> with layer {layer}"
-    return f"<{map_.get_map_id()}>"
+def other_time_unit_message(stds_id: str, map_) -> str:
+    """Return the message that a dataset and a map differ in the time unit"""
+    values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
+    if values["l"]:
+        return (
+            _(
+                "Relative time units of space time dataset "
+                "<%(id)s> and map <%(map)s> with layer %(l)s"
+                " are different"
+            )
+            % values
+        )
+    return (
+        _(
+            "Relative time units of space time dataset <%(id)s> and map <%(map)s> are different"
+        )
+        % values
+    )
 
 
 class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
@@ -944,13 +972,24 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             self.msgr.error(_("Map <%s> has incorrect start time") % self.get_map_id())
             return False
         if end is not None and start >= end:
-            self.msgr.error(
-                _(
-                    "Map %s has incorrect time interval, start time is "
-                    "greater than end time"
+            # A map with a layer has a sentence of its own rather than one
+            # with words inserted, so that a translator can inflect each.
+            if self.get_layer():
+                self.msgr.error(
+                    _(
+                        "Map <%(id)s> with layer %(layer)s has incorrect time "
+                        "interval, start time is greater than end time"
+                    )
+                    % {"id": self.get_map_id(), "layer": self.get_layer()}
                 )
-                % describe_map(self)
-            )
+            else:
+                self.msgr.error(
+                    _(
+                        "Map <%s> has incorrect time interval, start time is "
+                        "greater than end time"
+                    )
+                    % self.get_map_id()
+                )
             return False
 
         return True
