@@ -313,3 +313,32 @@ def test_a_map_object_with_a_start_time_only_is_registered_as_an_instant(ids):
     stored = tgis.RasterDataset(f"{ids['ras']}@{MAPSET}")
     stored.select()
     assert stored.get_temporal_extent_as_tuple() == (datetime(2001, 1, 1), None)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        # refused when the dataset is opened
+        {"start": "0"},
+        # refused in the check of the time of the first map
+        {"start": "2001-01-01"},
+    ],
+    ids=["unit", "temporal type"],
+)
+def test_the_connection_is_closed_after_a_refusal(ids, monkeypatch, arguments):
+    opened = []
+    connection_class = tgis.SQLDatabaseInterfaceConnection
+
+    class Recording(connection_class):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            opened.append(self)
+
+    module = importlib.import_module("grass.temporal.register")
+    monkeypatch.setattr(module, "SQLDatabaseInterfaceConnection", Recording)
+
+    with pytest.raises(tgis.FatalError):
+        register(name=ids["rel"], maps=ids["vec"], **arguments)
+
+    (dbif,) = opened
+    assert not dbif.connected

@@ -197,7 +197,6 @@ def aggregate_raster_maps(
             )
 
     except CalledModuleError:
-        dbif.close()
         msgr.fatal(_("Error occurred in r.series computation"))
 
     # Read the raster map data

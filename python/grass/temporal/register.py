@@ -54,7 +54,6 @@ def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     msgr = get_tgis_message_interface()
     identifiers = {"id": sp.get_id(), "map": describe_map(map_object)}
     if sp.get_temporal_type() != map_object.get_temporal_type():
-        dbif.close()
         msgr.fatal(
             _(
                 "Temporal type of space time dataset <%(id)s> and map %(map)s are different"
@@ -68,7 +67,6 @@ def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     else:
         expected = run_unit or map_object.get_relative_time_unit()
     if expected != map_object.get_relative_time_unit():
-        dbif.close()
         msgr.fatal(
             _(
                 "Relative time units of space time dataset <%(id)s> and map %(map)s are different"
@@ -118,11 +116,6 @@ class _Run:
     stds_maps: list = field(default_factory=list)
     # The ids of datasets that must be updated
     other_datasets: dict = field(default_factory=dict)
-
-    def fatal(self, message: str) -> None:
-        """Close the connection and stop with the message"""
-        self.dbif.close()
-        get_tgis_message_interface().fatal(message)
 
 
 def _as_text(value):
@@ -175,7 +168,6 @@ def _open_dataset(name, type, mapset, start, end, unit, dbif):
     sp = open_old_stds(name, type, dbif)
 
     if sp.get_mapset() != mapset:
-        dbif.close()
         msgr.fatal(
             _(
                 "Unable to register maps in the space time dataset <{name}>. "
@@ -185,7 +177,6 @@ def _open_dataset(name, type, mapset, start, end, unit, dbif):
         )
 
     if sp.is_time_relative() and (start or end) and not unit:
-        dbif.close()
         msgr.fatal(
             _(
                 "Space time {sp} dataset <{name}> with relative"
@@ -315,7 +306,7 @@ def _dataset_zone(sp, dbif):
 def _check_exists(run, map_object):
     """Refuse a map that is not in the GRASS database"""
     if not map_object.map_exists():
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _("Unable to update {t} map <{mid}>. The map does not exist.").format(
                 t=map_object.get_type(), mid=map_object.get_map_id()
             )
@@ -335,7 +326,7 @@ def _check_vector_layer(run, map_object):
         return
     map_id = map_object.get_map_id()
     if not layer.isdecimal():
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "Unable to register vector map <{mid}>. The layer <{l}> is no integer."
             ).format(mid=map_id, l=layer)
@@ -349,7 +340,7 @@ def _check_vector_layer(run, map_object):
             ).split()
         )
     if layers and int(layer) not in layers:
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "Unable to register vector map <{mid}>. The map has no layer {l}."
             ).format(mid=map_id, l=layer)
@@ -373,7 +364,7 @@ def _row_times(run, row):
 def _check_new_map_time(run, map_object, start):
     """Refuse a new map without a usable start time and set its time type"""
     if (start == "" or start is None) and not map_object.has_grass_timestamp():
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map {map}. The map has no timestamp "
                 "and the start time is not set."
@@ -384,9 +375,11 @@ def _check_new_map_time(run, map_object, start):
     # We need to check if the time is absolute and the unit was specified
     is_date = isinstance(check_datetime_string(start), datetime)
     if is_date and run.unit:
-        run.fatal(_("unit can only be set for relative time"))
+        get_tgis_message_interface().fatal(_("unit can only be set for relative time"))
     if not is_date and not run.unit:
-        run.fatal(_("unit must be set in case of relative time stamps"))
+        get_tgis_message_interface().fatal(
+            _("unit must be set in case of relative time stamps")
+        )
 
     if run.unit:
         map_object.set_time_to_relative()
@@ -418,7 +411,7 @@ def _reload_known_map(run, map_object):
             run.other_datasets[dataset] = dataset
 
     if run.name and map_object.get_temporal_type() != run.sp.get_temporal_type():
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "Unable to update {t} map {map}. The temporal types are different."
             ).format(t=map_object.get_type(), map=describe_map(map_object))
@@ -441,7 +434,7 @@ def _check_zone_consistency(run, map_object):
     if run.zone_aware is None:
         run.zone_aware = aware
     elif run.zone_aware != aware:
-        run.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "Unable to register {t} map <{mid}>. Its time "
                 "{with_or_without} a time zone, the time of the "
@@ -653,43 +646,44 @@ def register_maps_in_space_time_dataset(
     dbif = SQLDatabaseInterfaceConnection(mapsets=mapset)
     dbif.connect()
 
-    # The name of the space time dataset is optional
-    sp = _open_dataset(name, type, mapset, start, end, unit, dbif)
+    try:
+        # The name of the space time dataset is optional
+        sp = _open_dataset(name, type, mapset, start, end, unit, dbif)
 
-    rows = _map_rows(maps, file, fs, sp, type, increment, interval)
-    num_maps = len(rows)
+        rows = _map_rows(maps, file, fs, sp, type, increment, interval)
+        num_maps = len(rows)
 
-    run = _Run(
-        type=type,
-        name=name,
-        sp=sp,
-        dbif=dbif,
-        mapset=mapset,
-        overwrite=overwrite,
-        unit=unit,
-        increment=increment,
-        interval=interval,
-        option_start=start,
-        option_end=end,
-    )
-    if name and sp.is_time_absolute():
-        run.zone_aware = _dataset_zone(sp, dbif)
+        run = _Run(
+            type=type,
+            name=name,
+            sp=sp,
+            dbif=dbif,
+            mapset=mapset,
+            overwrite=overwrite,
+            unit=unit,
+            increment=increment,
+            interval=interval,
+            option_start=start,
+            option_end=end,
+        )
+        if name and sp.is_time_absolute():
+            run.zone_aware = _dataset_zone(sp, dbif)
 
-    msgr.debug(2, "Gathering map information...")
+        msgr.debug(2, "Gathering map information...")
 
-    for count, row in enumerate(rows):
-        if count % 50 == 0:
-            msgr.percent(count, num_maps, 1)
-        _validate_map(run, count, row)
+        for count, row in enumerate(rows):
+            if count % 50 == 0:
+                msgr.percent(count, num_maps, 1)
+            _validate_map(run, count, row)
 
-    _write_maps(run)
+        _write_maps(run)
 
-    msgr.percent(num_maps, num_maps, 1)
+        msgr.percent(num_maps, num_maps, 1)
 
-    _register_in_stds(run, msgr, update_cmd_list)
-    _update_other_stds(run)
-
-    dbif.close()
+        _register_in_stds(run, msgr, update_cmd_list)
+        _update_other_stds(run)
+    finally:
+        dbif.close()
 
     total = len(run.stds_maps) if name and run.stds_maps else num_maps
     msgr.percent(total, total, 1)

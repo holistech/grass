@@ -27,7 +27,7 @@ from .algebra.series import Series, Slot
 from .algebra.sources import source
 from .algebra.time_functions import timevar
 from .batches import run_in_batches, run_mapcalc
-from .db import SQLDatabaseInterfaceConnection, SQLStatementError
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
 from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import time_delta_to_relative_time
 from .factory import dataset_factory
@@ -352,46 +352,49 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
     """
     msgr = get_tgis_message_interface()
     msgr.message(_("Starting map registration in temporal database..."))
-    dbif = SQLDatabaseInterfaceConnection()
-    dbif.connect()
-    # The name may carry a semantic label, which only strds reads.
-    stds_type = stds_kind_of(type).name
-    first_stds = open_old_stds(first_name, stds_type, dbif)
-    temporal_type, semantic_type, title, description = first_stds.get_initial_values()
-    new_sp = open_new_stds(
-        output,
-        type,
-        temporal_type,
-        title,
-        description,
-        semantic_type,
-        dbif,
-        gs.overwrite(),
-    )
-    empty_maps = []
-    for count, new_map in enumerate(result_maps, 1):
-        msgr.percent(count, num, 10)
-        new_map.load()
-        if new_map.metadata.get_min() is None and new_map.metadata.get_max() is None:
-            if not register_null:
-                empty_maps.append(new_map)
-                continue
-        new_map.insert(dbif)
-        new_sp.register_map(new_map, dbif)
-    new_sp.update_from_registered_maps(dbif)
-    if empty_maps:
-        n_empty, n_tot = len(empty_maps), len(result_maps)
-        msgr.warning(
-            _("Removing {}/{} ({}%) maps because empty...").format(
-                n_empty, n_tot, n_empty * 100.0 / n_tot
+    with connection() as dbif:
+        # The name may carry a semantic label, which only strds reads.
+        stds_type = stds_kind_of(type).name
+        first_stds = open_old_stds(first_name, stds_type, dbif)
+        temporal_type, semantic_type, title, description = (
+            first_stds.get_initial_values()
+        )
+        new_sp = open_new_stds(
+            output,
+            type,
+            temporal_type,
+            title,
+            description,
+            semantic_type,
+            dbif,
+            gs.overwrite(),
+        )
+        empty_maps = []
+        for count, new_map in enumerate(result_maps, 1):
+            msgr.percent(count, num, 10)
+            new_map.load()
+            if (
+                new_map.metadata.get_min() is None
+                and new_map.metadata.get_max() is None
+            ):
+                if not register_null:
+                    empty_maps.append(new_map)
+                    continue
+            new_map.insert(dbif)
+            new_sp.register_map(new_map, dbif)
+        new_sp.update_from_registered_maps(dbif)
+        if empty_maps:
+            n_empty, n_tot = len(empty_maps), len(result_maps)
+            msgr.warning(
+                _("Removing {}/{} ({}%) maps because empty...").format(
+                    n_empty, n_tot, n_empty * 100.0 / n_tot
+                )
             )
-        )
-        element = "raster" if stds_type == "strds" else "raster_3d"
-        gs.run_command(
-            "g.remove",
-            flags="f",
-            type=element,
-            name=",".join(m.get_name() for m in empty_maps),
-            quiet=True,
-        )
-    dbif.close()
+            element = "raster" if stds_type == "strds" else "raster_3d"
+            gs.run_command(
+                "g.remove",
+                flags="f",
+                type=element,
+                name=",".join(m.get_name() for m in empty_maps),
+                quiet=True,
+            )
