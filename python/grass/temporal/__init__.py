@@ -6,6 +6,8 @@ the list and who uses each name. Everything else is imported from its module,
 for example ``from grass.temporal.related_maps import related_per_granule``.
 """
 
+from grass.exceptions import FatalError
+
 from . import core, datetime_math, list_stds, space_time_datasets
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .aggregation import aggregate_raster_maps, collect_map_names
@@ -65,7 +67,6 @@ from .space_time_datasets import (
 from .topology import SpatioTemporalTopologyBuilder
 from .stds_export import export_stds
 from .stds_import import import_stds
-from .classic.temporal_algebra import FatalError
 from .classic.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 from .temporal_granularity import (
