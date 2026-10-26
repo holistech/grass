@@ -360,3 +360,15 @@ def test_a_vector_map_with_two_layers_is_listed_per_layer_and_packed_once(
     ]
     assert packed == ["lay"]
     assert "number_of_maps=2" in _text(archive, "init.txt")
+
+
+@pytest.mark.parametrize("format_", ["GML", "GPKG"])
+def test_two_layers_of_a_vector_map_cannot_be_exported_as_ogr_files(
+    layered_dataset, tmp_path, format_
+):
+    # Every row is written to the file named after the map, so the second
+    # layer finds the file of the first one and v.out.ogr refuses to
+    # overwrite it. This records the behavior; it is not a decision that the
+    # archive cannot hold the layers.
+    with pytest.raises(FatalError, match=f"as {format_} with v.out.ogr"):
+        _export(tmp_path, layered_dataset, "stvds", format_)
