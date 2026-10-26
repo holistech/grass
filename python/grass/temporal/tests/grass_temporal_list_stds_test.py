@@ -3,7 +3,7 @@
 import pytest
 
 import grass.temporal as tgis
-from grass.exceptions import ScriptError
+from grass.exceptions import FatalError
 from grass.temporal import list_stds
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.tools import Tools
@@ -60,7 +60,7 @@ def test_a_given_connection_stays_open_when_the_listing_ends_in_a_message(
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
 
-    with pytest.raises((SystemExit, ScriptError)):
+    with pytest.raises(FatalError):
         list_stds.list_maps_of_stds(
             type="strds",
             input=listed_strds,
