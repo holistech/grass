@@ -12,7 +12,7 @@ from datetime import datetime
 
 import grass.script as gs
 
-from .db import connection
+from .db import connection, sql_literal, sql_statement
 from .factory import dataset_factory
 from .kinds import KINDS
 
@@ -107,9 +107,10 @@ def tlist(type, dbif=None):
                     table = sp.get_type() + "_view_rel_time"
 
                 # Create the sql selection statement
-                sql = "SELECT id FROM " + table
-                sql += f" WHERE mapset = '{mapset}'"
-                sql += " ORDER BY id"
+                select = sql_statement(
+                    "SELECT id FROM {view} WHERE mapset = ", view=table
+                )
+                sql = f"{select}{sql_literal(mapset)} ORDER BY id"
 
                 dbif.execute(sql, mapset=mapset)
                 rows = dbif.fetchall(mapset=mapset)
@@ -152,18 +153,21 @@ def registered_maps_grouped(dbif=None):
             # One row per map registered in at least one dataset. A map has
             # either absolute or relative time, so exactly one of the joined
             # start times is not NULL.
-            sql = (
+            sql = sql_statement(
                 "SELECT reg.id AS id, reg.registered_stds AS registered_stds,"
                 " abs_t.start_time AS abs_start, abs_t.end_time AS abs_end,"
                 " rel_t.start_time AS rel_start, rel_t.end_time AS rel_end,"
                 " rel_t.unit AS unit"
-                f" FROM {map_kind.table('register')} AS reg"
-                f" LEFT JOIN {map_kind.table('absolute_time')} AS abs_t"
+                " FROM {register} AS reg"
+                " LEFT JOIN {absolute} AS abs_t"
                 " ON reg.id = abs_t.id"
-                f" LEFT JOIN {map_kind.table('relative_time')} AS rel_t"
+                " LEFT JOIN {relative} AS rel_t"
                 " ON reg.id = rel_t.id"
                 " WHERE reg.registered_stds IS NOT NULL"
-                " AND reg.registered_stds != ''"
+                " AND reg.registered_stds != ''",
+                register=map_kind.table("register"),
+                absolute=map_kind.table("absolute_time"),
+                relative=map_kind.table("relative_time"),
             )
             for mapset in dbif.tgis_mapsets:
                 dbif.execute(sql, mapset=mapset)
