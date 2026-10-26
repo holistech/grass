@@ -320,3 +320,43 @@ def test_an_unknown_dataset_type_is_refused(datasets, tmp_path):
         _export(tmp_path, "exr", "foo", "pack")
 
     assert not list(tmp_path.iterdir())
+
+
+@pytest.fixture(scope="module")
+def layered_dataset(temporal_module_session):
+    """A vector dataset holding layers 1 and 2 of one map"""
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    vector_points(tools, "lay_one", [(1, 1)])
+    tools.v_category(input="lay_one", output="lay", option="add", layer=2, type="point")
+    tools.t_create(type="stvds", output="lay_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="lay_ds",
+        maps="lay:1,lay:2",
+        start="2001-01-01",
+        increment="1 months",
+    )
+    return "lay_ds"
+
+
+def test_a_vector_map_with_two_layers_is_listed_per_layer_and_packed_once(
+    layered_dataset, tmp_path, monkeypatch
+):
+    packed = []
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name == "v.pack":
+            packed.append(kwargs["input"])
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+
+    archive = _export(tmp_path, layered_dataset, "stvds", "pack")
+
+    assert _text(archive, "list.txt").splitlines() == [
+        "lay:1|2001-01-01 00:00:00|2001-01-01 00:00:00",
+        "lay:2|2001-02-01 00:00:00|2001-02-01 00:00:00",
+    ]
+    assert packed == ["lay"]
+    assert "number_of_maps=2" in _text(archive, "init.txt")

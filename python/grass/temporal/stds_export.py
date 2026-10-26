@@ -248,19 +248,20 @@ def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
 
 def _export_vector_maps(rows, tar, list_file, fs) -> None:
     # A vector map with several layers is listed once per layer but packed
-    # once. The set is per call: a set of the module would skip the maps of
-    # every later export in the same process.
+    # once, since the pack file holds the map with all its layers. The set is
+    # per call: a set of the module would skip the maps of every later export
+    # in the same process.
     exported = set()
     for row in rows:
         name = row["name"]
-        if name in exported:
-            continue
-
         list_file.write(
             _list_line(
                 fs, f"{name}:{row['layer'] or 1}", row["start_time"], row["end_time"]
             )
         )
+        if name in exported:
+            continue
+
         # Export the vector map with v.pack
         try:
             gs.run_command("v.pack", input=name, flags="c")

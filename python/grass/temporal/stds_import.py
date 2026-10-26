@@ -535,30 +535,32 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
     """Read list.txt of the working directory
 
     Return one dictionary per map and the number of lines of the file, blank
-    ones included. The "filename" of a map is the base name of its files,
-    which the format adds a suffix to; with base the maps are renamed to the
-    base and a numerical suffix.
+    ones included. The "filename" of a map is the base name of its files, which
+    the format adds a suffix to. With base the maps are renamed to the base
+    and a numerical suffix that counts the file names in the order of their
+    first appearance: the lines of the layers of one vector map share a file
+    and so the new name.
     """
     fs = "|"
     maplist = []
     semantic_label_column = 4
     with list_file_name.open("r") as list_file:
-        lines = list_file.readlines()
-    # the number of lines is needed to correctly form the suffix
-    max_count = len(lines)
+        all_lines = [line.rstrip() for line in list_file]
+    lines = [line for line in all_lines if line]
+    parsed = [line.split(fs) for line in lines]
+    filenames = [fields[0].strip().partition(":")[0] for fields in parsed]
+    # Dictionary order is the order of insertion, so this is the first
+    # appearance. The number of file names is needed to form the suffix.
+    numbers = {name: number for number, name in enumerate(dict.fromkeys(filenames), 1)}
 
-    for line_count, line in enumerate(lines, 1):
-        map_line = line.rstrip()
-        if not map_line:
-            continue
-
-        line_list = map_line.split(fs)
-
+    for line_list in parsed:
         # The filename is actually the base name of the map
         # that must be extended by the file suffix
         filename, _separator, layer = line_list[0].strip().partition(":")
         mapname = (
-            f"{base}_{gs.get_num_suffix(line_count, max_count)}" if base else filename
+            f"{base}_{gs.get_num_suffix(numbers[filename], len(numbers))}"
+            if base
+            else filename
         )
 
         maplist.append(
@@ -574,7 +576,7 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
                 else "",
             }
         )
-    return maplist, max_count
+    return maplist, len(all_lines)
 
 
 def _read_init_file() -> dict[str, str]:

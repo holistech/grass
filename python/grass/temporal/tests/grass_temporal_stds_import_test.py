@@ -557,12 +557,7 @@ def test_an_archive_without_color_rules_is_imported(archives, target, tmp_path):
 
 @pytest.fixture(scope="module")
 def two_layer_archive(tmp_path_factory):
-    """A pack archive whose list holds both layers of one vector map
-
-    The export writes one line for such a map; the list is extended by the
-    second layer here, as the pack format allows it: the whole map with all
-    its layers is in the one file.
-    """
+    """A pack archive of a dataset that holds both layers of one vector map"""
     base = tmp_path_factory.mktemp("stds_io_layers")
     with project_session(base / "source") as session:
         tools = _tools(session)
@@ -587,14 +582,7 @@ def two_layer_archive(tmp_path_factory):
             format="pack",
             directory=str(base),
         )
-    listed = _member(path, "list.txt")
-    changed = _changed(
-        path, base / "list.tar", "list.txt", listed + b"lay:2|2001-01-01|2001-01-01\n"
-    )
-    init = _member(changed, "init.txt").replace(
-        b"number_of_maps=1", b"number_of_maps=2"
-    )
-    return _changed(changed, base / "layers.tar", "init.txt", init)
+    return path
 
 
 def test_a_vector_map_with_two_layers_is_unpacked_once(
@@ -618,6 +606,37 @@ def test_a_vector_map_with_two_layers_is_unpacked_once(
         listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
         assert listed.split()[1:] == ["lay|1", "lay|2"]
     assert unpacked == ["lay"]
+
+
+def test_a_vector_map_with_two_layers_round_trips(
+    two_layer_archive, tmp_path, monkeypatch
+):
+    assert _member(two_layer_archive, "list.txt").decode().count("\n") == 2
+    unpacked = []
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name == "v.unpack":
+            unpacked.append(kwargs["output"])
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+    for base, expected in ((None, "lay"), ("pre", "pre_1")):
+        unpacked.clear()
+        with temporal_session(tmp_path / f"target_{base}", crs=f"EPSG:{EPSG}"):
+            tgis.import_stds(
+                str(two_layer_archive),
+                "out",
+                tmp_path,
+                base=base,
+                stds_type="stvds",
+                overr=True,
+            )
+
+            assert gs.read_command("g.list", type="vector").split() == [expected]
+            listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
+            assert listed.split()[1:] == [f"{expected}|1", f"{expected}|2"]
+        assert unpacked == [expected]
 
 
 @pytest.mark.parametrize("fails", [False, True])
