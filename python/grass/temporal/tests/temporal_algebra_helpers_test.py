@@ -26,7 +26,10 @@ from datetime import datetime
 import pytest
 
 import grass.temporal as tgis
-from grass.temporal.temporal_algebra import GlobalTemporalVar, TemporalAlgebraParser
+from grass.temporal.classic.temporal_algebra import (
+    GlobalTemporalVar,
+    TemporalAlgebraParser,
+)
 
 BOX = {"north": 10, "south": 0, "east": 10, "west": 0, "top": 0, "bottom": 0}
 

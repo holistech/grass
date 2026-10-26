@@ -109,11 +109,22 @@ from .topology import (
 )
 from .stds_export import export_stds
 from .stds_import import import_stds
-from .temporal_algebra import (
+from .classic.temporal_algebra import (
     FatalError,
     GlobalTemporalVar,
     TemporalAlgebraLexer,
     TemporalAlgebraParser,
+)
+from .classic.temporal_operator import TemporalOperatorLexer, TemporalOperatorParser
+from .classic.temporal_raster_base_algebra import (
+    TemporalRasterAlgebraLexer,
+    TemporalRasterBaseAlgebraParser,
+)
+from .classic.temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
+from .classic.temporal_raster_algebra import TemporalRasterAlgebraParser
+from .classic.temporal_vector_algebra import (
+    TemporalVectorAlgebraLexer,
+    TemporalVectorAlgebraParser,
 )
 from .temporal_extent import (
     AbsoluteTemporalExtent,
@@ -134,17 +145,6 @@ from .temporal_granularity import (
     get_time_tuple_function,
     gran_singular_unit,
     gran_to_gran,
-)
-from .temporal_operator import TemporalOperatorLexer, TemporalOperatorParser
-from .temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
-from .temporal_raster_algebra import TemporalRasterAlgebraParser
-from .temporal_raster_base_algebra import (
-    TemporalRasterAlgebraLexer,
-    TemporalRasterBaseAlgebraParser,
-)
-from .temporal_vector_algebra import (
-    TemporalVectorAlgebraLexer,
-    TemporalVectorAlgebraParser,
 )
 from .univar_statistics import (
     compute_univar_stats,

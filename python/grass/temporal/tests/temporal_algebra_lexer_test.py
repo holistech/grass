@@ -7,7 +7,10 @@ token rules and the documented syntax of the temporal algebra.
 
 import pytest
 
-from grass.temporal.temporal_algebra import GlobalTemporalVar, TemporalAlgebraLexer
+from grass.temporal.classic.temporal_algebra import (
+    GlobalTemporalVar,
+    TemporalAlgebraLexer,
+)
 
 
 @pytest.fixture(scope="module")

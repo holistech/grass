@@ -44,6 +44,11 @@ MODULES = [
     "algebra.content",
     "base",
     "c_libraries_interface",
+    "classic.temporal_algebra",
+    "classic.temporal_operator",
+    "classic.temporal_raster_algebra",
+    "classic.temporal_raster_base_algebra",
+    "classic.temporal_vector_algebra",
     "datetime_math",
     "db",
     "granule_sampling",
@@ -55,14 +60,9 @@ MODULES = [
     "spatial_extent",
     "state",
     "stds_time_edit",
-    "temporal_algebra",
     "temporal_extent",
     "temporal_granularity",
-    "temporal_operator",
-    "temporal_raster_algebra",
-    "temporal_raster_base_algebra",
     "topology",
-    "temporal_vector_algebra",
 ]
 
 # doctest name: (failed examples, reason). Empty: every doctest of the library

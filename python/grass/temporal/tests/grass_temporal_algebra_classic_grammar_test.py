@@ -338,10 +338,16 @@ def lines_of(text):
 
 
 def parser_class_of(kind):
-    from grass.temporal.temporal_algebra import TemporalAlgebraParser
-    from grass.temporal.temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
-    from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
-    from grass.temporal.temporal_vector_algebra import TemporalVectorAlgebraParser
+    from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
+    from grass.temporal.classic.temporal_raster3d_algebra import (
+        TemporalRaster3DAlgebraParser,
+    )
+    from grass.temporal.classic.temporal_raster_algebra import (
+        TemporalRasterAlgebraParser,
+    )
+    from grass.temporal.classic.temporal_vector_algebra import (
+        TemporalVectorAlgebraParser,
+    )
 
     return {
         "raster": TemporalRasterAlgebraParser,

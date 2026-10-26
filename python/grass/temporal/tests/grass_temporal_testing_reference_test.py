@@ -15,7 +15,7 @@ import pytest
 
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
+from grass.temporal import TemporalRasterAlgebraParser
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.reference import reference_parser, run_reference
@@ -149,7 +149,7 @@ def test_reference_parser_survives_a_rerouted_class(
     class. (t.select has none: its reference is the base parser itself, and
     test_every_kind_parses runs it under each setting of the variable.)"""
     parser_class = getattr(
-        importlib.import_module(f"grass.temporal.{module}"), class_name
+        importlib.import_module(f"grass.temporal.classic.{module}"), class_name
     )
 
     def rerouted(*args, **kwargs):

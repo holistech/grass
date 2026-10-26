@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from grass.temporal.temporal_algebra import TemporalAlgebraParser
+from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
 
 # compare_values does not use instance state, so build an instance without
 # running __init__ (which would open a temporal database connection). Provide a

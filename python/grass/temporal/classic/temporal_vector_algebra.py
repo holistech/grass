@@ -46,9 +46,9 @@ import copy
 
 import grass.pygrass.modules as pygrass
 
-from .algebra.parser import evaluate
-from .algebra.parser.switch import classic_selected
-from .space_time_datasets import VectorDataset
+from grass.temporal.algebra.parser import evaluate
+from grass.temporal.algebra.parser.switch import classic_selected
+from grass.temporal.space_time_datasets import VectorDataset
 from .temporal_algebra import TemporalAlgebraLexer, TemporalAlgebraParser
 
 
@@ -166,7 +166,7 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         """
         # Loaded on use: the classic profile imports the classic lexers,
         # which live in modules that import this one.
-        from .algebra.profile import CLASSIC, CORE
+        from grass.temporal.algebra.profile import CLASSIC, CORE
 
         return evaluate(
             expression,

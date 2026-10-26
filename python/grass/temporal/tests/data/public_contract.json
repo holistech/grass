@@ -1295,12 +1295,6 @@
    },
    "origins": "repo"
   },
-  "grass.temporal.temporal_algebra": {
-   "names": {
-    "FatalError": "repo"
-   },
-   "origins": "repo"
-  },
   "grass.temporal.temporal_extent": {
    "names": {
     "TemporalExtent": "addons"
@@ -1310,12 +1304,6 @@
   "grass.temporal.temporal_granularity": {
    "names": {
     "check_granularity_string": "repo"
-   },
-   "origins": "repo"
-  },
-  "grass.temporal.temporal_raster_algebra": {
-   "names": {
-    "ALGEBRA_VARIABLE": "repo"
    },
    "origins": "repo"
   },

@@ -13,7 +13,7 @@ import itertools
 
 import pytest
 
-from grass.temporal.temporal_operator import (
+from grass.temporal.classic.temporal_operator import (
     TemporalOperatorLexer,
     TemporalOperatorParser,
 )

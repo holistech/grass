@@ -448,25 +448,25 @@ from typing import Literal
 import grass.pygrass.modules as pymod
 from grass.exceptions import FatalError
 
-from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
-from .abstract_map_dataset import AbstractMapDataset
-from .abstract_space_time_dataset import AbstractSpaceTimeDataset
-from .datetime_math import (
+from grass.temporal.abstract_dataset import AbstractDatasetComparisonKeyStartTime
+from grass.temporal.abstract_map_dataset import AbstractMapDataset
+from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
+from grass.temporal.datetime_math import (
     create_numeric_suffix,
     create_suffix_from_datetime,
     create_time_suffix,
     string_to_datetime,
     time_delta_to_relative_time,
 )
-from .db import SQLDatabaseInterfaceConnection, connection
-from .factory import dataset_factory
-from .open_stds import open_new_stds, open_old_stds
-from .ply import lex, yacc
-from .space_time_datasets import RasterDataset
-from .topology import SpatioTemporalTopologyBuilder
-from .state import get_current_mapset, get_tgis_message_interface
-from .temporal_extent import TemporalExtent
-from .temporal_granularity import (
+from grass.temporal.db import SQLDatabaseInterfaceConnection, connection
+from grass.temporal.factory import dataset_factory
+from grass.temporal.open_stds import open_new_stds, open_old_stds
+from grass.temporal.ply import lex, yacc
+from grass.temporal.space_time_datasets import RasterDataset
+from grass.temporal.topology import SpatioTemporalTopologyBuilder
+from grass.temporal.state import get_current_mapset, get_tgis_message_interface
+from grass.temporal.temporal_extent import TemporalExtent
+from grass.temporal.temporal_granularity import (
     compute_absolute_time_granularity,
     compute_common_absolute_time_granularity,
     compute_common_relative_time_granularity,

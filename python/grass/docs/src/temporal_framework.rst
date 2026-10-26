@@ -133,14 +133,15 @@ the SQL object serialization, all classes that represent table entries, datetime
     This module contains function to parse, convert and process datetime objects
     in the temporal framework.
 
-Spatio-temporal algebra classes for space time raster and vector datasets are defined in:
+The classic implementation of the spatio-temporal algebra for space time raster
+and vector datasets, the reference of the algebra core, is defined in:
 
-- :mod:`~grass.temporal.temporal_algebra`
-- :mod:`~grass.temporal.temporal_operator`
-- :mod:`~grass.temporal.temporal_raster_base_algebra`
-- :mod:`~grass.temporal.temporal_raster_algebra`
-- :mod:`~grass.temporal.temporal_raster3d_algebra`
-- :mod:`~grass.temporal.temporal_vector_algebra`
+- :mod:`~grass.temporal.classic.temporal_algebra`
+- :mod:`~grass.temporal.classic.temporal_operator`
+- :mod:`~grass.temporal.classic.temporal_raster_base_algebra`
+- :mod:`~grass.temporal.classic.temporal_raster_algebra`
+- :mod:`~grass.temporal.classic.temporal_raster3d_algebra`
+- :mod:`~grass.temporal.classic.temporal_vector_algebra`
 
 High level API
 ^^^^^^^^^^^^^^

@@ -10,7 +10,7 @@ the expressions use equal, double quotes and start_date.
 
 import pytest
 
-from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
 # Every test sets the algebra itself, see the marker in pyproject.toml.
 pytestmark = pytest.mark.fixed_algebra

@@ -25,27 +25,31 @@ def _classes(kind):
     # Imported on use, so that importing the testing package does not load
     # the parser modules of the algebras a test does not need.
     if kind == "raster":
-        from grass.temporal.temporal_raster_algebra import TemporalRasterAlgebraParser
-        from grass.temporal.temporal_raster_base_algebra import (
+        from grass.temporal.classic.temporal_raster_algebra import (
+            TemporalRasterAlgebraParser,
+        )
+        from grass.temporal.classic.temporal_raster_base_algebra import (
             TemporalRasterBaseAlgebraParser,
         )
 
         return TemporalRasterAlgebraParser, TemporalRasterBaseAlgebraParser.parse
     if kind == "raster3d":
-        from grass.temporal.temporal_raster3d_algebra import (
+        from grass.temporal.classic.temporal_raster3d_algebra import (
             TemporalRaster3DAlgebraParser,
         )
-        from grass.temporal.temporal_raster_base_algebra import (
+        from grass.temporal.classic.temporal_raster_base_algebra import (
             TemporalRasterBaseAlgebraParser,
         )
 
         return TemporalRaster3DAlgebraParser, TemporalRasterBaseAlgebraParser.parse
     if kind == "vector":
-        from grass.temporal.temporal_vector_algebra import TemporalVectorAlgebraParser
+        from grass.temporal.classic.temporal_vector_algebra import (
+            TemporalVectorAlgebraParser,
+        )
 
         return TemporalVectorAlgebraParser, TemporalVectorAlgebraParser._parse_classic
     if kind == "select":
-        from grass.temporal.temporal_algebra import TemporalAlgebraParser
+        from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
 
         return TemporalAlgebraParser, TemporalAlgebraParser.parse
     msg = f"kind is one of {', '.join(KINDS)}, not {kind!r}"
@@ -103,8 +107,12 @@ def setup_granularity(parser, kind, expression):
     :raises ValueError: for kind ``"select"``, which has no such mode
     """
     from grass.exceptions import FatalError
-    from grass.temporal.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
-    from grass.temporal.temporal_vector_algebra import TemporalVectorAlgebraLexer
+    from grass.temporal.classic.temporal_raster_base_algebra import (
+        TemporalRasterAlgebraLexer,
+    )
+    from grass.temporal.classic.temporal_vector_algebra import (
+        TemporalVectorAlgebraLexer,
+    )
 
     if kind == "raster":
         arguments = {"stdstype": "strds", "lexer": TemporalRasterAlgebraLexer()}

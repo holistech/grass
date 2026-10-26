@@ -8,7 +8,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.temporal_algebra import FatalError as TemporalAlgebraFatalError
+from grass.exceptions import FatalError as TemporalAlgebraFatalError
 from grass.temporal.testing import fakes
 from grass.temporal.testing.data import MapSpec, create_stds, day, register_stds
 from grass.tools import Tools

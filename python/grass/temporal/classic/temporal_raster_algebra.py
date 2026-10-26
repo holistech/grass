@@ -7,22 +7,65 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 :authors: Thomas Leppelt and Soeren Gebbert
 
+.. code-block:: pycon
+
+    >>> p = TemporalRasterAlgebraLexer()
+    >>> p.build()
+    >>> p.debug = True
+    >>> expression = "R = A[0,1,0] / B[0,0,1] * 20 + C[0,1,1] - 2.45"
+    >>> p.test(expression)
+    R = A[0,1,0] / B[0,0,1] * 20 + C[0,1,1] - 2.45
+    LexToken(NAME,'R',1,0)
+    LexToken(EQUALS,'=',1,2)
+    LexToken(NAME,'A',1,4)
+    LexToken(L_SPAREN,'[',1,5)
+    LexToken(INT,0,1,6)
+    LexToken(COMMA,',',1,7)
+    LexToken(INT,1,1,8)
+    LexToken(COMMA,',',1,9)
+    LexToken(INT,0,1,10)
+    LexToken(R_SPAREN,']',1,11)
+    LexToken(DIV,'/',1,13)
+    LexToken(NAME,'B',1,15)
+    LexToken(L_SPAREN,'[',1,16)
+    LexToken(INT,0,1,17)
+    LexToken(COMMA,',',1,18)
+    LexToken(INT,0,1,19)
+    LexToken(COMMA,',',1,20)
+    LexToken(INT,1,1,21)
+    LexToken(R_SPAREN,']',1,22)
+    LexToken(MULT,'*',1,24)
+    LexToken(INT,20,1,26)
+    LexToken(ADD,'+',1,29)
+    LexToken(NAME,'C',1,31)
+    LexToken(L_SPAREN,'[',1,32)
+    LexToken(INT,0,1,33)
+    LexToken(COMMA,',',1,34)
+    LexToken(INT,1,1,35)
+    LexToken(COMMA,',',1,36)
+    LexToken(INT,1,1,37)
+    LexToken(R_SPAREN,']',1,38)
+    LexToken(SUB,'-',1,40)
+    LexToken(FLOAT,2.45,1,42)
+
 """
 
 from __future__ import annotations
 
-from .algebra.parser import evaluate
-from .algebra.parser.switch import classic_selected
-from .space_time_datasets import Raster3DDataset
-from .temporal_raster_base_algebra import TemporalRasterBaseAlgebraParser
+from grass.temporal.algebra.parser import evaluate
+from grass.temporal.algebra.parser.switch import (  # noqa: F401, imported by callers and tests
+    ALGEBRA_VARIABLE,
+    DEFAULT_ALGEBRA,
+    classic_selected,
+)
+from .temporal_raster_base_algebra import (
+    TemporalRasterAlgebraLexer,  # noqa: F401, used by the doctest above
+    TemporalRasterBaseAlgebraParser,
+)
 
 
-class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
+class TemporalRasterAlgebraParser(TemporalRasterBaseAlgebraParser):
     """The temporal raster algebra class"""
-
-    _default_stdstype = "str3ds"
-    _default_maptype = "raster_3d"
-    _default_mapclass = Raster3DDataset
 
     def __init__(
         self,
@@ -39,9 +82,8 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         """Create the parser; the defaults ``run=False, debug=True`` differ from
         the base class and are kept for compatibility with existing callers
 
-        classic selects the classic algebra of this module (True) or the
-        algebra core (False); None follows the environment variable
-        GRASS_TEMPORAL_ALGEBRA, whose default is the core.
+        classic selects the classic algebra of this module (True) or the core
+        (False); None follows the environment variable GRASS_TEMPORAL_ALGEBRA.
         """
         TemporalRasterBaseAlgebraParser.__init__(
             self,
@@ -69,11 +111,10 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         """
         # Loaded on use: the classic profile imports the classic lexers,
         # which live in modules that import this one.
-        from .algebra.profile import CLASSIC, CORE
+        from grass.temporal.algebra.profile import CLASSIC, CORE
 
         return evaluate(
             expression,
-            kind="raster3d",
             basename=basename,
             overwrite=overwrite,
             run=self.run,
@@ -90,30 +131,27 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
     def _classic(self):
         return classic_selected(self.classic)
 
-    def _create_mapcalc_module(self, spatial):
-        """Return the not yet executed r3.mapcalc module"""
-        return self._new_module("r3.mapcalc")
-
-    def p_ts_neighbor_operation(self, t) -> None:
+    def p_ts_neighbour_operation(self, t) -> None:
+        # Spatial and temporal neighbour operations via indexing
         # Examples:
-        # A[1,0,-1]
+        # A[1,0]
         # B[-2]
-        # C[1,-2,1,3]
+        # C[-2,1,3]
         """
-        expr : stds L_SPAREN number COMMA number COMMA number R_SPAREN
+        expr : stds L_SPAREN number COMMA number R_SPAREN
              | stds L_SPAREN number R_SPAREN
-             | stds L_SPAREN number COMMA number COMMA number COMMA number R_SPAREN
+             | stds L_SPAREN number COMMA number COMMA number R_SPAREN
         """
         if not self.run:
             t[0] = self._dry_name(t[1])
             return
-        # One index is the temporal, three are the row, column and depth offset
+        # One index is the temporal, two are the row and column offset
         if len(t) == 5:
             temporal_offset, spatial_offsets = t[3], ()
-        elif len(t) == 9:
-            temporal_offset, spatial_offsets = 0, (t[3], t[5], t[7])
+        elif len(t) == 7:
+            temporal_offset, spatial_offsets = 0, (t[3], t[5])
         else:
-            temporal_offset, spatial_offsets = t[9], (t[3], t[5], t[7])
+            temporal_offset, spatial_offsets = t[7], (t[3], t[5])
         t[0] = self._neighbour_maps(t[1], temporal_offset, spatial_offsets)
 
 

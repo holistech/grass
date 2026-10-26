@@ -14,7 +14,7 @@ import random
 
 import pytest
 
-from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing import expressions
 from grass.temporal.testing.corpus import reference_outcome
 

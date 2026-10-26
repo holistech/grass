@@ -8,11 +8,12 @@ GDIR = $(PYDIR)/grass
 DSTDIR = $(GDIR)/temporal
 DSTDIRPLY = $(DSTDIR)/ply
 DSTDIRALGEBRA = $(DSTDIR)/algebra
+DSTDIRCLASSIC = $(DSTDIR)/classic
 DSTDIRPARSER = $(DSTDIRALGEBRA)/parser
 DSTDIRTESTING = $(DSTDIR)/testing
 DSTDIRCORPUS = $(DSTDIRTESTING)/corpus
 
-MODULES = ply/__init__ ply/lex ply/yacc state rows base db schema core abstract_dataset abstract_map_dataset abstract_space_time_dataset stds_map_register stds_time_edit granule_sampling datasets space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity topology aggregation aggregation_core stds_export stds_import batches extract mapcalc related_maps univar_statistics c_libraries_interface temporal_algebra temporal_vector_algebra temporal_raster_base_algebra temporal_raster_algebra temporal_raster3d_algebra temporal_operator algebra/__init__ algebra/content algebra/series algebra/_adapters algebra/relations algebra/maptypes algebra/reducers algebra/operations algebra/time_functions algebra/backends algebra/materialize algebra/profile algebra/sources algebra/_checks algebra/parser/__init__ algebra/parser/operators algebra/parser/lexer algebra/parser/ast algebra/parser/grammar algebra/parser/classic_grammar algebra/parser/classic algebra/parser/translate algebra/parser/switch algebra/parser/granularity kinds testing/__init__ testing/session testing/data testing/readback testing/fakes testing/reference testing/expressions_data testing/expressions_generator testing/expressions testing/legacy_data testing/corpus testing/recordings
+MODULES = ply/__init__ ply/lex ply/yacc state rows base db schema core abstract_dataset abstract_map_dataset abstract_space_time_dataset stds_map_register stds_time_edit granule_sampling datasets space_time_datasets open_stds factory gui_support list_stds register sampling metadata spatial_extent temporal_extent datetime_math temporal_granularity topology aggregation aggregation_core stds_export stds_import batches extract mapcalc related_maps univar_statistics c_libraries_interface classic/__init__ classic/temporal_algebra classic/temporal_vector_algebra classic/temporal_raster_base_algebra classic/temporal_raster_algebra classic/temporal_raster3d_algebra classic/temporal_operator algebra/__init__ algebra/content algebra/series algebra/_adapters algebra/relations algebra/maptypes algebra/reducers algebra/operations algebra/time_functions algebra/backends algebra/materialize algebra/profile algebra/sources algebra/_checks algebra/parser/__init__ algebra/parser/operators algebra/parser/lexer algebra/parser/ast algebra/parser/grammar algebra/parser/classic_grammar algebra/parser/classic algebra/parser/translate algebra/parser/switch algebra/parser/granularity kinds testing/__init__ testing/session testing/data testing/readback testing/fakes testing/reference testing/expressions_data testing/expressions_generator testing/expressions testing/legacy_data testing/corpus testing/recordings
 
 CLEAN_SUBDIRS = ply
 
@@ -42,6 +43,9 @@ $(DSTDIRALGEBRA): | $(DSTDIR)
 $(DSTDIRPARSER): | $(DSTDIRALGEBRA)
 	$(MKDIR) $@
 
+$(DSTDIRCLASSIC): | $(DSTDIR)
+	$(MKDIR) $@
+
 $(DSTDIRTESTING): | $(DSTDIR)
 	$(MKDIR) $@
 
@@ -51,5 +55,5 @@ $(DSTDIRCORPUS): | $(DSTDIRTESTING)
 $(DSTDIRCORPUS)/%: testing/corpus/% | $(DSTDIRCORPUS)
 	$(INSTALL_DATA) $< $@
 
-$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY) $(DSTDIRALGEBRA) $(DSTDIRPARSER) $(DSTDIRTESTING)
+$(DSTDIR)/%: % | $(DSTDIR) $(DSTDIRPLY) $(DSTDIRALGEBRA) $(DSTDIRPARSER) $(DSTDIRCLASSIC) $(DSTDIRTESTING)
 	$(INSTALL_DATA) $< $@

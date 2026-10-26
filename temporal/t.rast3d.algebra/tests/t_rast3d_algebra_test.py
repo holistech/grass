@@ -13,7 +13,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.temporal_raster_algebra import ALGEBRA_VARIABLE
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.reference import run_reference
 from grass.tools import ToolError, Tools
 

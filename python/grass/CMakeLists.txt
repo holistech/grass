@@ -23,6 +23,7 @@ set(PYDIRS
     temporal
     temporal/algebra
     temporal/algebra/parser
+    temporal/classic
     temporal/ply
     temporal/testing
     tools

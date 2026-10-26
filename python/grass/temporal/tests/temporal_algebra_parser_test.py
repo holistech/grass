@@ -37,7 +37,7 @@ import pytest
 
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall
-from grass.temporal.temporal_algebra import (
+from grass.temporal.classic.temporal_algebra import (
     FatalError,
     TemporalAlgebraLexer,
     TemporalAlgebraParser,

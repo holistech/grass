@@ -10,7 +10,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.exceptions import FatalError
-from grass.temporal.temporal_algebra import FatalError as TemporalAlgebraFatalError
+from grass.exceptions import FatalError as TemporalAlgebraFatalError
 
 
 def test_complex_operator_aggregates_all_equal_maps(algebra):

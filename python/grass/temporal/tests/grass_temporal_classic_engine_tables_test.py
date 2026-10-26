@@ -21,24 +21,24 @@ from pathlib import Path
 
 import pytest
 
-from grass.temporal.temporal_algebra import (
+from grass.temporal.classic.temporal_algebra import (
     TemporalAlgebraLexer,
     TemporalAlgebraParser,
 )
-from grass.temporal.temporal_operator import (
+from grass.temporal.classic.temporal_operator import (
     TemporalOperatorLexer,
     TemporalOperatorParser,
 )
-from grass.temporal.temporal_raster3d_algebra import (
+from grass.temporal.classic.temporal_raster3d_algebra import (
     TemporalRaster3DAlgebraParser,
 )
-from grass.temporal.temporal_raster_algebra import (
+from grass.temporal.classic.temporal_raster_algebra import (
     TemporalRasterAlgebraParser,
 )
-from grass.temporal.temporal_raster_base_algebra import (
+from grass.temporal.classic.temporal_raster_base_algebra import (
     TemporalRasterAlgebraLexer,
 )
-from grass.temporal.temporal_vector_algebra import (
+from grass.temporal.classic.temporal_vector_algebra import (
     TemporalVectorAlgebraLexer,
     TemporalVectorAlgebraParser,
 )

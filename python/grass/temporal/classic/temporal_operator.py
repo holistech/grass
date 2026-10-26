@@ -156,7 +156,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from typing import NamedTuple
 
-from .ply import lex, yacc
+from grass.temporal.ply import lex, yacc
 
 
 class _Operator(NamedTuple):

@@ -1,10 +1,10 @@
 """The grammar of the classic temporal algebra, building syntax trees of the core
 
 The classic algebra reads ``name = expression`` with the productions of the
-parser classes in ``temporal_algebra``, ``temporal_raster_base_algebra``,
-``temporal_raster_algebra``, ``temporal_raster3d_algebra`` and
-``temporal_vector_algebra``. This module holds a frozen copy of those
-productions and of the precedence tables as data, and one generic action that
+parser classes of ``grass.temporal.classic`` (``temporal_algebra``,
+``temporal_raster_base_algebra``, ``temporal_raster_algebra``,
+``temporal_raster3d_algebra`` and ``temporal_vector_algebra``). This module
+holds a frozen copy of those productions and of the precedence tables as data, and one generic action that
 turns every production into nodes of ``grass.temporal.algebra.parser.ast``.
 What the classic grammar reads, what it rejects and how it groups therefore
 stays as it was, while the meaning is given by a translator of the core.
@@ -1094,14 +1094,18 @@ def _lexer_class(kind):
     # Imported on use: the parser modules import the algebra core, which
     # imports this package.
     if kind == "vector":
-        from grass.temporal.temporal_vector_algebra import TemporalVectorAlgebraLexer
+        from grass.temporal.classic.temporal_vector_algebra import (
+            TemporalVectorAlgebraLexer,
+        )
 
         return TemporalVectorAlgebraLexer
     if kind == "select":
-        from grass.temporal.temporal_algebra import TemporalAlgebraLexer
+        from grass.temporal.classic.temporal_algebra import TemporalAlgebraLexer
 
         return TemporalAlgebraLexer
-    from grass.temporal.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
+    from grass.temporal.classic.temporal_raster_base_algebra import (
+        TemporalRasterAlgebraLexer,
+    )
 
     return TemporalRasterAlgebraLexer
 

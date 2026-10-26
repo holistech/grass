@@ -46,9 +46,9 @@ import copy
 import grass.pygrass.modules as pymod
 from grass.exceptions import FatalError
 
-from .abstract_dataset import AbstractDatasetComparisonKeyStartTime
-from .factory import dataset_factory
-from .space_time_datasets import RasterDataset
+from grass.temporal.abstract_dataset import AbstractDatasetComparisonKeyStartTime
+from grass.temporal.factory import dataset_factory
+from grass.temporal.space_time_datasets import RasterDataset
 from .temporal_algebra import (
     GlobalTemporalVar,
     TemporalAlgebraLexer,

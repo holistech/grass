@@ -78,10 +78,7 @@ extensions = [
 def skip_member(app, what, name, obj, skip, options):
     if name.startswith("t_"):
         mod = getattr(obj, "__module__", None)
-        if mod in {
-            "grass.temporal.temporal_algebra",
-            "grass.temporal.temporal_operator",
-        }:
+        if mod is not None and mod.startswith("grass.temporal.classic."):
             return True
     return None
 
