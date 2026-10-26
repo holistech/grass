@@ -12,7 +12,12 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from .db import SQLDatabaseInterfaceConnection, SQLStatementError, connection
+from .db import (
+    SQLDatabaseInterfaceConnection,
+    SQLStatementError,
+    connection,
+    sql_literal,
+)
 from .state import (
     STATE,
     get_tgis_database_string,
@@ -263,6 +268,11 @@ def upgrade_temporal_database(dbif) -> None:
 ###############################################################################
 
 
+# One row of the metadata table. The values go in through sql_literal(), so a
+# quote in a value cannot end the text early.
+_METADATA_ROW = "INSERT INTO tgis_metadata (key, value) VALUES ({key} , {value});\n"
+
+
 def _create_tgis_metadata_table(content, dbif=None) -> None:
     """!Create the temporal gis metadata table which stores all metadata
     information about the temporal database.
@@ -278,8 +288,9 @@ def _create_tgis_metadata_table(content, dbif=None) -> None:
         dbif.execute_transaction(statement)
 
         for key in content:
-            statement = (
-                "INSERT INTO tgis_metadata (key, value) VALUES "
-                f"('{key!s}' , '{content[key]!s}');\n"
+            # str() first: the creation time is stored as str() writes it,
+            # with its microseconds, as before.
+            statement = _METADATA_ROW.format(
+                key=sql_literal(str(key)), value=sql_literal(str(content[key]))
             )
             dbif.execute_transaction(statement)
