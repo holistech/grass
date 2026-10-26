@@ -8,11 +8,11 @@ and the metadata of the dataset up to date with them.
 
 The table name comes from the temporal database and goes into SQL text,
 because SQL has no placeholder for a table name. It is therefore checked
-against the plain identifier form before it is used; a value that does not
-match stops the call with a fatal error. The form is not the one that
-create_name() makes: databases written by older versions hold tables named
-differently, for example with underscores in the uuid, and the SQL of those
-versions only worked for names of this plain form either.
+with sql_identifier() before it is used; a value that is no plain name stops
+the call with a fatal error. The form is not the one that create_name()
+makes: databases written by older versions hold tables named differently,
+for example with underscores in the uuid, and the SQL of those versions only
+worked for plain names either.
 
 SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -22,7 +22,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -34,17 +33,19 @@ from .abstract_map_dataset import (
     other_time_unit_message,
 )
 from .datetime_math import string_to_datetime
-from .db import connection, sql_literal, sql_placeholder
+from .db import (
+    connection,
+    sql_identifier,
+    sql_literal,
+    sql_placeholder,
+    sql_statement,
+)
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
 from .state import get_current_mapset
 from .temporal_granularity import (
     compute_absolute_time_granularity,
     compute_relative_time_granularity,
 )
-
-# A name that needs no quoting in SQL. This is all that an unquoted statement,
-# as older versions made them, could handle.
-_TABLE_NAME = re.compile(r"[A-Za-z0-9_]+")
 
 
 def _placeholder(dbif) -> str:
@@ -117,13 +118,16 @@ class StdsMapRegister:
             identifier
         """
         name = self._stds.get_map_register()
-        if name is not None and not _TABLE_NAME.fullmatch(name):
+        if name is None:
+            return None
+        try:
+            return sql_identifier(name)
+        except ValueError:
             self._stds.msgr.fatal(
                 _("Invalid name <{name}> of the map register table of <{ds}>").format(
                     name=name, ds=self._stds.get_id()
                 )
             )
-        return name
 
     def create_name(self) -> str:
         """Create the name of a new register table
@@ -141,9 +145,13 @@ class StdsMapRegister:
         """
         name = self.create_name()
         sql = Path(get_sql_template_path(), "stds_map_register_table_template.sql")
-        statement = sql.read_text().replace("SPACETIME_REGISTER_TABLE", name)
+        statement = sql.read_text().replace(
+            "SPACETIME_REGISTER_TABLE", sql_identifier(name)
+        )
         if dbif.get_dbmi().__name__ == "sqlite3":
-            statement += f"CREATE INDEX {name}_index ON {name} (id);"
+            statement += sql_statement(
+                "CREATE INDEX {table}_index ON {table} (id);", table=name
+            )
         self._stds.set_map_register(name)
         self._stds.msgr.debug(
             1,
@@ -158,7 +166,7 @@ class StdsMapRegister:
 
     def drop_statement(self) -> str:
         """Return the SQL that drops the register table"""
-        return f"DROP TABLE IF EXISTS {self.table_name()};\n"
+        return sql_statement("DROP TABLE IF EXISTS {table};\n", table=self.table_name())
 
     def rename_statement(self, dbif) -> str:
         """Give the register table a new name and return the SQL for it
@@ -169,11 +177,16 @@ class StdsMapRegister:
         old = self.table_name()
         new = self.create_name()
         self._stds.set_map_register(new)
-        statement = f'ALTER TABLE {old} RENAME TO "{new}";\n'
+        statement = sql_statement(
+            'ALTER TABLE {old} RENAME TO "{new}";\n', old=old, new=new
+        )
         # SQLite names the index after the table
         if dbif.get_dbmi().__name__ == "sqlite3":
-            statement += f"DROP INDEX {old}_index;\n"
-            statement += f"CREATE INDEX {new}_index ON {new} (id);"
+            statement += sql_statement(
+                "DROP INDEX {old}_index;\nCREATE INDEX {new}_index ON {new} (id);",
+                old=old,
+                new=new,
+            )
         return statement
 
     def contains(self, map_id: str, dbif=None) -> bool:
@@ -187,7 +200,8 @@ class StdsMapRegister:
             return False
         stds = self._stds
         with connection(dbif) as dbif:
-            sql = f"SELECT id FROM {table} WHERE id = ({_placeholder(dbif)})"
+            select = sql_statement("SELECT id FROM {table} WHERE id = ", table=table)
+            sql = f"{select}({_placeholder(dbif)})"
             try:
                 dbif.execute(sql, (map_id,), mapset=stds.base.mapset)
                 row = dbif.fetchone(mapset=stds.base.mapset)
@@ -306,7 +320,8 @@ class StdsMapRegister:
         )
 
         # Now put the map name in the stds map register table
-        sql = f"INSERT INTO {table} (id) VALUES ({_placeholder(dbif)});\n"
+        insert = sql_statement("INSERT INTO {table} (id) VALUES ", table=table)
+        sql = f"{insert}({_placeholder(dbif)});\n"
         statement += dbif.mogrify_sql_statement((sql, (map_id,)))
 
         # Only databases in the current mapset can be modified
@@ -351,7 +366,8 @@ class StdsMapRegister:
 
             table = self.table_name()
             if table is not None:
-                sql = f"DELETE FROM {table} WHERE id = {_placeholder(dbif)};\n"
+                delete = sql_statement("DELETE FROM {table} WHERE id = ", table=table)
+                sql = f"{delete}{_placeholder(dbif)};\n"
                 statement += dbif.mogrify_sql_statement((sql, (map_.get_id(),)))
 
             if execute:
@@ -428,18 +444,16 @@ class StdsMapRegister:
                     where, spatial_extent, spatial_relation
                 )
 
-            sql = (
-                f"SELECT {columns} FROM {map_view} "
-                f"WHERE {map_view}.id IN (SELECT id FROM {table})"
+            registered = sql_statement(
+                "{view} WHERE {view}.id IN (SELECT id FROM {table})",
+                view=map_view,
+                table=table,
             )
-
-            if where is not None and where != "":
-                sql += f" AND ({where})"
-            if group:
-                sql += f" GROUP BY {group}"
-            if order is not None and order != "":
-                sql += f" ORDER BY {order}"
-            sql += ";"
+            condition = f" AND ({where})" if where else ""
+            grouping = f" GROUP BY {group}" if group else ""
+            ordering = f" ORDER BY {order}" if order else ""
+            # The columns, where, group and order are SQL of the caller by design.
+            sql = f"SELECT {columns} FROM {registered}{condition}{grouping}{ordering};"  # noqa: S608
 
             try:
                 dbif.execute(sql, mapset=stds.base.mapset)
@@ -550,10 +564,10 @@ class StdsMapRegister:
         sql = Path(
             sql_path, "update_stds_spatial_temporal_extent_template.sql"
         ).read_text()
-        sql = sql.replace("GRASS_MAP", map_type)
+        sql = sql.replace("GRASS_MAP", sql_identifier(map_type))
         sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
         sql = sql.replace("SPACETIME_ID", stds.base.get_id())
-        sql = sql.replace("STDS", stds.get_type())
+        sql = sql.replace("STDS", sql_identifier(stds.get_type()))
         sql_script = sql + "\n"
 
         # The type specific metadata
@@ -593,10 +607,11 @@ class StdsMapRegister:
         else:
             _start_time, end_time, _unit = stds.get_relative_time()
 
-        time_table = f"{map_type}_{'absolute' if absolute else 'relative'}_time"
-        max_start = (
-            f"SELECT max(start_time) FROM {time_table} WHERE {time_table}.id IN "
-            f"(SELECT id FROM {table})"
+        max_start = sql_statement(
+            "SELECT max(start_time) FROM {times} WHERE {times}.id IN "
+            "(SELECT id FROM {table})",
+            times=f"{map_type}_{'absolute' if absolute else 'relative'}_time",
+            table=table,
         )
 
         # In case no end time is set, use the maximum start time of
@@ -622,9 +637,9 @@ class StdsMapRegister:
 
         # Set the maximum start time as end time
         if use_start_time:
-            table = stds.kind.table("absolute_time" if absolute else "relative_time")
-            sql = (
-                f"UPDATE {table} SET end_time = ({max_start}) "
-                f"WHERE id = {sql_literal(stds.base.get_id())};"
+            update = sql_statement(
+                "UPDATE {table} SET end_time = ",
+                table=stds.kind.table("absolute_time" if absolute else "relative_time"),
             )
+            sql = f"{update}({max_start}) WHERE id = {sql_literal(stds.base.get_id())};"
             dbif.execute_transaction(sql, mapset=stds.base.mapset)

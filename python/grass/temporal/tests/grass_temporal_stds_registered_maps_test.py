@@ -584,6 +584,8 @@ def test_topology_of_a_dataset_without_maps_is_wrong(pair):
         "raster_map_register_" + "a" * 32 + " ",
         "raster_map_register_a-b",
         'raster_map_register_"x"',
+        # SQLite does not read a name that starts with a digit as a name.
+        "2020_precip_PERMANENT_raster_register",
     ],
 )
 def test_a_register_table_name_of_another_form_is_refused(pair, name):
