@@ -37,7 +37,7 @@ import grass.script as gs
 from grass.exceptions import CalledModuleError
 
 from .db import SQLStatementError
-from .kinds import KINDS
+from .kinds import KINDS, find_kind, stds_kind_of
 from .open_stds import open_old_stds
 
 if TYPE_CHECKING:
@@ -516,9 +516,9 @@ def export_stds(
     # a relative output would mean another place.
     output = Path(output).absolute()
 
-    stds_kind = KINDS.get(type_)
-    if stds_kind is not None and not stds_kind.is_stds:
-        stds_kind = None
+    # open_old_stds() also takes the name of the map type, "raster" for a space
+    # time raster dataset, and an unknown name is refused by it.
+    stds_kind = stds_kind_of(type_) if find_kind(type_) else None
     kind = stds_kind.name if stds_kind else None
 
     with _scratch_directory(directory) as work:
@@ -551,7 +551,7 @@ def export_stds(
             )
             Path(init_file_name).write_text(_init_text(sp, format_, rows))
             Path(metadata_file_name).write_text(
-                gs.read_command("t.info", type=type_, input=sp.get_id())
+                gs.read_command("t.info", type=sp.get_type(), input=sp.get_id())
             )
             Path(read_file_name).write_text(_readme_text(sp, kind, format_))
 

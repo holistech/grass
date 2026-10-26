@@ -16,6 +16,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.pygrass.messages import FatalError
 from grass.exceptions import CalledModuleError, ScriptError
 from grass.temporal.testing.data import (
     MapSpec,
@@ -337,3 +338,31 @@ def test_a_vector_map_with_two_layers_is_packed_once(temporal_module_session, tm
 
     with tarfile.open(archive) as tar:
         assert tar.getnames().count("exl.pack") == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "type_", "member"),
+    [
+        ("exr", "raster", "exr1.pack"),
+        ("exr", "rast", "exr1.pack"),
+        ("exv", "vector", "exv1.pack"),
+        ("ex3", "raster3d", "ex31.pack"),
+    ],
+)
+def test_a_dataset_is_exported_by_the_name_of_its_map_type_too(
+    datasets, tmp_path, failing_modules, name, type_, member
+):
+    # open_old_stds() takes these names, so the archive must hold the maps.
+    archive = _export(tmp_path, name, type_, "pack")
+
+    with tarfile.open(archive) as tar:
+        assert member in tar.getnames()
+    init = dict(line.split("=") for line in _text(archive, "init.txt").splitlines())
+    assert init["number_of_maps"] == "2"
+
+
+def test_an_unknown_dataset_type_is_refused(datasets, tmp_path):
+    with pytest.raises(FatalError, match="Unknown type: foo"):
+        _export(tmp_path, "exr", "foo", "pack")
+
+    assert not list(tmp_path.iterdir())
