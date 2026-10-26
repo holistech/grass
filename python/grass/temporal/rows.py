@@ -19,9 +19,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from .db import SQLDatabaseInterfaceConnection, sql_literal, sql_placeholder
+from .db import (
+    SQLDatabaseInterfaceConnection,
+    sql_identifier,
+    sql_literal,
+    sql_placeholder,
+    sql_statement,
+)
 from .state import (
     get_current_mapset,
     get_tgis_dbmi_paramstyle,
@@ -56,6 +63,38 @@ def _join_terms(terms: Iterable[str], first: str, rest: str) -> str:
     return "".join(
         (first if index == 0 else rest) + term for index, term in enumerate(terms)
     )
+
+
+# The statements of a row without their where part. The names go in only
+# after sql_identifier() has checked them; the values are bound as parameters.
+_SELECT = "SELECT {columns} FROM {table} "
+_INSERT = "INSERT INTO {table} ({columns}) VALUES ({values}) "
+_UPDATE = "UPDATE {table} SET {assignments}"
+
+
+# A row class writes the same columns into the same table again and again,
+# one statement for each map when maps are registered, so the text of each
+# shape is built and its names are checked once. The shapes are few: an
+# UPDATE leaves out the columns that are None, the rest is fixed by the class.
+@lru_cache(maxsize=1024)
+def _statement(type_: str, table: str, keys: tuple, placeholder: str) -> str:
+    """Return a SELECT, INSERT or UPDATE of the columns keys of table
+
+    :raises ValueError: if the table or a column is not a plain identifier
+    """
+    table = sql_identifier(table)
+    columns = [sql_identifier(key) for key in keys]
+    if type_ == "SELECT":
+        names = _join_terms((f"{column} " for column in columns), " ", " , ")
+        return _SELECT.format(table=table, columns=names)
+    if type_ == "INSERT":
+        names = _join_terms((f"{column} " for column in columns), " ", " ,")
+        values = _join_terms((placeholder for _column in columns), "", " ,")
+        return _INSERT.format(table=table, columns=names, values=values)
+    assignments = _join_terms(
+        (f"{column} = {placeholder} " for column in columns), " ", " ,"
+    )
+    return _UPDATE.format(table=table, assignments=assignments)
 
 
 class DictSQLSerializer:
@@ -106,36 +145,28 @@ class DictSQLSerializer:
         """  # noqa: E501
 
         # A type that is none of these makes an empty statement, as before.
-        sql = ""
-        args = []
+        if type not in {"SELECT", "INSERT", "UPDATE", "UPDATE ALL"}:
+            return "", tuple(where_args)
         if type == "SELECT":
-            sql = "SELECT " + _join_terms(
-                (f"{key} " for key in self.D), first=" ", rest=" , "
-            )
-            sql += " FROM " + table + " "
-        elif type == "INSERT":
-            placeholder = sql_placeholder(self.dbmi_paramstyle)
-            sql = "INSERT INTO " + table + " ("
-            sql += _join_terms((f"{key} " for key in self.D), first=" ", rest=" ,")
-            sql += ") VALUES ("
-            sql += _join_terms((placeholder for _key in self.D), first="", rest=" ,")
-            sql += ") "
-            args = list(self.D.values())
-        elif type in {"UPDATE", "UPDATE ALL"}:
+            keys = list(self.D)
+            args = []
+        else:
             # UPDATE writes only the entries which are not None.
             keys = [
-                key for key in self.D if type == "UPDATE ALL" or self.D[key] is not None
+                key
+                for key in self.D
+                if type in {"INSERT", "UPDATE ALL"} or self.D[key] is not None
             ]
-            placeholder = sql_placeholder(self.dbmi_paramstyle)
-            sql = "UPDATE " + table + " SET "
-            sql += _join_terms(
-                (f"{key} = {placeholder} " for key in keys), first=" ", rest=" ,"
-            )
             args = [self.D[key] for key in keys]
-        if type in {"SELECT", "INSERT", "UPDATE", "UPDATE ALL"}:
-            if where:
-                sql += where
-            sql += ";\n"
+        sql = _statement(
+            "UPDATE" if type == "UPDATE ALL" else type,
+            table,
+            tuple(keys),
+            sql_placeholder(self.dbmi_paramstyle),
+        )
+        if where:
+            sql += where
+        sql += ";\n"
 
         return sql, (*args, *where_args)
 
@@ -244,13 +275,10 @@ class SQLDatabaseInterface(DictSQLSerializer):
 
         :return: The DELETE string
         """
-        return (
-            "DELETE FROM "
-            + self.get_table_name()
-            + " WHERE id = "
-            + sql_literal(str(self.ident))
-            + ";\n"
+        head = sql_statement(
+            "DELETE FROM {table} WHERE id = ", table=self.get_table_name()
         )
+        return f"{head}{sql_literal(str(self.ident))};\n"
 
     def _where_id(self, ident):
         """Return the where statement for an identifier and its argument"""
@@ -264,7 +292,8 @@ class SQLDatabaseInterface(DictSQLSerializer):
                      if None a temporary connection will be established
         """
         where, args = self._where_id(self.ident)
-        sql = f"DELETE FROM {self.get_table_name()} {where};\n"
+        head = sql_statement("DELETE FROM {table} ", table=self.get_table_name())
+        sql = f"{head}{where};\n"
 
         # must use the temporal database of the current mapset,
         # also if the map to be deleted is in a different mapset
@@ -279,7 +308,8 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :return: The SELECT string and the argument list
         """
         where, args = self._where_id(self.ident)
-        return f"SELECT id FROM {self.get_table_name()} {where};\n", args
+        head = sql_statement("SELECT id FROM {table} ", table=self.get_table_name())
+        return f"{head}{where};\n", args
 
     def is_in_db(self, dbif=None, mapset=None) -> bool:
         """Check if this object is present in the temporal database

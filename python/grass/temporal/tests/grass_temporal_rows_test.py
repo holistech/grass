@@ -443,3 +443,25 @@ def test_the_serializer_writes_the_statements_of_each_type(paramstyle, statement
     )
     assert sql == SERIALIZED[paramstyle][statement_type]
     assert args == ARGUMENTS[statement_type]
+
+
+@pytest.mark.usefixtures("temporal_module_session")
+@pytest.mark.parametrize("statement_type", ["SELECT", "INSERT", "UPDATE", "UPDATE ALL"])
+@pytest.mark.parametrize(
+    ("table", "column"), [("tab; DROP TABLE raster_base", "x"), ("tab", "x = 1, y")]
+)
+def test_the_serializer_refuses_a_name_that_is_not_plain(statement_type, table, column):
+    serializer = DictSQLSerializer()
+    serializer.D = {"id": "a", column: 3}
+    with pytest.raises(ValueError, match="identifier"):
+        serializer.serialize(statement_type, table)
+
+
+@pytest.mark.usefixtures("temporal_module_session")
+@pytest.mark.parametrize(
+    "statement", ["get_delete_statement", "get_is_in_db_statement", "delete"]
+)
+def test_the_statements_by_identifier_refuse_a_table_that_is_not_plain(statement):
+    row = Row("tab; DROP TABLE raster_base", "a@PERMANENT")
+    with pytest.raises(ValueError, match="identifier"):
+        getattr(row, statement)()
