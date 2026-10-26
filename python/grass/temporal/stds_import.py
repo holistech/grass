@@ -395,100 +395,106 @@ def import_stds(
     try:
         # We use a new list file name for map registration
         new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
-        # Save current working directory path
+        # Save current working directory path and session. Whatever stops the
+        # import, the finally clause below restores both.
         old_cwd = Path.cwd()
+        old_gisrc = os.environ.get("GISRC")
+        target_gisrc = None
 
         # Switch into the data directory
         os.chdir(directory)
 
-        # Check projection information
-        if not location:
-            temp_name = gs.tempfile()
-            proj_name = proj_file_name.absolute()
-
-            # We need to convert projection strings generated
-            # from other programs than g.proj into
-            # new line format so that the grass file comparison function
-            # can be used to compare the projections
-            proj_content = proj_name.read_text(encoding="utf-8")
-            proj_content = proj_content.replace(" +", "\n+")
-            proj_content = proj_content.replace("\t+", "\n+")
-
-            proj_name_tmp = f"{temp_name}_in_projection"
-            Path(proj_name_tmp).write_text(proj_content)
-
-            with Path(temp_name).open("w") as temp_file:
-                p = gs.start_command(
-                    "g.proj", flags="p", format="proj4", stdout=temp_file
-                )
-                p.communicate()
-
-            if not gs.compare_key_value_text_files(temp_name, proj_name_tmp, sep="="):
-                if overr:
-                    gs.warning(
-                        _("Projection information does not match. Proceeding...")
-                    )
-                else:
-                    diff = "".join(gs.diff_files(temp_name, proj_name))
-                    gs.warning(
-                        _(
-                            "Difference between PROJ_INFO file of "
-                            "imported map and of current location:"
-                            "\n{diff}"
-                        ).format(diff=diff)
-                    )
-                    gs.fatal(_("Projection information does not match. Aborting."))
-
-        # Create a new location based on the projection information and switch
-        # into it
-        old_env = gs.gisenv()
-        target_gisrc = None
-        old_gisrc = os.environ.get("GISRC")
-        if location:
-            try:
-                proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
-                # g.proj prints this text for an unprojected project, which is not
-                # a PROJ string; a project without a CRS is the XY project.
-                if proj4_string.startswith("XY location"):
-                    gs.create_location(dbase=old_env["GISDBASE"], location=location)
-                    # The GeoTIFFs of an unprojected project carry no CRS, which
-                    # r.in.gdal accepts only with the override flag.
-                    overr = True
-                else:
-                    gs.create_location(
-                        dbase=old_env["GISDBASE"], location=location, proj4=proj4_string
-                    )
-                # Just create a new location and return
-                if create:
-                    os.chdir(old_cwd)
-                    return
-            except Exception as e:
-                gs.fatal(
-                    _("Unable to create location %(l)s. Reason: %(e)s")
-                    % {"l": location, "e": str(e)}
-                )
-            # Create a temporary environment
-            try:
-                target_gisrc, _target_env = gs.create_environment(
-                    old_env["GISDBASE"], location, "PERMANENT"
-                )
-                os.environ["GISRC"] = target_gisrc
-
-            except OSError as e:
-                gs.fatal(
-                    _("Unable to create environment for location %s. Reason: %s")
-                    % (location, e)
-                )
-            # create default database connection
-            try:
-                gs.run_command("t.connect", flags="d")
-            except CalledModuleError:
-                gs.fatal(
-                    _("Unable to create default temporal database in new location %s")
-                    % location
-                )
-
         try:
+            # Check projection information
+            if not location:
+                temp_name = gs.tempfile()
+                proj_name = proj_file_name.absolute()
+
+                # We need to convert projection strings generated
+                # from other programs than g.proj into
+                # new line format so that the grass file comparison function
+                # can be used to compare the projections
+                proj_content = proj_name.read_text(encoding="utf-8")
+                proj_content = proj_content.replace(" +", "\n+")
+                proj_content = proj_content.replace("\t+", "\n+")
+
+                proj_name_tmp = f"{temp_name}_in_projection"
+                Path(proj_name_tmp).write_text(proj_content)
+
+                with Path(temp_name).open("w") as temp_file:
+                    p = gs.start_command(
+                        "g.proj", flags="p", format="proj4", stdout=temp_file
+                    )
+                    p.communicate()
+
+                if not gs.compare_key_value_text_files(
+                    temp_name, proj_name_tmp, sep="="
+                ):
+                    if overr:
+                        gs.warning(
+                            _("Projection information does not match. Proceeding...")
+                        )
+                    else:
+                        diff = "".join(gs.diff_files(temp_name, proj_name))
+                        gs.warning(
+                            _(
+                                "Difference between PROJ_INFO file of "
+                                "imported map and of current location:"
+                                "\n{diff}"
+                            ).format(diff=diff)
+                        )
+                        gs.fatal(_("Projection information does not match. Aborting."))
+
+            # Create a new location based on the projection information and switch
+            # into it
+            old_env = gs.gisenv()
+            if location:
+                try:
+                    proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
+                    # g.proj prints this text for an unprojected project, which is not
+                    # a PROJ string; a project without a CRS is the XY project.
+                    if proj4_string.startswith("XY location"):
+                        gs.create_location(dbase=old_env["GISDBASE"], location=location)
+                        # The GeoTIFFs of an unprojected project carry no CRS, which
+                        # r.in.gdal accepts only with the override flag.
+                        overr = True
+                    else:
+                        gs.create_location(
+                            dbase=old_env["GISDBASE"],
+                            location=location,
+                            proj4=proj4_string,
+                        )
+                    # Just create a new location and return
+                    if create:
+                        return
+                except Exception as e:
+                    gs.fatal(
+                        _("Unable to create location %(l)s. Reason: %(e)s")
+                        % {"l": location, "e": str(e)}
+                    )
+                # Create a temporary environment
+                try:
+                    target_gisrc, _target_env = gs.create_environment(
+                        old_env["GISDBASE"], location, "PERMANENT"
+                    )
+                    os.environ["GISRC"] = target_gisrc
+
+                except OSError as e:
+                    gs.fatal(
+                        _("Unable to create environment for location %s. Reason: %s")
+                        % (location, e)
+                    )
+                # create default database connection
+                try:
+                    gs.run_command("t.connect", flags="d")
+                except CalledModuleError:
+                    gs.fatal(
+                        _(
+                            "Unable to create default temporal database in new location %s"
+                        )
+                        % location
+                    )
+
             # Make sure the temporal database exists
             init()
 
@@ -738,10 +744,12 @@ def import_stds(
                 update_cmd_list=False,
             )
 
-        # Make sure the location is switched back correctly
+        # The finally clause covers the checks before the maps are read as well:
+        # a refusal there must not leave the process in the data directory, nor
+        # in the session of the new project, which t.connect failing would.
         finally:
             os.chdir(old_cwd)
-            if location:
+            if target_gisrc:
                 # Restore the original session
                 if old_gisrc is not None:
                     os.environ["GISRC"] = old_gisrc

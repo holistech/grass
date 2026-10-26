@@ -77,12 +77,17 @@ def _forget_imported_maps(monkeypatch):
 
 @pytest.fixture
 def failing_modules(monkeypatch):
-    """The names of the modules that fail when run"""
+    """The names of the modules that fail when run, once
+
+    The restoring of the session runs t.connect again, which must not fail
+    on top of the first failure.
+    """
     failing = set()
     run_command = gs.run_command
 
     def run(name, *args, **kwargs):
         if name in failing:
+            failing.discard(name)
             raise CalledModuleError(name, "", 1)
         return run_command(name, *args, **kwargs)
 
@@ -410,3 +415,58 @@ def test_the_region_is_set_from_the_last_map_if_asked(archives, tmp_path):
 def test_an_archive_of_another_dataset_type_is_refused(archives, target, tmp_path):
     with pytest.raises(ScriptError, match="wrong space time dataset type"):
         tgis.import_stds(str(archives["vector"]), "out", tmp_path, overr=True)
+
+
+def _gisdbase():
+    return Path(gs.gisenv()["GISDBASE"])
+
+
+def test_a_projection_that_differs_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    before = _process_state()
+
+    with pytest.raises(ScriptError, match="Projection information does not match"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path)
+
+    assert _process_state() == before
+
+
+def test_a_project_that_cannot_be_made_leaves_the_process_as_it_was(
+    archives, target, tmp_path
+):
+    (_gisdbase() / "taken").mkdir()
+    before = _process_state()
+
+    with pytest.raises(ScriptError, match="Unable to create location taken"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="taken")
+
+    assert _process_state() == before
+
+
+def test_an_environment_that_cannot_be_made_leaves_the_process_as_it_was(
+    archives, target, tmp_path, monkeypatch
+):
+    def refuse(*args):
+        msg = "no room"
+        raise OSError(msg)
+
+    monkeypatch.setattr(gs, "create_environment", refuse)
+    before = _process_state()
+
+    with pytest.raises(ScriptError, match="Unable to create environment"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
+def test_a_new_project_without_the_temporal_database_leaves_the_process_as_it_was(
+    archives, target, tmp_path, failing_modules
+):
+    failing_modules.add("t.connect")
+    before = _process_state()
+
+    with pytest.raises(ScriptError, match="Unable to create default temporal"):
+        tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
