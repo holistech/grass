@@ -139,8 +139,8 @@ def test_an_existing_output_needs_overwrite(tools, series):
 
 @pytest.mark.parametrize("nprocs", [0, -1])
 def test_nprocs_without_a_positive_number_is_accepted(tools, series, nprocs):
-    # A value below 1 runs all statements at once (_run_in_batches in
-    # mapcalc.py); the result is that of a single process, so the batch size
+    # A value below 1 runs all statements at once (run_in_batches in
+    # batches.py); the result is that of a single process, so the batch size
     # itself is not visible in the output.
     _call(
         tools,
