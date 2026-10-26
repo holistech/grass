@@ -34,7 +34,7 @@ from .abstract_map_dataset import (
     other_time_unit_message,
 )
 from .datetime_math import string_to_datetime
-from .db import connection, sql_placeholder
+from .db import connection, sql_literal, sql_placeholder
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
 from .state import get_current_mapset
 from .temporal_granularity import (
@@ -621,9 +621,9 @@ class StdsMapRegister:
 
         # Set the maximum start time as end time
         if use_start_time:
+            table = stds.kind.table("absolute_time" if absolute else "relative_time")
             sql = (
-                f"UPDATE {stds.get_type()}_{'absolute' if absolute else 'relative'}"
-                f"_time SET end_time = ({max_start}) "
-                f"WHERE id = '{stds.base.get_id()}';"
+                f"UPDATE {table} SET end_time = ({max_start}) "
+                f"WHERE id = {sql_literal(stds.base.get_id())};"
             )
             dbif.execute_transaction(sql, mapset=stds.base.mapset)
