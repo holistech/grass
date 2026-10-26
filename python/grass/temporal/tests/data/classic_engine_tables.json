@@ -1,0 +1,181 @@
+{
+ "lexers": {
+  "TemporalAlgebraLexer": {
+   "INITIAL": {
+    "order": [
+     "DATETIME",
+     "DATE",
+     "TIME",
+     "FLOAT",
+     "INT",
+     "newline",
+     "NAME",
+     "T_COMP_OPERATOR",
+     "T_SELECT_OPERATOR",
+     "T_HASH_OPERATOR",
+     "T_REL_OPERATOR",
+     "QUOTE",
+     "OR",
+     "AND",
+     "CEQUALS",
+     "GREATER_EQUALS",
+     "HASH",
+     "LOWER_EQUALS",
+     "LPAREN",
+     "RPAREN",
+     "T_NOT_SELECT",
+     "UNEQUALS",
+     "COMMA",
+     "EQUALS",
+     "GREATER",
+     "LOWER",
+     "T_SELECT"
+    ],
+    "regex": "3ca8e26097941e98585ff3766245a155a031c4dc8aa2591150c80db4e6f13da0"
+   }
+  },
+  "TemporalOperatorLexer": {
+   "INITIAL": {
+    "order": [
+     "NAME",
+     "ADD",
+     "DIV",
+     "MOD",
+     "MULT",
+     "OR",
+     "AND",
+     "SUB",
+     "CEQUALS",
+     "CLPAREN",
+     "CRPAREN",
+     "GREATER_EQUALS",
+     "HASH",
+     "LOWER_EQUALS",
+     "NOT",
+     "T_NOT_SELECT",
+     "UNEQUALS",
+     "XOR",
+     "COMMA",
+     "GREATER",
+     "LOWER",
+     "T_SELECT"
+    ],
+    "regex": "7b14651404d372f80eba3196dcaa69019935c77d6b0b8ccceba55d4c85738523"
+   }
+  },
+  "TemporalRasterAlgebraLexer": {
+   "INITIAL": {
+    "order": [
+     "DATETIME",
+     "DATE",
+     "TIME",
+     "FLOAT",
+     "INT",
+     "newline",
+     "NAME",
+     "T_COMPARISON_OPERATOR",
+     "T_COMP_OPERATOR",
+     "T_SELECT_OPERATOR",
+     "T_ARITH1_OPERATOR",
+     "T_HASH_OPERATOR",
+     "T_ARITH2_OPERATOR",
+     "T_REL_OPERATOR",
+     "QUOTE",
+     "ADD",
+     "DIV",
+     "MOD",
+     "MULT",
+     "OR",
+     "AND",
+     "SUB",
+     "CEQUALS",
+     "GREATER_EQUALS",
+     "HASH",
+     "LOWER_EQUALS",
+     "LPAREN",
+     "L_SPAREN",
+     "RPAREN",
+     "R_SPAREN",
+     "T_NOT_SELECT",
+     "UNEQUALS",
+     "COMMA",
+     "EQUALS",
+     "GREATER",
+     "LOWER",
+     "T_SELECT"
+    ],
+    "regex": "47dad4409fcee37ba838d29570d27fe260a0d832cd8e6cb286e8acc08be2c242"
+   }
+  },
+  "TemporalVectorAlgebraLexer": {
+   "INITIAL": {
+    "order": [
+     "DATETIME",
+     "DATE",
+     "TIME",
+     "FLOAT",
+     "INT",
+     "newline",
+     "NAME",
+     "T_COMP_OPERATOR",
+     "T_OVERLAY_OPERATOR",
+     "T_SELECT_OPERATOR",
+     "T_HASH_OPERATOR",
+     "T_REL_OPERATOR",
+     "QUOTE",
+     "OR",
+     "AND",
+     "CEQUALS",
+     "DISOR",
+     "GREATER_EQUALS",
+     "HASH",
+     "LOWER_EQUALS",
+     "LPAREN",
+     "NOT",
+     "RPAREN",
+     "T_NOT_SELECT",
+     "UNEQUALS",
+     "XOR",
+     "COMMA",
+     "EQUALS",
+     "GREATER",
+     "LOWER",
+     "T_SELECT"
+    ],
+    "regex": "71de38e37c3d52c5de68ff08d409f7b47c086fe8d6516515c01284ef373ee8ce"
+   }
+  }
+ },
+ "parsers": {
+  "TemporalAlgebraParser": {
+   "action": "dd0b6b8c904b79b0aa3ba8b20250e9c3c9a216a2dc0fbe45868450b9e1450e5e",
+   "goto": "2f60cfc557e437453ed5597199758c470f7ccf2beda90e3177c9a780650f3184",
+   "productions": "04bb6dd71f916e893146245294b07f6272ded1290df10a486c15b4b594a654e2",
+   "states": 281
+  },
+  "TemporalOperatorParser": {
+   "action": "fb628ffb45da2ad45cb551b960754412513d67b1df41048f3691d3da0490db7e",
+   "goto": "50aaaca45b5612fdb81d9602afc8b5b1695d4b12a72cc515899088d1b2d831e8",
+   "productions": "9bc474da8a8507c04209597dd7e7499866c80f718b8918f92d71911055421419",
+   "states": 78
+  },
+  "TemporalRaster3DAlgebraParser": {
+   "action": "f80eff99ebab429cfe2cf236614d3163118cde9a7b63f41b6398a38d8591159e",
+   "goto": "bd43b61218e0c7b5f32f395126d9c0e1974b8ef7c86bb7b76875cc1adde7811c",
+   "productions": "3d6b92f791431206450a0371eb6acae0ee31edd0040e523a994e10c4b090a94d",
+   "states": 852
+  },
+  "TemporalRasterAlgebraParser": {
+   "action": "d5f12843b7452f89bdb3e95d2bdda2d0eb051d11210d336e536e80f51a63d1e5",
+   "goto": "5b030eeff2ef9e502bf9f9a387840338509fc224092b8e8b103f3ec05c148d5f",
+   "productions": "18067891efa8d51e4a6eae37423e145dd0461f8f37f3cdb8d44718d5fd99695a",
+   "states": 850
+  },
+  "TemporalVectorAlgebraParser": {
+   "action": "5e3de8fc3ce48a984c7290a19879c4864884ed2e495a1cf8d26587e14b1de44f",
+   "goto": "ee44f23d332a8bda98d011da5e541719f3e80fde031c942d406bd43b0b8151c9",
+   "productions": "8dc5908715fa369c57684d1e6b1392978b05e3d4e8f4b37bcc4257ee1bb43ed1",
+   "states": 330
+  }
+ }
+}
