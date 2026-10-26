@@ -16,8 +16,8 @@ from .series import Series, Slot
 # sentence. The functions call _() when an error is raised, as for the other
 # messages, and not once at import. "Raster map" is the wording of the
 # former raster-only message, "Vector map" that of the classic vector
-# algebra (classic/temporal_vector_algebra.py) and "3D raster" that of the messages
-# in space_time_datasets.py.
+# algebra (classic/temporal_vector_algebra.py) and "3D raster" that of the
+# messages in datasets.py.
 def _dataset_missing(stds_type):
     return {
         "strds": _("Space time raster dataset <{name}> not found"),
@@ -84,7 +84,7 @@ def source(name, *, where=None, stds_type="strds", order="time"):
     base, mapset, _label = _parse_id(ident, stds_type)
     # open_old_stds() reports a missing dataset with msgr.fatal(), which
     # exits the process unless the messenger raises on errors, which
-    # tgis.init(raise_fatal_error=True) sets up (core.py).
+    # tgis.init(raise_fatal_error=True) sets up (state.py).
     if not dataset_factory(stds_type, f"{base}@{mapset}").is_in_db():
         raise FatalError(_dataset_missing(stds_type).format(name=ident))
     dataset = open_old_stds(ident, stds_type)

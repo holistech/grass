@@ -750,7 +750,7 @@ class SpatialExtent(Row):
 
     def disjoint_2d(self, extent) -> bool:
         """Return True if this extent (A) is disjoint with the provided spatial
-        extent (B) in three dimensions.
+        extent (B) in two dimensions.
 
         ::
 
