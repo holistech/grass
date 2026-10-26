@@ -84,16 +84,9 @@ README_HEADS = {
         "Files:\n"
         "      *.pack  -- GRASS vector files packed with v.pack\n"
     ),
-    ("str3ds", "pack"): (
-        "This space time 3D raster dataset was exported with t.rast3d.export of "
-        "GRASS 8\n"
-        "\n"
-        "Files:\n"
-        "      *.pack  -- GRASS 3D raster files packed with r3.pack\n"
-    ),
 }
 
-MAP_KIND = {"strds": "raster", "stvds": "vector", "str3ds": "raster3d"}
+MAP_KIND = {"strds": "raster", "stvds": "vector"}
 
 
 @pytest.fixture(autouse=True)
@@ -107,20 +100,13 @@ def _raise_on_error():
 
 @pytest.fixture
 def failing_modules(monkeypatch):
-    """The names of the modules that fail when run; r3.pack is made up
-
-    GRASS has no r3.pack, so a 3D raster map is "packed" by an empty file of
-    the name the exporter expects.
-    """
+    """The names of the modules that fail when run"""
     failing = set()
     run_command = gs.run_command
 
     def run(name, *args, **kwargs):
         if name in failing:
             raise CalledModuleError(name, "", 1)
-        if name == "r3.pack":
-            Path(f"{kwargs['input']}.pack").touch()
-            return None
         return run_command(name, *args, **kwargs)
 
     monkeypatch.setattr(gs, "run_command", run)
@@ -185,31 +171,15 @@ def test_the_readme_names_the_files_of_the_format(
     assert _text(archive, "readme.txt") == expected
 
 
-def test_a_3d_raster_dataset_is_exported_with_r3_pack(
-    datasets, tmp_path, failing_modules
+@pytest.mark.parametrize("type_", ["str3ds", "raster3d", "rast3d"])
+def test_a_3d_raster_dataset_is_refused_before_anything_is_made(
+    datasets, tmp_path, failing_modules, type_
 ):
-    archive = _export(tmp_path, "ex3", "str3ds", "pack")
+    # GRASS has no r3.pack to export the maps with.
+    with pytest.raises(FatalError, match="cannot be exported"):
+        _export(tmp_path, "ex3", type_, "pack")
 
-    with tarfile.open(archive) as tar:
-        names = tar.getnames()
-    assert names == [
-        "ex31.pack",
-        "ex32.pack",
-        "list.txt",
-        "proj.txt",
-        "init.txt",
-        "readme.txt",
-        "metadata.txt",
-    ]
-    # The end of a time instant is its start.
-    assert _text(archive, "list.txt").splitlines() == [
-        "ex31|2001-01-01 00:00:00|2001-01-01 00:00:00",
-        "ex32|2001-02-01 00:00:00|2001-03-01 00:00:00",
-    ]
-    init = dict(line.split("=") for line in _text(archive, "init.txt").splitlines())
-    assert init["stds_type"] == "str3ds"
-    assert init["number_of_maps"] == "2"
-    assert init["format"] == "pack"
+    assert not list(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize(
@@ -270,12 +240,6 @@ def test_the_end_of_a_time_instant_is_its_start(
             "pack",
             "v.pack",
             "Unable to export vector map <exv1> with v.pack",
-        ),
-        (
-            "str3ds",
-            "pack",
-            "r3.pack",
-            "Unable to export raster map <ex31> with r3.pack",
         ),
     ],
 )
@@ -346,7 +310,6 @@ def test_a_vector_map_with_two_layers_is_packed_once(temporal_module_session, tm
         ("exr", "raster", "exr1.pack"),
         ("exr", "rast", "exr1.pack"),
         ("exv", "vector", "exv1.pack"),
-        ("ex3", "raster3d", "ex31.pack"),
     ],
 )
 def test_a_dataset_is_exported_by_the_name_of_its_map_type_too(

@@ -39,6 +39,7 @@ from grass.exceptions import CalledModuleError
 from .db import SQLStatementError
 from .kinds import KINDS, find_kind, stds_kind_of
 from .open_stds import open_old_stds
+from .state import get_tgis_message_interface
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -267,25 +268,11 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
         exported.add(name)
 
 
-def _export_raster3d_maps(rows, tar, list_file, fs) -> None:
-    for row in rows:
-        name = row["name"]
-        list_file.write(_list_line(fs, name, row["start_time"], row["end_time"]))
-        # Export the raster 3d map with r3.pack
-        try:
-            gs.run_command("r3.pack", input=name, flags="c")
-        except CalledModuleError:
-            gs.fatal(_("Unable to export raster map <%s> with r3.pack") % name)
-
-        tar.add(name + ".pack")
-
-
 def _export_maps(rows, tar, list_file, fs, kind, format_, datatype, kwargs) -> None:
     """Write the list file and add the files of every map to the archive
 
     The format selects the module for raster and vector maps; a format a kind
-    does not know is exported in the pack format, which is also the format of
-    the 3D raster maps.
+    does not know is exported in the pack format.
     """
     if kind == "strds":
         if format_ in {"GTiff", "AAIGrid"}:
@@ -299,8 +286,6 @@ def _export_maps(rows, tar, list_file, fs, kind, format_, datatype, kwargs) -> N
             _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_)
         else:
             _export_vector_maps(rows, tar, list_file, fs)
-    elif kind == "str3ds":
-        _export_raster3d_maps(rows, tar, list_file, fs)
 
 
 def _extent_of_maps(rows):
@@ -349,9 +334,6 @@ def _check_output_directory(output) -> None:
 _README_HEADS = {
     "strds": "This space time raster dataset was exported with t.rast.export of GRASS 8",
     "stvds": "This space time vector dataset was exported with t.vect.export of GRASS 8",
-    "str3ds": (
-        "This space time 3D raster dataset was exported with t.rast3d.export of GRASS 8"
-    ),
 }
 
 # The lines of the readme file that name the files of each export format. A
@@ -373,7 +355,6 @@ _README_FILES = {
         "GPKG": ("      *.gpkg  -- Vector GeoPackage files",),
         None: ("      *.pack  -- GRASS vector files packed with v.pack",),
     },
-    "str3ds": {None: ("      *.pack  -- GRASS 3D raster files packed with r3.pack",)},
 }
 
 
@@ -495,7 +476,7 @@ def export_stds(
 
           - "GTiff" Geotiff format, only for raster maps
           - "AAIGrid" Arc/Info ASCII Grid format, only for raster maps
-          - "pack" The GRASS raster, 3D raster or vector Pack format,
+          - "pack" The GRASS raster or vector Pack format,
                    this is the default setting
           - "GML" GML file export format, only for vector maps,
                   v.out.ogr export option
@@ -505,21 +486,30 @@ def export_stds(
     :param type\\_: The space time dataset type
 
           - "strds" Space time raster dataset
-          - "str3ds" Space time 3D raster dataset
           - "stvds" Space time vector dataset
+
+          A space time 3D raster dataset cannot be exported, GRASS has no
+          module to pack a 3D raster map.
     :param datatype: Force the output datatype for r.out.gdal
     """
+
+    # open_old_stds() also takes the name of the map type, "raster" for a space
+    # time raster dataset, and an unknown name is refused by it.
+    stds_kind = stds_kind_of(type_) if find_kind(type_) else None
+    kind = stds_kind.name if stds_kind else None
+    if kind == "str3ds":
+        get_tgis_message_interface().fatal(
+            _(
+                "A space time 3D raster dataset cannot be exported, GRASS has no "
+                "module to pack a 3D raster map."
+            )
+        )
 
     _check_directory(directory)
     _check_output_directory(output)
     # The archive is moved to its place from inside the work directory, where
     # a relative output would mean another place.
     output = Path(output).absolute()
-
-    # open_old_stds() also takes the name of the map type, "raster" for a space
-    # time raster dataset, and an unknown name is refused by it.
-    stds_kind = stds_kind_of(type_) if find_kind(type_) else None
-    kind = stds_kind.name if stds_kind else None
 
     with _scratch_directory(directory) as work:
         sp = open_old_stds(input, type_)
