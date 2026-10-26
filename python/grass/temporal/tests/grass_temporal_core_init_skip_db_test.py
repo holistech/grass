@@ -18,10 +18,10 @@ from grass.temporal.space_time_datasets import (
     SpaceTimeRaster3DDataset,
     SpaceTimeVectorDataset,
 )
+from grass.temporal import state
 from grass.temporal.state import (
     get_enable_mapset_check,
     get_enable_timestamp_write,
-    get_tgis_backend,
     get_tgis_db_version,
     get_tgis_version,
 )
@@ -63,7 +63,7 @@ def test_init_creates_tgis_db_if_not_skipped(simple_mapset):
         ciface = tgis.get_tgis_c_library_interface()
         assert ciface.available_mapsets() == ["c", "PERMANENT"]
         assert get_tgis_version() == 2
-        assert get_tgis_backend() == "sqlite"
+        assert state.STATE.backend == "sqlite"
         assert get_enable_mapset_check() is True
         assert get_enable_timestamp_write() is True
         assert tgis.get_sql_template_path().endswith("sql")
@@ -95,7 +95,7 @@ def test_init_succeeds_without_db_creation(simple_mapset):
         first_ciface = tgis.get_tgis_c_library_interface()
         assert first_ciface.available_mapsets() == ["c", "PERMANENT"]
         assert get_tgis_version() == 2
-        assert get_tgis_backend() == "sqlite"
+        assert state.STATE.backend == "sqlite"
         assert get_enable_mapset_check() is True
         assert get_enable_timestamp_write() is True
         assert tgis.get_sql_template_path().endswith("sql")

@@ -5,11 +5,8 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal.state import (
-    get_current_gisdbase,
-    get_current_location,
     get_enable_mapset_check,
     get_raise_on_error,
-    get_tgis_backend,
     get_tgis_db_version,
     get_tgis_dbmi_paramstyle,
     get_tgis_version,
@@ -43,9 +40,9 @@ def test_core_holds_no_session_state():
 def test_init_reads_the_session():
     env = gs.gisenv()
     assert tgis.get_current_mapset() == env["MAPSET"]
-    assert get_current_location() == env["LOCATION_NAME"]
-    assert get_current_gisdbase() == env["GISDBASE"]
-    assert get_tgis_backend() == "sqlite"
+    assert state.STATE.current_location == env["LOCATION_NAME"]
+    assert state.STATE.current_gisdbase == env["GISDBASE"]
+    assert state.STATE.backend == "sqlite"
     assert get_tgis_dbmi_paramstyle() == "qmark"
     assert tgis.get_tgis_database_string().endswith("sqlite.db")
 

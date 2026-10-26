@@ -104,19 +104,6 @@ def profile_function(func) -> None:
         func()
 
 
-def get_tgis_backend() -> str | None:
-    """Return the temporal GIS backend as string
-
-    :returns: either "sqlite" or "pg"
-    """
-    return STATE.backend
-
-
-def get_tgis_database() -> str | None:
-    """Return the temporal database string specified with t.connect"""
-    return STATE.database
-
-
 def get_tgis_dbmi_paramstyle() -> str | None:
     """Return the temporal database backend parameter style
 
@@ -132,24 +119,6 @@ def get_current_mapset() -> str | None:
     The current mapset is set by init() and stored in the session state.
     """
     return STATE.current_mapset
-
-
-def get_current_location() -> str | None:
-    """Return the current location
-
-    This is the fastest way to receive the current location.
-    The current location is set by init() and stored in the session state.
-    """
-    return STATE.current_location
-
-
-def get_current_gisdbase() -> str | None:
-    """Return the current gis database (gisdbase)
-
-    This is the fastest way to receive the current gisdbase.
-    The current gisdbase is set by init() and stored in the session state.
-    """
-    return STATE.current_gisdbase
 
 
 def get_enable_mapset_check():

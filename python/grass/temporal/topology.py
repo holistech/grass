@@ -1014,27 +1014,6 @@ def set_spatial_relationship(A, B, relation) -> None:
     A._link("spatial", INVERSE_SPATIAL_RELATION[relation], B)
 
 
-def print_temporal_topology_relationships(maps1, maps2=None, dbif=None) -> None:
-    """Print the temporal relationships of the
-    map lists maps1 and maps2 to stdout.
-
-     :param maps1: A list of abstract_dataset
-                   objects with initiated temporal extent
-     :param maps2: An optional list of abstract_dataset
-                   objects with initiated temporal extent
-     :param dbif: The database interface to be used
-    """
-
-    tb = SpatioTemporalTopologyBuilder()
-
-    tb.build(maps1, maps2)
-
-    with connection(dbif) as dbif:
-        for map_ in tb:
-            map_.select(dbif)
-            map_.print_info()
-
-
 def print_spatio_temporal_topology_relationships(
     maps1, maps2=None, spatial="2D", dbif=None
 ) -> None:
