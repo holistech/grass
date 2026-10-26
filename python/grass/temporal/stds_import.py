@@ -56,11 +56,6 @@ proj_file_name = Path("proj.txt")
 init_file_name = Path("init.txt")
 list_file_name = Path("list.txt")
 
-# This global variable is for unique vector map export,
-# since single vector maps may have several layer
-# and therefore several attribute tables
-imported_maps = {}
-
 ############################################################################
 
 
@@ -236,8 +231,10 @@ def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) 
     for row in maplist:
         # Separate the name from the layer
         name = row["name"].split(":")[0]
-        # Import only unique maps
-        if name in imported_maps:
+        # A vector map with several layers is listed once per layer but
+        # unpacked once. The set is per call: a set of the module would skip
+        # the maps of every later import in the same process.
+        if name in unpacked:
             continue
         filename = f"{row['filename']}.pack"
         try:
@@ -255,7 +252,6 @@ def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) 
                 _("Unable to unpack vector map <%s> from file %s.") % (name, filename)
             )
 
-        imported_maps[name] = name
         unpacked.append(name)
 
     # v.unpack has no flag to extend the region, unlike v.in.ogr with -e

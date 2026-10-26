@@ -19,7 +19,6 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
-from grass.temporal import stds_import
 from grass.exceptions import CalledModuleError, ScriptError
 from grass.temporal.testing.data import (
     MapSpec,
@@ -68,11 +67,6 @@ def _raise_on_error():
     gs.set_raise_on_error(True)
     yield
     gs.set_raise_on_error(saved)
-
-
-@pytest.fixture(autouse=True)
-def _forget_imported_maps(monkeypatch):
-    monkeypatch.setattr(stds_import, "imported_maps", {})
 
 
 @pytest.fixture
@@ -470,3 +464,22 @@ def test_a_new_project_without_the_temporal_database_leaves_the_process_as_it_wa
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
+
+
+def test_the_vector_maps_of_one_archive_can_be_imported_twice_in_one_process(
+    archives, tmp_path
+):
+    # The second import is into a project of its own, so the maps are not
+    # there yet and must be imported. v.unpack needs a project with a CRS.
+    for number in (1, 2):
+        with temporal_session(tmp_path / f"target{number}", crs=f"EPSG:{EPSG}"):
+            tgis.import_stds(
+                str(archives["vector"]),
+                "vout",
+                tmp_path,
+                stds_type="stvds",
+                overr=True,
+            )
+
+            names = gs.read_command("g.list", type="vector").split()
+            assert names == ["vsrc1", "vsrc2"], f"import {number}"
