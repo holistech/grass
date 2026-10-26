@@ -16,7 +16,6 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
-from grass.temporal import stds_export
 from grass.exceptions import CalledModuleError, ScriptError
 from grass.temporal.testing.data import (
     MapSpec,
@@ -103,11 +102,6 @@ def _raise_on_error():
     gs.set_raise_on_error(True)
     yield
     gs.set_raise_on_error(saved)
-
-
-@pytest.fixture(autouse=True)
-def _forget_exported_maps(monkeypatch):
-    monkeypatch.setattr(stds_export, "exported_maps", {})
 
 
 @pytest.fixture
@@ -311,3 +305,35 @@ def test_an_output_directory_that_cannot_be_written_is_refused(datasets, tmp_pat
     finally:
         locked.chmod(0o700)
     assert not list(locked.iterdir())
+
+
+def test_the_vector_maps_of_one_dataset_can_be_exported_twice_in_one_process(
+    datasets, tmp_path
+):
+    for number in (1, 2):
+        archive = tmp_path / f"export{number}.tar"
+        tgis.export_stds("exv", str(archive), "no", tmp_path, None, "pack", "stvds")
+
+        with tarfile.open(archive) as tar:
+            names = tar.getnames()
+        assert "exv1.pack" in names, f"export {number}"
+        assert "exv2.pack" in names, f"export {number}"
+
+
+def test_a_vector_map_with_two_layers_is_packed_once(temporal_module_session, tmp_path):
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    vector_points(tools, "exl_one", [(1, 1)])
+    tools.v_category(input="exl_one", output="exl", option="add", layer=2, type="point")
+    tools.t_create(type="stvds", output="exl_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="exl_ds",
+        maps="exl:1,exl:2",
+        start="2001-01-01",
+        increment="1 months",
+    )
+
+    archive = _export(tmp_path, "exl_ds", "stvds", "pack")
+
+    with tarfile.open(archive) as tar:
+        assert tar.getnames().count("exl.pack") == 1

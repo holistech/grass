@@ -42,11 +42,6 @@ read_file_name = "readme.txt"
 list_file_name = "list.txt"
 tmp_tar_file_name = "archive"
 
-# This global variable is for unique vector map export,
-# since single vector maps may have several layer
-# and therefore several attribute tables
-exported_maps = {}
-
 ############################################################################
 
 
@@ -292,14 +287,17 @@ def _export_vector_maps_as_gpkg(rows, tar, list_file, fs) -> None:
 
 
 def _export_vector_maps(rows, tar, list_file, fs) -> None:
+    # A vector map with several layers is listed once per layer but packed
+    # once. The set is per call: a set of the module would skip the maps of
+    # every later export in the same process.
+    exported = set()
     for row in rows:
         name = row["name"]
         start = row["start_time"]
         end = row["end_time"]
         layer = row["layer"]
 
-        # Export unique maps only
-        if name in exported_maps:
+        if name in exported:
             continue
 
         if not layer:
@@ -317,7 +315,7 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
 
         tar.add(name + ".pack")
 
-        exported_maps[name] = name
+        exported.add(name)
 
 
 ############################################################################
