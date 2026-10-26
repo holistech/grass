@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.related_maps import method_relations
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -271,6 +272,37 @@ def test_a_missing_dataset_stops(datasets):
         )
 
 
-def test_an_unknown_method_stops(datasets):
-    with pytest.raises(tgis.FatalError, match="Unknown sampling method <sideways>"):
-        sample(["inp"], ["equal", "sideways"], False)
+@pytest.mark.parametrize("spatial", [False, True])
+def test_an_unknown_method_selects_nothing_besides_the_known_ones(datasets, spatial):
+    assert matrix_of(sample(["inp", "oth"], ["equal", "sideways"], spatial)) == (
+        matrix_of(sample(["inp", "oth"], ["equal"], spatial))
+    )
+
+
+@pytest.mark.parametrize("method", [["sideways"], ["START"]])
+@pytest.mark.parametrize("spatial", [False, True])
+def test_an_unknown_method_selects_nothing(datasets, method, spatial):
+    """Every granule gets one empty map with its own extent
+
+    Taken 2026-10-26 from the function at b8f890df1c in a temporary project
+    with the datasets of this module ("START" is no relation of the topology
+    builder either: only the lower-case group name counts).
+    """
+    result = matrix_of(sample(["inp", "oth"], method, spatial))
+
+    assert len(result) == 2
+    for matrix in result:
+        assert [entry["granule"][0] for entry in matrix] == [
+            "smp_s1@PERMANENT",
+            "smp_s2@PERMANENT",
+            None,
+            "smp_s3@PERMANENT",
+            "smp_s4@PERMANENT",
+        ]
+        for entry in matrix:
+            assert entry["samples"] == [[None, *entry["granule"][1:]]]
+
+
+def test_the_strict_method_names_still_refuse_an_unknown_one():
+    with pytest.raises(ValueError, match="Unknown sampling method <sideways>"):
+        method_relations(["sideways"])

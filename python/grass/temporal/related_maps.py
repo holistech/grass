@@ -92,8 +92,9 @@ def method_relations(method, any_relation: bool = False):
     :param any_relation: Also accept what sample_by_dataset() accepted: the
         name of any relation of the topology builder (contains, overlaps,
         overlapped, starts, started, finishes, finished, equals), in any case
-        and with white space, and "over" for "overlap"
-    :raises ValueError: for another name
+        and with white space, and "over" for "overlap". Any other name
+        selects nothing and is skipped.
+    :raises ValueError: for another name, unless any_relation is set
     """
     groups = (
         _METHOD_GROUPS
@@ -104,18 +105,25 @@ def method_relations(method, any_relation: bool = False):
     def plain_key(name):
         return name.strip().upper() if any_relation else name.upper()
 
-    for name in method:
-        known = name in groups or (
-            plain_key(name) in _PLAIN_RELATIONS
-            if any_relation
-            else name in _OPTION_NAMES
-        )
-        if not known:
-            msg = f"Unknown sampling method <{name}>"
-            raise ValueError(msg)
+    def known(name):
+        if name in groups:
+            return True
+        if any_relation:
+            return plain_key(name) in _PLAIN_RELATIONS
+        return name in _OPTION_NAMES
+
+    if not any_relation:
+        for name in method:
+            if not known(name):
+                msg = f"Unknown sampling method <{name}>"
+                raise ValueError(msg)
     names = []
     for name in method:
-        if name in groups:
+        # The sampling before this module existed matched every name against
+        # the relations of the topology builder and skipped what matched
+        # nothing, so a misspelt name selects nothing instead of stopping
+        # the run. Callers with the fixed option values use the strict path.
+        if name in groups or not known(name):
             continue
         for relation_name in _PLAIN_RELATIONS[plain_key(name)]:
             if relation_name not in names:
