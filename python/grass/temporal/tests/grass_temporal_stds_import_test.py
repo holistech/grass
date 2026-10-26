@@ -267,23 +267,22 @@ def test_a_wrong_number_of_maps_in_the_init_file_is_refused(archives, target, tm
         tgis.import_stds(str(changed), "out", tmp_path, overr=True)
 
 
-def test_blank_lines_in_the_list_and_init_file_are_skipped(archives, target, tmp_path):
-    # The number of maps is compared with the number of lines of the list
-    # file, blank ones included, so the init file must count the blank line.
-    changed = _changed(
-        archives["GTiff"],
-        tmp_path / "x.tar",
-        "list.txt",
-        _member(archives["GTiff"], "list.txt") + b"\n",
-    )
-    init = _member(changed, "init.txt").replace(
-        b"number_of_maps=2", b"number_of_maps=3"
-    )
+@pytest.mark.parametrize("base", [None, "pre"])
+def test_blank_lines_of_the_list_are_skipped(archives, target, tmp_path, base):
+    listed = _member(archives["GTiff"], "list.txt").decode().splitlines()
+    assert len(listed) == 2
+    # A blank line in the middle, one at the end and one with only blanks.
+    edited = "\n".join([listed[0], "", listed[1], "   ", ""]).encode() + b"\n"
+    changed = _changed(archives["GTiff"], tmp_path / "x.tar", "list.txt", edited)
+    init = _member(changed, "init.txt")
     changed = _changed(changed, tmp_path / "y.tar", "init.txt", b"\n" + init + b"\n\n")
 
-    tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+    tgis.import_stds(str(changed), "out", tmp_path, base=base, overr=True)
 
-    assert gs.read_command("g.list", type="raster").split() == ["srca", "srcb"]
+    expected = ["srca", "srcb"] if base is None else ["pre_1", "pre_2"]
+    assert gs.read_command("g.list", type="raster").split() == expected
+    listed = gs.read_command("t.rast.list", input="out", columns="name")
+    assert listed.split()[1:] == expected
 
 
 @pytest.mark.parametrize(

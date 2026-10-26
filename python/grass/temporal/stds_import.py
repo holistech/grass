@@ -534,19 +534,20 @@ def _create_project(dbase: str, location: str, overr: bool) -> bool:
 def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]], int]:
     """Read list.txt of the working directory
 
-    Return one dictionary per map and the number of lines of the file, blank
-    ones included. The "filename" of a map is the base name of its files, which
-    the format adds a suffix to. With base the maps are renamed to the base
-    and a numerical suffix that counts the file names in the order of their
-    first appearance: the lines of the layers of one vector map share a file
-    and so the new name.
+    Return one dictionary per map and the number of maps, which is the number
+    of lines of the file that are not blank. The "filename" of a map is the
+    base name of its files, which the format adds a suffix to. With base the
+    maps are renamed to the base and a numerical suffix that counts the file
+    names in the order of their first appearance: the lines of the layers of
+    one vector map share a file and so the new name.
     """
     fs = "|"
     maplist = []
     semantic_label_column = 4
     with list_file_name.open("r") as list_file:
-        all_lines = [line.rstrip() for line in list_file]
-    lines = [line for line in all_lines if line]
+        lines = [line.rstrip() for line in list_file]
+    # A list edited by hand may hold blank lines, which are no maps.
+    lines = [line for line in lines if line]
     parsed = [line.split(fs) for line in lines]
     filenames = [fields[0].strip().partition(":")[0] for fields in parsed]
     # Dictionary order is the order of insertion, so this is the first
@@ -576,7 +577,7 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
                 else "",
             }
         )
-    return maplist, len(all_lines)
+    return maplist, len(lines)
 
 
 def _read_init_file() -> dict[str, str]:
@@ -600,7 +601,7 @@ def _check_init(
     """Stop with a message unless the init file describes an importable dataset
 
     :param init_data: The content of the init file
-    :param map_count: The number of lines of the list file
+    :param map_count: The number of maps of the list file
     :param stds_type: The type that the caller wants to import
     :return: The type and the format of the archive
     """
