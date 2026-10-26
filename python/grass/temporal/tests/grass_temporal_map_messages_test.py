@@ -208,3 +208,17 @@ def test_a_map_whose_interval_ends_before_it_starts(layer, messages):
         f"Map <x@{MAPSET}>{suffix} has incorrect time interval, start time is "
         "greater than end time"
     ]
+
+
+@pytest.mark.parametrize(
+    ("layer", "text"),
+    [
+        (None, "<x@PERMANENT>"),
+        ("", "<x@PERMANENT>"),
+        ("2", "<x@PERMANENT> with layer 2"),
+    ],
+)
+def test_a_map_is_named_with_its_layer(layer, text):
+    item = tgis.VectorDataset("x:2@PERMANENT" if layer else "x@PERMANENT")
+
+    assert tgis.abstract_map_dataset.describe_map(item) == text

@@ -30,6 +30,20 @@ from .state import (
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
 
+def describe_map(map_) -> str:
+    """Name a map in a message: "<id>", or "<id> with layer N" for a layer
+
+    The id is the map id without the layer, as get_map_id() returns it. A map
+    without a layer, or with an empty one, is named by its id alone.
+
+    :param map_: An AbstractMapDataset object
+    """
+    layer = map_.get_layer()
+    if layer:
+        return f"<{map_.get_map_id()}> with layer {layer}"
+    return f"<{map_.get_map_id()}>"
+
+
 class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
     """This is the base class for all maps (raster, vector, raster3d).
 
@@ -931,24 +945,13 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return False
         if end is not None:
             if start >= end:
-                if self.get_layer() is not None:
-                    self.msgr.error(
-                        _(
-                            "Map <%(id)s> with layer %(layer)s "
-                            "has incorrect time interval, start "
-                            "time is greater than end time"
-                        )
-                        % {"id": self.get_map_id(), "layer": self.get_layer()}
+                self.msgr.error(
+                    _(
+                        "Map %s has incorrect time interval, start time is "
+                        "greater than end time"
                     )
-                else:
-                    self.msgr.error(
-                        _(
-                            "Map <%s> has incorrect time "
-                            "interval, start time is greater "
-                            "than end time"
-                        )
-                        % (self.get_map_id())
-                    )
+                    % describe_map(self)
+                )
                 return False
 
         return True

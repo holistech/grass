@@ -29,6 +29,7 @@ from pathlib import Path
 
 from grass.exceptions import FatalError
 
+from .abstract_map_dataset import describe_map
 from .datetime_math import string_to_datetime
 from .db import connection
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
@@ -193,38 +194,17 @@ class StdsMapRegister:
                 )
             )
 
-        if map_.get_layer():
-            stds.msgr.debug(
-                1,
-                "Register %s map <%s> with layer %s in space "
-                "time %s dataset <%s>"
-                % (
-                    map_.get_type(),
-                    map_.get_map_id(),
-                    map_.get_layer(),
-                    map_.get_type(),
-                    stds.get_id(),
-                ),
-            )
-        else:
-            stds.msgr.debug(
-                1,
-                "Register %s map <%s> in space time %s "
-                "dataset <%s>"
-                % (map_.get_type(), map_.get_map_id(), map_.get_type(), stds.get_id()),
-            )
+        stds.msgr.debug(
+            1,
+            "Register %s map %s in space time %s dataset <%s>"
+            % (map_.get_type(), describe_map(map_), map_.get_type(), stds.get_id()),
+        )
 
         # First select all data from the database in the current mapset
         map_.select(dbif, mapset=mapset)
 
         if not map_.check_for_correct_time():
-            if map_.get_layer():
-                stds.msgr.fatal(
-                    _("Map <%(id)s> with layer %(l)s has invalid time")
-                    % {"id": map_.get_map_id(), "l": map_.get_layer()}
-                )
-            else:
-                stds.msgr.fatal(_("Map <%s> has invalid time") % (map_.get_map_id()))
+            stds.msgr.fatal(_("Map %s has invalid time") % describe_map(map_))
 
         map_id = map_.base.get_id()
         map_rel_time_unit = map_.get_relative_time_unit()
@@ -234,27 +214,13 @@ class StdsMapRegister:
         statement = ""
 
         if stds.get_temporal_type() != map_.get_temporal_type():
-            if map_.get_layer():
-                stds.msgr.fatal(
-                    _(
-                        "Temporal type of space time dataset "
-                        "<%(id)s> and map <%(map)s> with layer %(l)s"
-                        " are different"
-                    )
-                    % {
-                        "id": stds.get_id(),
-                        "map": map_.get_map_id(),
-                        "l": map_.get_layer(),
-                    }
+            stds.msgr.fatal(
+                _(
+                    "Temporal type of space time dataset "
+                    "<%(id)s> and map %(map)s are different"
                 )
-            else:
-                stds.msgr.fatal(
-                    _(
-                        "Temporal type of space time dataset "
-                        "<%(id)s> and map <%(map)s> are different"
-                    )
-                    % {"id": stds.get_id(), "map": map_.get_map_id()}
-                )
+                % {"id": stds.get_id(), "map": describe_map(map_)}
+            )
 
         # In case no map has been registered yet, set the
         # relative time unit from the first map
@@ -279,27 +245,13 @@ class StdsMapRegister:
         if stds.is_time_relative() and (
             stds.get_relative_time_unit() != map_rel_time_unit
         ):
-            if map_.get_layer():
-                stds.msgr.fatal(
-                    _(
-                        "Relative time units of space time dataset "
-                        "<%(id)s> and map <%(map)s> with layer %(l)s"
-                        " are different"
-                    )
-                    % {
-                        "id": stds.get_id(),
-                        "map": map_.get_map_id(),
-                        "l": map_.get_layer(),
-                    }
+            stds.msgr.fatal(
+                _(
+                    "Relative time units of space time dataset "
+                    "<%(id)s> and map %(map)s are different"
                 )
-            else:
-                stds.msgr.fatal(
-                    _(
-                        "Relative time units of space time dataset "
-                        "<%(id)s> and map <%(map)s> are different"
-                    )
-                    % {"id": stds.get_id(), "map": map_.get_map_id()}
-                )
+                % {"id": stds.get_id(), "map": describe_map(map_)}
+            )
 
         stds_mapset = stds.base.get_mapset()
         if stds_mapset != mapset:
@@ -308,15 +260,7 @@ class StdsMapRegister:
             )
 
         if self.contains(map_id, dbif):
-            if map_.get_layer() is not None:
-                stds.msgr.warning(
-                    _("Map <%(map)s> with layer %(l)s is already registered.")
-                    % {"map": map_.get_map_id(), "l": map_.get_layer()}
-                )
-            else:
-                stds.msgr.warning(
-                    _("Map <%s> is already registered.") % (map_.get_map_id())
-                )
+            stds.msgr.warning(_("Map %s is already registered.") % describe_map(map_))
             return False
 
         # Register the stds in the map stds register table column
@@ -360,27 +304,10 @@ class StdsMapRegister:
 
         with connection(dbif) as dbif:
             if not self.contains(map_.get_id(), dbif):
-                if map_.get_layer() is not None:
-                    stds.msgr.warning(
-                        _(
-                            "Map <%(map)s> with layer %(l)s is not "
-                            "registered in space time dataset "
-                            "<%(base)s>"
-                        )
-                        % {
-                            "map": map_.get_map_id(),
-                            "l": map_.get_layer(),
-                            "base": stds.base.get_id(),
-                        }
-                    )
-                else:
-                    stds.msgr.warning(
-                        _(
-                            "Map <%(map)s> is not registered in space "
-                            "time dataset <%(base)s>"
-                        )
-                        % {"map": map_.get_map_id(), "base": stds.base.get_id()}
-                    )
+                stds.msgr.warning(
+                    _("Map %(map)s is not registered in space time dataset <%(base)s>")
+                    % {"map": describe_map(map_), "base": stds.base.get_id()}
+                )
                 return ""
 
             # Remove the space time dataset from the dataset register of the
