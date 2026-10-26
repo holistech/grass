@@ -318,6 +318,9 @@ def test_an_empty_dataset_warns_without_the_hint_on_where(tools, quarterly, pref
 def test_the_empty_result_maps_are_removed_from_the_mapset(tools, quarterly, prefix):
     # The expression is null for the first four maps (100 to 400). They are
     # neither registered nor kept as 3D rasters; the two others stay.
+    # extract.py names the type of g.remove itself and does not use
+    # Kind.remove_type, so this test does not guard that value (the library
+    # test of register_map_object_list() does).
     tools.t_rast3d_extract(
         input=quarterly,
         output=prefix,
