@@ -23,17 +23,27 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+from __future__ import annotations
+
+import contextlib
 import os
 import shutil
 import tarfile
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
 from .db import SQLStatementError
+from .kinds import KINDS
 from .open_stds import open_old_stds
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from .kinds import Kind
 
 proj_file_name = "proj.txt"
 init_file_name = "init.txt"
@@ -42,7 +52,15 @@ read_file_name = "readme.txt"
 list_file_name = "list.txt"
 tmp_tar_file_name = "archive"
 
-############################################################################
+# The suffix of the file that an archive holds for each map, by export format;
+# the import reads the files by the same table.
+FORMAT_SUFFIX = {
+    "GTiff": ".tif",
+    "AAIGrid": ".asc",
+    "GML": ".xml",
+    "GPKG": ".gpkg",
+    "pack": ".pack",
+}
 
 
 def _gdal_type_for_cell_map(minimum, maximum, nodata):
@@ -71,113 +89,97 @@ def _gdal_type_for_cell_map(minimum, maximum, nodata):
     return None
 
 
+def _list_line(fs: str, name: str, start: str, end: str | None, *more: object) -> str:
+    """Return the line of the list file for a map
+
+    A map in a time instant has no end, and its line repeats the start. The
+    values after the end are written as they are, so a missing one is "None".
+    """
+    return fs.join(str(value) for value in (name, start, end or start, *more)) + "\n"
+
+
+def _gdal_tif_options(
+    datatype: str, type_: str | None, min_val, max_val, kwargs: dict
+) -> dict:
+    """Return the flags and options of r.out.gdal besides the files and format
+
+    :param datatype: The data type of the map
+    :param type_: The data type that was forced, None to choose one
+    :param min_val: The minimum of the map, None for a map without a valid cell
+    :param max_val: The maximum of the map
+    :param kwargs: The options of the caller, without those that are None
+    """
+    cell = datatype == "CELL" and not type_
+    if cell and "nodata" in kwargs:
+        # A map without a valid cell has no minimum and maximum.
+        gdal_type = _gdal_type_for_cell_map(
+            min_val or 0, max_val or 0, float(kwargs["nodata"])
+        )
+        if gdal_type:
+            # r.out.gdal refuses a nodata value its type cannot hold, so the
+            # type is chosen to hold it. nodata comes from kwargs, passing it
+            # twice is a TypeError.
+            return {"flags": "c", "type": gdal_type, **kwargs}
+    elif cell:
+        # A map without a valid cell has no minimum and maximum; it is
+        # exported as the smallest type with the nodata value 1, as a map
+        # whose only value is 0 would be.
+        if max_val is None:
+            min_val = max_val = 0
+        nodata = max_val + 1
+        if nodata < 256 and min_val >= 0:
+            gdal_type = "Byte"
+        elif nodata < 65536 and min_val >= 0:
+            gdal_type = "UInt16"
+        elif min_val >= 0:
+            gdal_type = "UInt32"
+        else:
+            gdal_type = "Int32"
+        return {"flags": "c", "nodata": nodata, "type": gdal_type, **kwargs}
+    if type_:
+        return {"flags": "cf", "type": type_, **kwargs}
+    return {"flags": "c", **kwargs}
+
+
+def _gdal_aaigrid_options(datatype: str, min_val, max_val, kwargs: dict) -> dict:
+    """Return the flags and options of r.out.gdal for an Arc/Info ASCII Grid"""
+    options = {"flags": "c"}
+    if datatype == "CELL" and "nodata" in kwargs:
+        # The same reason as for GTiff: a nodata value the default
+        # type cannot hold aborts r.out.gdal.
+        chosen = _gdal_type_for_cell_map(
+            min_val or 0, max_val or 0, float(kwargs["nodata"])
+        )
+        if chosen:
+            options["type"] = chosen
+    return {**options, **kwargs}
+
+
 def _export_raster_maps_as_gdal(
     rows, tar, list_file, fs, format_, type_, **kwargs
 ) -> None:
     kwargs = {key: value for key, value in kwargs.items() if value is not None}
     for row in rows:
         name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        max_val = row["max"]
-        min_val = row["min"]
-        datatype = row["datatype"]
-        semantic_label = row["semantic_label"]
-        if not end:
-            end = start
-        string = "%s%s%s%s%s%s%s\n" % (name, fs, start, fs, end, fs, semantic_label)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
+        list_file.write(
+            _list_line(
+                fs, name, row["start_time"], row["end_time"], row["semantic_label"]
+            )
+        )
 
+        out_name = name + FORMAT_SUFFIX[format_]
+        if format_ == "GTiff":
+            options = _gdal_tif_options(
+                row["datatype"], type_, row["min"], row["max"], kwargs
+            )
+        else:
+            options = _gdal_aaigrid_options(
+                row["datatype"], row["min"], row["max"], kwargs
+            )
         try:
-            if format_ == "GTiff":
-                # Export the raster map with r.out.gdal as tif
-                out_name = name + ".tif"
-                gdal_type = None
-                if datatype == "CELL" and not type_ and "nodata" in kwargs:
-                    # A map without a valid cell has no minimum and maximum.
-                    gdal_type = _gdal_type_for_cell_map(
-                        min_val or 0, max_val or 0, float(kwargs["nodata"])
-                    )
-                if gdal_type:
-                    # r.out.gdal refuses a nodata value its type cannot hold,
-                    # so the type is chosen to hold it. nodata comes from
-                    # kwargs, passing it twice is a TypeError.
-                    gs.run_command(
-                        "r.out.gdal",
-                        flags="c",
-                        input=name,
-                        output=out_name,
-                        type=gdal_type,
-                        format="GTiff",
-                        **kwargs,
-                    )
-                elif datatype == "CELL" and not type_ and "nodata" not in kwargs:
-                    # A map without a valid cell has no minimum and maximum;
-                    # it is exported as the smallest type with the nodata
-                    # value 1, as a map whose only value is 0 would be.
-                    if max_val is None:
-                        min_val = max_val = 0
-                    nodata = max_val + 1
-                    if nodata < 256 and min_val >= 0:
-                        gdal_type = "Byte"
-                    elif nodata < 65536 and min_val >= 0:
-                        gdal_type = "UInt16"
-                    elif min_val >= 0:
-                        gdal_type = "UInt32"
-                    else:
-                        gdal_type = "Int32"
-                    gs.run_command(
-                        "r.out.gdal",
-                        flags="c",
-                        input=name,
-                        output=out_name,
-                        nodata=nodata,
-                        type=gdal_type,
-                        format="GTiff",
-                        **kwargs,
-                    )
-                elif type_:
-                    gs.run_command(
-                        "r.out.gdal",
-                        flags="cf",
-                        input=name,
-                        output=out_name,
-                        type=type_,
-                        format="GTiff",
-                        **kwargs,
-                    )
-                else:
-                    gs.run_command(
-                        "r.out.gdal",
-                        flags="c",
-                        input=name,
-                        output=out_name,
-                        format="GTiff",
-                        **kwargs,
-                    )
-            elif format_ == "AAIGrid":
-                # Export the raster map with r.out.gdal as Arc/Info ASCII Grid
-                out_name = name + ".asc"
-                aai_type = {}
-                if datatype == "CELL" and "nodata" in kwargs:
-                    # The same reason as for GTiff: a nodata value the default
-                    # type cannot hold aborts r.out.gdal.
-                    chosen = _gdal_type_for_cell_map(
-                        min_val or 0, max_val or 0, float(kwargs["nodata"])
-                    )
-                    if chosen:
-                        aai_type["type"] = chosen
-                gs.run_command(
-                    "r.out.gdal",
-                    flags="c",
-                    input=name,
-                    output=out_name,
-                    format="AAIGrid",
-                    **aai_type,
-                    **kwargs,
-                )
-
+            gs.run_command(
+                "r.out.gdal", input=name, output=out_name, format=format_, **options
+            )
         except CalledModuleError:
             gs.fatal(_("Unable to export raster map <%s>") % name)
 
@@ -195,20 +197,14 @@ def _export_raster_maps_as_gdal(
         tar.add(out_name)
 
 
-############################################################################
-
-
 def _export_raster_maps(rows, tar, list_file, fs) -> None:
     for row in rows:
         name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        semantic_label = row["semantic_label"]
-        if not end:
-            end = start
-        string = "%s%s%s%s%s%s%s\n" % (name, fs, start, fs, end, fs, semantic_label)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
+        list_file.write(
+            _list_line(
+                fs, name, row["start_time"], row["end_time"], row["semantic_label"]
+            )
+        )
         # Export the raster map with r.pack
         try:
             gs.run_command("r.pack", input=name, flags="c")
@@ -218,72 +214,31 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
         tar.add(name + ".pack")
 
 
-############################################################################
-
-
-def _export_vector_maps_as_gml(rows, tar, list_file, fs) -> None:
+def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
+    """Export the vector maps as GML or GPKG files with v.out.ogr"""
+    messages = {
+        "GML": _("Unable to export vector map <%s> as GML with v.out.ogr"),
+        "GPKG": _("Unable to export vector map <%s> as GPKG with v.out.ogr"),
+    }
     for row in rows:
         name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        layer = row["layer"]
-        if not layer:
-            layer = 1
-        if not end:
-            end = start
-        string = "%s%s%s%s%s\n" % (name, fs, start, fs, end)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
-        # Export the vector map with v.out.ogr
+        list_file.write(_list_line(fs, name, row["start_time"], row["end_time"]))
+        out_name = name + FORMAT_SUFFIX[format_]
         try:
             gs.run_command(
                 "v.out.ogr",
                 input=name,
-                output=(name + ".xml"),
-                layer=layer,
-                format="GML",
+                output=out_name,
+                layer=row["layer"] or 1,
+                format=format_,
             )
         except CalledModuleError:
-            gs.fatal(_("Unable to export vector map <%s> as GML with v.out.ogr") % name)
+            gs.fatal(messages[format_] % name)
 
-        tar.add(name + ".xml")
-        tar.add(name + ".xsd")
-
-
-############################################################################
-
-
-def _export_vector_maps_as_gpkg(rows, tar, list_file, fs) -> None:
-    for row in rows:
-        name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        layer = row["layer"]
-        if not layer:
-            layer = 1
-        if not end:
-            end = start
-        string = "%s%s%s%s%s\n" % (name, fs, start, fs, end)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
-        # Export the vector map with v.out.ogr
-        try:
-            gs.run_command(
-                "v.out.ogr",
-                input=name,
-                output=(name + ".gpkg"),
-                layer=layer,
-                format="GPKG",
-            )
-        except CalledModuleError:
-            gs.fatal(
-                _("Unable to export vector map <%s> as GPKG with v.out.ogr") % name
-            )
-
-        tar.add(name + ".gpkg")
-
-
-############################################################################
+        tar.add(out_name)
+        if format_ == "GML":
+            # The schema of the GML file
+            tar.add(name + ".xsd")
 
 
 def _export_vector_maps(rows, tar, list_file, fs) -> None:
@@ -293,20 +248,14 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
     exported = set()
     for row in rows:
         name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        layer = row["layer"]
-
         if name in exported:
             continue
 
-        if not layer:
-            layer = 1
-        if not end:
-            end = start
-        string = "%s:%s%s%s%s%s\n" % (name, layer, fs, start, fs, end)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
+        list_file.write(
+            _list_line(
+                fs, f"{name}:{row['layer'] or 1}", row["start_time"], row["end_time"]
+            )
+        )
         # Export the vector map with v.pack
         try:
             gs.run_command("v.pack", input=name, flags="c")
@@ -318,19 +267,10 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
         exported.add(name)
 
 
-############################################################################
-
-
 def _export_raster3d_maps(rows, tar, list_file, fs) -> None:
     for row in rows:
         name = row["name"]
-        start = row["start_time"]
-        end = row["end_time"]
-        if not end:
-            end = start
-        string = "%s%s%s%s%s\n" % (name, fs, start, fs, end)
-        # Write the filename, the start_time and the end_time
-        list_file.write(string)
+        list_file.write(_list_line(fs, name, row["start_time"], row["end_time"]))
         # Export the raster 3d map with r3.pack
         try:
             gs.run_command("r3.pack", input=name, flags="c")
@@ -340,7 +280,27 @@ def _export_raster3d_maps(rows, tar, list_file, fs) -> None:
         tar.add(name + ".pack")
 
 
-############################################################################
+def _export_maps(rows, tar, list_file, fs, kind, format_, datatype, kwargs) -> None:
+    """Write the list file and add the files of every map to the archive
+
+    The format selects the module for raster and vector maps; a format a kind
+    does not know is exported in the pack format, which is also the format of
+    the 3D raster maps.
+    """
+    if kind == "strds":
+        if format_ in {"GTiff", "AAIGrid"}:
+            _export_raster_maps_as_gdal(
+                rows, tar, list_file, fs, format_, datatype, **kwargs
+            )
+        else:
+            _export_raster_maps(rows, tar, list_file, fs)
+    elif kind == "stvds":
+        if format_ in {"GML", "GPKG"}:
+            _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_)
+        else:
+            _export_vector_maps(rows, tar, list_file, fs)
+    elif kind == "str3ds":
+        _export_raster3d_maps(rows, tar, list_file, fs)
 
 
 def _extent_of_maps(rows):
@@ -383,6 +343,120 @@ def _check_output_directory(output) -> None:
         gs.fatal(_("Output directory {} not found").format(parent))
     if not os.access(parent, os.W_OK):
         gs.fatal(_("Output directory {} is not writable").format(parent))
+
+
+# The sentences of the readme file, by the kind of the dataset
+_README_HEADS = {
+    "strds": "This space time raster dataset was exported with t.rast.export of GRASS 8",
+    "stvds": "This space time vector dataset was exported with t.vect.export of GRASS 8",
+    "str3ds": (
+        "This space time 3D raster dataset was exported with t.rast3d.export of GRASS 8"
+    ),
+}
+
+# The lines of the readme file that name the files of each export format. A
+# format that a kind does not list is described as the one with the key None.
+_README_FILES = {
+    "strds": {
+        "GTiff": (
+            "       *.tif  -- GeoTIFF raster files",
+            "     *.color  -- GRASS raster color rules",
+        ),
+        "AAIGrid": (
+            "       *.asc  -- Arc/Info ASCII Grid raster files",
+            "     *.color  -- GRASS raster color rules",
+        ),
+        "pack": ("      *.pack  -- GRASS raster files packed with r.pack",),
+    },
+    "stvds": {
+        "GML": ("       *.xml  -- Vector GML files",),
+        "GPKG": ("      *.gpkg  -- Vector GeoPackage files",),
+        None: ("      *.pack  -- GRASS vector files packed with v.pack",),
+    },
+    "str3ds": {None: ("      *.pack  -- GRASS 3D raster files packed with r3.pack",)},
+}
+
+
+def _map_columns(kind: Kind | None) -> str:
+    """Return the columns of the map register that the exporters read
+
+    A raster map is described by its range and data type, which the choice of
+    the GDAL type needs, and by its semantic label; a vector map by the layer
+    the dataset registered. The extent comes with every kind.
+    """
+    columns = "name,start_time,end_time"
+    if kind is not None:
+        if kind.map_kind == "raster":
+            columns += ",min,max,datatype,semantic_label"
+        elif KINDS[kind.map_kind].has_layer:
+            columns += ",layer"
+    return columns + ",north,south,east,west,top,bottom"
+
+
+def _init_text(sp, format_: str, rows) -> str:
+    """Return the text of the init file of the archive"""
+    string = ""
+    # This is optional, if not present strds will be assumed for backward
+    # compatibility
+    string += "%s=%s\n" % ("stds_type", sp.get_type())
+    # This is optional, if not present gtiff will be assumed for
+    # backward compatibility
+    string += "%s=%s\n" % ("format", format_)
+    string += "%s=%s\n" % ("temporal_type", sp.get_temporal_type())
+    string += "%s=%s\n" % ("semantic_type", sp.get_semantic_type())
+    if sp.is_time_relative():
+        string += "%s=%s\n" % ("relative_time_unit", sp.get_relative_time_unit())
+    # replace sp.metadata.get_number_of_maps() with len(rows)
+    # sp.metadata.get_number_of_maps() doesn't  work with where option
+    string += "%s=%s\n" % ("number_of_maps", len(rows))
+    # The extent of the selected maps; the dataset's own extent covers
+    # maps that where= left out.
+    north, south, east, west, top, bottom = (
+        _extent_of_maps(rows) or sp.get_spatial_extent_as_tuple()
+    )
+    string += "%s=%s\n" % ("north", north)
+    string += "%s=%s\n" % ("south", south)
+    string += "%s=%s\n" % ("east", east)
+    string += "%s=%s\n" % ("west", west)
+    return string
+
+
+def _readme_text(sp, kind: str | None, format_: str) -> str:
+    """Return the text of the readme file of the archive"""
+    lines = []
+    if kind in _README_HEADS:
+        lines.append(_README_HEADS[kind])
+    lines += ["", "Files:"]
+    files = _README_FILES.get(kind, {})
+    lines += files.get(format_, files.get(None, ()))
+    lines += [
+        f"{proj_file_name:>13} -- Projection information in PROJ.4 format",
+        f"{init_file_name:>13} -- GRASS space time "
+        f"{sp.get_new_map_instance(None).get_type()} dataset information",
+        f"{list_file_name:>13} -- Time series file, lists all maps by name "
+        "with interval",
+        "                 time stamps in ISO-Format. Field separator is |",
+        f"{metadata_file_name:>13} -- The output of t.info",
+        f"{read_file_name:>13} -- This file",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+@contextlib.contextmanager
+def _scratch_directory(directory: str | Path) -> Iterator[Path]:
+    """Work in a new directory inside directory, which is removed again
+
+    Whatever stops the export, the process is back in the directory it was
+    in and the new one is gone.
+    """
+    old_cwd = Path.cwd()
+    work = Path(tempfile.mkdtemp(dir=directory)).absolute()
+    try:
+        os.chdir(work)
+        yield work
+    finally:
+        os.chdir(old_cwd)
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def export_stds(
@@ -438,176 +512,55 @@ def export_stds(
 
     _check_directory(directory)
     _check_output_directory(output)
+    # The archive is moved to its place from inside the work directory, where
+    # a relative output would mean another place.
+    output = Path(output).absolute()
 
-    # Save current working directory path
-    old_cwd = Path.cwd()
+    stds_kind = KINDS.get(type_)
+    if stds_kind is not None and not stds_kind.is_stds:
+        stds_kind = None
+    kind = stds_kind.name if stds_kind else None
 
-    # Create the temporary directory and jump into it. Whatever stops the
-    # export, the finally clause leaves it and removes it again.
-    new_cwd = tempfile.mkdtemp(dir=directory)
-    os.chdir(new_cwd)
-    tar = None
-    try:
-        if type_ == "strds":
-            columns = "name,start_time,end_time,min,max,datatype,semantic_label"
-        elif type_ == "stvds":
-            columns = "name,start_time,end_time,layer"
-        else:
-            columns = "name,start_time,end_time"
-        columns += ",north,south,east,west,top,bottom"
-
+    with _scratch_directory(directory) as work:
         sp = open_old_stds(input, type_)
         try:
-            rows = sp.get_registered_maps(columns, where, "start_time", None)
+            rows = sp.get_registered_maps(
+                _map_columns(stds_kind), where, "start_time", None
+            )
         except SQLStatementError as error:
             gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-        if compression == "gzip":
-            flag = "w:gz"
-        elif compression == "bzip2":
-            flag = "w:bz2"
-        else:
-            flag = "w:"
-
-        # Open the tar archive to add the files
-        tar = tarfile.open(tmp_tar_file_name, flag)
-        fs = "|"
-        if not rows:
-            gs.warning(
-                _(
-                    "The selection contains no map of <{}>; the archive holds no map."
-                ).format(input)
-            )
-        with open(list_file_name, "w") as list_file:
-            if rows:
-                if type_ == "strds":
-                    if format_ in {"GTiff", "AAIGrid"}:
-                        _export_raster_maps_as_gdal(
-                            rows, tar, list_file, fs, format_, datatype, **kwargs
-                        )
-                    else:
-                        _export_raster_maps(rows, tar, list_file, fs)
-                elif type_ == "stvds":
-                    if format_ == "GML":
-                        _export_vector_maps_as_gml(rows, tar, list_file, fs)
-                    elif format_ == "GPKG":
-                        _export_vector_maps_as_gpkg(rows, tar, list_file, fs)
-                    else:
-                        _export_vector_maps(rows, tar, list_file, fs)
-                elif type_ == "str3ds":
-                    _export_raster3d_maps(rows, tar, list_file, fs)
-
-        # Write projection and metadata
-        proj = gs.read_command("g.proj", flags="p", format="proj4")
-
-        Path(proj_file_name).write_text(proj)
-
-        # Create the init string
-        string = ""
-        # This is optional, if not present strds will be assumed for backward
-        # compatibility
-        string += "%s=%s\n" % ("stds_type", sp.get_type())
-        # This is optional, if not present gtiff will be assumed for
-        # backward compatibility
-        string += "%s=%s\n" % ("format", format_)
-        string += "%s=%s\n" % ("temporal_type", sp.get_temporal_type())
-        string += "%s=%s\n" % ("semantic_type", sp.get_semantic_type())
-        if sp.is_time_relative():
-            string += "%s=%s\n" % ("relative_time_unit", sp.get_relative_time_unit())
-        # replace sp.metadata.get_number_of_maps() with len(rows)
-        # sp.metadata.get_number_of_maps() doesn't  work with where option
-        string += "%s=%s\n" % ("number_of_maps", len(rows))
-        # The extent of the selected maps; the dataset's own extent covers
-        # maps that where= left out.
-        north, south, east, west, top, bottom = (
-            _extent_of_maps(rows) or sp.get_spatial_extent_as_tuple()
-        )
-        string += "%s=%s\n" % ("north", north)
-        string += "%s=%s\n" % ("south", south)
-        string += "%s=%s\n" % ("east", east)
-        string += "%s=%s\n" % ("west", west)
-        Path(init_file_name).write_text(string)
-
-        metadata = gs.read_command("t.info", type=type_, input=sp.get_id())
-        Path(metadata_file_name).write_text(metadata)
-
-        with open(read_file_name, "w") as read_file:
-            if type_ == "strds":
-                read_file.write(
-                    "This space time raster dataset was exported with "
-                    "t.rast.export of GRASS 8\n"
+        flag = {"gzip": "w:gz", "bzip2": "w:bz2"}.get(compression, "w:")
+        with tarfile.open(tmp_tar_file_name, flag) as tar:
+            fs = "|"
+            if not rows:
+                gs.warning(
+                    _(
+                        "The selection contains no map of <{}>; the archive holds no map."
+                    ).format(input)
                 )
-            elif type_ == "stvds":
-                read_file.write(
-                    "This space time vector dataset was exported with "
-                    "t.vect.export of GRASS 8\n"
-                )
-            elif type_ == "str3ds":
-                read_file.write(
-                    "This space time 3D raster dataset was exported "
-                    "with t.rast3d.export of GRASS 8\n"
-                )
-            read_file.write("\n")
-            read_file.write("Files:\n")
-            if type_ == "strds":
-                if format_ == "GTiff":
-                    # 123456789012345678901234567890
-                    read_file.write("       *.tif  -- GeoTIFF raster files\n")
-                    read_file.write("     *.color  -- GRASS raster color rules\n")
-                elif format_ == "AAIGrid":
-                    read_file.write(
-                        "       *.asc  -- Arc/Info ASCII Grid raster files\n"
+            with open(list_file_name, "w") as list_file:
+                if rows:
+                    _export_maps(
+                        rows, tar, list_file, fs, kind, format_, datatype, kwargs
                     )
-                    read_file.write("     *.color  -- GRASS raster color rules\n")
-                elif format_ == "pack":
-                    read_file.write(
-                        "      *.pack  -- GRASS raster files packed with r.pack\n"
-                    )
-            elif type_ == "stvds":
-                # 123456789012345678901234567890
-                if format_ == "GML":
-                    read_file.write("       *.xml  -- Vector GML files\n")
-                elif format_ == "GPKG":
-                    read_file.write("      *.gpkg  -- Vector GeoPackage files\n")
-                else:
-                    read_file.write(
-                        "      *.pack  -- GRASS vector files packed with v.pack\n"
-                    )
-            elif type_ == "str3ds":
-                read_file.write(
-                    "      *.pack  -- GRASS 3D raster files packed with r3.pack\n"
-                )
-            read_file.write(
-                "%13s -- Projection information in PROJ.4 format\n" % (proj_file_name)
-            )
-            read_file.write(
-                "%13s -- GRASS space time %s dataset information\n"
-                % (init_file_name, sp.get_new_map_instance(None).get_type())
-            )
-            read_file.write(
-                "%13s -- Time series file, lists all maps by name "
-                "with interval\n" % (list_file_name)
-            )
-            read_file.write(
-                "                 time stamps in ISO-Format. Field separator is |\n"
-            )
-            read_file.write("%13s -- The output of t.info\n" % (metadata_file_name))
-            read_file.write("%13s -- This file\n" % (read_file_name))
 
-        # Append the file list
-        tar.add(list_file_name)
-        tar.add(proj_file_name)
-        tar.add(init_file_name)
-        tar.add(read_file_name)
-        tar.add(metadata_file_name)
-        tar.close()
+            # Write projection and metadata
+            Path(proj_file_name).write_text(
+                gs.read_command("g.proj", flags="p", format="proj4")
+            )
+            Path(init_file_name).write_text(_init_text(sp, format_, rows))
+            Path(metadata_file_name).write_text(
+                gs.read_command("t.info", type=type_, input=sp.get_id())
+            )
+            Path(read_file_name).write_text(_readme_text(sp, kind, format_))
 
-        os.chdir(old_cwd)
+            # Append the file list
+            tar.add(list_file_name)
+            tar.add(proj_file_name)
+            tar.add(init_file_name)
+            tar.add(read_file_name)
+            tar.add(metadata_file_name)
 
         # Move the archive to its destination
-        shutil.move(os.path.join(new_cwd, tmp_tar_file_name), output)
-    finally:
-        os.chdir(old_cwd)
-        if tar is not None:
-            tar.close()
-        shutil.rmtree(new_cwd, ignore_errors=True)
+        shutil.move(work / tmp_tar_file_name, output)

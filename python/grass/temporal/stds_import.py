@@ -52,6 +52,7 @@ from grass.exceptions import CalledModuleError
 from .state import get_current_mapset, get_tgis_message_interface, init
 from .factory import dataset_factory
 from .register import register_maps_in_space_time_dataset
+from .stds_export import FORMAT_SUFFIX
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -61,17 +62,6 @@ if TYPE_CHECKING:
 proj_file_name = Path("proj.txt")
 init_file_name = Path("init.txt")
 list_file_name = Path("list.txt")
-
-# The suffix of the file that an archive holds for each map, by export format
-_FORMAT_SUFFIX = {
-    "GTiff": ".tif",
-    "AAIGrid": ".asc",
-    "GML": ".xml",
-    "GPKG": ".gpkg",
-    "pack": ".pack",
-}
-
-############################################################################
 
 
 def _refuse_existing_maps(
@@ -109,7 +99,7 @@ def _import_raster_maps_from_gdal(
         impflags += "e"
     for row in maplist:
         name = row["name"]
-        filename = row["filename"] + _FORMAT_SUFFIX[format_]
+        filename = row["filename"] + FORMAT_SUFFIX[format_]
 
         try:
             if link:
@@ -153,9 +143,6 @@ def _set_color_rules(name: str, filename: str) -> None:
         gs.fatal(_("Unable to set the color rules for raster map <%s>.") % name)
 
 
-############################################################################
-
-
 def _import_raster_maps(
     maplist: list[dict[str, str]],
     *,
@@ -166,7 +153,7 @@ def _import_raster_maps(
     impflags = "o"
     for row in maplist:
         name = row["name"]
-        filename = row["filename"] + _FORMAT_SUFFIX["pack"]
+        filename = row["filename"] + FORMAT_SUFFIX["pack"]
         try:
             gs.run_command(
                 "r.unpack",
@@ -187,9 +174,6 @@ def _import_raster_maps(
         gs.run_command("g.region", raster=name)
 
 
-############################################################################
-
-
 def _import_vector_maps_from_ogr(
     maplist: list[dict[str, str]],
     *,
@@ -206,7 +190,7 @@ def _import_vector_maps_from_ogr(
         impflags += "e"
     for row in maplist:
         name = row["name"]
-        filename = row["filename"] + _FORMAT_SUFFIX[format_]
+        filename = row["filename"] + FORMAT_SUFFIX[format_]
 
         try:
             if link:
@@ -232,9 +216,6 @@ def _import_vector_maps_from_ogr(
             )
 
 
-############################################################################
-
-
 def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) -> None:
     # We need to disable the projection check because of its
     # simple implementation
@@ -248,7 +229,7 @@ def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) 
         # the maps of every later import in the same process.
         if name in unpacked:
             continue
-        filename = row["filename"] + _FORMAT_SUFFIX["pack"]
+        filename = row["filename"] + FORMAT_SUFFIX["pack"]
         try:
             gs.run_command(
                 "v.unpack",
@@ -302,9 +283,6 @@ def _extend_region_to_vector_maps(names: list[str]) -> None:
         cols=cols,
         flags="s" if in_permanent else None,
     )
-
-
-############################################################################
 
 
 def _check_archive(
@@ -607,7 +585,7 @@ def _check_init(
 
 def _check_files(maplist: list[dict[str, str]], format_: str) -> None:
     """Stop with a message unless the archive holds the file of every map"""
-    suffix = _FORMAT_SUFFIX.get(format_)
+    suffix = FORMAT_SUFFIX.get(format_)
     if suffix is None:
         gs.fatal(_("Unsupported input format"))
     messages = {
