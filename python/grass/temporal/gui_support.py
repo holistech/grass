@@ -48,7 +48,11 @@ def tlist_grouped(type, group_type: bool = False, dbif=None):
     type_ = type
     with connection(dbif) as dbif:
         mapset = None
-        types = ["strds", "str3ds", "stvds"] if type_ == "stds" else [type_]
+        types = (
+            [kind.name for kind in KINDS.values() if kind.is_stds]
+            if type_ == "stds"
+            else [type_]
+        )
         for type_ in types:
             try:
                 tlist_result = tlist(type=type_, dbif=dbif)
