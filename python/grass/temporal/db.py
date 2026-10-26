@@ -745,11 +745,19 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     of a statement with arguments, drops them; which of the two is right is
     undecided, and the difference is kept as it was.
 
+    A text is written the same for every database: single quotes with the
+    quotes inside doubled is standard SQL. The callers that put a text into a
+    statement that is executed as text (a where condition, the delete or
+    update statement of a script) call it with the default parameter style
+    also when the database is PostgreSQL. The style is only a check that the
+    caller does not ask for the literal of a backend that quotes by its
+    connection; it changes nothing in the text.
+
     :param value: The value
     :param dbmi_paramstyle: The parameter style of the backend; only "qmark"
                             (SQLite) is supported, because psycopg2 quotes
                             with the help of its connection (cursor.mogrify)
-    :raises ValueError: for any other parameter style
+    :raises ValueError: for any other parameter style, whatever the value
     """
     if dbmi_paramstyle != "qmark":
         msg = (
