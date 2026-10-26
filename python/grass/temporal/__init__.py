@@ -65,8 +65,6 @@ from .datetime_math import (
 )
 from .extract import (
     extract_dataset,
-    run_mapcalc2d,
-    run_mapcalc3d,
     run_vector_extraction,
 )
 from .factory import dataset_factory
@@ -271,8 +269,6 @@ __all__ = [
     "register_map_object_list",
     "register_maps_in_space_time_dataset",
     "registered_maps_grouped",
-    "run_mapcalc2d",
-    "run_mapcalc3d",
     "run_vector_extraction",
     "sample_stds_by_stds_topology",
     "set_raise_on_error",

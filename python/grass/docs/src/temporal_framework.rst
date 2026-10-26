@@ -269,6 +269,12 @@ space time datasets.
     Convenient functions to list datasets of all types [#allds]_
     registered in the temporal database.
 
+:mod:`~grass.temporal.batches`
+""""""""""""""""""""""""""""""""
+
+    Runs the mapcalc and extraction jobs of the datasets in child processes, a batch at a time.
+    Used in the extraction and the map calculation of space time datasets.
+
 :mod:`~grass.temporal.mapcalc`
 """"""""""""""""""""""""""""""
 

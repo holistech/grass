@@ -17,22 +17,23 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
-import sys
+from functools import partial
 
 import grass.script as gs
-from grass.exceptions import CalledModuleError
 from grass.script.utils import _get_multiprocessing_context, get_num_suffix
 
 from .algebra.content import Const
 from .algebra.series import Series, Slot
 from .algebra.sources import source
 from .algebra.time_functions import timevar
+from .batches import run_in_batches, run_mapcalc
 from .db import SQLDatabaseInterfaceConnection, SQLStatementError
 from .state import get_current_mapset, get_tgis_message_interface
 from .datetime_math import time_delta_to_relative_time
+from .factory import dataset_factory
+from .kinds import KINDS, stds_kind_of
 from .open_stds import check_new_stds, open_new_stds, open_old_stds
 from .related_maps import method_relations, related_per_granule, sampler_refused
-from .space_time_datasets import Raster3DDataset, RasterDataset
 
 # The calendar tokens need absolute time, as in the classic tool.
 _CALENDAR_TOKENS = tuple(
@@ -163,7 +164,8 @@ def dataset_mapcalculator(
     """
     msgr = get_tgis_message_interface()
     names = inputs.split(",")
-    stds_type = {"raster": "strds", "raster3d": "str3ds"}[type]
+    stds_type = stds_kind_of(type).name
+    map_kind = KINDS[stds_kind_of(type).map_kind].name
 
     # No sampling when the inputs reduce to a single dataset, deduplicated by
     # name without the semantic label, as in the classic tool. The expression
@@ -230,9 +232,8 @@ def dataset_mapcalculator(
     # (the 3D raster metadata has no semantic label), so it is only read for
     # raster; the shared function serves both types.
     mapset = get_current_mapset()
-    map_class = RasterDataset if type == "raster" else Raster3DDataset
     labels = {}
-    if type == "raster":
+    if map_kind == "raster":
         for registered in (
             first_dataset.get_registered_maps_as_objects(
                 where=where, order="start_time"
@@ -277,7 +278,12 @@ def dataset_mapcalculator(
         result_maps = []
         statements = []
         count = 0
-        runner = _run_mapcalc2d if type == "raster" else _run_mapcalc3d
+        # r3.mapcalc is left to decide its number of threads, as it always was
+        runner = partial(
+            run_mapcalc,
+            "r.mapcalc" if map_kind == "raster" else "r3.mapcalc",
+            nprocs=1 if map_kind == "raster" else None,
+        )
         for i in range(num):
             count += 1
             map_name = f"{base}_{get_num_suffix(count, num)}"
@@ -297,13 +303,13 @@ def dataset_mapcalculator(
             )
             statement = f"{map_name}={expr}"
             map_id = f"{map_name}@{mapset}"
-            new_map = map_class(map_id)
+            new_map = dataset_factory(map_kind, map_id)
             # A result map that is already registered is replaced only with
             # overwrite, and its entry must go first or insert() fails.
             if new_map.is_in_db(dbif):
                 if gs.overwrite():
                     new_map.delete(dbif)
-                    new_map = map_class(map_id)
+                    new_map = dataset_factory(map_kind, map_id)
                 else:
                     # The batches run after this loop, so nothing is computed
                     # and the result dataset is not made yet.
@@ -323,7 +329,7 @@ def dataset_mapcalculator(
             result_maps.append(new_map)
             msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
             statements.append(statement)
-        if not _run_in_batches(
+        if not run_in_batches(
             ctx,
             runner,
             statements,
@@ -338,38 +344,6 @@ def dataset_mapcalculator(
     return 0
 
 
-def _run_in_batches(ctx, runner, statements, nprocs, progress=None):
-    """Run the r.mapcalc statements nprocs at a time
-
-    A value below 1 runs all statements at once, as the nprocs option of the
-    tools always did.
-
-    Each batch is joined before the next starts, and the last one before the
-    function returns, so the caller can read every result map.
-
-    progress, if given, is called as progress(done, total) after each batch
-    with the number of finished statements, so that it follows the
-    computation and not the collecting of the statements.
-
-    :return: False if a statement failed
-    """
-    size = nprocs if nprocs >= 1 else max(len(statements), 1)
-    for first in range(0, len(statements), size):
-        processes = [
-            ctx.Process(target=runner, args=(statement,))
-            for statement in statements[first : first + size]
-        ]
-        for process in processes:
-            process.start()
-        for process in processes:
-            process.join()
-        if any(process.exitcode for process in processes):
-            return False
-        if progress:
-            progress(min(first + size, len(statements)), len(statements))
-    return True
-
-
 def _register_results(output, type, first_name, result_maps, register_null, num):
     """Register the computed maps, removing null maps unless register_null
 
@@ -381,7 +355,7 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
     dbif = SQLDatabaseInterfaceConnection()
     dbif.connect()
     # The name may carry a semantic label, which only strds reads.
-    stds_type = {"raster": "strds", "raster3d": "str3ds"}[type]
+    stds_type = stds_kind_of(type).name
     first_stds = open_old_stds(first_name, stds_type, dbif)
     temporal_type, semantic_type, title, description = first_stds.get_initial_values()
     new_sp = open_new_stds(
@@ -412,7 +386,7 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
                 n_empty, n_tot, n_empty * 100.0 / n_tot
             )
         )
-        element = "raster" if type == "raster" else "raster_3d"
+        element = "raster" if stds_type == "strds" else "raster_3d"
         gs.run_command(
             "g.remove",
             flags="f",
@@ -421,23 +395,3 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
             quiet=True,
         )
     dbif.close()
-
-
-def _run_mapcalc2d(expr) -> None:
-    """Run r.mapcalc in a child process"""
-    try:
-        gs.run_command(
-            "r.mapcalc", expression=expr, nprocs=1, overwrite=gs.overwrite(), quiet=True
-        )
-    except CalledModuleError:
-        sys.exit(1)
-
-
-def _run_mapcalc3d(expr) -> None:
-    """Run r3.mapcalc in a child process"""
-    try:
-        gs.run_command(
-            "r3.mapcalc", expression=expr, overwrite=gs.overwrite(), quiet=True
-        )
-    except CalledModuleError:
-        sys.exit(1)
