@@ -379,6 +379,39 @@ def test_sql_literal_needs_a_connection_for_postgresql():
         sql_literal("a", "pyformat")
 
 
+@pytest.mark.parametrize("name", ["raster_base", "_x", "A1_b2"])
+def test_sql_identifier_passes_a_plain_name(name):
+    assert db_module().sql_identifier(name) == name
+
+
+@pytest.mark.parametrize(
+    "name", ["a b", "a;drop", "1a", "", "a-b", '"a"', "a\n", "r\u00e4ster", None]
+)
+def test_sql_identifier_refuses_anything_but_a_plain_name(name):
+    with pytest.raises(ValueError, match="identifier"):
+        db_module().sql_identifier(name)
+
+
+def test_sql_statement_puts_the_names_into_the_template():
+    statement = db_module().sql_statement(
+        "SELECT id FROM {view} WHERE {view}.id IN (SELECT id FROM {table})",
+        view="raster_view_abs_time",
+        table="raster_map_register_abc",
+    )
+    assert statement == (
+        "SELECT id FROM raster_view_abs_time WHERE raster_view_abs_time.id IN "
+        "(SELECT id FROM raster_map_register_abc)"
+    )
+
+
+@pytest.mark.parametrize("bad", ["view", "table"])
+def test_sql_statement_checks_every_identifier(bad):
+    names = {"view": "raster_view_abs_time", "table": "raster_base"}
+    names[bad] = "x; DROP TABLE raster_base"
+    with pytest.raises(ValueError, match="identifier"):
+        db_module().sql_statement("SELECT * FROM {view}, {table}", **names)
+
+
 def test_connection_closes_the_one_it_made():
     from grass.temporal.db import connection  # noqa: PLC0415
 

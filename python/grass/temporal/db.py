@@ -1,7 +1,9 @@
-"""Access to the temporal database: connections and SQL literals
+"""Access to the temporal database: connections, SQL literals and names
 
 This module provides the connections to the SQLite or PostgreSQL database of
-the temporal framework and the functions that make connecting safe.
+the temporal framework and the functions that make connecting safe. It is
+also the one place that checks the table, view and column names that go into
+the text of a statement (sql_identifier(), sql_statement()).
 
 Usage:
 
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+import re
 import sqlite3
 from datetime import datetime
 from importlib.util import find_spec
@@ -752,6 +755,47 @@ def init_dbif(dbif):
 def sql_placeholder(dbmi_paramstyle: str) -> str:
     """Return the placeholder of an argument in the parameter style of the backend"""
     return "?" if dbmi_paramstyle == "qmark" else "%s"
+
+
+# A name that SQLite and PostgreSQL read without quotes. Statements are
+# written without quotes around names, so this is the form they can take.
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def sql_identifier(name: str) -> str:
+    """Return a table, view or column name that may be written into a statement
+
+    SQL has no placeholder for a name, so a name goes into the text of a
+    statement. Only a plain name is let through: a letter or an underscore,
+    then letters, digits and underscores. A name that starts with a digit is
+    refused as well, because SQLite does not read it as a name ("unrecognized
+    token"). Nothing but the name can get into a statement this way.
+
+    :param name: The name of a table, view or column
+    :return: The name, unchanged
+    :raises ValueError: for anything else, None included
+    """
+    if not isinstance(name, str) or not _IDENTIFIER.fullmatch(name):
+        msg = f"Not a plain SQL identifier: {name!r}"
+        raise ValueError(msg)
+    return name
+
+
+def sql_statement(template: str, **identifiers: str) -> str:
+    """Put checked names into the fixed text of a statement
+
+    Each keyword fills the field of the same name in the template
+    (str.format); every value passes sql_identifier() first. Values of the
+    data do not belong here: they are bound as parameters or written with
+    sql_literal().
+
+    :param template: The text of the statement with a field for each name
+    :param identifiers: The names of tables, views and columns
+    :raises ValueError: if a name is not a plain identifier
+    """
+    return template.format(
+        **{field: sql_identifier(name) for field, name in identifiers.items()}
+    )
 
 
 def _pg_args(args):
