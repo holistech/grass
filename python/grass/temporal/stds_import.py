@@ -314,17 +314,17 @@ def _check_archive(
 
     Return the path of the archive and the extraction directory, which is a
     temporary directory of the session if none was given. Creating a project
-    only needs the archive, so its directory is not checked or defaulted.
+    extracts the archive as well, so it needs a directory too, but one that
+    does not exist is made by the extraction and not refused.
     """
     input_path = Path(input)
     if not input_path.exists():
         gs.fatal(_("Space time raster dataset archive <%s> not found") % str(input))
     if not tarfile.is_tarfile(input_path):
         gs.fatal(_("File <%s> is not a tar archive") % str(input))
-    if not create:
-        directory = directory or gs.tempdir()
-        if not Path(directory).exists():
-            gs.fatal(_("Extraction directory <%s> not found") % directory)
+    directory = directory or gs.tempdir()
+    if not create and not Path(directory).exists():
+        gs.fatal(_("Extraction directory <%s> not found") % directory)
     return input_path, directory
 
 

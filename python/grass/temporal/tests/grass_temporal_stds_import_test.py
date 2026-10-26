@@ -519,3 +519,21 @@ def test_raster_maps_with_a_dot_in_their_name_are_imported(
     tgis.import_stds(str(dotted_archive), "out", tmp_path, overr=True)
 
     assert gs.read_command("g.list", type="raster").split() == ["dot.a", "dot.b"]
+
+
+@pytest.mark.parametrize("directory", [None, ""])
+def test_a_new_project_without_an_extraction_directory_uses_a_temporary_one(
+    archives, target, tmp_path, monkeypatch, directory
+):
+    # The tools pass an empty string for an option that is not given.
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+
+    tgis.import_stds(
+        str(archives["GTiff"]), "out", directory, location="newproject", create=True
+    )
+
+    assert (Path(gs.gisenv()["GISDBASE"]) / "newproject" / "PERMANENT").is_dir()
+    # Nothing of the archive is extracted into the working directory.
+    assert not list(work.iterdir())
