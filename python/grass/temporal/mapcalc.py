@@ -124,6 +124,129 @@ def _sample_column(first_series, name, names, spatial, where, stds_type, msgr):
     return column
 
 
+def _open_inputs(names, stds_type):
+    """Open the input datasets and tell whether they are to be sampled
+
+    No sampling when the inputs reduce to a single dataset, deduplicated by
+    name without the semantic label, as in the classic tool. The expression
+    refers to a dataset by the name it has without the mapset, which can
+    differ from what was typed in inputs, so that name is what is substituted.
+
+    :return: the datasets and their display names by the name in inputs, and
+        whether more than one dataset is left
+    """
+    uniq = []
+    display_names = {}
+    datasets = {}
+    for name in names:
+        # Opened as strds / str3ds because only that type reads "name.label".
+        dataset = open_old_stds(name, stds_type)
+        datasets[name] = dataset
+        display_names[name] = dataset.get_name()
+        if dataset.get_name(semantic_label=False) not in uniq:
+            uniq.append(dataset.get_name(semantic_label=False))
+    return datasets, display_names, len(uniq) > 1
+
+
+def _semantic_labels(first_dataset, first_series, where, map_kind):
+    """Return the semantic label of the sampler granule of each slot
+
+    The sampler granule carries the time stamp and, for raster, the semantic
+    label of the result map, as in the classic tool. The label is read from
+    the registered maps of the sampler, where t.register stored it: select()
+    on a single map does not return it (measured 2026-10-14 with a map
+    labelled by r.support before t.register), load() reads the GRASS map
+    instead of the temporal database. 3D rasters have no semantic label
+    (the 3D raster metadata has no semantic label), so it is only read for
+    raster; the shared function serves both types.
+    """
+    labels = {}
+    if map_kind == "raster":
+        for registered in (
+            first_dataset.get_registered_maps_as_objects(
+                where=where, order="start_time"
+            )
+            or []
+        ):
+            labels[registered.get_id()] = registered.metadata.get_semantic_label()
+    return [labels.get(slot.content.ident) for slot in first_series.slots]
+
+
+def _plan_statements(
+    expression,
+    base,
+    id_list,
+    columns,
+    display_names,
+    first_series,
+    labels,
+    map_kind,
+    dbif,
+    msgr,
+):
+    """Make the result maps and the r.mapcalc statements of the granules
+
+    A granule for which an input has no map is skipped. A result map that is
+    already registered is replaced only with overwrite.
+
+    :return: the new maps, with their time and label, and their statements
+    """
+    mapset = get_current_mapset()
+    is_absolute = first_series.temporal_type == "absolute"
+    first_extent = first_series.slots[0].extent
+    sample_extents = [slot.extent for slot in first_series.slots]
+    num = len(sample_extents)
+    result_maps = []
+    statements = []
+    count = 0
+    for i in range(num):
+        count += 1
+        map_name = f"{base}_{get_num_suffix(count, num)}"
+        expr = expression.replace(" ", "")
+        valid = True
+        for dataset_name in id_list:
+            column = columns[dataset_name]
+            map_in_slot = column[i] if i < len(column) else None
+            if map_in_slot is None:
+                valid = False
+                break
+            expr = expr.replace(display_names[dataset_name], map_in_slot)
+        if not valid:
+            continue
+        expr = _substitute_time_tokens(
+            expr, first_extent, sample_extents[i], is_absolute, msgr
+        )
+        statement = f"{map_name}={expr}"
+        map_id = f"{map_name}@{mapset}"
+        new_map = dataset_factory(map_kind, map_id)
+        # A result map that is already registered is replaced only with
+        # overwrite, and its entry must go first or insert() fails.
+        if new_map.is_in_db(dbif):
+            if gs.overwrite():
+                new_map.delete(dbif)
+                new_map = dataset_factory(map_kind, map_id)
+            else:
+                # The batches run after this loop, so nothing is computed
+                # and the result dataset is not made yet.
+                msgr.fatal(
+                    _(
+                        "Map <{}> is already in temporal database, "
+                        "use overwrite flag to overwrite"
+                    ).format(map_id)
+                )
+        extent = sample_extents[i]
+        if is_absolute:
+            new_map.set_absolute_time(extent.start, extent.end)
+        else:
+            new_map.set_relative_time(extent.start, extent.end, extent.unit)
+        if labels[i] is not None:
+            new_map.set_semantic_label(labels[i])
+        result_maps.append(new_map)
+        msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
+        statements.append(statement)
+    return result_maps, statements
+
+
 def dataset_mapcalculator(
     inputs,
     output,
@@ -167,24 +290,8 @@ def dataset_mapcalculator(
     stds_type = stds_kind_of(type).name
     map_kind = KINDS[stds_kind_of(type).map_kind].name
 
-    # No sampling when the inputs reduce to a single dataset, deduplicated by
-    # name without the semantic label, as in the classic tool. The expression
-    # refers to a dataset by the name it has without the mapset, which can
-    # differ from what was typed in inputs, so that name is what is substituted.
-    uniq = []
-    display_names = {}
-    datasets = {}
-    first_dataset = None
-    for name in names:
-        # Opened as strds / str3ds because only that type reads "name.label".
-        dataset = open_old_stds(name, stds_type)
-        datasets[name] = dataset
-        display_names[name] = dataset.get_name()
-        if first_dataset is None:
-            first_dataset = dataset
-        if dataset.get_name(semantic_label=False) not in uniq:
-            uniq.append(dataset.get_name(semantic_label=False))
-    do_sampling = len(uniq) > 1
+    datasets, display_names, do_sampling = _open_inputs(names, stds_type)
+    first_dataset = datasets[names[0]]
 
     # Fail before any computation if the output cannot be created.
     check_new_stds(output, type, None, gs.overwrite())
@@ -214,9 +321,6 @@ def dataset_mapcalculator(
         sampler_refused(first_dataset, datasets[others[0]], msgr)
         msgr.message(_("No samples found for map calculation"))
         return 0
-    is_absolute = first_series.temporal_type == "absolute"
-    first_extent = first_series.slots[0].extent
-    sample_extents = [slot.extent for slot in first_series.slots]
 
     id_list = [names[0], *others]
     columns = {
@@ -231,17 +335,7 @@ def dataset_mapcalculator(
     # instead of the temporal database. 3D rasters have no semantic label
     # (the 3D raster metadata has no semantic label), so it is only read for
     # raster; the shared function serves both types.
-    mapset = get_current_mapset()
-    labels = {}
-    if map_kind == "raster":
-        for registered in (
-            first_dataset.get_registered_maps_as_objects(
-                where=where, order="start_time"
-            )
-            or []
-        ):
-            labels[registered.get_id()] = registered.metadata.get_semantic_label()
-    labels = [labels.get(slot.content.ident) for slot in first_series.slots]
+    labels = _semantic_labels(first_dataset, first_series, where, map_kind)
 
     if do_sampling:
         method_names = method_relations(method)
@@ -274,61 +368,25 @@ def dataset_mapcalculator(
     dbif.connect()
     try:
         ctx = _get_multiprocessing_context()
-        num = len(sample_extents)
-        result_maps = []
-        statements = []
-        count = 0
+        num = len(first_series.slots)
         # r3.mapcalc is left to decide its number of threads, as it always was
         runner = partial(
             run_mapcalc,
             "r.mapcalc" if map_kind == "raster" else "r3.mapcalc",
             nprocs=1 if map_kind == "raster" else None,
         )
-        for i in range(num):
-            count += 1
-            map_name = f"{base}_{get_num_suffix(count, num)}"
-            expr = expression.replace(" ", "")
-            valid = True
-            for dataset_name in id_list:
-                column = columns[dataset_name]
-                map_in_slot = column[i] if i < len(column) else None
-                if map_in_slot is None:
-                    valid = False
-                    break
-                expr = expr.replace(display_names[dataset_name], map_in_slot)
-            if not valid:
-                continue
-            expr = _substitute_time_tokens(
-                expr, first_extent, sample_extents[i], is_absolute, msgr
-            )
-            statement = f"{map_name}={expr}"
-            map_id = f"{map_name}@{mapset}"
-            new_map = dataset_factory(map_kind, map_id)
-            # A result map that is already registered is replaced only with
-            # overwrite, and its entry must go first or insert() fails.
-            if new_map.is_in_db(dbif):
-                if gs.overwrite():
-                    new_map.delete(dbif)
-                    new_map = dataset_factory(map_kind, map_id)
-                else:
-                    # The batches run after this loop, so nothing is computed
-                    # and the result dataset is not made yet.
-                    msgr.fatal(
-                        _(
-                            "Map <{}> is already in temporal database, "
-                            "use overwrite flag to overwrite"
-                        ).format(map_id)
-                    )
-            extent = sample_extents[i]
-            if is_absolute:
-                new_map.set_absolute_time(extent.start, extent.end)
-            else:
-                new_map.set_relative_time(extent.start, extent.end, extent.unit)
-            if labels[i] is not None:
-                new_map.set_semantic_label(labels[i])
-            result_maps.append(new_map)
-            msgr.verbose(_('Apply mapcalc expression: "{}"').format(statement))
-            statements.append(statement)
+        result_maps, statements = _plan_statements(
+            expression,
+            base,
+            id_list,
+            columns,
+            display_names,
+            first_series,
+            labels,
+            map_kind,
+            dbif,
+            msgr,
+        )
         if not run_in_batches(
             ctx,
             runner,

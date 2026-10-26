@@ -25,7 +25,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.base import BaseRow, RegisterRow
-from grass.temporal.rows import Column, Row
+from grass.temporal.rows import Column, DictSQLSerializer, Row
 from grass.temporal.spatial_extent import SpatialExtentRow
 from grass.temporal.temporal_extent import AbsoluteTimeRow, RelativeTimeRow
 from grass.temporal.kinds import KINDS
@@ -402,3 +402,44 @@ def test_the_property_of_a_base_class_calls_the_setter_of_the_subclass():
 
     assert row.D["id"] == "b@PERMANENT!"
     assert row.ident == "b@PERMANENT!"
+
+
+# The statements as the serializer wrote them before it was split into steps
+# (the same inputs on the old code, 26.10.2026), for both paramstyles.
+SERIALIZED = {
+    "qmark": {
+        "SELECT": "SELECT  id  , name  , x  FROM tab WHERE id = ?;\n",
+        "INSERT": "INSERT INTO tab ( id  ,name  ,x ) VALUES (? ,? ,?) WHERE id = ?;\n",
+        "UPDATE": "UPDATE tab SET  id = ?  ,x = ? WHERE id = ?;\n",
+        "UPDATE ALL": "UPDATE tab SET  id = ?  ,name = ?  ,x = ? WHERE id = ?;\n",
+        "OTHER": "",
+    },
+    "format": {
+        "SELECT": "SELECT  id  , name  , x  FROM tab WHERE id = ?;\n",
+        "INSERT": "INSERT INTO tab ( id  ,name  ,x ) VALUES (%s ,%s ,%s) WHERE id = ?;\n",
+        "UPDATE": "UPDATE tab SET  id = %s  ,x = %s WHERE id = ?;\n",
+        "UPDATE ALL": "UPDATE tab SET  id = %s  ,name = %s  ,x = %s WHERE id = ?;\n",
+        "OTHER": "",
+    },
+}
+ARGUMENTS = {
+    "SELECT": ("q",),
+    "INSERT": ("a", None, 3, "q"),
+    "UPDATE": ("a", 3, "q"),
+    "UPDATE ALL": ("a", None, 3, "q"),
+    "OTHER": ("q",),
+}
+
+
+@pytest.mark.usefixtures("temporal_module_session")
+@pytest.mark.parametrize("paramstyle", ["qmark", "format"])
+@pytest.mark.parametrize("statement_type", list(ARGUMENTS))
+def test_the_serializer_writes_the_statements_of_each_type(paramstyle, statement_type):
+    serializer = DictSQLSerializer()
+    serializer.dbmi_paramstyle = paramstyle
+    serializer.D = {"id": "a", "name": None, "x": 3}
+    sql, args = serializer.serialize(
+        statement_type, "tab", where="WHERE id = ?", where_args=("q",)
+    )
+    assert sql == SERIALIZED[paramstyle][statement_type]
+    assert args == ARGUMENTS[statement_type]

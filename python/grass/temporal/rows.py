@@ -29,7 +29,7 @@ from .state import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Iterable, Iterator
 
 
 @contextmanager
@@ -49,6 +49,13 @@ def _connected(dbif: SQLDatabaseInterfaceConnection | None) -> Iterator:
         yield dbif
     finally:
         dbif.close()
+
+
+def _join_terms(terms: Iterable[str], first: str, rest: str) -> str:
+    """Join the terms of a statement; the first gets the prefix first, the others rest"""
+    return "".join(
+        (first if index == 0 else rest) + term for index, term in enumerate(terms)
+    )
 
 
 class DictSQLSerializer:
@@ -98,104 +105,43 @@ class DictSQLSerializer:
 
         """  # noqa: E501
 
+        # A type that is none of these makes an empty statement, as before.
         sql = ""
         args = []
-
-        # Create ordered select statement
         if type == "SELECT":
-            sql += "SELECT "
-            count = 0
-            for key in self.D:
-                if count == 0:
-                    sql += f" {key} "
-                else:
-                    sql += f" , {key} "
-                count += 1
+            sql = "SELECT " + _join_terms(
+                (f"{key} " for key in self.D), first=" ", rest=" , "
+            )
             sql += " FROM " + table + " "
-            if where:
-                sql += where
-            sql += ";\n"
-
-        # Create insert statement
-        if type == "INSERT":
-            count = 0
-            sql += "INSERT INTO " + table + " ("
-            for key in self.D:
-                if count == 0:
-                    sql += f" {key} "
-                else:
-                    sql += f" ,{key} "
-                count += 1
-
-            count = 0
+        elif type == "INSERT":
+            placeholder = self._placeholder()
+            sql = "INSERT INTO " + table + " ("
+            sql += _join_terms((f"{key} " for key in self.D), first=" ", rest=" ,")
             sql += ") VALUES ("
-            for key in self.D:
-                if count == 0:
-                    if self.dbmi_paramstyle == "qmark":
-                        sql += "?"
-                    else:
-                        sql += "%s"
-                elif self.dbmi_paramstyle == "qmark":
-                    sql += " ,?"
-                else:
-                    sql += " ,%s"
-                count += 1
-                args.append(self.D[key])
+            sql += _join_terms((placeholder for _key in self.D), first="", rest=" ,")
             sql += ") "
-
-            if where:
-                sql += where
-            sql += ";\n"
-
-        # Create update statement for existing entries
-        if type == "UPDATE":
-            count = 0
-            sql += "UPDATE " + table + " SET "
-            for key in self.D:
-                # Update only entries which are not None
-                if self.D[key] is not None:
-                    if count == 0:
-                        if self.dbmi_paramstyle == "qmark":
-                            sql += f" {key} = ? "
-                        else:
-                            sql += f" {key} "
-                            sql += "= %s "
-                    else:  # noqa: PLR5501
-                        if self.dbmi_paramstyle == "qmark":
-                            sql += f" ,{key} = ? "
-                        else:
-                            sql += f" ,{key} "
-                            sql += "= %s "
-                    count += 1
-                    args.append(self.D[key])
-            if where:
-                sql += where
-            sql += ";\n"
-
-        # Create update statement for all entries
-        if type == "UPDATE ALL":
-            count = 0
-            sql += "UPDATE " + table + " SET "
-            for key in self.D:
-                if count == 0:
-                    if self.dbmi_paramstyle == "qmark":
-                        sql += f" {key} = ? "
-                    else:
-                        sql += f" {key} "
-                        sql += "= %s "
-                else:  # noqa: PLR5501
-                    if self.dbmi_paramstyle == "qmark":
-                        sql += f" ,{key} = ? "
-                    else:
-                        sql += f" ,{key} "
-                        sql += "= %s "
-                count += 1
-                args.append(self.D[key])
+            args = list(self.D.values())
+        elif type in {"UPDATE", "UPDATE ALL"}:
+            # UPDATE writes only the entries which are not None.
+            keys = [
+                key for key in self.D if type == "UPDATE ALL" or self.D[key] is not None
+            ]
+            placeholder = self._placeholder()
+            sql = "UPDATE " + table + " SET "
+            sql += _join_terms(
+                (f"{key} = {placeholder} " for key in keys), first=" ", rest=" ,"
+            )
+            args = [self.D[key] for key in keys]
+        if type in {"SELECT", "INSERT", "UPDATE", "UPDATE ALL"}:
             if where:
                 sql += where
             sql += ";\n"
 
         return sql, (*args, *where_args)
+
+    def _placeholder(self) -> str:
+        """The placeholder of an argument in the paramstyle of the database"""
+        return "?" if self.dbmi_paramstyle == "qmark" else "%s"
 
     def deserialize(self, row) -> None:
         """Convert the content of the dbmi dictionary like row into the

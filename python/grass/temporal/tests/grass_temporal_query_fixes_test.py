@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.exceptions import FatalError
 from grass.temporal.temporal_granularity import compute_common_absolute_time_granularity
 from grass.temporal import topology
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
@@ -82,6 +83,28 @@ def test_where_with_or_does_not_return_rows_of_another_mapset(two_mapsets):
     # of that mapset; the map of "other" is registered in the database of
     # "work" but belongs to "other".
     assert rows == {("work", "b14_work", "work")}
+
+
+def test_all_columns_are_listed_for_the_word_all(two_mapsets):
+    work, _other = two_mapsets
+    make_map(work, "raster", "all_map", 1)
+    register_stds(
+        work,
+        "strds",
+        "all_ds",
+        [MapSpec("all_map", None, day(0), day(1))],
+        via="library",
+    )
+
+    result = tgis.get_dataset_list("raster", "absolute", columns="all")
+
+    row = result["work"][0]
+    assert {"id", "name", "mapset", "start_time", "end_time"} <= set(row.keys())
+
+
+def test_a_column_that_does_not_exist_stops_the_listing(two_mapsets):
+    with pytest.raises(FatalError, match="no_such_column"):
+        tgis.get_dataset_list("raster", "absolute", columns="name,no_such_column")
 
 
 @pytest.fixture

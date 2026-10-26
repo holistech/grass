@@ -383,6 +383,22 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
 ###############################################################################
 
 
+# The units of a granularity from the finest to the coarsest. A word matches
+# with its plural, "days" contains "day".
+_GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
+
+# The fields that restart when the finest unit of a granularity is given
+_START_VALUES = {
+    "second": {},
+    "minute": {"second": 0},
+    "hour": {"second": 0, "minute": 0},
+    "day": {"second": 0, "minute": 0, "hour": 0},
+    "week": {"second": 0, "minute": 0, "hour": 0},
+    "month": {"second": 0, "minute": 0, "hour": 0, "day": 1},
+    "year": {"second": 0, "minute": 0, "hour": 0, "day": 1, "month": 1},
+}
+
+
 def adjust_datetime_to_granularity(mydate: datetime, granularity):
     """Modify the datetime object to fit the given granularity
 
@@ -434,86 +450,41 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
 
     """
 
-    if granularity:
-        has_seconds = False
-        has_minutes = False
-        has_hours = False
-        has_days = False
-        has_weeks = False
-        has_months = False
-        has_years = False
+    if not granularity:
+        return None
 
-        seconds = mydate.second
-        minutes = mydate.minute
-        hours = mydate.hour
-        days = mydate.day
+    # Split the granularity string; the finest unit in it decides where the
+    # adjusted time starts.
+    granlist = [granpart.strip().split(" ") for granpart in granularity.split(",")]
+    units = set()
+    for inc in granlist:
+        unit = next((name for name in _GRANULARITY_UNITS if name in inc[1]), None)
+        if unit is None:
+            msgr = get_tgis_message_interface()
+            msgr.error(_("Wrong granularity format: %s") % (granularity))
+            return None
+        units.add(unit)
+    finest = next(name for name in _GRANULARITY_UNITS if name in units)
+
+    fields = {
+        "year": mydate.year,
+        "month": mydate.month,
+        "day": mydate.day,
+        "hour": mydate.hour,
+        "minute": mydate.minute,
+        "second": mydate.second,
+    }
+    # Everything below the finest unit starts at its first value.
+    fields.update(_START_VALUES[finest])
+    if finest == "week":
+        # Start at the first day of the week (Monday) at 00:00:00
         weekday = mydate.weekday()
-        months = mydate.month
-        years = mydate.year
+        if fields["day"] > weekday:
+            fields["day"] -= weekday  # this needs to be fixed
+        else:
+            fields["day"] += weekday  # this needs to be fixed
 
-        # Split the increment string
-        granlist = [granpart.strip().split(" ") for granpart in granularity.split(",")]
-
-        for inc in granlist:
-            if inc[1].find("seconds") >= 0 or inc[1].find("second") >= 0:
-                has_seconds = True
-            elif inc[1].find("minutes") >= 0 or inc[1].find("minute") >= 0:
-                has_minutes = True
-            elif inc[1].find("hours") >= 0 or inc[1].find("hour") >= 0:
-                has_hours = True
-            elif inc[1].find("days") >= 0 or inc[1].find("day") >= 0:
-                has_days = True
-            elif inc[1].find("weeks") >= 0 or inc[1].find("week") >= 0:
-                has_weeks = True
-            elif inc[1].find("months") >= 0 or inc[1].find("month") >= 0:
-                has_months = True
-            elif inc[1].find("years") >= 0 or inc[1].find("year") >= 0:
-                has_years = True
-            else:
-                msgr = get_tgis_message_interface()
-                msgr.error(_("Wrong granularity format: %s") % (granularity))
-                return None
-
-        if has_seconds:
-            pass
-        elif has_minutes:  # Start at 0 seconds
-            seconds = 0
-        elif has_hours:  # Start at 0 minutes and seconds
-            seconds = 0
-            minutes = 0
-        elif has_days:  # Start at 0 hours, minutes and seconds
-            seconds = 0
-            minutes = 0
-            hours = 0
-        elif has_weeks:  # Start at the first day of the week (Monday) at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            if days > weekday:
-                days -= weekday  # this needs to be fixed
-            else:
-                days += weekday  # this needs to be fixed
-        elif has_months:  # Start at the first day of the month at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            days = 1
-        elif has_years:  # Start at the first day of the first month at 00:00:00
-            seconds = 0
-            minutes = 0
-            hours = 0
-            days = 1
-            months = 1
-
-        dt = copy.copy(mydate)
-        return dt.replace(
-            year=years,
-            month=months,
-            day=days,
-            hour=hours,
-            minute=minutes,
-            second=seconds,
-        )
+    return copy.copy(mydate).replace(**fields)
 
 
 ###############################################################################
@@ -689,53 +660,34 @@ def compute_datetime_delta(start: datetime, end: datetime) -> datetime_delta:
     # Count full days
     comp["day"] = 0 if start.day == 1 and end.day == 1 else day_diff
 
-    # Time
+    # Time. Each unit counts the whole interval in that unit, from the next
+    # coarser unit that is not zero: the difference of the field plus all of
+    # the interval before it.
     # Hours
     if start.hour == 0 and end.hour == 0:
         comp["hour"] = 0
     else:
         d = end.hour - start.hour
-        if d < 0:
-            d += 24 + 24 * day_diff
-        else:
-            d += 24 * day_diff
-        comp["hour"] = d
+        comp["hour"] = d + 24 + 24 * day_diff if d < 0 else d + 24 * day_diff
 
     # Minutes
     if start.minute == 0 and end.minute == 0:
         comp["minute"] = 0
     else:
-        d = end.minute - start.minute
-        if d != 0:
-            if comp["hour"]:
-                d += 60 * comp["hour"]
-            else:
-                d += 24 * 60 * day_diff
-        elif d == 0:
-            d = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
-
-        comp["minute"] = d
+        before = 60 * comp["hour"] if comp["hour"] else 24 * 60 * day_diff
+        comp["minute"] = end.minute - start.minute + before
 
     # Seconds
     if start.second == 0 and end.second == 0:
         comp["second"] = 0
     else:
-        d = end.second - start.second
-        if d != 0:
-            if comp["minute"]:
-                d += 60 * comp["minute"]
-            elif comp["hour"]:
-                d += 3600 * comp["hour"]
-            else:
-                d += 24 * 60 * 60 * day_diff
-        elif d == 0:
-            if comp["minute"]:
-                d = 60 * comp["minute"]
-            elif comp["hour"]:
-                d = 3600 * comp["hour"]
-            else:
-                d = 24 * 60 * 60 * day_diff
-        comp["second"] = d
+        if comp["minute"]:
+            before = 60 * comp["minute"]
+        elif comp["hour"]:
+            before = 3600 * comp["hour"]
+        else:
+            before = 24 * 60 * 60 * day_diff
+        comp["second"] = end.second - start.second + before
 
     return comp
 

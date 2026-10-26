@@ -80,32 +80,50 @@ def compute_univar_stats(
         return None
 
     if output_format == "json":
-        try:
-            stats = json.loads(univar_stats)
-        except ValueError:
-            gs.warning(_("Unable to parse JSON output for map <%s>") % id_)
-            return None
+        return _json_stats(univar_stats, id_, semantic_label, start, end, stats_module)
+    return _text_stats(univar_stats, id_, semantic_label, start, end, fs, stats_module)
 
-        if isinstance(stats, dict):
-            stats = [stats]
 
-        processed_stats = []
-        for s in stats:
-            new_s = {
-                "id": id_,
-                "semantic_label": semantic_label
-                if stats_module.name == "r.univar" and semantic_label
-                else None,
-                "start": str(start) if start else None,
-                "end": str(end) if end else None,
-            }
+def _json_stats(univar_stats, id_, semantic_label, start, end, stats_module):
+    """Return the statistics of a map as a list of dictionaries
 
-            new_s.update(s)
+    Each dictionary has the identifier, the semantic label (only of r.univar),
+    the start and the end time in front of the entries of the module. None if
+    the output is not JSON.
+    """
+    try:
+        stats = json.loads(univar_stats)
+    except ValueError:
+        gs.warning(_("Unable to parse JSON output for map <%s>") % id_)
+        return None
 
-            processed_stats.append(new_s)
+    if isinstance(stats, dict):
+        stats = [stats]
 
-        return processed_stats
+    processed_stats = []
+    for s in stats:
+        new_s = {
+            "id": id_,
+            "semantic_label": semantic_label
+            if stats_module.name == "r.univar" and semantic_label
+            else None,
+            "start": str(start) if start else None,
+            "end": str(end) if end else None,
+        }
 
+        new_s.update(s)
+
+        processed_stats.append(new_s)
+
+    return processed_stats
+
+
+def _text_stats(univar_stats, id_, semantic_label, start, end, fs, stats_module):
+    """Return the statistics of a map as lines, each led by the map's columns
+
+    The module prints a header line, which is dropped. The result is an empty
+    string if there is nothing but the header.
+    """
     lines = univar_stats.strip().split("\n")
     if len(lines) < 2:
         return ""
@@ -145,6 +163,62 @@ def _selected_rows(sp, columns, where, option, dbif, **kwargs):
             _("Invalid {option} condition <{where}>: {error}").format(
                 option=option, where=where, error=error
             )
+        )
+
+
+def _gridded_columns(type, zones, extended, percentile):
+    """Return the names of the columns of the statistics of gridded maps"""
+    cols = (
+        ["id", "semantic_label", "start", "end"]
+        if type == "strds"
+        else ["id", "start", "end"]
+    )
+    if zones:
+        cols.extend(["zone", "label"])
+    cols.extend(
+        [
+            "non_null_cells",
+            "null_cells",
+            "min",
+            "max",
+            "range",
+            "mean",
+            "mean_of_abs",
+            "stddev",
+            "variance",
+            "coeff_var",
+            "sum",
+            "sum_abs",
+        ]
+    )
+    if extended is True:
+        cols.extend(["first_quartile", "median", "third_quartile"])
+        if percentile:
+            cols.extend(
+                [
+                    f"percentile_{str(perc).rstrip('0').rstrip('.').replace('.', '_')}"
+                    for perc in percentile
+                ]
+            )
+        else:
+            cols.extend(["percentile_90"])
+    return cols
+
+
+def _stats_of_maps(rows, univar_module, fs, rast_region, output_format, nprocs):
+    """Compute the statistics of the registered maps, in parallel if asked to"""
+    if nprocs == 1:
+        return [
+            compute_univar_stats(row, univar_module, fs, rast_region, output_format)
+            for row in rows
+        ]
+    with Pool(min(nprocs, len(rows))) as pool:
+        return pool.starmap(
+            compute_univar_stats,
+            [
+                (dict(row), univar_module, fs, rast_region, output_format)
+                for row in rows
+            ],
         )
 
 
@@ -228,49 +302,12 @@ def print_gridded_dataset_univar_statistics(
         if output is not None:
             out_file = open(output, "w")
 
-        if no_header is False:
-            cols = (
-                ["id", "semantic_label", "start", "end"]
-                if type == "strds"
-                else ["id", "start", "end"]
-            )
-            if zones:
-                cols.extend(["zone", "label"])
-            cols.extend(
-                [
-                    "non_null_cells",
-                    "null_cells",
-                    "min",
-                    "max",
-                    "range",
-                    "mean",
-                    "mean_of_abs",
-                    "stddev",
-                    "variance",
-                    "coeff_var",
-                    "sum",
-                    "sum_abs",
-                ]
-            )
-            if extended is True:
-                cols.extend(["first_quartile", "median", "third_quartile"])
-                if percentile:
-                    cols.extend(
-                        [
-                            "percentile_"
-                            f"{str(perc).rstrip('0').rstrip('.').replace('.', '_')}"
-                            for perc in percentile
-                        ]
-                    )
-                else:
-                    cols.extend(["percentile_90"])
-
-            if no_header is False and format != "json":
-                string = fs.join(cols)
-                if output is None:
-                    print(string)
-                else:
-                    out_file.write(string + "\n")
+        if no_header is False and format != "json":
+            string = fs.join(_gridded_columns(type, zones, extended, percentile))
+            if output is None:
+                print(string)
+            else:
+                out_file.write(string + "\n")
 
         # Define flags
         flag = ""
@@ -291,21 +328,9 @@ def print_gridded_dataset_univar_statistics(
             run_=False,
         )
 
-        nprocs = max(nprocs, 1)
-        if nprocs == 1:
-            strings = [
-                compute_univar_stats(row, univar_module, fs, rast_region, format)
-                for row in rows
-            ]
-        else:
-            with Pool(min(nprocs, len(rows))) as pool:
-                strings = pool.starmap(
-                    compute_univar_stats,
-                    [
-                        (dict(row), univar_module, fs, rast_region, format)
-                        for row in rows
-                    ],
-                )
+        strings = _stats_of_maps(
+            rows, univar_module, fs, rast_region, format, max(nprocs, 1)
+        )
 
         if format == "json":
             json_out = []
@@ -324,6 +349,53 @@ def print_gridded_dataset_univar_statistics(
 
         if output is not None:
             out_file.close()
+
+
+_VECTOR_MOMENTS = (
+    "mean",
+    "mean_abs",
+    "population_stddev",
+    "population_variance",
+    "population_coeff_variation",
+    "sample_stddev",
+    "sample_variance",
+    "kurtosis",
+    "skewness",
+)
+_VECTOR_QUARTILES = ("first_quartile", "median", "third_quartile", "percentile_90")
+
+
+def _vector_columns(type, extended):
+    """Return the names of the columns of the statistics of vector maps"""
+    cols = ["id", "start", "end", "n", "nmissing", "nnull", "min", "max", "range"]
+    if type in {"point", "centroid"}:
+        cols.extend(_VECTOR_MOMENTS)
+        if extended is True:
+            cols.extend(_VECTOR_QUARTILES)
+    return cols
+
+
+def _vector_fields(id_, start, end, stats, type, extended):
+    """Return the values of one line, in the order of ``_vector_columns``
+
+    A statistic that v.univar did not print (no value in the column, too few
+    values for a quartile) leaves its fields empty.
+    """
+    fields = [str(id_), str(start), str(end)]
+    fields.extend(str(stats[key]) for key in ("n", "nmissing", "nnull"))
+    fields.extend(_vector_values(stats, ("min", "max", "range"), "min"))
+    if type in {"point", "centroid"}:
+        fields.extend(_vector_values(stats, _VECTOR_MOMENTS, "mean"))
+        if extended is True:
+            fields.extend(_vector_values(stats, _VECTOR_QUARTILES, "first_quartile"))
+    return fields
+
+
+def _vector_values(stats, keys, probe):
+    """Return the values of the keys as text, empty ones if probe is missing"""
+    if probe in stats:
+        return [str(stats[key]) for key in keys]
+    return [""] * len(keys)
 
 
 def print_vector_dataset_univar_statistics(
@@ -383,56 +455,8 @@ def print_vector_dataset_univar_statistics(
                 % {"sp": sp.get_new_map_instance(None).get_type(), "i": id_}
             )
 
-        string = ""
         if no_header is False:
-            string += (
-                "id"
-                + fs
-                + "start"
-                + fs
-                + "end"
-                + fs
-                + "n"
-                + fs
-                + "nmissing"
-                + fs
-                + "nnull"
-                + fs
-            )
-            string += "min" + fs + "max" + fs + "range"
-            if type in {"point", "centroid"}:
-                string += (
-                    fs
-                    + "mean"
-                    + fs
-                    + "mean_abs"
-                    + fs
-                    + "population_stddev"
-                    + fs
-                    + "population_variance"
-                    + fs
-                )
-                string += (
-                    "population_coeff_variation"
-                    + fs
-                    + "sample_stddev"
-                    + fs
-                    + "sample_variance"
-                    + fs
-                )
-                string += "kurtosis" + fs + "skewness"
-                if extended is True:
-                    string += (
-                        fs
-                        + "first_quartile"
-                        + fs
-                        + "median"
-                        + fs
-                        + "third_quartile"
-                        + fs
-                        + "percentile_90"
-                    )
-
+            string = fs.join(_vector_columns(type, extended))
             if output is None:
                 print(string)
             else:
@@ -467,72 +491,11 @@ def print_vector_dataset_univar_statistics(
                     out_file.close()
                 msgr.fatal(_("Error running v.univar on <{}>: {}").format(id_, error))
 
-            string = ""
-
             if not stats:
                 gs.warning(_("Unable to get statistics for vector map <%s>") % id_)
                 continue
 
-            string += str(id_) + fs + str(start) + fs + str(end)
-            string += (
-                fs
-                + str(stats["n"])
-                + fs
-                + str(stats["nmissing"])
-                + fs
-                + str(stats["nnull"])
-            )
-            if "min" in stats:
-                string += (
-                    fs
-                    + str(stats["min"])
-                    + fs
-                    + str(stats["max"])
-                    + fs
-                    + str(stats["range"])
-                )
-            else:
-                string += fs + fs + fs
-
-            if type in {"point", "centroid"}:
-                if "mean" in stats:
-                    string += (
-                        fs
-                        + str(stats["mean"])
-                        + fs
-                        + str(stats["mean_abs"])
-                        + fs
-                        + str(stats["population_stddev"])
-                        + fs
-                        + str(stats["population_variance"])
-                    )
-
-                    string += (
-                        fs
-                        + str(stats["population_coeff_variation"])
-                        + fs
-                        + str(stats["sample_stddev"])
-                        + fs
-                        + str(stats["sample_variance"])
-                    )
-
-                    string += fs + str(stats["kurtosis"]) + fs + str(stats["skewness"])
-                else:
-                    string += fs + fs + fs + fs + fs + fs + fs + fs + fs
-                if extended is True:
-                    if "first_quartile" in stats:
-                        string += (
-                            fs
-                            + str(stats["first_quartile"])
-                            + fs
-                            + str(stats["median"])
-                            + fs
-                            + str(stats["third_quartile"])
-                            + fs
-                            + str(stats["percentile_90"])
-                        )
-                    else:
-                        string += fs + fs + fs + fs
+            string = fs.join(_vector_fields(id_, start, end, stats, type, extended))
 
             if output is None:
                 print(string)

@@ -1324,102 +1324,38 @@ def create_temporal_relation_sql_where_statement(
 
     """  # noqa: E501
 
-    where = "("
-    # The relative times are written as whole numbers, as %i did.
-    start_int, end_int = (
-        (int(start), int(end)) if not isinstance(start, datetime) else (None, None)
+    # Datetimes are quoted, the relative times are written as whole numbers.
+    if isinstance(start, datetime):
+        s, e = f"'{start}'", f"'{end}'"
+    else:
+        s, e = str(int(start)), str(int(end))
+
+    # One entry per relation, in the order of the parameters. The text of the
+    # first relation ends with a blank that the joined statement keeps.
+    clauses = (
+        (use_start, f"(start_time >= {s} and start_time < {e}) "),
+        (
+            use_during,
+            f"((start_time > {s} and end_time < {e}) OR "
+            f"(start_time >= {s} and end_time < {e}) OR "
+            f"(start_time > {s} and end_time <= {e}))",
+        ),
+        (
+            use_overlap,
+            f"((start_time < {s} and end_time > {s} and end_time < {e}) OR "
+            f"(start_time < {e} and start_time > {s} and end_time > {e}))",
+        ),
+        (
+            use_contain,
+            f"((start_time < {s} and end_time > {e}) OR "
+            f"(start_time <= {s} and end_time > {e}) OR "
+            f"(start_time < {s} and end_time >= {e}))",
+        ),
+        (use_equal, f"(start_time = {s} and end_time = {e})"),
+        (use_follows, f"(start_time = {e})"),
+        (use_precedes, f"(end_time = {s})"),
     )
-
-    if use_start:
-        if isinstance(start, datetime):
-            where += f"(start_time >= '{start}' and start_time < '{end}') "
-        else:
-            where += f"(start_time >= {start_int} and start_time < {end_int}) "
-
-    if use_during:
-        if use_start:
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += f"((start_time > '{start}' and end_time < '{end}') OR "
-            where += f"(start_time >= '{start}' and end_time < '{end}') OR "
-            where += f"(start_time > '{start}' and end_time <= '{end}'))"
-        else:
-            where += f"((start_time > {start_int} and end_time < {end_int}) OR "
-            where += f"(start_time >= {start_int} and end_time < {end_int}) OR "
-            where += f"(start_time > {start_int} and end_time <= {end_int}))"
-
-    if use_overlap:
-        if use_start or use_during:
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += (
-                f"((start_time < '{start}' and end_time > '{start}' and end_time <"
-                f" '{end}') OR "
-            )
-            where += (
-                f"(start_time < '{end}' and start_time > '{start}' and end_time "
-                f"> '{end}'))"
-            )
-        else:
-            where += (
-                f"((start_time < {start_int} and end_time > {start_int} and "
-                f"end_time < {end_int}) OR "
-            )
-            where += (
-                f"(start_time < {end_int} and start_time > {start_int} and "
-                f"end_time > {end_int}))"
-            )
-
-    if use_contain:
-        if use_start or use_during or use_overlap:
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += f"((start_time < '{start}' and end_time > '{end}') OR "
-            where += f"(start_time <= '{start}' and end_time > '{end}') OR "
-            where += f"(start_time < '{start}' and end_time >= '{end}'))"
-        else:
-            where += f"((start_time < {start_int} and end_time > {end_int}) OR "
-            where += f"(start_time <= {start_int} and end_time > {end_int}) OR "
-            where += f"(start_time < {start_int} and end_time >= {end_int}))"
-
-    if use_equal:
-        if use_start or use_during or use_overlap or use_contain:
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += f"(start_time = '{start}' and end_time = '{end}')"
-        else:
-            where += f"(start_time = {start_int} and end_time = {end_int})"
-
-    if use_follows:
-        if use_start or use_during or use_overlap or use_contain or use_equal:
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += f"(start_time = '{end}')"
-        else:
-            where += f"(start_time = {end_int})"
-
-    if use_precedes:
-        if (
-            use_start
-            or use_during
-            or use_overlap
-            or use_contain
-            or use_equal
-            or use_follows
-        ):
-            where += " OR "
-
-        if isinstance(start, datetime):
-            where += f"(end_time = '{start}')"
-        else:
-            where += f"(end_time = {start_int})"
-
-    where += ")"
+    where = "(" + " OR ".join(text for used, text in clauses if used) + ")"
 
     # Catch empty where statement
     if where == "()":

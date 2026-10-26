@@ -75,6 +75,47 @@ def _map_matrix(sampler, stds, granules, rows):
     return matrix
 
 
+def _print_matrices(sst, sts, mapmatrizes, separator, header):
+    """Print one line per granule of the sampler, with the sampled map names
+
+    A granule with several maps lists their ids separated by commas. The
+    columns follow the datasets: the sampler, the inputs, the start and end of
+    the granule, its length and the distance from the first granule.
+    """
+    if header:
+        columns = [
+            sst.get_id(),
+            *(st.get_id() for st in sts),
+            "start_time",
+            "end_time",
+            "interval_length",
+            "distance_from_begin",
+        ]
+        print(separator.join(columns))
+
+    first_time, dummy = mapmatrizes[0][0]["granule"].get_temporal_extent_as_tuple()
+
+    for i in range(len(mapmatrizes[0])):
+        mapname_list = [
+            ",".join(str(sample.get_id()) for sample in mapmatrix[i]["samples"])
+            for mapmatrix in mapmatrizes
+        ]
+
+        map_ = mapmatrizes[0][i]["granule"]
+
+        start, end = map_.get_temporal_extent_as_tuple()
+        delta = end - start if end else None
+        delta_first = start - first_time
+
+        if map_.is_time_absolute():
+            if end:
+                delta = time_delta_to_relative_time(delta)
+            delta_first = time_delta_to_relative_time(delta_first)
+
+        fields = [map_.get_id(), *mapname_list, start, end, delta, delta_first]
+        print(separator.join(str(field) for field in fields))
+
+
 def sample_stds_by_stds_topology(
     intype,
     sampletype,
@@ -182,54 +223,7 @@ def sample_stds_by_stds_topology(
             dbif.close()
             return mapmatrizes
 
-        if header:
-            string = ""
-            string += f"{sst.get_id()}{separator}"
-            for st in sts:
-                string += f"{st.get_id()}{separator}"
-            string += "{}{}".format("start_time", separator)
-            string += "{}{}".format("end_time", separator)
-            string += "{}{}".format("interval_length", separator)
-            string += "{}".format("distance_from_begin")
-            print(string)
-
-        first_time, dummy = mapmatrizes[0][0]["granule"].get_temporal_extent_as_tuple()
-
-        for i in range(len(mapmatrizes[0])):
-            mapname_list = []
-            for mapmatrix in mapmatrizes:
-                mapnames = ""
-                count = 0
-                entry = mapmatrix[i]
-                for sample in entry["samples"]:
-                    if count == 0:
-                        mapnames += str(sample.get_id())
-                    else:
-                        mapnames += f",{sample.get_id()!s}"
-                    count += 1
-                mapname_list.append(mapnames)
-
-            entry = mapmatrizes[0][i]
-            map_ = entry["granule"]
-
-            start, end = map_.get_temporal_extent_as_tuple()
-            delta = end - start if end else None
-            delta_first = start - first_time
-
-            if map_.is_time_absolute():
-                if end:
-                    delta = time_delta_to_relative_time(delta)
-                delta_first = time_delta_to_relative_time(delta_first)
-
-            string = ""
-            string += f"{map_.get_id()}{separator}"
-            for mapnames in mapname_list:
-                string += f"{mapnames}{separator}"
-            string += f"{start}{separator}"
-            string += f"{end}{separator}"
-            string += f"{delta}{separator}"
-            string += f"{delta_first}"
-            print(string)
+        _print_matrices(sst, sts, mapmatrizes, separator, header)
 
     dbif.close()
     if len(mapmatrizes) > 0:

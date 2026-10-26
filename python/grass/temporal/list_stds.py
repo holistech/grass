@@ -294,6 +294,51 @@ def _view_name(dataset_type, temporal_type):
     return f"{prefix}_view_{suffix}"
 
 
+def _common_columns(dbif, stds_type, ttype, mapset):
+    """Return the columns that the views of all the dataset types have
+
+    The schema is read from the view of each type in the database of the mapset.
+    """
+    type_schemas = []
+    for dtype in stds_type:
+        table = _view_name(dtype, ttype)
+        dbif.execute(f"SELECT * FROM {table} WHERE 0=1", mapset=mapset)
+        type_schemas.append([d[0] for d in dbif.connections[mapset].cursor.description])
+    return [
+        col
+        for col in type_schemas[0]
+        if all(col in schema for schema in type_schemas[1:])
+    ]
+
+
+def _requested_columns(columns, common_columns, stds_type):
+    """Return the columns to read: the requested ones or all the common ones
+
+    Stops with a message for a requested column that the types do not share.
+    """
+    if not columns or columns.find("all") != -1:
+        return common_columns
+    msgr = get_tgis_message_interface()
+    requested_columns = [col.strip() for col in columns.split(",") if col != "type"]
+    valid = set(common_columns)
+    for col in requested_columns:
+        if col not in valid:
+            if len(stds_type) == 1:
+                msgr.fatal(
+                    _("Column '%s' is not available for the requested dataset type")
+                    % col
+                )
+            else:
+                msgr.fatal(
+                    _(
+                        "Column '%s' is not available for the requested combination"
+                        " of dataset types"
+                    )
+                    % col
+                )
+    return requested_columns
+
+
 def get_dataset_list(
     type,
     temporal_type,
@@ -381,49 +426,8 @@ def get_dataset_list(
             if not mapset_for_schema:
                 continue
 
-            type_schemas = []
-            for dtype in stds_type:
-                table = _view_name(dtype, ttype)
-                dbif.execute(
-                    f"SELECT * FROM {table} WHERE 0=1", mapset=mapset_for_schema
-                )
-                type_schemas.append(
-                    [
-                        d[0]
-                        for d in dbif.connections[mapset_for_schema].cursor.description
-                    ]
-                )
-
-            common_columns = [
-                col
-                for col in type_schemas[0]
-                if all(col in schema for schema in type_schemas[1:])
-            ]
-            valid_columns_set = set(common_columns)
-
-            if columns and columns.find("all") == -1:
-                requested_columns = [
-                    col.strip() for col in columns.split(",") if col != "type"
-                ]
-                for col in requested_columns:
-                    if col not in valid_columns_set:
-                        if len(stds_type) == 1:
-                            msgr.fatal(
-                                _(
-                                    "Column '%s' is not available for the requested dataset type"
-                                )
-                                % col
-                            )
-                        else:
-                            msgr.fatal(
-                                _(
-                                    "Column '%s' is not available for the requested combination of dataset types"
-                                )
-                                % col
-                            )
-                final_columns = requested_columns
-            else:
-                final_columns = common_columns
+            common_columns = _common_columns(dbif, stds_type, ttype, mapset_for_schema)
+            final_columns = _requested_columns(columns, common_columns, stds_type)
 
             if not final_columns:
                 msgr.fatal(_("No valid database columns were requested"))

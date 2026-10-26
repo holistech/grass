@@ -49,6 +49,19 @@ def _placeholder(dbif) -> str:
     return "?" if dbif.get_dbmi().paramstyle == "qmark" else "%s"
 
 
+def _map_time_of(counts: dict) -> str:
+    """Name the temporal types of the maps, from the counts of each type"""
+    if counts["invalid"] > 0:
+        return "invalid"
+    if counts["interval"] > 0 and counts["point"] > 0:
+        return "mixed"
+    if counts["interval"] > 0:
+        return "interval"
+    if counts["point"] > 0:
+        return "point"
+    return "invalid"
+
+
 class StdsMapRegister:
     """The map register table of one space time dataset
 
@@ -453,112 +466,15 @@ class StdsMapRegister:
             return
 
         with connection(dbif) as dbif:
-            # The templates read below use the UPDATE-FROM syntax, which SQLite
-            # supports only since 3.33.
-            dbmi = dbif.get_dbmi()
-            if dbmi.__name__ == "sqlite3" and dbmi.sqlite_version_info < (3, 33):
-                stds.msgr.fatal(
-                    _(
-                        "The temporal framework requires SQLite 3.33 or later to "
-                        "update a space time dataset, but the Python sqlite3 module "
-                        "uses SQLite {version}. Please update SQLite or switch the "
-                        "temporal database to the PostgreSQL backend with t.connect."
-                    ).format(version=dbmi.sqlite_version)
-                )
-
+            self._require_update_from(dbif)
             map_type = stds.get_new_map_instance(None).get_type()
             absolute = stds.is_time_absolute()
-            sql_path = get_sql_template_path()
-
-            # The spatial and temporal extent from the registered maps
-            sql = Path(
-                sql_path, "update_stds_spatial_temporal_extent_template.sql"
-            ).read_text()
-            sql = sql.replace("GRASS_MAP", map_type)
-            sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
-            sql = sql.replace("SPACETIME_ID", stds.base.get_id())
-            sql = sql.replace("STDS", stds.get_type())
-            sql_script = sql + "\n"
-
-            # The type specific metadata
-            sql = Path(sql_path, f"update_{stds.get_type()}_metadata_template.sql")
-            sql = sql.read_text()
-
-            # Comment out update of semantic labels for DB version < 3
-            if get_tgis_db_version_from_metadata() < 3:
-                sql = sql.replace(
-                    "number_of_semantic_labels = number_of_semantic_labels_new,",
-                    "-- number_of_semantic_labels = number_of_semantic_labels_new,",
-                )
-                sql = sql.replace(
-                    "count(distinct semantic_label)",
-                    "-- count(distinct semantic_label)",
-                )
-
-            sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
-            sql = sql.replace("SPACETIME_ID", stds.base.get_id())
-            sql_script += sql + "\n"
-
-            dbif.execute_transaction(sql_script, mapset=stds.base.mapset)
-
-            # Read and validate the selected end time
-            stds.select(dbif)
-
-            if absolute:
-                _start_time, end_time = stds.get_absolute_time()
-            else:
-                _start_time, end_time, _unit = stds.get_relative_time()
-
-            time_table = f"{map_type}_{'absolute' if absolute else 'relative'}_time"
-            max_start = (
-                f"SELECT max(start_time) FROM {time_table} WHERE {time_table}.id IN "
-                f"(SELECT id FROM {table})"
-            )
-
-            # In case no end time is set, use the maximum start time of
-            # all registered maps as end time
-            use_start_time = end_time is None
-            if not use_start_time:
-                # Check if the end time is smaller than the maximum start time
-                dbif.execute(max_start + ";", mapset=stds.base.mapset)
-                row = dbif.fetchone(mapset=stds.base.mapset)
-
-                if row is not None:
-                    # The Python sqlite3 driver gives a text unless the
-                    # connection is made with detect_types=PARSE_DECLTYPES
-                    if dbif.get_dbmi().__name__ == "sqlite3" and absolute:
-                        max_start_time = string_to_datetime(row[0])
-                        if max_start_time is None:
-                            max_start_time = end_time
-                    else:
-                        max_start_time = row[0]
-
-                    if end_time < max_start_time:
-                        use_start_time = True
-
-            # Set the maximum start time as end time
-            if use_start_time:
-                sql = (
-                    f"UPDATE {stds.get_type()}_{'absolute' if absolute else 'relative'}"
-                    f"_time SET end_time = ({max_start}) "
-                    f"WHERE id = '{stds.base.get_id()}';"
-                )
-                dbif.execute_transaction(sql, mapset=stds.base.mapset)
+            self._run_update_templates(dbif, table, map_type)
+            self._fix_end_time(dbif, table, map_type, absolute)
 
             # Count the temporal map types
             maps = stds.get_registered_maps(order="start_time", dbif=dbif)
-            tlist = stds.count_temporal_types(maps)
-
-            if tlist["interval"] > 0 and tlist["point"] == 0 and tlist["invalid"] == 0:
-                map_time = "interval"
-            elif (
-                tlist["interval"] == 0 and tlist["point"] > 0 and tlist["invalid"] == 0
-            ):
-                map_time = "point"
-            elif tlist["interval"] > 0 and tlist["point"] > 0 and tlist["invalid"] == 0:
-                map_time = "mixed"
-            else:
-                map_time = "invalid"
+            map_time = _map_time_of(stds.count_temporal_types(maps))
 
             # Smallest supported temporal resolution
             if map_time == "invalid":
@@ -582,3 +498,111 @@ class StdsMapRegister:
             # Set the modification time
             stds.base.set_mtime(datetime.now())
             stds.base.update(dbif)
+
+    def _require_update_from(self, dbif) -> None:
+        """Stop if the database cannot run the UPDATE-FROM of the templates
+
+        SQLite supports that syntax only since 3.33.
+        """
+        dbmi = dbif.get_dbmi()
+        if dbmi.__name__ == "sqlite3" and dbmi.sqlite_version_info < (3, 33):
+            self._stds.msgr.fatal(
+                _(
+                    "The temporal framework requires SQLite 3.33 or later to "
+                    "update a space time dataset, but the Python sqlite3 module "
+                    "uses SQLite {version}. Please update SQLite or switch the "
+                    "temporal database to the PostgreSQL backend with t.connect."
+                ).format(version=dbmi.sqlite_version)
+            )
+
+    def _run_update_templates(self, dbif, table: str, map_type: str) -> None:
+        """Update the extent and the metadata from the registered maps
+
+        Runs the SQL templates of the extent and of the type specific metadata
+        in one transaction.
+        """
+        stds = self._stds
+        sql_path = get_sql_template_path()
+
+        # The spatial and temporal extent from the registered maps
+        sql = Path(
+            sql_path, "update_stds_spatial_temporal_extent_template.sql"
+        ).read_text()
+        sql = sql.replace("GRASS_MAP", map_type)
+        sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
+        sql = sql.replace("SPACETIME_ID", stds.base.get_id())
+        sql = sql.replace("STDS", stds.get_type())
+        sql_script = sql + "\n"
+
+        # The type specific metadata
+        sql = Path(sql_path, f"update_{stds.get_type()}_metadata_template.sql")
+        sql = sql.read_text()
+
+        # Comment out update of semantic labels for DB version < 3
+        if get_tgis_db_version_from_metadata() < 3:
+            sql = sql.replace(
+                "number_of_semantic_labels = number_of_semantic_labels_new,",
+                "-- number_of_semantic_labels = number_of_semantic_labels_new,",
+            )
+            sql = sql.replace(
+                "count(distinct semantic_label)",
+                "-- count(distinct semantic_label)",
+            )
+
+        sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
+        sql = sql.replace("SPACETIME_ID", stds.base.get_id())
+        sql_script += sql + "\n"
+
+        dbif.execute_transaction(sql_script, mapset=stds.base.mapset)
+
+    def _fix_end_time(self, dbif, table: str, map_type: str, absolute: bool) -> None:
+        """Make the end time of the dataset not earlier than the last start
+
+        Reads the end time that the templates set; without one, or if it is
+        earlier than the largest start time of the maps, the largest start
+        time becomes the end time.
+        """
+        stds = self._stds
+        # Read and validate the selected end time
+        stds.select(dbif)
+
+        if absolute:
+            _start_time, end_time = stds.get_absolute_time()
+        else:
+            _start_time, end_time, _unit = stds.get_relative_time()
+
+        time_table = f"{map_type}_{'absolute' if absolute else 'relative'}_time"
+        max_start = (
+            f"SELECT max(start_time) FROM {time_table} WHERE {time_table}.id IN "
+            f"(SELECT id FROM {table})"
+        )
+
+        # In case no end time is set, use the maximum start time of
+        # all registered maps as end time
+        use_start_time = end_time is None
+        if not use_start_time:
+            # Check if the end time is smaller than the maximum start time
+            dbif.execute(max_start + ";", mapset=stds.base.mapset)
+            row = dbif.fetchone(mapset=stds.base.mapset)
+
+            if row is not None:
+                # The Python sqlite3 driver gives a text unless the
+                # connection is made with detect_types=PARSE_DECLTYPES
+                if dbif.get_dbmi().__name__ == "sqlite3" and absolute:
+                    max_start_time = string_to_datetime(row[0])
+                    if max_start_time is None:
+                        max_start_time = end_time
+                else:
+                    max_start_time = row[0]
+
+                if end_time < max_start_time:
+                    use_start_time = True
+
+        # Set the maximum start time as end time
+        if use_start_time:
+            sql = (
+                f"UPDATE {stds.get_type()}_{'absolute' if absolute else 'relative'}"
+                f"_time SET end_time = ({max_start}) "
+                f"WHERE id = '{stds.base.get_id()}';"
+            )
+            dbif.execute_transaction(sql, mapset=stds.base.mapset)
