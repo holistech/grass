@@ -17,7 +17,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.pygrass.messages import FatalError
-from grass.exceptions import CalledModuleError, ScriptError
+from grass.exceptions import CalledModuleError
 from grass.temporal.testing.data import (
     MapSpec,
     create_stds,
@@ -87,15 +87,6 @@ README_HEADS = {
 }
 
 MAP_KIND = {"strds": "raster", "stvds": "vector"}
-
-
-@pytest.fixture(autouse=True)
-def _raise_on_error():
-    # gs.fatal() ends the process unless the caller asks for an exception.
-    saved = gs.get_raise_on_error()
-    gs.set_raise_on_error(True)
-    yield
-    gs.set_raise_on_error(saved)
 
 
 @pytest.fixture
@@ -249,7 +240,7 @@ def test_a_module_that_fails_stops_the_export_with_a_message(
     failing_modules.add(module)
     before = Path.cwd()
 
-    with pytest.raises(ScriptError, match=message):
+    with pytest.raises(FatalError, match=message):
         _export(tmp_path, datasets[type_], type_, format_)
 
     # The work directory is gone and the process is where it was.
@@ -263,7 +254,7 @@ def test_an_output_directory_that_cannot_be_written_is_refused(datasets, tmp_pat
     locked.mkdir()
     locked.chmod(0o500)
     try:
-        with pytest.raises(ScriptError, match="is not writable"):
+        with pytest.raises(FatalError, match="is not writable"):
             tgis.export_stds(
                 "exr", str(locked / "out.tar"), "no", tmp_path, None, "pack", "strds"
             )

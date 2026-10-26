@@ -19,7 +19,9 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
-from grass.exceptions import CalledModuleError, ScriptError
+from grass.temporal import stds_import
+from grass.pygrass.messages import FatalError
+from grass.exceptions import CalledModuleError
 from grass.temporal.testing.data import (
     MapSpec,
     create_stds,
@@ -57,16 +59,6 @@ def _changed(source, target, name, data=None):
 def _member(archive, name):
     with tarfile.open(archive) as tar:
         return tar.extractfile(name).read()
-
-
-@pytest.fixture(autouse=True)
-def _raise_on_error():
-    # The checks of the archive end the process with gs.fatal() unless the
-    # caller asks for an exception.
-    saved = gs.get_raise_on_error()
-    gs.set_raise_on_error(True)
-    yield
-    gs.set_raise_on_error(saved)
 
 
 @pytest.fixture
@@ -167,7 +159,7 @@ def test_a_later_map_that_cannot_be_read_leaves_the_process_as_it_was(
     )
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to import/link raster map"):
+    with pytest.raises(FatalError, match="Unable to import/link raster map"):
         tgis.import_stds(
             str(broken),
             "out",
@@ -187,7 +179,7 @@ def test_a_later_map_that_cannot_be_read_in_a_new_project_leaves_the_process_as_
     )
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to import/link raster map"):
+    with pytest.raises(FatalError, match="Unable to import/link raster map"):
         tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
@@ -201,7 +193,7 @@ def test_a_missing_file_in_a_new_project_leaves_the_process_as_it_was(
     broken = _changed(archives["GTiff"], tmp_path / "broken.tar", "srcb.tif")
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to find GeoTIFF raster file"):
+    with pytest.raises(FatalError, match="Unable to find GeoTIFF raster file"):
         tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
@@ -232,7 +224,7 @@ def test_the_files_of_every_map_must_be_in_the_archive(
         "pack": "GRASS package file",
     }[format_]
 
-    with pytest.raises(ScriptError, match=f"Unable to find {word} <srcb{suffix}>"):
+    with pytest.raises(FatalError, match=f"Unable to find {word} <srcb{suffix}>"):
         tgis.import_stds(str(broken), "out", tmp_path, overr=True)
 
 
@@ -249,7 +241,7 @@ def test_the_files_of_every_vector_map_must_be_in_the_archive(
 ):
     broken = _changed(archives[format_], tmp_path / "broken.tar", "vsrc2" + suffix)
 
-    with pytest.raises(ScriptError, match=f"Unable to find {word} <vsrc2{suffix}>"):
+    with pytest.raises(FatalError, match=f"Unable to find {word} <vsrc2{suffix}>"):
         tgis.import_stds(str(broken), "out", tmp_path, stds_type="stvds", overr=True)
 
 
@@ -257,7 +249,7 @@ def test_an_unknown_format_is_refused(archives, target, tmp_path):
     init = _member(archives["GTiff"], "init.txt").replace(b"format=GTiff", b"format=x")
     changed = _changed(archives["GTiff"], tmp_path / "x.tar", "init.txt", init)
 
-    with pytest.raises(ScriptError, match="Unsupported input format"):
+    with pytest.raises(FatalError, match="Unsupported input format"):
         tgis.import_stds(str(changed), "out", tmp_path, overr=True)
 
 
@@ -270,7 +262,7 @@ def test_a_wrong_number_of_maps_in_the_init_file_is_refused(archives, target, tm
         init.replace(b"number_of_maps=2", b"number_of_maps=5"),
     )
 
-    with pytest.raises(ScriptError, match="Number of maps mismatch"):
+    with pytest.raises(FatalError, match="Number of maps mismatch"):
         tgis.import_stds(str(changed), "out", tmp_path, overr=True)
 
 
@@ -345,7 +337,7 @@ def test_a_module_that_fails_stops_the_import_with_a_message(
 ):
     failing_modules.add(module)
 
-    with pytest.raises(ScriptError, match=message):
+    with pytest.raises(FatalError, match=message):
         tgis.import_stds(str(archives[archive]), "out", tmp_path, overr=True, **options)
 
     assert "out" not in gs.read_command("t.list", type="strds").split()
@@ -356,7 +348,7 @@ def test_a_new_project_without_the_temporal_database_is_refused(
 ):
     failing_modules.add("t.connect")
 
-    with pytest.raises(ScriptError, match="Unable to create default temporal"):
+    with pytest.raises(FatalError, match="Unable to create default temporal"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
 
@@ -370,7 +362,7 @@ def test_an_environment_that_cannot_be_made_is_refused(
     monkeypatch.setattr(gs, "create_environment", refuse)
 
     with pytest.raises(
-        ScriptError, match="Unable to create environment for location newproject"
+        FatalError, match="Unable to create environment for location newproject"
     ):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
@@ -380,7 +372,7 @@ def test_an_extraction_without_the_data_filter_is_refused(
 ):
     monkeypatch.delattr(tarfile, "data_filter")
 
-    with pytest.raises(ScriptError, match="Extracting may be unsafe"):
+    with pytest.raises(FatalError, match="Extracting may be unsafe"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, overr=True)
 
 
@@ -407,7 +399,7 @@ def test_the_region_is_set_from_the_last_map_if_asked(archives, tmp_path):
 
 
 def test_an_archive_of_another_dataset_type_is_refused(archives, target, tmp_path):
-    with pytest.raises(ScriptError, match="wrong space time dataset type"):
+    with pytest.raises(FatalError, match="wrong space time dataset type"):
         tgis.import_stds(str(archives["vector"]), "out", tmp_path, overr=True)
 
 
@@ -420,7 +412,7 @@ def test_a_projection_that_differs_leaves_the_process_as_it_was(
 ):
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Projection information does not match"):
+    with pytest.raises(FatalError, match="Projection information does not match"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path)
 
     assert _process_state() == before
@@ -432,7 +424,7 @@ def test_a_project_that_cannot_be_made_leaves_the_process_as_it_was(
     (_gisdbase() / "taken").mkdir()
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to create location taken"):
+    with pytest.raises(FatalError, match="Unable to create location taken"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="taken")
 
     assert _process_state() == before
@@ -448,7 +440,7 @@ def test_an_environment_that_cannot_be_made_leaves_the_process_as_it_was(
     monkeypatch.setattr(gs, "create_environment", refuse)
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to create environment"):
+    with pytest.raises(FatalError, match="Unable to create environment"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
@@ -460,7 +452,7 @@ def test_a_new_project_without_the_temporal_database_leaves_the_process_as_it_wa
     failing_modules.add("t.connect")
     before = _process_state()
 
-    with pytest.raises(ScriptError, match="Unable to create default temporal"):
+    with pytest.raises(FatalError, match="Unable to create default temporal"):
         tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, location="newproject")
 
     assert _process_state() == before
@@ -611,3 +603,47 @@ def test_a_vector_map_with_two_layers_is_unpacked_once(
         listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
         assert listed.split()[1:] == ["lay|1", "lay|2"]
     assert unpacked == ["lay"]
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_the_error_mode_of_grass_script_is_the_one_of_the_caller_afterwards(
+    archives, target, tmp_path, fails
+):
+    # init() lets the temporal framework raise whenever grass.script raises, so
+    # grass.script must not be left raising while the import runs it.
+    gs.set_raise_on_error(False)
+    seen = []
+    init = stds_import.init
+
+    def recording(**kwargs):
+        seen.append(gs.get_raise_on_error())
+        init(**kwargs)
+
+    stds_import.init = recording
+    try:
+        if fails:
+            with pytest.raises(FatalError):
+                tgis.import_stds(str(archives["vector"]), "out", tmp_path, overr=True)
+        else:
+            tgis.import_stds(str(archives["GTiff"]), "out", tmp_path, overr=True)
+    finally:
+        stds_import.init = init
+
+    assert seen
+    assert seen == [False] * len(seen)
+    assert gs.get_raise_on_error() is False
+    # The framework of the session still raises, as the session set it up.
+    assert tgis.get_raise_on_error() is True
+
+
+def test_making_a_project_leaves_the_error_mode_of_grass_script_alone(
+    archives, target, tmp_path
+):
+    gs.set_raise_on_error(False)
+
+    tgis.import_stds(
+        str(archives["GTiff"]), "out", tmp_path, location="modeproject", create=True
+    )
+
+    assert gs.get_raise_on_error() is False
+    assert tgis.get_raise_on_error() is True

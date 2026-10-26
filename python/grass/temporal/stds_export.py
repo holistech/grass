@@ -182,7 +182,9 @@ def _export_raster_maps_as_gdal(
                 "r.out.gdal", input=name, output=out_name, format=format_, **options
             )
         except CalledModuleError:
-            gs.fatal(_("Unable to export raster map <%s>") % name)
+            get_tgis_message_interface().fatal(
+                _("Unable to export raster map <%s>") % name
+            )
 
         tar.add(out_name)
 
@@ -191,7 +193,7 @@ def _export_raster_maps_as_gdal(
         try:
             gs.run_command("r.colors.out", map=name, rules=out_name)
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to export color rules for raster map <%s> r.out.gdal") % name
             )
 
@@ -210,7 +212,9 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
         try:
             gs.run_command("r.pack", input=name, flags="c")
         except CalledModuleError:
-            gs.fatal(_("Unable to export raster map <%s> with r.pack") % name)
+            get_tgis_message_interface().fatal(
+                _("Unable to export raster map <%s> with r.pack") % name
+            )
 
         tar.add(name + ".pack")
 
@@ -234,7 +238,7 @@ def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
                 format=format_,
             )
         except CalledModuleError:
-            gs.fatal(messages[format_] % name)
+            get_tgis_message_interface().fatal(messages[format_] % name)
 
         tar.add(out_name)
         if format_ == "GML":
@@ -261,7 +265,9 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
         try:
             gs.run_command("v.pack", input=name, flags="c")
         except CalledModuleError:
-            gs.fatal(_("Unable to export vector map <%s> with v.pack") % name)
+            get_tgis_message_interface().fatal(
+                _("Unable to export vector map <%s> with v.pack") % name
+            )
 
         tar.add(name + ".pack")
 
@@ -314,20 +320,30 @@ def _extent_of_maps(rows):
 def _check_directory(directory) -> None:
     """Stop with a message unless the work directory exists and is writable"""
     if not directory or not Path(directory).exists():
-        gs.fatal(_("Directory {} not found").format(directory))
+        get_tgis_message_interface().fatal(
+            _("Directory {} not found").format(directory)
+        )
     if not Path(directory).is_dir():
-        gs.fatal(_("Directory {} is not a directory").format(directory))
+        get_tgis_message_interface().fatal(
+            _("Directory {} is not a directory").format(directory)
+        )
     if not os.access(directory, os.W_OK):
-        gs.fatal(_("Directory {} is not writable").format(directory))
+        get_tgis_message_interface().fatal(
+            _("Directory {} is not writable").format(directory)
+        )
 
 
 def _check_output_directory(output) -> None:
     """Stop with a message unless the archive can be written to its place"""
     parent = Path(output).absolute().parent
     if not parent.is_dir():
-        gs.fatal(_("Output directory {} not found").format(parent))
+        get_tgis_message_interface().fatal(
+            _("Output directory {} not found").format(parent)
+        )
     if not os.access(parent, os.W_OK):
-        gs.fatal(_("Output directory {} is not writable").format(parent))
+        get_tgis_message_interface().fatal(
+            _("Output directory {} is not writable").format(parent)
+        )
 
 
 # The sentences of the readme file, by the kind of the dataset
@@ -518,7 +534,9 @@ def export_stds(
                 _map_columns(stds_kind), where, "start_time", None
             )
         except SQLStatementError as error:
-            gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+            get_tgis_message_interface().fatal(
+                _("Invalid where condition <{}>: {}").format(where, error)
+            )
 
         flag = {"gzip": "w:gz", "bzip2": "w:bz2"}.get(compression, "w:")
         with tarfile.open(tmp_tar_file_name, flag) as tar:

@@ -49,7 +49,12 @@ from typing import TYPE_CHECKING, Literal, Self
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-from .state import get_current_mapset, get_tgis_message_interface, init
+from .state import (
+    get_current_mapset,
+    get_raise_on_error,
+    get_tgis_message_interface,
+    init,
+)
 from .factory import dataset_factory
 from .register import register_maps_in_space_time_dataset
 from .stds_export import FORMAT_SUFFIX
@@ -78,7 +83,9 @@ def _refuse_existing_maps(
     for row in maplist:
         name = row["name"].split(":")[0]
         if gs.find_file(name=name, element=element, mapset=mapset)["name"]:
-            gs.fatal(_("<%s> exists. To overwrite, use the --overwrite flag") % name)
+            get_tgis_message_interface().fatal(
+                _("<%s> exists. To overwrite, use the --overwrite flag") % name
+            )
 
 
 def _import_raster_maps_from_gdal(
@@ -121,7 +128,7 @@ def _import_raster_maps_from_gdal(
                 )
 
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to import/link raster map <%s> from file %s.")
                 % (name, filename)
             )
@@ -140,7 +147,9 @@ def _set_color_rules(name: str, filename: str) -> None:
     try:
         gs.run_command("r.colors", map=name, rules=filename, overwrite=gs.overwrite())
     except CalledModuleError:
-        gs.fatal(_("Unable to set the color rules for raster map <%s>.") % name)
+        get_tgis_message_interface().fatal(
+            _("Unable to set the color rules for raster map <%s>.") % name
+        )
 
 
 def _import_raster_maps(
@@ -165,7 +174,7 @@ def _import_raster_maps(
             )
 
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to unpack raster map <%s> from file %s.") % (name, filename)
             )
 
@@ -211,7 +220,7 @@ def _import_vector_maps_from_ogr(
                 )
 
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to import vector map <%s> from file %s.") % (name, filename)
             )
 
@@ -241,7 +250,7 @@ def _import_vector_maps(maplist: list[dict[str, str]], *, extend: bool = False) 
             )
 
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to unpack vector map <%s> from file %s.") % (name, filename)
             )
 
@@ -297,12 +306,18 @@ def _check_archive(
     """
     input_path = Path(input)
     if not input_path.exists():
-        gs.fatal(_("Space time raster dataset archive <%s> not found") % str(input))
+        get_tgis_message_interface().fatal(
+            _("Space time raster dataset archive <%s> not found") % str(input)
+        )
     if not tarfile.is_tarfile(input_path):
-        gs.fatal(_("File <%s> is not a tar archive") % str(input))
+        get_tgis_message_interface().fatal(
+            _("File <%s> is not a tar archive") % str(input)
+        )
     directory = directory or gs.tempdir()
     if not create and not Path(directory).exists():
-        gs.fatal(_("Extraction directory <%s> not found") % directory)
+        get_tgis_message_interface().fatal(
+            _("Extraction directory <%s> not found") % directory
+        )
     return input_path, directory
 
 
@@ -322,23 +337,41 @@ def _extract_archive(input_path: Path, directory: str | Path | None) -> None:
             member_basenames = [Path(name).name for name in tar.getnames()]
 
             if str(init_file_name) not in member_basenames:
-                gs.fatal(_("Unable to find init file <%s>") % init_file_name)
+                get_tgis_message_interface().fatal(
+                    _("Unable to find init file <%s>") % init_file_name
+                )
             if str(list_file_name) not in member_basenames:
-                gs.fatal(_("Unable to find list file <%s>") % list_file_name)
+                get_tgis_message_interface().fatal(
+                    _("Unable to find list file <%s>") % list_file_name
+                )
             if str(proj_file_name) not in member_basenames:
-                gs.fatal(_("Unable to find projection file <%s>") % proj_file_name)
+                get_tgis_message_interface().fatal(
+                    _("Unable to find projection file <%s>") % proj_file_name
+                )
 
             msgr.message(_("Extracting data..."))
             # The 'data' extraction filter was added in Python 3.12 and backported to
             # 3.11.4 (PEP 706). Refuse to extract without it rather than
             # extracting unsafely.
             if not hasattr(tarfile, "data_filter"):
-                gs.fatal(
+                get_tgis_message_interface().fatal(
                     _("Extracting may be unsafe; upgrade Python to 3.11.4 or newer")
                 )
             tar.extractall(path=directory, filter="data")
     except tarfile.TarError as error:
-        gs.fatal(_("Unable to read the archive <%s>: %s") % (input_path, error))
+        get_tgis_message_interface().fatal(
+            _("Unable to read the archive <%s>: %s") % (input_path, error)
+        )
+
+
+def _reinitialize() -> None:
+    """Initialize the temporal framework again for the session of the process
+
+    The error mode stays what it was: init() sets it to its argument, which is
+    False by default, so a caller that asked for FatalError would get an exit
+    from the first refusal after the import.
+    """
+    init(raise_fatal_error=get_raise_on_error())
 
 
 @contextlib.contextmanager
@@ -386,7 +419,7 @@ class _ProjectSession:
             )
             os.environ["GISRC"] = self._target_gisrc
         except OSError as e:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to create environment for location %s. Reason: %s")
                 % (location, e)
             )
@@ -394,7 +427,7 @@ class _ProjectSession:
         try:
             gs.run_command("t.connect", flags="d")
         except CalledModuleError:
-            gs.fatal(
+            get_tgis_message_interface().fatal(
                 _("Unable to create default temporal database in new location %s")
                 % location
             )
@@ -408,10 +441,26 @@ class _ProjectSession:
         else:
             os.environ.pop("GISRC", None)
 
-        init()
+        _reinitialize()
 
         # Delete the temporary session file
         gs.try_remove(self._target_gisrc)
+
+
+@contextlib.contextmanager
+def _gs_errors_raise() -> Iterator[None]:
+    """Let the functions of grass.script raise ScriptError instead of exiting
+
+    The state of the caller is restored on every way out. It is only set
+    around the calls that need it: init() makes the temporal framework raise
+    FatalError as well when grass.script raises, which a tool does not catch.
+    """
+    old_state = gs.get_raise_on_error()
+    gs.set_raise_on_error(True)
+    try:
+        yield
+    finally:
+        gs.set_raise_on_error(old_state)
 
 
 def _check_projection(overr: bool) -> None:
@@ -451,7 +500,9 @@ def _check_projection(overr: bool) -> None:
                     "\n{diff}"
                 ).format(diff=diff)
             )
-            gs.fatal(_("Projection information does not match. Aborting."))
+            get_tgis_message_interface().fatal(
+                _("Projection information does not match. Aborting.")
+            )
 
 
 def _create_project(dbase: str, location: str, overr: bool) -> bool:
@@ -461,17 +512,18 @@ def _create_project(dbase: str, location: str, overr: bool) -> bool:
     unprojected archive, otherwise the value that was passed.
     """
     try:
-        proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
-        # g.proj prints this text for an unprojected project, which is not
-        # a PROJ string; a project without a CRS is the XY project.
-        if proj4_string.startswith("XY location"):
-            gs.create_location(dbase=dbase, location=location)
-            # The GeoTIFFs of an unprojected project carry no CRS, which
-            # r.in.gdal accepts only with the override flag.
-            return True
-        gs.create_location(dbase=dbase, location=location, proj4=proj4_string)
+        with _gs_errors_raise():
+            proj4_string = proj_file_name.read_text(encoding="utf-8").strip()
+            # g.proj prints this text for an unprojected project, which is not
+            # a PROJ string; a project without a CRS is the XY project.
+            if proj4_string.startswith("XY location"):
+                gs.create_location(dbase=dbase, location=location)
+                # The GeoTIFFs of an unprojected project carry no CRS, which
+                # r.in.gdal accepts only with the override flag.
+                return True
+            gs.create_location(dbase=dbase, location=location, proj4=proj4_string)
     except Exception as e:
-        gs.fatal(
+        get_tgis_message_interface().fatal(
             _("Unable to create location %(l)s. Reason: %(e)s")
             % {"l": location, "e": str(e)}
         )
@@ -554,7 +606,7 @@ def _check_init(
         or "semantic_type" not in init_data
         or "number_of_maps" not in init_data
     ):
-        gs.fatal(
+        get_tgis_message_interface().fatal(
             _("Key words %(t)s, %(s)s or %(n)s not found in init file.")
             % {
                 "t": "temporal_type",
@@ -564,14 +616,18 @@ def _check_init(
         )
 
     if map_count != int(init_data["number_of_maps"]):
-        gs.fatal(_("Number of maps mismatch in init and list file."))
+        get_tgis_message_interface().fatal(
+            _("Number of maps mismatch in init and list file.")
+        )
     # Checked here and not where the dataset is made, after the maps
     # are imported: a refusal then leaves no imported map behind.
     if (
         init_data["temporal_type"] == "relative"
         and "relative_time_unit" not in init_data
     ):
-        gs.fatal(_("Key word %s not found in init file.") % ("relative_time_unit"))
+        get_tgis_message_interface().fatal(
+            _("Key word %s not found in init file.") % ("relative_time_unit")
+        )
 
     # Both keys are optional for archives of older versions, which held
     # GeoTIFF files of raster maps only.
@@ -579,7 +635,9 @@ def _check_init(
     format_ = init_data.get("format", "GTiff")
 
     if stds_type != type_:
-        gs.fatal(_("The archive file is of wrong space time dataset type"))
+        get_tgis_message_interface().fatal(
+            _("The archive file is of wrong space time dataset type")
+        )
     return type_, format_
 
 
@@ -587,7 +645,7 @@ def _check_files(maplist: list[dict[str, str]], format_: str) -> None:
     """Stop with a message unless the archive holds the file of every map"""
     suffix = FORMAT_SUFFIX.get(format_)
     if suffix is None:
-        gs.fatal(_("Unsupported input format"))
+        get_tgis_message_interface().fatal(_("Unsupported input format"))
     messages = {
         "GTiff": _("Unable to find GeoTIFF raster file <%s> in archive."),
         "AAIGrid": _("Unable to find AAIGrid raster file <%s> in archive."),
@@ -600,7 +658,7 @@ def _check_files(maplist: list[dict[str, str]], format_: str) -> None:
         # the raster map "dot.a" for a suffix and look for "dot.tif".
         filename = Path(row["filename"] + suffix)
         if not filename.exists():
-            gs.fatal(messages[format_] % filename)
+            get_tgis_message_interface().fatal(messages[format_] % filename)
 
 
 def _write_new_list(
@@ -748,10 +806,8 @@ def import_stds(
                  extended using a numerical index.
     :param memory: Cache size for raster rows, used in r.in.gdal
     """
-    # The checks of the archive come first and use the plain gs.fatal(), which
-    # ends a tool with a message. After the extraction every gs.fatal() raises
-    # ScriptError, which the tools report as a message; the finally at the end
-    # restores the raise-on-error state of the caller on every way out.
+    # The refusals of the library are those of the messenger, which a tool
+    # answers with the message and the exit code 1.
     input_path, directory = _check_archive(input, create, directory)
 
     if stds_type == "stvds" and not overr:
@@ -765,74 +821,69 @@ def import_stds(
 
     _extract_archive(input_path, directory)
 
-    old_state = gs.get_raise_on_error()
-    gs.set_raise_on_error(True)
-    try:
-        # The managers exit in reverse order: the working directory is
-        # restored first, and the temporal framework of the caller is
-        # initialized again from the directory the caller was in.
-        with _ProjectSession() as session, _working_directory(directory):
-            if location:
-                # Create a new location based on the projection information
-                # and switch into it
-                dbase = gs.gisenv()["GISDBASE"]
-                overr = _create_project(dbase, location, overr)
-                # Just create a new location and return
-                if create:
-                    return
-                session.switch_to(dbase, location)
-            else:
-                _check_projection(overr)
+    # The managers exit in reverse order: the working directory is
+    # restored first, and the temporal framework of the caller is
+    # initialized again from the directory the caller was in.
+    with _ProjectSession() as session, _working_directory(directory):
+        if location:
+            # Create a new location based on the projection information
+            # and switch into it
+            dbase = gs.gisenv()["GISDBASE"]
+            overr = _create_project(dbase, location, overr)
+            # Just create a new location and return
+            if create:
+                return
+            session.switch_to(dbase, location)
+        else:
+            _check_projection(overr)
 
-            # Make sure the temporal database exists
-            init()
+        # Make sure the temporal database exists
+        _reinitialize()
 
-            mapset = get_current_mapset()
-            maplist, map_count = _read_map_list(base, mapset)
-            init_data = _read_init_file()
-            type_, format_ = _check_init(init_data, map_count, stds_type)
-            _check_files(maplist, format_)
+        mapset = get_current_mapset()
+        maplist, map_count = _read_map_list(base, mapset)
+        init_data = _read_init_file()
+        type_, format_ = _check_init(init_data, map_count, stds_type)
+        _check_files(maplist, format_)
 
-            # We use a new list file name for map registration
-            new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
-            _write_new_list(maplist, format_, new_list_file_name)
+        # We use a new list file name for map registration
+        new_list_file_name = list_file_name.with_name(f"{list_file_name.stem}_new")
+        _write_new_list(maplist, format_, new_list_file_name)
 
-            # Check the space time dataset
-            ident = f"{output}@{mapset}"
-            sp = dataset_factory(type_, ident)
-            if sp.is_in_db() and gs.overwrite() is False:
-                gs.fatal(
-                    _(
-                        "Space time %(t)s dataset <%(sp)s> is already in"
-                        " the database. Use the overwrite flag."
-                    )
-                    % {"t": type_, "sp": sp.get_id()}
+        # Check the space time dataset
+        ident = f"{output}@{mapset}"
+        sp = dataset_factory(type_, ident)
+        if sp.is_in_db() and gs.overwrite() is False:
+            get_tgis_message_interface().fatal(
+                _(
+                    "Space time %(t)s dataset <%(sp)s> is already in"
+                    " the database. Use the overwrite flag."
                 )
-
-            _import_maps(
-                maplist,
-                type_,
-                format_,
-                mapset=mapset,
-                overr=overr,
-                exp=exp,
-                location=location,
-                link=link,
-                set_current_region=set_current_region,
-                memory=memory,
+                % {"t": type_, "sp": sp.get_id()}
             )
-            sp, relative_time_unit = _make_stds(sp, ident, init_data, title, descr)
 
-            # register the maps
-            register_maps_in_space_time_dataset(
-                type=sp.get_new_map_instance(None).get_type(),
-                name=output,
-                file=new_list_file_name,
-                start="file",
-                end="file",
-                unit=relative_time_unit,
-                fs="|",
-                update_cmd_list=False,
-            )
-    finally:
-        gs.set_raise_on_error(old_state)
+        _import_maps(
+            maplist,
+            type_,
+            format_,
+            mapset=mapset,
+            overr=overr,
+            exp=exp,
+            location=location,
+            link=link,
+            set_current_region=set_current_region,
+            memory=memory,
+        )
+        sp, relative_time_unit = _make_stds(sp, ident, init_data, title, descr)
+
+        # register the maps
+        register_maps_in_space_time_dataset(
+            type=sp.get_new_map_instance(None).get_type(),
+            name=output,
+            file=new_list_file_name,
+            start="file",
+            end="file",
+            unit=relative_time_unit,
+            fs="|",
+            update_cmd_list=False,
+        )
