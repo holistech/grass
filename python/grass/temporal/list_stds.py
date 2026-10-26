@@ -24,7 +24,13 @@ from contextlib import contextmanager
 import grass.script as gs
 
 from .datetime_math import time_delta_to_relative_time
-from .db import SQLStatementError, connection
+from .db import (
+    SQLStatementError,
+    connection,
+    sql_identifier,
+    sql_literal,
+    sql_statement,
+)
 from .kinds import find_kind
 from .open_stds import open_old_stds
 from .state import get_tgis_message_interface
@@ -301,8 +307,10 @@ def _common_columns(dbif, stds_type, ttype, mapset):
     """
     type_schemas = []
     for dtype in stds_type:
-        table = _view_name(dtype, ttype)
-        dbif.execute(f"SELECT * FROM {table} WHERE 0=1", mapset=mapset)
+        sql = sql_statement(
+            "SELECT * FROM {view} WHERE 0=1", view=_view_name(dtype, ttype)
+        )
+        dbif.execute(sql, mapset=mapset)
         type_schemas.append([d[0] for d in dbif.connections[mapset].cursor.description])
     return [
         col
@@ -432,24 +440,18 @@ def get_dataset_list(
             if not final_columns:
                 msgr.fatal(_("No valid database columns were requested"))
 
-            columns_to_query = ",".join(final_columns)
+            selected = ",".join(sql_identifier(column) for column in final_columns)
 
             for dtype in stds_type:
                 for mapset in dbif.tgis_mapsets:
-                    table = _view_name(dtype, ttype)
-
-                    sql = f"SELECT {columns_to_query} FROM {table}"
-
-                    if where:
-                        # In brackets: an OR in the condition would otherwise
-                        # take the rows of every mapset
-                        sql += f" WHERE ({where})"
-                        sql += f" AND mapset = '{mapset}'"
-                    else:
-                        sql += f" WHERE mapset = '{mapset}'"
-
-                    if order:
-                        sql += " ORDER BY " + order
+                    view = sql_identifier(_view_name(dtype, ttype))
+                    in_mapset = f"mapset = {sql_literal(mapset)}"
+                    # In brackets: an OR in the condition would otherwise
+                    # take the rows of every mapset
+                    condition = f"({where}) AND {in_mapset}" if where else in_mapset
+                    ordering = f" ORDER BY {order}" if order else ""
+                    # The where and order options are SQL of the caller by design.
+                    sql = f"SELECT {selected} FROM {view} WHERE {condition}{ordering}"  # noqa: S608
 
                     dbif.execute(sql, mapset=mapset)
                     rows = dbif.fetchall(mapset=mapset)

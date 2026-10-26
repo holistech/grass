@@ -107,6 +107,16 @@ def test_a_column_that_does_not_exist_stops_the_listing(two_mapsets):
         tgis.get_dataset_list("raster", "absolute", columns="name,no_such_column")
 
 
+@pytest.mark.parametrize("dataset_type", ["a b", "a;b", "raster_view_abs_time x"])
+def test_a_type_that_is_no_plain_name_is_refused_before_the_query(
+    two_mapsets, dataset_type
+):
+    # The view name is made from the type. The last type used to read the
+    # raster view under the alias x_view_abs_time.
+    with pytest.raises(ValueError, match="identifier"):
+        tgis.get_dataset_list(dataset_type, "absolute", columns="id")
+
+
 @pytest.fixture
 def small_strds(two_mapsets):
     work, _other = two_mapsets
