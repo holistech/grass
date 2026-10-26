@@ -775,16 +775,15 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
             return None
 
-        # initialized WHERE statement
-        if where:
-            where += " AND "
-        else:
-            where = ""
+        # The label narrows the condition of the user, which may hold an OR
+        # of its own, and the alternatives of a shortcut are an OR as well;
+        # each side is bracketed, so that AND binds the two as wholes.
+        label_where = ""
 
         # be case-insensitive
         if "_" in self.semantic_label:
             # fully-qualified semantic label, do not modify
-            where += f"semantic_label IN ({sql_literal(self.semantic_label)}"
+            label_where += f"semantic_label IN ({sql_literal(self.semantic_label)}"
 
             # be zero-padding less sensitive
             try:
@@ -792,13 +791,12 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 identifier_zp = leading_zero(identifier)
                 if identifier_zp:
                     zero_padded = f"{shortcut.upper()}_{identifier_zp.upper()}"
-                    where += f", {sql_literal(zero_padded)}"
+                    label_where += f", {sql_literal(zero_padded)}"
             except ValueError:
                 # any number of "_" is allowed in semantic labels
                 pass
 
-            # close WHERE statement
-            where += ")"
+            label_where += ")"
         else:
             # shortcut or band identifier given
             shortcut_identifier = leading_zero(self.semantic_label)
@@ -810,13 +808,14 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                     sql_literal(f"{label}\\_%"),
                     sql_literal(f"%\\_{label}"),
                 )
-                where += " OR ".join(
+                alternatives = " OR ".join(
                     f"semantic_label LIKE {pattern} ESCAPE '\\'" for pattern in patterns
                 )
+                label_where += f"({alternatives})"
             else:
-                where += f"semantic_label = {sql_literal(self.semantic_label)}"
+                label_where += f"semantic_label = {sql_literal(self.semantic_label)}"
 
-        return where
+        return f"({where}) AND {label_where}" if where else label_where
 
     def _update_where_statement_by_spatial_extent(
         self, where, spatial_extent, spatial_relation

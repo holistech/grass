@@ -5,11 +5,14 @@
 A label with an underscore is fully qualified and also matches its upper case
 and zero-padding-free forms; a shortcut or a band number matches the labels
 that end or start with it. A quote in the label must not end the literal. The
-statements below were recorded from the code that wrote them by string
-replacement, on 26.10.2026, before the literals went through sql_literal(). The
-alternatives of a shortcut are joined with OR and not put in parentheses, so
-they escape a condition given before them with AND; that is kept as it was.
+statements below were recorded on 26.10.2026 from the code that wrote them
+by string replacement, before the literals went through sql_literal(), and
+changed only by the brackets that make the label narrow the condition of the
+user: the second test runs the statement on a table, as the first only
+compares text.
 """
+
+import sqlite3
 
 import pytest
 
@@ -21,35 +24,35 @@ LABELS = ["S2_1", "S2_01", "s2_b_3", "1", "01", "B1", "it's", "a'_b", "x_y"]
 WHERES = ["", "id > 1"]
 EXPECTED = {
     ("S2_1", ""): "semantic_label IN ('S2_1', 'S2_01')",
-    ("S2_1", "id > 1"): "id > 1 AND semantic_label IN ('S2_1', 'S2_01')",
+    ("S2_1", "id > 1"): "(id > 1) AND semantic_label IN ('S2_1', 'S2_01')",
     ("S2_01", ""): "semantic_label IN ('S2_01', 'S2_1')",
-    ("S2_01", "id > 1"): "id > 1 AND semantic_label IN ('S2_01', 'S2_1')",
+    ("S2_01", "id > 1"): "(id > 1) AND semantic_label IN ('S2_01', 'S2_1')",
     ("s2_b_3", ""): "semantic_label IN ('s2_b_3')",
-    ("s2_b_3", "id > 1"): "id > 1 AND semantic_label IN ('s2_b_3')",
+    ("s2_b_3", "id > 1"): "(id > 1) AND semantic_label IN ('s2_b_3')",
     (
         "1",
         "",
-    ): "semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\' OR semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\'",
+    ): "(semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\' OR semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\')",
     (
         "1",
         "id > 1",
-    ): "id > 1 AND semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\' OR semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\'",
+    ): "(id > 1) AND (semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\' OR semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\')",
     (
         "01",
         "",
-    ): "semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\' OR semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\'",
+    ): "(semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\' OR semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\')",
     (
         "01",
         "id > 1",
-    ): "id > 1 AND semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\' OR semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\'",
+    ): "(id > 1) AND (semantic_label LIKE '1\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_1' ESCAPE '\\' OR semantic_label LIKE '01\\_%' ESCAPE '\\' OR semantic_label LIKE '%\\_01' ESCAPE '\\')",
     ("B1", ""): "semantic_label = 'B1'",
-    ("B1", "id > 1"): "id > 1 AND semantic_label = 'B1'",
+    ("B1", "id > 1"): "(id > 1) AND semantic_label = 'B1'",
     ("it's", ""): "semantic_label = 'it''s'",
-    ("it's", "id > 1"): "id > 1 AND semantic_label = 'it''s'",
+    ("it's", "id > 1"): "(id > 1) AND semantic_label = 'it''s'",
     ("a'_b", ""): "semantic_label IN ('a''_b')",
-    ("a'_b", "id > 1"): "id > 1 AND semantic_label IN ('a''_b')",
+    ("a'_b", "id > 1"): "(id > 1) AND semantic_label IN ('a''_b')",
     ("x_y", ""): "semantic_label IN ('x_y')",
-    ("x_y", "id > 1"): "id > 1 AND semantic_label IN ('x_y')",
+    ("x_y", "id > 1"): "(id > 1) AND semantic_label IN ('x_y')",
 }
 
 
@@ -62,3 +65,32 @@ def test_the_where_statement_for_a_semantic_label(label, where):
     result = stds._update_where_statement_by_semantic_label(where)
 
     assert result == EXPECTED[(label, where)]
+
+
+@pytest.mark.parametrize(
+    ("label", "where", "expected"),
+    [
+        # Both sides of the alternatives of a shortcut must keep the condition.
+        ("1", "id > 1", [2]),
+        ("1", "id = 3 OR id = 1", [1]),
+        ("A_1", "id = 3 OR id = 1", [1]),
+        ("B1", "id = 3 OR id = 4", [4]),
+    ],
+)
+def test_the_label_narrows_the_condition_of_the_user(label, where, expected):
+    rows = [(1, "A_1"), (2, "B_1"), (3, "B_2"), (4, "B1")]
+    connection = sqlite3.connect(":memory:")
+    connection.execute("CREATE TABLE maps (id INTEGER, semantic_label TEXT)")
+    connection.executemany("INSERT INTO maps VALUES (?, ?)", rows)
+    stds = tgis.SpaceTimeRasterDataset("zz@PERMANENT")
+    stds.semantic_label = label
+
+    statement = stds._update_where_statement_by_semantic_label(where)
+
+    found = [
+        row[0]
+        for row in connection.execute(
+            f"SELECT id FROM maps WHERE {statement} ORDER BY id"
+        )
+    ]
+    assert found == expected
