@@ -34,7 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .db import connection
+from .db import connection, sql_statement
 from .kinds import KINDS
 from .rows import Column, Row, accessor_property
 from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
@@ -461,19 +461,17 @@ class _SemanticLabelsMetadata:
         if self.get_raster_register() is None:
             return None
 
-        sql = "SELECT distinct semantic_label FROM {} WHERE {}.id ".format(
-            "raster_metadata",
-            "raster_metadata",
-        )
-
-        sql += f"IN (SELECT id FROM {self.get_raster_register()!s})"
-
         # One connection serves the version check and the query. Every
         # SQLDatabaseInterfaceConnection runs t.connect for each mapset.
         with connection(dbif) as dbif:
             if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) <= 2:
                 # band names supported from TGIS DB version 3
                 return None
+            sql = sql_statement(
+                "SELECT distinct semantic_label FROM raster_metadata"
+                " WHERE raster_metadata.id IN (SELECT id FROM {register})",
+                register=self.get_raster_register(),
+            )
             dbif.execute(sql, mapset=self.mapset)
             rows = dbif.fetchall(mapset=self.mapset)
 
