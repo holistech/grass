@@ -1,13 +1,11 @@
 """Run the earlier implementation of the temporal algebra
 
-The classic algebra of the parser classes in ``temporal_raster_algebra``,
-``temporal_raster3d_algebra``, ``temporal_vector_algebra`` and
-``temporal_algebra`` is the reference that tests compare the classic profile
-of the algebra core with. The parser classes choose between the core and the
-classic algebra in ``parse()``; once ``-c`` runs on the profile, that
-``parse()`` no longer reaches the earlier implementation. This module therefore
-calls the parse method of the base classes (or ``_parse_classic``) directly,
-independent of ``GRASS_TEMPORAL_ALGEBRA`` and of the ``classic`` argument.
+The classic algebra, the engine in ``grass.temporal.classic``, is the reference
+that tests compare the classic profile of the algebra core with. The public
+parser classes choose between the core and the profile in ``parse()``; once
+``-c`` runs on the profile, they no longer reach the earlier implementation.
+This module therefore builds the engine objects directly, independent of
+``GRASS_TEMPORAL_ALGEBRA``.
 
 The module does not import pytest and does not touch ``os.environ``.
 
@@ -15,45 +13,55 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import copy
-import functools
 
 KINDS = ("raster", "raster3d", "vector", "select")
 
 
-def _classes(kind):
-    """Return the parser class and the unbound earlier ``parse`` of a kind"""
+def _engine_class(kind):
+    """Return the class of the classic engine for a kind"""
     # Imported on use, so that importing the testing package does not load
     # the parser modules of the algebras a test does not need.
     if kind == "raster":
         from grass.temporal.classic.temporal_raster_algebra import (
             TemporalRasterAlgebraParser,
         )
-        from grass.temporal.classic.temporal_raster_base_algebra import (
-            TemporalRasterBaseAlgebraParser,
-        )
 
-        return TemporalRasterAlgebraParser, TemporalRasterBaseAlgebraParser.parse
+        return TemporalRasterAlgebraParser
     if kind == "raster3d":
         from grass.temporal.classic.temporal_raster3d_algebra import (
             TemporalRaster3DAlgebraParser,
         )
-        from grass.temporal.classic.temporal_raster_base_algebra import (
-            TemporalRasterBaseAlgebraParser,
-        )
 
-        return TemporalRaster3DAlgebraParser, TemporalRasterBaseAlgebraParser.parse
+        return TemporalRaster3DAlgebraParser
     if kind == "vector":
         from grass.temporal.classic.temporal_vector_algebra import (
             TemporalVectorAlgebraParser,
         )
 
-        return TemporalVectorAlgebraParser, TemporalVectorAlgebraParser._parse_classic
+        return TemporalVectorAlgebraParser
     if kind == "select":
         from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
 
-        return TemporalAlgebraParser, TemporalAlgebraParser.parse
+        return TemporalAlgebraParser
     msg = f"kind is one of {', '.join(KINDS)}, not {kind!r}"
     raise ValueError(msg)
+
+
+class _SelectEngine:
+    """The engine of t.select with the ``parse`` signature of the others"""
+
+    def __init__(self, engine, stdstype):
+        self._engine = engine
+        self._stdstype = stdstype
+
+    def parse(self, expression, basename=None, overwrite=False):
+        # Mirrors t.select: the dataset type is the only extra argument.
+        return self._engine.parse(
+            expression, self._stdstype, basename=basename, overwrite=overwrite
+        )
+
+    def __getattr__(self, name):
+        return getattr(self._engine, name)
 
 
 def reference_parser(kind, **options):
@@ -65,28 +73,18 @@ def reference_parser(kind, **options):
         ``nprocs`` and ``time_suffix``. The kind ``"select"`` also takes
         ``stdstype`` (default ``"strds"``), the dataset type that t.select
         passes to ``TemporalAlgebraParser.parse``.
-    :return: The parser instance. Its ``parse`` always runs the earlier
-        implementation: the method is bound on the instance, so it stays so
-        when the class method is routed elsewhere. It takes ``(expression,
+    :return: The engine of the classic algebra
+        (``grass.temporal.classic``), independent of
+        ``GRASS_TEMPORAL_ALGEBRA``. Its ``parse`` takes ``(expression,
         basename=None, overwrite=False)`` for every kind; for ``"select"`` the
         dataset type is fixed by ``stdstype``.
     """
-    parser_class, earlier_parse = _classes(kind)
+    engine_class = _engine_class(kind)
     stdstype = options.pop("stdstype", "strds") if kind == "select" else None
-    if kind in {"raster", "raster3d", "vector"}:
-        options["classic"] = True
-    parser = parser_class(**options)
-    bound = functools.partial(earlier_parse, parser)
+    engine = engine_class(**options)
     if kind == "select":
-
-        def parse(expression, basename=None, overwrite=False):
-            # Mirrors t.select: the dataset type is the only extra argument.
-            return bound(expression, stdstype, basename=basename, overwrite=overwrite)
-
-        parser.parse = parse
-    else:
-        parser.parse = bound
-    return parser
+        return _SelectEngine(engine, stdstype)
+    return engine
 
 
 def setup_granularity(parser, kind, expression):

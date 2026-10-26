@@ -8,14 +8,14 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-import importlib
 import os
 
 import pytest
 
+import grass.temporal as tgis
+from grass.temporal import TemporalRasterAlgebraParser
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal import TemporalRasterAlgebraParser
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps
 from grass.temporal.testing.reference import reference_parser, run_reference
@@ -111,56 +111,35 @@ def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
 
 
 @pytest.mark.needs_solo_run
-def test_reference_parser_binds_the_earlier_parse(tools, algebra_variable):
-    """The instance carries its own parse, not the one of the routing class"""
-    parser = reference_parser("raster", run=True, debug=False)
-    assert "parse" in vars(parser)
-
-
-@pytest.mark.needs_solo_run
 @pytest.mark.parametrize(
-    ("kind", "module", "class_name", "expression"),
+    ("kind", "class_name", "expression"),
     [
-        (
-            "raster",
-            "temporal_raster_algebra",
-            "TemporalRasterAlgebraParser",
-            "R = A + 1",
-        ),
-        (
-            "raster3d",
-            "temporal_raster3d_algebra",
-            "TemporalRaster3DAlgebraParser",
-            "R = A + 1",
-        ),
-        (
-            "vector",
-            "temporal_vector_algebra",
-            "TemporalVectorAlgebraParser",
-            "R = V & V",
-        ),
+        ("raster", "TemporalRasterAlgebraParser", "R = A + 1"),
+        ("raster3d", "TemporalRaster3DAlgebraParser", "R = A + 1"),
+        ("vector", "TemporalVectorAlgebraParser", "R = V & V"),
     ],
 )
-def test_reference_parser_survives_a_rerouted_class(
-    tools, monkeypatch, kind, module, class_name, expression
+def test_reference_parser_is_the_engine_and_not_the_public_class(
+    tools, monkeypatch, algebra_variable, kind, class_name, expression
 ):
-    """The class that chooses between the core and the classic profile in
-    parse() is not on the way of the reference, for every kind with such a
-    class. (t.select has none: its reference is the base parser itself, and
+    """The public class chooses between the core and the classic profile in
+    parse(). The reference is an object of the classic engine, which does not
+    inherit from it, so what the public class does is not on its way. (t.select
+    has no such class: its reference is the engine itself, and
     test_every_kind_parses runs it under each setting of the variable.)"""
-    parser_class = getattr(
-        importlib.import_module(f"grass.temporal.classic.{module}"), class_name
-    )
+    public_class = getattr(tgis, class_name)
 
     def rerouted(*args, **kwargs):
         msg = "the routing parse() was called"
         raise AssertionError(msg)
 
     # Negative control: the patched class does fail when it is the one called.
-    monkeypatch.setattr(parser_class, "parse", rerouted)
+    monkeypatch.setattr(public_class, "parse", rerouted)
     with pytest.raises(AssertionError, match="routing parse"):
-        parser_class(run=False, debug=False).parse(expression, "x", True)
+        public_class(run=False, debug=False).parse(expression, "x", True)
     parser = reference_parser(kind, run=False, debug=False)
+    assert not isinstance(parser, public_class)
+    assert type(parser).__module__.startswith("grass.temporal.classic.")
     parser.parse(expression, basename="x", overwrite=True)
 
 

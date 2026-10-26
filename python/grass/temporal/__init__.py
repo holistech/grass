@@ -6,6 +6,11 @@ from .abstract_dataset import (
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .aggregation import aggregate_raster_maps, collect_map_names
+from .algebra.parser.facade import (
+    TemporalRaster3DAlgebraParser,
+    TemporalRasterAlgebraParser,
+    TemporalVectorAlgebraParser,
+)
 from .base import BaseRow, RegisterRow
 from .c_libraries_interface import CLibrariesInterface
 from .db import (
@@ -120,12 +125,7 @@ from .classic.temporal_raster_base_algebra import (
     TemporalRasterAlgebraLexer,
     TemporalRasterBaseAlgebraParser,
 )
-from .classic.temporal_raster3d_algebra import TemporalRaster3DAlgebraParser
-from .classic.temporal_raster_algebra import TemporalRasterAlgebraParser
-from .classic.temporal_vector_algebra import (
-    TemporalVectorAlgebraLexer,
-    TemporalVectorAlgebraParser,
-)
+from .classic.temporal_vector_algebra import TemporalVectorAlgebraLexer
 from .temporal_extent import (
     AbsoluteTemporalExtent,
     AbsoluteTimeRow,

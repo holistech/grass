@@ -16,7 +16,7 @@ from .series import Series, Slot
 # sentence. The functions call _() when an error is raised, as for the other
 # messages, and not once at import. "Raster map" is the wording of the
 # former raster-only message, "Vector map" that of the classic vector
-# algebra (temporal_vector_algebra.py) and "3D raster" that of the messages
+# algebra (classic/temporal_vector_algebra.py) and "3D raster" that of the messages
 # in space_time_datasets.py.
 def _dataset_missing(stds_type):
     return {

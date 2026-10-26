@@ -93,6 +93,23 @@ STDS_TYPES = {
 }
 
 
+def _public_parser(kind, **options):
+    """Create the public parser class of a kind, which the tools call"""
+    from grass.temporal.algebra.parser import facade
+
+    classes = {
+        "raster": facade.TemporalRasterAlgebraParser,
+        "raster3d": facade.TemporalRaster3DAlgebraParser,
+        "vector": facade.TemporalVectorAlgebraParser,
+    }
+    if kind not in classes:
+        msg = (
+            f"The granularity mode exists for raster, raster3d and vector, not {kind!r}"
+        )
+        raise ValueError(msg)
+    return classes[kind](**options)
+
+
 def core_runner(kind, expression, *, basename, overwrite=False, **options):
     """Compute an expression with ``grass.temporal.algebra.parser.evaluate``
 
@@ -105,9 +122,9 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
     granularity mode lives in its ``parse()``.
     """
     if options.pop("granularity", False):
-        from .reference import _classes, setup_granularity
+        from .reference import setup_granularity
 
-        parser = _classes(kind)[0](classic=False, **options)
+        parser = _public_parser(kind, classic=False, **options)
         setup_granularity(parser, kind, expression)
         return parser.parse(expression, basename=basename, overwrite=overwrite)
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
@@ -142,9 +159,9 @@ def classic_runner(kind, expression, *, basename, overwrite=False, **options):
 
     granularity = None
     if options.pop("granularity", False):
-        from .reference import _classes, setup_granularity
+        from .reference import setup_granularity
 
-        parser = _classes(kind)[0](classic=False, **options)
+        parser = _public_parser(kind, classic=False, **options)
         setup_granularity(parser, kind, expression)
         granularity = parser.granularity
     selection = kind == "select"

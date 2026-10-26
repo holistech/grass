@@ -822,7 +822,7 @@ def test_debug_output_of_the_reference(vector_series, capsys, run):
 @pytest.mark.fixed_algebra
 def test_deprecated_overlay_cmd_value_alias(vector_series, monkeypatch):
     """overlay_cmd_value forwards to operator_cmd_value with the new arguments"""
-    parser = tgis.TemporalVectorAlgebraParser(run=True, debug=False, classic=True)
+    parser = reference_parser("vector", run=True, debug=False)
     calls = []
     monkeypatch.setattr(
         parser, "operator_cmd_value", lambda *args: calls.append(args) or ["cmd"]

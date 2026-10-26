@@ -497,9 +497,9 @@ def test_result_map_without_command_and_without_raster_is_fatal(algebra):
 
     Before, the message was only printed and the dataset was registered with a
     missing map (review H5). The state cannot be produced by an expression, so
-    the step is called directly.
+    the step is called directly on the classic engine.
     """
-    parser = tgis.TemporalRasterAlgebraParser(run=True, debug=False)
+    parser = reference_parser("raster", run=True, debug=False)
     missing = tgis.RasterDataset("no_such_map@PERMANENT")
     with pytest.raises(algebra.errors, match="no_such_map"):
         parser._mapcalc_expression(missing)

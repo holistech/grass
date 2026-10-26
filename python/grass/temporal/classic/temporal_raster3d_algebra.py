@@ -11,14 +11,16 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from grass.temporal.algebra.parser import evaluate
-from grass.temporal.algebra.parser.switch import classic_selected
 from grass.temporal.space_time_datasets import Raster3DDataset
 from .temporal_raster_base_algebra import TemporalRasterBaseAlgebraParser
 
 
 class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
-    """The temporal raster algebra class"""
+    """The classic temporal 3D raster algebra engine
+
+    The defaults ``run=False, debug=True`` differ from the base class: they are
+    those of the public parser class that this engine used to be.
+    """
 
     _default_stdstype = "str3ds"
     _default_maptype = "raster_3d"
@@ -34,15 +36,7 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
         dry_run: bool = False,
         nprocs: int = 1,
         time_suffix=None,
-        classic: bool | None = None,
     ) -> None:
-        """Create the parser; the defaults ``run=False, debug=True`` differ from
-        the base class and are kept for compatibility with existing callers
-
-        classic selects the classic algebra of this module (True) or the
-        algebra core (False); None follows the environment variable
-        GRASS_TEMPORAL_ALGEBRA, whose default is the core.
-        """
         TemporalRasterBaseAlgebraParser.__init__(
             self,
             pid=pid,
@@ -54,41 +48,6 @@ class TemporalRaster3DAlgebraParser(TemporalRasterBaseAlgebraParser):
             nprocs=nprocs,
             time_suffix=time_suffix,
         )
-        self.classic = classic
-
-    def parse(self, expression, basename=None, overwrite=False):
-        """Parse the expression and compute the result
-
-        The expression is translated onto grass.temporal.algebra, with the
-        rules of the core or, if the classic algebra is selected (see
-        __init__), with those of its classic profile. After
-        setup_common_granularity() both sample the datasets with their common
-        granularity.
-
-        :return: the process chain dictionary
-        """
-        # Loaded on use: the classic profile imports the classic lexers,
-        # which live in modules that import this one.
-        from grass.temporal.algebra.profile import CLASSIC, CORE
-
-        return evaluate(
-            expression,
-            kind="raster3d",
-            basename=basename,
-            overwrite=overwrite,
-            run=self.run,
-            dry_run=self.dry_run,
-            debug=self.debug,
-            spatial=self.spatial,
-            register_null=self.register_null,
-            nprocs=self.nprocs,
-            time_suffix=self.time_suffix,
-            granularity=self.granularity if self.use_granularity else None,
-            profile=CLASSIC if self._classic() else CORE,
-        )
-
-    def _classic(self):
-        return classic_selected(self.classic)
 
     def _create_mapcalc_module(self, spatial):
         """Return the not yet executed r3.mapcalc module"""

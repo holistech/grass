@@ -1,6 +1,6 @@
 """The classic temporal algebra as a profile of the algebra core
 
-The classic algebra of the parser classes (``temporal_algebra`` and its
+The classic algebra of the engine (``classic.temporal_algebra`` and its
 subclasses) is one variant of the algebra: it reads another syntax, relates and
 combines maps by other rules, and computes the result maps with other texts.
 The profile ``CLASSIC`` carries those rules: the classic grammar

@@ -46,8 +46,6 @@ import copy
 
 import grass.pygrass.modules as pygrass
 
-from grass.temporal.algebra.parser import evaluate
-from grass.temporal.algebra.parser.switch import classic_selected
 from grass.temporal.space_time_datasets import VectorDataset
 from .temporal_algebra import TemporalAlgebraLexer, TemporalAlgebraParser
 
@@ -98,7 +96,11 @@ BUFFER_TYPES = {"buff_p": "point", "buff_l": "line", "buff_a": "area"}
 
 
 class TemporalVectorAlgebraParser(TemporalAlgebraParser):
-    """The temporal algebra class"""
+    """The classic temporal vector algebra engine
+
+    The defaults ``run=False, debug=True`` differ from the base class: they are
+    those of the public parser class that this engine used to be.
+    """
 
     # Get the tokens from the lexer class
     tokens = TemporalVectorAlgebraLexer.tokens
@@ -134,28 +136,16 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         run: bool = False,
         debug: bool = True,
         spatial: bool = False,
-        classic: bool | None = None,
     ) -> None:
-        """Create the parser
-
-        classic selects the classic algebra of this module (True) or the
-        algebra core (False); None follows the environment variable
-        GRASS_TEMPORAL_ALGEBRA, whose default is the core.
-        """
         TemporalAlgebraParser.__init__(self, pid, run, debug, spatial)
 
         self.m_overlay = self._new_module("v.overlay", quiet=True)
         self.m_rename = self._new_module("g.rename", quiet=True)
         self.m_patch = self._new_module("v.patch", quiet=True)
         self.m_buffer = self._new_module("v.buffer", quiet=True)
-        self.classic = classic
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):
         """Parse the expression and run the computation
-
-        The expression is translated onto grass.temporal.algebra, with the
-        rules of the core or, if the classic algebra is selected (see
-        __init__), with those of its classic profile.
 
         :param expression: The assignment, e.g. ``"R = A & B"``
         :param basename: Prefix of the names of the new vector maps
@@ -163,30 +153,6 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
         :return: The process chain dictionary; its ``register`` entry lists the
             (name, start, end) of the registered maps
         :raises SyntaxError: for invalid expressions
-        """
-        # Loaded on use: the classic profile imports the classic lexers,
-        # which live in modules that import this one.
-        from grass.temporal.algebra.profile import CLASSIC, CORE
-
-        return evaluate(
-            expression,
-            kind="vector",
-            basename=basename,
-            overwrite=overwrite,
-            run=self.run,
-            debug=self.debug,
-            spatial=self.spatial,
-            profile=CLASSIC if self._classic() else CORE,
-        )
-
-    def _parse_classic(
-        self, expression, basename: str | None = None, overwrite: bool = False
-    ):
-        """Parse the expression with the earlier implementation
-
-        Kept apart from ``parse`` so that the test helper
-        ``grass.temporal.testing.reference`` can run the earlier
-        implementation whatever ``parse`` is routed to.
         """
         self._reject_dataset_type_tokens(TemporalVectorAlgebraLexer(), expression)
         return self._parse(
@@ -198,9 +164,6 @@ class TemporalVectorAlgebraParser(TemporalAlgebraParser):
             basename,
             overwrite,
         )
-
-    def _classic(self):
-        return classic_selected(self.classic)
 
     def _new_result_map(self, map_i):
         """Create the result map of an overlay: it keeps the id of the last

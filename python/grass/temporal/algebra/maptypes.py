@@ -22,5 +22,5 @@ MAP_CLASSES = {
 # The type names of g.remove and the parameter names of g.copy.
 ELEMENTS = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}
 # Raster3D maps are related in space as boxes and the others as rectangles,
-# as in the classic algebra (_SPATIAL_DIMENSIONS in temporal_algebra.py).
+# as in the classic algebra (_SPATIAL_DIMENSIONS in classic/temporal_algebra.py).
 DIMENSIONS = {"raster": "2D", "raster3d": "3D", "vector": "2D"}
