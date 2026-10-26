@@ -537,3 +537,77 @@ def test_a_new_project_without_an_extraction_directory_uses_a_temporary_one(
     assert (Path(gs.gisenv()["GISDBASE"]) / "newproject" / "PERMANENT").is_dir()
     # Nothing of the archive is extracted into the working directory.
     assert not list(work.iterdir())
+
+
+def test_an_archive_without_color_rules_is_imported(archives, target, tmp_path):
+    changed = _changed(archives["GTiff"], tmp_path / "x.tar", "srca.color")
+    changed = _changed(changed, tmp_path / "y.tar", "srcb.color")
+
+    tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+    assert gs.read_command("g.list", type="raster").split() == ["srca", "srcb"]
+
+
+@pytest.fixture(scope="module")
+def two_layer_archive(tmp_path_factory):
+    """A pack archive whose list holds both layers of one vector map
+
+    The export writes one line for such a map; the list is extended by the
+    second layer here, as the pack format allows it: the whole map with all
+    its layers is in the one file.
+    """
+    base = tmp_path_factory.mktemp("stds_io_layers")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        tools.g_proj(flags="c", epsg=EPSG)
+        vector_points(tools, "lay_one", [(1, 1)])
+        tools.v_category(
+            input="lay_one", output="lay", option="add", layer=2, type="point"
+        )
+        tools.t_create(type="stvds", output="lay_ds", title="t", description="t")
+        tools.t_register(
+            type="vector",
+            input="lay_ds",
+            maps="lay:1,lay:2",
+            start="2001-01-01",
+            increment="1 months",
+        )
+        path = base / "lay.tar"
+        tools.t_vect_export(
+            input="lay_ds",
+            output=str(path),
+            compression="no",
+            format="pack",
+            directory=str(base),
+        )
+    listed = _member(path, "list.txt")
+    changed = _changed(
+        path, base / "list.tar", "list.txt", listed + b"lay:2|2001-01-01|2001-01-01\n"
+    )
+    init = _member(changed, "init.txt").replace(
+        b"number_of_maps=1", b"number_of_maps=2"
+    )
+    return _changed(changed, base / "layers.tar", "init.txt", init)
+
+
+def test_a_vector_map_with_two_layers_is_unpacked_once(
+    two_layer_archive, tmp_path, monkeypatch
+):
+    unpacked = []
+    run_command = gs.run_command
+
+    def run(name, *args, **kwargs):
+        if name == "v.unpack":
+            unpacked.append(kwargs["output"])
+        return run_command(name, *args, **kwargs)
+
+    monkeypatch.setattr(gs, "run_command", run)
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        tgis.import_stds(
+            str(two_layer_archive), "out", tmp_path, stds_type="stvds", overr=True
+        )
+
+        assert gs.read_command("g.list", type="vector").split() == ["lay"]
+        listed = gs.read_command("t.vect.list", input="out", columns="name,layer")
+        assert listed.split()[1:] == ["lay|1", "lay|2"]
+    assert unpacked == ["lay"]
