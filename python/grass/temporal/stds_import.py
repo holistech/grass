@@ -618,7 +618,9 @@ def _check_files(maplist: list[dict[str, str]], format_: str) -> None:
         "pack": _("Unable to find GRASS package file <%s> in archive."),
     }
     for row in maplist:
-        filename = Path(row["filename"]).with_suffix(suffix)
+        # Appended and not set as the suffix: with_suffix() would take ".a" of
+        # the raster map "dot.a" for a suffix and look for "dot.tif".
+        filename = Path(row["filename"] + suffix)
         if not filename.exists():
             gs.fatal(messages[format_] % filename)
 
@@ -788,10 +790,9 @@ def import_stds(
     old_state = gs.get_raise_on_error()
     gs.set_raise_on_error(True)
     try:
-        # The managers exit in reverse order, so the working directory is
-        # restored first and the temporal framework of the caller is
-        # initialized again from the directory the caller was in; a relative
-        # path in its temporal database setting is resolved there.
+        # The managers exit in reverse order: the working directory is
+        # restored first, and the temporal framework of the caller is
+        # initialized again from the directory the caller was in.
         with _ProjectSession() as session, _working_directory(directory):
             if location:
                 # Create a new location based on the projection information

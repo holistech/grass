@@ -483,3 +483,39 @@ def test_the_vector_maps_of_one_archive_can_be_imported_twice_in_one_process(
 
             names = gs.read_command("g.list", type="vector").split()
             assert names == ["vsrc1", "vsrc2"], f"import {number}"
+
+
+@pytest.fixture(scope="module")
+def dotted_archive(tmp_path_factory):
+    """An archive of raster maps with a dot in their name"""
+    base = tmp_path_factory.mktemp("stds_io_dotted")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        tools.g_proj(flags="c", epsg=EPSG)
+        small_region(tools, 2, 3)
+        create_stds(
+            tools,
+            "strds",
+            "dotted",
+            [
+                MapSpec("dot.a", "10", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+                MapSpec("dot.b", "20", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+            ],
+        )
+        path = base / "dotted.tar"
+        tools.t_rast_export(
+            input="dotted",
+            output=str(path),
+            compression="no",
+            format="GTiff",
+            directory=str(base),
+        )
+    return path
+
+
+def test_raster_maps_with_a_dot_in_their_name_are_imported(
+    dotted_archive, target, tmp_path
+):
+    tgis.import_stds(str(dotted_archive), "out", tmp_path, overr=True)
+
+    assert gs.read_command("g.list", type="raster").split() == ["dot.a", "dot.b"]
