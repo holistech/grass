@@ -110,6 +110,7 @@
  "Invalid element '%s'",
  "Invalid granularity",
  "Invalid granularity <{}>",
+ "Invalid line <{}> in the init file of the archive",
  "Invalid offset",
  "Invalid semantic label",
  "Invalid semantic_label <%s>",

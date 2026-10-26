@@ -285,6 +285,27 @@ def test_blank_lines_of_the_list_are_skipped(archives, target, tmp_path, base):
     assert listed.split()[1:] == expected
 
 
+def test_an_init_line_without_equals_sign_is_refused(archives, target, tmp_path):
+    init = _member(archives["GTiff"], "init.txt")
+    changed = _changed(
+        archives["GTiff"], tmp_path / "x.tar", "init.txt", init + b"stray words\n"
+    )
+
+    with pytest.raises(
+        FatalError, match="Invalid line <stray words> in the init file of the archive"
+    ):
+        tgis.import_stds(str(changed), "out", tmp_path, overr=True)
+
+
+def test_an_init_value_keeps_its_equals_sign(tmp_path, monkeypatch):
+    # No key of an archive carries such a value today; the reader must not
+    # cut a value at its first equals sign all the same.
+    (tmp_path / "init.txt").write_text("\ndescription=a=b \n\ntitle=t\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert stds_import._read_init_file() == {"description": "a=b", "title": "t"}
+
+
 @pytest.mark.parametrize(
     ("archive", "options", "module", "message"),
     [

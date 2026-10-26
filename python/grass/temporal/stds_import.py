@@ -581,8 +581,11 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
 
 
 def _read_init_file() -> dict[str, str]:
-    """Read init.txt of the working directory as a dictionary"""
-    fs = "="
+    """Read init.txt of the working directory as a dictionary
+
+    A value is everything after the first equals sign. Blank lines are
+    skipped; any other line without an equals sign stops the import.
+    """
     init_data = {}
     with init_file_name.open("r") as init_file:
         for line in init_file:
@@ -590,8 +593,14 @@ def _read_init_file() -> dict[str, str]:
             if not init_line:
                 continue
 
-            kv = init_line.split(fs)
-            init_data[kv[0]] = kv[1].strip()
+            key, separator, value = init_line.partition("=")
+            if not separator:
+                get_tgis_message_interface().fatal(
+                    _("Invalid line <{}> in the init file of the archive").format(
+                        init_line
+                    )
+                )
+            init_data[key] = value.strip()
     return init_data
 
 
