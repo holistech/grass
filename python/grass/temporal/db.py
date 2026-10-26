@@ -726,6 +726,11 @@ def init_dbif(dbif):
     return dbif, connection_state_changed
 
 
+def sql_placeholder(dbmi_paramstyle: str) -> str:
+    """Return the placeholder of an argument in the parameter style of the backend"""
+    return "?" if dbmi_paramstyle == "qmark" else "%s"
+
+
 def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     """Write a Python value as a literal of an SQL statement
 

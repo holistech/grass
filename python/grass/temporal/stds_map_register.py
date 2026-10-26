@@ -34,7 +34,7 @@ from .abstract_map_dataset import (
     other_time_unit_message,
 )
 from .datetime_math import string_to_datetime
-from .db import connection
+from .db import connection, sql_placeholder
 from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
 from .state import get_current_mapset
 from .temporal_granularity import (
@@ -49,7 +49,7 @@ _TABLE_NAME = re.compile(r"[A-Za-z0-9_]+")
 
 def _placeholder(dbif) -> str:
     """The placeholder of the parameter style of the backend"""
-    return "?" if dbif.get_dbmi().paramstyle == "qmark" else "%s"
+    return sql_placeholder(dbif.get_dbmi().paramstyle)
 
 
 # A map with a layer has a sentence of its own in each of these messages rather

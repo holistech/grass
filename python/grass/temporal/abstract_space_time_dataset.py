@@ -18,7 +18,7 @@ from datetime import datetime
 
 
 from .abstract_dataset import AbstractDataset
-from .db import connection
+from .db import connection, sql_literal
 from .topology import (
     count_gaps,
     count_temporal_topology_relationships,
@@ -775,10 +775,6 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
             return None
 
-        def text(value):
-            """The value for the inside of an SQL string literal"""
-            return value.replace("'", "''")
-
         # initialized WHERE statement
         if where:
             where += " AND "
@@ -788,16 +784,15 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         # be case-insensitive
         if "_" in self.semantic_label:
             # fully-qualified semantic label, do not modify
-            where += f"semantic_label IN ('{text(self.semantic_label)}'"
+            where += f"semantic_label IN ({sql_literal(self.semantic_label)}"
 
             # be zero-padding less sensitive
             try:
                 shortcut, identifier = self.semantic_label.split("_", -1)
                 identifier_zp = leading_zero(identifier)
                 if identifier_zp:
-                    where += (
-                        f", '{text(shortcut.upper())}_{text(identifier_zp.upper())}'"
-                    )
+                    zero_padded = f"{shortcut.upper()}_{identifier_zp.upper()}"
+                    where += f", {sql_literal(zero_padded)}"
             except ValueError:
                 # any number of "_" is allowed in semantic labels
                 pass
@@ -808,18 +803,18 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             # shortcut or band identifier given
             shortcut_identifier = leading_zero(self.semantic_label)
             if shortcut_identifier:
-                where += (
-                    "{br} LIKE '{si}\\_%' {esc} OR {br} LIKE '%\\_{si}' {esc} OR "
-                    "{br} LIKE '{orig}\\_%' {esc} OR "
-                    "{br} LIKE '%\\_{orig}' {esc}".format(
-                        br="semantic_label",
-                        si=text(shortcut_identifier),
-                        orig=text(self.semantic_label.upper()),
-                        esc="ESCAPE '\\'",
-                    )
+                label = self.semantic_label.upper()
+                patterns = (
+                    sql_literal(f"{shortcut_identifier}\\_%"),
+                    sql_literal(f"%\\_{shortcut_identifier}"),
+                    sql_literal(f"{label}\\_%"),
+                    sql_literal(f"%\\_{label}"),
+                )
+                where += " OR ".join(
+                    f"semantic_label LIKE {pattern} ESCAPE '\\'" for pattern in patterns
                 )
             else:
-                where += f"semantic_label = '{text(self.semantic_label)}'"
+                where += f"semantic_label = {sql_literal(self.semantic_label)}"
 
         return where
 

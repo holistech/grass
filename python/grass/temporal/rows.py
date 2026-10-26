@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .db import SQLDatabaseInterfaceConnection
+from .db import SQLDatabaseInterfaceConnection, sql_literal, sql_placeholder
 from .state import (
     get_current_mapset,
     get_tgis_dbmi_paramstyle,
@@ -114,7 +114,7 @@ class DictSQLSerializer:
             )
             sql += " FROM " + table + " "
         elif type == "INSERT":
-            placeholder = self._placeholder()
+            placeholder = sql_placeholder(self.dbmi_paramstyle)
             sql = "INSERT INTO " + table + " ("
             sql += _join_terms((f"{key} " for key in self.D), first=" ", rest=" ,")
             sql += ") VALUES ("
@@ -126,7 +126,7 @@ class DictSQLSerializer:
             keys = [
                 key for key in self.D if type == "UPDATE ALL" or self.D[key] is not None
             ]
-            placeholder = self._placeholder()
+            placeholder = sql_placeholder(self.dbmi_paramstyle)
             sql = "UPDATE " + table + " SET "
             sql += _join_terms(
                 (f"{key} = {placeholder} " for key in keys), first=" ", rest=" ,"
@@ -138,10 +138,6 @@ class DictSQLSerializer:
             sql += ";\n"
 
         return sql, (*args, *where_args)
-
-    def _placeholder(self) -> str:
-        """The placeholder of an argument in the paramstyle of the database"""
-        return "?" if self.dbmi_paramstyle == "qmark" else "%s"
 
     def deserialize(self, row) -> None:
         """Convert the content of the dbmi dictionary like row into the
@@ -252,23 +248,13 @@ class SQLDatabaseInterface(DictSQLSerializer):
             "DELETE FROM "
             + self.get_table_name()
             + " WHERE id = "
-            + self._quoted_id(self.ident)
+            + sql_literal(str(self.ident))
             + ";\n"
         )
 
-    @staticmethod
-    def _quoted_id(ident) -> str:
-        """Return the identifier as an SQL string literal
-
-        For statements that are joined to a script and executed as text,
-        where no argument can be bound. Statements that are executed on their
-        own bind the identifier as argument.
-        """
-        return "'{}'".format(str(ident).replace("'", "''"))
-
     def _where_id(self, ident):
         """Return the where statement for an identifier and its argument"""
-        placeholder = "?" if self.dbmi_paramstyle == "qmark" else "%s"
+        placeholder = sql_placeholder(self.dbmi_paramstyle)
         return f"WHERE id = {placeholder}", (str(ident),)
 
     def delete(self, dbif=None) -> None:
