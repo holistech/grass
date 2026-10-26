@@ -79,6 +79,18 @@ def _cannot_remove_timestamp(kind: str) -> str:
 _CLASSES: dict[str, type] = {}
 
 
+def class_of_kind(name: str) -> type:
+    """Return the public class of the kind with the canonical name
+
+    The classes enter the table when space_time_datasets is imported. That
+    module imports this one, so it is imported here, when the table is read,
+    and not at the top.
+    """
+    from . import space_time_datasets  # noqa: F401, PLC0415
+
+    return _CLASSES[name]
+
+
 def _register(cls: type) -> None:
     """Enter a class that states its own kind as the class of that kind"""
     if "kind" in cls.__dict__:

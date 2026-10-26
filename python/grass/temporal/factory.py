@@ -9,28 +9,23 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from .state import get_tgis_message_interface
+from typing import TYPE_CHECKING
+
+from .datasets import class_of_kind
 from .kinds import find_kind
-from .space_time_datasets import (
-    Raster3DDataset,
-    RasterDataset,
-    SpaceTimeRaster3DDataset,
-    SpaceTimeRasterDataset,
-    SpaceTimeVectorDataset,
-    VectorDataset,
-)
+from .state import get_tgis_message_interface
+
+if TYPE_CHECKING:
+    from .space_time_datasets import (
+        Raster3DDataset,
+        RasterDataset,
+        SpaceTimeRaster3DDataset,
+        SpaceTimeRasterDataset,
+        SpaceTimeVectorDataset,
+        VectorDataset,
+    )
 
 ###############################################################################
-
-
-_CLASSES = {
-    "strds": SpaceTimeRasterDataset,
-    "str3ds": SpaceTimeRaster3DDataset,
-    "stvds": SpaceTimeVectorDataset,
-    "raster": RasterDataset,
-    "raster3d": Raster3DDataset,
-    "vector": VectorDataset,
-}
 
 
 def dataset_factory(
@@ -57,7 +52,7 @@ def dataset_factory(
     """
     kind = find_kind(type)
     if kind is not None:
-        return _CLASSES[kind.name](id)
+        return class_of_kind(kind.name)(id)
 
     msgr = get_tgis_message_interface()
     msgr.error(_("Unknown dataset type: %s") % type)

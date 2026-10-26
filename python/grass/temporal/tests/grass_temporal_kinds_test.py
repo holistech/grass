@@ -8,7 +8,7 @@ import pytest
 import grass.temporal as tgis
 from grass.temporal.c_libraries_interface import CLibrariesInterface
 from grass.pygrass.messages import FatalError
-from grass.temporal import kinds, list_stds
+from grass.temporal import kinds, list_stds, space_time_datasets
 
 IMAGE = Path(__file__).parent / "recordings" / "database_write.sql"
 
@@ -236,3 +236,18 @@ def test_the_plain_facts_of_a_kind(name, remove_type, mapcalc_module):
 
     assert kind.remove_type == remove_type
     assert kind.mapcalc_module == mapcalc_module
+
+
+@pytest.mark.parametrize(
+    ("name", "cls"),
+    [
+        ("strds", space_time_datasets.SpaceTimeRasterDataset),
+        ("str3ds", space_time_datasets.SpaceTimeRaster3DDataset),
+        ("stvds", space_time_datasets.SpaceTimeVectorDataset),
+        ("raster", tgis.RasterDataset),
+        ("raster3d", tgis.Raster3DDataset),
+        ("vector", tgis.VectorDataset),
+    ],
+)
+def test_the_factory_makes_the_public_class_of_the_kind(name, cls):
+    assert type(tgis.dataset_factory(name, "x@PERMANENT")) is cls
