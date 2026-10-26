@@ -27,6 +27,11 @@ class Recorder:
     def __init__(self, messenger):
         self.messenger = messenger
         self.texts = []
+        self.debugs = []
+
+    def debug(self, level, message):
+        self.debugs.append(message)
+        self.messenger.debug(level, message)
 
     def warning(self, message):
         self.texts.append(message)
@@ -41,11 +46,16 @@ class Recorder:
 
 
 @pytest.fixture
-def messages(monkeypatch):
-    """The warnings and errors that datasets and maps give, as a list of texts"""
+def recorder(monkeypatch):
     module = importlib.import_module("grass.temporal.abstract_dataset")
     recorder = Recorder(module.get_tgis_message_interface())
     monkeypatch.setattr(module, "get_tgis_message_interface", lambda: recorder)
+    return recorder
+
+
+@pytest.fixture
+def messages(recorder):
+    """The warnings and errors that datasets and maps give, as a list of texts"""
     return recorder.texts
 
 
@@ -130,6 +140,27 @@ def test_registering_a_map_again(ids, layer, messages):
     assert stds.register_map(item) is False
 
     assert messages == [f"Map {described(ids, layer)} is already registered."]
+
+
+@pytest.mark.parametrize("layer", LAYERS)
+def test_registering_a_map_names_its_layer_in_the_debug_message(ids, layer, recorder):
+    tgis.register_maps_in_space_time_dataset(
+        "vector",
+        ids["abs"],
+        maps=f"{ids['vec']}:{layer}" if layer else ids["vec"],
+        start="2001-01-01",
+    )
+    recorder.debugs.clear()
+    item = vector(ids, layer)
+    item.select()
+
+    stds_of(ids, "abs").register_map(item)
+
+    suffix = f" with layer {layer}" if layer else ""
+    assert recorder.debugs[0] == (
+        f"Register vector map <{ids['vec']}@{MAPSET}>{suffix} in space time "
+        f"vector dataset <{ids['abs']}@{MAPSET}>"
+    )
 
 
 @pytest.mark.parametrize("layer", LAYERS)

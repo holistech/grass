@@ -242,10 +242,11 @@ class StdsMapRegister:
                 )
             )
 
+        layer = f" with layer {map_.get_layer()}" if map_.get_layer() else ""
         stds.msgr.debug(
             1,
-            f"Register {map_.get_type()} map <{map_.get_map_id()}> in space time "
-            f"{map_.get_type()} dataset <{stds.get_id()}>",
+            f"Register {map_.get_type()} map <{map_.get_map_id()}>{layer} in space "
+            f"time {map_.get_type()} dataset <{stds.get_id()}>",
         )
 
         # First select all data from the database in the current mapset
