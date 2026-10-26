@@ -76,13 +76,10 @@ def _results(first, second):
 
 
 # Each pair gives the results of the first dataset's methods with the second.
-# A 3D raster map computes in space when the other dataset is a 3D raster map
-# or a space time 3D raster dataset, and in the plane otherwise. The classes
-# without a third dimension always compute in the plane. A space time 3D raster
-# dataset is the exception: it takes the second dataset as a volume for
-# overlapping and relation only when that is a space time 3D raster dataset,
-# and for the other three methods also when it is a 3D raster map (the pair
-# str3ds and raster3d below).
+# A 3D raster map and a space time 3D raster dataset compute in space when the
+# other dataset is a 3D raster map or a space time 3D raster dataset, and in
+# the plane otherwise. The classes without a third dimension always compute in
+# the plane.
 PAIRS = [
     ("raster", "raster", PLANAR),
     ("raster3d", "raster3d", VOLUME),
@@ -92,20 +89,7 @@ PAIRS = [
     ("str3ds", "str3ds", VOLUME),
     ("vector", "stvds", PLANAR),
     ("strds", "raster", PLANAR),
-    # The space time 3D raster dataset takes str3ds for the space in
-    # overlapping and relation but raster3d and str3ds in intersection, union
-    # and disjoint union. This pins today's inconsistent result for the pair.
-    (
-        "str3ds",
-        "raster3d",
-        {
-            "overlapping": PLANAR["overlapping"],
-            "relation": PLANAR["relation"],
-            "intersection": VOLUME["intersection"],
-            "union": VOLUME["union"],
-            "disjoint_union": VOLUME["disjoint_union"],
-        },
-    ),
+    ("str3ds", "raster3d", VOLUME),
 ]
 
 
@@ -118,6 +102,16 @@ def test_the_extent_methods_compute_in_the_plane_or_in_space(first, second, expe
     results = _results(_dataset(first, BOX_A, "a"), _dataset(second, BOX_B, "b"))
 
     assert results == expected
+
+
+def test_3d_datasets_agree_in_both_directions():
+    # Both directions must give one answer for a map and a dataset of 3D rasters.
+    forward = _results(_dataset("str3ds", BOX_A, "a"), _dataset("raster3d", BOX_B, "b"))
+    backward = _results(
+        _dataset("raster3d", BOX_A, "a"), _dataset("str3ds", BOX_B, "b")
+    )
+
+    assert forward == backward
 
 
 @pytest.mark.parametrize("kind", sorted(CLASSES))

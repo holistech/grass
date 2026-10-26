@@ -714,14 +714,14 @@ class SpaceTimeRaster3DDataset(StdsDataset):
     def spatial_overlapping(self, dataset):
         """Return True if the spatial extents overlap"""
 
-        if self.get_type() == dataset.get_type() or dataset.get_type() == "str3ds":
+        if dataset.get_type() in ("raster3d", "str3ds"):
             return self.spatial_extent.overlapping(dataset.spatial_extent)
         return self.spatial_extent.overlapping_2d(dataset.spatial_extent)
 
     def spatial_relation(self, dataset):
         """Return the two or three dimensional spatial relation"""
 
-        if self.get_type() == dataset.get_type() or dataset.get_type() == "str3ds":
+        if dataset.get_type() in ("raster3d", "str3ds"):
             return self.spatial_extent.spatial_relation(dataset.spatial_extent)
         return self.spatial_extent.spatial_relation_2d(dataset.spatial_extent)
 
@@ -732,7 +732,7 @@ class SpaceTimeRaster3DDataset(StdsDataset):
         :param dataset: The abstract dataset to intersect with
         :return: The intersection spatial extent or None
         """
-        if self.get_type() == dataset.get_type() or dataset.get_type() == "raster3d":
+        if dataset.get_type() in ("raster3d", "str3ds"):
             return self.spatial_extent.intersect(dataset.spatial_extent)
         return self.spatial_extent.intersect_2d(dataset.spatial_extent)
 
@@ -743,7 +743,7 @@ class SpaceTimeRaster3DDataset(StdsDataset):
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent or None
         """
-        if self.get_type() == dataset.get_type() or dataset.get_type() == "raster3d":
+        if dataset.get_type() in ("raster3d", "str3ds"):
             return self.spatial_extent.union(dataset.spatial_extent)
         return self.spatial_extent.union_2d(dataset.spatial_extent)
 
@@ -753,7 +753,7 @@ class SpaceTimeRaster3DDataset(StdsDataset):
         :param dataset: The abstract dataset to create a union with
         :return: The union spatial extent
         """
-        if self.get_type() == dataset.get_type() or dataset.get_type() == "raster3d":
+        if dataset.get_type() in ("raster3d", "str3ds"):
             return self.spatial_extent.disjoint_union(dataset.spatial_extent)
         return self.spatial_extent.disjoint_union_2d(dataset.spatial_extent)
 
