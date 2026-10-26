@@ -51,11 +51,12 @@ def test_an_input_with_too_many_parts_is_refused(tools, prefix, identifier):
     assert "Traceback" not in error.value.stderr
 
 
-def test_an_output_with_two_mapsets_is_refused(tools, make_stds):
+@pytest.mark.parametrize("identifier", ["a@b@c", "a:b:c@m"])
+def test_an_output_with_too_many_parts_is_refused(tools, make_stds, identifier):
     _, (name,) = make_stds(1)
 
     with pytest.raises(ToolError) as error:
-        tools.t_copy(input=name, output="a@b@c")
+        tools.t_copy(input=name, output=identifier)
 
     assert "Wrong identifier" in error.value.stderr
     assert "Traceback" not in error.value.stderr

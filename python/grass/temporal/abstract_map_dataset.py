@@ -14,6 +14,7 @@ from datetime import datetime
 import grass.script as gs
 
 from .abstract_dataset import AbstractDataset
+from .base import check_identifier
 from .datetime_math import (
     datetime_to_grass_datetime_string,
     decrement_datetime_by_string,
@@ -213,15 +214,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                  layer is optional
         """
 
-        # More than one @ or : cannot be an identifier; cutting the rest
-        # off would silently address another map.
-        if name.count("@") > 1 or name.partition("@")[0].count(":") > 1:
-            get_tgis_message_interface().fatal(
-                _(
-                    "Wrong identifier <{ident}>, it must be name@mapset "
-                    "or name:layer@mapset"
-                ).format(ident=name)
-            )
+        check_identifier(name)
 
         # Check if the name includes any mapset
         if name.find("@") >= 0:

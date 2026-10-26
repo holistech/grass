@@ -50,6 +50,7 @@ def _layer(map, maptype):
 def main():
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.base import check_identifier
 
     # Get the options
     input = options["input"]
@@ -74,13 +75,7 @@ def main():
 
     outmapset = mapset
     if "@" in output:
-        if output.count("@") > 1:
-            gs.fatal(
-                _(
-                    "Wrong identifier <{ident}>, it must be name@mapset "
-                    "or name:layer@mapset"
-                ).format(ident=output)
-            )
+        check_identifier(output)
         _outname, outmapset = output.split("@")
         if outmapset != mapset:
             gs.fatal(

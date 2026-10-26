@@ -34,6 +34,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .rows import Column, DictSQLSerializer, Row, SQLDatabaseInterface
+from .state import get_tgis_message_interface
 
 if TYPE_CHECKING:
     from .kinds import Kind
@@ -43,7 +44,26 @@ __all__ = [
     "DictSQLSerializer",
     "RegisterRow",
     "SQLDatabaseInterface",
+    "check_identifier",
 ]
+
+
+def check_identifier(ident: str) -> None:
+    """Stop with a message unless ident has the form of an identifier
+
+    More than one @ or : in the name cannot be an identifier; cutting the
+    rest off would silently address another map or dataset.
+
+    :param ident: The identifier, "name@mapset" or "name:layer@mapset"; the
+                  mapset may be missing
+    """
+    if ident.count("@") > 1 or ident.partition("@")[0].count(":") > 1:
+        get_tgis_message_interface().fatal(
+            _(
+                "Wrong identifier <{ident}>, it must be name@mapset "
+                "or name:layer@mapset"
+            ).format(ident=ident)
+        )
 
 
 class BaseRow(Row):
@@ -213,16 +233,9 @@ class BaseRow(Row):
         if ident is not None:
             if ident.find("@") < 0:
                 self.msgr.fatal(_("Wrong identifier, the mapset is missing"))
-            parts = ident.split("@")
-            name = parts[0]
-            if len(parts) != 2 or name.count(":") > 1:
-                self.msgr.fatal(
-                    _(
-                        "Wrong identifier <{ident}>, it must be name@mapset "
-                        "or name:layer@mapset"
-                    ).format(ident=ident)
-                )
-            self.set_mapset(parts[1])
+            check_identifier(ident)
+            name, mapset = ident.split("@")
+            self.set_mapset(mapset)
             if name.find(":") >= 0:
                 name, layer = name.split(":")
                 self.set_layer(layer)
