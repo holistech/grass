@@ -16,6 +16,7 @@ the same commit.
 import importlib
 import inspect
 import json
+import types
 from pathlib import Path
 
 import pytest
@@ -163,3 +164,13 @@ def test_the_package_exports_the_contract_and_nothing_else():
     """``__all__`` is the used names plus the modules code reaches as attributes"""
     expected = sorted({*CONTRACT["top_names"], *CONTRACT["module_attributes"]})
     assert sorted(tgis.__all__) == expected
+
+
+def test_the_namespace_of_the_package_holds_no_other_name():
+    """An import that is not exported still makes ``tgis.X`` work for code"""
+    names = {
+        name
+        for name, value in vars(tgis).items()
+        if not name.startswith("_") and not isinstance(value, types.ModuleType)
+    }
+    assert names == set(CONTRACT["top_names"])
