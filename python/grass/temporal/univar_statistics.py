@@ -27,12 +27,10 @@ import grass.script as gs
 from grass.exceptions import CalledModuleError
 from grass.pygrass.modules import Module
 
-from .db import SQLDatabaseInterfaceConnection, SQLStatementError
-from .state import get_current_mapset
+from .db import SQLStatementError, connection
+from .state import get_current_mapset, get_tgis_message_interface
 from .factory import dataset_factory
 from .open_stds import open_old_stds
-
-###############################################################################
 
 
 def compute_univar_stats(
@@ -127,6 +125,29 @@ def compute_univar_stats(
     return "\n".join(output_rows)
 
 
+def _selected_rows(sp, columns, where, option, dbif, **kwargs):
+    """Return the registered maps of the dataset that the condition selects
+
+    Stops with a message if the database refuses the condition.
+
+    :param sp: The space time dataset
+    :param columns: The columns of the map register to read
+    :param where: The condition on the registered maps
+    :param option: The name of the option that holds the condition, for the
+                   message
+    :param dbif: The connected database interface
+    :param kwargs: The spatial selection that get_registered_maps() takes
+    """
+    try:
+        return sp.get_registered_maps(columns, where, "start_time", dbif, **kwargs)
+    except SQLStatementError as error:
+        get_tgis_message_interface().fatal(
+            _("Invalid {option} condition <{where}>: {error}").format(
+                option=option, where=where, error=error
+            )
+        )
+
+
 def print_gridded_dataset_univar_statistics(
     type,
     input,
@@ -169,148 +190,140 @@ def print_gridded_dataset_univar_statistics(
     :param zones: raster map with zones to calculate statistics for
     """
     # We need a database interface
-    dbif = SQLDatabaseInterfaceConnection()
-    dbif.connect()
+    with connection() as dbif:
+        sp = open_old_stds(input, type, dbif)
 
-    sp = open_old_stds(input, type, dbif)
+        spatial_extent = None
+        if region_relation:
+            spatial_extent = gs.parse_command("g.region", flags="3gu")
 
-    spatial_extent = None
-    if region_relation:
-        spatial_extent = gs.parse_command("g.region", flags="3gu")
-
-    strds_cols = (
-        "id,start_time,end_time,semantic_label"
-        if type == "strds"
-        else "id,start_time,end_time"
-    )
-    try:
-        rows = sp.get_registered_maps(
+        strds_cols = (
+            "id,start_time,end_time,semantic_label"
+            if type == "strds"
+            else "id,start_time,end_time"
+        )
+        rows = _selected_rows(
+            sp,
             strds_cols,
             where,
-            "start_time",
+            "where",
             dbif,
             spatial_extent=spatial_extent,
             spatial_relation=region_relation,
         )
-    except SQLStatementError as error:
-        dbif.close()
-        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-    if not rows and rows != [""]:
-        dbif.close()
-        gs.verbose(
-            _(
-                "No maps found to process. "
-                "Space time {type} dataset <{id}> is either empty "
-                "or the where condition (if used) does not return any maps "
-                "or no maps with the requested spatial relation to the "
-                "computational region exist in the dataset."
-            ).format(type=sp.get_new_map_instance(None).get_type(), id=sp.get_id())
-        )
-
-        return
-
-    if output is not None:
-        out_file = open(output, "w")
-
-    if no_header is False:
-        cols = (
-            ["id", "semantic_label", "start", "end"]
-            if type == "strds"
-            else ["id", "start", "end"]
-        )
-        if zones:
-            cols.extend(["zone", "label"])
-        cols.extend(
-            [
-                "non_null_cells",
-                "null_cells",
-                "min",
-                "max",
-                "range",
-                "mean",
-                "mean_of_abs",
-                "stddev",
-                "variance",
-                "coeff_var",
-                "sum",
-                "sum_abs",
-            ]
-        )
-        if extended is True:
-            cols.extend(["first_quartile", "median", "third_quartile"])
-            if percentile:
-                cols.extend(
-                    [
-                        "percentile_"
-                        f"{str(perc).rstrip('0').rstrip('.').replace('.', '_')}"
-                        for perc in percentile
-                    ]
-                )
-            else:
-                cols.extend(["percentile_90"])
-
-        if no_header is False and format != "json":
-            string = fs.join(cols)
-            if output is None:
-                print(string)
-            else:
-                out_file.write(string + "\n")
-
-    # Define flags
-    flag = ""
-    if extended is True:
-        flag += "e"
-    if type == "strds" and rast_region is True and not zones:
-        flag += "r"
-
-    # Setup pygrass module to use for computation
-    univar_module = Module(
-        "r.univar" if type == "strds" else "r3.univar",
-        flags=flag,
-        zones=zones,
-        percentile=percentile,
-        stdout_=PIPE,
-        format="json" if format == "json" else "csv",
-        quiet=True,
-        run_=False,
-    )
-
-    nprocs = max(nprocs, 1)
-    if nprocs == 1:
-        strings = [
-            compute_univar_stats(row, univar_module, fs, rast_region, format)
-            for row in rows
-        ]
-    else:
-        with Pool(min(nprocs, len(rows))) as pool:
-            strings = pool.starmap(
-                compute_univar_stats,
-                [(dict(row), univar_module, fs, rast_region, format) for row in rows],
+        if not rows and rows != [""]:
+            gs.verbose(
+                _(
+                    "No maps found to process. "
+                    "Space time {type} dataset <{id}> is either empty "
+                    "or the where condition (if used) does not return any maps "
+                    "or no maps with the requested spatial relation to the "
+                    "computational region exist in the dataset."
+                ).format(type=sp.get_new_map_instance(None).get_type(), id=sp.get_id())
             )
 
-    if format == "json":
-        json_out = []
+            return
 
-        for block in filter(None, strings):
-            json_out.extend(block)
+        if output is not None:
+            out_file = open(output, "w")
 
-        output_str = json.dumps(json_out, indent=4)
-    else:
-        output_str = "\n".join(filter(None, strings))
+        if no_header is False:
+            cols = (
+                ["id", "semantic_label", "start", "end"]
+                if type == "strds"
+                else ["id", "start", "end"]
+            )
+            if zones:
+                cols.extend(["zone", "label"])
+            cols.extend(
+                [
+                    "non_null_cells",
+                    "null_cells",
+                    "min",
+                    "max",
+                    "range",
+                    "mean",
+                    "mean_of_abs",
+                    "stddev",
+                    "variance",
+                    "coeff_var",
+                    "sum",
+                    "sum_abs",
+                ]
+            )
+            if extended is True:
+                cols.extend(["first_quartile", "median", "third_quartile"])
+                if percentile:
+                    cols.extend(
+                        [
+                            "percentile_"
+                            f"{str(perc).rstrip('0').rstrip('.').replace('.', '_')}"
+                            for perc in percentile
+                        ]
+                    )
+                else:
+                    cols.extend(["percentile_90"])
 
-    if output is None:
-        print(output_str)
-    else:
-        out_file.write(output_str + "\n")
+            if no_header is False and format != "json":
+                string = fs.join(cols)
+                if output is None:
+                    print(string)
+                else:
+                    out_file.write(string + "\n")
 
-    dbif.close()
+        # Define flags
+        flag = ""
+        if extended is True:
+            flag += "e"
+        if type == "strds" and rast_region is True and not zones:
+            flag += "r"
 
-    if output is not None:
-        out_file.close()
+        # Setup pygrass module to use for computation
+        univar_module = Module(
+            "r.univar" if type == "strds" else "r3.univar",
+            flags=flag,
+            zones=zones,
+            percentile=percentile,
+            stdout_=PIPE,
+            format="json" if format == "json" else "csv",
+            quiet=True,
+            run_=False,
+        )
 
+        nprocs = max(nprocs, 1)
+        if nprocs == 1:
+            strings = [
+                compute_univar_stats(row, univar_module, fs, rast_region, format)
+                for row in rows
+            ]
+        else:
+            with Pool(min(nprocs, len(rows))) as pool:
+                strings = pool.starmap(
+                    compute_univar_stats,
+                    [
+                        (dict(row), univar_module, fs, rast_region, format)
+                        for row in rows
+                    ],
+                )
 
-###############################################################################
+        if format == "json":
+            json_out = []
+
+            for block in filter(None, strings):
+                json_out.extend(block)
+
+            output_str = json.dumps(json_out, indent=4)
+        else:
+            output_str = "\n".join(filter(None, strings))
+
+        if output is None:
+            print(output_str)
+        else:
+            out_file.write(output_str + "\n")
+
+        if output is not None:
+            out_file.close()
 
 
 def print_vector_dataset_univar_statistics(
@@ -340,201 +353,191 @@ def print_vector_dataset_univar_statistics(
     :param fs: Field separator
     """
 
+    msgr = get_tgis_message_interface()
     # We need a database interface
-    dbif = SQLDatabaseInterfaceConnection()
-    dbif.connect()
+    with connection() as dbif:
+        if output is not None:
+            out_file = open(output, "w")
 
-    if output is not None:
-        out_file = open(output, "w")
+        mapset = get_current_mapset()
 
-    mapset = get_current_mapset()
+        id = input if input.find("@") >= 0 else input + "@" + mapset
 
-    id = input if input.find("@") >= 0 else input + "@" + mapset
+        sp = dataset_factory("stvds", id)
 
-    sp = dataset_factory("stvds", id)
-
-    if sp.is_in_db(dbif) is False:
-        dbif.close()
-        gs.fatal(
-            _("Space time %(sp)s dataset <%(i)s> not found")
-            % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
-        )
-
-    sp.select(dbif)
-
-    try:
-        rows = sp.get_registered_maps(
-            "id,name,mapset,start_time,end_time,layer", twhere, "start_time", dbif
-        )
-    except SQLStatementError as error:
-        dbif.close()
-        gs.fatal(_("Invalid twhere condition <{}>: {}").format(twhere, error))
-
-    if not rows:
-        dbif.close()
-        gs.fatal(
-            _("Space time %(sp)s dataset <%(i)s> is empty")
-            % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
-        )
-
-    string = ""
-    if no_header is False:
-        string += (
-            "id"
-            + fs
-            + "start"
-            + fs
-            + "end"
-            + fs
-            + "n"
-            + fs
-            + "nmissing"
-            + fs
-            + "nnull"
-            + fs
-        )
-        string += "min" + fs + "max" + fs + "range"
-        if type in {"point", "centroid"}:
-            string += (
-                fs
-                + "mean"
-                + fs
-                + "mean_abs"
-                + fs
-                + "population_stddev"
-                + fs
-                + "population_variance"
-                + fs
+        if sp.is_in_db(dbif) is False:
+            msgr.fatal(
+                _("Space time %(sp)s dataset <%(i)s> not found")
+                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
             )
-            string += (
-                "population_coeff_variation"
-                + fs
-                + "sample_stddev"
-                + fs
-                + "sample_variance"
-                + fs
+
+        sp.select(dbif)
+
+        rows = _selected_rows(
+            sp, "id,name,mapset,start_time,end_time,layer", twhere, "twhere", dbif
+        )
+
+        if not rows:
+            msgr.fatal(
+                _("Space time %(sp)s dataset <%(i)s> is empty")
+                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
             )
-            string += "kurtosis" + fs + "skewness"
-            if extended is True:
-                string += (
-                    fs
-                    + "first_quartile"
-                    + fs
-                    + "median"
-                    + fs
-                    + "third_quartile"
-                    + fs
-                    + "percentile_90"
-                )
-
-        if output is None:
-            print(string)
-        else:
-            out_file.write(string + "\n")
-
-    for row in rows:
-        id = row["name"] + "@" + row["mapset"]
-        start = row["start_time"]
-        end = row["end_time"]
-        mylayer = row["layer"]
-
-        flags = "g"
-
-        if extended is True:
-            flags += "e"
-
-        if not mylayer:
-            mylayer = layer
-
-        try:
-            stats = gs.parse_command(
-                "v.univar",
-                map=id,
-                where=where,
-                column=column,
-                layer=mylayer,
-                type=type,
-                flags=flags,
-            )
-        except CalledModuleError as error:
-            dbif.close()
-            if output is not None:
-                out_file.close()
-            gs.fatal(_("Error running v.univar on <{}>: {}").format(id, error))
 
         string = ""
-
-        if not stats:
-            gs.warning(_("Unable to get statistics for vector map <%s>") % id)
-            continue
-
-        string += str(id) + fs + str(start) + fs + str(end)
-        string += (
-            fs
-            + str(stats["n"])
-            + fs
-            + str(stats["nmissing"])
-            + fs
-            + str(stats["nnull"])
-        )
-        if "min" in stats:
+        if no_header is False:
             string += (
-                fs
-                + str(stats["min"])
+                "id"
                 + fs
-                + str(stats["max"])
+                + "start"
                 + fs
-                + str(stats["range"])
+                + "end"
+                + fs
+                + "n"
+                + fs
+                + "nmissing"
+                + fs
+                + "nnull"
+                + fs
             )
-        else:
-            string += fs + fs + fs
-
-        if type in {"point", "centroid"}:
-            if "mean" in stats:
+            string += "min" + fs + "max" + fs + "range"
+            if type in {"point", "centroid"}:
                 string += (
                     fs
-                    + str(stats["mean"])
+                    + "mean"
                     + fs
-                    + str(stats["mean_abs"])
+                    + "mean_abs"
                     + fs
-                    + str(stats["population_stddev"])
+                    + "population_stddev"
                     + fs
-                    + str(stats["population_variance"])
+                    + "population_variance"
+                    + fs
                 )
-
                 string += (
-                    fs
-                    + str(stats["population_coeff_variation"])
+                    "population_coeff_variation"
                     + fs
-                    + str(stats["sample_stddev"])
+                    + "sample_stddev"
                     + fs
-                    + str(stats["sample_variance"])
+                    + "sample_variance"
+                    + fs
                 )
-
-                string += fs + str(stats["kurtosis"]) + fs + str(stats["skewness"])
-            else:
-                string += fs + fs + fs + fs + fs + fs + fs + fs + fs
-            if extended is True:
-                if "first_quartile" in stats:
+                string += "kurtosis" + fs + "skewness"
+                if extended is True:
                     string += (
                         fs
-                        + str(stats["first_quartile"])
+                        + "first_quartile"
                         + fs
-                        + str(stats["median"])
+                        + "median"
                         + fs
-                        + str(stats["third_quartile"])
+                        + "third_quartile"
                         + fs
-                        + str(stats["percentile_90"])
+                        + "percentile_90"
                     )
+
+            if output is None:
+                print(string)
+            else:
+                out_file.write(string + "\n")
+
+        for row in rows:
+            id = row["name"] + "@" + row["mapset"]
+            start = row["start_time"]
+            end = row["end_time"]
+            mylayer = row["layer"]
+
+            flags = "g"
+
+            if extended is True:
+                flags += "e"
+
+            if not mylayer:
+                mylayer = layer
+
+            try:
+                stats = gs.parse_command(
+                    "v.univar",
+                    map=id,
+                    where=where,
+                    column=column,
+                    layer=mylayer,
+                    type=type,
+                    flags=flags,
+                )
+            except CalledModuleError as error:
+                if output is not None:
+                    out_file.close()
+                msgr.fatal(_("Error running v.univar on <{}>: {}").format(id, error))
+
+            string = ""
+
+            if not stats:
+                gs.warning(_("Unable to get statistics for vector map <%s>") % id)
+                continue
+
+            string += str(id) + fs + str(start) + fs + str(end)
+            string += (
+                fs
+                + str(stats["n"])
+                + fs
+                + str(stats["nmissing"])
+                + fs
+                + str(stats["nnull"])
+            )
+            if "min" in stats:
+                string += (
+                    fs
+                    + str(stats["min"])
+                    + fs
+                    + str(stats["max"])
+                    + fs
+                    + str(stats["range"])
+                )
+            else:
+                string += fs + fs + fs
+
+            if type in {"point", "centroid"}:
+                if "mean" in stats:
+                    string += (
+                        fs
+                        + str(stats["mean"])
+                        + fs
+                        + str(stats["mean_abs"])
+                        + fs
+                        + str(stats["population_stddev"])
+                        + fs
+                        + str(stats["population_variance"])
+                    )
+
+                    string += (
+                        fs
+                        + str(stats["population_coeff_variation"])
+                        + fs
+                        + str(stats["sample_stddev"])
+                        + fs
+                        + str(stats["sample_variance"])
+                    )
+
+                    string += fs + str(stats["kurtosis"]) + fs + str(stats["skewness"])
                 else:
-                    string += fs + fs + fs + fs
+                    string += fs + fs + fs + fs + fs + fs + fs + fs + fs
+                if extended is True:
+                    if "first_quartile" in stats:
+                        string += (
+                            fs
+                            + str(stats["first_quartile"])
+                            + fs
+                            + str(stats["median"])
+                            + fs
+                            + str(stats["third_quartile"])
+                            + fs
+                            + str(stats["percentile_90"])
+                        )
+                    else:
+                        string += fs + fs + fs + fs
 
-        if output is None:
-            print(string)
-        else:
-            out_file.write(string + "\n")
+            if output is None:
+                print(string)
+            else:
+                out_file.write(string + "\n")
 
-    dbif.close()
-
-    if output is not None:
-        out_file.close()
+        if output is not None:
+            out_file.close()
