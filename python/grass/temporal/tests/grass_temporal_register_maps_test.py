@@ -374,3 +374,50 @@ def test_relative_time_stamps_of_the_maps_are_used_without_a_dataset(made):
 
     assert relative_time("raster", names.m1) == (1000000, 1500000, "seconds")
     assert relative_time("raster", names.m2) == (1500000, 2000000, "seconds")
+
+
+def test_an_empty_3d_map_is_deleted_on_request(region):
+    # The removal of an empty map names the type of g.remove by the kind of
+    # the map. A wrong name for 3D rasters would leave the empty map behind,
+    # which no other test of the library sees.
+    number = next(COUNTER)
+    full, empty, stds_name = (
+        f"reg{number}_{part}" for part in ("full", "empty", "abs")
+    )
+    region.r3_mapcalc(expression=f"{full} = 1")
+    region.r3_mapcalc(expression=f"{empty} = null()")
+    mapset = tgis.get_current_mapset()
+    tgis.open_new_stds(
+        name=stds_name,
+        type="str3ds",
+        temporaltype="absolute",
+        title="Test",
+        descr="Test",
+        semantic="field",
+        overwrite=True,
+    )
+    tgis.register_maps_in_space_time_dataset(
+        type="raster3d",
+        name=None,
+        maps=f"{full},{empty}",
+        start="2001-01-01",
+        increment="1 day",
+        interval=True,
+    )
+    maps = [tgis.Raster3DDataset(f"{name}@{mapset}") for name in (full, empty)]
+    for registered in maps:
+        registered.select()
+    stds = tgis.open_old_stds(stds_name, "str3ds")
+
+    tgis.register_map_object_list(
+        type="raster3d", map_list=maps, output_stds=stds, delete_empty=True
+    )
+
+    listed = region.g_list(type="raster_3d", pattern=f"reg{number}_*")
+    assert listed.stdout.split() == [full]
+    assert maps[1].is_in_db(None) is False
+    stds.select()
+    assert [row["name"] for row in stds.get_registered_maps(columns="name")] == [full]
+    stds.delete()
+    region.t_unregister(type="raster3d", maps=full)
+    region.g_remove(flags="f", type="raster_3d", name=full)
