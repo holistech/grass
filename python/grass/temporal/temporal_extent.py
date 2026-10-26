@@ -45,11 +45,13 @@ _STDS_COLUMNS = (
 
 # The order in which temporal_relation() asks the predicates: the first one that
 # holds names the relation. The order matters because the predicates overlap for
-# points and for intervals whose end lies before the start, which the database
-# accepts. A table over the comparisons of the four times gave the same names
-# but needed 72 keys, a second statement of the semantics beside the predicates,
-# and saved 0.4 us per pair (measured 25.10.2026 over the 1764 pairs of the
-# extent test: 0.27 us against 0.67 us), so it was dropped.
+# intervals that start and end at the same time (66 of the 729 pairs of the
+# extent test, counted 26.10.2026 by asking every predicate for every pair). A
+# table over the comparisons of the four times gave the same names but needed
+# 72 keys, a second statement of the semantics beside the predicates, and saved
+# 0.4 us per pair (measured 25.10.2026 over the 1764 pairs the extent test had
+# then, with extents that end before they start: 0.27 us against 0.67 us), so
+# it was dropped.
 _RELATION_ORDER = (
     "equal",
     "during",
@@ -65,6 +67,21 @@ _RELATION_ORDER = (
     "follows",
     "precedes",
 )
+
+
+def _refuse_reversed(extent) -> None:
+    """Raise ValueError if the extent ends before it starts
+
+    Only the constructor and temporal_relation() check. The setters and the
+    predicates do not: t.shift and t.snap set the start and the end one after
+    the other and pass through such a state, and the classic algebra calls the
+    predicates by name.
+    """
+    start = extent.D.get("start_time")
+    end = extent.D.get("end_time")
+    if start is not None and end is not None and end < start:
+        msg = f"End time {end} is before start time {start}"
+        raise ValueError(msg)
 
 
 class TemporalExtent(Row):
@@ -129,11 +146,17 @@ class TemporalExtent(Row):
     )
 
     def __init__(self, table=None, ident=None, start_time=None, end_time=None) -> None:
+        """Constructor
+
+        :raises ValueError: if end_time is before start_time; an extent that
+                            starts and ends at the same time is accepted
+        """
         super().__init__(table, ident)
 
         self.set_id(ident)
         self.set_start_time(start_time)
         self.set_end_time(end_time)
+        _refuse_reversed(self)
 
     def intersect(self, extent):
         """Intersect this temporal extent with the provided temporal extent and
@@ -928,7 +951,10 @@ class TemporalExtent(Row):
         :param extent: The temporal extent
         :return: The name of the temporal relation or None if no relation
                  found
+        :raises ValueError: if one of the extents ends before it starts
         """
+        _refuse_reversed(self)
+        _refuse_reversed(extent)
 
         # First check for correct time
         if "start_time" not in self.D:
@@ -1136,7 +1162,13 @@ class RelativeTemporalExtent(TemporalExtent):
         """Returns the temporal relation between temporal objects
         Temporal relationships are implemented after
         [Allen and Ferguson 1994 Actions and Events in Interval Temporal Logic]
+
+        :raises ValueError: if one of the extents ends before it starts, also
+                            if the units differ
         """
+        # Checked before the units, so that the refusal does not depend on them.
+        _refuse_reversed(self)
+        _refuse_reversed(map)
 
         # Check units for relative time
         if "unit" not in self.D:

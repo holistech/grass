@@ -7,6 +7,7 @@ are needed here.
 import copy
 import itertools
 import pickle
+import re
 from collections import Counter
 from datetime import datetime
 
@@ -14,8 +15,10 @@ import pytest
 
 from grass.temporal.kinds import KINDS
 from grass.temporal.temporal_extent import (
+    AbsoluteTemporalExtent,
     AbsoluteTimeRow,
     RelativeTemporalExtent,
+    RelativeTimeRow,
     TemporalExtent,
 )
 
@@ -37,9 +40,9 @@ CHAIN = (
     "precedes",
 )
 
-# Points, intervals and intervals whose end lies before the start: the
-# database accepts the latter, so the relation has to name them as before.
-EXTENTS = [(start, end) for start in range(6) for end in [None, *range(6)]]
+# Points, intervals and intervals that start and end at the same time. An
+# extent that ends before it starts is refused, see the tests at the end.
+EXTENTS = [(start, end) for start in range(6) for end in [None, *range(start, 6)]]
 
 
 def chain(a, b):
@@ -59,7 +62,10 @@ def test_the_relation_names_every_pair_as_the_chain_of_predicates():
 
 def test_the_relations_of_all_pairs_are_counted_as_before():
     # Counted on 25.10.2026 with the chain of predicates before any change; a
-    # different order of the chain moves pairs from one name to another.
+    # different order of the chain moves pairs from one name to another. Since
+    # an extent that ends before it starts is refused, the pairs with such an
+    # extent are left out; the remaining 729 pairs were counted on 26.10.2026
+    # with the code before the refusal and kept their names.
     names = Counter(
         TemporalExtent(start_time=a, end_time=b).temporal_relation(
             TemporalExtent(start_time=c, end_time=d)
@@ -67,11 +73,11 @@ def test_the_relations_of_all_pairs_are_counted_as_before():
         for (a, b), (c, d) in itertools.product(EXTENTS, EXTENTS)
     )
     assert names == {
-        "after": 550,
-        "before": 400,
-        "contains": 260,
-        "during": 260,
-        "equal": 42,
+        "after": 155,
+        "before": 155,
+        "contains": 70,
+        "during": 70,
+        "equal": 27,
         "finished": 35,
         "finishes": 35,
         "follows": 41,
@@ -155,3 +161,88 @@ def test_extents_survive_copy_and_pickle():
         ):
             assert type(clone) is type(extent)
             assert clone.D == extent.D
+
+
+def refusal(start, end):
+    return pytest.raises(
+        ValueError, match=re.escape(f"End time {end} is before start time {start}")
+    )
+
+
+@pytest.mark.parametrize(
+    ("start", "end"), [(5, 3), (datetime(2001, 1, 5), datetime(2001, 1, 3))]
+)
+def test_a_reversed_extent_is_refused(start, end):
+    with refusal(start, end):
+        TemporalExtent(start_time=start, end_time=end)
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: AbsoluteTemporalExtent(
+            start_time=datetime(2001, 1, 5), end_time=datetime(2001, 1, 3)
+        ),
+        lambda: RelativeTemporalExtent(start_time=5, end_time=3, unit="days"),
+        lambda: AbsoluteTimeRow(
+            KINDS["strds"],
+            start_time=datetime(2001, 1, 5),
+            end_time=datetime(2001, 1, 3),
+        ),
+        lambda: RelativeTimeRow(KINDS["raster"], start_time=5, end_time=3, unit="days"),
+    ],
+    ids=["absolute", "relative", "absolute row", "relative row"],
+)
+def test_the_subclasses_refuse_a_reversed_extent(build):
+    with pytest.raises(ValueError, match="is before start time"):
+        build()
+
+
+def test_an_extent_that_starts_and_ends_at_once_is_accepted():
+    extent = TemporalExtent(start_time=5, end_time=5)
+
+    assert (extent.get_start_time(), extent.get_end_time()) == (5, 5)
+
+
+def reversed_by_setter(extent):
+    # The setters do not check: t.shift and t.snap set the start and the end
+    # one after the other and pass through such a state.
+    extent.set_end_time(3)
+    return extent
+
+
+@pytest.mark.parametrize(
+    ("build", "other"),
+    [
+        (
+            lambda: TemporalExtent(start_time=5, end_time=6),
+            lambda: TemporalExtent(start_time=1, end_time=2),
+        ),
+        (
+            lambda: RelativeTemporalExtent(start_time=5, end_time=6, unit="days"),
+            lambda: RelativeTemporalExtent(start_time=1, end_time=2, unit="days"),
+        ),
+        # Different units have no relation, a reversed extent is refused anyway.
+        (
+            lambda: RelativeTemporalExtent(start_time=5, end_time=6, unit="days"),
+            lambda: RelativeTemporalExtent(start_time=1, end_time=2, unit="years"),
+        ),
+    ],
+    ids=["plain", "relative", "relative other unit"],
+)
+def test_the_relation_of_a_reversed_extent_is_refused(build, other):
+    reversed_extent = reversed_by_setter(build())
+
+    with refusal(5, 3):
+        reversed_extent.temporal_relation(other())
+    with refusal(5, 3):
+        other().temporal_relation(reversed_extent)
+
+
+def test_the_predicates_of_a_reversed_extent_still_answer():
+    # The classic algebra calls the predicates by name; they stay unchecked.
+    reversed_extent = reversed_by_setter(TemporalExtent(start_time=5, end_time=6))
+    other = TemporalExtent(start_time=1, end_time=2)
+
+    assert reversed_extent.after(other)
+    assert not reversed_extent.before(other)

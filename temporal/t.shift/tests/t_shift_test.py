@@ -217,6 +217,43 @@ def test_relative_time_adds_the_number(tools, prefix, granularity, expected):
     assert _times(tools, name) == expected
 
 
+# The library refuses an extent that ends before it starts. A shift sets the
+# start of a map before its end, so a one-day map moved ten days forward ends
+# before it starts in between. The shift and a snap afterwards must still work.
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("times", "options", "granularity", "shifted", "snapped"),
+    [
+        (
+            [(day(0), day(1)), (day(2), day(3))],
+            {},
+            "10 days",
+            [(_text(10), _text(11)), (_text(12), _text(13))],
+            [(_text(10), _text(12)), (_text(12), _text(13))],
+        ),
+        (
+            [(0, 1), (2, 3)],
+            {"temporaltype": "relative", "unit": "days"},
+            "10",
+            [(10, 11), (12, 13)],
+            [(10, 12), (12, 13)],
+        ),
+    ],
+    ids=["absolute", "relative"],
+)
+def test_a_shift_beyond_the_length_of_the_maps_and_a_snap_afterwards(
+    tools, prefix, times, options, granularity, shifted, snapped
+):
+    name = create_timed_stds(tools, prefix, times, **options)
+
+    tools.t_shift(input=name, granularity=granularity)
+    assert _times(tools, name) == shifted
+
+    # Snapping sets the end of the first map to the start of the second one.
+    tools.t_snap(input=name)
+    assert _times(tools, name) == snapped
+
+
 @pytest.mark.parametrize(
     "granularity", ["1.5 days", "abc", "1 fortnight", "5", "1 days, 2 fortnights"]
 )
