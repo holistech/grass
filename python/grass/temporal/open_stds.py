@@ -183,14 +183,14 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
             msgr.fatal(
                 _("Space time datasets can only be created in the current mapset"),
             )
-        id = f"{name}@{mapset}"
+        id_ = f"{name}@{mapset}"
     else:
-        id = f"{name}@{get_current_mapset()}"
+        id_ = f"{name}@{get_current_mapset()}"
 
     if find_kind(stds_type) is None:
         msgr.error(_("Unknown type: %s") % (stds_type))
         return None
-    sp = dataset_factory(stds_kind_of(stds_type).name, id)
+    sp = dataset_factory(stds_kind_of(stds_type).name, id_)
 
     with connection(dbif) as dbif:
         if sp.is_in_db(dbif) and overwrite is False:
@@ -246,9 +246,9 @@ def open_new_stds(
                 )
                 % {"sp": sp.get_new_map_instance(None).get_type(), "name": name},
             )
-            id = sp.get_id()
+            id_ = sp.get_id()
             sp.delete(dbif)
-            sp = sp.get_new_instance(id)
+            sp = sp.get_new_instance(id_)
 
         msgr.verbose(
             _("Creating a new space time %s dataset")

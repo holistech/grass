@@ -52,6 +52,13 @@ def _connected(dbif: SQLDatabaseInterfaceConnection | None) -> Iterator:
 
 
 class DictSQLSerializer:
+    """A dictionary of column values that is written as SQL statements
+
+    ``serialize`` makes SELECT, INSERT and UPDATE statements with the
+    placeholders of the paramstyle of the database module, and ``deserialize``
+    reads a row back.
+    """
+
     def __init__(self) -> None:
         self.D = {}
         self.dbmi_paramstyle = get_tgis_dbmi_paramstyle()
@@ -98,11 +105,11 @@ class DictSQLSerializer:
         if type == "SELECT":
             sql += "SELECT "
             count = 0
-            for key in self.D.keys():
+            for key in self.D:
                 if count == 0:
-                    sql += " %s " % key
+                    sql += f" {key} "
                 else:
-                    sql += " , %s " % key
+                    sql += f" , {key} "
                 count += 1
             sql += " FROM " + table + " "
             if where:
@@ -113,16 +120,16 @@ class DictSQLSerializer:
         if type == "INSERT":
             count = 0
             sql += "INSERT INTO " + table + " ("
-            for key in self.D.keys():
+            for key in self.D:
                 if count == 0:
-                    sql += " %s " % key
+                    sql += f" {key} "
                 else:
-                    sql += " ,%s " % key
+                    sql += f" ,{key} "
                 count += 1
 
             count = 0
             sql += ") VALUES ("
-            for key in self.D.keys():
+            for key in self.D:
                 if count == 0:
                     if self.dbmi_paramstyle == "qmark":
                         sql += "?"
@@ -144,20 +151,20 @@ class DictSQLSerializer:
         if type == "UPDATE":
             count = 0
             sql += "UPDATE " + table + " SET "
-            for key in self.D.keys():
+            for key in self.D:
                 # Update only entries which are not None
                 if self.D[key] is not None:
                     if count == 0:
                         if self.dbmi_paramstyle == "qmark":
-                            sql += " %s = ? " % key
+                            sql += f" {key} = ? "
                         else:
-                            sql += " %s " % key
+                            sql += f" {key} "
                             sql += "= %s "
                     else:  # noqa: PLR5501
                         if self.dbmi_paramstyle == "qmark":
-                            sql += " ,%s = ? " % key
+                            sql += f" ,{key} = ? "
                         else:
-                            sql += " ,%s " % key
+                            sql += f" ,{key} "
                             sql += "= %s "
                     count += 1
                     args.append(self.D[key])
@@ -169,18 +176,18 @@ class DictSQLSerializer:
         if type == "UPDATE ALL":
             count = 0
             sql += "UPDATE " + table + " SET "
-            for key in self.D.keys():
+            for key in self.D:
                 if count == 0:
                     if self.dbmi_paramstyle == "qmark":
-                        sql += " %s = ? " % key
+                        sql += f" {key} = ? "
                     else:
-                        sql += " %s " % key
+                        sql += f" {key} "
                         sql += "= %s "
                 else:  # noqa: PLR5501
                     if self.dbmi_paramstyle == "qmark":
-                        sql += " ,%s = ? " % key
+                        sql += f" ,{key} = ? "
                     else:
-                        sql += " ,%s " % key
+                        sql += f" ,{key} "
                         sql += "= %s "
                 count += 1
                 args.append(self.D[key])
@@ -197,7 +204,8 @@ class DictSQLSerializer:
         :param row: The dictionary like row to store in the internal dict
         """
         self.D = {}
-        for key in row.keys():
+        # A sqlite3.Row iterates over its values, only keys() gives the names.
+        for key in row.keys():  # noqa: SIM118
             self.D[key] = row[key]
 
     def clear(self) -> None:
@@ -266,7 +274,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         :param ident: The identifier (primary key) of this
                       object in the database table
         """
-        DictSQLSerializer.__init__(self)
+        super().__init__()
 
         self.table = table  # Name of the table, set in the subclass
         self.ident = ident
@@ -310,7 +318,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         where no argument can be bound. Statements that are executed on their
         own bind the identifier as argument.
         """
-        return "'%s'" % str(ident).replace("'", "''")
+        return "'{}'".format(str(ident).replace("'", "''"))
 
     def _where_id(self, ident):
         """Return the where statement for an identifier and its argument"""
@@ -403,7 +411,7 @@ class SQLDatabaseInterface(DictSQLSerializer):
         if mapset is None:
             mapset = self.mapset
 
-        self.msgr.debug(2, "SQLDatabaseInterface.select() from mapset %s" % mapset)
+        self.msgr.debug(2, f"SQLDatabaseInterface.select() from mapset {mapset}")
 
         # The statement always has the identifier as argument.
         with _connected(dbif) as dbif:

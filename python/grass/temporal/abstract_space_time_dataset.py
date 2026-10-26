@@ -50,7 +50,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     """
 
     def __init__(self, ident) -> None:
-        AbstractDataset.__init__(self)
+        super().__init__()
         self.reset(ident)
         self.map_counter = 0
 
@@ -71,7 +71,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         dataset_name = super().get_name()
 
         if semantic_label and self.semantic_label:
-            return "{}.{}".format(dataset_name, self.semantic_label)
+            return f"{dataset_name}.{self.semantic_label}"
 
         return dataset_name
 
@@ -247,7 +247,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         """
         # The grass module
 
-        command = "# %s \n" % (str(datetime.today().strftime("%Y-%m-%d %H:%M:%S")))
+        command = "# {} \n".format(str(datetime.today().strftime("%Y-%m-%d %H:%M:%S")))
         command += os.path.basename(sys.argv[0])
 
         # We will wrap the command line to fit into 80 character
@@ -270,13 +270,13 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                     else:
                         second += "=" + t
 
-                token = '%s="%s"' % (first, second)
+                token = f'{first}="{second}"'
 
             if length + len(token) >= 76:
-                command += "\n    %s" % (token)
+                command += f"\n    {token}"
                 length = len(token) + 4
             else:
-                command += " %s" % (token)
+                command += f" {token}"
                 length += len(token) + 1
 
         command += "\n"
@@ -649,16 +649,16 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                             end = start2
                             start = end1 if end1 is not None else start1
 
-                            map = self.get_new_map_instance(None)
+                            map_ = self.get_new_map_instance(None)
 
                             if self.is_time_absolute():
-                                map.set_absolute_time(start, end)
+                                map_.set_absolute_time(start, end)
                             elif self.is_time_relative():
-                                map.set_relative_time(
+                                map_.set_relative_time(
                                     start, end, self.get_relative_time_unit()
                                 )
-                            map.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
-                            obj_list.append(copy.copy(map))
+                            map_.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
+                            obj_list.append(copy.copy(map_))
 
             return obj_list
 
@@ -725,18 +725,18 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 # check keys in first row
                 # note that 'if "bottom" in row' does not work
                 # because row is not a dict but some db backend object
-                has_bt_columns = "bottom" in rows[0].keys()
-                has_semantic_label = "semantic_label" in rows[0].keys()
+                has_bt_columns = "bottom" in rows[0].keys()  # noqa: SIM118
+                has_semantic_label = "semantic_label" in rows[0].keys()  # noqa: SIM118
             else:
                 return obj_list
 
             for row in rows:
-                map = self.get_new_map_instance(row["id"])
+                map_ = self.get_new_map_instance(row["id"])
                 # time
                 if self.is_time_absolute():
-                    map.set_absolute_time(row["start_time"], row["end_time"])
+                    map_.set_absolute_time(row["start_time"], row["end_time"])
                 elif self.is_time_relative():
-                    map.set_relative_time(
+                    map_.set_relative_time(
                         row["start_time"],
                         row["end_time"],
                         self.get_relative_time_unit(),
@@ -744,7 +744,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 # space
                 # The fast way
                 if has_bt_columns:
-                    map.set_spatial_extent_from_values(
+                    map_.set_spatial_extent_from_values(
                         west=row["west"],
                         east=row["east"],
                         south=row["south"],
@@ -754,7 +754,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                     )
                 # The slow work around
                 else:
-                    map.spatial_extent.select(dbif)
+                    map_.spatial_extent.select(dbif)
 
                 # labels
                 if (
@@ -762,9 +762,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                     and row["semantic_label"] is not None
                     and row["semantic_label"] != "None"
                 ):
-                    map.metadata.set_semantic_label(row["semantic_label"])
+                    map_.metadata.set_semantic_label(row["semantic_label"])
 
-                obj_list.append(copy.copy(map))
+                obj_list.append(copy.copy(map_))
 
             return obj_list
 
@@ -782,7 +782,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             try:
                 if value.startswith("0"):
                     return value.lstrip("0")
-                return "{0:02d}".format(int(value))
+                return f"{int(value):02d}"
             except ValueError:
                 return None
 
@@ -801,15 +801,15 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         # be case-insensitive
         if "_" in self.semantic_label:
             # fully-qualified semantic label, do not modify
-            where += "semantic_label IN ('{}'".format(text(self.semantic_label))
+            where += f"semantic_label IN ('{text(self.semantic_label)}'"
 
             # be zero-padding less sensitive
             try:
                 shortcut, identifier = self.semantic_label.split("_", -1)
                 identifier_zp = leading_zero(identifier)
                 if identifier_zp:
-                    where += ", '{fl}_{zp}'".format(
-                        fl=text(shortcut.upper()), zp=text(identifier_zp.upper())
+                    where += (
+                        f", '{text(shortcut.upper())}_{text(identifier_zp.upper())}'"
                     )
             except ValueError:
                 # any number of "_" is allowed in semantic labels
@@ -832,7 +832,7 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                     )
                 )
             else:
-                where += "semantic_label = '{}'".format(text(self.semantic_label))
+                where += f"semantic_label = '{text(self.semantic_label)}'"
 
         return where
 
@@ -1119,9 +1119,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
             # We need to rename the space time dataset in the maps register table
             if maps:
-                for map in maps:
-                    map.remove_stds_from_register(stds_id=old_ident, dbif=dbif)
-                    map.add_stds_to_register(stds_id=ident, dbif=dbif)
+                for map_ in maps:
+                    map_.remove_stds_from_register(stds_id=old_ident, dbif=dbif)
+                    map_.add_stds_to_register(stds_id=ident, dbif=dbif)
 
             # Execute the accumulated statements
             dbif.execute_transaction(statement)
@@ -1176,9 +1176,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 if rows is not None:
                     for row in rows:
                         # Unregister map
-                        map = self.get_new_map_instance(row["id"])
+                        map_ = self.get_new_map_instance(row["id"])
                         statement += self.unregister_map(
-                            map=map, dbif=dbif, execute=False
+                            map=map_, dbif=dbif, execute=False
                         )
 
                 # Safe the DROP table statement

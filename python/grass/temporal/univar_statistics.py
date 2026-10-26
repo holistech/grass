@@ -52,7 +52,7 @@ def compute_univar_stats(
            Only available for strds.
     :param output_format: Output format specification
     """
-    id = registered_map_info["id"]
+    id_ = registered_map_info["id"]
     start = registered_map_info["start_time"]
     end = registered_map_info["end_time"]
     semantic_label = (
@@ -64,18 +64,18 @@ def compute_univar_stats(
     if stats_module.name == "r.univar":
         stats_module.inputs.nprocs = 1
 
-    stats_module.inputs.map = id
+    stats_module.inputs.map = id_
     if rast_region and (stats_module.inputs.zones or stats_module.name == "r3.univar"):
-        stats_module.env = gs.region_env(raster=id)
+        stats_module.env = gs.region_env(raster=id_)
     stats_module.run()
 
     univar_stats = stats_module.outputs.stdout
 
     if not univar_stats:
         gs.warning(
-            _("Unable to get statistics for raster map <%s>") % id
+            _("Unable to get statistics for raster map <%s>") % id_
             if stats_module.name == "r.univar"
-            else _("Unable to get statistics for 3d raster map <%s>") % id
+            else _("Unable to get statistics for 3d raster map <%s>") % id_
         )
         return None
 
@@ -83,7 +83,7 @@ def compute_univar_stats(
         try:
             stats = json.loads(univar_stats)
         except ValueError:
-            gs.warning(_("Unable to parse JSON output for map <%s>") % id)
+            gs.warning(_("Unable to parse JSON output for map <%s>") % id_)
             return None
 
         if isinstance(stats, dict):
@@ -92,7 +92,7 @@ def compute_univar_stats(
         processed_stats = []
         for s in stats:
             new_s = {
-                "id": id,
+                "id": id_,
                 "semantic_label": semantic_label
                 if stats_module.name == "r.univar" and semantic_label
                 else None,
@@ -111,9 +111,9 @@ def compute_univar_stats(
         return ""
 
     prefix = (
-        f"{id}{fs}{semantic_label}{fs}{start}{fs}{end}"
+        f"{id_}{fs}{semantic_label}{fs}{start}{fs}{end}"
         if stats_module.name == "r.univar"
-        else f"{id}{fs}{start}{fs}{end}"
+        else f"{id_}{fs}{start}{fs}{end}"
     )
 
     output_rows = []
@@ -361,14 +361,14 @@ def print_vector_dataset_univar_statistics(
 
         mapset = get_current_mapset()
 
-        id = input if input.find("@") >= 0 else input + "@" + mapset
+        id_ = input if input.find("@") >= 0 else input + "@" + mapset
 
-        sp = dataset_factory("stvds", id)
+        sp = dataset_factory("stvds", id_)
 
         if sp.is_in_db(dbif) is False:
             msgr.fatal(
                 _("Space time %(sp)s dataset <%(i)s> not found")
-                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
+                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id_}
             )
 
         sp.select(dbif)
@@ -380,7 +380,7 @@ def print_vector_dataset_univar_statistics(
         if not rows:
             msgr.fatal(
                 _("Space time %(sp)s dataset <%(i)s> is empty")
-                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id}
+                % {"sp": sp.get_new_map_instance(None).get_type(), "i": id_}
             )
 
         string = ""
@@ -439,7 +439,7 @@ def print_vector_dataset_univar_statistics(
                 out_file.write(string + "\n")
 
         for row in rows:
-            id = row["name"] + "@" + row["mapset"]
+            id_ = row["name"] + "@" + row["mapset"]
             start = row["start_time"]
             end = row["end_time"]
             mylayer = row["layer"]
@@ -455,7 +455,7 @@ def print_vector_dataset_univar_statistics(
             try:
                 stats = gs.parse_command(
                     "v.univar",
-                    map=id,
+                    map=id_,
                     where=where,
                     column=column,
                     layer=mylayer,
@@ -465,15 +465,15 @@ def print_vector_dataset_univar_statistics(
             except CalledModuleError as error:
                 if output is not None:
                     out_file.close()
-                msgr.fatal(_("Error running v.univar on <{}>: {}").format(id, error))
+                msgr.fatal(_("Error running v.univar on <{}>: {}").format(id_, error))
 
             string = ""
 
             if not stats:
-                gs.warning(_("Unable to get statistics for vector map <%s>") % id)
+                gs.warning(_("Unable to get statistics for vector map <%s>") % id_)
                 continue
 
-            string += str(id) + fs + str(start) + fs + str(end)
+            string += str(id_) + fs + str(start) + fs + str(end)
             string += (
                 fs
                 + str(stats["n"])

@@ -395,26 +395,26 @@ def _init_text(sp, format_: str, rows) -> str:
     string = ""
     # This is optional, if not present strds will be assumed for backward
     # compatibility
-    string += "%s=%s\n" % ("stds_type", sp.get_type())
+    string += "{}={}\n".format("stds_type", sp.get_type())
     # This is optional, if not present gtiff will be assumed for
     # backward compatibility
-    string += "%s=%s\n" % ("format", format_)
-    string += "%s=%s\n" % ("temporal_type", sp.get_temporal_type())
-    string += "%s=%s\n" % ("semantic_type", sp.get_semantic_type())
+    string += "{}={}\n".format("format", format_)
+    string += "{}={}\n".format("temporal_type", sp.get_temporal_type())
+    string += "{}={}\n".format("semantic_type", sp.get_semantic_type())
     if sp.is_time_relative():
-        string += "%s=%s\n" % ("relative_time_unit", sp.get_relative_time_unit())
+        string += "{}={}\n".format("relative_time_unit", sp.get_relative_time_unit())
     # replace sp.metadata.get_number_of_maps() with len(rows)
     # sp.metadata.get_number_of_maps() doesn't  work with where option
-    string += "%s=%s\n" % ("number_of_maps", len(rows))
+    string += "{}={}\n".format("number_of_maps", len(rows))
     # The extent of the selected maps; the dataset's own extent covers
     # maps that where= left out.
     north, south, east, west, top, bottom = (
         _extent_of_maps(rows) or sp.get_spatial_extent_as_tuple()
     )
-    string += "%s=%s\n" % ("north", north)
-    string += "%s=%s\n" % ("south", south)
-    string += "%s=%s\n" % ("east", east)
-    string += "%s=%s\n" % ("west", west)
+    string += "{}={}\n".format("north", north)
+    string += "{}={}\n".format("south", south)
+    string += "{}={}\n".format("east", east)
+    string += "{}={}\n".format("west", west)
     return string
 
 

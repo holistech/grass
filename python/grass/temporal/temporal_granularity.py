@@ -1000,7 +1000,7 @@ def gran_singular_unit(gran):
             return unit[:-1]
         if unit in SINGULAR_GRAN:
             return unit
-        lists = "{gr}".format(gr=SUPPORTED_GRAN).replace("[", "").replace("]", "")
+        lists = f"{SUPPORTED_GRAN}".replace("[", "").replace("]", "")
         print(
             _(
                 "Output granularity seems not to be valid. Please use "

@@ -142,7 +142,7 @@ class SpatialExtent(Row):
         bottom=None,
         proj="XY",
     ) -> None:
-        Row.__init__(self, table, ident)
+        super().__init__(table, ident)
         self.set_id(ident)
         self.set_spatial_extent_from_values(north, south, east, west, top, bottom)
         self.set_projection(proj)
@@ -1409,8 +1409,7 @@ class SpatialExtentRow(SpatialExtent):
         top=None,
         bottom=None,
     ) -> None:
-        SpatialExtent.__init__(
-            self,
+        super().__init__(
             kind.table("spatial_extent"),
             ident,
             north,

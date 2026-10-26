@@ -218,11 +218,8 @@ def modify_datetime_by_string(
         months = 0
         years = 0
 
-        inclist = []
         # Split the increment string
-        incparts = increment.split(",")
-        for incpart in incparts:
-            inclist.append(incpart.strip().split(" "))
+        inclist = [incpart.strip().split(" ") for incpart in increment.split(",")]
 
         for inc in inclist:
             msgr = get_tgis_message_interface()
@@ -454,11 +451,8 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
         months = mydate.month
         years = mydate.year
 
-        granlist = []
         # Split the increment string
-        granparts = granularity.split(",")
-        for granpart in granparts:
-            granlist.append(granpart.strip().split(" "))
+        granlist = [granpart.strip().split(" ") for granpart in granularity.split(",")]
 
         for inc in granlist:
             if inc[1].find("seconds") >= 0 or inc[1].find("second") >= 0:
@@ -816,7 +810,9 @@ def check_datetime_string(time_string: str, use_dateutil: bool = True):
 
         try:
             time_object = parser.parse(time_string)
-        except Exception as inst:
+        except (ValueError, OverflowError) as inst:
+            # The parser reports a text it cannot read as a ParserError, a
+            # ValueError, and a number out of range as an OverflowError.
             time_object = str(inst)
         return time_object
 
@@ -929,29 +925,17 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
         # GRASS reads the offset as hours and minutes (+0545 is 5:45), so the
         # minutes of the offset must not be written as one number.
         offset_minutes = int(dt.utcoffset().total_seconds() // 60)
-        tz = "%s%02i%02i" % (
-            "-" if offset_minutes < 0 else "+",
-            abs(offset_minutes) // 60,
-            abs(offset_minutes) % 60,
-        )
+        sign = "-" if offset_minutes < 0 else "+"
+        tz = f"{sign}{abs(offset_minutes) // 60:02d}{abs(offset_minutes) % 60:02d}"
 
-        string = "%.2i %s %.2i %.2i:%.2i:%.2i %s" % (
-            dt.day,
-            month_names[dt.month],
-            dt.year,
-            dt.hour,
-            dt.minute,
-            dt.second,
-            tz,
+        string = (
+            f"{dt.day:02d} {month_names[dt.month]} {dt.year:02d} "
+            f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d} {tz}"
         )
     else:
-        string = "%.2i %s %.4i %.2i:%.2i:%.2i" % (
-            dt.day,
-            month_names[dt.month],
-            dt.year,
-            dt.hour,
-            dt.minute,
-            dt.second,
+        string = (
+            f"{dt.day:02d} {month_names[dt.month]} {dt.year:04d} "
+            f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
         )
 
     return string
@@ -1016,7 +1000,7 @@ def create_time_suffix(mapp, end: bool = False) -> str:
     if end:
         end = mapp.temporal_extent.get_end_time()
         estring = end.isoformat().replace(":", "_").replace("-", "_")
-        return "{st}_{en}".format(st=sstring, en=estring)
+        return f"{sstring}_{estring}"
     return sstring
 
 
@@ -1029,14 +1013,10 @@ def create_numeric_suffix(base, count: int, zeros: str) -> str:
                   like "%05"
     """
     spli = zeros.split("%")
-    if len(spli) == 2:
-        suff = spli[1]
-        if suff.isdigit():
-            zero = suff if int(suff[0]) == 0 else "0{nu}".format(nu=suff)
-        else:
-            zero = "05"
-    else:
-        zero = "05"
+    suff = spli[1] if len(spli) == 2 else ""
+    zero = "05"
+    if suff.isdigit():
+        zero = suff if int(suff[0]) == 0 else f"0{suff}"
     s = "{ba}_{i:" + zero + "d}"
     return s.format(ba=base, i=count)
 

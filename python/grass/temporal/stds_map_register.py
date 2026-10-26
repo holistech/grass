@@ -196,8 +196,7 @@ class StdsMapRegister:
 
         stds.msgr.debug(
             1,
-            "Register %s map %s in space time %s dataset <%s>"
-            % (map_.get_type(), describe_map(map_), map_.get_type(), stds.get_id()),
+            f"Register {map_.get_type()} map {describe_map(map_)} in space time {map_.get_type()} dataset <{stds.get_id()}>",
         )
 
         # First select all data from the database in the current mapset
@@ -295,7 +294,7 @@ class StdsMapRegister:
         mapset = get_current_mapset()
 
         if stds.get_mapset() != mapset:
-            stds.msgr.debug(1, "STDS name <%s>" % stds.get_name())
+            stds.msgr.debug(1, f"STDS name <{stds.get_name()}>")
             stds.msgr.fatal(
                 _("Maps can only unregistered in a database in the current mapset")
             )

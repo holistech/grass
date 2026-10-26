@@ -440,9 +440,9 @@ def get_dataset_list(
                         # In brackets: an OR in the condition would otherwise
                         # take the rows of every mapset
                         sql += f" WHERE ({where})"
-                        sql += " AND mapset = '%s'" % (mapset)
+                        sql += f" AND mapset = '{mapset}'"
                     else:
-                        sql += " WHERE mapset = '%s'" % (mapset)
+                        sql += f" WHERE mapset = '{mapset}'"
 
                     if order:
                         sql += " ORDER BY " + order
@@ -864,9 +864,8 @@ def list_maps_of_stds(
         else:
             output_format = "plain"
 
-    if columns:
-        if isinstance(columns, str):
-            columns = columns.split(",")
+    if columns and isinstance(columns, str):
+        columns = columns.split(",")
 
     try:
         rows, columns = _get_list_of_maps_stds(

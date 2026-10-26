@@ -68,7 +68,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
     """
 
     def __init__(self) -> None:
-        AbstractDataset.__init__(self)
+        super().__init__()
 
     @property
     def ciface(self):
@@ -144,13 +144,13 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             start = datetime_to_grass_datetime_string(start_time)
             if end_time is not None:
                 end = datetime_to_grass_datetime_string(end_time)
-                start += " / %s" % (end)
+                start += f" / {end}"
         else:
             start_time, end_time, unit = self.get_relative_time()
-            start = "%i %s" % (int(start_time), unit)
+            start = f"{int(start_time)} {unit}"
             if end_time is not None:
-                end = "%i %s" % (int(end_time), unit)
-                start += " / %s" % (end)
+                end = f"{int(end_time)} {unit}"
+                start += f" / {end}"
 
         return start
 
@@ -325,7 +325,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                 if count == 0:
                     string += ds
                 else:
-                    string += ",%s" % ds
+                    string += f",{ds}"
                 count += 1
         print(" | Registered datasets ........ " + string)
         print(
@@ -346,7 +346,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                 if count == 0:
                     string += ds
                 else:
-                    string += ",%s" % ds
+                    string += f",{ds}"
                 count += 1
             print("registered_datasets=" + string)
 
@@ -943,16 +943,15 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         if start is None:
             self.msgr.error(_("Map <%s> has incorrect start time") % self.get_map_id())
             return False
-        if end is not None:
-            if start >= end:
-                self.msgr.error(
-                    _(
-                        "Map %s has incorrect time interval, start time is "
-                        "greater than end time"
-                    )
-                    % describe_map(self)
+        if end is not None and start >= end:
+            self.msgr.error(
+                _(
+                    "Map %s has incorrect time interval, start time is "
+                    "greater than end time"
                 )
-                return False
+                % describe_map(self)
+            )
+            return False
 
         return True
 
@@ -1052,20 +1051,14 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         if self.get_layer() is not None:
             self.msgr.debug(
                 1,
-                "Unregister %(type)s map <%(map)s> with "
-                "layer %(layer)s from space time datasets"
-                % {
-                    "type": self.get_type(),
-                    "map": self.get_map_id(),
-                    "layer": self.get_layer(),
-                },
+                f"Unregister {self.get_type()} map <{self.get_map_id()}> with "
+                f"layer {self.get_layer()} from space time datasets",
             )
         else:
             self.msgr.debug(
                 1,
-                "Unregister %(type)s map <%(map)s> "
-                "from space time datasets"
-                % {"type": self.get_type(), "map": self.get_map_id()},
+                f"Unregister {self.get_type()} map <{self.get_map_id()}> "
+                "from space time datasets",
             )
 
         mapset = get_current_mapset()

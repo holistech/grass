@@ -93,7 +93,7 @@ class MapDataset(AbstractMapDataset):
         _register(cls)
 
     def __init__(self, ident) -> None:
-        AbstractMapDataset.__init__(self)
+        super().__init__()
         self.reset(ident)
 
     def is_stds(self) -> bool:

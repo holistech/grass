@@ -128,9 +128,9 @@ def sample_stds_by_stds_topology(
 
     sts = []
 
-    for input in inputs:
-        id = input if input.find("@") >= 0 else input + "@" + mapset
-        st = dataset_factory(intype, id)
+    for input_ in inputs:
+        id_ = input_ if input_.find("@") >= 0 else input_ + "@" + mapset
+        st = dataset_factory(intype, id_)
         sts.append(st)
 
     sid = sampler if sampler.find("@") >= 0 else sampler + "@" + mapset
@@ -184,13 +184,13 @@ def sample_stds_by_stds_topology(
 
         if header:
             string = ""
-            string += "%s%s" % (sst.get_id(), separator)
+            string += f"{sst.get_id()}{separator}"
             for st in sts:
-                string += "%s%s" % (st.get_id(), separator)
-            string += "%s%s" % ("start_time", separator)
-            string += "%s%s" % ("end_time", separator)
-            string += "%s%s" % ("interval_length", separator)
-            string += "%s" % ("distance_from_begin")
+                string += f"{st.get_id()}{separator}"
+            string += "{}{}".format("start_time", separator)
+            string += "{}{}".format("end_time", separator)
+            string += "{}{}".format("interval_length", separator)
+            string += "{}".format("distance_from_begin")
             print(string)
 
         first_time, dummy = mapmatrizes[0][0]["granule"].get_temporal_extent_as_tuple()
@@ -205,30 +205,30 @@ def sample_stds_by_stds_topology(
                     if count == 0:
                         mapnames += str(sample.get_id())
                     else:
-                        mapnames += ",%s" % str(sample.get_id())
+                        mapnames += f",{sample.get_id()!s}"
                     count += 1
                 mapname_list.append(mapnames)
 
             entry = mapmatrizes[0][i]
-            map = entry["granule"]
+            map_ = entry["granule"]
 
-            start, end = map.get_temporal_extent_as_tuple()
+            start, end = map_.get_temporal_extent_as_tuple()
             delta = end - start if end else None
             delta_first = start - first_time
 
-            if map.is_time_absolute():
+            if map_.is_time_absolute():
                 if end:
                     delta = time_delta_to_relative_time(delta)
                 delta_first = time_delta_to_relative_time(delta_first)
 
             string = ""
-            string += "%s%s" % (map.get_id(), separator)
+            string += f"{map_.get_id()}{separator}"
             for mapnames in mapname_list:
-                string += "%s%s" % (mapnames, separator)
-            string += "%s%s" % (start, separator)
-            string += "%s%s" % (end, separator)
-            string += "%s%s" % (delta, separator)
-            string += "%s" % (delta_first)
+                string += f"{mapnames}{separator}"
+            string += f"{start}{separator}"
+            string += f"{end}{separator}"
+            string += f"{delta}{separator}"
+            string += f"{delta_first}"
             print(string)
 
     dbif.close()

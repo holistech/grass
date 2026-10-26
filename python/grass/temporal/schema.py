@@ -69,10 +69,12 @@ def get_tgis_metadata(dbif=None):
 
 
 def get_sql_template_path() -> str:
+    """Return the directory of the SQL files that create the temporal database"""
     return str(Path(os.getenv("GISBASE"), "etc", "sql"))
 
 
 def get_database_info_string():
+    """Return the database module and the database string as text"""
     dbif = SQLDatabaseInterfaceConnection()
 
     info = "\nDBMI interface:..... " + str(dbif.get_dbmi().__name__)
@@ -143,7 +145,7 @@ def create_temporal_database(dbif) -> None:
         tgis_dir = Path(STATE.database_string).parent
         try:
             tgis_dir.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
+        except OSError as e:
             msgr.fatal(
                 _(
                     "Unable to create SQLite temporal database\n"
@@ -234,7 +236,7 @@ def upgrade_temporal_database(dbif) -> None:
     try:
         upgrade_db_sql = (
             template_path
-            / "upgrade_db_{}_to_{}.sql".format(upgrade_db_from, get_tgis_db_version())
+            / f"upgrade_db_{upgrade_db_from}_to_{get_tgis_db_version()}.sql"
         ).read_text()
     except FileNotFoundError:
         msgr.fatal(
@@ -278,6 +280,6 @@ def _create_tgis_metadata_table(content, dbif=None) -> None:
         for key in content:
             statement = (
                 "INSERT INTO tgis_metadata (key, value) VALUES "
-                + "('%s' , '%s');\n" % (str(key), str(content[key]))
+                f"('{key!s}' , '{content[key]!s}');\n"
             )
             dbif.execute_transaction(statement)

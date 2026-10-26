@@ -376,10 +376,9 @@ def _register_results(output, type, first_name, result_maps, register_null, num)
             if (
                 new_map.metadata.get_min() is None
                 and new_map.metadata.get_max() is None
-            ):
-                if not register_null:
-                    empty_maps.append(new_map)
-                    continue
+            ) and not register_null:
+                empty_maps.append(new_map)
+                continue
             new_map.insert(dbif)
             new_sp.register_map(new_map, dbif)
         new_sp.update_from_registered_maps(dbif)

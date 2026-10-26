@@ -109,7 +109,7 @@ def map_list_string(map_list, line_wrap: bool = True) -> str:
         if count == 0:
             string += map_.get_id()
         else:
-            string += ",%s" % map_.get_id()
+            string += f",{map_.get_id()}"
         count += 1
 
     return string
@@ -1103,7 +1103,7 @@ def count_temporal_topology_relationships(maps1, maps2=None, dbif=None):
         for map_ in tb:
             if relations is not None:
                 r = map_.get_number_of_relations()
-                for k in r.keys():
+                for k in r:
                     relations[k] += r[k]
             else:
                 relations = map_.get_number_of_relations()
@@ -1325,25 +1325,29 @@ def create_temporal_relation_sql_where_statement(
     """  # noqa: E501
 
     where = "("
+    # The relative times are written as whole numbers, as %i did.
+    start_int, end_int = (
+        (int(start), int(end)) if not isinstance(start, datetime) else (None, None)
+    )
 
     if use_start:
         if isinstance(start, datetime):
-            where += "(start_time >= '%s' and start_time < '%s') " % (start, end)
+            where += f"(start_time >= '{start}' and start_time < '{end}') "
         else:
-            where += "(start_time >= %i and start_time < %i) " % (start, end)
+            where += f"(start_time >= {start_int} and start_time < {end_int}) "
 
     if use_during:
         if use_start:
             where += " OR "
 
         if isinstance(start, datetime):
-            where += "((start_time > '%s' and end_time < '%s') OR " % (start, end)
-            where += "(start_time >= '%s' and end_time < '%s') OR " % (start, end)
-            where += "(start_time > '%s' and end_time <= '%s'))" % (start, end)
+            where += f"((start_time > '{start}' and end_time < '{end}') OR "
+            where += f"(start_time >= '{start}' and end_time < '{end}') OR "
+            where += f"(start_time > '{start}' and end_time <= '{end}'))"
         else:
-            where += "((start_time > %i and end_time < %i) OR " % (start, end)
-            where += "(start_time >= %i and end_time < %i) OR " % (start, end)
-            where += "(start_time > %i and end_time <= %i))" % (start, end)
+            where += f"((start_time > {start_int} and end_time < {end_int}) OR "
+            where += f"(start_time >= {start_int} and end_time < {end_int}) OR "
+            where += f"(start_time > {start_int} and end_time <= {end_int}))"
 
     if use_overlap:
         if use_start or use_during:
@@ -1351,23 +1355,21 @@ def create_temporal_relation_sql_where_statement(
 
         if isinstance(start, datetime):
             where += (
-                "((start_time < '%s' and end_time > '%s' and end_time <"
-                " '%s') OR " % (start, start, end)
+                f"((start_time < '{start}' and end_time > '{start}' and end_time <"
+                f" '{end}') OR "
             )
             where += (
-                "(start_time < '%s' and start_time > '%s' and end_time "
-                "> '%s'))" % (end, start, end)
+                f"(start_time < '{end}' and start_time > '{start}' and end_time "
+                f"> '{end}'))"
             )
         else:
-            where += "((start_time < %i and end_time > %i and end_time < %i) OR " % (
-                start,
-                start,
-                end,
+            where += (
+                f"((start_time < {start_int} and end_time > {start_int} and "
+                f"end_time < {end_int}) OR "
             )
-            where += "(start_time < %i and start_time > %i and end_time > %i))" % (
-                end,
-                start,
-                end,
+            where += (
+                f"(start_time < {end_int} and start_time > {start_int} and "
+                f"end_time > {end_int}))"
             )
 
     if use_contain:
@@ -1375,31 +1377,31 @@ def create_temporal_relation_sql_where_statement(
             where += " OR "
 
         if isinstance(start, datetime):
-            where += "((start_time < '%s' and end_time > '%s') OR " % (start, end)
-            where += "(start_time <= '%s' and end_time > '%s') OR " % (start, end)
-            where += "(start_time < '%s' and end_time >= '%s'))" % (start, end)
+            where += f"((start_time < '{start}' and end_time > '{end}') OR "
+            where += f"(start_time <= '{start}' and end_time > '{end}') OR "
+            where += f"(start_time < '{start}' and end_time >= '{end}'))"
         else:
-            where += "((start_time < %i and end_time > %i) OR " % (start, end)
-            where += "(start_time <= %i and end_time > %i) OR " % (start, end)
-            where += "(start_time < %i and end_time >= %i))" % (start, end)
+            where += f"((start_time < {start_int} and end_time > {end_int}) OR "
+            where += f"(start_time <= {start_int} and end_time > {end_int}) OR "
+            where += f"(start_time < {start_int} and end_time >= {end_int}))"
 
     if use_equal:
         if use_start or use_during or use_overlap or use_contain:
             where += " OR "
 
         if isinstance(start, datetime):
-            where += "(start_time = '%s' and end_time = '%s')" % (start, end)
+            where += f"(start_time = '{start}' and end_time = '{end}')"
         else:
-            where += "(start_time = %i and end_time = %i)" % (start, end)
+            where += f"(start_time = {start_int} and end_time = {end_int})"
 
     if use_follows:
         if use_start or use_during or use_overlap or use_contain or use_equal:
             where += " OR "
 
         if isinstance(start, datetime):
-            where += "(start_time = '%s')" % (end)
+            where += f"(start_time = '{end}')"
         else:
-            where += "(start_time = %i)" % (end)
+            where += f"(start_time = {end_int})"
 
     if use_precedes:
         if (
@@ -1413,9 +1415,9 @@ def create_temporal_relation_sql_where_statement(
             where += " OR "
 
         if isinstance(start, datetime):
-            where += "(end_time = '%s')" % (start)
+            where += f"(end_time = '{start}')"
         else:
-            where += "(end_time = %i)" % (start)
+            where += f"(end_time = {start_int})"
 
     where += ")"
 

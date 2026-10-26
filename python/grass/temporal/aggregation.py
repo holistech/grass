@@ -96,11 +96,7 @@ def collect_map_names(sp, dbif, start, end, sampling):
     if not rows:
         return None
 
-    names = []
-    for row in rows:
-        names.append(row["id"])
-
-    return names
+    return [row["id"] for row in rows]
 
 
 ###############################################################################
@@ -139,8 +135,8 @@ def aggregate_raster_maps(
 
     msgr = get_tgis_message_interface()
 
-    msgr.verbose(_("Aggregating %s raster maps") % (len(inputs)))
-    output = "%s_%i" % (base, int(offset) + count)
+    msgr.verbose(_("Aggregating {} raster maps").format(len(inputs)))
+    output = f"{base}_{int(offset) + count}"
 
     mapset = get_current_mapset()
     map_id = output + "@" + mapset
@@ -171,7 +167,7 @@ def aggregate_raster_maps(
     filename = gs.tempfile(True)
     with open(filename, "w") as out_file:
         for name in inputs:
-            string = "%s\n" % (name)
+            string = f"{name}\n"
             out_file.write(string)
 
     # Run r.series
@@ -203,9 +199,12 @@ def aggregate_raster_maps(
     new_map.load()
 
     # In case of a null map continue, do not register null maps
-    if new_map.metadata.get_min() is None and new_map.metadata.get_max() is None:
-        if not register_null:
-            gs.run_command("g.remove", flags="f", type="raster", name=output)
-            return None
+    if (
+        new_map.metadata.get_min() is None
+        and new_map.metadata.get_max() is None
+        and not register_null
+    ):
+        gs.run_command("g.remove", flags="f", type="raster", name=output)
+        return None
 
     return new_map

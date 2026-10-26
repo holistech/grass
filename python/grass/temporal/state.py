@@ -353,9 +353,7 @@ def _start_servers() -> None:
     """Start the messenger and the C-library interface"""
     _init_tgis_message_interface(STATE.raise_on_error)
     _init_tgis_c_library_interface()
-    STATE.message_interface.debug(
-        1, ("Raise on error id: %s" % str(STATE.raise_on_error))
-    )
+    STATE.message_interface.debug(1, (f"Raise on error id: {STATE.raise_on_error!s}"))
     STATE.current_mapset = decode(gs.gisenv().get("MAPSET"))
 
 

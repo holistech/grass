@@ -11,7 +11,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from datetime import datetime
 
 import grass.script as gs
-from grass.exceptions import ScriptError
 
 from .db import connection
 from .factory import dataset_factory
@@ -54,13 +53,7 @@ def tlist_grouped(type, group_type: bool = False, dbif=None):
             else [type_]
         )
         for type_ in types:
-            try:
-                tlist_result = tlist(type=type_, dbif=dbif)
-            except ScriptError as e:
-                gs.warning(e)
-                continue
-
-            for line in tlist_result:
+            for line in tlist(type=type_, dbif=dbif):
                 try:
                     name, mapset = line.split("@")
                 except ValueError:
@@ -97,8 +90,8 @@ def tlist(type, dbif=None):
     :return: a list of space time dataset ids
     """
     type_ = type
-    id = None
-    sp = dataset_factory(type_, id)
+    id_ = None
+    sp = dataset_factory(type_, id_)
     with connection(dbif) as dbif:
         mapsets = dbif.tgis_mapsets
 
@@ -106,7 +99,7 @@ def tlist(type, dbif=None):
         temporal_type = ["absolute", "relative"]
         for type_ in temporal_type:
             # For each available mapset
-            for mapset in mapsets.keys():
+            for mapset in mapsets:
                 # Table name
                 if type_ == "absolute":
                     table = sp.get_type() + "_view_abs_time"
@@ -115,16 +108,14 @@ def tlist(type, dbif=None):
 
                 # Create the sql selection statement
                 sql = "SELECT id FROM " + table
-                sql += " WHERE mapset = '%s'" % (mapset)
+                sql += f" WHERE mapset = '{mapset}'"
                 sql += " ORDER BY id"
 
                 dbif.execute(sql, mapset=mapset)
                 rows = dbif.fetchall(mapset=mapset)
 
                 # Append the ids of the space time datasets
-                for row in rows:
-                    for col in row:
-                        output.append(str(col))
+                output.extend(str(col) for row in rows for col in row)
 
         return output
 

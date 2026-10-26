@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING
 
 from .db import connection
 from .kinds import KINDS
-from .rows import Column, Row, SQLDatabaseInterface, accessor_property
+from .rows import Column, Row, accessor_property
 from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
 from .state import get_tgis_database_string, get_tgis_db_version
 
@@ -327,6 +327,7 @@ class MetadataRow(Row):
     lines: tuple[Line, ...] = ()
 
     def __new__(cls, kind: Kind | None = None, *_args, **_values):
+        """Make the metadata class that belongs to a kind of dataset"""
         # copy and pickle call cls.__new__(cls) of the class that was made, so
         # the kind is only needed to choose that class
         target = _CLASSES[kind.name] if cls is MetadataRow else cls
@@ -345,7 +346,7 @@ class MetadataRow(Row):
                            name of a column the database computes
         """
         self.kind = kind
-        SQLDatabaseInterface.__init__(self, kind.table("metadata"), ident)
+        super().__init__(kind.table("metadata"), ident)
 
         self.set_id(ident)
         for column in self.columns:
@@ -369,11 +370,11 @@ class MetadataRow(Row):
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
-        self._print(shell=False)
+        self._print(False)
 
     def print_shell_info(self) -> None:
         """Print information about this class in shell style"""
-        self._print(shell=True)
+        self._print(True)
 
     def _print(self, shell: bool) -> None:
         """Print the lines of the type, without the header in shell style"""
@@ -460,12 +461,12 @@ class _SemanticLabelsMetadata:
         if self.get_raster_register() is None:
             return None
 
-        sql = "SELECT distinct semantic_label FROM %s WHERE %s.id " % (
+        sql = "SELECT distinct semantic_label FROM {} WHERE {}.id ".format(
             "raster_metadata",
             "raster_metadata",
         )
 
-        sql += "IN (SELECT id FROM %s)" % (str(self.get_raster_register()))
+        sql += f"IN (SELECT id FROM {self.get_raster_register()!s})"
 
         # One connection serves the version check and the query. Every
         # SQLDatabaseInterfaceConnection runs t.connect for each mapset.
@@ -485,7 +486,7 @@ class _SemanticLabelsMetadata:
                     if count == 0:
                         string += row["semantic_label"]
                     else:
-                        string += ",%s" % row["semantic_label"]
+                        string += ",{}".format(row["semantic_label"])
                     count += 1
 
             if count > 0:

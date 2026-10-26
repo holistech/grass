@@ -173,7 +173,7 @@ class BaseRow(Row):
         :param mtime: The modification datetime object of a space time dataset
         """
         self.kind = kind
-        SQLDatabaseInterface.__init__(self, kind.table("base"), ident)
+        super().__init__(kind.table("base"), ident)
 
         self.set_id(ident)
         # set_id() has derived name and mapset from the identifier
@@ -302,9 +302,9 @@ class BaseRow(Row):
             print("layer=" + str(self.get_layer()))
         print("creator=" + str(self.get_creator()))
         print("temporal_type=" + str(self.get_ttype()))
-        print("creation_time='{}'".format(str(self.get_ctime())))
+        print(f"creation_time='{self.get_ctime()!s}'")
         if self.kind.is_stds:
-            print("modification_time='{}'".format(str(self.get_mtime())))
+            print(f"modification_time='{self.get_mtime()!s}'")
             print("semantic_type=" + str(self.get_semantic_type()))
 
 
@@ -343,7 +343,7 @@ class RegisterRow(Row):
             msg = f"A {kind.name} has no register row, it has a register table"
             raise ValueError(msg)
         self.kind = kind
-        SQLDatabaseInterface.__init__(self, kind.table("register"), ident)
+        super().__init__(kind.table("register"), ident)
 
         self.set_id(ident)
         self.set_registered_stds(registered_stds)

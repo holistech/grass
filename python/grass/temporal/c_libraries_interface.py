@@ -121,9 +121,9 @@ def _read_raster_info(name, mapset):
 
     # Read range
     if libraster.Rast_map_is_fp(name, mapset):
-        range = libraster.FPRange()
-        libraster.Rast_init_fp_range(byref(range))
-        ret = libraster.Rast_read_fp_range(name, mapset, byref(range))
+        range_ = libraster.FPRange()
+        libraster.Rast_init_fp_range(byref(range_))
+        ret = libraster.Rast_read_fp_range(name, mapset, byref(range_))
         if ret < 0:
             logger.warning(_("Unable to read range file"))
             kvp["min"] = None
@@ -133,15 +133,15 @@ def _read_raster_info(name, mapset):
             kvp["min"] = None
             kvp["max"] = None
         else:
-            min = libgis.DCELL()
-            max = libgis.DCELL()
-            libraster.Rast_get_fp_range_min_max(byref(range), byref(min), byref(max))
-            kvp["min"] = min.value
-            kvp["max"] = max.value
+            min_ = libgis.DCELL()
+            max_ = libgis.DCELL()
+            libraster.Rast_get_fp_range_min_max(byref(range_), byref(min_), byref(max_))
+            kvp["min"] = min_.value
+            kvp["max"] = max_.value
     else:
-        range = libraster.Range()
-        libraster.Rast_init_range(byref(range))
-        ret = libraster.Rast_read_range(name, mapset, byref(range))
+        range_ = libraster.Range()
+        libraster.Rast_init_range(byref(range_))
+        ret = libraster.Rast_read_range(name, mapset, byref(range_))
         if ret < 0:
             logger.warning(_("Unable to read range file"))
             kvp["min"] = None
@@ -151,11 +151,11 @@ def _read_raster_info(name, mapset):
             kvp["min"] = None
             kvp["max"] = None
         else:
-            min = libgis.CELL()
-            max = libgis.CELL()
-            libraster.Rast_get_range_min_max(byref(range), byref(min), byref(max))
-            kvp["min"] = min.value
-            kvp["max"] = max.value
+            min_ = libgis.CELL()
+            max_ = libgis.CELL()
+            libraster.Rast_get_range_min_max(byref(range_), byref(min_), byref(max_))
+            kvp["min"] = min_.value
+            kvp["max"] = max_.value
 
     return kvp
 
@@ -221,22 +221,22 @@ def _read_raster3d_info(name, mapset):
         kvp["datatype"] = "FCELL"
 
     # Read range
-    min = libgis.DCELL()
-    max = libgis.DCELL()
+    min_ = libgis.DCELL()
+    max_ = libgis.DCELL()
     ret = libraster3d.Rast3d_range_load(g3map)
     if not ret:
         logger.error(_("Unable to load range of 3D raster map <%s>"), name)
         return None
-    libraster3d.Rast3d_range_min_max(g3map, byref(min), byref(max))
+    libraster3d.Rast3d_range_min_max(g3map, byref(min_), byref(max_))
 
-    if math.isnan(min.value):
+    if math.isnan(min_.value):
         kvp["min"] = None
     else:
-        kvp["min"] = float(min.value)
-    if math.isnan(max.value):
+        kvp["min"] = float(min_.value)
+    if math.isnan(max_.value):
         kvp["max"] = None
     else:
-        kvp["max"] = float(max.value)
+        kvp["max"] = float(max_.value)
 
     if not libraster3d.Rast3d_close(g3map):
         logger.error(_("Unable to close 3D raster map <%s>"), name)
@@ -1013,6 +1013,10 @@ class CLibrariesInterface(RPCServerBase):
     """  # noqa: E501
 
     def start_server(self) -> None:
+        """Start the server process that calls the C libraries
+
+        The client sends its requests through a pipe.
+        """
         ctx = _get_multiprocessing_context()
         self.client_conn, self.server_conn = ctx.Pipe(True)
         self.lock = ctx.Lock()

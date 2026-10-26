@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
 import grass.script as gs
-from grass.exceptions import CalledModuleError
+from grass.exceptions import CalledModuleError, ScriptError
 
 from .state import (
     get_current_mapset,
@@ -522,7 +522,7 @@ def _create_project(dbase: str, location: str, overr: bool) -> bool:
                 # r.in.gdal accepts only with the override flag.
                 return True
             gs.create_location(dbase=dbase, location=location, proj4=proj4_string)
-    except Exception as e:
+    except (ScriptError, CalledModuleError, OSError) as e:
         get_tgis_message_interface().fatal(
             _("Unable to create location %(l)s. Reason: %(e)s")
             % {"l": location, "e": str(e)}

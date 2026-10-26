@@ -129,7 +129,7 @@ class TemporalExtent(Row):
     )
 
     def __init__(self, table=None, ident=None, start_time=None, end_time=None) -> None:
-        Row.__init__(self, table, ident)
+        super().__init__(table, ident)
 
         self.set_id(ident)
         self.set_start_time(start_time)
@@ -956,8 +956,8 @@ class TemporalExtent(Row):
 
     def print_shell_info(self) -> None:
         """Print information about this class in shell style"""
-        print("start_time='{}'".format(str(self.get_start_time())))
-        print("end_time='{}'".format(str(self.get_end_time())))
+        print(f"start_time='{self.get_start_time()!s}'")
+        print(f"end_time='{self.get_end_time()!s}'")
 
 
 class AbsoluteTemporalExtent(TemporalExtent):
@@ -967,7 +967,7 @@ class AbsoluteTemporalExtent(TemporalExtent):
     """
 
     def __init__(self, table=None, ident=None, start_time=None, end_time=None) -> None:
-        TemporalExtent.__init__(self, table, ident, start_time, end_time)
+        super().__init__(table, ident, start_time, end_time)
 
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
@@ -1061,9 +1061,7 @@ class AbsoluteTimeRow(AbsoluteTemporalExtent):
         :param granularity: The granularity of a space time dataset
         :param map_time: The type of the time of the maps of a space time dataset
         """
-        AbsoluteTemporalExtent.__init__(
-            self, kind.table("absolute_time"), ident, start_time, end_time
-        )
+        super().__init__(kind.table("absolute_time"), ident, start_time, end_time)
         self.kind = kind
 
         _set_dataset_fields(self, granularity, map_time)
@@ -1077,7 +1075,7 @@ class AbsoluteTimeRow(AbsoluteTemporalExtent):
         """Print information about this class in shell style"""
         AbsoluteTemporalExtent.print_shell_info(self)
         if self.kind.is_stds:
-            print("granularity='{}'".format(str(self.get_granularity())))
+            print(f"granularity='{self.get_granularity()!s}'")
             print("map_time=" + str(self.get_map_time()))
 
 
@@ -1131,7 +1129,7 @@ class RelativeTemporalExtent(TemporalExtent):
     def __init__(
         self, table=None, ident=None, start_time=None, end_time=None, unit=None
     ) -> None:
-        TemporalExtent.__init__(self, table, ident, start_time, end_time)
+        super().__init__(table, ident, start_time, end_time)
         self.set_unit(unit)
 
     def temporal_relation(self, map):
@@ -1239,9 +1237,7 @@ class RelativeTimeRow(RelativeTemporalExtent):
         :param granularity: The granularity of a space time dataset
         :param map_time: The type of the time of the maps of a space time dataset
         """
-        RelativeTemporalExtent.__init__(
-            self, kind.table("relative_time"), ident, start_time, end_time, unit
-        )
+        super().__init__(kind.table("relative_time"), ident, start_time, end_time, unit)
         self.kind = kind
 
         _set_dataset_fields(self, granularity, map_time)

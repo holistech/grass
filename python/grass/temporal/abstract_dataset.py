@@ -30,7 +30,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
     (raster, vector, raster3d, strds, stvds, str3ds)"""
 
     def __init__(self) -> None:
-        TopologyLinks.__init__(self)
+        super().__init__()
 
     @property
     def msgr(self):
@@ -108,12 +108,14 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         }
 
     def print_topology_info(self) -> None:
+        """Print the temporal and the spatial topology in human readable style"""
         if self.is_temporal_topology_build():
             print_temporal_topology_info(self)
         if self.is_spatial_topology_build():
             print_spatial_topology_info(self)
 
     def print_topology_shell_info(self) -> None:
+        """Print the temporal and the spatial topology in shell style"""
         if self.is_temporal_topology_build():
             print_temporal_topology_shell_info(self)
         if self.is_spatial_topology_build():
@@ -417,7 +419,7 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
             if self.is_stds() is False:
                 statement += self.stds_register.get_insert_statement_mogrified(dbif)
 
-            self.msgr.debug(2, "insert with %s" % statement)
+            self.msgr.debug(2, f"insert with {statement}")
             if execute:
                 # database to be modified must be in the current mapset
                 dbif.execute_transaction(statement, mapset=mapset)

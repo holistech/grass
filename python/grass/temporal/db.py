@@ -131,7 +131,7 @@ def get_available_temporal_mapsets(mapsets: str | None = None) -> dict:
         message_interface.debug(
             1,
             "get_available_temporal_mapsets: "
-            "\n  mapset %s\n  driver %s\n  database %s" % (mapset, driver, database),
+            f"\n  mapset {mapset}\n  driver {driver}\n  database {database}",
         )
         if driver and database:
             # Check if the temporal sqlite database exists
@@ -154,6 +154,13 @@ def get_available_temporal_mapsets(mapsets: str | None = None) -> dict:
 
 
 class SQLDatabaseInterfaceConnection:
+    """The connections to the temporal databases of the mapsets in the search path
+
+    Mapsets that share a database share one connection. A connection is opened
+    by ``connect`` and used through the mapset name, the current mapset if none
+    is given.
+    """
+
     def __init__(self, mapsets: str | None = None) -> None:
         self.tgis_mapsets = get_available_temporal_mapsets(mapsets)
         self.current_mapset = get_current_mapset()
@@ -178,6 +185,7 @@ class SQLDatabaseInterfaceConnection:
         return get_tgis_message_interface()
 
     def get_dbmi(self, mapset=None):
+        """Return the database module (sqlite3 or psycopg2) of a mapset"""
         if mapset is None:
             mapset = self.current_mapset
 
@@ -210,6 +218,7 @@ class SQLDatabaseInterfaceConnection:
         self.connected = True
 
     def is_connected(self):
+        """Tell whether ``connect`` has been called and ``close`` has not"""
         return self.connected
 
     def close(self) -> None:
@@ -315,6 +324,7 @@ class SQLDatabaseInterfaceConnection:
         return self.connections[mapset].execute(statement, args)
 
     def fetchone(self, mapset=None):
+        """Fetch the next row of the last statement executed for the mapset"""
         if mapset is None:
             mapset = self.current_mapset
 
@@ -329,6 +339,7 @@ class SQLDatabaseInterfaceConnection:
         return self.connections[mapset].fetchone()
 
     def fetchall(self, mapset=None):
+        """Fetch all remaining rows of the last statement for the mapset"""
         if mapset is None:
             mapset = self.current_mapset
 
@@ -410,8 +421,8 @@ class DBConnection:
         self.msgr.debug(
             1,
             "DBConnection constructor:"
-            "\n  backend: %s"
-            "\n  dbstring: %s" % (backend, self.dbstring),
+            f"\n  backend: {backend}"
+            f"\n  dbstring: {self.dbstring}",
         )
 
     @property
@@ -424,6 +435,7 @@ class DBConnection:
             self.close()
 
     def is_connected(self):
+        """Tell whether the connection is open"""
         return self.connected
 
     def rollback(self) -> None:
@@ -433,9 +445,8 @@ class DBConnection:
 
         This is only relevant for postgresql database.
         """
-        if self.dbmi.__name__ == "psycopg2":
-            if self.connected:
-                self.connection.rollback()
+        if self.dbmi.__name__ == "psycopg2" and self.connected:
+            self.connection.rollback()
 
     def connect(self, dbstring: str | None = None) -> None:
         """Connect to the DBMI to execute SQL statements
@@ -472,7 +483,7 @@ class DBConnection:
                     cursor_factory=self.dbmi.extras.DictCursor
                 )
             self.connected = True
-        except Exception as e:
+        except (self.dbmi.Error, OSError) as e:
             self.msgr.fatal(
                 _(
                     "Unable to connect to %(db)s database: "
@@ -582,8 +593,8 @@ class DBConnection:
         # Check if the database already exists
         if self.dbmi.__name__ == "sqlite3":
             self.cursor.execute(
-                "SELECT name FROM sqlite_master WHERE "
-                "type='table' AND name='%s';" % table_name
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?;",
+                (table_name,),
             )
             name = self.cursor.fetchone()
             if name and name[0] == table_name:
@@ -593,7 +604,7 @@ class DBConnection:
             self.cursor.execute(
                 "SELECT EXISTS(SELECT * FROM information_schema.tables "
                 "WHERE table_name=%s)",
-                ("%s" % table_name,),
+                (str(table_name),),
             )
             if self.cursor.fetchone()[0]:
                 table_exists = True
@@ -627,11 +638,13 @@ class DBConnection:
                 self.close()
 
     def fetchone(self):
+        """Fetch the next row, None if the connection is closed"""
         if self.connected:
             return self.cursor.fetchone()
         return None
 
     def fetchall(self):
+        """Fetch all remaining rows, None if the connection is closed"""
         if self.connected:
             return self.cursor.fetchall()
         return None
@@ -741,13 +754,13 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     if value is None:
         return "NULL"
     if isinstance(value, int):
-        return "%d" % value
+        return f"{int(value)}"
     if isinstance(value, float) and not math.isfinite(value):
         return "NULL"
     if isinstance(value, float):
-        return "%f" % value
+        return f"{value:f}"
     # Default is a string, this works for datetime objects too
-    return "'%s'" % str(value).replace("'", "''")
+    return "'{}'".format(str(value).replace("'", "''"))
 
 
 @contextlib.contextmanager

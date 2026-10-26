@@ -127,14 +127,14 @@ def shift_map_list(maps, gran):
     if not check_granularity_string(gran, maps[-1].get_temporal_type()):
         return None
 
-    for map in maps:
-        start, end = map.get_temporal_extent_as_tuple()
-        if map.is_time_absolute():
+    for map_ in maps:
+        start, end = map_.get_temporal_extent_as_tuple()
+        if map_.is_time_absolute():
             start, end = _shifted(start, end, gran, absolute=True)
-            map.set_absolute_time(start, end)
-        elif map.is_time_relative():
+            map_.set_absolute_time(start, end)
+        elif map_.is_time_relative():
             start, end = _shifted(start, end, gran, absolute=False)
-            map.set_relative_time(start, end, map.get_relative_time_unit())
+            map_.set_relative_time(start, end, map_.get_relative_time_unit())
 
     return maps
 
@@ -268,20 +268,20 @@ def update_map_timestamps(stds, maps, date_list, dbif) -> None:
     """
     # A dict keeps the order, in which the datasets of the maps are met
     datasets_to_modify = {}
-    for map, (start, end) in zip(maps, date_list, strict=True):
-        map.select(dbif)
+    for map_, (start, end) in zip(maps, date_list, strict=True):
+        map_.select(dbif)
 
         if stds.is_time_absolute():
-            map.update_absolute_time(start_time=start, end_time=end, dbif=dbif)
+            map_.update_absolute_time(start_time=start, end_time=end, dbif=dbif)
         elif stds.is_time_relative():
-            map.update_relative_time(
+            map_.update_relative_time(
                 start_time=start,
                 end_time=end,
                 unit=stds.get_relative_time_unit(),
                 dbif=dbif,
             )
 
-        datasets_to_modify.update(dict.fromkeys(map.get_registered_stds(dbif) or []))
+        datasets_to_modify.update(dict.fromkeys(map_.get_registered_stds(dbif) or []))
 
     stds.update_from_registered_maps(dbif)
 
@@ -326,8 +326,8 @@ def shift(stds, gran, dbif=None) -> bool:
         # the middle of the update.
         absolute = stds.is_time_absolute()
         date_list = [
-            _shifted(*map.get_temporal_extent_as_tuple(), gran, absolute)
-            for map in maps
+            _shifted(*map_.get_temporal_extent_as_tuple(), gran, absolute)
+            for map_ in maps
         ]
 
         update_map_timestamps(stds, maps, date_list, dbif)
