@@ -302,3 +302,14 @@ def absolute_time(name):
     item = tgis.VectorDataset(f"{name}@{MAPSET}")
     item.select()
     return item.get_absolute_time()
+
+
+def test_a_map_object_with_a_start_time_only_is_registered_as_an_instant(ids):
+    item = tgis.RasterDataset(f"{ids['ras']}@{MAPSET}")
+    item.set_absolute_time(datetime(2001, 1, 1))
+
+    tgis.register_map_object_list("raster", [item], None)
+
+    stored = tgis.RasterDataset(f"{ids['ras']}@{MAPSET}")
+    stored.select()
+    assert stored.get_temporal_extent_as_tuple() == (datetime(2001, 1, 1), None)
