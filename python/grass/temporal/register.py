@@ -324,7 +324,9 @@ def register_maps_in_space_time_dataset(
                     "file"
                 )
             )
-        fd.close()
+        # A stream that the caller passed belongs to the caller
+        if fd is not file:
+            fd.close()
 
     num_maps = len(maplist)
     map_object_list = []

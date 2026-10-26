@@ -7,6 +7,7 @@ code that writes them changes.
 """
 
 import importlib
+import io
 import itertools
 from datetime import datetime
 
@@ -286,3 +287,18 @@ def test_empty_3d_raster_maps_are_deleted_on_request(tools, ids):
 
     # map_exists() of a 3D raster map that is gone ends the C server process
     assert not tools.g_list(type="raster_3d", pattern=name, format="json")
+
+
+def test_a_passed_stream_stays_open(ids):
+    stream = io.StringIO(f"{ids['vec']}|2001-01-01|2001-01-02\n")
+
+    register(file=stream)
+
+    assert not stream.closed
+    assert absolute_time(ids["vec"]) == (datetime(2001, 1, 1), datetime(2001, 1, 2))
+
+
+def absolute_time(name):
+    item = tgis.VectorDataset(f"{name}@{MAPSET}")
+    item.select()
+    return item.get_absolute_time()
