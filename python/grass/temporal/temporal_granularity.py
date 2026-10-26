@@ -603,13 +603,13 @@ def compute_common_relative_time_granularity(gran_list):
         >>> import grass.temporal as tgis
         >>> tgis.init()
         >>> grans = [1, 2, 30]
-        >>> tgis.compute_common_relative_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_relative_time_granularity(grans)
         1
 
         >>> import grass.temporal as tgis
         >>> tgis.init()
         >>> grans = [10, 20, 30]
-        >>> tgis.compute_common_relative_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_relative_time_granularity(grans)
         10
     """
     return gcd_list(gran_list)
@@ -643,7 +643,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '20 seconds'
 
         >>> grans = ["20 second", "10 minutes", "2 hours"]
@@ -652,7 +654,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 second'
 
         >>> grans = ["7200 second", "240 minutes", "1 year"]
@@ -661,7 +665,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 second'
 
         >>> grans = ["7200 second", "89 minutes", "1 year"]
@@ -670,7 +676,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '60 seconds'
 
         >>> grans = ["120 minutes", "2 hours"]
@@ -678,7 +686,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '60 minutes'
 
         >>> grans = ["120 minutes", "2 hours"]
@@ -686,7 +696,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 30, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 minute'
 
         >>> grans = ["360 minutes", "3 hours"]
@@ -694,7 +706,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '60 minutes'
 
         >>> grans = ["2 hours", "4 hours", "8 hours"]
@@ -703,7 +717,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '2 hours'
 
         >>> grans = ["2 hours", "4 hours", "8 hours"]
@@ -712,7 +728,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 4, 0, 0),
         ...     datetime(2001, 1, 1, 8, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 hour'
 
         >>> grans = ["8 hours", "2 days"]
@@ -720,7 +738,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '8 hours'
 
         >>> grans = ["8 hours", "2 days"]
@@ -728,7 +748,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 10, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 hour'
 
         >>> grans = ["120 months", "360 months", "4 years"]
@@ -737,7 +759,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '12 months'
 
         >>> grans = ["30 days", "10 days", "5 days"]
@@ -746,7 +770,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '5 days'
 
         >>> grans = ["30 days", "10 days", "5 days"]
@@ -755,7 +781,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 day'
 
         >>> grans = ["2 days", "360 months", "4 years"]
@@ -764,7 +792,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '2 days'
 
         >>> grans = ["2 days", "360 months", "4 years"]
@@ -773,7 +803,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 day'
 
         >>> grans = ["120 months", "360 months", "4 years"]
@@ -782,7 +814,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 month'
 
         >>> grans = ["120 months", "361 months", "4 years"]
@@ -791,7 +825,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '1 month'
 
         >>> grans = ["120 months", "360 months", "4 years"]
@@ -800,7 +836,9 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ...     datetime(2001, 1, 1, 0, 0, 0),
         ... ]
-        >>> tgis.compute_common_absolute_time_granularity(grans, dates)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(
+        ...     grans, dates
+        ... )
         '12 months'
 
     ..
@@ -845,71 +883,71 @@ def compute_common_absolute_time_granularity_simple(gran_list):
         >>> import grass.temporal as tgis
         >>> tgis.init()
         >>> grans = ["1 second", "2 seconds", "30 seconds"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '1 second'
 
         >>> grans = ["3 second", "6 seconds", "30 seconds"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '3 seconds'
 
         >>> grans = ["12 second", "18 seconds", "30 seconds", "10 minutes"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '6 seconds'
 
         >>> grans = ["20 second", "10 minutes", "2 hours"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '20 seconds'
 
         >>> grans = ["7200 second", "240 minutes", "1 year"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '7200 seconds'
 
         >>> grans = ["7200 second", "89 minutes", "1 year"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '60 seconds'
 
         >>> grans = ["10 minutes", "20 minutes", "30 minutes", "40 minutes", "2 hours"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '10 minutes'
 
         >>> grans = ["120 minutes", "2 hours"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '120 minutes'
 
         >>> grans = ["360 minutes", "3 hours"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '180 minutes'
 
         >>> grans = ["2 hours", "4 hours", "8 hours"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '2 hours'
 
         >>> grans = ["8 hours", "2 days"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '8 hours'
 
         >>> grans = ["48 hours", "1 month"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '24 hours'
 
         >>> grans = ["48 hours", "1 year"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '24 hours'
 
         >>> grans = ["2 months", "4 months", "1 year"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '2 months'
 
         >>> grans = ["120 months", "360 months", "4 years"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '24 months'
 
         >>> grans = ["120 months", "361 months", "4 years"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '1 month'
 
         >>> grans = ["2 years", "3 years", "4 years"]
-        >>> tgis.compute_common_absolute_time_granularity(grans)
+        >>> tgis.temporal_granularity.compute_common_absolute_time_granularity(grans)
         '1 year'
     """
 

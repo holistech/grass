@@ -977,11 +977,11 @@ def create_suffix_from_datetime(start_time: datetime, granularity: str) -> str:
         >>> from datetime import datetime
         >>> import grass.temporal as tgis
         >>> start_time = datetime(2001, 1, 1, 10, 4, 12)
-        >>> tgis.create_suffix_from_datetime(start_time, "1 month")
+        >>> tgis.datetime_math.create_suffix_from_datetime(start_time, "1 month")
         '2001_01'
-        >>> tgis.create_suffix_from_datetime(start_time, "1 year 1 month")
+        >>> tgis.datetime_math.create_suffix_from_datetime(start_time, "1 year 1 month")
         '2001'
-        >>> tgis.create_suffix_from_datetime(start_time, "6 seconds")
+        >>> tgis.datetime_math.create_suffix_from_datetime(start_time, "6 seconds")
         '2001_01_01_10_04_12'
 
     """

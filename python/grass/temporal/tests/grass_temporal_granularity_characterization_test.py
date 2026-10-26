@@ -14,6 +14,10 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.temporal_granularity import (
+    compute_common_absolute_time_granularity,
+    compute_common_absolute_time_granularity_simple,
+)
 from grass.temporal import temporal_granularity
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -37,7 +41,7 @@ DATES = {
 
 @pytest.mark.parametrize(("grans", "expected"), DATA["simple"])
 def test_the_simple_common_granule(grans, expected):
-    result = tgis.compute_common_absolute_time_granularity_simple(grans)
+    result = compute_common_absolute_time_granularity_simple(grans)
 
     assert result == expected
     assert type(result) is type(expected)
@@ -45,7 +49,7 @@ def test_the_simple_common_granule(grans, expected):
 
 @pytest.mark.parametrize(("grans", "dates", "expected"), DATA["starts"])
 def test_the_common_granule_with_start_dates(grans, dates, expected):
-    result = tgis.compute_common_absolute_time_granularity(grans, DATES[dates])
+    result = compute_common_absolute_time_granularity(grans, DATES[dates])
 
     assert result == expected
     assert type(result) is type(expected)

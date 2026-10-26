@@ -10,6 +10,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.state import get_raise_on_error, set_raise_on_error
 from grass.exceptions import FatalError
 from grass.pygrass.messages import get_msgr
 from grass.temporal.state import STATE
@@ -48,14 +49,14 @@ def test_temporal_session_restores_os_environ_after_exception(tmp_path):
 def test_temporal_session_raises_and_restores_module_flag(tmp_path):
     # A known value, so that the restore is not compared with the value
     # that the block sets anyway.
-    before = tgis.get_raise_on_error()
-    tgis.set_raise_on_error(False)
+    before = get_raise_on_error()
+    set_raise_on_error(False)
     try:
         with temporal_session(tmp_path / "p"):
-            assert tgis.get_raise_on_error() is True
-        assert tgis.get_raise_on_error() is False
+            assert get_raise_on_error() is True
+        assert get_raise_on_error() is False
     finally:
-        tgis.set_raise_on_error(before)
+        set_raise_on_error(before)
 
 
 @pytest.mark.parametrize("before_block", [False, True])

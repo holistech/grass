@@ -10,10 +10,12 @@ import pytest
 from grass.temporal import (
     Raster3DDataset,
     RasterDataset,
-    SpaceTimeRaster3DDataset,
     SpaceTimeRasterDataset,
-    SpaceTimeVectorDataset,
     VectorDataset,
+)
+from grass.temporal.space_time_datasets import (
+    SpaceTimeRaster3DDataset,
+    SpaceTimeVectorDataset,
 )
 from grass.temporal.topology import map_list_string
 

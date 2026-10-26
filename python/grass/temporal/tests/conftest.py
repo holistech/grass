@@ -4,7 +4,7 @@ import datetime
 
 import pytest
 
-import grass.temporal as tgis
+from grass.temporal.state import set_raise_on_error
 from grass.temporal.algebra.content import Const, MapRef
 from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.temporal.testing import fakes
@@ -86,7 +86,7 @@ def temporal_exit_session(temporal_module_session):
     of temporal_module_session: once requested, the exit mode stays on for
     the rest of the module.
     """
-    tgis.set_raise_on_error(False)
+    set_raise_on_error(False)
     return temporal_module_session
 
 

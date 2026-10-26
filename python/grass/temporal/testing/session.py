@@ -17,6 +17,7 @@ from pathlib import Path
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.state import get_raise_on_error, set_raise_on_error
 from grass.grassdb.create import create_mapset
 from grass.pygrass.messages import get_msgr
 
@@ -98,16 +99,16 @@ def temporal_session(path, *, crs=None, mapset=None):
     # first init() of a process creates.
     existing = get_msgr.__defaults__[0][0]
     saved_msgr_flag = existing.raise_on_error if existing else False
-    saved_module_flag = tgis.get_raise_on_error()
+    saved_module_flag = get_raise_on_error()
     try:
         with project_session(path, crs=crs, mapset=mapset) as session:
             os.environ.update(session.env)
             tgis.init(raise_fatal_error=True)
             # Applies to the Messenger even if it was created before init().
-            tgis.set_raise_on_error(True)
+            set_raise_on_error(True)
             yield session
     finally:
-        tgis.set_raise_on_error(saved_module_flag)
+        set_raise_on_error(saved_module_flag)
         # init() creates the Messenger when none existed.
         get_msgr().set_raise_on_error(saved_msgr_flag)
         os.environ.clear()

@@ -260,9 +260,9 @@ def set_raise_on_error(raise_exp: bool = True):
 
         >>> import grass.temporal as tgis
         >>> tgis.init()
-        >>> ignore = tgis.set_raise_on_error(False)
+        >>> ignore = tgis.state.set_raise_on_error(False)
         >>> msgr = tgis.get_tgis_message_interface()
-        >>> tgis.get_raise_on_error()
+        >>> tgis.state.get_raise_on_error()
         False
         >>> msgr.fatal("Ohh no no no!")
         Traceback (most recent call last):
@@ -270,7 +270,7 @@ def set_raise_on_error(raise_exp: bool = True):
             sys.exit(1)
         SystemExit: 1
 
-        >>> tgis.set_raise_on_error(True)
+        >>> tgis.state.set_raise_on_error(True)
         False
         >>> msgr.fatal("Ohh no no no!")
         Traceback (most recent call last):

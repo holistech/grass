@@ -9,6 +9,12 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.base import BaseRow
+from grass.temporal.state import (
+    get_enable_mapset_check,
+    get_enable_timestamp_write,
+    set_raise_on_error,
+)
 from grass.pygrass.messages import FatalError
 from grass.temporal import core
 from grass.temporal.kinds import KINDS
@@ -48,8 +54,8 @@ def warnings_of_init(temporal_module_session, monkeypatch):
 @pytest.mark.parametrize(
     ("name", "getter"),
     [
-        ("TGIS_DISABLE_MAPSET_CHECK", tgis.get_enable_mapset_check),
-        ("TGIS_DISABLE_TIMESTAMP_WRITE", tgis.get_enable_timestamp_write),
+        ("TGIS_DISABLE_MAPSET_CHECK", get_enable_mapset_check),
+        ("TGIS_DISABLE_TIMESTAMP_WRITE", get_enable_timestamp_write),
     ],
 )
 def test_disable_switch_takes_effect(warnings_of_init, name, getter, value):
@@ -65,13 +71,13 @@ def test_second_init_without_the_variable_resets_the_switches(warnings_of_init):
     gs.run_command("g.gisenv", set="TGIS_DISABLE_MAPSET_CHECK=True")
     gs.run_command("g.gisenv", set="TGIS_DISABLE_TIMESTAMP_WRITE=1")
     tgis.init(skip_db_init=True)
-    assert tgis.get_enable_mapset_check() is False
+    assert get_enable_mapset_check() is False
 
     _unset("TGIS_DISABLE_MAPSET_CHECK", "TGIS_DISABLE_TIMESTAMP_WRITE")
     tgis.init(skip_db_init=True)
 
-    assert tgis.get_enable_mapset_check() is True
-    assert tgis.get_enable_timestamp_write() is True
+    assert get_enable_mapset_check() is True
+    assert get_enable_timestamp_write() is True
 
 
 def test_other_values_leave_the_switches_on(warnings_of_init):
@@ -79,7 +85,7 @@ def test_other_values_leave_the_switches_on(warnings_of_init):
 
     tgis.init(skip_db_init=True)
 
-    assert tgis.get_enable_mapset_check() is True
+    assert get_enable_mapset_check() is True
     assert warnings_of_init == []
 
 
@@ -88,7 +94,7 @@ def raise_mode_restored(temporal_module_session):
     """Leave the error mode of the messenger as the session fixture set it"""
     yield
     core.get_tgis_message_interface().set_raise_on_error(True)
-    tgis.set_raise_on_error(True)
+    set_raise_on_error(True)
 
 
 def test_raise_fatal_error_applies_on_second_init(raise_mode_restored):
@@ -277,7 +283,7 @@ def test_failed_statement_does_not_leave_the_connection_open(
     temporal_module_session, monkeypatch, method
 ):
     tgis.init()
-    base = tgis.BaseRow(KINDS["raster"], ident="broken@" + tgis.get_current_mapset())
+    base = BaseRow(KINDS["raster"], ident="broken@" + tgis.get_current_mapset())
     # The database refuses every statement on a table that does not exist.
     monkeypatch.setattr(base, "get_table_name", lambda: "table_that_does_not_exist")
     before = _open_handles(tgis.get_tgis_database_string())

@@ -16,12 +16,12 @@ Usage:
     >>> import grass.temporal as tgis
     >>> from grass.temporal.kinds import KINDS
     >>> tgis.init()
-    >>> meta = tgis.MetadataRow(KINDS["raster"])
-    >>> meta = tgis.MetadataRow(KINDS["raster3d"])
-    >>> meta = tgis.MetadataRow(KINDS["vector"])
-    >>> meta = tgis.MetadataRow(KINDS["strds"])
-    >>> meta = tgis.MetadataRow(KINDS["str3ds"])
-    >>> meta = tgis.MetadataRow(KINDS["stvds"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["raster"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["raster3d"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["vector"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["strds"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["str3ds"])
+    >>> meta = tgis.metadata.MetadataRow(KINDS["stvds"])
 
 SPDX-FileCopyrightText: 2012-2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later

@@ -678,14 +678,14 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
             >>> from grass.temporal.kinds import KINDS
-            >>> temp_ext = tgis.RelativeTimeRow(
+            >>> temp_ext = tgis.temporal_extent.RelativeTimeRow(
             ...     KINDS["raster"], start_time=1, end_time=2, unit="years"
             ... )
             >>> map.set_temporal_extent(temp_ext)
             >>> print(map.get_temporal_extent_as_tuple())
             (1, 2)
             >>> map = tgis.VectorDataset(None)
-            >>> temp_ext = tgis.AbsoluteTimeRow(
+            >>> temp_ext = tgis.temporal_extent.AbsoluteTimeRow(
             ...     KINDS["vector"],
             ...     start_time=datetime.datetime(2000, 1, 1),
             ...     end_time=datetime.datetime(2001, 1, 1),
@@ -858,7 +858,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             >>> import datetime
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)
@@ -881,7 +881,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)
@@ -913,7 +913,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
             >>> import grass.temporal as tgis
             >>> map = tgis.RasterDataset(None)
-            >>> spat_ext = tgis.SpatialExtent(
+            >>> spat_ext = tgis.spatial_extent.SpatialExtent(
             ...     north=10, south=-10, east=20, west=-20, top=5, bottom=-5
             ... )
             >>> map.set_spatial_extent(spat_ext)

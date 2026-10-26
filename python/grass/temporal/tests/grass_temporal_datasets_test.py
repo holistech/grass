@@ -10,6 +10,10 @@ import pickle
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.space_time_datasets import (
+    SpaceTimeRaster3DDataset,
+    SpaceTimeVectorDataset,
+)
 from grass.temporal.abstract_dataset import AbstractDataset
 from grass.temporal.abstract_map_dataset import AbstractMapDataset
 from grass.temporal.abstract_space_time_dataset import AbstractSpaceTimeDataset
@@ -21,11 +25,11 @@ pytestmark = pytest.mark.usefixtures("temporal_module_session")
 # class, type, class of the maps (of the datasets for a map), register
 CLASSES = [
     (tgis.RasterDataset, "raster", tgis.SpaceTimeRasterDataset, None),
-    (tgis.Raster3DDataset, "raster3d", tgis.SpaceTimeRaster3DDataset, None),
-    (tgis.VectorDataset, "vector", tgis.SpaceTimeVectorDataset, None),
+    (tgis.Raster3DDataset, "raster3d", SpaceTimeRaster3DDataset, None),
+    (tgis.VectorDataset, "vector", SpaceTimeVectorDataset, None),
     (tgis.SpaceTimeRasterDataset, "strds", tgis.RasterDataset, "raster"),
-    (tgis.SpaceTimeRaster3DDataset, "str3ds", tgis.Raster3DDataset, "raster3d"),
-    (tgis.SpaceTimeVectorDataset, "stvds", tgis.VectorDataset, "vector"),
+    (SpaceTimeRaster3DDataset, "str3ds", tgis.Raster3DDataset, "raster3d"),
+    (SpaceTimeVectorDataset, "stvds", tgis.VectorDataset, "vector"),
 ]
 IDS = [name for _, name, _, _ in CLASSES]
 

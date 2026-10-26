@@ -144,7 +144,8 @@ def compare(
 
 def _described(value):
     """Make the result of a spatial or temporal method comparable"""
-    from grass.temporal import SpatialExtent, TemporalExtent  # noqa: PLC0415
+    from grass.temporal.spatial_extent import SpatialExtent  # noqa: PLC0415
+    from grass.temporal.temporal_extent import TemporalExtent  # noqa: PLC0415
 
     if isinstance(value, SpatialExtent):
         return ("SpatialExtent", value.get_spatial_extent_as_tuple(), value.proj)
@@ -193,7 +194,7 @@ _LONGITUDES = tuple(itertools.product((-180, -170, 170, 180, 190), repeat=2))
 
 
 def _box(proj, x, y, z=None):
-    from grass.temporal import SpatialExtent  # noqa: PLC0415
+    from grass.temporal.spatial_extent import SpatialExtent  # noqa: PLC0415
 
     west, east = x
     south, north = y
@@ -347,12 +348,18 @@ def granularity_cases():
         grans = list(subset)
         yield (
             f"common_absolute/{grans}",
-            lambda grans=grans: tgis.compute_common_absolute_time_granularity(grans),
+            lambda grans=grans: (
+                tgis.temporal_granularity.compute_common_absolute_time_granularity(
+                    grans
+                )
+            ),
         )
         yield (
             f"common_absolute_simple/{grans}",
-            lambda grans=grans: tgis.compute_common_absolute_time_granularity_simple(
-                grans
+            lambda grans=grans: (
+                tgis.temporal_granularity.compute_common_absolute_time_granularity_simple(
+                    grans
+                )
             ),
         )
     # Start dates move the common granule
@@ -365,14 +372,20 @@ def granularity_cases():
         yield (
             f"common_absolute_starts/{grans}/{starts}",
             lambda grans=grans, starts=starts: (
-                tgis.compute_common_absolute_time_granularity(grans, starts)
+                tgis.temporal_granularity.compute_common_absolute_time_granularity(
+                    grans, starts
+                )
             ),
         )
     for subset in _subsets(_RELATIVE, 3):
         grans = list(subset)
         yield (
             f"common_relative/{grans}",
-            lambda grans=grans: tgis.compute_common_relative_time_granularity(grans),
+            lambda grans=grans: (
+                tgis.temporal_granularity.compute_common_relative_time_granularity(
+                    grans
+                )
+            ),
         )
     for gran in (*_GRANULARITIES, "5 months", "0 days", "1 fortnight", "day", ""):
         yield (
@@ -518,7 +531,8 @@ def datetime_math_cases():
         yield (
             f"decrement/{step}",
             lambda step=step: [
-                outcome(tgis.decrement_datetime_by_string, date, step) for date in dates
+                outcome(tgis.datetime_math.decrement_datetime_by_string, date, step)
+                for date in dates
             ],
         )
         for count in (0, 1, 2, 5, 13):
@@ -541,7 +555,8 @@ def datetime_math_cases():
         yield (
             f"delta/{start}",
             lambda start=start: [
-                outcome(tgis.compute_datetime_delta, start, end) for end in dates
+                outcome(tgis.datetime_math.compute_datetime_delta, start, end)
+                for end in dates
             ],
         )
     for cycle, offset in (
@@ -686,9 +701,13 @@ def _datetime_conversion_cases(dates):
     yield (
         "gcd",
         lambda: (
-            [outcome(tgis.gcd, a, b) for a in (0, 1, 6, 12, 35) for b in (0, 1, 4, 18)]
+            [
+                outcome(tgis.temporal_granularity.gcd, a, b)
+                for a in (0, 1, 6, 12, 35)
+                for b in (0, 1, 4, 18)
+            ]
             + [
-                outcome(tgis.gcd_list, items)
+                outcome(tgis.temporal_granularity.gcd_list, items)
                 for items in ([], [4], [4, 6], [12, 18, 8])
             ]
         ),

@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
     >>> import grass.temporal as tgis
     >>> tgis.init(True)
-    >>> p = tgis.TemporalAlgebraLexer()
+    >>> p = tgis.classic.temporal_algebra.TemporalAlgebraLexer()
     >>> p.build()
     >>> p.debug = True
     >>> expression = "C = A : B"
@@ -294,7 +294,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     LexToken(T_SELECT,':',1,34)
     LexToken(NAME,'D',1,36)
     LexToken(RPAREN,')',1,37)
-    >>> p = tgis.TemporalAlgebraParser()
+    >>> p = tgis.classic.temporal_algebra.TemporalAlgebraParser()
     >>> p.run = False
     >>> p.debug = True
     >>> expression = "D = A {!:} B {:,during} C"
@@ -366,7 +366,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     A* =  if condition None  then  A  else  B
     C = A*
 
-    >>> p = tgis.TemporalAlgebraLexer()
+    >>> p = tgis.classic.temporal_algebra.TemporalAlgebraLexer()
     >>> p.build()
     >>> p.debug = True
     >>> expression = "D = strds(A) : stvds(B) : str3ds(C)"
@@ -389,7 +389,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     LexToken(NAME,'C',1,33)
     LexToken(RPAREN,')',1,34)
 
-    >>> p = tgis.TemporalAlgebraLexer()
+    >>> p = tgis.classic.temporal_algebra.TemporalAlgebraLexer()
     >>> p.build()
     >>> p.debug = True
     >>> expression = "R = if(A {#,during} stvds(C) == 1, A)"
@@ -411,7 +411,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
     LexToken(NAME,'A',1,35)
     LexToken(RPAREN,')',1,36)
 
-    >>> p = tgis.TemporalAlgebraLexer()
+    >>> p = tgis.classic.temporal_algebra.TemporalAlgebraLexer()
     >>> p.build()
     >>> p.debug = True
     >>> expression = "R = if({during}, stvds(C) {#,contains} A == 2, A)"
@@ -1623,7 +1623,7 @@ class TemporalAlgebraParser:
             >>> from datetime import datetime
             >>> import grass.temporal as tgis
             >>> tgis.init(True)
-            >>> l = tgis.TemporalAlgebraParser()
+            >>> l = tgis.classic.temporal_algebra.TemporalAlgebraParser()
             >>> # Create two list of maps with equal time stamps
             >>> mapsA = []
             >>> mapsB = []
@@ -1934,7 +1934,7 @@ class TemporalAlgebraParser:
 
             >>> import grass.temporal as tgis
             >>> tgis.init()
-            >>> p = tgis.TemporalOperatorParser()
+            >>> p = tgis.classic.temporal_operator.TemporalOperatorParser()
             >>> operator = "{+, during}"
             >>> p.parse(operator, optype="raster")
             >>> print((p.relations, p.temporal, p.function))
@@ -1980,7 +1980,7 @@ class TemporalAlgebraParser:
 
             >>> import grass.temporal as tgis
             >>> tgis.init()
-            >>> l = tgis.TemporalAlgebraParser()
+            >>> l = tgis.classic.temporal_algebra.TemporalAlgebraParser()
             >>> # Example with two lists of maps
             >>> # Create two list of maps with equal time stamps
             >>> mapsA = []
@@ -2049,7 +2049,7 @@ class TemporalAlgebraParser:
 
             >>> import grass.temporal as tgis
             >>> tgis.init()
-            >>> p = tgis.TemporalAlgebraParser()
+            >>> p = tgis.classic.temporal_algebra.TemporalAlgebraParser()
             >>> # Create two list of maps with equal time stamps
             >>> mapsA = []
             >>> mapsB = []
@@ -2144,7 +2144,7 @@ class TemporalAlgebraParser:
             >>> import grass.temporal as tgis
             >>> import datetime
             >>> tgis.init()
-            >>> l = tgis.TemporalAlgebraParser()
+            >>> l = tgis.classic.temporal_algebra.TemporalAlgebraParser()
             >>> # Example with one list of maps
             >>> # Create one list of maps with equal time stamps
             >>> for i in range(1):

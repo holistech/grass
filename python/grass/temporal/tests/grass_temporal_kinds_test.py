@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.c_libraries_interface import CLibrariesInterface
 from grass.pygrass.messages import FatalError
 from grass.temporal import kinds, list_stds
 
@@ -86,7 +87,7 @@ def test_stds_and_map_kinds_point_at_each_other():
             assert kind.ciface_prefix is None
         else:
             assert kinds.KINDS[kind.stds_kind].map_kind == kind.name
-            assert hasattr(tgis.CLibrariesInterface, f"{kind.ciface_prefix}_map_exists")
+            assert hasattr(CLibrariesInterface, f"{kind.ciface_prefix}_map_exists")
 
 
 def test_the_dataset_classes_name_their_kind():

@@ -14,6 +14,17 @@ import sqlite3
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.space_time_datasets import (
+    SpaceTimeRaster3DDataset,
+    SpaceTimeVectorDataset,
+)
+from grass.temporal.state import (
+    get_enable_mapset_check,
+    get_enable_timestamp_write,
+    get_tgis_backend,
+    get_tgis_db_version,
+    get_tgis_version,
+)
 from grass.grassdb.create import create_mapset
 from grass.tools import Tools
 
@@ -51,10 +62,10 @@ def test_init_creates_tgis_db_if_not_skipped(simple_mapset):
         tgis.init()
         ciface = tgis.get_tgis_c_library_interface()
         assert ciface.available_mapsets() == ["c", "PERMANENT"]
-        assert tgis.get_tgis_version() == 2
-        assert tgis.get_tgis_backend() == "sqlite"
-        assert tgis.get_enable_mapset_check() is True
-        assert tgis.get_enable_timestamp_write() is True
+        assert get_tgis_version() == 2
+        assert get_tgis_backend() == "sqlite"
+        assert get_enable_mapset_check() is True
+        assert get_enable_timestamp_write() is True
         assert tgis.get_sql_template_path().endswith("sql")
         # Test if the VAR file with the TGIS connection info is created
         assert var_file.exists()
@@ -83,10 +94,10 @@ def test_init_succeeds_without_db_creation(simple_mapset):
         tgis.init(skip_db_init=True)
         first_ciface = tgis.get_tgis_c_library_interface()
         assert first_ciface.available_mapsets() == ["c", "PERMANENT"]
-        assert tgis.get_tgis_version() == 2
-        assert tgis.get_tgis_backend() == "sqlite"
-        assert tgis.get_enable_mapset_check() is True
-        assert tgis.get_enable_timestamp_write() is True
+        assert get_tgis_version() == 2
+        assert get_tgis_backend() == "sqlite"
+        assert get_enable_mapset_check() is True
+        assert get_enable_timestamp_write() is True
         assert tgis.get_sql_template_path().endswith("sql")
         assert not var_file.exists()
         assert not tgis_db.exists()
@@ -111,8 +122,8 @@ def test_stds_construction_without_tgis_db_initialization(
         # None of these must raise if the temporal database is not initialized
         strds = tgis.SpaceTimeRasterDataset(ident)
         assert "number_of_semantic_labels" in strds.metadata.D
-        tgis.SpaceTimeRaster3DDataset(ident)
-        tgis.SpaceTimeVectorDataset(ident)
+        SpaceTimeRaster3DDataset(ident)
+        SpaceTimeVectorDataset(ident)
         # Test dataset_factory for all dataset types, which should be constructed without DB access
         for ds_type, valid_ds_types in ds_types_dict.items():
             stds = tgis.dataset_factory(ds_type, ident)
@@ -140,7 +151,7 @@ def test_stds_construction_with_tgis_db_initialization(
         if ident is not None:
             ident = f"{ident}@{tgis.get_current_mapset()}"
         assert tgis.get_tgis_metadata() is not None
-        assert tgis.get_tgis_db_version_from_metadata() == tgis.get_tgis_db_version()
+        assert tgis.get_tgis_db_version_from_metadata() == get_tgis_db_version()
         tgis.get_current_mapset()
         strds = tgis.SpaceTimeRasterDataset(ident)
         assert strds.get_id() == ident

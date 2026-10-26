@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.temporal_granularity import compute_common_absolute_time_granularity
 from grass.temporal import topology
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
 from grass.temporal.testing.session import mapset_session, temporal_session
@@ -153,11 +154,11 @@ def test_register_map_leaves_a_given_connection_open_when_done(small_strds):
 
 @pytest.mark.parametrize("dates", [None, [], [datetime(2001, 1, 1)]])
 def test_common_granularity_of_no_granules_is_none(dates):
-    assert tgis.compute_common_absolute_time_granularity([], dates) is None
+    assert compute_common_absolute_time_granularity([], dates) is None
 
 
 def test_common_granularity_of_an_invalid_granule_is_false_with_dates():
-    result = tgis.compute_common_absolute_time_granularity(
+    result = compute_common_absolute_time_granularity(
         ["nonsense"], [datetime(2001, 1, 1)]
     )
 

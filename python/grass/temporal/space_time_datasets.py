@@ -683,7 +683,9 @@ class SpaceTimeRaster3DDataset(StdsDataset):
         >>> import grass.temporal as tgis
         >>> tgis.init()
         >>> mapset = tgis.get_current_mapset()
-        >>> str3ds = tgis.SpaceTimeRaster3DDataset("old@%s" % mapset)
+        >>> str3ds = tgis.space_time_datasets.SpaceTimeRaster3DDataset(
+        ...     "old@%s" % mapset
+        ... )
         >>> str3ds.is_in_db()
         False
         >>> str3ds.is_stds()
@@ -764,7 +766,7 @@ class SpaceTimeVectorDataset(_PlanarExtentMethods, StdsDataset):
         >>> import grass.temporal as tgis
         >>> tgis.init()
         >>> mapset = tgis.get_current_mapset()
-        >>> stvds = tgis.SpaceTimeVectorDataset("old@%s" % mapset)
+        >>> stvds = tgis.space_time_datasets.SpaceTimeVectorDataset("old@%s" % mapset)
         >>> stvds.is_in_db()
         False
         >>> stvds.is_stds()

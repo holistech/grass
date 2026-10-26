@@ -9,8 +9,8 @@ Usage:
     >>> from datetime import datetime
     >>> tgis.init()
     >>> from grass.temporal.kinds import KINDS
-    >>> t = tgis.RelativeTimeRow(KINDS["raster"])
-    >>> t = tgis.AbsoluteTimeRow(KINDS["raster"])
+    >>> t = tgis.temporal_extent.RelativeTimeRow(KINDS["raster"])
+    >>> t = tgis.temporal_extent.AbsoluteTimeRow(KINDS["raster"])
 
 
 SPDX-FileCopyrightText: 2012-2013 GRASS Development Team

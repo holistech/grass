@@ -9,7 +9,7 @@ Usage:
     >>> from grass.temporal.kinds import KINDS
     >>> tgis.init()
     >>> for name in ("raster", "raster3d", "vector", "strds", "str3ds", "stvds"):
-    ...     extent = tgis.SpatialExtentRow(
+    ...     extent = tgis.spatial_extent.SpatialExtentRow(
     ...         KINDS[name],
     ...         ident=f"{name}@PERMANENT",
     ...         north=90,

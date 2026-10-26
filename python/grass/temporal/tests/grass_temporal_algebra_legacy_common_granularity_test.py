@@ -14,6 +14,7 @@ import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
 from grass.temporal.testing import legacy_data
 from grass.tools import Tools
 
@@ -28,7 +29,7 @@ def data(temporal_module_session):
 
 
 def common_granularity(expression):
-    parser = tgis.TemporalAlgebraParser(run=True, debug=True)
+    parser = TemporalAlgebraParser(run=True, debug=True)
     assert parser.setup_common_granularity(expression=expression) is True
     return parser
 

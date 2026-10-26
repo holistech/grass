@@ -44,6 +44,30 @@ def _has(obj, name):
     return inspect.getattr_static(obj, name, _ABSENT) is not _ABSENT
 
 
+# Classes whose methods the contract lists although code outside reaches them
+# through other objects (a map's spatial_extent, a dataset's temporal_extent)
+# and does not import them: they are not exported by the package.
+_MODULE_OF_UNEXPORTED_CLASS = {
+    "AbstractDataset": "abstract_dataset",
+    "AbstractMapDataset": "abstract_map_dataset",
+    "CLibrariesInterface": "c_libraries_interface",
+    "SpaceTimeRaster3DDataset": "space_time_datasets",
+    "SpaceTimeVectorDataset": "space_time_datasets",
+    "SpatialExtent": "spatial_extent",
+    "TemporalExtent": "temporal_extent",
+}
+
+
+def _class_named(name):
+    """The class of a contract entry, exported or from its module"""
+    if hasattr(tgis, name):
+        return getattr(tgis, name)
+    module = importlib.import_module(
+        f"grass.temporal.{_MODULE_OF_UNEXPORTED_CLASS[name]}"
+    )
+    return getattr(module, name)
+
+
 def _report(missing):
     return "\n".join(f"{what} (used by {origin})" for what, origin in missing)
 
@@ -85,7 +109,7 @@ def test_module_attributes():
 def test_methods_exist():
     missing = []
     for class_name, methods in CONTRACT["methods"].items():
-        cls = getattr(tgis, class_name, None)
+        cls = _class_named(class_name)
         if cls is None:
             missing.append((f"grass.temporal.{class_name}", "all its methods"))
             continue
@@ -101,7 +125,7 @@ def test_methods_exist():
 def test_instance_attributes_exist():
     missing = []
     for class_name, attributes in CONTRACT["attributes"].items():
-        obj = getattr(tgis, class_name)("contract@test")
+        obj = _class_named(class_name)("contract@test")
         missing.extend(
             (f"{class_name}().{name}", origin)
             for name, origin in attributes.items()
@@ -117,7 +141,7 @@ def test_member_methods_exist():
     missing = []
     for path, members in CONTRACT["members"].items():
         class_name, attribute = path.split(".")
-        member = getattr(getattr(tgis, class_name)("contract@test"), attribute, None)
+        member = getattr(_class_named(class_name)("contract@test"), attribute, None)
         missing.extend(
             (f"{class_name}().{attribute}.{name}", origin)
             for name, origin in members.items()
@@ -133,3 +157,9 @@ def test_contract_is_not_empty():
     assert len(CONTRACT["attributes"]) == 6
     assert sum(len(v) for v in CONTRACT["members"].values()) > 300
     assert any("addons" in o for o in CONTRACT["top_names"].values())
+
+
+def test_the_package_exports_the_contract_and_nothing_else():
+    """``__all__`` is the used names plus the modules code reaches as attributes"""
+    expected = sorted({*CONTRACT["top_names"], *CONTRACT["module_attributes"]})
+    assert sorted(tgis.__all__) == expected

@@ -15,9 +15,9 @@ Usage:
     >>> import grass.temporal as tgis
     >>> from grass.temporal.kinds import KINDS
     >>> tgis.init()
-    >>> rbase = tgis.BaseRow(KINDS["raster"], ident="soil@PERMANENT")
-    >>> vbase = tgis.BaseRow(KINDS["vector"], ident="soil:1@PERMANENT")
-    >>> strdsbase = tgis.BaseRow(KINDS["strds"], ident="soil@PERMANENT")
+    >>> rbase = tgis.base.BaseRow(KINDS["raster"], ident="soil@PERMANENT")
+    >>> vbase = tgis.base.BaseRow(KINDS["vector"], ident="soil:1@PERMANENT")
+    >>> strdsbase = tgis.base.BaseRow(KINDS["strds"], ident="soil@PERMANENT")
     >>> rbase.get_table_name(), strdsbase.get_table_name()
     ('raster_base', 'strds_base')
 

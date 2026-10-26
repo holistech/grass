@@ -1,9 +1,12 @@
-from .abstract_dataset import (
-    AbstractDataset,
-    AbstractDatasetComparisonKeyEndTime,
-    AbstractDatasetComparisonKeyStartTime,
-)
-from .abstract_map_dataset import AbstractMapDataset
+"""The temporal framework of GRASS
+
+The package exports the names that code outside the library uses, listed in
+``__all__``; the contract test ``grass_temporal_public_contract_test.py`` holds
+the list and who uses each name. Everything else is imported from its module,
+for example ``from grass.temporal.related_maps import related_per_granule``.
+"""
+
+from . import core, datetime_math, list_stds, space_time_datasets
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .aggregation import aggregate_raster_maps, collect_map_names
 from .algebra.parser.facade import (
@@ -11,72 +14,39 @@ from .algebra.parser.facade import (
     TemporalRasterAlgebraParser,
     TemporalVectorAlgebraParser,
 )
-from .base import BaseRow, RegisterRow
-from .c_libraries_interface import CLibrariesInterface
-from .db import (
-    DBConnection,
-    SQLDatabaseInterfaceConnection,
-    SQLStatementError,
-    get_available_temporal_mapsets,
-    init_dbif,
-)
+from .db import SQLDatabaseInterfaceConnection, SQLStatementError, init_dbif
 from .schema import (
-    create_temporal_database,
-    get_database_info_string,
     get_sql_template_path,
     get_tgis_db_version_from_metadata,
     get_tgis_metadata,
     upgrade_temporal_database,
 )
 from .state import (
-    get_current_gisdbase,
-    get_current_location,
     get_current_mapset,
-    get_enable_mapset_check,
-    get_enable_timestamp_write,
-    get_raise_on_error,
-    get_tgis_backend,
     get_tgis_c_library_interface,
-    get_tgis_database,
     get_tgis_database_string,
-    get_tgis_db_version,
-    get_tgis_dbmi_paramstyle,
     get_tgis_message_interface,
-    get_tgis_version,
     init,
     profile_function,
-    set_raise_on_error,
     stop_subprocesses,
 )
 from .datetime_math import (
     adjust_datetime_to_granularity,
-    check_datetime_string,
     check_suffix,
-    compute_datetime_delta,
     create_numeric_suffix,
-    create_suffix_from_datetime,
-    create_time_suffix,
     datetime_after_steps,
     datetime_to_grass_datetime_string,
-    decrement_datetime_by_string,
     increment_datetime_by_string,
     map_name_suffix,
-    modify_datetime,
-    modify_datetime_by_string,
     next_cycle,
     string_to_datetime,
     time_delta_to_relative_time,
-    time_delta_to_relative_time_seconds,
 )
-from .extract import (
-    extract_dataset,
-    run_vector_extraction,
-)
+from .extract import extract_dataset
 from .factory import dataset_factory
 from .gui_support import registered_maps_grouped, tlist, tlist_grouped
 from .list_stds import get_dataset_list, list_maps_of_stds
 from .mapcalc import dataset_mapcalculator
-from .metadata import MetadataRow
 from .open_stds import (
     check_new_map_dataset,
     check_new_stds,
@@ -84,169 +54,74 @@ from .open_stds import (
     open_new_stds,
     open_old_stds,
 )
-from .register import (
-    assign_valid_time_to_map,
-    register_map_object_list,
-    register_maps_in_space_time_dataset,
-)
-from .rows import Column, DictSQLSerializer, Row, SQLDatabaseInterface
+from .register import register_map_object_list, register_maps_in_space_time_dataset
 from .sampling import sample_stds_by_stds_topology
 from .space_time_datasets import (
     Raster3DDataset,
     RasterDataset,
-    SpaceTimeRaster3DDataset,
     SpaceTimeRasterDataset,
-    SpaceTimeVectorDataset,
     VectorDataset,
 )
-from .spatial_extent import (
-    SpatialExtent,
-    SpatialExtentRow,
-)
-from .topology import (
-    SpatioTemporalTopologyBuilder,
-    count_temporal_topology_relationships,
-    create_temporal_relation_sql_where_statement,
-    print_spatio_temporal_topology_relationships,
-    print_temporal_topology_relationships,
-    set_spatial_relationship,
-    set_temporal_relationship,
-)
+from .topology import SpatioTemporalTopologyBuilder
 from .stds_export import export_stds
 from .stds_import import import_stds
-from .classic.temporal_algebra import (
-    FatalError,
-    GlobalTemporalVar,
-    TemporalAlgebraLexer,
-    TemporalAlgebraParser,
-)
-from .classic.temporal_operator import TemporalOperatorLexer, TemporalOperatorParser
-from .classic.temporal_raster_base_algebra import (
-    TemporalRasterAlgebraLexer,
-    TemporalRasterBaseAlgebraParser,
-)
-from .classic.temporal_vector_algebra import TemporalVectorAlgebraLexer
-from .temporal_extent import (
-    AbsoluteTemporalExtent,
-    AbsoluteTimeRow,
-    RelativeTemporalExtent,
-    RelativeTimeRow,
-    TemporalExtent,
-)
+from .classic.temporal_algebra import FatalError
+from .classic.temporal_raster_base_algebra import TemporalRasterAlgebraLexer
+from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 from .temporal_granularity import (
     check_granularity_string,
     compute_absolute_time_granularity,
-    compute_common_absolute_time_granularity,
-    compute_common_absolute_time_granularity_simple,
-    compute_common_relative_time_granularity,
     compute_relative_time_granularity,
-    gcd,
-    gcd_list,
-    get_time_tuple_function,
     gran_singular_unit,
     gran_to_gran,
 )
 from .univar_statistics import (
-    compute_univar_stats,
     print_gridded_dataset_univar_statistics,
     print_vector_dataset_univar_statistics,
 )
 
 __all__ = [
     "AbsoluteTemporalExtent",
-    "AbsoluteTimeRow",
-    "AbstractDataset",
-    "AbstractDatasetComparisonKeyEndTime",
-    "AbstractDatasetComparisonKeyStartTime",
-    "AbstractMapDataset",
     "AbstractSpaceTimeDataset",
-    "BaseRow",
-    "CLibrariesInterface",
-    "Column",
-    "DBConnection",
-    "DictSQLSerializer",
     "FatalError",
-    "GlobalTemporalVar",
-    "MetadataRow",
     "Raster3DDataset",
     "RasterDataset",
-    "RegisterRow",
     "RelativeTemporalExtent",
-    "RelativeTimeRow",
-    "Row",
-    "SQLDatabaseInterface",
     "SQLDatabaseInterfaceConnection",
     "SQLStatementError",
-    "SpaceTimeRaster3DDataset",
     "SpaceTimeRasterDataset",
-    "SpaceTimeVectorDataset",
-    "SpatialExtent",
-    "SpatialExtentRow",
     "SpatioTemporalTopologyBuilder",
-    "TemporalAlgebraLexer",
-    "TemporalAlgebraParser",
-    "TemporalExtent",
-    "TemporalOperatorLexer",
-    "TemporalOperatorParser",
     "TemporalRaster3DAlgebraParser",
     "TemporalRasterAlgebraLexer",
     "TemporalRasterAlgebraParser",
-    "TemporalRasterBaseAlgebraParser",
-    "TemporalVectorAlgebraLexer",
     "TemporalVectorAlgebraParser",
     "VectorDataset",
     "adjust_datetime_to_granularity",
     "aggregate_raster_maps",
-    "assign_valid_time_to_map",
-    "check_datetime_string",
     "check_granularity_string",
     "check_new_map_dataset",
     "check_new_stds",
     "check_suffix",
     "collect_map_names",
     "compute_absolute_time_granularity",
-    "compute_common_absolute_time_granularity",
-    "compute_common_absolute_time_granularity_simple",
-    "compute_common_relative_time_granularity",
-    "compute_datetime_delta",
     "compute_relative_time_granularity",
-    "compute_univar_stats",
-    "count_temporal_topology_relationships",
+    "core",
     "create_numeric_suffix",
-    "create_suffix_from_datetime",
-    "create_temporal_database",
-    "create_temporal_relation_sql_where_statement",
-    "create_time_suffix",
     "dataset_factory",
     "dataset_mapcalculator",
     "datetime_after_steps",
+    "datetime_math",
     "datetime_to_grass_datetime_string",
-    "decrement_datetime_by_string",
     "export_stds",
     "extract_dataset",
-    "gcd",
-    "gcd_list",
-    "get_available_temporal_mapsets",
-    "get_current_gisdbase",
-    "get_current_location",
     "get_current_mapset",
-    "get_database_info_string",
     "get_dataset_list",
-    "get_enable_mapset_check",
-    "get_enable_timestamp_write",
-    "get_raise_on_error",
     "get_sql_template_path",
-    "get_tgis_backend",
     "get_tgis_c_library_interface",
-    "get_tgis_database",
     "get_tgis_database_string",
-    "get_tgis_db_version",
     "get_tgis_db_version_from_metadata",
-    "get_tgis_dbmi_paramstyle",
     "get_tgis_message_interface",
     "get_tgis_metadata",
-    "get_tgis_version",
-    "get_time_tuple_function",
     "gran_singular_unit",
     "gran_to_gran",
     "import_stds",
@@ -254,30 +129,23 @@ __all__ = [
     "init",
     "init_dbif",
     "list_maps_of_stds",
+    "list_stds",
     "map_name_suffix",
-    "modify_datetime",
-    "modify_datetime_by_string",
     "next_cycle",
     "open_new_map_dataset",
     "open_new_stds",
     "open_old_stds",
     "print_gridded_dataset_univar_statistics",
-    "print_spatio_temporal_topology_relationships",
-    "print_temporal_topology_relationships",
     "print_vector_dataset_univar_statistics",
     "profile_function",
     "register_map_object_list",
     "register_maps_in_space_time_dataset",
     "registered_maps_grouped",
-    "run_vector_extraction",
     "sample_stds_by_stds_topology",
-    "set_raise_on_error",
-    "set_spatial_relationship",
-    "set_temporal_relationship",
+    "space_time_datasets",
     "stop_subprocesses",
     "string_to_datetime",
     "time_delta_to_relative_time",
-    "time_delta_to_relative_time_seconds",
     "tlist",
     "tlist_grouped",
     "upgrade_temporal_database",

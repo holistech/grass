@@ -163,6 +163,9 @@ class TestMapsetsCache:
                 "create_temporal_database",
                 "init",
             )
+            # The package exports only init; fakes patches the others where
+            # they exist.
+            if hasattr(module, name)
         }
         with fakes.mapsets_cache():
             assert core.init is not originals[(core, "init")]

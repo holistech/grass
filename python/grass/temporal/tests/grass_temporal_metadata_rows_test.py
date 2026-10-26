@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.metadata import MetadataRow
 from grass.temporal.kinds import KINDS
 
 pytestmark = pytest.mark.real_io
@@ -33,9 +34,7 @@ GOLDEN = json.loads(
 KIND_NAMES = ("raster", "raster3d", "vector", "strds", "str3ds", "stvds")
 
 # kind -> constructor. This is the only place that names the classes.
-_CLASSES = {
-    kind: functools.partial(tgis.MetadataRow, KINDS[kind]) for kind in KIND_NAMES
-}
+_CLASSES = {kind: functools.partial(MetadataRow, KINDS[kind]) for kind in KIND_NAMES}
 
 # The values the database computes for a space time dataset; they have a
 # setter nowhere, a read of the row fills them.

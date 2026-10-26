@@ -8,6 +8,8 @@ from datetime import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.base import BaseRow
+from grass.temporal.temporal_extent import TemporalExtent
 from grass.temporal import core, datasets
 from grass.temporal.kinds import KINDS
 from grass.pygrass.messages import FatalError
@@ -23,7 +25,7 @@ def raising(temporal_module_session):
 
 @pytest.mark.parametrize("kind", ["raster", "vector", "strds"])
 def test_set_id_splits_name_layer_and_mapset(raising, kind):
-    base = tgis.BaseRow(KINDS[kind], ident="old@PERMANENT")
+    base = BaseRow(KINDS[kind], ident="old@PERMANENT")
 
     base.set_id("roads:2@PERMANENT")
 
@@ -36,7 +38,7 @@ def test_set_id_splits_name_layer_and_mapset(raising, kind):
 
 
 def test_constructor_splits_the_identifier_the_same_way(raising):
-    base = tgis.BaseRow(KINDS["vector"], ident="roads:2@PERMANENT")
+    base = BaseRow(KINDS["vector"], ident="roads:2@PERMANENT")
 
     assert (base.get_name(), base.get_layer(), base.get_mapset()) == (
         "roads",
@@ -60,7 +62,7 @@ def test_dataset_set_id_reaches_every_part(raising):
 
 @pytest.mark.parametrize("ident", ["a:b:c@m", "a@b@c", "nomapset"])
 def test_wrong_identifier_is_reported(raising, ident):
-    base = tgis.BaseRow(KINDS["raster"], ident="old@PERMANENT")
+    base = BaseRow(KINDS["raster"], ident="old@PERMANENT")
 
     with pytest.raises(FatalError, match="Wrong identifier"):
         base.set_id(ident)
@@ -93,7 +95,7 @@ def victim(temporal_module_session):
     mapset = tgis.get_current_mapset()
 
     def make(name):
-        return tgis.BaseRow(
+        return BaseRow(
             KINDS["raster"],
             ident=f"{name}@{mapset}",
             name=name,
@@ -343,5 +345,5 @@ def test_creation_time_under_the_german_locale():
 def test_temporal_extent_has_no_adjacent_method():
     # follows() and precedes() are the relations of intervals that touch; the
     # removed method answered both orders with True and had no caller.
-    assert not hasattr(tgis.TemporalExtent, "adjacent")
-    assert hasattr(tgis.TemporalExtent, "follows")
+    assert not hasattr(TemporalExtent, "adjacent")
+    assert hasattr(TemporalExtent, "follows")

@@ -19,6 +19,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.state import get_raise_on_error
 from grass.temporal import stds_import
 from grass.pygrass.messages import FatalError
 from grass.exceptions import CalledModuleError
@@ -633,7 +634,7 @@ def test_the_error_mode_of_grass_script_is_the_one_of_the_caller_afterwards(
     assert seen == [False] * len(seen)
     assert gs.get_raise_on_error() is False
     # The framework of the session still raises, as the session set it up.
-    assert tgis.get_raise_on_error() is True
+    assert get_raise_on_error() is True
 
 
 def test_making_a_project_leaves_the_error_mode_of_grass_script_alone(
@@ -646,4 +647,4 @@ def test_making_a_project_leaves_the_error_mode_of_grass_script_alone(
     )
 
     assert gs.get_raise_on_error() is False
-    assert tgis.get_raise_on_error() is True
+    assert get_raise_on_error() is True

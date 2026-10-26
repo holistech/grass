@@ -18,6 +18,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal import c_libraries_interface
+from grass.temporal.c_libraries_interface import CLibrariesInterface
 from grass.pygrass.messages import FatalError
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -40,7 +41,7 @@ def session(tmp_path_factory):
 @pytest.fixture(scope="module")
 def ciface(session):
     """The client, with its server, shared by the tests of the module"""
-    client = tgis.CLibrariesInterface()
+    client = CLibrariesInterface()
     yield client
     client.stop()
 
@@ -312,7 +313,7 @@ def test_a_killed_server_is_restarted(ciface, maps):
 
 def test_a_second_client_has_its_own_server(ciface, maps):
     mapset = tgis.get_current_mapset()
-    other = tgis.CLibrariesInterface()
+    other = CLibrariesInterface()
     try:
         assert other.server.pid != ciface.server.pid
         assert other.raster_map_exists("rast", mapset) is True

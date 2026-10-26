@@ -877,13 +877,13 @@ class CLibrariesInterface(RPCServerBase):
         ... )
 
         # Check mapsets
-        >>> ciface = tgis.CLibrariesInterface()
+        >>> ciface = tgis.c_libraries_interface.CLibrariesInterface()
         >>> mapsets = ciface.available_mapsets()
         >>> mapsets[0] == tgis.get_current_mapset()
         True
 
         # Raster map
-        >>> ciface = tgis.CLibrariesInterface()
+        >>> ciface = tgis.c_libraries_interface.CLibrariesInterface()
         >>> check = ciface.raster_map_exists("test", tgis.get_current_mapset())
         >>> print(check)
         True

@@ -24,6 +24,10 @@ from pathlib import Path
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.base import BaseRow, RegisterRow
+from grass.temporal.rows import Column, Row
+from grass.temporal.spatial_extent import SpatialExtentRow
+from grass.temporal.temporal_extent import AbsoluteTimeRow, RelativeTimeRow
 from grass.temporal.kinds import KINDS
 
 pytestmark = pytest.mark.real_io
@@ -42,11 +46,11 @@ DATASETS = ("strds", "str3ds", "stvds")
 # part -> constructor of the row of a kind. This is the only place that
 # names the classes.
 _ROWS = {
-    "base": tgis.BaseRow,
-    "absolute_time": tgis.AbsoluteTimeRow,
-    "relative_time": tgis.RelativeTimeRow,
-    "spatial_extent": tgis.SpatialExtentRow,
-    "register": tgis.RegisterRow,
+    "base": BaseRow,
+    "absolute_time": AbsoluteTimeRow,
+    "relative_time": RelativeTimeRow,
+    "spatial_extent": SpatialExtentRow,
+    "register": RegisterRow,
 }
 _PARTS = {
     "base": MAPS + DATASETS,
@@ -357,10 +361,10 @@ def test_an_empty_edge_stays_empty():
     assert extent.get_south() == 1.0
 
 
-class Sample(tgis.Row):
+class Sample(Row):
     columns = (
-        tgis.Column("size", alias="extent", convert=int, doc="the size"),
-        tgis.Column("label"),
+        Column("size", alias="extent", convert=int, doc="the size"),
+        Column("label"),
     )
 
     def set_label(self, value) -> None:

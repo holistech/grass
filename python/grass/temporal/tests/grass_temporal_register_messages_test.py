@@ -14,6 +14,7 @@ from datetime import datetime
 import pytest
 
 import grass.temporal as tgis
+from grass.temporal.register import assign_valid_time_to_map
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -242,7 +243,7 @@ def test_a_time_string_that_is_no_date_is_refused(start, end, text):
     item = tgis.VectorDataset(f"x@{MAPSET}")
 
     with pytest.raises(tgis.FatalError) as error:
-        tgis.assign_valid_time_to_map("absolute", item, start, end, None)
+        assign_valid_time_to_map("absolute", item, start, end, None)
 
     assert str(error.value) == text
 
@@ -251,7 +252,7 @@ def test_an_increment_that_gives_no_time_is_refused():
     item = tgis.VectorDataset(f"x@{MAPSET}")
 
     with pytest.raises(tgis.FatalError) as error:
-        tgis.assign_valid_time_to_map(
+        assign_valid_time_to_map(
             "absolute", item, "2001-01-01", None, None, increment="garbage"
         )
 
@@ -263,7 +264,7 @@ def test_valid_time_of_a_relative_map_with_and_without_layer(layer):
     name = f"x:{layer}@{MAPSET}" if layer else f"x@{MAPSET}"
     item = tgis.VectorDataset(name)
 
-    tgis.assign_valid_time_to_map(
+    assign_valid_time_to_map(
         "relative", item, "3", "7", "days", increment=None, interval=False
     )
 

@@ -49,7 +49,7 @@ def main():
     provider.stop()
 
     tgis.init()
-    ciface = tgis.CLibrariesInterface()
+    ciface = tgis.c_libraries_interface.CLibrariesInterface()
     assert ciface.raster_map_exists("a", mapset)
     ciface.stop()
 

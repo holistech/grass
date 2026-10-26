@@ -4,6 +4,17 @@ import pytest
 
 import grass.script as gs
 import grass.temporal as tgis
+from grass.temporal.state import (
+    get_current_gisdbase,
+    get_current_location,
+    get_enable_mapset_check,
+    get_raise_on_error,
+    get_tgis_backend,
+    get_tgis_db_version,
+    get_tgis_dbmi_paramstyle,
+    get_tgis_version,
+    set_raise_on_error,
+)
 from grass.temporal import core, db, schema, state
 
 
@@ -32,10 +43,10 @@ def test_core_holds_no_session_state():
 def test_init_reads_the_session():
     env = gs.gisenv()
     assert tgis.get_current_mapset() == env["MAPSET"]
-    assert tgis.get_current_location() == env["LOCATION_NAME"]
-    assert tgis.get_current_gisdbase() == env["GISDBASE"]
-    assert tgis.get_tgis_backend() == "sqlite"
-    assert tgis.get_tgis_dbmi_paramstyle() == "qmark"
+    assert get_current_location() == env["LOCATION_NAME"]
+    assert get_current_gisdbase() == env["GISDBASE"]
+    assert get_tgis_backend() == "sqlite"
+    assert get_tgis_dbmi_paramstyle() == "qmark"
     assert tgis.get_tgis_database_string().endswith("sqlite.db")
 
 
@@ -43,27 +54,27 @@ def test_the_getters_read_the_state_object(monkeypatch):
     monkeypatch.setattr(state.STATE, "current_mapset", "elsewhere")
     monkeypatch.setattr(state.STATE, "enable_mapset_check", False)
     assert tgis.get_current_mapset() == "elsewhere"
-    assert tgis.get_enable_mapset_check() is False
+    assert get_enable_mapset_check() is False
     assert core.get_current_mapset() == "elsewhere"
 
 
 def test_set_raise_on_error_returns_the_previous_value():
-    previous = tgis.get_raise_on_error()
+    previous = get_raise_on_error()
     try:
-        assert tgis.set_raise_on_error(not previous) is previous
+        assert set_raise_on_error(not previous) is previous
         assert state.STATE.raise_on_error is (not previous)
-        assert tgis.get_raise_on_error() is (not previous)
+        assert get_raise_on_error() is (not previous)
     finally:
-        tgis.set_raise_on_error(previous)
+        set_raise_on_error(previous)
 
 
 def test_versions_are_integers_larger_than_zero():
-    assert tgis.get_tgis_version() > 0
-    assert tgis.get_tgis_db_version() > 0
+    assert get_tgis_version() > 0
+    assert get_tgis_db_version() > 0
 
 
 def test_a_new_database_is_created_by_the_steps_of_init():
     """The metadata table that the last step creates holds both versions"""
     rows = {row[0]: row[1] for row in tgis.get_tgis_metadata()}
-    assert rows["tgis_version"] == str(tgis.get_tgis_version())
-    assert rows["tgis_db_version"] == str(tgis.get_tgis_db_version())
+    assert rows["tgis_version"] == str(get_tgis_version())
+    assert rows["tgis_db_version"] == str(get_tgis_db_version())

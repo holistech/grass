@@ -11,7 +11,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
     >>> import grass.temporal as tgis
     >>> tgis.init(True)
-    >>> p = tgis.TemporalVectorAlgebraLexer()
+    >>> p = tgis.classic.temporal_vector_algebra.TemporalVectorAlgebraLexer()
     >>> p.build()
     >>> p.debug = True
     >>> expression = "E = A : B ^ C : D"
