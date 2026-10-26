@@ -136,3 +136,16 @@ def test_a_wrong_region_relation_is_refused_by_the_parser(tools, regions):
         tools.t_rast_univar(input=regions, region_relation="touches")
 
     assert "out of range for parameter <region_relation>" in message(error.value)
+
+
+def test_region_relation_narrows_each_alternative_of_where(tools, regions):
+    # ur_out is chosen by the first alternative, but it does not contain the
+    # region; ur_part is chosen by the second and does not contain it either
+    rows = _rows(
+        tools,
+        regions,
+        region_relation="contains",
+        where="name = 'ur_out' OR name = 'ur_part'",
+    )
+
+    assert rows == []

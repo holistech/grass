@@ -94,3 +94,43 @@ def test_the_label_narrows_the_condition_of_the_user(label, where, expected):
         )
     ]
     assert found == expected
+
+
+SMALL = {"n": "8", "s": "1", "e": "8", "w": "1", "projection": "1"}
+LARGE = {"n": "20", "s": "-5", "e": "20", "w": "-5", "projection": "1"}
+
+
+@pytest.mark.parametrize(
+    ("relation", "region", "where", "expected"),
+    [
+        ("overlaps", SMALL, None, ["a1", "a2"]),
+        # The extent narrows each alternative of the condition of the user.
+        ("contains", LARGE, "name = 'a1' OR name = 'a2'", []),
+        ("overlaps", SMALL, "name = 'a3' OR name = 'a1'", ["a1"]),
+        ("is_contained", LARGE, "name = 'a3' OR name = 'a1'", ["a1"]),
+    ],
+)
+def test_the_extent_narrows_the_condition_of_the_user(
+    relation, region, where, expected
+):
+    rows = [
+        ("a1", 10, 0, 10, 0),
+        ("a2", 5, 0, 5, 0),
+        ("a3", 100, 90, 100, 90),
+    ]
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        "CREATE TABLE maps (name TEXT, north REAL, south REAL, east REAL, west REAL)"
+    )
+    connection.executemany("INSERT INTO maps VALUES (?, ?, ?, ?, ?)", rows)
+    stds = tgis.SpaceTimeRasterDataset("zz@PERMANENT")
+
+    statement = stds._update_where_statement_by_spatial_extent(where, region, relation)
+
+    found = [
+        row[0]
+        for row in connection.execute(
+            f"SELECT name FROM maps WHERE {statement} ORDER BY name"
+        )
+    ]
+    assert found == expected

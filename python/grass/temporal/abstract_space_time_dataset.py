@@ -858,11 +858,10 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             '((north > 0 AND south < 1 AND east > 0 AND west < 1))'
         """
 
-        # initialized WHERE statement
-        if where:
-            where += " AND ("
-        else:
-            where = "("
+        # The condition of the user may hold an OR of its own, and the shifted
+        # extents below are joined with OR as well; each side is bracketed,
+        # so that AND binds the two as wholes.
+        where = f"({where}) AND (" if where else "("
 
         if not spatial_relation:
             spatial_relation = "overlaps"
