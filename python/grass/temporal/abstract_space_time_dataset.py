@@ -75,19 +75,6 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
         return dataset_name
 
-    def create_map_register_name(self):
-        """Create the name of the map register table of this space time
-        dataset
-
-        A uuid and the map type are used to create the table name
-
-        ATTENTION: It must be assured that the base object has selected its
-        content from the database.
-
-        :return: The name of the map register table
-        """
-        return self.map_register.create_name()
-
     @property
     def map_register(self) -> StdsMapRegister:
         """The map register table of this dataset
@@ -1196,15 +1183,6 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                 return ""
 
             return statement
-
-    def is_map_registered(self, map_id, dbif=None):
-        """Check if a map is registered in the space time dataset
-
-        :param map_id: The map id
-        :param dbif: The database interface to be used
-        :return: True if success, False otherwise
-        """
-        return self.map_register.contains(map_id, dbif)
 
     def register_map(self, map, dbif=None) -> bool:
         """Register a map in the space time dataset.

@@ -1,8 +1,8 @@
 """A space time dataset over its registered maps
 
 Registering, unregistering and updating the extent (register_map(),
-unregister_map(), is_map_registered(), update_from_registered_maps()),
-shifting and snapping (shift(), snap(), shift_map_list(), snap_map_list()),
+unregister_map(), contains() of the map register,
+update_from_registered_maps()), shifting and snapping (shift(), snap(), shift_map_list(), snap_map_list()),
 sampling by granules and the check of the temporal topology. The tests go
 through the public methods of a dataset, with real maps in a temporary
 project, so that the code behind them can move without changing what it
@@ -106,13 +106,13 @@ def test_register_into_an_empty_dataset(pair):
     other = stds_of(pair, "other")
     assert other.get_map_register() is not None
     assert register_ids(other) == []
-    assert other.is_map_registered(f"{pair['m1']}@{mapset}") is False
+    assert other.map_register.contains(f"{pair['m1']}@{mapset}") is False
 
     stored = map_of(pair["m1"])
     stored.select()
     assert other.register_map(stored) is True
 
-    assert other.is_map_registered(stored.get_id()) is True
+    assert other.map_register.contains(stored.get_id()) is True
     assert other.map_counter == 1
     assert register_ids(other) == [stored.get_id()]
 
@@ -593,7 +593,7 @@ def test_a_register_table_name_of_another_form_is_refused(pair, name):
     with pytest.raises(tgis.FatalError, match="Invalid name"):
         stds.get_registered_maps("id")
     with pytest.raises(tgis.FatalError, match="Invalid name"):
-        stds.is_map_registered("a@PERMANENT")
+        stds.map_register.contains("a@PERMANENT")
 
 
 def test_a_register_table_of_an_older_form_is_used(pair):
@@ -613,7 +613,7 @@ def test_a_register_table_of_an_older_form_is_used(pair):
     stds = stds_of(pair, "abs")
     assert stds.get_map_register() == old
     assert len(register_ids(stds)) == 2
-    assert stds.is_map_registered(register_ids(stds)[0]) is True
+    assert stds.map_register.contains(register_ids(stds)[0]) is True
 
 
 @pytest.mark.parametrize("how", ["copy", "deepcopy", "pickle"])
@@ -634,11 +634,11 @@ def test_a_copy_of_a_dataset_has_a_register_of_its_own(pair, how):
 def test_a_new_register_name_has_the_form_of_the_check(pair):
     stds = stds_of(pair, "abs")
 
-    name = stds.create_map_register_name()
+    name = stds.map_register.create_name()
 
     assert name.startswith("raster_map_register_")
     assert len(name) == len("raster_map_register_") + 32
-    assert name != stds.create_map_register_name()
+    assert name != stds.map_register.create_name()
     assert stds.map_register.table_name() == stds.get_map_register()
 
 
