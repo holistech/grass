@@ -624,7 +624,6 @@ def _get_get_registered_maps_as_objects_delta_gran(
         # would end in a message about a wrong granularity "None". With a
         # granule of the user it would print the header only, so both are
         # refused alike.
-        dbif.close()
         msgr.fatal(
             _(
                 "Nothing found in the database for space time dataset <{name}> "
@@ -784,12 +783,12 @@ def _get_list_of_maps_stds(
                     ",".join(columns), where, order, dbif
                 )
             except SQLStatementError as error:
-                gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+                msgr.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
             # End with error for the old, custom formats. Proper formats simply return
             # empty result whatever empty is for each format (e.g., empty list for JSON).
             if not rows and (output_format in {"plain", "line"}):
-                gs.fatal(
+                msgr.fatal(
                     _(
                         "Nothing found in the database for space time dataset <{name}> "
                         "(type: {element_type}): {detail}"
@@ -882,7 +881,7 @@ def list_maps_of_stds(
             dbif=dbif,
         )
     except _ListingError as error:
-        gs.fatal(str(error))
+        get_tgis_message_interface().fatal(str(error))
 
     if output_format == "line":
         _write_line(
