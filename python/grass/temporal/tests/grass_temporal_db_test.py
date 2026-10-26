@@ -135,7 +135,7 @@ LITERALS = [
     "SELECT ''",
     "SELECT 'x''; DROP TABLE t; --'",
     "SELECT '2001-02-03 04:05:06'",
-    "SELECT '2001-02-03 04:05:06.000789'",
+    "SELECT '2001-02-03 04:05:06'",
     "SELECT '2001-02-03'",
 ]
 VALUES = [
@@ -457,3 +457,84 @@ def test_add_stds_to_register_works_on_the_connection_it_is_given(monkeypatch):
         dbif.close()
 
     assert opened == []
+
+
+def test_sql_literal_writes_a_datetime_in_whole_seconds():
+    from grass.temporal.db import sql_literal  # noqa: PLC0415
+
+    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456)
+    zone = datetime.timezone(datetime.timedelta(hours=2))
+    assert sql_literal(moment) == "'2001-01-01 06:30:00'"
+    assert sql_literal(moment.replace(tzinfo=zone)) == "'2001-01-01 06:30:00+02:00'"
+
+
+def _stored_start_texts(db_path):
+    import sqlite3  # noqa: PLC0415
+
+    # No detect_types: the text as the column holds it, not a datetime.
+    with sqlite3.connect(db_path) as raw:
+        return dict(
+            raw.execute("SELECT id, start_time FROM raster_absolute_time").fetchall()
+        )
+
+
+@pytest.mark.parametrize(
+    ("zone", "text"),
+    [(None, "2001-01-01 06:30:00"), (2, "2001-01-01 06:30:00+02:00")],
+)
+def test_both_paths_store_the_same_text(zone, text):
+    tzinfo = None if zone is None else datetime.timezone(datetime.timedelta(hours=zone))
+    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456, tzinfo=tzinfo)
+    adapter_id = f"viaadapter{zone}@PERMANENT"
+    mogrify_id = f"viamogrify{zone}@PERMANENT"
+    adapter_map = tgis.RasterDataset(adapter_id)
+    adapter_map.set_absolute_time(moment)
+    mogrify_map = tgis.RasterDataset(mogrify_id)
+    mogrify_map.set_absolute_time(moment)
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        adapter_map.temporal_extent.insert(dbif)
+        dbif.execute_transaction(
+            mogrify_map.temporal_extent.get_insert_statement_mogrified(dbif)
+        )
+    finally:
+        dbif.close()
+
+    texts = _stored_start_texts(tgis.get_tgis_database_string())
+    assert texts[adapter_id] == texts[mogrify_id] == text
+
+
+def test_an_old_value_reads_in_whole_seconds():
+    from grass.temporal.db import convert_datetime  # noqa: PLC0415
+
+    plus_two = datetime.timezone(datetime.timedelta(hours=2))
+    aware = convert_datetime(b"2001-01-01 06:30:00.123456+02:00")
+    assert aware == datetime.datetime(2001, 1, 1, 6, 30, tzinfo=plus_two)
+    assert aware.microsecond == 0
+    naive = convert_datetime(b"2001-01-01 06:30:00.123456")
+    assert naive.tzinfo is None
+    assert naive.microsecond == 0
+    assert naive == convert_datetime(b"2001-01-01 06:30:00")
+
+
+def test_postgresql_gets_whole_seconds():
+    zone = datetime.timezone(datetime.timedelta(hours=2))
+    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456, tzinfo=zone)
+    log = []
+    conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
+    conn.dbmi = fake_pg(log)
+
+    conn.execute("SELECT %s", (moment,))
+    conn.mogrify_sql_statement(["SELECT %s", (moment,)])
+
+    calls = [c for c in log if c[0] in {"cursor.execute", "cursor.mogrify"}]
+    assert [c[0] for c in calls] == ["cursor.execute", "cursor.mogrify"]
+    for call in calls:
+        (sent,) = call[2]
+        assert sent == moment.replace(microsecond=0)
+        assert sent.microsecond == 0
+        assert sent.tzinfo is moment.tzinfo
+    # The value of the caller is not changed.
+    assert moment.microsecond == 123456

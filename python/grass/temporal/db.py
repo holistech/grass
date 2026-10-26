@@ -85,18 +85,38 @@ class SQLStatementError(RuntimeError):
 
 ###############################################################################
 # Register datetime adapters and converters for the temporal database
-def adapt_datetime_iso(value: datetime) -> str:
-    """Adapt datetime object to timezone-naive ISO 8601 string, assuming UTC.
+def db_datetime(value: datetime) -> datetime:
+    """Bring a time to the resolution of the temporal database
 
-    Output strftime format ensures backwards compatibility with datetime
-    storage in the temporal database.
+    The database keeps whole seconds: the microseconds are cut off, not
+    rounded. A time zone stays as it is, without any conversion of the clock
+    time; t.register relies on the stored zone to refuse a dataset that would
+    mix times with and without one. Every value that goes into or comes out
+    of the database passes here, so the paths of SQLite (adapter and written
+    statement) and PostgreSQL store the same time. The values in memory are
+    not touched.
     """
-    return value.strftime("%Y-%m-%d %H:%M:%S")
+    return value.replace(microsecond=0)
+
+
+def adapt_datetime_iso(value: datetime) -> str:
+    """Adapt datetime object to an ISO 8601 string in whole seconds.
+
+    A naive time gives the same text as before ("2001-01-01 06:30:00"). An
+    aware time keeps its offset: the adapter used to drop it, while the
+    written statement (sql_literal) kept it, and the two paths must store
+    the same text.
+    """
+    return db_datetime(value).isoformat(sep=" ")
 
 
 def convert_datetime(value: bytes) -> datetime:
-    """Convert ISO 8601 string to timezone-naive datetime object, assuming UTC."""
-    return datetime.fromisoformat(value.decode())
+    """Convert ISO 8601 string to a datetime in whole seconds, zone kept.
+
+    A text written by an older version can carry microseconds; they are cut,
+    so the value can be compared with a new one.
+    """
+    return db_datetime(datetime.fromisoformat(value.decode()))
 
 
 sqlite3.register_adapter(datetime, adapt_datetime_iso)
@@ -545,6 +565,7 @@ class DBConnection:
         if self.dbmi.__name__ == "psycopg2":
             if len(args) == 0:
                 return sql
+            args = _pg_args(args)
             if self.connected:
                 try:
                     return self.cursor.mogrify(sql, args)
@@ -625,6 +646,8 @@ class DBConnection:
             connected = True
         try:
             if args:
+                if self.dbmi.__name__ == "psycopg2":
+                    args = _pg_args(args)
                 self.cursor.execute(statement, args)
             else:
                 self.cursor.execute(statement)
@@ -731,6 +754,15 @@ def sql_placeholder(dbmi_paramstyle: str) -> str:
     return "?" if dbmi_paramstyle == "qmark" else "%s"
 
 
+def _pg_args(args):
+    """Bring the datetimes among the arguments for psycopg2 to database time
+
+    SQLite does this in its adapter. psycopg2 sends a datetime as it is, with
+    microseconds, so it is done before the call.
+    """
+    return tuple(db_datetime(a) if isinstance(a, datetime) else a for a in args)
+
+
 def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     """Write a Python value as a literal of an SQL statement
 
@@ -740,10 +772,9 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     None is NULL; a float that is not finite is NULL too, because SQLite has
     no literal for inf and nan and would read the bare word as a column name
     (statistics of a map with infinite values are unknown, which is what NULL
-    says). Floats have six decimals and datetimes are written with
-    str(), so microseconds stay. The SQLite adapter, which stores the values
-    of a statement with arguments, drops them; which of the two is right is
-    undecided, and the difference is kept as it was.
+    says). Floats have six decimals. Datetimes are written in whole seconds,
+    the resolution of the database, with their offset if they have one: the
+    same text as the SQLite adapter stores (db_datetime()).
 
     A text is written the same for every database: single quotes with the
     quotes inside doubled is standard SQL. The callers that put a text into a
@@ -772,7 +803,9 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
         return "NULL"
     if isinstance(value, float):
         return f"{value:f}"
-    # Default is a string, this works for datetime objects too
+    if isinstance(value, datetime):
+        value = db_datetime(value)
+    # Default is a string, this works for date objects too
     return "'{}'".format(str(value).replace("'", "''"))
 
 
