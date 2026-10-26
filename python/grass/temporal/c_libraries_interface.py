@@ -646,7 +646,13 @@ def _write_semantic_label(*, kind, name, semantic_label, **_):
 
 @_handler("map_exists", on_error=False)
 def _map_exists(*, kind, name, mapset, **_):
-    """Tell whether a map exists in the spatial database"""
+    """Tell whether a map exists in the spatial database
+
+    A map object that was deleted has no name any more. The G_find functions
+    take no NULL name, and a call with one ended the server.
+    """
+    if name is None:
+        return False
     return bool(getattr(libgis, f"G_find_{kind}")(name, mapset))
 
 

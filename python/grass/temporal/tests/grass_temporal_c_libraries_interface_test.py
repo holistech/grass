@@ -88,6 +88,18 @@ def test_map_exists(ciface, maps, kind):
     assert exists("no_such_map", mapset) is False
 
 
+@pytest.mark.parametrize("kind", KINDS)
+def test_a_map_without_a_name_does_not_exist(ciface, maps, kind):
+    # A map object that was deleted has no name and no mapset any more.
+    exists = method(ciface, "{kind}_map_exists", kind)
+    mapset = tgis.get_current_mapset()
+
+    assert exists(None, None) is False
+    assert exists(None, mapset) is False
+    # The server went on.
+    assert exists(KINDS[kind], mapset) is True
+
+
 def test_raster_info(ciface, maps):
     mapset = tgis.get_current_mapset()
 

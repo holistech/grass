@@ -285,8 +285,8 @@ def test_empty_3d_raster_maps_are_deleted_on_request(tools, ids):
 
     tgis.register_map_object_list("raster3d", [item], None, delete_empty=True)
 
-    # map_exists() of a 3D raster map that is gone ends the C server process
     assert not tools.g_list(type="raster_3d", pattern=name, format="json")
+    assert item.map_exists() is False
 
 
 def test_a_passed_stream_stays_open(ids):
