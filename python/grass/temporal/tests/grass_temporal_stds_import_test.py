@@ -431,6 +431,20 @@ def test_a_project_that_cannot_be_made_leaves_the_process_as_it_was(
     assert _process_state() == before
 
 
+def test_a_projection_file_that_cannot_be_decoded_is_refused_with_a_message(
+    archives, target, tmp_path
+):
+    broken = _changed(
+        archives["GTiff"], tmp_path / "broken.tar", "proj.txt", b"\xff\xfe"
+    )
+    before = _process_state()
+
+    with pytest.raises(FatalError, match="Unable to create location newproject"):
+        tgis.import_stds(str(broken), "out", tmp_path, location="newproject")
+
+    assert _process_state() == before
+
+
 def test_an_environment_that_cannot_be_made_leaves_the_process_as_it_was(
     archives, target, tmp_path, monkeypatch
 ):

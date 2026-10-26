@@ -522,7 +522,8 @@ def _create_project(dbase: str, location: str, overr: bool) -> bool:
                 # r.in.gdal accepts only with the override flag.
                 return True
             gs.create_location(dbase=dbase, location=location, proj4=proj4_string)
-    except (ScriptError, CalledModuleError, OSError) as e:
+    # A projection file that is not UTF-8 raises UnicodeDecodeError, a ValueError.
+    except (ScriptError, CalledModuleError, OSError, ValueError) as e:
         get_tgis_message_interface().fatal(
             _("Unable to create location %(l)s. Reason: %(e)s")
             % {"l": location, "e": str(e)}
