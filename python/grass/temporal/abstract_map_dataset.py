@@ -20,7 +20,7 @@ from .datetime_math import (
     decrement_datetime_by_string,
     increment_datetime_by_string,
 )
-from .db import connection
+from .db import connection, db_datetime
 from .state import (
     get_current_mapset,
     get_enable_mapset_check,
@@ -517,8 +517,11 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                     % values
                 )
                 return False
-            # Do not create an interval in case start and end time are equal
-            if start_time == end_time:
+            # Do not create an interval in case start and end time are equal.
+            # They are compared as the database stores them, in whole
+            # seconds: an interval inside one second would otherwise be
+            # written with equal times and refused when it is read back.
+            if db_datetime(start_time) == db_datetime(end_time):
                 end_time = None
 
         self.base.set_ttype("absolute")

@@ -12,6 +12,7 @@ registration made.
 """
 
 import datetime
+import io
 import itertools
 from types import SimpleNamespace
 
@@ -294,6 +295,42 @@ def test_time_stamps_with_a_time_of_day_are_used_without_arguments(made):
 
     assert absolute_time("raster", names.m1)[0] == day(1, 10, 30, 1)
     assert absolute_time("raster", names.m2)[0] == day(1, 18, 30, 1)
+
+
+def test_an_interval_inside_one_second_is_registered_as_a_time_instance(made):
+    # The database keeps whole seconds; cut to them, the first interval has
+    # equal start and end and becomes a time instance, the second crosses a
+    # second boundary and stays an interval.
+    names = made("raster")
+    rows = io.StringIO(
+        f"{names.m1}|2001-01-01 10:00:00.2|2001-01-01 10:00:00.7\n"
+        f"{names.m2}|2001-01-01 10:00:01.7|2001-01-01 10:00:02.2\n"
+    )
+
+    tgis.register_maps_in_space_time_dataset(type="raster", name=names.abs, file=rows)
+
+    assert absolute_time("raster", names.m1) == (day(1, 10), None)
+    assert absolute_time("raster", names.m2) == (day(1, 10, 0, 1), day(1, 10, 0, 2))
+    assert dataset_time("raster", names.abs) == (day(1, 10), day(1, 10, 0, 2))
+
+
+@pytest.mark.parametrize(
+    ("end", "expected"),
+    [
+        (datetime.datetime(2001, 1, 1, 10, 0, 0, 700000), None),
+        (datetime.datetime(2001, 1, 1, 10, 0, 0, 200000), None),
+        (
+            datetime.datetime(2001, 1, 1, 10, 0, 1),
+            datetime.datetime(2001, 1, 1, 10, 0, 1),
+        ),
+    ],
+)
+def test_set_absolute_time_compares_start_and_end_in_whole_seconds(end, expected):
+    item = tgis.RasterDataset("a@PERMANENT")
+
+    assert item.set_absolute_time(datetime.datetime(2001, 1, 1, 10, 0, 0, 200000), end)
+
+    assert item.get_absolute_time()[1] == expected
 
 
 def test_relative_time_in_a_dataset(made):
