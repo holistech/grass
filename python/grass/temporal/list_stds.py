@@ -675,30 +675,23 @@ def _get_list_of_maps_delta_gran(dataset, columns, where, method, gran, dbif, ms
     )
     rows = []
     for map_object, start, end, delta, delta_first in maps:
-        row = []
         # Here the names must be the same as in the database
         # to make the interface consistent.
+        values = {
+            "id": map_object.get_id(),
+            "name": map_object.get_name(),
+            "layer": map_object.get_layer(),
+            "mapset": map_object.get_mapset(),
+            "start_time": start,
+            "end_time": end,
+            "interval_length": delta,
+            "distance_from_begin": delta_first,
+        }
         for column in columns:
-            if column == "id":
-                row.append(map_object.get_id())
-            elif column == "name":
-                row.append(map_object.get_name())
-            elif column == "layer":
-                row.append(map_object.get_layer())
-            elif column == "mapset":
-                row.append(map_object.get_mapset())
-            elif column == "start_time":
-                row.append(start)
-            elif column == "end_time":
-                row.append(end)
-            elif column == "interval_length":
-                row.append(delta)
-            elif column == "distance_from_begin":
-                row.append(delta_first)
-            else:
+            if column not in values:
                 msg = f"Unsupported column '{column}'"
                 raise _ListingError(msg)
-        rows.append(row)
+        rows.append([values[column] for column in columns])
     return rows
 
 

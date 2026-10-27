@@ -701,3 +701,49 @@ def test_making_a_project_leaves_the_error_mode_of_grass_script_alone(
 
     assert gs.get_raise_on_error() is False
     assert get_raise_on_error() is True
+
+
+# Every case overrides the projection check: without it the import of an
+# archive made in another projection stops before any map is read.
+@pytest.mark.parametrize(
+    ("archive", "options", "module", "kwargs"),
+    [
+        ("GTiff", {}, "r.in.gdal", {"memory": 300, "flags": "o"}),
+        ("GTiff", {"memory": 50}, "r.in.gdal", {"memory": 50, "flags": "o"}),
+        ("GTiff", {"exp": True}, "r.in.gdal", {"memory": 300, "flags": "oe"}),
+        ("AAIGrid", {}, "r.in.gdal", {"memory": 300, "flags": "o"}),
+        ("GTiff", {"link": True}, "r.external", {"flags": "o"}),
+        ("GTiff", {"link": True, "exp": True}, "r.external", {"flags": "oe"}),
+        ("GML", {"stds_type": "stvds"}, "v.in.ogr", {"flags": "o"}),
+        ("GML", {"stds_type": "stvds", "exp": True}, "v.in.ogr", {"flags": "oe"}),
+        ("GPKG", {"stds_type": "stvds", "link": True}, "v.external", {"flags": "o"}),
+        (
+            "GPKG",
+            {"stds_type": "stvds", "link": True, "exp": True},
+            "v.external",
+            {"flags": "o"},
+        ),
+    ],
+)
+def test_the_import_module_gets_the_flags_and_the_memory_of_the_call(
+    archives, target, tmp_path, monkeypatch, archive, options, module, kwargs
+):
+    calls = []
+
+    def run(name, *args, **given):
+        if name != module:
+            return gs.run_command.__wrapped__(name, *args, **given)
+        calls.append(given)
+        raise CalledModuleError(name, "", 1)
+
+    run_command = gs.run_command
+    run.__wrapped__ = run_command
+    monkeypatch.setattr(gs, "run_command", run)
+
+    with pytest.raises(FatalError, match="Unable to"):
+        tgis.import_stds(str(archives[archive]), "out", tmp_path, overr=True, **options)
+
+    assert len(calls) == 1
+    given = calls[0]
+    assert Path(given.pop("input")).name.startswith(given.pop("output"))
+    assert given == {"overwrite": gs.overwrite(), **kwargs}

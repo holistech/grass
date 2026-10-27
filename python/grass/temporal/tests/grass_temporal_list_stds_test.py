@@ -74,3 +74,43 @@ def test_a_given_connection_stays_open_when_the_listing_ends_in_a_message(
 
     assert dbif.is_connected()
     dbif.close()
+
+
+def test_every_column_of_the_delta_method_is_listed(listed_strds):
+    columns = [
+        "id",
+        "name",
+        "mapset",
+        "start_time",
+        "end_time",
+        "interval_length",
+        "distance_from_begin",
+    ]
+
+    rows, listed = list_stds._get_list_of_maps_stds(
+        element_type="strds",
+        name=listed_strds,
+        columns=columns,
+        order=None,
+        where=None,
+        method="delta",
+        output_format="plain",
+    )
+
+    assert listed == columns
+    assert [list(row) for row in rows] == [
+        ["ls_map@PERMANENT", "ls_map", "PERMANENT", day(0), day(1), 1.0, 0.0]
+    ]
+
+
+def test_a_column_the_delta_method_cannot_list_is_refused_by_name(listed_strds):
+    with pytest.raises(FatalError, match="Unsupported column 'nonsense'"):
+        list_stds.list_maps_of_stds(
+            type="strds",
+            input=listed_strds,
+            columns="id,nonsense",
+            order=None,
+            where=None,
+            separator=None,
+            method="delta",
+        )

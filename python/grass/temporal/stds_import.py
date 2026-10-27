@@ -109,23 +109,15 @@ def _import_raster_maps_from_gdal(
         filename = row["filename"] + FORMAT_SUFFIX[format_]
 
         try:
-            if link:
-                gs.run_command(
-                    "r.external",
-                    input=filename,
-                    output=name,
-                    flags=impflags,
-                    overwrite=gs.overwrite(),
-                )
-            else:
-                gs.run_command(
-                    "r.in.gdal",
-                    input=filename,
-                    output=name,
-                    memory=memory,
-                    flags=impflags,
-                    overwrite=gs.overwrite(),
-                )
+            # r.external reads the file where it is and has no memory option.
+            gs.run_command(
+                "r.external" if link else "r.in.gdal",
+                input=filename,
+                output=name,
+                flags=impflags,
+                overwrite=gs.overwrite(),
+                **({} if link else {"memory": memory}),
+            )
 
         except CalledModuleError:
             get_tgis_message_interface().fatal(
@@ -202,22 +194,13 @@ def _import_vector_maps_from_ogr(
         filename = row["filename"] + FORMAT_SUFFIX[format_]
 
         try:
-            if link:
-                gs.run_command(
-                    "v.external",
-                    input=filename,
-                    output=name,
-                    flags=impflags or None,
-                    overwrite=gs.overwrite(),
-                )
-            else:
-                gs.run_command(
-                    "v.in.ogr",
-                    input=filename,
-                    output=name,
-                    flags=impflags or None,
-                    overwrite=gs.overwrite(),
-                )
+            gs.run_command(
+                "v.external" if link else "v.in.ogr",
+                input=filename,
+                output=name,
+                flags=impflags or None,
+                overwrite=gs.overwrite(),
+            )
 
         except CalledModuleError:
             get_tgis_message_interface().fatal(
