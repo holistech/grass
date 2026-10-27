@@ -91,7 +91,8 @@ def ends_before_start(start, end) -> bool:
 def _refuse_reversed(extent) -> None:
     """Raise ValueError if the extent ends before it starts or cannot be compared
 
-    Only the constructor and temporal_relation() check. The setters and the
+    Only the constructor, temporal_relation() and
+    RelativeTemporalExtent.intersect() check. The setters and the
     predicates do not: t.shift and t.snap set the start and the end one after
     the other and pass through such a state, and the classic algebra calls the
     predicates by name.
@@ -890,7 +891,10 @@ class RelativeTemporalExtent(TemporalExtent):
         :param extent: The temporal extent to intersect with
         :return: The new temporal extent, or None in case of no intersection
                  or if the units differ
-        :raises ValueError: as temporal_relation(), whether or not the units differ
+        :raises ValueError: as temporal_relation(), whether or not the units differ.
+                            A missing unit or a plain extent as partner is not
+                            checked for the units: disjoint numbers then raise
+                            "End time ... is before start time ..." as before.
 
         Numbers in different units cannot overlap, whatever their values: 5 to 7
         years does not meet 5 to 6 days. This is the answer temporal_relation()
@@ -900,7 +904,7 @@ class RelativeTemporalExtent(TemporalExtent):
         _refuse_reversed(self)
         _refuse_reversed(extent)
         # Only two set units that differ rule out an overlap; a missing unit
-        # or a plain extent as partner intersects as it always did.
+        # or a plain extent as partner is intersected unchecked, as before.
         unit = self.D.get("unit")
         other_unit = extent.D.get("unit")
         if unit is not None and other_unit is not None and unit != other_unit:

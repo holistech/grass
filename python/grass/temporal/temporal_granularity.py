@@ -230,9 +230,9 @@ def _intervals_and_gaps(maps, is_interval):
     at the end of the earlier map, or at its start if that end is false (None,
     or 0 in relative time).
 
-    A map without a start time is left out. The reading of a dataset leaves a
-    map so when it refuses the stored times, for example an end before the
-    start, and names the map; the time it would have covered is unknown, so
+    A map without a start time is left out. The reading of a dataset gives a
+    map no time when it refuses the stored times, for example an end before
+    the start, and names the map; the time it would have covered is unknown, so
     a gap reaches from the map before it to the map after it.
 
     :param maps: A list of map objects or database rows, ordered by start time

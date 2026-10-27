@@ -423,10 +423,12 @@ def _chronological_key(map_):
 def reversed_map_ids(maps) -> set[str]:
     """Return the ids of the maps that end before they start, warning once each
 
-    Registering refuses such a map, but the database of an older version or
-    one edited by hand can hold one. It has no temporal relation to any map,
-    so the callers leave out every pair it is part of instead of failing on
-    the whole list. A map that occurs more than once in maps warns once.
+    Registering refuses such a map. A reversed extent still arises from
+    select(), from the setters and from objects built in memory; the dataset
+    reader turns a stored reversed interval into a map without time. The map
+    has no temporal relation to any map, so the callers leave out every pair
+    it is part of instead of failing on the whole list. A map that occurs
+    more than once in maps warns once.
 
     :param maps: A list of map objects with initiated temporal extent
     :return: The set of the ids of these maps

@@ -625,6 +625,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
 
             if maps is not None and len(maps) > 0:
                 # No gap is inserted next to a map that ends before it starts.
+                # This matters for a reader that keeps the stored times (a
+                # subclass or an add-on); the own reader already drops such
+                # times, so the map arrives without time.
                 reversed_ids = reversed_map_ids(maps)
                 for i in range(len(maps)):
                     obj_list.append(maps[i])
