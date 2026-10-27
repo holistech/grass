@@ -621,7 +621,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
             return False
 
         if start_time is not None and end_time is not None:
-            if int(start_time) > int(end_time):
+            # Compare before int() truncates: 1.7 to 1.2 would otherwise
+            # both become 1 and pass as an instance. float() because the
+            # values may arrive as text, which int() rejects for "1.7".
+            if float(start_time) > float(end_time):
                 self.msgr.error(
                     layer_form(
                         self.get_layer() is not None,

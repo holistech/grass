@@ -352,7 +352,11 @@ def test_relative_interval_within_one_unit_becomes_an_instance(start, end, expec
     assert item.get_temporal_extent_as_tuple() == expected
 
 
-def test_relative_interval_ending_before_it_starts_is_refused(monkeypatch):
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [(1.7, 1.2), (-0.4, -0.5), (1, 0.5), (2.2, 1.7)],
+)
+def test_relative_end_before_start_is_refused_within_one_unit(monkeypatch, start, end):
     errors = []
     item = tgis.RasterDataset("a@PERMANENT")
     # Without a session there is no messenger; record what it is given.
@@ -361,10 +365,13 @@ def test_relative_interval_ending_before_it_starts_is_refused(monkeypatch):
         "msgr",
         property(lambda self: SimpleNamespace(error=errors.append)),
     )
+    before = item.get_temporal_extent_as_tuple()
 
-    assert not item.set_relative_time(2.2, 1.7, "days")
+    assert not item.set_relative_time(start, end, "days")
 
     assert len(errors) == 1
+    assert "End time must be greater than start time" in errors[0]
+    assert item.get_temporal_extent_as_tuple() == before
 
 
 def test_relative_time_in_a_dataset(made):
