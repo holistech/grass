@@ -31,8 +31,6 @@ from . import granule_sampling, stds_time_edit
 from .stds_map_register import StdsMapRegister
 from .temporal_granularity import check_granularity_string
 
-###############################################################################
-
 
 class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
     """Abstract space time dataset class
@@ -1233,11 +1231,3 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         """
 
         self.map_register.update_extent(dbif)
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

@@ -757,9 +757,3 @@ class SpaceTimeVectorDataset(_PlanarExtentMethods, StdsDataset):
     """
 
     kind = KINDS["stvds"]
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

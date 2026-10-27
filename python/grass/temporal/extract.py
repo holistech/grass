@@ -266,10 +266,6 @@ def extract_dataset(
             )
 
 
-###############################################################################
-# Helper functions
-
-
 def _registered_rows(sp, type, where, has_semantic_labels, dbif, msgr):
     """Return the registered maps of the dataset that the condition selects"""
     try:

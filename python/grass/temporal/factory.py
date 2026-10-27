@@ -25,8 +25,6 @@ if TYPE_CHECKING:
         VectorDataset,
     )
 
-###############################################################################
-
 
 def dataset_factory(
     type: str, id: str | None

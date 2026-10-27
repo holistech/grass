@@ -22,8 +22,6 @@ from .topology import (
     print_temporal_topology_shell_info,
 )
 
-###############################################################################
-
 
 class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
     """This is the base class for all datasets
@@ -560,9 +558,6 @@ class AbstractDataset(TopologyLinks, metaclass=ABCMeta):
         return self.temporal_extent.disjoint_union(dataset.temporal_extent)
 
 
-###############################################################################
-
-
 class AbstractDatasetComparisonKeyStartTime:
     """This comparison key can be used to sort lists of abstract datasets
     by start time
@@ -611,9 +606,6 @@ class AbstractDatasetComparisonKeyStartTime:
         return startA != startB
 
 
-###############################################################################
-
-
 class AbstractDatasetComparisonKeyEndTime:
     """This comparison key can be used to sort lists of abstract datasets
     by end time
@@ -660,11 +652,3 @@ class AbstractDatasetComparisonKeyEndTime:
         startA, endA = self.obj.get_temporal_extent_as_tuple()
         startB, endB = other.obj.get_temporal_extent_as_tuple()
         return endA != endB
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

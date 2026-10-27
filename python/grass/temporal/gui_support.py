@@ -16,8 +16,6 @@ from .db import connection, sql_literal, sql_statement
 from .factory import dataset_factory
 from .kinds import KINDS
 
-###############################################################################
-
 
 def tlist_grouped(type, group_type: bool = False, dbif=None):
     """List of temporal elements grouped by mapsets.
@@ -79,9 +77,6 @@ def tlist_grouped(type, group_type: bool = False, dbif=None):
         return result
 
 
-###############################################################################
-
-
 def tlist(type, dbif=None):
     """Return a list of space time datasets of absolute and relative time
 
@@ -119,9 +114,6 @@ def tlist(type, dbif=None):
                 output.extend(str(col) for row in rows for col in row)
 
         return output
-
-
-###############################################################################
 
 
 def registered_maps_grouped(dbif=None):

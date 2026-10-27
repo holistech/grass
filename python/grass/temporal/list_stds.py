@@ -35,8 +35,6 @@ from .kinds import find_kind
 from .open_stds import open_old_stds
 from .state import get_tgis_message_interface
 
-###############################################################################
-
 #: Columns that only the methods delta, deltagaps and gran can list: they
 #: compute the values from the times of the maps, the temporal database has
 #: no such columns.
@@ -466,9 +464,6 @@ def get_dataset_list(
                             result[mapset].extend(rows)
 
         return result
-
-
-###############################################################################
 
 
 @contextmanager
@@ -902,11 +897,3 @@ def list_maps_of_stds(
             output_format=output_format,
             file=outpath,
         )
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

@@ -43,9 +43,6 @@ def get_tgis_db_version_from_metadata(metadata=None):
     return get_tgis_db_version()
 
 
-###############################################################################
-
-
 def get_tgis_metadata(dbif=None):
     """Return the tgis metadata table as a list of rows (dicts)
 
@@ -85,9 +82,6 @@ def get_database_info_string():
     info = "\nDBMI interface:..... " + str(dbif.get_dbmi().__name__)
     info += "\nTemporal database:.. " + str(get_tgis_database_string())
     return info
-
-
-###############################################################################
 
 
 def _create_temporal_database_views(dbif) -> None:
@@ -212,9 +206,6 @@ def create_temporal_database(dbif) -> None:
     dbif.close()
 
 
-###############################################################################
-
-
 def upgrade_temporal_database(dbif) -> None:
     """This function will upgrade the temporal database if needed.
 
@@ -263,9 +254,6 @@ def upgrade_temporal_database(dbif) -> None:
     _create_temporal_database_views(dbif)
 
     dbif.close()
-
-
-###############################################################################
 
 
 # One row of the metadata table. The values go in through sql_literal(), so a

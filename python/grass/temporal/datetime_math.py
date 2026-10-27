@@ -40,9 +40,6 @@ def time_delta_to_relative_time_seconds(delta: timedelta) -> float:
     return float(delta.days * DAY_IN_SECONDS) + float(delta.seconds)
 
 
-###############################################################################
-
-
 def decrement_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
@@ -251,9 +248,6 @@ def modify_datetime_by_string(
     return mydate
 
 
-###############################################################################
-
-
 def _replace_year_month(mydate: datetime, year: int, month: int) -> datetime:
     """Return mydate moved to the given year and month
 
@@ -380,9 +374,6 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
     return current
 
 
-###############################################################################
-
-
 # The units of a granularity from the finest to the coarsest. A word matches
 # with its plural, "days" contains "day".
 _GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
@@ -485,9 +476,6 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
             fields["day"] += weekday  # this needs to be fixed
 
     return copy.copy(mydate).replace(**fields)
-
-
-###############################################################################
 
 
 class datetime_delta(TypedDict):
@@ -893,9 +881,6 @@ def datetime_to_grass_datetime_string(dt: datetime | None) -> str:
     return string
 
 
-###############################################################################
-
-
 def create_suffix_from_datetime(start_time: datetime, granularity: str) -> str:
     """Create a datetime string based on a datetime object and a provided
     granularity that can be used as suffix for map names. The largest
@@ -1066,9 +1051,3 @@ def map_name_suffix(map, suffix: str, granularity: str | None, number: int) -> s
         return create_time_suffix(map)
     # The name with an empty basename starts with the underscore.
     return create_numeric_suffix("", number, suffix)[1:]
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

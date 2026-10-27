@@ -190,9 +190,6 @@ class DictSQLSerializer:
         print(self.D)
 
 
-###############################################################################
-
-
 class SQLDatabaseInterface(DictSQLSerializer):
     """This class represents the SQL database interface
 
@@ -638,9 +635,3 @@ class Row(SQLDatabaseInterface):
         super().__init_subclass__(**kwargs)
         for column in cls.__dict__.get("columns", ()):
             _generate_accessors(cls, column)
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

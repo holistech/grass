@@ -1241,11 +1241,3 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         report a warning.
         """
         self.msgr.warning(_("semantic labels can only be assigned to raster maps"))
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

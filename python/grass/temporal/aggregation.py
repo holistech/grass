@@ -26,8 +26,6 @@ from .topology import (
 )
 from .state import get_current_mapset, get_tgis_message_interface
 
-###############################################################################
-
 
 def collect_map_names(sp, dbif, start, end, sampling):
     """Gather all maps from dataset using a specific sample method
@@ -97,9 +95,6 @@ def collect_map_names(sp, dbif, start, end, sampling):
         return None
 
     return [row["id"] for row in rows]
-
-
-###############################################################################
 
 
 def aggregate_raster_maps(

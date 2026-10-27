@@ -360,9 +360,3 @@ class RegisterRow(Row):
 
         self.set_id(ident)
         self.set_registered_stds(registered_stds)
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

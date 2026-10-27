@@ -42,8 +42,6 @@ from .state import get_current_mapset, get_tgis_message_interface
 # The names of the map types that dataset_factory() knows
 MAP_TYPES = MAP_ALIASES
 
-###############################################################################
-
 
 def _refuse_other_time(sp, map_object, dbif, run_unit=None):
     """Stop if the dataset would not take the map for its time
@@ -728,9 +726,6 @@ def register_maps_in_space_time_dataset(
     msgr.percent(total, total, 1)
 
 
-###############################################################################
-
-
 def _absolute_times(start, end, increment, mult, interval):
     """The start and end time of an absolute map; the end may be None"""
     msgr = get_tgis_message_interface()
@@ -868,9 +863,6 @@ def assign_valid_time_to_map(
         map_object.set_relative_time(start_time, end_time, unit)
 
 
-##############################################################################
-
-
 def _is_empty(map_layer, map_kind):
     """True for a raster map without values or a vector map without primitives"""
     if map_kind in {"raster", "raster3d"}:
@@ -952,9 +944,3 @@ def register_map_object_list(
 
         # Remove empty maps and unregister them from the temporal database
         _remove_empty_maps(empty_maps, dbif)
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

@@ -120,9 +120,6 @@ def _gcd_in_unit(units, base_unit):
     return gcd_list(values)
 
 
-###############################################################################
-
-
 def check_granularity_string(granularity, temporal_type) -> bool:
     """Check if the granularity string is valid
 
@@ -194,9 +191,6 @@ def check_granularity_string(granularity, temporal_type) -> bool:
         return False
 
     return True
-
-
-###############################################################################
 
 
 def get_time_tuple_function(maps):
@@ -421,9 +415,6 @@ def compute_relative_time_granularity(maps):
     return granularity
 
 
-###############################################################################
-
-
 def compute_absolute_time_granularity(maps):
     """Compute the absolute time granularity
 
@@ -592,9 +583,6 @@ def compute_absolute_time_granularity(maps):
     return f"{granularity} {assigned_time_unit}{plural}"
 
 
-###############################################################################
-
-
 def compute_common_relative_time_granularity(gran_list):
     """Compute the greatest common granule from a list of relative time granules
 
@@ -613,9 +601,6 @@ def compute_common_relative_time_granularity(gran_list):
         10
     """
     return gcd_list(gran_list)
-
-
-###############################################################################
 
 
 def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
@@ -869,9 +854,6 @@ def compute_common_absolute_time_granularity(gran_list, start_date_list=None):
     return common_granule
 
 
-###############################################################################
-
-
 def compute_common_absolute_time_granularity_simple(gran_list):
     """Compute the greatest common granule from a list of absolute time granules
 
@@ -969,9 +951,6 @@ def compute_common_absolute_time_granularity_simple(gran_list):
     return None
 
 
-#######################################################################
-
-
 def gran_singular_unit(gran):
     """Return the absolute granularity unit in its singular term
 
@@ -1010,12 +989,6 @@ def gran_singular_unit(gran):
         return False
     print(_("Invalid absolute granularity"))
     return False
-
-
-#######################################################################
-
-
-########################################################################
 
 
 def gran_to_gran(from_gran, to_gran="days", shell: bool = False):
@@ -1089,7 +1062,6 @@ def gran_to_gran(from_gran, to_gran="days", shell: bool = False):
     return False
 
 
-###############################################################################
 # http://akiscode.com/articles/gcd_of_a_list.shtml
 # Copyright (c) 2010 Stephen Akiki
 # MIT License (Means you can do whatever you want with this)
@@ -1107,9 +1079,6 @@ def gcd(a, b):
     return b
 
 
-###############################################################################
-
-
 def gcd_list(list):
     """Finds the GCD of numbers in a list.
 
@@ -1119,11 +1088,3 @@ def gcd_list(list):
 
     """
     return reduce(gcd, list)
-
-
-###############################################################################
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

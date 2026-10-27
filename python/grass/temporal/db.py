@@ -86,8 +86,6 @@ class SQLStatementError(RuntimeError):
         self.statement = statement
 
 
-###############################################################################
-# Register datetime adapters and converters for the temporal database
 def db_datetime(value: datetime) -> datetime:
     """Bring a time to the resolution of the temporal database
 
@@ -171,9 +169,6 @@ def get_available_temporal_mapsets(mapsets: str | None = None) -> dict:
             tgis_mapsets[mapset] = (driver, database)
 
     return tgis_mapsets
-
-
-###############################################################################
 
 
 class SQLDatabaseInterfaceConnection:
@@ -403,9 +398,6 @@ class SQLDatabaseInterfaceConnection:
             " <{mapset}> has no temporal database."
             " Accessible mapsets are: <{mapsets}>"
         ).format(mapset=decode(mapset), mapsets=",".join(self.tgis_mapsets.keys()))
-
-
-###############################################################################
 
 
 class DBConnection:
@@ -707,9 +699,6 @@ class DBConnection:
         finally:
             if connected:
                 self.close()
-
-
-###############################################################################
 
 
 def init_dbif(dbif):

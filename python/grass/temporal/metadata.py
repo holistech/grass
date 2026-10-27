@@ -633,9 +633,3 @@ _CLASSES: dict[str, type[MetadataRow]] = {
 # Pickle finds a class by its name in the module, so the made classes are
 # named there, as the hand-written classes were.
 globals().update({cls.__name__: cls for cls in _CLASSES.values()})
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

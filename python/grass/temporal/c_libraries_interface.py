@@ -1142,9 +1142,3 @@ class CLibrariesInterface(RPCServerBase):
         :returns: Name of the current mapset
         """
         return self.call("get_mapset")
-
-
-if __name__ == "__main__":
-    import doctest
-
-    doctest.testmod()

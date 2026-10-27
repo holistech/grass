@@ -32,8 +32,6 @@ from .factory import dataset_factory
 from .kinds import find_kind, stds_kind_of
 from .state import get_current_mapset, get_tgis_message_interface
 
-###############################################################################
-
 
 def _parse_id(
     ident: str, stds_type: str = "strds"
@@ -148,9 +146,6 @@ def open_old_stds(name, type, dbif=None):
         return sp
 
 
-###############################################################################
-
-
 def check_new_stds(name, type, dbif=None, overwrite: bool = False):
     """Check if a new space time dataset of a specific type can be created
 
@@ -203,9 +198,6 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
             )
 
         return sp
-
-
-###############################################################################
 
 
 def open_new_stds(
@@ -267,9 +259,6 @@ def open_new_stds(
         return sp
 
 
-############################################################################
-
-
 def check_new_map_dataset(
     name,
     layer=None,
@@ -308,9 +297,6 @@ def check_new_map_dataset(
             )
 
         return new_map
-
-
-############################################################################
 
 
 def open_new_map_dataset(
