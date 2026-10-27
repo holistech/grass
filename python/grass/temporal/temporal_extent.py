@@ -704,9 +704,6 @@ class AbsoluteTemporalExtent(TemporalExtent):
     start_time and end_time must be of type datetime
     """
 
-    def __init__(self, table=None, ident=None, start_time=None, end_time=None) -> None:
-        super().__init__(table, ident, start_time, end_time)
-
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         #      0123456789012345678901234567890
@@ -714,10 +711,6 @@ class AbsoluteTemporalExtent(TemporalExtent):
             " +-------------------- Absolute time -----------------------------------------+"  # noqa: E501
         )
         TemporalExtent.print_info(self)
-
-    def print_shell_info(self) -> None:
-        """Print information about this class in shell style"""
-        TemporalExtent.print_shell_info(self)
 
 
 def _set_dataset_fields(row, granularity, map_time) -> None:

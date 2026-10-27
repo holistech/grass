@@ -483,6 +483,25 @@ def test_the_base_class_by_attribute_and_printed(start, end, printed, shell, cap
     ]
 
 
+def test_an_absolute_extent_printed(capsys):
+    extent = AbsoluteTemporalExtent(
+        table="raster_absolute_time",
+        ident="soil@PERMANENT",
+        start_time=datetime(2001, 1, 1),
+        end_time=None,
+    )
+
+    extent.print_info()
+    extent.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Absolute time -----------------------------------------+",
+        " | Start time:................. 2001-01-01 00:00:00",
+        " | End time:................... None",
+        "start_time='2001-01-01 00:00:00'",
+        "end_time='None'",
+    ]
+
+
 def test_a_relative_extent_by_attribute_and_printed(capsys):
     extent = RelativeTemporalExtent(
         table="raster_relative_time",
