@@ -84,6 +84,12 @@ This assures that timestamps can always be accessed with
 only be modified with <em>t.register</em> because the
 <em>(r|r3|v).timestamp</em> modules have no access to the temporal
 database.
+<p>
+The temporal database stores absolute time stamps in whole seconds: a
+fraction of a second is cut off, not rounded, and a time zone offset is
+kept. A map whose start and end time fall into the same second is
+therefore registered as a time instance, as when start and end time are
+equal.
 
 <h2>INPUT FILE FORMAT</h2>
 
