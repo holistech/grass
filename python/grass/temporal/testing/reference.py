@@ -149,6 +149,43 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
     return parser.parse(expression, basename=basename, overwrite=overwrite)
 
 
+def _maps_with_gaps_as_before(sampler, where, dbif):
+    """List the maps of sampler by start time with a gap map between neighbours
+
+    This is get_registered_maps_as_objects_with_gaps() as it was before the
+    dataset passed over a map without start time. The reference computes as it
+    always did, so it keeps its own copy: a gap is only inserted between two
+    adjacent maps, and never next to a map without time or one that ends
+    before it starts.
+
+    :return: The map objects with the gaps (maps with id None) in between
+    """
+    from grass.temporal.topology import reversed_map_ids
+
+    maps = sampler.get_registered_maps_as_objects(where, "start_time", dbif)
+    obj_list = []
+    if not maps:
+        return obj_list
+    reversed_ids = reversed_map_ids(maps)
+    for i, map_ in enumerate(maps):
+        obj_list.append(map_)
+        if i < len(maps) - 1 and reversed_ids.isdisjoint(
+            (map_.get_id(), maps[i + 1].get_id())
+        ):
+            if maps[i + 1].temporal_relation(map_) == "after":
+                start1, end1 = map_.get_temporal_extent_as_tuple()
+                end = maps[i + 1].get_temporal_extent_as_tuple()[0]
+                start = end1 if end1 is not None else start1
+                gap = sampler.get_new_map_instance(None)
+                if sampler.is_time_absolute():
+                    gap.set_absolute_time(start, end)
+                elif sampler.is_time_relative():
+                    gap.set_relative_time(start, end, sampler.get_relative_time_unit())
+                gap.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
+                obj_list.append(copy.copy(gap))
+    return obj_list
+
+
 def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=None):
     """Sample a dataset with the granules of a sampler dataset, the earlier way
 
@@ -219,7 +256,7 @@ def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=Non
         ]
 
         mapsA = stds.get_registered_maps_as_objects(where=where, dbif=dbif)
-        mapsB = sampler.get_registered_maps_as_objects_with_gaps(where=where, dbif=dbif)
+        mapsB = _maps_with_gaps_as_before(sampler, where, dbif)
         SpatioTemporalTopologyBuilder().build(mapsB, mapsA, "2D" if spatial else None)
 
         obj_list = []

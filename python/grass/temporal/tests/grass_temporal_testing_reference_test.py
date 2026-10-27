@@ -18,7 +18,11 @@ from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps
-from grass.temporal.testing.reference import reference_parser, run_reference
+from grass.temporal.testing.reference import (
+    reference_parser,
+    run_reference,
+    sample_by_dataset,
+)
 from grass.tools import Tools
 
 # B (10 on days 0 to 2, 20 on days 2 to 4) contains a1 and a2, and b2 contains
@@ -193,3 +197,47 @@ def test_select_returns_the_chain_of_the_registered_maps(tools, algebra_variable
 def test_unknown_kind_is_rejected():
     with pytest.raises(ValueError, match="raster3d"):
         reference_parser("raster2d")
+
+
+@pytest.mark.parametrize("temporaltype", ["absolute", "relative"])
+def test_the_reference_sampling_puts_no_gap_next_to_a_map_without_time(
+    tools, temporaltype
+):
+    prefix = f"nogap_{temporaltype}"
+    spans = [(0, 1), (2, 3), (4, 5)]
+    times = spans
+    options = {"temporaltype": temporaltype}
+    if temporaltype == "absolute":
+        times = [(day(start), day(end)) for start, end in spans]
+    else:
+        options["unit"] = "days"
+    for name, maps in (
+        (f"{prefix}_sampled", [MapSpec(f"{prefix}_s", 1, *times[0])]),
+        (
+            f"{prefix}_sampler",
+            [
+                MapSpec(f"{prefix}_{number}", number, start, end)
+                for number, (start, end) in enumerate(times, 1)
+            ],
+        ),
+    ):
+        create_stds(tools, "strds", name, maps, via="library", **options)
+
+    mapset = tgis.get_current_mapset()
+    middle = tgis.RasterDataset(f"{prefix}_2@{mapset}")
+    middle.select()
+    extent = (
+        middle.absolute_time if temporaltype == "absolute" else middle.relative_time
+    )
+    # The setter and update() do not check the order of start and end, so the
+    # row is stored reversed and the reader turns it into a map without time.
+    extent.set_end_time(day(1) if temporaltype == "absolute" else 1)
+    extent.update()
+
+    stds = tgis.open_old_stds(f"{prefix}_sampled", "strds")
+    sampler = tgis.open_old_stds(f"{prefix}_sampler", "strds")
+    granules = sample_by_dataset(stds, sampler, ["start"])
+
+    assert [item["granule"].get_id() for item in granules] == [
+        f"{prefix}_{number}@{mapset}" for number in (1, 2, 3)
+    ]
