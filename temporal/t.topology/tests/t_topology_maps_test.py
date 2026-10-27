@@ -205,7 +205,8 @@ def test_a_map_stored_with_its_end_before_its_start(tools, nested):
     """Registering refuses such a map, but a database edited by hand holds one
 
     Reading the dataset reports the map and leaves it without time; it gets
-    no relations, and the other maps are related as without it.
+    no relations, and the other maps are related as without it. The summary
+    leaves it out of the granularity.
     """
     name, ids = nested
     tools.db_execute(
@@ -233,6 +234,12 @@ def test_a_map_stored_with_its_end_before_its_start(tools, nested):
         ids["b"]: {},
     }
     assert blocks[ids["b"]] == {"Previous": [ids["c"]]}
+
+    summary = tools.t_topology(input=name)
+
+    assert summary.returncode == 0
+    assert f"<{ids['b']}>" in summary.stderr
+    assert "Traceback" not in summary.stderr
 
 
 SPATIAL = {"Equivalent", "Cover", "Covered", "Overlap", "In", "Contain", "Meet"}

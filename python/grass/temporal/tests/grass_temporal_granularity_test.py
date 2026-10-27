@@ -399,3 +399,62 @@ def test_gran_singular_unit(granularity, expected) -> None:
 def test_gran_to_gran(source, target, shell, expected) -> None:
     # With shell the number is returned as it was read, int or float.
     assert repr(gran_to_gran(source, target, shell)) == repr(expected)
+
+
+# The reading of a dataset leaves a map without time when it refuses the
+# stored times, for example an end before the start. The granularity leaves
+# such a map out; the expected value is that of the list without it.
+ABSOLUTE_TIMES = [
+    (datetime(2001, 1, 1), datetime(2001, 1, 5)),
+    (datetime(2001, 1, 11), None),
+    (datetime(2001, 1, 17), datetime(2001, 1, 21)),
+]
+RELATIVE_TIMES = [(0, 4), (8, 12), (12, 16)]
+
+
+def timeless_maps(times, position, temporal_type):
+    """Maps of the times with a map without time inserted at position"""
+    maps = []
+    for number, (start, end) in enumerate(times):
+        map_ = RasterDataset(f"a{number}@P")
+        if temporal_type == "absolute":
+            assert map_.set_absolute_time(start, end)
+        else:
+            assert map_.set_relative_time(start, end, "days")
+        maps.append(map_)
+    timeless = RasterDataset("timeless@P")
+    timeless.base.set_ttype(temporal_type)
+    maps.insert(position, timeless)
+    return maps
+
+
+def timeless_rows(times, position):
+    """Rows of the times with a row without time inserted at position"""
+    rows = [{"start_time": start, "end_time": end} for start, end in times]
+    rows.insert(position, {"start_time": None, "end_time": None})
+    return rows
+
+
+@pytest.mark.parametrize("position", [0, 1, 3])
+@pytest.mark.parametrize("kind", ["maps", "rows"])
+@pytest.mark.parametrize(
+    ("compute", "times", "temporal_type"),
+    [
+        (compute_absolute_time_granularity, ABSOLUTE_TIMES, "absolute"),
+        (compute_relative_time_granularity, RELATIVE_TIMES, "relative"),
+    ],
+)
+def test_a_map_without_time_is_left_out_of_the_granularity(
+    compute, times, temporal_type, kind, position
+) -> None:
+    if kind == "maps":
+        with_timeless = timeless_maps(times, position, temporal_type)
+        without = [map_ for map_ in with_timeless if map_.get_id() != "timeless@P"]
+    else:
+        with_timeless = timeless_rows(times, position)
+        without = [row for row in with_timeless if row["start_time"] is not None]
+
+    expected = compute(without)
+
+    assert expected not in {None, 0}
+    assert compute(with_timeless) == expected

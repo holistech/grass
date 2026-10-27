@@ -230,14 +230,23 @@ def _intervals_and_gaps(maps, is_interval):
     at the end of the earlier map, or at its start if that end is false (None,
     or 0 in relative time).
 
+    A map without a start time is left out. The reading of a dataset leaves a
+    map so when it refuses the stored times, for example an end before the
+    start, and names the map; the time it would have covered is unknown, so
+    a gap reaches from the map before it to the map after it.
+
     :param maps: A list of map objects or database rows, ordered by start time
     :param is_interval: A function of start and end that tells whether a map
                         is an interval; the temporal types differ in it
     """
     get_time_tuple = get_time_tuple_function(maps)
-    previous_start, previous_end = get_time_tuple(maps[0])
-    for stds_map in maps:
-        start, end = get_time_tuple(stds_map)
+    times = [
+        (start, end) for start, end in map(get_time_tuple, maps) if start is not None
+    ]
+    if not times:
+        return
+    previous_start, previous_end = times[0]
+    for start, end in times:
         if is_interval(start, end):
             yield start, end
         if _is_after(start, previous_start, previous_end):
