@@ -179,6 +179,58 @@ def test_relative_granularity_of_maps(unit, intervals, expected) -> None:
     assert compute_relative_time_granularity(maps) == expected
 
 
+# Database rows instead of maps, with the edge cases of the two loops over
+# intervals and gaps: an interval in relative time counts only if its end is
+# not 0, a gap starts at the previous end only if that end is not 0, and the
+# deltas of relative times are cut to integers.
+@pytest.mark.parametrize(
+    ("times", "expected"),
+    [
+        ([(-6, 0)], 0),
+        ([(-6, 0), (4, 8)], 2),
+        ([(0, 3), (5, 9)], 1),
+        ([(0.5, 2.9), (5.0, None)], 2),
+        ([(0, None), (3, None), (9, None)], 3),
+        ([(2, 3), (0, 1), (1, 2)], 1),
+    ],
+)
+def test_relative_granularity_of_rows(times, expected) -> None:
+    rows = [{"start_time": start, "end_time": end} for start, end in times]
+
+    result = compute_relative_time_granularity(rows)
+
+    assert result == expected
+    assert type(result) is int
+
+
+@pytest.mark.parametrize(
+    ("times", "expected"),
+    [
+        (
+            [
+                (datetime(2001, 1, 1), datetime(2001, 1, 3)),
+                (datetime(2001, 1, 7), None),
+                (datetime(2001, 1, 13), None),
+            ],
+            "2 days",
+        ),
+        (
+            [
+                (datetime(2001, 1, 1), datetime(2001, 3, 1)),
+                (datetime(2001, 3, 1), datetime(2001, 4, 1)),
+                (datetime(2001, 7, 1), None),
+            ],
+            "1 month",
+        ),
+        ([(datetime(2001, 1, 1, 6), None)], None),
+    ],
+)
+def test_absolute_granularity_of_rows(times, expected) -> None:
+    rows = [{"start_time": start, "end_time": end} for start, end in times]
+
+    assert compute_absolute_time_granularity(rows) == expected
+
+
 def test_common_relative_granularity() -> None:
     assert compute_common_relative_time_granularity([10, 20, 30]) == 10
 

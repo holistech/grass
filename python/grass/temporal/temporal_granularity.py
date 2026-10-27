@@ -223,6 +223,27 @@ def _is_after(start, start1, end1) -> bool:
     return start > end1
 
 
+def _intervals_and_gaps(maps, is_interval):
+    """Yield the (start, end) of every interval and every gap of a map list
+
+    A gap lies between a map and the next one that starts after it. It begins
+    at the end of the earlier map, or at its start if that end is empty.
+
+    :param maps: A list of map objects or database rows, ordered by start time
+    :param is_interval: A function of start and end that tells whether a map
+                        is an interval; the temporal types differ in it
+    """
+    get_time_tuple = get_time_tuple_function(maps)
+    previous_start, previous_end = get_time_tuple(maps[0])
+    for stds_map in maps:
+        start, end = get_time_tuple(stds_map)
+        if is_interval(start, end):
+            yield start, end
+        if _is_after(start, previous_start, previous_end):
+            yield previous_end or previous_start, start
+        previous_start, previous_end = start, end
+
+
 def compute_relative_time_granularity(maps):
     """Compute the relative time granularity
 
@@ -252,43 +273,15 @@ def compute_relative_time_granularity(maps):
     if not maps:
         return None
 
-    get_time_tuple = get_time_tuple_function(maps)
-
-    # The interval time must be scaled to days resolution
-    granularity = None
-    delta = set()
-    previous_start, previous_end = get_time_tuple(maps[0])
-    # First we compute the timedelta of the intervals
-    for stds_map in maps:
-        start, end = get_time_tuple(stds_map)
-        if (start == 0 or start) and end:
-            t = abs(end - start)
-            delta.add(int(t))
-
-        # Compute the timedelta of the gaps
-        if _is_after(start, previous_start, previous_end):
-            # Gaps are between intervals, intervals and
-            # points, points and points
-            # start time is required in TGIS and expected to be present
-            if previous_end:
-                # Gap between previous end and current start
-                t = abs(start - previous_end)
-                delta.add(int(t))
-            else:
-                # Gap between previous start and current start
-                t = abs(start - previous_start)
-                delta.add(int(t))
-        previous_start, previous_end = start, end
-
-    if len(delta) > 1:
-        # Find greatest common divisor
-        granularity = gcd_list(delta)
-    elif len(delta) == 1:
-        granularity = delta.pop()
-    else:
-        granularity = 0
-
-    return granularity
+    # A start of 0 counts, an end of 0 does not: such a map is taken as a time
+    # instance.
+    delta = {
+        int(abs(end - start))
+        for start, end in _intervals_and_gaps(
+            maps, lambda start, end: (start == 0 or start) and end
+        )
+    }
+    return gcd_list(delta) if delta else 0
 
 
 def compute_absolute_time_granularity(maps):
@@ -338,65 +331,32 @@ def compute_absolute_time_granularity(maps):
         "year": set(),
     }
 
-    get_time_tuple = get_time_tuple_function(maps)
+    for start, end in _intervals_and_gaps(maps, lambda start, end: end):
+        _add_delta(granularity_units, compute_datetime_delta(start, end))
 
-    previous_start, previous_end = get_time_tuple(maps[0])
-
-    # First we compute the timedelta of the intervals
-    for stds_map in maps:
-        start, end = get_time_tuple(stds_map)
-        # start time is required in TGIS and expected to be present
-        if end:
-            _add_delta(granularity_units, compute_datetime_delta(start, end))
-        # Compute the timedelta of the gaps
-        if _is_after(start, previous_start, previous_end):
-            # Gaps are between intervals, intervals and
-            # points, points and points
-            # start time is required in TGIS and expected to be present
-            if previous_end:
-                gap_datetime_delta = compute_datetime_delta(previous_end, start)
-            else:
-                gap_datetime_delta = compute_datetime_delta(previous_start, start)
-            _add_delta(granularity_units, gap_datetime_delta)
-        # Keep the temporal extent to compare to the following/next map
-        previous_start, previous_end = start, end
-
-    # Create a set with a single time unit only
-    dlist = set()
-    assigned_time_unit = None
-
-    for time_unit, granularity_set in granularity_units.items():
-        # The smallest granularity unit is used so as soon as a non-zero
-        # value / set is encountered, the loop can be aborted
-        if granularity_set:
-            # Skip max_days
-            if time_unit == "max_days":
-                continue
-            assigned_time_unit = time_unit
-            break
-
+    # The smallest unit with a value is the unit of the granularity. max_days,
+    # the days of a whole delta, never names it; its values join the others
+    # below as days.
+    assigned_time_unit = next(
+        (
+            time_unit
+            for time_unit, values in granularity_units.items()
+            if values and time_unit != "max_days"
+        ),
+        None,
+    )
     if assigned_time_unit is None:
         return None
 
-    dlist.update(granularity_units[assigned_time_unit])
+    dlist = set(granularity_units[assigned_time_unit])
     for unit, values in granularity_units.items():
         unit_factor = _unit_factor(assigned_time_unit, unit)
         if unit != assigned_time_unit and unit_factor and values:
             dlist.update({time_value * unit_factor for time_value in values})
 
-    if not dlist:
-        return None
-
     # Find greatest common divisor to get a single time unit
-    granularity = gcd_list(dlist) if len(dlist) > 1 else dlist.pop()
-
-    if granularity is None:
-        return None
-
-    plural = ""
-    if granularity > 1:
-        plural = "s"
-
+    granularity = gcd_list(dlist)
+    plural = "s" if granularity > 1 else ""
     return f"{granularity} {assigned_time_unit}{plural}"
 
 
