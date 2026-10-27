@@ -9,6 +9,16 @@ Optionally a base map name can be provided to avoid that existing
 raster maps are overwritten by the map names that are used in the STRDS
 archive.
 <p>
+A map that the archive names <code>name@mapset</code>, which
+<a href="t.rast.export.html">t.rast.export</a> writes for maps of one name from
+several mapsets, is imported as <code>name_mapset</code>; every character of the
+mapset other than a letter, a digit or <code>_</code> becomes
+<code>_</code>, so <code>dup@my.set</code> is imported as
+<code>dup_my_set</code>. If two maps of the archive would get one name this
+way, for example <code>dup@other</code> and a map <code>dup_other</code>,
+the import stops before the first map is imported; with <b>basename</b> the
+maps are numbered instead.
+<p>
 The <b>directory</b> is used as work directory in case of import but
 can also be used as a data directory when using GeoTIFF for the data
 exchange.

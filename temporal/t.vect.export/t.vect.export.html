@@ -45,6 +45,17 @@ use <code>format=pack</code> for such a map, or select one layer with
 <b>where</b>. The same holds for a map that the selection names several
 times with the same layer, for example registered as <code>name</code> and
 as <code>name:1</code>; select it once with <b>where</b>.
+<p>
+Maps of one name from several mapsets of the selection would meet in one
+file, so each of them is named <code>name@mapset</code> in the archive, in
+its file names and in "list.txt", where the pack format writes
+<code>name:layer@mapset</code>. A map whose name no other mapset of the
+selection shares keeps its name, so an archive without such maps has the
+form of older versions. The checks of the GML and GPKG formats count the
+maps by these names: one layer each of <code>dup@PERMANENT</code> and
+<code>dup@other</code> is exported.
+<a href="t.vect.import.html">t.vect.import</a> imports
+<code>dup@other</code> as <code>dup_other</code>.
 
 <h2>EXAMPLE</h2>
 

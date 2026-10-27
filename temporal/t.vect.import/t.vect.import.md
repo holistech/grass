@@ -13,6 +13,14 @@ archive.
 With a base name, the layers of one vector map share the new name and
 stay in one map.
 
+A map that the archive names `name@mapset`, which
+*[t.vect.export](t.vect.export.md)* writes for maps of one name from several
+mapsets, is imported as `name_mapset`; every character of the mapset other
+than a letter, a digit or `_` becomes `_`, so `dup@my.set` is imported as
+`dup_my_set`. If two maps of the archive would get one name this way, for
+example `dup@other` and a map `dup_other`, the import stops before the first
+map is imported; with **basename** the maps are numbered instead.
+
 The **directory** is used as work directory in case of import but can
 also be used as a data directory when using GML for the data exchange.
 

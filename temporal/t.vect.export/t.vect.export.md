@@ -43,6 +43,15 @@ same holds for a map that the selection names several times with the same
 layer, for example registered as `name` and as `name:1`; select it once
 with **where**.
 
+Maps of one name from several mapsets of the selection would meet in one
+file, so each of them is named `name@mapset` in the archive, in its file
+names and in "list.txt", where the pack format writes `name:layer@mapset`.
+A map whose name no other mapset of the selection shares keeps its name, so
+an archive without such maps has the form of older versions. The checks of
+the GML and GPKG formats count the maps by these names: one layer each of
+`dup@PERMANENT` and `dup@other` is exported.
+*[t.vect.import](t.vect.import.md)* imports `dup@other` as `dup_other`.
+
 ## EXAMPLE
 
 In this example, five vector maps are created and registered in a single

@@ -51,6 +51,14 @@ either: <em>r.out.gdal</em> writes it into a side file next to the ASCII file,
 which the archive does not hold. A <b>where</b> option that selects no map
 gives a warning and an archive without maps (<code>number_of_maps=0</code> in
 "init.txt").
+<p>
+Maps of one name from several mapsets of the selection would meet in one
+file, so each of them is named <code>name@mapset</code> in the archive, in
+"list.txt" and in its file names, for example <code>dup@other.tif</code> and
+<code>dup@other.color</code>. A map whose name no other mapset of the
+selection shares keeps its name, so an archive without such maps has the
+form of older versions. <a href="t.rast.import.html">t.rast.import</a>
+imports <code>dup@other</code> as <code>dup_other</code>.
 
 <h2>EXAMPLE</h2>
 

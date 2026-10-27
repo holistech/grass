@@ -49,6 +49,13 @@ which the archive does not hold. A **where** option that selects no map
 gives a warning and an archive without maps (`number_of_maps=0` in
 "init.txt").
 
+Maps of one name from several mapsets of the selection would meet in one
+file, so each of them is named `name@mapset` in the archive, in "list.txt"
+and in its file names, for example `dup@other.tif` and `dup@other.color`. A
+map whose name no other mapset of the selection shares keeps its name, so
+an archive without such maps has the form of older versions.
+*[t.rast.import](t.rast.import.md)* imports `dup@other` as `dup_other`.
+
 ## EXAMPLE
 
 In this example, all the raster maps of 2012 of "tempmean_monthly" will
