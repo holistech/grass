@@ -124,38 +124,29 @@ def _read_raster_info(name, mapset):
         range_ = libraster.FPRange()
         libraster.Rast_init_fp_range(byref(range_))
         ret = libraster.Rast_read_fp_range(name, mapset, byref(range_))
-        if ret < 0:
-            logger.warning(_("Unable to read range file"))
-            kvp["min"] = None
-            kvp["max"] = None
-        elif ret == 2:
-            logger.info(_("Raster range file is empty"))
-            kvp["min"] = None
-            kvp["max"] = None
-        else:
-            min_ = libgis.DCELL()
-            max_ = libgis.DCELL()
-            libraster.Rast_get_fp_range_min_max(byref(range_), byref(min_), byref(max_))
-            kvp["min"] = min_.value
-            kvp["max"] = max_.value
+        value_type = libgis.DCELL
+        get_min_max = libraster.Rast_get_fp_range_min_max
     else:
         range_ = libraster.Range()
         libraster.Rast_init_range(byref(range_))
         ret = libraster.Rast_read_range(name, mapset, byref(range_))
-        if ret < 0:
-            logger.warning(_("Unable to read range file"))
-            kvp["min"] = None
-            kvp["max"] = None
-        elif ret == 2:
-            logger.info(_("Raster range file is empty"))
-            kvp["min"] = None
-            kvp["max"] = None
-        else:
-            min_ = libgis.CELL()
-            max_ = libgis.CELL()
-            libraster.Rast_get_range_min_max(byref(range_), byref(min_), byref(max_))
-            kvp["min"] = min_.value
-            kvp["max"] = max_.value
+        value_type = libgis.CELL
+        get_min_max = libraster.Rast_get_range_min_max
+
+    if ret < 0:
+        logger.warning(_("Unable to read range file"))
+        kvp["min"] = None
+        kvp["max"] = None
+    elif ret == 2:
+        logger.info(_("Raster range file is empty"))
+        kvp["min"] = None
+        kvp["max"] = None
+    else:
+        min_ = value_type()
+        max_ = value_type()
+        get_min_max(byref(range_), byref(min_), byref(max_))
+        kvp["min"] = min_.value
+        kvp["max"] = max_.value
 
     return kvp
 

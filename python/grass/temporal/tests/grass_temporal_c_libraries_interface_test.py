@@ -175,6 +175,61 @@ def test_vector_info(ciface, maps):
     )
 
 
+@pytest.mark.parametrize(
+    ("expression", "datatype", "extremes"),
+    [
+        ("float(1.5)", "FCELL", (1.5, 1.5)),
+        ("double(2.5)", "DCELL", (2.5, 2.5)),
+        ("null()", "CELL", (None, None)),
+        ("float(null())", "FCELL", (None, None)),
+    ],
+)
+def test_raster_info_reads_the_type_and_the_range(
+    ciface, maps, session, expression, datatype, extremes
+):
+    tools = Tools(session=session, overwrite=True)
+    tools.r_mapcalc(expression=f"other = {expression}")
+
+    info = function(ciface, "read_info", "raster")("other", tgis.get_current_mapset())
+
+    assert info["datatype"] == datatype
+    assert (info["min"], info["max"]) == extremes
+    assert (info["rows"], info["cols"]) == (8, 12)
+
+
+def test_vector_info_without_topology_gives_no_counts(ciface, maps, session):
+    gisenv = gs.gisenv(env=session.env)
+    topology = Path(
+        gisenv["GISDBASE"],
+        gisenv["LOCATION_NAME"],
+        gisenv["MAPSET"],
+        "vector",
+        "vect",
+        "topo",
+    )
+    topology.unlink()
+
+    info = function(ciface, "read_info", "vector")("vect", tgis.get_current_mapset())
+
+    counts = [
+        "areas",
+        "boundaries",
+        "centroids",
+        "faces",
+        "holes",
+        "islands",
+        "kernels",
+        "lines",
+        "nodes",
+        "points",
+        "primitives",
+        "volumes",
+    ]
+    assert {name: info[name] for name in counts} == dict.fromkeys(counts)
+    assert info["map3d"] is False
+    assert {"north", "south", "east", "west", "top", "bottom"} <= set(info)
+
+
 @pytest.mark.parametrize("kind", KINDS)
 def test_info_of_a_missing_map_is_none(ciface, maps, kind):
     read = function(ciface, "read_info", kind)
