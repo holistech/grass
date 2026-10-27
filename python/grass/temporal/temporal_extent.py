@@ -69,8 +69,27 @@ _RELATION_ORDER = (
 )
 
 
+def ends_before_start(start, end) -> bool:
+    """Return True if both times are set and the end is before the start
+
+    Raise ValueError if the two cannot be compared, such as a number and a
+    datetime or a naive and a timezone-aware datetime. Python's TypeError names
+    neither time, so the message does.
+    """
+    if start is None or end is None:
+        return False
+    try:
+        return end < start
+    except TypeError:
+        pass
+    # Raised here, not in the except block, so that the TypeError is not
+    # chained to it.
+    msg = f"Start time {start!r} and end time {end!r} cannot be compared"
+    raise ValueError(msg)
+
+
 def _refuse_reversed(extent) -> None:
-    """Raise ValueError if the extent ends before it starts
+    """Raise ValueError if the extent ends before it starts or its times differ in kind
 
     Only the constructor and temporal_relation() check. The setters and the
     predicates do not: t.shift and t.snap set the start and the end one after
@@ -79,7 +98,7 @@ def _refuse_reversed(extent) -> None:
     """
     start = extent.D.get("start_time")
     end = extent.D.get("end_time")
-    if start is not None and end is not None and end < start:
+    if ends_before_start(start, end):
         msg = f"End time {end} is before start time {start}"
         raise ValueError(msg)
 

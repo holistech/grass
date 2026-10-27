@@ -9,7 +9,7 @@ import itertools
 import pickle
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -20,6 +20,7 @@ from grass.temporal.temporal_extent import (
     RelativeTemporalExtent,
     RelativeTimeRow,
     TemporalExtent,
+    ends_before_start,
 )
 
 # The order in which the first matching predicate names the relation. It is the
@@ -175,6 +176,30 @@ def refusal(start, end):
 def test_a_reversed_extent_is_refused(start, end):
     with refusal(start, end):
         TemporalExtent(start_time=start, end_time=end)
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (datetime(2001, 1, 1), 5),
+        (5, datetime(2001, 1, 1)),
+        (datetime(2001, 1, 1), datetime(2001, 1, 2, tzinfo=UTC)),
+    ],
+    ids=["date and number", "number and date", "naive and aware"],
+)
+def test_start_and_end_that_cannot_be_compared_are_refused(start, end):
+    with pytest.raises(ValueError, match="cannot be compared") as excinfo:
+        TemporalExtent(start_time=start, end_time=end)
+    # A chained TypeError would show Python's wording in the traceback.
+    assert excinfo.value.__context__ is None
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [(5, 3, True), (3, 5, False), (3, 3, False), (3, None, False), (None, 3, False)],
+)
+def test_ends_before_start(start, end, expected):
+    assert ends_before_start(start, end) is expected
 
 
 @pytest.mark.parametrize(
