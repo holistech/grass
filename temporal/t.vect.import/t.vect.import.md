@@ -10,6 +10,8 @@ the last two are imported with *[v.in.ogr](v.in.ogr.md)*.
 Optionally a base map name can be provided to avoid that existing vector
 maps are overwritten by the map names that are used in the STRDS
 archive.
+With a base name, the layers of one vector map share the new name and
+stay in one map.
 
 The **directory** is used as work directory in case of import but can
 also be used as a data directory when using GML for the data exchange.
@@ -17,6 +19,11 @@ also be used as a data directory when using GML for the data exchange.
 With the **-e** flag the region is extended to the extent of the imported
 maps, for GML and GPKG archives by *[v.in.ogr](v.in.ogr.md)* and for pack
 archives by the module itself after *[v.unpack](v.unpack.md)*.
+
+Blank lines in "list.txt" and "init.txt" are skipped, so an archive edited
+by hand may contain them. A line of "init.txt" without an equals sign stops
+the import with an error; a value is everything after the first equals
+sign.
 
 ## EXAMPLE
 
