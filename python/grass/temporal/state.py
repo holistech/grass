@@ -487,28 +487,11 @@ def _check_versions(dbif) -> None:
     )
 
     msgr = STATE.message_interface
-    if tgis_db_version > 2:
-        backup_howto = _(
-            "Run t.upgrade command to upgrade your temporal database.\n"
-            "Consider creating a backup of your temporal database to avoid "
-            "losing data in case something goes wrong.\n"
-        )
-    else:
-        backup_howto = _(
-            "You need to export it by "
-            "restoring the GRASS version used for creating this DB."
-            "Notes: Use t.rast.export and t.vect.export "
-            "to make a backup of your"
-            " existing space time datasets. To save the timestamps of"
-            " your existing maps and space time datasets, use "
-            "t.rast.list, t.vect.list and t.rast3d.list. "
-            "You can register the existing time stamped maps easily if"
-            " you export columns=id,start_time,end_time into text "
-            "files and use t.register to register them again in new"
-            " created space time datasets (t.create). After the backup"
-            " remove the existing temporal database, a new one will be"
-            " created automatically.\n"
-        )
+    backup_howto = _(
+        "Run t.upgrade command to upgrade your temporal database.\n"
+        "Consider creating a backup of your temporal database to avoid "
+        "losing data in case something goes wrong.\n"
+    )
 
     dbif.connect()
     try:

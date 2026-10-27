@@ -441,7 +441,6 @@
  "Wrong temporal type of space time dataset <{stds}> <{type}> time is required",
  "Wrong type of input {input}",
  "You have no permission to access mapset <{mapset}>, or mapset <{mapset}> has no temporal database. Accessible mapsets are: <{mapsets}>",
- "You need to export it by restoring the GRASS version used for creating this DB.Notes: Use t.rast.export and t.vect.export to make a backup of your existing space time datasets. To save the timestamps of your existing maps and space time datasets, use t.rast.list, t.vect.list and t.rast3d.list. You can register the existing time stamped maps easily if you export columns=id,start_time,end_time into text files and use t.register to register them again in new created space time datasets (t.create). After the backup remove the existing temporal database, a new one will be created automatically.\n",
  "You need to set the occurrence to compute the indicator space time raster dataset",
  "You need to set the range to compute the occurrence space time raster dataset",
  "You need to set the staend options to compute the indicator space time raster dataset",
