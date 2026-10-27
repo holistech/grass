@@ -403,7 +403,43 @@ def test_a_raster_dataset_with_an_ogr_format_is_packed_as_before(
 def test_a_map_without_a_layer_and_with_layer_one_is_a_single_layer():
     rows = [
         {"name": "m", "layer": None},
-        {"name": "m", "layer": 1},
+        {"name": "m", "layer": "1"},
     ]
 
     stds_export._refuse_several_layers(rows, "GML")
+
+
+def test_layers_are_listed_in_numeric_order():
+    # The layer column is text, so a string sort would give "10, 2".
+    rows = [{"name": "m", "layer": "10"}, {"name": "m", "layer": "2"}]
+
+    with pytest.raises(FatalError, match=r"layers 2, 10;"):
+        stds_export._refuse_several_layers(rows, "GML")
+
+
+def test_a_map_registered_with_and_without_layer_one_is_not_refused(
+    temporal_module_session, tmp_path
+):
+    # The database gives the layer of "vx:1" as the text "1" and that of "vx"
+    # as None; comparing them used to end with a TypeError.
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    vector_points(tools, "mix", [(1, 1)])
+    tools.t_create(type="stvds", output="mix_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="mix_ds",
+        maps="mix,mix:1",
+        start="2001-01-01",
+        increment="1 months",
+    )
+    rows = tgis.open_old_stds("mix_ds", "stvds").get_registered_maps(
+        "name,layer", None, "start_time", None
+    )
+    assert len(rows) == 2
+
+    stds_export._refuse_several_layers(rows, "GML")
+    # Both rows name layer 1 of one map, so the second v.out.ogr call meets the
+    # file of the first; that failure (not a TypeError) is the existing
+    # behaviour for a map registered twice.
+    with pytest.raises(FatalError, match="Unable to export vector map <mix>"):
+        _export(tmp_path, "mix_ds", "stvds", "GML")

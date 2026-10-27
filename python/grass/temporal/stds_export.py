@@ -230,7 +230,9 @@ def _refuse_several_layers(rows, format_) -> None:
         return
     layers = {}
     for row in rows:
-        layers.setdefault(row["name"], set()).add(row["layer"] or 1)
+        # The column is text, so "1" from a registered "map:1" would meet the
+        # integer 1 of a map without layer and sort "10" before "2".
+        layers.setdefault(row["name"], set()).add(int(row["layer"] or 1))
     for name, found in layers.items():
         if len(found) > 1:
             get_tgis_message_interface().fatal(
