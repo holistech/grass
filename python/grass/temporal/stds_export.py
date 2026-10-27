@@ -75,6 +75,23 @@ def _full_name(row) -> str:
     return f"{row['name']}@{row['mapset']}"
 
 
+def _archive_names(rows) -> list[str]:
+    """Return the name of each map in the archive, in the order of rows
+
+    The files of a map are named after it. Maps of one name from several
+    mapsets would meet in one file, so such a map is named name@mapset; any
+    other map keeps its bare name, the only form of older archives. Map and
+    mapset names cannot hold "@", so the import can split the two again.
+    """
+    mapsets = {}
+    for row in rows:
+        mapsets.setdefault(row["name"], set()).add(row["mapset"])
+    return [
+        _full_name(row) if len(mapsets[row["name"]]) > 1 else row["name"]
+        for row in rows
+    ]
+
+
 def _gdal_type_for_cell_map(minimum, maximum, nodata):
     """Return the smallest GDAL integer type that holds a CELL map and nodata
 
@@ -171,8 +188,7 @@ def _export_raster_maps_as_gdal(
     rows, tar, list_file, fs, format_, type_, **kwargs
 ) -> None:
     kwargs = {key: value for key, value in kwargs.items() if value is not None}
-    for row in rows:
-        name = row["name"]
+    for row, name in zip(rows, _archive_names(rows), strict=True):
         list_file.write(
             _list_line(
                 fs, name, row["start_time"], row["end_time"], row["semantic_label"]
@@ -216,8 +232,7 @@ def _export_raster_maps_as_gdal(
 
 
 def _export_raster_maps(rows, tar, list_file, fs) -> None:
-    for row in rows:
-        name = row["name"]
+    for row, name in zip(rows, _archive_names(rows), strict=True):
         list_file.write(
             _list_line(
                 fs, name, row["start_time"], row["end_time"], row["semantic_label"]
@@ -226,30 +241,35 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
         # Export the raster map with r.pack
         try:
             gs.run_command(
-                "r.pack", input=_full_name(row), output=name + ".pack", flags="c"
+                "r.pack",
+                input=_full_name(row),
+                output=name + FORMAT_SUFFIX["pack"],
+                flags="c",
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
                 _("Unable to export raster map <%s> with r.pack") % name
             )
 
-        tar.add(name + ".pack")
+        tar.add(name + FORMAT_SUFFIX["pack"])
 
 
 def _refuse_several_layers(rows, format_) -> None:
     """Stop if one vector map is selected with several layers for an OGR format
 
-    An OGR file is named after the map, so a second layer of the same map
-    would meet the file of the first one and v.out.ogr would refuse to
-    overwrite it halfway through the export.
+    An OGR file is named after the map's name in the archive, so a second
+    layer of the same map would meet the file of the first one and v.out.ogr
+    would refuse to overwrite it halfway through the export. Maps of one name
+    from two mapsets have names of their own in the archive and are not
+    affected.
     """
     if format_ not in {"GML", "GPKG"}:
         return
     layers = {}
-    for row in rows:
+    for row, name in zip(rows, _archive_names(rows), strict=True):
         # The column is text, so "1" from a registered "map:1" would meet the
         # integer 1 of a map without layer and sort "10" before "2".
-        layers.setdefault(row["name"], set()).add(int(row["layer"] or 1))
+        layers.setdefault(name, set()).add(int(row["layer"] or 1))
     for name, found in layers.items():
         if len(found) > 1:
             get_tgis_message_interface().fatal(
@@ -268,14 +288,18 @@ def _refuse_repeated_maps(rows, format_) -> None:
     """Stop if one vector map is selected several times with the same layer
 
     A map registered as "name" and as "name:1" appears twice in the selection.
-    An OGR file is named after the map, so the second export would meet the
-    file of the first one and v.out.ogr would refuse to overwrite it halfway
-    through the export. The pack format exports a map once and is not affected.
-    The mapset is not part of the key because the file name has none either.
+    An OGR file is named after the map's name in the archive, so the second
+    export would meet the file of the first one and v.out.ogr would refuse to
+    overwrite it halfway through the export. The pack format exports a map
+    once and is not affected. Maps of one name from two mapsets have names of
+    their own in the archive and are counted apart.
     """
     if format_ not in {"GML", "GPKG"}:
         return
-    counts = Counter((row["name"], int(row["layer"] or 1)) for row in rows)
+    counts = Counter(
+        (name, int(row["layer"] or 1))
+        for row, name in zip(rows, _archive_names(rows), strict=True)
+    )
     for (name, layer), count in counts.items():
         if count > 1:
             get_tgis_message_interface().fatal(
@@ -293,8 +317,7 @@ def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
         "GML": _("Unable to export vector map <%s> as GML with v.out.ogr"),
         "GPKG": _("Unable to export vector map <%s> as GPKG with v.out.ogr"),
     }
-    for row in rows:
-        name = row["name"]
+    for row, name in zip(rows, _archive_names(rows), strict=True):
         list_file.write(_list_line(fs, name, row["start_time"], row["end_time"]))
         out_name = name + FORMAT_SUFFIX[format_]
         try:
@@ -320,11 +343,16 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
     # per call: a set of the module would skip the maps of every later export
     # in the same process.
     exported = set()
-    for row in rows:
-        name = row["name"]
+    for row, name in zip(rows, _archive_names(rows), strict=True):
+        # The layer stands between the name and the mapset, as in the id of
+        # a registered vector map.
+        bare, at, mapset = name.partition("@")
         list_file.write(
             _list_line(
-                fs, f"{name}:{row['layer'] or 1}", row["start_time"], row["end_time"]
+                fs,
+                f"{bare}:{row['layer'] or 1}{at}{mapset}",
+                row["start_time"],
+                row["end_time"],
             )
         )
         if name in exported:
@@ -333,14 +361,17 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
         # Export the vector map with v.pack
         try:
             gs.run_command(
-                "v.pack", input=_full_name(row), output=name + ".pack", flags="c"
+                "v.pack",
+                input=_full_name(row),
+                output=name + FORMAT_SUFFIX["pack"],
+                flags="c",
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
                 _("Unable to export vector map <%s> with v.pack") % name
             )
 
-        tar.add(name + ".pack")
+        tar.add(name + FORMAT_SUFFIX["pack"])
 
         exported.add(name)
 
@@ -490,8 +521,12 @@ def _init_text(sp, format_: str, rows) -> str:
     return string
 
 
-def _readme_text(sp, kind: str | None, format_: str) -> str:
-    """Return the text of the readme file of the archive"""
+def _readme_text(sp, kind: str | None, format_: str, shared: bool) -> str:
+    """Return the text of the readme file of the archive
+
+    shared tells whether maps of one name from several mapsets are named
+    name@mapset in the archive; only then does the text describe that form.
+    """
     lines = []
     if kind in _README_HEADS:
         lines.append(_README_HEADS[kind])
@@ -505,6 +540,13 @@ def _readme_text(sp, kind: str | None, format_: str) -> str:
         f"{list_file_name:>13} -- Time series file, lists all maps by name "
         "with interval",
         "                 time stamps in ISO-Format. Field separator is |",
+    ]
+    if shared:
+        lines += [
+            "                 Maps of one name from several mapsets are named",
+            "                 name@mapset, in this list and in their file names",
+        ]
+    lines += [
         f"{metadata_file_name:>13} -- The output of t.info",
         f"{read_file_name:>13} -- This file",
     ]
@@ -544,6 +586,9 @@ def export_stds(
     This method should be used to export space time datasets
     of type raster and vector as tar archive that can be reimported
     with the method import_stds().
+
+    The files and the list entry of a map carry its name; maps of one name
+    from several mapsets of the selection are named name@mapset instead.
 
     :param input: The name of the space time dataset to export
     :param output: The name of the archive file
@@ -638,7 +683,8 @@ def export_stds(
             Path(metadata_file_name).write_text(
                 gs.read_command("t.info", type=sp.get_type(), input=sp.get_id())
             )
-            Path(read_file_name).write_text(_readme_text(sp, kind, format_))
+            shared = any("@" in name for name in _archive_names(rows))
+            Path(read_file_name).write_text(_readme_text(sp, kind, format_, shared))
 
             # Append the file list
             tar.add(list_file_name)

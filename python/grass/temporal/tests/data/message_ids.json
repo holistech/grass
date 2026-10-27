@@ -285,6 +285,7 @@
  "The interval flag requires the start option",
  "The interval flag will be ignored because of time stamps in input file",
  "The limit of open files ({}) was reached ({}). The module r.series will be run with flag z, to avoid open files limit exceeding.",
+ "The maps <{first}> and <{second}> of the archive would both be imported as <{name}>; use base to name the maps",
  "The metaopt option is not used with the AAIGrid format, it will be skipped.",
  "The method <quantile> requires input in the 'quantile' option.",
  "The number of columns must be equal to the number of space time raster datasets",

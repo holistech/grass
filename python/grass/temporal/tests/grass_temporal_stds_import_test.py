@@ -30,8 +30,14 @@ from grass.temporal.testing.data import (
     small_region,
     vector_points,
 )
-from grass.temporal.testing.session import project_session, temporal_session
-from grass.tools import Tools
+from grass.temporal.stds_export import FORMAT_SUFFIX
+from grass.temporal.testing.readback import inventory, list_maps, message
+from grass.temporal.testing.session import (
+    mapset_session,
+    project_session,
+    temporal_session,
+)
+from grass.tools import Tools, ToolError
 
 EPSG = 3358
 
@@ -746,3 +752,453 @@ def test_the_import_module_gets_the_flags_and_the_memory_of_the_call(
     given = calls[0]
     assert Path(given.pop("input")).name.startswith(given.pop("output"))
     assert given == {"overwrite": gs.overwrite(), **kwargs}
+
+
+def _read_list(tmp_path, monkeypatch, lines, base=None):
+    (tmp_path / "list.txt").write_text("".join(f"{line}\n" for line in lines))
+    monkeypatch.chdir(tmp_path)
+    maplist, count = stds_import._read_map_list(base, "m")
+    assert count == len(lines)
+    return [(row["filename"], row["layer"], row["name"]) for row in maplist]
+
+
+def test_a_list_of_an_older_archive_is_read_as_before(tmp_path, monkeypatch):
+    # Archives written before the mapset could be part of a field have none.
+    lines = ["a:2|2001-01-01|2001-02-01", "b|2001-02-01|2001-03-01|label"]
+
+    assert _read_list(tmp_path, monkeypatch, lines) == [
+        ("a", "2", "a"),
+        ("b", "", "b"),
+    ]
+    assert _read_list(tmp_path, monkeypatch, lines, base="pre") == [
+        ("a", "2", "pre_1"),
+        ("b", "", "pre_2"),
+    ]
+
+
+def test_a_field_with_a_mapset_names_the_file_and_the_map_after_it(
+    tmp_path, monkeypatch
+):
+    lines = [
+        "dup@PERMANENT|2001-01-01|2001-02-01",
+        "dup:2@my.set|2001-02-01|2001-03-01",
+        "dup_other|2001-03-01|2001-04-01",
+    ]
+
+    assert _read_list(tmp_path, monkeypatch, lines) == [
+        ("dup@PERMANENT", "", "dup_PERMANENT"),
+        ("dup@my.set", "2", "dup_my_set"),
+        ("dup_other", "", "dup_other"),
+    ]
+
+
+def test_the_layers_of_one_file_share_the_number_of_the_base(tmp_path, monkeypatch):
+    lines = [
+        "lay:1@A|2001-01-01|2001-02-01",
+        "lay:2@A|2001-02-01|2001-03-01",
+        "lay:1@B|2001-03-01|2001-04-01",
+    ]
+
+    assert _read_list(tmp_path, monkeypatch, lines, base="b") == [
+        ("lay@A", "1", "b_1"),
+        ("lay@A", "2", "b_1"),
+        ("lay@B", "1", "b_2"),
+    ]
+
+
+def test_two_files_with_one_import_name_are_refused(target):
+    maplist = [
+        {"filename": "lay@A", "name": "lay_A"},
+        {"filename": "lay@A", "name": "lay_A"},
+        {"filename": "dup_other", "name": "dup_other"},
+        {"filename": "dup@other", "name": "dup_other"},
+    ]
+
+    with pytest.raises(
+        FatalError,
+        match=(
+            "The maps <dup_other> and <dup@other> of the archive would both be "
+            "imported as <dup_other>; use base to name the maps"
+        ),
+    ):
+        stds_import._refuse_duplicate_import_names(maplist)
+
+
+# The value of the raster map "dup" and the number of points of the vector
+# maps "dup" and "lay" in each mapset of the project of shared_source.
+SHARED_MAPSETS = {"PERMANENT": 1, "other": 2, "third": 3, "my.set": 4}
+
+# The month of 2001 that each map of shared_source is registered for, until
+# the next month. A map has one time stamp in the temporal database, whichever
+# datasets hold it.
+SHARED_MONTHS = {
+    "dup@PERMANENT": 1,
+    "dup@other": 2,
+    "dup@third": 3,
+    "dup@my.set": 4,
+    "dup_other@PERMANENT": 5,
+    "a@PERMANENT": 6,
+    "b@other": 7,
+    "lay:1@PERMANENT": 8,
+    "lay:2@PERMANENT": 9,
+    "lay:1@other": 10,
+    "lay:2@other": 11,
+}
+
+# The maps of the datasets of shared_source in the order of their months. The
+# maps "lay" are vector maps, so "layers" and "split" are vector datasets only.
+SHARED_DATASETS = {
+    "two": ["dup@PERMANENT", "dup@other"],
+    "three": ["dup@PERMANENT", "dup@other", "dup@third"],
+    "dot": ["dup@PERMANENT", "dup@my.set"],
+    "clash": ["dup@PERMANENT", "dup@other", "dup_other@PERMANENT"],
+    "plain": ["a@PERMANENT", "b@other"],
+    "layers": ["lay:1@PERMANENT", "lay:2@PERMANENT", "lay:1@other"],
+    "split": ["lay:1@PERMANENT", "lay:2@other"],
+}
+
+
+def _month(number):
+    return f"2001-{number:02}-01 00:00:00"
+
+
+def _shared_maps(tools, value):
+    """Make the maps "dup" and "lay" of a mapset of shared_source"""
+    small_region(tools, 2, 3)
+    tools.r_mapcalc(expression=f"dup = {value}")
+    points = [(number / 2, 1) for number in range(1, value + 1)]
+    vector_points(tools, "dup", points)
+    vector_points(tools, "lay", points, layers=(1, 2))
+
+
+@pytest.fixture(scope="module")
+def shared_source(tmp_path_factory):
+    """Tools in a project whose mapsets hold maps of one name, and its datasets
+
+    The datasets are in PERMANENT, named after the keys of SHARED_DATASETS
+    with "_r" for the raster and "_v" for the vector one. PERMANENT also
+    holds the raster and vector maps "dup_other" (value 5, five points) and
+    "a" (value 6, six points), "other" the map "b" (value 7, seven points).
+    """
+    base = tmp_path_factory.mktemp("stds_shared")
+    with project_session(base / "source") as session:
+        tools = _tools(session)
+        for mapset, value in SHARED_MAPSETS.items():
+            if mapset == "PERMANENT":
+                _shared_maps(tools, value)
+                continue
+            with mapset_session(session, mapset) as other:
+                _shared_maps(_tools(other), value)
+            tools.g_mapsets(mapset=mapset, operation="add")
+        for name, value in (("dup_other", 5), ("a", 6)):
+            tools.r_mapcalc(expression=f"{name} = {value}")
+            vector_points(tools, name, [(number / 2, 1) for number in range(value)])
+        with mapset_session(session, "other") as other:
+            other_tools = _tools(other)
+            other_tools.r_mapcalc(expression="b = 7")
+            vector_points(other_tools, "b", [(number / 2, 1) for number in range(7)])
+        for name, maps in SHARED_DATASETS.items():
+            kinds = ("stvds",) if ":" in maps[0] else ("strds", "stvds")
+            for stds_type in kinds:
+                register_stds(
+                    tools,
+                    stds_type,
+                    f"{name}_{stds_type[2]}",
+                    [
+                        MapSpec(
+                            map_id,
+                            None,
+                            datetime(2001, SHARED_MONTHS[map_id], 1),
+                            datetime(2001, SHARED_MONTHS[map_id] + 1, 1),
+                        )
+                        for map_id in maps
+                    ],
+                )
+        yield tools
+
+
+def _shared_export(tools, tmp_path, dataset, stds_type, format_):
+    """Export a dataset of shared_source with its tool; return the archive"""
+    archive = tmp_path / f"{dataset}_{stds_type}_{format_}.tar"
+    export = tools.t_rast_export if stds_type == "strds" else tools.t_vect_export
+    export(
+        input=f"{dataset}_{stds_type[2]}",
+        output=str(archive),
+        compression="no",
+        format=format_,
+        directory=str(tmp_path),
+    )
+    return archive
+
+
+def _members(archive):
+    with tarfile.open(archive) as tar:
+        return tar.getnames()
+
+
+def _list_lines(archive):
+    return _member(archive, "list.txt").decode().splitlines()
+
+
+def _shared_import(tmp_path, archive, stds_type, base=None):
+    """Import archive with its tool into a new project
+
+    Return one tuple per registered map in start time order: the name, the
+    layer for a vector map, the start and the value of a raster map or the
+    number of points of a vector map.
+    """
+    with project_session(tmp_path / f"target_{base}") as session:
+        tools = _tools(session)
+        options = {"basename": base} if base else {}
+        if stds_type == "strds":
+            tools.t_rast_import(
+                input=str(archive),
+                output="back",
+                directory=str(tmp_path),
+                flags="o",
+                **options,
+            )
+            return [
+                (row.name, row.start, row.min)
+                for row in list_maps(tools, "strds", "back")
+            ]
+        tools.t_vect_import(
+            input=str(archive),
+            output="back",
+            directory=str(tmp_path),
+            flags="o",
+            **options,
+        )
+        records = tools.t_vect_list(
+            input="back",
+            columns="name,layer,start_time",
+            order="start_time",
+            format="json",
+        ).json["data"]
+        return [
+            (
+                record["name"],
+                str(record["layer"]),
+                record["start_time"],
+                tools.v_info(map=record["name"], flags="t").keyval["points"],
+            )
+            for record in records
+        ]
+
+
+# The files of one map in the archive of a format, by their suffixes.
+SHARED_FILES = {
+    ("strds", "pack"): (".pack",),
+    ("strds", "GTiff"): (".tif", ".color"),
+    ("strds", "AAIGrid"): (".asc", ".color"),
+    ("stvds", "pack"): (".pack",),
+    ("stvds", "GML"): (".xml", ".xsd"),
+    ("stvds", "GPKG"): (".gpkg",),
+}
+
+
+def _shared_line(stds_type, format_, map_id):
+    """The list line of a map of shared_source whose name several mapsets share
+
+    Only a packed vector map has a layer, 1 for a map registered without one.
+    A raster line ends with the semantic label, which these maps have none of.
+    """
+    head, _at, mapset = map_id.partition("@")
+    name, _colon, layer = head.partition(":")
+    if stds_type == "stvds" and format_ == "pack":
+        field = f"{name}:{layer or 1}@{mapset}"
+    else:
+        field = f"{name}@{mapset}"
+    month = SHARED_MONTHS[map_id]
+    line = f"{field}|{_month(month)}|{_month(month + 1)}"
+    return line + "|None" if stds_type == "strds" else line
+
+
+def _imported_layer(stds_type, format_):
+    """The layer of an imported map in the tuples of _shared_import
+
+    A packed vector map keeps the layer it was registered with. An OGR file
+    holds the one layer of its map, which the import registers without layer.
+    """
+    if stds_type == "strds":
+        return ()
+    return ("1",) if format_ == "pack" else ("None",)
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(SHARED_FILES))
+def test_maps_of_one_name_from_two_mapsets_are_exported_under_their_ids(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "two", stds_type, format_)
+
+    members = _members(archive)
+    for mapset in ("PERMANENT", "other"):
+        for suffix in SHARED_FILES[stds_type, format_]:
+            assert members.count(f"dup@{mapset}{suffix}") == 1, (mapset, suffix)
+    assert not [member for member in members if member.startswith("dup.")]
+    assert _list_lines(archive) == [
+        _shared_line(stds_type, format_, map_id) for map_id in SHARED_DATASETS["two"]
+    ]
+    assert "name@mapset" in _member(archive, "readme.txt").decode()
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(SHARED_FILES))
+def test_maps_of_one_name_from_two_mapsets_are_imported_as_two_maps(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "two", stds_type, format_)
+    layer = _imported_layer(stds_type, format_)
+
+    for base, names in ((None, ["dup_PERMANENT", "dup_other"]), ("b", ["b_1", "b_2"])):
+        assert _shared_import(tmp_path, archive, stds_type, base) == [
+            (names[0], *layer, _month(1), 1),
+            (names[1], *layer, _month(2), 2),
+        ], base
+
+
+# list.txt and the members of the archives of the dataset "plain", whose maps
+# have names of their own in two mapsets. Derived from the export of commit
+# 50e4ff12cc, before a mapset could be part of a name in the archive.
+PLAIN_LISTS = {
+    "strds": [
+        "a|2001-06-01 00:00:00|2001-07-01 00:00:00|None",
+        "b|2001-07-01 00:00:00|2001-08-01 00:00:00|None",
+    ],
+    "stvds": [
+        "a|2001-06-01 00:00:00|2001-07-01 00:00:00",
+        "b|2001-07-01 00:00:00|2001-08-01 00:00:00",
+    ],
+    "stvds_pack": [
+        "a:1|2001-06-01 00:00:00|2001-07-01 00:00:00",
+        "b:1|2001-07-01 00:00:00|2001-08-01 00:00:00",
+    ],
+}
+PLAIN_TAIL = ["list.txt", "proj.txt", "init.txt", "readme.txt", "metadata.txt"]
+PLAIN_MEMBERS = {
+    ("strds", "pack"): ["a.pack", "b.pack", *PLAIN_TAIL],
+    ("strds", "GTiff"): ["a.tif", "a.color", "b.tif", "b.color", *PLAIN_TAIL],
+    ("strds", "AAIGrid"): ["a.asc", "a.color", "b.asc", "b.color", *PLAIN_TAIL],
+    ("stvds", "pack"): ["a.pack", "b.pack", *PLAIN_TAIL],
+    ("stvds", "GML"): ["a.xml", "a.xsd", "b.xml", "b.xsd", *PLAIN_TAIL],
+    ("stvds", "GPKG"): ["a.gpkg", "b.gpkg", *PLAIN_TAIL],
+}
+
+
+@pytest.mark.parametrize(("stds_type", "format_"), list(PLAIN_MEMBERS))
+def test_an_archive_without_shared_names_is_written_as_before(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "plain", stds_type, format_)
+
+    lines = "stvds_pack" if (stds_type, format_) == ("stvds", "pack") else stds_type
+    assert _list_lines(archive) == PLAIN_LISTS[lines]
+    assert _members(archive) == PLAIN_MEMBERS[stds_type, format_]
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "stvds"])
+def test_maps_of_one_name_from_three_mapsets_are_three_maps(
+    shared_source, tmp_path, stds_type
+):
+    archive = _shared_export(shared_source, tmp_path, "three", stds_type, "pack")
+
+    maps = SHARED_DATASETS["three"]
+    assert _members(archive)[:3] == [f"{map_id}.pack" for map_id in maps]
+    assert _list_lines(archive) == [
+        _shared_line(stds_type, "pack", map_id) for map_id in maps
+    ]
+    layer = _imported_layer(stds_type, "pack")
+    assert _shared_import(tmp_path, archive, stds_type) == [
+        ("dup_PERMANENT", *layer, _month(1), 1),
+        ("dup_other", *layer, _month(2), 2),
+        ("dup_third", *layer, _month(3), 3),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("stds_type", "format_"),
+    [("strds", "pack"), ("strds", "GTiff"), ("stvds", "pack"), ("stvds", "GML")],
+)
+def test_a_mapset_with_a_dot_gives_a_legal_map_name(
+    shared_source, tmp_path, stds_type, format_
+):
+    archive = _shared_export(shared_source, tmp_path, "dot", stds_type, format_)
+
+    suffix = SHARED_FILES[stds_type, format_][0]
+    assert f"dup@my.set{suffix}" in _members(archive)
+    assert _list_lines(archive)[1] == _shared_line(stds_type, format_, "dup@my.set")
+    layer = _imported_layer(stds_type, format_)
+    assert _shared_import(tmp_path, archive, stds_type) == [
+        ("dup_PERMANENT", *layer, _month(1), 1),
+        ("dup_my_set", *layer, _month(4), 4),
+    ]
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "stvds"])
+def test_an_import_name_that_two_maps_of_the_archive_get_is_refused(
+    shared_source, tmp_path, stds_type
+):
+    # "dup" of two mapsets is named "dup@other" in the archive and would be
+    # imported as "dup_other", the name of another map of the archive.
+    archive = _shared_export(shared_source, tmp_path, "clash", stds_type, "pack")
+    import_tool = "t_rast_import" if stds_type == "strds" else "t_vect_import"
+
+    with project_session(tmp_path / "target") as session:
+        tools = _tools(session)
+        before = inventory(tools)
+        with pytest.raises(ToolError) as error:
+            getattr(tools, import_tool)(
+                input=str(archive),
+                output="back",
+                directory=str(tmp_path),
+                flags="o",
+            )
+        assert (
+            "The maps <dup@other> and <dup_other> of the archive would both be "
+            "imported as <dup_other>; use base to name the maps"
+        ) in message(error.value)
+        assert inventory(tools) == before
+
+    # With base every file of the archive gets a number of its own.
+    layer = _imported_layer(stds_type, "pack")
+    assert _shared_import(tmp_path, archive, stds_type, "b") == [
+        ("b_1", *layer, _month(1), 1),
+        ("b_2", *layer, _month(2), 2),
+        ("b_3", *layer, _month(5), 5),
+    ]
+
+
+def test_a_vector_map_with_two_layers_and_a_namesake_round_trips(
+    shared_source, tmp_path
+):
+    archive = _shared_export(shared_source, tmp_path, "layers", "stvds", "pack")
+
+    members = _members(archive)
+    assert members.count("lay@PERMANENT.pack") == 1
+    assert members.count("lay@other.pack") == 1
+    assert _list_lines(archive) == [
+        "lay:1@PERMANENT|2001-08-01 00:00:00|2001-09-01 00:00:00",
+        "lay:2@PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00",
+        "lay:1@other|2001-10-01 00:00:00|2001-11-01 00:00:00",
+    ]
+    assert _shared_import(tmp_path, archive, "stvds") == [
+        ("lay_PERMANENT", "1", _month(8), 1),
+        ("lay_PERMANENT", "2", _month(9), 1),
+        ("lay_other", "1", _month(10), 2),
+    ]
+
+
+@pytest.mark.parametrize("format_", ["GML", "GPKG"])
+def test_one_layer_each_of_two_namesakes_is_exported_as_ogr_files(
+    shared_source, tmp_path, format_
+):
+    # The OGR formats hold one layer per file; here every file gets one.
+    archive = _shared_export(shared_source, tmp_path, "split", "stvds", format_)
+
+    suffix = FORMAT_SUFFIX[format_]
+    members = _members(archive)
+    assert f"lay@PERMANENT{suffix}" in members
+    assert f"lay@other{suffix}" in members
+    assert _shared_import(tmp_path, archive, "stvds") == [
+        ("lay_PERMANENT", "None", _month(8), 1),
+        ("lay_other", "None", _month(11), 2),
+    ]

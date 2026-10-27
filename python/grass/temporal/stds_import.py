@@ -42,6 +42,7 @@ from __future__ import annotations
 import contextlib
 import math
 import os
+import re
 import tarfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
@@ -85,6 +86,27 @@ def _refuse_existing_maps(
         if gs.find_file(name=name, element=element, mapset=mapset)["name"]:
             get_tgis_message_interface().fatal(
                 _("<%s> exists. To overwrite, use the --overwrite flag") % name
+            )
+
+
+def _refuse_duplicate_import_names(maplist: list[dict[str, str]]) -> None:
+    """Stop before the first import if two files of the archive get one map name
+
+    A map named name@mapset in the archive is imported as name_mapset, which
+    another map of the archive may be named already, and two mapsets may
+    differ only in characters that the map name replaces. The second import
+    would overwrite the first map. The lines of the layers of one vector map
+    share their file and so their map.
+    """
+    files = {}
+    for row in maplist:
+        first = files.setdefault(row["name"], row["filename"])
+        if first != row["filename"]:
+            get_tgis_message_interface().fatal(
+                _(
+                    "The maps <{first}> and <{second}> of the archive would both "
+                    "be imported as <{name}>; use base to name the maps"
+                ).format(first=first, second=row["filename"], name=row["name"])
             )
 
 
@@ -514,6 +536,23 @@ def _create_project(dbase: str, location: str, overr: bool) -> bool:
     return overr
 
 
+def _split_map_field(field: str) -> tuple[str, str, str]:
+    """Return the file name, the layer and the map name of a field of list.txt
+
+    The field is name[:layer][@mapset]. The export adds the mapset only to a
+    name that maps of several mapsets share; their files are named
+    name@mapset and the map is imported as name_mapset, with every character
+    of the mapset other than a letter, digit or "_" replaced by "_". A field
+    without mapset, as in every older archive, names the file and the map.
+    """
+    head, at, mapset = field.partition("@")
+    name, _separator, layer = head.partition(":")
+    if not at:
+        return name, layer, name
+    mapname = f"{name}_{re.sub(r'[^A-Za-z0-9_]', '_', mapset)}"
+    return f"{name}@{mapset}", layer, mapname
+
+
 def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]], int]:
     """Read list.txt of the working directory
 
@@ -532,19 +571,17 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
     # A list edited by hand may hold blank lines, which are no maps.
     lines = [line for line in lines if line]
     parsed = [line.split(fs) for line in lines]
-    filenames = [fields[0].strip().partition(":")[0] for fields in parsed]
+    fields = [_split_map_field(line_list[0].strip()) for line_list in parsed]
+    filenames = [field[0] for field in fields]
     # Dictionary order is the order of insertion, so this is the first
     # appearance. The number of file names is needed to form the suffix.
     numbers = {name: number for number, name in enumerate(dict.fromkeys(filenames), 1)}
 
-    for line_list in parsed:
-        # The filename is actually the base name of the map
-        # that must be extended by the file suffix
-        filename, _separator, layer = line_list[0].strip().partition(":")
+    for line_list, (filename, layer, own_name) in zip(parsed, fields, strict=True):
         mapname = (
             f"{base}_{gs.get_num_suffix(numbers[filename], len(numbers))}"
             if base
-            else filename
+            else own_name
         )
 
         maplist.append(
@@ -690,6 +727,7 @@ def _import_maps(
     memory: int,
 ) -> None:
     """Import the maps of the archive with the module of the format"""
+    _refuse_duplicate_import_names(maplist)
     _refuse_existing_maps(maplist, "cell" if type_ == "strds" else "vector", mapset)
     if type_ == "strds":
         if format_ in {"GTiff", "AAIGrid"}:
@@ -799,7 +837,10 @@ def import_stds(
                   Do not import the space time datasets.
     :param stds_type: The type of the space time dataset that should be imported
     :param base: The base name of the new imported maps, it will be
-                 extended using a numerical index.
+                 extended using a numerical index. Without base a map keeps
+                 its name in the archive; a map named name@mapset there is
+                 imported as name_mapset, and two maps of the archive that
+                 would get one name stop the import before the first one.
     :param memory: Cache size for raster rows, used in r.in.gdal
     """
     # The refusals of the library are those of the messenger, which a tool

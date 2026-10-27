@@ -422,10 +422,10 @@ def test_a_map_selected_twice_with_one_layer_is_exported_as_pack_as_before(
 
 def test_the_first_repeated_pair_is_named_with_its_count_and_layer():
     rows = [
-        {"name": "a", "layer": None},
-        {"name": "b", "layer": "2"},
-        {"name": "b", "layer": 2},
-        {"name": "b", "layer": "2"},
+        {"name": "a", "mapset": "m", "layer": None},
+        {"name": "b", "mapset": "m", "layer": "2"},
+        {"name": "b", "mapset": "m", "layer": 2},
+        {"name": "b", "mapset": "m", "layer": "2"},
     ]
 
     with pytest.raises(FatalError, match=r"<b> is selected 3 times with layer 2;"):
@@ -433,7 +433,10 @@ def test_the_first_repeated_pair_is_named_with_its_count_and_layer():
 
 
 def test_a_repeated_map_is_not_refused_for_pack():
-    rows = [{"name": "a", "layer": None}, {"name": "a", "layer": "1"}]
+    rows = [
+        {"name": "a", "mapset": "m", "layer": None},
+        {"name": "a", "mapset": "m", "layer": "1"},
+    ]
 
     stds_export._refuse_repeated_maps(rows, "pack")
 
@@ -463,8 +466,8 @@ def test_a_raster_dataset_with_an_ogr_format_is_packed_as_before(
 
 def test_a_map_without_a_layer_and_with_layer_one_is_a_single_layer():
     rows = [
-        {"name": "m", "layer": None},
-        {"name": "m", "layer": "1"},
+        {"name": "m", "mapset": "m", "layer": None},
+        {"name": "m", "mapset": "m", "layer": "1"},
     ]
 
     stds_export._refuse_several_layers(rows, "GML")
@@ -472,7 +475,10 @@ def test_a_map_without_a_layer_and_with_layer_one_is_a_single_layer():
 
 def test_layers_are_listed_in_numeric_order():
     # The layer column is text, so a string sort would give "10, 2".
-    rows = [{"name": "m", "layer": "10"}, {"name": "m", "layer": "2"}]
+    rows = [
+        {"name": "m", "mapset": "m", "layer": "10"},
+        {"name": "m", "mapset": "m", "layer": "2"},
+    ]
 
     with pytest.raises(FatalError, match=r"layers 2, 10;"):
         stds_export._refuse_several_layers(rows, "GML")
@@ -494,7 +500,7 @@ def test_layer_one_with_and_without_layer_is_refused_as_repeated(
         increment="1 months",
     )
     rows = tgis.open_old_stds("mix_ds", "stvds").get_registered_maps(
-        "name,layer", None, "start_time", None
+        "name,mapset,layer", None, "start_time", None
     )
     assert len(rows) == 2
 
@@ -503,6 +509,63 @@ def test_layer_one_with_and_without_layer_is_refused_as_repeated(
     # instead of failing in the second v.out.ogr call.
     with pytest.raises(FatalError, match="<mix> is selected 2 times with layer 1"):
         _export(tmp_path, "mix_ds", "stvds", "GML")
+
+
+def test_a_name_of_maps_in_several_mapsets_is_written_with_the_mapset():
+    rows = [
+        {"name": "dup", "mapset": "A"},
+        {"name": "own", "mapset": "A"},
+        {"name": "dup", "mapset": "B"},
+        {"name": "dup", "mapset": "A"},
+        {"name": "dup", "mapset": "my.set"},
+    ]
+
+    assert stds_export._archive_names(rows) == [
+        "dup@A",
+        "own",
+        "dup@B",
+        "dup@A",
+        "dup@my.set",
+    ]
+
+
+def test_a_name_repeated_in_one_mapset_keeps_its_bare_form():
+    # The layers of one vector map are rows of one name and one mapset.
+    rows = [{"name": "lay", "mapset": "A"}, {"name": "lay", "mapset": "A"}]
+
+    assert stds_export._archive_names(rows) == ["lay", "lay"]
+
+
+def test_one_layer_each_of_maps_of_one_name_in_two_mapsets_is_one_layer_per_file():
+    rows = [
+        {"name": "dup", "mapset": "A", "layer": "1"},
+        {"name": "dup", "mapset": "B", "layer": "2"},
+    ]
+
+    stds_export._refuse_several_layers(rows, "GML")
+    stds_export._refuse_repeated_maps(rows, "GML")
+
+
+def test_the_layers_are_counted_per_map_of_the_archive():
+    rows = [
+        {"name": "dup", "mapset": "A", "layer": "1"},
+        {"name": "dup", "mapset": "A", "layer": "2"},
+        {"name": "dup", "mapset": "B", "layer": "1"},
+    ]
+
+    with pytest.raises(FatalError, match=r"<dup@A> is selected with the layers 1, 2;"):
+        stds_export._refuse_several_layers(rows, "GPKG")
+
+
+def test_the_repetitions_are_counted_per_map_of_the_archive():
+    rows = [
+        {"name": "dup", "mapset": "A", "layer": None},
+        {"name": "dup", "mapset": "B", "layer": "1"},
+        {"name": "dup", "mapset": "A", "layer": "1"},
+    ]
+
+    with pytest.raises(FatalError, match=r"<dup@A> is selected 2 times with layer 1;"):
+        stds_export._refuse_repeated_maps(rows, "GML")
 
 
 @pytest.fixture
