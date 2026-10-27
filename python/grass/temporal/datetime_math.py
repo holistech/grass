@@ -40,9 +40,16 @@ def time_delta_to_relative_time_seconds(delta: timedelta) -> float:
     return float(delta.days * DAY_IN_SECONDS) + float(delta.seconds)
 
 
-# The units of an increment or a granularity from the finest to the coarsest.
-# A word names the first unit it contains, so "days" names a day.
+# The units of an increment or a granularity from the finest to the coarsest
 _GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
+
+
+def _unit_of(word: str) -> str | None:
+    """Return the first unit of _GRANULARITY_UNITS that the word contains
+
+    So "days" names a day and "minutesecond" a second; None if there is none.
+    """
+    return next((name for name in _GRANULARITY_UNITS if name in word), None)
 
 
 def decrement_datetime_by_string(
@@ -138,9 +145,7 @@ def modify_datetime_by_string(
     steps = dict.fromkeys(_GRANULARITY_UNITS, 0)
     for part in increment.split(","):
         inc = part.strip().split(" ")
-        unit = None
-        if len(inc) >= 2:
-            unit = next((name for name in _GRANULARITY_UNITS if name in inc[1]), None)
+        unit = _unit_of(inc[1]) if len(inc) >= 2 else None
         if unit is None:
             msgr = get_tgis_message_interface()
             msgr.error(_("Wrong increment format: %s") % (increment))
@@ -306,7 +311,7 @@ def adjust_datetime_to_granularity(mydate: datetime, granularity):
     granlist = [granpart.strip().split(" ") for granpart in granularity.split(",")]
     units = set()
     for inc in granlist:
-        unit = next((name for name in _GRANULARITY_UNITS if name in inc[1]), None)
+        unit = _unit_of(inc[1])
         if unit is None:
             msgr = get_tgis_message_interface()
             msgr.error(_("Wrong granularity format: %s") % (granularity))
