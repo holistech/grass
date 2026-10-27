@@ -143,6 +143,78 @@ def test_relative_extents_with_different_units_have_no_relation():
     assert a.temporal_relation(c) == "equal"
 
 
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ((5, 6, "days"), (1, 2, "years")),
+        ((5, 6, "days"), (5, 7, "years")),
+    ],
+    ids=["disjoint numbers", "overlapping numbers"],
+)
+def test_intersect_of_different_relative_units_is_none(first, second):
+    a = RelativeTemporalExtent(start_time=first[0], end_time=first[1], unit=first[2])
+    b = RelativeTemporalExtent(start_time=second[0], end_time=second[1], unit=second[2])
+
+    assert a.intersect(b) is None
+    assert b.intersect(a) is None
+
+
+def _plain(extent):
+    return TemporalExtent(
+        start_time=extent.D["start_time"], end_time=extent.D["end_time"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ((3, 6), (5, 7)),
+        ((5, 7), (3, 6)),
+        ((3, 8), (5, 6)),
+        ((5, 6), (5, None)),
+        ((5, None), (3, 6)),
+        ((5, 8), (3, 4)),
+    ],
+)
+def test_intersect_in_the_same_unit_is_that_of_plain_extents(first, second):
+    a = RelativeTemporalExtent(start_time=first[0], end_time=first[1], unit="days")
+    b = RelativeTemporalExtent(start_time=second[0], end_time=second[1], unit="days")
+
+    expected = _plain(a).intersect(_plain(b))
+    result = a.intersect(b)
+
+    if expected is None:
+        assert result is None
+        return
+    assert (result.D["start_time"], result.D["end_time"]) == (
+        expected.D["start_time"],
+        expected.D["end_time"],
+    )
+    # An instant stays a plain extent, as the classic algebra tells it by type.
+    if expected.D["end_time"] is None:
+        assert type(result) is type(expected)
+
+
+def test_intersect_without_a_set_unit_on_both_sides_is_unchanged():
+    with_unit = RelativeTemporalExtent(start_time=3, end_time=6, unit="days")
+    no_unit = RelativeTemporalExtent(start_time=5, end_time=7)
+    plain = TemporalExtent(start_time=5, end_time=7)
+
+    for first, second in [
+        (with_unit, no_unit),
+        (no_unit, with_unit),
+        (with_unit, plain),
+        (plain, with_unit),
+    ]:
+        expected = TemporalExtent.intersect(first, second)
+        result = first.intersect(second)
+        assert expected is not None
+        assert (result.D["start_time"], result.D["end_time"]) == (
+            expected.D["start_time"],
+            expected.D["end_time"],
+        )
+
+
 def test_extents_survive_copy_and_pickle():
     extents = [
         TemporalExtent(start_time=1, end_time=2),

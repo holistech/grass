@@ -884,6 +884,29 @@ class RelativeTemporalExtent(TemporalExtent):
 
         return TemporalExtent.temporal_relation(self, map)
 
+    def intersect(self, extent):
+        """Intersect this temporal extent with the provided one
+
+        :param extent: The temporal extent to intersect with
+        :return: The new temporal extent, or None in case of no intersection
+                 or if the units differ
+        :raises ValueError: as temporal_relation(), whether or not the units differ
+
+        Numbers in different units cannot overlap, whatever their values: 5 to 7
+        years does not meet 5 to 6 days. This is the answer temporal_relation()
+        gives; union() and disjoint_union() do not ask the units.
+        """
+        # Raises for a reversed extent before the units are compared.
+        _refuse_reversed(self)
+        _refuse_reversed(extent)
+        # Only two set units that differ rule out an overlap; a missing unit
+        # or a plain extent as partner intersects as it always did.
+        unit = self.D.get("unit")
+        other_unit = extent.D.get("unit")
+        if unit is not None and other_unit is not None and unit != other_unit:
+            return None
+        return TemporalExtent.intersect(self, extent)
+
     def print_info(self) -> None:
         """Print information about this class in human readable style"""
         #      0123456789012345678901234567890
