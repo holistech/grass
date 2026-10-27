@@ -470,3 +470,28 @@ def test_the_gaps_between_neighbours_are_counted(stds):
 @pytest.mark.parametrize("count", [0, 1])
 def test_fewer_than_two_maps_have_no_gaps(stds, count):
     assert stds.count_gaps(timed_maps(*[(day(1), day(2))] * count)) == 0
+
+
+def test_links_set_by_hand_are_read_and_printed(capsys):
+    """This case was the example in the docstring of TopologyLinks"""
+    a = RasterDataset("a@P")
+    b = RasterDataset("b@P")
+    set_temporal_relationship(a, b, "starts")
+    set_spatial_relationship(a, b, "cover")
+
+    assert [m.get_id() for m in b.get_during()] == ["a@P"]
+    assert [m.get_id() for m in a.get_temporal_relations()["CONTAINS"]] == ["b@P"]
+    print_temporal_topology_info(b)
+    print_temporal_topology_shell_info(a)
+    print_spatial_topology_shell_info(a)
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Temporal Topology -------------------------------------+",
+        " | During: .................... a@P",
+        " | Starts:.. .................. a@P",
+        "contains=b@P",
+        "started=b@P",
+        "covered=b@P",
+    ]
+
+    b.set_next(a)
+    assert sorted(b.get_temporal_relations()) == ["DURING", "NEXT", "STARTS"]
