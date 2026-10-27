@@ -159,6 +159,36 @@ def test_intersect_of_different_relative_units_is_none(first, second):
     assert b.intersect(a) is None
 
 
+@pytest.mark.parametrize(
+    "first",
+    [
+        RelativeTemporalExtent(start_time=1, end_time=5, unit=None),
+        RelativeTemporalExtent(start_time=1, unit=None),
+    ],
+    ids=["interval", "instant"],
+)
+@pytest.mark.parametrize(
+    "second",
+    [
+        RelativeTemporalExtent(start_time=10, end_time=12, unit="days"),
+        TemporalExtent(start_time=10, end_time=12),
+    ],
+    ids=["relative with unit", "plain"],
+)
+def test_intersect_of_disjoint_relative_numbers_is_none(first, second):
+    assert first.intersect(second) is None
+    if isinstance(second, RelativeTemporalExtent):
+        assert second.intersect(first) is None
+
+
+def test_intersect_of_overlapping_numbers_without_a_unit_is_unchanged():
+    a = RelativeTemporalExtent(start_time=3, end_time=6, unit=None)
+    b = RelativeTemporalExtent(start_time=5, end_time=7, unit="days")
+
+    for result in (a.intersect(b), b.intersect(a)):
+        assert (result.D["start_time"], result.D["end_time"]) == (5, 6)
+
+
 def _plain(extent):
     return TemporalExtent(
         start_time=extent.D["start_time"], end_time=extent.D["end_time"]
