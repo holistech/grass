@@ -585,8 +585,11 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
          This method only modifies this object and does not commit
          the modifications to the temporal database.
 
-        :param start_time: An integer value
-        :param end_time: An integer value, None in case or time instance
+        :param start_time: A number; it is compared with the end time as
+                           given and stored truncated toward zero
+        :param end_time: A number, None in case or time instance. An end
+                         before the start is refused; an end that equals
+                         the start after truncation makes a time instance.
         :param unit: The unit of the relative time. Supported units:
                      year(s), month(s), day(s), hour(s), minute(s), second(s)
 
@@ -622,8 +625,8 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         if start_time is not None and end_time is not None:
             # Compare before int() truncates: 1.7 to 1.2 would otherwise
-            # both become 1 and pass as an instance. float() because the
-            # values may arrive as text, which int() rejects for "1.7".
+            # both become 1 and pass as an instance. float() also makes
+            # numeric text compare as a number ("10" before "9" as text).
             if float(start_time) > float(end_time):
                 self.msgr.error(
                     layer_form(
@@ -668,8 +671,11 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         grass file system based database in addition to the temporal
         database entry.
 
-        :param start_time: An integer value
-        :param end_time: An integer value, None in case or time instance
+        :param start_time: A number; it is compared with the end time as
+                           given and stored truncated toward zero
+        :param end_time: A number, None in case or time instance. An end
+                         before the start is refused; an end that equals
+                         the start after truncation makes a time instance.
         :param unit: The relative time unit
         :param dbif: The database interface to be used
         """
