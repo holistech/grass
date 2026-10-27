@@ -120,6 +120,10 @@ def convert_datetime(value: bytes) -> datetime:
     return db_datetime(datetime.fromisoformat(value.decode()))
 
 
+# Python's default adapter and converters for datetime are deprecated since
+# 3.12. The registration is global: the adapter applies to every SQLite
+# connection of the process, the converters to every one opened with
+# detect_types, not only to those of the temporal database.
 sqlite3.register_adapter(datetime, adapt_datetime_iso)
 sqlite3.register_converter("date", convert_datetime)
 sqlite3.register_converter("datetime", convert_datetime)

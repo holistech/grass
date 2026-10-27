@@ -841,8 +841,10 @@ class RelativeTemporalExtent(TemporalExtent):
         Temporal relationships are implemented after
         [Allen and Ferguson 1994 Actions and Events in Interval Temporal Logic]
 
-        :raises ValueError: if one of the extents ends before it starts, also
-                            if the units differ
+        :return: The name of the temporal relation, None if no relation is
+                 found or the units differ
+        :raises ValueError: if one of the extents ends before it starts,
+                            whether or not the units differ
         """
         # Checked before the units, so that the refusal does not depend on them.
         _refuse_reversed(self)
