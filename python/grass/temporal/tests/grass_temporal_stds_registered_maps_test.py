@@ -594,8 +594,11 @@ def test_a_register_table_name_of_another_form_is_refused(pair, name):
 
     with pytest.raises(tgis.FatalError, match="Invalid name"):
         stds.get_registered_maps("id")
-    with pytest.raises(tgis.FatalError, match="Invalid name"):
+    with pytest.raises(tgis.FatalError, match="Invalid name") as refused:
         stds.map_register.contains("a@PERMANENT")
+    # The refusal is the whole message; the check that found the name wrong
+    # does not show up as a second traceback.
+    assert refused.value.__context__ is None
 
 
 def test_a_register_table_of_an_older_form_is_used(pair):

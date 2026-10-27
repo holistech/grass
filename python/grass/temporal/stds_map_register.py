@@ -136,11 +136,14 @@ class StdsMapRegister:
         try:
             return sql_identifier(name)
         except ValueError:
-            self._stds.msgr.fatal(
-                _("Invalid name <{name}> of the map register table of <{ds}>").format(
-                    name=name, ds=self._stds.get_id()
-                )
+            pass
+        # Outside the except clause, so the fatal error does not carry the
+        # ValueError as its context into a traceback.
+        self._stds.msgr.fatal(
+            _("Invalid name <{name}> of the map register table of <{ds}>").format(
+                name=name, ds=self._stds.get_id()
             )
+        )
 
     def create_name(self) -> str:
         """Create the name of a new register table
