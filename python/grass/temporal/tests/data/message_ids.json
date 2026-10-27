@@ -139,6 +139,7 @@
  "Map <{name}> exists. Use the overwrite flag.",
  "Map <{name}> is in mapset <{mapset}> and is not removed",
  "Map <{name}> was not computed",
+ "Map <{}> ends before it starts; it gets no temporal relations",
  "Map <{}> is already in temporal database, use overwrite flag to overwrite",
  "Map is already registered in temporal database. Unable to update {t} map <{mid}> with layer {l}. Overwrite flag is not set.",
  "Map is already registered in temporal database. Unable to update {t} map <{mid}>. Overwrite flag is not set.",

@@ -5,23 +5,29 @@ The relations follow Allen and Ferguson 1994, as cited by
 grass.temporal.temporal_extent: an interval starting earlier and ending inside
 a later one "overlaps" it, and the later one is "overlapped" by it.
 
-Maps are built in memory only, so no GRASS session and no temporal database
-are needed here.
+Most maps are built in memory and need no GRASS session. The maps stored with
+an end before their start are registered in a temporary project, because only
+the temporal database can hold them.
 """
 
+import itertools
 from datetime import datetime
 
 import pytest
 
+import grass.temporal as tgis
+from grass.temporal import topology
 from grass.temporal.abstract_dataset import (
     AbstractDatasetComparisonKeyEndTime,
     AbstractDatasetComparisonKeyStartTime,
 )
 from grass.temporal.space_time_datasets import RasterDataset
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.topology import (
     SpatioTemporalTopologyBuilder,
     create_temporal_relation_sql_where_statement,
 )
+from grass.tools import Tools
 
 
 def maps_from(intervals):
@@ -494,3 +500,236 @@ def test_sql_where_statement_of_a_temporal_relation(
         create_temporal_relation_sql_where_statement(start, end, **selection)
         == expected
     )
+
+
+# A map whose stored interval ends before it starts. Registering refuses such
+# an interval, but an older database or an edit by hand can hold one, so the
+# tests below write the end into the database after the registration.
+
+COUNTER = itertools.count(1)
+
+
+def month(number):
+    """The first day of the month that lies number months after January 2001"""
+    year, index = divmod(number, 12)
+    return datetime(2001 + year, index + 1, 1)
+
+
+@pytest.fixture(scope="module")
+def tools(temporal_module_session):
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    tools.g_region(n=1, s=0, e=1, w=0, res=1)
+    return tools
+
+
+@pytest.fixture
+def reversed_dataset(tools):
+    """Function that registers maps and stores some of them reversed
+
+    make(temporaltype, spans, reversed_numbers) creates the maps
+    <prefix>_1, <prefix>_2, ... of the (start, end) spans, counted in months
+    from January 2001 or in days of relative time, registers them in a
+    dataset and stores the end of each map whose number is in
+    reversed_numbers one unit before its start. Returns the dataset and the
+    map ids in the order of the spans.
+    """
+
+    def make(temporaltype, spans, reversed_numbers):
+        prefix = f"reversed{next(COUNTER)}"
+        times = spans
+        if temporaltype == "absolute":
+            times = [(month(start), month(end)) for start, end in spans]
+        create_stds(
+            tools,
+            "strds",
+            f"{prefix}_ds",
+            [
+                MapSpec(f"{prefix}_{number}", number, start, end)
+                for number, (start, end) in enumerate(times, 1)
+            ],
+            temporaltype=temporaltype,
+            unit="days" if temporaltype == "relative" else None,
+            via="library",
+        )
+        mapset = tgis.get_current_mapset()
+        for number in reversed_numbers:
+            map_ = tgis.RasterDataset(f"{prefix}_{number}@{mapset}")
+            map_.select()
+            end = spans[number - 1][0] - 1
+            if temporaltype == "absolute":
+                extent, end = map_.absolute_time, month(end)
+            else:
+                extent = map_.relative_time
+            # The setter and update() do not check the order of start and end.
+            extent.set_end_time(end)
+            extent.update()
+        stds = tgis.open_old_stds(f"{prefix}_ds", "strds")
+        ids = [f"{prefix}_{number}@{mapset}" for number in range(1, len(spans) + 1)]
+        return stds, ids
+
+    return make
+
+
+def stored_maps(stds):
+    """The registered maps of the dataset, sorted by start time, as stored
+
+    get_registered_maps_as_objects() sets the times of a map through
+    set_absolute_time() or set_relative_time(), which refuse an end before the
+    start and leave the map without time. select() reads the row as it is.
+    """
+    maps = []
+    for row in stds.get_registered_maps("id", order="start_time"):
+        map_ = stds.get_new_map_instance(row["id"])
+        map_.select()
+        maps.append(map_)
+    return maps
+
+
+def read_as_stored(monkeypatch, stds):
+    """Make the dataset read its maps with stored_maps()
+
+    The list with gaps reads the maps through get_registered_maps_as_objects(),
+    which leaves a reversed map without time.
+    """
+    monkeypatch.setattr(
+        stds,
+        "get_registered_maps_as_objects",
+        lambda *args, **kwargs: stored_maps(stds),
+    )
+
+
+def relations_by_id(maps):
+    """The relations of each map except NEXT and PREV, as ids, by map id"""
+    return {
+        map_.get_id(): {
+            name: sorted(related.get_id() for related in links)
+            for name, links in map_.get_temporal_relations().items()
+            if name not in {"NEXT", "PREV"}
+        }
+        for map_ in maps
+    }
+
+
+class Recorder:
+    """The message interface of the library, which also keeps the warnings"""
+
+    def __init__(self, messenger):
+        self.messenger = messenger
+        self.warnings = []
+
+    def warning(self, message):
+        self.warnings.append(message)
+        self.messenger.warning(message)
+
+    def __getattr__(self, name):
+        return getattr(self.messenger, name)
+
+
+@pytest.fixture
+def warnings(monkeypatch):
+    """The warnings that the topology module gives, as a list of texts"""
+    recorder = Recorder(topology.get_tgis_message_interface())
+    monkeypatch.setattr(topology, "get_tgis_message_interface", lambda: recorder)
+    return recorder.warnings
+
+
+def reversed_warning(map_id):
+    return f"Map <{map_id}> ends before it starts; it gets no temporal relations"
+
+
+# Each map starts one unit after the one before and lasts two units, so a map
+# overlaps its neighbours and precedes the map two places later.
+OVERLAPPING = [(0, 2), (1, 3), (2, 4), (3, 5), (4, 6)]
+TEMPORAL_TYPES = ["absolute", "relative"]
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+@pytest.mark.parametrize("spatial", [None, "2D", "3D"])
+@pytest.mark.parametrize("reversed_numbers", [(2,), (2, 4)])
+def test_a_stored_reversed_interval_gets_no_relations(
+    reversed_dataset, temporaltype, spatial, reversed_numbers
+):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, reversed_numbers)
+    reversed_ids = {ids[number - 1] for number in reversed_numbers}
+    maps = stored_maps(stds)
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps, spatial=spatial)
+
+    good = [map_ for map_ in stored_maps(stds) if map_.get_id() not in reversed_ids]
+    SpatioTemporalTopologyBuilder().build(good, spatial=spatial)
+    expected = relations_by_id(good)
+    assert all(expected.values()), "the maps left must be related to each other"
+    found = relations_by_id(maps)
+    assert {map_id: found[map_id] for map_id in expected} == expected
+    assert all(found[map_id] == {} for map_id in reversed_ids)
+    # The reversed maps keep their place in the iteration by start time.
+    assert [map_.get_id() for map_ in builder] == ids
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_stored_reversed_interval_warns_once(
+    reversed_dataset, warnings, temporaltype
+):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2, 4))
+    maps = stored_maps(stds)
+
+    SpatioTemporalTopologyBuilder().build(maps)
+    assert warnings == [reversed_warning(ids[1]), reversed_warning(ids[3])]
+
+    # Each call warns again, and a map in both lists warns once.
+    warnings.clear()
+    SpatioTemporalTopologyBuilder().build(maps, stored_maps(stds))
+    assert warnings == [reversed_warning(ids[1]), reversed_warning(ids[3])]
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_list_of_reversed_intervals_has_no_relations(
+    reversed_dataset, warnings, monkeypatch, temporaltype
+):
+    spans = [(0, 1), (1, 2), (2, 3)]
+    stds, ids = reversed_dataset(temporaltype, spans, (1, 2, 3))
+    maps = stored_maps(stds)
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps)
+
+    assert relations_by_id(maps) == {map_id: {} for map_id in ids}
+    assert [map_.get_id() for map_ in builder] == ids
+    assert warnings == [reversed_warning(map_id) for map_id in ids]
+    assert topology.count_gaps(maps) == 0
+    read_as_stored(monkeypatch, stds)
+    ids_with_gaps = [
+        map_.get_id() for map_ in stds.get_registered_maps_as_objects_with_gaps()
+    ]
+    assert ids_with_gaps == ids
+
+
+# Gaps lie between the first and the second map and between the last two. The
+# second map is stored reversed, so only the gap between the last two counts.
+WITH_GAPS = [(0, 1), (2, 3), (4, 5), (6, 7)]
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_count_gaps_skips_a_reversed_interval(reversed_dataset, warnings, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (2,))
+
+    assert topology.count_gaps(stored_maps(stds)) == 1
+    assert warnings == [reversed_warning(ids[1])]
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_the_list_with_gaps_skips_a_reversed_interval(
+    reversed_dataset, warnings, monkeypatch, temporaltype
+):
+    stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (2,))
+    read_as_stored(monkeypatch, stds)
+
+    maps = stds.get_registered_maps_as_objects_with_gaps()
+
+    assert [map_.get_id() for map_ in maps] == [*ids[:3], None, ids[3]]
+    assert maps[3].get_temporal_extent_as_tuple() == (
+        maps[2].get_temporal_extent_as_tuple()[1],
+        maps[4].get_temporal_extent_as_tuple()[0],
+    )
+    assert warnings == [reversed_warning(ids[1])]

@@ -25,6 +25,7 @@ from .topology import (
     count_temporal_types,
     has_correct_temporal_topology,
     print_spatio_temporal_topology_relationships,
+    reversed_map_ids,
 )
 from .state import get_current_mapset
 from . import granule_sampling, stds_time_edit
@@ -623,10 +624,14 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             )
 
             if maps is not None and len(maps) > 0:
+                # No gap is inserted next to a map that ends before it starts.
+                reversed_ids = reversed_map_ids(maps)
                 for i in range(len(maps)):
                     obj_list.append(maps[i])
                     # Detect and insert gaps
-                    if i < len(maps) - 1:
+                    if i < len(maps) - 1 and reversed_ids.isdisjoint(
+                        (maps[i].get_id(), maps[i + 1].get_id())
+                    ):
                         relation = maps[i + 1].temporal_relation(maps[i])
                         if relation == "after":
                             start1, end1 = maps[i].get_temporal_extent_as_tuple()
