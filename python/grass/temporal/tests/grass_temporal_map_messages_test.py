@@ -258,3 +258,126 @@ def test_a_map_with_an_empty_layer_has_the_message_without_a_layer(layer, text):
         message
         == f"Temporal type of space time dataset <s@PERMANENT> and {text} different"
     )
+
+
+def bare_vector(layer):
+    return tgis.VectorDataset(f"x:{layer}@{MAPSET}" if layer else f"x@{MAPSET}")
+
+
+def absolute_wrong_start(item):
+    return item.set_absolute_time("2001-01-01")
+
+
+def absolute_wrong_end(item):
+    return item.set_absolute_time(datetime(2001, 1, 1), "2001-01-02")
+
+
+def absolute_end_before_start(item):
+    return item.set_absolute_time(datetime(2001, 1, 3), datetime(2001, 1, 2))
+
+
+def relative_wrong_unit(item):
+    return item.set_relative_time(1, 2, "fortnights")
+
+
+def relative_end_before_start(item):
+    return item.set_relative_time(3, 2, "days")
+
+
+# The text after the colon of the layer form is the one that the map
+# datasets give; two of them write "layer:" and two "layer", as the source does.
+SETTER_MESSAGES = [
+    (
+        absolute_wrong_start,
+        "Start time must be of type datetime for vector map <x@PERMANENT>",
+        "Start time must be of type datetime for vector map <x@PERMANENT> "
+        "with layer: 2",
+    ),
+    (
+        absolute_wrong_end,
+        "End time must be of type datetime for vector map <x@PERMANENT>",
+        "End time must be of type datetime for vector map <x@PERMANENT> with layer: 2",
+    ),
+    (
+        absolute_end_before_start,
+        "End time must be greater than start time for vector map <x@PERMANENT>",
+        "End time must be greater than start time for vector map <x@PERMANENT> "
+        "with layer: 2",
+    ),
+    (
+        relative_wrong_unit,
+        "Unsupported relative time unit type for vector map <x@PERMANENT>: fortnights",
+        "Unsupported relative time unit type for vector map <x:2@PERMANENT> "
+        "with layer 2: fortnights",
+    ),
+    (
+        relative_end_before_start,
+        "End time must be greater than start time for vector map <x@PERMANENT>",
+        "End time must be greater than start time for vector map <x:2@PERMANENT> "
+        "with layer 2",
+    ),
+]
+
+
+@pytest.mark.parametrize("layer", LAYERS)
+@pytest.mark.parametrize(
+    ("setter", "plain", "layered"),
+    SETTER_MESSAGES,
+    ids=[row[0].__name__ for row in SETTER_MESSAGES],
+)
+def test_the_time_setters_name_the_layer_of_a_map_they_refuse(
+    setter, plain, layered, layer, messages
+):
+    assert setter(bare_vector(layer)) is False
+
+    assert messages == [layered if layer else plain]
+
+
+@pytest.mark.parametrize("layer", LAYERS)
+@pytest.mark.parametrize("ttype", ["absolute", "relative"])
+def test_assigning_a_valid_time_names_the_layer_in_the_debug_message(
+    ttype, layer, recorder, monkeypatch
+):
+    register = importlib.import_module("grass.temporal.register")
+    monkeypatch.setattr(register, "get_tgis_message_interface", lambda: recorder)
+    item = bare_vector(layer)
+    start, end = ("2001-01-01", "2001-01-02") if ttype == "absolute" else ("1", "2")
+
+    register.assign_valid_time_to_map(ttype, item, start, end, "days")
+
+    if ttype == "absolute":
+        times = "2001-01-01 00:00:00 - 2001-01-02 00:00:00"
+        plain = f"Set absolute valid time for map <x@PERMANENT> to {times}"
+        layered = (
+            f"Set absolute valid time for map <x@PERMANENT> with layer {layer} "
+            f"to {times}"
+        )
+    else:
+        plain = "Set relative valid time for map <x@PERMANENT> to 1 - 2 with unit days"
+        layered = (
+            "Set relative valid time for map <x@PERMANENT> with layer 2 "
+            "to 1 - 2 with unit days"
+        )
+    assert recorder.debugs[-1] == (layered if layer else plain)
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        lambda item: item.update_absolute_time(datetime(2001, 1, 1)),
+        lambda item: item.update_relative_time(1, 2, "days"),
+    ],
+    ids=["absolute", "relative"],
+)
+def test_the_time_of_a_map_of_another_mapset_is_not_updated(update, monkeypatch):
+    module = importlib.import_module("grass.temporal.abstract_map_dataset")
+    monkeypatch.setattr(module, "get_enable_mapset_check", lambda: True)
+    item = tgis.VectorDataset("x@other")
+
+    with pytest.raises(tgis.FatalError) as error:
+        update(item)
+
+    assert str(error.value) == (
+        "Unable to update dataset <x@other> of type vector in the temporal "
+        "database. The mapset of the dataset does not match the current mapset"
+    )

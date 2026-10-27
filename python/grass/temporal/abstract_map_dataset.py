@@ -31,23 +31,33 @@ from .state import (
 from .temporal_extent import AbsoluteTemporalExtent, RelativeTemporalExtent
 
 
-# A map with a layer has a sentence of its own in each of these messages rather
-# than the plain one with words inserted, so that a translator can inflect it.
+def layer_form(has_layer, with_layer, without_layer):
+    """Pick the message of a map with a layer or the one of a map without
+
+    A map with a layer has a sentence of its own rather than the plain one with
+    words inserted, so that a translator can inflect it. Each caller passes
+    both ``_()`` literals, so that the message ids are found in the source,
+    and the condition that tells a layer: some callers test ``is not None``,
+    some the truth value, and an empty layer counts as a layer in the first
+    form only.
+    """
+    return with_layer if has_layer else without_layer
+
+
 def other_temporal_type_message(stds_id: str, map_) -> str:
     """Return the message that a dataset and a map differ in the temporal type"""
     values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
-    if values["l"]:
-        return (
+    return (
+        layer_form(
+            values["l"],
             _(
                 "Temporal type of space time dataset "
                 "<%(id)s> and map <%(map)s> with layer %(l)s"
                 " are different"
-            )
-            % values
-        )
-    return (
-        _(
-            "Temporal type of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
+            _(
+                "Temporal type of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
         )
         % values
     )
@@ -56,18 +66,17 @@ def other_temporal_type_message(stds_id: str, map_) -> str:
 def other_time_unit_message(stds_id: str, map_) -> str:
     """Return the message that a dataset and a map differ in the time unit"""
     values = {"id": stds_id, "map": map_.get_map_id(), "l": map_.get_layer()}
-    if values["l"]:
-        return (
+    return (
+        layer_form(
+            values["l"],
             _(
                 "Relative time units of space time dataset "
                 "<%(id)s> and map <%(map)s> with layer %(l)s"
                 " are different"
-            )
-            % values
-        )
-    return (
-        _(
-            "Relative time units of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
+            _(
+                "Relative time units of space time dataset <%(id)s> and map <%(map)s> are different"
+            ),
         )
         % values
     )
@@ -457,68 +466,55 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         :return: True for success and False otherwise
         """
+        values = {
+            "type": self.get_type(),
+            "id": self.get_map_id(),
+            "l": self.get_layer(),
+        }
         if start_time and not isinstance(start_time, datetime):
-            if self.get_layer() is not None:
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer() is not None,
                     _(
                         "Start time must be of type datetime for "
                         "%(type)s map <%(id)s> with layer: %(l)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_map_id(),
-                        "l": self.get_layer(),
-                    }
+                    ),
+                    _("Start time must be of type datetime for %(type)s map <%(id)s>"),
                 )
-                return False
-            self.msgr.error(
-                _("Start time must be of type datetime for %(type)s map <%(id)s>")
-                % {"type": self.get_type(), "id": self.get_map_id()}
+                % values
             )
             return False
 
         if end_time and not isinstance(end_time, datetime):
-            if self.get_layer():
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer(),
                     _(
                         "End time must be of type datetime for "
                         "%(type)s map <%(id)s> with layer: %(l)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_map_id(),
-                        "l": self.get_layer(),
-                    }
+                    ),
+                    _("End time must be of type datetime for %(type)s map <%(id)s>"),
                 )
-                return False
-            self.msgr.error(
-                _("End time must be of type datetime for %(type)s map <%(id)s>")
-                % {"type": self.get_type(), "id": self.get_map_id()}
+                % values
             )
             return False
 
         if start_time is not None and end_time is not None:
             if start_time > end_time:
-                if self.get_layer():
-                    self.msgr.error(
+                self.msgr.error(
+                    layer_form(
+                        self.get_layer(),
                         _(
                             "End time must be greater than start "
                             "time for %(type)s map <%(id)s> with "
                             "layer: %(l)s"
-                        )
-                        % {
-                            "type": self.get_type(),
-                            "id": self.get_map_id(),
-                            "l": self.get_layer(),
-                        }
+                        ),
+                        _(
+                            "End time must be greater than start "
+                            "time for %(type)s map <%(id)s>"
+                        ),
                     )
-                    return False
-                self.msgr.error(
-                    _(
-                        "End time must be greater than start "
-                        "time for %(type)s map <%(id)s>"
-                    )
-                    % {"type": self.get_type(), "id": self.get_map_id()}
+                    % values
                 )
                 return False
             # Do not create an interval in case start and end time are equal
@@ -530,6 +526,31 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         self.absolute_time.set_end_time(end_time)
 
         return True
+
+    def _refuse_foreign_mapset(self) -> None:
+        """Refuse to update a map of another mapset, if the mapset check is on"""
+        if (
+            get_enable_mapset_check() is True
+            and self.get_mapset() != get_current_mapset()
+        ):
+            self.msgr.fatal(
+                _(
+                    "Unable to update dataset <%(ds)s> of type "
+                    "%(type)s in the temporal database. The mapset "
+                    "of the dataset does not match the current "
+                    "mapset"
+                )
+                % {"ds": self.get_id(), "type": self.get_type()}
+            )
+
+    def _store_time(self, time_table, dbif) -> None:
+        """Write the time just set to the database and the GRASS file system"""
+        with connection(dbif) as dbif:
+            time_table.update_all(dbif)
+            self.base.update(dbif)
+
+        if get_enable_timestamp_write():
+            self.write_timestamp_to_grass()
 
     def update_absolute_time(self, start_time, end_time=None, dbif=None) -> None:
         """Update the absolute time
@@ -547,27 +568,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :param dbif: The database interface to be used
         """
 
-        if (
-            get_enable_mapset_check() is True
-            and self.get_mapset() != get_current_mapset()
-        ):
-            self.msgr.fatal(
-                _(
-                    "Unable to update dataset <%(ds)s> of type "
-                    "%(type)s in the temporal database. The mapset "
-                    "of the dataset does not match the current "
-                    "mapset"
-                )
-                % {"ds": self.get_id(), "type": self.get_type()}
-            )
+        self._refuse_foreign_mapset()
 
         if self.set_absolute_time(start_time, end_time):
-            with connection(dbif) as dbif:
-                self.absolute_time.update_all(dbif)
-                self.base.update(dbif)
-
-            if get_enable_timestamp_write():
-                self.write_timestamp_to_grass()
+            self._store_time(self.absolute_time, dbif)
 
     def set_relative_time(self, start_time, end_time, unit) -> bool:
         """Set the relative time interval
@@ -586,54 +590,50 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :return: True for success and False otherwise
 
         """
+        # The layer form of the message about the end before the start names
+        # the type "typ"; its message id stays as it is.
+        values = {
+            "type": self.get_type(),
+            "typ": self.get_type(),
+            "id": self.get_id(),
+            "l": self.get_layer(),
+            "u": unit,
+        }
         if not self.check_relative_time_unit(unit):
-            if self.get_layer() is not None:
-                self.msgr.error(
+            self.msgr.error(
+                layer_form(
+                    self.get_layer() is not None,
                     _(
                         "Unsupported relative time unit type for "
                         "%(type)s map <%(id)s> with layer %(l)s: "
                         "%(u)s"
-                    )
-                    % {
-                        "type": self.get_type(),
-                        "id": self.get_id(),
-                        "l": self.get_layer(),
-                        "u": unit,
-                    }
-                )
-            else:
-                self.msgr.error(
+                    ),
                     _(
                         "Unsupported relative time unit type for "
                         "%(type)s map <%(id)s>: %(u)s"
-                    )
-                    % {"type": self.get_type(), "id": self.get_id(), "u": unit}
+                    ),
                 )
+                % values
+            )
             return False
 
         if start_time is not None and end_time is not None:
             if int(start_time) > int(end_time):
-                if self.get_layer() is not None:
-                    self.msgr.error(
+                self.msgr.error(
+                    layer_form(
+                        self.get_layer() is not None,
                         _(
                             "End time must be greater than start "
                             "time for %(typ)s map <%(id)s> with "
                             "layer %(l)s"
-                        )
-                        % {
-                            "typ": self.get_type(),
-                            "id": self.get_id(),
-                            "l": self.get_layer(),
-                        }
-                    )
-                else:
-                    self.msgr.error(
+                        ),
                         _(
                             "End time must be greater than start "
                             "time for %(type)s map <%(id)s>"
-                        )
-                        % {"type": self.get_type(), "id": self.get_id()}
+                        ),
                     )
+                    % values
+                )
                 return False
             # Do not create an interval in case start and end time are equal
             if start_time == end_time:
@@ -665,27 +665,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
         :param unit: The relative time unit
         :param dbif: The database interface to be used
         """
-        if (
-            get_enable_mapset_check() is True
-            and self.get_mapset() != get_current_mapset()
-        ):
-            self.msgr.fatal(
-                _(
-                    "Unable to update dataset <%(ds)s> of type "
-                    "%(type)s in the temporal database. The mapset "
-                    "of the dataset does not match the current "
-                    "mapset"
-                )
-                % {"ds": self.get_id(), "type": self.get_type()}
-            )
+        self._refuse_foreign_mapset()
 
         if self.set_relative_time(start_time, end_time, unit):
-            with connection(dbif) as dbif:
-                self.relative_time.update_all(dbif)
-                self.base.update(dbif)
-
-            if get_enable_timestamp_write():
-                self.write_timestamp_to_grass()
+            self._store_time(self.relative_time, dbif)
 
     def set_temporal_extent(self, extent) -> None:
         """Convenient method to set the temporal extent from a temporal extent
