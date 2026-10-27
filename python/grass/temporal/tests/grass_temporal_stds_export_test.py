@@ -25,6 +25,7 @@ from grass.temporal.testing.data import (
     small_region,
     vector_points,
 )
+from grass.temporal import stds_export
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -363,12 +364,46 @@ def test_a_vector_map_with_two_layers_is_listed_per_layer_and_packed_once(
 
 
 @pytest.mark.parametrize("format_", ["GML", "GPKG"])
-def test_two_layers_of_a_vector_map_cannot_be_exported_as_ogr_files(
+def test_two_layers_of_a_vector_map_are_refused_for_ogr_files(
     layered_dataset, tmp_path, format_
 ):
-    # Every row is written to the file named after the map, so the second
-    # layer finds the file of the first one and v.out.ogr refuses to
-    # overwrite it. This records the behavior; it is not a decision that the
-    # archive cannot hold the layers.
-    with pytest.raises(FatalError, match=f"as {format_} with v.out.ogr"):
+    with pytest.raises(FatalError, match="holds one layer per map") as error:
         _export(tmp_path, layered_dataset, "stvds", format_)
+
+    assert "<lay>" in str(error.value)
+    assert "1, 2" in str(error.value)
+    assert "format=pack" in str(error.value)
+    # Nothing is written: no archive, no OGR file in the working directory.
+    assert not list(tmp_path.iterdir())
+
+
+def test_one_layer_of_a_vector_map_is_exported_as_ogr_file(layered_dataset, tmp_path):
+    where = "start_time < '2001-01-15'"
+    archive = tmp_path / "out.tar"
+    tgis.export_stds(
+        layered_dataset, str(archive), "no", tmp_path, where, "GML", "stvds"
+    )
+
+    assert _text(archive, "list.txt").splitlines() == [
+        "lay|2001-01-01 00:00:00|2001-01-01 00:00:00"
+    ]
+
+
+@pytest.mark.parametrize("format_", ["GML", "GPKG"])
+def test_a_raster_dataset_with_an_ogr_format_is_packed_as_before(
+    datasets, tmp_path, format_
+):
+    # Only vector rows carry a layer; the check must not read it for rasters.
+    archive = _export(tmp_path, datasets["strds"], "strds", format_)
+
+    with tarfile.open(archive) as tar:
+        assert "exr1.pack" in tar.getnames()
+
+
+def test_a_map_without_a_layer_and_with_layer_one_is_a_single_layer():
+    rows = [
+        {"name": "m", "layer": None},
+        {"name": "m", "layer": 1},
+    ]
+
+    stds_export._refuse_several_layers(rows, "GML")

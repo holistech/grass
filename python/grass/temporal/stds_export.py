@@ -219,6 +219,32 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
         tar.add(name + ".pack")
 
 
+def _refuse_several_layers(rows, format_) -> None:
+    """Stop if one vector map is selected with several layers for an OGR format
+
+    An OGR file is named after the map, so a second layer of the same map
+    would meet the file of the first one and v.out.ogr would refuse to
+    overwrite it halfway through the export.
+    """
+    if format_ not in {"GML", "GPKG"}:
+        return
+    layers = {}
+    for row in rows:
+        layers.setdefault(row["name"], set()).add(row["layer"] or 1)
+    for name, found in layers.items():
+        if len(found) > 1:
+            get_tgis_message_interface().fatal(
+                _(
+                    "Vector map <{name}> is selected with the layers {layers}; "
+                    "the {format} format holds one layer per map, use format=pack"
+                ).format(
+                    name=name,
+                    layers=", ".join(str(layer) for layer in sorted(found)),
+                    format=format_,
+                )
+            )
+
+
 def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
     """Export the vector maps as GML or GPKG files with v.out.ogr"""
     messages = {
@@ -538,6 +564,10 @@ def export_stds(
             get_tgis_message_interface().fatal(
                 _("Invalid where condition <{}>: {}").format(where, error)
             )
+        # Only vector rows carry a layer, and a raster dataset with an OGR
+        # format is exported in the pack format.
+        if kind == "stvds":
+            _refuse_several_layers(rows, format_)
 
         flag = {"gzip": "w:gz", "bzip2": "w:bz2"}.get(compression, "w:")
         with tarfile.open(tmp_tar_file_name, flag) as tar:

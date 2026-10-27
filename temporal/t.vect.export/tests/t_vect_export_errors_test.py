@@ -4,6 +4,7 @@ import os
 
 import pytest
 
+from grass.temporal.testing.data import vector_points
 from grass.temporal.testing.readback import message
 from grass.tools import ToolError
 
@@ -174,3 +175,31 @@ def test_a_map_that_is_gone_stops_the_export_and_leaves_nothing(
     assert "Unable to export vector map <vx_gone>" in text
     assert _leftovers(tmp_path) == []
     assert not (tmp_path / "out").exists()
+
+
+def test_a_map_with_two_layers_is_refused_for_gpkg(tools, tmp_path):
+    vector_points(tools, "vx_l_one", [(1, 1)])
+    tools.v_category(
+        input="vx_l_one", output="vx_l", option="add", layer=2, type="point"
+    )
+    tools.t_create(type="stvds", output="vx_l_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="vx_l_ds",
+        maps="vx_l:1,vx_l:2",
+        start="2001-01-01",
+        increment="1 months",
+    )
+    output = tmp_path / "out"
+
+    text = _refused(
+        tools,
+        input="vx_l_ds",
+        output=str(output),
+        directory=str(tmp_path),
+        format="GPKG",
+    )
+
+    assert "Vector map <vx_l> is selected with the layers 1, 2" in text
+    assert "use format=pack" in text
+    assert not output.exists()
