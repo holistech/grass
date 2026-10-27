@@ -106,37 +106,9 @@ class TemporalExtent(Row):
         ...     start_time=datetime(2001, 1, 1),
         ...     end_time=datetime(2005, 1, 1),
         ... )
-        >>> A.id
-        'soil@PERMANENT'
-        >>> A.start_time
-        datetime.datetime(2001, 1, 1, 0, 0)
-        >>> A.end_time
-        datetime.datetime(2005, 1, 1, 0, 0)
         >>> A.print_info()
          | Start time:................. 2001-01-01 00:00:00
          | End time:................... 2005-01-01 00:00:00
-        >>> A.print_shell_info()
-        start_time='2001-01-01 00:00:00'
-        end_time='2005-01-01 00:00:00'
-        >>> # relative time
-        >>> A = TemporalExtent(
-        ...     table="raster_absolute_time",
-        ...     ident="soil@PERMANENT",
-        ...     start_time=0,
-        ...     end_time=1,
-        ... )
-        >>> A.id
-        'soil@PERMANENT'
-        >>> A.start_time
-        0
-        >>> A.end_time
-        1
-        >>> A.print_info()
-         | Start time:................. 0
-         | End time:................... 1
-        >>> A.print_shell_info()
-        start_time='0'
-        end_time='1'
 
     """
 
@@ -170,78 +142,12 @@ class TemporalExtent(Row):
 
         .. code-block:: pycon
 
-            >>> A = TemporalExtent(start_time=5, end_time=6)
-            >>> inter = A.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=5, end_time=6)
-            >>> B = TemporalExtent(start_time=5, end_time=7)
-            >>> inter = A.intersect(B)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-            >>> inter = B.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
             >>> A = TemporalExtent(start_time=3, end_time=6)
             >>> B = TemporalExtent(start_time=5, end_time=7)
             >>> inter = A.intersect(B)
             >>> inter.print_info()
              | Start time:................. 5
              | End time:................... 6
-            >>> inter = B.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=3, end_time=8)
-            >>> B = TemporalExtent(start_time=5, end_time=6)
-            >>> inter = A.intersect(B)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-            >>> inter = B.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=6)
-            >>> inter = A.intersect(B)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-            >>> inter = B.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=5, end_time=None)
-            >>> B = TemporalExtent(start_time=3, end_time=6)
-            >>> inter = A.intersect(B)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... None
-            >>> inter = B.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... None
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=4)
-            >>> inter = A.intersect(B)
-            >>> print(inter)
-            None
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=None)
-            >>> inter = A.intersect(B)
-            >>> print(inter)
-            None
 
         """
         relation = self.temporal_relation(extent)
@@ -288,145 +194,14 @@ class TemporalExtent(Row):
 
         .. code-block:: pycon
 
-            >>> A = TemporalExtent(start_time=5, end_time=6)
-            >>> inter = A.intersect(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=5, end_time=6)
-            >>> B = TemporalExtent(start_time=5, end_time=7)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 7
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 5
-             | End time:................... 7
-
             >>> A = TemporalExtent(start_time=3, end_time=6)
             >>> B = TemporalExtent(start_time=5, end_time=7)
             >>> inter = A.disjoint_union(B)
             >>> inter.print_info()
              | Start time:................. 3
              | End time:................... 7
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 7
 
-            >>> A = TemporalExtent(start_time=3, end_time=8)
-            >>> B = TemporalExtent(start_time=5, end_time=6)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=6)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-
-            >>> A = TemporalExtent(start_time=5, end_time=None)
-            >>> B = TemporalExtent(start_time=3, end_time=6)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 6
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 6
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=4)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=None)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> A = TemporalExtent(start_time=5, end_time=None)
-            >>> B = TemporalExtent(start_time=3, end_time=8)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 8
-            >>> A = TemporalExtent(start_time=5, end_time=None)
-            >>> B = TemporalExtent(start_time=3, end_time=None)
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 5
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             | Start time:................. 3
-             | End time:................... 5
-
-            >>> A = RelativeTemporalExtent(start_time=5, end_time=None, unit="years")
-            >>> B = RelativeTemporalExtent(start_time=3, end_time=None, unit="years")
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             +-------------------- Relative time -----------------------------------------+
-             | Start time:................. 3
-             | End time:................... 5
-             | Relative time unit:......... years
-
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             +-------------------- Relative time -----------------------------------------+
-             | Start time:................. 3
-             | End time:................... 5
-             | Relative time unit:......... years
-
-
-            >>> from datetime import datetime as dt
-            >>> A = AbsoluteTemporalExtent(
-            ...     start_time=dt(2001, 1, 10), end_time=dt(2003, 1, 1)
-            ... )
-            >>> B = AbsoluteTemporalExtent(
-            ...     start_time=dt(2005, 1, 10), end_time=dt(2008, 1, 1)
-            ... )
-            >>> inter = A.disjoint_union(B)
-            >>> inter.print_info()
-             +-------------------- Absolute time -----------------------------------------+
-             | Start time:................. 2001-01-10 00:00:00
-             | End time:................... 2008-01-01 00:00:00
-
-            >>> inter = B.disjoint_union(A)
-            >>> inter.print_info()
-             +-------------------- Absolute time -----------------------------------------+
-             | Start time:................. 2001-01-10 00:00:00
-             | End time:................... 2008-01-01 00:00:00
-
-        """  # noqa: E501
+        """
 
         start = None
         end = None
@@ -478,15 +253,10 @@ class TemporalExtent(Row):
         .. code-block:: pycon
 
             >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=4)
-            >>> inter = A.intersect(B)
-            >>> print(inter)
-            None
-
-            >>> A = TemporalExtent(start_time=5, end_time=8)
-            >>> B = TemporalExtent(start_time=3, end_time=None)
-            >>> inter = A.intersect(B)
-            >>> print(inter)
+            >>> A.union(TemporalExtent(start_time=3, end_time=6)).print_info()
+             | Start time:................. 3
+             | End time:................... 8
+            >>> print(A.union(TemporalExtent(start_time=3, end_time=4)))
             None
 
         """
@@ -518,8 +288,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=7)
             >>> A.starts(B)
             True
-            >>> B.starts(A)
-            False
 
         """
         if self.D["end_time"] is None or extent.D["end_time"] is None:
@@ -549,8 +317,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=6)
             >>> A.started(B)
             True
-            >>> B.started(A)
-            False
 
         """
         if self.D["end_time"] is None or extent.D["end_time"] is None:
@@ -580,8 +346,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=7)
             >>> A.finishes(B)
             True
-            >>> B.finishes(A)
-            False
 
         """
         if self.D["end_time"] is None or extent.D["end_time"] is None:
@@ -611,8 +375,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=6, end_time=7)
             >>> A.finished(B)
             True
-            >>> B.finished(A)
-            False
 
         """
         if self.D["end_time"] is None or extent.D["end_time"] is None:
@@ -642,8 +404,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=6, end_time=7)
             >>> A.after(B)
             True
-            >>> B.after(A)
-            False
 
         """
         if extent.D["end_time"] is None:
@@ -670,8 +430,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=8, end_time=9)
             >>> A.before(B)
             True
-            >>> B.before(A)
-            False
 
         """
         if self.D["end_time"] is None:
@@ -698,8 +456,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=3, end_time=5)
             >>> A.follows(B)
             True
-            >>> B.follows(A)
-            False
 
         """
         return (
@@ -727,8 +483,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=7, end_time=9)
             >>> A.precedes(B)
             True
-            >>> B.precedes(A)
-            False
 
 
         """
@@ -755,8 +509,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=4, end_time=9)
             >>> A.during(B)
             True
-            >>> B.during(A)
-            False
 
         """
         # Check single point of time in interval
@@ -793,8 +545,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=8)
             >>> A.contains(B)
             True
-            >>> B.contains(A)
-            False
 
         """
         # Check single point of time in interval
@@ -831,8 +581,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=6)
             >>> A.equal(B)
             True
-            >>> B.equal(A)
-            True
 
         """
         if self.D["end_time"] is None and extent.D["end_time"] is None:
@@ -865,15 +613,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=6, end_time=8)
             >>> A.overlaps(B)
             True
-            >>> B.overlaps(A)
-            False
-
-            >>> A = TemporalExtent(start_time=5, end_time=6)
-            >>> B = TemporalExtent(start_time=6, end_time=8)
-            >>> A.overlaps(B)
-            False
-            >>> B.overlaps(A)
-            False
 
         """
 
@@ -906,15 +645,6 @@ class TemporalExtent(Row):
             >>> B = TemporalExtent(start_time=5, end_time=7)
             >>> A.overlapped(B)
             True
-            >>> B.overlapped(A)
-            False
-
-            >>> A = TemporalExtent(start_time=6, end_time=8)
-            >>> B = TemporalExtent(start_time=5, end_time=6)
-            >>> A.overlapped(B)
-            False
-            >>> B.overlapped(A)
-            False
 
         """
 
@@ -1043,27 +773,12 @@ class AbsoluteTimeRow(AbsoluteTemporalExtent):
         ...     granularity="1 days",
         ...     map_time="interval",
         ... )
-        >>> A.id
-        'strds@PERMANENT'
-        >>> A.start_time
-        datetime.datetime(2001, 1, 1, 0, 0)
-        >>> A.end_time
-        datetime.datetime(2005, 1, 1, 0, 0)
-        >>> A.granularity
-        '1 days'
-        >>> A.map_time
-        'interval'
         >>> A.print_info()
          +-------------------- Absolute time -----------------------------------------+
          | Start time:................. 2001-01-01 00:00:00
          | End time:................... 2005-01-01 00:00:00
          | Granularity:................ 1 days
          | Temporal type of maps:...... interval
-        >>> A.print_shell_info()
-        start_time='2001-01-01 00:00:00'
-        end_time='2005-01-01 00:00:00'
-        granularity='1 days'
-        map_time=interval
 
     """
 
@@ -1122,23 +837,11 @@ class RelativeTemporalExtent(TemporalExtent):
         ...     end_time=1,
         ...     unit="years",
         ... )
-        >>> A.id
-        'soil@PERMANENT'
-        >>> A.start_time
-        0
-        >>> A.end_time
-        1
-        >>> A.unit
-        'years'
         >>> A.print_info()
          +-------------------- Relative time -----------------------------------------+
          | Start time:................. 0
          | End time:................... 1
          | Relative time unit:......... years
-        >>> A.print_shell_info()
-        start_time='0'
-        end_time='1'
-        unit=years
 
     """
 
@@ -1219,18 +922,6 @@ class RelativeTimeRow(RelativeTemporalExtent):
         ...     granularity=5,
         ...     map_time="interval",
         ... )
-        >>> A.id
-        'strds@PERMANENT'
-        >>> A.start_time
-        0
-        >>> A.end_time
-        1
-        >>> A.unit
-        'years'
-        >>> A.granularity
-        5
-        >>> A.map_time
-        'interval'
         >>> A.print_info()
          +-------------------- Relative time -----------------------------------------+
          | Start time:................. 0
@@ -1238,12 +929,6 @@ class RelativeTimeRow(RelativeTemporalExtent):
          | Relative time unit:......... years
          | Granularity:................ 5
          | Temporal type of maps:...... interval
-        >>> A.print_shell_info()
-        start_time='0'
-        end_time='1'
-        unit=years
-        granularity=5
-        map_time=interval
 
     """
 

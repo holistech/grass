@@ -246,3 +246,267 @@ def test_the_predicates_of_a_reversed_extent_still_answer():
 
     assert reversed_extent.after(other)
     assert not reversed_extent.before(other)
+
+
+# The predicate, the start and end of the two extents and the answer. These
+# cases were the examples in the docstrings of TemporalExtent, which now keep
+# one example each.
+PREDICATES = [
+    ("after", (8, 9), (6, 7), True),
+    ("after", (6, 7), (8, 9), False),
+    ("before", (6, 7), (8, 9), True),
+    ("before", (8, 9), (6, 7), False),
+    ("contains", (4, 9), (5, 8), True),
+    ("contains", (5, 8), (4, 9), False),
+    ("during", (5, 7), (4, 9), True),
+    ("during", (4, 9), (5, 7), False),
+    ("equal", (5, 6), (5, 6), True),
+    ("finished", (5, 7), (6, 7), True),
+    ("finished", (6, 7), (5, 7), False),
+    ("finishes", (6, 7), (5, 7), True),
+    ("finishes", (5, 7), (6, 7), False),
+    ("follows", (5, 7), (3, 5), True),
+    ("follows", (3, 5), (5, 7), False),
+    ("overlapped", (6, 8), (5, 7), True),
+    ("overlapped", (5, 7), (6, 8), False),
+    ("overlapped", (6, 8), (5, 6), False),
+    ("overlapped", (5, 6), (6, 8), False),
+    ("overlaps", (5, 7), (6, 8), True),
+    ("overlaps", (6, 8), (5, 7), False),
+    ("overlaps", (5, 6), (6, 8), False),
+    ("overlaps", (6, 8), (5, 6), False),
+    ("precedes", (5, 7), (7, 9), True),
+    ("precedes", (7, 9), (5, 7), False),
+    ("started", (5, 7), (5, 6), True),
+    ("started", (5, 6), (5, 7), False),
+    ("starts", (5, 6), (5, 7), True),
+    ("starts", (5, 7), (5, 6), False),
+]
+
+
+@pytest.mark.parametrize(("predicate", "a", "b", "expected"), PREDICATES)
+def test_a_predicate_of_two_extents(predicate, a, b, expected):
+    first = TemporalExtent(start_time=a[0], end_time=a[1])
+    second = TemporalExtent(start_time=b[0], end_time=b[1])
+
+    assert getattr(first, predicate)(second) is expected
+
+
+# The method, the start and end of the two extents and the start and end of
+# the result, None if there is none. Docstring examples like PREDICATES.
+COMBINATIONS = [
+    ("intersect", (5, 6), (5, 6), (5, 6)),
+    ("intersect", (5, 6), (5, 7), (5, 6)),
+    ("intersect", (5, 7), (5, 6), (5, 6)),
+    ("intersect", (3, 6), (5, 7), (5, 6)),
+    ("intersect", (5, 7), (3, 6), (5, 6)),
+    ("intersect", (3, 8), (5, 6), (5, 6)),
+    ("intersect", (5, 6), (3, 8), (5, 6)),
+    ("intersect", (5, 8), (3, 6), (5, 6)),
+    ("intersect", (3, 6), (5, 8), (5, 6)),
+    ("intersect", (5, None), (3, 6), (5, None)),
+    ("intersect", (3, 6), (5, None), (5, None)),
+    ("intersect", (5, 8), (3, 4), None),
+    ("intersect", (5, 8), (3, None), None),
+    ("disjoint_union", (5, 6), (5, 7), (5, 7)),
+    ("disjoint_union", (5, 7), (5, 6), (5, 7)),
+    ("disjoint_union", (3, 6), (5, 7), (3, 7)),
+    ("disjoint_union", (5, 7), (3, 6), (3, 7)),
+    ("disjoint_union", (3, 8), (5, 6), (3, 8)),
+    ("disjoint_union", (5, 6), (3, 8), (3, 8)),
+    ("disjoint_union", (5, 8), (3, 6), (3, 8)),
+    ("disjoint_union", (3, 6), (5, 8), (3, 8)),
+    ("disjoint_union", (5, None), (3, 6), (3, 6)),
+    ("disjoint_union", (3, 6), (5, None), (3, 6)),
+    ("disjoint_union", (5, 8), (3, 4), (3, 8)),
+    ("disjoint_union", (3, 4), (5, 8), (3, 8)),
+    ("disjoint_union", (5, 8), (3, None), (3, 8)),
+    ("disjoint_union", (3, None), (5, 8), (3, 8)),
+    ("disjoint_union", (5, None), (3, 8), (3, 8)),
+    ("disjoint_union", (3, 8), (5, None), (3, 8)),
+    ("disjoint_union", (5, None), (3, None), (3, 5)),
+    ("disjoint_union", (3, None), (5, None), (3, 5)),
+]
+
+
+@pytest.mark.parametrize(("method", "a", "b", "expected"), COMBINATIONS)
+def test_intersection_and_disjoint_union_of_two_extents(method, a, b, expected):
+    first = TemporalExtent(start_time=a[0], end_time=a[1])
+    second = TemporalExtent(start_time=b[0], end_time=b[1])
+
+    result = getattr(first, method)(second)
+
+    if expected is None:
+        assert result is None
+    else:
+        assert type(result) is TemporalExtent
+        assert (result.get_start_time(), result.get_end_time()) == expected
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [
+        (
+            RelativeTemporalExtent(start_time=5, end_time=None, unit="years"),
+            RelativeTemporalExtent(start_time=3, end_time=None, unit="years"),
+        ),
+        (
+            AbsoluteTemporalExtent(
+                start_time=datetime(2001, 1, 10), end_time=datetime(2003, 1, 1)
+            ),
+            AbsoluteTemporalExtent(
+                start_time=datetime(2005, 1, 10), end_time=datetime(2008, 1, 1)
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize("swap", [False, True])
+def test_the_disjoint_union_keeps_the_class_and_unit(a, b, swap, capsys):
+    """Two points give the interval between them, two intervals the span"""
+    if swap:
+        a, b = b, a
+    a.disjoint_union(b).print_info()
+    if isinstance(a, RelativeTemporalExtent):
+        expected = [
+            " +-------------------- Relative time -----------------------------------------+",
+            " | Start time:................. 3",
+            " | End time:................... 5",
+            " | Relative time unit:......... years",
+        ]
+    else:
+        expected = [
+            " +-------------------- Absolute time -----------------------------------------+",
+            " | Start time:................. 2001-01-10 00:00:00",
+            " | End time:................... 2008-01-01 00:00:00",
+        ]
+    assert capsys.readouterr().out.splitlines() == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "printed", "shell"),
+    [
+        (
+            datetime(2001, 1, 1),
+            datetime(2005, 1, 1),
+            ["2001-01-01 00:00:00", "2005-01-01 00:00:00"],
+            ["start_time='2001-01-01 00:00:00'", "end_time='2005-01-01 00:00:00'"],
+        ),
+        (0, 1, ["0", "1"], ["start_time='0'", "end_time='1'"]),
+    ],
+)
+def test_the_base_class_by_attribute_and_printed(start, end, printed, shell, capsys):
+    extent = TemporalExtent(
+        table="raster_absolute_time",
+        ident="soil@PERMANENT",
+        start_time=start,
+        end_time=end,
+    )
+    assert (extent.id, extent.start_time, extent.end_time) == (
+        "soil@PERMANENT",
+        start,
+        end,
+    )
+
+    extent.print_info()
+    extent.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        f" | Start time:................. {printed[0]}",
+        f" | End time:................... {printed[1]}",
+        *shell,
+    ]
+
+
+def test_a_relative_extent_by_attribute_and_printed(capsys):
+    extent = RelativeTemporalExtent(
+        table="raster_relative_time",
+        ident="soil@PERMANENT",
+        start_time=0,
+        end_time=1,
+        unit="years",
+    )
+    assert (extent.id, extent.start_time, extent.end_time, extent.unit) == (
+        "soil@PERMANENT",
+        0,
+        1,
+        "years",
+    )
+
+    extent.print_info()
+    extent.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Relative time -----------------------------------------+",
+        " | Start time:................. 0",
+        " | End time:................... 1",
+        " | Relative time unit:......... years",
+        "start_time='0'",
+        "end_time='1'",
+        "unit=years",
+    ]
+
+
+def test_the_absolute_time_row_of_a_dataset_by_attribute_and_printed(capsys):
+    row = AbsoluteTimeRow(
+        KINDS["strds"],
+        ident="strds@PERMANENT",
+        start_time=datetime(2001, 1, 1),
+        end_time=datetime(2005, 1, 1),
+        granularity="1 days",
+        map_time="interval",
+    )
+    assert (row.id, row.start_time, row.end_time, row.granularity, row.map_time) == (
+        "strds@PERMANENT",
+        datetime(2001, 1, 1, 0, 0),
+        datetime(2005, 1, 1, 0, 0),
+        "1 days",
+        "interval",
+    )
+
+    row.print_info()
+    row.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Absolute time -----------------------------------------+",
+        " | Start time:................. 2001-01-01 00:00:00",
+        " | End time:................... 2005-01-01 00:00:00",
+        " | Granularity:................ 1 days",
+        " | Temporal type of maps:...... interval",
+        "start_time='2001-01-01 00:00:00'",
+        "end_time='2005-01-01 00:00:00'",
+        "granularity='1 days'",
+        "map_time=interval",
+    ]
+
+
+def test_the_relative_time_row_of_a_dataset_by_attribute_and_printed(capsys):
+    row = RelativeTimeRow(
+        KINDS["strds"],
+        ident="strds@PERMANENT",
+        start_time=0,
+        end_time=1,
+        unit="years",
+        granularity=5,
+        map_time="interval",
+    )
+    assert (
+        row.id,
+        row.start_time,
+        row.end_time,
+        row.unit,
+        row.granularity,
+        row.map_time,
+    ) == ("strds@PERMANENT", 0, 1, "years", 5, "interval")
+
+    row.print_info()
+    row.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Relative time -----------------------------------------+",
+        " | Start time:................. 0",
+        " | End time:................... 1",
+        " | Relative time unit:......... years",
+        " | Granularity:................ 5",
+        " | Temporal type of maps:...... interval",
+        "start_time='0'",
+        "end_time='1'",
+        "unit=years",
+        "granularity=5",
+        "map_time=interval",
+    ]
