@@ -116,26 +116,17 @@ def create_temporal_database(dbif) -> None:
     template_path = Path(get_sql_template_path())
     msgr = get_tgis_message_interface()
 
-    # Read all SQL scripts and templates
+    # The scripts in the order they run: the tables of the native data types
+    # and of the space-time datasets, each followed by its metadata table.
     map_tables_template_sql = (template_path / "map_tables_template.sql").read_text()
-    raster_metadata_sql = (template_path / "raster_metadata_table.sql").read_text()
-    raster3d_metadata_sql = (template_path / "raster3d_metadata_table.sql").read_text()
-    vector_metadata_sql = (template_path / "vector_metadata_table.sql").read_text()
     stds_tables_template_sql = (template_path / "stds_tables_template.sql").read_text()
-    strds_metadata_sql = (template_path / "strds_metadata_table.sql").read_text()
-    str3ds_metadata_sql = (template_path / "str3ds_metadata_table.sql").read_text()
-    stvds_metadata_sql = (template_path / "stvds_metadata_table.sql").read_text()
-
-    # Create the raster, raster3d and vector tables SQL statements
-    raster_tables_sql = map_tables_template_sql.replace("GRASS_MAP", "raster")
-    vector_tables_sql = map_tables_template_sql.replace("GRASS_MAP", "vector")
-    raster3d_tables_sql = map_tables_template_sql.replace("GRASS_MAP", "raster3d")
-
-    # Create the space-time raster, raster3d and vector dataset tables
-    # SQL statements
-    strds_tables_sql = stds_tables_template_sql.replace("STDS", "strds")
-    stvds_tables_sql = stds_tables_template_sql.replace("STDS", "stvds")
-    str3ds_tables_sql = stds_tables_template_sql.replace("STDS", "str3ds")
+    table_scripts = []
+    for name in ("raster", "vector", "raster3d"):
+        table_scripts.append(map_tables_template_sql.replace("GRASS_MAP", name))
+        table_scripts.append((template_path / f"{name}_metadata_table.sql").read_text())
+    for name in ("strds", "stvds", "str3ds"):
+        table_scripts.append(stds_tables_template_sql.replace("STDS", name))
+        table_scripts.append((template_path / f"{name}_metadata_table.sql").read_text())
 
     msgr.verbose(_("Creating temporal database: %s") % (str(STATE.database_string)))
 
@@ -171,20 +162,8 @@ def create_temporal_database(dbif) -> None:
         dbif.connect()
 
     # Execute the SQL statements
-    # Create the global tables for the native grass datatypes
-    dbif.execute_transaction(raster_tables_sql)
-    dbif.execute_transaction(raster_metadata_sql)
-    dbif.execute_transaction(vector_tables_sql)
-    dbif.execute_transaction(vector_metadata_sql)
-    dbif.execute_transaction(raster3d_tables_sql)
-    dbif.execute_transaction(raster3d_metadata_sql)
-    # Create the tables for the new space-time datatypes
-    dbif.execute_transaction(strds_tables_sql)
-    dbif.execute_transaction(strds_metadata_sql)
-    dbif.execute_transaction(stvds_tables_sql)
-    dbif.execute_transaction(stvds_metadata_sql)
-    dbif.execute_transaction(str3ds_tables_sql)
-    dbif.execute_transaction(str3ds_metadata_sql)
+    for script in table_scripts:
+        dbif.execute_transaction(script)
 
     # Create views
     _create_temporal_database_views(dbif)
