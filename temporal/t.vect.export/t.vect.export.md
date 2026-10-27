@@ -32,6 +32,10 @@ following suffix can be used:
 A **where** option that selects no map gives a warning and an archive
 without maps (`number_of_maps=0` in "init.txt").
 
+In the pack format, "list.txt" names a map as `name:layer` and has one
+line for each registered layer of a vector map; a map with several layers
+is packed once.
+
 ## EXAMPLE
 
 In this example, five vector maps are created and registered in a single
