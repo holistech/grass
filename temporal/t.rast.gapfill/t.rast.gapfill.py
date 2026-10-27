@@ -49,7 +49,6 @@
 
 import copy
 import sys
-from itertools import pairwise
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -114,8 +113,16 @@ def main():
     # interval days 0-1, point day 2, interval days 5-6). A gap before an
     # instant has the instant as its successor and is filled.
     ends = {map_.get_temporal_extent_as_tuple()[1] for map_ in selected}
-    for previous, map_ in pairwise(maps):
-        if map_.get_id() is None and map_.get_temporal_extent_as_tuple()[0] not in ends:
+    # A map without time can stand between the instant and the gap; the
+    # message names the last real map with a start time, which is the cause.
+    previous = None
+    for map_ in maps:
+        start = map_.get_temporal_extent_as_tuple()[0]
+        if map_.get_id() is not None:
+            if start is not None:
+                previous = map_
+            continue
+        if start not in ends:
             dbif.close()
             gs.fatal(
                 _(

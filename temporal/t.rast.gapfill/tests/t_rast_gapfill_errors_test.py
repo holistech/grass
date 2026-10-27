@@ -223,6 +223,29 @@ def test_a_gap_after_a_time_instant_is_refused_before_anything_is_written(
     assert stds_info(tools, "strds", name)["number_of_maps"] == 4
 
 
+def test_a_gap_after_an_instant_across_a_map_without_time_names_the_instant(
+    tools, prefix
+):
+    # The dataset reader leaves the stored reversed map m1 without time, so it
+    # lies between the instant m0 and the gap and is not the cause.
+    name = _days(
+        tools,
+        f"{prefix}_reversed",
+        [(0, 100), ((31, 59), 200), ((120, 151), 300)],
+    )
+    tools.db_execute(
+        driver="sqlite",
+        database="$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db",
+        sql="UPDATE raster_absolute_time SET end_time = '2001-01-15 00:00:00'"
+        f" WHERE id LIKE '{name}_m1@%'",
+    )
+
+    text = _refused(tools, input=name, basename=prefix)
+
+    assert f"The gap after the time instant <{name}_m0@PERMANENT>" in text
+    assert f"time instant <{name}_m1@" not in text
+
+
 @pytest.mark.parametrize(
     ("entries", "values"),
     [
