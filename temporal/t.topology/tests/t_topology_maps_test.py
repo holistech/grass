@@ -194,6 +194,47 @@ def test_s_relates_maps_of_different_extents(tools, prefix, tmp_path):
     }
 
 
+def _without(blocks, labels):
+    return {
+        map_id: {k: v for k, v in block.items() if k not in labels}
+        for map_id, block in blocks.items()
+    }
+
+
+def test_a_map_stored_with_its_end_before_its_start(tools, nested):
+    """Registering refuses such a map, but a database edited by hand holds one
+
+    Reading the dataset reports the map and leaves it without time; it gets
+    no relations, and the other maps are related as without it.
+    """
+    name, ids = nested
+    tools.db_execute(
+        driver="sqlite",
+        database="$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db",
+        sql="UPDATE raster_absolute_time SET end_time = '2001-01-01 00:00:00'"
+        f" WHERE id = '{ids['b']}'",
+    )
+
+    result = tools.t_topology(input=name, flags="m")
+
+    assert result.returncode == 0
+    assert f"<{ids['b']}>" in result.stderr
+    assert "Traceback" not in result.stderr
+    blocks = _blocks(result.stdout)
+    expected = _blocks(
+        tools.t_topology(input=name, flags="m", where=f"id != '{ids['b']}'").stdout
+    )
+    # The map without time comes last in the order of the maps.
+    neighbours = {"Next", "Previous"}
+    assert all(_without(expected, neighbours).values())
+    assert list(blocks) == [ids["a"], ids["c"], ids["b"]]
+    assert _without(blocks, neighbours) == {
+        **_without(expected, neighbours),
+        ids["b"]: {},
+    }
+    assert blocks[ids["b"]] == {"Previous": [ids["c"]]}
+
+
 SPATIAL = {"Equivalent", "Cover", "Covered", "Overlap", "In", "Contain", "Meet"}
 
 

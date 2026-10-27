@@ -733,3 +733,68 @@ def test_the_list_with_gaps_skips_a_reversed_interval(
         maps[4].get_temporal_extent_as_tuple()[0],
     )
     assert warnings == [reversed_warning(ids[1])]
+
+
+# get_registered_maps_as_objects() refuses a stored end before the start with
+# an error that names the map and leaves the map without time. The topology
+# builder failed on such a map with a TypeError.
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+@pytest.mark.parametrize("spatial", [None, "2D", "3D"])
+def test_a_map_without_time_gets_no_relations(
+    reversed_dataset, warnings, temporaltype, spatial
+):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))
+    maps = stds.get_registered_maps_as_objects(order="start_time")
+    assert maps[1].get_temporal_extent_as_tuple() == (None, None)
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps, spatial=spatial)
+
+    good = [map_ for map_ in stored_maps(stds) if map_.get_id() != ids[1]]
+    SpatioTemporalTopologyBuilder().build(good, spatial=spatial)
+    expected = relations_by_id(good)
+    assert all(expected.values()), "the maps left must be related to each other"
+    found = relations_by_id(maps)
+    assert {map_id: found[map_id] for map_id in expected} == expected
+    assert found[ids[1]] == {}
+    # It comes last in the iteration, after the maps with a start time.
+    assert [map_.get_id() for map_ in builder] == [*ids[:1], *ids[2:], ids[1]]
+    # The reading named the map already.
+    assert warnings == []
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_map_without_time_in_both_lists(reversed_dataset, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))
+    first = stds.get_registered_maps_as_objects(order="start_time")
+    second = stds.get_registered_maps_as_objects(order="start_time")
+
+    SpatioTemporalTopologyBuilder().build(first, second)
+
+    good = [
+        [map_ for map_ in stored_maps(stds) if map_.get_id() != ids[1]]
+        for _ in range(2)
+    ]
+    SpatioTemporalTopologyBuilder().build(*good)
+    for maps, good_maps in zip((first, second), good, strict=True):
+        expected = relations_by_id(good_maps)
+        assert all(expected.values())
+        found = relations_by_id(maps)
+        assert {map_id: found[map_id] for map_id in expected} == expected
+        assert found[ids[1]] == {}
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_the_gaps_next_to_a_map_without_time(reversed_dataset, warnings, temporaltype):
+    """A map without time has no relation, so there is no gap next to it
+
+    temporal_relation() of a map without time is None, which is not "after".
+    """
+    stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (2,))
+
+    assert stds.count_gaps() == 1
+    maps = stds.get_registered_maps_as_objects_with_gaps()
+    assert [map_.get_id() for map_ in maps] == [*ids[:3], None, ids[3]]
+    assert warnings == []

@@ -398,9 +398,26 @@ def print_spatial_topology_shell_info(map_) -> None:
             print(f"{name}=" + map_list_string(links[name.upper()], False))
 
 
-def _start_time(map_):
-    """Return the start time of a map, the key to sort maps chronologically"""
-    return map_.get_temporal_extent_as_tuple()[0]
+def _has_start(map_) -> bool:
+    """Tell whether the map has a start time
+
+    The reading of a dataset leaves a map without time when it refuses the
+    stored times, for example an end before the start, and names the map.
+    Such a map gets no relation.
+    """
+    return map_.get_temporal_extent_as_tuple()[0] is not None
+
+
+def _chronological_key(map_):
+    """Return the key to sort maps by start time, those without one last
+
+    Last, so that the maps with a start time keep the order and the links
+    they had before such a map could reach the builder. Two maps without a
+    start time compare equal on the first item, so their None is never
+    compared, and sorted() keeps them in their order.
+    """
+    start = map_.get_temporal_extent_as_tuple()[0]
+    return (start is None, start)
 
 
 def reversed_map_ids(maps) -> set[str]:
@@ -566,7 +583,7 @@ class SpatioTemporalTopologyBuilder:
                      objects with initiated temporal extent
         """
         # First we need to order the map list chronologically
-        sorted_maps = sorted(maps, key=_start_time)
+        sorted_maps = sorted(maps, key=_chronological_key)
 
         for i in range(len(sorted_maps) - 1):
             sorted_maps[i].set_next(sorted_maps[i + 1])
@@ -640,6 +657,8 @@ class SpatioTemporalTopologyBuilder:
         tree = rtree.RTreeCreateTree(-1, 0, dim)
 
         for i in range(len(maps)):
+            if not _has_start(maps[i]):
+                continue
             rect = self._map_to_rect(tree, maps[i], spatial)
             rtree.RTreeInsertRect(rect, i + 1, tree)
 
@@ -671,7 +690,8 @@ class SpatioTemporalTopologyBuilder:
 
         A map that ends before it starts gets a warning and no relation,
         neither temporal nor spatial; it keeps its place among the maps by
-        start time (see reversed_map_ids()).
+        start time (see reversed_map_ids()). A map without a start time gets
+        no relation either and comes after all others in the iteration.
         """
 
         identical = False
@@ -703,7 +723,7 @@ class SpatioTemporalTopologyBuilder:
         # does not free them, and an error in the loop must not leak them.
         try:
             for j in range(len(mapsB)):
-                if mapsB[j].get_id() in reversed_ids:
+                if mapsB[j].get_id() in reversed_ids or not _has_start(mapsB[j]):
                     continue
                 rect = self._map_to_rect(tree, mapsB[j], spatial)
                 vector.RTreeSearch2(tree, rect, list_)
