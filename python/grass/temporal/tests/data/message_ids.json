@@ -428,6 +428,7 @@
  "Vector map <{name}> has neither a registration in the temporal database nor a time stamp",
  "Vector map <{name}> has no areas, v.overlay needs areas",
  "Vector map <{name}> is selected with the layers {layers}; the {format} format holds one layer per map, use format=pack",
+ "Vector map <{name}> is selected {count} times with layer {layer}; the {format} format writes one file per map name, select it once with where",
  "Vector map <{name}> not found",
  "Vector map <{vector}> has no attribute table in layer {layer}",
  "Vector map <{vector}> is not in the current mapset, so its table cannot be written",

@@ -377,6 +377,66 @@ def test_two_layers_of_a_vector_map_are_refused_for_ogr_files(
     assert not list(tmp_path.iterdir())
 
 
+@pytest.fixture(scope="module")
+def repeated_dataset(temporal_module_session):
+    """A vector dataset that selects one map without and with layer 1"""
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    vector_points(tools, "rep", [(1, 1)])
+    tools.t_create(type="stvds", output="rep_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="rep_ds",
+        maps="rep,rep:1",
+        start="2001-01-01",
+        increment="1 months",
+    )
+    return "rep_ds"
+
+
+@pytest.mark.parametrize("format_", ["GML", "GPKG"])
+def test_a_map_selected_twice_with_one_layer_is_refused_for_ogr_files(
+    repeated_dataset, tmp_path, format_
+):
+    with pytest.raises(FatalError, match="selected 2 times with layer 1") as error:
+        _export(tmp_path, repeated_dataset, "stvds", format_)
+
+    assert "<rep>" in str(error.value)
+    assert "select it once with where" in str(error.value)
+    # Nothing is written: no archive, no OGR file in the working directory.
+    assert not list(tmp_path.iterdir())
+
+
+def test_a_map_selected_twice_with_one_layer_is_exported_as_pack_as_before(
+    repeated_dataset, tmp_path
+):
+    archive = _export(tmp_path, repeated_dataset, "stvds", "pack")
+
+    assert _text(archive, "list.txt").splitlines() == [
+        "rep:1|2001-01-01 00:00:00|2001-01-01 00:00:00",
+        "rep:1|2001-02-01 00:00:00|2001-02-01 00:00:00",
+    ]
+    with tarfile.open(archive) as tar:
+        assert tar.getnames().count("rep.pack") == 1
+
+
+def test_the_first_repeated_pair_is_named_with_its_count_and_layer():
+    rows = [
+        {"name": "a", "layer": None},
+        {"name": "b", "layer": "2"},
+        {"name": "b", "layer": 2},
+        {"name": "b", "layer": "2"},
+    ]
+
+    with pytest.raises(FatalError, match=r"<b> is selected 3 times with layer 2;"):
+        stds_export._refuse_repeated_maps(rows, "GPKG")
+
+
+def test_a_repeated_map_is_not_refused_for_pack():
+    rows = [{"name": "a", "layer": None}, {"name": "a", "layer": "1"}]
+
+    stds_export._refuse_repeated_maps(rows, "pack")
+
+
 def test_one_layer_of_a_vector_map_is_exported_as_ogr_file(layered_dataset, tmp_path):
     where = "start_time < '2001-01-15'"
     archive = tmp_path / "out.tar"
@@ -438,8 +498,7 @@ def test_a_map_registered_with_and_without_layer_one_is_not_refused(
     assert len(rows) == 2
 
     stds_export._refuse_several_layers(rows, "GML")
-    # Both rows name layer 1 of one map, so the second v.out.ogr call meets the
-    # file of the first; that failure (not a TypeError) is the existing
-    # behaviour for a map registered twice.
-    with pytest.raises(FatalError, match="Unable to export vector map <mix>"):
+    # Both rows name layer 1 of one map, which the export refuses up front
+    # instead of failing in the second v.out.ogr call.
+    with pytest.raises(FatalError, match="<mix> is selected 2 times with layer 1"):
         _export(tmp_path, "mix_ds", "stvds", "GML")

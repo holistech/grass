@@ -203,3 +203,28 @@ def test_a_map_with_two_layers_is_refused_for_gpkg(tools, tmp_path):
     assert "Vector map <vx_l> is selected with the layers 1, 2" in text
     assert "use format=pack" in text
     assert not output.exists()
+
+
+def test_a_map_selected_twice_with_one_layer_is_refused_for_gml(tools, tmp_path):
+    vector_points(tools, "vx_rep", [(1, 1)])
+    tools.t_create(type="stvds", output="vx_rep_ds", title="t", description="t")
+    tools.t_register(
+        type="vector",
+        input="vx_rep_ds",
+        maps="vx_rep,vx_rep:1",
+        start="2001-01-01",
+        increment="1 months",
+    )
+    output = tmp_path / "out"
+
+    text = _refused(
+        tools,
+        input="vx_rep_ds",
+        output=str(output),
+        directory=str(tmp_path),
+        format="GML",
+    )
+
+    assert "Vector map <vx_rep> is selected 2 times with layer 1" in text
+    assert "select it once with where" in text
+    assert not output.exists()

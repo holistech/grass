@@ -30,6 +30,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -244,6 +245,29 @@ def _refuse_several_layers(rows, format_) -> None:
                     layers=", ".join(str(layer) for layer in sorted(found)),
                     format=format_,
                 )
+            )
+
+
+def _refuse_repeated_maps(rows, format_) -> None:
+    """Stop if one vector map is selected several times with the same layer
+
+    A map registered as "name" and as "name:1" appears twice in the selection.
+    An OGR file is named after the map, so the second export would meet the
+    file of the first one and v.out.ogr would refuse to overwrite it halfway
+    through the export. The pack format exports a map once and is not affected.
+    The mapset is not part of the key because the file name has none either.
+    """
+    if format_ not in {"GML", "GPKG"}:
+        return
+    counts = Counter((row["name"], int(row["layer"] or 1)) for row in rows)
+    for (name, layer), count in counts.items():
+        if count > 1:
+            get_tgis_message_interface().fatal(
+                _(
+                    "Vector map <{name}> is selected {count} times with layer "
+                    "{layer}; the {format} format writes one file per map "
+                    "name, select it once with where"
+                ).format(name=name, count=count, layer=layer, format=format_)
             )
 
 
@@ -570,6 +594,7 @@ def export_stds(
         # format is exported in the pack format.
         if kind == "stvds":
             _refuse_several_layers(rows, format_)
+            _refuse_repeated_maps(rows, format_)
 
         flag = {"gzip": "w:gz", "bzip2": "w:bz2"}.get(compression, "w:")
         with tarfile.open(tmp_tar_file_name, flag) as tar:
