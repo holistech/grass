@@ -638,8 +638,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
                     % values
                 )
                 return False
-            # Do not create an interval in case start and end time are equal
-            if start_time == end_time:
+            # Compare what is stored: both values go through int(), so an
+            # interval inside one unit would otherwise be saved as an
+            # interval whose start equals its end.
+            if int(start_time) == int(end_time):
                 end_time = None
 
         self.base.set_ttype("relative")

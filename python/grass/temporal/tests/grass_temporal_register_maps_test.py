@@ -333,6 +333,40 @@ def test_set_absolute_time_compares_start_and_end_in_whole_seconds(end, expected
     assert item.get_absolute_time()[1] == expected
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        (1.2, 1.7, (1, None)),
+        (1, 1.9, (1, None)),
+        (-0.5, 0.4, (0, None)),
+        (0.9, 1.1, (0, 1)),
+        (1.7, 2.2, (1, 2)),
+        (3, 3, (3, None)),
+    ],
+)
+def test_relative_interval_within_one_unit_becomes_an_instance(start, end, expected):
+    item = tgis.RasterDataset("a@PERMANENT")
+
+    assert item.set_relative_time(start, end, "days")
+
+    assert item.get_temporal_extent_as_tuple() == expected
+
+
+def test_relative_interval_ending_before_it_starts_is_refused(monkeypatch):
+    errors = []
+    item = tgis.RasterDataset("a@PERMANENT")
+    # Without a session there is no messenger; record what it is given.
+    monkeypatch.setattr(
+        tgis.RasterDataset,
+        "msgr",
+        property(lambda self: SimpleNamespace(error=errors.append)),
+    )
+
+    assert not item.set_relative_time(2.2, 1.7, "days")
+
+    assert len(errors) == 1
+
+
 def test_relative_time_in_a_dataset(made):
     names = made("raster")
     tgis.register_maps_in_space_time_dataset(
