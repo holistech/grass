@@ -40,6 +40,11 @@ def time_delta_to_relative_time_seconds(delta: timedelta) -> float:
     return float(delta.days * DAY_IN_SECONDS) + float(delta.seconds)
 
 
+# The units of an increment or a granularity from the finest to the coarsest.
+# A word names the first unit it contains, so "days" names a day.
+_GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
+
+
 def decrement_datetime_by_string(
     mydate: datetime, increment: str, mult=1
 ) -> datetime | None:
@@ -127,46 +132,23 @@ def modify_datetime_by_string(
     if sign not in {1, -1}:
         return None
 
-    if increment:
-        seconds = 0
-        minutes = 0
-        hours = 0
-        days = 0
-        weeks = 0
-        months = 0
-        years = 0
+    if not increment:
+        return mydate
 
-        # Split the increment string
-        inclist = [incpart.strip().split(" ") for incpart in increment.split(",")]
-
-        for inc in inclist:
+    steps = dict.fromkeys(_GRANULARITY_UNITS, 0)
+    for part in increment.split(","):
+        inc = part.strip().split(" ")
+        unit = None
+        if len(inc) >= 2:
+            unit = next((name for name in _GRANULARITY_UNITS if name in inc[1]), None)
+        if unit is None:
             msgr = get_tgis_message_interface()
-            if len(inc) < 2:
-                msgr.error(_("Wrong increment format: %s") % (increment))
-                return None
-            if inc[1].find("seconds") >= 0 or inc[1].find("second") >= 0:
-                seconds = sign * mult * int(inc[0])
-            elif inc[1].find("minutes") >= 0 or inc[1].find("minute") >= 0:
-                minutes = sign * mult * int(inc[0])
-            elif inc[1].find("hours") >= 0 or inc[1].find("hour") >= 0:
-                hours = sign * mult * int(inc[0])
-            elif inc[1].find("days") >= 0 or inc[1].find("day") >= 0:
-                days = sign * mult * int(inc[0])
-            elif inc[1].find("weeks") >= 0 or inc[1].find("week") >= 0:
-                weeks = sign * mult * int(inc[0])
-            elif inc[1].find("months") >= 0 or inc[1].find("month") >= 0:
-                months = sign * mult * int(inc[0])
-            elif inc[1].find("years") >= 0 or inc[1].find("year") >= 0:
-                years = sign * mult * int(inc[0])
-            else:
-                msgr.error(_("Wrong increment format: %s") % (increment))
-                return None
+            msgr.error(_("Wrong increment format: %s") % (increment))
+            return None
+        # A unit that appears twice keeps its last number.
+        steps[unit] = sign * mult * int(inc[0])
 
-        return modify_datetime(
-            mydate, years, months, weeks, days, hours, minutes, seconds
-        )
-
-    return mydate
+    return modify_datetime(mydate, **{f"{unit}s": step for unit, step in steps.items()})
 
 
 def _replace_year_month(mydate: datetime, year: int, month: int) -> datetime:
@@ -284,10 +266,6 @@ def datetime_after_steps(anchor: datetime, step: str, count: int) -> datetime | 
             return None
     return current
 
-
-# The units of a granularity from the finest to the coarsest. A word matches
-# with its plural, "days" contains "day".
-_GRANULARITY_UNITS = ("second", "minute", "hour", "day", "week", "month", "year")
 
 # The fields that restart when the finest unit of a granularity is given
 _START_VALUES = {

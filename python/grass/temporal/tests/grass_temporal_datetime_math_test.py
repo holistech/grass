@@ -4,11 +4,13 @@ The functions are pure datetime arithmetic, so no GRASS session and no
 temporal database are needed here.
 """
 
+import re
 from datetime import datetime
 
 import pytest
 from dateutil import parser
 
+from grass.temporal import datetime_math
 from grass.temporal.datetime_math import (
     adjust_datetime_to_granularity,
     check_datetime_string,
@@ -150,3 +152,109 @@ def test_adjust_datetime_to_granularity(granularity, expected) -> None:
         adjust_datetime_to_granularity(datetime(2001, 8, 8, 12, 30, 30), granularity)
         == expected
     )
+
+
+class _Messages:
+    """Collect the errors that the date functions report"""
+
+    def __init__(self):
+        self.errors = []
+
+    def error(self, message):
+        self.errors.append(message)
+
+
+@pytest.fixture
+def messages(monkeypatch):
+    recorder = _Messages()
+    monkeypatch.setattr(
+        "grass.temporal.datetime_math.get_tgis_message_interface", lambda: recorder
+    )
+    return recorder
+
+
+# A word names the first unit in the order second, minute, hour, day, week,
+# month, year that it contains, so plurals and longer words count. A unit that
+# appears twice takes its last number.
+@pytest.mark.parametrize(
+    ("increment", "mult", "sign", "expected"),
+    [
+        ("2 seconds", 1, 1, datetime(2001, 1, 31, 0, 0, 2)),
+        ("2 second", 1, 1, datetime(2001, 1, 31, 0, 0, 2)),
+        ("2 secondsx", 1, 1, datetime(2001, 1, 31, 0, 0, 2)),
+        ("3 minutesecond", 1, 1, datetime(2001, 1, 31, 0, 0, 3)),
+        ("2 hourday", 1, 1, datetime(2001, 1, 31, 2)),
+        ("2 weekday", 1, 1, datetime(2001, 2, 2)),
+        ("1 yearmonth", 1, 1, datetime(2001, 2, 28)),
+        ("1 weeks", 1, 1, datetime(2001, 2, 7)),
+        ("1 week", 2, -1, datetime(2001, 1, 17)),
+        ("1 years, 1 month", 1, 1, datetime(2002, 2, 28)),
+        ("1 day, 2 days", 1, 1, datetime(2001, 2, 2)),
+        ("2 days, 1 day", 1, 1, datetime(2001, 2, 1)),
+        ("1 day, 1 hour, 3 days", 2, 1, datetime(2001, 2, 6, 2)),
+        ("1 days extra", 1, 1, datetime(2001, 2, 1)),
+        (" 1 day ,  2 hours ", 1, 1, datetime(2001, 2, 1, 2)),
+        ("1 day", 1, "-1", datetime(2001, 1, 30)),
+    ],
+)
+def test_the_unit_of_an_increment_word(increment, mult, sign, expected, messages):
+    result = datetime_math.modify_datetime_by_string(
+        datetime(2001, 1, 31), increment, mult, sign
+    )
+
+    assert result == expected
+    assert messages.errors == []
+
+
+@pytest.mark.parametrize(
+    "increment",
+    [
+        "1 fortnight",
+        "1 Days",
+        "1",
+        "day",
+        "1  day",
+        "x fortnight",
+        "1 day, 1",
+        "1 fortnight, x days",
+    ],
+)
+def test_an_increment_without_a_unit_is_reported(increment, messages):
+    result = datetime_math.modify_datetime_by_string(datetime(2001, 1, 31), increment)
+
+    assert result is None
+    assert messages.errors == [f"Wrong increment format: {increment}"]
+
+
+@pytest.mark.parametrize(
+    ("increment", "error"),
+    [
+        ("x days", "invalid literal for int() with base 10: 'x'"),
+        ("1.5 days", "invalid literal for int() with base 10: '1.5'"),
+        ("1 day, y hours", "invalid literal for int() with base 10: 'y'"),
+        ("x days, 1 fortnight", "invalid literal for int() with base 10: 'x'"),
+    ],
+)
+def test_an_increment_with_a_number_that_is_no_integer_raises(
+    increment, error, messages
+):
+    with pytest.raises(ValueError, match=re.escape(error)):
+        datetime_math.modify_datetime_by_string(datetime(2001, 1, 31), increment)
+    assert messages.errors == []
+
+
+@pytest.mark.parametrize("increment", ["", None])
+def test_an_empty_increment_returns_the_date_itself(increment, messages):
+    date = datetime(2001, 1, 31)
+
+    assert datetime_math.modify_datetime_by_string(date, increment) is date
+    assert messages.errors == []
+
+
+@pytest.mark.parametrize("sign", [0, 2, -2])
+def test_a_sign_other_than_one_gives_none(sign, messages):
+    assert (
+        datetime_math.modify_datetime_by_string(datetime(2001, 1, 31), "1 day", 1, sign)
+        is None
+    )
+    assert messages.errors == []
