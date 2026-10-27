@@ -95,7 +95,8 @@ def _refuse_duplicate_import_names(maplist: list[dict[str, str]]) -> None:
     A map named name@mapset in the archive is imported as name_mapset, which
     another map of the archive may be named already, and two mapsets may
     differ only in characters that the map name replaces. The second import
-    would overwrite the first map. The lines of the layers of one vector map
+    would overwrite the first map or, without overwrite, stop the import
+    halfway through. The lines of the layers of one vector map
     share their file and so their map.
     """
     files = {}
