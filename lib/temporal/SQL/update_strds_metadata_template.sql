@@ -39,4 +39,4 @@ UPDATE strds_metadata
             raster_metadata ON
             SPACETIME_REGISTER_TABLE.id = raster_metadata.id
        ) AS new_stats
- WHERE strds_metadata.id = 'SPACETIME_ID';
+ WHERE strds_metadata.id = SPACETIME_ID;

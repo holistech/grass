@@ -13,13 +13,13 @@
 -- GRASS_MAP is a placeholder for specific map type: raster, raster3d or vector
 -- STDS is a placeholder for specific space-time dataset type: strds, str3ds, stvds
 
--- UPDATE STDS_base SET modification_time = datetime("NOW") WHERE id = 'SPACETIME_ID';
--- UPDATE STDS_base SET revision = (revision + 1) WHERE id = 'SPACETIME_ID';
+-- UPDATE STDS_base SET modification_time = datetime("NOW") WHERE id = SPACETIME_ID;
+-- UPDATE STDS_base SET revision = (revision + 1) WHERE id = SPACETIME_ID;
 
 -- Number of registered maps
 UPDATE STDS_metadata SET number_of_maps =
        (SELECT count(id) FROM SPACETIME_REGISTER_TABLE)
-       WHERE id = 'SPACETIME_ID';
+       WHERE id = SPACETIME_ID;
 
 -- Update the temporal extent
 UPDATE STDS_absolute_time
@@ -35,7 +35,7 @@ UPDATE STDS_absolute_time
             GRASS_MAP_absolute_time ON
             SPACETIME_REGISTER_TABLE.id = GRASS_MAP_absolute_time.id
        ) AS new_stats
- WHERE STDS_absolute_time.id = 'SPACETIME_ID';
+ WHERE STDS_absolute_time.id = SPACETIME_ID;
 
 UPDATE STDS_relative_time
    SET
@@ -50,7 +50,7 @@ UPDATE STDS_relative_time
            GRASS_MAP_relative_time ON
            SPACETIME_REGISTER_TABLE.id = GRASS_MAP_relative_time.id
        ) AS new_stats
- WHERE STDS_relative_time.id = 'SPACETIME_ID';
+ WHERE STDS_relative_time.id = SPACETIME_ID;
 
 -- Update the spatial extent
 UPDATE STDS_spatial_extent
@@ -76,4 +76,4 @@ UPDATE STDS_spatial_extent
            GRASS_MAP_spatial_extent ON
            SPACETIME_REGISTER_TABLE.id = GRASS_MAP_spatial_extent.id
        ) AS new_stats
- WHERE STDS_spatial_extent.id = 'SPACETIME_ID';
+ WHERE STDS_spatial_extent.id = SPACETIME_ID;

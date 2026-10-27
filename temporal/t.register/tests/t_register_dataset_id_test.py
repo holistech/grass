@@ -64,3 +64,24 @@ def test_a_placeholder_word_in_the_name_of_the_mapset(tmp_path):
         assert stds_info(tools, "strds", "series")["number_of_maps"] == 2
         rows = list_maps(tools, "strds", "series")
         assert [(row.start, row.end) for row in rows] == EXPECTED_TIMES
+
+
+# A dot is not tested in the name: t.create reads "a.b" as the dataset "a" with
+# a layer suffix (checked 2026-10-27), so no dataset "a.b" exists to register in.
+def test_a_dash_in_the_name_of_the_mapset(tmp_path):
+    name = "series"
+    with project_session(tmp_path / "project", mapset="user-1") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        maps = ["a", "b"]
+        for number, map_name in enumerate(maps, start=1):
+            make_map(tools, "raster", map_name, number)
+
+        register_two_maps(tools, name, maps)
+
+        info = stds_info(tools, "strds", name)
+        assert info["number_of_maps"] == 2
+        assert (info["start_time"], info["end_time"]) == (
+            "'2001-01-01 00:00:00'",
+            "'2001-01-03 00:00:00'",
+        )

@@ -43,4 +43,4 @@ UPDATE stvds_metadata
            vector_metadata ON
            SPACETIME_REGISTER_TABLE.id = vector_metadata.id
        ) AS new_stats
- WHERE stvds_metadata.id = 'SPACETIME_ID';
+ WHERE stvds_metadata.id = SPACETIME_ID;

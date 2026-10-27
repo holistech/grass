@@ -13,11 +13,13 @@ import copy
 import datetime
 import itertools
 import pickle
+import types
 
 import pytest
 
 import grass.temporal as tgis
 from grass.temporal import topology
+from grass.temporal.stds_map_register import StdsMapRegister
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -750,3 +752,176 @@ def test_snapping_a_dataset_without_maps_changes_nothing(pair):
 
     assert stds.snap() is None
     assert register_ids(stds) == []
+
+
+class ScriptRecorder:
+    """Stand-in for the database interface that keeps the script it is given"""
+
+    def __init__(self):
+        self.script = None
+
+    def execute_transaction(self, script, mapset=None):
+        self.script = script
+
+
+def update_script(dataset_id):
+    """The SQL script that the update templates give for a strds of this id"""
+    stds = types.SimpleNamespace(
+        base=types.SimpleNamespace(get_id=lambda: dataset_id, mapset="PERMANENT"),
+        get_type=lambda: "strds",
+    )
+    recorder = ScriptRecorder()
+    StdsMapRegister(stds)._run_update_templates(recorder, "reg_table", "raster")
+    return recorder.script
+
+
+def test_the_update_templates_quote_the_dataset_id():
+    script = update_script("a'b@m")
+
+    assert "id = 'a''b@m';" in script
+    assert "'a'b@m'" not in script
+
+
+# Text of the update templates for ds@PERMANENT as they were filled while the
+# templates held the quotes themselves, taken on 2026-10-27 by filling
+# lib/temporal/SQL/update_stds_spatial_temporal_extent_template.sql and
+# update_strds_metadata_template.sql of commit b2ca025b24 (git show) with the
+# placeholder code of that commit. Written out, not computed from the
+# templates, so that a change of the templates cannot move the expectation.
+OLD_UPDATE_SCRIPT = """--#############################################################################
+-- This SQL script is to update the spatial and temporal extent as well as
+-- the modification time and revision of a space time dataset. This script
+-- should be called when maps inserted or deleted in a space time dataset.
+--
+--
+-- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
+-- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
+--#############################################################################
+
+-- reg_table is a placeholder for specific stds map register table name (SQL compliant)
+-- ds@PERMANENT is a placeholder for specific stds id: name@mapset
+-- raster is a placeholder for specific map type: raster, raster3d or vector
+-- strds is a placeholder for specific space-time dataset type: strds, str3ds, stvds
+
+-- UPDATE strds_base SET modification_time = datetime("NOW") WHERE id = 'ds@PERMANENT';
+-- UPDATE strds_base SET revision = (revision + 1) WHERE id = 'ds@PERMANENT';
+
+-- Number of registered maps
+UPDATE strds_metadata SET number_of_maps =
+       (SELECT count(id) FROM reg_table)
+       WHERE id = 'ds@PERMANENT';
+
+-- Update the temporal extent
+UPDATE strds_absolute_time
+   SET
+       start_time = new_stats.start_time_new,
+       end_time = new_stats.end_time_new
+  FROM
+       (SELECT
+           min(start_time) AS start_time_new,
+           max(end_time) AS end_time_new
+        FROM
+            reg_table INNER JOIN
+            raster_absolute_time ON
+            reg_table.id = raster_absolute_time.id
+       ) AS new_stats
+ WHERE strds_absolute_time.id = 'ds@PERMANENT';
+
+UPDATE strds_relative_time
+   SET
+       start_time = new_stats.start_time_new,
+       end_time = new_stats.end_time_new
+  FROM
+       (SELECT
+           min(start_time) AS start_time_new,
+           max(end_time) AS end_time_new
+       FROM
+           reg_table INNER JOIN
+           raster_relative_time ON
+           reg_table.id = raster_relative_time.id
+       ) AS new_stats
+ WHERE strds_relative_time.id = 'ds@PERMANENT';
+
+-- Update the spatial extent
+UPDATE strds_spatial_extent
+   SET
+       north = new_stats.north_new,
+       south = new_stats.south_new,
+       east = new_stats.east_new,
+       west = new_stats.west_new,
+       top = new_stats.top_new,
+       bottom = new_stats.bottom_new,
+       proj = new_stats.proj_new
+  FROM
+       (SELECT
+           max(north) AS north_new,
+           min(south) AS south_new,
+           max(east) AS east_new,
+           min(west) AS west_new,
+           max(top) AS top_new,
+           min(bottom) AS bottom_new,
+           min(proj) AS proj_new
+       FROM
+           reg_table INNER JOIN
+           raster_spatial_extent ON
+           reg_table.id = raster_spatial_extent.id
+       ) AS new_stats
+ WHERE strds_spatial_extent.id = 'ds@PERMANENT';
+
+--#############################################################################
+-- This SQL is to update a space-time raster dataset metadata
+--
+-- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
+-- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
+--#############################################################################
+
+-- reg_table is a placeholder for specific stds map register table name (SQL compliant)
+-- ds@PERMANENT is a placeholder for specific stds id: name@mapset
+-- for TGIS < 3 the lines for semantic labels get replaced / commented out
+
+UPDATE strds_metadata
+   SET
+       -- Update the number of registered semantic labels
+       number_of_semantic_labels = number_of_semantic_labels_new,
+       -- Update the min and max values
+       min_min = new_stats.min_min_new,
+       min_max = new_stats.min_max_new,
+       max_min = new_stats.max_min_new,
+       max_max = new_stats.max_max_new,
+       -- Update the resolution
+       nsres_min = new_stats.nsres_min_new,
+       nsres_max = new_stats.nsres_max_new,
+       ewres_min = new_stats.ewres_min_new,
+       ewres_max = new_stats.ewres_max_new
+  FROM
+       (SELECT
+            count(distinct semantic_label) AS number_of_semantic_labels_new,
+            min(min) AS min_min_new,
+            max(min) AS min_max_new,
+            min(max) AS max_min_new,
+            max(max) AS max_max_new,
+            min(nsres) AS nsres_min_new,
+            max(nsres) AS nsres_max_new,
+            min(ewres) AS ewres_min_new,
+            max(ewres) AS ewres_max_new
+        FROM
+            reg_table INNER JOIN
+            raster_metadata ON
+            reg_table.id = raster_metadata.id
+       ) AS new_stats
+ WHERE strds_metadata.id = 'ds@PERMANENT';
+
+"""
+
+
+def without_comments(script):
+    return [line for line in script.splitlines() if not line.startswith("--")]
+
+
+def test_the_update_sql_of_a_valid_id_is_unchanged():
+    # The comment that explains the placeholder holds the placeholder, so the
+    # filled-in identifier is quoted there now. Comments do not run; the
+    # statements are compared line by line.
+    assert without_comments(update_script("ds@PERMANENT")) == without_comments(
+        OLD_UPDATE_SCRIPT
+    )

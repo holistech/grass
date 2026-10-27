@@ -571,7 +571,10 @@ class StdsMapRegister:
         """Update the extent and the metadata from the registered maps
 
         Runs the SQL templates of the extent and of the type specific metadata
-        in one transaction.
+        in one transaction. The identifier goes in as an SQL literal, quoted
+        by sql_literal() and not by the template, so that a quote in a name
+        cannot end the string early. The script is executed as text, hence
+        the default parameter style also for PostgreSQL.
         """
         stds = self._stds
         sql_path = get_sql_template_path()
@@ -585,7 +588,7 @@ class StdsMapRegister:
             {
                 "GRASS_MAP": sql_identifier(map_type),
                 "SPACETIME_REGISTER_TABLE": table,
-                "SPACETIME_ID": stds.base.get_id(),
+                "SPACETIME_ID": sql_literal(stds.base.get_id()),
                 "STDS": sql_identifier(stds.get_type()),
             },
         )
@@ -607,7 +610,11 @@ class StdsMapRegister:
             )
 
         sql = _fill_template(
-            sql, {"SPACETIME_REGISTER_TABLE": table, "SPACETIME_ID": stds.base.get_id()}
+            sql,
+            {
+                "SPACETIME_REGISTER_TABLE": table,
+                "SPACETIME_ID": sql_literal(stds.base.get_id()),
+            },
         )
         sql_script += sql + "\n"
 
