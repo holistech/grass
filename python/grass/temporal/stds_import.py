@@ -105,7 +105,7 @@ def _refuse_duplicate_import_names(maplist: list[dict[str, str]]) -> None:
             get_tgis_message_interface().fatal(
                 _(
                     "The maps <{first}> and <{second}> of the archive would both "
-                    "be imported as <{name}>; use base to name the maps"
+                    "be imported as <{name}>; use basename to name the maps"
                 ).format(first=first, second=row["filename"], name=row["name"])
             )
 

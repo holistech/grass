@@ -818,7 +818,7 @@ def test_two_files_with_one_import_name_are_refused(target):
         FatalError,
         match=(
             "The maps <dup_other> and <dup@other> of the archive would both be "
-            "imported as <dup_other>; use base to name the maps"
+            "imported as <dup_other>; use basename to name the maps"
         ),
     ):
         stds_import._refuse_duplicate_import_names(maplist)
@@ -1057,8 +1057,9 @@ def test_maps_of_one_name_from_two_mapsets_are_imported_as_two_maps(
 
 
 # list.txt and the members of the archives of the dataset "plain", whose maps
-# have names of their own in two mapsets. Derived from the export of commit
-# 50e4ff12cc, before a mapset could be part of a name in the archive.
+# have names of their own in two mapsets. Measured on 27.10.2026 by running
+# the test below against the export before maps of one name from several
+# mapsets were named name@mapset in the archive; it passed unchanged.
 PLAIN_LISTS = {
     "strds": [
         "a|2001-06-01 00:00:00|2001-07-01 00:00:00|None",
@@ -1154,7 +1155,7 @@ def test_an_import_name_that_two_maps_of_the_archive_get_is_refused(
             )
         assert (
             "The maps <dup@other> and <dup_other> of the archive would both be "
-            "imported as <dup_other>; use base to name the maps"
+            "imported as <dup_other>; use basename to name the maps"
         ) in message(error.value)
         assert inventory(tools) == before
 
