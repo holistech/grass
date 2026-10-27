@@ -42,7 +42,9 @@ layers is packed once.
 The GML and GPKG formats hold one layer per map. A selection that contains
 several layers of one vector map is refused before anything is written;
 use <code>format=pack</code> for such a map, or select one layer with
-<b>where</b>.
+<b>where</b>. The same holds for a map that the selection names several
+times with the same layer, for example registered as <code>name</code> and
+as <code>name:1</code>; select it once with <b>where</b>.
 
 <h2>EXAMPLE</h2>
 

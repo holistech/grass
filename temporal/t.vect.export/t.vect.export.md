@@ -38,7 +38,10 @@ is packed once.
 
 The GML and GPKG formats hold one layer per map. A selection that contains
 several layers of one vector map is refused before anything is written;
-use `format=pack` for such a map, or select one layer with **where**.
+use `format=pack` for such a map, or select one layer with **where**. The
+same holds for a map that the selection names several times with the same
+layer, for example registered as `name` and as `name:1`; select it once
+with **where**.
 
 ## EXAMPLE
 
