@@ -116,28 +116,6 @@ class SpatialExtent(Row):
         ...     top=100,
         ...     bottom=-20,
         ... )
-        >>> extent.id
-        'soil@PERMANENT'
-        >>> extent.north
-        90.0
-        >>> extent.south
-        90.0
-        >>> extent.east
-        180.0
-        >>> extent.west
-        180.0
-        >>> extent.top
-        100.0
-        >>> extent.bottom
-        -20.0
-        >>> extent.print_info()
-         +-------------------- Spatial extent ----------------------------------------+
-         | North:...................... 90.0
-         | South:...................... 90.0
-         | East:.. .................... 180.0
-         | West:....................... 180.0
-         | Top:........................ 100.0
-         | Bottom:..................... -20.0
         >>> extent.print_shell_info()
         north=90.0
         south=90.0
@@ -256,54 +234,6 @@ class SpatialExtent(Row):
             ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
             ... )
             >>> B = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> C = A.intersect(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> C = A.intersect(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 40.0
-             | South:...................... 30.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=30, bottom=-50, top=50
-            ... )
-            >>> C = A.intersect(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 40.0
-             | South:...................... 30.0
-             | East:.. .................... 60.0
-             | West:....................... 30.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=30, bottom=-30, top=50
-            ... )
-            >>> C = A.intersect(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 40.0
-             | South:...................... 30.0
-             | East:.. .................... 60.0
-             | West:....................... 30.0
-             | Top:........................ 50.0
-             | Bottom:..................... -30.0
-            >>> B = SpatialExtent(
             ...     north=40, south=30, east=60, west=30, bottom=-30, top=30
             ... )
             >>> C = A.intersect(B)
@@ -369,69 +299,6 @@ class SpatialExtent(Row):
             ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
             ... )
             >>> B = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> C = A.disjoint_union(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> C = A.disjoint_union(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=30, bottom=-50, top=50
-            ... )
-            >>> C = A.disjoint_union(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=30, bottom=-30, top=50
-            ... )
-            >>> C = A.disjoint_union(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> B = SpatialExtent(
-            ...     north=40, south=30, east=60, west=30, bottom=-30, top=30
-            ... )
-            >>> C = A.disjoint_union(B)
-            >>> C.print_info()
-             +-------------------- Spatial extent ----------------------------------------+
-             | North:...................... 80.0
-             | South:...................... 20.0
-             | East:.. .................... 60.0
-             | West:....................... 10.0
-             | Top:........................ 50.0
-             | Bottom:..................... -50.0
-            >>> A = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
             ...     north=90, south=80, east=70, west=20, bottom=-30, top=60
             ... )
             >>> C = A.disjoint_union(B)
@@ -484,8 +351,6 @@ class SpatialExtent(Row):
             ... )
             >>> A.is_in(B)
             True
-            >>> B.is_in(A)
-            False
 
         :param extent: The spatial extent
         :return: True or False
@@ -504,8 +369,6 @@ class SpatialExtent(Row):
             >>> B = SpatialExtent(north=79, south=21, east=59, west=11)
             >>> A.contain_2d(B)
             True
-            >>> B.contain_2d(A)
-            False
 
         :param extent: The spatial extent
         :return: True or False
@@ -528,8 +391,6 @@ class SpatialExtent(Row):
             ... )
             >>> A.contain(B)
             True
-            >>> B.contain(A)
-            False
 
         :param extent: The spatial extent
         :return: True or False
@@ -547,8 +408,6 @@ class SpatialExtent(Row):
             >>> A = SpatialExtent(north=80, south=20, east=60, west=10)
             >>> B = SpatialExtent(north=80, south=20, east=60, west=10)
             >>> A.equivalent_2d(B)
-            True
-            >>> B.equivalent_2d(A)
             True
 
         :param extent: The spatial extent
@@ -571,8 +430,6 @@ class SpatialExtent(Row):
             ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
             ... )
             >>> A.equivalent(B)
-            True
-            >>> B.equivalent(A)
             True
 
         :param extent: The spatial extent
@@ -1053,269 +910,10 @@ class SpatialExtent(Row):
             ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
             ... )
             >>> B = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'equivalent'
-            >>> B.spatial_relation(A)
-            'equivalent'
-            >>> B = SpatialExtent(
-            ...     north=70, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'cover'
-            >>> A.spatial_relation(B)
-            'cover'
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'cover'
-            >>> A.spatial_relation(B)
-            'cover'
-            >>> B.spatial_relation_2d(A)
-            'covered'
-            >>> B.spatial_relation(A)
-            'covered'
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'cover'
-            >>> B.spatial_relation_2d(A)
-            'covered'
-            >>> A.spatial_relation(B)
-            'cover'
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=20, bottom=-50, top=50
-            ... )
-            >>> B.spatial_relation(A)
-            'covered'
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=20, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'contain'
-            >>> A.spatial_relation(B)
-            'cover'
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=20, bottom=-40, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'cover'
-            >>> B = SpatialExtent(
             ...     north=70, south=30, east=50, west=20, bottom=-40, top=40
             ... )
             >>> A.spatial_relation(B)
             'contain'
-            >>> B.spatial_relation(A)
-            'in'
-            >>> B = SpatialExtent(
-            ...     north=90, south=30, east=50, west=20, bottom=-40, top=40
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'overlap'
-            >>> A.spatial_relation(B)
-            'overlap'
-            >>> B = SpatialExtent(
-            ...     north=90, south=5, east=70, west=5, bottom=-40, top=40
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'in'
-            >>> A.spatial_relation(B)
-            'overlap'
-            >>> B = SpatialExtent(
-            ...     north=90, south=5, east=70, west=5, bottom=-40, top=60
-            ... )
-            >>> A.spatial_relation(B)
-            'overlap'
-            >>> B = SpatialExtent(
-            ...     north=90, south=5, east=70, west=5, bottom=-60, top=60
-            ... )
-            >>> A.spatial_relation(B)
-            'in'
-            >>> A = SpatialExtent(
-            ...     north=80, south=60, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=60, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=60, south=40, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=60, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=40, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=30, east=60, west=40, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=70, south=50, east=60, west=40, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=60, south=20, east=60, west=40, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'meet'
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=40, south=20, east=60, west=40, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation_2d(B)
-            'disjoint'
-            >>> A.spatial_relation(B)
-            'disjoint'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=60, south=20, east=60, west=40, bottom=-60, top=60
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=40, west=20, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=30, east=60, west=40, bottom=-40, top=40
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=50, east=60, west=30, bottom=-50, top=0
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=70, south=50, east=50, west=30, bottom=-50, top=0
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=30, east=70, west=10, bottom=-50, top=0
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=10, bottom=-50, top=0
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=0, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=80, south=50, east=60, west=30, bottom=0, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=70, south=50, east=50, west=30, bottom=0, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=30, east=70, west=10, bottom=0, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=40, east=60, west=20, bottom=-50, top=0
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=70, south=30, east=50, west=10, bottom=0, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
-            >>> A = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=81, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'disjoint'
-            >>> A = SpatialExtent(
-            ...     north=80, south=20, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> B = SpatialExtent(
-            ...     north=90, south=80, east=60, west=10, bottom=-50, top=50
-            ... )
-            >>> A.spatial_relation(B)
-            'meet'
 
         """
         return self._relation(extent, "")

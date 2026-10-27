@@ -8,7 +8,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from grass.temporal.spatial_extent import SpatialExtent
+from grass.temporal.kinds import KINDS
+from grass.temporal.spatial_extent import SpatialExtent, SpatialExtentRow
 
 # The extent every case below is compared against.
 REFERENCE = {"north": 80, "south": 20, "east": 60, "west": 10, "bottom": -50, "top": 50}
@@ -201,3 +202,210 @@ def test_different_projections_are_reported_and_never_related(
     assert errors == [
         f"Projections are different. Unable to compute {named} for spatial extents"
     ]
+
+
+def box(*bounds):
+    """Return an extent from (north, south, east, west[, bottom, top])"""
+    names = ("north", "south", "east", "west", "bottom", "top")
+    return SpatialExtent(**dict(zip(names, bounds, strict=False)))
+
+
+# The method, the bounds of the two extents as for box() and the result. These
+# cases were the examples in the docstrings of SpatialExtent, which now keep
+# one example each.
+RELATIONS = [
+    ("contain", (80, 20, 60, 10, -50, 50), (79, 21, 59, 11, -49, 49), True),
+    ("contain", (79, 21, 59, 11, -49, 49), (80, 20, 60, 10, -50, 50), False),
+    ("contain_2d", (80, 20, 60, 10), (79, 21, 59, 11), True),
+    ("contain_2d", (79, 21, 59, 11), (80, 20, 60, 10), False),
+    ("equivalent", (80, 20, 60, 10, -50, 50), (80, 20, 60, 10, -50, 50), True),
+    ("equivalent_2d", (80, 20, 60, 10), (80, 20, 60, 10), True),
+    ("is_in", (79, 21, 59, 11, -49, 49), (80, 20, 60, 10, -50, 50), True),
+    ("is_in", (80, 20, 60, 10, -50, 50), (79, 21, 59, 11, -49, 49), False),
+    ("overlapping", (80, 20, 60, 10, -50, 50), (80, 20, 60, 10, -50, 50), True),
+    ("overlapping_2d", (80, 20, 60, 10), (80, 20, 60, 10), True),
+    (
+        "spatial_relation_2d",
+        (70, 30, 60, 10, -50, 50),
+        (80, 20, 60, 10, -50, 50),
+        "covered",
+    ),
+    (
+        "spatial_relation_2d",
+        (70, 30, 50, 10, -50, 50),
+        (80, 20, 60, 10, -50, 50),
+        "covered",
+    ),
+    (
+        "spatial_relation",
+        (70, 30, 50, 20, -50, 50),
+        (80, 20, 60, 10, -50, 50),
+        "covered",
+    ),
+    ("spatial_relation", (80, 20, 60, 10, -50, 50), (70, 30, 50, 20, -40, 50), "cover"),
+    ("spatial_relation", (80, 20, 60, 10, -50, 50), (90, 5, 70, 5, -40, 60), "overlap"),
+    ("spatial_relation", (80, 20, 60, 10, -50, 50), (90, 5, 70, 5, -60, 60), "in"),
+    (
+        "spatial_relation_2d",
+        (80, 60, 60, 10, -50, 50),
+        (60, 20, 60, 10, -50, 50),
+        "meet",
+    ),
+    (
+        "spatial_relation_2d",
+        (60, 40, 60, 10, -50, 50),
+        (80, 60, 60, 10, -50, 50),
+        "meet",
+    ),
+    (
+        "spatial_relation_2d",
+        (80, 40, 60, 40, -50, 50),
+        (80, 40, 40, 20, -50, 50),
+        "meet",
+    ),
+    (
+        "spatial_relation_2d",
+        (80, 40, 40, 20, -50, 50),
+        (90, 30, 60, 40, -50, 50),
+        "meet",
+    ),
+    ("spatial_relation", (80, 40, 40, 20, -50, 50), (90, 30, 60, 40, -50, 50), "meet"),
+    (
+        "spatial_relation_2d",
+        (80, 40, 40, 20, -50, 50),
+        (70, 50, 60, 40, -50, 50),
+        "meet",
+    ),
+    ("spatial_relation", (80, 40, 40, 20, -50, 50), (70, 50, 60, 40, -50, 50), "meet"),
+    (
+        "spatial_relation_2d",
+        (80, 40, 40, 20, -50, 50),
+        (60, 20, 60, 40, -50, 50),
+        "meet",
+    ),
+    ("spatial_relation", (80, 40, 40, 20, -50, 50), (60, 20, 60, 40, -50, 50), "meet"),
+    ("spatial_relation", (80, 40, 40, 20, -50, 50), (60, 20, 60, 40, -60, 60), "meet"),
+    ("spatial_relation", (80, 40, 40, 20, -50, 50), (90, 30, 60, 40, -40, 40), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, 0, 50), (80, 50, 60, 30, -50, 0), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, 0, 50), (70, 50, 50, 30, -50, 0), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, 0, 50), (90, 30, 70, 10, -50, 0), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, 0, 50), (70, 30, 50, 10, -50, 0), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, -50, 0), (80, 40, 60, 20, 0, 50), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, -50, 0), (80, 50, 60, 30, 0, 50), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, -50, 0), (70, 50, 50, 30, 0, 50), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, -50, 0), (90, 30, 70, 10, 0, 50), "meet"),
+    ("spatial_relation", (80, 40, 60, 20, -50, 0), (70, 30, 50, 10, 0, 50), "meet"),
+    (
+        "spatial_relation",
+        (80, 20, 60, 10, -50, 50),
+        (90, 81, 60, 10, -50, 50),
+        "disjoint",
+    ),
+    ("spatial_relation", (80, 20, 60, 10, -50, 50), (90, 80, 60, 10, -50, 50), "meet"),
+]
+
+
+@pytest.mark.parametrize(("method", "one", "other", "expected"), RELATIONS)
+def test_relation_of_two_extents(method, one, other, expected) -> None:
+    assert getattr(box(*one), method)(box(*other)) == expected
+
+
+# The bounds of the two extents as for box() and the union as (north, south,
+# east, west, top, bottom), the order of print_info(). Like RELATIONS, the
+# cases were examples in a docstring.
+DISJOINT_UNIONS = [
+    (
+        (80, 20, 60, 10, -50, 50),
+        (80, 20, 60, 10, -50, 50),
+        (80.0, 20.0, 60.0, 10.0, 50.0, -50.0),
+    ),
+    (
+        (80, 20, 60, 10, -50, 50),
+        (40, 30, 60, 10, -50, 50),
+        (80.0, 20.0, 60.0, 10.0, 50.0, -50.0),
+    ),
+    (
+        (80, 20, 60, 10, -50, 50),
+        (40, 30, 60, 30, -50, 50),
+        (80.0, 20.0, 60.0, 10.0, 50.0, -50.0),
+    ),
+    (
+        (80, 20, 60, 10, -50, 50),
+        (40, 30, 60, 30, -30, 50),
+        (80.0, 20.0, 60.0, 10.0, 50.0, -50.0),
+    ),
+    (
+        (80, 20, 60, 10, -50, 50),
+        (40, 30, 60, 30, -30, 30),
+        (80.0, 20.0, 60.0, 10.0, 50.0, -50.0),
+    ),
+    (
+        (80, 20, 60, 10, -50, 50),
+        (90, 80, 70, 20, -30, 60),
+        (90.0, 20.0, 70.0, 10.0, 60.0, -50.0),
+    ),
+]
+
+
+@pytest.mark.parametrize(("one", "other", "expected"), DISJOINT_UNIONS)
+def test_disjoint_union(one, other, expected) -> None:
+    union = box(*one).disjoint_union(box(*other))
+    assert union.get_spatial_extent_as_tuple() == expected
+
+
+def test_extent_of_a_map_by_attribute_and_printed(capsys) -> None:
+    extent = SpatialExtent(
+        table="raster_spatial_extent",
+        ident="soil@PERMANENT",
+        north=90,
+        south=90,
+        east=180,
+        west=180,
+        top=100,
+        bottom=-20,
+    )
+    assert extent.id == "soil@PERMANENT"
+    # The bounds are stored as float, whatever number type was given.
+    assert (
+        extent.north,
+        extent.south,
+        extent.east,
+        extent.west,
+        extent.top,
+        extent.bottom,
+    ) == (90.0, 90.0, 180.0, 180.0, 100.0, -20.0)
+
+    extent.print_info()
+    extent.print_shell_info()
+    assert capsys.readouterr().out.splitlines() == [
+        " +-------------------- Spatial extent ----------------------------------------+",
+        " | North:...................... 90.0",
+        " | South:...................... 90.0",
+        " | East:.. .................... 180.0",
+        " | West:....................... 180.0",
+        " | Top:........................ 100.0",
+        " | Bottom:..................... -20.0",
+        "north=90.0",
+        "south=90.0",
+        "east=180.0",
+        "west=180.0",
+        "top=100.0",
+        "bottom=-20.0",
+    ]
+
+
+@pytest.mark.parametrize(
+    "name", ["raster", "raster3d", "vector", "strds", "str3ds", "stvds"]
+)
+def test_row_of_a_kind_names_its_table(name) -> None:
+    extent = SpatialExtentRow(
+        KINDS[name],
+        ident=f"{name}@PERMANENT",
+        north=90,
+        south=90,
+        east=180,
+        west=180,
+        top=100,
+        bottom=-20,
+    )
+    assert extent.get_table_name() == f"{name}_spatial_extent"
