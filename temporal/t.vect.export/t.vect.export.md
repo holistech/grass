@@ -36,6 +36,10 @@ In the pack format, "list.txt" names a map as `name:layer` and has one
 line for each registered layer of a vector map; a map with several layers
 is packed once.
 
+The GML and GPKG formats hold one layer per map. A selection that contains
+several layers of one vector map is refused before anything is written;
+use `format=pack` for such a map, or select one layer with **where**.
+
 ## EXAMPLE
 
 In this example, five vector maps are created and registered in a single

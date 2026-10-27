@@ -38,6 +38,11 @@ without maps (<code>number_of_maps=0</code> in "init.txt").
 In the pack format, "list.txt" names a map as <code>name:layer</code> and
 has one line for each registered layer of a vector map; a map with several
 layers is packed once.
+<p>
+The GML and GPKG formats hold one layer per map. A selection that contains
+several layers of one vector map is refused before anything is written;
+use <code>format=pack</code> for such a map, or select one layer with
+<b>where</b>.
 
 <h2>EXAMPLE</h2>
 
