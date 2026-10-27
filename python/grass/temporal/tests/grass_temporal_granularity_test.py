@@ -182,7 +182,8 @@ def test_relative_granularity_of_maps(unit, intervals, expected) -> None:
 # Database rows instead of maps, with the edge cases of the two loops over
 # intervals and gaps: an interval in relative time counts only if its end is
 # not 0, a gap starts at the previous end only if that end is not 0, and the
-# deltas of relative times are cut to integers.
+# deltas of relative times are cut to integers. The cut is why the start of a
+# gap after a fractional end matters: from 2.5 to 5 counts 2, from 0 counts 5.
 @pytest.mark.parametrize(
     ("times", "expected"),
     [
@@ -190,6 +191,7 @@ def test_relative_granularity_of_maps(unit, intervals, expected) -> None:
         ([(-6, 0), (4, 8)], 2),
         ([(0, 3), (5, 9)], 1),
         ([(0.5, 2.9), (5.0, None)], 2),
+        ([(0, 2.5), (5, 7.5)], 2),
         ([(0, None), (3, None), (9, None)], 3),
         ([(2, 3), (0, 1), (1, 2)], 1),
     ],

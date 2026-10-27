@@ -227,7 +227,8 @@ def _intervals_and_gaps(maps, is_interval):
     """Yield the (start, end) of every interval and every gap of a map list
 
     A gap lies between a map and the next one that starts after it. It begins
-    at the end of the earlier map, or at its start if that end is empty.
+    at the end of the earlier map, or at its start if that end is false (None,
+    or 0 in relative time).
 
     :param maps: A list of map objects or database rows, ordered by start time
     :param is_interval: A function of start and end that tells whether a map
