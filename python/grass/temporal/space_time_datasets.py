@@ -12,8 +12,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-import grass.script.array as garray
-
 from .datasets import MapDataset, StdsDataset
 from .kinds import KINDS
 
@@ -230,25 +228,6 @@ class RasterDataset(_PlanarExtentMethods, MapDataset):
 
     kind = KINDS["raster"]
 
-    def get_np_array(self):
-        """Return this raster map as memmap numpy style array to access the raster
-        values in numpy style without loading the whole map in the RAM.
-
-        In case this raster map does exist in the grass spatial database,
-        the map will be exported using r.out.bin to a temporary location
-        and assigned to the memmap object that is returned by this function.
-
-        In case the raster map does not exist, an empty temporary
-        binary file will be created and assigned to the memap object.
-
-        You need to call the write function to write the memmap
-        array back into grass.
-        """
-
-        if self.map_exists():
-            return garray.array(self.get_map_id())
-        return garray.array()
-
     def read_semantic_label_from_grass(self) -> bool:
         """Read the semantic label of this map from the map metadata
         in the GRASS file system based spatial database and
@@ -455,26 +434,6 @@ class Raster3DDataset(_VolumeExtentMethods, MapDataset):
     """
 
     kind = KINDS["raster3d"]
-
-    def get_np_array(self):
-        """Return this 3D raster map as memmap numpy style array to access the
-        3D raster values in numpy style without loading the whole map in
-        the RAM.
-
-        In case this 3D raster map does exist in the grass spatial database,
-        the map will be exported using r3.out.bin to a temporary location
-        and assigned to the memmap object that is returned by this function.
-
-        In case the 3D raster map does not exist, an empty temporary
-        binary file will be created and assigned to the memap object.
-
-        You need to call the write function to write the memmap
-        array back into grass.
-        """
-
-        if self.map_exists():
-            return garray.array3d(self.get_map_id())
-        return garray.array3d()
 
     def _fill_from_info(self, kvp) -> None:
         """Copy the extent and the metadata of the 3D raster map info into this map"""
