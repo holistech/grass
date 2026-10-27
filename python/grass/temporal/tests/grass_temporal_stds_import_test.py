@@ -1040,6 +1040,7 @@ def test_maps_of_one_name_from_two_mapsets_are_exported_under_their_ids(
         _shared_line(stds_type, format_, map_id) for map_id in SHARED_DATASETS["two"]
     ]
     assert "name@mapset" in _member(archive, "readme.txt").decode()
+    assert "name:layer@mapset" in _member(archive, "readme.txt").decode()
 
 
 @pytest.mark.parametrize(("stds_type", "format_"), list(SHARED_FILES))

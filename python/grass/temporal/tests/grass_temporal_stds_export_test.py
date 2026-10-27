@@ -202,37 +202,37 @@ def test_the_end_of_a_time_instant_is_its_start(
 @pytest.mark.parametrize(
     ("type_", "format_", "module", "message"),
     [
-        ("strds", "GTiff", "r.out.gdal", "Unable to export raster map <exr1>"),
-        ("strds", "AAIGrid", "r.out.gdal", "Unable to export raster map <exr1>"),
+        ("strds", "GTiff", "r.out.gdal", "Unable to export raster map <exr1@[^>]+>"),
+        ("strds", "AAIGrid", "r.out.gdal", "Unable to export raster map <exr1@[^>]+>"),
         (
             "strds",
             "pack",
             "r.pack",
-            "Unable to export raster map <exr1> with r.pack",
+            "Unable to export raster map <exr1@[^>]+> with r.pack",
         ),
         (
             "strds",
             "GTiff",
             "r.colors.out",
-            "Unable to export color rules for raster map <exr1> r.out.gdal",
+            "Unable to export color rules for raster map <exr1@[^>]+> r.out.gdal",
         ),
         (
             "stvds",
             "GML",
             "v.out.ogr",
-            "Unable to export vector map <exv1> as GML with v.out.ogr",
+            "Unable to export vector map <exv1@[^>]+> as GML with v.out.ogr",
         ),
         (
             "stvds",
             "GPKG",
             "v.out.ogr",
-            "Unable to export vector map <exv1> as GPKG with v.out.ogr",
+            "Unable to export vector map <exv1@[^>]+> as GPKG with v.out.ogr",
         ),
         (
             "stvds",
             "pack",
             "v.pack",
-            "Unable to export vector map <exv1> with v.pack",
+            "Unable to export vector map <exv1@[^>]+> with v.pack",
         ),
     ],
 )

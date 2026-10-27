@@ -214,7 +214,7 @@ def _export_raster_maps_as_gdal(
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
-                _("Unable to export raster map <%s>") % name
+                _("Unable to export raster map <%s>") % _full_name(row)
             )
 
         tar.add(out_name)
@@ -225,7 +225,8 @@ def _export_raster_maps_as_gdal(
             gs.run_command("r.colors.out", map=_full_name(row), rules=out_name)
         except CalledModuleError:
             get_tgis_message_interface().fatal(
-                _("Unable to export color rules for raster map <%s> r.out.gdal") % name
+                _("Unable to export color rules for raster map <%s> r.out.gdal")
+                % _full_name(row)
             )
 
         tar.add(out_name)
@@ -248,7 +249,7 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
-                _("Unable to export raster map <%s> with r.pack") % name
+                _("Unable to export raster map <%s> with r.pack") % _full_name(row)
             )
 
         tar.add(name + FORMAT_SUFFIX["pack"])
@@ -329,7 +330,7 @@ def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
                 format=format_,
             )
         except CalledModuleError:
-            get_tgis_message_interface().fatal(messages[format_] % name)
+            get_tgis_message_interface().fatal(messages[format_] % _full_name(row))
 
         tar.add(out_name)
         if format_ == "GML":
@@ -368,7 +369,7 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
-                _("Unable to export vector map <%s> with v.pack") % name
+                _("Unable to export vector map <%s> with v.pack") % _full_name(row)
             )
 
         tar.add(name + FORMAT_SUFFIX["pack"])
@@ -544,7 +545,8 @@ def _readme_text(sp, kind: str | None, format_: str, shared: bool) -> str:
     if shared:
         lines += [
             "                 Maps of one name from several mapsets are named",
-            "                 name@mapset, in this list and in their file names",
+            "                 name@mapset (name:layer@mapset for vector maps in",
+            "                 a pack), in this list and in their file names",
         ]
     lines += [
         f"{metadata_file_name:>13} -- The output of t.info",

@@ -172,7 +172,7 @@ def test_a_map_that_is_gone_stops_the_export_and_leaves_nothing(
         tools, input="vx_gone_ds", output=str(tmp_path / "out"), directory=str(tmp_path)
     )
 
-    assert "Unable to export vector map <vx_gone>" in text
+    assert "Unable to export vector map <vx_gone@PERMANENT>" in text
     assert _leftovers(tmp_path) == []
     assert not (tmp_path / "out").exists()
 

@@ -195,6 +195,6 @@ def test_a_map_that_is_gone_stops_the_export_and_leaves_nothing(tools, tmp_path)
 
     text = _refused(tools, input="ex_gone_ds", output=str(tmp_path / "out"))
 
-    assert "Unable to export raster map <ex_gone>" in text
+    assert "Unable to export raster map <ex_gone@PERMANENT>" in text
     assert _leftovers(tmp_path) == []
     assert not (tmp_path / "out").exists()

@@ -261,7 +261,7 @@ def test_a_nodata_value_no_integer_type_holds_stops_with_a_message(
     with pytest.raises(ToolError) as error:
         _export(tools, dataset, tmp_path, format=fmt, nodata="nan")
 
-    assert "Unable to export raster map <ex_nd>" in message(error.value)
+    assert "Unable to export raster map <ex_nd@PERMANENT>" in message(error.value)
     assert "Traceback" not in message(error.value)
 
 
