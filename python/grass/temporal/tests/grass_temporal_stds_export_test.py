@@ -477,7 +477,7 @@ def test_layers_are_listed_in_numeric_order():
         stds_export._refuse_several_layers(rows, "GML")
 
 
-def test_a_map_registered_with_and_without_layer_one_is_not_refused(
+def test_layer_one_with_and_without_layer_is_refused_as_repeated(
     temporal_module_session, tmp_path
 ):
     # The database gives the layer of "vx:1" as the text "1" and that of "vx"

@@ -559,8 +559,8 @@ class SpatioTemporalTopologyBuilder:
         The maps will be added to the object, so they can be
         accessed using the iterator of this class
 
-        :param maps: A sorted (by start_time) list of abstract_dataset
-                     objects with initiated temporal extent
+        :param maps: A list of abstract_dataset objects with initiated
+                     temporal extent, in any order
         """
         self._build_iteratable(maps, spatial)
 

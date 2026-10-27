@@ -463,7 +463,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         :param start_time: A datetime object specifying the start time of the map
         :param end_time: A datetime object specifying the end time of the
-                         map, None in case or time instance
+                         map, None in case of a time instance
 
         :return: True for success and False otherwise
         """
@@ -568,7 +568,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         :param start_time: A datetime object specifying the start time of the map
         :param end_time: A datetime object specifying the end time of the
-                                     map, None in case or time instance
+                                     map, None in case of a time instance
         :param dbif: The database interface to be used
         """
 
@@ -588,7 +588,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         :param start_time: A number; it is compared with the end time as
                            given and stored truncated toward zero
-        :param end_time: A number, None in case or time instance. An end
+        :param end_time: A number, None in case of a time instance. An end
                          before the start is refused; an end that equals
                          the start after truncation makes a time instance.
         :param unit: The unit of the relative time. Supported units:
@@ -675,7 +675,7 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         :param start_time: A number; it is compared with the end time as
                            given and stored truncated toward zero
-        :param end_time: A number, None in case or time instance. An end
+        :param end_time: A number, None in case of a time instance. An end
                          before the start is refused; an end that equals
                          the start after truncation makes a time instance.
         :param unit: The relative time unit
