@@ -22,6 +22,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -83,6 +84,18 @@ def _not_registered_message(map_, stds_id: str) -> str:
         "map": map_.get_map_id(),
         "base": stds_id,
     }
+
+
+def _fill_template(sql: str, values: dict[str, str]) -> str:
+    """Put the values in for the placeholders of an SQL template
+
+    All placeholders are replaced in one pass, so a value is never searched
+    for another placeholder: replaced one after the other, the identifier
+    STDS_x@PERMANENT lost its STDS to the type of the dataset, and the
+    update found no row.
+    """
+    pattern = "|".join(re.escape(placeholder) for placeholder in values)
+    return re.sub(pattern, lambda match: values[match.group()], sql)
 
 
 def _map_time_of(counts: dict) -> str:
@@ -564,10 +577,15 @@ class StdsMapRegister:
         sql = Path(
             sql_path, "update_stds_spatial_temporal_extent_template.sql"
         ).read_text()
-        sql = sql.replace("GRASS_MAP", sql_identifier(map_type))
-        sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
-        sql = sql.replace("SPACETIME_ID", stds.base.get_id())
-        sql = sql.replace("STDS", sql_identifier(stds.get_type()))
+        sql = _fill_template(
+            sql,
+            {
+                "GRASS_MAP": sql_identifier(map_type),
+                "SPACETIME_REGISTER_TABLE": table,
+                "SPACETIME_ID": stds.base.get_id(),
+                "STDS": sql_identifier(stds.get_type()),
+            },
+        )
         sql_script = sql + "\n"
 
         # The type specific metadata
@@ -585,8 +603,9 @@ class StdsMapRegister:
                 "-- count(distinct semantic_label)",
             )
 
-        sql = sql.replace("SPACETIME_REGISTER_TABLE", table)
-        sql = sql.replace("SPACETIME_ID", stds.base.get_id())
+        sql = _fill_template(
+            sql, {"SPACETIME_REGISTER_TABLE": table, "SPACETIME_ID": stds.base.get_id()}
+        )
         sql_script += sql + "\n"
 
         dbif.execute_transaction(sql_script, mapset=stds.base.mapset)
