@@ -729,15 +729,14 @@ def test_the_import_module_gets_the_flags_and_the_memory_of_the_call(
     archives, target, tmp_path, monkeypatch, archive, options, module, kwargs
 ):
     calls = []
+    run_command = gs.run_command
 
     def run(name, *args, **given):
         if name != module:
-            return gs.run_command.__wrapped__(name, *args, **given)
+            return run_command(name, *args, **given)
         calls.append(given)
         raise CalledModuleError(name, "", 1)
 
-    run_command = gs.run_command
-    run.__wrapped__ = run_command
     monkeypatch.setattr(gs, "run_command", run)
 
     with pytest.raises(FatalError, match="Unable to"):
