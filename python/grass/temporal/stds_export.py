@@ -65,6 +65,16 @@ FORMAT_SUFFIX = {
 }
 
 
+def _full_name(row) -> str:
+    """Return name@mapset of a registered map
+
+    The tools get the full name because a bare name is looked up in the search
+    path, where a map of the current mapset with the same name comes first and
+    would be exported in place of the registered one.
+    """
+    return f"{row['name']}@{row['mapset']}"
+
+
 def _gdal_type_for_cell_map(minimum, maximum, nodata):
     """Return the smallest GDAL integer type that holds a CELL map and nodata
 
@@ -180,7 +190,11 @@ def _export_raster_maps_as_gdal(
             )
         try:
             gs.run_command(
-                "r.out.gdal", input=name, output=out_name, format=format_, **options
+                "r.out.gdal",
+                input=_full_name(row),
+                output=out_name,
+                format=format_,
+                **options,
             )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
@@ -192,7 +206,7 @@ def _export_raster_maps_as_gdal(
         # Export the color rules
         out_name = name + ".color"
         try:
-            gs.run_command("r.colors.out", map=name, rules=out_name)
+            gs.run_command("r.colors.out", map=_full_name(row), rules=out_name)
         except CalledModuleError:
             get_tgis_message_interface().fatal(
                 _("Unable to export color rules for raster map <%s> r.out.gdal") % name
@@ -211,7 +225,9 @@ def _export_raster_maps(rows, tar, list_file, fs) -> None:
         )
         # Export the raster map with r.pack
         try:
-            gs.run_command("r.pack", input=name, flags="c")
+            gs.run_command(
+                "r.pack", input=_full_name(row), output=name + ".pack", flags="c"
+            )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
                 _("Unable to export raster map <%s> with r.pack") % name
@@ -284,7 +300,7 @@ def _export_vector_maps_with_ogr(rows, tar, list_file, fs, format_) -> None:
         try:
             gs.run_command(
                 "v.out.ogr",
-                input=name,
+                input=_full_name(row),
                 output=out_name,
                 layer=row["layer"] or 1,
                 format=format_,
@@ -316,7 +332,9 @@ def _export_vector_maps(rows, tar, list_file, fs) -> None:
 
         # Export the vector map with v.pack
         try:
-            gs.run_command("v.pack", input=name, flags="c")
+            gs.run_command(
+                "v.pack", input=_full_name(row), output=name + ".pack", flags="c"
+            )
         except CalledModuleError:
             get_tgis_message_interface().fatal(
                 _("Unable to export vector map <%s> with v.pack") % name
@@ -432,9 +450,10 @@ def _map_columns(kind: Kind | None) -> str:
 
     A raster map is described by its range and data type, which the choice of
     the GDAL type needs, and by its semantic label; a vector map by the layer
-    the dataset registered. The extent comes with every kind.
+    the dataset registered. The name and the mapset identify the map, the extent
+    comes with every kind.
     """
-    columns = "name,start_time,end_time"
+    columns = "name,mapset,start_time,end_time"
     if kind is not None:
         if kind.map_kind == "raster":
             columns += ",min,max,datatype,semantic_label"

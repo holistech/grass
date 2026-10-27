@@ -26,6 +26,7 @@ from grass.temporal.testing.data import (
     vector_points,
 )
 from grass.temporal import stds_export
+from grass.temporal.testing.readback import cell_values, list_maps
 from grass.tools import Tools
 
 pytestmark = pytest.mark.usefixtures("temporal_module_session")
@@ -359,7 +360,7 @@ def test_a_vector_map_with_two_layers_is_listed_per_layer_and_packed_once(
         "lay:1|2001-01-01 00:00:00|2001-01-01 00:00:00",
         "lay:2|2001-02-01 00:00:00|2001-02-01 00:00:00",
     ]
-    assert packed == ["lay"]
+    assert packed == ["lay@PERMANENT"]
     assert "number_of_maps=2" in _text(archive, "init.txt")
 
 
@@ -502,3 +503,78 @@ def test_layer_one_with_and_without_layer_is_refused_as_repeated(
     # instead of failing in the second v.out.ogr call.
     with pytest.raises(FatalError, match="<mix> is selected 2 times with layer 1"):
         _export(tmp_path, "mix_ds", "stvds", "GML")
+
+
+@pytest.fixture
+def shadowed_maps(temporal_module_session):
+    """Map "shadow" in PERMANENT and in "shadow_other", only the second registered
+
+    PERMANENT is the current mapset and so first in the search path: a bare
+    "shadow" names the map of PERMANENT, not the registered one of
+    "shadow_other". The raster map holds 1 in PERMANENT and 2 in the other
+    mapset, the vector map has one point in PERMANENT and two in the other.
+    """
+    tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    small_region(tools, 2, 3)
+    tools.g_mapset(mapset="shadow_other", flags="c")
+    # A new mapset starts with the default region.
+    small_region(tools, 2, 3)
+    tools.r_mapcalc(expression="shadow = 2")
+    vector_points(tools, "shadow", [(1, 1), (2, 2)])
+    tools.g_mapset(mapset="PERMANENT")
+    tools.g_mapsets(mapset="shadow_other", operation="add")
+    tools.r_mapcalc(expression="shadow = 1")
+    vector_points(tools, "shadow", [(1, 1)])
+    for stds_type, name in (("strds", "shadow_r"), ("stvds", "shadow_v")):
+        register_stds(
+            tools,
+            stds_type,
+            name,
+            [MapSpec("shadow@shadow_other", None, datetime(2001, 1, 1))],
+        )
+    yield tools
+    tools.g_mapset(mapset="PERMANENT")
+    tgis.stop_subprocesses()
+    tgis.init()
+
+
+@pytest.mark.parametrize(
+    ("type_", "format_"),
+    [("strds", "pack"), ("strds", "GTiff"), ("stvds", "pack"), ("stvds", "GPKG")],
+)
+def test_the_export_reads_each_map_from_its_mapset(
+    shadowed_maps, tmp_path, type_, format_
+):
+    tools = shadowed_maps
+    dataset = "shadow_r" if type_ == "strds" else "shadow_v"
+    archive = _export(tmp_path, dataset, type_, format_)
+    tgis.stop_subprocesses()
+    tgis.init()
+
+    tools.g_mapset(mapset="shadow_imported", flags="c")
+    try:
+        if type_ == "strds":
+            tools.t_rast_import(
+                input=str(archive),
+                output="back",
+                basename="back",
+                directory=str(tmp_path),
+                flags="o",
+            )
+            (row,) = list_maps(tools, "strds", "back")
+            # The new mapset has the default region, not that of the maps.
+            tools.g_region(raster=row.name)
+            assert cell_values(tools, row.name) == [2.0] * 6
+        else:
+            tools.t_vect_import(
+                input=str(archive),
+                output="back",
+                basename="back",
+                directory=str(tmp_path),
+                flags="o",
+            )
+            (row,) = list_maps(tools, "stvds", "back")
+            info = tools.v_info(map=row.name, flags="t").keyval
+            assert info["points"] == 2
+    finally:
+        tools.g_mapset(mapset="PERMANENT")
