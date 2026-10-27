@@ -10,6 +10,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
+from fractions import Fraction
 
 import grass.script as gs
 
@@ -625,9 +626,10 @@ class AbstractMapDataset(AbstractDataset, metaclass=ABCMeta):
 
         if start_time is not None and end_time is not None:
             # Compare before int() truncates: 1.7 to 1.2 would otherwise
-            # both become 1 and pass as an instance. float() also makes
-            # numeric text compare as a number ("10" before "9" as text).
-            if float(start_time) > float(end_time):
+            # both become 1 and pass as an instance. Fraction compares
+            # exactly (float() rounds above 2**53) and takes numeric text as
+            # a number ("10" before "9" as text).
+            if Fraction(start_time) > Fraction(end_time):
                 self.msgr.error(
                     layer_form(
                         self.get_layer() is not None,

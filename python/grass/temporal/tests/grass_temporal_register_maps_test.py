@@ -354,7 +354,7 @@ def test_relative_interval_within_one_unit_becomes_an_instance(start, end, expec
 
 @pytest.mark.parametrize(
     ("start", "end"),
-    [(1.7, 1.2), (-0.4, -0.5), (1, 0.5), (2.2, 1.7)],
+    [(1.7, 1.2), (-0.4, -0.5), (1, 0.5), (2.2, 1.7), (2**53 + 1, 2**53), ("10", "9")],
 )
 def test_relative_end_before_start_is_refused_within_one_unit(monkeypatch, start, end):
     errors = []
