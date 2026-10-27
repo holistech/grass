@@ -66,11 +66,13 @@ def test_a_placeholder_word_in_the_name_of_the_mapset(tmp_path):
         assert [(row.start, row.end) for row in rows] == EXPECTED_TIMES
 
 
-# A dot is not tested in the name: t.create reads "a.b" as the dataset "a" with
-# a layer suffix (checked 2026-10-27), so no dataset "a.b" exists to register in.
-def test_a_dash_in_the_name_of_the_mapset(tmp_path):
+# The dataset name stays "series": t.create reads a dot in a dataset name as a
+# layer suffix, but a dot in the mapset name is part of the id (checked
+# 2026-10-27 with g.mapset -c a.b: two maps registered in series@a.b).
+@pytest.mark.parametrize("mapset", ["user-1", "a.b"])
+def test_a_special_character_in_the_name_of_the_mapset(tmp_path, mapset):
     name = "series"
-    with project_session(tmp_path / "project", mapset="user-1") as session:
+    with project_session(tmp_path / "project", mapset=mapset) as session:
         tools = Tools(session=session, consistent_return_value=True)
         tools.g_region(n=1, s=0, e=1, w=0, res=1)
         maps = ["a", "b"]
