@@ -20,6 +20,7 @@ from datetime import datetime
 from .abstract_dataset import AbstractDataset
 from .db import connection, sql_literal
 from .topology import (
+    _has_start,
     count_gaps,
     count_temporal_topology_relationships,
     count_temporal_types,
@@ -624,22 +625,27 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
             )
 
             if maps is not None and len(maps) > 0:
-                # No gap is inserted next to a map that ends before it starts.
-                # This matters for a reader that keeps the stored times (a
-                # subclass or an add-on); the own reader already drops such
-                # times, so the map arrives without time.
+                # A map without start time stays where it is, but is passed
+                # over: a gap lies directly before the next map with a start
+                # time, measured from the last one before it, as the
+                # granularity does. No gap is inserted next to a map that
+                # ends before it starts. This matters for a reader that
+                # keeps the stored times (a subclass or an add-on); the own
+                # reader already drops such times, so the map arrives
+                # without time.
                 reversed_ids = reversed_map_ids(maps)
-                for i in range(len(maps)):
-                    obj_list.append(maps[i])
-                    # Detect and insert gaps
-                    if i < len(maps) - 1 and reversed_ids.isdisjoint(
-                        (maps[i].get_id(), maps[i + 1].get_id())
-                    ):
-                        relation = maps[i + 1].temporal_relation(maps[i])
-                        if relation == "after":
-                            start1, end1 = maps[i].get_temporal_extent_as_tuple()
-                            start2, end2 = maps[i + 1].get_temporal_extent_as_tuple()
-                            end = start2
+                previous = None
+                for current in maps:
+                    if _has_start(current):
+                        if (
+                            previous is not None
+                            and reversed_ids.isdisjoint(
+                                (previous.get_id(), current.get_id())
+                            )
+                            and current.temporal_relation(previous) == "after"
+                        ):
+                            start1, end1 = previous.get_temporal_extent_as_tuple()
+                            end = current.get_temporal_extent_as_tuple()[0]
                             start = end1 if end1 is not None else start1
 
                             map_ = self.get_new_map_instance(None)
@@ -652,6 +658,8 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                                 )
                             map_.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
                             obj_list.append(copy.copy(map_))
+                        previous = current
+                    obj_list.append(current)
 
             return obj_list
 

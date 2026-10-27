@@ -880,17 +880,19 @@ def count_temporal_types(maps) -> dict:
 def count_gaps(maps) -> int:
     """Count the gaps between temporal neighbors
 
-    A map that ends before it starts gets a warning, and there is no gap next
-    to it (see reversed_map_ids()).
+    A map without start time is passed over: the maps with a start time
+    before and after it are compared, as the granularity does. A map that
+    ends before it starts gets a warning, and there is no gap next to it
+    (see reversed_map_ids()).
 
     :param maps: A list of map objects sorted by start time
-    :return: The number of neighbors of which the later one is "after" the
-             earlier one
+    :return: The number of neighbors, among the maps with a start time, of
+             which the later one is "after" the earlier one
     """
     reversed_ids = reversed_map_ids(maps)
     return sum(
         later.temporal_relation(earlier) == "after"
-        for earlier, later in pairwise(maps)
+        for earlier, later in pairwise(map_ for map_ in maps if _has_start(map_))
         if reversed_ids.isdisjoint((earlier.get_id(), later.get_id()))
     )
 

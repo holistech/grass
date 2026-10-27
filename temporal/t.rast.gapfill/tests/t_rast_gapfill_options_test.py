@@ -291,3 +291,37 @@ def test_a_gap_with_two_predecessors_uses_the_one_that_starts_first(
         message(result)
     )
     assert _filled(tools, name)[2][3] == [400.0, 80.0]
+
+
+def test_a_map_stored_with_its_end_before_its_start(tools, gappy, month_start, prefix):
+    """The gap lies between the maps with a time on both sides of that map
+
+    The dataset reader leaves the stored reversed map (April) without time.
+    The January and July maps are compared with each other, so February to
+    June are filled from these two: the first cell 100 + 600 i / 6, the
+    second cell 0 + 60 i / 6, for i = 1 ... 5.
+    """
+    name = gappy({1: (100, 0), 4: (400, 30), 7: (700, 60)})
+    tools.db_execute(
+        driver="sqlite",
+        database="$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db",
+        sql="UPDATE raster_absolute_time SET end_time = '2001-03-01 00:00:00'"
+        f" WHERE id LIKE '{name}_m4@%'",
+    )
+
+    result = tools.t_rast_gapfill(input=name, basename=prefix)
+
+    assert result.returncode == 0
+    assert "Traceback" not in result.stderr
+    filled = {
+        row.name: cell_values(tools, row.name)
+        for row in list_maps(tools, "strds", name)
+        if row.name.startswith(f"{prefix}_2001_")
+    }
+    assert filled == {
+        f"{prefix}_2001_{month:02d}": [
+            pytest.approx(100.0 + 100 * i, rel=1e-12),
+            pytest.approx(10.0 * i, rel=1e-12),
+        ]
+        for i, month in enumerate(range(2, 7), 1)
+    }

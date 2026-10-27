@@ -865,14 +865,53 @@ def test_a_map_without_time_in_both_lists(reversed_dataset, temporaltype):
 
 
 @pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
-def test_the_gaps_next_to_a_map_without_time(reversed_dataset, warnings, temporaltype):
-    """A map without time has no relation, so there is no gap next to it
+def test_the_gaps_skip_a_map_without_time(reversed_dataset, warnings, temporaltype):
+    """The maps with a start time before and after it are compared
 
-    temporal_relation() of a map without time is None, which is not "after".
+    A map without time has no relation to a neighbour, so it is passed over
+    like it is when the granularity is computed.
     """
     stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (2,))
+
+    assert stds.count_gaps() == 2
+    maps = stds.get_registered_maps_as_objects_with_gaps()
+    assert [map_.get_id() for map_ in maps] == [
+        ids[0],
+        ids[1],
+        None,
+        ids[2],
+        None,
+        ids[3],
+    ]
+    assert maps[2].get_temporal_extent_as_tuple() == (
+        maps[0].get_temporal_extent_as_tuple()[1],
+        maps[3].get_temporal_extent_as_tuple()[0],
+    )
+    assert warnings == []
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_two_maps_without_time_in_a_row(reversed_dataset, temporaltype):
+    """One gap covers the span between the maps with a start time"""
+    stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (2, 3))
 
     assert stds.count_gaps() == 1
     maps = stds.get_registered_maps_as_objects_with_gaps()
     assert [map_.get_id() for map_ in maps] == [*ids[:3], None, ids[3]]
-    assert warnings == []
+
+
+EDGE_LISTS = {
+    1: lambda ids: [ids[0], ids[1], None, ids[2], None, ids[3]],
+    4: lambda ids: [ids[0], None, ids[1], None, ids[2], ids[3]],
+}
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+@pytest.mark.parametrize("edge", EDGE_LISTS)
+def test_a_map_without_time_at_the_edge(reversed_dataset, temporaltype, edge):
+    """No gap appears before or after a map without time at either end"""
+    stds, ids = reversed_dataset(temporaltype, WITH_GAPS, (edge,))
+
+    assert stds.count_gaps() == 2
+    maps = stds.get_registered_maps_as_objects_with_gaps()
+    assert [map_.get_id() for map_ in maps] == EDGE_LISTS[edge](ids)
