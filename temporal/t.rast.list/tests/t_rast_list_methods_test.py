@@ -773,3 +773,90 @@ def test_the_list_of_an_empty_dataset_is_refused(tools, stds):
         message(error.value)
     )
     assert "Dataset is empty" in message(error.value)
+
+
+WARNING = "Map <{}> has no start time; it is listed without times"
+DATABASE = "$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db"
+
+
+def _stds_with_reversed(tools, prefix, reversed_numbers):
+    """Make a dataset of the day spans (0, 1), (2, 3), (4, 5) with reversed maps
+
+    Registering refuses an end before the start, so the end of each map in
+    reversed_numbers is written to the database one day before its start. The
+    reading of the dataset turns such a map into a map without time. Returns
+    the name of the dataset.
+    """
+    spans = [(0, 1), (2, 3), (4, 5)]
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_ds",
+        [
+            MapSpec(f"{prefix}_{number}", number, start, end)
+            for number, (start, end) in enumerate(spans, 1)
+        ],
+        temporaltype="relative",
+        unit="days",
+    )
+    for number in reversed_numbers:
+        tools.db_execute(
+            driver="sqlite",
+            database=DATABASE,
+            sql="UPDATE raster_relative_time SET end_time = "
+            f"{spans[number - 1][0] - 1} WHERE id = '{prefix}_{number}@PERMANENT'",
+        )
+    return f"{prefix}_ds"
+
+
+def _relative_row(name, start, end, first):
+    """Row of delta for a map of relative days, None for a map without times"""
+    if start is None:
+        times = ["None"] * 4
+    else:
+        times = [str(start), str(end), str(end - start), str(start - first)]
+    return [f"{name}@PERMANENT", name, "PERMANENT", *times]
+
+
+@pytest.mark.parametrize("method", ["delta", "deltagaps"])
+def test_delta_lists_a_map_without_start_time_without_times(tools, method):
+    prefix = f"nt_{method}"
+    name = _stds_with_reversed(tools, prefix, (2,))
+
+    result = tools.t_rast_list(input=name, method=method)
+
+    rows = [
+        _relative_row(f"{prefix}_1", 0, 1, 0),
+        _relative_row(f"{prefix}_2", None, None, 0),
+    ]
+    if method == "deltagaps":
+        # The gap lies before the later map with a start time, from the end of
+        # the first map to the start of the third.
+        rows.append(["None", "None", "None", "1", "4", "3", "1"])
+    rows.append(_relative_row(f"{prefix}_3", 4, 5, 0))
+    assert result.stdout.splitlines() == [
+        DELTA_HEADER,
+        *("|".join(row) for row in rows),
+    ]
+    assert "Traceback" not in result.stderr
+    assert message(result).count(WARNING.format(f"{prefix}_2@PERMANENT")) == 1
+    assert f"{prefix}_1@PERMANENT" not in message(result)
+    assert f"{prefix}_3@PERMANENT" not in message(result)
+
+
+@pytest.mark.parametrize("method", ["delta", "deltagaps"])
+def test_delta_counts_from_the_first_map_with_a_start_time(tools, method):
+    prefix = f"nf_{method}"
+    name = _stds_with_reversed(tools, prefix, (1,))
+
+    result = tools.t_rast_list(
+        input=name, method=method, columns="name,distance_from_begin"
+    )
+
+    assert message(result).count(WARNING.format(f"{prefix}_1@PERMANENT")) == 1
+    rows = [line.split("|") for line in result.stdout.splitlines()[1:]]
+    assert [row for row in rows if row[0] != "None"] == [
+        [f"{prefix}_1", "None"],
+        [f"{prefix}_2", "0"],
+        [f"{prefix}_3", "2"],
+    ]

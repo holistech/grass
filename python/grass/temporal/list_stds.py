@@ -34,6 +34,7 @@ from .db import (
 from .kinds import find_kind
 from .open_stds import open_old_stds
 from .state import get_tgis_message_interface
+from .topology import _has_start
 
 #: Columns that only the methods delta, deltagaps and gran can list: they
 #: compute the values from the times of the maps, the temporal database has
@@ -645,9 +646,20 @@ def _get_get_registered_maps_as_objects_delta_gran(
         if len(maps[0]) <= 0:
             msgr.warning(_("Empty map list"))
             return []
-        first_time, unused = maps[0][0].get_temporal_extent_as_tuple()
+        first_maps = [map_[0] for map_ in maps if map_]
     else:
-        first_time, unused = maps[0].get_temporal_extent_as_tuple()
+        first_maps = maps
+    # A map without start time (the reading leaves one when the stored end
+    # lies before the start) cannot give the distance of the others, so the
+    # distances count from the first map that has one.
+    first_time = next(
+        (
+            map_.get_temporal_extent_as_tuple()[0]
+            for map_ in first_maps
+            if _has_start(map_)
+        ),
+        None,
+    )
 
     records = []
     for map_object in maps:
@@ -657,6 +669,14 @@ def _get_get_registered_maps_as_objects_delta_gran(
             else:
                 msgr.fatal(_("Empty entry in map list, this should not happen"))
 
+        if not _has_start(map_object):
+            msgr.warning(
+                _("Map <{}> has no start time; it is listed without times").format(
+                    map_object.get_id()
+                )
+            )
+            records.append((map_object, None, None, None, None))
+            continue
         start, end = map_object.get_temporal_extent_as_tuple()
         delta = end - start if end else None
         delta_first = start - first_time
