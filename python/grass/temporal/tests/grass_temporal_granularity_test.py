@@ -176,7 +176,8 @@ def test_relative_granularity_of_maps(unit, intervals, expected) -> None:
         map_ = RasterDataset(f"a{number}@P")
         assert map_.set_relative_time(start, end, unit)
         maps.append(map_)
-    assert compute_relative_time_granularity(maps) == expected
+    # The docstring printed an int; repr tells it from a float of equal value.
+    assert repr(compute_relative_time_granularity(maps)) == repr(expected)
 
 
 # Database rows instead of maps, with the edge cases of the two loops over
@@ -234,7 +235,7 @@ def test_absolute_granularity_of_rows(times, expected) -> None:
 
 
 def test_common_relative_granularity() -> None:
-    assert compute_common_relative_time_granularity([10, 20, 30]) == 10
+    assert repr(compute_common_relative_time_granularity([10, 20, 30])) == "10"
 
 
 @pytest.mark.parametrize(
@@ -396,4 +397,5 @@ def test_gran_singular_unit(granularity, expected) -> None:
     ],
 )
 def test_gran_to_gran(source, target, shell, expected) -> None:
-    assert gran_to_gran(source, target, shell) == expected
+    # With shell the number is returned as it was read, int or float.
+    assert repr(gran_to_gran(source, target, shell)) == repr(expected)

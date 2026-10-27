@@ -307,7 +307,8 @@ RELATIONS = [
 
 @pytest.mark.parametrize(("method", "one", "other", "expected"), RELATIONS)
 def test_relation_of_two_extents(method, one, other, expected) -> None:
-    assert getattr(box(*one), method)(box(*other)) == expected
+    # repr tells True from 1, as the printed docstring examples did.
+    assert repr(getattr(box(*one), method)(box(*other))) == repr(expected)
 
 
 # The bounds of the two extents as for box() and the union as (north, south,
@@ -350,7 +351,7 @@ DISJOINT_UNIONS = [
 @pytest.mark.parametrize(("one", "other", "expected"), DISJOINT_UNIONS)
 def test_disjoint_union(one, other, expected) -> None:
     union = box(*one).disjoint_union(box(*other))
-    assert union.get_spatial_extent_as_tuple() == expected
+    assert repr(union.get_spatial_extent_as_tuple()) == repr(expected)
 
 
 def test_extent_of_a_map_by_attribute_and_printed(capsys) -> None:
@@ -366,14 +367,15 @@ def test_extent_of_a_map_by_attribute_and_printed(capsys) -> None:
     )
     assert extent.id == "soil@PERMANENT"
     # The bounds are stored as float, whatever number type was given.
-    assert (
+    bounds = (
         extent.north,
         extent.south,
         extent.east,
         extent.west,
         extent.top,
         extent.bottom,
-    ) == (90.0, 90.0, 180.0, 180.0, 100.0, -20.0)
+    )
+    assert repr(bounds) == repr((90.0, 90.0, 180.0, 180.0, 100.0, -20.0))
 
     extent.print_info()
     extent.print_shell_info()
