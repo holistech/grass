@@ -562,18 +562,13 @@ class DBConnection:
                 return sql
             args = _pg_args(args)
             if self.connected:
-                try:
-                    return self.cursor.mogrify(sql, args)
-                except Exception:
-                    print(sql, args)
-                    raise
-            else:
-                self.connect()
-                statement = self.cursor.mogrify(sql, args)
-                self.close()
-                return statement
+                return self.cursor.mogrify(sql, args)
+            self.connect()
+            statement = self.cursor.mogrify(sql, args)
+            self.close()
+            return statement
 
-        elif self.dbmi.__name__ == "sqlite3":
+        if self.dbmi.__name__ == "sqlite3":
             if len(args) == 0:
                 return sql
             # Unfortunately as sqlite does not support

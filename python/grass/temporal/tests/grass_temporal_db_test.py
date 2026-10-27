@@ -571,3 +571,26 @@ def test_postgresql_gets_whole_seconds():
         assert sent.tzinfo is moment.tzinfo
     # The value of the caller is not changed.
     assert moment.microsecond == 123456
+
+
+def test_a_failing_mogrify_prints_nothing(capsys):
+    """A statement that psycopg2 cannot mogrify leaves stdout alone
+
+    Tools write their results to stdout; a debug print of the statement and
+    its arguments would end up in the pipes that read them.
+    """
+    conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
+    conn.dbmi = fake_pg([])
+    conn.connected = True
+
+    def refuse(sql, args):
+        msg = "cannot mogrify"
+        raise RuntimeError(msg)
+
+    conn.cursor = types.SimpleNamespace(mogrify=refuse)
+    with pytest.raises(RuntimeError, match="cannot mogrify"):
+        conn.mogrify_sql_statement(["SELECT %s", ("a",)])
+    conn.connected = False
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
