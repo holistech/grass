@@ -89,7 +89,7 @@ def ends_before_start(start, end) -> bool:
 
 
 def _refuse_reversed(extent) -> None:
-    """Raise ValueError if the extent ends before it starts or its times differ in kind
+    """Raise ValueError if the extent ends before it starts or cannot be compared
 
     Only the constructor and temporal_relation() check. The setters and the
     predicates do not: t.shift and t.snap set the start and the end one after
@@ -154,8 +154,9 @@ class TemporalExtent(Row):
     def __init__(self, table=None, ident=None, start_time=None, end_time=None) -> None:
         """Constructor
 
-        :raises ValueError: if end_time is before start_time; an extent that
-                            starts and ends at the same time is accepted
+        :raises ValueError: if end_time is before start_time or the two cannot
+                            be compared; an extent that starts and ends at
+                            the same time is accepted
         """
         super().__init__(table, ident)
 
@@ -682,7 +683,8 @@ class TemporalExtent(Row):
         :param extent: The temporal extent
         :return: The name of the temporal relation or None if no relation
                  found
-        :raises ValueError: if one of the extents ends before it starts
+        :raises ValueError: if one of the extents ends before it starts or has
+                            a start and end that cannot be compared
         """
         _refuse_reversed(self)
         _refuse_reversed(extent)
@@ -862,8 +864,9 @@ class RelativeTemporalExtent(TemporalExtent):
 
         :return: The name of the temporal relation, None if no relation is
                  found or the units differ
-        :raises ValueError: if one of the extents ends before it starts,
-                            whether or not the units differ
+        :raises ValueError: if one of the extents ends before it starts or has
+                            a start and end that cannot be compared, whether
+                            or not the units differ
         """
         # Checked before the units, so that the refusal does not depend on them.
         _refuse_reversed(self)
