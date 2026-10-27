@@ -765,6 +765,84 @@ def test_a_map_without_time_gets_no_relations(
     assert warnings == []
 
 
+def chain_of(maps):
+    """The ids of NEXT and PREV of each map, as (prev, next), by map id"""
+    return {
+        map_.get_id(): (
+            map_.prev().get_id() if map_.prev() else None,
+            map_.next().get_id() if map_.next() else None,
+        )
+        for map_ in maps
+    }
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_map_without_time_has_no_neighbours(reversed_dataset, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))
+    maps = stds.get_registered_maps_as_objects(order="start_time")
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps)
+
+    chain = chain_of(maps)
+    assert chain[ids[1]] == (None, None)
+    # The chain of the other maps runs past it.
+    assert chain[ids[0]] == (None, ids[2])
+    assert chain[ids[2]] == (ids[0], ids[3])
+    assert chain[ids[-1]][1] is None
+    assert [map_.get_id() for map_ in builder] == [ids[0], *ids[2:], ids[1]]
+    assert builder.get_first().get_id() == ids[0]
+    assert len(builder) == len(ids)
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_map_without_time_first_in_the_list(reversed_dataset, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))
+    maps = stds.get_registered_maps_as_objects(order="start_time")
+    maps.insert(0, maps.pop(1))
+    assert maps[0].get_id() == ids[1]
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps)
+
+    assert builder.get_first().get_id() == ids[0]
+    assert [map_.get_id() for map_ in builder] == [ids[0], *ids[2:], ids[1]]
+    assert chain_of(maps)[ids[1]] == (None, None)
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_only_maps_without_time(reversed_dataset, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, [(0, 1), (1, 2)], (1, 2))
+    maps = stds.get_registered_maps_as_objects(order="start_time")
+    assert all(map_.get_temporal_extent_as_tuple()[0] is None for map_ in maps)
+
+    builder = SpatioTemporalTopologyBuilder()
+    builder.build(maps)
+
+    assert builder.get_first() is None
+    assert [map_.get_id() for map_ in builder] == [map_.get_id() for map_ in maps]
+    assert len(builder) == 2
+    assert relations_by_id(maps) == {map_.get_id(): {} for map_ in maps}
+    assert set(chain_of(maps).values()) == {(None, None)}
+
+
+@pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
+def test_a_map_without_time_only_in_the_second_list(reversed_dataset, temporaltype):
+    stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))
+    good = [map_ for map_ in stored_maps(stds) if map_.get_id() != ids[1]]
+    maps = stds.get_registered_maps_as_objects(order="start_time")
+    alone = [map_ for map_ in stored_maps(stds) if map_.get_id() != ids[1]]
+    SpatioTemporalTopologyBuilder().build(alone)
+
+    SpatioTemporalTopologyBuilder().build(good, maps)
+
+    assert chain_of(good) == chain_of(alone)
+    chain = chain_of(maps)
+    assert chain[ids[1]] == (None, None)
+    assert chain[ids[0]] == (None, ids[2])
+    assert chain[ids[2]] == (ids[0], ids[3])
+
+
 @pytest.mark.parametrize("temporaltype", TEMPORAL_TYPES)
 def test_a_map_without_time_in_both_lists(reversed_dataset, temporaltype):
     stds, ids = reversed_dataset(temporaltype, OVERLAPPING, (2,))

@@ -225,15 +225,11 @@ def test_a_map_stored_with_its_end_before_its_start(tools, nested):
     expected = _blocks(
         tools.t_topology(input=name, flags="m", where=f"id != '{ids['b']}'").stdout
     )
-    # The map without time comes last in the order of the maps.
-    neighbours = {"Next", "Previous"}
-    assert all(_without(expected, neighbours).values())
+    # The map without time comes last in the order of the maps and has no
+    # neighbour; the chain of the others runs past it.
+    assert all(_without(expected, {"Next", "Previous"}).values())
     assert list(blocks) == [ids["a"], ids["c"], ids["b"]]
-    assert _without(blocks, neighbours) == {
-        **_without(expected, neighbours),
-        ids["b"]: {},
-    }
-    assert blocks[ids["b"]] == {"Previous": [ids["c"]]}
+    assert blocks == {**expected, ids["b"]: {}}
 
     summary = tools.t_topology(input=name)
 

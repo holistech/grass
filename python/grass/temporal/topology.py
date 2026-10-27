@@ -403,21 +403,10 @@ def _has_start(map_) -> bool:
 
     The reading of a dataset leaves a map without time when it refuses the
     stored times, for example an end before the start, and names the map.
-    Such a map gets no relation.
+    Such a map gets no relation and stays out of the chain of next and
+    previous maps; the builder keeps it apart and lists it after the chain.
     """
     return map_.get_temporal_extent_as_tuple()[0] is not None
-
-
-def _chronological_key(map_):
-    """Return the key to sort maps by start time, those without one last
-
-    Last, so that the maps with a start time keep the order and the links
-    they had before such a map could reach the builder. Two maps without a
-    start time compare equal on the first item, so their None is never
-    compared, and sorted() keeps them in their order.
-    """
-    start = map_.get_temporal_extent_as_tuple()[0]
-    return (start is None, start)
 
 
 def reversed_map_ids(maps) -> set[str]:
@@ -536,10 +525,16 @@ class SpatioTemporalTopologyBuilder:
     def _reset(self) -> None:
         self._store = {}
         self._first = None
+        # The maps of the first list without a start time, in the order given.
+        self._timeless = []
 
     def _detect_first(self) -> None:
-        if len(self) > 0:
-            prev_ = list(self._store.values())[0]
+        # A map without a start time is not in the chain, so start from a
+        # map that is, whatever its place in the store.
+        self._first = None
+        chained = [map_ for map_ in self._store.values() if _has_start(map_)]
+        if chained:
+            prev_ = chained[0]
             while prev_ is not None:
                 self._first = prev_
                 prev_ = prev_.prev()
@@ -550,7 +545,8 @@ class SpatioTemporalTopologyBuilder:
     def get_first(self):
         """Return the first map with the earliest start time
 
-        :return: The map with the earliest start time
+        :return: The map with the earliest start time, None if no map has a
+                 start time
         """
         return self._first
 
@@ -568,6 +564,7 @@ class SpatioTemporalTopologyBuilder:
         """
         self._build_iteratable(maps, spatial)
 
+        self._timeless = [map_ for map_ in maps if not _has_start(map_)]
         for map_ in maps:
             self._insert(map_)
 
@@ -581,11 +578,17 @@ class SpatioTemporalTopologyBuilder:
         Basically the "next" and "prev" relations will be set in
         the temporal topology structure of each map.
 
-        :param maps: A sorted (by start_time)list of abstract_dataset
-                     objects with initiated temporal extent
+        A map without a start time has no place in time, so it is not
+        chained; the maps before and after it are linked to each other.
+
+        :param maps: A list of abstract_dataset objects with initiated
+                     temporal extent, in any order
         """
-        # First we need to order the map list chronologically
-        sorted_maps = sorted(maps, key=_chronological_key)
+        # sorted() keeps the order of maps that start at the same time.
+        sorted_maps = sorted(
+            (map_ for map_ in maps if _has_start(map_)),
+            key=lambda map_: map_.get_temporal_extent_as_tuple()[0],
+        )
 
         for i in range(len(sorted_maps) - 1):
             sorted_maps[i].set_next(sorted_maps[i + 1])
@@ -594,6 +597,8 @@ class SpatioTemporalTopologyBuilder:
             next_ = map_.next()
             if next_:
                 next_.set_prev(map_)
+
+        for map_ in maps:
             map_.set_temporal_topology_build_true()
             if spatial is not None:
                 map_.set_spatial_topology_build_true()
@@ -693,7 +698,10 @@ class SpatioTemporalTopologyBuilder:
         A map that ends before it starts gets a warning and no relation,
         neither temporal nor spatial; it keeps its place among the maps by
         start time (see reversed_map_ids()). A map without a start time gets
-        no relation either and comes after all others in the iteration.
+        no relation either, and no next and previous map: the chain runs past
+        it. It stays among the maps of mapsA (len(), indexing) and comes after
+        the chain in the iteration, in the order of mapsA. get_first() is the
+        map with the earliest start time, None if no map has one.
         """
 
         identical = False
@@ -759,6 +767,7 @@ class SpatioTemporalTopologyBuilder:
         while start_ is not None:
             yield start_
             start_ = start_.next()
+        yield from self._timeless
 
     def __getitem__(self, index):
         return self._store[index.get_id()]
