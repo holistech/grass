@@ -275,6 +275,25 @@ class SQLDatabaseInterfaceConnection:
         if self.connected and not self.connections[mapset].is_connected():
             self.connections[mapset].connect(dbstring)
 
+    def _connection_of(self, mapset, refusal):
+        """Return the connection of a mapset, the current one if none is given
+
+        :param refusal: The message, with ``{reason}``, for a mapset that has
+                        no accessible temporal database. Each caller passes
+                        its own ``_()`` literal so that the message ids are
+                        found in the source.
+        """
+        if mapset is None:
+            mapset = self.current_mapset
+
+        mapset = decode(mapset)
+        if mapset not in self.tgis_mapsets:
+            self.msgr.fatal(
+                refusal.format(reason=self._create_mapset_error_message(mapset))
+            )
+
+        return self.connections[mapset]
+
     def mogrify_sql_statement(self, content, mapset=None):
         """Return the SQL statement and arguments as executable SQL string
 
@@ -286,18 +305,9 @@ class SQLDatabaseInterfaceConnection:
                        database location, if None the current mapset
                        will be used
         """
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to mogrify sql statement. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].mogrify_sql_statement(content)
+        return self._connection_of(
+            mapset, _("Unable to mogrify sql statement. {reason}")
+        ).mogrify_sql_statement(content)
 
     def check_table(self, table_name: str, mapset=None):
         """Check if a table exists in the temporal database
@@ -308,18 +318,9 @@ class SQLDatabaseInterfaceConnection:
                        will be used
         :returns: True if the table exists, False otherwise
         """
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to check table. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].check_table(table_name)
+        return self._connection_of(
+            mapset, _("Unable to check table. {reason}")
+        ).check_table(table_name)
 
     def execute(self, statement, args=None, mapset=None):
         """
@@ -328,48 +329,21 @@ class SQLDatabaseInterfaceConnection:
                        database location, if None the current mapset
                        will be used
         """
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to execute sql statement. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].execute(statement, args)
+        return self._connection_of(
+            mapset, _("Unable to execute sql statement. {reason}")
+        ).execute(statement, args)
 
     def fetchone(self, mapset=None):
         """Fetch the next row of the last statement executed for the mapset"""
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to fetch one. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].fetchone()
+        return self._connection_of(
+            mapset, _("Unable to fetch one. {reason}")
+        ).fetchone()
 
     def fetchall(self, mapset=None):
         """Fetch all remaining rows of the last statement for the mapset"""
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to fetch all. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].fetchall()
+        return self._connection_of(
+            mapset, _("Unable to fetch all. {reason}")
+        ).fetchall()
 
     def execute_transaction(self, statement, mapset=None):
         """Execute a transactional SQL statement
@@ -379,18 +353,9 @@ class SQLDatabaseInterfaceConnection:
 
         :param statement: The executable SQL statement or SQL script
         """
-        if mapset is None:
-            mapset = self.current_mapset
-
-        mapset = decode(mapset)
-        if mapset not in self.tgis_mapsets:
-            self.msgr.fatal(
-                _("Unable to execute transaction. {reason}").format(
-                    reason=self._create_mapset_error_message(mapset)
-                )
-            )
-
-        return self.connections[mapset].execute_transaction(statement)
+        return self._connection_of(
+            mapset, _("Unable to execute transaction. {reason}")
+        ).execute_transaction(statement)
 
     def _create_mapset_error_message(self, mapset) -> str:
         return _(

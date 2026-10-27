@@ -594,3 +594,29 @@ def test_a_failing_mogrify_prints_nothing(capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == ""
+
+
+@pytest.mark.parametrize(
+    ("call", "text"),
+    [
+        (
+            lambda d, m: d.mogrify_sql_statement(["SELECT 1", []], m),
+            "mogrify sql statement",
+        ),
+        (lambda d, m: d.check_table("raster_base", m), "check table"),
+        (lambda d, m: d.execute("SELECT 1", None, m), "execute sql statement"),
+        (lambda d, m: d.fetchone(m), "fetch one"),
+        (lambda d, m: d.fetchall(m), "fetch all"),
+        (lambda d, m: d.execute_transaction("SELECT 1", m), "execute transaction"),
+    ],
+)
+def test_a_mapset_without_a_database_is_refused_by_name(call, text):
+    from grass.pygrass.messages import FatalError  # noqa: PLC0415
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    with pytest.raises(FatalError) as error:
+        call(dbif, "nosuchmapset")
+    message = str(error.value)
+    assert f"Unable to {text}." in message
+    assert "<nosuchmapset>" in message
+    assert "Accessible mapsets are:" in message
