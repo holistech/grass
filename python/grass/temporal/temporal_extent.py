@@ -84,6 +84,21 @@ def _refuse_reversed(extent) -> None:
         raise ValueError(msg)
 
 
+def _extent_like(extent, start, end):
+    """Return a new extent of the class that extent is or derives from
+
+    A row of the temporal database gives an AbsoluteTemporalExtent or a
+    RelativeTemporalExtent with its unit, not a row.
+    """
+    if isinstance(extent, RelativeTemporalExtent):
+        return RelativeTemporalExtent(
+            start_time=start, end_time=end, unit=extent.get_unit()
+        )
+    if isinstance(extent, AbsoluteTemporalExtent):
+        return AbsoluteTemporalExtent(start_time=start, end_time=end)
+    return TemporalExtent(start_time=start, end_time=end)
+
+
 class TemporalExtent(Row):
     """This is the abstract time base class for relative and absolute time
     objects.
@@ -155,33 +170,22 @@ class TemporalExtent(Row):
         if relation in {"after", "before"}:
             return None
 
+        # The intersection with a time instance is that instance as a plain
+        # TemporalExtent; the classic algebra tells it from an interval by its
+        # type.
         if self.D["end_time"] is None:
             return TemporalExtent(start_time=self.D["start_time"])
 
         if extent.D["end_time"] is None:
             return TemporalExtent(start_time=extent.D["start_time"])
 
-        start = None
-        end = None
-
-        if self.D["start_time"] > extent.D["start_time"]:
-            start = self.D["start_time"]
-        else:
-            start = extent.D["start_time"]
-
-        if self.D["end_time"] > extent.D["end_time"]:
-            end = extent.D["end_time"]
-        else:
-            end = self.D["end_time"]
-
-        if issubclass(type(self), RelativeTemporalExtent):
-            return RelativeTemporalExtent(
-                start_time=start, end_time=end, unit=self.get_unit()
-            )
-        if issubclass(type(self), AbsoluteTemporalExtent):
-            return AbsoluteTemporalExtent(start_time=start, end_time=end)
-        if issubclass(type(self), TemporalExtent):
-            return TemporalExtent(start_time=start, end_time=end)
+        # The order of the arguments of max() and min() keeps the time that
+        # wins a tie (5 against 5.0): the start of extent, the end of self.
+        return _extent_like(
+            self,
+            max(extent.D["start_time"], self.D["start_time"]),
+            min(self.D["end_time"], extent.D["end_time"]),
+        )
 
     def disjoint_union(self, extent):
         """Creates a disjoint union with this temporal extent and the provided one.
@@ -203,43 +207,21 @@ class TemporalExtent(Row):
 
         """
 
-        start = None
-        end = None
-
-        if self.D["start_time"] < extent.D["start_time"]:
-            start = self.D["start_time"]
+        # The latest time of each extent is its end, or its start if it is a
+        # time instance. The order of the arguments of min() and max() keeps
+        # the time that wins a tie (5 against 5.0): the start of extent; the
+        # end of self if both are intervals, else the time of extent.
+        own_end = self.D["end_time"]
+        other_end = extent.D["end_time"]
+        start = min(extent.D["start_time"], self.D["start_time"])
+        if own_end is not None and other_end is not None:
+            end = max(own_end, other_end)
         else:
-            start = extent.D["start_time"]
-
-        # End time handling
-        if self.D["end_time"] is None and extent.D["end_time"] is None:
-            if self.D["start_time"] > extent.D["start_time"]:
-                end = self.D["start_time"]
-            else:
-                end = extent.D["start_time"]
-        elif self.D["end_time"] is None:
-            if self.D["start_time"] > extent.D["end_time"]:
-                end = self.D["start_time"]
-            else:
-                end = extent.D["end_time"]
-        elif extent.D["end_time"] is None:
-            if self.D["end_time"] > extent.D["start_time"]:
-                end = self.D["end_time"]
-            else:
-                end = extent.D["start_time"]
-        elif self.D["end_time"] < extent.D["end_time"]:
-            end = extent.D["end_time"]
-        else:
-            end = self.D["end_time"]
-
-        if issubclass(type(self), RelativeTemporalExtent):
-            return RelativeTemporalExtent(
-                start_time=start, end_time=end, unit=self.get_unit()
+            end = max(
+                extent.D["start_time"] if other_end is None else other_end,
+                self.D["start_time"] if own_end is None else own_end,
             )
-        if issubclass(type(self), AbsoluteTemporalExtent):
-            return AbsoluteTemporalExtent(start_time=start, end_time=end)
-        if issubclass(type(self), TemporalExtent):
-            return TemporalExtent(start_time=start, end_time=end)
+        return _extent_like(self, start, end)
 
     def union(self, extent):
         """Creates a union with this temporal extent and the provided one.

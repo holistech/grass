@@ -343,6 +343,73 @@ def test_intersection_and_disjoint_union_of_two_extents(method, a, b, expected):
         assert (result.get_start_time(), result.get_end_time()) == expected
 
 
+# Equal times of two types (5 and 5.0) show which extent a result takes a
+# time from when the times tie. The intersection takes the start of the
+# argument and the end of the extent, the disjoint union the start of the
+# argument; its end is the end of the extent if both are intervals and the time
+# of the argument otherwise.
+TIES = [
+    ("intersect", (5, 7.0), (5.0, 7), "(5.0, 7.0)"),
+    ("intersect", (5.0, 7), (5, 7.0), "(5, 7)"),
+    ("intersect", (5, None), (5.0, 7), "(5, None)"),
+    ("intersect", (5, 7), (5.0, None), "(5.0, None)"),
+    ("disjoint_union", (5, 7.0), (5.0, 7), "(5.0, 7.0)"),
+    ("disjoint_union", (5.0, 7), (5, 7.0), "(5, 7)"),
+    ("disjoint_union", (5, None), (5.0, None), "(5.0, 5.0)"),
+    ("disjoint_union", (5.0, None), (5, None), "(5, 5)"),
+    ("disjoint_union", (7, None), (5, 7.0), "(5, 7.0)"),
+    ("disjoint_union", (7.0, None), (5, 7), "(5, 7)"),
+    ("disjoint_union", (5, 7.0), (7, None), "(5, 7)"),
+    ("disjoint_union", (5, 7), (7.0, None), "(5, 7.0)"),
+    ("union", (5, 7.0), (5.0, 7), "(5.0, 7.0)"),
+]
+
+
+@pytest.mark.parametrize(("method", "a", "b", "expected"), TIES)
+def test_the_time_a_result_takes_when_two_times_tie(method, a, b, expected):
+    first = TemporalExtent(start_time=a[0], end_time=a[1])
+    second = TemporalExtent(start_time=b[0], end_time=b[1])
+
+    result = getattr(first, method)(second)
+
+    assert repr((result.get_start_time(), result.get_end_time())) == expected
+
+
+# A row of the temporal database gives the extent class it derives from, with
+# the unit in relative time.
+ROWS = [
+    (
+        AbsoluteTimeRow(
+            KINDS["raster"],
+            start_time=datetime(2001, 1, 1),
+            end_time=datetime(2001, 3, 1),
+        ),
+        AbsoluteTimeRow(
+            KINDS["raster"],
+            start_time=datetime(2001, 2, 1),
+            end_time=datetime(2001, 4, 1),
+        ),
+        AbsoluteTemporalExtent,
+        None,
+    ),
+    (
+        RelativeTimeRow(KINDS["strds"], start_time=1, end_time=3, unit="days"),
+        RelativeTimeRow(KINDS["strds"], start_time=2, end_time=4, unit="days"),
+        RelativeTemporalExtent,
+        "days",
+    ),
+]
+
+
+@pytest.mark.parametrize("method", ["intersect", "disjoint_union", "union"])
+@pytest.mark.parametrize(("a", "b", "cls", "unit"), ROWS)
+def test_a_row_gives_the_extent_class_it_derives_from(method, a, b, cls, unit):
+    result = getattr(a, method)(b)
+
+    assert type(result) is cls
+    assert result.D.get("unit") == unit
+
+
 @pytest.mark.parametrize(
     ("a", "b"),
     [
