@@ -1,16 +1,22 @@
-"""Tests for datetime arithmetic and granularity adjustment
+"""Tests for datetime arithmetic, parsing, formatting and granularity adjustment
 
-Both functions are pure datetime arithmetic, so no GRASS session and no
+The functions are pure datetime arithmetic, so no GRASS session and no
 temporal database are needed here.
 """
 
 from datetime import datetime
 
 import pytest
+from dateutil import parser
 
 from grass.temporal.datetime_math import (
     adjust_datetime_to_granularity,
+    check_datetime_string,
+    create_suffix_from_datetime,
+    datetime_to_grass_datetime_string,
+    decrement_datetime_by_string,
     increment_datetime_by_string,
+    modify_datetime,
 )
 
 
@@ -29,10 +35,91 @@ from grass.temporal.datetime_math import (
         # More than twelve months has to roll the year over.
         (datetime(2001, 11, 1), "13 months", datetime(2002, 12, 1)),
         (datetime(2001, 1, 1), "72 months", datetime(2007, 1, 1)),
+        # Units below a month are added as a time span and carry over.
+        (datetime(2001, 1, 1), "5 minutes", datetime(2001, 1, 1, 0, 5)),
+        (datetime(2001, 1, 1), "49 hours", datetime(2001, 1, 3, 1, 0)),
+        (datetime(2001, 1, 1), "3600 seconds", datetime(2001, 1, 1, 1, 0)),
+        (datetime(2001, 1, 1), "30 days", datetime(2001, 1, 31, 0, 0)),
     ],
 )
 def test_increment_datetime_by_string(start, increment, expected) -> None:
     assert increment_datetime_by_string(start, increment) == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "decrement", "expected"),
+    [
+        # 31 days and one month back from 1 January both end on 1 December.
+        (datetime(2001, 1, 1), "31 days", datetime(2000, 12, 1, 0, 0)),
+        (datetime(2001, 1, 1), "1 month", datetime(2000, 12, 1, 0, 0)),
+        (datetime(2001, 1, 1), "2 month", datetime(2000, 11, 1, 0, 0)),
+        # Months back over one or more year boundaries
+        (datetime(2001, 1, 1), "24 months", datetime(1999, 1, 1, 0, 0)),
+        (datetime(2001, 1, 1), "48 months", datetime(1997, 1, 1, 0, 0)),
+        (datetime(2001, 6, 1), "5 months", datetime(2001, 1, 1, 0, 0)),
+        (datetime(2001, 6, 1), "7 months", datetime(2000, 11, 1, 0, 0)),
+        (datetime(2001, 1, 1), "1 year", datetime(2000, 1, 1, 0, 0)),
+    ],
+)
+def test_decrement_datetime_by_string(start, decrement, expected) -> None:
+    assert decrement_datetime_by_string(start, decrement) == expected
+
+
+@pytest.mark.parametrize(
+    ("start", "step", "expected"),
+    [
+        # 23 months from 31 March end on the last day of February.
+        (datetime(2003, 3, 31), {"months": 23}, datetime(2005, 2, 28, 0, 0)),
+        # A negative month step goes back by whole years here.
+        (datetime(2003, 12, 1), {"months": -24}, datetime(2001, 12, 1, 0, 0)),
+    ],
+)
+def test_modify_datetime(start, step, expected) -> None:
+    assert modify_datetime(start, **step) == expected
+
+
+@pytest.mark.parametrize("use_dateutil", [True, False])
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # Every ISO form that the parser of the library reads without dateutil
+        ("2000-01-01", datetime(2000, 1, 1, 0, 0)),
+        ("2000-01-01T10:00:00", datetime(2000, 1, 1, 10, 0)),
+        ("2000-01-01 10:00:00", datetime(2000, 1, 1, 10, 0)),
+        ("2000-01-01T10:00:00.000001", datetime(2000, 1, 1, 10, 0, 0, 1)),
+        ("2000-01-01 10:00:00.000001", datetime(2000, 1, 1, 10, 0, 0, 1)),
+    ],
+)
+def test_check_datetime_string(text, use_dateutil, expected) -> None:
+    assert check_datetime_string(text, use_dateutil) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # GRASS reads the offset as hours and minutes, also when negative.
+        ("2011-01-01 10:00:00 +01:30", "01 jan 2011 10:00:00 +0130"),
+        ("2011-01-01 10:00:00 +02:30", "01 jan 2011 10:00:00 +0230"),
+        ("2011-01-01 10:00:00 +12:00", "01 jan 2011 10:00:00 +1200"),
+        ("2011-01-01 10:00:00 -01:30", "01 jan 2011 10:00:00 -0130"),
+    ],
+)
+def test_datetime_to_grass_datetime_string_with_time_zone(text, expected) -> None:
+    assert datetime_to_grass_datetime_string(parser.parse(text)) == expected
+
+
+@pytest.mark.parametrize(
+    ("granularity", "expected"),
+    [
+        ("1 month", "2001_01"),
+        # Only the unit after the first number decides the suffix.
+        ("1 year 1 month", "2001"),
+        ("6 seconds", "2001_01_01_10_04_12"),
+    ],
+)
+def test_create_suffix_from_datetime(granularity, expected) -> None:
+    start = datetime(2001, 1, 1, 10, 4, 12)
+    assert create_suffix_from_datetime(start, granularity) == expected
 
 
 @pytest.mark.parametrize(
