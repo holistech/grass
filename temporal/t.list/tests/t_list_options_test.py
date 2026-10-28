@@ -300,3 +300,61 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, make_stds):
     assert "syntax error" in text
     # The library leaves the report to the tool: one error, not also the SQL.
     assert text.count("ERROR:") == 1
+
+
+@pytest.mark.parametrize(
+    ("output_format", "expected"),
+    [("plain", ""), ("csv", ""), ("line", ""), ("json", "[]\n")],
+)
+def test_a_where_that_selects_nothing(
+    tools, prefix, make_stds, output_format, expected
+):
+    # A dataset makes sure that the temporal database exists.
+    make_stds(1)
+
+    result = tools.t_list(
+        type="strds",
+        columns="name",
+        where=f"name = '{prefix}_none'",
+        format=output_format,
+    )
+
+    # Without rows csv prints no column names either.
+    assert result.stdout == expected
+
+
+def test_csv_prints_the_column_names_once_over_both_temporal_types(
+    tools, prefix, make_stds
+):
+    _, names = make_stds(1)
+    relative = f"{prefix}_rel"
+    tools.t_create(
+        output=relative,
+        type="strds",
+        temporaltype="relative",
+        title="relative",
+        description="relative",
+    )
+
+    result = tools.t_list(
+        type="strds",
+        columns="name",
+        where=f"name LIKE '{prefix}%'",
+        temporaltype="absolute,relative",
+        format="csv",
+    )
+
+    assert result.stdout.splitlines() == ["name", names[0], relative]
+
+
+def test_a_where_with_a_syntax_error_leaves_an_empty_output_file(
+    tools, make_stds, tmp_path
+):
+    make_stds(1)
+    path = tmp_path / "list.txt"
+
+    text = _listing_refused(tools, where="nonsense =", output=str(path))
+
+    assert "Invalid where condition <nonsense =>" in text
+    # The output file is opened before the datasets are read.
+    assert path.read_text() == ""

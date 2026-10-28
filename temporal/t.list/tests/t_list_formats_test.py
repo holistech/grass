@@ -256,3 +256,21 @@ def test_t_list_multiple_types_csv(space_time_dataset):
     # Header should NOT include dataset-specific columns
     assert "raster_register" not in header
     assert "vector_register" not in header
+
+
+@pytest.mark.parametrize(("output_format", "flags"), [("csv", ""), ("plain", "c")])
+def test_the_column_names_are_printed_once_over_all_mapsets(
+    space_time_dataset, output_format, flags
+):
+    """The rows of both mapsets follow one line of column names"""
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(
+        type="strds", mapset="*", columns="name", format=output_format, flags=flags
+    )
+
+    lines = result.stdout.splitlines()
+    assert lines[0] == "name"
+    assert sorted(lines[1:]) == sorted(
+        [space_time_dataset.raster_dataset1, space_time_dataset.raster_dataset2]
+    )
