@@ -1420,6 +1420,7 @@
   "datetime_to_grass_datetime_string": "repo",
   "export_stds": "repo",
   "extract_dataset": "repo",
+  "first_related_map_id": "repo",
   "get_current_mapset": "addons+repo",
   "get_dataset_list": "repo",
   "get_sql_template_path": "repo",

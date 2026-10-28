@@ -8,7 +8,8 @@ example some remove the empty maps before closing the database connection and
 others after it.
 
 The tools that compute in cycles (t.rast.accumulate, t.rast.accdetect) walk
-their cycles with dataset_cycles().
+their cycles with dataset_cycles() and find the threshold map of a map with
+first_related_map_id().
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -109,6 +110,29 @@ def _is_empty(new_map):
         # from the coor file without writing a topology.
         primitives = gs.vector_info_topo(new_map.get_id())["primitives"]
     return primitives == 0
+
+
+# The relations by which a map selects a map of another dataset, in the order
+# in which they are tried, as the topology builder files them.
+_SELECTING_RELATIONS = ("EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS")
+
+
+def first_related_map_id(map_):
+    """The id of the map of another dataset that map_ selects, or None
+
+    The relations EQUAL, DURING, OVERLAPS, OVERLAPPED and CONTAINS are tried
+    in this order; of the first that holds maps, the first map counts. The
+    topology of map_ with the other maps must be built
+    (SpatioTemporalTopologyBuilder.build(maps, other_maps)).
+
+    :param map_: A map with its temporal relations built
+    :return: The id of the selected map, None when no relation holds a map
+    """
+    relations = map_.get_temporal_relations()
+    for relation in _SELECTING_RELATIONS:
+        if relation in relations:
+            return str(relations[relation][0].get_id())
+    return None
 
 
 def dataset_cycles(dataset, start, end, stop, cycle, offset, dbif):

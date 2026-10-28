@@ -77,7 +77,12 @@ from .temporal_granularity import (
     gran_singular_unit,
     gran_to_gran,
 )
-from .tool_steps import dataset_cycles, open_new_map_for, register_new_maps
+from .tool_steps import (
+    dataset_cycles,
+    first_related_map_id,
+    open_new_map_for,
+    register_new_maps,
+)
 from .univar_statistics import (
     print_gridded_dataset_univar_statistics,
     print_vector_dataset_univar_statistics,
@@ -118,6 +123,7 @@ __all__ = [
     "datetime_to_grass_datetime_string",
     "export_stds",
     "extract_dataset",
+    "first_related_map_id",
     "get_current_mapset",
     "get_dataset_list",
     "get_sql_template_path",

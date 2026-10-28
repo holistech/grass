@@ -373,3 +373,65 @@ def test_relative_cycles_with_an_offset(relative):
 
 def test_relative_cycles_end_at_stop(relative):
     assert cycles_of(relative, 0, 3, stop=4, cycle=3, offset=0) == [(0, 3), (3, 4)]
+
+
+def day_map(name, first, last):
+    """A raster map object without data from day first to day last of 2001-01"""
+    map_ = tgis.RasterDataset(f"{name}@PERMANENT")
+    map_.set_absolute_time(datetime(2001, 1, first), datetime(2001, 1, last))
+    return map_
+
+
+def selected(granule, others):
+    tgis.SpatioTemporalTopologyBuilder().build([granule], others)
+    return tgis.first_related_map_id(granule)
+
+
+@pytest.mark.parametrize(
+    ("first", "last", "expected"),
+    [
+        # The granule of days 3 to 5 against a map of the same time ...
+        (3, 5, "same@PERMANENT"),
+        # ... during a longer map, overlapping and overlapped by a map, and
+        # containing a shorter map.
+        (1, 9, "long@PERMANENT"),
+        (4, 7, "late@PERMANENT"),
+        (1, 4, "early@PERMANENT"),
+        (4, 5, "short@PERMANENT"),
+    ],
+)
+def test_the_map_of_each_relation_is_selected(first, last, expected):
+    granule = day_map("granule", 3, 5)
+    other = day_map(expected.split("@")[0], first, last)
+
+    assert selected(granule, [other]) == expected
+
+
+def test_the_relations_are_tried_in_their_order():
+    # The granule (days 3 to 5) is during "long", equal to "same", overlaps
+    # "late", is overlapped by "early" and contains "short": EQUAL comes first,
+    # then DURING, OVERLAPS, OVERLAPPED and CONTAINS.
+    others = [
+        day_map("short", 4, 5),
+        day_map("early", 1, 4),
+        day_map("late", 4, 7),
+        day_map("long", 1, 9),
+        day_map("same", 3, 5),
+    ]
+    order = []
+    while others:
+        name = selected(day_map("granule", 3, 5), others)
+        order.append(name)
+        others = [other for other in others if other.get_id() != name]
+
+    assert order == [
+        "same@PERMANENT",
+        "long@PERMANENT",
+        "late@PERMANENT",
+        "early@PERMANENT",
+        "short@PERMANENT",
+    ]
+
+
+def test_a_map_that_only_follows_is_not_selected():
+    assert selected(day_map("granule", 3, 5), [day_map("after", 5, 7)]) is None
