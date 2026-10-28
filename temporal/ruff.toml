@@ -54,7 +54,6 @@ max-complexity = 15
 "t.rast.to.rast3/t.rast.to.rast3.py" = ["C901"]
 "t.rast.to.vect/t.rast.to.vect.py" = ["C901"]
 "t.rast.what/t.rast.what.py" = ["C901"]
-"t.remove/t.remove.py" = ["C901"]
 "t.support/t.support.py" = ["C901"]
 "t.topology/t.topology.py" = ["C901"]
 "t.unregister/t.unregister.py" = ["C901"]
