@@ -124,58 +124,9 @@ import grass.script as gs
 # lazy imports at the end of the file
 
 
-############################################################################
-
-# The keys of the relations as the topology builder files them.
-range_relations = ["EQUAL", "DURING", "OVERLAPS", "OVERLAPPED", "CONTAINS"]
-
-
-def _to_datetime(text, option, dbif):
-    """Convert the value of an option to a datetime or end with a message"""
-    # string_to_datetime ends in an AttributeError for text it cannot read
-    # (checked 20.10.2026 with "garbage"), the annotation says None.
-    try:
-        converted = tgis.string_to_datetime(text)
-    except (AttributeError, ValueError):
-        converted = None
-    if converted is None:
-        dbif.close()
-        gs.fatal(_("Invalid date <{}> of the option <{}>").format(text, option))
-    return converted
-
-
-def main():
-    # Get the options
-    input = options["input"]
-    start = options["start"]
-    stop = options["stop"]
-    base = options["basename"]
-    cycle = options["cycle"]
-    offset = options["offset"]
-    minimum = options["minimum"]
-    maximum = options["maximum"]
-    occurrence = options["occurrence"]
-    range_ = options["range"]
-    indicator = options["indicator"]
-    staend = options["staend"]
-    register_null = flags["n"]
-    reverse = flags["r"]
-    time_suffix = options["suffix"]
-
-    try:
-        tgis.check_suffix(time_suffix)
-    except ValueError as error:
-        gs.fatal(str(error))
-
-    # Make sure the temporal database exists
-    tgis.init()
-    # We need a database interface
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    mapset = tgis.get_current_mapset()
-
-    id = input if input.find("@") >= 0 else input + "@" + mapset
+def open_input(input_name, mapset, dbif):
+    """Open the input dataset and read it from the database"""
+    id = input_name if input_name.find("@") >= 0 else input_name + "@" + mapset
     input_strds = tgis.SpaceTimeRasterDataset(id)
 
     if not input_strds.is_in_db():
@@ -186,9 +137,16 @@ def main():
         )
 
     input_strds.select(dbif)
-    dummy = input_strds.get_new_map_instance(None)
+    return input_strds
 
-    # The occurrence space time raster dataset
+
+def open_occurrence(occurrence, minimum, maximum, range_, mapset, dbif):
+    """Open the occurrence dataset, None without the option
+
+    Without a range both threshold datasets are needed. Nothing is written;
+    an occurrence dataset that exists ends the run unless overwrite is set.
+    """
+    occurrence_strds = None
     if occurrence:
         if (not minimum or not maximum) and not range_:
             dbif.close()
@@ -214,46 +172,57 @@ def main():
                 )
                 % occurrence_id
             )
+    return occurrence_strds
 
-    # The indicator space time raster dataset
-    if indicator:
-        if not occurrence:
-            dbif.close()
-            gs.fatal(
-                _(
-                    "You need to set the occurrence to compute the indicator"
-                    " space time raster dataset"
-                )
-            )
-        if not staend:
-            dbif.close()
-            gs.fatal(
-                _(
-                    "You need to set the staend options to compute the indicator"
-                    " space time raster dataset"
-                )
-            )
-        if indicator.find("@") >= 0:
-            indicator_id = indicator
-        else:
-            indicator_id = indicator + "@" + mapset
 
-        indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)
-        if indicator_strds.is_in_db(dbif) and not gs.overwrite():
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Space time raster dataset <%s> is already in the "
-                    "database, use overwrite flag to overwrite"
-                )
-                % indicator_id
-            )
-        staend = staend.split(",")
-        indicator_start = int(staend[0])
-        indicator_mid = int(staend[1])
-        indicator_end = int(staend[2])
+def open_indicator(indicator, occurrence, staend, mapset, dbif):
+    """Open the indicator dataset and read staend, both None without the option
 
-    # The minimum threshold space time raster dataset
+    The indicator needs the occurrence and staend. Nothing is written; an
+    indicator dataset that exists ends the run unless overwrite is set.
+    Returns the dataset and the start, intermediate and end values.
+    """
+    if not indicator:
+        return None, None
+
+    if not occurrence:
+        dbif.close()
+        gs.fatal(
+            _(
+                "You need to set the occurrence to compute the indicator"
+                " space time raster dataset"
+            )
+        )
+    if not staend:
+        dbif.close()
+        gs.fatal(
+            _(
+                "You need to set the staend options to compute the indicator"
+                " space time raster dataset"
+            )
+        )
+    indicator_id = indicator if indicator.find("@") >= 0 else indicator + "@" + mapset
+
+    indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)
+    if indicator_strds.is_in_db(dbif) and not gs.overwrite():
+        dbif.close()
+        gs.fatal(
+            _(
+                "Space time raster dataset <%s> is already in the "
+                "database, use overwrite flag to overwrite"
+            )
+            % indicator_id
+        )
+    staend = staend.split(",")
+    return indicator_strds, (int(staend[0]), int(staend[1]), int(staend[2]))
+
+
+def open_thresholds(input_strds, minimum, maximum, mapset, dbif):
+    """Open the threshold datasets of the options minimum and maximum
+
+    Returns both, None for an option that is not given. A dataset that does
+    not exist or has another temporal type than the input ends the run.
+    """
     minimum_strds = None
     if minimum:
         minimum_id = minimum if minimum.find("@") >= 0 else minimum + "@" + mapset
@@ -271,7 +240,6 @@ def main():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and minimum strds must be equal"))
 
-    # The maximum threshold space time raster dataset
     maximum_strds = None
     if maximum:
         maximum_id = maximum if maximum.find("@") >= 0 else maximum + "@" + mapset
@@ -288,22 +256,11 @@ def main():
         if maximum_strds.get_temporal_type() != input_strds.get_temporal_type():
             dbif.close()
             gs.fatal(_("Temporal type of input strds and maximum strds must be equal"))
+    return minimum_strds, maximum_strds
 
-    _input_strds_start, input_strds_end = input_strds.get_temporal_extent_as_tuple()
-    # The loop below ends before input_strds_end and before stop, so an
-    # instant at the end of the dataset would be left out. One unit behind it
-    # keeps it in, as in t.rast.aggregate.
-    if input_strds.get_registered_maps_as_objects(
-        where="start_time = '%s' AND end_time IS NULL" % str(input_strds_end),
-        dbif=dbif,
-    ):
-        if input_strds.is_time_absolute():
-            input_strds_end = tgis.increment_datetime_by_string(
-                input_strds_end, "1 second"
-            )
-        else:
-            input_strds_end += 1
 
+def check_lengths(input_strds, cycle, offset, dbif):
+    """Refuse a cycle or offset that the temporal type cannot read"""
     if not tgis.check_granularity_string(cycle, input_strds.get_temporal_type()):
         dbif.close()
         gs.fatal(_("Invalid cycle"))
@@ -314,17 +271,33 @@ def main():
         dbif.close()
         gs.fatal(_("Invalid offset"))
 
+
+def read_start_and_stop(input_strds, start, stop, dbif):
+    """Convert the options start and stop to the time of the input dataset
+
+    Without stop, stop is None: the cycles run to the end of the data.
+    """
     if input_strds.is_time_absolute():
-        start = _to_datetime(start, "start", dbif)
-        stop = _to_datetime(stop, "stop", dbif) if stop else input_strds_end
+        start = tgis.option_to_datetime(start, "start", dbif)
+        stop = tgis.option_to_datetime(stop, "stop", dbif) if stop else None
     else:
         try:
             start = int(start)
-            stop = int(stop) if stop else input_strds_end
+            stop = int(stop) if stop else None
         except ValueError:
             dbif.close()
             gs.fatal(_("The options start and stop must be integers"))
+    return start, stop
 
+
+def first_cycle(input_strds, start, cycle, offset, dbif):
+    """The end of the first cycle and the lengths of time as the cycles use them
+
+    Returns end, cycle and offset; in relative time the two lengths become
+    integers. A cycle that does not move time forward ends the run, and so
+    does an offset that moves the next cycle back to or before the start of
+    the first.
+    """
     if input_strds.is_time_absolute():
         end = tgis.increment_datetime_by_string(start, cycle)
     else:
@@ -334,13 +307,12 @@ def main():
         end = start + cycle
 
     # A cycle or an offset that does not move time forward would make the
-    # loop run forever.
+    # loop of the cycles run forever.
     if end <= start:
         dbif.close()
         gs.fatal(_("The cycle must be longer than zero"))
-    origin = start
     next_start, _next_end = tgis.next_cycle(
-        origin, 1, end, cycle, offset, input_strds.is_time_absolute()
+        start, 1, end, cycle, offset, input_strds.is_time_absolute()
     )
     if next_start <= start:
         dbif.close()
@@ -349,247 +321,7 @@ def main():
                 "The offset must not move the next cycle back to or before the start of this one"
             )
         )
-
-    count = 1
-    indi_count = 1
-    number = 0
-    occurrence_maps = {}
-    indicator_maps = {}
-
-    while input_strds_end > start and stop > start:
-        # Make sure that the cyclic computation will stop at the correct time
-        if stop and end > stop:
-            end = stop
-
-        where = "start_time >= '%s' AND start_time < '%s'" % (str(start), str(end))
-        input_maps = input_strds.get_registered_maps_as_objects(where=where, dbif=dbif)
-
-        gs.debug(len(input_maps))
-
-        input_topo = tgis.SpatioTemporalTopologyBuilder()
-        input_topo.build(input_maps, input_maps)
-
-        if len(input_maps) == 0:
-            number += 1
-            start, end = tgis.next_cycle(
-                origin, number, end, cycle, offset, input_strds.is_time_absolute()
-            )
-            continue
-
-        gs.message(_("Processing cycle %s - %s") % (str(start), str(end)))
-
-        count = compute_occurrence(
-            occurrence_maps,
-            input_strds,
-            input_maps,
-            start,
-            base,
-            count,
-            time_suffix,
-            mapset,
-            where,
-            reverse,
-            range_,
-            minimum_strds,
-            maximum_strds,
-            dbif,
-        )
-
-        # Indicator computation is based on the occurrence so we need to start it after
-        # the occurrence cycle
-        if indicator:
-            num_maps = len(input_maps)
-            for i in range(num_maps):
-                map = input_maps[num_maps - i - 1] if reverse else input_maps[i]
-
-                suffix = tgis.map_name_suffix(
-                    map, time_suffix, input_strds.get_granularity(), indi_count
-                )
-                indicator_map_name = f"{base}_indicator_{suffix}"
-                indicator_map_id = dummy.build_id(indicator_map_name, mapset)
-                indicator_map = input_strds.get_new_map_instance(indicator_map_id)
-
-                # Check if new map is in the temporal database
-                if indicator_map.is_in_db(dbif):
-                    if gs.overwrite():
-                        # Remove the existing temporal database entry
-                        indicator_map.delete(dbif)
-                        indicator_map = input_strds.get_new_map_instance(
-                            indicator_map_id
-                        )
-                    else:
-                        gs.fatal(
-                            _(
-                                "Map <%s> is already registered in the temporal"
-                                " database, use overwrite flag to overwrite."
-                            )
-                            % (indicator_map.get_map_id())
-                        )
-
-                curr_map = occurrence_maps[map.get_id()].get_name()
-
-                # Reverse time
-                if reverse:
-                    if i == 0:
-                        prev_map = curr_map
-                        subexpr1 = "null()"
-                        subexpr3 = "%i" % (indicator_start)
-                    elif 0 < i < num_maps - 1:
-                        prev_map = occurrence_maps[map.next().get_id()].get_name()
-                        next_map = occurrence_maps[map.prev().get_id()].get_name()
-                        # In case the previous map is null() set null() or the start
-                        # indicator
-                        subexpr1 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_start,
-                        )
-                        # In case the previous map was not null() if the current map is
-                        #   null() set null()
-                        # if the current map is not null() and the next map is not
-                        #   null() set
-                        # intermediate indicator, if the next map is null set the end
-                        #   indicator
-                        subexpr2 = "if(isnull(%s), %i, %i)" % (
-                            next_map,
-                            indicator_end,
-                            indicator_mid,
-                        )
-                        subexpr3 = "if(isnull(%s), null(), %s)" % (curr_map, subexpr2)
-                        expression = "%s = if(isnull(%s), %s, %s)" % (
-                            indicator_map_name,
-                            prev_map,
-                            subexpr1,
-                            subexpr3,
-                        )
-                    else:
-                        prev_map = occurrence_maps[map.next().get_id()].get_name()
-                        subexpr1 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_start,
-                        )
-                        # The cycle ends here, so a run that goes on ends too.
-                        subexpr3 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_end,
-                        )
-                else:  # noqa: PLR5501
-                    if i == 0:
-                        prev_map = curr_map
-                        subexpr1 = "null()"
-                        subexpr3 = "%i" % (indicator_start)
-                    elif 0 < i < num_maps - 1:
-                        prev_map = occurrence_maps[map.prev().get_id()].get_name()
-                        next_map = occurrence_maps[map.next().get_id()].get_name()
-                        # In case the previous map is null() set null() or the start
-                        # indicator
-                        subexpr1 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_start,
-                        )
-                        # In case the previous map was not null() if the current map
-                        #   is null() set null()
-                        # if the current map is not null() and the next map is not
-                        #   null() set
-                        # intermediate indicator, if the next map is null set the end
-                        #   indicator
-                        subexpr2 = "if(isnull(%s), %i, %i)" % (
-                            next_map,
-                            indicator_end,
-                            indicator_mid,
-                        )
-                        subexpr3 = "if(isnull(%s), null(), %s)" % (curr_map, subexpr2)
-                        expression = "%s = if(isnull(%s), %s, %s)" % (
-                            indicator_map_name,
-                            prev_map,
-                            subexpr1,
-                            subexpr3,
-                        )
-                    else:
-                        prev_map = occurrence_maps[map.prev().get_id()].get_name()
-                        subexpr1 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_start,
-                        )
-                        # The cycle ends here, so a run that goes on ends too.
-                        subexpr3 = "if(isnull(%s), null(), %i)" % (
-                            curr_map,
-                            indicator_end,
-                        )
-
-                expression = "%s = if(isnull(%s), %s, %s)" % (
-                    indicator_map_name,
-                    prev_map,
-                    subexpr1,
-                    subexpr3,
-                )
-                gs.debug(expression)
-                gs.mapcalc(expression, overwrite=True)
-
-                map_start, map_end = map.get_temporal_extent_as_tuple()
-
-                if map.is_time_absolute():
-                    indicator_map.set_absolute_time(map_start, map_end)
-                else:
-                    indicator_map.set_relative_time(
-                        map_start, map_end, map.get_relative_time_unit()
-                    )
-
-                indicator_maps[map.get_id()] = indicator_map
-                indi_count += 1
-
-        number += 1
-        start, end = tgis.next_cycle(
-            origin, number, end, cycle, offset, input_strds.is_time_absolute()
-        )
-
-    empty_maps = []
-
-    create_strds_register_maps(
-        input_strds, occurrence_strds, occurrence_maps, register_null, empty_maps, dbif
-    )
-
-    if indicator:
-        create_strds_register_maps(
-            input_strds,
-            indicator_strds,
-            indicator_maps,
-            register_null,
-            empty_maps,
-            dbif,
-        )
-
-    dbif.close()
-
-    # Remove empty maps
-    if len(empty_maps) > 0:
-        for map in empty_maps:
-            gs.run_command(
-                "g.remove", flags="f", type="raster", name=map.get_name(), quiet=True
-            )
-
-
-############################################################################
-
-
-def create_strds_register_maps(
-    in_strds, out_strds, out_maps, register_null, empty_maps, dbif
-):
-    out_id = out_strds.get_id()
-
-    if out_strds.is_in_db(dbif) and gs.overwrite():
-        out_strds.delete(dbif)
-        out_strds = in_strds.get_new_instance(out_id)
-
-    temporal_type, semantic_type, title, description = in_strds.get_initial_values()
-    out_strds.set_initial_values(temporal_type, semantic_type, title, description)
-    out_strds.insert(dbif)
-
-    empty_maps.extend(
-        tgis.register_new_maps(out_maps.values(), out_strds, register_null, dbif)
-    )
-
-
-############################################################################
+    return end, cycle, offset
 
 
 def compute_occurrence(
@@ -600,7 +332,6 @@ def compute_occurrence(
     base,
     count,
     tsuffix,
-    mapset,
     where,
     reverse,
     range_,
@@ -608,6 +339,11 @@ def compute_occurrence(
     maximum_strds,
     dbif,
 ):
+    """Compute the occurrence maps of one cycle
+
+    Stores the new maps in occurrence_maps by the id of their input map and
+    returns the count for the next occurrence map.
+    """
     if minimum_strds:
         input_maps_minimum = input_strds.get_registered_maps_as_objects(
             where=where, dbif=dbif
@@ -643,23 +379,9 @@ def compute_occurrence(
         )
         occurrence_map_name = f"{base}_{suffix}"
 
-        occurrence_map_id = map.build_id(occurrence_map_name, mapset)
-        occurrence_map = input_strds.get_new_map_instance(occurrence_map_id)
-
-        # Check if new map is in the temporal database
-        if occurrence_map.is_in_db(dbif):
-            if gs.overwrite():
-                # Remove the existing temporal database entry
-                occurrence_map.delete(dbif)
-                occurrence_map = input_strds.get_new_map_instance(occurrence_map_id)
-            else:
-                gs.fatal(
-                    _(
-                        "Map <%s> is already registered in the temporal"
-                        " database, use overwrite flag to overwrite."
-                    )
-                    % (occurrence_map.get_map_id())
-                )
+        occurrence_map = tgis.open_result_map(
+            map, occurrence_map_name, overwrite=gs.overwrite(), dbif=dbif
+        )
 
         # Without a range every granule needs a map of the datasets.
         range_vals = range_.split(",") if range_ else [None, None]
@@ -667,18 +389,10 @@ def compute_occurrence(
         max = range_vals[1]
 
         if minimum_strds:
-            relations = input_maps_minimum[index].get_temporal_relations()
-            for relation in range_relations:
-                if relation in relations:
-                    min = str(relations[relation][0].get_id())
-                    break
+            min = tgis.first_related_map_id(input_maps_minimum[index]) or min
 
         if maximum_strds:
-            relations = input_maps_maximum[index].get_temporal_relations()
-            for relation in range_relations:
-                if relation in relations:
-                    max = str(relations[relation][0].get_id())
-                    break
+            max = tgis.first_related_map_id(input_maps_maximum[index]) or max
 
         for bound, name in ((min, "minimum"), (max, "maximum")):
             if bound is None:
@@ -699,15 +413,6 @@ def compute_occurrence(
         gs.debug(expression)
         gs.mapcalc(expression, overwrite=True)
 
-        map_start, map_end = map.get_temporal_extent_as_tuple()
-
-        if map.is_time_absolute():
-            occurrence_map.set_absolute_time(map_start, map_end)
-        else:
-            occurrence_map.set_relative_time(
-                map_start, map_end, map.get_relative_time_unit()
-            )
-
         # Store the new maps
         occurrence_maps[map.get_id()] = occurrence_map
 
@@ -716,7 +421,213 @@ def compute_occurrence(
     return count
 
 
-############################################################################
+def compute_indicator(
+    indicator_maps,
+    occurrence_maps,
+    input_strds,
+    input_maps,
+    base,
+    indi_count,
+    tsuffix,
+    reverse,
+    staend,
+    dbif,
+):
+    """Compute the indicator maps of one cycle from its occurrence maps
+
+    staend holds the start, intermediate and end values. Stores the new maps
+    in indicator_maps by the id of their input map and returns the count for
+    the next indicator map.
+    """
+    indicator_start, indicator_mid, indicator_end = staend
+    num_maps = len(input_maps)
+    for i in range(num_maps):
+        map = input_maps[num_maps - i - 1] if reverse else input_maps[i]
+
+        suffix = tgis.map_name_suffix(
+            map, tsuffix, input_strds.get_granularity(), indi_count
+        )
+        indicator_map_name = f"{base}_indicator_{suffix}"
+        indicator_map = tgis.open_result_map(
+            map, indicator_map_name, overwrite=gs.overwrite(), dbif=dbif
+        )
+
+        curr_map = occurrence_maps[map.get_id()].get_name()
+
+        # The maps computed before and after this one; with the flag r the
+        # computation runs back in time.
+        before, after = (map.next, map.prev) if reverse else (map.prev, map.next)
+        if i == 0:
+            prev_map = curr_map
+            subexpr1 = "null()"
+            subexpr3 = "%i" % (indicator_start)
+        elif 0 < i < num_maps - 1:
+            prev_map = occurrence_maps[before().get_id()].get_name()
+            next_map = occurrence_maps[after().get_id()].get_name()
+            # In case the previous map is null() set null() or the start
+            # indicator
+            subexpr1 = "if(isnull(%s), null(), %i)" % (curr_map, indicator_start)
+            # In case the previous map was not null() if the current map is
+            #   null() set null()
+            # if the current map is not null() and the next map is not
+            #   null() set
+            # intermediate indicator, if the next map is null set the end
+            #   indicator
+            subexpr2 = "if(isnull(%s), %i, %i)" % (
+                next_map,
+                indicator_end,
+                indicator_mid,
+            )
+            subexpr3 = "if(isnull(%s), null(), %s)" % (curr_map, subexpr2)
+        else:
+            prev_map = occurrence_maps[before().get_id()].get_name()
+            subexpr1 = "if(isnull(%s), null(), %i)" % (curr_map, indicator_start)
+            # The cycle ends here, so a run that goes on ends too.
+            subexpr3 = "if(isnull(%s), null(), %i)" % (curr_map, indicator_end)
+
+        expression = "%s = if(isnull(%s), %s, %s)" % (
+            indicator_map_name,
+            prev_map,
+            subexpr1,
+            subexpr3,
+        )
+        gs.debug(expression)
+        gs.mapcalc(expression, overwrite=True)
+
+        indicator_maps[map.get_id()] = indicator_map
+        indi_count += 1
+
+    return indi_count
+
+
+def main():
+    # Get the options
+    input = options["input"]
+    start = options["start"]
+    stop = options["stop"]
+    base = options["basename"]
+    cycle = options["cycle"]
+    offset = options["offset"]
+    minimum = options["minimum"]
+    maximum = options["maximum"]
+    occurrence = options["occurrence"]
+    range_ = options["range"]
+    indicator = options["indicator"]
+    staend = options["staend"]
+    register_null = flags["n"]
+    reverse = flags["r"]
+    time_suffix = options["suffix"]
+
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
+    # Make sure the temporal database exists
+    tgis.init()
+    # We need a database interface
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    mapset = tgis.get_current_mapset()
+
+    input_strds = open_input(input, mapset, dbif)
+    occurrence_strds = open_occurrence(
+        occurrence, minimum, maximum, range_, mapset, dbif
+    )
+    indicator_strds, staend = open_indicator(
+        indicator, occurrence, staend, mapset, dbif
+    )
+    minimum_strds, maximum_strds = open_thresholds(
+        input_strds, minimum, maximum, mapset, dbif
+    )
+    check_lengths(input_strds, cycle, offset, dbif)
+    start, stop = read_start_and_stop(input_strds, start, stop, dbif)
+    end, cycle, offset = first_cycle(input_strds, start, cycle, offset, dbif)
+
+    count = 1
+    indi_count = 1
+    occurrence_maps = {}
+    indicator_maps = {}
+
+    for cycle_start, cycle_end in tgis.dataset_cycles(
+        input_strds, start, end, stop, cycle, offset, dbif
+    ):
+        where = "start_time >= '%s' AND start_time < '%s'" % (
+            str(cycle_start),
+            str(cycle_end),
+        )
+        input_maps = input_strds.get_registered_maps_as_objects(where=where, dbif=dbif)
+
+        gs.debug(len(input_maps))
+
+        input_topo = tgis.SpatioTemporalTopologyBuilder()
+        input_topo.build(input_maps, input_maps)
+
+        if len(input_maps) == 0:
+            continue
+
+        gs.message(_("Processing cycle %s - %s") % (str(cycle_start), str(cycle_end)))
+
+        count = compute_occurrence(
+            occurrence_maps,
+            input_strds,
+            input_maps,
+            cycle_start,
+            base,
+            count,
+            time_suffix,
+            where,
+            reverse,
+            range_,
+            minimum_strds,
+            maximum_strds,
+            dbif,
+        )
+
+        # Indicator computation is based on the occurrence so we need to start it after
+        # the occurrence cycle
+        if indicator:
+            indi_count = compute_indicator(
+                indicator_maps,
+                occurrence_maps,
+                input_strds,
+                input_maps,
+                base,
+                indi_count,
+                time_suffix,
+                reverse,
+                staend,
+                dbif,
+            )
+
+    empty_maps = tgis.register_in_new_stds(
+        occurrence_maps.values(),
+        occurrence_strds,
+        input_strds,
+        register_null,
+        overwrite=gs.overwrite(),
+        dbif=dbif,
+    )
+
+    if indicator:
+        empty_maps += tgis.register_in_new_stds(
+            indicator_maps.values(),
+            indicator_strds,
+            input_strds,
+            register_null,
+            overwrite=gs.overwrite(),
+            dbif=dbif,
+        )
+
+    dbif.close()
+
+    # Remove empty maps
+    for map in empty_maps:
+        gs.run_command(
+            "g.remove", flags="f", type="raster", name=map.get_name(), quiet=True
+        )
+
 
 if __name__ == "__main__":
     options, flags = gs.parser()
