@@ -1,30 +1,20 @@
 """Steps that several temporal tools share when they compute map by map
 
-t.rast.contour, t.rast.to.vect and t.rast.neighbors run a module for each map
-of a space time raster dataset and write a new map with the time of the input
-map; they open the new maps with open_new_map_for(). t.rast.neighbors,
-t.rast.to.vect, t.rast.accumulate and t.rast.accdetect register the computed
-maps with register_new_maps(). Each tool keeps the steps in which it differs
-from the others: opening the output dataset, running the modules, and
-removing the empty maps (t.rast.accumulate and t.rast.accdetect remove them
-one by one after closing the database connection, the others with one g.remove
-before).
+A tool that runs a module for each map of a space time dataset opens the new
+map of each input map with open_new_map_for() and registers the computed maps
+with register_new_maps(). Opening the output dataset, running the modules and
+removing the empty maps stay with the caller: the tools differ there, for
+example some remove the empty maps before closing the database connection and
+others after it.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 import grass.script as gs
 
 from .datetime_math import map_name_suffix
 from .open_stds import open_new_map_dataset
-
-if TYPE_CHECKING:
-    from collections.abc import Collection
 
 
 def open_new_map_for(
@@ -62,7 +52,7 @@ def open_new_map_for(
     )
 
 
-def register_new_maps(new_maps: Collection, dataset, register_null: bool, dbif) -> list:
+def register_new_maps(new_maps, dataset, register_null, dbif):
     """Register the computed maps in dataset, except empty ones, and update it
 
     Each map is loaded from the GRASS database, inserted into the temporal
@@ -82,7 +72,8 @@ def register_new_maps(new_maps: Collection, dataset, register_null: bool, dbif) 
     plain give the same bytes.
 
     :param new_maps: The computed maps, opened with open_new_map_for() or
-                     otherwise with their time set
+                     otherwise with their time set; a sequence or another
+                     collection with len(), such as the values of a dict
     :param dataset: The output dataset, inserted into the temporal database
     :param register_null: The value of the flag that keeps empty maps
     :param dbif: The database interface or None
@@ -104,7 +95,7 @@ def register_new_maps(new_maps: Collection, dataset, register_null: bool, dbif) 
     return empty_maps
 
 
-def _is_empty(new_map) -> bool:
+def _is_empty(new_map):
     """Tell whether a loaded map has no cell values or no primitives"""
     if new_map.get_type() != "vector":
         return new_map.metadata.get_min() is None and new_map.metadata.get_max() is None
