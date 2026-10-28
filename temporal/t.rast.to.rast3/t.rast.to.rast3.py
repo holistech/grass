@@ -35,10 +35,142 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
-def main():
-    # lazy imports
-    import grass.temporal as tgis
+def cube_geometry(sp):
+    """Return the unit, the bottom and the resolution of the cube of sp
 
+    The bottom is the start of sp in relation to 1900-01-01: years and months
+    count from 1900 (the year number, the month number), days, hours, minutes
+    and seconds are days since 1900-01-01 as decimal numbers, and the
+    resolution is the granularity in that unit. A cube of monthly or yearly
+    granularity cannot be mixed with the other units. In relative time the
+    start and the unit of sp are taken as they are.
+    """
+    granularity = sp.get_granularity()
+    start, _end = sp.get_temporal_extent_as_tuple()
+
+    if not sp.is_time_absolute():
+        return sp.get_relative_time_unit(), start, granularity
+
+    unit = granularity.split(" ")[1]
+    granularity = float(granularity.split(" ")[0])
+
+    gs.verbose(_("Gran from stds %0.15f") % (granularity))
+
+    if unit in {"years", "year"}:
+        return unit, float(start.year - 1900), granularity
+    if unit in {"months", "month"}:
+        return unit, float((start.year - 1900) * 12 + start.month), granularity
+
+    bottom = float(tgis.time_delta_to_relative_time(start - datetime(1900, 1, 1)))
+    days = 0.0
+    hours = 0.0
+    minutes = 0.0
+    seconds = 0.0
+    if unit in {"days", "day"}:
+        days = float(granularity)
+    if unit in {"hours", "hour"}:
+        hours = float(granularity)
+    if unit in {"minutes", "minute"}:
+        minutes = float(granularity)
+    if unit in {"seconds", "second"}:
+        seconds = float(granularity)
+
+    granularity = float(days + hours / 24.0 + minutes / 1440.0 + seconds / 86400.0)
+    return unit, bottom, granularity
+
+
+def set_cube_region(bottom, top, granularity):
+    """Set the temporary 3D region to the extent and resolution of the cube"""
+    try:
+        gs.run_command("g.region", t=top, b=bottom, tbres=granularity)
+    except CalledModuleError:
+        gs.fatal(_("Unable to set 3D region"))
+
+
+def make_null_map(datatype):
+    """Make the map of null cells that fills the gaps; return its name
+
+    The map has the data type of the first map of the dataset.
+    """
+    null_map = "temporary_null_map_%i" % os.getpid()
+    if datatype == "DCELL":
+        gs.mapcalc("%s = double(null())" % (null_map))
+    elif datatype == "FCELL":
+        gs.mapcalc("%s = float(null())" % (null_map))
+    else:
+        gs.mapcalc("%s = null()" % (null_map))
+    return null_map
+
+
+def make_cube(maps, null_map, output):
+    """Put the first map of each step on top of each other in the 3D map output
+
+    A step without a map gets null_map.
+    """
+    ids = []
+    for map in maps:
+        # Use the first map
+        id = map[0].get_id()
+        # None ids will be replaced by NULL maps
+        if id is None:
+            id = null_map
+        ids.append(id)
+
+    try:
+        gs.run_command(
+            "r.to.rast3",
+            input=",".join(ids),
+            output=output,
+            overwrite=gs.overwrite(),
+        )
+    except CalledModuleError:
+        gs.fatal(_("Unable to create 3D raster map <%s>") % output)
+
+
+def set_cube_unit(output, unit):
+    """Give the 3D map its vertical unit, a title and a description"""
+    title = _("Space time voxel cube")
+    descr = _("This space time voxel cube was created with t.rast.to.rast3")
+
+    try:
+        gs.run_command(
+            "r3.support",
+            map=output,
+            vunit=unit,
+            title=title,
+            description=descr,
+            overwrite=gs.overwrite(),
+        )
+    except CalledModuleError:
+        gs.warning(_("%s failed to set units.") % "r3.support")
+
+
+def register_cube(sp, output, mapset):
+    """Register the 3D map in the temporal database with the extent of sp
+
+    An entry of the same name is replaced.
+    """
+    id = output if output.find("@") >= 0 else output + "@" + mapset
+
+    start, end = sp.get_temporal_extent_as_tuple()
+    r3ds = tgis.Raster3DDataset(id)
+
+    if r3ds.is_in_db():
+        r3ds.select()
+        r3ds.delete()
+        r3ds = tgis.Raster3DDataset(id)
+
+    r3ds.load()
+
+    if sp.is_time_absolute():
+        r3ds.set_absolute_time(start, end)
+    else:
+        r3ds.set_relative_time(start, end, sp.get_relative_time_unit())
+
+    r3ds.insert()
+
+
+def main():
     # Get the options
     input = options["input"]
     output = options["output"]
@@ -63,139 +195,21 @@ def main():
     maps[0][0].select()
     datatype = maps[0][0].metadata.get_datatype()
 
-    # Get the granularity and set bottom, top and top-bottom resolution
-    granularity = sp.get_granularity()
-
-    # This is the reference time to scale the z coordinate
-    reftime = datetime(1900, 1, 1)
-
-    # We set top and bottom according to the start time in relation
-    # to the date 1900-01-01 00:00:00
-    # In case of days, hours, minutes and seconds, a double number
-    # is used to represent days and fracs of a day
-
-    # Space time voxel cubes with monthly or yearly granularity can not be
-    # mixed with other temporal units
-
-    # Compatible temporal units are : days, hours, minutes and seconds
-    # Incompatible are years and moths
-    start, end = sp.get_temporal_extent_as_tuple()
-
-    if sp.is_time_absolute():
-        unit = granularity.split(" ")[1]
-        granularity = float(granularity.split(" ")[0])
-
-        gs.verbose(_("Gran from stds %0.15f") % (granularity))
-
-        if unit in {"years", "year"}:
-            bottom = float(start.year - 1900)
-            top = float(granularity * num_maps)
-        elif unit in {"months", "month"}:
-            bottom = float((start.year - 1900) * 12 + start.month)
-            top = float(granularity * num_maps)
-        else:
-            bottom = float(tgis.time_delta_to_relative_time(start - reftime))
-            days = 0.0
-            hours = 0.0
-            minutes = 0.0
-            seconds = 0.0
-            if unit in {"days", "day"}:
-                days = float(granularity)
-            if unit in {"hours", "hour"}:
-                hours = float(granularity)
-            if unit in {"minutes", "minute"}:
-                minutes = float(granularity)
-            if unit in {"seconds", "second"}:
-                seconds = float(granularity)
-
-            granularity = float(
-                days + hours / 24.0 + minutes / 1440.0 + seconds / 86400.0
-            )
-    else:
-        unit = sp.get_relative_time_unit()
-        bottom = start
-
+    unit, bottom, granularity = cube_geometry(sp)
     top = float(bottom + granularity * float(num_maps))
-    try:
-        gs.run_command("g.region", t=top, b=bottom, tbres=granularity)
-    except CalledModuleError:
-        gs.fatal(_("Unable to set 3D region"))
+    set_cube_region(bottom, top, granularity)
 
-    # Create a NULL map to fill the gaps
-    null_map = "temporary_null_map_%i" % os.getpid()
-    if datatype == "DCELL":
-        gs.mapcalc("%s = double(null())" % (null_map))
-    elif datatype == "FCELL":
-        gs.mapcalc("%s = float(null())" % (null_map))
-    else:
-        gs.mapcalc("%s = null()" % (null_map))
-
-    if maps:
-        count = 0
-        map_names = ""
-        for map in maps:
-            # Use the first map
-            id = map[0].get_id()
-            # None ids will be replaced by NULL maps
-            if id is None:
-                id = null_map
-
-            if count == 0:
-                map_names = id
-            else:
-                map_names += ",%s" % id
-
-            count += 1
-
-        try:
-            gs.run_command(
-                "r.to.rast3",
-                input=map_names,
-                output=output,
-                overwrite=gs.overwrite(),
-            )
-        except CalledModuleError:
-            gs.fatal(_("Unable to create 3D raster map <%s>") % output)
-
+    null_map = make_null_map(datatype)
+    make_cube(maps, null_map, output)
     gs.run_command("g.remove", flags="f", type="raster", name=null_map)
 
-    title = _("Space time voxel cube")
-    descr = _("This space time voxel cube was created with t.rast.to.rast3")
-
-    # Set the unit
-    try:
-        gs.run_command(
-            "r3.support",
-            map=output,
-            vunit=unit,
-            title=title,
-            description=descr,
-            overwrite=gs.overwrite(),
-        )
-    except CalledModuleError:
-        gs.warning(_("%s failed to set units.") % "r3.support")
-
-    # Register the space time voxel cube in the temporal GIS
-    id = output if output.find("@") >= 0 else output + "@" + mapset
-
-    start, end = sp.get_temporal_extent_as_tuple()
-    r3ds = tgis.Raster3DDataset(id)
-
-    if r3ds.is_in_db():
-        r3ds.select()
-        r3ds.delete()
-        r3ds = tgis.Raster3DDataset(id)
-
-    r3ds.load()
-
-    if sp.is_time_absolute():
-        r3ds.set_absolute_time(start, end)
-    else:
-        r3ds.set_relative_time(start, end, sp.get_relative_time_unit())
-
-    r3ds.insert()
+    set_cube_unit(output, unit)
+    register_cube(sp, output, mapset)
 
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+    # lazy import
+    import grass.temporal as tgis
+
     main()
