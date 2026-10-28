@@ -110,87 +110,26 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
-def main(options, flags):
-    # lazy imports
-    import grass.pygrass.modules as pymod
-    import grass.temporal as tgis
-
-    # Get the options
-    input = options["input"]
-    output = options["output"]
-    where = options["where"]
-    base = options["basename"]
-    method = options["type"]
-    nprocs = int(options["nprocs"])
-    column = options["column"]
-    time_suffix = options["suffix"]
-
-    register_null = flags["n"]
-    t_flag = flags["t"]
-    s_flag = flags["s"]
-    v_flag = flags["v"]
-    b_flag = flags["b"]
-    z_flag = flags["z"]
-
+def selected_maps(sp, where, dbif):
+    """Return the registered maps of sp that where selects"""
     try:
-        tgis.check_suffix(time_suffix)
-    except ValueError as error:
-        gs.fatal(str(error))
-
-    # Make sure the temporal database exists
-    tgis.init()
-    # We need a database interface
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    overwrite = gs.overwrite()
-
-    sp = tgis.open_old_stds(input, "strds", dbif)
-    try:
-        maps = sp.get_registered_maps_as_objects(where=where, dbif=dbif)
+        return sp.get_registered_maps_as_objects(where=where, dbif=dbif)
     except tgis.SQLStatementError as error:
         dbif.close()
         gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-    if not maps:
-        dbif.close()
-        gs.warning(_("Space time raster dataset <%s> is empty") % sp.get_id())
-        return
 
-    # Check the new stvds
-    tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
+def conversion_flags(flags):
+    """Return the flags of r.to.vect that the flags of the tool name"""
+    return "".join(letter for letter in "tsvbz" if flags[letter])
 
-    # Setup the flags
-    flags = ""
-    if t_flag is True:
-        flags += "t"
-    if s_flag is True:
-        flags += "s"
-    if v_flag is True:
-        flags += "v"
-    if b_flag is True:
-        flags += "b"
-    if z_flag is True:
-        flags += "z"
 
-    # Configure the r.to.vect module
-    to_vector_module = pymod.Module(
-        "r.to.vect",
-        input="dummy",
-        output="dummy",
-        run_=False,
-        finish_=False,
-        flags=flags,
-        type=method,
-        overwrite=overwrite,
-        quiet=True,
-        column=column,
-    )
+def process_count(nprocs, t_flag):
+    """Return the number of parallel processes, one without -t
 
-    # The module queue for parallel execution, except if attribute tables should
-    # be created. Then force single process use
+    Warn when it is reduced.
+    """
     if t_flag is False and nprocs > 1:
-        nprocs = 1
         gs.warning(
             _(
                 "The number of parallel r.to.vect processes was "
@@ -198,15 +137,22 @@ def main(options, flags):
                 "creation"
             )
         )
-    process_queue = pymod.ParallelModuleQueue(int(nprocs))
+        return 1
+    return nprocs
 
-    count = 0
+
+def queue_conversions(
+    maps, to_vector_module, process_queue, *, sp, base, time_suffix, overwrite, dbif
+):
+    """Open the new map of each map of maps and queue r.to.vect for it
+
+    Return the new maps in the order of maps.
+    """
     num_maps = len(maps)
     new_maps = []
 
     # run r.to.vect all selected maps
-    for map in maps:
-        count += 1
+    for count, map in enumerate(maps, start=1):
         new_map = tgis.open_new_map_for(
             map,
             base,
@@ -230,13 +176,86 @@ def main(options, flags):
 
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
+    return new_maps
 
-    # Wait for unfinished processes
+
+def wait_for_conversions(process_queue, dbif):
+    """Wait for the queued processes, end with a message if one failed"""
     try:
         process_queue.wait()
     except CalledModuleError as error:
         dbif.close()
         gs.fatal(_("Error running r.to.vect: {}").format(error))
+
+
+def main(options, flags):
+    # Get the options
+    input = options["input"]
+    output = options["output"]
+    where = options["where"]
+    base = options["basename"]
+    method = options["type"]
+    nprocs = int(options["nprocs"])
+    column = options["column"]
+    time_suffix = options["suffix"]
+
+    register_null = flags["n"]
+
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
+    # Make sure the temporal database exists
+    tgis.init()
+    # We need a database interface
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    overwrite = gs.overwrite()
+
+    sp = tgis.open_old_stds(input, "strds", dbif)
+    maps = selected_maps(sp, where, dbif)
+
+    if not maps:
+        dbif.close()
+        gs.warning(_("Space time raster dataset <%s> is empty") % sp.get_id())
+        return
+
+    # Check the new stvds
+    tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
+
+    # Configure the r.to.vect module
+    to_vector_module = pymod.Module(
+        "r.to.vect",
+        input="dummy",
+        output="dummy",
+        run_=False,
+        finish_=False,
+        flags=conversion_flags(flags),
+        type=method,
+        overwrite=overwrite,
+        quiet=True,
+        column=column,
+    )
+
+    # The module queue for parallel execution, except if attribute tables should
+    # be created. Then force single process use
+    process_queue = pymod.ParallelModuleQueue(process_count(nprocs, flags["t"]))
+
+    new_maps = queue_conversions(
+        maps,
+        to_vector_module,
+        process_queue,
+        sp=sp,
+        base=base,
+        time_suffix=time_suffix,
+        overwrite=overwrite,
+        dbif=dbif,
+    )
+
+    # Wait for unfinished processes
+    wait_for_conversions(process_queue, dbif)
 
     # Open the new space time vector dataset
     ttype, stype, title, descr = sp.get_initial_values()
@@ -246,17 +265,7 @@ def main(options, flags):
     empty_maps = tgis.register_new_maps(new_maps, new_sp, register_null, dbif)
 
     # Remove empty maps
-    if len(empty_maps) > 0:
-        names = ""
-        count = 0
-        for map in empty_maps:
-            if count == 0:
-                count += 1
-                names += "%s" % (map.get_name())
-            else:
-                names += ",%s" % (map.get_name())
-
-        gs.run_command("g.remove", flags="f", type="vector", name=names, quiet=True)
+    tgis.remove_maps(empty_maps, "vector")
 
     dbif.close()
 
@@ -265,4 +274,8 @@ def main(options, flags):
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+    # lazy imports
+    import grass.pygrass.modules as pymod
+    import grass.temporal as tgis
+
     main(options, flags)
