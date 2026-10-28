@@ -10,7 +10,7 @@ same times for a map.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, day, make_map, register_stds
-from grass.temporal.testing.readback import list_maps, stds_info
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
 # Every test makes maps and datasets with tools, which takes more than a second
@@ -133,6 +133,27 @@ def test_an_existing_output_is_refused_without_overwrite(tools, prefix):
     assert "Traceback" not in str(error.value)
 
     assert _numbers(tools, prefix, f"{prefix}_out") == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    ("stds_type", "map_type"),
+    [("strds", "raster"), ("str3ds", "raster3d"), ("stvds", "vector")],
+)
+def test_the_refusal_of_an_existing_output_names_the_map_type(
+    tools, prefix, stds_type, map_type
+):
+    _make(tools, prefix, stds_type, members={"a": (1,), "b": (2,)})
+    tools.t_merge(type=stds_type, inputs=f"{prefix}_a", output=f"{prefix}_out")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_merge(
+            type=stds_type, inputs=f"{prefix}_a,{prefix}_b", output=f"{prefix}_out"
+        )
+
+    assert (
+        f"Unable to merge maps into space time {map_type} dataset "
+        f"<{prefix}_out@PERMANENT> please use the overwrite flag."
+    ) in message(error.value)
 
 
 def test_overwrite_adds_the_maps_to_an_existing_output(tools, prefix):
