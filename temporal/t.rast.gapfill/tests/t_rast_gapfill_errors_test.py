@@ -72,6 +72,23 @@ def test_a_refused_run_leaves_the_dataset_as_it_was(tools, gappy, prefix):
     assert stds_info(tools, "strds", second)["number_of_maps"] == 2
 
 
+def test_an_existing_map_of_a_later_gap_is_found_after_the_earlier_gap_is_queued(
+    tools, gappy, prefix
+):
+    # Each gap is named, checked and handed to r.series.interp before the next
+    # one is named, so the run ends at the map of the second gap after the
+    # command of the first went out.
+    name = gappy({1: (100, 0), 3: (300, 90), 5: (500, 70)})
+    tools.r_mapcalc(expression=f"{prefix}_2001_04 = 1")
+
+    text = _refused(tools, input=name, basename=prefix)
+
+    first = text.index(f"output={prefix}_2001_02")
+    refusal = text.index(f"Map with name <{prefix}_2001_04@PERMANENT> already exists")
+    assert first < refusal
+    assert f"output={prefix}_2001_04" not in text
+
+
 def test_overwrite_replaces_a_map_of_another_dataset(tools, gappy, prefix):
     # The maps of the second dataset hold 0 and 10 where the first held 100
     # and 300, so the gap map is 5 instead of 200.
