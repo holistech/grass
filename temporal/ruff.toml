@@ -59,7 +59,6 @@ max-complexity = 15
 "t.topology/t.topology.py" = ["C901"]
 "t.unregister/t.unregister.py" = ["C901"]
 "t.vect.db.select/t.vect.db.select.py" = ["C901"]
-"t.vect.observe.strds/t.vect.observe.strds.py" = ["C901"]
 "t.vect.what.strds/t.vect.what.strds.py" = ["C901"]
 # The tests are outside this clean-up.
 "*/tests/**" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
