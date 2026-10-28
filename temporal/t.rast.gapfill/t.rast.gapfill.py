@@ -109,7 +109,7 @@ def check_instants(sp, maps, dbif):
             )
 
 
-def name_gaps(maps, sp, base, tsuffix, mapset):
+def name_gaps(sp, maps, base, tsuffix, mapset):
     """Give each gap of maps the id of a map in the current mapset
 
     Returns the gaps in the order of maps.
@@ -152,7 +152,7 @@ def check_neighbours(gap_list):
 
 
 def interpolation_maps(
-    gap, predecessor, successor, sp, tsuffix, mapset, overwrite_flags, dbif
+    gap, predecessor, successor, sp, *, tsuffix, mapset, overwrite_flags, dbif
 ):
     """Return the maps that fill gap, one per granule of sp
 
@@ -289,7 +289,7 @@ def main():
 
     process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
-    gap_list = name_gaps(maps, sp, base, tsuffix, mapset)
+    gap_list = name_gaps(sp, maps, base, tsuffix, mapset)
     if not gap_list:
         gs.message(_("No gaps found"))
         return
@@ -310,7 +310,14 @@ def main():
         predecessor = gap.get_follows()[0]
         successor = gap.get_precedes()[0]
         new_maps = interpolation_maps(
-            gap, predecessor, successor, sp, tsuffix, mapset, overwrite_flags, dbif
+            gap,
+            predecessor,
+            successor,
+            sp,
+            tsuffix=tsuffix,
+            mapset=mapset,
+            overwrite_flags=overwrite_flags,
+            dbif=dbif,
         )
         queue_interpolation(
             gapfill_module, process_queue, predecessor, successor, new_maps, dbif
