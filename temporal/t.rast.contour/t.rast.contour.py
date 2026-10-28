@@ -213,13 +213,13 @@ def main(options, flags):
     for map in maps:
         count += 1
 
-        suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
-        map_name = f"{base}_{suffix}"
-        new_map = tgis.open_new_map_dataset(
-            map_name,
-            None,
-            type="vector",
-            temporal_extent=map.get_temporal_extent(),
+        new_map = tgis.open_new_map_for(
+            map,
+            base,
+            time_suffix,
+            sp.get_granularity(),
+            count,
+            map_type="vector",
             overwrite=overwrite,
             dbif=dbif,
         )
