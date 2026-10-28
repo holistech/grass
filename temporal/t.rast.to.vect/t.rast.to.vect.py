@@ -262,7 +262,9 @@ def main(options, flags):
     new_sp = tgis.open_new_stds(
         output, "stvds", ttype, title, descr, stype, dbif, overwrite
     )
-    empty_maps = tgis.register_new_maps(new_maps, new_sp, register_null, dbif)
+    empty_maps = tgis.register_new_maps(
+        new_maps, new_sp, register_null=register_null, dbif=dbif
+    )
 
     # Remove empty maps
     tgis.remove_maps(empty_maps, "vector")

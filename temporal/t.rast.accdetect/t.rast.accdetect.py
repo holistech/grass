@@ -623,7 +623,7 @@ def main():
         occurrence_maps.values(),
         occurrence_strds,
         input_strds,
-        register_null,
+        register_null=register_null,
         overwrite=gs.overwrite(),
         dbif=dbif,
     )
@@ -633,7 +633,7 @@ def main():
             indicator_maps.values(),
             indicator_strds,
             input_strds,
-            register_null,
+            register_null=register_null,
             overwrite=gs.overwrite(),
             dbif=dbif,
         )

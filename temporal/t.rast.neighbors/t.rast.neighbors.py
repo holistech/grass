@@ -408,7 +408,9 @@ def main():
         dbif=dbif,
     )
 
-    empty_maps = tgis.register_new_maps(new_maps, output_strds, register_null, dbif)
+    empty_maps = tgis.register_new_maps(
+        new_maps, output_strds, register_null=register_null, dbif=dbif
+    )
 
     if output_exists:
         output_strds.update_command_string(dbif=dbif)

@@ -62,7 +62,7 @@ def open_new_map_for(
     )
 
 
-def register_new_maps(new_maps, dataset, register_null, dbif):
+def register_new_maps(new_maps, dataset, *, register_null, dbif):
     """Register the computed maps in dataset, except empty ones, and update it
 
     Each map is loaded from the GRASS database, inserted into the temporal
@@ -128,7 +128,7 @@ def remove_maps(maps, map_type):
 
 
 def register_in_new_stds(
-    new_maps, dataset, input_dataset, register_null, *, overwrite, dbif
+    new_maps, dataset, input_dataset, *, register_null, overwrite, dbif
 ):
     """Insert dataset anew and register the computed maps in it
 
@@ -158,7 +158,7 @@ def register_in_new_stds(
     dataset.set_initial_values(temporal_type, semantic_type, title, description)
     dataset.insert(dbif)
 
-    return register_new_maps(new_maps, dataset, register_null, dbif)
+    return register_new_maps(new_maps, dataset, register_null=register_null, dbif=dbif)
 
 
 def names_from_file(path):

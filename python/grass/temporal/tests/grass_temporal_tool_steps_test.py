@@ -153,7 +153,7 @@ def test_an_empty_raster_map_is_returned_and_not_registered(tools, monthly, base
     compute_raster(tools, new_maps, ["7", "null()"])
     output = new_dataset(base)
 
-    empty = tgis.register_new_maps(new_maps, output, False, None)
+    empty = tgis.register_new_maps(new_maps, output, register_null=False, dbif=None)
 
     assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
     assert registered_names(output) == [new_maps[0].get_name()]
@@ -175,7 +175,7 @@ def test_an_empty_raster_map_is_registered_when_asked(tools, monthly, base):
     compute_raster(tools, new_maps, ["7", "null()"])
     output = new_dataset(base)
 
-    empty = tgis.register_new_maps(new_maps, output, True, None)
+    empty = tgis.register_new_maps(new_maps, output, register_null=True, dbif=None)
 
     assert empty == []
     assert registered_names(output) == [new_map.get_name() for new_map in new_maps]
@@ -189,7 +189,7 @@ def test_a_vector_map_without_primitives_is_returned_and_not_registered(
     tools.v_edit(tool="create", map=new_maps[1].get_name())
     output = new_dataset(base, "stvds")
 
-    empty = tgis.register_new_maps(new_maps, output, False, None)
+    empty = tgis.register_new_maps(new_maps, output, register_null=False, dbif=None)
 
     assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
     assert registered_names(output) == [new_maps[0].get_name()]
@@ -211,7 +211,7 @@ def test_the_primitives_of_a_vector_map_without_topology_are_counted(
         )
     output = new_dataset(base, "stvds")
 
-    empty = tgis.register_new_maps(new_maps, output, False, None)
+    empty = tgis.register_new_maps(new_maps, output, register_null=False, dbif=None)
 
     assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
     assert registered_names(output) == [new_maps[0].get_name()]
@@ -220,12 +220,12 @@ def test_the_primitives_of_a_vector_map_without_topology_are_counted(
 def test_an_overwritten_output_dataset_holds_only_the_new_maps(tools, monthly, base):
     old_maps = open_new(monthly, f"{base}_old")
     compute_raster(tools, old_maps, ["1", "2"])
-    tgis.register_new_maps(old_maps, new_dataset(base), False, None)
+    tgis.register_new_maps(old_maps, new_dataset(base), register_null=False, dbif=None)
     new_maps = open_new(monthly, base)
     compute_raster(tools, new_maps, ["3", "null()"])
     output = new_dataset(base, overwrite=True)
 
-    empty = tgis.register_new_maps(new_maps, output, False, None)
+    empty = tgis.register_new_maps(new_maps, output, register_null=False, dbif=None)
 
     assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
     assert registered_names(tgis.open_old_stds(base, "strds")) == [
@@ -236,12 +236,14 @@ def test_an_overwritten_output_dataset_holds_only_the_new_maps(tools, monthly, b
 def test_maps_are_added_to_an_existing_output_dataset(tools, monthly, base):
     old_maps = open_new(monthly, f"{base}_old", suffix="time")
     compute_raster(tools, old_maps[:1], ["1"])
-    tgis.register_new_maps(old_maps[:1], new_dataset(base), False, None)
+    tgis.register_new_maps(
+        old_maps[:1], new_dataset(base), register_null=False, dbif=None
+    )
     new_maps = open_new(monthly, base)
     compute_raster(tools, new_maps[1:], ["2"])
     output = tgis.open_old_stds(base, "strds")
 
-    tgis.register_new_maps(new_maps[1:], output, False, None)
+    tgis.register_new_maps(new_maps[1:], output, register_null=False, dbif=None)
 
     assert registered_names(output) == [
         old_maps[0].get_name(),
@@ -271,7 +273,7 @@ def test_the_progress_is_shown_every_ten_maps_and_at_the_end(
     monkeypatch.setenv("GRASS_MESSAGE_FORMAT", "gui")
     capfd.readouterr()
 
-    tgis.register_new_maps(new_maps, output, False, None)
+    tgis.register_new_maps(new_maps, output, register_null=False, dbif=None)
 
     progress = [
         line
@@ -511,7 +513,12 @@ def test_the_new_output_dataset_takes_the_values_of_the_input(tools, monthly, ba
     compute_raster(tools, new_maps, ["5", "null()"])
 
     empty = tgis.register_in_new_stds(
-        new_maps, output_dataset(base), dataset, False, overwrite=False, dbif=None
+        new_maps,
+        output_dataset(base),
+        dataset,
+        register_null=False,
+        overwrite=False,
+        dbif=None,
     )
 
     assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
@@ -525,12 +532,17 @@ def test_overwrite_replaces_the_output_dataset_and_its_maps(tools, monthly, base
     dataset, _maps = monthly
     old_maps = open_new(monthly, f"{base}_old")
     compute_raster(tools, old_maps, ["1", "2"])
-    tgis.register_new_maps(old_maps, new_dataset(base), False, None)
+    tgis.register_new_maps(old_maps, new_dataset(base), register_null=False, dbif=None)
     new_maps = open_new(monthly, base)
     compute_raster(tools, new_maps, ["3", "4"])
 
     tgis.register_in_new_stds(
-        new_maps, output_dataset(base), dataset, False, overwrite=True, dbif=None
+        new_maps,
+        output_dataset(base),
+        dataset,
+        register_null=False,
+        overwrite=True,
+        dbif=None,
     )
 
     assert registered_names(tgis.open_old_stds(base, "strds")) == [

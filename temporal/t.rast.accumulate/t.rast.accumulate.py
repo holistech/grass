@@ -604,7 +604,7 @@ def main():
         output_maps,
         output_strds,
         input_strds,
-        register_null,
+        register_null=register_null,
         overwrite=gs.overwrite(),
         dbif=dbif,
     )
