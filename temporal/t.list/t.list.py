@@ -298,9 +298,8 @@ def main():
         # Dump the collected output
         if output_format == "json":
             out_file.write(json.dumps(json_output, indent=4, default=str) + "\n")
-        elif output_format == "line":
-            if line_output:
-                out_file.write(separator.join(line_output) + "\n")
+        elif output_format == "line" and line_output:
+            out_file.write(separator.join(line_output) + "\n")
 
     dbif.close()
 

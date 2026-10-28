@@ -190,15 +190,14 @@ def main():
 
     # The occurrence space time raster dataset
     if occurrence:
-        if not minimum or not maximum:
-            if not range_:
-                dbif.close()
-                gs.fatal(
-                    _(
-                        "You need to set the range to compute the occurrence"
-                        " space time raster dataset"
-                    )
+        if (not minimum or not maximum) and not range_:
+            dbif.close()
+            gs.fatal(
+                _(
+                    "You need to set the range to compute the occurrence"
+                    " space time raster dataset"
                 )
+            )
 
         if occurrence.find("@") >= 0:
             occurrence_id = occurrence
@@ -206,16 +205,15 @@ def main():
             occurrence_id = occurrence + "@" + mapset
 
         occurrence_strds = tgis.SpaceTimeRasterDataset(occurrence_id)
-        if occurrence_strds.is_in_db(dbif):
-            if not gs.overwrite():
-                dbif.close()
-                gs.fatal(
-                    _(
-                        "Space time raster dataset <%s> is already in the "
-                        "database, use overwrite flag to overwrite"
-                    )
-                    % occurrence_id
+        if occurrence_strds.is_in_db(dbif) and not gs.overwrite():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Space time raster dataset <%s> is already in the "
+                    "database, use overwrite flag to overwrite"
                 )
+                % occurrence_id
+            )
 
     # The indicator space time raster dataset
     if indicator:
@@ -241,16 +239,15 @@ def main():
             indicator_id = indicator + "@" + mapset
 
         indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)
-        if indicator_strds.is_in_db(dbif):
-            if not gs.overwrite():
-                dbif.close()
-                gs.fatal(
-                    _(
-                        "Space time raster dataset <%s> is already in the "
-                        "database, use overwrite flag to overwrite"
-                    )
-                    % indicator_id
+        if indicator_strds.is_in_db(dbif) and not gs.overwrite():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Space time raster dataset <%s> is already in the "
+                    "database, use overwrite flag to overwrite"
                 )
+                % indicator_id
+            )
         staend = staend.split(",")
         indicator_start = int(staend[0])
         indicator_mid = int(staend[1])
@@ -579,10 +576,9 @@ def create_strds_register_maps(
 ):
     out_id = out_strds.get_id()
 
-    if out_strds.is_in_db(dbif):
-        if gs.overwrite():
-            out_strds.delete(dbif)
-            out_strds = in_strds.get_new_instance(out_id)
+    if out_strds.is_in_db(dbif) and gs.overwrite():
+        out_strds.delete(dbif)
+        out_strds = in_strds.get_new_instance(out_id)
 
     temporal_type, semantic_type, title, description = in_strds.get_initial_values()
     out_strds.set_initial_values(temporal_type, semantic_type, title, description)
@@ -597,10 +593,13 @@ def create_strds_register_maps(
         # Read the raster map data
         map.load()
         # In case of a empty map continue, do not register empty maps
-        if not register_null:
-            if map.metadata.get_min() is None and map.metadata.get_max() is None:
-                empty_maps.append(map)
-                continue
+        if (
+            not register_null
+            and map.metadata.get_min() is None
+            and map.metadata.get_max() is None
+        ):
+            empty_maps.append(map)
+            continue
 
         # Insert map in temporal database
         map.insert(dbif)

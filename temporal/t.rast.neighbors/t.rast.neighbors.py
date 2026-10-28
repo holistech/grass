@@ -353,10 +353,9 @@ def main():
         if (
             raster_map.metadata.get_min() is None
             and raster_map.metadata.get_max() is None
-        ):
-            if not register_null:
-                empty_maps.append(raster_map)
-                continue
+        ) and not register_null:
+            empty_maps.append(raster_map)
+            continue
 
         # Insert map in temporal database
         raster_map.insert(dbif)

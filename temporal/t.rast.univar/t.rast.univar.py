@@ -141,9 +141,8 @@ def main():
         output = None
 
     # Check if zones map exists and is of type CELL
-    if zones:
-        if gs.raster.raster_info(zones)["datatype"] != "CELL":
-            gs.fatal(_("Zoning raster must be of type CELL"))
+    if zones and gs.raster.raster_info(zones)["datatype"] != "CELL":
+        gs.fatal(_("Zoning raster must be of type CELL"))
 
     tgis.print_gridded_dataset_univar_statistics(
         "strds",

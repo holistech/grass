@@ -189,16 +189,15 @@ def main(options, flags):
 
     # The module queue for parallel execution, except if attribute tables should
     # be created. Then force single process use
-    if t_flag is False:
-        if nprocs > 1:
-            nprocs = 1
-            gs.warning(
-                _(
-                    "The number of parallel r.to.vect processes was "
-                    "reduced to 1 because of the table attribute "
-                    "creation"
-                )
+    if t_flag is False and nprocs > 1:
+        nprocs = 1
+        gs.warning(
+            _(
+                "The number of parallel r.to.vect processes was "
+                "reduced to 1 because of the table attribute "
+                "creation"
             )
+        )
     process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
     count = 0
@@ -264,10 +263,9 @@ def main(options, flags):
             # primitives and stores None; v.info -t counts them from the
             # coor file without writing a topology.
             primitives = gs.vector_info_topo(map.get_id())["primitives"]
-        if primitives == 0:
-            if not register_null:
-                empty_maps.append(map)
-                continue
+        if primitives == 0 and not register_null:
+            empty_maps.append(map)
+            continue
 
         # Insert map in temporal database
         map.insert(dbif)

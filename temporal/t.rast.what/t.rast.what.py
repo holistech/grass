@@ -449,31 +449,32 @@ def one_point_per_col_output(
 
             num_cols = len(matrix[0])
 
-            if first is True:
-                if write_header is True:
-                    out_str = "start%(sep)send" % ({"sep": separator})
+            if first is True and write_header is True:
+                out_str = "start%(sep)send" % ({"sep": separator})
 
-                    # Define different separator for coordinates and sites
-                    coor_sep = ";" if separator == "," else ","
+                # Define different separator for coordinates and sites
+                coor_sep = ";" if separator == "," else ","
 
-                    for row in matrix:
-                        if vcat:
-                            cat = row[0]
-                            x = row[1]
-                            y = row[2]
-                            out_str += f"{separator}{cat}{coor_sep}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
-                            if site_input:
-                                site = row[3]
-                                out_str += f"{coor_sep}{site}"
-                        else:
-                            x = row[0]
-                            y = row[1]
-                            out_str += f"{separator}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
-                            if site_input:
-                                site = row[2]
-                                out_str += f"{coor_sep}{site}"
+                for row in matrix:
+                    if vcat:
+                        cat = row[0]
+                        x = row[1]
+                        y = row[2]
+                        out_str += f"{separator}{cat}{coor_sep}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
+                        if site_input:
+                            site = row[3]
+                            out_str += f"{coor_sep}{site}"
+                    else:
+                        x = row[0]
+                        y = row[1]
+                        out_str += (
+                            f"{separator}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
+                        )
+                        if site_input:
+                            site = row[2]
+                            out_str += f"{coor_sep}{site}"
 
-                    out_file.write(out_str + "\n")
+                out_file.write(out_str + "\n")
 
             first = False
 

@@ -194,16 +194,15 @@ def main(options, flags):
 
     # The module queue for parallel execution, except if attribute tables should
     # be created. Then force single process use
-    if t_flag is False:
-        if nprocs > 1:
-            nprocs = 1
-            gs.warning(
-                _(
-                    "The number of parallel r.contour processes was "
-                    "reduced to 1 because of the table attribute "
-                    "creation"
-                )
+    if t_flag is False and nprocs > 1:
+        nprocs = 1
+        gs.warning(
+            _(
+                "The number of parallel r.contour processes was "
+                "reduced to 1 because of the table attribute "
+                "creation"
             )
+        )
     process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
     count = 0
@@ -268,10 +267,9 @@ def main(options, flags):
                 continue
         except FatalError:
             continue
-        if map.metadata.get_number_of_primitives() == 0:
-            if not register_null:
-                empty_maps.append(map)
-                continue
+        if map.metadata.get_number_of_primitives() == 0 and not register_null:
+            empty_maps.append(map)
+            continue
 
         # Insert map in temporal database
         map.insert(dbif)

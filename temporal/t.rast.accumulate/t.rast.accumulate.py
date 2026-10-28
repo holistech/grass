@@ -217,16 +217,15 @@ def main():
 
     # The output space time raster dataset
     output_strds = tgis.SpaceTimeRasterDataset(out_id)
-    if output_strds.is_in_db(dbif):
-        if not gs.overwrite():
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Space time raster dataset <%s> is already in the "
-                    "database, use overwrite flag to overwrite"
-                )
-                % out_id
+    if output_strds.is_in_db(dbif) and not gs.overwrite():
+        dbif.close()
+        gs.fatal(
+            _(
+                "Space time raster dataset <%s> is already in the "
+                "database, use overwrite flag to overwrite"
             )
+            % out_id
+        )
 
     if (
         tgis.check_granularity_string(granularity, input_strds.get_temporal_type())
@@ -239,13 +238,11 @@ def main():
         dbif.close()
         gs.fatal(_("Invalid cycle"))
 
-    if offset:
-        if (
-            tgis.check_granularity_string(offset, input_strds.get_temporal_type())
-            is False
-        ):
-            dbif.close()
-            gs.fatal(_("Invalid offset"))
+    if offset and (
+        tgis.check_granularity_string(offset, input_strds.get_temporal_type()) is False
+    ):
+        dbif.close()
+        gs.fatal(_("Invalid offset"))
 
     # The lower threshold space time raster dataset
     if lower:
@@ -545,10 +542,9 @@ def main():
         )
 
     # Insert the maps into the output space time dataset
-    if output_strds.is_in_db(dbif):
-        if gs.overwrite():
-            output_strds.delete(dbif)
-            output_strds = input_strds.get_new_instance(out_id)
+    if output_strds.is_in_db(dbif) and gs.overwrite():
+        output_strds.delete(dbif)
+        output_strds = input_strds.get_new_instance(out_id)
 
     temporal_type, semantic_type, title, description = input_strds.get_initial_values()
     output_strds.set_initial_values(temporal_type, semantic_type, title, description)
@@ -565,13 +561,12 @@ def main():
         output_map.load()
         # In case of a empty map continue, do not register empty maps
 
-        if not register_null:
-            if (
-                output_map.metadata.get_min() is None
-                and output_map.metadata.get_max() is None
-            ):
-                empty_maps.append(output_map)
-                continue
+        if not register_null and (
+            output_map.metadata.get_min() is None
+            and output_map.metadata.get_max() is None
+        ):
+            empty_maps.append(output_map)
+            continue
 
         # Insert map in temporal database
         output_map.insert(dbif)
