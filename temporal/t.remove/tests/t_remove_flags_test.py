@@ -100,6 +100,7 @@ def test_r_without_f_lists_each_dataset_before_its_maps(tools, make_stds):
     message = _message(result)
     position = 0
     for text in expected:
+        assert text in message[position:]
         position = message.index(text, position) + len(text)
 
 
