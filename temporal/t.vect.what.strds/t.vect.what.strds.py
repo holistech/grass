@@ -218,7 +218,10 @@ def main():
                 gs.read_command(
                     "db.select",
                     # The key column, as the table need not have one named cat
-                    sql="SELECT {} FROM {} WHERE {}".format(
+                    # The where option is an SQL condition by definition and
+                    # the user runs it on their own tables: nothing is
+                    # escalated by passing it on.
+                    sql="SELECT {} FROM {} WHERE {}".format(  # noqa: S608
                         connection["key"], connection["table"], where
                     ),
                     driver=connection["driver"],

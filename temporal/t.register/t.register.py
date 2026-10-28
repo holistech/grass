@@ -141,5 +141,6 @@ if __name__ == "__main__":
 
     try:
         tgis.profile_function(main)
-    except Exception as e:
+    # Any failure of the tool ends as a GRASS fatal message, not a traceback.
+    except Exception as e:  # noqa: BLE001
         gs.fatal(e)
