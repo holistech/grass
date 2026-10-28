@@ -283,7 +283,11 @@ def test_the_progress_is_shown_every_ten_maps_and_at_the_end(
 
 
 def cycles_of(dataset, start, end, stop=None, cycle="1 months", offset=None):
-    return list(tgis.dataset_cycles(dataset, start, end, stop, cycle, offset, None))
+    return list(
+        tgis.dataset_cycles(
+            dataset, start, end, stop=stop, cycle=cycle, offset=offset, dbif=None
+        )
+    )
 
 
 def test_the_cycles_run_to_the_end_of_the_data(monthly):
@@ -370,6 +374,12 @@ def test_relative_cycles_with_an_offset(relative):
     # Cycles of 2 days with a gap of 1: [0, 2), [3, 5), and [6, 8) starts
     # behind the end of the data, 5 (one unit behind the instant at 4).
     assert cycles_of(relative, 0, 2, cycle=2, offset=1) == [(0, 2), (3, 5)]
+
+
+def test_the_relative_stop_0_cuts_no_cycle(relative):
+    # The cycle [-2, 1) starts before the stop 0 and keeps its end; any other
+    # stop would cut it.
+    assert cycles_of(relative, -2, 1, stop=0, cycle=3, offset=0) == [(-2, 1)]
 
 
 def test_relative_cycles_end_at_stop(relative):

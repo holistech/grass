@@ -108,9 +108,9 @@ def register_in_new_stds(
 
     With overwrite an entry of dataset in the temporal database is removed
     first, so that the dataset holds only the new maps; without overwrite
-    the caller has refused an existing dataset before. The new entry takes the temporal and
-    semantic type, the title and the description of input_dataset. The maps
-    are registered with register_new_maps().
+    the caller has refused an existing dataset before. The new entry takes
+    the temporal and semantic type, the title and the description of
+    input_dataset. The maps are registered with register_new_maps().
 
     :param new_maps: The computed maps, see register_new_maps()
     :param dataset: The output dataset, not yet inserted or to be replaced
@@ -212,18 +212,23 @@ def first_related_map_id(map_):
     return None
 
 
-def dataset_cycles(dataset, start, end, stop, cycle, offset, dbif):
+def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     """Yield the start and the end of each cycle over the maps of dataset
 
     The first cycle runs from start to end, next_cycle() gives the later
     ones, counted from start. A cycle is yielded while it starts before stop
-    and before the end of the data, and it ends at stop at the latest. The
-    end of the data is the end of dataset, or one unit behind it (one second
-    in absolute time) when a map is an instant there, so that this map lies
-    in a cycle. It is read from the database when the first cycle is asked
-    for.
+    and before the end of the data. A cycle that reaches beyond stop ends at
+    stop, except for the relative stop 0, which cuts no cycle (the test
+    `if stop` of the former tool code, kept as it was). The end of the data is the end of
+    dataset, or one unit behind it (one second in absolute time) when a map
+    is an instant there, so that this map lies in a cycle. It is read from
+    the database when the first cycle is asked for.
 
-    :param dataset: The input dataset, selected from the database
+    The dataset must have registered maps: an empty dataset has no end, and
+    the comparison with it raises TypeError. The tools check this before.
+
+    :param dataset: The input dataset with registered maps, selected from
+                    the database
     :param start: The start of the first cycle, a datetime in absolute time,
                   a number of the unit of dataset in relative time
     :param end: The end of the first cycle, after start

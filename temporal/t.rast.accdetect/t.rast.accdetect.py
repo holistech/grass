@@ -569,7 +569,7 @@ def main():
     indicator_maps = {}
 
     for cycle_start, cycle_end in tgis.dataset_cycles(
-        input_strds, start, end, stop, cycle, offset, dbif
+        input_strds, start, end, stop=stop, cycle=cycle, offset=offset, dbif=dbif
     ):
         where = "start_time >= '%s' AND start_time < '%s'" % (
             str(cycle_start),
