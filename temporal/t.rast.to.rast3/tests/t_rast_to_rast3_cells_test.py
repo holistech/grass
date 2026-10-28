@@ -233,6 +233,7 @@ def test_a_map_that_is_gone_from_the_mapset_stops_the_run_with_a_message(tools, 
 
     assert f"Unable to create 3D raster map <{prefix}>" in text
     assert prefix not in tools.g_list(type="raster_3d", flags="m").stdout
+    assert "temporary_null_map" not in tools.g_list(type="raster").stdout
 
 
 def test_a_failing_r3_support_warns_and_keeps_the_cube(
