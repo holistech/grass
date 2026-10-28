@@ -143,9 +143,10 @@ def register_in_new_stds(
 def names_from_file(path):
     """Return the names that a file lists, one per line
 
-    Blanks around a name are removed, and a line that is empty or holds only
-    blanks is left out: an editor often leaves an empty line at the end of a
-    file. The file is read with the default encoding of open().
+    Whitespace around a name, such as spaces and tabs, is removed, and a line
+    that is empty or holds only whitespace is left out: an editor often
+    leaves an empty line at the end of a file. The file is read with the
+    default encoding of open().
 
     :param path: The value of the file option
     :return: The names in the order of the file
