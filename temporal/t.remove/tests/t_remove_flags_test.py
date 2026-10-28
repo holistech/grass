@@ -67,6 +67,42 @@ def test_d_without_f_lists_the_maps_it_would_delete(
     assert existing(maps) == [True] * 3
 
 
+def test_r_and_d_without_f_list_the_maps_with_the_text_of_r(
+    tools, make_stds, has_dataset, registered, existing
+):
+    maps, (name,) = make_stds(2)
+
+    result = tools.t_remove(inputs=name, flags="rd")
+
+    message = _message(result)
+    assert "will be unregistered from temporal database:" in message
+    assert "removed from spatial database" not in message
+    for map_name in maps:
+        assert f"- {map_name}" in message
+    assert has_dataset(name)
+    assert registered(maps) == [True] * 2
+    assert existing(maps) == [True] * 2
+
+
+def test_r_without_f_lists_each_dataset_before_its_maps(tools, make_stds):
+    maps, names = make_stds(2, datasets=2)
+
+    result = tools.t_remove(inputs=",".join(names), flags="r")
+
+    expected = ["The following data base element files will be deleted:"]
+    for name in names:
+        expected += [
+            f"STRDS: {name}@PERMANENT",
+            f"The following maps of strds {name}@PERMANENT will be unregistered",
+            *[f"- {map_name}" for map_name in maps],
+        ]
+    expected.append("Nothing removed.")
+    message = _message(result)
+    position = 0
+    for text in expected:
+        position = message.index(text, position) + len(text)
+
+
 def test_f_removes_the_dataset_and_keeps_the_maps(
     tools, make_stds, has_dataset, registered, existing
 ):
