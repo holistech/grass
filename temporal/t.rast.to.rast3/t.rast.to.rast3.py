@@ -200,8 +200,10 @@ def main():
     set_cube_region(bottom, top, granularity)
 
     null_map = make_null_map(datatype)
-    make_cube(maps, null_map, output)
-    gs.run_command("g.remove", flags="f", type="raster", name=null_map)
+    try:
+        make_cube(maps, null_map, output)
+    finally:
+        gs.run_command("g.remove", flags="f", type="raster", name=null_map)
 
     set_cube_unit(output, unit)
     register_cube(sp, output, mapset)
