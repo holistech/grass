@@ -5,6 +5,8 @@ from day n-1 to day n, and are registered in two datasets. The time belongs to
 the map, so both datasets show the same times.
 """
 
+import re
+
 import pytest
 
 from grass.temporal.testing.data import (
@@ -226,3 +228,17 @@ def test_a_dataset_of_relative_time(tools, prefix):
     assert info["number_of_maps"] == 2
     assert info["start_time"] == "'1'"
     assert info["end_time"] == "'3'"
+
+
+def test_the_progress_of_the_dataset_update_ends_below_100_percent(tools, make_stds):
+    maps, _ = make_stds(1, datasets=2)
+
+    result = tools.t_unregister(maps=maps[0])
+
+    maps_part, datasets_part = result.stderr.split(
+        "Unregister maps from the temporal database"
+    )
+    assert "100%" in maps_part
+    # The update of each dataset is shown before it is counted, so two
+    # datasets show 0% and 50%, and no 100% follows.
+    assert re.findall(r"\d+%", datasets_part) == ["0%", "50%"]
