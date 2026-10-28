@@ -398,7 +398,7 @@ def main():
     # Wait for unfinished processes
     wait_for_neighbors(process_queue, dbif)
 
-    # Open a new space time raster dataset
+    # Open the output dataset
     output_strds = open_output(
         output,
         sp,
