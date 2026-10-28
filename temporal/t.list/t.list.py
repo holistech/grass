@@ -274,8 +274,11 @@ def main():
                                 output_format == "plain" and colhead
                             )
                             if print_header:
+                                # A database row iterates its values, not its
+                                # keys, so keys() cannot be dropped.
                                 output = separator.join(
-                                    str(k) for k in current_rows[0].keys()
+                                    str(k)
+                                    for k in current_rows[0].keys()  # noqa: SIM118
                                 )
                                 out_file.write(f"{output}\n")
                                 if output_format == "csv":
