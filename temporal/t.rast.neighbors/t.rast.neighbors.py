@@ -159,24 +159,178 @@ import grass.script as gs
 from grass.exceptions import CalledModuleError
 
 
-def main():
-    # lazy imports
-    import grass.pygrass.modules as pymod
-    import grass.temporal as tgis
+def selected_maps(sp, where, region_relation, dbif):
+    """Return the registered maps of sp that where and the region select
 
+    With a region_relation the maps are selected by their relation to the
+    current 3D region.
+    """
+    spatial_extent = None
+    if region_relation:
+        spatial_extent = gs.parse_command("g.region", flags="3gu")
+
+    try:
+        return sp.get_registered_maps_as_objects(
+            where=where,
+            spatial_extent=spatial_extent,
+            spatial_relation=region_relation,
+            dbif=dbif,
+        )
+    except tgis.SQLStatementError as error:
+        dbif.close()
+        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+
+
+def neighbor_module(options, quantile, flag_c, overwrite):
+    """Return r.neighbors with the options of the tool, without input and output"""
+    return pymod.Module(
+        "r.neighbors",
+        flags="c" if flag_c else "",
+        input="dummy",
+        output="dummy",
+        run_=False,
+        finish_=False,
+        selection=options["selection"],
+        size=int(options["size"]),
+        method=options["method"],
+        quantile=quantile,
+        weighting_function=options["weighting_function"],
+        weighting_factor=(
+            float(options["weighting_factor"]) if options["weighting_factor"] else None
+        ),
+        weight=options["weight"],
+        overwrite=overwrite,
+        quiet=True,
+    )
+
+
+def set_semantic_label(new_map, map, new_labels, method):
+    """Give new_map the semantic label that the option semantic_labels asks for
+
+    input takes the label of map, if it has one; method appends the method to
+    the label of map or, without one, is the label.
+    """
+    semantic_label = map.metadata.get_semantic_label()
+    if new_labels == "input":
+        if semantic_label is not None:
+            new_map.set_semantic_label(semantic_label)
+    elif new_labels == "method":
+        if semantic_label is not None:
+            semantic_label = f"{semantic_label}_{method}"
+        else:
+            semantic_label = method
+        new_map.set_semantic_label(semantic_label)
+
+
+def open_new_maps(maps, *, sp, base, time_suffix, new_labels, method, overwrite, dbif):
+    """Open the new map of each map of maps; return them in the order of maps
+
+    All output maps are checked before the first r.neighbors starts, so that
+    an existing map stops the run before anything is written. The temporal
+    database knows only registered maps; a raster of the same name outside
+    it would otherwise stop only its own r.neighbors run while the others
+    write their maps.
+    """
+    new_maps = []
+    for count, map in enumerate(maps, start=1):
+        new_map = tgis.open_new_map_for(
+            map,
+            base,
+            time_suffix,
+            sp.get_granularity(),
+            count,
+            map_type="raster",
+            overwrite=overwrite,
+            dbif=dbif,
+        )
+        if not overwrite and new_map.map_exists():
+            dbif.close()
+            gs.fatal(
+                _(
+                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
+                ).format(new_map.get_id())
+            )
+        set_semantic_label(new_map, map, new_labels, method)
+        new_maps.append(new_map)
+    return new_maps
+
+
+def queue_neighbors(
+    maps,
+    new_maps,
+    r_neighbors,
+    gregion_module,
+    process_queue,
+    *,
+    use_raster_region,
+    dbif,
+):
+    """Queue r.neighbors for each map, with g.region on its raster for -r"""
+    for map, new_map in zip(maps, new_maps, strict=True):
+        mod = copy.deepcopy(r_neighbors)
+        mod(input=map.get_id(), output=new_map.get_id())
+
+        try:
+            if use_raster_region is True:
+                reg = copy.deepcopy(gregion_module)
+                reg(raster=map.get_id())
+                gs.verbose(reg.get_bash())
+                mm = pymod.MultiModule([reg, mod], sync=False, set_temp_region=True)
+                process_queue.put(mm)
+            else:
+                process_queue.put(mod)
+        except CalledModuleError as error:
+            dbif.close()
+            gs.fatal(_("Error running r.neighbors: {}").format(error))
+        gs.verbose(mod.get_bash())
+
+
+def wait_for_neighbors(process_queue, dbif):
+    """Wait for the queued processes, end with a message if one failed"""
+    try:
+        process_queue.wait()
+    except CalledModuleError as error:
+        dbif.close()
+        gs.fatal(_("Error running r.neighbors: {}").format(error))
+
+
+def open_output(output, sp, *, output_exists, extend, overwrite, dbif):
+    """Return the output dataset: a new one, or the existing one for -e
+
+    An existing dataset reaches the second return only with -e, because
+    check_new_stds() refuses it otherwise unless overwrite is set.
+    """
+    if not output_exists or (overwrite and not extend):
+        # Get basic metadata
+        temporal_type, semantic_type, title, description = sp.get_initial_values()
+
+        # Create new STRDS
+        return tgis.open_new_stds(
+            output,
+            "strds",
+            temporal_type,
+            title,
+            description,
+            semantic_type,
+            dbif,
+            overwrite,
+        )
+
+    # Append to existing
+    return tgis.open_old_stds(output, "strds", dbif)
+
+
+def main():
     # Get the options
     input = options["input"]
     output = options["output"]
     where = options["where"]
     region_relation = options["region_relation"]
-    size = options["size"]
     base = options["basename"]
     register_null = flags["n"]
-    use_raster_region = flags["r"]
     method = options["method"]
     nprocs = options["nprocs"]
     time_suffix = options["suffix"]
-    new_labels = options["semantic_labels"]
     quantile = float(options["quantile"]) if options["quantile"] else None
 
     if method == "quantile" and not options["quantile"]:
@@ -196,21 +350,7 @@ def main():
     overwrite = gs.overwrite()
 
     sp = tgis.open_old_stds(input, "strds", dbif)
-
-    spatial_extent = None
-    if region_relation:
-        spatial_extent = gs.parse_command("g.region", flags="3gu")
-
-    try:
-        maps = sp.get_registered_maps_as_objects(
-            where=where,
-            spatial_extent=spatial_extent,
-            spatial_relation=region_relation,
-            dbif=dbif,
-        )
-    except tgis.SQLStatementError as error:
-        dbif.close()
-        gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+    maps = selected_maps(sp, where, region_relation, dbif)
 
     if not maps:
         dbif.close()
@@ -223,25 +363,7 @@ def main():
     )
     output_exists = output_strds.is_in_db(dbif)
     # Configure the r.neighbor module
-    neighbor_module = pymod.Module(
-        "r.neighbors",
-        flags="c" if flags["c"] else "",
-        input="dummy",
-        output="dummy",
-        run_=False,
-        finish_=False,
-        selection=options["selection"],
-        size=int(size),
-        method=method,
-        quantile=quantile,
-        weighting_function=options["weighting_function"],
-        weighting_factor=(
-            float(options["weighting_factor"]) if options["weighting_factor"] else None
-        ),
-        weight=options["weight"],
-        overwrite=overwrite,
-        quiet=True,
-    )
+    r_neighbors = neighbor_module(options, quantile, flags["c"], overwrite)
 
     gregion_module = pymod.Module(
         "g.region",
@@ -253,90 +375,38 @@ def main():
     # The module queue for parallel execution
     process_queue = pymod.ParallelModuleQueue(int(nprocs))
 
-    count = 0
-    new_maps = []
-
-    # All output maps are checked before the first r.neighbors starts, so that
-    # an existing map stops the run before anything is written. The temporal
-    # database knows only registered maps; a raster of the same name outside
-    # it would otherwise stop only its own r.neighbors run while the others
-    # write their maps.
-    for map in maps:
-        count += 1
-        new_map = tgis.open_new_map_for(
-            map,
-            base,
-            time_suffix,
-            sp.get_granularity(),
-            count,
-            map_type="raster",
-            overwrite=overwrite,
-            dbif=dbif,
-        )
-        if not overwrite and new_map.map_exists():
-            dbif.close()
-            gs.fatal(
-                _(
-                    "Raster map <{}> exists. To overwrite, use the --overwrite flag."
-                ).format(new_map.get_id())
-            )
-        semantic_label = map.metadata.get_semantic_label()
-        if new_labels == "input":
-            if semantic_label is not None:
-                new_map.set_semantic_label(semantic_label)
-        elif new_labels == "method":
-            if semantic_label is not None:
-                semantic_label = f"{semantic_label}_{method}"
-            else:
-                semantic_label = method
-            new_map.set_semantic_label(semantic_label)
-        new_maps.append(new_map)
-
-    for map, new_map in zip(maps, new_maps, strict=True):
-        mod = copy.deepcopy(neighbor_module)
-        mod(input=map.get_id(), output=new_map.get_id())
-
-        try:
-            if use_raster_region is True:
-                reg = copy.deepcopy(gregion_module)
-                reg(raster=map.get_id())
-                gs.verbose(reg.get_bash())
-                mm = pymod.MultiModule([reg, mod], sync=False, set_temp_region=True)
-                process_queue.put(mm)
-            else:
-                process_queue.put(mod)
-        except CalledModuleError as error:
-            dbif.close()
-            gs.fatal(_("Error running r.neighbors: {}").format(error))
-        gs.verbose(mod.get_bash())
+    new_maps = open_new_maps(
+        maps,
+        sp=sp,
+        base=base,
+        time_suffix=time_suffix,
+        new_labels=options["semantic_labels"],
+        method=method,
+        overwrite=overwrite,
+        dbif=dbif,
+    )
+    queue_neighbors(
+        maps,
+        new_maps,
+        r_neighbors,
+        gregion_module,
+        process_queue,
+        use_raster_region=flags["r"],
+        dbif=dbif,
+    )
 
     # Wait for unfinished processes
-    try:
-        process_queue.wait()
-    except CalledModuleError as error:
-        dbif.close()
-        gs.fatal(_("Error running r.neighbors: {}").format(error))
+    wait_for_neighbors(process_queue, dbif)
 
     # Open a new space time raster dataset
-    if not output_exists or (overwrite and not flags["e"]):
-        # Get basic metadata
-        temporal_type, semantic_type, title, description = sp.get_initial_values()
-
-        # Create new STRDS
-        output_strds = tgis.open_new_stds(
-            output,
-            "strds",
-            temporal_type,
-            title,
-            description,
-            semantic_type,
-            dbif,
-            overwrite,
-        )
-
-    # Append to existing
-    elif output_exists and flags["e"]:
-        output_strds = tgis.open_old_stds(output, "strds", dbif)
+    output_strds = open_output(
+        output,
+        sp,
+        output_exists=output_exists,
+        extend=flags["e"],
+        overwrite=overwrite,
+        dbif=dbif,
+    )
 
     empty_maps = tgis.register_new_maps(new_maps, output_strds, register_null, dbif)
 
@@ -344,14 +414,7 @@ def main():
         output_strds.update_command_string(dbif=dbif)
 
     # Remove empty maps
-    if len(empty_maps) > 0:
-        gs.run_command(
-            "g.remove",
-            flags="f",
-            type="raster",
-            name=",".join([raster_map.get_name() for raster_map in empty_maps]),
-            quiet=True,
-        )
+    tgis.remove_maps(empty_maps, "raster")
 
     dbif.close()
 
@@ -360,4 +423,8 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+    # lazy imports
+    import grass.pygrass.modules as pymod
+    import grass.temporal as tgis
+
     main()
