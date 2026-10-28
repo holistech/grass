@@ -76,6 +76,7 @@ from .temporal_granularity import (
     gran_singular_unit,
     gran_to_gran,
 )
+from .tool_steps import open_new_map_for, register_new_maps
 from .univar_statistics import (
     print_gridded_dataset_univar_statistics,
     print_vector_dataset_univar_statistics,
@@ -134,6 +135,7 @@ __all__ = [
     "map_name_suffix",
     "next_cycle",
     "open_new_map_dataset",
+    "open_new_map_for",
     "open_new_stds",
     "open_old_stds",
     "print_gridded_dataset_univar_statistics",
@@ -141,6 +143,7 @@ __all__ = [
     "profile_function",
     "register_map_object_list",
     "register_maps_in_space_time_dataset",
+    "register_new_maps",
     "registered_maps_grouped",
     "sample_stds_by_stds_topology",
     "space_time_datasets",
