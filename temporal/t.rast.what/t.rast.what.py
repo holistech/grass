@@ -253,10 +253,20 @@ def split_into_loops(num_maps, nprocs):
 
 
 def sample_remaining_maps(
-    r_what, maps, nprocs, remaining_maps, count, output_files, output_time_list, queue
+    *,
+    r_what,
+    maps,
+    nprocs,
+    remaining_maps,
+    count,
+    output_files,
+    output_time_list,
+    queue,
 ):
-    """Sample the maps that the loops left: in one process up to 100 maps,
-    otherwise spread over all processes"""
+    """Sample the maps that the loops left
+
+    Up to 100 maps run in one process, more are spread over all processes.
+    """
     if remaining_maps <= 100:
         # Use a single process if less then 100 maps
         map_names = []
@@ -338,14 +348,14 @@ def run_r_what(r_what, maps, nprocs):
         )
         if remaining_maps > 0:
             sample_remaining_maps(
-                r_what,
-                maps,
-                nprocs,
-                remaining_maps,
-                count,
-                output_files,
-                output_time_list,
-                process_queue,
+                r_what=r_what,
+                maps=maps,
+                nprocs=nprocs,
+                remaining_maps=remaining_maps,
+                count=count,
+                output_files=output_files,
+                output_time_list=output_time_list,
+                queue=process_queue,
             )
 
         # Wait for unfinished processes
@@ -419,7 +429,6 @@ def main(options, flags):
     )
     output_files, output_time_list = run_r_what(r_what, maps, nprocs)
 
-    # Out the output files in the correct order together
     write_output(
         layout,
         separator,
