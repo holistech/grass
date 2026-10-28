@@ -66,11 +66,11 @@ def _changed(source, target, name, data=None):
 def _listed_twice(source, target, name, suffix):
     """Copy the tar archive source to target with the map name listed twice
 
-    Older exports of maps of one name from several mapsets wrote their raster
-    and GML files and their lines of list.txt under that one name: the file
-    of map name is a member twice and its line of list.txt follows in a second
-    line for the next month. For a v.pack archive the second member is
-    harmless, as the export wrote one pack file per name.
+    Older exports of maps of one name from several mapsets wrote the line of
+    list.txt under that one name for each of them, and except for v.pack also
+    the file: the file of map name is a member twice and its line follows in a
+    second line for the next month. A v.pack export wrote one pack file per
+    name; the second member there only makes the archive like the others.
     """
     with tarfile.open(source) as old, tarfile.open(target, "w") as new:
         for member in old.getmembers():
