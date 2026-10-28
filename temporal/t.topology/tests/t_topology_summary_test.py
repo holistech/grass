@@ -374,3 +374,44 @@ def test_an_empty_dataset_in_relative_time_has_no_granularity(tools, prefix):
         SUMMARY_LINES[8],
         SUMMARY_LINES[-1],
     ]
+
+
+def _empty_report(subset):
+    return [
+        SUMMARY_LINES[0],
+        f" | Is subset of dataset: ...... {subset}",
+        " | Temporal topology is: ...... invalid",
+        " | Number of points: .......... 0",
+        " | Number of intervals: ....... 0",
+        " | Invalid time stamps: ....... 0",
+        " | Number of gaps: ............ 0",
+        " | Granularity: ............... None",
+        SUMMARY_LINES[8],
+        SUMMARY_LINES[-1],
+    ]
+
+
+def test_an_empty_dataset_in_absolute_time_has_no_granularity(tools, prefix):
+    name = f"{prefix}_ds"
+    tools.t_create(output=name, title="t", description="d")
+
+    result = tools.t_topology(input=name)
+
+    # As in relative time: the summary used to end with an IndexError of the
+    # granularity, computed for no maps.
+    assert "Traceback" not in result.stderr
+    assert _report(result.stdout) == _empty_report("False")
+
+
+def test_a_where_that_selects_no_map_in_absolute_time(tools, prefix):
+    maps = _make_maps(tools, prefix, count=2)
+    name = f"{prefix}_ds"
+    tools.t_create(output=name, title="t", description="d")
+    tools.t_register(
+        input=name, maps=",".join(maps), start="2001-01-01", increment="1 months"
+    )
+
+    result = tools.t_topology(input=name, where="start_time > '2099-01-01'")
+
+    assert "Traceback" not in result.stderr
+    assert _report(result.stdout) == _empty_report("True")

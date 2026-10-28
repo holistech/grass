@@ -102,7 +102,11 @@ def print_temporal_topology(sp, maps, where):
 
     print(" | Number of gaps: ............ %i" % sp.count_gaps(maps))
 
-    if sp.is_time_absolute():
+    # No maps have no granularity. The function of relative time returns None
+    # for them, the one of absolute time fails on the empty list.
+    if not maps:
+        gran = None
+    elif sp.is_time_absolute():
         gran = tgis.compute_absolute_time_granularity(maps)
     else:
         gran = tgis.compute_relative_time_granularity(maps)
