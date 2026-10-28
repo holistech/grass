@@ -558,6 +558,14 @@ def main():
         input_strds, start, cycle, granularity, offset, dbif
     )
 
+    # An empty dataset has no end for the cycles to run up to. The warning
+    # and the stop without output are those of t.rast.contour, t.rast.to.vect
+    # and t.rast.neighbors.
+    if not input_strds.metadata.get_number_of_maps():
+        dbif.close()
+        gs.warning(_("Space time raster dataset <%s> is empty") % input_strds.get_id())
+        return
+
     settings = {"limits": limits, "shift": shift, "scale": scale, "method": method}
     count = 1
     output_maps = []

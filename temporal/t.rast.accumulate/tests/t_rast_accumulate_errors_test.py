@@ -293,3 +293,21 @@ def test_a_relative_length_of_time_of_zero_is_refused(tools, relative, option, t
         _run(tools, f"err_rel_zero_{option}", input="err_relative", **options)
 
     assert text in message(error.value)
+
+
+def test_an_empty_input_dataset_ends_with_a_warning(tools, daily):
+    # As t.rast.contour, t.rast.to.vect and t.rast.neighbors: a warning, no
+    # output dataset, and the run ends without an error.
+    tools.t_create(
+        output="err_empty",
+        type="strds",
+        temporaltype="absolute",
+        title="empty",
+        description="empty",
+    )
+
+    result = _run(tools, "err_empty_out", input="err_empty")
+
+    assert "Space time raster dataset <err_empty@PERMANENT> is empty" in (result.stderr)
+    assert "Traceback" not in result.stderr
+    assert "err_empty_out@" not in tools.t_list(type="strds").text
