@@ -270,6 +270,13 @@ def test_a_start_before_the_data_gives_cycles_that_cut_the_data(tools, daily):
     assert _values(rows) == [5, 15, 35, 70, 90, 10, 15]
 
 
+def test_a_start_after_the_data_gives_an_empty_dataset(tools, daily):
+    # No cycle from 2002-01-01 on holds a map. The output dataset is made all
+    # the same and holds no map.
+    assert _accumulate(tools, "late", method="gdd", start="2002-01-01") == []
+    assert stds_info(tools, "strds", "late")["number_of_maps"] == 0
+
+
 def test_the_reverse_flag_accumulates_from_the_end(tools, daily):
     # The sums run from the 7th to the 1st day: 5, 15, 35, 70, 90, 100, 105.
     rows = _accumulate(tools, "rev", method="gdd", flags="r")
