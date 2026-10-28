@@ -39,83 +39,49 @@
 # % required: no
 # %end
 
-from pathlib import Path
-
 import grass.script as gs
 
 # lazy imports at the end of the file
 
-############################################################################
 
-
-def main():
-    # Get the options
-    file = options["file"]
-    input = options["input"]
-    maps = options["maps"]
-    type = options["type"]
-
-    # Make sure the temporal database exists
-    tgis.init()
-
+def check_options(maps, file):
+    """Refuse a call with both or neither of maps and file"""
     if maps and file:
         gs.fatal(_("%s= and %s= are mutually exclusive") % ("maps", "file"))
 
     if not maps and not file:
         gs.fatal(_("%s= or %s= must be specified") % ("maps", "file"))
 
-    mapset = tgis.get_current_mapset()
 
-    dbif = tgis.SQLDatabaseInterfaceConnection(mapsets=mapset)
-    dbif.connect()
+def map_ids(maps, file, mapset):
+    """Return the ids of the maps of the option maps or of the file
 
-    # In case a space time dataset is specified
-    sp = None
-    if input:
-        sp = tgis.open_old_stds(input, type, dbif)
-
-    maplist = []
-
+    A name without mapset gets the current mapset.
+    """
     dummy = tgis.RasterDataset(None)
 
-    # Map names as comma separated string
-    if maps is not None and maps != "":
-        maplist = maps.split(",")
+    if maps:
+        return [dummy.build_id(mapname, mapset) for mapname in maps.split(",")]
 
-        # Build the maplist
-        for count in range(len(maplist)):
-            mapname = maplist[count]
-            mapid = dummy.build_id(mapname, mapset)
-            maplist[count] = mapid
+    try:
+        names = tgis.names_from_file(file)
+    except ValueError as error:
+        gs.fatal(str(error))
+    return [dummy.build_id(mapname, mapset) for mapname in names]
 
-    # Read the map list from file
-    if file:
-        if not Path(file).is_file():
-            gs.fatal(_("File <{}> not found").format(file))
-        with open(file) as fd:
-            line = True
-            while True:
-                line = fd.readline()
-                if not line:
-                    break
 
-                mapname = line.strip()
-                # An empty line is no map name; an editor often leaves one at
-                # the end of a file.
-                if not mapname:
-                    continue
-                mapid = dummy.build_id(mapname, mapset)
-                maplist.append(mapid)
+def unregister_maps(maplist, type, sp, mapset, dbif):
+    """Unregister the maps from sp, or without sp from the temporal database
 
+    Returns the ids of the datasets that held a map unregistered from the
+    temporal database, in the order they were found.
+    """
     num_maps = len(maplist)
     update_dict = {}
-    count = 0
-
     statement = ""
 
-    # Unregister already registered maps
     gs.message(_("Unregister maps"))
-    for mapid in maplist:
+    for count, mapid in enumerate(maplist):
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
 
@@ -124,7 +90,7 @@ def main():
         # Unregister map if in database
         if map_item.is_in_db(dbif, mapset=mapset):
             # Unregister from a single dataset
-            if input:
+            if sp is not None:
                 # Collect SQL statements
                 statement += sp.unregister_map(map=map_item, dbif=dbif, execute=False)
 
@@ -145,35 +111,62 @@ def main():
                 % (map_item.get_type(), map_item.get_id())
             )
 
-        count += 1
-
-    # Execute the collected SQL statenents
+    # Execute the collected SQL statements
     if statement:
         dbif.execute_transaction(statement, mapset=mapset)
 
     gs.percent(num_maps, num_maps, 1)
+    return list(update_dict.values())
 
-    # Update space time datasets
+
+def update_datasets(input, sp, dataset_ids, type, dbif):
+    """Update the extent and metadata of the datasets that held the maps
+
+    With input the dataset sp also gets the command of this call.
+    """
     if input:
         gs.message(_("Unregister maps from space time dataset <%s>") % (input))
     else:
         gs.message(_("Unregister maps from the temporal database"))
 
-    if input and sp is not None:
+    if sp is not None:
         sp.update_from_registered_maps(dbif)
         sp.update_command_string(dbif=dbif)
-    elif len(update_dict) > 0:
-        count = 0
-        for id in update_dict.values():
+    elif dataset_ids:
+        for count, id in enumerate(dataset_ids):
             sp = tgis.open_old_stds(id, type, dbif)
             sp.update_from_registered_maps(dbif)
-            gs.percent(count, len(update_dict), 1)
-            count += 1
+            gs.percent(count, len(dataset_ids), 1)
+
+
+def main():
+    # Get the options
+    file = options["file"]
+    input = options["input"]
+    maps = options["maps"]
+    type = options["type"]
+
+    # Make sure the temporal database exists
+    tgis.init()
+
+    check_options(maps, file)
+
+    mapset = tgis.get_current_mapset()
+
+    dbif = tgis.SQLDatabaseInterfaceConnection(mapsets=mapset)
+    dbif.connect()
+
+    # In case a space time dataset is specified
+    sp = None
+    if input:
+        sp = tgis.open_old_stds(input, type, dbif)
+
+    maplist = map_ids(maps, file, mapset)
+    dataset_ids = unregister_maps(maplist, type, sp, mapset, dbif)
+    update_datasets(input, sp, dataset_ids, type, dbif)
 
     dbif.close()
 
-
-###############################################################################
 
 if __name__ == "__main__":
     options, flags = gs.parser()
