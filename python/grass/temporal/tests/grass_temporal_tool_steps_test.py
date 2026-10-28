@@ -536,3 +536,34 @@ def test_overwrite_replaces_the_output_dataset_and_its_maps(tools, monthly, base
     assert registered_names(tgis.open_old_stds(base, "strds")) == [
         new_map.get_name() for new_map in new_maps
     ]
+
+
+def test_the_names_of_a_file_are_stripped_and_blank_lines_left_out(tmp_path):
+    path = tmp_path / "names.txt"
+    path.write_text("a\n\n  b  \n\t\nc@other")
+
+    assert tgis.names_from_file(str(path)) == ["a", "b", "c@other"]
+
+
+def test_the_names_of_a_file_with_windows_line_ends(tmp_path):
+    path = tmp_path / "names.txt"
+    path.write_bytes(b"a\r\nb\r\n")
+
+    assert tgis.names_from_file(str(path)) == ["a", "b"]
+
+
+def test_an_empty_file_has_no_names(tmp_path):
+    path = tmp_path / "names.txt"
+    path.write_text("")
+
+    assert tgis.names_from_file(str(path)) == []
+
+
+@pytest.mark.parametrize("make_directory", [False, True])
+def test_a_path_that_is_no_file_raises(tmp_path, make_directory):
+    path = tmp_path / "names"
+    if make_directory:
+        path.mkdir()
+
+    with pytest.raises(ValueError, match=re.escape(f"File <{path}> not found")):
+        tgis.names_from_file(str(path))

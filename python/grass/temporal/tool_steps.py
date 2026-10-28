@@ -1,4 +1,4 @@
-"""Steps that several temporal tools share when they compute map by map
+"""Steps that several temporal tools share
 
 A tool that runs a module for each map of a space time dataset opens the new
 map of each input map with open_new_map_for() and registers the computed maps
@@ -12,9 +12,14 @@ their cycles with dataset_cycles(), find the threshold map of a map with
 first_related_map_id(), open each result map with open_result_map() and
 write each output dataset with register_in_new_stds().
 
+A tool whose file option lists names, one per line, reads them with
+names_from_file().
+
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
+
+from pathlib import Path
 
 import grass.script as gs
 
@@ -133,6 +138,23 @@ def register_in_new_stds(
     dataset.insert(dbif)
 
     return register_new_maps(new_maps, dataset, register_null, dbif)
+
+
+def names_from_file(path):
+    """Return the names that a file lists, one per line
+
+    Blanks around a name are removed, and a line that is empty or holds only
+    blanks is left out: an editor often leaves an empty line at the end of a
+    file. The file is read with the default encoding of open().
+
+    :param path: The value of the file option
+    :return: The names in the order of the file
+    :raises ValueError: when path is not a file
+    """
+    if not Path(path).is_file():
+        raise ValueError(_("File <{}> not found").format(path))
+    with open(path) as stream:
+        return [line.strip() for line in stream if line.strip()]
 
 
 def _is_empty(new_map):
