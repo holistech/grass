@@ -328,3 +328,25 @@ def test_a_relative_cycle_of_zero_is_refused(gap):
 
     assert result is not None, "the tool did not end"
     assert "The cycle must be longer than zero" in result[1]
+
+
+def test_an_empty_input_dataset_ends_with_a_warning(tools, cells):
+    # As t.rast.contour, t.rast.to.vect and t.rast.neighbors: a warning, no
+    # output dataset, and the run ends without an error.
+    tools.t_create(
+        output="det_empty",
+        type="strds",
+        temporaltype="absolute",
+        title="empty",
+        description="empty",
+    )
+
+    result = _run(
+        tools, cells, "err_empty_out", input="det_empty", indicator="err_empty_ind"
+    )
+
+    assert "Space time raster dataset <det_empty@PERMANENT> is empty" in (result.stderr)
+    assert "Traceback" not in result.stderr
+    listed = tools.t_list(type="strds").text
+    assert "err_empty_out@" not in listed
+    assert "err_empty_ind@" not in listed
