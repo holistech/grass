@@ -45,7 +45,6 @@ max-complexity = 15
 # Each C901 line marks a tool whose main() is still to be split; the line is
 # removed when it is.
 "t.copy/t.copy.py" = ["C901"]
-"t.list/t.list.py" = ["C901"]
 "t.merge/t.merge.py" = ["C901"]
 "t.rast.colors/t.rast.colors.py" = ["C901"]
 "t.rast.contour/t.rast.contour.py" = ["C901"]
