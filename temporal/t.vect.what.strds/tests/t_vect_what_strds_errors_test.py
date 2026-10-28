@@ -521,3 +521,27 @@ def test_a_column_that_differs_only_in_case_fails_at_v_what_rast(
         "raster map <wr_1@PERMANENT>"
     ) in text
     assert _values(tools, data.maps[0], "h") == ["1", "2", "3", "4"]
+
+
+def test_a_column_in_another_case_at_a_later_map_leaves_the_earlier_written(
+    tools, rasters, vectors
+):
+    data = vectors()
+    first, second, third = data.maps
+    tools.v_db_addcolumn(map=second, column="k INT")
+    tools.v_db_update(map=second, column="k", value="999")
+
+    text = _refused(tools, input=data.dataset, strds="wh_a", column="K", overwrite=True)
+
+    # Only the second table has k. The check of the target columns takes K
+    # for k there and lets it pass with overwrite. The first map has no k,
+    # so K is added and written there; v.what.rast then fails at the second
+    # map, and the third one is not reached.
+    assert (
+        f"Unable to run v.what.rast for vector map <{second}@PERMANENT> and "
+        "raster map <wr_3@PERMANENT>"
+    ) in text
+    assert "K" in _names(tools, first)
+    assert _values(tools, first, "K") == ["111", "112", "121", "122"]
+    assert _values(tools, second, "k") == ["999"] * 4
+    assert "K" not in _names(tools, third)
