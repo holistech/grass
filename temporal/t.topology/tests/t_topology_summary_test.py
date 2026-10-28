@@ -301,3 +301,76 @@ def test_relative_time(tools, prefix, unit, options, rows, expected, tmp_path):
 
     summary = _summary(result.stdout)
     assert {key: summary[key] for key in expected} == expected
+
+
+def _report(text):
+    """The lines of the summary from its first frame line to the last one"""
+    lines = text.splitlines()
+    return lines[lines.index(SUMMARY_LINES[0]) :]
+
+
+# The summary of six adjacent monthly intervals, line by line. The counts of
+# the time types and of the relations come in the order of the dictionaries of
+# the library, the relations in the order of their table in topology.py.
+SUMMARY_LINES = [
+    " +-------------------- Temporal topology -------------------------------------+",
+    " | Is subset of dataset: ...... False",
+    " | Temporal topology is: ...... valid",
+    " | Number of points: .......... 0",
+    " | Number of intervals: ....... 6",
+    " | Invalid time stamps: ....... 0",
+    " | Number of gaps: ............ 0",
+    " | Granularity: ............... 1 month",
+    " +-------------------- Topological relations ---------------------------------+",
+    " | Equal:...................... 0",
+    " | Follows: ................... 5",
+    " | Precedes: .................. 5",
+    " | Overlaps: .................. 0",
+    " | Overlapped: ................ 0",
+    " | During: .................... 0",
+    " | Contains: .................. 0",
+    " | Starts: .................... 0",
+    " | Started: ................... 0",
+    " | Finishes: .................. 0",
+    " | Finished: .................. 0",
+    "+----------------------------------------------------------------------------+",
+]
+
+
+def test_the_lines_of_the_summary_and_their_order(tools, prefix):
+    maps = _make_maps(tools, prefix)
+    name = f"{prefix}_ds"
+    tools.t_create(output=name, title="t", description="d")
+    tools.t_register(
+        input=name,
+        maps=",".join(maps),
+        start="2001-01-01",
+        increment="1 months",
+        flags="i",
+    )
+
+    result = tools.t_topology(input=name)
+
+    assert _report(result.stdout) == SUMMARY_LINES
+
+
+def test_an_empty_dataset_in_relative_time_has_no_granularity(tools, prefix):
+    name = f"{prefix}_ds"
+    tools.t_create(output=name, temporaltype="relative", title="t", description="d")
+
+    result = tools.t_topology(input=name)
+
+    # Without maps the library counts no relation at all (None, not zeros), so
+    # the lines of the relations are missing, and its check of the topology
+    # takes no counts as invalid.
+    assert _report(result.stdout) == [
+        *SUMMARY_LINES[:2],
+        " | Temporal topology is: ...... invalid",
+        " | Number of points: .......... 0",
+        " | Number of intervals: ....... 0",
+        " | Invalid time stamps: ....... 0",
+        " | Number of gaps: ............ 0",
+        " | Granularity: ............... None",
+        SUMMARY_LINES[8],
+        SUMMARY_LINES[-1],
+    ]
