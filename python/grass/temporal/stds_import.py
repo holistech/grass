@@ -114,10 +114,10 @@ def _refuse_duplicate_import_names(maplist: list[dict[str, str]]) -> None:
 def _refuse_repeated_list_lines(maplist: list[dict[str, str]]) -> None:
     """Stop before the first import if list.txt names one map more than once
 
-    Older exports of maps of one name from several mapsets wrote the file and
-    the line under that one name for each of them. Such an archive holds one
-    file for two lines, so the import would stop after the first map, or on a
-    database constraint, or register a map twice with basename. The lines of
+    Older exports of maps of one name from several mapsets wrote the line,
+    and for raster and GML maps the file, under that one name for each of
+    them. The import of such an archive would stop after the first map, with
+    basename too, or with overwrite on a database constraint. The lines of
     the layers of one vector map are allowed: they differ in the layer.
     """
     seen = set()
