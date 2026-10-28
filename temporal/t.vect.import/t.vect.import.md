@@ -20,6 +20,9 @@ than a letter, a digit or `_` becomes `_`, so `dup@my.set` is imported as
 `dup_my_set`. If two maps of the archive would get one name this way, for
 example `dup@other` and a map `dup_other`, the import stops before the first
 map is imported; with **basename** the maps are numbered instead.
+An archive that lists a map more than once, as older exports wrote it for
+maps of one name from several mapsets, is refused before the first map is
+imported; a new export of the dataset names the maps with their mapset.
 
 The **directory** is used as work directory in case of import but can
 also be used as a data directory when using GML for the data exchange.

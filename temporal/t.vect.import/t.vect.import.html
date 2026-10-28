@@ -23,6 +23,9 @@ mapset other than a letter, a digit or <code>_</code> becomes
 way, for example <code>dup@other</code> and a map <code>dup_other</code>,
 the import stops before the first map is imported; with <b>basename</b> the
 maps are numbered instead.
+An archive that lists a map more than once, as older exports wrote it for
+maps of one name from several mapsets, is refused before the first map is
+imported; a new export of the dataset names the maps with their mapset.
 <p>
 The <b>directory</b> is used as work directory in case of import but
 can also be used as a data directory when using GML for the data
