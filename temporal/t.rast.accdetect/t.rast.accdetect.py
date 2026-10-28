@@ -335,6 +335,7 @@ def compute_occurrence(
     start,
     base,
     count,
+    *,
     tsuffix,
     where,
     reverse,
@@ -594,13 +595,13 @@ def main():
             cycle_start,
             base,
             count,
-            time_suffix,
-            where,
-            reverse,
-            range_,
-            minimum_strds,
-            maximum_strds,
-            dbif,
+            tsuffix=time_suffix,
+            where=where,
+            reverse=reverse,
+            range_=range_,
+            minimum_strds=minimum_strds,
+            maximum_strds=maximum_strds,
+            dbif=dbif,
         )
 
         # Indicator computation is based on the occurrence so we need to start it after
