@@ -11,6 +11,7 @@ and 3 to 4). N is null; the values below are start 1, intermediate 2, end 3.
 
 import pytest
 
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
@@ -187,3 +188,36 @@ def test_an_existing_indicator_is_not_overwritten(indicate, tools, cells):
         )
 
     assert "again_ind@PERMANENT> is already in the database" in message(error.value)
+
+
+def test_the_indicator_maps_of_relative_time(tools, cells):
+    # Three maps of 20, one per day: every cell is in the range on the days
+    # 0, 1 and 2, one run from the start value to the end value. The
+    # indicator maps take the time and the unit of their input maps.
+    create_stds(
+        tools,
+        "strds",
+        "ind_relative",
+        [MapSpec(f"ind_r{k}", 20, k, k + 1) for k in range(3)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    tools.t_rast_accdetect(
+        input="ind_relative",
+        occurrence="ind_rel_occ",
+        indicator="ind_rel_ind",
+        basename="ind_rel",
+        start="0",
+        cycle="3",
+        range="10,50",
+    )
+
+    rows = list_maps(tools, "strds", "ind_rel_ind")
+    assert [(row.start, row.end, row.min, row.max) for row in rows] == [
+        (0, 1, 1, 1),
+        (1, 2, 2, 2),
+        (2, 3, 3, 3),
+    ]
+    info = tools.t_info(type="raster", input=rows[0].name, flags="g").keyval
+    assert info["unit"] == "days"

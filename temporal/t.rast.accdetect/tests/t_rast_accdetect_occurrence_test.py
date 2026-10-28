@@ -91,6 +91,23 @@ def test_the_start_moves_the_first_cycle(tools, cells, detect):
     }
 
 
+def test_a_start_after_the_data_gives_empty_datasets(tools, cells):
+    # No cycle from 2002-01-01 on holds a map. Both datasets are made all the
+    # same and hold no map.
+    tools.t_rast_accdetect(
+        input=cells,
+        occurrence="late_occ",
+        indicator="late_ind",
+        basename="late",
+        start="2002-01-01",
+        cycle="6 days",
+        range="10,50",
+    )
+
+    for name in ("late_occ", "late_ind"):
+        assert stds_info(tools, "strds", name)["number_of_maps"] == 0
+
+
 def test_the_reverse_flag_keeps_the_days_since_the_start(tools, cells, detect):
     # The occurrence does not depend on the direction.
     assert detect("rev", flags="r") == detect("fwd")
