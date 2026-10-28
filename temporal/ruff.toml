@@ -12,7 +12,7 @@
 # selects the rules below, run as `ruff check temporal` with tests/ and
 # conftest.py excluded: 51 hits before the clean-up (C901 19, SIM102 17,
 # UP032 8, SIM118 3, PERF401 2, BLE001 1, S608 1), none now except the sites
-# that carry a noqa with a reason and the C901 lines below.
+# that carry a noqa with a reason.
 #
 # Not selected, on purpose:
 # - A001: `input = options["input"]` and similar names follow the GRASS
@@ -42,8 +42,6 @@ extend-select = [
 max-complexity = 15
 
 [lint.extend-per-file-ignores]
-# Each C901 line marks a tool whose main() is still to be split; the line is
-# removed when it is.
 # The tests are outside this clean-up.
 "*/tests/**" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
 "conftest.py" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
