@@ -118,25 +118,127 @@ def _check_columns(tools, rows, layer, columns):
         )
 
 
+def none_if_blank(value):
+    """Return None for an option that is empty or only a blank"""
+    return None if value in {"", " ", "\n"} else value
+
+
+def registered_maps(input, tempwhere):
+    """Return the rows of the maps of the dataset that t_where selects"""
+    import grass.temporal as tgis
+
+    # Make sure the temporal database exists
+    tgis.init()
+
+    sp = tgis.open_old_stds(input, "stvds")
+
+    try:
+        return sp.get_registered_maps(
+            "name,layer,mapset,start_time,end_time", tempwhere, "start_time", None
+        )
+    except tgis.SQLStatementError as error:
+        gs.fatal(_("Invalid t_where condition <{}>: {}").format(tempwhere, error))
+
+
+def append_json_records(json_output, row, res):
+    """Add the records of the result res of the map in row, with its times"""
+    for record in res["records"]:
+        new_record = {
+            "start_time": row["start_time"],
+            "end_time": row["end_time"],
+        }
+        new_record.update(record)
+        json_output.append(new_record)
+
+
+def print_plain_entries(row, res, separator, col_names):
+    """Print the lines of the result res of the map in row, with its times
+
+    The first line holds the column names; they are printed again when they
+    differ from those printed last, col_names. Return the names printed last.
+    """
+    select = res.text
+    # The first line are the column names
+    list = select.split("\n")
+    count = 0
+    for entry in list:
+        if entry.strip() != "":
+            # print the column names in case they change
+            if count == 0:
+                col_names_new = "start_time%send_time%s%s" % (
+                    separator,
+                    separator,
+                    entry,
+                )
+                if col_names != col_names_new:
+                    col_names = col_names_new
+                    print(col_names)
+            elif row["end_time"]:
+                print(
+                    "%s%s%s%s%s"
+                    % (
+                        row["start_time"],
+                        separator,
+                        row["end_time"],
+                        separator,
+                        entry,
+                    )
+                )
+            else:
+                print("%s%s%s%s" % (row["start_time"], separator, separator, entry))
+            count += 1
+    return col_names
+
+
+def select_from_maps(tools, rows, layer, columns, separator, where, output_format):
+    """Run v.db.select on the map of each row and print what it selects
+
+    Return the records of all maps for the format json, which main prints in
+    one list at the end.
+    """
+    json_output = []
+    col_names = ""
+
+    for row in rows:
+        vector_name = "%s@%s" % (row["name"], row["mapset"])
+        # In case a layer is defined in the vector dataset,
+        # we override the option layer
+        if row["layer"]:
+            layer = row["layer"]
+
+        try:
+            res = tools.v_db_select(
+                map=vector_name,
+                layer=layer,
+                columns=columns,
+                separator=separator,
+                where=where,
+                format=output_format,
+            )
+        except ToolError as error:
+            gs.fatal(
+                _("Error running v.db.select on <{}>: {}").format(vector_name, error)
+            )
+
+        if output_format == "json":
+            append_json_records(json_output, row, res)
+        else:
+            col_names = print_plain_entries(row, res, separator, col_names)
+    return json_output
+
+
 def main():
 
     # Get the options
     input = options["input"]
-    where = options["where"]
-    columns = options["columns"]
+    where = none_if_blank(options["where"])
+    columns = none_if_blank(options["columns"])
     tempwhere = options["t_where"]
     layer = options["layer"]
     separator = gs.separator(options["separator"])
     output_format = options.get("format", "plain")
 
-    if where in {"", " ", "\n"}:
-        where = None
-
-    if columns in {"", " ", "\n"}:
-        columns = None
-
     # lazy imports
-    import grass.temporal as tgis
     from grass.temporal.list_stds import checked_separator
 
     # The format json has no flag for the column names here.
@@ -145,21 +247,10 @@ def main():
     except ValueError as error:
         gs.fatal(str(error))
 
-    # Make sure the temporal database exists
-    tgis.init()
-
-    sp = tgis.open_old_stds(input, "stvds")
-
-    try:
-        rows = sp.get_registered_maps(
-            "name,layer,mapset,start_time,end_time", tempwhere, "start_time", None
-        )
-    except tgis.SQLStatementError as error:
-        gs.fatal(_("Invalid t_where condition <{}>: {}").format(tempwhere, error))
+    rows = registered_maps(input, tempwhere)
 
     tools = Tools()
     json_output = []
-    col_names = ""
 
     if not rows:
         gs.warning(
@@ -170,74 +261,9 @@ def main():
 
     if rows:
         _check_columns(tools, rows, layer, columns)
-
-        for row in rows:
-            vector_name = "%s@%s" % (row["name"], row["mapset"])
-            # In case a layer is defined in the vector dataset,
-            # we override the option layer
-            if row["layer"]:
-                layer = row["layer"]
-
-            try:
-                res = tools.v_db_select(
-                    map=vector_name,
-                    layer=layer,
-                    columns=columns,
-                    separator=separator,
-                    where=where,
-                    format=output_format,
-                )
-            except ToolError as error:
-                gs.fatal(
-                    _("Error running v.db.select on <{}>: {}").format(
-                        vector_name, error
-                    )
-                )
-
-            if output_format == "json":
-                records = res["records"]
-                for record in records:
-                    new_record = {
-                        "start_time": row["start_time"],
-                        "end_time": row["end_time"],
-                    }
-                    new_record.update(record)
-                    json_output.append(new_record)
-
-            else:
-                select = res.text
-                # The first line are the column names
-                list = select.split("\n")
-                count = 0
-                for entry in list:
-                    if entry.strip() != "":
-                        # print the column names in case they change
-                        if count == 0:
-                            col_names_new = "start_time%send_time%s%s" % (
-                                separator,
-                                separator,
-                                entry,
-                            )
-                            if col_names != col_names_new:
-                                col_names = col_names_new
-                                print(col_names)
-                        elif row["end_time"]:
-                            print(
-                                "%s%s%s%s%s"
-                                % (
-                                    row["start_time"],
-                                    separator,
-                                    row["end_time"],
-                                    separator,
-                                    entry,
-                                )
-                            )
-                        else:
-                            print(
-                                "%s%s%s%s"
-                                % (row["start_time"], separator, separator, entry)
-                            )
-                        count += 1
+        json_output = select_from_maps(
+            tools, rows, layer, columns, separator, where, output_format
+        )
 
     if output_format == "json":
         print(json.dumps(json_output, indent=4, default=str))
