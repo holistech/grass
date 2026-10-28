@@ -207,13 +207,13 @@ def main(options, flags):
     # run r.to.vect all selected maps
     for map in maps:
         count += 1
-        suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
-        map_name = f"{base}_{suffix}"
-        new_map = tgis.open_new_map_dataset(
-            map_name,
-            None,
-            type="vector",
-            temporal_extent=map.get_temporal_extent(),
+        new_map = tgis.open_new_map_for(
+            map,
+            base,
+            time_suffix,
+            sp.get_granularity(),
+            count,
+            map_type="vector",
             overwrite=overwrite,
             dbif=dbif,
         )
@@ -243,37 +243,7 @@ def main(options, flags):
     new_sp = tgis.open_new_stds(
         output, "stvds", ttype, title, descr, stype, dbif, overwrite
     )
-    # collect empty maps to remove them
-    num_maps = len(new_maps)
-    empty_maps = []
-
-    # Register the maps in the database
-    count = 0
-    for map in new_maps:
-        count += 1
-
-        if count % 10 == 0:
-            gs.percent(count, num_maps, 1)
-
-        # Do not register empty maps
-        map.load()
-        primitives = map.metadata.get_number_of_primitives()
-        if primitives is None:
-            # Without topology (-b) the temporal library cannot count the
-            # primitives and stores None; v.info -t counts them from the
-            # coor file without writing a topology.
-            primitives = gs.vector_info_topo(map.get_id())["primitives"]
-        if primitives == 0 and not register_null:
-            empty_maps.append(map)
-            continue
-
-        # Insert map in temporal database
-        map.insert(dbif)
-        new_sp.register_map(map, dbif)
-
-    # Update the spatio-temporal extent and the metadata table entries
-    new_sp.update_from_registered_maps(dbif)
-    gs.percent(1, 1, 1)
+    empty_maps = tgis.register_new_maps(new_maps, new_sp, register_null, dbif)
 
     # Remove empty maps
     if len(empty_maps) > 0:

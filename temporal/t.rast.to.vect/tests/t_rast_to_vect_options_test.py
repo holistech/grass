@@ -232,6 +232,25 @@ def test_overwrite_replaces_the_dataset(tools, quarterly, prefix):
     assert (info["number_of_maps"], info["areas"], info["points"]) == (4, 4, 0)
 
 
+def test_overwrite_without_n_drops_the_empty_map_that_n_registered(
+    tools, quarterly, prefix
+):
+    options = {
+        "input": quarterly,
+        "output": prefix,
+        "basename": prefix,
+        "type": "point",
+    }
+    tools.t_rast_to_vect(**options, flags="n")
+
+    tools.t_rast_to_vect(**options, overwrite=True)
+
+    assert len(_names(tools, prefix)) == 4
+    assert tools.g_list(type="vector", pattern=f"{prefix}_*").stdout.split() == _names(
+        tools, prefix
+    )
+
+
 def test_the_b_flag_drops_the_empty_map_without_n(tools, quarterly, prefix):
     tools.t_rast_to_vect(
         input=quarterly, output=prefix, basename=prefix, type="point", flags="b"
