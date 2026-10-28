@@ -868,7 +868,7 @@ def test_a_map_listed_twice_is_refused(target):
 
 
 @pytest.mark.parametrize("base", [None, "pre"])
-@pytest.mark.parametrize("overr", [True, False])
+@pytest.mark.parametrize("overwrite", [True, False])
 @pytest.mark.parametrize(
     ("key", "stds_type", "name", "suffix"),
     [
@@ -879,7 +879,7 @@ def test_a_map_listed_twice_is_refused(target):
     ],
 )
 def test_an_archive_that_lists_a_map_twice_is_refused(
-    archives, tmp_path, key, stds_type, name, suffix, overr, base
+    archives, tmp_path, monkeypatch, key, stds_type, name, suffix, overwrite, base
 ):
     twice = _listed_twice(archives[key], tmp_path / "twice.tar", name, suffix)
     element = "raster" if stds_type == "strds" else "vector"
@@ -890,11 +890,12 @@ def test_an_archive_that_lists_a_map_twice_is_refused(
         for line in listed
         if line.split("|")[0].split(":")[0] == name
     )
-    # Without the projection override the project must have the CRS of the
-    # archive, or the import stops at the projection check first.
-    crs = None if overr else f"EPSG:{EPSG}"
 
-    with temporal_session(tmp_path / "target", crs=crs):
+    # The project has the CRS of the archive, so that the import does not stop
+    # at the projection check before the list is looked at.
+    with temporal_session(tmp_path / "target", crs=f"EPSG:{EPSG}"):
+        if overwrite:
+            monkeypatch.setenv("GRASS_OVERWRITE", "1")
         with pytest.raises(
             FatalError,
             match=(
@@ -903,7 +904,7 @@ def test_an_archive_that_lists_a_map_twice_is_refused(
             ),
         ):
             tgis.import_stds(
-                str(twice), "out", tmp_path, stds_type=stds_type, overr=overr, base=base
+                str(twice), "out", tmp_path, stds_type=stds_type, overr=False, base=base
             )
 
         assert gs.read_command("g.list", type=element).split() == []
