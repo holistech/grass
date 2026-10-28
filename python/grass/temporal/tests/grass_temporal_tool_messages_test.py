@@ -5,16 +5,15 @@
 A translator works on the text inside ``_()``, and a changed text loses the
 translation. ``data/tool_message_texts.json`` lists every text that stands as
 the first argument of a call ``_("...")`` in the tool scripts
-``temporal/t.*/t.*.py`` or in the top level library modules. The record
-started as the texts of the tool scripts; some of them moved into library
-modules together with the steps the tools share, and are still pinned there.
-A change that has to alter a text
-changes the record in the same commit and says so in the commit message.
+``temporal/t.*/t.*.py``. Some of these texts moved into the top level library
+modules together with the steps the tools share; the test finds them there and
+the record keeps them. A change that has to alter a text changes the record in
+the same commit and says so in the commit message.
 
 The texts come from parsing the source tree this file lives in, not an
-installed copy. To record the current texts again, run this file as a script. It keeps the
-recorded texts that are still present, so texts that moved into the library
-survive::
+installed copy. To record the current texts again, run this file as a script.
+It keeps the recorded texts that are still present, so texts that moved into
+the library survive::
 
     python3 grass_temporal_tool_messages_test.py
 """
