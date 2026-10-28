@@ -2,7 +2,12 @@
 
 open_new_map_for() names and opens the new map of each input map, and
 register_new_maps() registers the computed maps in the output dataset and
-returns the empty ones. The tests compute real maps in a session of the module.
+returns the empty ones. register_in_new_stds() inserts the output dataset
+anew first. remove_maps() removes maps that are not kept. dataset_cycles()
+cuts the time of a dataset into cycles, first_related_map_id() selects the
+map of another dataset that a map selects, open_result_map() opens a result
+map with the time of its input, and names_from_file() reads map names from a
+file. The tests compute real maps in a session of the module.
 """
 
 import itertools

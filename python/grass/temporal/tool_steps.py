@@ -48,8 +48,12 @@ def open_new_map_for(
     :param overwrite: Whether a registered map of that name may be replaced;
                       its entry in the temporal database is then removed
     :param dbif: The database interface or None
-    :raises FatalError: when a map of that name is registered and overwrite
-                        is False
+
+    A registered map of that name without overwrite ends the run through the
+    message interface (msgr.fatal), which raises FatalError only when the
+    interface is set to raise. This function keeps that fatal, unlike the
+    later helpers that raise ValueError, because it passes straight through
+    to open_new_map_dataset(), whose message and exit are fixed.
     """
     suffix = map_name_suffix(input_map, suffix, granularity, number)
     return open_new_map_dataset(
@@ -108,8 +112,10 @@ def register_new_maps(new_maps, dataset, *, register_null, dbif):
 def remove_maps(maps, map_type):
     """Remove the maps from the GRASS database with one call of g.remove
 
-    Used for the empty maps that register_new_maps() returns. The caller
-    decides when this happens relative to closing the database connection.
+    Used for maps a tool has computed but does not keep, such as the empty
+    maps that register_new_maps() returns or those that t.rast.contour finds
+    in its own registration step. The caller decides when this happens
+    relative to closing the database connection.
 
     :param maps: The maps to remove, objects with get_name(); nothing is
                  called for an empty sequence
