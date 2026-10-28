@@ -167,7 +167,8 @@ def prepare_r_what(
 ):
     """Return the r.what call that every process copies and gives its maps
 
-    stdin comes before points and points before coordinates.
+    stdin comes before points and points before coordinates; check_options
+    has made sure that one of the three is given.
     """
     import grass.pygrass.modules as pymod
 
@@ -204,7 +205,7 @@ def prepare_r_what(
             null_value=null_value,
             quiet=True,
         )
-    elif coordinates:
+    else:
         # Create a list of values
         coord_list = coordinates.split(",")
         r_what = pymod.Module(
@@ -219,8 +220,6 @@ def prepare_r_what(
             null_value=null_value,
             quiet=True,
         )
-    else:
-        gs.error(_("Please specify points or coordinates"))
     return r_what
 
 

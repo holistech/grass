@@ -183,7 +183,6 @@
  "Overwriting space time %(sp)s dataset <%(name)s> and unregistering all maps",
  "Please specify %s=",
  "Please specify maps or file",
- "Please specify points or coordinates",
  "Please specify start_time and end_time",
  "Please specify the coordinates, the points option or use the 'i' flag to pipe coordinate positions to t.rast.what from stdin, to provide the sampling coordinates",
  "Probably you need to invert 'from_gran' and 'to_gran'",

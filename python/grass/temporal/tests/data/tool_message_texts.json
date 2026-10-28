@@ -61,7 +61,6 @@
   "Options coordinates and points are mutually exclusive",
   "Output space time dataset <%s> must be located in this mapset",
   "Please specify %s=",
-  "Please specify points or coordinates",
   "Please specify the coordinates, the points option or use the 'i' flag to pipe coordinate positions to t.rast.what from stdin, to provide the sampling coordinates",
   "Process maps %(samp_start)i to %(samp_end)i (of %(total)i)",
   "Processing cycle %s - %s",
