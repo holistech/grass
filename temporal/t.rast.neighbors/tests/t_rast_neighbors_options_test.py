@@ -298,6 +298,7 @@ def test_overwrite_without_n_drops_the_empty_result_that_n_registered(
 ):
     options = {"input": with_a_null_map, "output": prefix, "basename": prefix}
     tools.t_rast_neighbors(**options, flags="n")
+    assert _maps(tools, prefix) == [f"{prefix}_2001_01_0{n}" for n in (1, 2)]
 
     tools.t_rast_neighbors(**options, overwrite=True)
 

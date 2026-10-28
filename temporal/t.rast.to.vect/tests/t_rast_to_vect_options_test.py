@@ -242,6 +242,7 @@ def test_overwrite_without_n_drops_the_empty_map_that_n_registered(
         "type": "point",
     }
     tools.t_rast_to_vect(**options, flags="n")
+    assert len(_names(tools, prefix)) == 5
 
     tools.t_rast_to_vect(**options, overwrite=True)
 
