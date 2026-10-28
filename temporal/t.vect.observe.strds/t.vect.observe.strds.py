@@ -94,7 +94,7 @@ def check_input(input, where):
     return input_db
 
 
-def single_samples(first_strds, out_sp, dbif):
+def single_samples(first_strds, dbif):
     """Return a sample for each map of one space time raster dataset"""
     rows = first_strds.get_registered_maps(
         columns="name,mapset,start_time,end_time", order="start_time", dbif=dbif
@@ -102,7 +102,7 @@ def single_samples(first_strds, out_sp, dbif):
 
     if not rows:
         dbif.close()
-        gs.fatal(_("Space time raster dataset <%s> is empty") % out_sp.get_id())
+        gs.fatal(_("Space time raster dataset <%s> is empty") % first_strds.get_id())
 
     samples = []
     for row in rows:
@@ -492,7 +492,7 @@ def main():
     first_strds = tgis.open_old_stds(strds_names[0], "strds", dbif)
 
     if len(strds_names) == 1:
-        samples = single_samples(first_strds, out_sp, dbif)
+        samples = single_samples(first_strds, dbif)
     else:
         samples = granule_samples(strds_names, first_strds, dbif)
 

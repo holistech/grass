@@ -83,9 +83,9 @@ def test_an_empty_dataset_is_refused(tools, rasters, points, prefix):
 
     text = _refused(tools, points, prefix, strds=f"{prefix}_void")
 
-    # The message names the output dataset and not the empty one (the tool
-    # passes the wrong id).
-    assert f"Space time raster dataset <{prefix}@PERMANENT> is empty" in text
+    # The message names the empty input dataset, not the output dataset.
+    assert f"Space time raster dataset <{prefix}_void@PERMANENT> is empty" in text
+    assert f"<{prefix}@PERMANENT>" not in text
 
 
 def test_an_existing_output_dataset_is_refused_without_overwrite(
