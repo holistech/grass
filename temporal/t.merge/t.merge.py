@@ -32,34 +32,21 @@
 
 import grass.script as gs
 
-############################################################################
+# lazy imports at the end of the file
 
 
-def main():
-    # lazy imports
-    import grass.temporal as tgis
+def dataset_ids(inputs, output, mapset):
+    """Return the ids of the input datasets and of the output dataset
 
-    # Get the options
-    inputs = options["inputs"]
-    output = options["output"]
-    type = options["type"]
-
-    # Make sure the temporal database exists
-    tgis.init()
-
-    # Get the current mapset to create the id of the space time dataset
-    mapset = gs.gisenv()["MAPSET"]
-
-    inputs_split = inputs.split(",")
+    A name without mapset gets the current mapset; the output must be in it.
+    """
     input_ids = []
-
-    for input in inputs_split:
+    for input in inputs.split(","):
         if input.find("@") >= 0:
             input_ids.append(input)
         else:
             input_ids.append(input + "@" + mapset)
 
-    # Set the output name correct
     if output.find("@") >= 0:
         output_id = output
         out_mapset = output.split("@")[1]
@@ -70,13 +57,13 @@ def main():
             )
     else:
         output_id = output + "@" + mapset
+    return input_ids, output_id
 
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
 
+def open_inputs(input_ids, type, dbif):
+    """Open the input datasets, which must have the same temporal type"""
     stds_list = []
     first = None
-
     for id in input_ids:
         stds = tgis.open_old_stds(id, type, dbif)
         if first is None:
@@ -87,13 +74,15 @@ def main():
             gs.fatal(_("Space time datasets to merge must have the same temporal type"))
 
         stds_list.append(stds)
+    return stds_list
 
-    # Do nothing if nothing to merge
-    if first is None:
-        dbif.close()
-        return
 
-    # Check if the new id is in the database
+def open_output(output, output_id, type, first, dbif):
+    """Open the output dataset: a new one, or an existing one with --overwrite
+
+    The temporal type of a new one is that of the first input. Returns the
+    dataset and whether it existed.
+    """
     output_stds = tgis.dataset_factory(type, output_id)
     output_exists = output_stds.is_in_db(dbif=dbif)
 
@@ -104,7 +93,7 @@ def main():
                 "Unable to merge maps into space time %s dataset <%s> "
                 "please use the overwrite flag."
             )
-            % (stds.get_new_map_instance(None).get_type(), output_id)
+            % (first.get_new_map_instance(None).get_type(), output_id)
         )
 
     if not output_exists:
@@ -120,38 +109,77 @@ def main():
         )
     else:
         output_stds.select(dbif=dbif)
+    return output_stds, output_exists
 
-    registered_output_maps = {}
-    # Maps that are already registered in an existing dataset
-    # are not registered again
+
+def registered_map_ids(output_stds, dbif):
+    """Return the ids of the maps that output_stds holds"""
+    rows = output_stds.get_registered_maps(columns="id", dbif=dbif)
+    return {row["id"] for row in rows or ()}
+
+
+def register_maps(stds_list, output_stds, registered, mapset, dbif):
+    """Register the maps of the inputs in output_stds, each map once
+
+    registered holds the ids of the maps that output_stds holds already; the
+    maps registered here are added to it.
+    """
+    for stds in stds_list:
+        # The output as one of the inputs adds no map.
+        if stds.get_id() == output_stds.get_id():
+            continue
+
+        for map in stds.get_registered_maps_as_objects(dbif=dbif) or ():
+            if map.get_id() in registered:
+                continue
+
+            map.select(dbif=dbif)
+            # A map of another mapset is registered in the temporal database
+            # of its own mapset only; the output needs an entry for it in the
+            # current one.
+            if not map.is_in_db(dbif, mapset):
+                map.insert(dbif)
+            output_stds.register_map(map=map, dbif=dbif)
+            registered.add(map.get_id())
+
+
+def main():
+    # Get the options
+    inputs = options["inputs"]
+    output = options["output"]
+    type = options["type"]
+
+    # Make sure the temporal database exists
+    tgis.init()
+
+    # Get the current mapset to create the id of the space time dataset
+    mapset = gs.gisenv()["MAPSET"]
+
+    input_ids, output_id = dataset_ids(inputs, output, mapset)
+
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    stds_list = open_inputs(input_ids, type, dbif)
+
+    # Do nothing if nothing to merge
+    if not stds_list:
+        dbif.close()
+        return
+
+    output_stds, output_exists = open_output(
+        output, output_id, type, stds_list[0], dbif
+    )
+
+    # Maps that are already registered in an existing dataset are not
+    # registered again.
+    registered = set()
     if output_exists:
-        rows = output_stds.get_registered_maps(columns="id", dbif=dbif)
-        if rows:
-            for row in rows:
-                registered_output_maps[row["id"]] = row["id"]
+        registered = registered_map_ids(output_stds, dbif)
 
     filled = False
     try:
-        for stds in stds_list:
-            # Avoid merging of already registered maps
-            if stds.get_id() != output_stds.get_id():
-                maps = stds.get_registered_maps_as_objects(dbif=dbif)
-
-                if maps:
-                    for map in maps:
-                        # Jump over already registered maps
-                        if map.get_id() in registered_output_maps:
-                            continue
-
-                        map.select(dbif=dbif)
-                        # A map of another mapset is registered in the
-                        # temporal database of its own mapset only; the output
-                        # needs an entry for it in the current one.
-                        if not map.is_in_db(dbif, mapset):
-                            map.insert(dbif)
-                        output_stds.register_map(map=map, dbif=dbif)
-                        # Update the registered map list
-                        registered_output_maps[map.get_id()] = map.get_id()
+        register_maps(stds_list, output_stds, registered, mapset, dbif)
         filled = True
     finally:
         # A refusal of the library ends the process through sys.exit(); a new
@@ -169,4 +197,7 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+    # lazy imports
+    import grass.temporal as tgis
+
     main()
