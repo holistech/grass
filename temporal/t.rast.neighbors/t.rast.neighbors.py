@@ -263,14 +263,13 @@ def main():
     # write their maps.
     for map in maps:
         count += 1
-        suffix = tgis.map_name_suffix(map, time_suffix, sp.get_granularity(), count)
-        map_name = f"{base}_{suffix}"
-
-        new_map = tgis.open_new_map_dataset(
-            map_name,
-            None,
-            type="raster",
-            temporal_extent=map.get_temporal_extent(),
+        new_map = tgis.open_new_map_for(
+            map,
+            base,
+            time_suffix,
+            sp.get_granularity(),
+            count,
+            map_type="raster",
             overwrite=overwrite,
             dbif=dbif,
         )
@@ -339,31 +338,7 @@ def main():
     elif output_exists and flags["e"]:
         output_strds = tgis.open_old_stds(output, "strds", dbif)
 
-    num_maps = len(new_maps)
-    # collect empty maps to remove them
-    empty_maps = []
-
-    # Register the maps in the database
-    for count, raster_map in enumerate(new_maps, 1):
-        if count % 10 == 0:
-            gs.percent(count, num_maps, 1)
-
-        # Do not register empty maps
-        raster_map.load()
-        if (
-            raster_map.metadata.get_min() is None
-            and raster_map.metadata.get_max() is None
-        ) and not register_null:
-            empty_maps.append(raster_map)
-            continue
-
-        # Insert map in temporal database
-        raster_map.insert(dbif)
-        output_strds.register_map(raster_map, dbif)
-
-    # Update the spatio-temporal extent and the metadata table entries
-    output_strds.update_from_registered_maps(dbif)
-    gs.percent(1, 1, 1)
+    empty_maps = tgis.register_new_maps(new_maps, output_strds, register_null, dbif)
 
     if output_exists:
         output_strds.update_command_string(dbif=dbif)

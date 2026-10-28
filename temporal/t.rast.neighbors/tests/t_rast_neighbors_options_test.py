@@ -293,6 +293,20 @@ def test_the_n_flag_registers_empty_results(tools, with_a_null_map, prefix):
     ]
 
 
+def test_overwrite_without_n_drops_the_empty_result_that_n_registered(
+    tools, with_a_null_map, prefix
+):
+    options = {"input": with_a_null_map, "output": prefix, "basename": prefix}
+    tools.t_rast_neighbors(**options, flags="n")
+
+    tools.t_rast_neighbors(**options, overwrite=True)
+
+    assert _maps(tools, prefix) == [f"{prefix}_2001_01_02"]
+    assert tools.g_list(type="raster", pattern=f"{prefix}_*").stdout.split() == [
+        f"{prefix}_2001_01_02"
+    ]
+
+
 def test_extend_adds_maps_to_an_existing_dataset(tools, daily, prefix):
     # With overwrite and -e the existing dataset keeps its maps and gets the
     # new ones; the map of the second day is made again.
