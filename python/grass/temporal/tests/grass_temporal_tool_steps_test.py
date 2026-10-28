@@ -6,6 +6,7 @@ returns the empty ones. The tests compute real maps in a session of the module.
 """
 
 import itertools
+from datetime import datetime
 from io import StringIO
 
 import pytest
@@ -278,3 +279,97 @@ def test_the_progress_is_shown_every_ten_maps_and_at_the_end(
     ]
     # 10 of 12 maps is 83 percent.
     assert progress == ["GRASS_INFO_PERCENT: 83", "GRASS_INFO_PERCENT: 100"]
+
+
+def cycles_of(dataset, start, end, stop=None, cycle="1 months", offset=None):
+    return list(tgis.dataset_cycles(dataset, start, end, stop, cycle, offset, None))
+
+
+def test_the_cycles_run_to_the_end_of_the_data(monthly):
+    # The maps cover January and February 2001.
+    dataset, _maps = monthly
+
+    assert cycles_of(dataset, datetime(2001, 1, 1), datetime(2001, 2, 1)) == [
+        (datetime(2001, 1, 1), datetime(2001, 2, 1)),
+        (datetime(2001, 2, 1), datetime(2001, 3, 1)),
+    ]
+
+
+def test_stop_ends_the_last_cycle(monthly):
+    dataset, _maps = monthly
+
+    assert cycles_of(
+        dataset, datetime(2001, 1, 1), datetime(2001, 2, 1), datetime(2001, 2, 10)
+    ) == [
+        (datetime(2001, 1, 1), datetime(2001, 2, 1)),
+        (datetime(2001, 2, 1), datetime(2001, 2, 10)),
+    ]
+
+
+def test_a_cycle_that_starts_at_the_end_of_the_data_is_left_out(monthly):
+    dataset, _maps = monthly
+
+    assert cycles_of(dataset, datetime(2001, 3, 1), datetime(2001, 4, 1)) == []
+
+
+def test_the_month_cycles_count_from_the_start(monthly):
+    # From January 31 the next cycle starts on February 28, then March 31,
+    # beyond the data.
+    dataset, _maps = monthly
+
+    assert cycles_of(dataset, datetime(2001, 1, 31), datetime(2001, 2, 28)) == [
+        (datetime(2001, 1, 31), datetime(2001, 2, 28)),
+        (datetime(2001, 2, 28), datetime(2001, 3, 1)),
+    ]
+
+
+@pytest.fixture(scope="module")
+def instants(tools):
+    """A dataset of two absolute instants, January 1 and 3 2001"""
+    specs = [
+        MapSpec("instant_1", 1, datetime(2001, 1, 1)),
+        MapSpec("instant_2", 2, datetime(2001, 1, 3)),
+    ]
+    for spec in specs:
+        make_map(tools, "raster", spec.name, spec.value)
+    register_stds(tools, "strds", "instants", specs, via="library")
+    return tgis.open_old_stds("instants", "strds")
+
+
+def test_an_instant_at_the_end_of_the_data_is_in_a_cycle(instants):
+    # The data end with the instant of January 3, one second behind it the
+    # cycle that starts on January 3 is still before the end.
+    assert cycles_of(
+        instants, datetime(2001, 1, 1), datetime(2001, 1, 3), cycle="2 days"
+    ) == [
+        (datetime(2001, 1, 1), datetime(2001, 1, 3)),
+        (datetime(2001, 1, 3), datetime(2001, 1, 3, 0, 0, 1)),
+    ]
+
+
+@pytest.fixture(scope="module")
+def relative(tools):
+    """A dataset of relative instants at 0, 2 and 4 days"""
+    specs = [MapSpec(f"relative_{number}", number, number) for number in (0, 2, 4)]
+    for spec in specs:
+        make_map(tools, "raster", spec.name, spec.value)
+    register_stds(
+        tools,
+        "strds",
+        "relative",
+        specs,
+        temporaltype="relative",
+        unit="days",
+        via="library",
+    )
+    return tgis.open_old_stds("relative", "strds")
+
+
+def test_relative_cycles_with_an_offset(relative):
+    # Cycles of 2 days with a gap of 1: [0, 2), [3, 5), and [6, 8) starts
+    # behind the end of the data, 5 (one unit behind the instant at 4).
+    assert cycles_of(relative, 0, 2, cycle=2, offset=1) == [(0, 2), (3, 5)]
+
+
+def test_relative_cycles_end_at_stop(relative):
+    assert cycles_of(relative, 0, 3, stop=4, cycle=3, offset=0) == [(0, 3), (3, 4)]

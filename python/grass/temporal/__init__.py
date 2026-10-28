@@ -77,7 +77,7 @@ from .temporal_granularity import (
     gran_singular_unit,
     gran_to_gran,
 )
-from .tool_steps import open_new_map_for, register_new_maps
+from .tool_steps import dataset_cycles, open_new_map_for, register_new_maps
 from .univar_statistics import (
     print_gridded_dataset_univar_statistics,
     print_vector_dataset_univar_statistics,
@@ -110,6 +110,7 @@ __all__ = [
     "compute_relative_time_granularity",
     "core",
     "create_numeric_suffix",
+    "dataset_cycles",
     "dataset_factory",
     "dataset_mapcalculator",
     "datetime_after_steps",

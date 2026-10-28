@@ -7,13 +7,16 @@ removing the empty maps stay with the caller: the tools differ there, for
 example some remove the empty maps before closing the database connection and
 others after it.
 
+The tools that compute in cycles (t.rast.accumulate, t.rast.accdetect) walk
+their cycles with dataset_cycles().
+
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import grass.script as gs
 
-from .datetime_math import map_name_suffix
+from .datetime_math import increment_datetime_by_string, map_name_suffix, next_cycle
 from .open_stds import open_new_map_dataset
 
 
@@ -106,3 +109,54 @@ def _is_empty(new_map):
         # from the coor file without writing a topology.
         primitives = gs.vector_info_topo(new_map.get_id())["primitives"]
     return primitives == 0
+
+
+def dataset_cycles(dataset, start, end, stop, cycle, offset, dbif):
+    """Yield the start and the end of each cycle over the maps of dataset
+
+    The first cycle runs from start to end, next_cycle() gives the later
+    ones, counted from start. A cycle is yielded while it starts before stop
+    and before the end of the data, and it ends at stop at the latest. The
+    end of the data is the end of dataset, or one unit behind it (one second
+    in absolute time) when a map is an instant there, so that this map lies
+    in a cycle. It is read from the database when the first cycle is asked
+    for.
+
+    :param dataset: The input dataset, selected from the database
+    :param start: The start of the first cycle, a datetime in absolute time,
+                  a number of the unit of dataset in relative time
+    :param end: The end of the first cycle, after start
+    :param stop: The time at which the cycles end, None for the end of the
+                 data
+    :param cycle: The length of a cycle as next_cycle() takes it
+    :param offset: The gap between two cycles as next_cycle() takes it; the
+                   caller makes sure that the cycles move forward
+    :param dbif: The database interface or None
+    """
+    data_end = _data_end(dataset, dbif)
+    if stop is None:
+        stop = data_end
+    absolute = dataset.is_time_absolute()
+    origin = start
+    number = 0
+    while data_end > start and stop > start:
+        if stop and end > stop:
+            end = stop
+        yield start, end
+        number += 1
+        start, end = next_cycle(origin, number, end, cycle, offset, absolute)
+
+
+def _data_end(dataset, dbif):
+    """The end of dataset, one unit behind an instant at the end"""
+    _start, end = dataset.get_temporal_extent_as_tuple()
+    # The cycles end before the end of the data, so an instant at the end of
+    # the dataset would be left out. One unit behind it keeps it in, as in
+    # t.rast.aggregate.
+    if dataset.get_registered_maps_as_objects(
+        where=f"start_time = '{end}' AND end_time IS NULL", dbif=dbif
+    ):
+        if dataset.is_time_absolute():
+            return increment_datetime_by_string(end, "1 second")
+        return end + 1
+    return end

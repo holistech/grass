@@ -1413,6 +1413,7 @@
   "compute_absolute_time_granularity": "repo",
   "compute_relative_time_granularity": "repo",
   "create_numeric_suffix": "repo",
+  "dataset_cycles": "repo",
   "dataset_factory": "addons+repo",
   "dataset_mapcalculator": "repo",
   "datetime_after_steps": "repo",
