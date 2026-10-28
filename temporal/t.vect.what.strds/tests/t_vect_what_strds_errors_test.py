@@ -441,3 +441,65 @@ def test_one_layer_under_two_ids_hitting_one_raster_map_is_refused(
     # Both intervals are March, so both ids would write the column wr_1.
     assert "would both write column <wr_1>" in text
     assert "wr_1" not in _names(tools, f"{prefix}_c")
+
+
+def test_a_where_with_a_map_without_a_table_names_the_missing_table(
+    tools, rasters, vectors
+):
+    data = vectors()
+    first, second, third = data.maps
+    tools.v_db_droptable(map=third, flags="f")
+
+    text = _refused(tools, input=data.dataset, strds="wh_a", column="m", where="h > 2")
+
+    # The where condition is tried on the tables there are; the map without
+    # one is refused by the check of the target columns after it.
+    assert f"Vector map <{third}@" in text
+    assert "has no attribute table in layer 1" in text
+    assert "Invalid where condition" not in text
+    assert "m" not in _names(tools, first)
+    assert "m" not in _names(tools, second)
+
+
+def test_a_failing_v_db_addcolumn_is_reported(broken_tools, rasters, vectors):
+    data = vectors()
+
+    text = _refused(
+        broken_tools("v.db.addcolumn"), input=data.dataset, strds="wh_a", column="m"
+    )
+
+    assert f"Unable to add column m to vector map <{data.maps[0]}@" in text
+    assert "Traceback" not in text
+
+
+def test_a_failing_v_what_rast_is_reported(broken_tools, rasters, vectors):
+    data = vectors()
+
+    text = _refused(
+        broken_tools("v.what.rast"), input=data.dataset, strds="wh_a", column="m"
+    )
+
+    assert (
+        f"Unable to run v.what.rast for vector map <{data.maps[0]}@PERMANENT> and "
+        "raster map <wr_1@PERMANENT>"
+    ) in text
+    assert "Traceback" not in text
+
+
+def test_a_failing_removal_of_the_aggregate_map_is_reported(
+    broken_tools, rasters, vectors
+):
+    data = vectors()
+
+    # The second interval, May to July, holds wr_3 and wr_4; their average is
+    # a temporary map, which g.remove fails to remove.
+    text = _refused(
+        broken_tools("g.remove"),
+        input=data.dataset,
+        strds="wh_a",
+        column="m",
+        method="average",
+    )
+
+    assert "Unable to remove raster map <aggreagated_map_name_" in text
+    assert "Traceback" not in text
