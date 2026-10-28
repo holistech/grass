@@ -503,3 +503,21 @@ def test_a_failing_removal_of_the_aggregate_map_is_reported(
 
     assert "Unable to remove raster map <aggreagated_map_name_" in text
     assert "Traceback" not in text
+
+
+def test_a_column_that_differs_only_in_case_fails_at_v_what_rast(
+    tools, rasters, vectors
+):
+    data = vectors()
+
+    text = _refused(tools, input=data.dataset, strds="wh_a", column="H", overwrite=True)
+
+    # The check of the target columns takes H for the column h, as SQLite
+    # does, and lets it pass with overwrite. v.what.rast looks for H as
+    # written, does not find it and fails to add it to the table.
+    assert "duplicate column name: H" in text
+    assert (
+        f"Unable to run v.what.rast for vector map <{data.maps[0]}@PERMANENT> and "
+        "raster map <wr_1@PERMANENT>"
+    ) in text
+    assert _values(tools, data.maps[0], "h") == ["1", "2", "3", "4"]
