@@ -295,3 +295,17 @@ def test_a_failing_name_of_layer_one_removes_the_vector_output(
     assert "Traceback" not in text
     assert broken.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
     assert prefix not in broken.t_list(type="stvds", columns="name").stdout
+
+
+def test_a_column_that_differs_only_in_case_fails_at_v_what_rast(
+    tools, rasters, points, prefix
+):
+    text = _refused(tools, points, prefix, columns="H", overwrite=True)
+
+    # The column h of the input table is taken for H, as SQLite does, and
+    # passes with overwrite. v.what.rast looks for H as written, does not
+    # find it and fails to add it to the table.
+    assert "duplicate column name: H" in text
+    assert f"Unable to run v.what.rast for vector map <{prefix}_v> with layer 1" in text
+    assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
+    assert prefix not in tools.t_list(type="stvds", columns="name").stdout
