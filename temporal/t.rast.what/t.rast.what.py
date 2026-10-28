@@ -104,29 +104,8 @@ from grass.exceptions import CalledModuleError
 ############################################################################
 
 
-def main(options, flags):
-    # lazy imports
-    import grass.pygrass.modules as pymod
-    import grass.temporal as tgis
-
-    # Get the options
-    points = options["points"]
-    coordinates = options["coordinates"]
-    strds = options["strds"]
-    output = options["output"]
-    where = options["where"]
-    order = options["order"]
-    layout = options["layout"]
-    null_value = options["null_value"]
-    separator = gs.separator(options["separator"])
-
-    nprocs = int(options["nprocs"])
-    write_header = flags["n"]
-    use_stdin = flags["i"]
-    vcat = flags["v"]
-
-    overwrite = gs.overwrite()
-
+def check_options(coordinates, points, use_stdin, vcat):
+    """Stop with a message when the options contradict each other"""
     if coordinates and points:
         gs.fatal(_("Options coordinates and points are mutually exclusive"))
 
@@ -142,16 +121,21 @@ def main(options, flags):
     if vcat and not points:
         gs.fatal(_("Flag 'v' required option 'points'"))
 
-    if use_stdin:
-        coordinates_stdin = str(sys.__stdin__.read())
-        # Check if coordinates are given with site names or IDs
-        stdin_length = len(coordinates_stdin.split("\n", maxsplit=1)[0].split())
-        if stdin_length <= 2:
-            site_input = False
-        elif stdin_length >= 3:
-            site_input = True
-    else:
-        site_input = False
+
+def read_stdin_coordinates():
+    """Read the coordinates from stdin; return them and whether they have sites
+
+    The first line decides: three or more columns mean that the third one is
+    the name or the ID of the site.
+    """
+    coordinates_stdin = str(sys.__stdin__.read())
+    stdin_length = len(coordinates_stdin.split("\n", maxsplit=1)[0].split())
+    return coordinates_stdin, stdin_length >= 3
+
+
+def open_maps(strds, where, order):
+    """Return the maps of the dataset that where selects, in the given order"""
+    import grass.temporal as tgis
 
     # Make sure the temporal database exists
     tgis.init()
@@ -168,6 +152,26 @@ def main(options, flags):
     dbif.close()
     if not maps:
         gs.fatal(_("Space time raster dataset <%s> is empty") % sp.get_id())
+    return maps
+
+
+def prepare_r_what(
+    *,
+    separator,
+    vcat,
+    null_value,
+    use_stdin,
+    coordinates_stdin,
+    points,
+    coordinates,
+):
+    """Return the r.what call that every process copies and gives its maps
+
+    stdin comes before points and points before coordinates.
+    """
+    import grass.pygrass.modules as pymod
+
+    overwrite = gs.overwrite()
 
     flags = ""
     if vcat is True:
@@ -217,13 +221,16 @@ def main(options, flags):
         )
     else:
         gs.error(_("Please specify points or coordinates"))
+    return r_what
 
-    nprocs = min(len(maps), nprocs)
 
-    # The module queue for parallel execution
-    process_queue = pymod.ParallelModuleQueue(int(nprocs))
-    num_maps = len(maps)
+def split_into_loops(num_maps, nprocs):
+    """Divide the maps into loops of at most 400 maps per process
 
+    Return the number of loops, the number of maps that no loop takes, the
+    number of maps per process and the number of maps that the first process
+    of each loop takes in addition.
+    """
     # 400 Maps is the absolute maximum in r.what
     # We need to determie the number of maps that can be processed
     # in parallel
@@ -242,6 +249,65 @@ def main(options, flags):
     maps_per_loop = int((num_maps - remaining_maps) / num_loops)
     maps_per_process = int(maps_per_loop / nprocs)
     remaining_maps_per_loop = maps_per_loop % nprocs
+    return num_loops, remaining_maps, maps_per_process, remaining_maps_per_loop
+
+
+def sample_remaining_maps(
+    r_what, maps, nprocs, remaining_maps, count, output_files, output_time_list, queue
+):
+    """Sample the maps that the loops left: in one process up to 100 maps,
+    otherwise spread over all processes"""
+    if remaining_maps <= 100:
+        # Use a single process if less then 100 maps
+        map_names = []
+        map_list = []
+        for _i in range(remaining_maps):
+            map = maps[count]
+            map_names.append(map.get_id())
+            map_list.append(map)
+            count += 1
+        remain_file_name = gs.tempfile() + "_remain"
+        output_files.append(remain_file_name)
+        output_time_list.append(map_list)
+        mod = copy.deepcopy(r_what)
+        mod(map=map_names, output=remain_file_name)
+        queue.put(mod)
+    else:
+        maps_per_process = int(remaining_maps / nprocs)
+        remaining_maps_per_loop = remaining_maps % nprocs
+
+        file_name = gs.tempfile() + "_remain"
+        process_loop(
+            nprocs,
+            maps,
+            file_name,
+            count,
+            maps_per_process,
+            remaining_maps_per_loop,
+            output_files,
+            output_time_list,
+            r_what,
+            queue,
+        )
+
+
+def run_r_what(r_what, maps, nprocs):
+    """Sample the maps in parallel processes
+
+    Return the output file of each process and the maps it sampled, both in
+    the order of the maps.
+    """
+    import grass.pygrass.modules as pymod
+
+    nprocs = min(len(maps), nprocs)
+
+    # The module queue for parallel execution
+    process_queue = pymod.ParallelModuleQueue(int(nprocs))
+    num_maps = len(maps)
+
+    num_loops, remaining_maps, maps_per_process, remaining_maps_per_loop = (
+        split_into_loops(num_maps, nprocs)
+    )
 
     # We put the output files in an ordered list
     output_files = []
@@ -271,75 +337,99 @@ def main(options, flags):
             "Number of raster map layers remaining for sampling %i" % (remaining_maps)
         )
         if remaining_maps > 0:
-            # Use a single process if less then 100 maps
-            if remaining_maps <= 100:
-                map_names = []
-                map_list = []
-                for _i in range(remaining_maps):
-                    map = maps[count]
-                    map_names.append(map.get_id())
-                    map_list.append(map)
-                    count += 1
-                remain_file_name = gs.tempfile() + "_remain"
-                output_files.append(remain_file_name)
-                output_time_list.append(map_list)
-                mod = copy.deepcopy(r_what)
-                mod(map=map_names, output=remain_file_name)
-                process_queue.put(mod)
-            else:
-                maps_per_process = int(remaining_maps / nprocs)
-                remaining_maps_per_loop = remaining_maps % nprocs
-
-                file_name = gs.tempfile() + "_remain"
-                process_loop(
-                    nprocs,
-                    maps,
-                    file_name,
-                    count,
-                    maps_per_process,
-                    remaining_maps_per_loop,
-                    output_files,
-                    output_time_list,
-                    r_what,
-                    process_queue,
-                )
+            sample_remaining_maps(
+                r_what,
+                maps,
+                nprocs,
+                remaining_maps,
+                count,
+                output_files,
+                output_time_list,
+                process_queue,
+            )
 
         # Wait for unfinished processes
         process_queue.wait()
     except CalledModuleError as error:
         gs.fatal(_("Error running r.what: {}").format(error))
+    return output_files, output_time_list
+
+
+def write_output(
+    layout,
+    separator,
+    output_files,
+    output_time_list,
+    output,
+    write_header,
+    site_input,
+    vcat,
+):
+    """Put the output files of r.what together in the layout that was asked for"""
+    if layout == "row":
+        write = one_point_per_row_output
+    elif layout == "col":
+        write = one_point_per_col_output
+    else:
+        write = one_point_per_timerow_output
+    write(
+        separator,
+        output_files,
+        output_time_list,
+        output,
+        write_header,
+        site_input,
+        vcat,
+    )
+
+
+def main(options, flags):
+    # Get the options
+    points = options["points"]
+    coordinates = options["coordinates"]
+    strds = options["strds"]
+    output = options["output"]
+    where = options["where"]
+    order = options["order"]
+    layout = options["layout"]
+    null_value = options["null_value"]
+    separator = gs.separator(options["separator"])
+
+    nprocs = int(options["nprocs"])
+    write_header = flags["n"]
+    use_stdin = flags["i"]
+    vcat = flags["v"]
+
+    check_options(coordinates, points, use_stdin, vcat)
+
+    coordinates_stdin = ""
+    site_input = False
+    if use_stdin:
+        coordinates_stdin, site_input = read_stdin_coordinates()
+
+    maps = open_maps(strds, where, order)
+    r_what = prepare_r_what(
+        separator=separator,
+        vcat=vcat,
+        null_value=null_value,
+        use_stdin=use_stdin,
+        coordinates_stdin=coordinates_stdin,
+        points=points,
+        coordinates=coordinates,
+    )
+    output_files, output_time_list = run_r_what(r_what, maps, nprocs)
 
     # Out the output files in the correct order together
-    if layout == "row":
-        one_point_per_row_output(
-            separator,
-            output_files,
-            output_time_list,
-            output,
-            write_header,
-            site_input,
-            vcat,
-        )
-    elif layout == "col":
-        one_point_per_col_output(
-            separator,
-            output_files,
-            output_time_list,
-            output,
-            write_header,
-            site_input,
-            vcat,
-        )
-    else:
-        one_point_per_timerow_output(
-            separator,
-            output_files,
-            output_time_list,
-            output,
-            write_header,
-            site_input,
-            vcat,
-        )
+    write_output(
+        layout,
+        separator,
+        output_files,
+        output_time_list,
+        output,
+        write_header,
+        site_input,
+        vcat,
+    )
 
 
 ############################################################################

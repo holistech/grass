@@ -46,7 +46,6 @@ max-complexity = 15
 # removed when it is.
 "t.copy/t.copy.py" = ["C901"]
 "t.rast.colors/t.rast.colors.py" = ["C901"]
-"t.rast.what/t.rast.what.py" = ["C901"]
 "t.support/t.support.py" = ["C901"]
 "t.vect.db.select/t.vect.db.select.py" = ["C901"]
 # The tests are outside this clean-up.
