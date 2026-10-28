@@ -110,92 +110,47 @@ from grass.exceptions import CalledModuleError, FatalError
 ############################################################################
 
 
-def main(options, flags):
-    # lazy imports
-    import grass.pygrass.modules as pymod
-    import grass.temporal as tgis
-
-    # Get the options
-    input = options["input"]
-    output = options["output"]
-    where = options["where"]
-    base = options["basename"]
-    nprocs = int(options["nprocs"])
-    step = options["step"]
-    levels = options["levels"]
-    minlevel = options["minlevel"]
-    maxlevel = options["maxlevel"]
-    cut = options["cut"]
-    time_suffix = options["suffix"]
-
-    register_null = flags["n"]
-    t_flag = flags["t"]
-
-    # r.contour refuses this too, but only from inside the queue, where its
-    # error would surface as an exception after the output maps were opened.
-    if not step and not levels:
-        gs.fatal(_("Either <levels> or <step> option must be specified"))
-
+def selected_maps(sp, where, dbif):
+    """Return the registered maps of sp that where selects"""
     try:
-        tgis.check_suffix(time_suffix)
-    except ValueError as error:
-        gs.fatal(str(error))
-
-    # Make sure the temporal database exists
-    tgis.init()
-    # We need a database interface
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    overwrite = gs.overwrite()
-
-    sp = tgis.open_old_stds(input, "strds", dbif)
-    try:
-        maps = sp.get_registered_maps_as_objects(where=where, dbif=dbif)
+        return sp.get_registered_maps_as_objects(where=where, dbif=dbif)
     except tgis.SQLStatementError as error:
         dbif.close()
         gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
 
-    if not maps:
-        dbif.close()
-        gs.warning(_("Space time raster dataset <%s> is empty") % sp.get_id())
-        return
 
-    # Check the new stvds
-    new_sp = tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
-
-    # Setup the flags
-    flags = ""
-    if t_flag is True:
-        flags += "t"
-
-    # Configure the r.to.vect module
-    contour_module = pymod.Module(
+def contour_module(options, t_flag, overwrite):
+    """Return r.contour with the options of the tool, without input and output"""
+    module = pymod.Module(
         "r.contour",
         input="dummy",
         output="dummy",
         run_=False,
         finish_=False,
-        flags=flags,
+        flags="t" if t_flag is True else "",
         overwrite=overwrite,
         quiet=True,
     )
 
-    if step:
-        contour_module.inputs.step = float(step)
-    if minlevel:
-        contour_module.inputs.minlevel = float(minlevel)
-    if maxlevel:
-        contour_module.inputs.maxlevel = float(maxlevel)
-    if levels:
-        contour_module.inputs.levels = levels.split(",")
-    if cut:
-        contour_module.inputs.cut = int(cut)
+    if options["step"]:
+        module.inputs.step = float(options["step"])
+    if options["minlevel"]:
+        module.inputs.minlevel = float(options["minlevel"])
+    if options["maxlevel"]:
+        module.inputs.maxlevel = float(options["maxlevel"])
+    if options["levels"]:
+        module.inputs.levels = options["levels"].split(",")
+    if options["cut"]:
+        module.inputs.cut = int(options["cut"])
+    return module
 
-    # The module queue for parallel execution, except if attribute tables should
-    # be created. Then force single process use
+
+def process_count(nprocs, t_flag):
+    """Return the number of parallel processes, one without -t
+
+    Warn when it is reduced.
+    """
     if t_flag is False and nprocs > 1:
-        nprocs = 1
         gs.warning(
             _(
                 "The number of parallel r.contour processes was "
@@ -203,16 +158,22 @@ def main(options, flags):
                 "creation"
             )
         )
-    process_queue = pymod.ParallelModuleQueue(int(nprocs))
+        return 1
+    return nprocs
 
-    count = 0
+
+def queue_contours(
+    maps, r_contour, process_queue, *, sp, base, time_suffix, overwrite, dbif
+):
+    """Open the new map of each map of maps and queue r.contour for it
+
+    Return the new maps in the order of maps.
+    """
     num_maps = len(maps)
     new_maps = []
 
-    # run r.to.vect all selected maps
-    for map in maps:
-        count += 1
-
+    # run r.contour on all selected maps
+    for count, map in enumerate(maps, start=1):
         new_map = tgis.open_new_map_for(
             map,
             base,
@@ -225,7 +186,7 @@ def main(options, flags):
         )
         new_maps.append(new_map)
 
-        mod = copy.deepcopy(contour_module)
+        mod = copy.deepcopy(r_contour)
         mod(input=map.get_id(), output=new_map.get_id())
         sys.stderr.write(mod.get_bash() + "\n")
         try:
@@ -236,28 +197,29 @@ def main(options, flags):
 
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
+    return new_maps
 
-    # Wait for unfinished processes
+
+def wait_for_contours(process_queue, dbif):
+    """Wait for the queued processes, end with a message if one failed"""
     try:
         process_queue.wait()
     except CalledModuleError as error:
         dbif.close()
         gs.fatal(_("Error running r.contour: {}").format(error))
 
-    # Open the new space time vector dataset
-    ttype, stype, title, descr = sp.get_initial_values()
-    new_sp = tgis.open_new_stds(
-        output, "stvds", ttype, title, descr, stype, dbif, overwrite
-    )
-    # collect empty maps to remove them
+
+def register_contours(new_maps, new_sp, register_null, dbif):
+    """Register the new maps in the temporal database and in new_sp
+
+    A map that cannot be loaded is passed over, neither registered nor
+    returned. A map without primitives is not registered unless register_null
+    is set. Return the empty maps that were left out; the caller removes them.
+    """
     num_maps = len(new_maps)
     empty_maps = []
 
-    # Register the maps in the database
-    count = 0
-    for map in new_maps:
-        count += 1
-
+    for count, map in enumerate(new_maps, start=1):
         if count % 10 == 0:
             gs.percent(count, num_maps, 1)
 
@@ -278,19 +240,81 @@ def main(options, flags):
     # Update the spatio-temporal extent and the metadata table entries
     new_sp.update_from_registered_maps(dbif)
     gs.percent(1, 1, 1)
+    return empty_maps
+
+
+def main(options, flags):
+    # Get the options
+    input = options["input"]
+    output = options["output"]
+    where = options["where"]
+    base = options["basename"]
+    nprocs = int(options["nprocs"])
+    time_suffix = options["suffix"]
+
+    register_null = flags["n"]
+    t_flag = flags["t"]
+
+    # r.contour refuses this too, but only from inside the queue, where its
+    # error would surface as an exception after the output maps were opened.
+    if not options["step"] and not options["levels"]:
+        gs.fatal(_("Either <levels> or <step> option must be specified"))
+
+    try:
+        tgis.check_suffix(time_suffix)
+    except ValueError as error:
+        gs.fatal(str(error))
+
+    # Make sure the temporal database exists
+    tgis.init()
+    # We need a database interface
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    overwrite = gs.overwrite()
+
+    sp = tgis.open_old_stds(input, "strds", dbif)
+    maps = selected_maps(sp, where, dbif)
+
+    if not maps:
+        dbif.close()
+        gs.warning(_("Space time raster dataset <%s> is empty") % sp.get_id())
+        return
+
+    # Check the new stvds
+    tgis.check_new_stds(output, "stvds", dbif=dbif, overwrite=overwrite)
+
+    # Configure the r.contour module
+    r_contour = contour_module(options, t_flag, overwrite)
+
+    # The module queue for parallel execution, except if attribute tables should
+    # be created. Then force single process use
+    process_queue = pymod.ParallelModuleQueue(process_count(nprocs, t_flag))
+
+    new_maps = queue_contours(
+        maps,
+        r_contour,
+        process_queue,
+        sp=sp,
+        base=base,
+        time_suffix=time_suffix,
+        overwrite=overwrite,
+        dbif=dbif,
+    )
+
+    # Wait for unfinished processes
+    wait_for_contours(process_queue, dbif)
+
+    # Open the new space time vector dataset
+    ttype, stype, title, descr = sp.get_initial_values()
+    new_sp = tgis.open_new_stds(
+        output, "stvds", ttype, title, descr, stype, dbif, overwrite
+    )
+
+    empty_maps = register_contours(new_maps, new_sp, register_null, dbif)
 
     # Remove empty maps
-    if len(empty_maps) > 0:
-        names = ""
-        count = 0
-        for map in empty_maps:
-            if count == 0:
-                count += 1
-                names += "%s" % (map.get_name())
-            else:
-                names += ",%s" % (map.get_name())
-
-        gs.run_command("g.remove", flags="f", type="vector", name=names, quiet=True)
+    tgis.remove_maps(empty_maps, "vector")
 
     dbif.close()
 
@@ -299,4 +323,8 @@ def main(options, flags):
 
 if __name__ == "__main__":
     options, flags = gs.parser()
+    # lazy imports
+    import grass.pygrass.modules as pymod
+    import grass.temporal as tgis
+
     main(options, flags)
