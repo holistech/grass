@@ -153,10 +153,10 @@ def main():
         if map_.get_id() is None:
             count += 1
             if sp.get_temporal_type() == "absolute" and tsuffix in {"gran", "time"}:
-                id_ = "{ba}@{ma}".format(ba=base, ma=mapset)
+                id_ = f"{base}@{mapset}"
             else:
                 map_name = tgis.create_numeric_suffix(base, num + count, tsuffix)
-                id_ = "{name}@{ma}".format(name=map_name, ma=mapset)
+                id_ = f"{map_name}@{mapset}"
             map_.set_id(id_)
 
             gap_list.append(map_)

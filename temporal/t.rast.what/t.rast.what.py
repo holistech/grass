@@ -392,9 +392,7 @@ def one_point_per_row_output(
 
                     for i in range(len(values)):
                         start, end = map_list[i].get_temporal_extent_as_tuple()
-                        cat_str = (
-                            "{ca}{sep}".format(ca=cat, sep=separator) if vcat else ""
-                        )
+                        cat_str = f"{cat}{separator}" if vcat else ""
                         if site_input:
                             coor_string = (
                                 "%(x)10.10f%(sep)s%(y)10.10f%(sep)s%(site_name)s%(sep)s"
@@ -463,27 +461,17 @@ def one_point_per_col_output(
                             cat = row[0]
                             x = row[1]
                             y = row[2]
-                            out_str += (
-                                "{sep}{cat}{csep}{x:10.10f}{csep}{y:10.10f}".format(
-                                    cat=cat,
-                                    x=float(x),
-                                    y=float(y),
-                                    sep=separator,
-                                    csep=coor_sep,
-                                )
-                            )
+                            out_str += f"{separator}{cat}{coor_sep}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
                             if site_input:
                                 site = row[3]
-                                out_str += "{sep}{site}".format(sep=coor_sep, site=site)
+                                out_str += f"{coor_sep}{site}"
                         else:
                             x = row[0]
                             y = row[1]
-                            out_str += "{sep}{x:10.10f}{csep}{y:10.10f}".format(
-                                x=float(x), y=float(y), sep=separator, csep=coor_sep
-                            )
+                            out_str += f"{separator}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
                             if site_input:
                                 site = row[2]
-                                out_str += "{sep}{site}".format(sep=coor_sep, site=site)
+                                out_str += f"{coor_sep}{site}"
 
                     out_file.write(out_str + "\n")
 
@@ -531,7 +519,7 @@ def one_point_per_timerow_output(
 
         if write_header:
             if first is True:
-                header = "cat{sep}".format(sep=separator) if vcat else ""
+                header = f"cat{separator}" if vcat else ""
                 if site_input:
                     header += "x%(sep)sy%(sep)ssite" % ({"sep": separator})
                 else:
