@@ -233,3 +233,16 @@ def test_a_map_that_is_gone_from_the_mapset_stops_the_run_with_a_message(tools, 
 
     assert f"Unable to create 3D raster map <{prefix}>" in text
     assert prefix not in tools.g_list(type="raster_3d", flags="m").stdout
+
+
+def test_a_failing_r3_support_warns_and_keeps_the_cube(
+    tools, broken_tools, cells, prefix
+):
+    result = broken_tools("r3.support").t_rast_to_rast3(input=cells, output=prefix)
+
+    assert "r3.support failed to set units" in result.stderr
+    assert tools.r3_info(map=prefix, flags="g").keyval["depths"] == 4
+    assert (
+        tools.t_info(type="raster_3d", input=prefix, flags="g").keyval["start_time"]
+        == "'2001-01-01 00:00:00'"
+    )
