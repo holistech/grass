@@ -269,6 +269,7 @@
  "Temporal type of space time raster datasets must be equal\n<%(a)s> of type %(type_a)s do not match <%(b)s> of type %(type_b)s",
  "The %s map <%s> is already in the current mapset, not copying",
  "The archive file is of wrong space time dataset type",
+ "The archive lists the map <{}> more than once and cannot be imported",
  "The cycle must be longer than zero",
  "The date {date} minus {step} is before the year 1",
  "The date {date} plus {step} is beyond the year 9999",

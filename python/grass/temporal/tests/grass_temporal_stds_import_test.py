@@ -63,6 +63,35 @@ def _changed(source, target, name, data=None):
     return target
 
 
+def _listed_twice(source, target, name, suffix):
+    """Copy the tar archive source to target as an older export wrote it
+
+    Maps of one name from several mapsets were written under that one name:
+    the file of map name is a member twice and its line of list.txt follows
+    in a second line for the next month.
+    """
+    with tarfile.open(source) as old, tarfile.open(target, "w") as new:
+        for member in old.getmembers():
+            data = old.extractfile(member).read()
+            if member.name == "list.txt":
+                lines = data.decode().splitlines()
+                first = next(
+                    line for line in lines if line.split("|")[0].split(":")[0] == name
+                )
+                first_fields = first.split("|")
+                again = "|".join(
+                    [first_fields[0], "2001-03-01", "2001-04-01", *first_fields[3:]]
+                )
+                data = ("\n".join([*lines, again]) + "\n").encode()
+            elif member.name == "init.txt":
+                data = data.replace(b"number_of_maps=2", b"number_of_maps=3")
+            member.size = len(data)
+            new.addfile(member, io.BytesIO(data))
+            if Path(member.name).name == name + suffix:
+                new.addfile(member, io.BytesIO(data))
+    return target
+
+
 def _member(archive, name):
     with tarfile.open(archive) as tar:
         return tar.extractfile(name).read()
@@ -804,6 +833,81 @@ def test_the_layers_of_one_file_share_the_number_of_the_base(tmp_path, monkeypat
         ("lay@A", "2", "b_1"),
         ("lay@B", "1", "b_2"),
     ]
+
+
+def test_each_map_keeps_the_field_of_its_line(tmp_path, monkeypatch):
+    (tmp_path / "list.txt").write_text(
+        "dup:2@my.set|2001-01-01|2001-02-01\n a |2001-02-01|2001-03-01\n"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    maplist, _count = stds_import._read_map_list(None, "m")
+
+    assert [row["field"] for row in maplist] == ["dup:2@my.set", "a"]
+
+
+def test_a_map_listed_twice_is_refused(target):
+    def row(filename, layer, field):
+        return {"filename": filename, "layer": layer, "field": field}
+
+    maplist = [
+        row("lay", "1", "lay:1"),
+        row("lay", "2", "lay:2"),
+        row("dup@A", "", "dup@A"),
+        row("dup@B", "", "dup@B"),
+    ]
+    stds_import._refuse_repeated_list_lines(maplist)
+
+    with pytest.raises(
+        FatalError,
+        match=(
+            "The archive lists the map <lay:1> more than once and cannot be imported"
+        ),
+    ):
+        stds_import._refuse_repeated_list_lines([*maplist, row("lay", "1", "lay:1")])
+
+
+@pytest.mark.parametrize("base", [None, "pre"])
+@pytest.mark.parametrize("overr", [True, False])
+@pytest.mark.parametrize(
+    ("key", "stds_type", "name", "suffix"),
+    [
+        ("GTiff", "strds", "srca", ".tif"),
+        ("pack", "strds", "srca", ".pack"),
+        ("vector", "stvds", "vsrc1", ".pack"),
+        ("GML", "stvds", "vsrc1", ".xml"),
+    ],
+)
+def test_an_archive_that_lists_a_map_twice_is_refused(
+    archives, tmp_path, key, stds_type, name, suffix, overr, base
+):
+    twice = _listed_twice(archives[key], tmp_path / "twice.tar", name, suffix)
+    element = "raster" if stds_type == "strds" else "vector"
+    # The message names the field as written: a v.pack archive has the layer.
+    listed = _member(archives[key], "list.txt").decode().splitlines()
+    field = next(
+        line.split("|")[0]
+        for line in listed
+        if line.split("|")[0].split(":")[0] == name
+    )
+    # Without the projection override the project must have the CRS of the
+    # archive, or the import stops at the projection check first.
+    crs = None if overr else f"EPSG:{EPSG}"
+
+    with temporal_session(tmp_path / "target", crs=crs):
+        with pytest.raises(
+            FatalError,
+            match=(
+                f"The archive lists the map <{field}> more than once "
+                "and cannot be imported"
+            ),
+        ):
+            tgis.import_stds(
+                str(twice), "out", tmp_path, stds_type=stds_type, overr=overr, base=base
+            )
+
+        assert gs.read_command("g.list", type=element).split() == []
+        assert gs.read_command("t.list", type=stds_type).split() == []
 
 
 def test_two_files_with_one_import_name_are_refused(target):

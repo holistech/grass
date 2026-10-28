@@ -111,6 +111,28 @@ def _refuse_duplicate_import_names(maplist: list[dict[str, str]]) -> None:
             )
 
 
+def _refuse_repeated_list_lines(maplist: list[dict[str, str]]) -> None:
+    """Stop before the first import if list.txt names one map more than once
+
+    Older exports of maps of one name from several mapsets wrote the file and
+    the line under that one name for each of them. Such an archive holds one
+    file for two lines, so the import would stop after the first map, or on a
+    database constraint, or register a map twice with basename. The lines of
+    the layers of one vector map are allowed: they differ in the layer.
+    """
+    seen = set()
+    for row in maplist:
+        key = (row["filename"], row["layer"])
+        if key in seen:
+            get_tgis_message_interface().fatal(
+                _(
+                    "The archive lists the map <{}> more than once and cannot "
+                    "be imported"
+                ).format(row["field"])
+            )
+        seen.add(key)
+
+
 def _import_raster_maps_from_gdal(
     maplist: list[dict[str, str]],
     *,
@@ -587,6 +609,7 @@ def _read_map_list(base: str | None, mapset: str) -> tuple[list[dict[str, str]],
 
         maplist.append(
             {
+                "field": line_list[0].strip(),
                 "filename": filename,
                 "layer": layer,
                 "name": mapname,
@@ -728,6 +751,7 @@ def _import_maps(
     memory: int,
 ) -> None:
     """Import the maps of the archive with the module of the format"""
+    _refuse_repeated_list_lines(maplist)
     _refuse_duplicate_import_names(maplist)
     _refuse_existing_maps(maplist, "cell" if type_ == "strds" else "vector", mapset)
     if type_ == "strds":
