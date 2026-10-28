@@ -584,29 +584,9 @@ def create_strds_register_maps(
     out_strds.set_initial_values(temporal_type, semantic_type, title, description)
     out_strds.insert(dbif)
 
-    # Register the maps in the database
-    count = 0
-    for map in out_maps.values():
-        count += 1
-        if count % 10 == 0:
-            gs.percent(count, len(out_maps), 1)
-        # Read the raster map data
-        map.load()
-        # In case of a empty map continue, do not register empty maps
-        if (
-            not register_null
-            and map.metadata.get_min() is None
-            and map.metadata.get_max() is None
-        ):
-            empty_maps.append(map)
-            continue
-
-        # Insert map in temporal database
-        map.insert(dbif)
-        out_strds.register_map(map, dbif)
-
-    out_strds.update_from_registered_maps(dbif)
-    gs.percent(1, 1, 1)
+    empty_maps.extend(
+        tgis.register_new_maps(out_maps.values(), out_strds, register_null, dbif)
+    )
 
 
 ############################################################################
