@@ -9,7 +9,8 @@ others after it.
 
 The tools that compute in cycles (t.rast.accumulate, t.rast.accdetect) walk
 their cycles with dataset_cycles(), find the threshold map of a map with
-first_related_map_id() and open each result map with open_result_map().
+first_related_map_id(), open each result map with open_result_map() and
+write each output dataset with register_in_new_stds().
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -98,6 +99,40 @@ def register_new_maps(new_maps, dataset, register_null, dbif):
     dataset.update_from_registered_maps(dbif)
     gs.percent(1, 1, 1)
     return empty_maps
+
+
+def register_in_new_stds(
+    new_maps, dataset, input_dataset, register_null, *, overwrite, dbif
+):
+    """Insert dataset anew and register the computed maps in it
+
+    With overwrite an entry of dataset in the temporal database is removed
+    first, so that the dataset holds only the new maps; without overwrite
+    the caller has refused an existing dataset before. The new entry takes the temporal and
+    semantic type, the title and the description of input_dataset. The maps
+    are registered with register_new_maps().
+
+    :param new_maps: The computed maps, see register_new_maps()
+    :param dataset: The output dataset, not yet inserted or to be replaced
+    :param input_dataset: The input dataset of the tool, selected from the
+                          database
+    :param register_null: The value of the flag that keeps empty maps
+    :param overwrite: Whether an existing entry of dataset is replaced
+    :param dbif: The database interface or None
+    :return: The empty maps that were left out; the caller removes them
+    """
+    dataset_id = dataset.get_id()
+    if dataset.is_in_db(dbif) and overwrite:
+        dataset.delete(dbif)
+        dataset = input_dataset.get_new_instance(dataset_id)
+
+    temporal_type, semantic_type, title, description = (
+        input_dataset.get_initial_values()
+    )
+    dataset.set_initial_values(temporal_type, semantic_type, title, description)
+    dataset.insert(dbif)
+
+    return register_new_maps(new_maps, dataset, register_null, dbif)
 
 
 def _is_empty(new_map):

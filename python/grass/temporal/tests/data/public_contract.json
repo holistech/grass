@@ -1447,6 +1447,7 @@
   "print_gridded_dataset_univar_statistics": "repo",
   "print_vector_dataset_univar_statistics": "repo",
   "profile_function": "repo",
+  "register_in_new_stds": "repo",
   "register_map_object_list": "addons",
   "register_maps_in_space_time_dataset": "addons+repo",
   "register_new_maps": "repo",

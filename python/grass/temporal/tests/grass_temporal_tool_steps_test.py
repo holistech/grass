@@ -491,3 +491,40 @@ def test_overwrite_removes_the_entry_of_a_registered_result_map(tools, monthly, 
     assert result.get_id() == taken.get_id()
     assert not result.is_in_db()
     assert not tgis.RasterDataset(taken.get_id()).is_in_db()
+
+
+def output_dataset(name):
+    return tgis.SpaceTimeRasterDataset(f"{name}@{tgis.get_current_mapset()}")
+
+
+def test_the_new_output_dataset_takes_the_values_of_the_input(tools, monthly, base):
+    dataset, _maps = monthly
+    new_maps = open_new(monthly, base)
+    compute_raster(tools, new_maps, ["5", "null()"])
+
+    empty = tgis.register_in_new_stds(
+        new_maps, output_dataset(base), dataset, False, overwrite=False, dbif=None
+    )
+
+    assert [map.get_id() for map in empty] == [new_maps[1].get_id()]
+    output = tgis.open_old_stds(base, "strds")
+    assert registered_names(output) == [new_maps[0].get_name()]
+    dataset.select()
+    assert output.get_initial_values() == dataset.get_initial_values()
+
+
+def test_overwrite_replaces_the_output_dataset_and_its_maps(tools, monthly, base):
+    dataset, _maps = monthly
+    old_maps = open_new(monthly, f"{base}_old")
+    compute_raster(tools, old_maps, ["1", "2"])
+    tgis.register_new_maps(old_maps, new_dataset(base), False, None)
+    new_maps = open_new(monthly, base)
+    compute_raster(tools, new_maps, ["3", "4"])
+
+    tgis.register_in_new_stds(
+        new_maps, output_dataset(base), dataset, False, overwrite=True, dbif=None
+    )
+
+    assert registered_names(tgis.open_old_stds(base, "strds")) == [
+        new_map.get_name() for new_map in new_maps
+    ]

@@ -82,6 +82,7 @@ from .tool_steps import (
     first_related_map_id,
     open_new_map_for,
     open_result_map,
+    register_in_new_stds,
     register_new_maps,
 )
 from .univar_statistics import (
@@ -152,6 +153,7 @@ __all__ = [
     "print_gridded_dataset_univar_statistics",
     "print_vector_dataset_univar_statistics",
     "profile_function",
+    "register_in_new_stds",
     "register_map_object_list",
     "register_maps_in_space_time_dataset",
     "register_new_maps",
