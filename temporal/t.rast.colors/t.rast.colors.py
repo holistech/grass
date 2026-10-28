@@ -116,50 +116,23 @@ def has_color_table(map_id, env):
     ).is_file()
 
 
-def main():
-    # lazy imports
-    import grass.temporal as tgis
+def none_if_empty(value):
+    """Return None for an option that was not given, else its value"""
+    return None if value == "" else value
 
-    # Get the options
-    input = options["input"]
-    color = options["color"]
-    raster = options["raster"]
-    volume = options["raster_3d"]
-    rules = options["rules"]
-    remove = flags["r"]
-    write = flags["w"]
-    list = flags["l"]
-    invert = flags["n"]
-    log = flags["g"]
-    abslog = flags["a"]
-    equi = flags["e"]
 
-    if raster == "":
-        raster = None
+def list_rules():
+    """Print the color rules of r.colors"""
+    # r.colors -l lists the rules and refuses any map, so the maps of the
+    # dataset are not passed.
+    try:
+        gs.run_command("r.colors", flags="l")
+    except CalledModuleError:
+        gs.fatal(_("Error in r.colors call"))
 
-    if volume == "":
-        volume = None
 
-    if rules == "":
-        rules = None
-
-    if color == "":
-        color = None
-
-    # Make sure the temporal database exists
-    tgis.init()
-
-    sp = tgis.open_old_stds(input, "strds")
-
-    if list:
-        # r.colors -l lists the rules and refuses any map, so the maps of the
-        # dataset are not passed.
-        try:
-            gs.run_command("r.colors", flags="l")
-        except CalledModuleError:
-            gs.fatal(_("Error in r.colors call"))
-        return
-
+def maps_to_color(sp, write):
+    """Return the rows with the ids of the maps of sp that r.colors gets"""
     rows = sp.get_registered_maps("id", None, None, None)
 
     if rows and write:
@@ -169,39 +142,57 @@ def main():
         # process per map.
         env = gs.gisenv()
         rows = [row for row in rows if not has_color_table(row["id"], env)]
+    return rows
+
+
+def run_r_colors(rows, flags_, color, raster, volume, rules):
+    """Give the maps in rows their colors with one call of r.colors"""
+    # Create the r.colors input file
+    filename = gs.tempfile(True)
+    Path(filename).write_text("\n".join(str(row["id"]) for row in rows))
+
+    try:
+        gs.run_command(
+            "r.colors",
+            flags=flags_,
+            file=filename,
+            color=color,
+            raster=raster,
+            volume=volume,
+            rules=rules,
+            overwrite=gs.overwrite(),
+        )
+    except CalledModuleError:
+        gs.fatal(_("Error in r.colors call"))
+
+
+def main():
+    # lazy imports
+    import grass.temporal as tgis
+
+    # Get the options
+    input = options["input"]
+    color = none_if_empty(options["color"])
+    raster = none_if_empty(options["raster"])
+    volume = none_if_empty(options["raster_3d"])
+    rules = none_if_empty(options["rules"])
+    write = flags["w"]
+
+    # Make sure the temporal database exists
+    tgis.init()
+
+    sp = tgis.open_old_stds(input, "strds")
+
+    if flags["l"]:
+        list_rules()
+        return
+
+    rows = maps_to_color(sp, write)
 
     if rows:
-        flags_ = ""
-        if remove:
-            flags_ += "r"
-        if write:
-            flags_ += "w"
-        if invert:
-            flags_ += "n"
-        if log:
-            flags_ += "g"
-        if abslog:
-            flags_ += "a"
-        if equi:
-            flags_ += "e"
-
-        # Create the r.colors input file
-        filename = gs.tempfile(True)
-        Path(filename).write_text("\n".join(str(row["id"]) for row in rows))
-
-        try:
-            gs.run_command(
-                "r.colors",
-                flags=flags_,
-                file=filename,
-                color=color,
-                raster=raster,
-                volume=volume,
-                rules=rules,
-                overwrite=gs.overwrite(),
-            )
-        except CalledModuleError:
-            gs.fatal(_("Error in r.colors call"))
+        # The flags of r.colors in the order of this tool's flags
+        flags_ = "".join(key for key in "rwngae" if flags[key])
+        run_r_colors(rows, flags_, color, raster, volume, rules)
 
 
 if __name__ == "__main__":
