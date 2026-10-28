@@ -215,3 +215,21 @@ def test_the_layer_of_a_gap_has_the_type_of_the_first_map(
         [[None] * 3] * 2,
         [[5.5] * 3] * 2,
     ]
+
+
+def test_a_map_that_is_gone_from_the_mapset_stops_the_run_with_a_message(tools, prefix):
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [
+            MapSpec(f"{prefix}_a", "1", datetime(2001, 1, 1), datetime(2001, 2, 1)),
+            MapSpec(f"{prefix}_b", "1", datetime(2001, 2, 1), datetime(2001, 3, 1)),
+        ],
+    )
+    tools.g_remove(type="raster", name=f"{prefix}_b", flags="f")
+
+    text = _refused(tools, input=f"{prefix}_in", output=prefix)
+
+    assert f"Unable to create 3D raster map <{prefix}>" in text
+    assert prefix not in tools.g_list(type="raster_3d", flags="m").stdout
