@@ -39,11 +39,14 @@ def cube_geometry(sp):
     """Return the unit, the bottom and the resolution of the cube of sp
 
     The bottom is the start of sp in relation to 1900-01-01: years and months
-    count from 1900 (the year number, the month number), days, hours, minutes
-    and seconds are days since 1900-01-01 as decimal numbers, and the
-    resolution is the granularity in that unit. A cube of monthly or yearly
-    granularity cannot be mixed with the other units. In relative time the
-    start and the unit of sp are taken as they are.
+    count from 1900 (the year number, the month number); for days, hours,
+    minutes and seconds the bottom is the number of days since 1900-01-01 as a
+    decimal number and the resolution is the granularity converted to days.
+    The returned unit is always that of the granularity of sp, also for hours,
+    minutes and seconds, whose bottom and resolution are counted in days. A
+    cube of monthly or yearly granularity cannot be mixed with the other
+    units. In relative time the start, the granularity and the unit of sp are
+    taken as they are.
     """
     granularity = sp.get_granularity()
     start, _end = sp.get_temporal_extent_as_tuple()
