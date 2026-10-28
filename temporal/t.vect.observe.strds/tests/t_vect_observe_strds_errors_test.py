@@ -279,3 +279,19 @@ def test_a_failing_v_db_addcolumn_is_reported(broken_tools, rasters, points, pre
 
     assert "Unable to add column" in text
     assert "Traceback" not in text
+
+
+def test_a_failing_name_of_layer_one_removes_the_vector_output(
+    broken_tools, rasters, points, prefix
+):
+    # With where, layer 1 of the output is connected again under the layer
+    # name of the input. Only that call fails; v.db.connect -g, which reads
+    # the connections before it, runs the real tool.
+    broken = broken_tools("v.db.connect", passing="-g")
+
+    text = _refused(broken, points, prefix, where="h > 2")
+
+    assert f"Unable to name layer 1 of vector map <{prefix}_v>" in text
+    assert "Traceback" not in text
+    assert broken.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
+    assert prefix not in broken.t_list(type="stvds", columns="name").stdout

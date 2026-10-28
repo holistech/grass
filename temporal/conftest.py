@@ -90,19 +90,28 @@ def broken_tools(tools, tmp_path):
     exits with 0 and makes nothing. It reaches the branches of a tool that
     calls another tool and has no way to make it fail or stay silent by its
     input. The stand-in hands --interface-description to the real tool,
-    because pygrass asks for it before it runs a tool. The stand-ins only
-    exist for the Tools it returns.
+    because pygrass asks for it before it runs a tool. With passing, a call
+    that has this argument runs the real tool as well, for a tool that is
+    called for other purposes before the call that is to fail, such as
+    v.db.connect -g. The stand-ins only exist for the Tools it returns.
     """
 
-    def make(*names, status=1):
+    def make(*names, status=1, passing=None):
         search = tools._original_env["PATH"]  # noqa: SLF001
         for name in names:
             real = shlex.quote(shutil.which(name, path=search))
+            run_real = ""
+            if passing:
+                run_real = (
+                    f'for arg in "$@"; do\n'
+                    f'[ "$arg" = {shlex.quote(passing)} ] && exec {real} "$@"\n'
+                    f"done\n"
+                )
             stand_in = tmp_path / name
             stand_in.write_text(
                 f'#!/bin/sh\ncase "$1" in\n'
                 f'--interface-description) exec {real} "$@" ;;\n'
-                f"esac\nexit {status}\n"
+                f"esac\n{run_real}exit {status}\n"
             )
             stand_in.chmod(0o755)
         # Tools has no public access to the environment it runs the tools in
