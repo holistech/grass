@@ -47,7 +47,6 @@ max-complexity = 15
 "t.copy/t.copy.py" = ["C901"]
 "t.rast.colors/t.rast.colors.py" = ["C901"]
 "t.rast.contour/t.rast.contour.py" = ["C901"]
-"t.rast.gapfill/t.rast.gapfill.py" = ["C901"]
 "t.rast.neighbors/t.rast.neighbors.py" = ["C901"]
 "t.rast.to.rast3/t.rast.to.rast3.py" = ["C901"]
 "t.rast.to.vect/t.rast.to.vect.py" = ["C901"]
