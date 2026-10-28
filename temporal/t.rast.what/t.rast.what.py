@@ -443,9 +443,7 @@ def one_point_per_col_output(
             with open(file_name) as in_file:
                 lines = in_file.readlines()
 
-            matrix = []
-            for line in lines:
-                matrix.append(line.split(separator))
+            matrix = [line.split(separator) for line in lines]
 
             num_cols = len(matrix[0])
 

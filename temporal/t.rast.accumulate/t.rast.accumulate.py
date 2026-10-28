@@ -496,9 +496,7 @@ def main():
                         upper_map_name = str(relations[relation][0].get_id())
                         break
 
-            input_map_names = []
-            for input_map in input_maps:
-                input_map_names.append(input_map.get_id())
+            input_map_names = [input_map.get_id() for input_map in input_maps]
 
             # Set up the module
             accmod = Module(
