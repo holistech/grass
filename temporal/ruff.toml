@@ -1,0 +1,68 @@
+# Ruff settings of the temporal tools.
+#
+# The repository ignores these rules everywhere (pyproject.toml, "GRASS TODO").
+# The tools under temporal/ have been cleaned of them, so they are selected
+# again here, where a new violation can be fixed at once. Ruff offers no
+# per-path selection in pyproject.toml, only per-path ignores; a configuration
+# file in the directory is the one way to select a rule for a directory without
+# deselecting it for the rest of the repository (same approach as
+# python/grass/temporal/ruff.toml).
+#
+# Measured 2026-10-28 with a configuration that extends pyproject.toml and
+# selects the rules below, run as `ruff check temporal` with tests/ and
+# conftest.py excluded: 51 hits before the clean-up (C901 19, SIM102 17,
+# UP032 8, SIM118 3, PERF401 2, BLE001 1, S608 1), none now except the sites
+# that carry a noqa with a reason and the C901 lines below.
+#
+# Not selected, on purpose:
+# - A001: `input = options["input"]` and similar names follow the GRASS
+#   convention for tool scripts.
+# - UP031: the `%` messages are the msgids of the translations; rewriting
+#   them would change the msgid and lose the translations.
+extend = "../pyproject.toml"
+
+[lint]
+extend-select = [
+    "BLE001",  # blind-except
+    "C901",    # complex-structure
+    "PERF401", # manual-list-comprehension
+    "PLW0602", # global-variable-not-assigned
+    "PLW0603", # global-statement
+    "RUF012",  # mutable-class-default
+    "S604",    # call-with-shell-equals-true
+    "S608",    # hardcoded-sql-expression
+    "SIM102",  # collapsible-if
+    "SIM118",  # in-dict-keys
+    "UP032",   # f-string
+]
+
+[lint.mccabe]
+# The same limit as the library (python/grass/temporal/ruff.toml). A function
+# above 15 is split.
+max-complexity = 15
+
+[lint.extend-per-file-ignores]
+# Each C901 line marks a tool whose main() is still to be split; the line is
+# removed when it is.
+"t.copy/t.copy.py" = ["C901"]
+"t.list/t.list.py" = ["C901"]
+"t.merge/t.merge.py" = ["C901"]
+"t.rast.accdetect/t.rast.accdetect.py" = ["C901"]
+"t.rast.accumulate/t.rast.accumulate.py" = ["C901"]
+"t.rast.colors/t.rast.colors.py" = ["C901"]
+"t.rast.contour/t.rast.contour.py" = ["C901"]
+"t.rast.gapfill/t.rast.gapfill.py" = ["C901"]
+"t.rast.neighbors/t.rast.neighbors.py" = ["C901"]
+"t.rast.to.rast3/t.rast.to.rast3.py" = ["C901"]
+"t.rast.to.vect/t.rast.to.vect.py" = ["C901"]
+"t.rast.what/t.rast.what.py" = ["C901"]
+"t.remove/t.remove.py" = ["C901"]
+"t.support/t.support.py" = ["C901"]
+"t.topology/t.topology.py" = ["C901"]
+"t.unregister/t.unregister.py" = ["C901"]
+"t.vect.db.select/t.vect.db.select.py" = ["C901"]
+"t.vect.observe.strds/t.vect.observe.strds.py" = ["C901"]
+"t.vect.what.strds/t.vect.what.strds.py" = ["C901"]
+# The tests are outside this clean-up.
+"*/tests/**" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
+"conftest.py" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
