@@ -48,7 +48,6 @@ max-complexity = 15
 "t.list/t.list.py" = ["C901"]
 "t.merge/t.merge.py" = ["C901"]
 "t.rast.accdetect/t.rast.accdetect.py" = ["C901"]
-"t.rast.accumulate/t.rast.accumulate.py" = ["C901"]
 "t.rast.colors/t.rast.colors.py" = ["C901"]
 "t.rast.contour/t.rast.contour.py" = ["C901"]
 "t.rast.gapfill/t.rast.gapfill.py" = ["C901"]
