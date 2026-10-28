@@ -218,11 +218,11 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     The first cycle runs from start to end, next_cycle() gives the later
     ones, counted from start. A cycle is yielded while it starts before stop
     and before the end of the data. A cycle that reaches beyond stop ends at
-    stop, except for the relative stop 0, which cuts no cycle (the test
-    `if stop` of the former tool code, kept as it was). The end of the data is the end of
-    dataset, or one unit behind it (one second in absolute time) when a map
-    is an instant there, so that this map lies in a cycle. It is read from
-    the database when the first cycle is asked for.
+    stop, except for the relative stop 0: it is falsy and therefore cuts no
+    cycle. The end of the data is the end of dataset, or one unit behind it
+    (one second in absolute time) when a map is an instant there, so that
+    this map lies in a cycle. It is read from the database when the first
+    cycle is asked for.
 
     The dataset must have registered maps: an empty dataset has no end, and
     the comparison with it raises TypeError. The tools check this before.
