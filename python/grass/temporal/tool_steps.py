@@ -8,8 +8,8 @@ example some remove the empty maps before closing the database connection and
 others after it.
 
 The tools that compute in cycles (t.rast.accumulate, t.rast.accdetect) walk
-their cycles with dataset_cycles() and find the threshold map of a map with
-first_related_map_id().
+their cycles with dataset_cycles(), find the threshold map of a map with
+first_related_map_id() and open each result map with open_result_map().
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -19,6 +19,7 @@ import grass.script as gs
 
 from .datetime_math import increment_datetime_by_string, map_name_suffix, next_cycle
 from .open_stds import open_new_map_dataset
+from .state import get_current_mapset
 
 
 def open_new_map_for(
@@ -110,6 +111,52 @@ def _is_empty(new_map):
         # from the coor file without writing a topology.
         primitives = gs.vector_info_topo(new_map.get_id())["primitives"]
     return primitives == 0
+
+
+def open_result_map(input_map, name, *, overwrite, dbif):
+    """Open the new map name in the current mapset with the time of input_map
+
+    The new map has the type of input_map and is not inserted into the
+    temporal database. Unlike open_new_map_for(), the caller gives the whole
+    name, and a registered map of that name ends the run with gs.fatal() and
+    "Map <...> is already registered in the temporal database, use overwrite
+    flag to overwrite." gs.fatal() rather than the message interface keeps
+    the error output of the tools that used this check: measured 2026-10-28
+    in grass --tmp-project XY --exec with a script that ends with this
+    message once with gs.fatal() and once with the fatal() of the message
+    interface, GRASS_MESSAGE_FORMAT=standard indents the continued line only
+    with gs.fatal(), and gui differs as well; plain and silent give the same
+    bytes.
+
+    :param input_map: The map whose type and time the new map takes
+    :param name: The name of the new map
+    :param overwrite: Whether a registered map of that name may be replaced;
+                      its entry in the temporal database is then removed
+    :param dbif: The database interface or None
+    :return: The new map
+    """
+    map_id = input_map.build_id(name, get_current_mapset())
+    result_map = input_map.get_new_instance(map_id)
+
+    if result_map.is_in_db(dbif):
+        if overwrite:
+            result_map.delete(dbif)
+            result_map = input_map.get_new_instance(map_id)
+        else:
+            gs.fatal(
+                _(
+                    "Map <%s> is already registered in the temporal"
+                    " database, use overwrite flag to overwrite."
+                )
+                % (result_map.get_map_id())
+            )
+
+    start, end = input_map.get_temporal_extent_as_tuple()
+    if input_map.is_time_absolute():
+        result_map.set_absolute_time(start, end)
+    else:
+        result_map.set_relative_time(start, end, input_map.get_relative_time_unit())
+    return result_map
 
 
 # The relations by which a map selects a map of another dataset, in the order

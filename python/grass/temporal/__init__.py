@@ -81,6 +81,7 @@ from .tool_steps import (
     dataset_cycles,
     first_related_map_id,
     open_new_map_for,
+    open_result_map,
     register_new_maps,
 )
 from .univar_statistics import (
@@ -146,6 +147,7 @@ __all__ = [
     "open_new_map_for",
     "open_new_stds",
     "open_old_stds",
+    "open_result_map",
     "option_to_datetime",
     "print_gridded_dataset_univar_statistics",
     "print_vector_dataset_univar_statistics",

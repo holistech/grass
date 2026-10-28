@@ -1442,6 +1442,7 @@
   "open_new_map_for": "repo",
   "open_new_stds": "addons+repo",
   "open_old_stds": "addons+repo",
+  "open_result_map": "repo",
   "option_to_datetime": "repo",
   "print_gridded_dataset_univar_statistics": "repo",
   "print_vector_dataset_univar_statistics": "repo",

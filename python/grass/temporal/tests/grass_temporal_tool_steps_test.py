@@ -435,3 +435,59 @@ def test_the_relations_are_tried_in_their_order():
 
 def test_a_map_that_only_follows_is_not_selected():
     assert selected(day_map("granule", 3, 5), [day_map("after", 5, 7)]) is None
+
+
+def test_the_result_map_has_the_name_type_and_time_given(monthly, base):
+    _dataset, maps = monthly
+
+    result = tgis.open_result_map(maps[1], f"{base}_r", overwrite=False, dbif=None)
+
+    assert result.get_id() == f"{base}_r@{tgis.get_current_mapset()}"
+    assert result.get_type() == "raster"
+    assert (
+        result.get_temporal_extent_as_tuple() == maps[1].get_temporal_extent_as_tuple()
+    )
+    assert not result.is_in_db()
+
+
+def test_the_result_map_takes_the_relative_time_and_unit(relative, base):
+    input_map = relative.get_registered_maps_as_objects()[1]
+
+    result = tgis.open_result_map(input_map, f"{base}_r", overwrite=False, dbif=None)
+
+    assert result.get_temporal_extent_as_tuple() == (2, None)
+    assert result.get_relative_time_unit() == "days"
+
+
+def test_a_registered_result_map_ends_the_run_without_overwrite(
+    tools, monthly, base, capfd
+):
+    _dataset, maps = monthly
+    taken = open_new(monthly, base)[0]
+    compute_raster(tools, [taken], ["1"])
+    taken.load()
+    taken.insert()
+
+    with pytest.raises(SystemExit) as error:
+        tgis.open_result_map(maps[0], taken.get_name(), overwrite=False, dbif=None)
+
+    assert error.value.code == 1
+    assert (
+        f"Map <{taken.get_id()}> is already registered in the temporal"
+        in capfd.readouterr().err
+    )
+    assert taken.is_in_db()
+
+
+def test_overwrite_removes_the_entry_of_a_registered_result_map(tools, monthly, base):
+    _dataset, maps = monthly
+    taken = open_new(monthly, base)[0]
+    compute_raster(tools, [taken], ["1"])
+    taken.load()
+    taken.insert()
+
+    result = tgis.open_result_map(maps[0], taken.get_name(), overwrite=True, dbif=None)
+
+    assert result.get_id() == taken.get_id()
+    assert not result.is_in_db()
+    assert not tgis.RasterDataset(taken.get_id()).is_in_db()
