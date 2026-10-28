@@ -6,6 +6,7 @@ returns the empty ones. The tests compute real maps in a session of the module.
 """
 
 import itertools
+import re
 from datetime import datetime
 from io import StringIO
 
@@ -459,23 +460,20 @@ def test_the_result_map_takes_the_relative_time_and_unit(relative, base):
     assert result.get_relative_time_unit() == "days"
 
 
-def test_a_registered_result_map_ends_the_run_without_overwrite(
-    tools, monthly, base, capfd
-):
+def test_a_registered_result_map_raises_without_overwrite(tools, monthly, base):
     _dataset, maps = monthly
     taken = open_new(monthly, base)[0]
     compute_raster(tools, [taken], ["1"])
     taken.load()
     taken.insert()
 
-    with pytest.raises(SystemExit) as error:
+    message = (
+        f"Map <{taken.get_id()}> is already registered in the temporal"
+        " database, use overwrite flag to overwrite."
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(message)}$"):
         tgis.open_result_map(maps[0], taken.get_name(), overwrite=False, dbif=None)
 
-    assert error.value.code == 1
-    assert (
-        f"Map <{taken.get_id()}> is already registered in the temporal"
-        in capfd.readouterr().err
-    )
     assert taken.is_in_db()
 
 

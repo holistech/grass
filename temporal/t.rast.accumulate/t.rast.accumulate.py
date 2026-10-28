@@ -265,8 +265,12 @@ def read_start_and_stop(input_strds, start, stop, granularity, dbif):
     Without stop, stop is None: the cycles run to the end of the data.
     """
     if input_strds.is_time_absolute():
-        start = tgis.option_to_datetime(start, "start", dbif)
-        stop = tgis.option_to_datetime(stop, "stop", dbif) if stop else None
+        try:
+            start = tgis.option_to_datetime(start, "start")
+            stop = tgis.option_to_datetime(stop, "stop") if stop else None
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
         given_start = start
         start = tgis.adjust_datetime_to_granularity(start, granularity)
         if start != given_start:
@@ -483,9 +487,12 @@ def accumulate_granules(
             granule, time_suffix, input_strds.get_granularity(), count
         )
         output_map_name = f"{base}_{suffix}"
-        output_map = tgis.open_result_map(
-            granule, output_map_name, overwrite=gs.overwrite(), dbif=dbif
-        )
+        try:
+            output_map = tgis.open_result_map(
+                granule, output_map_name, overwrite=gs.overwrite(), dbif=dbif
+            )
+        except ValueError as error:
+            gs.fatal(str(error))
         lower_map_name = (
             tgis.first_related_map_id(gran_list_low[index])
             if lower_strds is not None

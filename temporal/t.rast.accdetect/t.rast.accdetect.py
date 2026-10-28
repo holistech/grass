@@ -278,8 +278,12 @@ def read_start_and_stop(input_strds, start, stop, dbif):
     Without stop, stop is None: the cycles run to the end of the data.
     """
     if input_strds.is_time_absolute():
-        start = tgis.option_to_datetime(start, "start", dbif)
-        stop = tgis.option_to_datetime(stop, "stop", dbif) if stop else None
+        try:
+            start = tgis.option_to_datetime(start, "start")
+            stop = tgis.option_to_datetime(stop, "stop") if stop else None
+        except ValueError as error:
+            dbif.close()
+            gs.fatal(str(error))
     else:
         try:
             start = int(start)
@@ -379,9 +383,12 @@ def compute_occurrence(
         )
         occurrence_map_name = f"{base}_{suffix}"
 
-        occurrence_map = tgis.open_result_map(
-            map, occurrence_map_name, overwrite=gs.overwrite(), dbif=dbif
-        )
+        try:
+            occurrence_map = tgis.open_result_map(
+                map, occurrence_map_name, overwrite=gs.overwrite(), dbif=dbif
+            )
+        except ValueError as error:
+            gs.fatal(str(error))
 
         # Without a range every granule needs a map of the datasets.
         range_vals = range_.split(",") if range_ else [None, None]
@@ -448,9 +455,12 @@ def compute_indicator(
             map, tsuffix, input_strds.get_granularity(), indi_count
         )
         indicator_map_name = f"{base}_indicator_{suffix}"
-        indicator_map = tgis.open_result_map(
-            map, indicator_map_name, overwrite=gs.overwrite(), dbif=dbif
-        )
+        try:
+            indicator_map = tgis.open_result_map(
+                map, indicator_map_name, overwrite=gs.overwrite(), dbif=dbif
+            )
+        except ValueError as error:
+            gs.fatal(str(error))
 
         curr_map = occurrence_maps[map.get_id()].get_name()
 

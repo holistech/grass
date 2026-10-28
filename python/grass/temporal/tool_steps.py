@@ -153,15 +153,7 @@ def open_result_map(input_map, name, *, overwrite, dbif):
 
     The new map has the type of input_map and is not inserted into the
     temporal database. Unlike open_new_map_for(), the caller gives the whole
-    name, and a registered map of that name ends the run with gs.fatal() and
-    "Map <...> is already registered in the temporal database, use overwrite
-    flag to overwrite." gs.fatal() rather than the message interface keeps
-    the error output of the tools that used this check: measured 2026-10-28
-    in grass --tmp-project XY --exec with a script that ends with this
-    message once with gs.fatal() and once with the fatal() of the message
-    interface, GRASS_MESSAGE_FORMAT=standard indents the continued line only
-    with gs.fatal(), and gui differs as well; plain and silent give the same
-    bytes.
+    name and decides how a registered map of that name ends the run.
 
     :param input_map: The map whose type and time the new map takes
     :param name: The name of the new map
@@ -169,6 +161,9 @@ def open_result_map(input_map, name, *, overwrite, dbif):
                       its entry in the temporal database is then removed
     :param dbif: The database interface or None
     :return: The new map
+    :raises ValueError: "Map <id> is already registered in the temporal
+                        database, use overwrite flag to overwrite." when a
+                        map of that name is registered and overwrite is False
     """
     map_id = input_map.build_id(name, get_current_mapset())
     result_map = input_map.get_new_instance(map_id)
@@ -178,7 +173,7 @@ def open_result_map(input_map, name, *, overwrite, dbif):
             result_map.delete(dbif)
             result_map = input_map.get_new_instance(map_id)
         else:
-            gs.fatal(
+            raise ValueError(
                 _(
                     "Map <%s> is already registered in the temporal"
                     " database, use overwrite flag to overwrite."
