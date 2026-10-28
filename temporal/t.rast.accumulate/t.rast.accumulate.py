@@ -548,31 +548,7 @@ def main():
     output_strds.set_initial_values(temporal_type, semantic_type, title, description)
     output_strds.insert(dbif)
 
-    empty_maps = []
-    # Register the maps in the database
-    count = 0
-    for output_map in output_maps:
-        count += 1
-        if count % 10 == 0:
-            gs.percent(count, len(output_maps), 1)
-        # Read the raster map data
-        output_map.load()
-        # In case of a empty map continue, do not register empty maps
-
-        if not register_null and (
-            output_map.metadata.get_min() is None
-            and output_map.metadata.get_max() is None
-        ):
-            empty_maps.append(output_map)
-            continue
-
-        # Insert map in temporal database
-        output_map.insert(dbif)
-        output_strds.register_map(output_map, dbif)
-
-    # Update the spatio-temporal extent and the metadata table entries
-    output_strds.update_from_registered_maps(dbif)
-    gs.percent(1, 1, 1)
+    empty_maps = tgis.register_new_maps(output_maps, output_strds, register_null, dbif)
 
     dbif.close()
 
