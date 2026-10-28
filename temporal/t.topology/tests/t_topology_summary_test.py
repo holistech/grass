@@ -397,8 +397,8 @@ def test_an_empty_dataset_in_absolute_time_has_no_granularity(tools, prefix):
 
     result = tools.t_topology(input=name)
 
-    # As in relative time: the summary used to end with an IndexError of the
-    # granularity, computed for no maps.
+    # The summary of no maps is the same in both time types: no granularity
+    # and no lines of the relations.
     assert "Traceback" not in result.stderr
     assert _report(result.stdout) == _empty_report("False")
 
