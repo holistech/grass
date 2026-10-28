@@ -1453,6 +1453,7 @@
   "register_maps_in_space_time_dataset": "addons+repo",
   "register_new_maps": "repo",
   "registered_maps_grouped": "repo",
+  "remove_maps": "repo",
   "sample_stds_by_stds_topology": "addons+repo",
   "stop_subprocesses": "addons+repo",
   "string_to_datetime": "addons+repo",

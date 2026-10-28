@@ -538,6 +538,42 @@ def test_overwrite_replaces_the_output_dataset_and_its_maps(tools, monthly, base
     ]
 
 
+def mapset_maps(tools, map_type):
+    return tools.g_list(type=map_type).stdout.split()
+
+
+@pytest.mark.parametrize("map_type", ["raster", "vector"])
+def test_remove_maps_removes_all_given_maps_and_no_other(
+    tools, monthly, base, map_type
+):
+    new_maps = open_new(monthly, base, map_type)
+    for new_map in new_maps:
+        if map_type == "raster":
+            tools.r_mapcalc(expression=f"{new_map.get_name()} = 1")
+        else:
+            points(tools, new_map.get_name(), ["1,1"])
+    kept = f"{base}_kept"
+    if map_type == "raster":
+        tools.r_mapcalc(expression=f"{kept} = 1")
+    else:
+        points(tools, kept, ["1,1"])
+
+    tgis.remove_maps(new_maps, map_type)
+
+    assert [name for name in mapset_maps(tools, map_type) if base in name] == [kept]
+
+
+def test_remove_maps_without_maps_calls_nothing(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        tgis.tool_steps.gs, "run_command", lambda *args, **kwargs: calls.append(args)
+    )
+
+    tgis.remove_maps([], "raster")
+
+    assert calls == []
+
+
 def test_the_names_of_a_file_are_stripped_and_blank_lines_left_out(tmp_path):
     path = tmp_path / "names.txt"
     path.write_text("a\n\n  b  \n\t\nc@other")

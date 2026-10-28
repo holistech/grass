@@ -2,10 +2,9 @@
 
 A tool that runs a module for each map of a space time dataset opens the new
 map of each input map with open_new_map_for() and registers the computed maps
-with register_new_maps(). Opening the output dataset, running the modules and
-removing the empty maps stay with the caller: the tools differ there, for
-example some remove the empty maps before closing the database connection and
-others after it.
+with register_new_maps() and removes the empty ones with remove_maps(). Opening
+the output dataset and running the modules stay with the caller: the tools
+differ there, and their error messages are translated per tool.
 
 The tools that compute in cycles (t.rast.accumulate, t.rast.accdetect) walk
 their cycles with dataset_cycles(), find the threshold map of a map with
@@ -104,6 +103,28 @@ def register_new_maps(new_maps, dataset, register_null, dbif):
     dataset.update_from_registered_maps(dbif)
     gs.percent(1, 1, 1)
     return empty_maps
+
+
+def remove_maps(maps, map_type):
+    """Remove the maps from the GRASS database with one call of g.remove
+
+    Used for the empty maps that register_new_maps() returns. The caller
+    decides when this happens relative to closing the database connection.
+
+    :param maps: The maps to remove, objects with get_name(); nothing is
+                 called for an empty sequence
+    :param map_type: The type of the maps as g.remove takes it: raster,
+                     raster_3d or vector
+    """
+    if not maps:
+        return
+    gs.run_command(
+        "g.remove",
+        flags="f",
+        type=map_type,
+        name=",".join(map_.get_name() for map_ in maps),
+        quiet=True,
+    )
 
 
 def register_in_new_stds(

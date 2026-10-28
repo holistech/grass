@@ -85,6 +85,7 @@ from .tool_steps import (
     open_result_map,
     register_in_new_stds,
     register_new_maps,
+    remove_maps,
 )
 from .univar_statistics import (
     print_gridded_dataset_univar_statistics,
@@ -160,6 +161,7 @@ __all__ = [
     "register_maps_in_space_time_dataset",
     "register_new_maps",
     "registered_maps_grouped",
+    "remove_maps",
     "sample_stds_by_stds_topology",
     "space_time_datasets",
     "stop_subprocesses",
