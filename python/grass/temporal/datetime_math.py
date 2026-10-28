@@ -15,6 +15,8 @@ import re
 from datetime import datetime, timedelta
 from typing import TypedDict
 
+import grass.script as gs
+
 from .state import get_tgis_message_interface
 
 try:
@@ -539,6 +541,36 @@ def string_to_datetime(time_string: str) -> datetime | None:
         return None
 
     return time_object
+
+
+def option_to_datetime(text: str, option: str, dbif) -> datetime:
+    """Convert the value of a tool option to a datetime or end the run
+
+    Text that string_to_datetime() cannot read closes dbif and ends the run
+    with gs.fatal() and the message "Invalid date <text> of the option
+    <option>", after the message of string_to_datetime(). gs.fatal() rather
+    than the message interface keeps the error output of the tools that
+    used this check: measured 2026-10-28 in grass --tmp-project XY --exec
+    with a script that ends once with gs.fatal() and once with the fatal()
+    of the message interface, GRASS_MESSAGE_FORMAT=standard indents the
+    continued line of a long message only with gs.fatal(), and gui differs
+    as well; plain and silent give the same bytes.
+
+    :param text: The value of the option
+    :param option: The name of the option, for the message
+    :param dbif: The open database interface of the tool
+    :return: The datetime
+    """
+    # Without a message interface (no init()) string_to_datetime() ends in
+    # an AttributeError for text it cannot read instead of returning None.
+    try:
+        converted = string_to_datetime(text)
+    except (AttributeError, ValueError):
+        converted = None
+    if converted is None:
+        dbif.close()
+        gs.fatal(_("Invalid date <{}> of the option <{}>").format(text, option))
+    return converted
 
 
 def datetime_to_grass_datetime_string(dt: datetime | None) -> str:

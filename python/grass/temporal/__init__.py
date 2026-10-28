@@ -41,6 +41,7 @@ from .datetime_math import (
     increment_datetime_by_string,
     map_name_suffix,
     next_cycle,
+    option_to_datetime,
     string_to_datetime,
     time_delta_to_relative_time,
 )
@@ -138,6 +139,7 @@ __all__ = [
     "open_new_map_for",
     "open_new_stds",
     "open_old_stds",
+    "option_to_datetime",
     "print_gridded_dataset_univar_statistics",
     "print_vector_dataset_univar_statistics",
     "profile_function",
