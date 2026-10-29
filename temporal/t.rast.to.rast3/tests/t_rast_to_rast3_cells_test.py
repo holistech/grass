@@ -247,3 +247,22 @@ def test_a_failing_r3_support_warns_and_keeps_the_cube(
         tools.t_info(type="raster_3d", input=prefix, flags="g").keyval["start_time"]
         == "'2001-01-01 00:00:00'"
     )
+
+
+def test_a_refused_3d_region_stops_with_a_message(broken_tools, cells, prefix):
+    # The first g.region call has no tbres= and runs the real tool; only the
+    # call that sets the 3D resolution is refused.
+    with pytest.raises(ToolError) as error:
+        broken_tools("g.region", failing="tbres=").t_rast_to_rast3(
+            input=cells, output=prefix
+        )
+
+    text = message(error.value)
+    assert error.value.returncode == 1
+    assert "Unable to set 3D region" in text
+    assert "Traceback" not in text
+
+
+def test_broken_tools_refuses_passing_and_failing_together(broken_tools):
+    with pytest.raises(ValueError, match="exclude each other"):
+        broken_tools("g.region", passing="-p", failing="tbres=")
