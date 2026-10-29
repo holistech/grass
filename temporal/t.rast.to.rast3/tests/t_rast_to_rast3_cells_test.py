@@ -250,8 +250,10 @@ def test_a_failing_r3_support_warns_and_keeps_the_cube(
 
 
 def test_a_refused_3d_region_stops_with_a_message(broken_tools, cells, prefix):
-    # The first g.region call has no tbres= and runs the real tool; only the
-    # call that sets the 3D resolution is refused.
+    # gs.use_temp_region calls g.region first (measured 29.10.2026 with a
+    # logging stand-in: "--o -u save=..." before "t=... b=... tbres=..."), and
+    # that call must reach the real tool; tbres= pins the call that sets the 3D
+    # region.
     with pytest.raises(ToolError) as error:
         broken_tools("g.region", failing="tbres=").t_rast_to_rast3(
             input=cells, output=prefix

@@ -108,6 +108,7 @@ def broken_tools(tools, tmp_path):
         for name in names:
             real = shlex.quote(shutil.which(name, path=search))
             run_real = ""
+            final = f"exit {status}\n"
             if passing:
                 run_real = (
                     f'for arg in "$@"; do\n'
@@ -115,19 +116,20 @@ def broken_tools(tools, tmp_path):
                     f"done\n"
                 )
             if failing:
-                # Prefix match of the whole argument: the first call of
-                # g.region has no tbres= and must reach the real tool.
+                # Prefix match on each argument; a call without it runs the real
+                # tool, so there is no exit after the loop.
                 run_real = (
                     f'for arg in "$@"; do\n'
                     f'case "$arg" in {shlex.quote(failing)}*) exit {status} ;; esac\n'
                     f"done\n"
-                    f'exec {real} "$@"\n'
                 )
+                final = f'exec {real} "$@"\n'
+
             stand_in = tmp_path / name
             stand_in.write_text(
                 f'#!/bin/sh\ncase "$1" in\n'
                 f'--interface-description) exec {real} "$@" ;;\n'
-                f"esac\n{run_real}exit {status}\n"
+                f"esac\n{run_real}{final}"
             )
             stand_in.chmod(0o755)
         # Tools has no public access to the environment it runs the tools in
