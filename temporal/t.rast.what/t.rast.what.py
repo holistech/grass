@@ -118,6 +118,9 @@ def check_options(coordinates, points, use_stdin, vcat):
             )
         )
 
+    # -v with -i and points passes this check, but r.what refuses -v with
+    # stdin (measured 29.10.2026), so the output functions never see a cat
+    # column together with sites.
     if vcat and not points:
         gs.fatal(_("Flag 'v' required option 'points'"))
 
@@ -477,10 +480,6 @@ def one_point_per_row_output(
                         x = line[1]
                         y = line[2]
                         values = line[4:]
-                        if site_input:
-                            site = line[3]
-                            values = line[5:]
-
                     else:
                         x = line[0]
                         y = line[1]
@@ -557,9 +556,6 @@ def one_point_per_col_output(
                         x = row[1]
                         y = row[2]
                         out_str += f"{separator}{cat}{coor_sep}{float(x):10.10f}{coor_sep}{float(y):10.10f}"
-                        if site_input:
-                            site = row[3]
-                            out_str += f"{coor_sep}{site}"
                     else:
                         x = row[0]
                         y = row[1]
@@ -635,9 +631,7 @@ def one_point_per_timerow_output(
             cols = lines[i].split(separator)
 
             if first is True:
-                if vcat and site_input:
-                    matrix.append(cols[:4])
-                elif vcat or site_input:
+                if vcat or site_input:
                     matrix.append(cols[:3])
                 else:
                     matrix.append(cols[:2])
