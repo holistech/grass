@@ -15,8 +15,8 @@ unreachable, and the check of the number of raster maps in a granule of
 t.vect.observe.strds, which main() makes unreachable), the one that was
 renamed to the ``str.format`` convention (``Aggregating {} raster maps``) and
 the one whose text carried the indentation of the source. The ids were
-extracted on 26.10.2026 from the tree before the clean-up (commit b8f890df1c) by parsing every ``_("...")``
-literal.
+extracted on 26.10.2026 from the tree before the clean-up (commit
+b8f890df1c) by parsing every ``_("...")`` literal.
 """
 
 import ast
