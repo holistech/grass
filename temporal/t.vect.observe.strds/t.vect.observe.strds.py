@@ -208,6 +208,38 @@ def select_points(input, where, dbif):
     return selected
 
 
+def check_column_cases(points, vector_db, num_samples, column_names, input, dbif):
+    """Refuse a column that differs only in case from a column of a table
+
+    Only the layers that are observed and have a table in vector_db count,
+    the others get a new table. This is checked before vectmap is made: the
+    column check of add_columns() takes K for k, as SQLite does, and lets it
+    pass with overwrite, but v.what.rast looks for K as written and then
+    fails to add it. points is the map vector_db was read from; input names
+    the map in the message.
+    """
+    for layer in range(1, num_samples + 1):
+        if not (layer in vector_db and vector_db[layer]["table"]):
+            continue
+        stored = list(gs.vector_columns(points, layer=layer))
+        stored_by_lower = {name.lower(): name for name in stored}
+        for column in column_names:
+            if column.lower() in stored_by_lower and column not in stored:
+                dbif.close()
+                gs.fatal(
+                    _(
+                        "Column <{column}> differs only in case from the column "
+                        "<{stored}> of the table of vector map <{vector}> "
+                        "layer {layer}"
+                    ).format(
+                        column=column,
+                        stored=stored_by_lower[column.lower()],
+                        vector=input,
+                        layer=layer,
+                    )
+                )
+
+
 def copy_with_layers(points, vector_db, num_samples, vectmap, overwrite):
     """Create vectmap from points with a layer for each sample
 
@@ -500,6 +532,8 @@ def main():
 
     # Get the layer and database connections of the observed points
     vector_db = gs.vector.vector_db(points)
+    if overwrite:
+        check_column_cases(points, vector_db, len(samples), column_names, input, dbif)
     copy_with_layers(points, vector_db, len(samples), vector_output, overwrite)
 
     layer_one = input_db.get(1)

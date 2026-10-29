@@ -297,15 +297,97 @@ def test_a_failing_name_of_layer_one_removes_the_vector_output(
     assert prefix not in broken.t_list(type="stvds", columns="name").stdout
 
 
-def test_a_column_that_differs_only_in_case_fails_at_v_what_rast(
-    tools, rasters, points, prefix
-):
-    text = _refused(tools, points, prefix, columns="H", overwrite=True)
-
-    # The column h of the input table is taken for H, as SQLite does, and
-    # passes with overwrite. v.what.rast looks for H as written, does not
-    # find it and fails to add it to the table.
-    assert "duplicate column name: H" in text
-    assert f"Unable to run v.what.rast for vector map <{prefix}_v> with layer 1" in text
+def _nothing_made(tools, prefix):
     assert tools.g_list(type="vector", pattern=f"{prefix}_v").stdout.split() == []
     assert prefix not in tools.t_list(type="stvds", columns="name").stdout
+
+
+def test_a_column_that_differs_only_in_case_is_refused(tools, rasters, points, prefix):
+    text = _refused(tools, points, prefix, columns="H", overwrite=True)
+
+    assert (
+        f"Column <H> differs only in case from the column <h> of the table of "
+        f"vector map <{points}> layer 1"
+    ) in text
+    assert "v.what.rast" not in text
+    assert tools.db_columns(table=points).stdout.split() == ["x", "y", "cat", "h"]
+    _nothing_made(tools, prefix)
+
+
+def test_a_column_that_differs_only_in_case_is_refused_without_overwrite(
+    tools, rasters, points, prefix
+):
+    text = _refused(tools, points, prefix, columns="H")
+
+    # Without overwrite the column that exists in another case is already an
+    # existing column; the case does not change the refusal.
+    assert "the column exists, use the overwrite flag" in text
+    assert "differs only in case" not in text
+    _nothing_made(tools, prefix)
+
+
+@pytest.mark.parametrize("overwrite", [True, False])
+def test_a_column_in_another_case_at_a_later_layer_leaves_nothing(
+    tools, rasters, prefix, overwrite
+):
+    vector_points(
+        tools,
+        f"{prefix}_m",
+        [(0.5, 1.5), (1.5, 1.5), (0.5, 0.5), (1.5, 0.5)],
+        attributes={"h": [1, 2, 3, 4]},
+        layers=(1, 2),
+    )
+    # Only the table of layer 2 has k, the table of layer 1 has not.
+    tools.v_db_addcolumn(map=f"{prefix}_m", layer=2, column="k INT")
+    before = [
+        tools.db_columns(table=table).stdout.split()
+        for table in (f"{prefix}_m", f"{prefix}_m_2")
+    ]
+
+    text = _refused(tools, f"{prefix}_m", prefix, columns="K", overwrite=overwrite)
+
+    if overwrite:
+        assert (
+            "Column <K> differs only in case from the column <k> of the table "
+            f"of vector map <{prefix}_m> layer 2"
+        ) in text
+    else:
+        assert "the column exists, use the overwrite flag" in text
+    after = [
+        tools.db_columns(table=table).stdout.split()
+        for table in (f"{prefix}_m", f"{prefix}_m_2")
+    ]
+    assert after == before
+    _nothing_made(tools, prefix)
+
+
+def test_a_column_in_another_case_in_a_layer_that_is_not_observed_is_no_clash(
+    tools, rasters, prefix
+):
+    vector_points(
+        tools,
+        f"{prefix}_m",
+        [(0.5, 1.5), (1.5, 1.5), (0.5, 0.5), (1.5, 0.5)],
+        attributes={"h": [1, 2, 3, 4]},
+        layers=(1, 2, 3),
+    )
+    # ob_b has two granules, so the layers 1 and 2 are observed. Only the
+    # table of layer 3 has k.
+    tools.v_db_addcolumn(map=f"{prefix}_m", layer=3, column="k INT")
+
+    tools.t_vect_observe_strds(
+        input=f"{prefix}_m",
+        strds="ob_b",
+        output=prefix,
+        vector_output=f"{prefix}_v",
+        columns="K",
+        overwrite=True,
+    )
+
+    def columns(layer):
+        text = tools.v_info(map=f"{prefix}_v", layer=layer, flags="c").stdout
+        return [line.split("|")[1] for line in text.splitlines() if "|" in line]
+
+    assert "K" in columns(1)
+    assert "K" in columns(2)
+    assert "K" not in columns(3)
