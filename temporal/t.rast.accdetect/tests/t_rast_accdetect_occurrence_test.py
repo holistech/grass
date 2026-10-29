@@ -48,8 +48,8 @@ def test_the_bounds_of_the_range_are_not_part_of_it(tools, cells, detect):
     }
 
 
-def nothing_found(tools, cells, name, **options):
-    """Run t.rast.accdetect and tell whether it made no occurrence dataset
+def assert_nothing_found(tools, cells, name, **options):
+    """Run t.rast.accdetect and check that it made no occurrence dataset
 
     Every occurrence map is empty then, so without -n none is registered and
     no dataset is created.
@@ -58,15 +58,13 @@ def nothing_found(tools, cells, name, **options):
     result = tools.t_rast_accdetect(
         input=cells, occurrence=name, basename=name, **options
     )
-    return (
-        f"No space time dataset <{name}> was created." in message(result)
-        and f"{name}@" not in tools.t_list(type="strds").text
-        and not tools.g_list(type="raster", pattern=f"{name}_*").stdout.split()
-    )
+    assert f"No space time dataset <{name}> was created." in message(result)
+    assert f"{name}@" not in tools.t_list(type="strds").text
+    assert not tools.g_list(type="raster", pattern=f"{name}_*").stdout.split()
 
 
 def test_a_range_with_the_bounds_the_wrong_way_finds_nothing(tools, cells):
-    assert nothing_found(tools, cells, "swapped", range="45,15")
+    assert_nothing_found(tools, cells, "swapped", range="45,15")
 
 
 def test_a_cycle_restarts_the_count_of_days(tools, cells, detect):
@@ -110,9 +108,10 @@ def test_the_start_moves_the_first_cycle(tools, cells, detect):
 
 @pytest.fixture(scope="module")
 def sparse(tools):
-    """det_gap with daily maps on the 1st, 2nd, 6th and 7th of January 2001
+    """Two inputs with windows that hold no start of a map
 
-    and det_rel with maps from 0 to 1 and from 1 to 2 days, all of the value
+    det_gap has daily maps on the 1st, 2nd, 6th and 7th of January 2001,
+    det_rel relative maps from 0 to 1 and from 1 to 2 days, all of the value
     20 in the range 10 to 50.
     """
     small_region(tools, 1, 2)
@@ -428,7 +427,7 @@ def test_a_maximum_dataset_alone(tools, cells, thresholds, detect):
 
 def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds):
     # Minimum 100 on each day: nothing lies above it.
-    assert nothing_found(tools, cells, "eq", minimum="det_equal_min", range="10,50")
+    assert_nothing_found(tools, cells, "eq", minimum="det_equal_min", range="10,50")
 
 
 @pytest.fixture(scope="module")

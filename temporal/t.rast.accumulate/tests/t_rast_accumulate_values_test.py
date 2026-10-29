@@ -272,9 +272,10 @@ def test_a_start_before_the_data_gives_cycles_that_cut_the_data(tools, daily):
 
 @pytest.fixture(scope="module")
 def sparse(tools):
-    """acc_gap with daily maps on the 1st, 2nd, 6th and 7th of January 2001
+    """Two inputs with windows that hold no start of a map
 
-    and acc_rel with maps from 0 to 1 and from 1 to 2 days.
+    acc_gap has daily maps on the 1st, 2nd, 6th and 7th of January 2001,
+    acc_rel relative maps from 0 to 1 and from 1 to 2 days.
     """
     small_region(tools, 1, 2)
     create_stds(
