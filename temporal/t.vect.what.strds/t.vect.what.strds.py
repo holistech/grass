@@ -62,8 +62,6 @@ import grass.script as gs
 from grass.exceptions import CalledModuleError
 from grass.script import raster
 
-# lazy imports at the end of the file
-
 
 def aggregate_column_name(strds_name, method):
     """Return the column that stores the aggregate of a dataset
@@ -430,6 +428,11 @@ def sample_interval(row, raster_maps, strds_sp, column, method, where, existing,
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+
     # Get the options
     input = options["input"]
     strds = options["strds"]
@@ -468,7 +471,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.temporal as tgis
 
     main()

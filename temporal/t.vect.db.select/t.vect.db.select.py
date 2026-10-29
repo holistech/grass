@@ -125,8 +125,6 @@ def none_if_blank(value):
 
 def registered_maps(input, tempwhere):
     """Return the rows of the maps of the dataset that t_where selects"""
-    import grass.temporal as tgis
-
     # Make sure the temporal database exists
     tgis.init()
 
@@ -228,6 +226,11 @@ def select_from_maps(tools, rows, layer, columns, separator, where, output_forma
 
 
 def main():
+    global checked_separator, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
 
     # Get the options
     input = options["input"]
@@ -237,9 +240,6 @@ def main():
     layer = options["layer"]
     separator = gs.separator(options["separator"])
     output_format = options.get("format", "plain")
-
-    # lazy imports
-    from grass.temporal.list_stds import checked_separator
 
     # The format json has no flag for the column names here.
     try:

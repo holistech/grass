@@ -45,3 +45,7 @@ max-complexity = 15
 # The tests are outside this clean-up.
 "*/tests/**" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
 "conftest.py" = ["BLE001", "C901", "PERF401", "PLW0602", "PLW0603", "RUF012", "S604", "S608", "SIM102", "SIM118", "UP032"]
+# The tool scripts import grass.temporal at the start of main() so that --help
+# and --interface-description run without it; their helper functions use the
+# imported names as module globals instead of passing them through each step.
+"t.*/t.*.py" = ["PLW0603"]

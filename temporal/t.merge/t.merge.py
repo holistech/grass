@@ -32,8 +32,6 @@
 
 import grass.script as gs
 
-# lazy imports at the end of the file
-
 
 def dataset_ids(inputs, output, mapset):
     """Return the ids of the input datasets and of the output dataset
@@ -144,6 +142,11 @@ def register_maps(stds_list, output_stds, registered, mapset, dbif):
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+
     # Get the options
     inputs = options["inputs"]
     output = options["output"]
@@ -192,7 +195,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.temporal as tgis
 
     main()

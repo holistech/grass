@@ -174,6 +174,11 @@ def register_cube(sp, output, mapset):
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+
     # Get the options
     input = options["input"]
     output = options["output"]
@@ -214,7 +219,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy import
-    import grass.temporal as tgis
 
     main()

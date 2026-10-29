@@ -136,7 +136,8 @@ def main():
 if __name__ == "__main__":
     options, flags = gs.parser()
 
-    # lazy imports
+    # Not in main(): profile_function() needs the library before main() runs.
+    # gs.parser() has already answered --help and --interface-description.
     import grass.temporal as tgis
 
     try:

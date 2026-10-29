@@ -138,8 +138,6 @@ def read_stdin_coordinates():
 
 def open_maps(strds, where, order):
     """Return the maps of the dataset that where selects, in the given order"""
-    import grass.temporal as tgis
-
     # Make sure the temporal database exists
     tgis.init()
     # We need a database interface
@@ -173,8 +171,6 @@ def prepare_r_what(
     stdin comes before points and points before coordinates; check_options
     has made sure that one of the three is given.
     """
-    import grass.pygrass.modules as pymod
-
     overwrite = gs.overwrite()
 
     flags = ""
@@ -309,8 +305,6 @@ def run_r_what(r_what, maps, nprocs):
     Return the output file of each process and the maps it sampled, both in
     the order of the maps.
     """
-    import grass.pygrass.modules as pymod
-
     nprocs = min(len(maps), nprocs)
 
     # The module queue for parallel execution
@@ -396,6 +390,12 @@ def write_output(
 
 
 def main(options, flags):
+    global pymod, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.pygrass.modules as pymod
+    import grass.temporal as tgis
+
     # Get the options
     points = options["points"]
     coordinates = options["coordinates"]

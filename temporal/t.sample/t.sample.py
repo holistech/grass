@@ -65,11 +65,8 @@ import grass.script as gs
 
 def _open_stds(stds_type, name, msgr):
     """The dataset object of a space time dataset, selected from the database"""
-    import grass.temporal as tgis
-    from grass.temporal.factory import dataset_factory
-
     ident = name if "@" in name else f"{name}@{tgis.get_current_mapset()}"
-    stds = dataset_factory(stds_type, ident)
+    stds = tgis.dataset_factory(stds_type, ident)
     if stds.is_in_db() is False:
         msgr.fatal(
             _("Dataset <{name}> not found in temporal database").format(name=ident)
@@ -79,6 +76,9 @@ def _open_stds(stds_type, name, msgr):
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
     from grass.temporal.algebra.sources import source
     from grass.temporal.datetime_math import time_delta_to_relative_time

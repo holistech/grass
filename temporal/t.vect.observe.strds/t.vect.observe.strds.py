@@ -51,8 +51,6 @@ import os
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-# lazy imports at the end of the file
-
 
 class Sample:
     def __init__(self, start, end, raster_names):
@@ -482,6 +480,11 @@ def observe_samples(
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+
     # Get the options
     input = options["input"]
     output = options["output"]
@@ -573,7 +576,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.temporal as tgis
 
     main()

@@ -58,8 +58,6 @@ def map_type_and_element(stdstype):
 
 def check_output_mapset(output, mapset):
     """Refuse an output name that is in another mapset than the current one"""
-    from grass.temporal.base import check_identifier
-
     if "@" in output:
         check_identifier(output)
         _outname, outmapset = output.split("@")
@@ -76,8 +74,6 @@ def check_maps_can_be_copied(old_maps, mapset, maptype, element, overwrite, dbif
     Everything that can refuse the copy is checked before the first map is
     copied, so that a refusal does not leave copied maps behind.
     """
-    import grass.temporal as tgis
-
     for map in old_maps:
         map_name, map_mapset = map.get_name(), map.get_mapset()
         if map_mapset != mapset:
@@ -98,8 +94,6 @@ def copy_maps_to_mapset(old_maps, mapset, maptype, overwrite, dbif):
     A map that is in the current mapset already is not copied: it keeps its
     entry in the temporal database.
     """
-    import grass.temporal as tgis
-
     msgr = tgis.get_tgis_message_interface()
 
     new_maps = []
@@ -161,8 +155,11 @@ def register_maps(new_sp, new_maps, mapset, maptype, dbif):
 
 
 def main():
-    # lazy imports
+    global check_identifier, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
+    from grass.temporal.base import check_identifier
 
     # Get the options
     input = options["input"]

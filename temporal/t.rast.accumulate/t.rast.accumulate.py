@@ -141,8 +141,6 @@ from copy import copy
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-# lazy imports at the end of the file
-
 
 def check_options(limits, time_suffix):
     """Check the options that need no database, return the limits as numbers"""
@@ -520,6 +518,12 @@ def accumulate_granules(
 
 
 def main():
+    global Module, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+    from grass.pygrass.modules import Module
+
     # Get the options
     input = options["input"]
     output = options["output"]
@@ -635,8 +639,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.temporal as tgis
-    from grass.pygrass.modules import Module
 
     main()

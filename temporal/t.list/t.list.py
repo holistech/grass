@@ -99,8 +99,6 @@ from contextlib import nullcontext
 
 import grass.script as gs
 
-# lazy imports at the end of the file
-
 
 def output_file(outpath):
     """Return the file to write the listing to, stdout without outpath or for -"""
@@ -284,6 +282,12 @@ def write_rows(out_file, rows, output_format, separator, header):
 
 
 def main():
+    global tgis, checked_separator
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+    from grass.temporal.list_stds import checked_separator
+
     # Get the options
     stds_type = options["type"].split(",")
     temporal_type = options["temporaltype"]
@@ -361,10 +365,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-
-    # Lazy imports: the tool imports grass.temporal only after gs.parser() has
-    # run, so that --help and --interface-description need no temporal code.
-    import grass.temporal as tgis
-    from grass.temporal.list_stds import checked_separator
 
     main()

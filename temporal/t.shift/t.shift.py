@@ -54,11 +54,7 @@ def shift_by_list(stds, gran, dbif):
     :return: True if the maps were shifted, False if a part is invalid or
              there is nothing to shift
     """
-    from grass.temporal.core import get_current_mapset
-    from grass.temporal.datetime_math import increment_datetime_by_string
-    from grass.temporal.temporal_granularity import check_granularity_string
-
-    if stds.get_mapset() != get_current_mapset():
+    if stds.get_mapset() != tgis.get_current_mapset():
         gs.fatal(
             _(
                 "Unable to shift dataset <{ds}> of type {type} in the temporal "
@@ -68,7 +64,7 @@ def shift_by_list(stds, gran, dbif):
         )
 
     parts = [part.strip() for part in gran.split(",")]
-    if not all(check_granularity_string(part, "absolute") for part in parts):
+    if not all(tgis.check_granularity_string(part, "absolute") for part in parts):
         gs.error(_("Wrong granularity format: {}").format(gran))
         return False
     units = [part.split(" ")[1].removesuffix("s") for part in parts]
@@ -88,9 +84,9 @@ def shift_by_list(stds, gran, dbif):
     for map in maps:
         start, end = map.get_temporal_extent_as_tuple()
         try:
-            start = increment_datetime_by_string(start, gran)
+            start = tgis.increment_datetime_by_string(start, gran)
             if end is not None:
-                end = increment_datetime_by_string(end, gran)
+                end = tgis.increment_datetime_by_string(end, gran)
         except ValueError as error:
             # A shift behind the year 9999, which datetime cannot represent;
             # the caller names the dataset and the shift.
@@ -106,7 +102,9 @@ def shift_by_list(stds, gran, dbif):
 
 
 def main():
-    # lazy imports
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
     import grass.temporal as tgis
 
     name = options["input"]

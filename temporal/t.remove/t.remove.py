@@ -59,8 +59,6 @@
 
 import grass.script as gs
 
-# lazy imports at the end of the file
-
 #: The type of g.remove for the maps of each type of dataset
 MAP_TYPES = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
 
@@ -241,7 +239,8 @@ def main():
 if __name__ == "__main__":
     options, flags = gs.parser()
 
-    # lazy imports
+    # Not in main(): profile_function() needs the library before main() runs.
+    # gs.parser() has already answered --help and --interface-description.
     import grass.pygrass.modules as pyg
     import grass.temporal as tgis
 

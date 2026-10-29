@@ -40,8 +40,6 @@
 # %end
 import grass.script as gs
 
-# lazy imports at the end of the file
-
 #: The summary line of each count of count_temporal_types(), by its key
 TYPE_LINES = {
     "interval": " | Number of intervals: ....... %s",
@@ -131,6 +129,11 @@ def print_relations(sp, maps):
 
 
 def main():
+    global tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.temporal as tgis
+
     # Get the options
     name = options["input"]
     type = options["type"]
@@ -158,7 +161,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.temporal as tgis
 
     main()

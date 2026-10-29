@@ -53,8 +53,6 @@ import sys
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
-# lazy imports at the end of the file
-
 
 def maps_with_gaps(sp, where, dbif):
     """Return the maps of sp that where selects, with a map without id per gap"""
@@ -251,6 +249,12 @@ def register_gap_maps(result_list, overwrite_flags, sp, dbif):
 
 
 def main():
+    global pymod, tgis
+    # Imported here, not at module level: gs.parser() answers --help and
+    # --interface-description before main() runs, and these need no temporal code.
+    import grass.pygrass.modules as pymod
+    import grass.temporal as tgis
+
     # Get the options
     input = options["input"]
     base = options["basename"]
@@ -339,8 +343,5 @@ def main():
 
 if __name__ == "__main__":
     options, flags = gs.parser()
-    # lazy imports
-    import grass.pygrass.modules as pymod
-    import grass.temporal as tgis
 
     main()

@@ -41,8 +41,6 @@
 
 import grass.script as gs
 
-# lazy imports at the end of the file
-
 
 def check_options(maps, file):
     """Refuse a call with both or neither of maps and file"""
@@ -172,7 +170,8 @@ def main():
 if __name__ == "__main__":
     options, flags = gs.parser()
 
-    # lazy imports
+    # Not in main(): profile_function() needs the library before main() runs.
+    # gs.parser() has already answered --help and --interface-description.
     import grass.temporal as tgis
 
     tgis.profile_function(main)
