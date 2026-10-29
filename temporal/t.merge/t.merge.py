@@ -162,11 +162,6 @@ def main():
 
     stds_list = open_inputs(input_ids, type, dbif)
 
-    # Do nothing if nothing to merge
-    if not stds_list:
-        dbif.close()
-        return
-
     output_stds, output_exists = open_output(
         output, output_id, type, stds_list[0], dbif
     )
