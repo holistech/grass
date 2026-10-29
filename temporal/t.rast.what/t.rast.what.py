@@ -361,6 +361,28 @@ def run_r_what(r_what, maps, nprocs):
     return output_files, output_time_list
 
 
+def check_sampled(output_files):
+    """Stop with a message when r.what wrote no line into any output file
+
+    r.what drops an input line it cannot read (for example because of the
+    wrong separator) with a warning and still ends with success. Without this
+    check the layouts either wrote nothing or failed on the empty file.
+    open_maps() has stopped on an empty selection, so there is at least one
+    file. A location outside the region gives a line with null values and
+    counts as sampled.
+    """
+    for file_name in output_files:
+        with open(file_name) as in_file:
+            if in_file.readline():
+                return
+    gs.fatal(
+        _(
+            "No location was sampled: r.what returned no line. "
+            "Check the locations and the separator."
+        )
+    )
+
+
 def write_output(
     layout,
     separator,
@@ -430,6 +452,7 @@ def main(options, flags):
         coordinates=coordinates,
     )
     output_files, output_time_list = run_r_what(r_what, maps, nprocs)
+    check_sampled(output_files)
 
     write_output(
         layout,

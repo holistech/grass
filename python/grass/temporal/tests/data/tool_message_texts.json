@@ -49,6 +49,7 @@
   "More than one successor of the gap found. Using the first found.",
   "No attribute table found for the maps: {}",
   "No gaps found",
+  "No location was sampled: r.what returned no line. Check the locations and the separator.",
   "No map of the space time vector dataset <{}> matches t_where.",
   "No map with values was computed in any cycle. No space time dataset <{out}> was created.",
   "No temporal database found in the requested mapset(s). No datasets to list.",

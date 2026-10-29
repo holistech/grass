@@ -115,3 +115,80 @@ def test_a_failing_r_what_is_reported_by_the_tool(tools, nprocs):
 
     assert "Error running r.what" in text
     assert "Traceback" not in text
+
+
+NO_LOCATION_SAMPLED = (
+    "No location was sampled: r.what returned no line. "
+    "Check the locations and the separator."
+)
+
+
+@pytest.mark.parametrize("layout", ["row", "col", "timerow"])
+def test_no_sampled_location_is_refused(tools, sampled, layout):
+    # r.what reads the pipe-separated line as one word, warns and writes no line.
+    text = _refused(
+        tools,
+        strds=sampled,
+        layout=layout,
+        flags="i",
+        separator="pipe",
+        stdin=StringIO("2.5|3.5|s1\n"),
+    )
+
+    assert NO_LOCATION_SAMPLED in text
+    assert "Traceback" not in text
+
+
+@pytest.mark.parametrize("layout", ["row", "col", "timerow"])
+def test_a_point_map_without_points_is_refused(tools, sampled, layout):
+    # One map per layout: the tests may run in parallel in one project.
+    empty = f"wh_no_points_{layout}"
+    tools.v_edit(map=empty, tool="create")
+
+    text = _refused(tools, strds=sampled, layout=layout, points=empty)
+
+    assert NO_LOCATION_SAMPLED in text
+    assert "Traceback" not in text
+
+
+@pytest.mark.parametrize("layout", ["row", "col", "timerow"])
+def test_no_sampled_location_leaves_the_output_file(tools, sampled, layout, tmp_path):
+    target = tmp_path / "kept.txt"
+    target.write_bytes(b"kept\n")
+
+    text = _refused(
+        tools,
+        strds=sampled,
+        layout=layout,
+        flags="i",
+        separator="pipe",
+        stdin=StringIO("2.5|3.5|s1\n"),
+        output=str(target),
+        overwrite=True,
+    )
+
+    assert NO_LOCATION_SAMPLED in text
+    assert target.read_bytes() == b"kept\n"
+
+
+def test_no_sampled_location_does_not_create_the_output_file(tools, sampled, tmp_path):
+    target = tmp_path / "never.txt"
+
+    _refused(
+        tools,
+        strds=sampled,
+        flags="i",
+        separator="pipe",
+        stdin=StringIO("2.5|3.5|s1\n"),
+        output=str(target),
+    )
+
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("layout", ["row", "col", "timerow"])
+def test_a_location_outside_the_region_is_still_written(tools, sampled, layout):
+    # r.what writes a null value for it, so this is a sampled location.
+    result = tools.t_rast_what(strds=sampled, layout=layout, coordinates="50,50")
+
+    assert "*" in result.stdout
