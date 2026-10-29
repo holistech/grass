@@ -474,3 +474,19 @@ def test_csv_without_matches_writes_the_header_to_the_output_file(
 
     assert path.read_text() == "name,id\n"
     assert result.stdout == ""
+
+
+@pytest.mark.parametrize("columns", ["name,all", "all", "id,name,type"])
+def test_the_header_without_matches_is_that_of_a_listing_with_rows(
+    tools, prefix, make_stds, columns
+):
+    make_stds(1)
+    options = {"type": "strds,stvds", "columns": columns, "format": "csv"}
+
+    with_rows = tools.t_list(where=f"name LIKE '{prefix}%'", **options)
+    without_rows = tools.t_list(where=f"name = '{prefix}_none'", **options)
+
+    # The library takes all columns when "all" occurs in the list, so the
+    # header does the same. A blank after a comma never reaches it, because
+    # the parser refuses it.
+    assert without_rows.stdout == with_rows.stdout.splitlines()[0] + "\n"

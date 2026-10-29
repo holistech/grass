@@ -210,18 +210,18 @@ def csv_header_names(dbif, stds_type, temporal_type, columns_for_db):
     """Return the column names a listing without rows prints as csv header
 
     The names are those of the first row of a listing with rows: the
-    requested database columns in the requested order, all the columns the
-    types share for all, and type last when it is listed per row.
+    database columns of get_dataset_list() and type last when it is listed
+    per row.
     """
-    if columns_for_db == "all":
-        names = _common_columns(
-            dbif,
-            [stds_type] if isinstance(stds_type, str) else stds_type,
-            temporal_type.split(",")[0],
-            next(iter(dbif.tgis_mapsets)),
-        )
-    else:
-        names = columns_for_db.split(",")
+    # Like get_dataset_list(), which takes the columns from the first mapset
+    # and uses the same columns for every temporal type.
+    names = tgis.list_stds.listed_columns(
+        dbif,
+        stds_type,
+        temporal_type.split(",")[0],
+        columns_for_db,
+        next(iter(dbif.tgis_mapsets)),
+    )
     return names if isinstance(stds_type, str) else [*names, "type"]
 
 
@@ -365,6 +365,6 @@ if __name__ == "__main__":
     # Lazy imports: the tool imports grass.temporal only after gs.parser() has
     # run, so that --help and --interface-description need no temporal code.
     import grass.temporal as tgis
-    from grass.temporal.list_stds import _common_columns, checked_separator
+    from grass.temporal.list_stds import checked_separator
 
     main()
