@@ -30,7 +30,7 @@ of a floating-point raster map written into an integer column lose their
 fractional part, and *v.what.rast* warns about it. To get a column of the new
 type, drop the column with *v.db.dropcolumn* first. A column name that
 differs from an existing column only in upper and lower case (`K` for `k`)
-is refused with **--overwrite** as well, before anything is written.
+is refused, with and without **--overwrite**, before anything is written.
 
 ## EXAMPLE
 
