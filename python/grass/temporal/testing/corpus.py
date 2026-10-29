@@ -29,8 +29,8 @@ expression and the options, plus the mark ``"dry_run"`` for the run without
 computing. So the same expression in two tests has two entries, and a test
 that changes its data or its options cannot read an outcome of other data.
 The key hangs on the node id: a test that is renamed or moved finds no entry
-and goes red, and its old entries stay in the corpus as orphans that nothing
-reports. Record the corpus again for a renamed test.
+and goes red, and its old entries stay in the corpus as orphans. Record the corpus again
+for a renamed test.
 The value is the outcome or, for the run without computing, true or false.
 
 The variable ``GRASS_TEMPORAL_REFERENCE`` chooses where the outcome comes
@@ -77,6 +77,13 @@ replaces the file of each kind in the records: a recording of only some
 directories drops the cases of the others for that kind, which the next run
 in mode ``corpus`` reports as missing.
 
+To find orphans, run the same directories in both settings with
+``GRASS_TEMPORAL_CORPUS_TRACE_DIR`` set to an empty directory. Every lookup
+appends its kind and key to a file of the process there. Then
+``python3 -m grass.temporal.testing.corpus_orphans <trace dir>`` lists the
+entries of the corpus that no test read and exits with 1 if there is one.
+Without the variable the lookup writes nothing.
+
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
@@ -94,6 +101,7 @@ from pathlib import Path
 
 MODE_VARIABLE = "GRASS_TEMPORAL_REFERENCE"
 RECORD_DIR_VARIABLE = "GRASS_TEMPORAL_REFERENCE_RECORD_DIR"
+TRACE_DIR_VARIABLE = "GRASS_TEMPORAL_CORPUS_TRACE_DIR"
 MODES = ("corpus", "live", "record")
 FUZZ_VARIABLES = ("GRASS_TEMPORAL_FUZZ_SEED", "GRASS_TEMPORAL_FUZZ_COUNT")
 
@@ -252,13 +260,29 @@ def _same(kind, expression, stored, value, dry_run):
 
 
 def _lookup(kind, key):
-    """Return a copy of the stored value, or _MISSING"""
+    """Return a copy of the stored value, or _MISSING
+
+    With ``GRASS_TEMPORAL_CORPUS_TRACE_DIR`` set, every looked-up key is
+    appended to ``<dir>/<pid>.jsonl`` first, found or not.
+    """
+    _trace(kind, key)
     entries = load(kind)
     if key not in entries:
         return _MISSING
     # A copy, so that a test that changes what it got cannot change what
     # later tests of the process read
     return copy.deepcopy(entries[key])
+
+
+def _trace(kind, key):
+    """Append a looked-up key to the trace of this process, if one is wanted"""
+    directory = os.environ.get(TRACE_DIR_VARIABLE)
+    if not directory:
+        return
+    path = Path(directory) / f"{os.getpid()}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"kind": kind, "key": key}, sort_keys=True) + "\n")
 
 
 def load(kind, directory=None):
