@@ -4,7 +4,6 @@
   "%s= and %s= are mutually exclusive",
   "%s= or %s= must be specified",
   "- %s",
-  "<{}> is not valid input to the percentile option",
   "A %s map <%s> exists already in the current mapset <%s>.",
   "A space time vector dataset has no aggregation type. Ignoring <{}>.",
   "All registered maps of the aggregation dataset must have time intervals",

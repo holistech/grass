@@ -9,7 +9,6 @@
  "3D raster map <{name}> not found",
  "<%s> exists. To overwrite, use the --overwrite flag",
  "<%s> is not a valid name for a space time dataset",
- "<{}> is not valid input to the percentile option",
  "A %s map <%s> exists already in the current mapset <%s>.",
  "A space time vector dataset has no aggregation type. Ignoring <{}>.",
  "A standard CSV separator (delimiter) is only one character long",
