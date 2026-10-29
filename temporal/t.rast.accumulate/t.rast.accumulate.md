@@ -35,9 +35,11 @@ If no map with values is computed, because the cycles lie before or
 after the data or in a gap, or end at once at a **stop** that is not
 after the **start** (such as a relative stop of 0), or because every
 computed map is empty and **-n** is not set, the module warns and ends
-without creating the **output** dataset. An output dataset that exists
-is not replaced, also with **--overwrite**; only its maps that have the
-name of a new map are lost, as the computation overwrites them.
+without creating the **output** dataset. With **--overwrite**, an
+output dataset that exists is removed and warned about; its maps stay
+as maps, except those that have the name of a new map, which the
+computation overwrites and removes. Without **--overwrite** an existing
+output dataset ends the run before any computation.
 
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
