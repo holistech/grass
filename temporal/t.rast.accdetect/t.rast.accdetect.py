@@ -603,10 +603,12 @@ def main():
                 dbif,
             )
 
-    # As t.rast.aggregate: when no map of an output is to be registered,
-    # because no cycle computed one or, without -n, every map is empty, a
-    # warning and no dataset for it; a dataset that exists is not replaced,
-    # also with overwrite. Its computed maps are removed as empty maps.
+    # When no map of an output is to be registered, a warning and no dataset
+    # for it; a dataset that exists is not replaced, also with overwrite, and
+    # its computed maps are removed as empty maps. t.rast.aggregate does so
+    # when no granule has a map, as here when no cycle computes one. A result
+    # of only empty maps without -n is treated the same by the decision of
+    # 29.10.2026; t.rast.aggregate makes a dataset without maps there.
     outputs = [(occurrence, occurrence_strds, list(occurrence_maps.values()))]
     if indicator:
         outputs.append((indicator, indicator_strds, list(indicator_maps.values())))

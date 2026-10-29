@@ -600,10 +600,12 @@ def main():
         output_maps += cycle_maps
         count += len(cycle_maps)
 
-    # As t.rast.aggregate: when no map is to be registered, because no cycle
-    # computed one or, without -n, every map is empty, a warning and no output
-    # dataset; an output dataset that exists is not replaced, also with
-    # overwrite. The computed maps are removed as empty maps.
+    # When no map is to be registered, a warning and no output dataset; an
+    # output dataset that exists is not replaced, also with overwrite, and
+    # the computed maps are removed as empty maps. t.rast.aggregate does so
+    # when no granule has a map, as here when no cycle computes one. A result
+    # of only empty maps without -n is treated the same by the decision of
+    # 29.10.2026; t.rast.aggregate makes a dataset without maps there.
     if tgis.maps_to_register(output_maps, register_null=register_null):
         empty_maps = tgis.register_in_new_stds(
             output_maps,
