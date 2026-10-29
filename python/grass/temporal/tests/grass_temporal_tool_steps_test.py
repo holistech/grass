@@ -383,14 +383,41 @@ def test_relative_cycles_with_an_offset(relative):
     assert cycles_of(relative, 0, 2, cycle=2, offset=1) == [(0, 2), (3, 5)]
 
 
-def test_the_relative_stop_0_cuts_no_cycle(relative):
-    # The cycle [-2, 1) starts before the stop 0 and keeps its end; any other
-    # stop would cut it.
-    assert cycles_of(relative, -2, 1, stop=0, cycle=3, offset=0) == [(-2, 1)]
+def test_a_relative_stop_of_0_ends_the_cycles(relative):
+    # The cycle [-2, 1) starts before the stop 0 and ends there, as at any
+    # other stop; the next cycle would start at 1, behind the stop.
+    assert cycles_of(relative, -2, 1, stop=0, cycle=3, offset=0) == [(-2, 0)]
 
 
 def test_relative_cycles_end_at_stop(relative):
     assert cycles_of(relative, 0, 3, stop=4, cycle=3, offset=0) == [(0, 3), (3, 4)]
+
+
+@pytest.fixture(scope="module")
+def relative_to_0(tools):
+    """A dataset of relative intervals from -2 to -1 and from -1 to 0 days"""
+    specs = [
+        MapSpec(f"relative_to_0_{number}", number, number - 2, number - 1)
+        for number in (0, 1)
+    ]
+    for spec in specs:
+        make_map(tools, "raster", spec.name, spec.value)
+    register_stds(
+        tools,
+        "strds",
+        "relative_to_0",
+        specs,
+        temporaltype="relative",
+        unit="days",
+        via="library",
+    )
+    return tgis.open_old_stds("relative_to_0", "strds")
+
+
+def test_the_cycles_end_at_a_relative_end_of_the_data_of_0(relative_to_0):
+    # Without stop the cycles end at the end of the data, 0 here, as at any
+    # other end.
+    assert cycles_of(relative_to_0, -2, 1, cycle=3, offset=0) == [(-2, 0)]
 
 
 def day_map(name, first, last):

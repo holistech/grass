@@ -72,6 +72,28 @@ def test_a_relative_instant_at_the_end_is_processed_without_stop(tools, prefix):
     assert without == with_stop
 
 
+def test_a_relative_stop_of_0_ends_the_cycle(tools, prefix):
+    # Relative maps from -2 to 2 of the values 20 to 23, all in the range 10
+    # to 50, one cycle of 3 from -2 that the stop 0 ends at 0: it holds the
+    # maps from -2 and -1 with the occurrence 0 and 1; the map from 0 starts
+    # at the stop and is left out.
+    small_region(tools, 1, 1)
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_in",
+        [MapSpec(f"{prefix}_m{k}", 20 + k, k - 2, k - 1) for k in range(4)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+    rows = _detect(
+        tools, f"{prefix}_a", input=f"{prefix}_in", start="-2", stop="0", cycle="3"
+    )
+
+    assert rows == [(-2, -1, [0]), (-1, 0, [1])]
+
+
 def test_a_last_interval_gives_the_same_maps_as_before(tools, prefix):
     # Daily maps with 20, 30 and 5 and a cycle of three days: the 20 and the
     # 30 lie in the range 10 to 50, the 5 does not, so the occurrence is 0

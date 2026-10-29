@@ -268,8 +268,7 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     The first cycle runs from start to end, next_cycle() gives the later
     ones, counted from start. A cycle is yielded while it starts before stop
     and before the end of the data. A cycle that reaches beyond stop ends at
-    stop, except for the relative stop 0: it is falsy and therefore cuts no
-    cycle. The end of the data is the end of dataset, or one unit behind it
+    stop. The end of the data is the end of dataset, or one unit behind it
     (one second in absolute time) when a map is an instant there, so that
     this map lies in a cycle. It is read from the database when the first
     cycle is asked for.
@@ -296,8 +295,7 @@ def dataset_cycles(dataset, start, end, *, stop, cycle, offset, dbif):
     origin = start
     number = 0
     while data_end > start and stop > start:
-        if stop and end > stop:
-            end = stop
+        end = min(end, stop)
         yield start, end
         number += 1
         start, end = next_cycle(origin, number, end, cycle, offset, absolute)
