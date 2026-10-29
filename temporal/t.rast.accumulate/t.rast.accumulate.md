@@ -32,11 +32,12 @@ Without **stop** the run ends with the input dataset. A time instant at
 the end of the dataset is processed as well.
 
 If no map with values is computed, because the cycles lie before or
-after the data or in a gap, or because every computed map is empty and
-**-n** is not set, the module warns and ends without creating the
-**output** dataset. An output dataset that exists is not replaced, also
-with **--overwrite**; only its maps that have the name of a new map are
-lost, as the computation overwrites them.
+after the data or in a gap, or end at once at a **stop** that is not
+after the **start** (such as a relative stop of 0), or because every
+computed map is empty and **-n** is not set, the module warns and ends
+without creating the **output** dataset. An output dataset that exists
+is not replaced, also with **--overwrite**; only its maps that have the
+name of a new map are lost, as the computation overwrites them.
 
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
