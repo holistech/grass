@@ -126,14 +126,8 @@ def main():
 
     percentile = None
     if options["percentile"]:
-        try:
-            percentile = list(map(float, options["percentile"].split(",")))
-        except ValueError:
-            gs.fatal(
-                _("<{}> is not valid input to the percentile option").format(
-                    options["percentile"]
-                )
-            )
+        # The parser has checked that every value is a number from 0 to 100.
+        percentile = list(map(float, options["percentile"].split(",")))
     # Make sure the temporal database exists
     tgis.init()
 
