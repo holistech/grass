@@ -34,10 +34,12 @@ end of the cycle before.
 Without <b>stop</b> the run ends with the input dataset. A time instant
 at the end of the dataset is processed as well.
 <p>
-If no cycle gives a map, for example because the cycles lie before or
-after the data or in a gap, the module warns and ends without creating
-the <b>occurrence</b> and the <b>indicator</b> dataset; output datasets
-that exist are left as they are, also with <b>--overwrite</b>.
+If no map with values is computed for an output, because the cycles lie
+before or after the data or in a gap, or because every map of it is empty
+and <b>-n</b> is not set, the module warns and does not create that
+<b>occurrence</b> or <b>indicator</b> dataset. An output dataset that exists is
+not replaced, also with <b>--overwrite</b>; only its maps that have the name
+of a new map are lost, as the computation overwrites them.
 <p>
 The <b>minimum</b> and <b>maximum</b> values for the pattern detection
 process can be set either by using space time raster datasets or

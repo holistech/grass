@@ -31,10 +31,12 @@ not. For the same cycles give *t.rast.accdetect* the moved start.
 Without **stop** the run ends with the input dataset. A time instant at
 the end of the dataset is processed as well.
 
-If no cycle gives a map, for example because the cycles lie before or
-after the data or in a gap, the module warns and ends without creating
-the **occurrence** and the **indicator** dataset; output datasets that
-exist are left as they are, also with **--overwrite**.
+If no map with values is computed for an output, because the cycles lie
+before or after the data or in a gap, or because every map of it is empty
+and **-n** is not set, the module warns and does not create that
+**occurrence** or **indicator** dataset. An output dataset that exists is
+not replaced, also with **--overwrite**; only its maps that have the name
+of a new map are lost, as the computation overwrites them.
 
 The **minimum** and **maximum** values for the pattern detection process
 can be set either by using space time raster datasets or by using fixed
