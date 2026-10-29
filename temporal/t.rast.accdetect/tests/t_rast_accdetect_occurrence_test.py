@@ -162,10 +162,11 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
     assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
 
 
-def test_an_empty_result_keeps_existing_datasets_with_overwrite(tools, sparse):
-    # As t.rast.aggregate (measured 29.10.2026 in grass --tmp-project XY: an
-    # empty result with --overwrite warns and leaves the existing output
-    # dataset and its maps as they were).
+def test_an_empty_result_removes_existing_datasets_with_overwrite(tools, sparse):
+    # Measured 29.10.2026 with t.rast.accdetect in a pytest session: before
+    # the change an empty result with --overwrite left the old datasets and
+    # their maps as they were. The datasets are removed now; their maps stay
+    # as maps.
     options = {
         "input": "det_gap",
         "occurrence": "kept_occ",
@@ -181,14 +182,41 @@ def test_an_empty_result_keeps_existing_datasets_with_overwrite(tools, sparse):
 
     result = tools.t_rast_accdetect(**options, start="2002-01-01", overwrite=True)
 
+    existing = tools.t_list(type="strds").text.split()
     for name, rows in before.items():
         assert len(rows) == 4
-        assert list_maps(tools, "strds", name) == rows
+        assert f"{name}@PERMANENT" not in existing
+        assert f"No space time dataset <{name}> was created." in message(result)
+        assert f"The existing space time dataset <{name}> was removed." in message(
+            result
+        )
     assert sorted(tools.g_list(type="raster", pattern="kept_*").stdout.split()) == (
         sorted(row.name for rows in before.values() for row in rows)
     )
-    for name in before:
-        assert f"No space time dataset <{name}> was created." in message(result)
+
+
+def test_only_an_existing_dataset_is_reported_as_removed(tools, sparse):
+    # The occurrence and the indicator are empty together (measured
+    # 29.10.2026 for 4 cycles and 9 ranges on the daily cells), so the case
+    # of one of them empty cannot be built; what can differ is which dataset
+    # exists before the run.
+    options = {
+        "input": "det_gap",
+        "occurrence": "half_occ",
+        "basename": "half",
+        "cycle": "6 days",
+        "range": "10,50",
+    }
+    tools.t_rast_accdetect(**options, start="2001-01-01")
+
+    result = tools.t_rast_accdetect(
+        **options, indicator="half_ind", start="2002-01-01", overwrite=True
+    )
+
+    assert "half_occ@PERMANENT" not in tools.t_list(type="strds").text.split()
+    assert "The existing space time dataset <half_occ> was removed." in message(result)
+    assert "No space time dataset <half_ind> was created." in message(result)
+    assert "<half_ind> was removed" not in message(result)
 
 
 def test_an_empty_result_of_null_maps_warns_and_creates_no_dataset(tools, cells):
@@ -210,10 +238,10 @@ def test_an_empty_result_of_null_maps_warns_and_creates_no_dataset(tools, cells)
     assert not tools.g_list(type="raster", pattern="nulls_*").stdout.split()
 
 
-def test_an_empty_result_of_null_maps_keeps_existing_datasets(tools, cells):
+def test_an_empty_result_of_null_maps_removes_existing_datasets(tools, cells):
     # The existing outputs hold maps named by their time; the null maps of
-    # the second run are numbered, have other names and leave them as they
-    # were.
+    # the second run are numbered, have other names and leave the maps as
+    # they were.
     options = {
         "input": cells,
         "occurrence": "nkept_occ",
@@ -231,14 +259,42 @@ def test_an_empty_result_of_null_maps_keeps_existing_datasets(tools, cells):
         **options, range="100,200", suffix="num", overwrite=True
     )
 
+    existing = tools.t_list(type="strds").text.split()
     for name, rows in before.items():
         assert len(rows) == 5
-        assert list_maps(tools, "strds", name) == rows
+        assert f"{name}@PERMANENT" not in existing
+        assert f"No space time dataset <{name}> was created." in message(result)
+        assert f"The existing space time dataset <{name}> was removed." in message(
+            result
+        )
     assert sorted(tools.g_list(type="raster", pattern="nkept_*").stdout.split()) == (
         sorted(row.name for rows in before.values() for row in rows)
     )
-    for name in before:
-        assert f"No space time dataset <{name}> was created." in message(result)
+
+
+def test_an_empty_result_with_colliding_names_removes_the_datasets(tools, cells):
+    # The null maps of the second run overwrite the maps of the first with
+    # the same names and are removed as empty maps, so no raster map of the
+    # old datasets is left.
+    options = {
+        "input": cells,
+        "occurrence": "clash_occ",
+        "indicator": "clash_ind",
+        "basename": "clash",
+        "start": "2001-01-01",
+        "cycle": "6 days",
+    }
+    tools.t_rast_accdetect(**options, range="10,50")
+
+    result = tools.t_rast_accdetect(**options, range="100,200", overwrite=True)
+
+    existing = tools.t_list(type="strds").text.split()
+    for name in ("clash_occ", "clash_ind"):
+        assert f"{name}@PERMANENT" not in existing
+        assert f"The existing space time dataset <{name}> was removed." in message(
+            result
+        )
+    assert not tools.g_list(type="raster", pattern="clash_*").stdout.split()
 
 
 def test_the_reverse_flag_keeps_the_days_since_the_start(tools, cells, detect):
