@@ -449,14 +449,6 @@ def observe_samples(
         for count, sample in enumerate(samples, 1):
             raster_names = sample.raster_names
 
-            if len(raster_names) != len(column_names):
-                gs.fatal(
-                    _(
-                        "The number of raster maps in a granule must "
-                        "be equal to the number of column names"
-                    )
-                )
-
             column_defs = column_definitions(raster_names, column_names)
             add_columns(vectmap, count, column_defs, vector_db, overwrite)
             sample_rasters(vectmap, count, raster_names, column_names)

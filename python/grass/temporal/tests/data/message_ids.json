@@ -292,7 +292,6 @@
  "The number of columns must be equal to the number of space time raster datasets",
  "The number of parallel r.contour processes was reduced to 1 because of the table attribute creation",
  "The number of parallel r.to.vect processes was reduced to 1 because of the table attribute creation",
- "The number of raster maps in a granule must be equal to the number of column names",
  "The offset must not move the next cycle back to or before the start of this one",
  "The option {excluded_option_name} is not allowed with {option_name}={option_value}. {reason}",
  "The options start and stop must be integers",
