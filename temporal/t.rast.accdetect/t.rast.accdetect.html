@@ -39,11 +39,11 @@ before or after the data or in a gap, or end at once at a <b>stop</b>
 that is not after the <b>start</b> (such as a relative stop of 0), or
 because every map of it is empty and <b>-n</b> is not set, the module
 warns and does not create that <b>occurrence</b> or <b>indicator</b>
-dataset. With <b>--overwrite</b>, an output dataset that exists is
-removed and warned about, each one for itself; its maps stay as maps,
-except those that have the name of a new map, which the computation
-overwrites and removes. Without <b>--overwrite</b> an existing output
-dataset ends the run before any computation.
+dataset. With <b>--overwrite</b>, each output dataset that exists is
+removed, with a warning; its maps stay as maps, except those that have
+the name of a new map, which the computation overwrites and removes.
+Without <b>--overwrite</b> an existing output dataset ends the run
+before any computation.
 <p>
 The <b>minimum</b> and <b>maximum</b> values for the pattern detection
 process can be set either by using space time raster datasets or
