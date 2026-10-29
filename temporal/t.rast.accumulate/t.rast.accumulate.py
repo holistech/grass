@@ -600,26 +600,27 @@ def main():
         output_maps += cycle_maps
         count += len(cycle_maps)
 
-    # As t.rast.aggregate: a warning, no output dataset, and an output dataset
-    # that exists stays as it was, also with overwrite.
-    if not output_maps:
-        dbif.close()
+    # As t.rast.aggregate: when no map is to be registered, because no cycle
+    # computed one or, without -n, every map is empty, a warning and no output
+    # dataset; an output dataset that exists is not replaced, also with
+    # overwrite. The computed maps are removed as empty maps.
+    if tgis.maps_to_register(output_maps, register_null=register_null):
+        empty_maps = tgis.register_in_new_stds(
+            output_maps,
+            output_strds,
+            input_strds,
+            register_null=register_null,
+            overwrite=gs.overwrite(),
+            dbif=dbif,
+        )
+    else:
         gs.warning(
             _(
-                "No map was computed in any cycle. No space time dataset <{out}> "
-                "was created."
+                "No map with values was computed in any cycle. No space time "
+                "dataset <{out}> was created."
             ).format(out=output)
         )
-        return
-
-    empty_maps = tgis.register_in_new_stds(
-        output_maps,
-        output_strds,
-        input_strds,
-        register_null=register_null,
-        overwrite=gs.overwrite(),
-        dbif=dbif,
-    )
+        empty_maps = output_maps
 
     dbif.close()
 

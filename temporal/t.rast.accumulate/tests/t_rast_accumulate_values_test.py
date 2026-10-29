@@ -317,8 +317,8 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
     result = tools.t_rast_accumulate(output=prefix, basename=prefix, **options)
 
     assert (
-        f"No map was computed in any cycle. No space time dataset <{prefix}> "
-        "was created." in message(result)
+        f"No map with values was computed in any cycle. No space time dataset "
+        f"<{prefix}> was created." in message(result)
     )
     assert f"{prefix}@" not in tools.t_list(type="strds").text
     assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
@@ -404,9 +404,10 @@ def test_a_null_at_the_start_makes_every_step_null(tools, with_nulls):
     # The first step has no value and no map to keep; the later steps add to
     # that null and stay null (measured 18.10.2026 with
     # t.rast.accumulate in a temporary project). Without -n the empty maps
-    # are not registered and not kept.
+    # are not registered and not kept, so the result is empty: a warning and
+    # no output dataset.
     output = "lead"
-    tools.t_rast_accumulate(
+    result = tools.t_rast_accumulate(
         input="acc_nulls",
         output=output,
         basename=output,
@@ -416,8 +417,41 @@ def test_a_null_at_the_start_makes_every_step_null(tools, with_nulls):
         method="gdd",
     )
 
-    assert list_maps(tools, "strds", output) == []
+    assert f"No space time dataset <{output}> was created." in message(result)
+    assert f"{output}@" not in tools.t_list(type="strds").text
     assert not tools.g_list(type="raster", pattern=f"{output}_*").stdout.split()
+
+
+def test_an_empty_result_of_null_maps_keeps_an_existing_dataset(tools, with_nulls):
+    # The existing output holds the maps of the 1st to 3rd of January from
+    # acc_hole; the null maps of acc_nulls from the 2nd of January on,
+    # numbered from 1, have other names and leave it as it was.
+    options = {"cycle": "3 days", "limits": "0,40", "method": "gdd"}
+    tools.t_rast_accumulate(
+        input="acc_hole",
+        output="nulls_kept",
+        basename="nulls_kept",
+        start="2001-01-01",
+        **options,
+    )
+    before = list_maps(tools, "strds", "nulls_kept")
+
+    result = tools.t_rast_accumulate(
+        input="acc_nulls",
+        output="nulls_kept",
+        basename="nulls_kept",
+        start="2001-01-02",
+        suffix="num",
+        overwrite=True,
+        **options,
+    )
+
+    assert len(before) == 3
+    assert list_maps(tools, "strds", "nulls_kept") == before
+    assert sorted(
+        tools.g_list(type="raster", pattern="nulls_kept_*").stdout.split()
+    ) == [row.name for row in before]
+    assert "No space time dataset <nulls_kept> was created." in message(result)
 
 
 def test_the_n_flag_registers_the_empty_maps(tools, with_nulls):
