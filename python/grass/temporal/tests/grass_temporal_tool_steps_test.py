@@ -2,7 +2,8 @@
 
 open_new_map_for() names and opens the new map of each input map, and
 register_new_maps() registers the computed maps in the output dataset and
-returns the empty ones. register_in_new_stds() inserts the output dataset
+returns the empty ones; maps_to_register() tells beforehand which maps it
+would register. register_in_new_stds() inserts the output dataset
 anew first. remove_maps() removes maps that are not kept. dataset_cycles()
 cuts the time of a dataset into cycles, first_related_map_id() selects the
 map of another dataset that a map selects, open_result_map() opens a result
@@ -184,6 +185,33 @@ def test_an_empty_raster_map_is_registered_when_asked(tools, monthly, base):
 
     assert empty == []
     assert registered_names(output) == [new_map.get_name() for new_map in new_maps]
+
+
+def test_the_maps_to_register_leave_out_the_empty_maps(tools, monthly, base):
+    new_maps = open_new(monthly, base)
+    compute_raster(tools, new_maps, ["7", "null()"])
+
+    kept = tgis.maps_to_register(new_maps, register_null=False)
+
+    assert [map.get_id() for map in kept] == [new_maps[0].get_id()]
+    # Nothing is written to the temporal database.
+    assert not new_maps[0].is_in_db()
+
+
+def test_the_maps_to_register_keep_the_empty_maps_when_asked(tools, monthly, base):
+    new_maps = open_new(monthly, base)
+    compute_raster(tools, new_maps, ["7", "null()"])
+
+    kept = tgis.maps_to_register(new_maps, register_null=True)
+
+    assert [map.get_id() for map in kept] == [map.get_id() for map in new_maps]
+
+
+def test_no_map_is_to_register_when_all_are_empty(tools, monthly, base):
+    new_maps = open_new(monthly, base)
+    compute_raster(tools, new_maps, ["null()", "null()"])
+
+    assert tgis.maps_to_register(new_maps, register_null=False) == []
 
 
 def test_a_vector_map_without_primitives_is_returned_and_not_registered(

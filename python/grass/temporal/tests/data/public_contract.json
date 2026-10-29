@@ -1437,6 +1437,7 @@
   "init_dbif": "addons+repo",
   "list_maps_of_stds": "repo",
   "map_name_suffix": "repo",
+  "maps_to_register": "repo",
   "names_from_file": "repo",
   "next_cycle": "repo",
   "open_new_map_dataset": "addons+repo",

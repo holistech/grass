@@ -80,6 +80,7 @@ from .temporal_granularity import (
 from .tool_steps import (
     dataset_cycles,
     first_related_map_id,
+    maps_to_register,
     names_from_file,
     open_new_map_for,
     open_result_map,
@@ -145,6 +146,7 @@ __all__ = [
     "list_maps_of_stds",
     "list_stds",
     "map_name_suffix",
+    "maps_to_register",
     "names_from_file",
     "next_cycle",
     "open_new_map_dataset",
