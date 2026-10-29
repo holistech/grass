@@ -391,3 +391,22 @@ def test_a_column_in_another_case_in_a_layer_that_is_not_observed_is_no_clash(
     assert "K" in columns(1)
     assert "K" in columns(2)
     assert "K" not in columns(3)
+
+
+def test_a_first_dataset_with_instants_is_refused_without_a_traceback(
+    tools, rasters, points, prefix
+):
+    create_stds(
+        tools,
+        "strds",
+        f"{prefix}_inst",
+        [MapSpec(f"{prefix}_i{k}", k, datetime(2001, k + 2, 1)) for k in (1, 2)],
+    )
+
+    text = _refused(tools, points, prefix, strds=f"{prefix}_inst,ob_a", columns="a,b")
+
+    # The granules are the maps of the first dataset, so it needs intervals.
+    assert "The temporal map type of the sample dataset must be interval" in text
+    assert "Traceback" not in text
+    assert tools.db_columns(table=points).stdout.split() == ["x", "y", "cat", "h"]
+    _nothing_made(tools, prefix)

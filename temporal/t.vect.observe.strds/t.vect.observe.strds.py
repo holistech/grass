@@ -122,7 +122,7 @@ def granule_samples(strds_names, first_strds, dbif):
 
     The granules are the maps of the first dataset; one in which a dataset
     has no map is left out. All datasets must have the temporal type of the
-    first one.
+    first one and it must have intervals.
     """
     for name in strds_names[1:]:
         dataset = tgis.open_old_stds(name, "strds", dbif)
@@ -140,6 +140,12 @@ def granule_samples(strds_names, first_strds, dbif):
                     "type_b": dataset.get_temporal_type(),
                 }
             )
+
+    # sample_stds_by_stds_topology() reports a sampler without intervals and
+    # returns None, which would end in a traceback below.
+    if first_strds.get_map_time() != "interval":
+        dbif.close()
+        gs.fatal(_("The temporal map type of the sample dataset must be interval"))
 
     mapmatrizes = tgis.sample_stds_by_stds_topology(
         "strds",

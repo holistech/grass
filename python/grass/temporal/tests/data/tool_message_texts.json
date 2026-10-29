@@ -105,6 +105,7 @@
   "The options start and stop must be integers",
   "The output dataset <%s> must be in the current mapset<%s>.",
   "The start <{given}> is moved to <{used}>, the beginning of the granularity <{granularity}>.",
+  "The temporal map type of the sample dataset must be interval",
   "The type option is not used with the {} format, it will be skipped.",
   "The unit <{sampler_unit}> of the aggregation dataset <{sampler}> differs from the unit <{unit}> of the input dataset <{input}>",
   "The upper limit must be above the lower limit",
