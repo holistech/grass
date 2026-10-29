@@ -603,38 +603,32 @@ def main():
                 dbif,
             )
 
-    # As t.rast.aggregate: a warning for each output, no output dataset, and
-    # an output dataset that exists stays as it was, also with overwrite. An
-    # indicator map is computed for each occurrence map, so both are empty.
-    if not occurrence_maps:
-        dbif.close()
-        for output in (occurrence, indicator) if indicator else (occurrence,):
+    # As t.rast.aggregate: when no map of an output is to be registered,
+    # because no cycle computed one or, without -n, every map is empty, a
+    # warning and no dataset for it; a dataset that exists is not replaced,
+    # also with overwrite. Its computed maps are removed as empty maps.
+    outputs = [(occurrence, occurrence_strds, list(occurrence_maps.values()))]
+    if indicator:
+        outputs.append((indicator, indicator_strds, list(indicator_maps.values())))
+    empty_maps = []
+    for name, dataset, new_maps in outputs:
+        if tgis.maps_to_register(new_maps, register_null=register_null):
+            empty_maps += tgis.register_in_new_stds(
+                new_maps,
+                dataset,
+                input_strds,
+                register_null=register_null,
+                overwrite=gs.overwrite(),
+                dbif=dbif,
+            )
+        else:
             gs.warning(
                 _(
-                    "No map was computed in any cycle. No space time dataset "
-                    "<{out}> was created."
-                ).format(out=output)
+                    "No map with values was computed in any cycle. No space time "
+                    "dataset <{out}> was created."
+                ).format(out=name)
             )
-        return
-
-    empty_maps = tgis.register_in_new_stds(
-        occurrence_maps.values(),
-        occurrence_strds,
-        input_strds,
-        register_null=register_null,
-        overwrite=gs.overwrite(),
-        dbif=dbif,
-    )
-
-    if indicator:
-        empty_maps += tgis.register_in_new_stds(
-            indicator_maps.values(),
-            indicator_strds,
-            input_strds,
-            register_null=register_null,
-            overwrite=gs.overwrite(),
-            dbif=dbif,
-        )
+            empty_maps += new_maps
 
     dbif.close()
 

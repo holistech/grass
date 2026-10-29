@@ -48,8 +48,25 @@ def test_the_bounds_of_the_range_are_not_part_of_it(tools, cells, detect):
     }
 
 
-def test_a_range_with_the_bounds_the_wrong_way_finds_nothing(tools, cells, detect):
-    assert detect("swapped", range="45,15") == {}
+def nothing_found(tools, cells, name, **options):
+    """Run t.rast.accdetect and tell whether it made no occurrence dataset
+
+    Every occurrence map is empty then, so without -n none is registered and
+    no dataset is created.
+    """
+    options = {"start": "2001-01-01", "cycle": "6 days", **options}
+    result = tools.t_rast_accdetect(
+        input=cells, occurrence=name, basename=name, **options
+    )
+    return (
+        f"No space time dataset <{name}> was created." in message(result)
+        and f"{name}@" not in tools.t_list(type="strds").text
+        and not tools.g_list(type="raster", pattern=f"{name}_*").stdout.split()
+    )
+
+
+def test_a_range_with_the_bounds_the_wrong_way_finds_nothing(tools, cells):
+    assert nothing_found(tools, cells, "swapped", range="45,15")
 
 
 def test_a_cycle_restarts_the_count_of_days(tools, cells, detect):
@@ -139,8 +156,8 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
 
     for name in (f"{prefix}_occ", f"{prefix}_ind"):
         assert (
-            f"No map was computed in any cycle. No space time dataset <{name}> "
-            "was created." in message(result)
+            f"No map with values was computed in any cycle. No space time "
+            f"dataset <{name}> was created." in message(result)
         )
         assert f"{name}@" not in tools.t_list(type="strds").text
     assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
@@ -169,6 +186,56 @@ def test_an_empty_result_keeps_existing_datasets_with_overwrite(tools, sparse):
         assert len(rows) == 4
         assert list_maps(tools, "strds", name) == rows
     assert sorted(tools.g_list(type="raster", pattern="kept_*").stdout.split()) == (
+        sorted(row.name for rows in before.values() for row in rows)
+    )
+    for name in before:
+        assert f"No space time dataset <{name}> was created." in message(result)
+
+
+def test_an_empty_result_of_null_maps_warns_and_creates_no_dataset(tools, cells):
+    # No value lies in the range 100 to 200, so every occurrence map and with
+    # it every indicator map is null. Without -n none is registered.
+    result = tools.t_rast_accdetect(
+        input=cells,
+        occurrence="nulls_occ",
+        indicator="nulls_ind",
+        basename="nulls",
+        start="2001-01-01",
+        cycle="6 days",
+        range="100,200",
+    )
+
+    for name in ("nulls_occ", "nulls_ind"):
+        assert f"No space time dataset <{name}> was created." in message(result)
+        assert f"{name}@" not in tools.t_list(type="strds").text
+    assert not tools.g_list(type="raster", pattern="nulls_*").stdout.split()
+
+
+def test_an_empty_result_of_null_maps_keeps_existing_datasets(tools, cells):
+    # The existing outputs hold maps named by their time; the null maps of
+    # the second run are numbered, have other names and leave them as they
+    # were.
+    options = {
+        "input": cells,
+        "occurrence": "nkept_occ",
+        "indicator": "nkept_ind",
+        "basename": "nkept",
+        "start": "2001-01-01",
+        "cycle": "6 days",
+    }
+    tools.t_rast_accdetect(**options, range="10,50")
+    before = {
+        name: list_maps(tools, "strds", name) for name in ("nkept_occ", "nkept_ind")
+    }
+
+    result = tools.t_rast_accdetect(
+        **options, range="100,200", suffix="num", overwrite=True
+    )
+
+    for name, rows in before.items():
+        assert len(rows) == 5
+        assert list_maps(tools, "strds", name) == rows
+    assert sorted(tools.g_list(type="raster", pattern="nkept_*").stdout.split()) == (
         sorted(row.name for rows in before.values() for row in rows)
     )
     for name in before:
@@ -359,9 +426,9 @@ def test_a_maximum_dataset_alone(tools, cells, thresholds, detect):
     assert result == {1: [N, 1], 2: [2, N], 3: [3, N], 4: [N, 4]}
 
 
-def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds, detect):
+def test_a_threshold_map_of_the_same_time_is_used(tools, cells, thresholds):
     # Minimum 100 on each day: nothing lies above it.
-    assert detect("eq", minimum="det_equal_min", range="10,50") == {}
+    assert nothing_found(tools, cells, "eq", minimum="det_equal_min", range="10,50")
 
 
 @pytest.fixture(scope="module")

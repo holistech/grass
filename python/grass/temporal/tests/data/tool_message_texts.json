@@ -50,7 +50,6 @@
   "No attribute table found for the maps: {}",
   "No gaps found",
   "No map of the space time vector dataset <{}> matches t_where.",
-  "No map was computed in any cycle. No space time dataset <{out}> was created.",
   "No map with values was computed in any cycle. No space time dataset <{out}> was created.",
   "No temporal database found in the requested mapset(s). No datasets to list.",
   "No {} map found for <{}> and no range given",
