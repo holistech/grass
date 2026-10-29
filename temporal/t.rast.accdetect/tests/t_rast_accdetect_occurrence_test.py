@@ -91,21 +91,88 @@ def test_the_start_moves_the_first_cycle(tools, cells, detect):
     }
 
 
-def test_a_start_after_the_data_gives_empty_datasets(tools, cells):
-    # No cycle from 2002-01-01 on holds a map. Both datasets are made all the
-    # same and hold no map.
-    tools.t_rast_accdetect(
-        input=cells,
-        occurrence="late_occ",
-        indicator="late_ind",
-        basename="late",
-        start="2002-01-01",
-        cycle="6 days",
-        range="10,50",
+@pytest.fixture(scope="module")
+def sparse(tools):
+    """det_gap with daily maps on the 1st, 2nd, 6th and 7th of January 2001
+
+    and det_rel with maps from 0 to 1 and from 1 to 2 days, all of the value
+    20 in the range 10 to 50.
+    """
+    small_region(tools, 1, 2)
+    create_stds(
+        tools,
+        "strds",
+        "det_gap",
+        [MapSpec(f"det_g{k}", 20, day(k), day(k + 1)) for k in (0, 1, 5, 6)],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "det_rel",
+        [MapSpec(f"det_r{k}", 20, k, k + 1) for k in (0, 1)],
+        temporaltype="relative",
+        unit="days",
     )
 
-    for name in ("late_occ", "late_ind"):
-        assert stds_info(tools, "strds", name)["number_of_maps"] == 0
+
+# Each window holds no start of a map: the cycles start after the data,
+# end before them, lie in the gap from the 3rd to the 6th, or end at once
+# at the relative stop 0, which is not after the start.
+EMPTY_WINDOWS = {
+    "start_after_the_data": {"start": "2002-01-01"},
+    "window_before_the_data": {"start": "2000-12-01", "stop": "2000-12-20"},
+    "window_in_a_gap": {"start": "2001-01-03", "stop": "2001-01-06", "cycle": "3 days"},
+    "relative_stop_0": {"input": "det_rel", "start": "0", "stop": "0", "cycle": "1"},
+}
+
+
+@pytest.mark.parametrize("window", EMPTY_WINDOWS.values(), ids=EMPTY_WINDOWS.keys())
+def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, window):
+    options = {"input": "det_gap", "cycle": "6 days", "range": "10,50", **window}
+
+    result = tools.t_rast_accdetect(
+        occurrence=f"{prefix}_occ",
+        indicator=f"{prefix}_ind",
+        basename=prefix,
+        **options,
+    )
+
+    for name in (f"{prefix}_occ", f"{prefix}_ind"):
+        assert (
+            f"No map was computed in any cycle. No space time dataset <{name}> "
+            "was created." in message(result)
+        )
+        assert f"{name}@" not in tools.t_list(type="strds").text
+    assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
+
+
+def test_an_empty_result_keeps_existing_datasets_with_overwrite(tools, sparse):
+    # As t.rast.aggregate (measured 29.10.2026 in grass --tmp-project XY: an
+    # empty result with --overwrite warns and leaves the existing output
+    # dataset and its maps as they were).
+    options = {
+        "input": "det_gap",
+        "occurrence": "kept_occ",
+        "indicator": "kept_ind",
+        "basename": "kept",
+        "cycle": "6 days",
+        "range": "10,50",
+    }
+    tools.t_rast_accdetect(**options, start="2001-01-01")
+    before = {
+        name: list_maps(tools, "strds", name) for name in ("kept_occ", "kept_ind")
+    }
+
+    result = tools.t_rast_accdetect(**options, start="2002-01-01", overwrite=True)
+
+    for name, rows in before.items():
+        assert len(rows) == 4
+        assert list_maps(tools, "strds", name) == rows
+    assert sorted(tools.g_list(type="raster", pattern="kept_*").stdout.split()) == (
+        sorted(row.name for rows in before.values() for row in rows)
+    )
+    for name in before:
+        assert f"No space time dataset <{name}> was created." in message(result)
 
 
 def test_the_reverse_flag_keeps_the_days_since_the_start(tools, cells, detect):

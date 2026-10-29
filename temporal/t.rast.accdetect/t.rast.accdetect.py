@@ -620,6 +620,20 @@ def main():
                 dbif,
             )
 
+    # As t.rast.aggregate: a warning for each output, no output dataset, and
+    # an output dataset that exists stays as it was, also with overwrite. An
+    # indicator map is computed for each occurrence map, so both are empty.
+    if not occurrence_maps:
+        dbif.close()
+        for output in (occurrence, indicator) if indicator else (occurrence,):
+            gs.warning(
+                _(
+                    "No map was computed in any cycle. No space time dataset "
+                    "<{out}> was created."
+                ).format(out=output)
+            )
+        return
+
     empty_maps = tgis.register_in_new_stds(
         occurrence_maps.values(),
         occurrence_strds,
