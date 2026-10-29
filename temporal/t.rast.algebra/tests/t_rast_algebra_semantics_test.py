@@ -936,6 +936,8 @@ MANUAL_ERRORS = {
     "C = nosuch + A )": SyntaxError,
     # The core wants a dataset on both sides of the operator in braces.
     "C = A {*,equal} 2 - B": SyntaxError,
+    "C = A # 2 - B": SyntaxError,
+    "C = A - 1.5 {%,starts} A": SyntaxError,
     # The core relates no series of different temporal types.
     "C = merge(tmap(sinst), RT) : RT": ValueError,
 }

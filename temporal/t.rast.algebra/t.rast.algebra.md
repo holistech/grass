@@ -807,15 +807,25 @@ start with A, and time instances in I.
     C = if(td(RS) * td(RS) > 5, RS, 1)
     ```
 
-12. **A number beside a temporal operator.** An operator in braces needs a
-    space time dataset on both sides. The classic algebra reads the number
-    with the expression behind it as the right operand, so that the first
-    expression is the second; the new algebra reports a syntax error for
-    the first and computes the second:
+12. **A number beside a temporal operator.** An operator in braces or the
+    hash operator `#` needs a space time dataset on both sides. The
+    classic algebra reads the number with the expression behind it as the
+    right operand, so that the first expression is the second; the new
+    algebra reports a syntax error for the first and computes the second:
 
     ```sh
     C = A {*,equal} 2 - B
     C = A {*,equal} (2 - B)
+    C = A # 2 - B
+    C = A # (2 - B)
+    ```
+
+    With an operator in braces, the same holds for a number with an
+    expression in front of it as the left operand. The classic algebra reads
+    this expression, the new algebra reports a syntax error:
+
+    ```sh
+    C = A - 1.5 {%,starts} A
     ```
 
 13. **Maps without a related map under -n.** With **-n**, the new algebra

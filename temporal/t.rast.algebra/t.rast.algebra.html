@@ -518,12 +518,13 @@ Symbol  description     precedence
   -     subtraction     2
 </pre></div>
 
+<p>
 A division of two integers is an integer division, as in <em>r.mapcalc</em>, and
 the result is truncated towards zero: <code>7 / 2</code> is 3,
 <code>-7 / 2</code> is -3 and <code>7.0 / 2</code> is 3.5. In
 <code>7 / 2 / 2 * A</code> the numbers are divided first, so the chain
 multiplies A by 1. Both algebras compute it so.
-
+<p>
 And raster functions:
 <div class="code"><pre>
 abs(x)                  return absolute value of x
@@ -834,15 +835,25 @@ algebras.
 C = if(td(RS) * td(RS) &gt; 5, RS, 1)
 </pre></div>
 </li>
-<li><b>A number beside a temporal operator.</b> An operator in braces needs a
-space time dataset on both sides. The classic algebra reads the number with the
-expression behind it as the right operand, so that the first expression is the
-second; the new algebra reports a syntax error for the first and computes the
-second:
+<li><b>A number beside a temporal operator.</b> An operator in braces or the
+hash operator <code>#</code> needs a space time dataset on both sides. The
+classic algebra reads the number with the expression behind it as the right
+operand, so that the first expression is the second; the new algebra reports a
+syntax error for the first and computes the second:
 
 <div class="code"><pre>
 C = A {*,equal} 2 - B
 C = A {*,equal} (2 - B)
+C = A # 2 - B
+C = A # (2 - B)
+</pre></div>
+
+With an operator in braces, the same holds for a number with an expression in
+front of it as the left operand. The classic algebra reads this expression, the
+new algebra reports a syntax error:
+
+<div class="code"><pre>
+C = A - 1.5 {%,starts} A
 </pre></div>
 </li>
 <li><b>Maps without a related map under -n.</b> With <b>-n</b>, the new algebra
