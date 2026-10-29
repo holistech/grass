@@ -79,8 +79,6 @@ def shift_by_list(stds, gran, dbif):
         return False
 
     maps = stds.get_registered_maps_as_objects(dbif=dbif)
-    if maps is None:
-        return False
 
     # All new times are computed before the first map changes, as in shift(),
     # so that a date behind the year 9999 leaves the dataset as it was.
