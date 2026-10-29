@@ -89,6 +89,7 @@
   "Temporal type of space time raster datasets must be equal\n<%(a)s> of type %(type_a)s do not match <%(b)s> of type %(type_b)s",
   "The %s map <%s> is already in the current mapset, not copying",
   "The cycle must be longer than zero",
+  "The existing space time dataset <{out}> was removed.",
   "The expression produced no map, the result is empty",
   "The following data base element files will be deleted:",
   "The following maps of {stds} {gid} will be unregistered from temporal database and removed from spatial database:",

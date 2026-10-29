@@ -325,10 +325,10 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
     assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
 
 
-def test_an_empty_result_keeps_an_existing_dataset_with_overwrite(tools, sparse):
-    # As t.rast.aggregate (measured 29.10.2026 in grass --tmp-project XY: an
-    # empty result with --overwrite warns and leaves the existing output
-    # dataset and its maps as they were).
+def test_an_empty_result_removes_an_existing_dataset_with_overwrite(tools, sparse):
+    # Measured 29.10.2026 with t.rast.accumulate in a pytest session: before
+    # the change an empty result with --overwrite left the old dataset and its
+    # maps as they were. The dataset is removed now; its maps stay as maps.
     options = {"input": "acc_gap", "cycle": "7 days", "limits": "0,40"}
     tools.t_rast_accumulate(
         output="kept", basename="kept", **options, start="2001-01-01"
@@ -340,11 +340,27 @@ def test_an_empty_result_keeps_an_existing_dataset_with_overwrite(tools, sparse)
     )
 
     assert len(before) == 4
-    assert list_maps(tools, "strds", "kept") == before
+    assert "kept@PERMANENT" not in tools.t_list(type="strds").text.split()
     assert sorted(tools.g_list(type="raster", pattern="kept_*").stdout.split()) == [
         row.name for row in before
     ]
     assert "No space time dataset <kept> was created." in message(result)
+    assert "The existing space time dataset <kept> was removed." in message(result)
+
+
+def test_an_empty_result_without_an_existing_dataset_warns_only_once(tools, sparse):
+    result = tools.t_rast_accumulate(
+        input="acc_gap",
+        output="fresh",
+        basename="fresh",
+        cycle="7 days",
+        limits="0,40",
+        start="2002-01-01",
+        overwrite=True,
+    )
+
+    assert "No space time dataset <fresh> was created." in message(result)
+    assert "was removed" not in message(result)
 
 
 def test_the_reverse_flag_accumulates_from_the_end(tools, daily):
@@ -423,10 +439,10 @@ def test_a_null_at_the_start_makes_every_step_null(tools, with_nulls):
     assert not tools.g_list(type="raster", pattern=f"{output}_*").stdout.split()
 
 
-def test_an_empty_result_of_null_maps_keeps_an_existing_dataset(tools, with_nulls):
+def test_an_empty_result_of_null_maps_removes_an_existing_dataset(tools, with_nulls):
     # The existing output holds the maps of the 1st to 3rd of January from
     # acc_hole; the null maps of acc_nulls from the 2nd of January on,
-    # numbered from 1, have other names and leave it as it was.
+    # numbered from 1, have other names and leave the maps as they were.
     options = {"cycle": "3 days", "limits": "0,40", "method": "gdd"}
     tools.t_rast_accumulate(
         input="acc_hole",
@@ -448,11 +464,41 @@ def test_an_empty_result_of_null_maps_keeps_an_existing_dataset(tools, with_null
     )
 
     assert len(before) == 3
-    assert list_maps(tools, "strds", "nulls_kept") == before
+    assert "nulls_kept@" not in tools.t_list(type="strds").text
     assert sorted(
         tools.g_list(type="raster", pattern="nulls_kept_*").stdout.split()
     ) == [row.name for row in before]
     assert "No space time dataset <nulls_kept> was created." in message(result)
+    assert "The existing space time dataset <nulls_kept> was removed." in message(
+        result
+    )
+
+
+def test_an_empty_result_with_colliding_names_removes_the_dataset(tools, with_nulls):
+    # Measured 29.10.2026 (pytest session, before the change): the null maps
+    # of the second run overwrite the maps of the first with the same names
+    # and are removed as empty maps, so the old dataset stayed behind without
+    # a raster map and t.rast.list found it empty; the temporal database
+    # knew no entry of the removed maps (t.info type=raster not found).
+    options = {
+        "cycle": "2 days",
+        "limits": "0,40",
+        "method": "gdd",
+        "start": "2001-01-01",
+        "stop": "2001-01-03",
+    }
+    tools.t_rast_accumulate(
+        input="acc_hole", output="clash", basename="clash", **options
+    )
+    assert len(list_maps(tools, "strds", "clash")) == 2
+
+    result = tools.t_rast_accumulate(
+        input="acc_nulls", output="clash", basename="clash", overwrite=True, **options
+    )
+
+    assert "clash@" not in tools.t_list(type="strds").text
+    assert not tools.g_list(type="raster", pattern="clash_*").stdout.split()
+    assert "The existing space time dataset <clash> was removed." in message(result)
 
 
 def test_the_n_flag_registers_the_empty_maps(tools, with_nulls):

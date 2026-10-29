@@ -604,12 +604,12 @@ def main():
         output_maps += cycle_maps
         count += len(cycle_maps)
 
-    # When no map is to be registered, a warning and no output dataset; an
-    # output dataset that exists is not replaced, also with overwrite, and
-    # the computed maps are removed as empty maps. t.rast.aggregate does so
-    # when no granule has a map, as here when no cycle computes one. A result
-    # of only empty maps without -n is treated the same by the decision of
-    # 29.10.2026; t.rast.aggregate makes a dataset without maps there.
+    # When no map is to be registered, a warning and no output dataset; with
+    # overwrite an output dataset that exists is removed, as it would be
+    # replaced by a result with maps, and the computed maps are removed as
+    # empty maps. The maps of the old dataset stay as maps. A result of only
+    # empty maps without -n is treated the same. t.rast.aggregate differs:
+    # with overwrite and no granule with a map it keeps the existing dataset.
     if tgis.maps_to_register(output_maps, register_null=register_null):
         empty_maps = tgis.register_in_new_stds(
             output_maps,
@@ -626,6 +626,13 @@ def main():
                 "dataset <{out}> was created."
             ).format(out=output)
         )
+        if gs.overwrite() and output_strds.is_in_db(dbif):
+            output_strds.delete(dbif)
+            gs.warning(
+                _("The existing space time dataset <{out}> was removed.").format(
+                    out=output
+                )
+            )
         empty_maps = output_maps
 
     dbif.close()
