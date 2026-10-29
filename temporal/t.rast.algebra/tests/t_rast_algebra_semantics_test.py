@@ -934,6 +934,8 @@ MANUAL_ERRORS = {
     "C = A + end_month(I, 0)": ValueError,
     "C = A + start_month(RT, 1)": ValueError,
     "C = nosuch + A )": SyntaxError,
+    # The core wants a dataset on both sides of the operator in braces.
+    "C = A {*,equal} 2 - B": SyntaxError,
     # The core relates no series of different temporal types.
     "C = merge(tmap(sinst), RT) : RT": ValueError,
 }

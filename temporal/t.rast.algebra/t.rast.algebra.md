@@ -502,6 +502,11 @@ Symbol  description     precedence
   -     subtraction     2
 ```
 
+A division of two integers is an integer division, as in *r.mapcalc*, and
+the result is truncated towards zero: `7 / 2` is 3, `-7 / 2` is -3 and
+`7.0 / 2` is 3.5. In `7 / 2 / 2 * A` the numbers are divided first, so the
+chain multiplies A by 1. Both algebras compute it so.
+
 And raster functions:
 
 ```sh
@@ -800,6 +805,27 @@ start with A, and time instances in I.
 
     ```sh
     C = if(td(RS) * td(RS) > 5, RS, 1)
+    ```
+
+12. **A number beside a temporal operator.** An operator in braces needs a
+    space time dataset on both sides. The classic algebra reads the number
+    with the expression behind it as the right operand, so that the first
+    expression is the second; the new algebra reports a syntax error for
+    the first and computes the second:
+
+    ```sh
+    C = A {*,equal} 2 - B
+    C = A {*,equal} (2 - B)
+    ```
+
+13. **Maps without a related map under -n.** With **-n**, the new algebra
+    registers a null map for each map of the left side of `{&&,...}` that
+    has no related map; the classic algebra never registers one. In this
+    expression the maps of A that contain no map of E give a null map each
+    in the new algebra and no map in the classic algebra:
+
+    ```sh
+    C = if(A > 1 {&&,contains,&,l} E > 1, A)
     ```
 
 In Python, both algebras raise `SyntaxError` for an expression they cannot

@@ -518,6 +518,12 @@ Symbol  description     precedence
   -     subtraction     2
 </pre></div>
 
+A division of two integers is an integer division, as in <em>r.mapcalc</em>, and
+the result is truncated towards zero: <code>7 / 2</code> is 3,
+<code>-7 / 2</code> is -3 and <code>7.0 / 2</code> is 3.5. In
+<code>7 / 2 / 2 * A</code> the numbers are divided first, so the chain
+multiplies A by 1. Both algebras compute it so.
+
 And raster functions:
 <div class="code"><pre>
 abs(x)                  return absolute value of x
@@ -826,6 +832,27 @@ algebras.
 
 <div class="code"><pre>
 C = if(td(RS) * td(RS) &gt; 5, RS, 1)
+</pre></div>
+</li>
+<li><b>A number beside a temporal operator.</b> An operator in braces needs a
+space time dataset on both sides. The classic algebra reads the number with the
+expression behind it as the right operand, so that the first expression is the
+second; the new algebra reports a syntax error for the first and computes the
+second:
+
+<div class="code"><pre>
+C = A {*,equal} 2 - B
+C = A {*,equal} (2 - B)
+</pre></div>
+</li>
+<li><b>Maps without a related map under -n.</b> With <b>-n</b>, the new algebra
+registers a null map for each map of the left side of <code>{&amp;&amp;,...}</code>
+that has no related map; the classic algebra never registers one. In this
+expression the maps of A that contain no map of E give a null map each in the
+new algebra and no map in the classic algebra:
+
+<div class="code"><pre>
+C = if(A &gt; 1 {&amp;&amp;,contains,&amp;,l} E &gt; 1, A)
 </pre></div>
 </li>
 </ol>
