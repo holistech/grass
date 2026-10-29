@@ -13,7 +13,7 @@ the upper limit, huglin (mean + maximum) / 2 - lower and mean the mean itself.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, small_region
-from grass.temporal.testing.readback import cell_values, list_maps, stds_info
+from grass.temporal.testing.readback import cell_values, list_maps, message, stds_info
 
 # Most tests make maps and datasets with tools, which takes more than a second
 # (measured 18.10.2026 with a serial pytest --durations=0).
@@ -270,11 +270,80 @@ def test_a_start_before_the_data_gives_cycles_that_cut_the_data(tools, daily):
     assert _values(rows) == [5, 15, 35, 70, 90, 10, 15]
 
 
-def test_a_start_after_the_data_gives_an_empty_dataset(tools, daily):
-    # No cycle from 2002-01-01 on holds a map. The output dataset is made all
-    # the same and holds no map.
-    assert _accumulate(tools, "late", method="gdd", start="2002-01-01") == []
-    assert stds_info(tools, "strds", "late")["number_of_maps"] == 0
+@pytest.fixture(scope="module")
+def sparse(tools):
+    """acc_gap with daily maps on the 1st, 2nd, 6th and 7th of January 2001
+
+    and acc_rel with maps from 0 to 1 and from 1 to 2 days.
+    """
+    small_region(tools, 1, 2)
+    create_stds(
+        tools,
+        "strds",
+        "acc_gap",
+        [MapSpec(f"acc_g{k}", 10, day(k), day(k + 1)) for k in (0, 1, 5, 6)],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "acc_rel",
+        [MapSpec(f"acc_r{k}", 10, k, k + 1) for k in (0, 1)],
+        temporaltype="relative",
+        unit="days",
+    )
+
+
+# Each window holds no start of a map: the cycles start after the data,
+# end before them, lie in the gap from the 3rd to the 6th, or end at once
+# at the relative stop 0, which is not after the start.
+EMPTY_WINDOWS = {
+    "start_after_the_data": {"start": "2002-01-01"},
+    "window_before_the_data": {"start": "2000-12-01", "stop": "2000-12-20"},
+    "window_in_a_gap": {"start": "2001-01-03", "stop": "2001-01-06", "cycle": "3 days"},
+    "relative_stop_0": {
+        "input": "acc_rel",
+        "start": "0",
+        "stop": "0",
+        "cycle": "1",
+        "granularity": "1",
+    },
+}
+
+
+@pytest.mark.parametrize("window", EMPTY_WINDOWS.values(), ids=EMPTY_WINDOWS.keys())
+def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, window):
+    options = {"input": "acc_gap", "cycle": "7 days", "limits": "0,40", **window}
+
+    result = tools.t_rast_accumulate(output=prefix, basename=prefix, **options)
+
+    assert (
+        f"No map was computed in any cycle. No space time dataset <{prefix}> "
+        "was created." in message(result)
+    )
+    assert f"{prefix}@" not in tools.t_list(type="strds").text
+    assert not tools.g_list(type="raster", pattern=f"{prefix}*").stdout.split()
+
+
+def test_an_empty_result_keeps_an_existing_dataset_with_overwrite(tools, sparse):
+    # As t.rast.aggregate (measured 29.10.2026 in grass --tmp-project XY: an
+    # empty result with --overwrite warns and leaves the existing output
+    # dataset and its maps as they were).
+    options = {"input": "acc_gap", "cycle": "7 days", "limits": "0,40"}
+    tools.t_rast_accumulate(
+        output="kept", basename="kept", **options, start="2001-01-01"
+    )
+    before = list_maps(tools, "strds", "kept")
+
+    result = tools.t_rast_accumulate(
+        output="kept", basename="kept", **options, start="2002-01-01", overwrite=True
+    )
+
+    assert len(before) == 4
+    assert list_maps(tools, "strds", "kept") == before
+    assert sorted(tools.g_list(type="raster", pattern="kept_*").stdout.split()) == [
+        row.name for row in before
+    ]
+    assert "No space time dataset <kept> was created." in message(result)
 
 
 def test_the_reverse_flag_accumulates_from_the_end(tools, daily):
