@@ -45,8 +45,8 @@ def cube_geometry(sp):
     The returned unit is that of the granularity of sp, except for hours,
     minutes and seconds: their bottom and resolution are counted in days, so
     the unit is days. A cube of monthly or yearly granularity cannot be mixed
-    with the other units. In relative time the start, the granularity and the unit of sp are
-    taken as they are.
+    with the other units. In relative time the start, the granularity and the
+    unit of sp are taken as they are.
     """
     granularity = sp.get_granularity()
     start, _end = sp.get_temporal_extent_as_tuple()

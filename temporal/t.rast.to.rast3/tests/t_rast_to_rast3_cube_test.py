@@ -106,6 +106,21 @@ def test_hours_minutes_and_seconds_give_days_as_vertical_unit(
     assert cube["top"] == pytest.approx(bottom + 3 * resolution, rel=1e-6)
 
 
+def test_one_day_granularity_has_days_as_vertical_unit(tools, prefix):
+    # The granularity of one day is reported as "1 days"; the vertical unit
+    # was "days" before the change of hours, minutes and seconds (measured
+    # 29.10.2026 by running this test against that code).
+    step = timedelta(days=1)
+    _make(tools, f"{prefix}_in", _starts(datetime(2000, 1, 1), 3, step), step)
+
+    tools.t_rast_to_rast3(input=f"{prefix}_in", output=prefix)
+
+    cube = _cube(tools, prefix)
+    assert cube["unit"] == "days"
+    assert cube["bottom"] == pytest.approx(_days(datetime(2000, 1, 1)), rel=1e-6)
+    assert cube["tbres"] == pytest.approx(1, rel=1e-3)
+
+
 def test_months_count_from_1900(tools, prefix):
     starts = [datetime(2001, 1 + 3 * index, 1) for index in range(3)]
     create_stds(
