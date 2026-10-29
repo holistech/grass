@@ -366,7 +366,8 @@ def check_sampled(output_files):
 
     r.what drops an input line it cannot read (for example because of the
     wrong separator) with a warning and still ends with success. Without this
-    check the layouts either wrote nothing or failed on the empty file.
+    check the col layout fails on the empty file, and the row and timerow
+    layouts write nothing but the header asked for with -n.
     open_maps() has stopped on an empty selection, so there is at least one
     file. A location outside the region gives a line with null values and
     counts as sampled.

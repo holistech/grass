@@ -326,9 +326,8 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
 
 
 def test_an_empty_result_removes_an_existing_dataset_with_overwrite(tools, sparse):
-    # Measured 29.10.2026 with t.rast.accumulate in a pytest session: before
-    # the change an empty result with --overwrite left the old dataset and its
-    # maps as they were. The dataset is removed now; its maps stay as maps.
+    # With --overwrite an empty result removes the dataset it would otherwise
+    # replace; the maps of that dataset are not touched.
     options = {"input": "acc_gap", "cycle": "7 days", "limits": "0,40"}
     tools.t_rast_accumulate(
         output="kept", basename="kept", **options, start="2001-01-01"
@@ -475,11 +474,9 @@ def test_an_empty_result_of_null_maps_removes_an_existing_dataset(tools, with_nu
 
 
 def test_an_empty_result_with_colliding_names_removes_the_dataset(tools, with_nulls):
-    # Measured 29.10.2026 (pytest session, before the change): the null maps
-    # of the second run overwrite the maps of the first with the same names
-    # and are removed as empty maps, so the old dataset stayed behind without
-    # a raster map and t.rast.list found it empty; the temporal database
-    # knew no entry of the removed maps (t.info type=raster not found).
+    # The null maps of the second run overwrite the maps of the first with the
+    # same names and are removed as empty maps, so no raster map of the old
+    # dataset is left; the dataset itself is removed all the same.
     options = {
         "cycle": "2 days",
         "limits": "0,40",

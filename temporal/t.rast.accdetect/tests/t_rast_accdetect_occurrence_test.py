@@ -163,10 +163,8 @@ def test_an_empty_result_warns_and_creates_no_dataset(tools, sparse, prefix, win
 
 
 def test_an_empty_result_removes_existing_datasets_with_overwrite(tools, sparse):
-    # Measured 29.10.2026 with t.rast.accdetect in a pytest session: before
-    # the change an empty result with --overwrite left the old datasets and
-    # their maps as they were. The datasets are removed now; their maps stay
-    # as maps.
+    # With --overwrite an empty result removes the datasets it would otherwise
+    # replace; the maps of those datasets are not touched.
     options = {
         "input": "det_gap",
         "occurrence": "kept_occ",
@@ -196,10 +194,10 @@ def test_an_empty_result_removes_existing_datasets_with_overwrite(tools, sparse)
 
 
 def test_only_an_existing_dataset_is_reported_as_removed(tools, sparse):
-    # The occurrence and the indicator are empty together (measured
-    # 29.10.2026 for 4 cycles and 9 ranges on the daily cells), so the case
-    # of one of them empty cannot be built; what can differ is which dataset
-    # exists before the run.
+    # The indicator is null exactly where the occurrence is null
+    # (compute_indicator() sets null() in every branch where the occurrence
+    # map is null), so one of them cannot be empty without the other; what can
+    # differ is which dataset exists before the run.
     options = {
         "input": "det_gap",
         "occurrence": "half_occ",

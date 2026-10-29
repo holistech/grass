@@ -141,7 +141,8 @@ def test_no_sampled_location_is_refused(tools, sampled, layout):
 
 @pytest.mark.parametrize("layout", ["row", "col", "timerow"])
 def test_a_point_map_without_points_is_refused(tools, sampled, layout):
-    # One map per layout: the tests may run in parallel in one project.
+    # The project lives for the whole module and v.edit refuses an existing
+    # map, so each layout creates a map of its own.
     empty = f"wh_no_points_{layout}"
     tools.v_edit(map=empty, tool="create")
 
