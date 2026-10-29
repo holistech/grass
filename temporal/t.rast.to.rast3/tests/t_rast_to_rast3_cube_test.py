@@ -5,7 +5,8 @@ one layer per step of the granularity. Gaps get a layer without values. The
 vertical extent of the cube is derived from the start time: months and years
 count from 1900 (month number (year - 1900) * 12 + month, year number
 year - 1900), days and shorter units are days since 1900-01-01 as decimal
-numbers; the resolution is the granularity in that unit.
+numbers; the resolution is the granularity in days and so is the vertical
+unit.
 """
 
 from datetime import datetime, timedelta
@@ -52,7 +53,7 @@ def _starts(first, count, step):
 
 
 @pytest.mark.parametrize(
-    ("unit", "step", "bottom", "resolution", "timestamp"),
+    ("granule", "step", "bottom", "resolution", "timestamp"),
     [
         (
             "days",
@@ -84,15 +85,20 @@ def _starts(first, count, step):
         ),
     ],
 )
-def test_short_units_count_days_from_1900(
-    tools, prefix, unit, step, bottom, resolution, timestamp
+def test_hours_minutes_and_seconds_give_days_as_vertical_unit(
+    tools, prefix, granule, step, bottom, resolution, timestamp
 ):
+    # Bottom and resolution of hours, minutes and seconds are counted in days,
+    # so the vertical unit is days as well (measured 29.10.2026 before the
+    # change by running this test with the old expectation, which named the
+    # unit of the granularity: it passed with bottom and tbres as asserted
+    # below). Days stay days.
     _make(tools, f"{prefix}_in", _starts(datetime(2000, 1, 1), 3, step), step)
 
     tools.t_rast_to_rast3(input=f"{prefix}_in", output=prefix)
 
     cube = _cube(tools, prefix)
-    assert cube["unit"] == unit
+    assert cube["unit"] == "days"
     assert cube["depths"] == 3
     assert cube["timestamp"] == timestamp
     assert cube["bottom"] == pytest.approx(bottom, rel=1e-6)
