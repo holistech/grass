@@ -144,9 +144,7 @@
   "Vector maps <{first}> and <{second}> are the same layer of one map and would both write column <{column}>",
   "Writing the output file <%s>",
   "Wrong granularity format: {}",
-  "You need to set the occurrence to compute the indicator space time raster dataset",
   "You need to set the range to compute the occurrence space time raster dataset",
-  "You need to set the staend options to compute the indicator space time raster dataset",
   "Zoning raster must be of type CELL",
   "map <{map}>: {error}",
   "{stds}: {gid}"

@@ -89,6 +89,12 @@ def test_the_values_of_staend_replace_the_defaults(indicate):
     }
 
 
+def test_an_empty_staend_takes_the_defaults(indicate):
+    # The parser gives an empty staend its default, so the tool needs no
+    # check of its own for it.
+    assert indicate("blank", staend="") == indicate("blank_default")
+
+
 def test_a_cycle_restarts_the_runs(indicate):
     # Cycles of three days. The occurrence of the cycle [0,3) is
     # 0: N 0   1: 1 1   2: 2 N, so the indicator is 0: N 1   1: 1 3   2: 3 N

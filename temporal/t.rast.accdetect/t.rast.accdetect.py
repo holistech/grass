@@ -175,32 +175,17 @@ def open_occurrence(occurrence, minimum, maximum, range_, mapset, dbif):
     return occurrence_strds
 
 
-def open_indicator(indicator, occurrence, staend, mapset, dbif):
+def open_indicator(indicator, staend, mapset, dbif):
     """Open the indicator dataset and read staend, both None without the option
 
-    The indicator needs the occurrence and staend. Nothing is written; an
-    indicator dataset that exists ends the run unless overwrite is set.
-    Returns the dataset and the start, intermediate and end values.
+    The indicator needs the occurrence and staend; the parser provides both,
+    occurrence is required and an empty staend takes its default. Nothing is
+    written; an indicator dataset that exists ends the run unless overwrite
+    is set. Returns the dataset and the start, intermediate and end values.
     """
     if not indicator:
         return None, None
 
-    if not occurrence:
-        dbif.close()
-        gs.fatal(
-            _(
-                "You need to set the occurrence to compute the indicator"
-                " space time raster dataset"
-            )
-        )
-    if not staend:
-        dbif.close()
-        gs.fatal(
-            _(
-                "You need to set the staend options to compute the indicator"
-                " space time raster dataset"
-            )
-        )
     indicator_id = indicator if indicator.find("@") >= 0 else indicator + "@" + mapset
 
     indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)
@@ -546,9 +531,7 @@ def main():
     occurrence_strds = open_occurrence(
         occurrence, minimum, maximum, range_, mapset, dbif
     )
-    indicator_strds, staend = open_indicator(
-        indicator, occurrence, staend, mapset, dbif
-    )
+    indicator_strds, staend = open_indicator(indicator, staend, mapset, dbif)
     minimum_strds, maximum_strds = open_thresholds(
         input_strds, minimum, maximum, mapset, dbif
     )
