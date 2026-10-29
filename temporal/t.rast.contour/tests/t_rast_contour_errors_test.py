@@ -1,9 +1,13 @@
 """Test the refusals of t.rast.contour and the cases of an empty input"""
 
+import os
+import shlex
+import shutil
+
 import pytest
 
-from grass.temporal.testing.readback import message, stds_info
-from grass.tools import ToolError
+from grass.temporal.testing.readback import list_maps, message, stds_info
+from grass.tools import ToolError, Tools
 
 
 def _refused(tools, **options):
@@ -164,6 +168,44 @@ def test_a_map_that_r_contour_did_not_make_is_not_registered(
     )
 
     assert stds_info(tools, "stvds", prefix)["number_of_maps"] == 0
+
+
+def test_a_contour_map_that_cannot_be_loaded_is_passed_over(
+    tools, ramps, tmp_path, prefix
+):
+    # r.contour makes the maps, then the stand-in overwrites the coor file of
+    # the vector map of the second day. The temporal framework reads the map
+    # through the C library, which ends the read with a fatal error that
+    # load() raises as FatalError (measured 29.10.2026 with a coor file that
+    # holds the text "garbage": FatalError "read_history vector").
+    real = shlex.quote(shutil.which("r.contour", path=tools._original_env["PATH"]))  # noqa: SLF001
+    stand_in = tmp_path / "r.contour"
+    stand_in.write_text(
+        f"""#!/bin/sh
+case "$1" in --interface-description) exec {real} "$@" ;; esac
+{real} "$@" || exit $?
+for arg in "$@"; do
+    case "$arg" in output=*) out=${{arg#output=}} ;; esac
+done
+out=${{out%@*}}
+case "$out" in
+    *_00002) eval "$(g.gisenv -n)"
+        printf garbage > "$GISDBASE/$LOCATION_NAME/$MAPSET/vector/$out/coor" ;;
+esac
+"""
+    )
+    stand_in.chmod(0o755)
+    env = dict(tools._original_env)  # noqa: SLF001
+    env["PATH"] = f"{tmp_path}{os.pathsep}{env['PATH']}"
+    broken = Tools(env=env, consistent_return_value=True, capture_stderr=True)
+
+    broken.t_rast_contour(
+        input=ramps, output=prefix, basename=prefix, step=1, suffix="num"
+    )
+
+    assert [row.name for row in list_maps(tools, "stvds", prefix)] == [
+        f"{prefix}_00001"
+    ]
 
 
 def test_the_progress_is_reported_every_ten_maps(tools, prefix):
