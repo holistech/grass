@@ -6,14 +6,16 @@ A translator works on the text inside ``_()``, and a changed text loses the
 translation. The golden file lists every message id that the library and the
 tools under ``temporal/`` had before the clean-up and still have: whole
 sentences, one per map type and per form with or without a layer, rather than
-one sentence with an English word inserted. Eleven ids are not in the list on
+one sentence with an English word inserted. Twelve ids are not in the list on
 purpose: those of code that was deleted (the aggregation by topology, the
 volume computation, the export of 3D rasters, the unreachable branch of
 t.rast.what without points or coordinates, the checks of t.rast.accdetect for
 an indicator without occurrence or staend, which the parser makes
-unreachable, and the check of the number of raster maps in a granule of
-t.vect.observe.strds, which main() makes unreachable), the one that was
-renamed to the ``str.format`` convention (``Aggregating {} raster maps``) and
+unreachable, the check of the number of raster maps in a granule of
+t.vect.observe.strds, which main() makes unreachable, and the refusal of a
+gap without predecessor or successor in t.rast.gapfill, which the list of
+gaps makes unreachable), the one that was renamed to the ``str.format``
+convention (``Aggregating {} raster maps``) and
 the one whose text carried the indentation of the source. The ids were
 extracted on 26.10.2026 from the tree before the clean-up (commit
 b8f890df1c) by parsing every ``_("...")`` literal.

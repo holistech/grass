@@ -132,14 +132,13 @@ def name_gaps(sp, maps, base, tsuffix, mapset):
 
 
 def check_neighbours(gap_list):
-    """Refuse a gap without predecessor or successor, warn of more than one
+    """Warn of a gap with more than one predecessor or successor
 
-    The temporal topology of the maps must be built.
+    The temporal topology of the maps must be built. Every gap has both: the
+    list of gaps puts one only between two maps, and check_instants() has
+    refused the gaps after a time instant.
     """
     for map_ in gap_list:
-        if not map_.get_precedes() or not map_.get_follows():
-            gs.fatal(_("Unable to determine successor and predecessor of a gap."))
-
         if len(map_.get_precedes()) > 1:
             gs.warning(
                 _("More than one successor of the gap found. Using the first found.")

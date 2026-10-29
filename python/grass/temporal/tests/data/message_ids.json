@@ -331,7 +331,6 @@
  "Unable to create timestamp file for raster map <%s>",
  "Unable to create timestamp file for vector map <%s>",
  "Unable to delete dataset <%(ds)s> of type %(type)s from the temporal database. The mapset of the database does not match the current mapset",
- "Unable to determine successor and predecessor of a gap.",
  "Unable to execute sql statement. {reason}",
  "Unable to execute transaction. {reason}",
  "Unable to export color rules for raster map <%s> r.out.gdal",

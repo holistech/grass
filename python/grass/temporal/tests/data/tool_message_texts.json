@@ -120,7 +120,6 @@
   "Unable to add table to vector map <%s> with layer %i",
   "Unable to create 3D raster map <%s>",
   "Unable to create new layers for vector map <%s>",
-  "Unable to determine successor and predecessor of a gap.",
   "Unable to export raster map <%s>",
   "Unable to find %s map <%s> in temporal database",
   "Unable to merge maps into space time %s dataset <%s> please use the overwrite flag.",
