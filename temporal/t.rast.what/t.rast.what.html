@@ -29,6 +29,11 @@ or as comma separated coordinate list with the <em>coordinates </em>option.
 An output file can be specified using the <em>output</em> option.
 Stdout will be used if no output is specified or if the
 <em>output</em> option is set to "-".
+<p>
+If <em>r.what</em> reads none of the locations, for example because the
+separator of the locations on stdin differs from the <em>separator</em> option,
+the module ends with an error message and writes no output. A location
+outside the computational region is not such a case: it gets null values.
 
 <h2>EXAMPLES</h2>
 

@@ -28,6 +28,11 @@ An output file can be specified using the *output* option. Stdout will
 be used if no output is specified or if the *output* option is set to
 "-".
 
+If *r.what* reads none of the locations, for example because the
+separator of the locations on stdin differs from the *separator* option,
+the module ends with an error message and writes no output. A location
+outside the computational region is not such a case: it gets null values.
+
 ## EXAMPLES
 
 ### Data preparation
