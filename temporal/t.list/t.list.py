@@ -206,6 +206,25 @@ def row_groups(dbif, queried, stds_type, plain):
                     yield dtype, time, mapset, current_rows
 
 
+def csv_header_names(dbif, stds_type, temporal_type, columns_for_db):
+    """Return the column names a listing without rows prints as csv header
+
+    The names are those of the first row of a listing with rows: the
+    requested database columns in the requested order, all the columns the
+    types share for all, and type last when it is listed per row.
+    """
+    if columns_for_db == "all":
+        names = _common_columns(
+            dbif,
+            [stds_type] if isinstance(stds_type, str) else stds_type,
+            temporal_type.split(",")[0],
+            next(iter(dbif.tgis_mapsets)),
+        )
+    else:
+        names = columns_for_db.split(",")
+    return names if isinstance(stds_type, str) else [*names, "type"]
+
+
 def type_groups(rows, stds_type, plain):
     """Return the rows of a mapset as (type, rows) pairs
 
@@ -326,6 +345,11 @@ def main():
                 write_rows(out_file, rows, output_format, separator, header)
                 header = False
 
+        # Without rows csv still prints the requested column names.
+        if header and output_format == "csv":
+            names = csv_header_names(dbif, stds_type, temporal_type, columns_for_db)
+            out_file.write(f"{separator.join(names)}\n")
+
         # Dump the collected output
         if output_format == "json":
             out_file.write(json.dumps(json_output, indent=4, default=str) + "\n")
@@ -341,6 +365,6 @@ if __name__ == "__main__":
     # Lazy imports: the tool imports grass.temporal only after gs.parser() has
     # run, so that --help and --interface-description need no temporal code.
     import grass.temporal as tgis
-    from grass.temporal.list_stds import checked_separator
+    from grass.temporal.list_stds import _common_columns, checked_separator
 
     main()

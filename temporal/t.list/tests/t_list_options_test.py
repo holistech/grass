@@ -304,7 +304,7 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, make_stds):
 
 @pytest.mark.parametrize(
     ("output_format", "expected"),
-    [("plain", ""), ("csv", ""), ("line", ""), ("json", "[]\n")],
+    [("plain", ""), ("csv", "name\n"), ("line", ""), ("json", "[]\n")],
 )
 def test_a_where_that_selects_nothing(
     tools, prefix, make_stds, output_format, expected
@@ -319,7 +319,6 @@ def test_a_where_that_selects_nothing(
         format=output_format,
     )
 
-    # Without rows csv prints no column names either.
     assert result.stdout == expected
 
 
@@ -371,7 +370,7 @@ def test_an_invalid_where_creates_no_output_file(tools, make_stds, tmp_path):
 
 @pytest.mark.parametrize(
     ("output_format", "expected"),
-    [("plain", ""), ("csv", ""), ("line", ""), ("json", "[]\n")],
+    [("plain", ""), ("csv", "name\n"), ("line", ""), ("json", "[]\n")],
 )
 def test_a_where_that_selects_nothing_still_writes_the_output_file(
     tools, prefix, make_stds, tmp_path, output_format, expected
@@ -390,3 +389,88 @@ def test_a_where_that_selects_nothing_still_writes_the_output_file(
     )
 
     assert path.read_text() == expected
+
+
+def test_csv_without_matches_prints_the_header(tools, prefix, make_stds):
+    make_stds(1)
+
+    result = tools.t_list(
+        type="strds",
+        columns="name,id,creator",
+        where=f"name = '{prefix}_none'",
+        format="csv",
+        separator=";",
+    )
+
+    # The column names come in the requested order and with the separator,
+    # without a data line.
+    assert result.stdout == "name;id;creator\n"
+
+
+def test_csv_without_matches_prints_the_header_once_with_the_flag(
+    tools, prefix, make_stds
+):
+    make_stds(1)
+
+    result = tools.t_list(
+        type="strds",
+        columns="name,id",
+        where=f"name = '{prefix}_none'",
+        temporaltype="absolute,relative",
+        format="csv",
+        flags="c",
+    )
+
+    assert result.stdout == "name,id\n"
+
+
+def test_csv_without_matches_names_the_type_after_the_other_columns(
+    tools, prefix, make_stds
+):
+    make_stds(1)
+
+    result = tools.t_list(
+        type="strds,stvds",
+        columns="type,name",
+        where=f"name = '{prefix}_none'",
+        format="csv",
+    )
+
+    # As with rows, where the type is added to the database columns.
+    assert result.stdout == "name,type\n"
+
+
+def test_csv_without_matches_names_all_the_columns_like_a_listing_with_rows(
+    tools, prefix, make_stds
+):
+    make_stds(1)
+    with_rows = tools.t_list(
+        type="strds", columns="all", where=f"name LIKE '{prefix}%'", format="csv"
+    )
+
+    without_rows = tools.t_list(
+        type="strds", columns="all", where=f"name = '{prefix}_none'", format="csv"
+    )
+
+    assert without_rows.stdout == with_rows.stdout.splitlines()[0] + "\n"
+    assert without_rows.stdout.startswith("id,")
+
+
+def test_csv_without_matches_writes_the_header_to_the_output_file(
+    tools, prefix, make_stds, tmp_path
+):
+    make_stds(1)
+    path = tmp_path / "list.csv"
+    path.write_text("earlier listing\n")
+
+    result = tools.t_list(
+        type="strds",
+        columns="name,id",
+        where=f"name = '{prefix}_none'",
+        format="csv",
+        output=str(path),
+        overwrite=True,
+    )
+
+    assert path.read_text() == "name,id\n"
+    assert result.stdout == ""
