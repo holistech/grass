@@ -1276,7 +1276,8 @@
     "check_list_format": "repo",
     "check_list_method": "repo",
     "check_list_options": "repo",
-    "checked_separator": "repo"
+    "checked_separator": "repo",
+    "listed_columns": "repo"
    },
    "origins": "repo"
   },

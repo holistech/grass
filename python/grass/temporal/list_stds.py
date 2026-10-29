@@ -346,6 +346,25 @@ def _requested_columns(columns, common_columns, stds_type):
     return requested_columns
 
 
+def listed_columns(dbif, type, temporal_type, columns, mapset):
+    """Return the database columns that get_dataset_list() reads for columns
+
+    The requested columns without blanks and in their order, or all the
+    columns the views of the types share when columns is empty or contains
+    "all". The type column is not a database column and is left out.
+
+    :param dbif: The database interface to be used
+    :param type: The dataset type as a string or a list of strings
+    :param temporal_type: A single temporal type (absolute or relative)
+    :param columns: A comma separated list of columns or None
+    :param mapset: The mapset whose database holds the views
+    :return: The list of the column names
+    """
+    stds_type = [type] if isinstance(type, str) else type
+    common_columns = _common_columns(dbif, stds_type, temporal_type, mapset)
+    return _requested_columns(columns, common_columns, stds_type)
+
+
 def get_dataset_list(
     type,
     temporal_type,
@@ -433,8 +452,9 @@ def get_dataset_list(
             if not mapset_for_schema:
                 continue
 
-            common_columns = _common_columns(dbif, stds_type, ttype, mapset_for_schema)
-            final_columns = _requested_columns(columns, common_columns, stds_type)
+            final_columns = listed_columns(
+                dbif, stds_type, ttype, columns, mapset_for_schema
+            )
 
             if not final_columns:
                 msgr.fatal(_("No valid database columns were requested"))

@@ -114,3 +114,40 @@ def test_a_column_the_delta_method_cannot_list_is_refused_by_name(listed_strds):
             separator=None,
             method="delta",
         )
+
+
+@pytest.mark.parametrize(
+    ("columns", "expected"),
+    [
+        pytest.param("name,id", ["name", "id"], id="order"),
+        pytest.param("name, id", ["name", "id"], id="blanks"),
+        pytest.param("type,name", ["name"], id="type-is-no-column"),
+    ],
+)
+def test_listed_columns_are_the_requested_ones(listed_strds, columns, expected):
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        mapset = tgis.get_current_mapset()
+        result = list_stds.listed_columns(dbif, "strds", "absolute", columns, mapset)
+    finally:
+        dbif.close()
+
+    assert result == expected
+
+
+@pytest.mark.parametrize("columns", [None, "all", "name,all"])
+def test_listed_columns_are_all_the_shared_ones(listed_strds, columns):
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+    try:
+        mapset = tgis.get_current_mapset()
+        result = list_stds.listed_columns(dbif, "strds", "absolute", columns, mapset)
+        rows = tgis.get_dataset_list("strds", "absolute", columns, dbif=dbif)[mapset]
+    finally:
+        dbif.close()
+
+    # The rows of a listing carry exactly these columns, in this order.
+    assert result == list(rows[0].keys())
+    assert result[0] == "id"
+    assert len(result) > 3
