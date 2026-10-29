@@ -20,6 +20,10 @@ The reference time for all space time voxel cubes is 1900-01-0100:00:00.
 This allows the alignment space time voxel cubes with different
 granularities.
 
+The vertical unit of a cube in absolute time is days for a granularity of
+seconds, minutes, hours and days, since bottom and resolution are counted
+in days; for months and years it is months or years.
+
 Be aware that the granularity of a STRDS is used to sample time stamped
 map layers! If you have gaps between monthly intervals that have the
 size of a second, the monthly intervals will be sampled by a second
