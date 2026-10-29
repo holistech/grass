@@ -31,6 +31,11 @@ start.
 Without **stop** the run ends with the input dataset. A time instant at
 the end of the dataset is processed as well.
 
+If no cycle gives a map, for example because the cycles lie before or
+after the data or in a gap, the module warns and ends without creating
+the **output** dataset; an output dataset that exists is left as it is,
+also with **--overwrite**.
+
 The **lower** and **upper** **limits** of the accumulation process can
 be set, either by using space time raster datasets or by using fixed
 values for all raster cells and time steps. The raster maps that specify
