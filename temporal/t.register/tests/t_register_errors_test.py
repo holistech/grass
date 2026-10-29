@@ -319,3 +319,24 @@ def test_a_registered_and_a_new_map_of_one_unit_fill_an_empty_dataset(
     rows = list_maps(tools, "strds", name)
     assert [(row.name, row.start) for row in rows] == [(registered, 1), (new, 5)]
     assert stds_info(tools, "strds", name)["unit"] == "days"
+
+
+def test_a_file_that_is_not_utf8_ends_with_a_message(
+    tools, make_maps, dataset, tmp_path
+):
+    # The file is read as UTF-8 and the decoding error is no GRASS error
+    # (measured 29.10.2026: exit code 1, message "'utf-8' codec can't decode
+    # byte 0xff"), so only the catch-all of the tool turns it into a message.
+    maps = make_maps(1)
+    name = dataset()
+    file = tmp_path / "maps.txt"
+    file.write_bytes(maps[0].encode() + b"|\xff\xfe\n")
+
+    with pytest.raises(ToolError) as raised:
+        tools.t_register(type="raster", input=name, file=file, start="2001-01-01")
+
+    text = _normalised(raised.value)
+    assert raised.value.returncode == 1
+    assert "'utf-8' codec can't decode byte 0xff" in text
+    assert "Traceback" not in text
+    assert list_maps(tools, "strds", name) == []
