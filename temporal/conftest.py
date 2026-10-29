@@ -93,10 +93,17 @@ def broken_tools(tools, tmp_path):
     because pygrass asks for it before it runs a tool. With passing, a call
     that has this argument runs the real tool as well, for a tool that is
     called for other purposes before the call that is to fail, such as
-    v.db.connect -g. The stand-ins only exist for the Tools it returns.
+    v.db.connect -g. With failing, it is the other way round: a call runs
+    the real tool unless one of its arguments starts with failing, for a tool
+    that is called several times with arguments that differ in a prefix, such
+    as g.region with and without tbres=. passing and failing exclude each
+    other. The stand-ins only exist for the Tools it returns.
     """
 
-    def make(*names, status=1, passing=None):
+    def make(*names, status=1, passing=None, failing=None):
+        if passing and failing:
+            msg = "passing and failing exclude each other"
+            raise ValueError(msg)
         search = tools._original_env["PATH"]  # noqa: SLF001
         for name in names:
             real = shlex.quote(shutil.which(name, path=search))
@@ -106,6 +113,15 @@ def broken_tools(tools, tmp_path):
                     f'for arg in "$@"; do\n'
                     f'[ "$arg" = {shlex.quote(passing)} ] && exec {real} "$@"\n'
                     f"done\n"
+                )
+            if failing:
+                # Prefix match of the whole argument: the first call of
+                # g.region has no tbres= and must reach the real tool.
+                run_real = (
+                    f'for arg in "$@"; do\n'
+                    f'case "$arg" in {shlex.quote(failing)}*) exit {status} ;; esac\n'
+                    f"done\n"
+                    f'exec {real} "$@"\n'
                 )
             stand_in = tmp_path / name
             stand_in.write_text(
