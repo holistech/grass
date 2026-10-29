@@ -93,7 +93,10 @@ def print_temporal_topology(sp, maps, where):
     else:
         print(" | Is subset of dataset: ...... False")
 
-    if sp.check_temporal_topology(maps):
+    # No maps break no rule of the topology. The library takes no counts as an
+    # incorrect topology, and the granularity mode of the algebra refuses an
+    # empty input dataset because of that, so the tool decides here.
+    if not maps or sp.check_temporal_topology(maps):
         print(" | Temporal topology is: ...... valid")
     else:
         print(" | Temporal topology is: ...... invalid")

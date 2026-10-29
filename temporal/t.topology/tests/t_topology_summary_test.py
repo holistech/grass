@@ -354,33 +354,17 @@ def test_the_lines_of_the_summary_and_their_order(tools, prefix):
     assert _report(result.stdout) == SUMMARY_LINES
 
 
-def test_an_empty_dataset_in_relative_time_has_no_granularity(tools, prefix):
-    name = f"{prefix}_ds"
-    tools.t_create(output=name, temporaltype="relative", title="t", description="d")
-
-    result = tools.t_topology(input=name)
-
-    # Without maps the library counts no relation at all (None, not zeros), so
-    # the lines of the relations are missing, and its check of the topology
-    # takes no counts as invalid.
-    assert _report(result.stdout) == [
-        *SUMMARY_LINES[:2],
-        " | Temporal topology is: ...... invalid",
-        " | Number of points: .......... 0",
-        " | Number of intervals: ....... 0",
-        " | Invalid time stamps: ....... 0",
-        " | Number of gaps: ............ 0",
-        " | Granularity: ............... None",
-        SUMMARY_LINES[8],
-        SUMMARY_LINES[-1],
-    ]
-
-
 def _empty_report(subset):
+    """The summary of no maps, the same in both time types
+
+    Without maps the library counts no relation at all (None, not zeros), so
+    the lines of the relations are missing. No maps break no rule of the
+    topology, so it is valid.
+    """
     return [
         SUMMARY_LINES[0],
         f" | Is subset of dataset: ...... {subset}",
-        " | Temporal topology is: ...... invalid",
+        " | Temporal topology is: ...... valid",
         " | Number of points: .......... 0",
         " | Number of intervals: ....... 0",
         " | Invalid time stamps: ....... 0",
@@ -391,14 +375,14 @@ def _empty_report(subset):
     ]
 
 
-def test_an_empty_dataset_in_absolute_time_has_no_granularity(tools, prefix):
+@pytest.mark.parametrize("temporaltype", ["absolute", "relative"])
+def test_an_empty_dataset_is_valid_and_has_no_granularity(tools, prefix, temporaltype):
     name = f"{prefix}_ds"
-    tools.t_create(output=name, title="t", description="d")
+    tools.t_create(output=name, temporaltype=temporaltype, title="t", description="d")
 
     result = tools.t_topology(input=name)
 
-    # The summary of no maps is the same in both time types: no granularity
-    # and no lines of the relations.
+    assert result.returncode == 0
     assert "Traceback" not in result.stderr
     assert _report(result.stdout) == _empty_report("False")
 
@@ -413,5 +397,19 @@ def test_a_where_that_selects_no_map_in_absolute_time(tools, prefix):
 
     result = tools.t_topology(input=name, where="start_time > '2099-01-01'")
 
+    assert result.returncode == 0
+    assert "Traceback" not in result.stderr
+    assert _report(result.stdout) == _empty_report("True")
+
+
+def test_a_where_that_selects_no_map_in_relative_time(tools, prefix):
+    maps = _make_maps(tools, prefix, count=2)
+    name = f"{prefix}_ds"
+    tools.t_create(output=name, temporaltype="relative", title="t", description="d")
+    tools.t_register(input=name, maps=",".join(maps), start=1, increment=1, unit="days")
+
+    result = tools.t_topology(input=name, where="start_time > 100")
+
+    assert result.returncode == 0
     assert "Traceback" not in result.stderr
     assert _report(result.stdout) == _empty_report("True")
