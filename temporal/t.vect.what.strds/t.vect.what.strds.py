@@ -97,10 +97,11 @@ def check_target_columns(targets, overwrite, dbif):
     a table.
     Names are compared in lower case, as SQLite does, so that "M" is taken to
     be "m". Without overwrite an existing column is an error; with it the
-    column is written again and keeps its type. With overwrite a name that
-    differs from an existing column only in case is an error, as v.what.rast
-    looks for the name as written and then fails to add it. Returns the
-    existing columns of each (map, layer).
+    column is written again and keeps its type. A name that differs from an
+    existing column only in case is an error with and without overwrite, as
+    v.what.rast looks for the name as written and then fails to add it; it
+    gets only that message, as the advice to overwrite would not help.
+    Returns the existing columns of each (map, layer).
     """
     existing = {}
     errors = []
@@ -125,28 +126,31 @@ def check_target_columns(targets, overwrite, dbif):
         stored = list(gs.vector_columns(vectmap, layer))
         present = {name.lower() for name in stored}
         existing[vectmap, layer] = present
-        if overwrite:
-            stored_by_lower = {name.lower(): name for name in stored}
-            errors.extend(
-                _(
-                    "Column <{column}> differs only in case from the column "
-                    "<{stored}> of the table of vector map <{vector}> layer {layer}"
-                ).format(
-                    column=name,
-                    stored=stored_by_lower[name.lower()],
-                    vector=vectmap,
-                    layer=layer,
-                )
-                for name in sorted(names)
-                if name.lower() in present and name not in stored
+        stored_by_lower = {name.lower(): name for name in stored}
+        other_case = [
+            name
+            for name in sorted(names)
+            if name.lower() in present and name not in stored
+        ]
+        errors.extend(
+            _(
+                "Column <{column}> differs only in case from the column "
+                "<{stored}> of the table of vector map <{vector}> layer {layer}"
+            ).format(
+                column=name,
+                stored=stored_by_lower[name.lower()],
+                vector=vectmap,
+                layer=layer,
             )
+            for name in other_case
+        )
         clashes.extend(
             _(
                 "Column <{column}> exists in the table of vector map "
                 "<{vector}> layer {layer}"
             ).format(column=name, vector=vectmap, layer=layer)
             for name in sorted(names)
-            if name.lower() in present
+            if name.lower() in present and name not in other_case
         )
     if clashes and not overwrite:
         errors.extend(clashes)

@@ -527,12 +527,37 @@ def test_a_column_that_differs_only_in_case_is_refused_without_overwrite(
 
     text = _refused(tools, input=data.dataset, strds="wh_a", column="H")
 
-    # Without overwrite the column that exists in another case is already an
-    # existing column; the case does not change the refusal.
-    assert f"Column <H> exists in the table of vector map <{data.maps[0]}@" in text
-    assert "differs only in case" not in text
+    assert (
+        f"Column <H> differs only in case from the column <h> of the table of "
+        f"vector map <{data.maps[0]}@PERMANENT> layer 1"
+    ) in text
+    assert "exists" not in text
+    assert "overwrite flag" not in text
     for vector in data.maps:
         assert _names(tools, vector) == ["x", "y", "cat", "h"], vector
+        assert _values(tools, vector, "h") == ["1", "2", "3", "4"]
+
+
+def test_case_and_exact_clash_without_overwrite(tools, rasters, vectors):
+    data = vectors()
+    first, second, _third = data.maps
+    # Without column the names are the raster maps: wr_1 is sampled for the
+    # first map, wr_3 for the second.
+    tools.v_db_addcolumn(map=first, column="WR_1 INT")
+    tools.v_db_addcolumn(map=second, column="wr_3 INT")
+    before = {vector: _names(tools, vector) for vector in data.maps}
+
+    text = _refused(tools, input=data.dataset, strds="wh_a")
+
+    assert (
+        f"Column <wr_1> differs only in case from the column <WR_1> of the "
+        f"table of vector map <{first}@PERMANENT> layer 1"
+    ) in text
+    assert f"Column <wr_3> exists in the table of vector map <{second}@" in text
+    assert text.count("differs only in case") == 1
+    assert "Column <wr_1> exists" not in text
+    assert text.count("Use the overwrite flag to write the values again.") == 1
+    assert {vector: _names(tools, vector) for vector in data.maps} == before
 
 
 def test_a_column_in_another_case_at_a_later_map_changes_no_map(
