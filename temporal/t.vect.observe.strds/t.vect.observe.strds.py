@@ -219,8 +219,10 @@ def check_column_cases(points, vector_db, num_samples, column_names, input, dbif
     the others get a new table. This is checked before vectmap is made: the
     column check of add_columns() takes K for k, as SQLite does, and lets it
     pass with overwrite, but v.what.rast looks for K as written and then
-    fails to add it. points is the map vector_db was read from; input names
-    the map in the message.
+    fails to add it. The check runs with and without overwrite: without it
+    the name gets this message only, not the one for an existing column with
+    the advice to overwrite, which would not help. points is the map
+    vector_db was read from; input names the map in the message.
     """
     for layer in range(1, num_samples + 1):
         if not (layer in vector_db and vector_db[layer]["table"]):
@@ -533,8 +535,7 @@ def main():
 
     # Get the layer and database connections of the observed points
     vector_db = gs.vector.vector_db(points)
-    if overwrite:
-        check_column_cases(points, vector_db, len(samples), column_names, input, dbif)
+    check_column_cases(points, vector_db, len(samples), column_names, input, dbif)
     copy_with_layers(points, vector_db, len(samples), vector_output, overwrite)
 
     layer_one = input_db.get(1)

@@ -319,8 +319,43 @@ def test_a_column_that_differs_only_in_case_is_refused_without_overwrite(
 ):
     text = _refused(tools, points, prefix, columns="H")
 
-    # Without overwrite the column that exists in another case is already an
-    # existing column; the case does not change the refusal.
+    assert (
+        f"Column <H> differs only in case from the column <h> of the table of "
+        f"vector map <{points}> layer 1"
+    ) in text
+    assert "exists" not in text
+    assert "overwrite flag" not in text
+    assert tools.db_columns(table=points).stdout.split() == ["x", "y", "cat", "h"]
+    _nothing_made(tools, prefix)
+
+
+@pytest.mark.parametrize("columns", ["H,k", "k,H"])
+def test_case_and_exact_clash_without_overwrite(
+    tools, rasters, points, prefix, columns
+):
+    tools.v_db_addcolumn(map=points, column="k INT")
+
+    text = _refused(tools, points, prefix, strds="ob_a,ob_b", columns=columns)
+
+    # The check of the case runs before the map is copied, so it ends the
+    # run before the exact name is looked at, whichever comes first.
+    assert "Column <H> differs only in case from the column <h>" in text
+    assert "overwrite flag" not in text
+    assert tools.db_columns(table=points).stdout.split() == [
+        "x",
+        "y",
+        "cat",
+        "h",
+        "k",
+    ]
+    _nothing_made(tools, prefix)
+
+
+def test_an_exact_column_is_still_refused_with_advice_without_overwrite(
+    tools, rasters, points, prefix
+):
+    text = _refused(tools, points, prefix, columns="h")
+
     assert "the column exists, use the overwrite flag" in text
     assert "differs only in case" not in text
     _nothing_made(tools, prefix)
@@ -346,13 +381,11 @@ def test_a_column_in_another_case_at_a_later_layer_leaves_nothing(
 
     text = _refused(tools, f"{prefix}_m", prefix, columns="K", overwrite=overwrite)
 
-    if overwrite:
-        assert (
-            "Column <K> differs only in case from the column <k> of the table "
-            f"of vector map <{prefix}_m> layer 2"
-        ) in text
-    else:
-        assert "the column exists, use the overwrite flag" in text
+    assert (
+        "Column <K> differs only in case from the column <k> of the table "
+        f"of vector map <{prefix}_m> layer 2"
+    ) in text
+    assert "the column exists" not in text
     after = [
         tools.db_columns(table=table).stdout.split()
         for table in (f"{prefix}_m", f"{prefix}_m_2")
