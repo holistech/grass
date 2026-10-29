@@ -170,13 +170,14 @@ def list_nothing(output_format, outpath):
             out_file.write(json.dumps([], indent=4) + "\n")
 
 
-def row_groups(dbif, stds_type, temporal_type, columns_for_db, where, order, plain):
-    """Yield the rows to list, per temporal type, mapset and group
+def query_datasets(dbif, stds_type, temporal_type, columns_for_db, where, order):
+    """Query the datasets of each temporal type
 
-    Yields the tuple (type, "absolute time" or "relative time", mapset,
-    rows). With plain the rows of a mapset are grouped by type, otherwise
-    they form one group.
+    Returns the pairs ("absolute time" or "relative time", datasets by
+    mapset). All queries run before the output file is opened, so that a
+    refused where condition leaves the file as it was.
     """
+    queried = []
     for ttype in temporal_type.split(","):
         time = "absolute time" if ttype == "absolute" else "relative time"
         try:
@@ -186,7 +187,18 @@ def row_groups(dbif, stds_type, temporal_type, columns_for_db, where, order, pla
         except tgis.SQLStatementError as error:
             dbif.close()
             gs.fatal(_("Invalid where condition <{}>: {}").format(where, error))
+        queried.append((time, stds_list))
+    return queried
 
+
+def row_groups(dbif, queried, stds_type, plain):
+    """Yield the rows to list, per temporal type, mapset and group
+
+    Yields the tuple (type, "absolute time" or "relative time", mapset,
+    rows). With plain the rows of a mapset are grouped by type, otherwise
+    they form one group.
+    """
+    for time, stds_list in queried:
         for mapset in dbif.tgis_mapsets:
             rows = stds_list.get(mapset)
             if rows:
@@ -295,15 +307,13 @@ def main():
         and output_format == "plain"
     )
 
+    queried = query_datasets(
+        dbif, stds_type, temporal_type, columns_for_db, where, order
+    )
+
     with output_file(outpath) as out_file:
         for dtype, time, mapset, rows in row_groups(
-            dbif,
-            stds_type,
-            temporal_type,
-            columns_for_db,
-            where,
-            order,
-            output_format == "plain",
+            dbif, queried, stds_type, output_format == "plain"
         ):
             if report:
                 report_group(dtype, time, mapset)

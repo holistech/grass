@@ -347,14 +347,46 @@ def test_csv_prints_the_column_names_once_over_both_temporal_types(
     assert result.stdout.splitlines() == ["name", names[0], relative]
 
 
-def test_a_where_with_a_syntax_error_leaves_an_empty_output_file(
-    tools, make_stds, tmp_path
-):
+def test_an_invalid_where_leaves_the_output_file(tools, make_stds, tmp_path):
+    make_stds(1)
+    path = tmp_path / "list.txt"
+    path.write_text("earlier listing\n")
+
+    with pytest.raises(ToolError) as error:
+        tools.t_list(type="strds", where="nonsense =", output=str(path), overwrite=True)
+
+    assert "Invalid where condition <nonsense =>" in message(error.value)
+    assert path.read_text() == "earlier listing\n"
+
+
+def test_an_invalid_where_creates_no_output_file(tools, make_stds, tmp_path):
     make_stds(1)
     path = tmp_path / "list.txt"
 
     text = _listing_refused(tools, where="nonsense =", output=str(path))
 
     assert "Invalid where condition <nonsense =>" in text
-    # The output file is opened before the datasets are read.
-    assert path.read_text() == ""
+    assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    ("output_format", "expected"),
+    [("plain", ""), ("csv", ""), ("line", ""), ("json", "[]\n")],
+)
+def test_a_where_that_selects_nothing_still_writes_the_output_file(
+    tools, prefix, make_stds, tmp_path, output_format, expected
+):
+    make_stds(1)
+    path = tmp_path / "list.txt"
+    path.write_text("earlier listing\n")
+
+    tools.t_list(
+        type="strds",
+        columns="name",
+        where=f"name = '{prefix}_none'",
+        format=output_format,
+        output=str(path),
+        overwrite=True,
+    )
+
+    assert path.read_text() == expected
