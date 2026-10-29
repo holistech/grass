@@ -234,6 +234,12 @@ def test_absolute_granularity_of_rows(times, expected) -> None:
     assert compute_absolute_time_granularity(rows) == expected
 
 
+def test_the_absolute_granularity_of_no_maps_is_none() -> None:
+    # The same as in relative time
+    assert compute_relative_time_granularity([]) is None
+    assert compute_absolute_time_granularity([]) is None
+
+
 def test_common_relative_granularity() -> None:
     assert repr(compute_common_relative_time_granularity([10, 20, 30])) == "10"
 

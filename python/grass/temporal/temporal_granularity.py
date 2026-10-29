@@ -305,7 +305,8 @@ def compute_absolute_time_granularity(maps):
     or hours or days or months or years.
 
     :param maps: a ordered by start_time list of map objects or database rows
-    :return: The temporal topology as string "integer unit"
+    :return: The granularity as string "integer unit"; None for no maps and
+             for maps without any time difference, such as a single time point
 
     .. code-block:: pycon
 
@@ -326,6 +327,9 @@ def compute_absolute_time_granularity(maps):
         '1 month'
 
     """
+
+    if not maps:
+        return None
 
     # Create a granularity dict with time units of increasing length
     # that covers all possible keys in the result of compute_datetime_delta
