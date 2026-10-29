@@ -230,15 +230,32 @@ def test_a_dataset_of_relative_time(tools, prefix):
     assert info["end_time"] == "'3'"
 
 
-def test_the_progress_of_the_dataset_update_ends_below_100_percent(tools, make_stds):
+def _datasets_part(result):
+    """Return the messages of the update of the datasets"""
+    return result.stderr.split("Unregister maps from the temporal database")[1]
+
+
+def test_the_progress_ends_at_100(tools, make_stds):
     maps, _ = make_stds(1, datasets=2)
 
     result = tools.t_unregister(maps=maps[0])
 
-    maps_part, datasets_part = result.stderr.split(
-        "Unregister maps from the temporal database"
-    )
+    maps_part = result.stderr.split("Unregister maps from the temporal database")[0]
     assert "100%" in maps_part
-    # The update of each dataset is shown before it is counted, so two
-    # datasets show 0% and 50%, and no 100% follows.
-    assert re.findall(r"\d+%", datasets_part) == ["0%", "50%"]
+    # The update of each dataset is shown before it is counted, so the end
+    # is reported after the last one.
+    assert re.findall(r"\d+%", _datasets_part(result)) == ["0%", "50%", "100%"]
+
+
+def test_the_progress_ends_at_100_for_one_dataset(tools, make_stds):
+    maps, _ = make_stds(1)
+
+    result = tools.t_unregister(maps=f"{maps[0]},{maps[0]}")
+
+    assert re.findall(r"\d+%", _datasets_part(result)) == ["0%", "100%"]
+
+
+def test_no_dataset_to_update_shows_no_progress(tools, prefix):
+    result = tools.t_unregister(maps=f"{prefix}_unknown")
+
+    assert re.findall(r"\d+%", _datasets_part(result)) == []

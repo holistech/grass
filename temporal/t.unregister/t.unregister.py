@@ -137,6 +137,7 @@ def update_datasets(input, sp, dataset_ids, type, dbif):
             sp = tgis.open_old_stds(id, type, dbif)
             sp.update_from_registered_maps(dbif)
             gs.percent(count, len(dataset_ids), 1)
+        gs.percent(len(dataset_ids), len(dataset_ids), 1)
 
 
 def main():
