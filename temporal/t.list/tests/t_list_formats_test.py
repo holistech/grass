@@ -274,3 +274,83 @@ def test_the_column_names_are_printed_once_over_all_mapsets(
     assert sorted(lines[1:]) == sorted(
         [space_time_dataset.raster_dataset1, space_time_dataset.raster_dataset2]
     )
+
+
+# The first lines of a listing with matches, measured on 29.10.2026 with
+# t.list -c format=plain mapset=. in the datasets of space_time_dataset.
+HEADERS = [
+    pytest.param("strds", None, "id", id="strds-default"),
+    pytest.param("strds", "name", "name", id="strds-name"),
+    pytest.param("strds,stvds", None, "id|type", id="two-types-default"),
+    pytest.param("strds,stvds", "name", "name|type", id="two-types-name"),
+]
+NO_MATCH = "name LIKE 'zzz%'"
+
+
+def stdout_of(result):
+    """Return the standard output, which Tools reports as None when empty"""
+    return "" if result is None else result.stdout
+
+
+@pytest.mark.parametrize(("stds_type", "columns", "header"), HEADERS)
+def test_plain_with_c_without_matches_prints_the_header(
+    space_time_dataset, stds_type, columns, header
+):
+    """The header of a listing without matches is that of one with matches"""
+    tools = Tools(session=space_time_dataset.session)
+    options = {"type": stds_type, "mapset": ".", "flags": "c"}
+    if columns:
+        options["columns"] = columns
+
+    listed = tools.t_list(**options)
+    empty = tools.t_list(**options, where=NO_MATCH)
+
+    assert listed.stdout.splitlines()[0] == header
+    assert stdout_of(empty) == f"{header}\n"
+
+
+def test_plain_with_c_without_matches_prints_the_header_with_a_separator(
+    space_time_dataset,
+):
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(
+        type="strds,stvds",
+        mapset=".",
+        columns="name,id",
+        separator=";",
+        flags="c",
+        where=NO_MATCH,
+    )
+
+    assert stdout_of(result) == "name;id;type\n"
+
+
+def test_plain_with_c_without_matches_writes_the_header_to_the_file(
+    space_time_dataset, tmp_path
+):
+    tools = Tools(session=space_time_dataset.session)
+    path = tmp_path / "plain_empty.txt"
+
+    result = tools.t_list(
+        type="strds,stvds",
+        mapset=".",
+        columns="name",
+        flags="c",
+        where=NO_MATCH,
+        output=str(path),
+    )
+
+    assert path.read_text() == "name|type\n"
+    assert stdout_of(result) == ""
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "strds,stvds"])
+def test_plain_without_c_and_without_matches_prints_nothing(
+    space_time_dataset, stds_type
+):
+    tools = Tools(session=space_time_dataset.session)
+
+    result = tools.t_list(type=stds_type, mapset=".", columns="name", where=NO_MATCH)
+
+    assert stdout_of(result) == ""

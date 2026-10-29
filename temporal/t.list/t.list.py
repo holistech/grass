@@ -349,8 +349,8 @@ def main():
                 write_rows(out_file, rows, output_format, separator, header)
                 header = False
 
-        # Without rows csv still prints the requested column names.
-        if header and output_format == "csv":
+        # Without rows the formats with a header still print the column names.
+        if header and output_format in {"plain", "csv"}:
             names = header_names(dbif, stds_type, temporal_type, columns_for_db)
             out_file.write(f"{separator.join(names)}\n")
 
