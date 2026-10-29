@@ -23,7 +23,12 @@ import pytest
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.temporal.testing.expressions import (
+    RUNNERS,
+    compare,
+    outcome,
+    outcome_of_runner,
+)
 from grass.tools import Tools
 
 KIND = "raster"
@@ -242,14 +247,7 @@ def cached_io(paper):
 
 
 def run(runner, expression, basename, **options):
-    return outcome(
-        KIND,
-        expression,
-        RUNNERS[runner],
-        basename=basename,
-        register_null=True,
-        **options,
-    )
+    return outcome_of_runner(KIND, runner, expression, basename, **options)
 
 
 @pytest.mark.parametrize(("expression", "options", "data"), PUBLISHED)

@@ -18,6 +18,9 @@ Functions:
   (``grass.temporal.algebra.parser.evaluate``, which the parser classes call
   when the classic algebra is not chosen) and ``classic`` (the same function
   with the classic profile).
+- ``outcome_of_runner(kind, runner, expression, basename)`` is ``outcome``
+  with a runner chosen by its name in ``RUNNERS`` and with ``-n``;
+  ``constant_values(result)`` reads the values of the maps of an outcome.
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise. ``compare_runs`` is
   ``compare`` for the earlier implementation against the classic profile; it
@@ -307,6 +310,29 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
     except (Exception, SystemExit, Timeout) as error:  # noqa: BLE001
         return {"error": _normalise(error), "msg": _message(error, result, basename)}
     return _read_result(kind, result, basename, stdstype)
+
+
+def outcome_of_runner(kind, runner, expression, basename, **options):
+    """``outcome`` of the runner that ``RUNNERS`` names, with option ``-n``
+
+    :param runner: Key of ``RUNNERS``
+    :param options: Options for the runner; ``register_null=True`` is set here
+        unless an option says otherwise, because a map that is null everywhere
+        is a result worth comparing.
+    """
+    options = {"register_null": True, **options}
+    return outcome(kind, expression, RUNNERS[runner], basename=basename, **options)
+
+
+def constant_values(result):
+    """The value of each map of an outcome, in the order of the outcome
+
+    For data whose every input map is constant: a map with a minimum that
+    differs from its maximum is a failure of the test, not a value.
+    """
+    assert "error" not in result, result
+    assert all(low == high for *_, low, high in result["maps"]), result
+    return [low for *_, low, _high in result["maps"]]
 
 
 def _key(result):

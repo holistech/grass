@@ -18,7 +18,11 @@ import pytest
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.temporal.testing.expressions import (
+    compare,
+    constant_values,
+    outcome_of_runner,
+)
 from grass.tools import Tools
 
 KIND = "raster"
@@ -173,21 +177,12 @@ def cached_io(durations):
 
 
 def run(runner, expression, basename, **options):
-    return outcome(
-        KIND,
-        expression,
-        RUNNERS[runner],
-        basename=basename,
-        register_null=True,
-        **options,
-    )
+    return outcome_of_runner(KIND, runner, expression, basename, **options)
 
 
 def values(result):
     """The value of each map of an outcome; every input map is constant"""
-    assert "error" not in result, result
-    assert all(low == high for *_, low, high in result["maps"]), result
-    return [pytest.approx(low, rel=1e-5) for *_, low, _high in result["maps"]]
+    return [pytest.approx(value, rel=1e-5) for value in constant_values(result)]
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic", "core"])
