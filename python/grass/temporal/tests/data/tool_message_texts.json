@@ -10,6 +10,7 @@
   "All registered maps of the aggregation dataset must have time intervals",
   "All registered maps of the space time vector dataset must have time intervals",
   "Column 'type' cannot be requested alone",
+  "Column <{column}> differs only in case from the column <{stored}> of the table of vector map <{vector}> layer {layer}",
   "Column <{column}> exists in the table of vector map <{vector}> layer {layer}",
   "Column <{}> not found in the maps: {}",
   "Column names are not allowed with line format",

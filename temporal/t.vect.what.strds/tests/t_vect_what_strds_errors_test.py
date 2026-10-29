@@ -505,43 +505,76 @@ def test_a_failing_removal_of_the_aggregate_map_is_reported(
     assert "Traceback" not in text
 
 
-def test_a_column_that_differs_only_in_case_fails_at_v_what_rast(
-    tools, rasters, vectors
-):
+def test_a_column_that_differs_only_in_case_is_refused(tools, rasters, vectors):
     data = vectors()
 
     text = _refused(tools, input=data.dataset, strds="wh_a", column="H", overwrite=True)
 
-    # The check of the target columns takes H for the column h, as SQLite
-    # does, and lets it pass with overwrite. v.what.rast looks for H as
-    # written, does not find it and fails to add it to the table.
-    assert "duplicate column name: H" in text
     assert (
-        f"Unable to run v.what.rast for vector map <{data.maps[0]}@PERMANENT> and "
-        "raster map <wr_1@PERMANENT>"
+        f"Column <H> differs only in case from the column <h> of the table of "
+        f"vector map <{data.maps[0]}@PERMANENT> layer 1"
     ) in text
-    assert _values(tools, data.maps[0], "h") == ["1", "2", "3", "4"]
+    assert "v.what.rast" not in text
+    for vector in data.maps:
+        assert _names(tools, vector) == ["x", "y", "cat", "h"], vector
+        assert _values(tools, vector, "h") == ["1", "2", "3", "4"]
 
 
-def test_a_column_in_another_case_at_a_later_map_leaves_the_earlier_written(
+def test_a_column_that_differs_only_in_case_is_refused_without_overwrite(
+    tools, rasters, vectors
+):
+    data = vectors()
+
+    text = _refused(tools, input=data.dataset, strds="wh_a", column="H")
+
+    # Without overwrite the column that exists in another case is already an
+    # existing column; the case does not change the refusal.
+    assert f"Column <H> exists in the table of vector map <{data.maps[0]}@" in text
+    assert "differs only in case" not in text
+    for vector in data.maps:
+        assert _names(tools, vector) == ["x", "y", "cat", "h"], vector
+
+
+def test_a_column_in_another_case_at_a_later_map_changes_no_map(
     tools, rasters, vectors
 ):
     data = vectors()
     first, second, third = data.maps
     tools.v_db_addcolumn(map=second, column="k INT")
     tools.v_db_update(map=second, column="k", value="999")
+    before = {vector: _names(tools, vector) for vector in data.maps}
 
     text = _refused(tools, input=data.dataset, strds="wh_a", column="K", overwrite=True)
 
-    # Only the second table has k. The check of the target columns takes K
-    # for k there and lets it pass with overwrite. The first map has no k,
-    # so K is added and written there; v.what.rast then fails at the second
-    # map, and the third one is not reached.
+    # Only the second table has k. The refusal comes before the first map is
+    # written, so the first and the third map have no column K.
     assert (
-        f"Unable to run v.what.rast for vector map <{second}@PERMANENT> and "
-        "raster map <wr_3@PERMANENT>"
+        f"Column <K> differs only in case from the column <k> of the table of "
+        f"vector map <{second}@PERMANENT> layer 1"
     ) in text
-    assert "K" in _names(tools, first)
-    assert _values(tools, first, "K") == ["111", "112", "121", "122"]
+    assert f"<{first}@" not in text
+    assert f"<{third}@" not in text
+    assert {vector: _names(tools, vector) for vector in data.maps} == before
     assert _values(tools, second, "k") == ["999"] * 4
-    assert "K" not in _names(tools, third)
+
+
+def test_a_column_in_another_case_in_another_layer_is_no_clash(tools, rasters, prefix):
+    vector_points(
+        tools, f"{prefix}_m", CENTRES, attributes={"h": [1, 2, 3, 4]}, layers=(1, 2)
+    )
+    # Only the table of layer 1 has k; the layer that is sampled is 2.
+    tools.v_db_addcolumn(map=f"{prefix}_m", layer=1, column="k INT")
+    register_stds(
+        tools,
+        "stvds",
+        f"{prefix}_ds",
+        [MapSpec(f"{prefix}_m:2", None, datetime(2001, 1, 1), datetime(2001, 4, 1))],
+    )
+
+    tools.t_vect_what_strds(
+        input=f"{prefix}_ds", strds="wh_a", column="K", overwrite=True
+    )
+
+    text = tools.v_db_select(map=f"{prefix}_m", layer=2, columns="K", flags="c").stdout
+    assert text.split() == ["111", "112", "121", "122"]
+    assert "K" not in tools.db_columns(table=f"{prefix}_m").stdout.split()
