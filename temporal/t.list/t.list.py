@@ -204,8 +204,8 @@ def row_groups(dbif, queried, stds_type, plain):
                     yield dtype, time, mapset, current_rows
 
 
-def csv_header_names(dbif, stds_type, temporal_type, columns_for_db):
-    """Return the column names a listing without rows prints as csv header
+def header_names(dbif, stds_type, temporal_type, columns_for_db):
+    """Return the column names a listing without rows prints as header
 
     The names are those of the first row of a listing with rows: the
     database columns of get_dataset_list() and type last when it is listed
@@ -351,7 +351,7 @@ def main():
 
         # Without rows csv still prints the requested column names.
         if header and output_format == "csv":
-            names = csv_header_names(dbif, stds_type, temporal_type, columns_for_db)
+            names = header_names(dbif, stds_type, temporal_type, columns_for_db)
             out_file.write(f"{separator.join(names)}\n")
 
         # Dump the collected output
