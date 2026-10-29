@@ -28,7 +28,9 @@ the existing columns are kept and their values are written again, so a second
 run does not add a second column. An existing column keeps its type: values
 of a floating-point raster map written into an integer column lose their
 fractional part, and *v.what.rast* warns about it. To get a column of the new
-type, drop the column with *v.db.dropcolumn* first.
+type, drop the column with *v.db.dropcolumn* first. A column name that
+differs from an existing column only in upper and lower case (`K` for `k`)
+is refused with **--overwrite** as well, before anything is written.
 
 ## EXAMPLE
 

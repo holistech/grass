@@ -35,7 +35,9 @@ that it has in the input map.
 
 If a column named in **columns** exists in the table of a layer of the input
 map, the module stops with an error. With the overwrite flag it keeps the
-column and replaces its values with the sampled ones.
+column and replaces its values with the sampled ones. A name that differs
+from such a column only in upper and lower case (`H` for `h`) is refused with
+the overwrite flag too, before the output map is made.
 
 If a run fails, the module removes the vector map and the space time vector
 dataset it made, so nothing is left behind. With the overwrite flag the
