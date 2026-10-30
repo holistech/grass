@@ -57,6 +57,12 @@ class Generator:
     with spaces, because the classic lexer reads ``A-1`` as ``A`` and the
     integer ``-1``. A few forms lie outside the classic grammar on purpose,
     so that both sides must reject them.
+
+    Every method returns the text of one production (``_arith`` the text of
+    ``A + B``) and draws from ``self.rng``; a builder takes the depth that is
+    left for its operands. The number and the order of the draws decide the
+    expression of a seed, and the keys of the corpus hold those expressions,
+    so a change to either needs a new recording of the corpus.
     """
 
     def __init__(self, kind, rng, *, granularity=False, paper=False):
@@ -76,144 +82,145 @@ class Generator:
         self.names = list(names)
         self.weights = list(names.values())
 
-    def r(self):
+    def _chance(self):
         return self.rng.random()
 
-    def pick(self, items):
+    def _pick(self, items):
         return self.rng.choice(items)
 
-    def name(self):
-        if self.r() < 0.4:
-            return self.pick(self.family)
+    def _name(self):
+        if self._chance() < 0.4:
+            return self._pick(self.family)
         return self.rng.choices(self.names, self.weights)[0]
 
-    def number(self):
-        x = self.r()
-        if x < 0.6:
+    def _number(self):
+        draw = self._chance()
+        if draw < 0.6:
             return str(self.rng.randint(0, 5))
-        if x < 0.85:
-            return self.pick(("0.5", "1.5", "2.0", "10.25"))
-        if x < 0.95:
+        if draw < 0.85:
+            return self._pick(("0.5", "1.5", "2.0", "10.25"))
+        if draw < 0.95:
             return str(self.rng.randint(6, 100))
         # Beyond the range of a 32 bit integer
         return "3000000000"
 
-    def relations(self):
-        count = 1 if self.r() < 0.7 else (2 if self.r() < 0.85 else 3)
-        return "|".join(self.pick(TEMPORAL + ("over",)) for _ in range(count))
+    def _relations(self):
+        count = 1 if self._chance() < 0.7 else (2 if self._chance() < 0.85 else 3)
+        return "|".join(self._pick(TEMPORAL + ("over",)) for _ in range(count))
 
-    def operator(self, symbol, *, ref=True, agg=False):
+    def _operator(self, symbol, *, ref=True, agg=False):
         if self.granularity:
             return symbol
-        parts = [symbol, self.relations()]
+        parts = [symbol, self._relations()]
         # The classic grammar takes the aggregate before the temporal
         # reference: {&&,contains,|,r} parses, {&&,contains,r,|} does not.
-        if agg and self.r() < 0.6:
-            parts.append(self.pick("|&"))
-        if ref and self.r() < 0.6:
-            parts.append(self.pick("lruid"))
+        if agg and self._chance() < 0.6:
+            parts.append(self._pick("|&"))
+        if ref and self._chance() < 0.6:
+            parts.append(self._pick("lruid"))
         return "{" + ",".join(parts) + "}"
 
-    def increment(self, negative_ok):
+    def _increment(self, negative_ok):
         n = self.rng.randint(1, 3)
-        if negative_ok and self.r() < 0.4:
+        if negative_ok and self._chance() < 0.4:
             n = -n
-        if self.r() < 0.2:
+        if self._chance() < 0.2:
             return str(n)
-        return f'"{n} {self.pick(UNITS)}"'
+        return f'"{n} {self._pick(UNITS)}"'
 
     def expr(self, depth, top=False):
-        leaf = not top and (depth <= 0 or self.r() < 0.25 + 0.15 * (3 - depth))
+        """Draw an expression of at most depth levels; top forbids a leaf"""
+        leaf = not top and (depth <= 0 or self._chance() < 0.25 + 0.15 * (3 - depth))
         if leaf:
-            return self.leaf()
+            return self._leaf()
         table = {
-            "vector": self.vector_table,
-            "select": self.select_table,
-        }.get(self.kind, self.raster_table)()
+            "vector": self._vector_table,
+            "select": self._select_table,
+        }.get(self.kind, self._raster_table)()
         builders, weights = zip(*table, strict=True)
         return self.rng.choices(builders, weights)[0](depth - 1)
 
-    def leaf(self):
-        if self.paper and self.kind == "select" and self.r() < 0.3:
-            return f"{self.pick(DATASET_FUNCTIONS)}({self.name()})"
-        x = self.r()
-        if x < 0.9:
-            return self.name()
-        if x < 0.96:
-            return f"tmap({self.pick(self.single)})"
+    def _leaf(self):
+        if self.paper and self.kind == "select" and self._chance() < 0.3:
+            return f"{self._pick(DATASET_FUNCTIONS)}({self._name()})"
+        draw = self._chance()
+        if draw < 0.9:
+            return self._name()
+        if draw < 0.96:
+            return f"tmap({self._pick(self.single)})"
         if self.kind not in {"vector", "select"}:
-            return f"{self.name()}[{self.pick(('1', '-1', '2', '0'))}]"
-        return self.name()
+            return f"{self._name()}[{self._pick(('1', '-1', '2', '0'))}]"
+        return self._name()
 
-    def raster_table(self):
-        table = self.base_raster_table()
+    def _raster_table(self):
+        table = self._base_raster_table()
         if self.paper:
-            table += [(self.number_chain, 8), (self.td_left, 6)]
+            table += [(self._number_chain, 8), (self._td_left, 6)]
         return table
 
-    def base_raster_table(self):
+    def _base_raster_table(self):
         return [
-            (self.arith, 18),
-            (self.t_arith, 14),
-            (self.arith_number, 8),
-            (self.select, 12),
-            (self.if_, 16),
-            (self.shift, 4),
-            (self.buff, 5),
-            (self.snap, 3),
-            (self.merge, 3),
-            (self.mapcalc_fn, 3),
-            (self.td_arith, 4),
-            (self.time_const, 2),
-            (self.paren, 3),
-            (self.hash_expr, 2),
+            (self._arith, 18),
+            (self._t_arith, 14),
+            (self._arith_number, 8),
+            (self._select, 12),
+            (self._if, 16),
+            (self._shift, 4),
+            (self._buff, 5),
+            (self._snap, 3),
+            (self._merge, 3),
+            (self._mapcalc_fn, 3),
+            (self._td_arith, 4),
+            (self._time_const, 2),
+            (self._paren, 3),
+            (self._hash_expr, 2),
         ]
 
-    def vector_table(self):
+    def _vector_table(self):
         return [
-            (self.overlay, 20),
-            (self.t_overlay, 14),
-            (self.select, 14),
-            (self.if_, 10),
-            (self.buffer, 5),
-            (self.shift, 4),
-            (self.buff, 5),
-            (self.snap, 3),
-            (self.merge, 4),
-            (self.paren, 3),
+            (self._overlay, 20),
+            (self._t_overlay, 14),
+            (self._select, 14),
+            (self._if, 10),
+            (self._buffer, 5),
+            (self._shift, 4),
+            (self._buff, 5),
+            (self._snap, 3),
+            (self._merge, 4),
+            (self._paren, 3),
         ]
 
-    def select_table(self):
+    def _select_table(self):
         """t.select: selections, retiming, merge and temporal if() only"""
         return [
-            (self.select, 40),
-            (self.if_, 12),
-            (self.shift, 8),
-            (self.buff, 8),
-            (self.snap, 6),
-            (self.merge, 8),
-            (self.paren, 3),
+            (self._select, 40),
+            (self._if, 12),
+            (self._shift, 8),
+            (self._buff, 8),
+            (self._snap, 6),
+            (self._merge, 8),
+            (self._paren, 3),
         ]
 
-    def arith(self, d):
-        return f"{self.expr(d)} {self.pick('+-*/%')} {self.expr(d)}"
+    def _arith(self, depth):
+        return f"{self.expr(depth)} {self._pick('+-*/%')} {self.expr(depth)}"
 
-    def t_arith(self, d):
-        return f"{self.expr(d)} {self.operator(self.pick('+-*/%'))} {self.expr(d)}"
+    def _t_arith(self, depth):
+        return f"{self.expr(depth)} {self._operator(self._pick('+-*/%'))} {self.expr(depth)}"
 
-    def arith_number(self, d):
-        op = self.pick("+-*/%")
-        if self.r() < 0.6:
-            return f"{self.expr(d)} {op} {self.number()}"
-        return f"{self.number()} {op} {self.expr(d)}"
+    def _arith_number(self, depth):
+        op = self._pick("+-*/%")
+        if self._chance() < 0.6:
+            return f"{self.expr(depth)} {op} {self._number()}"
+        return f"{self._number()} {op} {self.expr(depth)}"
 
-    def atom(self):
+    def _atom(self):
         """A number or a single map read with map()"""
-        if self.r() < 0.45:
-            return f"map({self.pick(self.single)})"
-        return self.number()
+        if self._chance() < 0.45:
+            return f"map({self._pick(self.single)})"
+        return self._number()
 
-    def number_chain(self, d):
+    def _number_chain(self, depth):
         """A chain of numbers and map() calls in front of a dataset
 
         ``1 - 2 - A``, ``2 * map(S) + A`` and ``map(S) - 1`` start with
@@ -221,171 +228,172 @@ class Generator:
         own.
         """
         operators = " ".join(
-            f"{self.pick('+-*/%')} {self.atom()}" for _ in range(self.rng.randint(0, 2))
+            f"{self._pick('+-*/%')} {self._atom()}"
+            for _ in range(self.rng.randint(0, 2))
         )
-        chain = f"{self.atom()} {operators}".strip()
-        op = self.pick("+-*/%")
-        if self.r() < 0.25:
+        chain = f"{self._atom()} {operators}".strip()
+        op = self._pick("+-*/%")
+        if self._chance() < 0.25:
             # Only a map() has a number as its partner
-            return f"map({self.pick(self.single)}) {op} {self.number()}"
-        return f"{chain} {op} {self.expr(d)}"
+            return f"map({self._pick(self.single)}) {op} {self._number()}"
+        return f"{chain} {op} {self.expr(depth)}"
 
-    def td_left(self, d):
+    def _td_left(self, depth):
         """td() as left operand of a multiplication, division or modulo"""
-        x = self.r()
-        stronger = self.pick("*/%")
-        if x < 0.35:
-            return f"td({self.name()}) {stronger} {self.expr(d)}"
-        if x < 0.7:
+        draw = self._chance()
+        stronger = self._pick("*/%")
+        if draw < 0.35:
+            return f"td({self._name()}) {stronger} {self.expr(depth)}"
+        if draw < 0.7:
             return (
-                f"{self.expr(d)} {self.pick('+-')} td({self.name()}) "
-                f"{stronger} {self.expr(d)}"
+                f"{self.expr(depth)} {self._pick('+-')} td({self._name()}) "
+                f"{stronger} {self.expr(depth)}"
             )
         return (
-            f"{self.expr(d)} {self.pick('+-*')} td({self.name()}) {stronger} "
-            f"{self.expr(d)} {self.pick('+-')} {self.expr(d)}"
+            f"{self.expr(depth)} {self._pick('+-*')} td({self._name()}) {stronger} "
+            f"{self.expr(depth)} {self._pick('+-')} {self.expr(depth)}"
         )
 
-    def compare_condition(self):
+    def _compare_condition(self):
         """Two datasets joined by a comparison, with or without the braces
 
         ``A >= F`` is the short form of ``{>=, equal, &, l}``. The granularity
         mode writes no braces.
         """
-        compare = self.pick(COMPARE)
+        compare = self._pick(COMPARE)
         # Datasets of equal time stamps relate often enough to give maps
-        if self.r() < 0.7:
-            left, right = self.pick(self.family), self.pick(self.family)
+        if self._chance() < 0.7:
+            left, right = self._pick(self.family), self._pick(self.family)
         else:
-            left, right = self.name(), self.name()
-        if self.r() < 0.35:
+            left, right = self._name(), self._name()
+        if self._chance() < 0.35:
             return f"{left} {compare} {right}"
-        return f"{left} {self.operator(compare, agg=True)} {right}"
+        return f"{left} {self._operator(compare, agg=True)} {right}"
 
-    def select(self, d):
-        x = self.r()
-        if x < 0.35:
+    def _select(self, depth):
+        draw = self._chance()
+        if draw < 0.35:
             op = ":"
-        elif x < 0.5:
+        elif draw < 0.5:
             op = "!:"
         else:
-            op = self.operator(self.pick((":", ":", "!:")))
-        return f"{self.expr(d)} {op} {self.expr(d)}"
+            op = self._operator(self._pick((":", ":", "!:")))
+        return f"{self.expr(depth)} {op} {self.expr(depth)}"
 
-    def overlay(self, d):
-        return f"{self.expr(d)} {self.pick('&|^~+')} {self.expr(d)}"
+    def _overlay(self, depth):
+        return f"{self.expr(depth)} {self._pick('&|^~+')} {self.expr(depth)}"
 
-    def t_overlay(self, d):
-        return f"{self.expr(d)} {self.operator(self.pick('&|^~+'))} {self.expr(d)}"
+    def _t_overlay(self, depth):
+        return f"{self.expr(depth)} {self._operator(self._pick('&|^~+'))} {self.expr(depth)}"
 
-    def buffer(self, d):
-        function = self.pick(("buff_p", "buff_l", "buff_a"))
-        return f"{function}({self.expr(d)}, {self.pick(('1', '2', '5', '0.5'))})"
+    def _buffer(self, depth):
+        function = self._pick(("buff_p", "buff_l", "buff_a"))
+        return f"{function}({self.expr(depth)}, {self._pick(('1', '2', '5', '0.5'))})"
 
-    def shift(self, d):
-        return f"tshift({self.expr(d)}, {self.increment(negative_ok=True)})"
+    def _shift(self, depth):
+        return f"tshift({self.expr(depth)}, {self._increment(negative_ok=True)})"
 
-    def buff(self, d):
-        return f"buff_t({self.expr(d)}, {self.increment(negative_ok=True)})"
+    def _buff(self, depth):
+        return f"buff_t({self.expr(depth)}, {self._increment(negative_ok=True)})"
 
-    def snap(self, d):
-        return f"tsnap({self.expr(d)})"
+    def _snap(self, depth):
+        return f"tsnap({self.expr(depth)})"
 
-    def merge(self, d):
-        return f"merge({self.expr(d)}, {self.expr(d)})"
+    def _merge(self, depth):
+        return f"merge({self.expr(depth)}, {self.expr(depth)})"
 
-    def mapcalc_fn(self, d):
-        return f"{self.pick(MAPCALC)}({self.expr(d)})"
+    def _mapcalc_fn(self, depth):
+        return f"{self._pick(MAPCALC)}({self.expr(depth)})"
 
-    def td_arith(self, d):
-        x = self.r()
-        op = self.pick("+-*/")
-        if x < 0.5:
-            return f"{self.expr(d)} {op} td({self.expr(d)})"
-        if x < 0.75:
-            return f"{self.expr(d)} {self.operator(self.pick('+*'))} td({self.expr(d)})"
-        return f"{self.expr(d)} {op} td({self.name()})"
+    def _td_arith(self, depth):
+        draw = self._chance()
+        op = self._pick("+-*/")
+        if draw < 0.5:
+            return f"{self.expr(depth)} {op} td({self.expr(depth)})"
+        if draw < 0.75:
+            return f"{self.expr(depth)} {self._operator(self._pick('+*'))} td({self.expr(depth)})"
+        return f"{self.expr(depth)} {op} td({self._name()})"
 
-    def time_const(self, d):
-        offset = self.pick(("0", "1", "-1", "2"))
-        return f"{self.pick(T_VARS)}({self.name()}, {offset})"
+    def _time_const(self, depth):
+        offset = self._pick(("0", "1", "-1", "2"))
+        return f"{self._pick(T_VARS)}({self._name()}, {offset})"
 
-    def paren(self, d):
-        return f"({self.expr(d)})"
+    def _paren(self, depth):
+        return f"({self.expr(depth)})"
 
-    def hash_expr(self, d):
-        return f"{self.expr(d)} {self.hash_op()} {self.expr(d)}"
+    def _hash_expr(self, depth):
+        return f"{self.expr(depth)} {self._hash_op()} {self.expr(depth)}"
 
-    def hash_op(self):
-        return "#" if self.r() < 0.5 else self.operator("#")
+    def _hash_op(self):
+        return "#" if self._chance() < 0.5 else self._operator("#")
 
-    def else_branch(self, d):
-        x = self.r()
-        if self.kind in {"vector", "select"} or x < 0.55:
-            return self.expr(d)
-        if x < 0.85:
-            return self.number()
+    def _else_branch(self, depth):
+        draw = self._chance()
+        if self.kind in {"vector", "select"} or draw < 0.55:
+            return self.expr(depth)
+        if draw < 0.85:
+            return self._number()
         return "null()"
 
-    def if_(self, d):
-        relation = "{" + self.relations() + "}"
-        with_relation = not self.granularity and self.r() < 0.35
-        condition = self.condition(max(d, 0))
+    def _if(self, depth):
+        relation = "{" + self._relations() + "}"
+        with_relation = not self.granularity and self._chance() < 0.35
+        condition = self._condition(max(depth, 0))
         head = f"if({relation}, {condition}" if with_relation else f"if({condition}"
-        if self.kind not in {"vector", "select"} and self.r() < 0.15:
-            then = self.pick((self.number(), "null()"))
+        if self.kind not in {"vector", "select"} and self._chance() < 0.15:
+            then = self._pick((self._number(), "null()"))
         else:
-            then = self.expr(d)
-        if self.r() < 0.55:
-            return f"{head}, {then}, {self.else_branch(d)})"
+            then = self.expr(depth)
+        if self._chance() < 0.55:
+            return f"{head}, {then}, {self._else_branch(depth)})"
         return f"{head}, {then})"
 
-    def condition(self, depth):
-        if depth > 0 and self.r() < 0.35:
-            left = self.condition(depth - 1)
-            right = self.condition(depth - 1)
-            x = self.r()
-            if x < 0.35:
+    def _condition(self, depth):
+        if depth > 0 and self._chance() < 0.35:
+            left = self._condition(depth - 1)
+            right = self._condition(depth - 1)
+            draw = self._chance()
+            if draw < 0.35:
                 return f"{left} && {right}"
-            if x < 0.65:
+            if draw < 0.65:
                 return f"{left} || {right}"
             # Every temporal reference: && and || with r give a map per
             # partner, which the comparison must reach as often as l.
-            operator = self.operator(self.pick(("&&", "||")), agg=True)
+            operator = self._operator(self._pick(("&&", "||")), agg=True)
             return f"{left} {operator} {right}"
-        if self.paper and self.kind in {"raster", "raster3d"} and self.r() < 0.35:
-            return self.compare_condition()
-        if self.kind in {"vector", "select"} or self.r() < 0.45:
-            return self.t_condition(depth)
-        return self.s_condition(depth)
+        if self.paper and self.kind in {"raster", "raster3d"} and self._chance() < 0.35:
+            return self._compare_condition()
+        if self.kind in {"vector", "select"} or self._chance() < 0.45:
+            return self._t_condition(depth)
+        return self._s_condition(depth)
 
-    def s_condition(self, depth):
-        e = self.expr(min(depth, 1))
-        x = self.r()
-        if x < 0.7:
-            return f"{e} {self.pick(COMPARE)} {self.number()}"
-        if x < 0.8:
-            return f"isnull({e})"
-        if x < 0.9:
-            return f"isntnull({e})"
-        return f"exist({e})"
+    def _s_condition(self, depth):
+        operand = self.expr(min(depth, 1))
+        draw = self._chance()
+        if draw < 0.7:
+            return f"{operand} {self._pick(COMPARE)} {self._number()}"
+        if draw < 0.8:
+            return f"isnull({operand})"
+        if draw < 0.9:
+            return f"isntnull({operand})"
+        return f"exist({operand})"
 
-    def t_condition(self, depth):
-        e = self.expr(min(depth, 1)) if self.r() < 0.4 else self.name()
-        x = self.r()
-        compare = self.pick(COMPARE)
-        if x < 0.4:
-            return f"{self.pick(T_VARS)}({e}) {compare} {self.rng.randint(0, 5)}"
-        if x < 0.65:
-            return f"td({e}) {compare} {self.pick(('1', '2', '0.5', '0'))}"
-        if x < 0.85:
+    def _t_condition(self, depth):
+        operand = self.expr(min(depth, 1)) if self._chance() < 0.4 else self._name()
+        draw = self._chance()
+        compare = self._pick(COMPARE)
+        if draw < 0.4:
+            return f"{self._pick(T_VARS)}({operand}) {compare} {self.rng.randint(0, 5)}"
+        if draw < 0.65:
+            return f"td({operand}) {compare} {self._pick(('1', '2', '0.5', '0'))}"
+        if draw < 0.85:
             return (
-                f"{self.name()} {self.hash_op()} {self.name()} "
+                f"{self._name()} {self._hash_op()} {self._name()} "
                 f"{compare} {self.rng.randint(0, 2)}"
             )
-        function = self.pick(("start_date", "end_date"))
+        function = self._pick(("start_date", "end_date"))
         return (
-            f'{function}({self.name()}) {compare} "2001-01-0{self.rng.randint(1, 5)}"'
+            f'{function}({self._name()}) {compare} "2001-01-0{self.rng.randint(1, 5)}"'
         )
 
 
