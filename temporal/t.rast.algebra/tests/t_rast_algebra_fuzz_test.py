@@ -24,19 +24,17 @@ import pytest
 
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.expressions import (
+from grass.temporal.testing.differential import (
     RUNNERS,
     accepted_error_pair,
-    boundary_forms,
     check_agreement,
     check_difference_seen,
-    check_seed,
     compare_runs,
-    generate,
     outcome,
     prepare,
-    seed_range,
 )
+from grass.temporal.testing.expressions import check_seed, seed_range
+from grass.temporal.testing.expressions_generator import boundary_forms, generate
 
 KIND = "raster"
 

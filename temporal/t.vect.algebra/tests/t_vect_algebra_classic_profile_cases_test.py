@@ -10,7 +10,7 @@ import pytest
 
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.expressions import (
+from grass.temporal.testing.differential import (
     RUNNERS,
     accepted_error_pair,
     compare,

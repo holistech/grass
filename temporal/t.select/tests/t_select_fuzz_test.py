@@ -23,14 +23,13 @@ the datasets.
 import pytest
 
 from grass.temporal.testing import fakes
-from grass.temporal.testing.expressions import (
-    boundary_forms,
+from grass.temporal.testing.differential import (
     check_agreement,
     check_difference_seen,
-    check_seed,
     prepare,
-    seed_range,
 )
+from grass.temporal.testing.expressions import check_seed, seed_range
+from grass.temporal.testing.expressions_generator import boundary_forms
 
 KIND = "select"
 

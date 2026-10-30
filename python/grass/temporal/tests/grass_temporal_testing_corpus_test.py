@@ -1,6 +1,6 @@
 """Tests for the recorded corpus of the earlier classic implementation
 
-A stand-in replaces the earlier implementation: expressions.outcome() for the
+A stand-in replaces the earlier implementation: differential.outcome() for the
 outcome and RUNNERS["reference"] for the run without computing. No test runs
 GRASS. The keys hold the node id of the running test, which pytest sets at
 the start of each phase; a test that needs another id sets it itself.
@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from grass.temporal.testing import corpus, expressions
+from grass.temporal.testing import corpus, differential
 
 CASE = 'temporal/t.x/tests/t_x_test.py::test_case[if(A, "x", B)]'
 EXPRESSION = 'if(start_doy(A) < 3, "x", A)'
@@ -46,7 +46,7 @@ def reference(monkeypatch):
     stand_in = {"outcome": MAPS, "rejects": True, "calls": []}
 
     def fake_outcome(kind, expression, runner, *, basename, **options):
-        assert runner is expressions.RUNNERS["reference"]
+        assert runner is differential.RUNNERS["reference"]
         stand_in["calls"].append(("outcome", kind, expression, basename, options))
         return json.loads(json.dumps(stand_in["outcome"]))
 
@@ -56,8 +56,8 @@ def reference(monkeypatch):
             msg = "rejected"
             raise SyntaxError(msg)
 
-    monkeypatch.setattr(expressions, "outcome", fake_outcome)
-    monkeypatch.setitem(expressions.RUNNERS, "reference", fake_runner)
+    monkeypatch.setattr(differential, "outcome", fake_outcome)
+    monkeypatch.setitem(differential.RUNNERS, "reference", fake_runner)
     return stand_in
 
 

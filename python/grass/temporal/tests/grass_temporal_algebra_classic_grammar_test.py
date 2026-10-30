@@ -34,12 +34,9 @@ import pytest
 
 from grass.temporal.algebra.parser import ast, classic_productions
 from grass.temporal.algebra.parser import classic_grammar as classic
-from grass.temporal.testing.expressions import (
-    boundary_forms,
-    generate,
-    prepare,
-    seed_range,
-)
+from grass.temporal.testing.differential import prepare
+from grass.temporal.testing.expressions_generator import boundary_forms, generate
+from grass.temporal.testing.expressions import seed_range
 from grass.temporal.testing.reference import run_reference
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -271,7 +268,7 @@ def test_precedence_of_and_or_follows_the_classic_algebra(world):
     """&& binds stronger than || in conditions on map values, not in temporal ones
 
     The expected groupings are what the parser class does, measured 2026-10-16
-    with grass.temporal.testing.expressions.outcome on the reference runner and
+    with grass.temporal.testing.differential.outcome on the reference runner and
     the datasets of the fuzzer (A holds the values 1 to 4 in its first maps):
 
     - ``if(A > 1 || A < 3 && A > 2, A)`` keeps the maps with the values 2, 3
@@ -294,7 +291,7 @@ def test_precedence_of_and_or_follows_the_classic_algebra(world):
 @kinds("raster")
 def test_precedence_measured_on_the_reference(world):
     """The classic algebra computes the groupings that the test above expects"""
-    from grass.temporal.testing.expressions import RUNNERS, outcome
+    from grass.temporal.testing.differential import RUNNERS, outcome
 
     kind, _ = world
     reference = RUNNERS["reference"]

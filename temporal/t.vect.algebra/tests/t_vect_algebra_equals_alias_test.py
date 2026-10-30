@@ -7,7 +7,7 @@ profile and the reference read equals as another name of equal.
 import pytest
 
 from grass.temporal.testing import fakes
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome, prepare
+from grass.temporal.testing.differential import RUNNERS, compare, outcome, prepare
 
 KIND = "vector"
 

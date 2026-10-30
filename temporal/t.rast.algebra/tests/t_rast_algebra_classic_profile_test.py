@@ -13,7 +13,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.temporal.testing.differential import RUNNERS, compare, outcome
 
 # Every test chooses its algebra itself, see the marker in pyproject.toml.
 pytestmark = pytest.mark.fixed_algebra

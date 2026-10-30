@@ -15,7 +15,7 @@ import random
 import pytest
 
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal.testing import expressions
+from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
 
 # Every test sets the algebra itself, see the marker in pyproject.toml.
@@ -187,7 +187,7 @@ def outcome(algebra, monkeypatch, expression, parser, **keywords):
 
 
 # The result of the earlier implementation comes from the recorded corpus,
-# which stores the form of expressions.outcome(), so the profile is read in
+# which stores the form of differential.outcome(), so the profile is read in
 # that form as well.
 # That form rounds minimum and maximum to 6 significant digits, so this
 # comparison is coarser than the one of the core with the profile, which
@@ -196,10 +196,10 @@ def profile_difference(expression, **options):
     """What compare() finds between the earlier implementation and -c"""
     options = {"register_null": True, **options}
     reference = reference_outcome("raster", expression, **options)
-    profile = expressions.outcome(
-        "raster", expression, expressions.RUNNERS["classic"], basename="fb", **options
+    profile = differential.outcome(
+        "raster", expression, differential.RUNNERS["classic"], basename="fb", **options
     )
-    return expressions.compare("raster", expression, reference, profile)
+    return differential.compare("raster", expression, reference, profile)
 
 
 @pytest.mark.parametrize("expression", SAME)

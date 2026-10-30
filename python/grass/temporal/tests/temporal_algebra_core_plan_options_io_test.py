@@ -3,7 +3,7 @@
 Each option that gives the classic rules is measured against the classic
 algebra on real datasets: evaluate() with the option computes an expression,
 and the result maps (names, times, values) or the exception class are compared
-with grass.temporal.testing.expressions to the outcome of the earlier
+with grass.temporal.testing.differential to the outcome of the earlier
 implementation (grass.temporal.testing.reference) that
 grass.temporal.testing.corpus holds. The tests of the planned chain and of the
 error texts run the earlier implementation itself. A negative check with the
@@ -26,7 +26,7 @@ import grass.temporal.algebra as ta
 from grass.exceptions import FatalError
 from grass.temporal.algebra import MapcalcStyle, Profile
 from grass.temporal.algebra.parser import evaluate
-from grass.temporal.testing import expressions as ex
+from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.reference import run_reference
@@ -39,7 +39,7 @@ BARE = MapcalcStyle(quote_names=False, written_integers=True, bare_comparisons=T
 def session(temporal_module_session, tmp_path_factory):
     directory = tmp_path_factory.mktemp("data")
     for kind in ("raster", "vector"):
-        ex.prepare(kind, temporal_module_session, directory)
+        differential.prepare(kind, temporal_module_session, directory)
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
     tools.g_region(n=3, s=0, e=3, w=0, res=1)
     # d1 is registered first and ends last, so the order of the database
@@ -61,7 +61,7 @@ def with_profile(profile):
     """A runner with the signature of run_reference that evaluates with profile"""
 
     def run(kind, expression, *, basename, overwrite=False, **options):
-        return ex.core_runner(
+        return differential.core_runner(
             kind,
             expression,
             basename=basename,
@@ -81,10 +81,10 @@ def measured(session, kind, expression, profile, **options):
     differs between them (None if nothing)"""
     number = next(COUNTER)
     reference = reference_outcome(kind, expression, **options)
-    found = ex.outcome(
+    found = differential.outcome(
         kind, expression, with_profile(profile), basename=f"p{number}", **options
     )
-    return ex.compare(kind, expression, reference, found), reference, found
+    return differential.compare(kind, expression, reference, found), reference, found
 
 
 def agrees(session, kind, expression, profile, **options):
@@ -218,12 +218,14 @@ def test_the_plain_mapcalc_text_computes_the_same_maps_as_the_quoted_one(
     """No quotes, integers as written and bare comparisons give the maps of
     the default text. The comparisons are written in the syntax of the core:
     the grammar of the classic algebra takes them in conditions only."""
-    plain = ex.outcome(
+    plain = differential.outcome(
         "raster", expression, with_profile(Profile(mapcalc=BARE)), basename="a"
     )
-    quoted = ex.outcome("raster", expression, with_profile(Profile()), basename="b")
+    quoted = differential.outcome(
+        "raster", expression, with_profile(Profile()), basename="b"
+    )
     assert plain["maps"], "an empty result proves nothing"
-    assert ex.compare("raster", expression, plain, quoted) is None
+    assert differential.compare("raster", expression, plain, quoted) is None
 
 
 def test_the_plain_mapcalc_text_computes_the_maps_of_the_classic_algebra(session):
@@ -326,7 +328,7 @@ def test_the_messages_of_the_classic_errors_are_the_classic_ones(session):
     """The words of a mapped FatalError are those of the classic algebra"""
     text = {}
     for name, runner in (
-        ("classic", ex.reference_runner),
+        ("classic", differential.reference_runner),
         ("profile", with_profile(Profile(classic_errors=True))),
     ):
         with pytest.raises(FatalError) as caught:

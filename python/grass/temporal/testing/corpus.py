@@ -13,7 +13,7 @@ Two functions take the place of the runs of the earlier implementation:
 
 - ``reference_outcome(kind, expression, **options)`` is
   ``outcome(kind, expression, RUNNERS["reference"], basename="fa", **options)``
-  of ``grass.temporal.testing.expressions``.
+  of ``grass.temporal.testing.differential``.
 - ``reference_rejects_syntax(kind, expression, **options)`` tells whether the
   earlier implementation rejects the expression with a ``SyntaxError`` when it
   runs without computing (``run=False``, without the granularity mode), the
@@ -43,7 +43,7 @@ from:
   run is an acceptance run with seeds outside the corpus, and the mode is
   ``live``.
 - ``live``: the earlier implementation runs. Where the corpus holds the
-  case, both must be equal, as ``expressions.compare()`` sees it and in the
+  case, both must be equal, as ``differential.compare()`` sees it and in the
   message, which ``compare()`` leaves out. A run of the suite in this mode
   shows that the corpus still holds what the implementation computes.
 - ``record``: the earlier implementation runs, and each result is appended to
@@ -170,7 +170,7 @@ def corpus_key(kind, expression, options, *, dry_run=False):
 def reference_outcome(kind, expression, **options):
     """Return the outcome of the earlier implementation for an expression
 
-    The outcome is that of ``expressions.outcome()`` with the runner
+    The outcome is that of ``differential.outcome()`` with the runner
     ``"reference"`` and the basename ``fa``, taken from the corpus or computed,
     as the mode says. Taken from the corpus, it leaves no dataset ``Rfa`` and
     no maps behind for the caller to read.
@@ -195,22 +195,22 @@ def reference_rejects_syntax(kind, expression, **options):
 
 
 def _run_outcome(kind, expression, options):
-    # Imported here: expressions uses this module, and a module level import
+    # Imported here: differential uses this module, and a module level import
     # in both directions fails for whichever of the two is imported first
-    from . import expressions
+    from . import differential
 
-    return expressions.outcome(
-        kind, expression, expressions.RUNNERS["reference"], basename="fa", **options
+    return differential.outcome(
+        kind, expression, differential.RUNNERS["reference"], basename="fa", **options
     )
 
 
 def _run_rejects_syntax(kind, expression, options):
-    from . import expressions
+    from . import differential
 
     options = {**options, "run": False, "debug": False}
     options.pop("granularity", None)
     try:
-        expressions.RUNNERS["reference"](
+        differential.RUNNERS["reference"](
             kind, f"Rfa = {expression}", basename="fa", overwrite=True, **options
         )
     except SyntaxError:
@@ -252,9 +252,9 @@ def _reference(kind, expression, options, run, *, dry_run):
 def _same(kind, expression, stored, value, dry_run):
     if dry_run:
         return stored == value
-    from . import expressions
+    from . import differential
 
-    if expressions.compare(kind, expression, stored, value) is not None:
+    if differential.compare(kind, expression, stored, value) is not None:
         return False
     return stored.get("msg") == value.get("msg")
 

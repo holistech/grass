@@ -23,7 +23,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, register_stds
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 KIND = "vector"

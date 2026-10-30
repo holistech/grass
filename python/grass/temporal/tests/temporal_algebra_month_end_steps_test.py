@@ -13,7 +13,7 @@ from datetime import datetime
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 # Every test chooses its algebra itself, see the marker in pyproject.toml.

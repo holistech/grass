@@ -12,7 +12,7 @@ class).
 
 import pytest
 
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.differential import RUNNERS, outcome
 
 KIND = "raster3d"
 

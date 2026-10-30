@@ -1338,21 +1338,31 @@
    },
    "origins": "repo"
   },
-  "grass.temporal.testing.expressions": {
+  "grass.temporal.testing.differential": {
    "names": {
     "RUNNERS": "repo",
     "accepted_error_pair": "repo",
-    "boundary_forms": "repo",
     "check_agreement": "repo",
     "check_difference_seen": "repo",
-    "check_seed": "repo",
     "compare": "repo",
     "compare_runs": "repo",
     "failed_module_pair": "repo",
-    "generate": "repo",
     "outcome": "repo",
-    "prepare": "repo",
+    "prepare": "repo"
+   },
+   "origins": "repo"
+  },
+  "grass.temporal.testing.expressions": {
+   "names": {
+    "check_seed": "repo",
     "seed_range": "repo"
+   },
+   "origins": "repo"
+  },
+  "grass.temporal.testing.expressions_generator": {
+   "names": {
+    "boundary_forms": "repo",
+    "generate": "repo"
    },
    "origins": "repo"
   },

@@ -20,7 +20,7 @@ import re
 
 import grass.temporal as tgis
 from grass.temporal.testing.data import MapSpec, create_stds, make_map, register_stds
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.differential import RUNNERS, outcome
 
 _STDS = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
 _MAP = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}

@@ -12,7 +12,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal.testing import expressions
+from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
 
 SAME = [
@@ -177,12 +177,12 @@ def test_profile_equals_reference(vector_series, expression):
     """-c computes what the earlier implementation of the classic algebra
     computed, also where the core differs"""
     # The result of the earlier implementation comes from the recorded
-    # corpus, which stores the form of expressions.outcome(), so the profile
+    # corpus, which stores the form of differential.outcome(), so the profile
     # is read in that form as well. That form holds the numbers of points,
     # lines and areas but not of centroids, which outcome() above also reads
     # for the comparison of the core with the profile.
     reference = reference_outcome("vector", expression)
-    profile = expressions.outcome(
-        "vector", expression, expressions.RUNNERS["classic"], basename="fb"
+    profile = differential.outcome(
+        "vector", expression, differential.RUNNERS["classic"], basename="fb"
     )
-    assert expressions.compare("vector", expression, reference, profile) is None
+    assert differential.compare("vector", expression, reference, profile) is None

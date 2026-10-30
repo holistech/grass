@@ -10,7 +10,7 @@ import itertools
 
 import pytest
 
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.temporal.testing.differential import RUNNERS, compare, outcome
 from grass.tools import Tools
 
 KINDS = {"strds": "t_rast_list", "stvds": "t_vect_list", "str3ds": "t_rast3d_list"}

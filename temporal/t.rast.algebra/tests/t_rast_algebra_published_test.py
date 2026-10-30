@@ -23,7 +23,7 @@ import pytest
 from grass.temporal.testing import fakes
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
-from grass.temporal.testing.expressions import (
+from grass.temporal.testing.differential import (
     RUNNERS,
     compare,
     outcome,

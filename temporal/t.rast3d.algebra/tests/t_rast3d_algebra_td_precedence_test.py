@@ -7,7 +7,7 @@ the values 1, 2, 3 and 4, so td(A) is 1 for each of them.
 import pytest
 
 from grass.temporal.testing import fakes
-from grass.temporal.testing.expressions import RUNNERS, outcome, prepare
+from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
 

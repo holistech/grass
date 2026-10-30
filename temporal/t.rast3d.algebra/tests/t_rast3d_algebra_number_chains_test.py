@@ -7,7 +7,7 @@ As t_rast_algebra_number_chains_test.py. A has four maps with the values 1, 2,
 import pytest
 
 from grass.temporal.testing import fakes
-from grass.temporal.testing.expressions import RUNNERS, outcome, prepare
+from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
 

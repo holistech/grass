@@ -14,7 +14,7 @@ import grass.temporal as tgis
 from grass.temporal.algebra.parser import evaluate
 from grass.temporal.algebra.parser.classic import CLASSIC
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal.testing import expressions
+from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
 from grass.tools import Tools
 
@@ -217,13 +217,13 @@ def test_profile_equals_reference(series, expression):
     """-c selects what the earlier implementation of the classic algebra
     selected, also where the core differs"""
     # The result of the earlier implementation comes from the recorded corpus,
-    # which stores the form of expressions.outcome(), so the profile is read in
+    # which stores the form of differential.outcome(), so the profile is read in
     # that form as well. That form names each map without its mapset; it
     # also compares the values, to 6 significant digits, which the form of
     # outcome() above leaves out.
     reference = reference_outcome("select", expression, stdstype="strds")
     profile = selection_outcome("classic", "fb", expression)
-    assert expressions.compare("select", expression, reference, profile) is None
+    assert differential.compare("select", expression, reference, profile) is None
     if expression in SAME:
         # Two errors or two empty results are equal and would compare nothing.
         assert profile.get("maps")
@@ -243,10 +243,10 @@ TIME_FUNCTION_RESULTS = [
 def selection_outcome(
     runner, basename, expression=TIME_FUNCTION_SELECTED, stdstype="strds"
 ):
-    return expressions.outcome(
+    return differential.outcome(
         "select",
         expression,
-        expressions.RUNNERS[runner],
+        differential.RUNNERS[runner],
         basename=basename,
         stdstype=stdstype,
     )
@@ -271,10 +271,10 @@ def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(
     profile = selection_outcome("classic", "tfpro", expression, stdstype)
     assert reference["error"] == "Other:CalledModuleError"
     assert profile["error"] == "Other:ValueError"
-    assert expressions.accepted_error_pair(
+    assert differential.accepted_error_pair(
         "select", expression, reference, profile
     ) == ("Other:CalledModuleError/Other:ValueError")
-    assert expressions.compare_runs("select", expression, reference, profile) is None
+    assert differential.compare_runs("select", expression, reference, profile) is None
 
 
 @pytest.mark.parametrize(
@@ -307,4 +307,4 @@ def test_the_error_pair_of_a_time_function_as_the_selected_maps_is_accepted(
 )
 def test_other_pairs_with_a_value_error_are_differences(first, second):
     """Only the class of the time function is accepted"""
-    assert expressions.accepted_error_pair("select", "A", first, second) is None
+    assert differential.accepted_error_pair("select", "A", first, second) is None

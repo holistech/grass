@@ -11,9 +11,9 @@ in the relations listed there.
 
 import pytest
 
-from grass.temporal.testing import expressions
+from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
-from grass.temporal.testing.expressions import RUNNERS, compare, outcome
+from grass.temporal.testing.differential import RUNNERS, compare, outcome
 from grass.tools import Tools
 
 PRINTED = "STR3DS(A) {:,during,l} STVDS(B)"
@@ -23,7 +23,7 @@ LOWER_CASE = "str3ds(A) {:,during,l} stvds(B)"
 @pytest.fixture
 def str3ds_result(monkeypatch):
     """Read the result of a selection as a dataset of type str3ds"""
-    monkeypatch.setitem(expressions.STDS_TYPES, "select", "str3ds")
+    monkeypatch.setitem(differential.STDS_TYPES, "select", "str3ds")
 
 
 def run(runner, expression, basename):

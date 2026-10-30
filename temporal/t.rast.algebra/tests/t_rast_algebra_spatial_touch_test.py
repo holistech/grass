@@ -32,7 +32,7 @@ is shared by a1 and b1 with a4, and by a1 with b3.
 import pytest
 
 from grass.temporal.testing.data import MapSpec, day, register_stds
-from grass.temporal.testing.expressions import RUNNERS, outcome
+from grass.temporal.testing.differential import RUNNERS, outcome
 from grass.tools import Tools
 
 KIND = "raster"

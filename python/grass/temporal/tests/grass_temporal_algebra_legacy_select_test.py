@@ -18,7 +18,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 
-from grass.temporal.testing import expressions, legacy_data
+from grass.temporal.testing import differential, legacy_data
 from grass.tools import Tools
 
 KIND = "select"
@@ -316,10 +316,10 @@ def test_the_core_and_the_profile_refuse_a_time_function_as_the_selected_maps(
     # The run of the planned expression of DRY_REFUSED stops before it creates
     # the result dataset or a map. A basename of its own, so that the maps of
     # the other cases do not hide a map of this run.
-    result = expressions.outcome(
+    result = differential.outcome(
         KIND,
         "if(start_doy(A)<3,start_doy(A, 1), A)",
-        expressions.RUNNERS[runner],
+        differential.RUNNERS[runner],
         basename=basename,
         stdstype="strds",
     )
