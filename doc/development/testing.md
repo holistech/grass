@@ -344,11 +344,10 @@ python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
 An expression on which the reference and the classic profile differ is an
 error of the profile, unless it is a documented difference: message texts,
 debug output, the class of the error of an invalid expression (the profile
-reads the whole expression first and reports the syntax error), the relation
-name `equals` (the reference refuses it), and a relation over a list of
-absolute and relative time (the reference stops with a `TypeError`). The
-section "Differences from the reference implementation" of the
-_t.rast.algebra_ manual describes them all. The module docstring lists the
+reads the whole expression first and reports the syntax error), and a
+relation over a list of absolute and relative time (the reference stops with a
+`TypeError`). The section "Differences from the reference implementation" of
+the _t.rast.algebra_ manual describes them all. The module docstring lists the
 options.
 
 ### Recordings of the library
