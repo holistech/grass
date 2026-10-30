@@ -103,13 +103,22 @@ class Translator:
 
     The protected extension points of the class are statement(), value() and
     the methods _result, _name, _index, _single_map, _operands, _binary,
-    _binary_values, _relation, _select, _count, _overlay, _arithmetic,
-    _combine, _apply, _compare, _logical, _if, _temporal_if, _field_if,
-    _conditions, _function, _call, _time_variable, _tsnap, _tshift, _buff_t
-    and _merge. A subclass for another variant of the algebra overrides them
-    and relies on their signatures; the translation calls every one of them
-    as a method of self, so an override is always reached. The other private
-    names are details of this class.
+    _binary_values, _relation, _aligned, _relating_options, _select_op,
+    _pairs_op, _gather_op, _select, _count, _overlay, _arithmetic, _combine,
+    _apply, _compare, _compare_related, _logical, _if, _temporal_if,
+    _field_if, _conditions, _function, _call, _time_variable, _tsnap,
+    _tshift, _buff_t and _merge. A subclass for another variant of the
+    algebra overrides them and relies on their signatures; the translation
+    calls every one of them as a method of self, so an override is always
+    reached. The other private names are details of this class.
+
+    Every select(), pairs() and gather() of the translation goes through
+    _select_op(), _pairs_op() or _gather_op(), which add the options of
+    _relating_options(); a variant that relates maps by other rules
+    overrides that one method (the classic profile asks for the written
+    order of the relation names, once per name). _conditions() names order
+    and unique itself, so the conditions of if() relate alike in every
+    variant.
     """
 
     def __init__(
@@ -152,12 +161,21 @@ class Translator:
         return node.target, result
 
     def _result(self, target, result):
-        """Return the value of the expression that target is registered as;
-        a profile refuses here what it cannot register"""
+        """Return the value of the expression that target is registered as
+
+        A profile refuses here what it cannot register.
+        """
         return result
 
     def value(self, node):
-        """Return the series, content node or text of a syntax tree node"""
+        """Return the series, content node or text of a syntax tree node
+
+        The method is chosen by the class name of the node: _number for
+        ast.Number, _negative for ast.Negative, and so on for _text, _name,
+        _index, _binary and _function. Apart from _name, which _index also
+        calls, none of them is called by name, so a search for a caller finds
+        only this method.
+        """
         return getattr(self, f"_{type(node).__name__.lower()}")(node)
 
     @staticmethod
@@ -252,9 +270,10 @@ class Translator:
         return dataclasses.replace(right, kind=left.kind)
 
     def _relating_options(self):
-        """Return the options that every select(), pairs() and gather() of
-        the translation passes; an option that a call names itself takes
-        precedence"""
+        """Return the options of every select(), pairs() and gather()
+
+        An option that a call names itself takes precedence.
+        """
         return {"mixed_times": self.profile.mixed_times}
 
     def _select_op(self, left, relation, other, **options):
@@ -402,10 +421,10 @@ class Translator:
         return self._apply(symbol, left, right)
 
     def _compare_related(self, symbol, left, right, operator):
-        """A comparison with a temporal relation: each left map is compared
-        with every related map, and the comparisons are joined by the
-        aggregation of the operator, (a1 >= f1 && a1 >= f2)
+        """Return a comparison with a temporal relation
 
+        Each left map is compared with every related map, and the comparisons
+        are joined by the aggregation of the operator, (a1 >= f1 && a1 >= f2).
         With the temporal reference r every pair is compared on its own and
         takes the time stamp of the right map, as in _logical().
         """
@@ -585,8 +604,8 @@ class Translator:
         # Every variant relates the conditions of if() in time order and once
         # per map, so order and unique are named here and the relating options
         # of a profile do not reach them. The classic profile comes here
-        # through _temporal_if() and has always related the conditions so;
-        # its results must not change.
+        # through _temporal_if(); the results of the reference that its tests
+        # compare with were recorded with this order.
         return self._gather_op(
             target,
             inverse(self._relation(operator)),
@@ -632,8 +651,10 @@ class Translator:
         return self._datasets[ident, stds_type]
 
     def _call(self, name, arguments, relation):
-        """Return the value of a known function other than tmap() and map()
-        from the values of its arguments"""
+        """Return the value of a known function from the values of its arguments
+
+        tmap() and map() are not among them; _function() reads those.
+        """
         if name == "if":
             return self._if(arguments, relation)
         if name in _CELL_FUNCTIONS:

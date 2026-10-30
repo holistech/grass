@@ -16,6 +16,11 @@ independently of the ``p_`` methods of the reference. A test compares
 every production text, the precedence and the tokens with the copy, so that a
 change of either side is noticed.
 
+The lexers are not copied: the grammar reads the expression with the lexer
+classes of the reference itself (``_lexer_class()``), so that it reads exactly
+the tokens of the reference. The classic profile therefore needs
+``grass.temporal.classic`` at run time.
+
 The PLY version of the package builds its tables in memory and writes nothing
 next to the source; debug=False also keeps it from writing a parser.out.
 
@@ -134,10 +139,11 @@ def _operator(text, errors):
         for word in part.split("|"):
             word = word.strip()
             if word.lower() in _NAMES and word != word.lower():
-                # The classic operator lexer knows the relation names in
-                # lower case only (found by the fuzzer, 15.10.2026:
-                # A {+,EQUAL} N); parse_operator() lowers them. It reports
-                # the offset of the word in the operator text.
+                # The operator lexer of the reference knows the relation names
+                # in lower case only, so A {+,EQUAL} N is a syntax error
+                # there; parse_operator() lowers them. The error names the
+                # offset of the word in the operator text, as the reference
+                # does.
                 position = text.index(word, searched_from)
                 errors.append(
                     f"syntax error on line 1 position {position} near '{word}'"

@@ -42,10 +42,10 @@ from .switch import classic_selected
 
 
 class _AlgebraParser:
-    """What the three public parser classes share; the subclasses name the
-    class of the reference
+    """What the three public parser classes share
 
-    The constructor arguments are kept as attributes with the same names that
+    The subclasses name the class of the reference and the map type. The
+    constructor arguments are kept as attributes with the same names that
     the reference has, so that code which reads or sets ``run`` or ``debug``
     after the construction keeps working. They are handed to the reference
     object again each time it is asked for.
@@ -68,9 +68,15 @@ class _AlgebraParser:
         The defaults ``run=False, debug=True`` are those of the classes of the
         reference, so that a caller written for them gets the same behaviour.
 
-        classic selects the classic algebra (True) or the algebra core (False);
-        None follows the environment variable GRASS_TEMPORAL_ALGEBRA, whose
-        default is the core.
+        :param pid: the process id in the names of the temporary maps of the
+            reference object; the core does not use it
+        :param run: compute the expression; False only checks its syntax
+        :param debug: print the module calls
+        :param spatial: relate the maps in space as well as in time, the flag
+            -s of the tools
+        :param classic: True selects the classic algebra, False the core;
+            None follows the environment variable GRASS_TEMPORAL_ALGEBRA,
+            whose default is the core
         """
         self.pid = pid
         self.run = run
@@ -193,6 +199,18 @@ class _GriddedAlgebraParser(_AlgebraParser):
         time_suffix=None,
         classic: bool | None = None,
     ) -> None:
+        """Create the parser
+
+        :param register_null: register result maps that have only null cells
+            (flag -n)
+        :param dry_run: plan the maps without computing or registering them
+            (flag -d)
+        :param nprocs: the number of processes that compute maps
+        :param time_suffix: "gran" or "time" names the maps after their start
+            time; any other value numbers them
+
+        The other parameters are those of _AlgebraParser.__init__().
+        """
         _AlgebraParser.__init__(self, pid, run, debug, spatial, classic)
         self.register_null = register_null
         self.dry_run = dry_run
@@ -202,13 +220,21 @@ class _GriddedAlgebraParser(_AlgebraParser):
     def parse(self, expression, basename=None, overwrite=False):
         """Parse the expression and compute the result
 
-        The expression is translated onto grass.temporal.algebra, with the
-        rules of the core or, if the classic algebra is selected (see
-        __init__), with those of its classic profile. After
-        setup_common_granularity() both sample the datasets with their common
-        granularity.
+        The expression is translated onto the core, with the rules of the core
+        or, if the classic algebra is selected (see __init__), with those of
+        the classic profile. After setup_common_granularity() both sample the
+        datasets with their common granularity.
 
-        :return: the process chain dictionary
+        :param expression: the assignment, e.g. ``"R = A + B"``
+        :param basename: the prefix of the names of the new maps
+        :param overwrite: overwrite existing result maps and datasets
+        :return: the process chain dictionary; its ``register`` entry lists
+            the (name, start, end) of the registered maps
+        :raises SyntaxError: for an invalid expression
+        :raises ValueError, TypeError: for an expression that cannot be
+            computed
+        :raises FatalError: for a missing dataset or map, and without
+            overwrite for an existing result
         """
         return self._evaluate(
             expression,
@@ -223,37 +249,53 @@ class _GriddedAlgebraParser(_AlgebraParser):
 
 
 class TemporalRasterAlgebraParser(_GriddedAlgebraParser):
-    """The temporal raster algebra class"""
+    """The temporal algebra of space time raster datasets (t.rast.algebra)
+
+    parse() computes an expression with the core or with the classic profile,
+    as the option classic of the constructor selects.
+    """
 
     _reference_class = _RasterReference
     _kind = "raster"
 
 
 class TemporalRaster3DAlgebraParser(_GriddedAlgebraParser):
-    """The temporal 3D raster algebra class"""
+    """The temporal algebra of space time 3D raster datasets (t.rast3d.algebra)
+
+    parse() computes an expression with the core or with the classic profile,
+    as the option classic of the constructor selects.
+    """
 
     _reference_class = _Raster3DReference
     _kind = "raster3d"
 
 
 class TemporalVectorAlgebraParser(_AlgebraParser):
-    """The temporal vector algebra class"""
+    """The temporal algebra of space time vector datasets (t.vect.algebra)
+
+    parse() computes an expression with the core or with the classic profile,
+    as the option classic of the constructor selects.
+    """
 
     _reference_class = _VectorReference
     _kind = "vector"
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):
-        """Parse the expression and run the computation
+        """Parse the expression and compute the result
 
-        The expression is translated onto grass.temporal.algebra, with the
-        rules of the core or, if the classic algebra is selected (see
-        __init__), with those of its classic profile.
+        The expression is translated onto the core, with the rules of the core
+        or, if the classic algebra is selected (see __init__), with those of
+        the classic profile.
 
-        :param expression: The assignment, e.g. ``"R = A & B"``
-        :param basename: Prefix of the names of the new vector maps
-        :param overwrite: Overwrite existing result maps and datasets
-        :return: The process chain dictionary; its ``register`` entry lists the
-            (name, start, end) of the registered maps
-        :raises SyntaxError: for invalid expressions
+        :param expression: the assignment, e.g. ``"R = A & B"``
+        :param basename: the prefix of the names of the new vector maps
+        :param overwrite: overwrite existing result maps and datasets
+        :return: the process chain dictionary; its ``register`` entry lists
+            the (name, start, end) of the registered maps
+        :raises SyntaxError: for an invalid expression
+        :raises ValueError, TypeError: for an expression that cannot be
+            computed
+        :raises FatalError: for a missing dataset or map, and without
+            overwrite for an existing result
         """
         return self._evaluate(expression, basename, overwrite)

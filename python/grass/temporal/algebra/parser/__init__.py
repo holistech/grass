@@ -288,8 +288,10 @@ def _as_process_dict(call, overwrite):
 
 
 def _shown_parameters(call):
-    # The joined maps come first, so that the dry run of a reduction that
-    # skips null cells keeps the order it has always shown.
+    # The joined maps come first, where r.series input=... output=... names
+    # them: the dry run of a reduction that skips null cells shows its maps
+    # in that place (temporal_algebra_core_plan_test.py holds it). An
+    # aggregation gets the same order, though no tool shows its dry run.
     inputs = [("input", ",".join(call.inputs))] if call.inputs else []
     return [*inputs, *call.parameters.items()]
 
