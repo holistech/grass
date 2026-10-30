@@ -198,6 +198,17 @@ def test_materialize_runs_a_given_chain(session):
     assert not stds_exists("Other")
 
 
+def test_materialize_refuses_a_chain_of_another_map_type(session):
+    """A chain planned for raster maps does not run for a vector series of
+    the same name, and nothing is written"""
+    tools = Tools(session=session, consistent_return_value=True)
+    chain = ta.plan(ta.source("A") * 2, "Typed", basename="typed")
+    before = readback.inventory(tools)
+    with pytest.raises(ValueError, match="strds <Typed>, not the stvds <Typed>"):
+        ta.materialize(ta.Series((), "vector"), "Typed", chain=chain, overwrite=True)
+    assert readback.inventory(tools) == before
+
+
 def test_a_selection_numbers_its_copies_like_the_classic_algebra(session):
     expression = "R = merge(A, tshift(A, '1 day'))"
     chain = run_reference(
