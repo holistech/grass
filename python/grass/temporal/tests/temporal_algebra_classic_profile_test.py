@@ -7,10 +7,10 @@ itself is compared in the test directories of the algebra tools.
 import pytest
 
 from grass.temporal.algebra import CORE, Profile
-from grass.temporal.algebra.parser import classic, evaluate, translate
+from grass.temporal.algebra.parser import classic, classic_numbers, evaluate, translate
 from grass.temporal.algebra.parser.classic_grammar import classic_grammar
-from grass.temporal.algebra.profile import CLASSIC
 from grass.temporal.algebra.parser.translate import Translator
+from grass.temporal.algebra.profile import CLASSIC
 
 
 @pytest.fixture
@@ -186,7 +186,7 @@ def test_clearing_a_count_keeps_the_map_it_counted(in_memory_datasets, monkeypat
     ],
 )
 def test_an_integer_constant_is_read_as_r_mapcalc_reads_it(value, read):
-    assert classic._as_mapcalc_reads(value) == read
+    assert classic_numbers.as_mapcalc_reads(value) == read
 
 
 # Measured 2026-10-24 with r.mapcalc "x = <left> <symbol> <right>" and
@@ -218,7 +218,7 @@ def test_an_integer_constant_is_read_as_r_mapcalc_reads_it(value, read):
 def test_time_values_are_computed_as_r_mapcalc_computes_them(
     symbol, left, right, expected
 ):
-    result = classic._mapcalc_arithmetic(symbol, left, right)
+    result = classic_numbers.mapcalc_arithmetic(symbol, left, right)
     if isinstance(expected, float):
         assert isinstance(result, float)
         assert result == pytest.approx(expected)
