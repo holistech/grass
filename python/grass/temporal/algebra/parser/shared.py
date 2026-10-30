@@ -9,7 +9,7 @@ from grass.temporal.algebra import time_functions
 from grass.temporal.algebra.content import Const
 from grass.temporal.algebra.series import Series
 
-EXTENTS = {"l": "target", "u": "union", "i": "intersection", "d": "disjoint"}
+EXTENTS = {"l": "left", "u": "union", "i": "intersection", "d": "disjoint"}
 # Marks an if() without else, which differs from an else of null().
 ABSENT = object()
 

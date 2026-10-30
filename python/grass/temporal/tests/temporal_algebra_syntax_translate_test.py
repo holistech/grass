@@ -153,7 +153,7 @@ def test_arithmetic_of_maps_without_time_stamp(translator, datasets):
 
 @pytest.mark.parametrize(
     ("temporal", "extent"),
-    [("l", "target"), ("u", "union"), ("i", "intersection"), ("d", "disjoint")],
+    [("l", "left"), ("u", "union"), ("i", "intersection"), ("d", "disjoint")],
 )
 def test_arithmetic_with_temporal_operator(translator, datasets, temporal, extent):
     b, a = datasets["B"], datasets["A"]

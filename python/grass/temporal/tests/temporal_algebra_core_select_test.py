@@ -143,6 +143,17 @@ def test_unknown_extent_is_rejected(a, b):
         pairs(a, during, b, extent="target")
 
 
+def test_select_refuses_target(a, b):
+    """The time stamp of the left operand is "left" in every relating
+    operation, so "target" is refused by name"""
+    with pytest.raises(
+        ValueError,
+        match=r"^extent must be one of left, right, union, intersection, "
+        r"disjoint, got 'target'$",
+    ):
+        select(a, during, b, extent="target")
+
+
 # Expected values observed 2026-10-11 by calling temporal_union,
 # temporal_intersection and temporal_disjoint_union of map objects on these
 # extents (an instant is written with end None):

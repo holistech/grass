@@ -44,7 +44,7 @@ from .variants import (
 
 PAIR_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
 SELECT_EXTENTS = PAIR_EXTENTS
-GATHER_EXTENTS = ("target", "union", "intersection", "disjoint")
+GATHER_EXTENTS = ("left", "union", "intersection", "disjoint")
 SPACES = ("keep", "union", "intersection")
 FAILURES = ("empty", "stop", "skip")
 BOXES = ("intersection", "union")
@@ -80,9 +80,9 @@ def _origin(content, extent, *slots):
 def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=False):
     """The time stamp and the box of a target combined with related slots
 
-    "left" and "target" keep the time stamp of the target, "right" takes that
-    of each related slot in turn, so that of the last one. The other modes
-    fold the target with each related slot in turn using the methods of
+    "left" keeps the time stamp of the target, "right" takes that of each
+    related slot in turn, so that of the last one. The other modes fold the
+    target with each related slot in turn using the methods of
     grass.temporal. With box the box of the target is combined with the box
     of each related slot in the same step (see combine_boxes()).
 
@@ -107,7 +107,7 @@ def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=F
         ok = True
         if mode == "right":
             extent = partner.extent
-        elif mode not in {"left", "target"}:
+        elif mode != "left":
             combined = getattr(as_map(extent), _COMBINE[mode])(as_map(partner.extent))
             found = extent_from(combined, target.extent.unit)
             if found is None:
@@ -515,7 +515,7 @@ def gather(
     *,
     reduce,
     missing="drop",
-    extent="target",
+    extent="left",
     equal_times="all",
     nulls="propagate",
     space="keep",
@@ -539,10 +539,10 @@ def gather(
         compare(), which compares it with each related content.
     :param missing: a target without related slot is dropped ("drop"),
         gets a null content ("null") or stays as it is ("keep")
-    :param extent: the time stamp of a result slot: that of the target, or
-        its union, intersection or disjoint union with the related slots; a
-        target whose combined time stamp is empty (an intersection without
-        overlap) is left out whatever missing says
+    :param extent: the time stamp of a result slot: that of the target
+        ("left"), or its union, intersection or disjoint union with the
+        related slots; a target whose combined time stamp is empty (an
+        intersection without overlap) is left out whatever missing says
     :param equal_times: "all" relates every map of a time to a target,
         "pairwise" pairs maps of equal time stamps one to one; without effect
         if space takes part in the relation

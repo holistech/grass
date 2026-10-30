@@ -376,14 +376,38 @@ def test_extent_of_the_result(make_series):
     y = make_series("y", (2, 5))
     times = {
         mode: gather(x, overlaps, y, reduce="first", extent=mode).times()
-        for mode in ("target", "union", "intersection", "disjoint")
+        for mode in ("left", "union", "intersection", "disjoint")
     }
     assert times == {
-        "target": [(day(1), day(3))],
+        "left": [(day(1), day(3))],
         "union": [(day(1), day(5))],
         "intersection": [(day(2), day(3))],
         "disjoint": [(day(1), day(5))],
     }
+
+
+def test_gather_keeps_the_left_time_stamp(make_series):
+    """The time stamp of the left operand, named as in select() and pairs(),
+    is also the default"""
+    x = make_series("x", (1, 3))
+    y = make_series("y", (2, 5))
+    for result in (
+        gather(x, overlaps, y, reduce="first", extent="left"),
+        gather(x, overlaps, y, reduce="first"),
+    ):
+        assert result.times() == [(day(1), day(3))]
+        assert contents(result) == [ref("y1")]
+
+
+def test_gather_refuses_target(a, b):
+    """The message names the allowed values, and "target" is not taken as
+    another name of the left time stamp"""
+    with pytest.raises(
+        ValueError,
+        match=r"^extent must be one of left, union, intersection, disjoint, "
+        r"got 'target'$",
+    ):
+        gather(b, contains, a, reduce="sum", extent="target")
 
 
 def test_intersection_of_adjacent_maps_is_an_instant(make_series):
@@ -398,7 +422,6 @@ def test_intersection_of_adjacent_maps_is_an_instant(make_series):
     [
         ("missing", "ignore"),
         ("missing", None),
-        ("extent", "left"),
         ("extent", "right"),
         ("equal_times", "first"),
         ("nulls", "ignore"),
