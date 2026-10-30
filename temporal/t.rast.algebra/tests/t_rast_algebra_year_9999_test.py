@@ -1,9 +1,10 @@
 """A date step beyond the year 9999 ends t.rast.algebra with a message
 
 datetime holds no date after 9999-12-31. A step in days past it used to raise
-OverflowError, which neither the core nor the earlier implementation catches,
-so the tool ended with a traceback. The step now raises ValueError, as the
-step in months does, and the tool reports it as an error of the input.
+OverflowError, which neither the core nor the reference implementation
+(grass.temporal.classic) catches, so the tool ended with a traceback. The step
+now raises ValueError, as the step in months does, and the tool reports it as
+an error of the input.
 """
 
 from datetime import datetime
@@ -51,8 +52,8 @@ def test_a_step_of_days_beyond_9999_ends_with_a_message(end_of_time, expression)
 @pytest.mark.fixed_algebra
 @pytest.mark.parametrize("expression", EXPRESSIONS)
 def test_the_earlier_implementation_raises_a_value_error(end_of_time, expression):
-    # The earlier implementation passes the library error on: ValueError, which
-    # outcome() of the expression fuzzer reports as "Other:ValueError".
+    # The reference passes the library error on: ValueError, which outcome() of
+    # the expression fuzzer reports as "Other:ValueError".
     with pytest.raises(ValueError, match="beyond the year 9999"):
         run_reference(
             "raster", f"R = {expression}", basename="r", overwrite=True, run=True

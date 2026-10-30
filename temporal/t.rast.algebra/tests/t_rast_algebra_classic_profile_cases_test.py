@@ -1,12 +1,12 @@
-"""Cases where the classic profile once differed from the classic algebra
+"""Cases where the classic profile once differed from the reference implementation
 
-Each expression runs on the classic profile (what -c runs), on the datasets
-of the expression fuzzer, and is compared with the outcome of the classic
-algebra of the parser classes, the reference, that
-grass.temporal.testing.corpus holds. The registered maps or the class of the
-error must be equal. The cases came from fuzz runs and from the analysis of
-single differences; they are the rules that the hard cases in
-t_rast_algebra_classic_profile_test.py do not cover.
+Each expression runs on the classic profile (what -c runs), on the datasets of
+the expression fuzzer, and is compared with the outcome of the reference
+implementation (grass.temporal.classic) that grass.temporal.testing.corpus
+holds. The registered maps or the class of the error must be equal. The cases
+came from fuzz runs and from the analysis of single differences; they are the
+rules that the hard cases in t_rast_algebra_classic_profile_test.py do not
+cover.
 """
 
 import pytest
@@ -390,10 +390,11 @@ FIRST_COUNT = [
     "if(A # N >= 3000000000, A)",
 ]
 
-# td() of a counted map is its duration. The earlier implementation appended
-# the duration after the count and read the first value, the count, in a
-# comparison and as an operand (corrected 17.10.2026, both implementations
-# give the duration). A # merge(N, HA) counts 2 for maps of one day.
+# td() of a counted map is its duration. The reference implementation
+# (grass.temporal.classic) appended the duration after the count and read the
+# first value, the count, in a comparison and as an operand (corrected
+# 17.10.2026, both implementations give the duration). A # merge(N, HA) counts
+# 2 for maps of one day.
 COUNTED_DURATION = [
     "if(td(A # merge(N, HA)) > 1.5, A)",
     "if(td(A # merge(N, HA)) < 1.5, A)",
@@ -593,15 +594,14 @@ def test_only_the_report_of_a_failed_module_is_accepted(datasets):
     assert difference("A", failed, other) is not None
 
 
-# A time function of a map read at an offset, joined with a condition on
-# cells, is a truth value like the one of any registered map. The earlier
-# implementation wrote the neighbour map itself as the operand of && and ||
-# (if(a2 && a1, ...)), so a map with a value other than 0 was true whatever
-# the time function said (corrected 17.10.2026). A has the values 1 to 4 in
-# four daily maps. The years and months of the maps are 2001 and 1, so each
-# time condition is false and && gives 0, || the cell condition alone. A[1]
-# has no map for the last day, A[0,1] has one for each day; if() without
-# else is 0 in the classic algebra.
+# A time function of a map read at an offset, joined with a condition on cells,
+# is a truth value like the one of any registered map. The reference wrote the
+# neighbour map itself as the operand of && and || (if(a2 && a1, ...)), so a
+# map with a value other than 0 was true whatever the time function said
+# (corrected 17.10.2026). A has the values 1 to 4 in four daily maps. The years
+# and months of the maps are 2001 and 1, so each time condition is false and &&
+# gives 0, || the cell condition alone. A[1] has no map for the last day,
+# A[0,1] has one for each day; if() without else is 0 in the classic algebra.
 NEIGHBOUR_TRUTH_VALUES = [
     ("if(end_year(A[1]) == 1 && exist(A), A)", [0, 0, 0]),
     ("if(end_year(A[1]) == 1 || A > 2, A)", [0, 0, 3]),
@@ -1073,10 +1073,10 @@ def test_a_merge_of_units_fails_only_when_registered(datasets, expression, granu
 
 
 # A relation over a list that mixes maps of absolute and relative time stops
-# the previous implementation with a TypeError while it builds the topology,
-# as it compares the start times of the two types. That crash is no result to
-# reproduce; the classic algebra relates the two types to nothing, so each
-# expression gives the result of the one without the maps of the other type.
+# the reference with a TypeError while it builds the topology, as it compares
+# the start times of the two types. That crash is no result to reproduce; the
+# classic algebra relates the two types to nothing, so each expression gives
+# the result of the one without the maps of the other type.
 CRASHED_MIXED_RELATIONS = [
     ("merge(tmap(sinst), RT) : RT", "RT : RT"),
     ("RT : merge(tmap(sinst), RT)", "RT : RT"),

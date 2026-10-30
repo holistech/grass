@@ -732,8 +732,8 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
     """A time function as a conclusion of if() gives numbers, not maps: the
     core stops with a message before it creates anything, as the list of
     differences in t.select.md says. The classic profile refuses it as well,
-    see below; the earlier implementation does not, see
-    t_select_differential_test.py."""
+    see below; the reference implementation (grass.temporal.classic) does
+    not, see t_select_differential_test.py."""
     tools = Tools(session=series.session, overwrite=True)
     env = dict(series.session.env, GRASS_TEMPORAL_ALGEBRA="core")
     rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
@@ -753,10 +753,10 @@ def test_core_refuses_a_time_function_as_the_selected_maps(series):
 
 
 def test_the_classic_profile_refuses_a_time_function_as_the_selected_maps(series):
-    """-c stops with the message of the core before it creates anything where
-    a value of the time function would be selected: a1 (day 1) meets the
-    condition and takes the value of a2, a map that the earlier
-    implementation never computed"""
+    """-c stops with the message of the core before it creates anything
+    where a value of the time function would be selected: a1 (day 1) meets
+    the condition and takes the value of a2, a map that the reference never
+    computed"""
     tools = Tools(session=series.session, overwrite=True)
     rasters = tools.g_list(type="raster", mapset="PERMANENT").text.split()
     with pytest.raises(ToolError) as error:
@@ -777,19 +777,19 @@ def test_the_classic_profile_selects_where_no_value_of_a_time_function_is_chosen
     series,
 ):
     """-c refuses a time function only where its value would be selected, as
-    the earlier implementation failed only there; the core refuses the form,
-    see the list of differences in t.select.md. Only a1 (day 1) meets the
-    condition, and a1 has no predecessor, so no value of start_doy(A, -1) is
-    chosen and else gives a2, a3 and a4."""
+    the reference failed only there; the core refuses the form, see the list
+    of differences in t.select.md. Only a1 (day 1) meets the condition, and
+    a1 has no predecessor, so no value of start_doy(A, -1) is chosen and
+    else gives a2, a3 and a4."""
     assert run_select(
         series.session, "if(start_doy(A) < 3, start_doy(A, -1), A)", flags="c"
     ) == [("a2", 10, 20), ("a3", 20, 30), ("a4", 30, 40)]
 
 
 def test_classic_flag_runs_the_classic_profile(series):
-    """-c selects on the classic profile of the core, not on the earlier
-    implementation: an increment the library refuses is reported with the
-    message of the library, the earlier one named tshift() and the unit"""
+    """-c selects on the classic profile of the core, not on the reference:
+    an increment the library refuses is reported with the message of the
+    library, the earlier one named tshift() and the unit"""
     tools = Tools(session=series.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_select(expression='profiled = A : tshift(B, "1 DAY")', flags="c")

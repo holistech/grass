@@ -1,12 +1,12 @@
 """A selection with r or u under -s and maps whose boxes only touch
 
 Under -s two maps are related when they are related in time and in space.
-Touching at an edge or a corner is no spatial relation. The classic profile
-and the core follow this; the earlier implementation (the reference) picks
-the maps to keep with the spatial test but takes the time to stamp from the
-temporal relations alone, so a partner that only touches changes the result.
-Decision of 23.10.2026: the profile stays as it is and the difference is
-documented as a correction of the classic algebra.
+Touching at an edge or a corner is no spatial relation. The classic profile and
+the core follow this; the reference implementation (grass.temporal.classic)
+picks the maps to keep with the spatial test but takes the time to stamp from
+the temporal relations alone, so a partner that only touches changes the
+result. Decision of 23.10.2026: the profile stays as it is and the difference
+is documented as a correction of the classic algebra.
 
 The maps of the datasets are single voxels of the height 0..10, a value 1 to
 4 in A and 11 to 13 in B, so the result tells which input map a result map comes from. Boxes

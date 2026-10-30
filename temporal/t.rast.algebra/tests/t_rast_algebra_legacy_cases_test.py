@@ -10,8 +10,8 @@ last end), written out per map: every map is constant, so a case lists
 (start, end, value, value). The per-map values follow from the values of the
 maps, which are given beside the cases.
 
-Every case runs in the earlier implementation (reference), in the classic
-profile and in the new algebra (core). CORE holds the cases where the core
+Every case runs in the reference implementation (grass.temporal.classic), in
+the classic profile and in the core. CORE holds the cases where the core
 differs, with the item of the section "Core and classic algebra" in the
 manual of t.rast.algebra that documents the difference.
 """

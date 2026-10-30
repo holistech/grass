@@ -135,14 +135,13 @@ def outcome(monkeypatch, expression, algebra, granularity=False):
     return rows(name)
 
 
-# The result of the earlier implementation comes from the recorded corpus,
-# which stores the form of differential.outcome(), so the profile is read in
-# that form as well.
-# That form rounds minimum and maximum to 6 significant digits, so this
-# comparison is coarser than the one of the core with the profile, which
-# outcome() above reads in full.
+# The result of the reference implementation (grass.temporal.classic) comes
+# from the recorded corpus, which stores the form of differential.outcome(), so
+# the profile is read in that form as well. That form rounds minimum and
+# maximum to 6 significant digits, so this comparison is coarser than the one
+# of the core with the profile, which outcome() above reads in full.
 def profile_difference(expression, **options):
-    """What compare() finds between the earlier implementation and -c"""
+    """What compare() finds between the reference and -c"""
     options = {"register_null": True, **options}
     reference = reference_outcome("raster3d", expression, **options)
     profile = differential.outcome(
@@ -196,8 +195,8 @@ def test_granularity_listed_differences_still_differ(
 @pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
 @pytest.mark.fixed_algebra
 def test_profile_equals_reference(series_3d, expression):
-    """-c computes what the earlier implementation of the classic algebra
-    computed, also where the core differs"""
+    """-c computes what the reference of the classic algebra computed, also
+    where the core differs"""
     assert profile_difference(expression) is None
 
 

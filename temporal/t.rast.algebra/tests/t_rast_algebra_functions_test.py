@@ -216,9 +216,10 @@ def test_merge_nested_and_with_shift(algebra):
     ["merge(A, tmap(singletmap))", "merge(tmap(singletmap), A)"],
 )
 def test_merge_with_a_single_map(algebra, classic, expression):
-    """A dataset and a single map can be merged, in either order. The earlier
-    implementation refused it because it compared the data type of a map read
-    from a dataset, which it had not loaded, with that of the single map."""
+    """A dataset and a single map can be merged, in either order. The
+    reference implementation (grass.temporal.classic) refused it because it
+    compared the data type of a map read from a dataset, which it had not
+    loaded, with that of the single map."""
     assert algebra.triples(expression, classic=classic) == [
         (1, 2, 1),
         (2, 3, 2),

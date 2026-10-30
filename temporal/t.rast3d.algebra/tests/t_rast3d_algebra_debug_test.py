@@ -50,10 +50,10 @@ def test_debug_output_of_the_classic_profile(series_3d, capsys):
 
 @pytest.mark.fixed_algebra
 def test_debug_output_of_the_reference(series_3d, capsys):
-    """The earlier implementation prints the r3.mapcalc commands and the
-    resulting statement, and without run the statement with the placeholder
-    name. Only the reference keeps this output; the classic profile prints the
-    module calls like the core."""
+    """The reference implementation (grass.temporal.classic) prints the
+    r3.mapcalc commands and the resulting statement, and without run the
+    statement with the placeholder name. Only the reference keeps this
+    output; the classic profile prints the module calls like the core."""
     for run in (True, False):
         parser = reference_parser("raster3d", run=run, debug=True, dry_run=True)
         parser.parse("dbg = (A + A) * 2", "dbg", True)

@@ -1,11 +1,11 @@
 """The expressions of the paper that introduced the algebra, in a gold corpus
 
 Gebbert, Leppelt and Pebesma (2019): A Topology Based Spatio-Temporal Map
-Algebra for Big Data Analysis. Data 4(2), 86. The expressions are the
-printed ones, with the names of the datasets replaced. The corpus checks
-that the classic profile (what -c runs) computes what the earlier
-implementation, the reference, computes. The paper writes the relation equals;
-both read it as another name of equal.
+Algebra for Big Data Analysis. Data 4(2), 86. The expressions are the printed
+ones, with the names of the datasets replaced. The corpus checks that the
+classic profile (what -c runs) computes what the reference implementation
+(grass.temporal.classic) computes. The paper writes the relation equals; both
+read it as another name of equal.
 
 t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results; this module compares the two implementations on the
@@ -270,10 +270,10 @@ def test_the_core_computes_what_the_reference_computes(
     """Every printed expression runs in the new algebra and gives the maps of
     the reference
 
-    One expression differs by the meaning of -n, which the runner sets: the
-    new algebra also registers a null map for each map of A that contains no
-    map of E (a2 to a4), the earlier implementation registers only the map
-    with partners. The map with partners is the same.
+    One expression differs by the meaning of -n, which the runner sets: the new
+    algebra also registers a null map for each map of A that contains no map of
+    E (a2 to a4), the reference registers only the map with partners. The map
+    with partners is the same.
     """
     assert data == "paper"
     reference = reference_outcome(KIND, expression, register_null=True, **options)
@@ -357,12 +357,10 @@ def test_a_spatial_relation_name_alone_is_refused(paper, runner, spatial):
 def test_if_without_else_gives_zero(paper, runner, expression, expected, register_null):
     """An if without else is 0 where the condition is false, as in r.mapcalc
 
-    The earlier implementation, which this test runs as the reference, and
-    the classic profile register these maps with and without -n. With -n the
-    new algebra also
-    registers a null map for each map of A without a partner in E, which is
-    what -n asks for (a left map without related map), not a property of the
-    missing else.
+    The reference and the classic profile register these maps with and
+    without -n. With -n the core also registers a null map for each map of A
+    without a partner in E, which is what -n asks for (a left map without
+    related map), not a property of the missing else.
     """
     result = outcome(
         KIND,

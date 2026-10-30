@@ -2,14 +2,14 @@
 
 The cases are those of test_vector_algebra.py, on the datasets of its
 setUpClass: A a1..a4 on the days [1,2) .. [4,5) of January 2001, B b1, b2 on
-[1,3) and [3,5), C c1 on [2,4), D d1..d3 on [3,4) .. [5,6), every map 20
-random points (seeds 1, 1, 1, 1 for A, 2, 2 for B, 3 for C and 4, 4, 4 for D,
-so the maps of a dataset are copies of each other). The format is that of
+[1,3) and [3,5), C c1 on [2,4), D d1..d3 on [3,4) .. [5,6), every map 20 random
+points (seeds 1, 1, 1, 1 for A, 2, 2 for B, 3 for C and 4, 4, 4 for D, so the
+maps of a dataset are copies of each other). The format is that of
 t_rast_algebra_legacy_cases_test.py, with the numbers of points, lines and
 areas of a map in place of its minimum and maximum: (start, end, points, lines,
-areas). Every case runs in the earlier implementation (reference), in the
-classic profile and in the new algebra (core); the three agree on all of them,
-so there is no CORE table.
+areas). Every case runs in the reference implementation
+(grass.temporal.classic), in the classic profile and in the core; the three
+agree on all of them, so there is no CORE table.
 
 The old test asserted the numbers of areas of a dataset, not of a map. Where a
 case yields maps built from identical inputs the sum divides equally; the

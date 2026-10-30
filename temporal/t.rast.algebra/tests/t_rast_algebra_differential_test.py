@@ -5,9 +5,9 @@ The core and the classic profile compute each expression; the registered maps
 manual lists between the core and the classic algebra. Values are compared
 rather than r.mapcalc expressions, because the two write them differently.
 
-The classic profile in turn must give what the earlier implementation of the
-classic algebra gives, for every expression of the lists, the differences
-included.
+The classic profile in turn must give what the reference implementation
+(grass.temporal.classic) of the classic algebra gives, for every expression of
+the lists, the differences included.
 """
 
 import random
@@ -186,14 +186,13 @@ def outcome(algebra, monkeypatch, expression, parser, **keywords):
     return [(row.start, row.end, row.min, row.max) for row in rows]
 
 
-# The result of the earlier implementation comes from the recorded corpus,
-# which stores the form of differential.outcome(), so the profile is read in
-# that form as well.
+# The result of the reference comes from the recorded corpus, which stores the
+# form of differential.outcome(), so the profile is read in that form as well.
 # That form rounds minimum and maximum to 6 significant digits, so this
 # comparison is coarser than the one of the core with the profile, which
 # outcome() above reads in full.
 def profile_difference(expression, **options):
-    """What compare() finds between the earlier implementation and -c"""
+    """What compare() finds between the reference and -c"""
     options = {"register_null": True, **options}
     reference = reference_outcome("raster", expression, **options)
     profile = differential.outcome(
@@ -229,9 +228,8 @@ def test_extended_syntax(algebra, monkeypatch, expression, equivalent):
     "expression", [*SAME, *sorted(DIFFERENT), *EXTENDED, *EXTENDED.values()]
 )
 def test_profile_equals_reference(algebra, expression):
-    """-c computes what the earlier implementation of the classic algebra
-    computed, also where the core differs and where the classic grammar has no
-    rule"""
+    """-c computes what the reference of the classic algebra computed, also
+    where the core differs and where the classic grammar has no rule"""
     assert profile_difference(expression) is None
 
 

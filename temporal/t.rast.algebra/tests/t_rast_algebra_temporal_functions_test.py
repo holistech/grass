@@ -100,7 +100,8 @@ def test_unavailable_time_function_is_reported(time_series, expression, map_id):
 
 def duration_arithmetic(algebra, monkeypatch, expression, implementation):
     """Return (start day, end day, value) of "R = <expression>" computed by the
-    core or by the earlier implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    core or by the reference implementation (grass.temporal.classic), whatever
+    GRASS_TEMPORAL_ALGEBRA says"""
     algebra.remove("R")
     if implementation == "core":
         monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
@@ -135,9 +136,9 @@ def test_duration_of_an_expression_in_arithmetic(
 
 
 def outcome(algebra, monkeypatch, expression, implementation):
-    """Return (result dataset exists, (start day, end day, value) of its maps)
-    for "R = <expression>" computed by the core or by the earlier
-    implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    """Return (result dataset exists, (start day, end day, value) of its
+    maps) for "R = <expression>" computed by the core or by the reference,
+    whatever GRASS_TEMPORAL_ALGEBRA says"""
     algebra.remove("R")
     if implementation == "core":
         monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
@@ -204,8 +205,8 @@ def test_tshift_with_a_refused_increment_is_a_syntax_error(
     """An increment that the library refuses is reported as the error of
     a number without unit on absolute time, not as an absent result.
 
-    Checked on the earlier implementation only: the core raises a ValueError
-    with its own message for the same expressions.
+    Checked on the reference only: the core raises a ValueError with its own
+    message for the same expressions.
     """
     algebra.remove("R")
     with pytest.raises(SyntaxError, match="tshift"):
@@ -247,8 +248,8 @@ def test_time_constant_with_offset_needs_absolute_time(algebra, expression):
     such value, like the same function in a condition. It was written as None
     into the r.mapcalc expression, which failed when the maps were computed.
 
-    Checked on the earlier implementation only: the core raises a ValueError
-    with its own message for the same expressions.
+    Checked on the reference only: the core raises a ValueError with its own
+    message for the same expressions.
     """
     algebra.remove("R")
     with pytest.raises(FatalError, match="requires absolute time"):

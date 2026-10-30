@@ -1,9 +1,9 @@
-"""Cases where the classic profile once differed from the classic algebra
+"""Cases where the classic profile once differed from the reference implementation
 
 As t_rast_algebra_classic_profile_cases_test.py, for vector maps, on the
 datasets of the expression fuzzer: the classic profile (what -c runs) and the
-classic algebra of the parser classes, the reference, must register the same
-maps or fail with the same class of error.
+reference implementation (grass.temporal.classic) must register the same maps
+or fail with the same class of error.
 """
 
 import pytest
@@ -202,9 +202,10 @@ def test_a_condition_on_time_judges_maps_of_equal_time_together(datasets, expres
 
 
 def test_a_relation_over_absolute_and_relative_time(datasets):
-    """The previous implementation stops with a TypeError when it relates a
-    list of absolute and relative time; the classic algebra relates the two
-    types to nothing, as t.rast.algebra pins in more forms"""
+    """The reference implementation (grass.temporal.classic) stops with a
+    TypeError when it relates a list of absolute and relative time; the
+    classic algebra relates the two types to nothing, as t.rast.algebra pins
+    in more forms"""
     expression = "merge(tmap(ev), rel) : rel"
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert reference["error"] == "Other:TypeError"

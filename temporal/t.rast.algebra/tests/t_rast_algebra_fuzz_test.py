@@ -1,12 +1,13 @@
 """Differential fuzzing of the algebras for raster maps
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
-must register the same maps in two implementations of the algebra: the earlier
-implementation, whose outcomes grass.temporal.testing.corpus holds, and the
-classic profile of the core. That must give 0 differences. The test of the listed differences
-shows that the fuzzer sees one where there is one: the expressions of the
-differential test of this directory, run on the core and compared with the
-recorded outcomes of the reference.
+must register the same maps in two implementations of the algebra: the
+reference implementation (grass.temporal.classic), whose outcomes
+grass.temporal.testing.corpus holds, and the classic profile of the core. That
+must give 0 differences. The test of the listed differences shows that the
+fuzzer sees one where there is one: the expressions of the differential test of
+this directory, run on the core and compared with the recorded outcomes of the
+reference.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
@@ -15,8 +16,7 @@ cost seconds, and fixed_algebra, because they choose their runners themselves.
 
 Normal run: 28.8 s for 333 tests, measured 2026-10-24 with
 `python3 -m pytest -p no:cacheprovider -q <this file>`, with the outcomes of
-the earlier implementation read from the corpus, including the creation of
-the datasets.
+the reference read from the corpus, including the creation of the datasets.
 """
 
 import pytest
@@ -127,9 +127,9 @@ def test_same_seed_gives_the_same_expression():
 
 
 def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
-    """The earlier implementation computes while it parses: end_date() of a
-    time instance stops it before it reads the syntax error after it. The
-    profile reports the syntax error."""
+    """The reference computes while it parses: end_date() of a time instance
+    stops it before it reads the syntax error after it. The profile reports
+    the syntax error."""
     expression = 'if(end_date(I) <= "2001-01-01", 3)'
     first = reference_outcome(KIND, expression)
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
@@ -144,8 +144,8 @@ def test_a_run_error_before_a_syntax_error_is_accepted(datasets):
 def test_other_pairs_of_errors_are_differences(datasets):
     """Only the pairs of accepted_error_pair() are accepted: a valid
     expression that fails in a module, or exits the process, is a difference
-    from another class of error, and so is a syntax error of the profile that
-    the earlier implementation does not report without computing"""
+    from another class of error, and so is a syntax error of the profile
+    that the reference does not report without computing"""
     expression = "A + N"
     valid = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     rejected = {"error": "SyntaxError", "msg": "syntax error"}
@@ -163,9 +163,9 @@ def test_other_pairs_of_errors_are_differences(datasets):
 
 
 def test_a_failed_module_is_accepted_only_against_its_report(datasets):
-    """A failed module of the earlier implementation is accepted against the
-    FatalError by which materialize() reports a failed module in the profile,
-    not against another FatalError, and that report not against another
+    """A failed module of the reference is accepted against the FatalError
+    by which materialize() reports a failed module in the profile, not
+    against another FatalError, and that report not against another
     CalledModuleError"""
     expression = "A + N"
     failed = {
@@ -189,8 +189,8 @@ def test_a_failed_module_is_accepted_only_against_its_report(datasets):
 
 def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
     """The profile's FatalError is accepted against a SyntaxError of the
-    earlier implementation only if it refuses a dataset of another temporal
-    type, not if it refuses to register maps of different types"""
+    reference only if it refuses a dataset of another temporal type, not if
+    it refuses to register maps of different types"""
     expression = "A + N"
     syntax = {"error": "SyntaxError", "msg": "syntax error"}
     refusal = {
@@ -210,10 +210,9 @@ def test_a_syntax_error_against_another_fatal_error_is_a_difference(datasets):
 
 
 def test_the_crash_on_mixed_time_against_its_refusal_is_accepted(datasets):
-    """The earlier implementation crashes while tsnap() orders the maps of
-    absolute and relative time that merge() put into one list; the profile
-    refuses to register that list, as the earlier implementation does
-    without tsnap()"""
+    """The reference crashes while tsnap() orders the maps of absolute and
+    relative time that merge() put into one list; the profile refuses to
+    register that list, as the reference does without tsnap()"""
     expression = "tsnap(merge(tmap(sinst), RT))"
     first = reference_outcome(KIND, expression)
     second = outcome(KIND, expression, RUNNERS["classic"], basename="fb")
@@ -228,9 +227,9 @@ def test_the_crash_on_mixed_time_against_its_refusal_is_accepted(datasets):
 
 
 def test_a_type_error_against_another_fatal_error_is_a_difference(datasets):
-    """A TypeError of the earlier implementation is accepted only against the
-    refusal to register maps of different temporal types, and only if it is
-    the crash of an ordering"""
+    """A TypeError of the reference is accepted only against the refusal to
+    register maps of different temporal types, and only if it is the crash
+    of an ordering"""
     expression = "A + N"
     crash = {
         "error": "Other:TypeError",

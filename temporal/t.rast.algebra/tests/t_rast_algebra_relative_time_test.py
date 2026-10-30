@@ -64,8 +64,8 @@ def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
     without unit is for absolute time. It was a TypeError of the subtraction
     of the buffer from the start time. The error leaves no result dataset.
 
-    Checked on the earlier implementation only: the core raises a ValueError
-    with its own message for the same expressions.
+    Checked on the reference implementation (grass.temporal.classic) only: the
+    core raises a ValueError with its own message for the same expressions.
     """
     algebra.remove("R")
     with pytest.raises(SyntaxError, match=r"buff_t\(\) needs a"):
@@ -89,7 +89,7 @@ def test_buffer_of_the_wrong_kind_is_a_syntax_error(algebra, expression):
 def test_relative_buffer_with_a_fractional_number(algebra, increment, expected):
     """Numbers other than whole ones stay valid for relative time. Targets
     measured 2026-10-15 on the library before the buff_t() checks changed,
-    with the earlier implementation."""
+    with the reference."""
     algebra.remove("R")
     run_reference(
         "raster",

@@ -214,13 +214,13 @@ def test_mixed_result_copies_are_numbered_differently(series):
 
 @pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
 def test_profile_equals_reference(series, expression):
-    """-c selects what the earlier implementation of the classic algebra
-    selected, also where the core differs"""
-    # The result of the earlier implementation comes from the recorded corpus,
-    # which stores the form of differential.outcome(), so the profile is read in
-    # that form as well. That form names each map without its mapset; it
-    # also compares the values, to 6 significant digits, which the form of
-    # outcome() above leaves out.
+    """-c selects what the reference implementation (grass.temporal.classic)
+    of the classic algebra selected, also where the core differs"""
+    # The result of the reference comes from the recorded corpus, which stores
+    # the form of differential.outcome(), so the profile is read in that form as
+    # well. That form names each map without its mapset; it also compares the
+    # values, to 6 significant digits, which the form of outcome() above leaves
+    # out.
     reference = reference_outcome("select", expression, stdstype="strds")
     profile = selection_outcome("classic", "fb", expression)
     assert differential.compare("select", expression, reference, profile) is None
@@ -253,8 +253,8 @@ def selection_outcome(
 
 
 def test_the_reference_fails_on_a_time_function_as_the_selected_maps(series):
-    """The earlier implementation never computes the value of start_doy(A, 1)
-    and fails when it copies that map into the result"""
+    """The reference never computes the value of start_doy(A, 1) and fails
+    when it copies that map into the result"""
     reference = selection_outcome("reference", "tfref")
     assert reference["error"] == "Other:CalledModuleError"
     assert "g.copy raster=tmp_map_name_" in reference["msg"]

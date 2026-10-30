@@ -1,9 +1,9 @@
-"""Cases where the classic profile once differed from the classic algebra
+"""Cases where the classic profile once differed from the reference implementation
 
 As t_rast_algebra_classic_profile_cases_test.py, for the selection of maps
 (t.select), on the datasets of the expression fuzzer: the classic profile
-(what -c runs) and the classic algebra of the parser classes, the reference,
-must register the same maps or fail with the same class of error.
+(what -c runs) and the reference implementation (grass.temporal.classic) must
+register the same maps or fail with the same class of error.
 """
 
 import pytest
@@ -170,10 +170,11 @@ def test_a_merge_of_units_fails_only_when_registered(datasets, expression):
 
 
 # A relation over a list that mixes maps of absolute and relative time stops
-# the previous implementation with a TypeError while it builds the topology,
-# as it compares the start times of the two types. That crash is no result to
-# reproduce; the classic algebra relates the two types to nothing, so each
-# expression gives the result of the one without the maps of the other type.
+# the reference implementation (grass.temporal.classic) with a TypeError while
+# it builds the topology, as it compares the start times of the two types. That
+# crash is no result to reproduce; the classic algebra relates the two types to
+# nothing, so each expression gives the result of the one without the maps of
+# the other type.
 CRASHED_MIXED_RELATIONS = [
     ("merge(tmap(sinst), RT) : RT", "RT : RT"),
     ("RT : merge(tmap(sinst), RT)", "RT : RT"),

@@ -1,9 +1,9 @@
-"""Cases where the classic profile once differed from the classic algebra
+"""Cases where the classic profile once differed from the reference implementation
 
 As t_rast_algebra_classic_profile_cases_test.py, for 3D raster maps, on the
 datasets of the expression fuzzer: the classic profile (what -c runs) and the
-classic algebra of the parser classes, the reference, must register the same
-maps or fail with the same class of error.
+reference implementation (grass.temporal.classic) must register the same maps
+or fail with the same class of error.
 """
 
 import pytest
@@ -285,10 +285,10 @@ def test_a_selected_count_is_still_a_count(datasets, expression):
 )
 def test_a_neighbour_map_joined_as_a_truth_value(datasets, expression):
     """The time function of a map read at an offset is a truth value as the
-    operand of || and &&. The earlier implementation wrote the map itself
-    (if(b1 > 0.5||(a3), z1, 1.5)); the maps are floating point, which
-    r3.mapcalc refuses as an operand, so both ended in a CalledModuleError
-    (corrected 17.10.2026)."""
+    operand of || and &&. The reference implementation
+    (grass.temporal.classic) wrote the map itself (if(b1 > 0.5||(a3), z1,
+    1.5)); the maps are floating point, which r3.mapcalc refuses as an
+    operand, so both ended in a CalledModuleError (corrected 17.10.2026)."""
     reference = outcome(KIND, expression, RUNNERS["reference"], basename="fa")
     assert "error" not in reference
     assert_equal(expression)
@@ -370,9 +370,9 @@ def test_logical_operators_join_all_partners(datasets, expression, granularity):
 
 
 def test_a_relation_over_absolute_and_relative_time(datasets):
-    """The previous implementation stops with a TypeError when it relates a
-    list of absolute and relative time; the classic algebra relates the two
-    types to nothing, as t.rast.algebra pins in more forms"""
+    """The reference stops with a TypeError when it relates a list of
+    absolute and relative time; the classic algebra relates the two types to
+    nothing, as t.rast.algebra pins in more forms"""
     expression = "merge(tmap(single), RT) : RT"
     reference = outcome(
         KIND, expression, RUNNERS["reference"], basename="fa", register_null=True

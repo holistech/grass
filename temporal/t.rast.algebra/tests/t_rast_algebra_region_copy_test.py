@@ -1,12 +1,12 @@
 """A copy of a map that comes out empty because of the current region
 
-r.mapcalc computes a map in the current region. A map that the algebra
-copies unchanged, such as a map that a selection stamps with a new time,
-comes out empty when its box lies outside the region, and an empty map is
-not registered unless -n is given. Under -s r.mapcalc computes in the union
-of the regions of its inputs instead, and the copy keeps its data (measured
-24.10.2026 with a selection under -s on the earlier implementation, the
-classic profile and the core). Decision of 24.10.2026: the results stay as
+r.mapcalc computes a map in the current region. A map that the algebra copies
+unchanged, such as a map that a selection stamps with a new time, comes out
+empty when its box lies outside the region, and an empty map is not registered
+unless -n is given. Under -s r.mapcalc computes in the union of the regions of
+its inputs instead, and the copy keeps its data (measured 24.10.2026 with a
+selection under -s on the reference implementation (grass.temporal.classic),
+the classic profile and the core). Decision of 24.10.2026: the results stay as
 they are, the core and the classic profile warn and name each such copy.
 
 The maps are single cells of 10 by 10 units. Boxes (x range, y range) and
@@ -120,12 +120,12 @@ def run(tools, name, expression, runner, *, flags=""):
 def test_a_copy_outside_the_region_is_reported(
     maps, runner, label, expression, start, end
 ):
-    # The region covers the box of a1 only. The copy of a1 holds 1; those of
-    # a2 and a3 lie outside the region, come out without data and are not
-    # registered. That is what the earlier implementation, the classic
-    # profile and the core registered before the warning existed (measured
-    # 24.10.2026 with the maps of the spatial touch tests and a region over
-    # their a1: only the copy of a1).
+    # The region covers the box of a1 only. The copy of a1 holds 1; those of a2
+    # and a3 lie outside the region, come out without data and are not
+    # registered. That is what the reference, the classic profile and the core
+    # registered before the warning existed (measured 24.10.2026 with the maps
+    # of the spatial touch tests and a region over their a1: only the copy of
+    # a1).
     maps.tools.g_region(w=0, e=10, s=0, n=10, res=10)
     name = f"OUT_{label}_{runner}"
     text, registered = run(maps.tools, name, expression, runner)

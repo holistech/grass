@@ -174,13 +174,14 @@ def test_listed_differences_still_differ(vector_series, monkeypatch, expression)
 @pytest.mark.parametrize("expression", [*SAME, *sorted(DIFFERENT)])
 @pytest.mark.fixed_algebra
 def test_profile_equals_reference(vector_series, expression):
-    """-c computes what the earlier implementation of the classic algebra
-    computed, also where the core differs"""
-    # The result of the earlier implementation comes from the recorded
-    # corpus, which stores the form of differential.outcome(), so the profile
-    # is read in that form as well. That form holds the numbers of points,
-    # lines and areas but not of centroids, which outcome() above also reads
-    # for the comparison of the core with the profile.
+    """-c computes what the reference implementation
+    (grass.temporal.classic) of the classic algebra computed, also where the
+    core differs"""
+    # The result of the reference comes from the recorded corpus, which stores
+    # the form of differential.outcome(), so the profile is read in that form
+    # as well. That form holds the numbers of points, lines and areas but not
+    # of centroids, which outcome() above also reads for the comparison of the
+    # core with the profile.
     reference = reference_outcome("vector", expression)
     profile = differential.outcome(
         "vector", expression, differential.RUNNERS["classic"], basename="fb"

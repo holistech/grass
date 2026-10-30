@@ -2,9 +2,9 @@
 
 The cases are those of test_raster3d_algebra.py on the dataset A of the
 series_3d fixture in conftest.py (a1..a4 = 1..4, daily from 2001-01-01), the
-same as the setUpClass of the old file. Every case runs in the earlier
-implementation (reference), in the classic profile and in the new algebra
-(core); the three agree on all of them, so there is no CORE table. The
+same as the setUpClass of the old file. Every case runs in the reference
+implementation (grass.temporal.classic), in the classic profile and in the new
+algebra (core); the three agree on all of them, so there is no CORE table. The
 format is that of t_rast_algebra_legacy_cases_test.py: (expression, options of
 the runner, expected maps as (start, end, min, max) or the name of the error
 class).

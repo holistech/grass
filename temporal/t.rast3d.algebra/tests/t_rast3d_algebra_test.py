@@ -671,9 +671,10 @@ def test_classic_flag_selects_the_classic_algebra(series_3d):
 
 @pytest.mark.fixed_algebra
 def test_classic_flag_runs_the_classic_profile(series_3d):
-    """The tool with -c computes on the classic profile of the core, not on the
-    earlier implementation: an increment the library refuses is reported with
-    the message of the library, the earlier one named tshift() and the unit"""
+    """The tool with -c computes on the classic profile of the core, not on
+    the reference implementation (grass.temporal.classic): an increment the
+    library refuses is reported with the message of the library, the earlier
+    one named tshift() and the unit"""
     tools = Tools(session=series_3d.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_algebra(
@@ -849,8 +850,8 @@ def test_duration_of_an_expression_in_arithmetic(
 
 
 def run_on(series_3d, monkeypatch, expression, implementation):
-    """Return the maps of "res = <expression>" computed by the core or by the
-    earlier implementation, whatever GRASS_TEMPORAL_ALGEBRA says"""
+    """Return the maps of "res = <expression>" computed by the core or by
+    the reference, whatever GRASS_TEMPORAL_ALGEBRA says"""
     if implementation == "core":
         monkeypatch.delenv(ALGEBRA_VARIABLE, raising=False)
         name = run_algebra(series_3d.session, expression)
@@ -890,8 +891,8 @@ def test_tsnap_and_tshift_of_no_maps_give_an_empty_result(
 def test_tshift_with_a_refused_increment_is_a_syntax_error(series_3d, expression):
     """An increment that the library refuses is an error, not an absent result.
 
-    Checked on the earlier implementation only: the core raises a ValueError
-    with its own message for the same expressions.
+    Checked on the reference only: the core raises a ValueError with its own
+    message for the same expressions.
     """
     name = f"res{next(_counter)}"
     with pytest.raises(SyntaxError, match="tshift"):

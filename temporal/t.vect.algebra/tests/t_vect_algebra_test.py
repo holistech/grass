@@ -563,9 +563,10 @@ def test_classic_flag_selects_the_classic_algebra(vector_series):
 
 @pytest.mark.fixed_algebra
 def test_classic_flag_runs_the_classic_profile(vector_series):
-    """The tool with -c computes on the classic profile of the core, not on the
-    earlier implementation: an increment the library refuses is reported with
-    the message of the library, the earlier one named tshift() and the unit"""
+    """The tool with -c computes on the classic profile of the core, not on
+    the reference implementation (grass.temporal.classic): an increment the
+    library refuses is reported with the message of the library, the earlier
+    one named tshift() and the unit"""
     tools = Tools(session=vector_series.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_vect_algebra(
@@ -811,8 +812,8 @@ def test_debug_output_of_the_classic_profile(vector_series, capsys):
 @pytest.mark.parametrize("run", [True, False])
 @pytest.mark.fixed_algebra
 def test_debug_output_of_the_reference(vector_series, capsys, run):
-    """With debug=True the earlier implementation prints the parsed rules, with
-    or without running. Only the reference keeps this output; the classic
+    """With debug=True the reference prints the parsed rules, with or
+    without running. Only the reference keeps this output; the classic
     profile prints the module calls like the core."""
     parser = reference_parser("vector", run=run, debug=True)
     parser.parse("dbg = aa & ab", "dbg", True)

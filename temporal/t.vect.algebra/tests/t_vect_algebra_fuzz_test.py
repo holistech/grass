@@ -1,12 +1,13 @@
 """Differential fuzzing of the algebras for vector maps
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
-must register the same maps in two implementations of the algebra: the earlier
-implementation, whose outcomes grass.temporal.testing.corpus holds, and the
-classic profile of the core. That must give 0 differences. The test of the listed differences
-shows that the fuzzer sees one where there is one: the expressions of the
-differential test of this directory, run on the core and compared with the
-recorded outcomes of the reference.
+must register the same maps in two implementations of the algebra: the
+reference implementation (grass.temporal.classic), whose outcomes
+grass.temporal.testing.corpus holds, and the classic profile of the core. That
+must give 0 differences. The test of the listed differences shows that the
+fuzzer sees one where there is one: the expressions of the differential test of
+this directory, run on the core and compared with the recorded outcomes of the
+reference.
 
 The seeds 0 to 199 run in the normal run. GRASS_TEMPORAL_FUZZ_COUNT and
 GRASS_TEMPORAL_FUZZ_SEED widen that, see the module docstring of
@@ -15,8 +16,7 @@ cost seconds, and fixed_algebra, because they choose their runners themselves.
 
 Normal run: 19.9 s for 234 tests, measured 2026-10-24 with
 `python3 -m pytest -p no:cacheprovider -q <this file>`, with the outcomes of
-the earlier implementation read from the corpus, including the creation of
-the datasets.
+the reference read from the corpus, including the creation of the datasets.
 """
 
 import pytest

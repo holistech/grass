@@ -227,9 +227,10 @@ def test_blanks_in_the_variable_stop_the_tool(algebra):
 
 @pytest.mark.fixed_algebra
 def test_classic_flag_runs_the_classic_profile(algebra, core_tool):
-    """The tool with -c computes on the classic profile of the core, not on the
-    earlier implementation: an increment the library refuses is reported with
-    the message of the library, the earlier one named tshift() and the unit"""
+    """The tool with -c computes on the classic profile of the core, not on
+    the reference implementation (grass.temporal.classic): an increment the
+    library refuses is reported with the message of the library, the earlier
+    one named tshift() and the unit"""
     with pytest.raises(ToolError) as error:
         core_tool.t_rast_algebra(
             expression='OPT_PROFILE = tshift(A, "1 DAY")',
@@ -495,9 +496,9 @@ def test_parse_without_run_creates_nothing(algebra, expression):
 def test_result_map_without_command_and_without_raster_is_fatal(algebra):
     """A result map that has no mapcalc command and no raster is an error
 
-    Before, the message was only printed and the dataset was registered with a
-    missing map (review H5). The state cannot be produced by an expression, so
-    the step is called directly on the classic engine.
+    Printing the message alone would register the dataset with a missing map.
+    The state cannot be produced by an expression, so the step is called
+    directly on the reference.
     """
     parser = reference_parser("raster", run=True, debug=False)
     missing = tgis.RasterDataset("no_such_map@PERMANENT")
@@ -574,7 +575,7 @@ def test_debug_output_of_the_classic_profile(algebra, capsys):
 
 @pytest.mark.fixed_algebra
 def test_debug_output_of_the_reference(algebra, capsys):
-    """The earlier implementation prints the mapcalc commands and the resulting
+    """The reference prints the mapcalc commands and the resulting
     statement, and without run the statement with the placeholder name. Only
     the reference keeps this output; the classic profile prints the module
     calls like the core."""
