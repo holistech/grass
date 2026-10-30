@@ -535,17 +535,17 @@ corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the releases before GRASS 8.6, with
-the exceptions below. In these cases those releases ended in an error that had
-no reason, reported the wrong error, or did not do what this manual describes.
+The classic algebra gives the results of the releases before GRASS 8.6, with the
+exceptions below. In these cases those releases ended in an error that had no
+reason, reported the wrong error, or did not do what this manual describes.
 **-c** now gives the result described here. The reference implementation was
-corrected in the same way, except in items 5, 6, 9, 11 and 12: items 5, 6 and
-9 say what it does, it still takes the time of a partner whose box only
-touches, and it still raises the `CalledModuleError` of a failed module. The
-new algebra never had these errors; only the items on month steps, on dates
-beyond the year 9999 and on a failed module concerned the library and with it
-both algebras. Results of earlier GRASS versions that used one of these forms
-need a new run.
+corrected in the same way, except in items 5, 6, 9, 11 and 12: items 5, 6 and 9
+say what it does, it still takes the time of a partner whose box only touches,
+and it still raises the `CalledModuleError` of a failed module. The new algebra
+never had these errors; only the items on month steps, on dates beyond the year
+9999, on a map that starts with the next map in tsnap() and on a failed module
+concerned the library and with it both algebras. Results of earlier GRASS
+versions that used one of these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside selects
    no map, the result is an empty dataset, like any other selection of no
