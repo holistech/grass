@@ -25,7 +25,7 @@ import copy
 KINDS = ("raster", "raster3d", "vector", "select")
 
 
-def _engine_class(kind):
+def _reference_class(kind):
     """Return the parser class of the reference for a kind"""
     # Imported on use, so that importing the testing package does not load
     # the parser modules of the algebras a test does not need.
@@ -55,21 +55,21 @@ def _engine_class(kind):
     raise ValueError(msg)
 
 
-class _SelectEngine:
+class _SelectReference:
     """The parser of t.select in the reference, with the ``parse`` of the others"""
 
-    def __init__(self, engine, stdstype):
-        self._engine = engine
+    def __init__(self, parser, stdstype):
+        self._parser = parser
         self._stdstype = stdstype
 
     def parse(self, expression, basename=None, overwrite=False):
         # Mirrors t.select: the dataset type is the only extra argument.
-        return self._engine.parse(
+        return self._parser.parse(
             expression, self._stdstype, basename=basename, overwrite=overwrite
         )
 
     def __getattr__(self, name):
-        return getattr(self._engine, name)
+        return getattr(self._parser, name)
 
 
 def reference_parser(kind, **options):
@@ -86,12 +86,12 @@ def reference_parser(kind, **options):
         basename=None, overwrite=False)`` for every kind; for ``"select"`` the
         dataset type is fixed by ``stdstype``.
     """
-    engine_class = _engine_class(kind)
+    parser_class = _reference_class(kind)
     stdstype = options.pop("stdstype", "strds") if kind == "select" else None
-    engine = engine_class(**options)
+    parser = parser_class(**options)
     if kind == "select":
-        return _SelectEngine(engine, stdstype)
-    return engine
+        return _SelectReference(parser, stdstype)
+    return parser
 
 
 def check_granularity_kind(kind):
@@ -163,7 +163,7 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
     return parser.parse(expression, basename=basename, overwrite=overwrite)
 
 
-def _maps_with_gaps_as_before(sampler, where, dbif):
+def _maps_with_gaps_classic(sampler, where, dbif):
     """List the maps of sampler by start time with a gap map between neighbours
 
     The classic rule of get_registered_maps_as_objects_with_gaps(), which the
@@ -279,7 +279,7 @@ def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=Non
         relations = _sampling_relations(method)
 
         mapsA = stds.get_registered_maps_as_objects(where=where, dbif=dbif)
-        mapsB = _maps_with_gaps_as_before(sampler, where, dbif)
+        mapsB = _maps_with_gaps_classic(sampler, where, dbif)
         SpatioTemporalTopologyBuilder().build(mapsB, mapsA, "2D" if spatial else None)
 
         obj_list = []
