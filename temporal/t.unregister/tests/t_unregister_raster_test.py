@@ -16,7 +16,7 @@ from grass.temporal.testing.data import (
     register_file,
     relative_intervals,
 )
-from grass.temporal.testing.readback import list_maps, map_info, stds_info
+from grass.temporal.testing.readback import list_maps, map_info, message, stds_info
 
 # Every test makes maps and datasets with tools, which takes more than a second
 # (measured 18.10.2026 with a serial pytest --durations=0).
@@ -25,11 +25,6 @@ pytestmark = pytest.mark.slow
 
 def _names(tools, dataset):
     return [row.name for row in list_maps(tools, "strds", dataset)]
-
-
-def _message(result):
-    """The messages of a call as one line: the tool wraps long ones"""
-    return " ".join(result.stderr.split())
 
 
 def _quoted(moment):
@@ -183,7 +178,7 @@ def test_a_map_that_is_not_in_the_database_is_a_warning(tools, make_stds, prefix
     assert (
         f"WARNING: Unable to find raster map <{prefix}_loose@PERMANENT> in "
         "temporal database"
-    ) in _message(result)
+    ) in message(result)
     # The warning is about that map only: the others are unregistered.
     assert _in_database(tools, maps) == [False, False, True]
     assert _names(tools, name) == [maps[2]]
@@ -196,7 +191,7 @@ def test_a_map_that_is_not_in_the_dataset_is_a_warning(tools, make_stds):
     result = tools.t_unregister(input=first, maps=f"{maps[0]},{maps[1]}")
 
     assert f"Map <{maps[0]}@PERMANENT> is not registered in space time dataset" in (
-        _message(result)
+        message(result)
     )
     assert _names(tools, first) == [maps[2]]
     assert _names(tools, second) == maps
@@ -207,7 +202,7 @@ def test_a_map_of_another_type_is_not_found(tools, make_stds):
 
     result = tools.t_unregister(type="vector", maps=maps[0])
 
-    assert f"Unable to find vector map <{maps[0]}@PERMANENT>" in _message(result)
+    assert f"Unable to find vector map <{maps[0]}@PERMANENT>" in message(result)
     assert _in_database(tools, maps) == [True, True]
     assert _names(tools, name) == maps
 

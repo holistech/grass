@@ -6,19 +6,15 @@ whitespace-normalised, because the messenger wraps long lines.
 
 import pytest
 
-from grass.temporal.testing.readback import list_maps, stds_info
+from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
-
-
-def _normalised(error):
-    return " ".join(str(error).split())
 
 
 def _register(tools, **options):
     options.setdefault("type", "raster")
     with pytest.raises(ToolError) as raised:
         tools.t_register(**options)
-    return _normalised(raised.value)
+    return message(raised.value)
 
 
 def test_maps_and_file_exclude_each_other(tools, make_maps, tmp_path):
@@ -335,7 +331,7 @@ def test_a_file_that_is_not_utf8_ends_with_a_message(
     with pytest.raises(ToolError) as raised:
         tools.t_register(type="raster", input=name, file=file, start="2001-01-01")
 
-    text = _normalised(raised.value)
+    text = message(raised.value)
     assert raised.value.returncode == 1
     assert "'utf-8' codec can't decode byte 0xff" in text
     assert "Traceback" not in text

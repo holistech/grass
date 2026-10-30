@@ -16,19 +16,14 @@ from grass.tools import ToolError
 pytestmark = pytest.mark.slow
 
 
-def _message(result):
-    """The messages of a call as one line: the tool wraps long ones"""
-    return " ".join(result.stderr.split())
-
-
 def test_without_flags_nothing_is_removed(tools, make_stds, has_dataset, registered):
     maps, (name,) = make_stds(3)
 
     result = tools.t_remove(inputs=name)
 
-    message = _message(result)
-    assert f"STRDS: {name}@PERMANENT" in message
-    assert "Nothing removed. You must use the force flag (-f)" in message
+    output = message(result)
+    assert f"STRDS: {name}@PERMANENT" in output
+    assert "Nothing removed. You must use the force flag (-f)" in output
     assert has_dataset(name)
     assert registered(maps) == [True] * 3
 
@@ -40,11 +35,11 @@ def test_r_without_f_lists_the_maps_it_would_unregister(
 
     result = tools.t_remove(inputs=name, flags="r")
 
-    message = _message(result)
-    assert "will be unregistered from temporal database:" in message
+    output = message(result)
+    assert "will be unregistered from temporal database:" in output
     for map_name in maps:
-        assert f"- {map_name}" in message
-    assert "Nothing removed" in message
+        assert f"- {map_name}" in output
+    assert "Nothing removed" in output
     assert has_dataset(name)
     assert registered(maps) == [True] * 3
 
@@ -56,12 +51,12 @@ def test_d_without_f_lists_the_maps_it_would_delete(
 
     result = tools.t_remove(inputs=name, flags="d")
 
-    message = _message(result)
+    output = message(result)
     assert "unregistered from temporal database and removed from spatial database:" in (
-        message
+        output
     )
     for map_name in maps:
-        assert f"- {map_name}" in message
+        assert f"- {map_name}" in output
     assert has_dataset(name)
     assert registered(maps) == [True] * 3
     assert existing(maps) == [True] * 3
@@ -74,11 +69,11 @@ def test_r_and_d_without_f_list_the_maps_with_the_text_of_r(
 
     result = tools.t_remove(inputs=name, flags="rd")
 
-    message = _message(result)
-    assert "will be unregistered from temporal database:" in message
-    assert "removed from spatial database" not in message
+    output = message(result)
+    assert "will be unregistered from temporal database:" in output
+    assert "removed from spatial database" not in output
     for map_name in maps:
-        assert f"- {map_name}" in message
+        assert f"- {map_name}" in output
     assert has_dataset(name)
     assert registered(maps) == [True] * 2
     assert existing(maps) == [True] * 2
@@ -97,11 +92,11 @@ def test_r_without_f_lists_each_dataset_before_its_maps(tools, make_stds):
             *[f"- {map_name}" for map_name in maps],
         ]
     expected.append("Nothing removed.")
-    message = _message(result)
+    output = message(result)
     position = 0
     for text in expected:
-        assert text in message[position:]
-        position = message.index(text, position) + len(text)
+        assert text in output[position:]
+        position = output.index(text, position) + len(text)
 
 
 def test_f_removes_the_dataset_and_keeps_the_maps(
