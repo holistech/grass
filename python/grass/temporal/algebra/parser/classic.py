@@ -65,13 +65,9 @@ _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 _ARITHMETIC = ("+", "-", "*", "/", "%")
-_SELECT_EXTENTS = {
-    "l": "left",
-    "r": "right",
-    "u": "union",
-    "i": "intersection",
-    "d": "disjoint",
-}
+# A classic selection may take the time stamp of the right map, which
+# gather() of the other operators cannot.
+_SELECT_EXTENTS = {**shared.EXTENTS, "r": "right"}
 
 
 class ClassicSyntax:
