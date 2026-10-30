@@ -128,9 +128,9 @@ def disagreements(kind, expressions):
         old = old_outcome(kind, expression)
         if new_rejects(kind, expression):
             if old is None:
-                found.append((expression, "the parser class accepts"))
+                found.append((expression, "the reference accepts"))
         elif isinstance(old, SyntaxError) and not SEMANTIC_ERROR.search(str(old)):
-            found.append((expression, f"the parser class rejects: {old}"))
+            found.append((expression, f"the reference rejects: {old}"))
     return found
 
 
@@ -410,12 +410,12 @@ def test_comparison_sees_a_wrong_grammar(world, monkeypatch):
     kind, _ = world
     monkeypatch.setattr(sys.modules[__name__], "new_rejects", lambda *_: True)
     assert disagreements(kind, ["R = A : B"]) == [
-        ("R = A : B", "the parser class accepts")
+        ("R = A : B", "the reference accepts")
     ]
     monkeypatch.setattr(sys.modules[__name__], "new_rejects", lambda *_: False)
     found = disagreements(kind, ["R = A B"])
     assert len(found) == 1
-    assert found[0][1].startswith("the parser class rejects")
+    assert found[0][1].startswith("the reference rejects")
 
 
 # The texts are those of the reference with run=True and datasets,
