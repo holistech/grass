@@ -1,14 +1,14 @@
-"""Datasets and checks of the algebra cases that moved from the gunittest files
+"""Datasets and checks of the algebra cases with expected values derived by hand
 
-The files python/grass/temporal/testsuite/unittests_temporal_*.py built their
-datasets in setUpClass with a map per r.mapcalc call. The builders below make
-the same datasets in a test session (times, values and dataset names are those
-of the old files, the region is small because every map is constant) and
-check_case() and check_dry() compare what an algebra runner makes with the
-expected maps. A case is (expression, options of the runner, expected), the
-format of the t.rast.algebra cases; ``expected`` is a list of maps
-(start, end, min, max) or, for vector maps, (start, end, points, lines,
-areas), or the name of the error class that the expression raises.
+Each builder below makes the datasets of a group of cases in a test session
+and its docstring lists the maps with their values and times. Every map is
+constant, so the region is small and the expected value of a result follows
+from the values of the maps. check_case() and check_dry() compare what an
+algebra runner makes with the expected maps. A case is (expression, options
+of the runner, expected), the format of the t.rast.algebra cases;
+``expected`` is a list of maps (start, end, min, max) or, for vector maps,
+(start, end, points, lines, areas), or the name of the error class that the
+expression raises.
 
 This module must not import pytest; fixtures belong in conftest.py files.
 
@@ -36,12 +36,17 @@ from grass.temporal.testing.differential import RUNNERS, outcome
 
 
 def when(month, day=1, year=2001):
-    """A date, by default of 2001"""
+    """A date, by default of 2001
+
+    The cases and the builders name their times as dates of 2001, such as
+    "January 3" or "the months January to June", so they are written as
+    dates here and not as the day offsets of data.day().
+    """
     return datetime.datetime(year, month, day)
 
 
 def january(number):
-    """The beginning of the day number of January 2001"""
+    """The beginning of the day number of January 2001, data.day(number - 1)"""
     return when(1, number)
 
 
@@ -84,16 +89,14 @@ def daily_datasets(tools, kind="raster"):
 
 
 def algebra(tools):
-    """unittests_temporal_algebra.py: the daily datasets and singletmap = 99
-    on January 3"""
+    """The daily datasets and singletmap = 99 on January 3"""
     small_region(tools, 3, 3)
     daily_datasets(tools)
     single_map(tools, "raster", "singletmap", 99, january(3), january(4))
 
 
 def raster_algebra(tools):
-    """unittests_temporal_raster_algebra.py: as algebra() and singlemap = 100
-    without time"""
+    """As algebra() and singlemap = 100 without time"""
     algebra(tools)
     make_map(tools, "raster", "singlemap", 100, overwrite=True)
 
@@ -117,8 +120,8 @@ def monthly_datasets(tools):
 
 
 def algebra_granularity(tools):
-    """unittests_temporal_algebra_grs.py: the monthly datasets; D d1..d3 = 10,
-    11, 12 for 31 days from the first of January, March and May; singletmap"""
+    """The monthly datasets; D d1..d3 = 10, 11, 12 for 31 days from the
+    first of January, March and May; singletmap"""
     small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
@@ -134,9 +137,9 @@ def algebra_granularity(tools):
 
 
 def raster_granularity(tools):
-    """unittests_temporal_raster_algebra_grs.py: the monthly datasets; D d1..d3
-    = 10, 11, 12 for five days from the first of January, March and May;
-    singletmap = 99 for March; nullmap, a null map for January to June"""
+    """The monthly datasets; D d1..d3 = 10, 11, 12 for five days from the
+    first of January, March and May; singletmap = 99 for March; nullmap, a
+    null map for January to June"""
     small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
@@ -153,9 +156,9 @@ def raster_granularity(tools):
 
 
 def mixed_types(tools):
-    """unittests_temporal_algebra_mixed_stds.py: A (str3ds) a1..a4 = 1..4
-    daily from January 1, B (strds) b1 = 5 and b2 = 6 on two days each, C
-    (stvds) c1 = 20 random points on January 2 and 3"""
+    """A (str3ds) a1..a4 = 1..4 daily from January 1, B (strds) b1 = 5 and
+    b2 = 6 on two days each, C (stvds) c1 = 20 random points on January 2
+    and 3"""
     small_region(tools, 3, 3, depths=3)
     create_stds(
         tools,
@@ -177,8 +180,8 @@ def mixed_types(tools):
 
 
 def conditionals(tools):
-    """unittests_temporal_conditionals.py: the daily datasets, E e1..e3 = 11..13
-    on two days each from December 31, 2000, and singletmap = 99"""
+    """The daily datasets, E e1..e3 = 11..13 on two days each from
+    December 31, 2000, and singletmap = 99"""
     algebra(tools)
     start = when(12, 31, 2000)
     create_stds(
@@ -198,8 +201,7 @@ def conditionals(tools):
 
 
 def raster3d_algebra(tools):
-    """unittests_temporal_raster3d_algebra.py: A (str3ds) a1..a4 = 1..4 daily
-    from January 1"""
+    """A (str3ds) a1..a4 = 1..4 daily from January 1"""
     small_region(tools, 3, 3, depths=3)
     create_stds(
         tools,
@@ -210,9 +212,8 @@ def raster3d_algebra(tools):
 
 
 def equal_time_stamps(tools):
-    """unittests_temporal_raster_algebra_equal_ts.py: A a1..a4 = 1..4, all four
-    at the instant January 1; singletmap = 100 at that instant; singlemap =
-    1000 without time"""
+    """A a1..a4 = 1..4, all four at the instant January 1; singletmap = 100
+    at that instant; singlemap = 1000 without time"""
     small_region(tools, 3, 3)
     create_stds(
         tools, "strds", "A", [MapSpec(f"a{k}", k, january(1)) for k in range(1, 5)]
@@ -222,10 +223,10 @@ def equal_time_stamps(tools):
 
 
 def spatial_topology(tools):
-    """unittests_temporal_raster_algebra_spatial_topology.py: A a1..a4 and B
-    b1..b4, map k holding k, all eight at the instant January 1; the maps k
-    cover (west, east, south, north) 0-30, 20-50, 25-40 and 40-60 (the same
-    extent in A and B); singletmap = 100 at the instant; singlemap = 1000"""
+    """A a1..a4 and B b1..b4, map k holding k, all eight at the instant
+    January 1; the maps k cover (west, east, south, north) 0-30, 20-50,
+    25-40 and 40-60 (the same extent in A and B); singletmap = 100 at the
+    instant; singlemap = 1000"""
     extents = {1: (0, 30, 0, 30), 2: (20, 50, 20, 50), 3: (25, 40, 25, 40)}
     extents[4] = (40, 60, 40, 60)
     for k, (west, east, south, north) in extents.items():
@@ -245,9 +246,8 @@ def spatial_topology(tools):
 
 
 def conditional_complement(tools):
-    """unittests_temporal_raster_conditionals_complement_else.py: A a1..a6 =
-    1..6 daily from January 1; B b1 = 7 on January 2 and 3, b2 = 8 on January
-    4 and 5"""
+    """A a1..a6 = 1..6 daily from January 1; B b1 = 7 on January 2 and 3,
+    b2 = 8 on January 4 and 5"""
     small_region(tools, 3, 3)
     create_stds(
         tools,
@@ -267,8 +267,7 @@ def conditional_complement(tools):
 
 
 def raster_conditionals(tools):
-    """unittests_temporal_raster_conditionals.py: the daily datasets, but D has
-    a fourth map d4 = 11 on January 6"""
+    """The daily datasets, but D has a fourth map d4 = 11 on January 6"""
     small_region(tools, 3, 3)
     daily_datasets(tools)
     create_stds(
@@ -281,10 +280,10 @@ def raster_conditionals(tools):
 
 
 def vector_algebra(tools):
-    """unittests_temporal_vector_algebra.py: the daily datasets as vector maps
-    of 20 random points each, with the seed 1 (A), 2 (B), 3 (C) and 4 (D),
-    so the maps of a dataset are copies of each other; singletmap (seed 5)
-    on January 3; singlemap (seed 6) without time"""
+    """The daily datasets as vector maps of 20 random points each, with the
+    seed 1 (A), 2 (B), 3 (C) and 4 (D), so the maps of a dataset are copies
+    of each other; singletmap (seed 5) on January 3; singlemap (seed 6)
+    without time"""
     tools.g_region(n=80, s=0, e=120, w=0, res=10)
     datasets = {
         "A": (1, 4, 1, 1),
