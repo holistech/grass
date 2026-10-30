@@ -123,14 +123,20 @@ def _operator(text, errors):
         errors.append(str(error))
         return parse_operator("{" + text.strip()[1:-1].split(",")[0] + "}")
     parts = [part.strip() for part in text.strip()[1:-1].split(",")]
+    searched_from = 0
     for part in parts:
         for word in part.split("|"):
             word = word.strip()
             if word.lower() in _NAMES and word != word.lower():
                 # The classic operator lexer knows the relation names in
                 # lower case only (found by the fuzzer, 15.10.2026:
-                # A {+,EQUAL} N); parse_operator() lowers them.
-                errors.append(f"syntax error on line 1 position 3 near '{word}'")
+                # A {+,EQUAL} N); parse_operator() lowers them. It reports
+                # the offset of the word in the operator text.
+                position = text.index(word, searched_from)
+                errors.append(
+                    f"syntax error on line 1 position {position} near '{word}'"
+                )
+                searched_from = position + len(word)
     lists = [part for part in parts if "|" in part or part.lower() in _NAMES]
     if lists:
         written = []

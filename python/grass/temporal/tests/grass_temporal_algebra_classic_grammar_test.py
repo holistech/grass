@@ -415,3 +415,21 @@ def test_comparison_sees_a_wrong_grammar(world, monkeypatch):
     found = disagreements(kind, ["R = A B"])
     assert len(found) == 1
     assert found[0][1].startswith("the parser class rejects")
+
+
+# The texts are those of the parser classes with run=True and datasets,
+# measured 30.10.2026 with grass.temporal.testing.reference.run_reference.
+@pytest.mark.parametrize(
+    ("expression", "position"),
+    [
+        ("R = A {+,EQUAL} B", 3),
+        ("R = A {+, EQUAL} B", 4),
+        ("R = A {+,during|EQUAL} B", 10),
+    ],
+)
+def test_an_upper_case_relation_is_reported_at_its_position(expression, position):
+    with pytest.raises(SyntaxError) as raised:
+        classic.classic_grammar("raster").parse(expression)
+    assert str(raised.value) == (
+        f"syntax error on line 1 position {position} near 'EQUAL'"
+    )
