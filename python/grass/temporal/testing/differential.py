@@ -42,14 +42,10 @@ import grass.script as gs
 import grass.temporal as tgis
 
 from . import corpus
+from .data import STDS_TYPE_OF_KIND
 from .expressions_data import build
 
-STDS_TYPES = {
-    "raster": "strds",
-    "raster3d": "str3ds",
-    "vector": "stvds",
-    "select": "strds",
-}
+STDS_TYPES = {**STDS_TYPE_OF_KIND, "select": "strds"}
 
 
 def _public_parser(kind, **options):

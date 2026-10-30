@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from .data import MAP_TYPE_OF_STDS
 from .recordings import record
 
 
@@ -307,7 +308,6 @@ def _rows(value):
 
 
 _STDS_TYPES = ("strds", "str3ds", "stvds")
-_MAP_TYPES_OF_STDS = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
 _TEMPORAL_TYPES = ("absolute", "relative")
 
 
@@ -322,7 +322,7 @@ def read_cases():
 
     listing = []
     for temporal in _TEMPORAL_TYPES:
-        for kind in (*_STDS_TYPES, *_MAP_TYPES_OF_STDS.values()):
+        for kind in (*_STDS_TYPES, *MAP_TYPE_OF_STDS.values()):
             for label, options in (
                 ("all", {}),
                 ("columns", {"columns": "id,name,creator"}),
@@ -343,7 +343,7 @@ def read_cases():
     )  # fmt: skip
 
     identifiers = {}
-    for kind in (*_STDS_TYPES, *_MAP_TYPES_OF_STDS.values()):
+    for kind in (*_STDS_TYPES, *MAP_TYPE_OF_STDS.values()):
         found = set()
         for temporal in _TEMPORAL_TYPES:
             for rows in tgis.get_dataset_list(
@@ -391,7 +391,7 @@ def read_cases():
                     stds().get_temporal_type(),
                 ],
             )
-    for kind in _MAP_TYPES_OF_STDS.values():
+    for kind in MAP_TYPE_OF_STDS.values():
         for ident in identifiers[kind]:
 
             def one(kind=kind, ident=ident):

@@ -19,11 +19,15 @@ import datetime
 import re
 
 import grass.temporal as tgis
-from grass.temporal.testing.data import MapSpec, create_stds, make_map, register_stds
+from grass.temporal.testing.data import (
+    MAP_TYPE_OF_STDS,
+    STDS_TYPE_OF_KIND,
+    MapSpec,
+    create_stds,
+    make_map,
+    register_stds,
+)
 from grass.temporal.testing.differential import RUNNERS, outcome
-
-_STDS = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
-_MAP = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}
 
 
 def when(month, day=1, year=2001):
@@ -39,12 +43,13 @@ def january(number):
 def single_map(tools, kind, name, value, start=None, end=None):
     """A map in no dataset; with start it gets that time stamp (an instant
     without end)"""
-    make_map(tools, _MAP[kind], name, value, overwrite=True)
+    map_type = MAP_TYPE_OF_STDS[STDS_TYPE_OF_KIND[kind]]
+    make_map(tools, map_type, name, value, overwrite=True)
     if start is not None:
         times = {"start": start.isoformat(sep=" ")}
         if end is not None:
             times["end"] = end.isoformat(sep=" ")
-        tools.t_register(type=_MAP[kind], maps=name, **times)
+        tools.t_register(type=map_type, maps=name, **times)
 
 
 def _small_region(tools, *, depths=False):
@@ -66,7 +71,7 @@ def daily_datasets(tools, kind="raster"):
     ):
         create_stds(
             tools,
-            _STDS[kind],
+            STDS_TYPE_OF_KIND[kind],
             name,
             [
                 MapSpec(
@@ -359,7 +364,7 @@ def check_case(
         by_start = sorted(result["maps"], key=lambda row: row[1])
         assert [row[0].split("@")[0] for row in by_start] == names
     if shape is not None and expected:
-        stdstype = options.get("stdstype") or _STDS.get(kind, "strds")
+        stdstype = options.get("stdstype") or STDS_TYPE_OF_KIND.get(kind, "strds")
         stds = tgis.open_old_stds(f"R{base}", options.get("result_type") or stdstype)
         assert (stds.check_temporal_topology(), stds.get_granularity()) == shape
 

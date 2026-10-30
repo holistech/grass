@@ -18,6 +18,8 @@ from typing import NamedTuple
 import grass.script as gs
 from grass.tools import ToolError
 
+from .data import TIME_FORMAT
+
 # Maps the dataset type to the list tool and whether it reports min and max;
 # vector maps have no value range.
 _LIST_TOOLS = {
@@ -163,7 +165,7 @@ def info_text(tools, **kwargs):
 
 def time_text(moment):
     """Return a time as the list tools print it, "None" for no time"""
-    return "None" if moment is None else moment.strftime("%Y-%m-%d %H:%M:%S")
+    return "None" if moment is None else moment.strftime(TIME_FORMAT)
 
 
 def days_text(value):

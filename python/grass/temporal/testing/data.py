@@ -20,11 +20,15 @@ import grass.temporal as tgis
 DAY0 = datetime(2001, 1, 1)
 
 # t.register and the library take the type of the maps, not of the dataset
-# that holds them.
-_MAP_TYPE = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
-_MAP_KINDS = tuple(_MAP_TYPE.values())
+# that holds them. The tables are written out here, not taken from
+# grass.temporal.kinds, so that test data does not depend on the library that
+# the tests check.
+MAP_TYPE_OF_STDS = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
+STDS_TYPE_OF_KIND = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
+_MAP_KINDS = tuple(MAP_TYPE_OF_STDS.values())
 
-_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+# The form in which the tools print and read times
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def day(offset, *, hours=0):
@@ -178,7 +182,7 @@ def register_stds(
     0.473 s).
     """
     maps = list(maps)
-    map_type = _MAP_TYPE[stds_type]
+    map_type = MAP_TYPE_OF_STDS[stds_type]
     title = name if title is None else title
     description = title if description is None else description
     if temporaltype == "relative" and unit is None:
@@ -242,7 +246,7 @@ def create_daily_stds(tools, stds_type, names, count, *, map_prefix):
     a test of a tool that removes a map from one dataset can look at the
     others. Returns the map names.
     """
-    map_type = _MAP_TYPE[stds_type]
+    map_type = MAP_TYPE_OF_STDS[stds_type]
     specs = []
     for number in range(1, count + 1):
         name = f"{map_prefix}_{number}"
@@ -257,7 +261,7 @@ def _text(value, temporaltype):
     """A time as t.register reads it: a date and time, or a plain number"""
     if temporaltype == "relative":
         return str(value)
-    return value.strftime(_TIME_FORMAT)
+    return value.strftime(TIME_FORMAT)
 
 
 def register_file(path, rows, *, separator="|"):
@@ -279,7 +283,7 @@ def register_file(path, rows, *, separator="|"):
             raise ValueError(msg)
         lines.append(
             separator.join(
-                field.strftime(_TIME_FORMAT)
+                field.strftime(TIME_FORMAT)
                 if isinstance(field, datetime)
                 else str(field)
                 for field in fields
@@ -396,7 +400,7 @@ def create_stds(tools, stds_type, name, maps, **options):
     Maps that already exist, such as v.random vectors, go to register_stds().
     """
     maps = list(maps)
-    map_type = _MAP_TYPE[stds_type]
+    map_type = MAP_TYPE_OF_STDS[stds_type]
     for spec in maps:
         make_map(
             tools,

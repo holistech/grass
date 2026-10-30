@@ -17,7 +17,13 @@ from typing import NamedTuple
 
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds, day
+from grass.temporal.testing.data import (
+    TIME_FORMAT,
+    MapSpec,
+    create_daily_stds,
+    create_stds,
+    day,
+)
 from grass.temporal.testing.readback import map_info
 from grass.temporal.testing.session import (
     mapset_session,
@@ -304,5 +310,5 @@ def sampling_relations(tools):
         dataset="sampling_relations",
         sampler="sampling_relations_sampler",
         sums=_SAMPLING_SUMS,
-        start=day(10).strftime("%Y-%m-%d %H:%M:%S"),
+        start=day(10).strftime(TIME_FORMAT),
     )
