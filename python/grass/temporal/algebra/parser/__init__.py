@@ -272,21 +272,25 @@ def _as_process_dict(call, overwrite):
     from a file that is written only at run time (see materialize._module),
     so a dry run has no file name to show.
     """
-    parameters = call.parameters.items()
-    inputs = [(key, value) for key, value in parameters if key != "output"]
-    if call.inputs:
-        inputs.append(("input", ",".join(call.inputs)))
+    parameters = _shown_parameters(call)
     return {
         "name": call.name,
-        "inputs": inputs,
+        "inputs": [(key, value) for key, value in parameters if key != "output"],
         "outputs": [(key, value) for key, value in parameters if key == "output"],
         "flags": ["overwrite"] if overwrite else [],
     }
 
 
+def _shown_parameters(call):
+    # The joined maps come first, so that the dry run of a reduction that
+    # skips null cells keeps the order it has always shown.
+    inputs = [("input", ",".join(call.inputs))] if call.inputs else []
+    return [*inputs, *call.parameters.items()]
+
+
 def _command(call):
     arguments = (
         f"{key}={','.join(value) if isinstance(value, tuple) else value}"
-        for key, value in call.parameters.items()
+        for key, value in _shown_parameters(call)
     )
     return " ".join((call.name, *arguments))

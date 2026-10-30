@@ -299,11 +299,8 @@ class RasterBackend:
                 calls.append(
                     ModuleCall(
                         "r.series",
-                        {
-                            "input": ",".join(inputs),
-                            "output": name,
-                            "method": node.method,
-                        },
+                        {"output": name, "method": node.method},
+                        inputs=tuple(inputs),
                     )
                 )
                 return MapRef(name)

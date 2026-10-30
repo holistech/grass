@@ -327,6 +327,8 @@ def series_reading_a_missing_map(monkeypatch):
     def failing_module(call, overwrite):
         module = run_module(call, overwrite)
         if call.name == "r.series":
+            # On the command line, so that the error names the map.
+            module.inputs["file"].value = None
             module.inputs["input"].value = "no_such_map"
         return module
 

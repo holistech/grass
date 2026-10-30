@@ -8,6 +8,7 @@ from dataclasses import replace
 
 import pytest
 
+from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
 from grass.temporal.algebra.content import (
     NULL,
@@ -180,11 +181,11 @@ def test_temporary_maps_of_an_odd_name_are_quoted_in_expressions_only(make_serie
     assert chain.processes[0].parameters["expression"] == (
         '"my-res_0_tmp0"=("a1@PERMANENT" * 2)'
     )
-    assert chain.processes[2].parameters == {
-        "input": "my-res_0_tmp0,my-res_0_tmp1",
-        "output": "my-res_0_tmp2",
-        "method": "sum",
-    }
+    assert chain.processes[2] == ModuleCall(
+        "r.series",
+        {"output": "my-res_0_tmp2", "method": "sum"},
+        inputs=("my-res_0_tmp0", "my-res_0_tmp1"),
+    )
     assert chain.processes[3].parameters["expression"] == (
         '"my-res_0"=("my-res_0_tmp2" + 1)'
     )
@@ -271,7 +272,8 @@ def test_skip_reduction_of_maps_writes_the_result_with_r_series(make_series):
     assert chain.processes == [
         ModuleCall(
             "r.series",
-            {"input": "a1@PERMANENT,a2@PERMANENT", "output": "R_0", "method": "sum"},
+            {"output": "R_0", "method": "sum"},
+            inputs=("a1@PERMANENT", "a2@PERMANENT"),
         )
     ]
     assert chain.remove == ()
@@ -291,7 +293,8 @@ def test_skip_reduction_of_expressions_uses_temporary_maps(make_series):
         ),
         ModuleCall(
             "r.series",
-            {"input": "R_0_tmp0,R_0_tmp1", "output": "R_0_tmp2", "method": "average"},
+            {"output": "R_0_tmp2", "method": "average"},
+            inputs=("R_0_tmp0", "R_0_tmp1"),
         ),
         ModuleCall("r.mapcalc", {"expression": '"R_0"=("R_0_tmp2" + 1)', "nprocs": 1}),
     ]
@@ -303,8 +306,73 @@ def test_skip_reduction_of_a_map_at_an_offset_uses_a_temporary_map():
     calls, temporaries = RasterBackend().plan(reduced, "R_0")
     assert [call.name for call in calls] == ["r.mapcalc", "r.series"]
     assert calls[0].parameters["expression"] == '"R_0_tmp0"="a1@PERMANENT"[1,0]'
-    assert calls[1].parameters["input"] == "R_0_tmp0,a2@PERMANENT"
+    assert calls[1].inputs == ("R_0_tmp0", "a2@PERMANENT")
     assert temporaries == ["R_0_tmp0"]
+
+
+def test_a_reduction_skipping_nulls_reads_its_maps_from_a_file(make_series):
+    """The maps reach r.series in a file, as for an aggregation, because the
+    kernel limits a single argument such as input=a,b,... to 131072 bytes"""
+    a = make_series("a", (1, 2), (2, 3))
+    b = make_series("b", (1, 3))
+    (call,) = plan(gather(b, contains, a, reduce="sum", nulls="skip"), "R").processes
+    assert call.inputs == ("a1@PERMANENT", "a2@PERMANENT")
+    assert "input" not in call.parameters
+
+
+def test_the_dry_run_of_a_reduction_skipping_nulls_is_unchanged(make_series):
+    """The process chain and the debug lines of a dry run still list the maps
+    as one input, as they did when the maps were passed on the command line
+
+    The expected values were recorded before the maps went into a file.
+    repr() compares them character by character, so a change of the order of
+    the keys or of the inputs is seen too.
+    """
+    a = make_series("a", (1, 2), (2, 3))
+    b = make_series("b", (1, 3))
+    reduced = gather(b, contains, a * 2, reduce="mean", nulls="skip")
+    calls = plan(reduced + 1, "R").processes
+    described = [algebra_parser._as_process_dict(call, True) for call in calls]
+    assert repr(described) == repr(
+        [
+            {
+                "name": "r.mapcalc",
+                "inputs": [
+                    ("expression", '"R_0_tmp0"=("a1@PERMANENT" * 2)'),
+                    ("nprocs", 1),
+                ],
+                "outputs": [],
+                "flags": ["overwrite"],
+            },
+            {
+                "name": "r.mapcalc",
+                "inputs": [
+                    ("expression", '"R_0_tmp1"=("a2@PERMANENT" * 2)'),
+                    ("nprocs", 1),
+                ],
+                "outputs": [],
+                "flags": ["overwrite"],
+            },
+            {
+                "name": "r.series",
+                "inputs": [("input", "R_0_tmp0,R_0_tmp1"), ("method", "average")],
+                "outputs": [("output", "R_0_tmp2")],
+                "flags": ["overwrite"],
+            },
+            {
+                "name": "r.mapcalc",
+                "inputs": [("expression", '"R_0"=("R_0_tmp2" + 1)'), ("nprocs", 1)],
+                "outputs": [],
+                "flags": ["overwrite"],
+            },
+        ]
+    )
+    assert [algebra_parser._command(call) for call in calls] == [
+        'r.mapcalc expression="R_0_tmp0"=("a1@PERMANENT" * 2) nprocs=1',
+        'r.mapcalc expression="R_0_tmp1"=("a2@PERMANENT" * 2) nprocs=1',
+        "r.series input=R_0_tmp0,R_0_tmp1 output=R_0_tmp2 method=average",
+        'r.mapcalc expression="R_0"=("R_0_tmp2" + 1) nprocs=1',
+    ]
 
 
 def test_nested_condition_stays_one_call_per_map(make_series):
