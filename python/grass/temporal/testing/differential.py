@@ -48,21 +48,47 @@ from .expressions_data import build
 STDS_TYPES = {**STDS_TYPE_OF_KIND, "select": "strds"}
 
 
-def _public_parser(kind, **options):
-    """Create the public parser class of a kind, which the tools call"""
+def _granularity_parser_class(kind):
+    """Return the public parser class of a kind, which the tools call"""
     from grass.temporal.algebra.parser import facade
 
-    classes = {
+    from .reference import check_granularity_kind
+
+    check_granularity_kind(kind)
+    return {
         "raster": facade.TemporalRasterAlgebraParser,
         "raster3d": facade.TemporalRaster3DAlgebraParser,
         "vector": facade.TemporalVectorAlgebraParser,
-    }
-    if kind not in classes:
-        msg = (
-            f"The granularity mode exists for raster, raster3d and vector, not {kind!r}"
-        )
-        raise ValueError(msg)
-    return classes[kind](**options)
+    }[kind]
+
+
+def _granularity_parser(kind, expression, options):
+    """Take the option ``granularity`` from options; if true, return the parser
+
+    The parser is the public class of the kind with ``classic=False``, after
+    ``setup_granularity``: the granularity mode lives in its ``parse()``.
+    Returns None for a run without the mode.
+    """
+    if not options.pop("granularity", False):
+        return None
+    from .reference import setup_granularity
+
+    parser = _granularity_parser_class(kind)(classic=False, **options)
+    setup_granularity(parser, kind, expression)
+    return parser
+
+
+def _selection(kind, options):
+    """Return the kind of the datasets and whether the run is a selection
+
+    The kind ``"select"`` runs on the datasets of the type that the option
+    ``stdstype`` names, which is taken from options.
+    """
+    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
+
+    if kind != "select":
+        return kind, False
+    return KINDS_OF_STDS[options.pop("stdstype", "strds")], True
 
 
 def core_runner(kind, expression, *, basename, overwrite=False, **options):
@@ -76,19 +102,12 @@ def core_runner(kind, expression, *, basename, overwrite=False, **options):
     ``classic=False``, after ``setup_granularity``: the evaluation of the
     granularity mode lives in its ``parse()``.
     """
-    if options.pop("granularity", False):
-        from .reference import setup_granularity
-
-        parser = _public_parser(kind, classic=False, **options)
-        setup_granularity(parser, kind, expression)
+    parser = _granularity_parser(kind, expression, options)
+    if parser is not None:
         return parser.parse(expression, basename=basename, overwrite=overwrite)
-    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
 
-    selection = kind == "select"
-    if selection:
-        stdstype = options.pop("stdstype", "strds")
-        kind = KINDS_OF_STDS[stdstype]
+    kind, selection = _selection(kind, options)
     return evaluate(
         expression,
         kind=kind,
@@ -108,21 +127,12 @@ def classic_runner(kind, expression, *, basename, overwrite=False, **options):
     sampled by ``setup_granularity`` on a parser of the kind, whose
     granularity then goes to ``evaluate``.
     """
-    from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
     from grass.temporal.algebra.parser.classic import CLASSIC
 
-    granularity = None
-    if options.pop("granularity", False):
-        from .reference import setup_granularity
-
-        parser = _public_parser(kind, classic=False, **options)
-        setup_granularity(parser, kind, expression)
-        granularity = parser.granularity
-    selection = kind == "select"
-    if selection:
-        stdstype = options.pop("stdstype", "strds")
-        kind = KINDS_OF_STDS[stdstype]
+    parser = _granularity_parser(kind, expression, options)
+    granularity = None if parser is None else parser.granularity
+    kind, selection = _selection(kind, options)
     return evaluate(
         expression,
         kind=kind,

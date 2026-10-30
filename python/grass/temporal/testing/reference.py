@@ -87,6 +87,15 @@ def reference_parser(kind, **options):
     return engine
 
 
+def check_granularity_kind(kind):
+    """Raise ValueError for a kind without a granularity mode"""
+    if kind not in {"raster", "raster3d", "vector"}:
+        msg = (
+            f"The granularity mode exists for raster, raster3d and vector, not {kind!r}"
+        )
+        raise ValueError(msg)
+
+
 def setup_granularity(parser, kind, expression):
     """Sample the datasets of an expression with their common granularity
 
@@ -112,17 +121,13 @@ def setup_granularity(parser, kind, expression):
         TemporalVectorAlgebraLexer,
     )
 
+    check_granularity_kind(kind)
     if kind == "raster":
         arguments = {"stdstype": "strds", "lexer": TemporalRasterAlgebraLexer()}
     elif kind == "raster3d":
         arguments = {"stdstype": "str3ds", "lexer": TemporalRasterAlgebraLexer()}
-    elif kind == "vector":
-        arguments = {"stdstype": "stvds", "lexer": TemporalVectorAlgebraLexer()}
     else:
-        msg = (
-            f"The granularity mode exists for raster, raster3d and vector, not {kind!r}"
-        )
-        raise ValueError(msg)
+        arguments = {"stdstype": "stvds", "lexer": TemporalVectorAlgebraLexer()}
     if not parser.setup_common_granularity(expression=expression, **arguments):
         msg = "Unable to process the expression in granularity algebra mode"
         raise FatalError(msg)
