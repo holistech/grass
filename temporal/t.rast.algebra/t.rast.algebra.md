@@ -116,7 +116,7 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra and **-c** read both names. The reference implementation
+the new algebra and **-c** read both names. The releases before GRASS 8.6
 refused `equals` with a syntax error.
 
 Topological relations must be specified with curly brackets {}.
@@ -869,16 +869,18 @@ GRASS version they were computed with.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the reference implementation, with
-the exceptions below. In these cases the reference implementation computed
-wrongly, ended in an error that had no reason, or reported the wrong error.
-**-c** now gives the result described here. The new algebra never computed
-these cases wrongly; only the items on infinite values, on month steps, on
-dates beyond the year 9999 and on a failed module concerned the library and
-with it both algebras. Results of earlier GRASS versions that used one of
-these forms need a new run. The examples use the datasets of the list above
-and, in addition, N with daily maps of the values 11 to 14 and RT with maps
-of relative time.
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases computed wrongly, ended in
+an error that had no reason, or reported the wrong error. **-c** now gives the
+result described here. The reference implementation was corrected in the same
+way, except in items 16 and 17: it still takes the time of a partner whose box
+only touches, and it still raises the `CalledModuleError` of a failed module.
+The new algebra never computed these cases wrongly; only the items on infinite
+values, on month steps, on dates beyond the year 9999 and on a failed module
+concerned the library and with it both algebras. Results of earlier GRASS
+versions that used one of these forms need a new run. The examples use the
+datasets of the list above and, in addition, N with daily maps of the values
+11 to 14 and RT with maps of relative time.
 
 1. **td() of an expression** on the right of an operator used the value of
    the expression instead of the duration of its maps. With daily maps in N
@@ -979,8 +981,8 @@ of relative time.
 9. **A map read at an offset as a truth value.** A time function of a
    map read at an offset in time or in cells, such as `end_year(A[1])`,
    joined with `&&` or `||` to a condition on cells is a truth value, like
-   the time function of any map (corrected 17 October 2026). The reference
-   implementation wrote the map itself as the operand, so that a map with
+   the time function of any map (corrected 17 October 2026). The releases
+   before GRASS 8.6 wrote the map itself as the operand, so that a map with
    a value other than 0 counted as true whatever the time function said. The
    same holds where the time condition follows further time conditions, as in
    `end_year(A[1]) == 1 && end_year(N) == 1 && A > 0`.
@@ -1100,13 +1102,30 @@ of relative time.
     (corrected 24 October 2026); the cause is in the error output of the module
     above it. No dataset is created.
 
+18. **The relation equals.** The releases before GRASS 8.6 refused the
+    spelling `equals` of the paper with a syntax error (corrected 17 October
+    2026). The classic algebra reads it as `equal`, so this expression gives
+    the same maps as `C = A {+,equal,l} B`:
+
+    ```sh
+    C = A {+,equals,l} B
+    ```
+
+19. **Comparison of related maps.** The releases before GRASS 8.6 refused the
+    comparison of two space time datasets, in braces and as `A >= F`, with a
+    syntax error (corrected 17 October 2026). **-c** reads it as described in
+    the comparison of related maps above:
+
+    ```sh
+    C = if(A {<, contains, |, r} B, B, 0)
+    ```
+
 #### Differences from the reference implementation
 
 Besides the corrections, **-c** differs from the reference implementation
-in the following points. Only the items on lists of absolute and relative
-time, on the relation `equals` and on the comparison of related maps change
-the outcome of an expression; the others concern messages, output and the
-class of an error.
+in the following points. Only the item on lists of absolute and relative
+time changes the outcome of an expression; the others concern messages, output
+and the class of an error.
 
 - **Message texts.** The texts of warnings and errors are those of the
   new algebra. A `merge()` that meets maps identical in content and time
@@ -1151,24 +1170,6 @@ class of an error.
 
   ```sh
   C = merge(tmap(sinst), RT) : RT
-  ```
-
-- **The relation equals.** The reference implementation refused the
-  spelling `equals` of the paper with a syntax error. The classic algebra
-  reads it as `equal`, so this expression gives the same maps as
-  `C = A {+,equal,l} B`:
-
-  ```sh
-  C = A {+,equals,l} B
-  ```
-
-- **Comparison of related maps.** The reference implementation refused the
-  comparison of two space time datasets, in braces and as `A >= F`, with a
-  syntax error. **-c** reads it as described in the comparison of related
-  maps above:
-
-  ```sh
-  C = if(A {<, contains, |, r} B, B, 0)
   ```
 
 ### Granularity algebra

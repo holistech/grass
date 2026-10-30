@@ -120,8 +120,8 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The reference
-implementation refused <code>equals</code> with a syntax error.
+<code>equals</code>; the new algebra and <b>-c</b> read both names. The releases
+before GRASS 8.6 refused <code>equals</code> with a syntax error.
 <p>
 Topological relations must be specified with curly brackets {}.
 <p>
@@ -901,10 +901,13 @@ GRASS version they were computed with.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the reference implementation, with the
-exceptions below. In these cases the reference implementation computed wrongly,
-ended in an error that had no reason, or reported the wrong error. <b>-c</b>
-now gives the result described here. The new algebra never computed these cases
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases computed wrongly, ended in
+an error that had no reason, or reported the wrong error. <b>-c</b> now gives
+the result described here. The reference implementation was corrected in the
+same way, except in items 16 and 17: it still takes the time of a partner whose
+box only touches, and it still raises the <code>CalledModuleError</code> of a
+failed module. The new algebra never computed these cases
 wrongly; only the items on infinite values, on month steps, on dates beyond the
 year 9999 and on a failed module concerned the library and with it both
 algebras. Results of earlier GRASS versions that used one of these forms need a
@@ -1024,7 +1027,7 @@ C = N + td(A # merge(A, N))
 read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
 joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
 is a truth value, like the time function of any map (corrected 17 October
-2026). The reference implementation wrote the map itself as the operand, so
+2026). The releases before GRASS 8.6 wrote the map itself as the operand, so
 that a map with a value other than 0 counted as true whatever the time
 function said. The same holds where the time condition follows further time
 conditions, as in <code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1
@@ -1150,15 +1153,32 @@ end with the error
 (corrected 24 October 2026); the cause is in the error output of the module
 above it. No dataset is created.
 </li>
+<li><b>The relation equals.</b> The releases before GRASS 8.6 refused the
+spelling <code>equals</code> of the paper with a syntax error (corrected 17
+October 2026). The classic algebra reads it as <code>equal</code>, so this
+expression gives the same maps as <code>C = A {+,equal,l} B</code>:
+
+<div class="code"><pre>
+C = A {+,equals,l} B
+</pre></div>
+</li>
+<li><b>Comparison of related maps.</b> The releases before GRASS 8.6 refused the
+comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
+with a syntax error (corrected 17 October 2026). <b>-c</b> reads it as
+described in the comparison of related maps above:
+
+<div class="code"><pre>
+C = if(A {&lt;, contains, |, r} B, B, 0)
+</pre></div>
+</li>
 </ol>
 
 <h4>Differences from the reference implementation</h4>
 
 Besides the corrections, <b>-c</b> differs from the reference implementation in
-the following points. Only the items on lists of absolute and relative time, on
-the relation <code>equals</code> and on the comparison of related maps change
-the outcome of an expression; the others concern messages, output and the
-class of an error.
+the following points. Only the item on lists of absolute and relative time
+changes the outcome of an expression; the others concern messages, output and
+the class of an error.
 
 <ul>
 <li><b>Message texts.</b> The texts of warnings and errors are those of the new
@@ -1214,26 +1234,6 @@ expression selects the maps of <code>RT</code> as <code>RT : RT</code> does:
 
 <div class="code"><pre>
 C = merge(tmap(sinst), RT) : RT
-</pre></div>
-</li>
-
-<li><b>The relation equals.</b> The reference implementation refused the spelling
-<code>equals</code> of the paper with a syntax error. The classic algebra reads
-it as <code>equal</code>, so this expression gives the same maps as
-<code>C = A {+,equal,l} B</code>:
-
-<div class="code"><pre>
-C = A {+,equals,l} B
-</pre></div>
-</li>
-
-<li><b>Comparison of related maps.</b> The reference implementation refused the
-comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
-with a syntax error. <b>-c</b> reads it as described in the comparison of
-related maps above:
-
-<div class="code"><pre>
-C = if(A {&lt;, contains, |, r} B, B, 0)
 </pre></div>
 </li>
 </ul>
