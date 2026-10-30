@@ -206,9 +206,18 @@ used from any test; the fixtures that wrap it are in
   messages of a call or of the error it raised as one line; compare messages
   through it, because GRASS wraps them and an absence check on the raw text
   passes whatever the text says. `info_text()` parses the output of
-  `t.info -g` into a dictionary. `time_text()`, `days_text()` and
-  `delta_row()` format times, day counts and a row of the methods delta,
-  deltagaps and gran the way the list tools print them.
+  `t.info -g` into a dictionary. `inventory()` lists the maps of the current
+  mapset and the datasets of the search path, so that a test can show that a
+  refused run left nothing behind; it needs a `Tools` object created with
+  `consistent_return_value=True`, because otherwise a call that prints
+  nothing, such as _t.list_ for a type without datasets, returns `None`.
+  `time_text()`, `days_text()` and `delta_row()` format times, day counts
+  and a row of the methods delta, deltagaps and gran the way the list tools
+  print them.
+
+The other modules of the package serve the comparisons of the algebras, the
+recordings of the library and the cached IO described below; the docstring
+of `grass.temporal.testing` lists them all.
 
 Tests of the `t.*` tools and of _grass.temporal_ build all their data with
 these helpers, in a project created in `tmp_path`, and do not read the North
@@ -270,44 +279,50 @@ select anything. The test picks its algebra itself and so runs once whatever
 `GRASS_TEMPORAL_ALGEBRA` says. A run that wants every test once, such as the
 classic run, selects with `-m "not fixed_algebra"`.
 
-### Comparing the classic algebra with its reference
+### Comparing the classic profile with the reference implementation
 
-`-c` and `GRASS_TEMPORAL_ALGEBRA=classic` compute on a profile of the algebra
-core. The implementation that predates the profile stays in the repository
-for good, as the classic algebra that publications refer to; the profile has
-to reproduce its results completely. It has no switch and no value of
-`GRASS_TEMPORAL_ALGEBRA`; the private helper
+`-c` and `GRASS_TEMPORAL_ALGEBRA=classic` compute on the classic profile of
+the algebra core. The reference implementation, `grass.temporal.classic`, is
+the implementation of the classic algebra that is older than the profile. It
+stays in the repository for good, because publications refer to its results,
+and the profile has to reproduce them completely. The reference has no switch
+and no value of `GRASS_TEMPORAL_ALGEBRA`; the private helper
 `grass.temporal.testing.reference` reaches it, whatever the variable and the
 `classic` argument say. Its function `run_reference(kind, expression,
 basename=..., **options)` computes an expression like the parse method of
-the parser classes, for the kinds `raster`, `raster3d`, `vector` and
+the public parser classes, for the kinds `raster`, `raster3d`, `vector` and
 `select`. Do not use it outside tests.
 
 The tests that compare the outcome of the profile or the core with that of
-this implementation do not run it. The module
-`grass.temporal.testing.corpus` holds what it computed for each such case of
-the test suite, and
+the reference do not run it. The module `grass.temporal.testing.corpus` holds
+what the reference computed for each such case of the test suite, and
 `reference_outcome(kind, expression, **options)` returns the stored outcome.
-With `GRASS_TEMPORAL_REFERENCE=live` the implementation runs instead, and a
-case fails where it no longer computes what the corpus holds;
+With `GRASS_TEMPORAL_REFERENCE=live` the reference runs instead, and a case
+fails where it no longer computes what the corpus holds;
 `GRASS_TEMPORAL_REFERENCE=record` records the corpus again, as the module
 docstring describes. The corpus key hangs on the node id of the test: a test
 that is renamed or moved finds no entry and fails, and its old entries stay in
-the corpus as orphans that nothing reports. Record the corpus again for a
-renamed test. Tests of the implementation itself, tests that check it
-against values derived by hand, and the comparisons of the planned chain and of
-the error texts in `temporal_algebra_core_plan_options_io_test.py`, which have
-no outcome to store, still run it.
+the corpus as orphans. Record the corpus again for a renamed test. To find
+orphans, run the tests in both settings of the algebra with
+`GRASS_TEMPORAL_CORPUS_TRACE_DIR` set to an empty directory; then
+`python3 -m grass.temporal.testing.corpus_orphans <directory>` lists the
+entries that no test read. Tests of the reference itself, tests that check it
+against values derived by hand, and the comparisons of the planned chain and
+of the error texts in `temporal_algebra_core_plan_options_io_test.py`, which
+have no outcome to store, still run it. The cases of the algebra whose
+expected values are derived by hand take their datasets and their checks
+from `grass.temporal.testing.algebra_cases`.
 
 The module `grass.temporal.testing.expressions` generates seeded random
-expressions of the classic grammar, runs them on two implementations and
-compares the error class or the registered maps, with their time stamps and
-values. The same seed gives the same expression, so a difference can be
-reproduced from its seed alone. The test modules `*_fuzz_test.py` of the four
-tools run the seeds 0 to 199 per kind in the normal run; they carry the marker
-`slow`, which `-m "not slow"` deselects, and `fixed_algebra`. Two variables
-widen a run for an acceptance; with either of them set, the tests compute on
-the earlier implementation instead of reading the corpus:
+expressions of the classic grammar, runs them with two of the runners of
+`grass.temporal.testing.differential` (the reference, the classic profile
+and the core) and compares the error class or the registered maps, with
+their time stamps and values. The same seed gives the same expression, so a
+difference can be reproduced from its seed alone. The test modules
+`*_fuzz_test.py` of the four tools run the seeds 0 to 199 per kind in the
+normal run; they carry the marker `slow`, which `-m "not slow"` deselects, and
+`fixed_algebra`. Two variables widen a run for an acceptance; with either of
+them set, the tests compute on the reference instead of reading the corpus:
 
 ```bash
 GRASS_TEMPORAL_FUZZ_COUNT=4000 GRASS_TEMPORAL_FUZZ_SEED=0 \
@@ -324,15 +339,31 @@ python3 -m grass.temporal.testing.expressions --kind raster \
 python3 -m grass.temporal.testing.expressions --diff before.jsonl after.jsonl
 ```
 
-An expression on which the two implementations differ is an error of the
-profile, unless it is a documented difference: message texts, debug output,
-the class of the error of an invalid expression (the profile reads the whole
-expression first and reports the syntax error), the relation name `equals`
-(the previous implementation refuses it), and a relation over a list of
-absolute and relative time (the previous implementation stops with a
-`TypeError`). The section "Differences from the previous
-implementation" of the _t.rast.algebra_ manual describes them all. The module
-docstring lists the options.
+An expression on which the reference and the classic profile differ is an
+error of the profile, unless it is a documented difference: message texts,
+debug output, the class of the error of an invalid expression (the profile
+reads the whole expression first and reports the syntax error), the relation
+name `equals` (the reference refuses it), and a relation over a list of
+absolute and relative time (the reference stops with a `TypeError`). The
+section "Differences from the previous implementation" of the
+_t.rast.algebra_ manual describes them all. The module docstring lists the
+options.
+
+### Recordings of the library
+
+Two modules record what the library computes and compare a later run with the
+record, so that a refactor which changes a result shows with the name of the
+case. `grass.temporal.testing.recordings` covers the extent, granularity, date
+and topology functions on fixed grids of inputs, and
+`grass.temporal.testing.database_image` the temporal database that the library
+writes and what it reads back from it. The records are in
+`python/grass/temporal/tests/recordings`, and
+`grass_temporal_recordings_test.py` and `grass_temporal_database_image_test.py`
+compare them with the current code. A record is proof, not a test oracle: it
+holds what the code computed on the day it was recorded, surprising results
+included. Record again only with the permission of the maintainer, after a fix
+that changes a result on purpose, never to make a refactor pass; the module
+docstrings give the commands.
 
 ### Real and cached IO in library tests
 
@@ -348,7 +379,7 @@ every test through an autouse fixture in their `conftest.py`. Fixtures of
 module scope are set up before that fixture and therefore use the real IO:
 
 - the list of mapsets with a temporal database, which
-  `grass.temporal.core.get_available_temporal_mapsets` otherwise asks
+  `grass.temporal.db.get_available_temporal_mapsets` otherwise asks
   _t.connect_ for each time a database connection is opened;
 - the `--interface-description` of a tool, which pygrass otherwise reads by
   starting the tool each time a `Module` is created.
