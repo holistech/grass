@@ -283,10 +283,11 @@ def _datetime(value):
 
 def _whole_number(value, what):
     # Relative time is integral, and as_map() rejects a fractional stamp.
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        msg = f"The {what} of relative granules must be a whole number, not {value!r}"
-        raise ValueError(msg)
-    if int(value) != value:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or int(value) != value
+    ):
         msg = f"The {what} of relative granules must be a whole number, not {value!r}"
         raise ValueError(msg)
     return int(value)

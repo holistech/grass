@@ -237,14 +237,9 @@ def call(function, *args):
         # the earlier implementation of the algebra.
         args = (*args, Const(0))
     if function == "if" and isinstance(args[0], Const):
-        condition = args[0].value
-        if condition is None:
+        if args[0].value is None:
             return NULL
-        if len(args) == 4:
-            if condition > 0:
-                return args[1]
-            return args[2] if condition == 0 else args[3]
-        return args[1] if condition else args[2]
+        return _if(args[0].value, *args[1:])
     if function in _SCALAR and NULL in args:
         return NULL
     foldable = function in _SCALAR or function in _NULL_AWARE
