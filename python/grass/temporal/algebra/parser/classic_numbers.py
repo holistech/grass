@@ -11,7 +11,7 @@ import dataclasses
 from grass.temporal.algebra.content import Const, evaluate
 from grass.temporal.algebra.series import Series
 
-from .classic_maps import like
+from .classic_maps import with_slots
 
 _INT32_MAX = 2**31 - 1
 _INT64_MAX = 2**63 - 1
@@ -127,7 +127,7 @@ def _read_operand_as_mapcalc(operand):
     """operand with the integer constants of read_as_mapcalc() replaced"""
     if not any(beyond_int32(slot.content) for slot in operand.slots):
         return operand
-    return like(
+    return with_slots(
         operand,
         (
             dataclasses.replace(

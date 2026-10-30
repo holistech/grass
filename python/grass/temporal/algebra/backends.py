@@ -263,7 +263,7 @@ class RasterBackend:
             temporaries.append(name)
             return name
 
-        def as_map(node):
+        def map_name_of(node):
             # r.series reads maps, and a map at an offset is not one.
             if isinstance(node, MapRef) and not node.offset:
                 return node.ident
@@ -275,7 +275,7 @@ class RasterBackend:
 
         def lower(node, target=None):
             if isinstance(node, SeriesAggregate):
-                inputs = [as_map(lower(arg)) for arg in node.args]
+                inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
                 if len(inputs) == 1:
                     # A lone related map is copied verbatim: g.copy keeps its
@@ -294,7 +294,7 @@ class RasterBackend:
                     )
                 return MapRef(name)
             if isinstance(node, SeriesReduce):
-                inputs = [as_map(lower(arg)) for arg in node.args]
+                inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
                 calls.append(
                     ModuleCall(
@@ -421,7 +421,7 @@ class VectorBackend:
         calls = []
         temporaries = []
 
-        def as_map(node):
+        def map_name_of(node):
             if isinstance(node, MapRef) and not node.offset:
                 return node.ident
             name = f"{output}_tmp{len(temporaries)}"
@@ -443,8 +443,8 @@ class VectorBackend:
                         ModuleCall(
                             "v.overlay",
                             {
-                                "ainput": as_map(first),
-                                "binput": as_map(second),
+                                "ainput": map_name_of(first),
+                                "binput": map_name_of(second),
                                 "operator": function,
                                 "output": target,
                             },
@@ -453,7 +453,7 @@ class VectorBackend:
                 case Call(function=function, args=args) if (
                     function == PATCH and len(args) >= 2
                 ):
-                    inputs = ",".join(as_map(arg) for arg in args)
+                    inputs = ",".join(map_name_of(arg) for arg in args)
                     calls.append(
                         ModuleCall("v.patch", {"input": inputs, "output": target})
                     )
@@ -464,7 +464,7 @@ class VectorBackend:
                         ModuleCall(
                             "v.buffer",
                             {
-                                "input": as_map(features),
+                                "input": map_name_of(features),
                                 "type": BUFFER_TYPES[function],
                                 "distance": distance,
                                 "output": target,

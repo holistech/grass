@@ -245,7 +245,7 @@ class ClassicTranslator(Translator):
             else slot
             for slot in series.slots
         ]
-        return name, classic_maps.like(series, slots)
+        return name, classic_maps.with_slots(series, slots)
 
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
@@ -473,7 +473,7 @@ class ClassicTranslator(Translator):
             self._counted(slot.content) for slot in series.slots
         ):
             return series
-        return classic_maps.like(
+        return classic_maps.with_slots(
             series,
             (
                 dataclasses.replace(slot, content=slot.content.mark.first)
@@ -743,7 +743,7 @@ class ClassicTranslator(Translator):
             for slot in series.slots
             if map_id(slot) is None or latest[map_id(slot)] is slot
         ]
-        return classic_maps.like(series, slots)
+        return classic_maps.with_slots(series, slots)
 
     def _selected(self, left, right, operator):
         relation = self._relation(operator)
@@ -938,7 +938,7 @@ class ClassicTranslator(Translator):
                 return
             taken.add(index)
             slots.append(argument.slots[index])
-        self._remember_commands(result, classic_maps.like(argument, slots))
+        self._remember_commands(result, classic_maps.with_slots(argument, slots))
 
     def _compare(self, symbol, left, right):
         """A comparison of the hash operator itself (A # B == 2) is a condition
@@ -981,7 +981,7 @@ class ClassicTranslator(Translator):
             else dataclasses.replace(slot, content=argument.content)
             for slot, argument in zip(series.slots, known.slots, strict=True)
         ]
-        return classic_maps.like(series, slots, "field")
+        return classic_maps.with_slots(series, slots, "field")
 
     def _logical(self, symbol, left, right, operator):
         """&& and || of two condition series combine the boxes in the same
@@ -1020,7 +1020,7 @@ class ClassicTranslator(Translator):
         if symbol == "&&":
             # apply() wrote call(symbol, target, other) for every slot, unless
             # it computed a constant.
-            joined = classic_maps.like(
+            joined = classic_maps.with_slots(
                 joined,
                 (
                     dataclasses.replace(
@@ -1071,7 +1071,7 @@ class ClassicTranslator(Translator):
         """
         # The left maps are marked by their position, so that each pair
         # finds the condition of its left map.
-        marked = classic_maps.like(
+        marked = classic_maps.with_slots(
             left,
             (
                 dataclasses.replace(slot, content=Const(number))
@@ -1098,7 +1098,7 @@ class ClassicTranslator(Translator):
                 failure="stop",
                 **options,
             )
-        return classic_maps.like(
+        return classic_maps.with_slots(
             placed,
             (
                 dataclasses.replace(slot, content=conditions[slot.content.value])
@@ -1175,7 +1175,7 @@ class ClassicTranslator(Translator):
                 content = dataclasses.replace(slot.content)
                 self._time_values[id(content)] = content
                 slots.append(dataclasses.replace(slot, content=content))
-            return classic_maps.like(values, slots)
+            return classic_maps.with_slots(values, slots)
         if offset is not None:
             shared.check_time_variable(name, used)
             variable = time_functions.timevar(series, name)
@@ -1316,7 +1316,7 @@ class ClassicTranslator(Translator):
             # past the next one, and the result maps are numbered by it.
             rank = position if slot.rank is None else slot.rank
             slots.append(Slot(extent, slot.content, slot.space, origin, rank))
-        return classic_maps.like(series, slots)
+        return classic_maps.with_slots(series, slots)
 
     def _if(self, arguments, relation):
         """The classic if(): conditions on map values choose per cell, one map
@@ -1402,14 +1402,14 @@ class ClassicTranslator(Translator):
                     content = self._counting(slot.content, rejected_content)
                     slot = dataclasses.replace(slot, content=content)
             slots.append(slot)
-        return classic_maps.like(result, slots)
+        return classic_maps.with_slots(result, slots)
 
     @staticmethod
     def _in_time_order(series):
         """series with its slots listed in time order"""
         if not isinstance(series, Series):
             return series
-        return classic_maps.like(
+        return classic_maps.with_slots(
             series, (dataclasses.replace(s, rank=None) for s in series.slots)
         )
 
@@ -1452,7 +1452,9 @@ class ClassicTranslator(Translator):
             sorts.add(otherwise.sort)
         # The classic map lists mix maps and numbers freely; a number in a
         # map list is a constant map.
-        return classic_maps.like(then, slots, "field" if "field" in sorts else "scalar")
+        return classic_maps.with_slots(
+            then, slots, "field" if "field" in sorts else "scalar"
+        )
 
     def _field_if(self, condition, then, otherwise, relation):
         """if() on map values as r.mapcalc text, one map per pair
@@ -1520,7 +1522,7 @@ class ClassicTranslator(Translator):
                     mark=classic_maps.MapObject(),
                 )
                 slots.append(Slot(target.extent, content, target.space))
-        return classic_maps.like(condition, slots, "field")
+        return classic_maps.with_slots(condition, slots, "field")
 
     def _numbers_if(self, condition, then, otherwise):
         """if() of a cell condition with numbers as then and else: the list of
@@ -1538,7 +1540,7 @@ class ClassicTranslator(Translator):
                 content = self._counting(content, slot.content)
                 content.mark.text = Call("if", (self._written(slot.content), *contents))
             slots.append(Slot(slot.extent, content, slot.space, rank=slot.rank))
-        return classic_maps.like(condition, slots, "field")
+        return classic_maps.with_slots(condition, slots, "field")
 
 
 CLASSIC = Profile(

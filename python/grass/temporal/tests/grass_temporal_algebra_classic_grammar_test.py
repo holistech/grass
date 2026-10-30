@@ -181,7 +181,7 @@ def test_parser_test_statements_include_rejected_ones(world):
     assert all(old_outcome(kind, statement) is not None for statement in rejected)
 
 
-@kinds(*classic.KINDS)
+@kinds(*classic.GRAMMARS)
 def test_boundary_forms(world):
     """The forms on the border of the classic and the core grammar"""
     kind, _ = world
@@ -206,7 +206,7 @@ def braced_operator_statement(kind, operator):
     return f"R = A {operator} B"
 
 
-@pytest.mark.parametrize("kind", classic.KINDS)
+@pytest.mark.parametrize("kind", classic.GRAMMARS)
 def test_the_generator_writes_braced_operators_the_grammar_reads(kind):
     """Every braced operator of generated expressions parses, so that a
     generated relation, aggregate or temporal reference is compared and not
@@ -231,7 +231,7 @@ def test_the_generator_writes_braced_operators_the_grammar_reads(kind):
 
 
 @pytest.mark.slow
-@kinds(*classic.KINDS)
+@kinds(*classic.GRAMMARS)
 def test_seeded_expressions_and_damaged_variants(world):
     """Generated expressions and damaged copies are read or refused as before"""
     kind, _ = world
@@ -383,7 +383,7 @@ def drift(kind):
     return found
 
 
-@pytest.mark.parametrize("kind", classic.KINDS)
+@pytest.mark.parametrize("kind", classic.GRAMMARS)
 def test_frozen_copy_equals_the_parser_classes(kind):
     """Every production, the precedence, the tokens and the start symbol agree"""
     assert drift(kind) == []

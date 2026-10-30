@@ -500,10 +500,12 @@ class Translator:
                 return _where(condition, then, otherwise)
             return operations.choose(
                 condition,
-                _like(condition, then, listed=self.profile.list_order),
+                _constant_like(condition, then, listed=self.profile.list_order),
                 None
                 if otherwise is ABSENT
-                else _like(condition, otherwise, listed=self.profile.list_order),
+                else _constant_like(
+                    condition, otherwise, listed=self.profile.list_order
+                ),
                 mixed_times=self.profile.mixed_times,
             )
         return self._temporal_if(condition, then, otherwise, relation, first)
@@ -520,7 +522,9 @@ class Translator:
         if conditions.sort == "field":
             return self._field_if(condition, then, otherwise, relation)
         then_maps = (
-            then if timed(then) else _like(first, then, listed=self.profile.list_order)
+            then
+            if timed(then)
+            else _constant_like(first, then, listed=self.profile.list_order)
         )
         if otherwise is ABSENT:
             return operations.choose(
@@ -531,7 +535,7 @@ class Translator:
             return operations.choose(
                 settled,
                 then_maps,
-                _like(first, otherwise, listed=self.profile.list_order),
+                _constant_like(first, otherwise, listed=self.profile.list_order),
                 mixed_times=self.profile.mixed_times,
             )
         if not timed(then):
@@ -760,7 +764,7 @@ def _settled(conditions, relation):
     return operations.apply("if", operations.apply("isnull", conditions), 0, conditions)
 
 
-def _like(series, value, *, listed=False):
+def _constant_like(series, value, *, listed=False):
     """A series with the time stamps of series and value as each content
 
     value is a content node or a map without time stamp. With listed the

@@ -237,11 +237,11 @@ def related(left, relation_, other, *, dimension="2D", order="sorted", unique=Tr
             groups.append(sorted(found if spatial is None else found & spatial))
         if listed:
             groups = [sorted(group, key=lambda j: other[j].rank) for group in groups]
-        result.append(_listed(groups, order, unique))
+        result.append(_joined_partners(groups, order, unique))
     return result
 
 
-def _listed(groups, order, unique):
+def _joined_partners(groups, order, unique):
     """Join the partners of the single names into the list of one slot"""
     joined = [partner for group in groups for partner in group]
     if unique:

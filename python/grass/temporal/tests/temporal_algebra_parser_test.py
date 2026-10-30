@@ -1139,7 +1139,7 @@ def test_dataset_type_functions_are_refused_by_the_reject_helper(session, expres
 
 def test_module_dict_shows_the_input_maps_of_an_r_series_call():
     call = ModuleCall("r.series", {"output": "x", "method": "sum"}, inputs=("a", "b"))
-    described = algebra_parser._module(call, False)
+    described = algebra_parser._as_process_dict(call, False)
     assert ("input", "a,b") in described["inputs"]
     assert ("method", "sum") in described["inputs"]
     assert described["outputs"] == [("output", "x")]

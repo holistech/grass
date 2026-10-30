@@ -74,7 +74,7 @@ def gathered(parts):
     return Mixed(tuple(groups.values()))
 
 
-def like(series, slots, sort=None):
+def with_slots(series, slots, sort=None):
     """A series of slots with the map type, order and flags of series"""
     return Series(
         tuple(slots),

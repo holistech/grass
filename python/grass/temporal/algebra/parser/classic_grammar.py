@@ -35,7 +35,7 @@ from grass.temporal.algebra.parser.operators import (
 from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
 from grass.temporal.ply import yacc
 
-KINDS = ("raster", "raster3d", "vector", "select")
+GRAMMARS = ("raster", "raster3d", "vector", "select")
 
 
 # Every class starts at the statement.
@@ -45,7 +45,7 @@ START = "statement"
 def productions(kind):
     """Return the productions of a kind as ``(method name, text)`` pairs
 
-    :param kind: one of ``KINDS``
+    :param kind: one of ``GRAMMARS``
     :return: the pairs in the order in which PLY read them in the parser class
     """
     return tuple(
@@ -357,11 +357,11 @@ class ClassicGrammar:
 def classic_grammar(kind):
     """Return the shared grammar object of a kind
 
-    :param kind: one of ``KINDS``
+    :param kind: one of ``GRAMMARS``
     :return: an object with ``parse(text)``, which fits ``Profile.grammar``
     :raises ValueError: for another kind
     """
-    if kind not in KINDS:
-        msg = f"kind is one of {', '.join(KINDS)}, not {kind!r}"
+    if kind not in GRAMMARS:
+        msg = f"kind is one of {', '.join(GRAMMARS)}, not {kind!r}"
         raise ValueError(msg)
     return ClassicGrammar(kind)

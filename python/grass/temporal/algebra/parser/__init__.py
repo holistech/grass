@@ -143,7 +143,9 @@ def evaluate(
                 "stdstype": planned.stds_type,
                 "temporal_type": planned.temporal_type,
             }
-        chain["processes"] = [_module(call, overwrite) for call in planned.processes]
+        chain["processes"] = [
+            _as_process_dict(call, overwrite) for call in planned.processes
+        ]
         chain["register"] = [
             (map_name, str(start), str(end))
             for map_name, start, end in planned.register
@@ -271,7 +273,7 @@ def _sampled_source(name, *, stds_type, granularity):
     return sample_by_granularity(source(name, stds_type=stds_type), granularity)
 
 
-def _module(call, overwrite):
+def _as_process_dict(call, overwrite):
     """A planned call in the form of Module.get_dict()
 
     The related maps of an r.series call (call.inputs) are listed as one
