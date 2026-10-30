@@ -233,7 +233,7 @@ def _reference(kind, expression, options, run, *, dry_run):
         if stored is _MISSING:
             msg = (
                 f"The corpus {CORPUS_DIR}/{kind}.jsonl[.gz] holds no outcome of the "
-                f"earlier implementation for {key}; record it with "
+                f"reference implementation for {key}; record it with "
                 f"{MODE_VARIABLE}=record, see grass.temporal.testing.corpus"
             )
             raise AssertionError(msg)
@@ -245,7 +245,7 @@ def _reference(kind, expression, options, run, *, dry_run):
     stored = _lookup(kind, key)
     if stored is not _MISSING and not _same(kind, expression, stored, value, dry_run):
         msg = (
-            f"The earlier implementation no longer computes what the corpus "
+            f"The reference implementation no longer computes what the corpus "
             f"holds for {key}: corpus {stored}, now {value}"
         )
         raise AssertionError(msg)
@@ -400,7 +400,7 @@ def main(argv=None):
     """Run the command line, see the module documentation"""
     parser = argparse.ArgumentParser(
         prog="python3 -m grass.temporal.testing.corpus",
-        description="Manage the recorded outcomes of the earlier classic algebra",
+        description="Manage the recorded outcomes of the reference implementation",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     merge = commands.add_parser(
