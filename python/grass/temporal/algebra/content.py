@@ -130,6 +130,10 @@ def _skipping(function):
     return reduce
 
 
+# The comparison operators of r.mapcalc. They are named here rather than in
+# the parser, so that the backends need not import the parser.
+COMPARISONS = ("==", "!=", ">", ">=", "<", "<=")
+
 # Scalar implementations of r.mapcalc operators. As in r.mapcalc (see the
 # check above), comparisons give 1 or 0 and a null operand gives null.
 _SCALAR = {

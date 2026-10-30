@@ -24,3 +24,6 @@ ELEMENTS = {"raster": "raster", "raster3d": "raster_3d", "vector": "vector"}
 # Raster3D maps are related in space as boxes and the others as rectangles,
 # as in the classic algebra (_SPATIAL_DIMENSIONS in classic/temporal_algebra.py).
 DIMENSIONS = {"raster": "2D", "raster3d": "3D", "vector": "2D"}
+# r.mapcalc reads a map at a row and column offset, r3.mapcalc at a row,
+# column and depth offset; vector maps have no cells.
+OFFSET_COUNTS = {"raster": 2, "raster3d": 3, "vector": 0}

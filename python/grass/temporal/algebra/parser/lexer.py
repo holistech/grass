@@ -8,9 +8,10 @@ parsed TemporalOperator as value.
 
 from __future__ import annotations
 
+from grass.temporal.algebra.content import COMPARISONS
 from grass.temporal.ply import lex
 
-from .operators import COMPARISONS, parse_operator
+from .operators import parse_operator
 
 TOKENS = (
     "NAME",

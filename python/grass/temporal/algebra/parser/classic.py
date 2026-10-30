@@ -29,8 +29,9 @@ import dataclasses
 from grass.exceptions import FatalError
 from grass.temporal.algebra import operations, time_functions, variants
 from grass.temporal.algebra.adapters import as_map, extent_from
-from grass.temporal.algebra.backends import MapcalcStyle
+from grass.temporal.algebra.backends import BUFFER_TYPES, MapcalcStyle
 from grass.temporal.algebra.content import (
+    COMPARISONS,
     NULL,
     Call,
     Const,
@@ -50,13 +51,12 @@ from grass.temporal.algebra.series import Series, Slot
 
 from . import ast, classic_maps, classic_numbers, shared
 from .classic_grammar import classic_grammar
-from .operators import COMPARISONS, TemporalOperator
+from .operators import TemporalOperator
 from .translate import Translator
 
 # strds(), str3ds() and stvds() of t.select read a dataset of another type
 # than the result.
 _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds")
-_BUFFERS = ("buff_p", "buff_l", "buff_a")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 _ARITHMETIC = ("+", "-", "*", "/", "%")
@@ -1208,7 +1208,7 @@ class ClassicTranslator(Translator):
 
     def _call_unit(self, name, arguments, relation):
         result = super()._call(name, arguments, relation)
-        if name in _BUFFERS and isinstance(result, Series):
+        if name in BUFFER_TYPES and isinstance(result, Series):
             # Each buffer is a new map object (v.buffer of its own), also
             # where the buffer of the same map is made twice.
             result = self._new_maps(result)

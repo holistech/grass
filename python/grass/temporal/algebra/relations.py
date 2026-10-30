@@ -35,6 +35,7 @@ SPATIAL_RELATIONS = (
     "overlap",
     "meet",
 )
+ORDERS = ("sorted", "written")
 
 _INVERSE = {
     "equal": "equal",
@@ -168,9 +169,6 @@ def _partners(topology, names, index):
         for name in names
         for partner in topology.get(name.upper(), ())
     }
-
-
-ORDERS = ("sorted", "written")
 
 
 def related(left, relation_, other, *, dimension="2D", order="sorted", unique=True):

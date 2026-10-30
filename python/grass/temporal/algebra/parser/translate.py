@@ -15,9 +15,9 @@ import datetime
 import functools
 
 from grass.temporal.algebra import operations, time_functions
-from grass.temporal.algebra.backends import PATCH, VECTOR_FUNCTIONS
-from grass.temporal.algebra.content import NULL, Const, call
-from grass.temporal.algebra.maptypes import STDS_TYPES
+from grass.temporal.algebra.backends import BUFFER_TYPES, PATCH, VECTOR_FUNCTIONS
+from grass.temporal.algebra.content import COMPARISONS, NULL, Const, call
+from grass.temporal.algebra.maptypes import OFFSET_COUNTS, STDS_TYPES
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.algebra.reducers import compare, fold
 from grass.temporal.algebra.relations import TEMPORAL_RELATIONS, Relation, inverse
@@ -26,7 +26,7 @@ from grass.temporal.algebra.sources import source, source_map
 from grass.temporal.datetime_math import check_datetime_string
 
 from . import ast
-from .operators import COMPARISONS, TemporalOperator
+from .operators import TemporalOperator
 from .shared import (
     ABSENT,
     EXTENTS,
@@ -64,20 +64,19 @@ _OTHER_FUNCTIONS = (
     "tshift",
     "tsnap",
 )
-_COMPARISONS = COMPARISONS
 _AGGREGATES = {"&": "all", "|": "any"}
 # The overlays of vector maps; + is the v.patch of vector maps.
 _OVERLAYS = {"&": "and", "|": "or", "^": "xor", "~": "not"}
 # The functions of t.select that name the type of a dataset, in lower case and
 # in the capitals of the published paper
 _DATASET_FUNCTIONS = ("strds", "str3ds", "stvds", "STRDS", "STR3DS", "STVDS")
-_BUFFERS = {"buff_p": "point", "buff_l": "line", "buff_a": "area"}
-# The forms of an index per map type: A[t] is a temporal neighbour, the
-# others read cells at an offset, with a temporal neighbour as last number.
+# The forms of an index per number of cell offsets of a map type: A[t] is a
+# temporal neighbour, the others read cells at an offset, with a temporal
+# neighbour as last number.
 _INDEX_FORMS = {
-    "raster": (2, "one, two or three offsets"),
-    "raster3d": (3, "one, three or four offsets"),
-    "vector": (0, "one offset"),
+    0: "one offset",
+    2: "one, two or three offsets",
+    3: "one, three or four offsets",
 }
 
 
@@ -177,9 +176,9 @@ class Translator:
         # The count is checked before the dataset is read, so that a wrong
         # count is reported even for a missing dataset.
         offsets = node.offsets
-        axes, forms = _INDEX_FORMS[self._kind]
+        axes = OFFSET_COUNTS[self._kind]
         if len(offsets) != 1 and (not axes or len(offsets) not in (axes, axes + 1)):
-            msg = f"{node.name}[...] takes {forms} for {self._kind} maps"
+            msg = f"{node.name}[...] takes {_INDEX_FORMS[axes]} for {self._kind} maps"
             raise SyntaxError(msg)
         series = self._name(ast.Name(node.name))
         space = self.profile.neighbour_space
@@ -215,7 +214,7 @@ class Translator:
             raise SyntaxError(msg)
         if symbol in ("&&", "||"):
             return self._logical(symbol, left, right, node.operator)
-        if symbol in _COMPARISONS:
+        if symbol in COMPARISONS:
             if node.operator is not None:
                 return self._compare_related(symbol, left, right, node.operator)
             return self._compare(symbol, left, right)
@@ -644,7 +643,7 @@ class Translator:
             )
         if name == "exist":
             return _exactly(name, arguments, 1)[0]
-        if name in _BUFFERS:
+        if name in BUFFER_TYPES:
             series, distance = _exactly(name, arguments, 2)
             if not (
                 isinstance(series, Series)
@@ -654,7 +653,9 @@ class Translator:
             ):
                 msg = f"{name}() takes a space time vector dataset and a distance"
                 raise SyntaxError(msg)
-            return operations.buffer(series, distance.value, features=_BUFFERS[name])
+            return operations.buffer(
+                series, distance.value, features=BUFFER_TYPES[name]
+            )
         if name == "null":
             _exactly(name, arguments, 0)
             return NULL

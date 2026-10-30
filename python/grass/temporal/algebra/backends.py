@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass
 
 from .content import (
+    COMPARISONS,
     LEFT_ASSOCIATIVE,
     Call,
     Const,
@@ -31,12 +32,12 @@ _FUNCTIONS = frozenset(
 # type of a series, not the name in its content, tells which backend reads
 # the content. None of the names is in LEFT_ASSOCIATIVE or variadic, so
 # chain() nests them to the left instead of flattening them into one call.
-OVERLAYS = {"and": "and", "or": "or", "xor": "xor", "not": "not"}
+OVERLAYS = frozenset({"and", "or", "xor", "not"})
 PATCH = "disor"
 VECTOR_FUNCTIONS = frozenset({*OVERLAYS, PATCH})
 # The feature type of v.buffer to the content name of a buffer.
 BUFFERS = {"point": "buff_p", "line": "buff_l", "area": "buff_a"}
-_BUFFER_TYPES = {name: features for features, name in BUFFERS.items()}
+BUFFER_TYPES = {name: features for features, name in BUFFERS.items()}
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,6 @@ class MapcalcStyle:
     bare_comparisons: bool = False
 
 
-_COMPARISONS = ("==", "!=", "<", "<=", ">", ">=")
 # The operators whose operands may be bare comparisons: r.mapcalc reads
 # "a > 1 && b < 2" as "(a > 1) && (b < 2)". Measured 2026-10-16 in a temporal
 # session of an XY project: the maps of "if(A > 2 && N < 4, A, N)" and of
@@ -185,7 +185,7 @@ class RasterBackend:
                 inner = function in _LOOSE or function in _FUNCTIONS
                 parts = [self._expression(arg, style, inner) for arg in args]
                 text = self._call(function, parts)
-                if bare_allowed and style.bare_comparisons and function in _COMPARISONS:
+                if bare_allowed and style.bare_comparisons and function in COMPARISONS:
                     # _call() wraps the comparison in one pair of parentheses.
                     return text[1:-1]
                 return text
@@ -445,7 +445,7 @@ class VectorBackend:
                             {
                                 "ainput": as_map(first),
                                 "binput": as_map(second),
-                                "operator": OVERLAYS[function],
+                                "operator": function,
                                 "output": target,
                             },
                         )
@@ -459,13 +459,13 @@ class VectorBackend:
                     )
                 case Call(
                     function=function, args=(features, Const(value=distance))
-                ) if function in _BUFFER_TYPES:
+                ) if function in BUFFER_TYPES:
                     calls.append(
                         ModuleCall(
                             "v.buffer",
                             {
                                 "input": as_map(features),
-                                "type": _BUFFER_TYPES[function],
+                                "type": BUFFER_TYPES[function],
                                 "distance": distance,
                                 "output": target,
                             },

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from grass.temporal.algebra.content import COMPARISONS
 from grass.temporal.algebra.relations import SPATIAL_RELATIONS, TEMPORAL_RELATIONS
 
-COMPARISONS = ("==", "!=", ">", ">=", "<", "<=")
 SYMBOLS = (
     "!:", ":", "#", "&&", "||", "+", "-", "*", "/", "%", "&", "|", "^", "~",
     *COMPARISONS,

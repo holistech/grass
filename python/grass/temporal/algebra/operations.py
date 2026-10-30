@@ -29,7 +29,7 @@ from .content import (
     ScalarFunctionError,
     call,
 )
-from .maptypes import DIMENSIONS
+from .maptypes import DIMENSIONS, OFFSET_COUNTS
 from .relations import ORDERS
 from .relations import related as related_indices
 from .series import Series, Slot, Space
@@ -43,7 +43,14 @@ from .variants import (
 )
 
 PAIR_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
+SELECT_EXTENTS = PAIR_EXTENTS
+GATHER_EXTENTS = ("target", "union", "intersection", "disjoint")
 SPACES = ("keep", "union", "intersection")
+FAILURES = ("empty", "stop", "skip")
+BOXES = ("intersection", "union")
+MISSING = ("drop", "null", "keep")
+EQUAL_TIMES = ("all", "pairwise")
+NULLS = ("propagate", "skip")
 
 _COMBINE = {
     "union": "temporal_union",
@@ -68,20 +75,6 @@ def _origin(content, extent, *slots):
         if slot.origin is not None and (content, extent) == (slot.content, slot.extent):
             return slot.origin
     return None
-
-
-FAILURES = ("empty", "stop", "skip")
-BOXES = ("intersection", "union")
-
-
-def _combine(target, others, mode):
-    """The time stamp of a target combined with related slots, None if empty
-
-    A convenience for the callers that need the time stamp only; see
-    _combine_steps().
-    """
-    found = _combine_steps(target, others, mode)
-    return None if found is None else found[0]
 
 
 def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=False):
@@ -188,9 +181,6 @@ def _combined_space(own, others, mode):
     ):
         return own
     return common
-
-
-SELECT_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
 
 
 def select(
@@ -347,13 +337,10 @@ def pairs(
             if extent == "right":
                 time, own, others = partner.extent, partner.space, [slot.space]
             else:
-                time, own, others = (
-                    _combine(slot, [partner], extent),
-                    slot.space,
-                    [partner.space],
-                )
-            if time is None:
-                continue
+                combined = _combine_steps(slot, [partner], extent)
+                if combined is None:
+                    continue
+                time, own, others = combined[0], slot.space, [partner.space]
             if fold_all:
                 value = folded
             elif content is None:
@@ -494,11 +481,6 @@ def lift(series):
     return replace(series, sort="field")
 
 
-# r.mapcalc reads a map at a row and column offset, r3.mapcalc at a row,
-# column and depth offset; vector maps have no cells.
-_OFFSET_COUNTS = {"raster": 2, "raster3d": 3}
-
-
 def cell_offset(series, *offset):
     """Read each map at a cell offset, as A[1,0] and A[1,0,-1] do
 
@@ -509,8 +491,8 @@ def cell_offset(series, *offset):
     check_series(series)
     for step in offset:
         check_int(step, "offset")
-    expected = _OFFSET_COUNTS.get(series.kind)
-    if expected is None:
+    expected = OFFSET_COUNTS[series.kind]
+    if not expected:
         msg = f"{series.kind} maps have no cells to read at an offset"
         raise ValueError(msg)
     if len(offset) != expected:
@@ -524,12 +506,6 @@ def cell_offset(series, *offset):
         content = MapRef(slot.content.ident, tuple(offset))
         slots.append(replace(slot, content=content, origin=None))
     return replace(series, slots=tuple(slots))
-
-
-GATHER_EXTENTS = ("target", "union", "intersection", "disjoint")
-MISSING = ("drop", "null", "keep")
-EQUAL_TIMES = ("all", "pairwise")
-NULLS = ("propagate", "skip")
 
 
 def gather(
