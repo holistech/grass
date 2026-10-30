@@ -245,6 +245,27 @@ class Translator:
             return right
         return dataclasses.replace(right, kind=left.kind)
 
+    def _relating_options(self):
+        """Return the options that every select(), pairs() and gather() of
+        the translation passes; an option that a call names itself takes
+        precedence"""
+        return {"mixed_times": self.profile.mixed_times}
+
+    def _select_op(self, left, relation, other, **options):
+        return operations.select(
+            left, relation, other, **(self._relating_options() | options)
+        )
+
+    def _pairs_op(self, left, relation, other, **options):
+        return operations.pairs(
+            left, relation, other, **(self._relating_options() | options)
+        )
+
+    def _gather_op(self, target, relation, other, **options):
+        return operations.gather(
+            target, relation, other, **(self._relating_options() | options)
+        )
+
     @staticmethod
     def _pair(symbol, left, right):
         if not (timed(left) and timed(right)):
@@ -262,32 +283,13 @@ class Translator:
                     "so it takes no temporal reference other than l"
                 )
                 raise SyntaxError(msg)
-            return operations.select(
-                left,
-                relation,
-                right,
-                related=False,
-                mixed_times=self.profile.mixed_times,
-            )
+            return self._select_op(left, relation, right, related=False)
         if operator.temporal == "l":
-            return operations.select(
-                left, relation, right, mixed_times=self.profile.mixed_times
-            )
+            return self._select_op(left, relation, right)
         if operator.temporal == "r":
-            return operations.pairs(
-                left,
-                relation,
-                right,
-                extent="right",
-                mixed_times=self.profile.mixed_times,
-            )
-        return operations.gather(
-            left,
-            relation,
-            right,
-            reduce=None,
-            extent=EXTENTS[operator.temporal],
-            mixed_times=self.profile.mixed_times,
+            return self._pairs_op(left, relation, right, extent="right")
+        return self._gather_op(
+            left, relation, right, reduce=None, extent=EXTENTS[operator.temporal]
         )
 
     def _count(self, left, right, operator):
@@ -299,13 +301,7 @@ class Translator:
                 "it takes no temporal reference other than l"
             )
             raise SyntaxError(msg)
-        return operations.gather(
-            left,
-            self._relation(operator),
-            right,
-            reduce="count",
-            mixed_times=self.profile.mixed_times,
-        )
+        return self._gather_op(left, self._relation(operator), right, reduce="count")
 
     def _overlay(self, symbol, left, right, operator):
         timed_vectors = all(
@@ -344,23 +340,21 @@ class Translator:
         right = self._aligned(left, right)
         relation = self._relation(operator)
         if operator.temporal == "r":
-            return operations.pairs(
+            return self._pairs_op(
                 left,
                 relation,
                 right,
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
                 space=space,
-                mixed_times=self.profile.mixed_times,
             )
-        return operations.gather(
+        return self._gather_op(
             left,
             relation,
             right,
             reduce=reduce,
             extent=EXTENTS[operator.temporal],
             space=space,
-            mixed_times=self.profile.mixed_times,
         )
 
     def _apply(self, function, *operands):
@@ -433,32 +427,23 @@ class Translator:
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
         if operator.temporal == "r":
-            return operations.pairs(
+            return self._pairs_op(
                 left,
                 relation,
                 right,
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
-                mixed_times=self.profile.mixed_times,
             )
         extent = EXTENTS[operator.temporal]
         # The left maps that have related maps, and the joined conditions of
         # those related maps; both have the same time stamps.
-        targets = operations.gather(
-            left,
-            relation,
-            right,
-            reduce=None,
-            extent=extent,
-            mixed_times=self.profile.mixed_times,
-        )
-        others = operations.gather(
+        targets = self._gather_op(left, relation, right, reduce=None, extent=extent)
+        others = self._gather_op(
             left,
             relation,
             right,
             reduce=_AGGREGATES[operator.aggregate],
             extent=extent,
-            mixed_times=self.profile.mixed_times,
         )
         return operations.apply(symbol, targets, others)
 
@@ -591,14 +576,18 @@ class Translator:
         if({R}, c, X) reads "c R x", so the maps of X are related to the
         conditions by the inverse of R.
         """
-        return operations.gather(
+        # order and unique are named, so that the relating options of a
+        # profile do not reach the conditions: the classic profile comes here
+        # through _temporal_if() and relates the conditions as the core does.
+        return self._gather_op(
             target,
             inverse(self._relation(operator)),
             condition,
             reduce=_AGGREGATES[operator.aggregate],
             missing="null",
             equal_times="pairwise",
-            mixed_times=self.profile.mixed_times,
+            order="sorted",
+            unique=True,
         )
 
     def _function(self, node):

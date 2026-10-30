@@ -619,6 +619,11 @@ class ClassicTranslator(Translator):
         ]
         return dataclasses.replace(first, slots=tuple(slots), sort="field")
 
+    def _relating_options(self):
+        """The classic algebra visits the related maps in the written order
+        of the relation names, once per name"""
+        return super()._relating_options() | {"order": "written", "unique": False}
+
     def _relation(self, operator):
         """The relation in the written order of its names; a spatial name
         relates in space also without the spatial flag"""
@@ -749,24 +754,13 @@ class ClassicTranslator(Translator):
         relation = self._relation(operator)
         right = self._aligned(left, right)
         if operator.symbol == "!:":
-            return operations.select(
-                left,
-                relation,
-                right,
-                related=False,
-                order="written",
-                unique=False,
-                mixed_times=self.profile.mixed_times,
-            )
-        return operations.select(
+            return self._select_op(left, relation, right, related=False)
+        return self._select_op(
             left,
             relation,
             right,
             extent=_SELECT_EXTENTS[operator.temporal],
             failure="skip",
-            order="written",
-            unique=False,
-            mixed_times=self.profile.mixed_times,
         )
 
     def _count(self, left, right, operator):
@@ -779,14 +773,8 @@ class ClassicTranslator(Translator):
             )
             raise SyntaxError(msg)
         self._pair("#", left, right)
-        counts = operations.gather(
-            left,
-            self._relation(operator),
-            self._aligned(left, right),
-            reduce="count",
-            order="written",
-            unique=False,
-            mixed_times=self.profile.mixed_times,
+        counts = self._gather_op(
+            left, self._relation(operator), self._aligned(left, right), reduce="count"
         )
         slots = []
         targets = list(left.slots)
@@ -852,18 +840,15 @@ class ClassicTranslator(Translator):
             return self._place(left, relation, right, folds, operator.temporal, "field")
         box = space if self._kind == "vector" and space != "keep" else "intersection"
         if operator.temporal == "r":
-            result = operations.pairs(
+            result = self._pairs_op(
                 left,
                 relation,
                 right,
                 extent="right",
                 content=lambda mine, theirs: call(symbol, mine, theirs),
-                order="written",
-                unique=False,
                 box=box,
                 fold_all=True,
                 last_only=self._kind == "vector",
-                mixed_times=self.profile.mixed_times,
             )
             if self._kind != "vector":
                 # Each partner gives a new map with an id of its own; the
@@ -877,17 +862,14 @@ class ClassicTranslator(Translator):
                     slots.append(dataclasses.replace(slot, content=content))
                 return dataclasses.replace(result, slots=tuple(slots))
             return result
-        return operations.gather(
+        return self._gather_op(
             left,
             relation,
             right,
             reduce=reduce,
             extent=shared.EXTENTS[operator.temporal],
-            order="written",
-            unique=False,
             failure="stop",
             box=box,
-            mixed_times=self.profile.mixed_times,
         )
 
     def _index(self, node):
@@ -995,26 +977,26 @@ class ClassicTranslator(Translator):
             operator = TemporalOperator(symbol, aggregate=symbol[0])
         relation = self._relation(operator)
         right = self._aligned(left, right)
-        options = {
-            "order": "written",
-            "unique": False,
-            "box": "intersection",
-            "mixed_times": self.profile.mixed_times,
-        }
         if operator.temporal == "r":
             return self._logical_per_partner(symbol, left, relation, right, operator)
         extent = shared.EXTENTS[operator.temporal]
-        targets = operations.gather(
-            left, relation, right, reduce=None, extent=extent, failure="stop", **options
+        targets = self._gather_op(
+            left,
+            relation,
+            right,
+            reduce=None,
+            extent=extent,
+            failure="stop",
+            box="intersection",
         )
-        others = operations.gather(
+        others = self._gather_op(
             left,
             relation,
             right,
             reduce="and" if operator.aggregate == "&" else "or",
             extent=extent,
             failure="stop",
-            **options,
+            box="intersection",
         )
         joined = operations.apply(symbol, targets, others)
         if symbol == "&&":
@@ -1078,25 +1060,19 @@ class ClassicTranslator(Translator):
                 for number, slot in enumerate(left.slots)
             ),
         )
-        options = {
-            "order": "written",
-            "unique": False,
-            "box": "intersection",
-            "mixed_times": self.profile.mixed_times,
-        }
         if temporal == "r":
-            placed = operations.pairs(
-                marked, relation, right, extent="right", **options
+            placed = self._pairs_op(
+                marked, relation, right, extent="right", box="intersection"
             )
         else:
-            placed = operations.gather(
+            placed = self._gather_op(
                 marked,
                 relation,
                 right,
                 reduce=None,
                 extent=shared.EXTENTS[temporal],
                 failure="stop",
-                **options,
+                box="intersection",
             )
         return classic_maps.with_slots(
             placed,
