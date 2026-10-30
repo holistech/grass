@@ -146,8 +146,8 @@ def test_unknown_reducer(a, b):
 
 
 def test_unknown_reducer_names_every_kind_of_reducer(a, b):
-    """compare() and series_method() can be imported from where the
-    message points"""
+    """The reducers that the message names can be imported from
+    grass.temporal.algebra"""
     from grass.temporal.algebra import compare, series_method
 
     assert (compare, series_method) == (reducers.compare, reducers.series_method)

@@ -767,6 +767,10 @@ def _planned(series, name, chain, options):
     """
     if chain is None:
         return plan(series, name, **options)
+    # The signature is the one source of the defaults; a copy here would have
+    # to follow it. It is that of materialize(), not of plan(), because an
+    # option the caller left out has the default of materialize() (the two
+    # agree, compared 2026-10-30 with inspect.signature()).
     defaults = inspect.signature(materialize).parameters
     given = [key for key, value in options.items() if value != defaults[key].default]
     if given:
