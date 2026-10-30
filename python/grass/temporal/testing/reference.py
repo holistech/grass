@@ -196,7 +196,8 @@ def _sampling_relations(method):
     """Return the upper case relation names that the sampling methods select
 
     "start", "overlap" and "contain" are shorthands for several relations
-    of the topology builder and are replaced by them.
+    of the topology builder and are replaced by them; "over" only adds
+    relations and stays in the list as "OVER".
     """
     relations = copy.deepcopy(method)
 

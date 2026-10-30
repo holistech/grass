@@ -212,7 +212,7 @@ def _register_owners(connection: sqlite3.Connection, names: list[str]) -> dict:
 
 
 def _normalized_value(name, column, row, value, clean):
-    """Return value of column in a row of table name without run-specific parts"""
+    """Return the value of a column of table ``name`` without run-specific parts"""
     if column in {"creation_time", "modification_time"}:
         return _MOMENT if value is not None else None
     if name == "tgis_metadata" and column == "value" and row[0] == "creation_time":
@@ -273,7 +273,8 @@ def normalized_dump(path: Path) -> str:
             )
             lines.extend(f"{statement};" for statement in statements)
         for name in sorted(names, key=clean):
-            # The table name comes from sqlite_master, see above.
+            # The table name comes from sqlite_master of the database under test,
+            # not from input.
             cursor = connection.execute(f'SELECT * FROM "{name}"')  # noqa: S608
             columns = [column[0] for column in cursor.description]
             rows = []
