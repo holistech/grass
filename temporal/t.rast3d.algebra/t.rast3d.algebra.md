@@ -49,19 +49,19 @@ copies. Set the region with *g.region* so that it covers the maps.
 
 ### Core and classic algebra
 
-Since GRASS 8.6, *t.rast3d.algebra* computes its expressions with the
-functions of the Python package `grass.temporal.algebra`, as
-*t.rast.algebra* does. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The classic
-algebra is a set of rules of the same functions: it reads the syntax of the
-previous implementation and applies its rules for relations, order and
-results. The flag **-c** selects it for one call, the environment variable
-`GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
-`GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
+Since GRASS 8.6, *t.rast3d.algebra* computes its expressions with the functions
+of the Python package `grass.temporal.algebra`, as *t.rast.algebra* does. The
+implementation used before, the reference implementation in
+`grass.temporal.classic`, stays in the source code, and its rules stay
+available as the classic algebra, so that published results remain
+reproducible. The classic algebra is a set of rules of the same functions: it
+reads the syntax of the reference implementation and applies its rules for
+relations, order and results. The flag **-c** selects it for one call, the
+environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or
+script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
 new algebra, and the flag takes precedence over the variable. In Python,
-`TemporalRaster3DAlgebraParser` takes the keyword `classic=True` for the
-same purpose. Both algebras compute the granularity mode (**-g**), see
-below.
+`TemporalRaster3DAlgebraParser` takes the keyword `classic=True` for the same
+purpose. Both algebras compute the granularity mode (**-g**), see below.
 
 An `if` without else gives 0 where a condition on map values is false, in
 both algebras, like the `if()` of *r3.mapcalc* with two arguments. The new
@@ -184,7 +184,7 @@ that start with A, and time instances in I.
 
 9. **merge() of maps read at an offset.** The new algebra takes two maps
     with equal content and time stamps as one map. The classic algebra, as
-    the previous implementation, makes a new map for each map read with a
+    the reference implementation, makes a new map for each map read with a
     temporal neighbourhood modifier, and `merge()` keeps such a map next to
     an equal one. For four maps in A, this expression gives four maps in
     the new algebra and eight in the classic algebra:
@@ -227,7 +227,7 @@ message in both algebras.
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.select* and *t.vect.algebra* as well, so **-c** gives the rules of the
-previous algebra, not the results of a particular release. First,
+classic algebra, not the results of a particular release. First,
 `if({R}, condition, conclusion)` reads "condition R conclusion":
 `if({contains}, start_doy(A) > 0, B)` gives the maps of B that lie within
 a map of A, where earlier versions gave the maps of B that contain a map of
@@ -249,8 +249,8 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the previous implementation, with
-the exceptions below. In these cases the previous implementation computed
+The classic algebra gives the results of the reference implementation, with
+the exceptions below. In these cases the reference implementation computed
 wrongly, ended in an error that had no reason, or reported the wrong error.
 **-c** now gives the result described here. The new algebra never computed
 these cases wrongly; only the items on month steps, on dates beyond the year
@@ -336,7 +336,7 @@ with daily maps.
 8. **A map read at an offset as a truth value.** A time function of a
    map read at an offset in time or in cells, such as `end_year(A[1])`,
    joined with `&&` or `||` to a condition on cells is a truth value, like
-   the time function of any map (corrected 17 October 2026). The previous
+   the time function of any map (corrected 17 October 2026). The reference
    implementation wrote the map itself as the operand, so that a map with
    a value other than 0 counted as true whatever the time function said. The
    same holds where the time condition follows further time conditions, as in
@@ -441,7 +441,7 @@ with daily maps.
     (corrected 24 October 2026); the cause is in the error output of the module
     above it. No dataset is created.
 
-#### Differences from the previous implementation
+#### Differences from the reference implementation
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
@@ -449,13 +449,13 @@ parser, in the order of errors and in the error for an existing result that
 items on lists of absolute and relative time, on the relation `equals` and
 on the comparison of related maps, the three that change the outcome of an
 expression. The relation `equal` may be written `equals` here too, as in
-*t.rast.algebra*; the previous implementation refused that spelling with a
+*t.rast.algebra*; the reference implementation refused that spelling with a
 syntax error.
 
 The comparison of related maps inside `if()`, such as
 `C = if(A {>=, contains, |} B, A, 0)` or `C = if(A >= B, A, B)`, described
 in [t.rast.algebra](t.rast.algebra.md), works for 3D raster maps in the
-same way. The previous implementation refused it with a syntax error.
+same way. The reference implementation refused it with a syntax error.
 
 ### Granularity algebra
 
