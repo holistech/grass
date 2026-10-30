@@ -26,9 +26,8 @@ import sys
 from pathlib import Path
 
 from grass.temporal.testing import corpus
-from grass.temporal.testing.corpus import TRACE_DIR_VARIABLE
 
-__all__ = ["TRACE_DIR_VARIABLE", "main", "unread_entries"]
+__all__ = ["main", "unread_entries"]
 
 _SUFFIXES = (".jsonl.gz", ".jsonl")
 

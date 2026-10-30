@@ -25,7 +25,7 @@ does not change a result: fatal errors are recorded as ``raise FatalError`` or
 To record again (only with the permission of the maintainer, after a fix of a
 bug that changes a result, never to make a refactor pass), run in a session::
 
-    grass --tmp-project XY --exec python3 -m grass.temporal.testing.recordings \
+    grass --tmp-project XY --exec python3 -m grass.temporal.testing.recordings \\
         record <directory>
 
 ``compare <directory>`` prints the differences. The database image
@@ -62,7 +62,8 @@ def result_text(function: Callable, *args) -> str:
     """Return repr() of the result of function(*args), or the exception"""
     try:
         return repr(function(*args))
-    except (Exception, SystemExit) as error:
+    # Every exception is a result to record, so none may escape.
+    except (Exception, SystemExit) as error:  # noqa: BLE001
         return f"raise {type(error).__name__}: {error}"
 
 
@@ -131,14 +132,10 @@ def differences(
     return found
 
 
-###############################################################################
-# Spatial extents
-
-
 def _described(value):
     """Make the result of a spatial or temporal method comparable"""
-    from grass.temporal.spatial_extent import SpatialExtent  # noqa: PLC0415
-    from grass.temporal.temporal_extent import TemporalExtent  # noqa: PLC0415
+    from grass.temporal.spatial_extent import SpatialExtent
+    from grass.temporal.temporal_extent import TemporalExtent
 
     if isinstance(value, SpatialExtent):
         return ("SpatialExtent", value.get_spatial_extent_as_tuple(), value.proj)
@@ -155,7 +152,8 @@ def _described(value):
 def _described_outcome(function, *args) -> str:
     try:
         return repr(_described(function(*args)))
-    except (Exception, SystemExit) as error:
+    # Every exception is a result to record, so none may escape.
+    except (Exception, SystemExit) as error:  # noqa: BLE001
         return f"raise {type(error).__name__}: {error}"
 
 
@@ -187,7 +185,7 @@ _LONGITUDES = tuple(itertools.product((-180, -170, 170, 180, 190), repeat=2))
 
 
 def _box(proj, x, y, z=None):
-    from grass.temporal.spatial_extent import SpatialExtent  # noqa: PLC0415
+    from grass.temporal.spatial_extent import SpatialExtent
 
     west, east = x
     south, north = y
@@ -249,9 +247,6 @@ def spatial_extent_cases():
         yield f"mixed/{method}", mixed
 
 
-###############################################################################
-# Temporal extents
-
 # An interval has a start and an end from {0, 1, 2, 3}, or a start only
 _INTERVALS = (*_ALL, *((value, None) for value in (0, 1, 2, 3)))
 _TEMPORAL = (
@@ -277,7 +272,7 @@ _START = datetime(2001, 1, 1)
 
 
 def _extent(kind, interval):
-    from grass.temporal import (  # noqa: PLC0415
+    from grass.temporal import (
         AbsoluteTemporalExtent,
         RelativeTemporalExtent,
     )
@@ -308,9 +303,6 @@ def temporal_extent_cases():
                 yield f"{kind}/{method}/A={a}", run
 
 
-###############################################################################
-# Granularity
-
 _GRANULARITIES = (
     "1 second",
     "30 seconds",
@@ -335,7 +327,7 @@ def _subsets(items, largest):
 
 def granularity_cases():
     """The cases of the record ``granularity``"""
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     for subset in _subsets(_GRANULARITIES, 3):
         grans = list(subset)
@@ -415,7 +407,7 @@ def granularity_cases():
 
 
 def _map(kind, index, start, end, unit="days"):
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     new = tgis.RasterDataset(f"m{index}@PERMANENT")
     if kind == "absolute":
@@ -444,7 +436,7 @@ _MAP_SERIES = {
 
 
 def _granularity_of_maps_cases():
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     for label, series in _MAP_SERIES.items():
         yield (
@@ -459,10 +451,6 @@ def _granularity_of_maps_cases():
                 [_map("relative", i, *item) for i, item in enumerate(series)]
             ),
         )
-
-
-###############################################################################
-# Date arithmetic
 
 
 def _dates():
@@ -509,7 +497,7 @@ _STEPS = (
 
 def datetime_math_cases():
     """The cases of the record ``datetime_math``"""
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     dates = list(_dates())
     for step in _STEPS:
@@ -617,8 +605,8 @@ _MODIFIERS = (
 
 def _datetime_conversion_cases(dates):
     """Modification, parsing and formatting of dates, suffixes and deltas"""
-    import grass.temporal as tgis  # noqa: PLC0415
-    from grass.temporal import datetime_math  # noqa: PLC0415
+    import grass.temporal as tgis
+    from grass.temporal import datetime_math
 
     for index, modifier in enumerate(_MODIFIERS):
         yield (
@@ -709,9 +697,6 @@ def _datetime_conversion_cases(dates):
     )
 
 
-###############################################################################
-# Topology
-
 _TEMPORAL_GETTERS = (
     "get_equal",
     "get_starts",
@@ -739,8 +724,11 @@ _SPATIAL_GETTERS = (
 # days and map units. The series contain what the builder must tell apart:
 # every temporal relation, equal extents, touching boxes and duplicate ids.
 _TOPOLOGY_SERIES = {
-    "identical": [("a", 0, 1, (0, 1), (0, 1), (0, 1)) for _ in range(1)]
-    + [("b", 0, 1, (0, 1), (0, 1), (0, 1)), ("c", 0, 1, (0, 1), (0, 1), (0, 1))],
+    "identical": [
+        ("a", 0, 1, (0, 1), (0, 1), (0, 1)),
+        ("b", 0, 1, (0, 1), (0, 1), (0, 1)),
+        ("c", 0, 1, (0, 1), (0, 1), (0, 1)),
+    ],
     "consecutive": [(f"m{i}", i, i + 1, (i, i + 1), (0, 1), (0, 1)) for i in range(5)],
     "shifted": [(f"m{i}", i, i + 2, (i, i + 2), (0, 2), (0, 1)) for i in range(5)],
     "gap": [
@@ -782,7 +770,7 @@ _TOPOLOGY_SERIES = {
 
 
 def _topology_maps(kind, series):
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     maps = []
     for ident, start, end, (west, east), (south, north), (bottom, top) in series:
@@ -841,7 +829,7 @@ def _topology_result(maps, builder, getters):
 
 
 def _build(kind, series, spatial, second):
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     maps = _topology_maps(kind, _TOPOLOGY_SERIES[series])
     others = None
@@ -870,14 +858,11 @@ def topology_cases():
     ):
         yield (
             f"{kind}/{series}/spatial={spatial}/second={second}",
-            lambda kind=kind, series=series, spatial=spatial, second=second: _build(  # noqa: E501
+            lambda kind=kind, series=series, spatial=spatial, second=second: _build(
                 kind, series, spatial, second
             ),
         )
 
-
-###############################################################################
-# Command line
 
 CASES = {
     "spatial_extent": spatial_extent_cases,
@@ -890,7 +875,7 @@ CASES = {
 
 def main(argv: list[str]) -> int:
     """Record or compare: ``record|compare <directory> [name ...]``"""
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     if len(argv) < 2 or argv[0] not in {"record", "compare"}:
         print(__doc__)
@@ -912,6 +897,4 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
-    import sys
-
     sys.exit(main(sys.argv[1:]))

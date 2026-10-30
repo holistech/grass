@@ -215,7 +215,8 @@ def _run_rejects_syntax(kind, expression, options):
         )
     except SyntaxError:
         return True
-    except Exception:  # noqa: BLE001, any other error means: not rejected
+    # Any other error means: not rejected.
+    except Exception:  # noqa: BLE001
         return False
     return False
 

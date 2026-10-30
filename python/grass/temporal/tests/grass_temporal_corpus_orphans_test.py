@@ -38,7 +38,7 @@ def setting(monkeypatch, tmp_path):
     monkeypatch.setattr(corpus, "CORPUS_DIR", directory)
     use_case(monkeypatch)
     monkeypatch.setenv(corpus.MODE_VARIABLE, "corpus")
-    monkeypatch.delenv(corpus_orphans.TRACE_DIR_VARIABLE, raising=False)
+    monkeypatch.delenv(corpus.TRACE_DIR_VARIABLE, raising=False)
     for kind in ("raster", "select"):
         lines = [
             json.dumps({"key": key_of(kind, expression), "value": SYNTAX})
@@ -51,7 +51,7 @@ def setting(monkeypatch, tmp_path):
 def test_lookup_writes_the_key_when_tracing(setting, monkeypatch):
     use_case(monkeypatch)
     trace = setting / "trace"
-    monkeypatch.setenv(corpus_orphans.TRACE_DIR_VARIABLE, str(trace))
+    monkeypatch.setenv(corpus.TRACE_DIR_VARIABLE, str(trace))
     assert corpus.reference_outcome("raster", EXPRESSIONS[0]) == SYNTAX
     files = list(trace.iterdir())
     assert len(files) == 1
@@ -70,7 +70,7 @@ def test_lookup_writes_nothing_without_the_variable(setting, monkeypatch):
 def test_unread_entries_names_the_entry_no_test_read(setting, monkeypatch):
     use_case(monkeypatch)
     trace = setting / "trace"
-    monkeypatch.setenv(corpus_orphans.TRACE_DIR_VARIABLE, str(trace))
+    monkeypatch.setenv(corpus.TRACE_DIR_VARIABLE, str(trace))
     corpus.reference_outcome("raster", EXPRESSIONS[0])
     corpus.reference_outcome("select", EXPRESSIONS[0])
     corpus.reference_outcome("select", EXPRESSIONS[1])
@@ -125,7 +125,7 @@ def run_script(trace, corpus_dir):
 def test_the_script_exits_with_1_when_an_entry_is_unread(setting, monkeypatch):
     use_case(monkeypatch)
     trace = setting / "trace"
-    monkeypatch.setenv(corpus_orphans.TRACE_DIR_VARIABLE, str(trace))
+    monkeypatch.setenv(corpus.TRACE_DIR_VARIABLE, str(trace))
     corpus.reference_outcome("raster", EXPRESSIONS[0])
     result = run_script(trace, setting / "corpus")
     assert result.returncode == 1, result.stderr
@@ -138,7 +138,7 @@ def test_the_script_exits_with_1_when_an_entry_is_unread(setting, monkeypatch):
 def test_the_script_exits_with_0_when_all_are_read(setting, monkeypatch):
     use_case(monkeypatch)
     trace = setting / "trace"
-    monkeypatch.setenv(corpus_orphans.TRACE_DIR_VARIABLE, str(trace))
+    monkeypatch.setenv(corpus.TRACE_DIR_VARIABLE, str(trace))
     for kind in ("raster", "select"):
         for expression in EXPRESSIONS:
             corpus.reference_outcome(kind, expression)

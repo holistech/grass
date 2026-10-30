@@ -192,17 +192,49 @@ _MOMENT = "2000-01-01 00:00:00"
 _USER = "user"
 
 
+def _register_owners(connection: sqlite3.Connection, names: list[str]) -> dict:
+    """Map each register table to the digest of the id of the dataset owning it"""
+    owners = {}
+    for name in names:
+        columns = [row[1] for row in connection.execute(f'PRAGMA table_info("{name}")')]
+        for column in columns:
+            if column.endswith("_register") and name.endswith("_metadata"):
+                # The names come from sqlite_master and table_info of the
+                # database under test, not from input.
+                for ident, table in connection.execute(
+                    f'SELECT id, "{column}" FROM "{name}"'  # noqa: S608
+                ):
+                    # Not a security use: the digest only names a table.
+                    owners[table] = hashlib.md5(
+                        ident.encode(), usedforsecurity=False
+                    ).hexdigest()
+    return owners
+
+
+def _normalized_value(name, column, row, value, clean):
+    """Return value of column in a row of table name without run-specific parts"""
+    if column in {"creation_time", "modification_time"}:
+        return _MOMENT if value is not None else None
+    if name == "tgis_metadata" and column == "value" and row[0] == "creation_time":
+        return _MOMENT
+    if column in {"creator", "modifier"}:
+        return _USER if value is not None else None
+    if isinstance(value, str):
+        return clean(value)
+    return value
+
+
 def normalized_dump(path: Path) -> str:
     """Return the temporal database at path as SQL text that equals between runs
 
     The schema first, then one INSERT per row; tables and rows are sorted.
     Values that differ between runs are replaced: the creation and
-    modification times (also the one in tgis_metadata) by a fixed moment, creator and modifier by a fixed
-    name, the time stamps and temporary directories in the stored command
-    history, and the 32 hex digits of a register table name by the digest of
-    the id of the dataset that owns the table, so the text does not depend
-    on the order in which datasets were made. The result loads into an
-    empty SQLite database.
+    modification times (also the one in tgis_metadata) by a fixed moment,
+    creator and modifier by a fixed name, the time stamps and temporary
+    directories in the stored command history, and the 32 hex digits of a
+    register table name by the digest of the id of the dataset that owns the
+    table, so the text does not depend on the order in which datasets were
+    made. The result loads into an empty SQLite database.
 
     :raises ValueError: for a register table that no dataset owns
     """
@@ -215,19 +247,7 @@ def normalized_dump(path: Path) -> str:
                 " AND name NOT LIKE 'sqlite_%'"
             )
         ]
-        owners = {}
-        for name in names:
-            columns = [
-                row[1] for row in connection.execute(f'PRAGMA table_info("{name}")')
-            ]
-            for column in columns:
-                if column.endswith("_register") and name.endswith("_metadata"):
-                    for ident, table in connection.execute(
-                        f'SELECT id, "{column}" FROM "{name}"'
-                    ):
-                        owners[table] = hashlib.md5(  # noqa: S324
-                            ident.encode(), usedforsecurity=False
-                        ).hexdigest()
+        owners = _register_owners(connection, names)
 
         def register_name(match):
             table = match.group(0)
@@ -253,27 +273,18 @@ def normalized_dump(path: Path) -> str:
             )
             lines.extend(f"{statement};" for statement in statements)
         for name in sorted(names, key=clean):
-            cursor = connection.execute(f'SELECT * FROM "{name}"')
+            # The table name comes from sqlite_master, see above.
+            cursor = connection.execute(f'SELECT * FROM "{name}"')  # noqa: S608
             columns = [column[0] for column in cursor.description]
             rows = []
             for row in cursor:
-                values = []
-                for column, value in zip(columns, row, strict=True):
-                    if column in {"creation_time", "modification_time"}:
-                        value = _MOMENT if value is not None else None
-                    elif (
-                        name == "tgis_metadata"
-                        and column == "value"
-                        and row[0] == "creation_time"
-                    ):
-                        value = _MOMENT
-                    elif column in {"creator", "modifier"}:
-                        value = _USER if value is not None else None
-                    elif isinstance(value, str):
-                        value = clean(value)
-                    values.append(
-                        connection.execute("SELECT quote(?)", (value,)).fetchone()[0]
-                    )
+                values = [
+                    connection.execute(
+                        "SELECT quote(?)",
+                        (_normalized_value(name, column, row, value, clean),),
+                    ).fetchone()[0]
+                    for column, value in zip(columns, row, strict=True)
+                ]
                 rows.append(f'INSERT INTO "{clean(name)}" VALUES({",".join(values)});')
             lines.extend(sorted(rows))
     finally:
@@ -317,7 +328,7 @@ def read_cases():
     database_write.sql restores. Time stamps and the user were replaced
     there, so the result does not depend on when the image was recorded.
     """
-    import grass.temporal as tgis  # noqa: PLC0415
+    import grass.temporal as tgis
 
     listing = []
     for temporal in _TEMPORAL_TYPES:
@@ -415,9 +426,9 @@ def record_database_image(directory: Path) -> None:
     database_read.json.gz from there. Run it outside a GRASS session, with
     the GRASS tools in PATH.
     """
-    import grass.temporal as tgis  # noqa: PLC0415
-    from grass.temporal.testing.session import temporal_session  # noqa: PLC0415
-    from grass.tools import Tools  # noqa: PLC0415
+    import grass.temporal as tgis
+    from grass.temporal.testing.session import temporal_session
+    from grass.tools import Tools
 
     directory = Path(directory)
     with TemporaryDirectory() as work:

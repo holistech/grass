@@ -165,10 +165,11 @@ RUNNERS = {
 }
 
 
-class Timeout(BaseException):  # noqa: N818, not an error of the algebra
+class Timeout(BaseException):
     """Raised by the alarm of a batch
 
     A BaseException so that no ``except Exception`` of the algebras swallows it.
+    It is not an error of the algebra, so the name does not end in "Error".
     """
 
 
@@ -273,6 +274,7 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
             overwrite=True,
             **options,
         )
+    # Every failure of a runner is an outcome to compare, so none may escape.
     except (Exception, SystemExit, Timeout) as error:  # noqa: BLE001
         return {"error": _normalise(error), "msg": _message(error, result, basename)}
     return _read_result(kind, result, basename, stdstype)

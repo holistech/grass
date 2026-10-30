@@ -174,21 +174,52 @@ def _maps_with_gaps_as_before(sampler, where, dbif):
     reversed_ids = reversed_map_ids(maps)
     for i, map_ in enumerate(maps):
         obj_list.append(map_)
-        if i < len(maps) - 1 and reversed_ids.isdisjoint(
-            (map_.get_id(), maps[i + 1].get_id())
+        if (
+            i < len(maps) - 1
+            and reversed_ids.isdisjoint((map_.get_id(), maps[i + 1].get_id()))
+            and maps[i + 1].temporal_relation(map_) == "after"
         ):
-            if maps[i + 1].temporal_relation(map_) == "after":
-                start1, end1 = map_.get_temporal_extent_as_tuple()
-                end = maps[i + 1].get_temporal_extent_as_tuple()[0]
-                start = end1 if end1 is not None else start1
-                gap = sampler.get_new_map_instance(None)
-                if sampler.is_time_absolute():
-                    gap.set_absolute_time(start, end)
-                elif sampler.is_time_relative():
-                    gap.set_relative_time(start, end, sampler.get_relative_time_unit())
-                gap.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
-                obj_list.append(copy.copy(gap))
+            start1, end1 = map_.get_temporal_extent_as_tuple()
+            end = maps[i + 1].get_temporal_extent_as_tuple()[0]
+            start = end1 if end1 is not None else start1
+            gap = sampler.get_new_map_instance(None)
+            if sampler.is_time_absolute():
+                gap.set_absolute_time(start, end)
+            elif sampler.is_time_relative():
+                gap.set_relative_time(start, end, sampler.get_relative_time_unit())
+            gap.set_spatial_extent_from_values(0, 0, 0, 0, 0, 0)
+            obj_list.append(copy.copy(gap))
     return obj_list
+
+
+def _sampling_relations(method):
+    """Return the upper case relation names that the sampling methods select
+
+    "start", "overlap" and "contain" are shorthands for several relations
+    of the topology builder and are replaced by them.
+    """
+    relations = copy.deepcopy(method)
+
+    if "start" in relations:
+        for name in ("overlapped", "starts", "started", "finishes", "contains"):
+            if name not in relations:
+                relations.append(name)
+        if "equals" not in relations:
+            relations.append("equals")
+
+    if "overlap" in relations or "over" in relations:
+        for name in ("overlapped", "overlaps"):
+            if name not in relations:
+                relations.append(name)
+
+    if "contain" in relations and "contains" not in relations:
+        relations.append("contains")
+
+    return [
+        relation.upper().strip()
+        for relation in relations
+        if relation not in {"start", "overlap", "contain"}
+    ]
 
 
 def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=None):
@@ -235,30 +266,7 @@ def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=Non
         return None
 
     with connection(dbif) as dbif:
-        relations = copy.deepcopy(method)
-
-        # Tune the temporal relations
-        if "start" in relations:
-            for name in ("overlapped", "starts", "started", "finishes", "contains"):
-                if name not in relations:
-                    relations.append(name)
-            if "equals" not in relations:
-                relations.append("equals")
-
-        if "overlap" in relations or "over" in relations:
-            for name in ("overlapped", "overlaps"):
-                if name not in relations:
-                    relations.append(name)
-
-        if "contain" in relations and "contains" not in relations:
-            relations.append("contains")
-
-        # Remove start, equal, contain and overlap
-        relations = [
-            relation.upper().strip()
-            for relation in relations
-            if relation not in {"start", "overlap", "contain"}
-        ]
+        relations = _sampling_relations(method)
 
         mapsA = stds.get_registered_maps_as_objects(where=where, dbif=dbif)
         mapsB = _maps_with_gaps_as_before(sampler, where, dbif)
