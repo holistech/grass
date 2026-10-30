@@ -205,7 +205,7 @@ used from any test; the fixtures that wrap it are in
   cells as a list, null as `None`. `message()` returns the
   messages of a call or of the error it raised as one line; compare messages
   through it, because GRASS wraps them and an absence check on the raw text
-  passes whatever the text says. `shell_info()` parses the output of
+  passes whatever the text says. `info_text()` parses the output of
   `t.info -g` into a dictionary. `time_text()`, `days_text()` and
   `delta_row()` format times, day counts and a row of the methods delta,
   deltagaps and gran the way the list tools print them.
