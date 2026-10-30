@@ -1,4 +1,4 @@
-"""Run algebra expressions on the reference, the classic profile and the core
+"""Run expressions on the reference implementation, the classic profile or the core
 
 The functions run an expression with a runner and return the error class or
 the result dataset with its maps, and compare two such outcomes. The fixed
@@ -11,18 +11,19 @@ Functions:
   a runner and returns the error class or the result dataset with its maps.
   A runner is any callable with the signature of
   ``grass.temporal.testing.reference.run_reference``. ``RUNNERS`` names the
-  ones at hand: ``reference`` (the earlier implementation), ``core``
-  (``grass.temporal.algebra.parser.evaluate``, which the parser classes call
-  when the classic algebra is not chosen) and ``classic`` (the same function
-  with the classic profile).
+  ones at hand: ``reference`` (the reference implementation,
+  ``grass.temporal.classic``), ``core``
+  (``grass.temporal.algebra.parser.evaluate``, which the public parser
+  classes call when the classic algebra is not chosen) and ``classic`` (the
+  same function with the classic profile).
 - ``outcome_of_runner(kind, expression, runner, basename)`` is ``outcome``
   with a runner chosen by its name in ``RUNNERS`` and with ``-n``;
   ``constant_values(result)`` reads the values of the maps of an outcome.
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
   and a short description of the difference otherwise. ``compare_runs`` is
-  ``compare`` for the earlier implementation against the classic profile; it
-  accepts the pairs of error classes of ``accepted_error_pair``, which the
-  batch counts by pair.
+  ``compare`` for the reference against the classic profile; it accepts the
+  pairs of error classes of ``accepted_error_pair``, which the batch counts
+  by pair.
 - ``prepare(kind, session, directory)`` creates the datasets of a kind, see
   ``expressions_data``.
 
@@ -102,13 +103,14 @@ def _selection(kind, options):
 def core_runner(kind, expression, *, basename, overwrite=False, **options):
     """Compute an expression with ``grass.temporal.algebra.parser.evaluate``
 
-    ``evaluate`` is what the parser classes call when the classic algebra is
-    not chosen; calling it directly leaves ``GRASS_TEMPORAL_ALGEBRA`` and the
-    parser classes out of the picture. Takes the signature of ``run_reference``;
-    the option ``stdstype`` of kind ``"select"`` is read like there. With
-    ``granularity=True`` the parser class of the kind runs instead, with
-    ``classic=False``, after ``setup_granularity``: the evaluation of the
-    granularity mode lives in its ``parse()``.
+    ``evaluate`` is what the public parser classes call when the classic
+    algebra is not chosen; calling it directly leaves
+    ``GRASS_TEMPORAL_ALGEBRA`` and those classes out of the picture. Takes the
+    signature of ``run_reference``; the option ``stdstype`` of kind
+    ``"select"`` is read like there. With ``granularity=True`` the public
+    parser class of the kind runs instead, with ``classic=False``, after
+    ``setup_granularity``: the evaluation of the granularity mode lives in its
+    ``parse()``.
     """
     parser = _granularity_parser(kind, expression, options)
     if parser is not None:
@@ -154,7 +156,7 @@ def classic_runner(kind, expression, *, basename, overwrite=False, **options):
 
 
 def reference_runner(kind, expression, *, basename, overwrite=False, **options):
-    """Compute an expression with the earlier implementation, see run_reference"""
+    """Compute an expression with the reference, see run_reference"""
     from .reference import run_reference
 
     return run_reference(
@@ -254,8 +256,9 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
         ``FatalError``, ``Timeout``, ``Exit`` or ``Other:<name>``, plus the
         message under ``"msg"`` with quoted names, numbers, paths and the
         basename replaced, so that a plain diff of two files of outcomes shows
-        real differences only; ``compare`` ignores it), otherwise ``{"stds": False}`` when no result
-        dataset exists, or ``{"stds": True, "ttype", "maps"}``. A map is
+        real differences only; ``compare`` ignores it), otherwise
+        ``{"stds": False}`` when no result dataset exists, or
+        ``{"stds": True, "ttype", "maps"}``. A map is
         ``[name, start, end, min, max]``, for kind ``"vector"``
         ``[name, start, end, points, lines, areas]`` from ``v.info -t``, in the
         order of the start time. Numbers have 6 significant digits. Raster
@@ -391,24 +394,24 @@ def error_classes_differ(first, second):
 
 # The text of the profile that refuses a dataset of another temporal type
 _TYPE_REFUSALS = re.compile(r"wrong temporal type")
-# The crash of the earlier implementation when it orders a list that mixes
-# maps of absolute and of relative time (datetime against int), and the
-# refusal to register such a list as one result
+# The crash of the reference when it orders a list that mixes maps of
+# absolute and of relative time (datetime against int), and the refusal to
+# register such a list as one result
 _MIXED_TIME_CRASH = re.compile(r"not supported between instances of")
 _MIXED_TIME_REGISTRATION = re.compile(
     r"temporal type of space time dataset .* and its maps are different"
 )
-# The selection of a value of a time function: the earlier implementation
-# copies the map it never computed (g.copy of a temporary map name), the
-# profile refuses the expression before it creates anything. The option of
-# g.copy names the map type; outcome() replaces the 3 of raster_3d by #.
+# The selection of a value of a time function: the reference copies the map
+# it never computed (g.copy of a temporary map name), the profile refuses the
+# expression before it creates anything. The option of g.copy names the map
+# type; outcome() replaces the 3 of raster_3d by #.
 _UNCOMPUTED_COPY = re.compile(r"g\.copy (?:raster|raster_[3#]d|vector)=tmp_map_name_")
 _TIME_FUNCTION_REFUSAL = (
     "A time function such as start_doy() cannot be the result of a selection"
 )
-# A module that fails at run time: the earlier implementation lets the
-# CalledModuleError through, the profile reports it as the FatalError of
-# materialize(). outcome() replaces the module name and the numbers by #.
+# A module that fails at run time: the reference lets the CalledModuleError
+# through, the profile reports it as the FatalError of materialize().
+# outcome() replaces the module name and the numbers by #.
 _MODULE_RUN = "Module run `"
 _MODULE_FAILURE = "Module # failed with return code #, see the error output above"
 
@@ -417,11 +420,12 @@ def failed_module_pair(first, second):
     """Name the pair if a module failed at run time in both outcomes
 
     The classic profile computes its maps with materialize(), which reports
-    a failed module as a ``FatalError``; the earlier implementation lets the
-    ``CalledModuleError`` of the same failing module call through. Before
-    materialize() reported it, both outcomes had the same class.
+    a failed module as a ``FatalError``; the reference lets the
+    ``CalledModuleError`` of the same failing module call through. Both run
+    the same failing call and only the class that reports it differs, so the
+    pair is no difference.
 
-    :param first: The outcome of the earlier implementation
+    :param first: The outcome of the reference
     :param second: The outcome of the classic profile
     :return: ``"Other:CalledModuleError/FatalError"``, or None
     """
@@ -439,33 +443,39 @@ def accepted_error_pair(kind, expression, first, second, **options):
     """Name the pair of error classes of two outcomes if the rule accepts it
 
     Two errors of different classes are no difference when the expression is
-    invalid on its own, so that the class only tells which check came first.
-    That holds for two pairs. The classic profile reports a ``SyntaxError``
-    and the earlier implementation another class, if that implementation
-    also rejects the expression as a syntax error when it runs without
-    computing. Or the earlier implementation reports a ``SyntaxError`` and the
-    classic profile a ``FatalError`` that refuses a dataset of another
-    temporal type: the profile reads a dataset that is a bare argument
-    before the arguments after it, which the earlier implementation reads
-    first. Or the earlier implementation crashes with a ``TypeError`` while
-    it orders a list that mixes absolute and relative time, as in
-    ``tsnap(merge(tmap(sinst), RT))``, and the profile refuses to register
-    that list as one result with a ``FatalError``; the earlier
-    implementation refuses the same list with that error where it does not
-    order it first (``merge(tmap(sinst), RT)``), and the manual names the
-    crash among the differences of the classic algebra. Or a selection whose
-    result is a time function (``if(start_doy(A) < 3, start_doy(A, 1), A)``):
-    the earlier implementation fails to copy the map it never computed with a
-    ``CalledModuleError`` of ``g.copy``, and the profile refuses the
-    expression with a ``ValueError`` of the message of the core. Or a module
-    fails at run time in both, as r.mapcalc on a floating point operand of
-    ``&&`` (``failed_module_pair``): the profile runs on materialize(),
-    which reports the failure as a ``FatalError``, the earlier
-    implementation lets the ``CalledModuleError`` of the same call through.
-    Before that report both had the same class, so this pair accepts no
-    more than before. Every other pair is a difference.
+    invalid on its own, so that the class only tells which check came first,
+    or when both runs fail in the same module call. Five pairs (class of the
+    reference / class of the classic profile) are accepted, in the order in
+    which the code checks them; every other pair is a difference:
 
-    :param first: The outcome of the earlier implementation
+    - ``SyntaxError/FatalError``: the profile refuses a dataset of another
+      temporal type (``_TYPE_REFUSALS``). The profile reads a dataset that is
+      a bare argument before the arguments after it, which the reference reads
+      first and rejects as a syntax error.
+    - ``Other:TypeError/FatalError``: the reference crashes while it orders a
+      list that mixes absolute and relative time (``_MIXED_TIME_CRASH``), as
+      in ``tsnap(merge(tmap(sinst), RT))``, and the profile refuses to
+      register that list as one result (``_MIXED_TIME_REGISTRATION``). The
+      reference refuses the same list with that error where it does not order
+      it first (``merge(tmap(sinst), RT)``), and the manual names the crash
+      among the differences of the classic algebra.
+    - ``Other:CalledModuleError/FatalError``: a module fails at run time in
+      both, as r.mapcalc on a floating point operand of ``&&``
+      (``failed_module_pair``). Both run the same failing call; only the class
+      that reports it differs.
+    - ``Other:CalledModuleError/Other:ValueError``: a selection whose result
+      is a time function (``if(start_doy(A) < 3, start_doy(A, 1), A)``). The
+      reference fails to copy the map it never computed with a
+      ``CalledModuleError`` of ``g.copy`` (``_UNCOMPUTED_COPY``), and the
+      profile refuses the expression with the ``ValueError`` of the core
+      (``_TIME_FUNCTION_REFUSAL``).
+    - any class of the reference against ``SyntaxError``: the profile reads
+      the whole expression before it computes, so it reports a syntax error
+      first. Accepted only if the reference also rejects the expression as a
+      syntax error when it runs without computing
+      (``corpus.reference_rejects_syntax``).
+
+    :param first: The outcome of the reference
     :param second: The outcome of the classic profile
     :param options: The options of the runs. The granularity mode is left
         out of the run without computing: that run must reach the syntax
@@ -500,9 +510,10 @@ def accepted_error_pair(kind, expression, first, second, **options):
 
 
 def compare_runs(kind, expression, first, second, **options):
-    """``compare`` of the outcomes of the earlier implementation and the
-    classic profile, except for a pair of errors that ``accepted_error_pair``
-    accepts; ``run_batch`` counts those
+    """``compare`` of the outcomes of the reference and the classic profile
+
+    Returns None for a pair of errors that ``accepted_error_pair`` accepts;
+    ``run_batch`` counts those.
     """
     if accepted_error_pair(kind, expression, first, second, **options):
         return None
@@ -510,11 +521,11 @@ def compare_runs(kind, expression, first, second, **options):
 
 
 def check_agreement(kind, expression, **options):
-    """Compare the earlier implementation with the classic profile of the core
+    """Compare the reference with the classic profile of the core
 
-    The outcome of the earlier implementation is ``corpus.reference_outcome``:
-    in a pytest test it comes from the corpus, without running that
-    implementation; ``GRASS_TEMPORAL_REFERENCE=live`` computes it on it.
+    The outcome of the reference is ``corpus.reference_outcome``: in a pytest
+    test it comes from the corpus, without running the reference;
+    ``GRASS_TEMPORAL_REFERENCE=live`` computes it on the reference.
 
     :raises AssertionError: with the text of ``compare`` when they differ
     """
@@ -528,10 +539,9 @@ def check_agreement(kind, expression, **options):
 def check_difference_seen(kind, expression, **options):
     """Show that ``compare`` sees a known difference of the core
 
-    Takes the outcome of the earlier implementation from
-    ``corpus.reference_outcome``, runs the expression on the core, whose
-    results are known to differ, and requires ``compare`` to say so. This is
-    the negative test of the fuzzer.
+    Takes the outcome of the reference from ``corpus.reference_outcome``,
+    runs the expression on the core, whose results are known to differ, and
+    requires ``compare`` to say so. This is the negative test of the fuzzer.
 
     :raises AssertionError: when ``compare`` finds the outcomes equal
     """
