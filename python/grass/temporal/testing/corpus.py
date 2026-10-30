@@ -113,8 +113,11 @@ CORPUS_DIR = Path(__file__).with_name("corpus")
 #: source tree
 SOURCE_CORPUS_DIR = Path("python/grass/temporal/testing/corpus")
 #: Bytes of all plain files together above which ``merge`` packs every kind
-#: with gzip
-SIZE_LIMIT = 1_000_000
+#: with gzip. Plain files stay readable and diffable in git, so the limit
+#: leaves room for growth: `wc -c` on the four files measured 964,110 bytes
+#: on 30.10.2026, and a limit that close would pack the corpus after the next
+#: recording.
+SIZE_LIMIT = 2_000_000
 
 _PHASE = re.compile(r" \((?:setup|call|teardown)\)$")
 _MISSING = object()
