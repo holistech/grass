@@ -4,6 +4,22 @@ The datasets are made the way the tool tests need them: constant-valued maps
 registered with absolute or relative time, as intervals or as time points.
 Reading the result back is the job of grass.temporal.testing.readback.
 
+Which helper makes what:
+
+- ``register_stds`` registers maps that exist already in a new dataset;
+- ``create_stds`` makes the maps of the ``MapSpec`` list first and registers
+  them with ``register_stds``;
+- ``create_timed_stds`` is ``create_stds`` for a list of (start, end) times:
+  maps ``<prefix>_<n>`` with the value n in the dataset ``<prefix>_ds``;
+- ``create_daily_stds`` makes one set of daily maps and registers it in each
+  of several datasets. The fixture ``make_stds`` of ``temporal/conftest.py``
+  wraps it and names the datasets ``<prefix>_ds0``, ``<prefix>_ds1``, ...;
+- ``register_file`` writes the input file of ``t.register`` and
+  ``t.unregister``;
+- ``import_ascii_vector``, ``points_map``, ``square_area`` and
+  ``horizontal_line`` import vector maps from text, ``vector_points`` makes
+  points with an attribute table.
+
 This module must not import pytest; fixtures belong in conftest.py files.
 
 SPDX-License-Identifier: GPL-2.0-or-later
