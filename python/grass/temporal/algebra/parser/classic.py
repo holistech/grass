@@ -3,11 +3,11 @@
 The classic algebra, as the reference implementation
 (``grass.temporal.classic``) computes it, is one variant of the algebra: it
 reads another syntax, relates and combines maps by other rules, and computes
-the result maps with other texts.
-The profile ``CLASSIC`` carries those rules: the classic grammar
-(``classic_grammar``) builds the syntax tree, ``ClassicTranslator`` gives it the
-classic meaning with the operations of the core, and the options of the profile
-set the rules of ``plan()`` and ``materialize()``.
+the result maps with other texts. The profile ``CLASSIC`` carries those rules:
+the classic grammar (``classic_grammar``) builds the syntax tree,
+``ClassicTranslator`` gives it the classic meaning with the operations of the
+core, and the options of the profile set the rules of ``plan()`` and
+``materialize()``.
 
 The translator overrides the protected extension points of ``Translator``
 only. Where the classic rule is a parameter of a core operation (the order and
@@ -148,7 +148,8 @@ def _check_increment(function, series, increment, with_unit):
     Absolute time takes a number and a unit, relative time a number of its
     unit. A fractional number on relative time passes here: buff_t() truncates
     it to a whole one, as the reference does, and tshift() refuses it in the
-    core with the SyntaxError of the reference (see ClassicTranslator._tshift()).
+    core with the SyntaxError of the reference (see
+    ClassicTranslator._tshift()).
 
     :raises SyntaxError: for a number without unit on absolute time, and a
         unit on relative time
@@ -309,9 +310,9 @@ class ClassicTranslator(Translator):
         """Return function of arguments, once per temporal type and unit
 
         The units are those of the maps of a classic_maps.Mixed among the
-        arguments. The unit is that of the first argument with time stamps: its maps
-        meet only the maps of their unit in the other arguments, as maps of
-        different units relate to nothing. An argument may be a list of
+        arguments. The unit is that of the first argument with time stamps: its
+        maps meet only the maps of their unit in the other arguments, as maps
+        of different units relate to nothing. An argument may be a list of
         values, as the arguments of a function are.
         """
         values = [
@@ -1478,12 +1479,12 @@ class ClassicTranslator(Translator):
     def _judged_if(self, condition, then, otherwise=None, *, relation):
         """Return if() on temporal variables
 
-        Each conclusion map is judged by all condition maps related to it,
-        over all of them and without pairing maps of equal time; a map without
+        Each conclusion map is judged by all condition maps related to it, over
+        all of them and without pairing maps of equal time; a map without
         related condition is left out, except in else with a relation beyond
-        equal. The relation reads "condition R conclusion", so the conclusion maps
-        are related to the conditions by its inverse. Maps of other types than
-        the result relate as well (t.select with stvds() and the like).
+        equal. The relation reads "condition R conclusion", so the conclusion
+        maps are related to the conditions by its inverse. Maps of other types
+        than the result relate as well (t.select with stvds() and the like).
         """
         operator = relation or _EQUAL
         names = operator.relations

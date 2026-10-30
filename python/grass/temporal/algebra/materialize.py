@@ -511,8 +511,8 @@ def _module(call, overwrite):
             handle.write("\n".join(call.inputs) + "\n")
         parameters = {**call.parameters, "file": filename}
     # quiet is set here and not among the parameters of the call, so that the
-    # process chain of plan() and the debug output list only the parameters
-    # that decide what is computed. Without it the progress of v.overlay
+    # process chain of plan() and the debug output carry no switch that only
+    # changes the messages of a module. Without it the progress of v.overlay
     # drowned the warnings: measured 2026-10-13 in grass --tmp-project XY,
     # t.vect.algebra "C = A & B" over three map pairs wrote 108 lines to
     # stderr, the reference 23.

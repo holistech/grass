@@ -85,9 +85,10 @@ class TimeStepError(ValueError):
     """An increment of tshift() or buff_t() of the wrong kind for the time type
 
     A profile that follows the classic algebra reports it as a SyntaxError, as
-    the reference implementation (grass.temporal.classic) does. A fraction of
-    relative time has the right kind, only its value cannot be used; it
-    raises a plain ValueError, which no profile maps.
+    the reference implementation (grass.temporal.classic) does. A fractional
+    int or float on relative time is a number of the right kind whose value
+    cannot be used; it raises a plain ValueError, which no profile maps. A
+    fractional text such as "1.5" is no number here and raises this class.
     """
 
 
@@ -127,9 +128,11 @@ def _checked_increment(series, increment):
     - 0.5 on relative time: shift_map_list() leaves [2, 5] unchanged and
       temporal_buffer() gives [1, 5], so the fraction is truncated.
 
-    A wrong kind raises TimeStepError: a text on relative time, a number or a
-    text that is no time step on absolute time. A fraction of relative time
-    raises a plain ValueError, see TimeStepError.
+    A wrong kind raises TimeStepError: on relative time anything but an int,
+    a float or a text of a whole number ("2"), so also the text "1.5"; on
+    absolute time a number, also as text, or a text that is no time step. A
+    fractional int or float on relative time raises a plain ValueError, see
+    TimeStepError and ClassicTranslator._tshift().
     """
     if series.temporal_type == "relative":
         if not _is_number(increment):

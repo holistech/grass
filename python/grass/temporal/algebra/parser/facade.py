@@ -206,8 +206,9 @@ class _GriddedAlgebraParser(_AlgebraParser):
         :param dry_run: plan the maps without computing or registering them
             (flag -d)
         :param nprocs: the number of processes that compute maps
-        :param time_suffix: "gran" or "time" names the maps after their start
-            time; any other value numbers them
+        :param time_suffix: "gran" or "time" names the maps of absolute time
+            after their start time; any other value, and any value for
+            relative time, numbers them
 
         The other parameters are those of _AlgebraParser.__init__().
         """

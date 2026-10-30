@@ -604,8 +604,9 @@ class Translator:
         # Every variant relates the conditions of if() in time order and once
         # per map, so order and unique are named here and the relating options
         # of a profile do not reach them. The classic profile comes here
-        # through _temporal_if(); the results of the reference that its tests
-        # compare with were recorded with this order.
+        # through _temporal_if(): the reference relates the conditions of
+        # if() in time order and once per map as well, so the profile meets
+        # the recorded results of the reference only this way.
         return self._gather_op(
             target,
             inverse(self._relation(operator)),

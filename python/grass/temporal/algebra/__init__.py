@@ -57,12 +57,18 @@ the classic profile
     CLASSIC (parser/classic.py), the classic algebra computed on the core.
 the reference implementation (grass.temporal.classic)
     The implementation of the classic algebra that is older than the core,
-    kept unchanged because published results rely on it; "the reference" after
-    its first mention in a module. Tests compare the classic profile with it.
+    kept because published results rely on it; it changes only together with
+    documented corrections of the classic algebra. After its first mention in
+    a module it is called "the reference". Tests compare the classic profile
+    with it.
 the public parser classes
     TemporalRasterAlgebraParser, TemporalRaster3DAlgebraParser and
     TemporalVectorAlgebraParser (parser/facade.py), which the tools and
     addons call.
+the temporal reference
+    One of l, r, u, i and d in a temporal operator such as {+,during,l}: it
+    says which time stamp a result map takes. It has nothing to do with the
+    reference implementation.
 
 Layers
 ------
@@ -71,8 +77,8 @@ From the bottom up:
 
 1. Values: series.py has Extent (a time stamp), Space (a box), Slot and
    Series; content.py has the content trees MapRef, Const, Call,
-   SeriesReduce and SeriesAggregate, whose call() and chain() fold
-   constants as r.mapcalc would compute them.
+   SeriesReduce and SeriesAggregate and the builders call() and chain(),
+   which fold constants as r.mapcalc would compute them.
 2. Link to grass.temporal: adapters.py builds throw-away map objects, so
    that the relations, the time arithmetic and the granularity of
    grass.temporal are used and not written a second time; maptypes.py names
@@ -117,16 +123,22 @@ prints, and materialize() computes and registers the maps.
 Entry points
 ------------
 
-- the public parser classes: t.rast.algebra, t.rast3d.algebra,
-  t.vect.algebra and addons;
-- parser.evaluate() with the profile CORE or CLASSIC: t.select;
-- source(), granules(), gather(), series_method() and materialize(), with
-  materialize.reject_input_names() and adapters.as_map(): the aggregation of
-  t.rast.aggregate and t.rast.aggregate.ds (grass.temporal.aggregation_core);
-- sources.source(): grass.temporal.sampling, grass.temporal.mapcalc and
-  t.sample;
-- relations.relation() and related() with Series, Slot, Extent and Space:
-  grass.temporal.related_maps.
+What code outside the package uses, by caller:
+
+- t.rast.algebra, t.rast3d.algebra, t.vect.algebra and addons: the public
+  parser classes;
+- t.select: parser.evaluate() with the profile CORE or CLASSIC,
+  switch.classic_selected() and maptypes.KINDS_OF_STDS;
+- grass.temporal.aggregation_core (t.rast.aggregate, t.rast.aggregate.ds):
+  gather(), relation(), series_method(), materialize(),
+  materialize.reject_input_names() and adapters.as_map(), with Series, Slot,
+  Extent, NULL and SeriesAggregate; the two tools themselves call source()
+  and granules();
+- grass.temporal.mapcalc: sources.source() and time_functions.timevar(),
+  with Series, Slot and Const;
+- grass.temporal.sampling and t.sample: sources.source();
+- grass.temporal.related_maps: relations.relation() and related(), with
+  Series, Slot, Extent, Space and NULL.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team

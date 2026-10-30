@@ -80,7 +80,7 @@ def test_an_unknown_name_with_an_underscore_does_not_build_an_engine():
 
 
 class StubReference:
-    """Stands in for the engine, which needs a database"""
+    """Stands in for the reference, which needs a database"""
 
     def __init__(self, **arguments):
         self.arguments = arguments
@@ -116,7 +116,7 @@ def test_the_granularity_mode_goes_to_one_engine_with_the_options_of_the_facade(
         "time_suffix": "gran",
     }
     assert (parser.granularity, parser.use_granularity) == ("1 day", True)
-    # The same engine answers later calls.
+    # The same reference object answers later calls.
     parser.setup_common_granularity("R = A + B")
     assert parser._reference_object is reference_object
 
