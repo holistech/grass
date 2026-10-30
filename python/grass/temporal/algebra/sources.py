@@ -21,10 +21,11 @@ from .series import Series, Slot
 # Each map type has messages of its own rather than one message with the
 # name of the type inserted, so that translators can inflect the whole
 # sentence. The functions call _() when an error is raised, as for the other
-# messages, and not once at import. "Raster map" is the wording of the
-# former raster-only message, "Vector map" that of the classic vector
-# algebra (classic/temporal_vector_algebra.py) and "3D raster" that of the
-# messages in datasets.py.
+# messages, and not once at import. "Raster map <name> not found" is the
+# wording of the raster library (lib/raster/open.c), "Vector map" that of
+# the vector algebra of the reference implementation (grass.temporal.classic,
+# temporal_vector_algebra.py) and "3D raster" that of the messages in
+# datasets.py.
 def _dataset_missing(stds_type):
     return {
         "strds": _("Space time raster dataset <{name}> not found"),

@@ -3,15 +3,19 @@
 ``TemporalRasterAlgebraParser``, ``TemporalRaster3DAlgebraParser`` and
 ``TemporalVectorAlgebraParser`` are what the tools t.rast.algebra,
 t.rast3d.algebra and t.vect.algebra and the addons call. ``parse()`` computes
-the expression with the algebra core or, if the classic algebra is selected,
-with its classic profile (see ``switch.classic_selected``). Neither needs the
-classic engine in ``grass.temporal.classic``.
+the expression with the core or, if the classic algebra is selected, with the
+classic profile (see ``switch.classic_selected``).
 
-The engine is only built when something asks for it: the granularity mode
-(``setup_common_granularity``) and attributes that only the engine has. It
-gets the arguments of the constructor of the facade. The facade does not
-inherit from the engine, so that the engine stays what it was written as, the
-reference of the classic algebra, and the core does not depend on it.
+Each class keeps an object of the class of the reference implementation
+(``grass.temporal.classic``) for its map type, built only when something asks
+for it: ``setup_common_granularity()`` of the granularity mode is computed by
+the reference, and an attribute that the facade does not have is read from
+the reference object, so that code written for the classes of the reference
+keeps working. The object gets the arguments of the constructor of the
+facade. The facade does not inherit from the reference, so that the reference
+stays as it is, the implementation that tests compare the classic profile
+with. This module imports the three classes of the reference, so
+``import grass.temporal`` loads ``grass.temporal.classic``.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
@@ -38,12 +42,13 @@ from .switch import classic_selected
 
 
 class _AlgebraParser:
-    """What the three parser classes share; the subclasses name the engine
+    """What the three public parser classes share; the subclasses name the
+    class of the reference
 
     The constructor arguments are kept as attributes with the same names that
-    the engine has, so that code which reads or sets ``run`` or ``debug`` after
-    the construction keeps working. They are handed to the engine again each
-    time it is asked for.
+    the reference has, so that code which reads or sets ``run`` or ``debug``
+    after the construction keeps working. They are handed to the reference
+    object again each time it is asked for.
     """
 
     _reference_class: type
@@ -60,8 +65,8 @@ class _AlgebraParser:
     ) -> None:
         """Create the parser
 
-        The defaults ``run=False, debug=True`` are those of the parser classes
-        before the engine was separated.
+        The defaults ``run=False, debug=True`` are those of the classes of the
+        reference, so that a caller written for them gets the same behaviour.
 
         classic selects the classic algebra (True) or the algebra core (False);
         None follows the environment variable GRASS_TEMPORAL_ALGEBRA, whose
@@ -75,13 +80,13 @@ class _AlgebraParser:
         self._reference_object = None
 
     def _reference(self):
-        """Return the classic engine, built with the current options"""
+        """Return the reference object, built with the current options"""
         if self._reference_object is None:
             self._reference_object = self._reference_class(
                 **self._reference_arguments()
             )
         else:
-            # Options set after the construction reach the engine too.
+            # Options set after the construction reach the reference too.
             for name in self._options:
                 setattr(self._reference_object, name, getattr(self, name))
         return self._reference_object
@@ -90,18 +95,18 @@ class _AlgebraParser:
         return {name: getattr(self, name) for name in self._options}
 
     def __getattr__(self, name):
-        """Hand everything the facade does not have to the engine"""
+        """Hand everything the facade does not have to the reference"""
         # Called only for names not found on the facade. A name with an
-        # underscore must not build an engine: copy and pickle look for
+        # underscore must not build a reference object: copy and pickle look for
         # __getstate__ and the like on an object that has no attributes yet.
         if name.startswith("_"):
             raise AttributeError(name)
         return getattr(self._reference(), name)
 
     def __dir__(self):
-        # The names of the engine class, which this class used to inherit.
-        # The attributes that an engine object sets in its constructor are only
-        # listed once the engine exists.
+        # The names of the class of the reference too, so that dir() lists
+        # what __getattr__ reads from it. The attributes that the reference
+        # object sets in its constructor are only listed once it exists.
         names = set(super().__dir__()) | set(dir(self._reference_class))
         if self._reference_object is not None:
             names |= set(vars(self._reference_object))

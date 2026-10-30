@@ -1,9 +1,9 @@
 """The productions and precedence tables of the classic grammar as data
 
-A frozen copy of the p_ methods and precedence tables of the parser classes
-of grass.temporal.classic, from which classic_grammar.py builds the classic
-grammar; a test compares the copy with the parser classes. These tables are
-for variants of the algebra, not for users.
+A frozen copy of the p_ methods and precedence tables of the reference
+implementation (grass.temporal.classic), from which classic_grammar.py builds
+the classic grammar; a test compares the copy with the reference. These
+tables are for variants of the algebra, not for users.
 
 SPDX-FileCopyrightText: 2013-2014 Thomas Leppelt
 SPDX-FileCopyrightText: 2013-2014, 2026 Soeren Gebbert
@@ -13,7 +13,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Thomas Leppelt and Soeren Gebbert
 """
 
-# The productions of every p_ method of the parser classes, by method name.
+# The productions of every p_ method of the reference, by method name.
 # A name that two classes share has the same text in both.
 TEXTS = {
     "p_statement_assign": """
@@ -597,7 +597,8 @@ TEXTS = {
 
 # The order in which PLY read the rules of each class: by line number, then
 # module, then name. Reduce/reduce conflicts are resolved in this order. The
-# parser classes of the map types read the rules of the t.select class last.
+# classes of the reference for the map types read the rules of the t.select
+# class last.
 ORDER = {
     "select": (
         "p_statement_assign",

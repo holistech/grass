@@ -1,11 +1,15 @@
 """The choice between the rules of the algebra core and the classic rules
 
-The parser classes of the raster, 3D raster and vector algebra and t.select
-translate an expression onto grass.temporal.algebra in both cases: with the
-profile CORE, or with the profile CLASSIC if the classic algebra is chosen.
-The classic algebra stays, because published results rely on it. The
-implementation that predates the profile is reachable only through
-grass.temporal.testing.reference, which tests compare the profile with.
+The public parser classes of the raster, 3D raster and vector algebra and
+t.select translate an expression onto the core in both cases: with the
+profile CORE, or with the classic profile CLASSIC if the classic algebra is
+chosen. The classic algebra stays, because published results rely on it.
+
+The reference implementation (grass.temporal.classic) computes no expression
+for the tools. The public parser classes use it for the granularity mode and
+for the attributes only it has (facade.py), the classic grammar uses its
+lexers (classic_grammar.py), and tests compare the classic profile with it
+through grass.temporal.testing.reference.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team

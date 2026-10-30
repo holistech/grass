@@ -44,14 +44,14 @@ class Profile:
         Translator and profile=; None takes Translator
     :param mapcalc: how the r.mapcalc text is written (plan())
     :param classic_absence_check: look for existing result maps first and
-        report them and an existing dataset in the words of the parser
-        classes (materialize(), check_absent())
+        report them and an existing dataset as the reference implementation
+        (grass.temporal.classic) does; see materialize() and check_absent()
     :param keep_empty_vector_maps: register a computed vector map that has no
         primitives (materialize())
     :param vector_dataset_if_empty: create the dataset of a vector result
-        that has no map; False creates none and says nothing, as the parser
-        class for vector maps (materialize()). A selection creates it
-        always (evaluate())
+        that has no map; False creates none and says nothing, as the
+        reference does for vector maps (materialize()). A selection creates
+        it always (evaluate())
     :param copies_by_position: number the copies of a selection by the
         position in the result, not by their own count (plan())
     :param empty_result_type_from_input: give a result without maps the
@@ -75,8 +75,8 @@ class Profile:
     :param mixed_times: "unrelated" relates nothing across absolute and
         relative time or different units, where "error" refuses the
         expression (the relating operations)
-    :param classic_errors: report ValueErrors of the core as the exception
-        classes of the parser classes (evaluate())
+    :param classic_errors: report ValueErrors of the core with the exception
+        classes of the reference (evaluate())
     """
 
     grammar: Any = None

@@ -27,9 +27,9 @@ class Grammar:
 
     tokens = TOKENS
     start = "statement"
-    # From the weakest to the strongest binding. Selection binds weakest as
-    # in the earlier parser; && binds stronger than ||, as in r.mapcalc and
-    # most languages, which the earlier parser did only for map values.
+    # From the weakest to the strongest binding. Selection binds weakest, as
+    # in the classic algebra; && binds stronger than ||, as in r.mapcalc and
+    # most languages, which the classic algebra does only for map values.
     precedence = (
         ("left", "SELECT", "NOT_SELECT", "SELECT_OP"),
         ("left", "OR", "OR_OP"),

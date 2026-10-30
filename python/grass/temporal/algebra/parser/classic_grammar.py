@@ -1,9 +1,10 @@
 """The grammar of the classic temporal algebra, building syntax trees of the core
 
 The classic algebra reads ``name = expression`` with the productions of the
-parser classes of ``grass.temporal.classic`` (``temporal_algebra``,
-``temporal_raster_base_algebra``, ``temporal_raster_algebra``,
-``temporal_raster3d_algebra`` and ``temporal_vector_algebra``).
+reference implementation (``grass.temporal.classic``, modules
+``temporal_algebra``, ``temporal_raster_base_algebra``,
+``temporal_raster_algebra``, ``temporal_raster3d_algebra`` and
+``temporal_vector_algebra``).
 ``classic_productions`` holds a frozen copy of those productions and of the
 precedence tables as data, and this module one generic action that turns
 every production into nodes of ``grass.temporal.algebra.parser.ast``.
@@ -11,7 +12,7 @@ What the classic grammar reads, what it rejects and how it groups therefore
 stays as it was, while the meaning is given by a translator of the core.
 
 The copy is frozen so that it states what the classic grammar reads
-independently of the ``p_`` methods of the parser classes. A test compares
+independently of the ``p_`` methods of the reference. A test compares
 every production text, the precedence and the tokens with the copy, so that a
 change of either side is noticed.
 
@@ -51,7 +52,7 @@ def productions(kind):
     """Return the productions of a kind as ``(method name, text)`` pairs
 
     :param kind: one of ``GRAMMARS``
-    :return: the pairs in the order in which PLY read them in the parser class
+    :return: the pairs in the order in which PLY read them in the reference
     """
     return tuple(
         (name, classic_productions.TEXTS[name])
@@ -86,7 +87,7 @@ class _Run:
     """The state of one parse
 
     PLY swallows a SyntaxError raised inside a rule, so the actions collect
-    their errors here, as the parser classes do, and parse() raises the first.
+    their errors here, as the reference does, and parse() raises the first.
     """
 
     def __init__(self):
@@ -308,7 +309,7 @@ class ClassicGrammar:
 
             rule.__doc__ = text
             # PLY orders the rules by line and module; the position gives the
-            # order of the parser class, which decides reduce/reduce conflicts.
+            # order of the reference, which decides reduce/reduce conflicts.
             rule.co_firstlineno = position
             namespace[name] = staticmethod(rule)
 
@@ -331,7 +332,7 @@ class ClassicGrammar:
 
         :param text: the statement
         :return: ``ast.Statement``
-        :raises SyntaxError: as the parser classes raise it for the text
+        :raises SyntaxError: as the reference raises it for the text
         """
         if self.kind != "select":
             self._reject_dataset_type_tokens(text)
@@ -351,7 +352,7 @@ class ClassicGrammar:
         return tree
 
     def _reject_dataset_type_tokens(self, text):
-        """Refuse strds(), str3ds() and stvds(), as the parser classes do
+        """Refuse strds(), str3ds() and stvds(), as the reference does
 
         Only the base class of t.select takes the dataset type from them; the
         other algebras fix it.

@@ -49,7 +49,7 @@ def sample_by_granularity(series, granularity):
     map. A granule without such a map is left out.
 
     The series needs a valid temporal topology (no overlapping maps);
-    setup_common_granularity() of the parser classes checks it.
+    setup_common_granularity() of the public parser classes checks it.
 
     :param granularity: a text such as "1 day" for absolute time, a whole
         number of the unit for relative time

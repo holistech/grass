@@ -2,8 +2,9 @@
 
 The parser reads an expression such as ``C = A {+,during} B`` into a syntax
 tree, and the translator turns the tree into calls of the core operations.
-evaluate() does with an expression what the parser classes of grass.temporal
-do, and returns the same process chain dictionary.
+evaluate() computes an expression for the public parser classes and t.select,
+and returns the process chain dictionary in the form of the reference
+implementation (grass.temporal.classic).
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
@@ -31,7 +32,8 @@ from .translate import Translator
 
 __all__ = ["Translator", "evaluate", "parse"]
 
-# The parser classes take "num" for numbered map names; the core takes None.
+# The public parser classes take "num" for numbered map names; the core takes
+# None.
 _TIME_SUFFIXES = ("gran", "time")
 
 
@@ -72,7 +74,7 @@ def evaluate(
     With granularity every space time dataset of the expression is sampled
     with this common granularity before the translation, as in the
     granularity mode of t.rast.algebra; the caller has checked the
-    expression with setup_common_granularity() of the parser classes.
+    expression with setup_common_granularity() of the public parser classes.
 
     With selection no map is computed: every result slot must be a registered
     map, which is registered unchanged or, when a temporal operator retimed
@@ -87,9 +89,9 @@ def evaluate(
     :param granularity: the common granularity of the datasets, a text such
         as "1 day" for absolute time or a whole number for relative time;
         None reads the datasets as they are
-    :return: the process chain of the parser classes: "processes" in the form
-        of Module.get_dict(), "register" as (name, start, end) strings,
-        "remove" and "STDS"
+    :return: the process chain dictionary of the public parser classes:
+        "processes" in the form of Module.get_dict(), "register" as (name,
+        start, end) strings, "remove" and "STDS"
     :raises SyntaxError: for an error in the expression
     :raises ValueError, TypeError: as the core operations, for an expression
         that cannot be computed
@@ -130,17 +132,15 @@ def evaluate(
         )
         # A vector result without maps has no dataset, if the profile says so.
         # A selection always creates its dataset, as t.select.md promises for
-        # both algebras. The parser classes create none for an empty
-        # selection of vector maps; the classic algebra follows the manual
-        # since 19 October 2026.
+        # both algebras. The reference creates none for an empty selection of
+        # vector maps; the classic profile follows the manual instead.
         dataset_if_empty = profile.vector_dataset_if_empty or selection
         if dataset_if_empty or kind != "vector" or planned.maps:
             chain["STDS"] = {
                 "name": name,
-                # The type the run creates. The parser classes plan the type
-                # of the call, also where a mixed selection creates another
-                # one; the classic algebra plans what it creates, as decided
-                # on 19 October 2026.
+                # The type the run creates, so that a dry run shows what the
+                # run makes. The reference plans the type of the call, also
+                # where a mixed selection creates another one.
                 "stdstype": planned.stds_type,
                 "temporal_type": planned.temporal_type,
             }
@@ -193,7 +193,7 @@ class _TemporalTypes:
     """The temporal type of the first dataset with maps that an expression reads
 
     A dataset without maps has no temporal type and is passed over, as is a
-    single map, which the parser classes do not check either.
+    single map, which the reference does not check either.
     """
 
     def __init__(self, refuse_others):
@@ -244,10 +244,10 @@ def _resolver(kind, profile, granularity, types):
 
 
 def _classic_error(error):
-    """The exception of the parser classes for a ValueError of the core, or None
+    """The exception of the reference for a ValueError of the core, or None
 
     The core reports an expression it cannot compute with a ValueError, the
-    parser classes with the class that fits the cause. The causes the core
+    reference with the class that fits the cause. The causes the core
     knows are subclasses of ValueError (time_functions.py), so the mapping
     does not depend on the wording of a message.
     """

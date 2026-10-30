@@ -1,8 +1,8 @@
 """The maps of the classic algebra as the profile tells them apart
 
-The classic algebra lists maps of several temporal types in one list and
-tells maps apart by the identity of their map objects; a series of the core
-has neither. These classes and functions hold both for ClassicTranslator
+The reference implementation (grass.temporal.classic) lists maps of several
+temporal types in one list and tells maps apart by the identity of their map
+objects; a series of the core has neither. These classes and functions hold both for ClassicTranslator
 (classic.py); they are for variants of the algebra, not for users.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
@@ -92,22 +92,22 @@ def with_slots(series, slots, sort=None):
 
 
 # The map that a content stands for is its own, a new map object of the
-# classic algebra, as long as the map of its mark is this value.
+# reference, as long as the map of its mark is this value.
 OWN = object()
 
 
 @dataclasses.dataclass(eq=False)
 class MapObject:
-    """The map object of the classic algebra that a content stands for
+    """The map object of the reference that a content stands for
 
-    The classic algebra tells maps apart by the id of their map object, their
-    time stamp and the command written on them (_merge_key() of the classic
-    algebra). The profile attaches this object to the content as its mark,
-    which the core never reads. A new map object is its own id; the classic
-    algebra makes one for each result of an operation of two map lists, each
-    map read at an offset, each buffer and each value of a time function at
-    an offset. A number or a function keeps the object, and the hash operator
-    counts on the object of the left map.
+    The reference tells maps apart by the id of their map object, their time
+    stamp and the command written on them (_merge_key() in
+    grass.temporal.classic). The profile attaches this object to the content
+    as its mark, which the core never reads. A new map object is its own id;
+    the reference makes one for each result of an operation of two map
+    lists, each map read at an offset, each buffer and each value of a time
+    function at an offset. A number or a function keeps the object, and the
+    hash operator counts on the object of the left map.
 
     It compares and hashes by identity, because a mark that is its own map
     object is the identity.
@@ -116,17 +116,18 @@ class MapObject:
         keeps, the identifier of a registered map or the mark of a new one,
         or None for a map that has no id
     first: the first count of a counted map (see
-        ClassicTranslator._first_counts()), which is
-        the content itself for the first count; None for a map that is not
-        counted. Set after the content is made, because the content that
-        carries the mark is the first count.
-    text: the command as the classic algebra writes it, unfolded, where the
+        ClassicTranslator._first_counts()), which is the content itself for
+        the first count; None for a map that is not counted. Set after the
+        content is made, because the content that carries the mark is the
+        first count.
+    text: the command as the reference writes it, unfolded, where the
         content was folded to a number (a count changed by numbers, a value
         of a time function at an offset); None for the content itself. The
-        classic algebra compares this text in merge(), and the profile folds
-        a count plus 0 to the number of the count.
-    bare: True for a neighbour map, a new map object whose command is its own
-        reference; see ClassicTranslator._has_command().
+        reference compares this text in merge(), and the profile folds a
+        count plus 0 to the number of the count.
+    bare: True for a neighbour map, a new map object whose command only
+        names the map it reads, with its cell offsets; see
+        ClassicTranslator._has_command().
     """
 
     map: object = OWN

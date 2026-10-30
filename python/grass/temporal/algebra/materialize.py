@@ -410,13 +410,13 @@ def _kind(chain):
 
 def _check_absent_classic(chain, mapset, dbif, with_dataset):
     """Stop before anything is computed if a result exists, in the order and
-    with the words of the parser classes
+    with the words of the reference implementation (grass.temporal.classic)
 
-    They look at the result maps first, and only at the files of the maps
+    It looks at the result maps first, and only at the files of the maps
     (not at a row of the temporal database), then at the dataset. The
-    parser classes find the dataset only after the maps are computed; this
+    reference finds the dataset only after the maps are computed; this
     check is made before, as the one of the core, so that nothing is lost.
-    A dry run of the parser classes never looks at the dataset (measured
+    A dry run of the reference never looks at the dataset (measured
     2026-10-16 with an existing dataset and no existing map: the dry run
     passes, the run stops), so with_dataset is False there.
 
@@ -487,8 +487,8 @@ def check_absent(chain, *, classic=False):
     calls it to fail where the run would fail.
 
     :param classic: look at the result maps first and report in the words of
-        the parser classes, see materialize(); like the dry run of the parser
-        classes, do not look at the dataset
+        the reference, see materialize(); like the dry run of the reference,
+        do not look at the dataset
     :raises FatalError: if the dataset or a result map exists
     """
     with connection(None) as dbif:
@@ -658,9 +658,9 @@ def _store(map_, overwrite, dbif):
     # update_all() sets the new type in the base table, but its UPDATE of the
     # time table of the new type matches no row, so the map gets no time
     # while the row of the old type stays behind (measured 2026-10-11 with
-    # t.rast.algebra, see _store_new_map() in classic/temporal_algebra.py). delete()
-    # runs on the stored copy because it resets the object, which would
-    # discard the time of map_.
+    # t.rast.algebra, see _store_new_map() in temporal_algebra.py of the
+    # reference). delete() runs on the stored copy because it resets the
+    # object, which would discard the time of map_.
     stored.delete(dbif)
     map_.insert(dbif)
 
@@ -843,7 +843,7 @@ def materialize(
     with the maps:
 
     - classic_absence_check looks for existing result maps before the dataset
-      and reports in the words of the parser classes, see check_absent();
+      and reports in the words of the reference, see check_absent();
     - keep_empty_vector_maps registers a computed vector map that has no
       primitives, as if register_null were set for vector maps;
     - vector_dataset_if_empty=False creates no dataset and gives no warning

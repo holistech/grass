@@ -1,8 +1,9 @@
 """The classic temporal algebra as a profile of the algebra core
 
-The classic algebra of the engine (``classic.temporal_algebra`` and its
-subclasses) is one variant of the algebra: it reads another syntax, relates and
-combines maps by other rules, and computes the result maps with other texts.
+The classic algebra, as the reference implementation
+(``grass.temporal.classic``) computes it, is one variant of the algebra: it
+reads another syntax, relates and combines maps by other rules, and computes
+the result maps with other texts.
 The profile ``CLASSIC`` carries those rules: the classic grammar
 (``classic_grammar``) builds the syntax tree, ``ClassicTranslator`` gives it the
 classic meaning with the operations of the core, and the options of the profile
@@ -125,7 +126,7 @@ def _constant(value):
 
 
 def _written_increment(increment):
-    """The increment of tshift() and buff_t() as the parser classes read it
+    """The increment of tshift() and buff_t() as the reference reads it
 
     :return: the text of a quoted number and unit, or the number, and whether
         a unit was given
@@ -146,7 +147,7 @@ def _check_increment(function, series, increment, with_unit):
 
     Absolute time takes a number and a unit, relative time a number of its
     unit. A fractional number is no refusal for relative time: it is truncated
-    to a whole one, as the parser classes do.
+    to a whole one, as the reference does.
 
     :raises SyntaxError: for a number without unit on absolute time, and a
         unit on relative time
@@ -230,13 +231,13 @@ class ClassicTranslator(Translator):
             id(slot.content) in self._time_values for slot in series.slots
         ):
             # In a selection the value of a time function stands for the map
-            # it is read from. The earlier implementation never computes it
-            # and fails when it copies it into the result, so the profile
-            # refuses that result before it writes anything. Where the value
-            # is not selected, as in if(start_doy(A) < 3, start_doy(A, -1), A)
-            # whose first map has no predecessor, the earlier implementation
-            # selects maps, and so does the profile; the core refuses every
-            # time function as the conclusion of if().
+            # it is read from. The reference never computes it and fails when
+            # it copies it into the result, so the profile refuses that result
+            # before it writes anything. Where the value is not selected, as
+            # in if(start_doy(A) < 3, start_doy(A, -1), A) whose first map has
+            # no predecessor, the reference selects maps, and so does the
+            # profile; the core refuses every time function as the conclusion
+            # of if().
             self._refuse_time_function()
         if not (self._selection or self._kind == "vector"):
             return name, series
@@ -433,7 +434,7 @@ class ClassicTranslator(Translator):
     @staticmethod
     def _new_maps(series, *, bare=False):
         """series with a new map object for each content; bare if the command
-        of the map is its own reference, as for a neighbour map"""
+        of the map only names the map it reads, as for a neighbour map"""
         return dataclasses.replace(
             series,
             slots=tuple(
@@ -450,10 +451,10 @@ class ClassicTranslator(Translator):
     @staticmethod
     def _has_command(content):
         """True if the map of content has a command of its own in the classic
-        algebra: it is computed or a new map object whose command is more than
-        its reference. A neighbour map (read at an offset in time or in cells)
-        has only its reference, so the truth value of its time function is the
-        operand of && and || and not the map itself."""
+        algebra: it is computed or a new map object whose command does more
+        than name the map it reads. A neighbour map (read at an offset in time
+        or in cells) only names it, so the truth value of its time function is
+        the operand of && and || and not the map itself."""
         return not isinstance(content, MapRef) or (
             content.mark is not None
             and content.mark.map is classic_maps.OWN
@@ -878,8 +879,8 @@ class ClassicTranslator(Translator):
 
     def _index(self, node):
         """A map read at an offset, in time or in cells, is a new map object
-        in the classic algebra with an id of its own, whose command is only
-        its reference (bare, see _has_command())"""
+        in the classic algebra with an id of its own, whose command only names
+        the map it reads (bare, see _has_command())"""
         result = super()._index(node)
         return (
             self._new_maps(result, bare=True) if isinstance(result, Series) else result
