@@ -58,7 +58,7 @@ def write_scenario(tools) -> None:
 def _write_scenario(tools) -> None:
     from grass.temporal.testing import data  # noqa: PLC0415
 
-    tools.g_region(n=1, s=0, e=1, w=0, res=1, b=0, t=1, res3=1)
+    data.small_region(tools, 1, 1, depths=1)
     spec = data.MapSpec
     day = data.day
 

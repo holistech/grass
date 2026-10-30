@@ -26,6 +26,7 @@ from grass.temporal.testing.data import (
     create_stds,
     make_map,
     register_stds,
+    small_region,
 )
 from grass.temporal.testing.differential import RUNNERS, outcome
 
@@ -50,13 +51,6 @@ def single_map(tools, kind, name, value, start=None, end=None):
         if end is not None:
             times["end"] = end.isoformat(sep=" ")
         tools.t_register(type=map_type, maps=name, **times)
-
-
-def _small_region(tools, *, depths=False):
-    options = {"n": 3, "s": 0, "e": 3, "w": 0, "res": 1}
-    if depths:
-        options.update({"t": 3, "b": 0, "res3": 1})
-    tools.g_region(**options)
 
 
 def daily_datasets(tools, kind="raster"):
@@ -88,7 +82,7 @@ def daily_datasets(tools, kind="raster"):
 def algebra(tools):
     """unittests_temporal_algebra.py: the daily datasets and singletmap = 99
     on January 3"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     daily_datasets(tools)
     single_map(tools, "raster", "singletmap", 99, january(3), january(4))
 
@@ -121,7 +115,7 @@ def monthly_datasets(tools):
 def algebra_granularity(tools):
     """unittests_temporal_algebra_grs.py: the monthly datasets; D d1..d3 = 10,
     11, 12 for 31 days from the first of January, March and May; singletmap"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
         tools,
@@ -139,7 +133,7 @@ def raster_granularity(tools):
     """unittests_temporal_raster_algebra_grs.py: the monthly datasets; D d1..d3
     = 10, 11, 12 for five days from the first of January, March and May;
     singletmap = 99 for March; nullmap, a null map for January to June"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     monthly_datasets(tools)
     create_stds(
         tools,
@@ -158,7 +152,7 @@ def mixed_types(tools):
     """unittests_temporal_algebra_mixed_stds.py: A (str3ds) a1..a4 = 1..4
     daily from January 1, B (strds) b1 = 5 and b2 = 6 on two days each, C
     (stvds) c1 = 20 random points on January 2 and 3"""
-    _small_region(tools, depths=True)
+    small_region(tools, 3, 3, depths=3)
     create_stds(
         tools,
         "str3ds",
@@ -202,7 +196,7 @@ def conditionals(tools):
 def raster3d_algebra(tools):
     """unittests_temporal_raster3d_algebra.py: A (str3ds) a1..a4 = 1..4 daily
     from January 1"""
-    _small_region(tools, depths=True)
+    small_region(tools, 3, 3, depths=3)
     create_stds(
         tools,
         "str3ds",
@@ -215,7 +209,7 @@ def equal_time_stamps(tools):
     """unittests_temporal_raster_algebra_equal_ts.py: A a1..a4 = 1..4, all four
     at the instant January 1; singletmap = 100 at that instant; singlemap =
     1000 without time"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     create_stds(
         tools, "strds", "A", [MapSpec(f"a{k}", k, january(1)) for k in range(1, 5)]
     )
@@ -250,7 +244,7 @@ def conditional_complement(tools):
     """unittests_temporal_raster_conditionals_complement_else.py: A a1..a6 =
     1..6 daily from January 1; B b1 = 7 on January 2 and 3, b2 = 8 on January
     4 and 5"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     create_stds(
         tools,
         "strds",
@@ -271,7 +265,7 @@ def conditional_complement(tools):
 def raster_conditionals(tools):
     """unittests_temporal_raster_conditionals.py: the daily datasets, but D has
     a fourth map d4 = 11 on January 6"""
-    _small_region(tools)
+    small_region(tools, 3, 3)
     daily_datasets(tools)
     create_stds(
         tools,

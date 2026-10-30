@@ -30,6 +30,7 @@ from grass.temporal.testing.data import (
     import_ascii_vector,
     points_map,
     register_stds,
+    small_region,
     square_area,
 )
 
@@ -121,7 +122,7 @@ def build(kind, tools, directory):
 
 
 def _raster(tools, directory):
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    small_region(tools, 3, 3)
     expressions = dict(_RASTER_MAPS)
     expressions.update({f"p{number}": str(number) for number in range(1, 14)})
     expressions.update({f"ha{number}": str(number) for number in range(1, 7)})
@@ -205,7 +206,7 @@ def _raster(tools, directory):
     for number, (low, high) in extents.items():
         tools.g_region(n=high, s=low, e=high, w=low, res=10)
         tools.r_mapcalc(expression=f"spa{number} = {number}")
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    small_region(tools, 3, 3)
     register_stds(
         tools,
         "strds",
