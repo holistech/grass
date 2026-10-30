@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from grass.temporal.topology import SpatioTemporalTopologyBuilder
 
-from ._adapters import as_map
+from .adapters import as_map
 
 TEMPORAL_RELATIONS = (
     "equal",

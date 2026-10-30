@@ -12,7 +12,7 @@ import random
 import pytest
 
 from grass.temporal.algebra import relations
-from grass.temporal.algebra._adapters import as_map, extent_from, extent_of, space_of
+from grass.temporal.algebra.adapters import as_map, extent_from, extent_of, space_of
 from grass.temporal.algebra.content import MapRef
 from grass.temporal.algebra.relations import (
     Relation,

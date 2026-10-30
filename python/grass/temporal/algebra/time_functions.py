@@ -13,8 +13,8 @@ from grass.temporal.datetime_math import (
 )
 from grass.temporal.temporal_granularity import check_granularity_string
 
-from ._adapters import as_map, extent_of
 from ._checks import check_int, check_series
+from .adapters import as_map, extent_of
 from .content import NULL, Const
 from .series import Extent, Series, Slot
 

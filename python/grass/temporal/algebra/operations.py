@@ -11,7 +11,6 @@ from collections import Counter, defaultdict
 from dataclasses import replace
 
 from . import reducers
-from ._adapters import as_map, extent_from
 from ._checks import (
     check_callable,
     check_int,
@@ -21,6 +20,7 @@ from ._checks import (
     check_series,
     require,
 )
+from .adapters import as_map, extent_from
 from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import (
     NULL,

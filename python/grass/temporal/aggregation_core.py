@@ -8,10 +8,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import grass.temporal.algebra as ta
-from grass.temporal.algebra._adapters import as_map
+from grass.temporal.algebra.adapters import as_map
 from grass.temporal.algebra.materialize import reject_input_names
-from grass.temporal.state import get_tgis_message_interface
 from grass.temporal.datetime_math import map_name_suffix
+from grass.temporal.state import get_tgis_message_interface
 
 
 def sampler_target(maps, unit):

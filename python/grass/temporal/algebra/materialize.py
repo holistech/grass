@@ -17,7 +17,7 @@ from grass.temporal.space_time_datasets import VectorDataset
 from grass.temporal.state import get_current_mapset, get_tgis_message_interface
 from grass.temporal.temporal_granularity import compute_absolute_time_granularity
 
-from ._adapters import as_map
+from .adapters import as_map
 from .backends import MapcalcStyle, ModuleCall, backend_for, describe
 from .content import Call, MapRef, SeriesAggregate, SeriesReduce
 from .maptypes import ELEMENTS, KINDS_OF_STDS, MAP_CLASSES, STDS_TYPES

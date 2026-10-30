@@ -28,7 +28,7 @@ import dataclasses
 
 from grass.exceptions import FatalError
 from grass.temporal.algebra import operations, time_functions, variants
-from grass.temporal.algebra._adapters import as_map, extent_from
+from grass.temporal.algebra.adapters import as_map, extent_from
 from grass.temporal.algebra.backends import MapcalcStyle
 from grass.temporal.algebra.content import (
     NULL,
