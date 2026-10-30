@@ -12,8 +12,8 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser import evaluate
+from grass.temporal.algebra.parser.classic import CLASSIC
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
-from grass.temporal.algebra.profile import CLASSIC
 from grass.temporal.testing import expressions
 from grass.temporal.testing.corpus import reference_outcome
 from grass.tools import Tools

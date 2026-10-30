@@ -26,9 +26,7 @@ class Profile:
     """The rules of one variant of the algebra
 
     The defaults are the rules of the core. The profile CLASSIC of the classic
-    algebra is defined in grass.temporal.algebra.parser.classic, whose
-    translator imports this module; the module attribute CLASSIC loads it on
-    first use (module __getattr__, and listed by __dir__).
+    algebra is defined in grass.temporal.algebra.parser.classic.
 
     :param grammar: an object with parse(text) that returns the syntax tree
         (grass.temporal.algebra.parser.ast.Statement) of "name = expression";
@@ -94,18 +92,3 @@ class Profile:
 
 
 CORE = Profile()
-
-
-def __getattr__(name):
-    """CLASSIC, the profile of the classic algebra, is defined next to its
-    translator, which imports this module; it is loaded when asked for"""
-    if name == "CLASSIC":
-        from .parser.classic import CLASSIC
-
-        return CLASSIC
-    msg = f"module {__name__!r} has no attribute {name!r}"
-    raise AttributeError(msg)
-
-
-def __dir__():
-    return sorted([*globals(), "CLASSIC"])

@@ -1230,6 +1230,12 @@
    "names": {},
    "origins": "repo"
   },
+  "grass.temporal.algebra.parser.classic": {
+   "names": {
+    "CLASSIC": "repo"
+   },
+   "origins": "repo"
+  },
   "grass.temporal.algebra.parser.switch": {
    "names": {
     "ALGEBRA_VARIABLE": "repo",
@@ -1239,7 +1245,6 @@
   },
   "grass.temporal.algebra.profile": {
    "names": {
-    "CLASSIC": "repo",
     "CORE": "repo"
    },
    "origins": "repo"

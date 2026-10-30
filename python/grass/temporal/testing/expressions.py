@@ -158,7 +158,7 @@ def classic_runner(kind, expression, *, basename, overwrite=False, **options):
     """
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
-    from grass.temporal.algebra.profile import CLASSIC
+    from grass.temporal.algebra.parser.classic import CLASSIC
 
     granularity = None
     if options.pop("granularity", False):

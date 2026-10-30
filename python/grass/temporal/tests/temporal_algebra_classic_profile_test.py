@@ -8,9 +8,9 @@ import pytest
 
 from grass.temporal.algebra import CORE, Profile
 from grass.temporal.algebra.parser import classic, classic_numbers, evaluate, translate
+from grass.temporal.algebra.parser.classic import CLASSIC
 from grass.temporal.algebra.parser.classic_grammar import classic_grammar
 from grass.temporal.algebra.parser.translate import Translator
-from grass.temporal.algebra.profile import CLASSIC
 
 
 @pytest.fixture

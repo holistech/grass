@@ -61,8 +61,9 @@ def main():
     import grass.temporal as tgis
     from grass.temporal.algebra.maptypes import KINDS_OF_STDS
     from grass.temporal.algebra.parser import evaluate
+    from grass.temporal.algebra.parser.classic import CLASSIC
     from grass.temporal.algebra.parser.switch import classic_selected
-    from grass.temporal.algebra.profile import CLASSIC, CORE
+    from grass.temporal.algebra.profile import CORE
 
     expression = options["expression"]
     spatial = flags["s"]

@@ -18,6 +18,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
+from grass.temporal.algebra.profile import CORE
 from grass.temporal.classic.temporal_raster3d_algebra import (
     TemporalRaster3DAlgebraParser as _Raster3DEngine,
 )
@@ -29,6 +30,7 @@ from grass.temporal.classic.temporal_vector_algebra import (
 )
 
 from . import evaluate
+from .classic import CLASSIC
 from .switch import classic_selected
 
 
@@ -133,9 +135,6 @@ class _AlgebraParser:
         return classic_selected(self.classic)
 
     def _evaluate(self, expression, basename, overwrite, **arguments):
-        # Loaded on use: the classic profile imports the classic lexers.
-        from grass.temporal.algebra.profile import CLASSIC, CORE
-
         return evaluate(
             expression,
             kind=self._kind,
