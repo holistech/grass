@@ -49,7 +49,7 @@ from grass.temporal.algebra.relations import (
 )
 from grass.temporal.algebra.series import Series, Slot
 
-from . import ast, shared
+from . import ast, classic_maps, shared
 from .classic_grammar import classic_grammar
 from .operators import COMPARISONS, TemporalOperator
 from .translate import Translator
@@ -61,6 +61,13 @@ _BUFFERS = ("buff_p", "buff_l", "buff_a")
 _CONDITION_FUNCTIONS = ("exist", "isnull", "isntnull")
 _EQUAL = TemporalOperator(None)
 _ARITHMETIC = ("+", "-", "*", "/", "%")
+_SELECT_EXTENTS = {
+    "l": "left",
+    "r": "right",
+    "u": "union",
+    "i": "intersection",
+    "d": "disjoint",
+}
 _INT32_MAX = 2**31 - 1
 _INT64_MAX = 2**63 - 1
 
@@ -175,7 +182,7 @@ def _read_operand_as_mapcalc(operand):
     """operand with the integer constants of _read_as_mapcalc() replaced"""
     if not any(_beyond_int32(slot.content) for slot in operand.slots):
         return operand
-    return _like(
+    return classic_maps.like(
         operand,
         (
             dataclasses.replace(
@@ -189,59 +196,6 @@ def _read_operand_as_mapcalc(operand):
             for slot in operand.slots
         ),
     )
-
-
-def _unit(series):
-    """The temporal type and unit of a series: the unit of relative time,
-    None for absolute time, shared.ABSENT for a map without time stamp"""
-    extent = series.slots[0].extent
-    return shared.ABSENT if extent is None else extent.unit
-
-
-@dataclasses.dataclass(frozen=True)
-class _Mixed:
-    """A classic list of maps of more than one temporal type or unit
-
-    The classic lists take any maps; maps of different types or units relate
-    to nothing, and registering them in one dataset fails. A series of the
-    core has one type and unit, so the list is held as one series per type
-    and unit, in the order in which the list first shows each. Only merge()
-    makes such a list; ClassicTranslator._each_unit() evaluates what takes
-    it once per series.
-    """
-
-    parts: tuple[Series, ...]
-
-    def part(self, unit):
-        """The series of maps of a unit; for a unit the list lacks, a series
-        that relates to nothing of that unit"""
-        return next((part for part in self.parts if _unit(part) == unit), self.parts[0])
-
-
-def _listed(parts):
-    """The slots of the parts of a list in its order"""
-    slots = [slot for part in parts for slot in part.listed()]
-    if all(slot.rank is not None for slot in slots):
-        slots.sort(key=lambda slot: slot.rank)
-    return slots
-
-
-def _gathered(parts):
-    """One series, or a _Mixed if the non-empty parts differ in unit"""
-    groups = {}
-    for part in parts:
-        if part.slots:
-            unit = _unit(part)
-            groups[unit] = (
-                dataclasses.replace(groups[unit], slots=groups[unit].slots + part.slots)
-                if unit in groups
-                else part
-            )
-    if not groups:
-        return parts[0]
-    if len(groups) == 1:
-        return next(iter(groups.values()))
-    return _Mixed(tuple(groups.values()))
 
 
 class ClassicSyntax:
@@ -265,84 +219,6 @@ def _pairing_error(message):
             error=message
         )
     )
-
-
-def _like(series, slots, sort=None):
-    """A series of slots with the map type, order and flags of series"""
-    return Series(
-        tuple(slots),
-        series.kind,
-        series.sort if sort is None else sort,
-        series.spatial,
-        series.order,
-    )
-
-
-# The map that a content stands for is its own, a new map object of the
-# classic algebra, as long as the map of its mark is this value.
-_OWN = object()
-
-
-@dataclasses.dataclass(eq=False)
-class _MapObject:
-    """The map object of the classic algebra that a content stands for
-
-    The classic algebra tells maps apart by the id of their map object, their
-    time stamp and the command written on them (_merge_key() of the classic
-    algebra). The profile attaches this object to the content as its mark,
-    which the core never reads. A new map object is its own id; the classic
-    algebra makes one for each result of an operation of two map lists, each
-    map read at an offset, each buffer and each value of a time function at
-    an offset. A number or a function keeps the object, and the hash operator
-    counts on the object of the left map.
-
-    It compares and hashes by identity, because a mark that is its own map
-    object is the identity.
-
-    map: _OWN for a new map object, whose id is this mark; else the id it
-        keeps, the identifier of a registered map or the mark of a new one,
-        or None for a map that has no id
-    first: the first count of a counted map (see _first_counts()), which is
-        the content itself for the first count; None for a map that is not
-        counted. Set after the content is made, because the content that
-        carries the mark is the first count.
-    text: the command as the classic algebra writes it, unfolded, where the
-        content was folded to a number (a count changed by numbers, a value
-        of a time function at an offset); None for the content itself. The
-        classic algebra compares this text in merge(), and the profile folds
-        a count plus 0 to the number of the count.
-    bare: True for a neighbour map, a new map object whose command is its own
-        reference; see _has_command().
-    """
-
-    map: object = _OWN
-    first: Content | None = None
-    text: Content | None = None
-    bare: bool = False
-
-
-class _SeriesNotes:
-    """Notes about series, found by identity
-
-    A series is not hashable, so the notes are keyed by id(). Each entry holds
-    its series: once a series is gone, a later one can take its id and would
-    read the note of another.
-    """
-
-    def __init__(self):
-        self._notes = {}
-
-    def note(self, series, value=None):
-        """Remember value for series"""
-        self._notes[id(series)] = (series, value)
-
-    def get(self, series):
-        """Return the value noted for series, or None"""
-        entry = self._notes.get(id(series))
-        return None if entry is None else entry[1]
-
-    def __contains__(self, series):
-        return id(series) in self._notes
 
 
 def _joined(symbol, first, second):
@@ -423,9 +299,9 @@ class ClassicTranslator(Translator):
         super().__init__(**keywords)
         # The conditions on time functions whose argument is a computed
         # expression, with the argument; see _remember_commands().
-        self._commands = _SeriesNotes()
+        self._commands = classic_maps.SeriesNotes()
         # The results of the hash operator itself; see _compare().
-        self._hashes = _SeriesNotes()
+        self._hashes = classic_maps.SeriesNotes()
         # The time stamp of every registered map the expression reads, by
         # identifier; see statement().
         self._stored = {}
@@ -498,7 +374,7 @@ class ClassicTranslator(Translator):
             else slot
             for slot in series.slots
         ]
-        return name, _like(series, slots)
+        return name, classic_maps.like(series, slots)
 
     def _operands(self, node):
         """The classic production for a bare name reads the dataset only when
@@ -542,7 +418,7 @@ class ClassicTranslator(Translator):
 
     def _each_unit(self, function, *arguments):
         """function of arguments, once for each temporal type and unit of
-        the maps of a _Mixed among them
+        the maps of a classic_maps.Mixed among them
 
         The unit is that of the first argument with time stamps: its maps
         meet only the maps of their unit in the other arguments, as maps of
@@ -554,25 +430,25 @@ class ClassicTranslator(Translator):
             for argument in arguments
             for value in (argument if isinstance(argument, list) else [argument])
         ]
-        if not any(isinstance(value, _Mixed) for value in values):
+        if not any(isinstance(value, classic_maps.Mixed) for value in values):
             return function(*arguments)
         lead = next(
             value
             for value in values
-            if isinstance(value, _Mixed) or shared.timed(value)
+            if isinstance(value, classic_maps.Mixed) or shared.timed(value)
         )
         units = (
-            [_unit(part) for part in lead.parts]
-            if isinstance(lead, _Mixed)
-            else [_unit(lead)]
+            [classic_maps.unit_of(part) for part in lead.parts]
+            if isinstance(lead, classic_maps.Mixed)
+            else [classic_maps.unit_of(lead)]
         )
 
         def part(value, unit):
             if isinstance(value, list):
                 return [part(item, unit) for item in value]
-            return value.part(unit) if isinstance(value, _Mixed) else value
+            return value.part(unit) if isinstance(value, classic_maps.Mixed) else value
 
-        return _gathered(
+        return classic_maps.gathered(
             [
                 function(*(part(argument, unit) for argument in arguments))
                 for unit in units
@@ -582,10 +458,12 @@ class ClassicTranslator(Translator):
     def _result(self, target, result):
         """The classic dataset takes the temporal type and unit of its first
         map; registering a map of another fails"""
-        if not isinstance(result, _Mixed):
+        if not isinstance(result, classic_maps.Mixed):
             return result
         first, second = result.parts[:2]
-        if (_unit(first) is None) != (_unit(second) is None):
+        if (classic_maps.unit_of(first) is None) != (
+            classic_maps.unit_of(second) is None
+        ):
             msg = _(
                 "Temporal type of space time dataset <{name}> and its maps "
                 "are different"
@@ -627,7 +505,7 @@ class ClassicTranslator(Translator):
                 # profile has folded it: it keeps the map and the command.
                 content = dataclasses.replace(
                     slot.content,
-                    mark=_MapObject(
+                    mark=classic_maps.MapObject(
                         self._source(operand.content),
                         text=self._text_of(function, operands, index),
                     ),
@@ -650,7 +528,7 @@ class ClassicTranslator(Translator):
     @staticmethod
     def _new_map(content):
         """True if content is a new map object of the classic algebra"""
-        return content.mark is not None and content.mark.map is _OWN
+        return content.mark is not None and content.mark.map is classic_maps.OWN
 
     @staticmethod
     def _counted(content):
@@ -666,7 +544,8 @@ class ClassicTranslator(Translator):
         of like.
         """
         return dataclasses.replace(
-            content, mark=_MapObject(like.mark.map, like.mark.first, like.mark.text)
+            content,
+            mark=classic_maps.MapObject(like.mark.map, like.mark.first, like.mark.text),
         )
 
     @staticmethod
@@ -686,7 +565,7 @@ class ClassicTranslator(Translator):
                 dataclasses.replace(
                     slot,
                     content=dataclasses.replace(
-                        slot.content, mark=_MapObject(bare=bare)
+                        slot.content, mark=classic_maps.MapObject(bare=bare)
                     ),
                 )
                 for slot in series.slots
@@ -702,7 +581,7 @@ class ClassicTranslator(Translator):
         operand of && and || and not the map itself."""
         return not isinstance(content, MapRef) or (
             content.mark is not None
-            and content.mark.map is _OWN
+            and content.mark.map is classic_maps.OWN
             and not content.mark.bare
         )
 
@@ -723,7 +602,7 @@ class ClassicTranslator(Translator):
             self._counted(slot.content) for slot in series.slots
         ):
             return series
-        return _like(
+        return classic_maps.like(
             series,
             (
                 dataclasses.replace(slot, content=slot.content.mark.first)
@@ -746,7 +625,7 @@ class ClassicTranslator(Translator):
         # list holds no map, as td(N) in A * td(N).
         slots = []
         for slot in result.slots:
-            content = dataclasses.replace(slot.content, mark=_MapObject())
+            content = dataclasses.replace(slot.content, mark=classic_maps.MapObject())
             slots.append(dataclasses.replace(slot, content=content))
         return dataclasses.replace(result, slots=tuple(slots))
 
@@ -950,7 +829,11 @@ class ClassicTranslator(Translator):
         map keeps the id of the first map it was made of, and so does a count
         of the left map"""
         if content.mark is not None:
-            return content.mark if content.mark.map is _OWN else content.mark.map
+            return (
+                content.mark
+                if content.mark.map is classic_maps.OWN
+                else content.mark.map
+            )
         if isinstance(content, MapRef):
             return None if content.offset else content.ident
         if isinstance(content, Call):
@@ -984,7 +867,7 @@ class ClassicTranslator(Translator):
             for slot in series.slots
             if map_id(slot) is None or latest[map_id(slot)] is slot
         ]
-        return _like(series, slots)
+        return classic_maps.like(series, slots)
 
     def _selected(self, left, right, operator):
         relation = self._relation(operator)
@@ -1040,7 +923,7 @@ class ClassicTranslator(Translator):
                 )
             )
             # Equal counts are copied, so that each has an identity.
-            mark = _MapObject(self._source(target.content))
+            mark = classic_maps.MapObject(self._source(target.content))
             content = dataclasses.replace(slot.content, mark=mark)
             # Counted again, the map keeps its first count.
             mark.first = (
@@ -1110,7 +993,9 @@ class ClassicTranslator(Translator):
                 # Equal contents are copied, so that each has an identity.
                 slots = []
                 for slot in result.slots:
-                    content = dataclasses.replace(slot.content, mark=_MapObject())
+                    content = dataclasses.replace(
+                        slot.content, mark=classic_maps.MapObject()
+                    )
                     slots.append(dataclasses.replace(slot, content=content))
                 return dataclasses.replace(result, slots=tuple(slots))
             return result
@@ -1175,7 +1060,7 @@ class ClassicTranslator(Translator):
                 return
             taken.add(index)
             slots.append(argument.slots[index])
-        self._remember_commands(result, _like(argument, slots))
+        self._remember_commands(result, classic_maps.like(argument, slots))
 
     def _compare(self, symbol, left, right):
         """A comparison of the hash operator itself (A # B == 2) is a condition
@@ -1218,7 +1103,7 @@ class ClassicTranslator(Translator):
             else dataclasses.replace(slot, content=argument.content)
             for slot, argument in zip(series.slots, known.slots, strict=True)
         ]
-        return _like(series, slots, "field")
+        return classic_maps.like(series, slots, "field")
 
     def _logical(self, symbol, left, right, operator):
         """&& and || of two condition series combine the boxes in the same
@@ -1257,7 +1142,7 @@ class ClassicTranslator(Translator):
         if symbol == "&&":
             # apply() wrote call(symbol, target, other) for every slot, unless
             # it computed a constant.
-            joined = _like(
+            joined = classic_maps.like(
                 joined,
                 (
                     dataclasses.replace(
@@ -1308,7 +1193,7 @@ class ClassicTranslator(Translator):
         """
         # The left maps are marked by their position, so that each pair
         # finds the condition of its left map.
-        marked = _like(
+        marked = classic_maps.like(
             left,
             (
                 dataclasses.replace(slot, content=Const(number))
@@ -1335,7 +1220,7 @@ class ClassicTranslator(Translator):
                 failure="stop",
                 **options,
             )
-        return _like(
+        return classic_maps.like(
             placed,
             (
                 dataclasses.replace(slot, content=conditions[slot.content.value])
@@ -1412,7 +1297,7 @@ class ClassicTranslator(Translator):
                 content = dataclasses.replace(slot.content)
                 self._time_values[id(content)] = content
                 slots.append(dataclasses.replace(slot, content=content))
-            return _like(values, slots)
+            return classic_maps.like(values, slots)
         if offset is not None:
             shared.check_time_variable(name, used)
             variable = time_functions.timevar(series, name)
@@ -1438,7 +1323,7 @@ class ClassicTranslator(Translator):
         return super()._function(node)
 
     def _call(self, name, arguments, relation):
-        # merge() takes a _Mixed whole, as it lists the maps of all units.
+        # merge() takes a classic_maps.Mixed whole, as it lists the maps of all units.
         if name == "merge":
             return super()._call(name, arguments, relation)
         return self._each_unit(self._call_unit, name, arguments, relation)
@@ -1472,7 +1357,7 @@ class ClassicTranslator(Translator):
         counts of two datasets (merge(A # N, N # A)) for one map.
         """
         firsts, seconds = (
-            value.parts if isinstance(value, _Mixed) else (value,)
+            value.parts if isinstance(value, classic_maps.Mixed) else (value,)
             for value in (first, second)
         )
         if len({part.sort for part in (*firsts, *seconds)}) > 1:
@@ -1483,10 +1368,10 @@ class ClassicTranslator(Translator):
         first, second = firsts[0], seconds[0]
         # The check of the map types that operations.merge() makes
         variants.check_comparable(first, second, mixed_times="unrelated")
-        first_listed = _listed(firsts)
+        first_listed = classic_maps.listed(firsts)
         known = {self._merge_key(slot) for slot in first_listed}
         kept = []
-        second_listed = _listed(seconds)
+        second_listed = classic_maps.listed(seconds)
         for slot in second_listed:
             key = self._merge_key(slot)
             if key not in known:
@@ -1507,7 +1392,7 @@ class ClassicTranslator(Translator):
             unit = None if slot.extent is None else slot.extent.unit
             units.setdefault(unit, []).append(dataclasses.replace(slot, rank=n))
         spatial = any(part.spatial for part in (*firsts, *seconds))
-        return _gathered(
+        return classic_maps.gathered(
             [
                 operations.merge(
                     Series(tuple(slots), first.kind, first.sort, spatial, first.order),
@@ -1553,7 +1438,7 @@ class ClassicTranslator(Translator):
             # past the next one, and the result maps are numbered by it.
             rank = position if slot.rank is None else slot.rank
             slots.append(Slot(extent, slot.content, slot.space, origin, rank))
-        return _like(series, slots)
+        return classic_maps.like(series, slots)
 
     def _if(self, arguments, relation):
         """The classic if(): conditions on map values choose per cell, one map
@@ -1606,7 +1491,7 @@ class ClassicTranslator(Translator):
             if self._counted(slot.content):
                 # A copy, so that the count stays with the original content
                 content = dataclasses.replace(
-                    slot.content, mark=_MapObject(slot.content.mark.map)
+                    slot.content, mark=classic_maps.MapObject(slot.content.mark.map)
                 )
                 slot = dataclasses.replace(slot, content=content)
             slots.append(slot)
@@ -1639,14 +1524,16 @@ class ClassicTranslator(Translator):
                     content = self._counting(slot.content, rejected_content)
                     slot = dataclasses.replace(slot, content=content)
             slots.append(slot)
-        return _like(result, slots)
+        return classic_maps.like(result, slots)
 
     @staticmethod
     def _in_time_order(series):
         """series with its slots listed in time order"""
         if not isinstance(series, Series):
             return series
-        return _like(series, (dataclasses.replace(s, rank=None) for s in series.slots))
+        return classic_maps.like(
+            series, (dataclasses.replace(s, rank=None) for s in series.slots)
+        )
 
     def _judged_if(self, condition, then, otherwise=None, *, relation):
         """if() on temporal variables: each conclusion map is judged by all
@@ -1687,7 +1574,7 @@ class ClassicTranslator(Translator):
             sorts.add(otherwise.sort)
         # The classic map lists mix maps and numbers freely; a number in a
         # map list is a constant map.
-        return _like(then, slots, "field" if "field" in sorts else "scalar")
+        return classic_maps.like(then, slots, "field" if "field" in sorts else "scalar")
 
     def _field_if(self, condition, then, otherwise, relation):
         """if() on map values as r.mapcalc text, one map per pair
@@ -1751,10 +1638,11 @@ class ClassicTranslator(Translator):
                 # Each is a new map with an id of its own, also where the text
                 # folds to a map: if(1, a1) is not a1.
                 content = dataclasses.replace(
-                    call("if", slot.content, *contents[index]), mark=_MapObject()
+                    call("if", slot.content, *contents[index]),
+                    mark=classic_maps.MapObject(),
                 )
                 slots.append(Slot(target.extent, content, target.space))
-        return _like(condition, slots, "field")
+        return classic_maps.like(condition, slots, "field")
 
     def _numbers_if(self, condition, then, otherwise):
         """if() of a cell condition with numbers as then and else: the list of
@@ -1772,16 +1660,8 @@ class ClassicTranslator(Translator):
                 content = self._counting(content, slot.content)
                 content.mark.text = Call("if", (self._written(slot.content), *contents))
             slots.append(Slot(slot.extent, content, slot.space, rank=slot.rank))
-        return _like(condition, slots, "field")
+        return classic_maps.like(condition, slots, "field")
 
-
-_SELECT_EXTENTS = {
-    "l": "left",
-    "r": "right",
-    "u": "union",
-    "i": "intersection",
-    "d": "disjoint",
-}
 
 CLASSIC = Profile(
     grammar=ClassicSyntax(),
