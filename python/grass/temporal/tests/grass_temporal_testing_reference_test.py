@@ -105,9 +105,9 @@ def test_reference_is_classic_and_core_is_not(tools, algebra_variable):
 
 @pytest.mark.needs_solo_run
 def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
-    """The parser class with classic=True gives the classic maxima although
-    it no longer runs the reference: the expression is a listed difference
-    of the core"""
+    """The public parser class with classic=True gives the classic maxima
+    although it no longer runs the reference: the expression is a listed
+    difference of the core"""
     parser = TemporalRasterAlgebraParser(run=True, debug=False, classic=True)
     parser.parse(DIFFERENT_EXPRESSION, "prof", True)
     assert maxima(tools, "R") == CLASSIC_MAXIMA

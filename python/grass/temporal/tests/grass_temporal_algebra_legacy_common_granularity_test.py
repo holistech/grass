@@ -1,12 +1,12 @@
 """The tests of the earlier gunittest file unittests_temporal_algebra_grs.py
 
 They call the common granularity of the earlier select algebra directly:
-setup_common_granularity() on the expression, then parse(). The new algebra
-has no such step; the select expressions run in all three runners in
+setup_common_granularity() on the expression, then parse(). The core has no
+such step; the select expressions run in all three runners in
 grass_temporal_algebra_legacy_select_test.py. The datasets are those of
 algebra_cases.algebra_granularity: A a1..a6 = 1..6 on the months January to
-June 2001, B b1 = 7 and b2 = 8 for three months each, C c1 = 9 for the year,
-D d1..d3 = 10..12 for 31 days from the first of January, March and May.
+June 2001, B b1 = 7 and b2 = 8 for three months each, C c1 = 9 for the year, D
+d1..d3 = 10..12 for 31 days from the first of January, March and May.
 """
 
 import datetime

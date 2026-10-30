@@ -1,10 +1,10 @@
 """Tests for the recorded corpus of the reference implementation
-(grass.temporal.classic)
 
-A stand-in replaces the reference: differential.outcome() for the outcome and
-RUNNERS["reference"] for the run without computing. No test runs GRASS. The
-keys hold the node id of the running test, which pytest sets at the start of
-each phase; a test that needs another id sets it itself.
+The corpus holds outcomes of grass.temporal.classic. A stand-in replaces the
+reference: differential.outcome() for the outcome and RUNNERS["reference"] for
+the run without computing. No test runs GRASS. The keys hold the node id of the
+running test, which pytest sets at the start of each phase; a test that needs
+another id sets it itself.
 """
 
 import gzip
