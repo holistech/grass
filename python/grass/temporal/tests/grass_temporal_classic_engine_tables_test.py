@@ -1,15 +1,16 @@
-"""The tables of the classic algebra engine, pinned against a recording
+"""The lexer and parser tables of the reference, pinned to a recording
 
-PLY derives the lexer and the LALR tables of the classic algebra from the
-order of the rule functions: lexer rules are ordered by the line number of
-their function, grammar rules by the line number of their ``p_`` function, and
-both orders run across the files of a class hierarchy. Moving or editing the
-files of the engine can reorder them silently, and a reordered table changes
-which of two ambiguous parses wins, i.e. the results the publications cite.
-The recording in ``data/classic_engine_tables.json`` was taken before the
-engine was moved into ``grass.temporal.classic``; it holds, per lexer class,
-the order and the text of the token rules and, per parser class, a checksum of
-the productions and of the action and goto tables.
+PLY derives the lexer and the LALR tables of the classic algebra from the order
+of the rule functions: lexer rules are ordered by the line number of their
+function, grammar rules by the line number of their ``p_`` function, and both
+orders run across the files of a class hierarchy. Moving or editing the files
+of the reference implementation (``grass.temporal.classic``) can reorder them
+silently, and a reordered table changes which of two ambiguous parses wins,
+i.e. the results the publications cite. The recording in
+``data/classic_engine_tables.json`` was taken before the reference was moved
+into ``grass.temporal.classic``; it holds, per lexer class, the order and the
+text of the token rules and, per parser class, a checksum of the productions
+and of the action and goto tables.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """
@@ -105,7 +106,7 @@ def parser_record(parser_class):
 
 
 def current():
-    """The record of the engine as it is now"""
+    """The record of the reference as it is now"""
     return {
         "lexers": {name: lexer_record(cls) for name, cls in LEXERS.items()},
         "parsers": {

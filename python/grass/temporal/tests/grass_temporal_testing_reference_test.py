@@ -1,8 +1,8 @@
 """Tests for grass.temporal.testing.reference
 
-The helper must run the earlier implementation of the algebra whatever
-GRASS_TEMPORAL_ALGEBRA says, so the tests set the variable to each value and
-compare with the algebra core, which they call directly.
+The helper must run the reference implementation (grass.temporal.classic) of
+the algebra whatever GRASS_TEMPORAL_ALGEBRA says, so the tests set the variable
+to each value and compare with the algebra core, which they call directly.
 
 SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
@@ -106,8 +106,8 @@ def test_reference_is_classic_and_core_is_not(tools, algebra_variable):
 @pytest.mark.needs_solo_run
 def test_classic_parser_class_computes_on_the_profile(tools, algebra_variable):
     """The parser class with classic=True gives the classic maxima although
-    it no longer runs the earlier implementation: the expression is a listed
-    difference of the core"""
+    it no longer runs the reference: the expression is a listed difference
+    of the core"""
     parser = TemporalRasterAlgebraParser(run=True, debug=False, classic=True)
     parser.parse(DIFFERENT_EXPRESSION, "prof", True)
     assert maxima(tools, "R") == CLASSIC_MAXIMA
@@ -127,10 +127,11 @@ def test_reference_parser_is_the_engine_and_not_the_public_class(
     tools, monkeypatch, algebra_variable, kind, class_name, expression
 ):
     """The public class chooses between the core and the classic profile in
-    parse(). The reference is an object of the classic engine, which does not
-    inherit from it, so what the public class does is not on its way. (t.select
-    has no such class: its reference is the engine itself, and
-    test_every_kind_parses runs it under each setting of the variable.)"""
+    parse(). The parser of reference_parser() is an object of the reference,
+    whose classes do not inherit from the public class, so what the public
+    class does is not on its way. (t.select has no such class: its parser is
+    the one of the reference itself, and test_every_kind_parses runs it under
+    each setting of the variable.)"""
     public_class = getattr(tgis, class_name)
 
     def rerouted(*args, **kwargs):

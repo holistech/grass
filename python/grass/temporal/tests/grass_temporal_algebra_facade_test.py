@@ -1,10 +1,11 @@
-"""The public parser classes are separate from the classic engine
+"""The public parser classes are separate from the reference implementation
 
 The classes that t.rast.algebra, t.rast3d.algebra, t.vect.algebra and the
-addons call do not inherit from the engine of the classic algebra, and they
-build an engine object only when something needs one. These tests run without
-a database: a facade that needed the engine at construction or in ``parse()``
-of the core would fail here.
+addons call do not inherit from the parser classes of the reference
+implementation (grass.temporal.classic), and they build an object of the
+reference only when something needs one. These tests run without a database:
+a facade that needed the reference at construction or in ``parse()`` of the
+core would fail here.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """

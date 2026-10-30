@@ -3,13 +3,13 @@
 Each option that gives the classic rules is measured against the classic
 algebra on real datasets: evaluate() with the option computes an expression,
 and the result maps (names, times, values) or the exception class are compared
-with grass.temporal.testing.differential to the outcome of the earlier
-implementation (grass.temporal.testing.reference) that
-grass.temporal.testing.corpus holds. The tests of the planned chain and of the
-error texts run the earlier implementation itself. A negative check with the
-default options shows that the comparison can see the difference. The expected
-values are the results of the earlier implementation, run on 2026-10-16; none
-was adjusted to a result.
+with grass.temporal.testing.differential to the outcome of the reference
+implementation (grass.temporal.classic, run by
+grass.temporal.testing.reference) that grass.temporal.testing.corpus holds. The
+tests of the planned chain and of the error texts run the reference itself. A
+negative check with the default options shows that the comparison can see the
+difference. The expected values are the results of the reference, run on
+2026-10-16; none was adjusted to a result.
 
 The datasets of grass.temporal.testing.expressions_data are used (raster
 and vector), and the dataset D, whose maps start on the same day.
@@ -77,8 +77,8 @@ COUNTER = iter(range(10**6))
 
 
 def measured(session, kind, expression, profile, **options):
-    """The outcome of the earlier implementation and of the profile, and what
-    differs between them (None if nothing)"""
+    """The outcome of the reference and of the profile, and what differs
+    between them (None if nothing)"""
     number = next(COUNTER)
     reference = reference_outcome(kind, expression, **options)
     found = differential.outcome(
@@ -88,16 +88,16 @@ def measured(session, kind, expression, profile, **options):
 
 
 def agrees(session, kind, expression, profile, **options):
-    """Assert that the profile gives what the earlier implementation gave;
-    return the outcome of the earlier implementation"""
+    """Assert that the profile gives what the reference gave; return the
+    outcome of the reference"""
     difference, reference, _ = measured(session, kind, expression, profile, **options)
     assert difference is None, f"{expression}: {difference}"
     return reference
 
 
 def differs(session, kind, expression, **options):
-    """Assert that the core with default options differs from the earlier
-    implementation, so that agrees() with an option is a real test of it"""
+    """Assert that the core with default options differs from the reference,
+    so that agrees() with an option is a real test of it"""
     difference, _, _ = measured(session, kind, expression, Profile(), **options)
     assert difference is not None, f"{expression}: no difference to see"
 
@@ -271,8 +271,8 @@ def test_the_plain_mapcalc_text_computes_the_maps_of_the_classic_algebra(session
 
 def test_integers_as_written_wrap_around_like_in_the_classic_algebra(session):
     """r.mapcalc wraps 3000000000 around to -1294967296; the core writes a
-    float and keeps the value, the earlier implementation wraps (measured
-    2026-10-16, A + 3000000000: -1294970000 against 3000000000)"""
+    float and keeps the value, the reference wraps (measured 2026-10-16, A +
+    3000000000: -1294970000 against 3000000000)"""
     expression = "A + 3000000000"
     reference = agrees(
         session,
@@ -308,8 +308,8 @@ def test_the_union_region_is_planned_for_a_spatial_run(session):
         "R = A + 1", overwrite=True, dry_run=True, spatial=True, profile=profile
     )
     assert dict(chain["processes"][0]["inputs"])["region"] == "union"
-    # On 2026-10-16 the earlier implementation planned region=union for the
-    # same expression in the same mode.
+    # On 2026-10-16 the reference planned region=union for the same expression
+    # in the same mode.
     classic = run_reference(
         "raster",
         "R = A + 1",

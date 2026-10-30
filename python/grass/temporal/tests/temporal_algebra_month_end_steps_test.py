@@ -1,10 +1,10 @@
 """tshift() and buff_t() by months and years from the end of a month
 
-A month or year step that ends behind the last day of a shorter month ends on
-that day. Before, the library raised a ValueError ("day is out of range for
-month") and the expression stopped in every algebra. The previous
-implementation (the reference), the classic profile (-c) and the new algebra
-give the same maps, for each kind of dataset and for the selection of
+A month or year step that ends behind the last day of a shorter month ends
+on that day. Before, the library raised a ValueError ("day is out of range
+for month") and the expression stopped in every algebra. The reference
+implementation (grass.temporal.classic), the classic profile (-c) and the
+core give the same maps, for each kind of dataset and for the selection of
 t.select.
 """
 

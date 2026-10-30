@@ -2,13 +2,13 @@
 
 Temporalalgebraparser, the select algebra of t.select.
 
-Every case runs in the earlier implementation (reference), in the classic
-profile and in the new algebra (core). The expected maps are those the old
+Every case runs in the reference implementation (grass.temporal.classic), in
+the classic profile and in the core. The expected maps are those the old
 assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
 the core calculates differently according to the manual ("Core and classic
-algebra"); SHAPE what the old test asserted besides the maps. The
-datasets are those of algebra_cases, see its builder for the data.
+algebra"); SHAPE what the old test asserted besides the maps. The datasets
+are those of algebra_cases, see its builder for the data.
 """
 
 import re

@@ -1,23 +1,23 @@
 """Tests of the classic grammar, which builds syntax trees of the core
 
-The grammar reads what the parser classes of the classic algebra read. It is
-measured against them: for the same text the parser classes (reached through
-grass.temporal.testing.reference, with run=False so that nothing is computed)
-and the grammar must both accept or both reject, on the expressions of the
-tests of the parser class for t.select, on the forms on the border of the two
-grammars and on seeded expressions of the fuzzer with damaged variants of
-them. The datasets of the fuzzer exist in the session, because the parser
-classes open them while parsing and a missing one would hide a later syntax
-error.
+The grammar reads what the reference implementation (grass.temporal.classic)
+reads. It is measured against the parsers of the reference: for the same text
+they (reached through grass.temporal.testing.reference, with run=False so that
+nothing is computed) and the grammar must both accept or both reject, on the
+expressions of temporal_algebra_parser_test.py, the tests of the parser for
+t.select, on the forms on the border of the two grammars and on seeded
+expressions of the fuzzer with damaged variants of them. The datasets of the
+fuzzer exist in the session, because the parsers of the reference open them
+while parsing and a missing one would hide a later syntax error.
 
-Checks that a rule of the parser classes makes with the datasets or with the
-text of an increment are no syntax; SEMANTIC_ERROR names them, and the
-translator of the classic profile has to make them. A missing dataset ends the
-parser classes before they reach a later syntax error, so for a text that the
+Checks that a rule of the reference makes with the datasets or with the text
+of an increment are no syntax; SEMANTIC_ERROR names them, and the translator
+of the classic profile has to make them. A missing dataset ends the parsers of
+the reference before they reach a later syntax error, so for a text that the
 grammar rejects they need only fail somehow.
 
-The last tests keep the frozen copy of the productions in step with the
-parser classes for as long as these exist.
+The last tests keep the frozen copy of the productions in step with the p_
+methods of the reference.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """
@@ -56,16 +56,17 @@ def world(request, tmp_path_factory):
     with temporal_session(path / "project") as session:
         prepare(kind, session, path)
         if kind in {"raster", "select"}:
-            # Datasets that the expressions of the parser class tests name
+            # Datasets that the expressions of the parser tests name
             tools = Tools(session=session, overwrite=True, quiet=True)
             for name in ("H", "EMPTY", "REL"):
                 tools.t_create(output=name, type="strds", title=name, description=name)
         yield kind, session
 
 
-# Some rules of the parser classes check their operands (the relations of an
+# Some rules of the reference check their operands (the relations of an
 # operator, the unit of an increment) only when they run, so the options must
-# let them run. The vector parser class has no dry run and computes.
+# let them run. The vector parser of the reference has no dry run and
+# computes.
 RUN_OPTIONS = {
     "raster": {"run": True, "dry_run": True},
     "raster3d": {"run": True, "dry_run": True},
@@ -80,7 +81,7 @@ def kinds(*names):
 
 
 def old_outcome(kind, expression):
-    """How the parser class of the kind ends: None, or the exception it raises"""
+    """How the reference parser of a kind ends: None, or the exception it raises"""
     try:
         run_reference(
             kind, expression, basename="gr", overwrite=True, **RUN_OPTIONS[kind]
@@ -90,10 +91,10 @@ def old_outcome(kind, expression):
     return None
 
 
-# SyntaxErrors that rules of the parser classes raise for reasons the grammar
-# does not see: the temporal type of the datasets, the text of an increment,
-# and operator parts that the earlier algebra refuses and the core accepts.
-# The translator of the classic profile makes these checks.
+# SyntaxErrors that rules of the reference raise for reasons the grammar does
+# not see: the temporal type of the datasets, the text of an increment, and
+# operator parts that the reference refuses and the core accepts. The
+# translator of the classic profile makes these checks.
 SEMANTIC_ERROR = re.compile(
     r"^(Function \w+\(\) (needs a |cannot )"
     r"|The hash operator .* is not supported"
@@ -110,16 +111,16 @@ def new_rejects(kind, expression):
 
 
 def disagreements(kind, expressions):
-    """The expressions that the grammar and the parser class judge differently
+    """The expressions that the grammar and the reference judge differently
 
-    The grammar rejects a text if and only if the parser class does, with two
-    allowances that follow from what each of them sees:
+    The grammar rejects a text if and only if the parser of the reference
+    does, with two allowances that follow from what each of them sees:
 
-    - A rule of the parser class opens the datasets and checks the maps while
+    - A rule of the reference opens the datasets and checks the maps while
       parsing, so a missing dataset or a map without end time stops it with
       another error before it reaches the syntax error that the grammar
-      finds. The parser class must raise some error then.
-    - Some SyntaxErrors of the parser class are no matter of syntax, see
+      finds. The reference must raise some error then.
+    - Some SyntaxErrors of the reference are no matter of syntax, see
       SEMANTIC_ERROR.
     """
     found = []
@@ -134,7 +135,7 @@ def disagreements(kind, expressions):
 
 
 def statements_of_parser_test():
-    """The strings "name = expression" in the tests of the parser class"""
+    """The strings "name = expression" in temporal_algebra_parser_test.py"""
     tree = python_ast.parse(PARSER_TEST.read_text(encoding="utf-8"))
     found = {
         node.value
@@ -157,7 +158,7 @@ def damaged(statement, seed):
 
 @kinds("select", "raster")
 def test_accepts_what_the_parser_tests_accept(world):
-    """The statements of the parser class tests are read or refused as there"""
+    """The statements of the parser tests are read or refused as there"""
     kind, _ = world
     statements = statements_of_parser_test()
     assert len(statements) > 150
@@ -267,7 +268,7 @@ def condition_of(tree):
 def test_precedence_of_and_or_follows_the_classic_algebra(world):
     """&& binds stronger than || in conditions on map values, not in temporal ones
 
-    The expected groupings are what the parser class does, measured 2026-10-16
+    The expected groupings are what the reference does, measured 2026-10-16
     with grass.temporal.testing.differential.outcome on the reference runner and
     the datasets of the fuzzer (A holds the values 1 to 4 in its first maps):
 
@@ -360,7 +361,7 @@ def parser_class_of(kind):
 
 
 def drift(kind):
-    """What differs between the parser class of a kind and the frozen copy"""
+    """What differs between the reference parser of a kind and the frozen copy"""
     parser_class = parser_class_of(kind)
     found = []
     old = class_productions(parser_class)
@@ -417,7 +418,7 @@ def test_comparison_sees_a_wrong_grammar(world, monkeypatch):
     assert found[0][1].startswith("the parser class rejects")
 
 
-# The texts are those of the parser classes with run=True and datasets,
+# The texts are those of the reference with run=True and datasets,
 # measured 30.10.2026 with grass.temporal.testing.reference.run_reference.
 @pytest.mark.parametrize(
     ("expression", "position"),

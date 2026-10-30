@@ -12,12 +12,12 @@ in temporal_algebra_core_plan_options_io_test.py. The options of plan() themselv
 temporal_algebra_core_plan_options_test.py, those that need a session in
 temporal_algebra_core_plan_options_io_test.py.
 
-The expected values come from the classic algebra. Where a value is claimed
-for it, the comment says what was run: on 2026-10-16 the earlier
-implementation (grass.temporal.testing.reference.run_reference) computed the
-expression on the datasets of grass.temporal.testing.expressions_data with
-dry_run=True and the process chain was read, and the exceptions were taken
-from the same runs without dry_run.
+The expected values come from the classic algebra. Where a value is claimed for
+it, the comment says what was run: on 2026-10-16 the reference implementation
+(grass.temporal.classic, run by grass.temporal.testing.reference.run_reference)
+computed the expression on the datasets of
+grass.temporal.testing.expressions_data with dry_run=True and the process chain
+was read, and the exceptions were taken from the same runs without dry_run.
 """
 
 import pytest
