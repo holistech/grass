@@ -492,11 +492,13 @@ def _module(call, overwrite):
     parameters = call.parameters
     if call.inputs:
         # The r.series input file is written now, at run time, not when the
-        # chain was planned, so that a dry run stays free of side effects
-        # while the run matches the classic module call (a file, with -z past
-        # the open file limit). The file is not removed here: g.tempfile puts
-        # it into the temporary directory of the session, which GRASS cleans
-        # up, and the classic aggregation leaves its file the same way.
+        # chain was planned, so that a dry run stays free of side effects.
+        # A file and not input=, because one argument is limited in size (see
+        # RasterBackend); an aggregation also matches the classic module call
+        # that way (a file, with -z past the open file limit). The file is
+        # not removed here: g.tempfile puts it into the temporary directory
+        # of the session, which GRASS cleans up, and the classic aggregation
+        # leaves its file the same way.
         filename = gs.tempfile(True)
         with open(filename, "w") as handle:
             handle.write("\n".join(call.inputs) + "\n")

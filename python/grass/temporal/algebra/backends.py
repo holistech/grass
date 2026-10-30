@@ -148,8 +148,12 @@ class RasterBackend:
     bytes ran and one of 131071 bytes failed (measured 2026-10-11 with
     r.mapcalc expression="out = ..." of "m" + "m" + ... in grass
     --tmp-project XY), which is a few thousand related maps in a reduction
-    with nulls="propagate". With nulls="skip" the maps are listed in the
-    input of r.series, which is not limited this way.
+    with nulls="propagate". With nulls="skip" r.series reads the maps from a
+    file, because its input option meets the same limit: an argument
+    input=... of 131071 bytes ran and one of 131072 bytes failed with
+    "Argument list too long" (measured 2026-10-30 with r.series
+    input=name_2020_01_01@PERMANENT,... in grass --tmp-project XY), which is
+    about 5000 maps.
     """
 
     kind = "raster"
