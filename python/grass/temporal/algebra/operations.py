@@ -7,12 +7,8 @@ each slot by the condition of its own time stamp.
 """
 
 import math
-import warnings
 from collections import Counter, defaultdict
 from dataclasses import replace
-
-from grass.temporal.state import get_tgis_message_interface
-from grass.temporal.spatial_extent import SpatialExtent
 
 from . import reducers
 from ._adapters import as_map, extent_from
@@ -20,6 +16,7 @@ from ._checks import (
     check_callable,
     check_int,
     check_operands,
+    check_option,
     check_relation,
     check_series,
     require,
@@ -27,18 +24,23 @@ from ._checks import (
 from .backends import BUFFERS, VECTOR_FUNCTIONS
 from .content import (
     NULL,
-    Call,
     Const,
     MapRef,
     ScalarFunctionError,
-    SeriesAggregate,
-    SeriesReduce,
     call,
 )
 from .maptypes import DIMENSIONS
 from .relations import ORDERS
 from .relations import related as related_indices
 from .series import Series, Slot, Space
+from .variants import (
+    check_comparable,
+    combine_boxes,
+    content_at,
+    describe_extent,
+    pair_equal_times,
+    warn,
+)
 
 PAIR_EXTENTS = ("left", "right", "union", "intersection", "disjoint")
 SPACES = ("keep", "union", "intersection")
@@ -48,42 +50,6 @@ _COMBINE = {
     "intersection": "temporal_intersection",
     "disjoint": "temporal_disjoint_union",
 }
-
-
-def _check_option(name, value, allowed):
-    if value not in allowed:
-        msg = f"{name} must be one of {', '.join(allowed)}, got {value!r}"
-        raise ValueError(msg)
-
-
-MIXED_TIMES = ("error", "unrelated")
-
-
-def _check_comparable(first, second, mixed_times="error", *, times_only=False):
-    """Relations exist only between series of one temporal type, and of one
-    map type where their contents meet
-
-    related() does not check this itself: on mixed absolute and relative
-    time, or on different units, it finds no relation instead of failing.
-    mixed_times="unrelated" leaves it at that, as the classic algebra does.
-    times_only says that no map of second enters the result, only its time
-    stamps and boxes or its numbers, so that its map type does not matter:
-    t.select relates a vector series to a raster series.
-    """
-    _check_option("mixed_times", mixed_times, MIXED_TIMES)
-    if first.kind != second.kind and not times_only:
-        msg = f"A {first.kind} series cannot be related to a {second.kind} series"
-        raise ValueError(msg)
-    if mixed_times == "unrelated":
-        return
-    units = {
-        slot.extent.unit
-        for slot in (*first.slots, *second.slots)
-        if slot.extent is not None
-    }
-    if len(units) > 1:
-        msg = "Series of different temporal types or units cannot be related"
-        raise ValueError(msg)
 
 
 def _joined_sort(*series):
@@ -170,54 +136,10 @@ def _combine_steps(target, others, mode, *, box=None, failure="empty", three_d=F
     return extent, space
 
 
-def combine_boxes(first, second, operation, three_d):
-    """The common box ("intersection") or the box around both ("union") of
-    two boxes, as SpatialExtent computes them; None if there is no common box
-
-    The classic algebra asks its map objects for these boxes, which is not
-    the test of _combined_space(). Measured 2026-10-16 by calling
-    SpatialExtent.intersect_2d() and intersect() on such boxes: boxes that
-    share only an edge or a corner have no common box, and neither have two
-    3D boxes of no height, where _combined_space() finds one. A box around
-    both always exists.
-    """
-    boxes = [
-        SpatialExtent(
-            north=box.north,
-            south=box.south,
-            east=box.east,
-            west=box.west,
-            top=box.top,
-            bottom=box.bottom,
-        )
-        for box in (first, second)
-    ]
-    if operation == "intersection":
-        found = (
-            boxes[0].intersect(boxes[1]) if three_d else boxes[0].intersect_2d(boxes[1])
-        )
-    else:
-        found = (
-            boxes[0].disjoint_union(boxes[1])
-            if three_d
-            else boxes[0].disjoint_union_2d(boxes[1])
-        )
-    if found is None:
-        return None
-    return Space(
-        found.get_north(),
-        found.get_south(),
-        found.get_east(),
-        found.get_west(),
-        found.get_top() or 0.0,
-        found.get_bottom() or 0.0,
-    )
-
-
 def _check_box(box, space):
     if box is None:
         return
-    _check_option("box", box, BOXES)
+    check_option("box", box, BOXES)
     if space != "keep":
         msg = "box replaces space, so space must stay keep"
         raise ValueError(msg)
@@ -306,13 +228,13 @@ def select(
     check_series(left, "left")
     check_relation(relation)
     check_series(other, "other")
-    _check_option("extent", extent, SELECT_EXTENTS)
-    _check_option("failure", failure, FAILURES)
-    _check_option("order", order, ORDERS)
+    check_option("extent", extent, SELECT_EXTENTS)
+    check_option("failure", failure, FAILURES)
+    check_option("order", order, ORDERS)
     if extent != "left" and not related:
         msg = "A slot without partner has no time stamp to combine, so extent must be left"
         raise ValueError(msg)
-    _check_comparable(left, other, mixed_times, times_only=True)
+    check_comparable(left, other, mixed_times, times_only=True)
     matches = related_indices(
         left.slots,
         relation,
@@ -390,14 +312,14 @@ def pairs(
     check_series(other, "other")
     if content is not None:
         check_callable(content, "content")
-    _check_option("extent", extent, PAIR_EXTENTS)
-    _check_option("space", space, SPACES)
-    _check_option("order", order, ORDERS)
+    check_option("extent", extent, PAIR_EXTENTS)
+    check_option("space", space, SPACES)
+    check_option("order", order, ORDERS)
     _check_box(box, space)
     if fold_all and content is None:
         msg = "fold_all needs a content function to fold with"
         raise ValueError(msg)
-    _check_comparable(
+    check_comparable(
         left, other, mixed_times, times_only=content is None or other.sort == "scalar"
     )
     matches = related_indices(
@@ -449,17 +371,6 @@ def pairs(
     return Series(tuple(slots), left.kind, sort, spatial, left.order)
 
 
-def _describe(extent):
-    if extent is None:
-        return "no slot"
-    # The unit tells apart relative times that read alike, e.g. series in
-    # days and in hours.
-    unit = "" if extent.unit is None else f" {extent.unit}"
-    if extent.end is None:
-        return f"{extent.start}{unit}"
-    return f"{extent.start} .. {extent.end}{unit}"
-
-
 def _check_aligned(first, second, name):
     """Stop unless both series have the same time stamps in the same order"""
     times = [slot.extent for slot in first.slots]
@@ -477,21 +388,11 @@ def _check_aligned(first, second, name):
     )
     msg = (
         f"{name}() needs series with equal time stamps; they differ at slot "
-        f"{index}: {_describe(times[index] if index < len(times) else None)} and "
-        f"{_describe(others[index] if index < len(others) else None)}. Relate "
+        f"{index}: {describe_extent(times[index] if index < len(times) else None)} and "
+        f"{describe_extent(others[index] if index < len(others) else None)}. Relate "
         "the series with gather() or pairs() first."
     )
     raise ValueError(msg)
-
-
-def _content_at(operand, index):
-    if isinstance(operand, Series):
-        return operand.slots[0 if operand.timeless else index].content
-    if operand is None:
-        return NULL
-    if isinstance(operand, (Const, MapRef, Call, SeriesReduce, SeriesAggregate)):
-        return operand
-    return Const(operand)
 
 
 def _describe_operand(operand):
@@ -551,7 +452,7 @@ def _apply(function, operands, name):
     keep_rank = len(timed) == 1
     slots = []
     for index, slot in enumerate(first.slots):
-        value = call(function, *(_content_at(operand, index) for operand in operands))
+        value = call(function, *(content_at(operand, index) for operand in operands))
         if sort == "scalar" and not isinstance(value, Const):
             msg = f"{function}() cannot be computed for scalar values"
             raise ScalarFunctionError(msg)
@@ -631,44 +532,6 @@ EQUAL_TIMES = ("all", "pairwise")
 NULLS = ("propagate", "skip")
 
 
-def pair_equal_times(targets, matches, others, *, order="sorted", error=ValueError):
-    """Pair maps of equal time stamps like numpy broadcasting
-
-    A single map on one side goes with all maps of its time on the other
-    side, n maps go with n maps one to one in the order of the series, and
-    other counts are an error of the class error. With order="sorted" the
-    partners are in the order of others; with "written" the maps of one time
-    stay together, the times in the order in which they first occur in the
-    matches, as the classic algebra pairs them.
-    """
-    positions = {}
-    counts = defaultdict(int)
-    for index, slot in enumerate(targets):
-        positions[index] = counts[slot.extent]
-        counts[slot.extent] += 1
-    paired = []
-    for index, found in enumerate(matches):
-        size = counts[targets[index].extent]
-        groups = defaultdict(list)
-        for other_index in found:
-            groups[others[other_index].extent].append(other_index)
-        chosen = []
-        for time, members in groups.items():
-            if size == 1 or len(members) == 1:
-                chosen.extend(members)
-            elif len(members) == size:
-                chosen.append(members[positions[index]])
-            else:
-                msg = (
-                    f"{size} maps of the time stamp {_describe(targets[index].extent)} "
-                    f"cannot be paired with {len(members)} maps of the time stamp "
-                    f"{_describe(time)}"
-                )
-                raise error(msg)
-        paired.append(sorted(chosen) if order == "sorted" else chosen)
-    return paired
-
-
 def gather(
     target,
     relation,
@@ -740,16 +603,16 @@ def gather(
     check_series(target, "target")
     check_relation(relation)
     check_series(other, "other")
-    _check_option("missing", missing, MISSING)
-    _check_option("extent", extent, GATHER_EXTENTS)
-    _check_option("equal_times", equal_times, EQUAL_TIMES)
-    _check_option("nulls", nulls, NULLS)
-    _check_option("space", space, SPACES)
-    _check_option("order", order, ORDERS)
-    _check_option("failure", failure, FAILURES)
+    check_option("missing", missing, MISSING)
+    check_option("extent", extent, GATHER_EXTENTS)
+    check_option("equal_times", equal_times, EQUAL_TIMES)
+    check_option("nulls", nulls, NULLS)
+    check_option("space", space, SPACES)
+    check_option("order", order, ORDERS)
+    check_option("failure", failure, FAILURES)
     _check_box(box, space)
     reducers.check(reduce, nulls)
-    _check_comparable(
+    check_comparable(
         target,
         other,
         mixed_times,
@@ -848,7 +711,7 @@ def buffer(series, distance, *, features="area"):
     if not math.isfinite(distance):
         msg = f"distance must be finite, got {distance}"
         raise ValueError(msg)
-    _check_option("features", features, tuple(BUFFERS))
+    check_option("features", features, tuple(BUFFERS))
     if series.kind != "vector" or series.sort != "field":
         msg = f"buffer() buffers vector maps, not {series.kind} {series.sort}s"
         raise ValueError(msg)
@@ -863,17 +726,6 @@ def buffer(series, distance, *, features="area"):
         for slot in series.slots
     )
     return replace(series, slots=slots)
-
-
-def _warn(message):
-    """Warn through grass.temporal, or through Python before tgis.init()"""
-    # The messenger of grass.temporal exists only after init(), but the
-    # operations on series need no session.
-    messenger = get_tgis_message_interface()
-    if messenger is None:
-        warnings.warn(message, stacklevel=3)
-    else:
-        messenger.warning(message)
 
 
 def choose(condition, then, otherwise=None, *, mixed_times="error"):
@@ -914,7 +766,7 @@ def choose(condition, then, otherwise=None, *, mixed_times="error"):
         raise ValueError(msg)
     for branch, wanted in zip(branches, (True, False), strict=False):
         # The condition gives numbers only, so its map type does not matter.
-        _check_comparable(condition, branch, mixed_times, times_only=True)
+        check_comparable(condition, branch, mixed_times, times_only=True)
         slots.extend(_chosen(branch, values, wanted))
     spatial = any(part.spatial for part in (condition, *branches))
     if not condition.timeless:
@@ -937,7 +789,7 @@ def _chosen(branch, values, wanted):
         if len(conditions) > 1 and len(conditions) != counts[slot.extent]:
             msg = (
                 f"choose() cannot pair {len(conditions)} conditions with "
-                f"{counts[slot.extent]} maps of {_describe(slot.extent)}"
+                f"{counts[slot.extent]} maps of {describe_extent(slot.extent)}"
             )
             raise ValueError(msg)
         if not conditions:
@@ -989,7 +841,7 @@ def merge(*series, keep_first_repeats=False):
         if part.sort != first.sort:
             msg = "merge() needs series of one sort, fields or scalars"
             raise ValueError(msg)
-        _check_comparable(first, part)
+        check_comparable(first, part)
     seen = set()
     slots = []
     duplicates = 0
@@ -1003,6 +855,6 @@ def merge(*series, keep_first_repeats=False):
             seen.add(slot)
             slots.append(replace(slot, rank=len(slots)))
     if duplicates:
-        _warn(_("merge() dropped {count} duplicate map(s)").format(count=duplicates))
+        warn(_("merge() dropped {count} duplicate map(s)").format(count=duplicates))
     spatial = any(part.spatial for part in series)
     return Series(tuple(slots), first.kind, first.sort, spatial, first.order)

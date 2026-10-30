@@ -27,8 +27,15 @@ from grass.temporal.datetime_math import check_datetime_string
 
 from . import ast
 from .operators import COMPARISONS, TemporalOperator
+from .shared import (
+    ABSENT,
+    EXTENTS,
+    check_time_variable,
+    timed,
+    vector_field,
+    whole,
+)
 
-_EXTENTS = {"l": "target", "u": "union", "i": "intersection", "d": "disjoint"}
 _CELL_FUNCTIONS = (
     "abs",
     "acos",
@@ -72,20 +79,6 @@ _INDEX_FORMS = {
     "raster3d": (3, "one, three or four offsets"),
     "vector": (0, "one offset"),
 }
-# Marks an if() without else, which differs from an else of null().
-_ABSENT = object()
-
-
-def _timed(value):
-    return isinstance(value, Series) and not value.timeless
-
-
-def _vector_field(*values):
-    """Tell whether one of values holds vector maps rather than numbers"""
-    return any(
-        isinstance(value, Series) and value.kind == "vector" and value.sort == "field"
-        for value in values
-    )
 
 
 class Translator:
@@ -212,9 +205,9 @@ class Translator:
             return self._select(left, right, operator)
         if symbol == "#":
             return self._count(left, right, operator)
-        if symbol in _OVERLAYS or (symbol == "+" and _vector_field(left, right)):
+        if symbol in _OVERLAYS or (symbol == "+" and vector_field(left, right)):
             return self._overlay(symbol, left, right, node.operator)
-        if _vector_field(left, right):
+        if vector_field(left, right):
             msg = (
                 f"The operator {symbol} is not defined for vector maps; they are "
                 "combined with &, |, ^, ~ and +"
@@ -255,7 +248,7 @@ class Translator:
 
     @staticmethod
     def _pair(symbol, left, right):
-        if not (_timed(left) and _timed(right)):
+        if not (timed(left) and timed(right)):
             msg = f"The operator {symbol} relates two space time datasets"
             raise SyntaxError(msg)
 
@@ -294,7 +287,7 @@ class Translator:
             relation,
             right,
             reduce=None,
-            extent=_EXTENTS[operator.temporal],
+            extent=EXTENTS[operator.temporal],
             mixed_times=self.profile.mixed_times,
         )
 
@@ -317,7 +310,7 @@ class Translator:
 
     def _overlay(self, symbol, left, right, operator):
         timed_vectors = all(
-            _timed(value) and _vector_field(value) for value in (left, right)
+            timed(value) and vector_field(value) for value in (left, right)
         )
         if not timed_vectors:
             msg = f"The overlay {symbol} combines two space time vector datasets"
@@ -336,7 +329,7 @@ class Translator:
         )
 
     def _arithmetic(self, symbol, left, right, operator):
-        if _timed(left) and _timed(right):
+        if timed(left) and timed(right):
             return self._combine(
                 symbol, left, right, operator or TemporalOperator(symbol), fold(symbol)
             )
@@ -366,13 +359,13 @@ class Translator:
             relation,
             right,
             reduce=reduce,
-            extent=_EXTENTS[operator.temporal],
+            extent=EXTENTS[operator.temporal],
             space=space,
             mixed_times=self.profile.mixed_times,
         )
 
     def _apply(self, function, *operands):
-        if _vector_field(*operands) and function not in VECTOR_FUNCTIONS:
+        if vector_field(*operands) and function not in VECTOR_FUNCTIONS:
             msg = (
                 f"{function}() is not defined for vector maps; they are "
                 "combined with &, |, ^, ~ and +"
@@ -385,7 +378,7 @@ class Translator:
                     "time functions and as the increment of tshift() and buff_t()"
                 )
                 raise TypeError(msg)
-        if any(_timed(operand) for operand in operands):
+        if any(timed(operand) for operand in operands):
             return operations.apply(function, *operands)
         maps = [operand for operand in operands if isinstance(operand, Series)]
         if not maps:
@@ -417,7 +410,7 @@ class Translator:
         With the temporal reference r every pair is compared on its own and
         takes the time stamp of the right map, as in _logical().
         """
-        if not (_timed(left) and _timed(right)):
+        if not (timed(left) and timed(right)):
             msg = (
                 f"The temporal operator {{{symbol},...}} relates two space "
                 "time datasets"
@@ -428,7 +421,7 @@ class Translator:
         )
 
     def _logical(self, symbol, left, right, operator):
-        if not (_timed(left) and _timed(right)):
+        if not (timed(left) and timed(right)):
             if operator is not None:
                 msg = (
                     f"The temporal operator {{{symbol},...}} relates two space "
@@ -449,7 +442,7 @@ class Translator:
                 content=lambda mine, theirs: call(symbol, mine, theirs),
                 mixed_times=self.profile.mixed_times,
             )
-        extent = _EXTENTS[operator.temporal]
+        extent = EXTENTS[operator.temporal]
         # The left maps that have related maps, and the joined conditions of
         # those related maps; both have the same time stamps.
         targets = operations.gather(
@@ -475,9 +468,9 @@ class Translator:
             msg = "if() takes a condition, then and an optional else"
             raise SyntaxError(msg)
         condition, then = arguments[:2]
-        otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
+        otherwise = arguments[2] if len(arguments) == 3 else ABSENT
         if self._kind == "vector" and not all(
-            _vector_field(branch) for branch in arguments[1:]
+            vector_field(branch) for branch in arguments[1:]
         ):
             # A number in one branch would become the content of a map,
             # which no vector module can compute.
@@ -486,7 +479,7 @@ class Translator:
         if not isinstance(condition, Series):
             msg = "The condition of if() needs a space time dataset"
             raise SyntaxError(msg)
-        if _vector_field(condition):
+        if vector_field(condition):
             msg = (
                 "Conditions on vector maps take temporal variables such as td() "
                 "or start_doy(), or the hash operator"
@@ -497,7 +490,7 @@ class Translator:
                 msg = "The relation of if() needs a condition with time stamps"
                 raise SyntaxError(msg)
             return _where(condition, then, otherwise)
-        first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
+        first = next((branch for branch in (then, otherwise) if timed(branch)), None)
         if first is None:
             # Only numbers or maps without time stamp: the maps of the
             # condition are the result.
@@ -510,7 +503,7 @@ class Translator:
                 condition,
                 _like(condition, then, listed=self.profile.list_order),
                 None
-                if otherwise is _ABSENT
+                if otherwise is ABSENT
                 else _like(condition, otherwise, listed=self.profile.list_order),
                 mixed_times=self.profile.mixed_times,
             )
@@ -520,7 +513,7 @@ class Translator:
         """Choose between then and else by a condition with time stamps
 
         first is the first of then and else that has time stamps. Without
-        else, otherwise is the marker _ABSENT. A condition per cell goes to
+        else, otherwise is the marker ABSENT. A condition per cell goes to
         _field_if().
         """
         operator = relation or TemporalOperator(None)
@@ -528,21 +521,21 @@ class Translator:
         if conditions.sort == "field":
             return self._field_if(condition, then, otherwise, relation)
         then_maps = (
-            then if _timed(then) else _like(first, then, listed=self.profile.list_order)
+            then if timed(then) else _like(first, then, listed=self.profile.list_order)
         )
-        if otherwise is _ABSENT:
+        if otherwise is ABSENT:
             return operations.choose(
                 conditions, then_maps, mixed_times=self.profile.mixed_times
             )
         settled = _settled(conditions, relation)
-        if not _timed(otherwise):
+        if not timed(otherwise):
             return operations.choose(
                 settled,
                 then_maps,
                 _like(first, otherwise, listed=self.profile.list_order),
                 mixed_times=self.profile.mixed_times,
             )
-        if not _timed(then):
+        if not timed(then):
             return operations.choose(
                 settled, then_maps, otherwise, mixed_times=self.profile.mixed_times
             )
@@ -584,7 +577,7 @@ class Translator:
         # the condition as _if() got it, because an override (the classic
         # profile) pairs that raw condition with the branches itself. The cost
         # is a second join for a condition per cell.
-        first = next((branch for branch in (then, otherwise) if _timed(branch)), None)
+        first = next((branch for branch in (then, otherwise) if timed(branch)), None)
         operator = relation or TemporalOperator(None)
         conditions = self._conditions(first, condition, operator)
         return _where(conditions, then, otherwise)
@@ -716,37 +709,12 @@ class Translator:
             msg = f"{name}() takes a dataset and an optional offset"
             raise SyntaxError(msg)
         variable = time_functions.timevar(arguments[0], name)
-        _check_time_variable(name, arguments[0])
+        check_time_variable(name, arguments[0])
         if len(arguments) == 1:
             return variable
         # start_doy(A, -1) is the value of the map before, at the time stamp
         # of each map: neighbour() takes the content and keeps the extent.
-        return time_functions.neighbour(variable, _whole(arguments[1], name))
-
-
-def _check_time_variable(name, series):
-    """Raise for a temporal variable that a map of series does not have
-
-    timevar() gives null for the end of an instant and for the calendar of
-    relative time. A null condition selects no map, so a slip such as end_doy
-    for start_doy would give an empty result without a word. The classic
-    algebra stops with an error that names the map, and so does this
-    translation. td() of an instant stays null, as in t.rast.mapcalc.
-    """
-    if name == "td":
-        return
-    for slot in series.slots:
-        extent = slot.extent
-        if extent.unit is None and (
-            extent.end is not None or name.startswith("start_")
-        ):
-            continue
-        what = f"map <{slot.origin}>" if slot.origin else f"the map at {extent.start}"
-        msg = (
-            f"Temporal function {name}() is not available for {what}: it needs "
-            "absolute time, and the end functions also an end time"
-        )
-        raise time_functions.TimeFunctionError(msg, name, slot.origin)
+        return time_functions.neighbour(variable, whole(arguments[1], name))
 
 
 def _exactly(name, arguments, count):
@@ -754,13 +722,6 @@ def _exactly(name, arguments, count):
         msg = f"{name}() takes {count} argument{'' if count == 1 else 's'}"
         raise SyntaxError(msg)
     return arguments
-
-
-def _whole(value, name):
-    if not (isinstance(value, Const) and isinstance(value.value, int)):
-        msg = f"The offset of {name}() is a whole number"
-        raise SyntaxError(msg)
-    return value.value
 
 
 def _increment(value):
@@ -776,7 +737,7 @@ def _increment(value):
 
 
 def _where(condition, then, otherwise):
-    if otherwise is _ABSENT:
+    if otherwise is ABSENT:
         return operations.where(condition, then)
     return operations.where(condition, then, otherwise)
 

@@ -15,12 +15,9 @@ failure policy), the translator passes it; the pieces that have no such
 parameter (the conditions of ``if()``, which judge maps, and ``buff_t()``,
 which keeps the quirks of the library) are written out here.
 
-The module also uses private helpers of ``translate`` (the constants and
-checks imported from there) and of ``operations`` (``_check_comparable()``,
-``_warn()``). The profile must judge operands and refuse map types exactly as
-the core does, and these helpers are that judgement; making them public would
-make them API of the core for this one caller. A change of these helpers
-must therefore be checked against this module.
+The profile judges operands and refuses map types exactly as the core does,
+with the helpers that it shares with the core: ``parser/shared.py`` with
+``Translator`` and ``algebra/variants.py`` with the operations.
 
 SPDX-License-Identifier: GPL-2.0-or-later
 """
@@ -30,7 +27,7 @@ from __future__ import annotations
 import dataclasses
 
 from grass.exceptions import FatalError
-from grass.temporal.algebra import operations, time_functions
+from grass.temporal.algebra import operations, time_functions, variants
 from grass.temporal.algebra._adapters import as_map, extent_from
 from grass.temporal.algebra.backends import MapcalcStyle
 from grass.temporal.algebra.content import (
@@ -52,19 +49,10 @@ from grass.temporal.algebra.relations import (
 )
 from grass.temporal.algebra.series import Series, Slot
 
-from . import ast
+from . import ast, shared
 from .classic_grammar import classic_grammar
-from .operators import TemporalOperator
-from .translate import (
-    _ABSENT,
-    _COMPARISONS,
-    _EXTENTS,
-    Translator,
-    _check_time_variable,
-    _timed,
-    _vector_field,
-    _whole,
-)
+from .operators import COMPARISONS, TemporalOperator
+from .translate import Translator
 
 # strds(), str3ds() and stvds() of t.select read a dataset of another type
 # than the result.
@@ -205,9 +193,9 @@ def _read_operand_as_mapcalc(operand):
 
 def _unit(series):
     """The temporal type and unit of a series: the unit of relative time,
-    None for absolute time, _ABSENT for a map without time stamp"""
+    None for absolute time, shared.ABSENT for a map without time stamp"""
     extent = series.slots[0].extent
-    return _ABSENT if extent is None else extent.unit
+    return shared.ABSENT if extent is None else extent.unit
 
 
 @dataclasses.dataclass(frozen=True)
@@ -376,7 +364,7 @@ def _joined(symbol, first, second):
 
 def _constant(value):
     """The content of a number, null() or a missing else (0, as r.mapcalc)"""
-    if value is _ABSENT:
+    if value is shared.ABSENT:
         return Const(0)
     if value is NULL or isinstance(value, Const):
         return value
@@ -538,7 +526,7 @@ class ClassicTranslator(Translator):
 
     def _binary_unit(self, node, left, right):
         if (
-            node.symbol in _COMPARISONS
+            node.symbol in COMPARISONS
             and isinstance(left, Series)
             and isinstance(right, Series)
         ):
@@ -569,7 +557,9 @@ class ClassicTranslator(Translator):
         if not any(isinstance(value, _Mixed) for value in values):
             return function(*arguments)
         lead = next(
-            value for value in values if isinstance(value, _Mixed) or _timed(value)
+            value
+            for value in values
+            if isinstance(value, _Mixed) or shared.timed(value)
         )
         units = (
             [_unit(part) for part in lead.parts]
@@ -652,7 +642,7 @@ class ClassicTranslator(Translator):
         return Call(
             function,
             tuple(
-                self._written(operations._content_at(operand, index))  # noqa: SLF001
+                self._written(variants.content_at(operand, index))
                 for operand in operands
             ),
         )
@@ -770,8 +760,8 @@ class ClassicTranslator(Translator):
                 return computed
         # A condition on time (start_month(A) > 3000000000) is decided in
         # Python by the classic algebra, so it is folded here as well.
-        on_time = function in _COMPARISONS and any(
-            _timed(operand) and operand.sort == "scalar" for operand in operands
+        on_time = function in COMPARISONS and any(
+            shared.timed(operand) and operand.sort == "scalar" for operand in operands
         )
         if not on_time and any(
             _beyond_int32(constant)
@@ -834,7 +824,7 @@ class ClassicTranslator(Translator):
                     _mapcalc_arithmetic(
                         function,
                         *(
-                            _mapcalc_number(operations._content_at(operand, index))  # noqa: SLF001
+                            _mapcalc_number(variants.content_at(operand, index))
                             for operand in operands
                         ),
                     )
@@ -900,7 +890,7 @@ class ClassicTranslator(Translator):
             unique=False,
         )
         if pairwise:
-            matches = operations.pair_equal_times(
+            matches = variants.pair_equal_times(
                 left.slots, matches, other.slots, order="written", error=_pairing_error
             )
         return matches
@@ -925,9 +915,7 @@ class ClassicTranslator(Translator):
         for index in found:
             partner = other.slots[index].space
             if space is not None and partner is not None:
-                space = operations.combine_boxes(
-                    space, partner, "intersection", three_d
-                )
+                space = variants.combine_boxes(space, partner, "intersection", three_d)
                 if space is None:
                     return
             yield index
@@ -1131,7 +1119,7 @@ class ClassicTranslator(Translator):
             relation,
             right,
             reduce=reduce,
-            extent=_EXTENTS[operator.temporal],
+            extent=shared.EXTENTS[operator.temporal],
             order="written",
             unique=False,
             failure="stop",
@@ -1237,7 +1225,7 @@ class ClassicTranslator(Translator):
         steps as the time stamps, as every classic combination of maps does"""
         if operator is None and (left.sort == "field") != (right.sort == "field"):
             left, right = self._as_command(left), self._as_command(right)
-        if not (_timed(left) and _timed(right)):
+        if not (shared.timed(left) and shared.timed(right)):
             return super()._logical(symbol, left, right, operator)
         left, right = _read_as_mapcalc(left, right)
         if operator is None:
@@ -1252,7 +1240,7 @@ class ClassicTranslator(Translator):
         }
         if operator.temporal == "r":
             return self._logical_per_partner(symbol, left, relation, right, operator)
-        extent = _EXTENTS[operator.temporal]
+        extent = shared.EXTENTS[operator.temporal]
         targets = operations.gather(
             left, relation, right, reduce=None, extent=extent, failure="stop", **options
         )
@@ -1343,7 +1331,7 @@ class ClassicTranslator(Translator):
                 relation,
                 right,
                 reduce=None,
-                extent=_EXTENTS[temporal],
+                extent=shared.EXTENTS[temporal],
                 failure="stop",
                 **options,
             )
@@ -1384,7 +1372,7 @@ class ClassicTranslator(Translator):
     def _cells(self, series):
         """The series with its counts as cell values"""
         series = self._first_counts(series)
-        if series.sort == "scalar" and _timed(series):
+        if series.sort == "scalar" and shared.timed(series):
             return dataclasses.replace(series, sort="field")
         return series
 
@@ -1398,7 +1386,7 @@ class ClassicTranslator(Translator):
         used = series
         offset = None
         if len(arguments) == 2 and isinstance(series, Series):
-            offset = _whole(arguments[1], name)
+            offset = shared.whole(arguments[1], name)
             if not self._selection:
                 count = len(series.slots)
                 used = dataclasses.replace(
@@ -1426,7 +1414,7 @@ class ClassicTranslator(Translator):
                 slots.append(dataclasses.replace(slot, content=content))
             return _like(values, slots)
         if offset is not None:
-            _check_time_variable(name, used)
+            shared.check_time_variable(name, used)
             variable = time_functions.timevar(series, name)
             # The value of a neighbour is a number in the map, so a condition
             # on it judges cells, not time.
@@ -1494,9 +1482,7 @@ class ClassicTranslator(Translator):
             )
         first, second = firsts[0], seconds[0]
         # The check of the map types that operations.merge() makes
-        operations._check_comparable(  # noqa: SLF001
-            first, second, mixed_times="unrelated"
-        )
+        variants.check_comparable(first, second, mixed_times="unrelated")
         first_listed = _listed(firsts)
         known = {self._merge_key(slot) for slot in first_listed}
         kept = []
@@ -1509,7 +1495,7 @@ class ClassicTranslator(Translator):
         dropped = len(second_listed) - len(kept)
         if dropped:
             # The warning of the core, with its fallback before tgis.init()
-            operations._warn(  # noqa: SLF001
+            variants.warn(
                 _("merge() dropped {count} duplicate map(s)").format(count=dropped)
             )
         # One series per unit, so that the core keeps all its slots and only
@@ -1577,7 +1563,7 @@ class ClassicTranslator(Translator):
         the core lists those of then first."""
         # Without maps in then and else, the result is the list of the
         # condition as it stands, also if that list is not in time order.
-        listed = not any(_timed(branch) for branch in arguments[1:])
+        listed = not any(shared.timed(branch) for branch in arguments[1:])
         order = (lambda series: series) if listed else self._in_time_order
         if len(arguments) not in (2, 3):
             return order(super()._if(arguments, relation))
@@ -1586,11 +1572,11 @@ class ClassicTranslator(Translator):
             isinstance(condition, Series)
             and condition.sort == "scalar"
             and not condition.timeless
-            and all(_timed(branch) for branch in arguments[1:])
+            and all(shared.timed(branch) for branch in arguments[1:])
             # The core checks the branches of the vector algebra itself.
             and (
                 self._kind != "vector"
-                or all(_vector_field(branch) for branch in arguments[1:])
+                or all(shared.vector_field(branch) for branch in arguments[1:])
             )
         ):
             return self._uncounted(
@@ -1600,10 +1586,10 @@ class ClassicTranslator(Translator):
             )
         if self._kind == "vector":
             return order(super()._if(arguments, relation))
-        if not (_timed(condition) and condition.sort == "field"):
+        if not (shared.timed(condition) and condition.sort == "field"):
             return order(super()._if(arguments, relation))
         then = arguments[1]
-        otherwise = arguments[2] if len(arguments) == 3 else _ABSENT
+        otherwise = arguments[2] if len(arguments) == 3 else shared.ABSENT
         return order(self._field_if(condition, then, otherwise, relation))
 
     def _uncounted(self, series):
@@ -1632,9 +1618,9 @@ class ClassicTranslator(Translator):
         condition rejects, so a counted map there stays counted"""
         result = super()._temporal_if(condition, then, otherwise, relation, first)
         if not (
-            _timed(then)
-            and otherwise is not _ABSENT
-            and not _timed(otherwise)
+            shared.timed(then)
+            and otherwise is not shared.ABSENT
+            and not shared.timed(otherwise)
             and any(self._counted(slot.content) for slot in then.slots)
         ):
             return result
@@ -1716,7 +1702,7 @@ class ClassicTranslator(Translator):
         condition, then, otherwise = map(
             self._first_counts, (condition, then, otherwise)
         )
-        timed_then, timed_else = _timed(then), _timed(otherwise)
+        timed_then, timed_else = shared.timed(then), shared.timed(otherwise)
         if timed_then and timed_else:
             matches = self._related(
                 then, self._relation(_EQUAL), otherwise, pairwise=True

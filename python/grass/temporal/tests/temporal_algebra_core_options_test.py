@@ -24,7 +24,6 @@ from grass.temporal.algebra.operations import (
     choose,
     gather,
     merge,
-    pair_equal_times,
     pairs,
     select,
 )
@@ -38,6 +37,7 @@ from grass.temporal.algebra.relations import (
     relation,
 )
 from grass.temporal.algebra.series import Series, Space
+from grass.temporal.algebra.variants import pair_equal_times
 
 
 def partners(left, text, other, **options):
