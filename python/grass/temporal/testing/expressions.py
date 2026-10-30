@@ -74,7 +74,8 @@ from .differential import (
     outcome,
     prepare,
 )
-from .expressions_generator import KINDS, generate
+from .expressions_generator import generate
+from .reference import KINDS
 
 
 def check_seed(kind, seed, **generate_options):

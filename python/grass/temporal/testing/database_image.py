@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from . import data
 from .data import MAP_TYPE_OF_STDS
 from .recordings import record
 
@@ -56,8 +57,6 @@ def write_scenario(tools) -> None:
 
 
 def _write_scenario(tools) -> None:
-    from grass.temporal.testing import data  # noqa: PLC0415
-
     data.small_region(tools, 1, 1, depths=1)
     spec = data.MapSpec
     day = data.day

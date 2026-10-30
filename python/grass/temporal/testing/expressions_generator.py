@@ -206,7 +206,9 @@ class Generator:
         return f"{self.expr(depth)} {self._pick('+-*/%')} {self.expr(depth)}"
 
     def _t_arith(self, depth):
-        return f"{self.expr(depth)} {self._operator(self._pick('+-*/%'))} {self.expr(depth)}"
+        left = self.expr(depth)
+        operator = self._operator(self._pick("+-*/%"))
+        return f"{left} {operator} {self.expr(depth)}"
 
     def _arith_number(self, depth):
         op = self._pick("+-*/%")
@@ -284,7 +286,9 @@ class Generator:
         return f"{self.expr(depth)} {self._pick('&|^~+')} {self.expr(depth)}"
 
     def _t_overlay(self, depth):
-        return f"{self.expr(depth)} {self._operator(self._pick('&|^~+'))} {self.expr(depth)}"
+        left = self.expr(depth)
+        operator = self._operator(self._pick("&|^~+"))
+        return f"{left} {operator} {self.expr(depth)}"
 
     def _buffer(self, depth):
         function = self._pick(("buff_p", "buff_l", "buff_a"))
@@ -311,7 +315,9 @@ class Generator:
         if draw < 0.5:
             return f"{self.expr(depth)} {op} td({self.expr(depth)})"
         if draw < 0.75:
-            return f"{self.expr(depth)} {self._operator(self._pick('+*'))} td({self.expr(depth)})"
+            left = self.expr(depth)
+            operator = self._operator(self._pick("+*"))
+            return f"{left} {operator} td({self.expr(depth)})"
         return f"{self.expr(depth)} {op} td({self._name()})"
 
     def _time_const(self, depth):
