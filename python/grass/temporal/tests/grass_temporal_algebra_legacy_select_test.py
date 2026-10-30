@@ -8,7 +8,7 @@ assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
 the core calculates differently according to the manual ("Core and classic
 algebra"); SHAPE what the old test asserted besides the maps. The
-datasets are those of legacy_data, see its builder for the data.
+datasets are those of algebra_cases, see its builder for the data.
 """
 
 import re
@@ -18,7 +18,7 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 
-from grass.temporal.testing import differential, legacy_data
+from grass.temporal.testing import differential, algebra_cases
 from grass.tools import Tools
 
 KIND = "select"
@@ -262,7 +262,7 @@ DRY_REFUSED = {"time constant (dry run)": ("ValueError", TIME_FUNCTION_REFUSED)}
 @pytest.fixture(scope="module")
 def data(temporal_module_session):
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
-    legacy_data.algebra(tools)
+    algebra_cases.algebra(tools)
     return temporal_module_session
 
 
@@ -282,7 +282,7 @@ def test_cases(data, request, runner, expression, options, expected):
             expected = CORE[name]
             message = CORE_MESSAGE.get(name)
             shape = SHAPE_CORE.get(name, shape)
-    legacy_data.check_case(
+    algebra_cases.check_case(
         KIND,
         runner,
         expression,
@@ -302,9 +302,9 @@ def test_dry_runs(data, request, runner, expression, options, expected):
     )
     if refused is not None:
         with pytest.raises(ValueError, match=re.escape(refused[1])):
-            legacy_data.check_dry(KIND, runner, expression, options, expected)
+            algebra_cases.check_dry(KIND, runner, expression, options, expected)
     else:
-        legacy_data.check_dry(KIND, runner, expression, options, expected)
+        algebra_cases.check_dry(KIND, runner, expression, options, expected)
 
 
 @pytest.mark.parametrize(

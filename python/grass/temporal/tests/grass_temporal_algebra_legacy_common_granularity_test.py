@@ -4,7 +4,7 @@ They call the common granularity of the earlier select algebra directly:
 setup_common_granularity() on the expression, then parse(). The new algebra
 has no such step; the select expressions run in all three runners in
 grass_temporal_algebra_legacy_select_test.py. The datasets are those of
-legacy_data.algebra_granularity: A a1..a6 = 1..6 on the months January to
+algebra_cases.algebra_granularity: A a1..a6 = 1..6 on the months January to
 June 2001, B b1 = 7 and b2 = 8 for three months each, C c1 = 9 for the year,
 D d1..d3 = 10..12 for 31 days from the first of January, March and May.
 """
@@ -15,7 +15,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.classic.temporal_algebra import TemporalAlgebraParser
-from grass.temporal.testing import legacy_data
+from grass.temporal.testing import algebra_cases
 from grass.tools import Tools
 
 pytestmark = pytest.mark.fixed_algebra
@@ -24,7 +24,7 @@ pytestmark = pytest.mark.fixed_algebra
 @pytest.fixture(scope="module")
 def data(temporal_module_session):
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
-    legacy_data.algebra_granularity(tools)
+    algebra_cases.algebra_granularity(tools)
     return temporal_module_session
 
 

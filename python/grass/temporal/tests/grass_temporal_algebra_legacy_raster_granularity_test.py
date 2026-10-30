@@ -8,12 +8,12 @@ assertions describe (number of maps, extent, minimum, maximum, topology,
 granularity); the comment of a case repeats them. CORE holds the cases where
 the core calculates differently according to the manual ("Core and classic
 algebra"); SHAPE what the old test asserted besides the maps. The
-datasets are those of legacy_data, see its builder for the data.
+datasets are those of algebra_cases, see its builder for the data.
 """
 
 import pytest
 
-from grass.temporal.testing import legacy_data
+from grass.temporal.testing import algebra_cases
 from grass.tools import Tools
 
 KIND = "raster"
@@ -266,7 +266,7 @@ DRY = [
 @pytest.fixture(scope="module")
 def data(temporal_module_session):
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
-    legacy_data.raster_granularity(tools)
+    algebra_cases.raster_granularity(tools)
     return temporal_module_session
 
 
@@ -286,7 +286,7 @@ def test_cases(data, request, runner, expression, options, expected):
             expected = CORE[name]
             message = CORE_MESSAGE.get(name)
             shape = SHAPE_CORE.get(name, shape)
-    legacy_data.check_case(
+    algebra_cases.check_case(
         KIND,
         runner,
         expression,
@@ -301,7 +301,7 @@ def test_cases(data, request, runner, expression, options, expected):
 @pytest.mark.parametrize("runner", RUNNERS)
 @pytest.mark.parametrize(("expression", "options", "expected"), DRY)
 def test_dry_runs(data, request, runner, expression, options, expected):
-    legacy_data.check_dry(KIND, runner, expression, options, expected)
+    algebra_cases.check_dry(KIND, runner, expression, options, expected)
 
 
 def test_every_table_entry_belongs_to_a_case():
