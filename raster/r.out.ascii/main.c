@@ -72,7 +72,8 @@ int main(int argc, char *argv[])
     parm.dp->type = TYPE_INTEGER;
     parm.dp->required = NO;
     parm.dp->description =
-        _("Number of significant digits (floating point only)");
+        _("Number of decimal places, or significant digits with -m (floating "
+          "point only)");
 
     parm.width = G_define_option();
     parm.width->key = "width";
