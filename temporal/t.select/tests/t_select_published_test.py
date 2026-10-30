@@ -11,19 +11,12 @@ in the relations listed there.
 
 import pytest
 
-from grass.temporal.testing import differential
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.differential import RUNNERS, compare, outcome
 from grass.tools import Tools
 
 PRINTED = "STR3DS(A) {:,during,l} STVDS(B)"
 LOWER_CASE = "str3ds(A) {:,during,l} stvds(B)"
-
-
-@pytest.fixture
-def str3ds_result(monkeypatch):
-    """Read the result of a selection as a dataset of type str3ds"""
-    monkeypatch.setitem(differential.STDS_TYPES, "select", "str3ds")
 
 
 def run(runner, expression, basename):
@@ -37,7 +30,7 @@ def run(runner, expression, basename):
     )
 
 
-def test_the_profile_selects_what_the_reference_selects(series, str3ds_result):
+def test_the_profile_selects_what_the_reference_selects(series):
     reference = reference_outcome(
         "select", LOWER_CASE, stdstype="str3ds", register_null=True
     )
@@ -54,9 +47,7 @@ def test_the_profile_selects_what_the_reference_selects(series, str3ds_result):
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic", "core"])
-def test_the_function_names_in_capitals_select_like_lower_case(
-    series, str3ds_result, runner
-):
+def test_the_function_names_in_capitals_select_like_lower_case(series, runner):
     printed = run(runner, PRINTED, "fa")
     lower = run(runner, LOWER_CASE, "fb")
     assert compare("select", PRINTED, printed, lower) is None
@@ -77,14 +68,12 @@ def test_the_function_names_in_capitals_select_like_lower_case(
         "str3ds(A) {:,during,l} STVDs(B)",
     ],
 )
-def test_other_capital_spellings_are_refused(series, str3ds_result, runner, expression):
+def test_other_capital_spellings_are_refused(series, runner, expression):
     assert run(runner, expression, "fa")["error"] == "SyntaxError"
 
 
 @pytest.mark.parametrize("runner", ["reference", "classic"])
-def test_a_dataset_named_like_a_capital_function_stays_a_name(
-    series, str3ds_result, runner
-):
+def test_a_dataset_named_like_a_capital_function_stays_a_name(series, runner):
     """Without a parenthesis after it, STVDS is a dataset name
 
     No dataset of that name exists here, so the selection stops where the
