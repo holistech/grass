@@ -11,7 +11,7 @@ t_rast_algebra_classic_profile_test.py do not cover.
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.differential import (
@@ -523,7 +523,7 @@ NEIGHBOURS = [
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("cases"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

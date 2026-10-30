@@ -342,7 +342,7 @@ itself and tests of the tools (end to end) run with real IO. Comparisons of two
 implementations run with real raster and database IO; they still get the
 cached mapset list and tool descriptions, which both sides receive alike.
 
-Two such caches exist, in `grass.temporal.testing.fakes`. The directories
+Two such caches exist, in `grass.temporal.testing.io_cache`. The directories
 `python/grass/temporal/tests` and `temporal/t.*.algebra/tests` apply them to
 every test through an autouse fixture in their `conftest.py`. Fixtures of
 module scope are set up before that fixture and therefore use the real IO:

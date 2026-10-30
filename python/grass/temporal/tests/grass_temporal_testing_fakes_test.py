@@ -1,4 +1,4 @@
-"""Tests for the test-only caches of grass.temporal.testing.fakes
+"""Tests for the test-only caches of grass.temporal.testing.io_cache
 
 Each cached answer is compared with the answer of real IO, step by step
 through the changes that could make it stale: another project, a changed
@@ -18,7 +18,7 @@ import grass.temporal as tgis
 from grass.temporal import core
 import grass.pygrass.modules.interface.module as pygrass_module
 from grass.pygrass.modules import Module
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.session import add_mapset, temporal_session
 
 pytestmark = pytest.mark.real_io
@@ -52,7 +52,7 @@ class TestMapsetsCache:
     def test_answers_equal_real_io_through_changes(self, tmp_path):
         """Cached and real answer of the mapset list agree after every change"""
         real = core.get_available_temporal_mapsets
-        with fakes.mapsets_cache() as stats:
+        with io_cache.mapsets_cache() as stats:
             cached = core.get_available_temporal_mapsets
             assert cached is not real
             with temporal_session(tmp_path / "a") as session:
@@ -100,7 +100,7 @@ class TestMapsetsCache:
             gs.run_command(
                 "g.mapsets", mapset="second", operation="add", env=session.env
             )
-            with fakes.mapsets_cache(key=weak):
+            with io_cache.mapsets_cache(key=weak):
                 cached = core.get_available_temporal_mapsets
                 assert "second" in cached(None)
                 gs.run_command(
@@ -117,7 +117,7 @@ class TestMapsetsCache:
         """
 
         def without_databases(mapsets):
-            return fakes.mapsets_key(mapsets)[:4]
+            return io_cache.mapsets_key(mapsets)[:4]
 
         real = core.get_available_temporal_mapsets
         with temporal_session(tmp_path / "a") as session:
@@ -125,7 +125,7 @@ class TestMapsetsCache:
             gs.run_command(
                 "g.mapsets", mapset="second", operation="add", env=session.env
             )
-            with fakes.mapsets_cache(key=without_databases):
+            with io_cache.mapsets_cache(key=without_databases):
                 cached = core.get_available_temporal_mapsets
                 assert "second" not in cached("*")
                 create_temporal_database_in(session, "second")
@@ -134,7 +134,7 @@ class TestMapsetsCache:
 
     def test_not_cached_when_empty(self, tmp_path):
         """An empty answer is asked again every time"""
-        with temporal_session(tmp_path / "a"), fakes.mapsets_cache() as stats:
+        with temporal_session(tmp_path / "a"), io_cache.mapsets_cache() as stats:
             cached = core.get_available_temporal_mapsets
             # A mapset name that does not exist gives an empty answer.
             assert cached("nosuchmapset") == {}
@@ -143,7 +143,7 @@ class TestMapsetsCache:
 
     def test_cache_is_emptied_by_init(self, tmp_path):
         """init() through the module attribute clears the cache"""
-        with temporal_session(tmp_path / "a"), fakes.mapsets_cache() as stats:
+        with temporal_session(tmp_path / "a"), io_cache.mapsets_cache() as stats:
             cached = core.get_available_temporal_mapsets
             cached(None)
             cached(None)
@@ -163,16 +163,16 @@ class TestMapsetsCache:
                 "create_temporal_database",
                 "init",
             )
-            # The package exports only init; fakes patches the others where
+            # The package exports only init; io_cache patches the others where
             # they exist.
             if hasattr(module, name)
         }
-        with fakes.mapsets_cache():
+        with io_cache.mapsets_cache():
             assert core.init is not originals[(core, "init")]
             assert tgis.init is core.init
         for (module, name), original in originals.items():
             assert getattr(module, name) is original
-        with pytest.raises(RuntimeError, match=BOOM), fakes.mapsets_cache():
+        with pytest.raises(RuntimeError, match=BOOM), io_cache.mapsets_cache():
             raise RuntimeError(BOOM)
         for (module, name), original in originals.items():
             assert getattr(module, name) is original
@@ -184,7 +184,7 @@ class TestInterfaceCache:
         with temporal_session(tmp_path / "a") as session:
             real = interface_state()
             assert "nprocs=3" not in real[1]
-            with fakes.interface_cache() as stats:
+            with io_cache.interface_cache() as stats:
                 assert interface_state() == real
                 assert interface_state() == real
                 assert stats.hits == 1
@@ -193,7 +193,7 @@ class TestInterfaceCache:
                 changed = interface_state()
                 assert "nprocs=3" in changed[1]
             assert interface_state() == changed
-            with fakes.interface_cache():
+            with io_cache.interface_cache():
                 for name in ("r.mapcalc", "g.region", "t.info"):
                     first = interface_state(name)
                     assert interface_state(name) == first
@@ -201,7 +201,7 @@ class TestInterfaceCache:
         with temporal_session(tmp_path / "b"):
             real = interface_state()
             assert "nprocs=3" not in real[1]
-            with fakes.interface_cache() as stats:
+            with io_cache.interface_cache() as stats:
                 assert interface_state() == real
                 assert interface_state() == real
                 assert stats.hits == 1
@@ -212,7 +212,7 @@ class TestInterfaceCache:
         Negative test: shows that the comparison above sees this error.
         """
         with temporal_session(tmp_path / "a") as session:
-            with fakes.interface_cache(key=lambda name: name):
+            with io_cache.interface_cache(key=lambda name: name):
                 assert "nprocs=3" not in interface_state()[1]
                 gs.run_command("g.gisenv", set="NPROCS=3", env=session.env)
                 stale = interface_state()
@@ -222,7 +222,7 @@ class TestInterfaceCache:
 
     def test_other_commands_reach_the_real_popen(self, tmp_path):
         """Only the description is cached; running a module is not"""
-        with temporal_session(tmp_path / "a"), fakes.interface_cache():
+        with temporal_session(tmp_path / "a"), io_cache.interface_cache():
             module = Module("g.region", flags="p", run_=False)
             module.run()
             assert module.returncode == 0
@@ -230,9 +230,9 @@ class TestInterfaceCache:
     def test_originals_restored(self):
         """Exit puts back the original Popen, also after an exception"""
         original = pygrass_module.Popen
-        with fakes.interface_cache():
+        with io_cache.interface_cache():
             assert pygrass_module.Popen is not original
         assert pygrass_module.Popen is original
-        with pytest.raises(RuntimeError, match=BOOM), fakes.interface_cache():
+        with pytest.raises(RuntimeError, match=BOOM), io_cache.interface_cache():
             raise RuntimeError(BOOM)
         assert pygrass_module.Popen is original

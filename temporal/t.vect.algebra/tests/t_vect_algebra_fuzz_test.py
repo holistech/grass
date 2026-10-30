@@ -22,7 +22,7 @@ the datasets.
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.differential import (
     check_agreement,
     check_difference_seen,
@@ -55,11 +55,11 @@ LISTED = [
 def datasets(temporal_module_session, tmp_path_factory):
     """Create the datasets of the fuzzer, then switch on the test-only caches
 
-    The caches of grass.temporal.testing.fakes serve both runners alike. They
+    The caches of grass.temporal.testing.io_cache serve both runners alike. They
     start after the creation of the datasets, which runs with real IO.
     """
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("fuzz"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

@@ -15,7 +15,7 @@ import datetime
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds
 from grass.temporal.testing.differential import compare, outcome_of_runner
@@ -120,7 +120,7 @@ def comparisons(temporal_module_session):
     create_stds(tools, "strds", "E", specs("e", [1.5, 2.5, 3.5], DAYS))
     # Two maps with the time of January, which no time stamp tells apart
     create_stds(tools, "strds", "D", specs("d", [1, 2], [MONTHS[0], MONTHS[0]]))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

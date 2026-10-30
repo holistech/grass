@@ -6,7 +6,7 @@ profile and the reference read equals as another name of equal.
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.differential import RUNNERS, compare, outcome, prepare
 
 KIND = "raster3d"
@@ -25,7 +25,7 @@ SPELLINGS = [
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("alias"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

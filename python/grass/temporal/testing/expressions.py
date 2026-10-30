@@ -269,7 +269,7 @@ def main(argv=None):
     first, _, last = args.seeds.partition("-")
     seeds = range(int(first), int(last or first) + 1)
 
-    from . import fakes
+    from . import io_cache
     from .session import temporal_session
 
     with (
@@ -277,7 +277,7 @@ def main(argv=None):
         temporal_session(Path(directory) / "project") as session,
     ):
         prepare(args.kind, session, directory)
-        with fakes.cached_io(fakes.CacheStorage()):
+        with io_cache.cached_io(io_cache.CacheStorage()):
             differences = run_batch(
                 args.kind,
                 seeds,

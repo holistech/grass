@@ -7,7 +7,7 @@ days, so a >= b is false on each day and the else part B is the result.
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.differential import RUNNERS, compare, outcome, prepare
 
@@ -31,7 +31,7 @@ EXPRESSIONS = [
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("compare"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

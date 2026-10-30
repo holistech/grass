@@ -6,7 +6,7 @@ the values 1, 2, 3 and 4, so td(A) is 1 for each of them.
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
@@ -31,7 +31,7 @@ CHANGED = [
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("td"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 

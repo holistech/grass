@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.data import MapSpec, day, register_stds, timestamp
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -161,14 +161,14 @@ def vector_series(tmp_path_factory):
 @pytest.fixture(scope="module")
 def io_cache_storage():
     """Answers of the test-only caches, shared by the tests of one module"""
-    return fakes.CacheStorage()
+    return io_cache.CacheStorage()
 
 
 @pytest.fixture(autouse=True)
 def cached_io(request, io_cache_storage):
-    """Run the test with the caches of grass.temporal.testing.fakes.cached_io"""
+    """Run the test with the caches of grass.temporal.testing.io_cache.cached_io"""
     if request.node.get_closest_marker("real_io"):
         yield
         return
-    with fakes.cached_io(io_cache_storage):
+    with io_cache.cached_io(io_cache_storage):
         yield

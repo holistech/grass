@@ -6,7 +6,7 @@ As t_rast_algebra_number_chains_test.py. A has four maps with the values 1, 2,
 
 import pytest
 
-from grass.temporal.testing import fakes
+from grass.temporal.testing import io_cache
 from grass.temporal.testing.differential import RUNNERS, outcome, prepare
 
 KIND = "raster3d"
@@ -27,7 +27,7 @@ CHAINS = [
 def datasets(temporal_module_session, tmp_path_factory):
     """The datasets of the fuzzer, then the test-only caches"""
     prepare(KIND, temporal_module_session, tmp_path_factory.mktemp("chains"))
-    with fakes.cached_io(fakes.CacheStorage()):
+    with io_cache.cached_io(io_cache.CacheStorage()):
         yield
 
 
