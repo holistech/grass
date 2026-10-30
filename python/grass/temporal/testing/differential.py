@@ -29,7 +29,11 @@ Functions:
 The datasets need a ``temporal_session``, because the algebras run in this
 process. This module imports no pytest.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

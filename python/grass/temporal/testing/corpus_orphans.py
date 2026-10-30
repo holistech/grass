@@ -15,7 +15,11 @@ The check only reports. Deleting an entry drops an outcome of the earlier
 implementation that can be recorded again only by running that
 implementation.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

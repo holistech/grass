@@ -49,7 +49,11 @@ which take the outcome of the earlier implementation from the corpus of
 ``grass.temporal.testing.corpus``. ``GRASS_TEMPORAL_FUZZ_COUNT`` sets another
 count and ``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

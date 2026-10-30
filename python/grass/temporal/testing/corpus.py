@@ -84,7 +84,11 @@ appends its kind and key to a file of the process there. Then
 entries of the corpus that no test read and exits with 1 if there is one.
 Without the variable the lookup writes nothing.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

@@ -10,7 +10,11 @@ raster back; ``inventory`` lists what a session holds; ``message`` normalizes
 the messages of a call. ``time_text``, ``days_text`` and ``delta_row`` read
 nothing back: they format expected values the way the list tools print them.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from typing import NamedTuple

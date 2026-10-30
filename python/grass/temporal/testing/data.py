@@ -26,7 +26,11 @@ Which helper makes what:
 
 This module must not import pytest; fixtures belong in conftest.py files.
 
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from dataclasses import dataclass

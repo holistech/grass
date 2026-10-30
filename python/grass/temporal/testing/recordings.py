@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Soeren Gebbert
+# SPDX-FileCopyrightText: GRASS Development Team
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 """Recorded results of the extent, granularity, date and topology functions
 
 A refactor of the library must not change what these functions compute. This

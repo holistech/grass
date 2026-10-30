@@ -9,7 +9,11 @@ This module therefore builds the engine objects directly, independent of
 
 The module does not import pytest and does not touch ``os.environ``.
 
+SPDX-FileCopyrightText: 2012-2013, 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 import copy
