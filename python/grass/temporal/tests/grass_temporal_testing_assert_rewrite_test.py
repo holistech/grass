@@ -18,5 +18,4 @@ def test_a_failing_helper_assertion_shows_the_values(monkeypatch):
     with pytest.raises(AssertionError) as excinfo:
         algebra_cases.check_dry("raster", "stub", "A", {}, {"register": 3})
     message = str(excinfo.value)
-    assert "2" in message, message
-    assert "3" in message, message
+    assert "2 == 3" in message, message

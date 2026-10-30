@@ -9,13 +9,11 @@ import pytest
 # shows no values unless the package is registered before its first import.
 pytest.register_assert_rewrite("grass.temporal.testing")
 # The registration has to precede these imports, so they follow a statement.
-# ruff: noqa: E402
-
-from grass.temporal.algebra.content import Const, MapRef
-from grass.temporal.algebra.series import Extent, Series, Slot
-from grass.temporal.state import set_raise_on_error
-from grass.temporal.testing import io_cache
-from grass.temporal.testing.session import temporal_session
+from grass.temporal.algebra.content import Const, MapRef  # noqa: E402
+from grass.temporal.algebra.series import Extent, Series, Slot  # noqa: E402
+from grass.temporal.state import set_raise_on_error  # noqa: E402
+from grass.temporal.testing import io_cache  # noqa: E402
+from grass.temporal.testing.session import temporal_session  # noqa: E402
 
 
 def _extent(span, unit):

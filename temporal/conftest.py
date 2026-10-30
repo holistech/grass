@@ -22,22 +22,20 @@ import pytest
 # shows no values unless the package is registered before its first import.
 pytest.register_assert_rewrite("grass.temporal.testing")
 # The registration has to precede these imports, so they follow a statement.
-# ruff: noqa: E402
-
-from grass.temporal.testing.data import (
+from grass.temporal.testing.data import (  # noqa: E402
     TIME_FORMAT,
     MapSpec,
     create_daily_stds,
     create_stds,
     day,
 )
-from grass.temporal.testing.readback import map_info
-from grass.temporal.testing.session import (
+from grass.temporal.testing.readback import map_info  # noqa: E402
+from grass.temporal.testing.session import (  # noqa: E402
     mapset_session,
     project_session,
     temporal_session,
 )
-from grass.tools import Tools
+from grass.tools import Tools  # noqa: E402
 
 
 @pytest.fixture(params=("core", "classic"))
