@@ -4,11 +4,11 @@ The published algebra paper (section 3.2.1) writes the comparison of related
 maps as an operator in braces, {>=, equal|contains, |, l}, and as the short
 form A >= F. The condition of a map holds one comparison with every related
 map, joined by the aggregation (& is and, | is or). The expected values are
-derived by hand from the data. The new algebra reads the forms as well; where
-it differs, the test says why. A has four monthly maps with the values 1.5,
-2.5, 3.5 and 4.5, F the values 5, 6, 7 and 8 on the same months, G the values
-10, 20 and 30 on February to April, and E three maps on 5 to 7 January with
-the values 1.5, 2.5 and 3.5, all contained in the January map of A.
+derived by hand from the data. The core reads the forms as well; where it
+differs, the test says why. A has four monthly maps with the values 1.5, 2.5,
+3.5 and 4.5, F the values 5, 6, 7 and 8 on the same months, G the values 10, 20
+and 30 on February to April, and E three maps on 5 to 7 January with the values
+1.5, 2.5 and 3.5, all contained in the January map of A.
 """
 
 import datetime
@@ -141,8 +141,8 @@ def starts_and_values(result):
     )
 
 
-# The new algebra pairs the maps of the right reference one by one: every pair
-# is compared on its own and takes the value of its own condition, where the
+# The core pairs the maps of the right reference one by one: every pair is
+# compared on its own and takes the value of its own condition, where the
 # classic algebra gives each partner the whole condition of the left map.
 # {<,contains,|,r} and {<,contains,&,r}: 1.5 < 1.5 is false and 1.5 < 2.5 and
 # 1.5 < 3.5 are true, so e1 gives the else part 0 and e2 and e3 their values
@@ -152,7 +152,7 @@ CORE_PAIRS = {
     "if(A {<,contains,|,r} E, E, 0)": PAIRS,
     "if(A {<,contains,&,r} E, E, 0)": PAIRS,
 }
-# The bare comparison of the new algebra needs maps of equal time stamps
+# The bare comparison of the core needs maps of equal time stamps
 DIFFERENT_TIMES = ("if(G > F, G, 0)", "if(F > G, F, 0)", "if(A > 1 && G >= F, A)")
 
 
@@ -163,8 +163,8 @@ def test_a_comparison_by_hand(comparisons, runner, expression, starts, values):
     if runner == "core":
         if expression in DIFFERENT_TIMES:
             pytest.skip("the bare comparison of maps of different times is an error")
-        # A map of A without related map stays as a null map in the new algebra
-        # and is left out in the classic algebra.
+        # A map of A without related map stays as a null map in the core and is
+        # left out in the classic algebra.
         result = dict(
             result, maps=[row for row in result["maps"] if row[3] is not None]
         )
@@ -206,8 +206,8 @@ def test_the_profile_computes_what_the_reference_computes(comparisons, expressio
 def test_a_condition_without_an_equal_map_leaves_null_maps_in_the_new_algebra(
     comparisons,
 ):
-    """The same expression gives a null map for each map of A in the new
-    algebra, where the classic algebra leaves them out"""
+    """The same expression gives a null map for each map of A in the core,
+    where the classic algebra leaves them out"""
     result = run("core", "if(A {>=,contains,&,i} E, A, 0)", "fa")
     assert [row[3] for row in result["maps"]] == [None, None, None, None]
 
@@ -217,8 +217,8 @@ def test_a_condition_without_an_equal_map_leaves_null_maps_in_the_new_algebra(
 def test_maps_of_equal_time_are_all_related(comparisons, runner, aggregate, value):
     """d1 = 1 and d2 = 2 both have the time of a1 = 1.5, and both are compared
 
-    1.5 >= 1 or 1.5 >= 2 is true: 1.5; 1.5 >= 1 and 1.5 >= 2 is false: 0.
-    The other maps of A have no related map (null maps in the new algebra).
+    1.5 >= 1 or 1.5 >= 2 is true: 1.5; 1.5 >= 1 and 1.5 >= 2 is false: 0. The
+    other maps of A have no related map (null maps in the core).
     """
     result = run(runner, f"if(A {{>=,equal,{aggregate}}} D, A, 0)", "fa")
     assert "error" not in result, result
@@ -264,7 +264,7 @@ def test_forms_that_are_no_comparisons_stay_refused(comparisons, runner, express
 def test_the_classic_grammar_reads_comparisons_inside_if_only(
     comparisons, runner, expression
 ):
-    """The new algebra reads a comparison anywhere, as A + (A >= F), and the
+    """The core reads a comparison anywhere, as A + (A >= F), and the
     operator in braces without a comma, as {+} for the plus"""
     assert run(runner, expression, "fa")["error"] == "SyntaxError"
 

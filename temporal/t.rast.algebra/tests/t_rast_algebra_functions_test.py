@@ -162,9 +162,9 @@ def test_tsnap_keeps_the_end_of_a_map_that_starts_with_the_next_map(algebra):
 def test_tsnap_of_maps_that_start_together_in_the_order_of_the_list(
     algebra, classic, expected
 ):
-    """The new algebra orders maps that start together by their end, the
-    classic algebra by the list of merge(), so only the classic result
-    depends on the order of the arguments"""
+    """The core orders maps that start together by their end, the classic
+    algebra by the list of merge(), so only the classic result depends on
+    the order of the arguments"""
     assert algebra.triples("tsnap(merge(C, A))", classic=classic) == expected
 
 

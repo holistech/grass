@@ -11,9 +11,9 @@ t_rast_algebra_paper_test.py checks the figures of the paper against their
 printed results; this module compares the two implementations on the
 expressions and pins three results computed by hand.
 
-Every printed expression runs in the reference, the profile and the new
-algebra. The caption of one figure misspells precedes; that spelling is a
-syntax error in all three and the only printed form that is refused.
+Every printed expression runs in the reference, the profile and the core. The
+caption of one figure misspells precedes; that spelling is a syntax error in
+all three and the only printed form that is refused.
 """
 
 import datetime
@@ -267,12 +267,12 @@ def test_the_profile_computes_what_the_reference_computes(
 def test_the_core_computes_what_the_reference_computes(
     paper, expression, options, data
 ):
-    """Every printed expression runs in the new algebra and gives the maps of
-    the reference
+    """Every printed expression runs in the core and gives the maps of the
+    reference
 
-    One expression differs by the meaning of -n, which the runner sets: the new
-    algebra also registers a null map for each map of A that contains no map of
-    E (a2 to a4), the reference registers only the map with partners. The map
+    One expression differs by the meaning of -n, which the runner sets: the
+    core also registers a null map for each map of A that contains no map of E
+    (a2 to a4), the reference registers only the map with partners. The map
     with partners is the same.
     """
     assert data == "paper"

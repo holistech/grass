@@ -229,8 +229,8 @@ def test_blanks_in_the_variable_stop_the_tool(algebra):
 def test_classic_flag_runs_the_classic_profile(algebra, core_tool):
     """The tool with -c computes on the classic profile of the core, not on
     the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, the earlier
-    one named tshift() and the unit"""
+    library refuses is reported with the message of the library, where the
+    reference names tshift() and the unit"""
     with pytest.raises(ToolError) as error:
         core_tool.t_rast_algebra(
             expression='OPT_PROFILE = tshift(A, "1 DAY")',

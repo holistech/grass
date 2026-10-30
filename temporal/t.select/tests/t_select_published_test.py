@@ -105,8 +105,8 @@ def test_the_tool_selects_with_the_classic_flag(series):
 
 
 def test_the_tool_selects_with_the_functions_in_both_algebras(series, algebra):
-    """Observed 2026-10-17: the new algebra read no dataset type function
-    before; both algebras select the maps a1 and a2 now"""
+    """Observed 2026-10-17: the core read no dataset type function before;
+    both algebras select the maps a1 and a2 now"""
     tools = Tools(session=series.session, overwrite=True)
     tools.t_select(expression=f"published = {LOWER_CASE}", type="str3ds")
     listing = tools.t_rast3d_list(input="published", columns="name", format="json")

@@ -76,8 +76,8 @@ def result_values(session, expression, flags="", algebra=None):
         # such a map is not registered, so only the overlapping pair remains.
         ("P {+,equal} Q", "", [11]),
         ("P {+,equal} Q", "s", [11]),
-        # A spatial relation name builds the spatial topology without -s,
-        # in the classic and in the new algebra.
+        # A spatial relation name builds the spatial topology without -s, in
+        # the classic algebra and in the core.
         ("P {+,equal|overlap} Q", "", [11]),
         ("P {+,equal|overlap} Q", "c", [11]),
         ("P {+,equal|overlap} Q", "s", [11]),

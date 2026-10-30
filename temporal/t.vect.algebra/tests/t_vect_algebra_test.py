@@ -565,8 +565,8 @@ def test_classic_flag_selects_the_classic_algebra(vector_series):
 def test_classic_flag_runs_the_classic_profile(vector_series):
     """The tool with -c computes on the classic profile of the core, not on
     the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, the earlier
-    one named tshift() and the unit"""
+    library refuses is reported with the message of the library, where the
+    reference names tshift() and the unit"""
     tools = Tools(session=vector_series.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_vect_algebra(
@@ -859,6 +859,6 @@ def test_tshift_with_a_refused_increment_is_a_syntax_error_classic(
 ):
     """An increment that the library refuses is an error in the classic
     algebra, not an absent result. The core raises a ValueError. The message is
-    that of the library: it does not name tshift as the earlier one did."""
+    that of the library: it does not name tshift as the reference does."""
     with pytest.raises(SyntaxError, match="time step"):
         run_algebra(vector_series.session, expression, classic=True)

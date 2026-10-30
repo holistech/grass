@@ -6,7 +6,7 @@ out empty when its box lies outside the region, and an empty map is not
 registered unless -n is given. Unlike r.mapcalc, r3.mapcalc has no option to
 compute in the union of the regions of its inputs, so this holds with -s as
 well (measured 24.10.2026 with a selection under -s on the reference
-implementation (grass.temporal.classic), the classic profile and the core).
+implementation grass.temporal.classic, the classic profile and the core).
 Decision of 24.10.2026: the results stay as they are, the core and the classic
 profile warn and name each such copy.
 

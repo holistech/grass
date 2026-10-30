@@ -789,7 +789,7 @@ def test_the_classic_profile_selects_where_no_value_of_a_time_function_is_chosen
 def test_classic_flag_runs_the_classic_profile(series):
     """-c selects on the classic profile of the core, not on the reference:
     an increment the library refuses is reported with the message of the
-    library, the earlier one named tshift() and the unit"""
+    library, where the reference names tshift() and the unit"""
     tools = Tools(session=series.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_select(expression='profiled = A : tshift(B, "1 DAY")', flags="c")

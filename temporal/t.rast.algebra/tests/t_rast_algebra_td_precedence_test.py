@@ -1,14 +1,14 @@
 """The function td() as left operand of a stronger operator
 
-td() was only allowed as the right operand of an operator, so that in
-A + td(A) / A the parser had no shift for / after td(A) and reduced: the
-classic algebra computed (A + td(A)) / A. Mathematics and the new algebra read
-A + (td(A) / A). Every expected value below is derived by hand from the data:
-A has four monthly maps with the values 1.5, 2.5, 3.5 and 4.5, whose durations
-are 31, 28, 31 and 30 days (January to April 2001), F has the values 5, 6, 7
-and 8 on the same months, L is a map without time stamp with the value 0.5 and
-E has one map inside January. The values the classic algebra computed before
-the correction are given in the comments.
+td() was only allowed as the right operand of an operator, so that in A + td(A)
+/ A the parser had no shift for / after td(A) and reduced: the classic algebra
+computed (A + td(A)) / A. Mathematics and the core read A + (td(A) / A). Every
+expected value below is derived by hand from the data: A has four monthly maps
+with the values 1.5, 2.5, 3.5 and 4.5, whose durations are 31, 28, 31 and 30
+days (January to April 2001), F has the values 5, 6, 7 and 8 on the same
+months, L is a map without time stamp with the value 0.5 and E has one map
+inside January. The values the classic algebra computed before the correction
+are given in the comments.
 """
 
 import datetime

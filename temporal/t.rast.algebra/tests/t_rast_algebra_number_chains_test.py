@@ -1,14 +1,14 @@
 """Chains that start with a number or map() are grouped from the left
 
-The classic grammar has productions for a space time dataset beside a number
-or a map(), but not for every pair of numbers and maps. A chain such as
-map(L) - 1 - A stood without a production for map(L) - 1, so the parser
-shifted and the rest of the chain became the right operand: L - (1 - A).
-Mathematics, the new algebra and now the classic algebra read it as
-(L - 1) - A. Every expected value below is derived by hand from the data:
-A has four monthly maps with the values 1.5, 2.5, 3.5 and 4.5, and L is a map
-without time stamp with the value 0.5. The values the classic algebra
-computed before the correction are given in the comments.
+The classic grammar has productions for a space time dataset beside a number or
+a map(), but not for every pair of numbers and maps. A chain such as map(L) - 1
+- A stood without a production for map(L) - 1, so the parser shifted and the
+rest of the chain became the right operand: L - (1 - A). Mathematics, the core
+and now the classic algebra read it as (L - 1) - A. Every expected value below
+is derived by hand from the data: A has four monthly maps with the values 1.5,
+2.5, 3.5 and 4.5, and L is a map without time stamp with the value 0.5. The
+values the classic algebra computed before the correction are given in the
+comments.
 """
 
 import datetime

@@ -91,6 +91,6 @@ def test_spatial_topology(spatial_series, expression, flags, expected):
 def test_spatial_relation_without_spatial_flag(
     spatial_series, expression, expected, flags
 ):
-    """The name of a spatial relation builds the spatial topology without -s,
-    in the classic and in the new algebra"""
+    """The name of a spatial relation builds the spatial topology without
+    -s, in the classic algebra and in the core"""
     assert result_values(spatial_series, expression, flags) == expected

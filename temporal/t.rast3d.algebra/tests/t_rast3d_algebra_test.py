@@ -673,8 +673,8 @@ def test_classic_flag_selects_the_classic_algebra(series_3d):
 def test_classic_flag_runs_the_classic_profile(series_3d):
     """The tool with -c computes on the classic profile of the core, not on
     the reference implementation (grass.temporal.classic): an increment the
-    library refuses is reported with the message of the library, the earlier
-    one named tshift() and the unit"""
+    library refuses is reported with the message of the library, where the
+    reference names tshift() and the unit"""
     tools = Tools(session=series_3d.session, overwrite=True)
     with pytest.raises(ToolError) as error:
         tools.t_rast3d_algebra(

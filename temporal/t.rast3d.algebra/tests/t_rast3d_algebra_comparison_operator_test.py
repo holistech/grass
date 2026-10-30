@@ -1,8 +1,9 @@
 """A comparison of two 3D raster datasets with a temporal relation, in if()
 
-As t_rast_algebra_comparison_operator_test.py, also for the new algebra. A has four maps of one day each
-with the values 1, 2, 3 and 4 and B the values 10, 20, 30 and 40 on the same
-days, so a >= b is false on each day and the else part B is the result.
+As t_rast_algebra_comparison_operator_test.py, also for the core. A has four
+maps of one day each with the values 1, 2, 3 and 4 and B the values 10, 20, 30
+and 40 on the same days, so a >= b is false on each day and the else part B is
+the result.
 """
 
 import pytest

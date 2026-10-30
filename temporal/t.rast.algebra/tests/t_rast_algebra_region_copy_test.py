@@ -5,9 +5,9 @@ unchanged, such as a map that a selection stamps with a new time, comes out
 empty when its box lies outside the region, and an empty map is not registered
 unless -n is given. Under -s r.mapcalc computes in the union of the regions of
 its inputs instead, and the copy keeps its data (measured 24.10.2026 with a
-selection under -s on the reference implementation (grass.temporal.classic),
-the classic profile and the core). Decision of 24.10.2026: the results stay as
-they are, the core and the classic profile warn and name each such copy.
+selection under -s on the reference implementation grass.temporal.classic, the
+classic profile and the core). Decision of 24.10.2026: the results stay as they
+are, the core and the classic profile warn and name each such copy.
 
 The maps are single cells of 10 by 10 units. Boxes (x range, y range) and
 times (2001-01-DD):
