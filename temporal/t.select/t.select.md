@@ -114,7 +114,7 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra and **-c** read both names. The previous implementation
+the new algebra and **-c** read both names. The reference implementation
 refused `equals` with a syntax error.
 
 Topological relations must be specified in {} parentheses.  
@@ -397,14 +397,15 @@ during the temporal extent of single map 'event'
 
 Since GRASS 8.6, *t.select* selects with the functions of the Python package
 `grass.temporal.algebra`, as *t.rast.algebra* and *t.vect.algebra* do. The
-previous implementation stays available as the classic algebra, so that
-published results remain reproducible. The classic algebra is a set of
-rules of the same functions: it reads the syntax of the previous
-implementation and applies its rules for relations and order. The flag
-**-c** selects it for one call, the environment variable
-`GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
-`GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
-new algebra, and the flag takes precedence over the variable.
+implementation used before, the reference implementation in
+`grass.temporal.classic`, stays in the source code, and its rules stay
+available as the classic algebra, so that published results remain
+reproducible. The classic algebra is a set of rules of the same functions: it
+reads the syntax of the reference implementation and applies its rules for
+relations and order. The flag **-c** selects it for one call, the environment
+variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
+`GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the new
+algebra, and the flag takes precedence over the variable.
 
 Both algebras pull maps of another dataset type into a selection with the
 functions `strds()`, `str3ds()` and `stvds()`; the type of the function need
@@ -513,7 +514,7 @@ reads but cannot select, such as `A + B`, where the classic algebra raises
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.rast3d.algebra* and *t.vect.algebra* as well, so **-c** gives the rules of
-the previous algebra, not the results of a particular release. First,
+the classic algebra, not the results of a particular release. First,
 `if({R}, condition, conclusion)` reads "condition R conclusion":
 `if({contains}, start_doy(A) > 0, B)` gives the maps of B that lie within a
 map of A. Second, with a temporal relation beyond `equal`, the else part of a
@@ -534,8 +535,8 @@ corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the previous implementation, with
-the exceptions below. In these cases the previous implementation ended in an
+The classic algebra gives the results of the reference implementation, with
+the exceptions below. In these cases the reference implementation ended in an
 error that had no reason, reported the wrong error, or did not do what this
 manual describes. **-c** now gives the result described here. The new
 algebra never had these errors; only the items on month steps, on dates
@@ -588,7 +589,7 @@ forms need a new run.
 
 5. **Empty selection of vector maps.** An expression that selects no map
    creates an empty space time vector dataset, as it does for raster maps
-   and in the new algebra (19 October 2026). The previous implementation
+   and in the new algebra (19 October 2026). The reference implementation
    created no dataset for vector maps and gave no warning. With
    **type=stvds**, if no map of A is equal to a map of D, this expression
    gives an empty dataset:
@@ -601,7 +602,7 @@ forms need a new run.
    type of the dataset that the run creates (19 October 2026). If the maps
    of the result come from a function of another type, the run creates a
    dataset of that type: with **type=strds**, this expression creates a
-   space time 3D raster dataset, and the dry run plans one. The previous
+   space time 3D raster dataset, and the dry run plans one. The reference
    implementation planned the type given by **type** and created the other:
 
    ```sh
@@ -614,7 +615,7 @@ forms need a new run.
    Earlier versions gave it the end of the next map, so the two maps swapped
    their ends. If a map on days 2 to 3 and a map on days 2 to 4 start together,
    the one listed first keeps its end in the classic algebra (**-c**,
-   `GRASS_TEMPORAL_ALGEBRA=classic` and the previous implementation). The new
+   `GRASS_TEMPORAL_ALGEBRA=classic` and the reference implementation). The new
    algebra orders such maps by their end instead, see item 7 of the
    differences above:
 
@@ -646,7 +647,7 @@ forms need a new run.
 
 9. **Time functions as the selected maps.** In a selection, a time function
    at an offset such as `start_doy(A, 1)` stands for the map it reads, whose
-   value the previous implementation never computed. Where such a value was
+   value the reference implementation never computed. Where such a value was
    among the selected maps, a dry run listed it and the real run failed when
    it copied that map. The classic algebra now stops with the error "A time
    function such as start_doy() cannot be the result of a selection" before
@@ -688,17 +689,17 @@ forms need a new run.
     (corrected 24 October 2026); the cause is in the error output of the module
     above it. No dataset is created.
 
-#### Differences from the previous implementation
+#### Differences from the reference implementation
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
 [t.rast.algebra](t.rast.algebra.md) lists apply here likewise. Three points
-change the outcome of an expression. The previous implementation refused the
+change the outcome of an expression. The reference implementation refused the
 relation name `equals` and the capital function names `STRDS(A)`,
 `STR3DS(A)` and `STVDS(A)` with a syntax error, where both algebras
 read them as `equal` and as the functions in lower case. A relation over a
 list that mixes maps of absolute and of relative time, which stopped the
-previous implementation with a `TypeError`, selects maps here, as in
+reference implementation with a `TypeError`, selects maps here, as in
 *t.rast.algebra*: maps of the two types relate to nothing.
 
 ## EXAMPLES

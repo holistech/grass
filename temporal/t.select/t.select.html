@@ -116,7 +116,7 @@ over              both overlaps and overlapped
 The relations must be read as: A is related to B, like - A is equal to B - A is
 during B - A contains B <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The previous
+<code>equals</code>; the new algebra and <b>-c</b> read both names. The reference
 implementation refused <code>equals</code> with a syntax error.
 <p>
 Topological relations must be specified in {} parentheses. <br>
@@ -381,14 +381,16 @@ the temporal extent of single map 'event'
 
 Since GRASS 8.6, <em>t.select</em> selects with the functions of the Python
 package <code>grass.temporal.algebra</code>, as <em>t.rast.algebra</em> and
-<em>t.vect.algebra</em> do. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The classic
-algebra is a set of rules of the same functions: it reads the syntax of the
-previous implementation and applies its rules for relations and order. The
-flag <b>-c</b> selects it for one call, the environment variable
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
-<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable
-selects the new algebra, and the flag takes precedence over the variable.
+<em>t.vect.algebra</em> do. The implementation used before, the reference
+implementation in <code>grass.temporal.classic</code>, stays in the source
+code, and its rules stay available as the classic algebra, so that published
+results remain reproducible. The classic algebra is a set of rules of the same
+functions: it reads the syntax of the reference implementation and applies its
+rules for relations and order. The flag <b>-c</b> selects it for one call, the
+environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole
+session or script; <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or
+empty variable selects the new algebra, and the flag takes precedence over the
+variable.
 
 <p>
 Both algebras pull maps of another dataset type into a selection with the
@@ -517,7 +519,7 @@ message in both algebras.
 <p>
 Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
 <em>t.rast3d.algebra</em> and <em>t.vect.algebra</em> as well, so <b>-c</b>
-gives the rules of the previous algebra, not the results of a particular
+gives the rules of the classic algebra, not the results of a particular
 release. First, <code>if({R}, condition, conclusion)</code> reads "condition R
 conclusion": <code>if({contains}, start_doy(A) &gt; 0, B)</code> gives the maps
 of B that lie within a map of A. Second, with a temporal relation beyond
@@ -540,8 +542,8 @@ both corrections.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the previous implementation, with the
-exceptions below. In these cases the previous implementation ended in an error
+The classic algebra gives the results of the reference implementation, with the
+exceptions below. In these cases the reference implementation ended in an error
 that had no reason, reported the wrong error, or did not do what this manual
 describes. <b>-c</b> now gives the result described here. The new algebra never
 had these errors; only the items on month steps, on dates beyond the year 9999
@@ -597,7 +599,7 @@ C = A {:,equal} B
 
 <li><b>Empty selection of vector maps.</b> An expression that selects no map
 creates an empty space time vector dataset, as it does for raster maps and in
-the new algebra (19 October 2026). The previous implementation created no
+the new algebra (19 October 2026). The reference implementation created no
 dataset for vector maps and gave no warning. With <b>type=stvds</b>, if no map
 of A is equal to a map of D, this expression gives an empty dataset:
 
@@ -610,7 +612,7 @@ C = A {:,equal} D
 type of the dataset that the run creates (19 October 2026). If the maps of the
 result come from a function of another type, the run creates a dataset of that
 type: with <b>type=strds</b>, this expression creates a space time 3D raster
-dataset, and the dry run plans one. The previous implementation planned the
+dataset, and the dry run plans one. The reference implementation planned the
 type given by <b>type</b> and created the other:
 
 <div class="code"><pre>
@@ -623,7 +625,7 @@ time as the next map keeps its own end instead (corrected 21 October 2026).
 Earlier versions gave it the end of the next map, so the two maps swapped
 their ends. If a map on days 2 to 3 and a map on days 2 to 4 start together,
 the one listed first keeps its end in the classic algebra (<b>-c</b>,
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the previous implementation).
+<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the reference implementation).
 The new algebra orders such maps by their end instead, see item 7 of the
 differences above:
 
@@ -655,7 +657,7 @@ step of 12 * years + months months, so <code>"1 years, 11 months"</code> and
 </li>
 <li><b>Time functions as the selected maps.</b> In a selection, a time
 function at an offset such as <code>start_doy(A, 1)</code> stands for the map
-it reads, whose value the previous implementation never computed. Where such a
+it reads, whose value the reference implementation never computed. Where such a
 value was among the selected maps, a dry run listed it and the real run failed
 when it copied that map. The classic algebra now stops with the error "A time
 function such as start_doy() cannot be the result of a selection" before it
@@ -699,17 +701,17 @@ above it. No dataset is created.
 </li>
 </ol>
 
-<h4>Differences from the previous implementation</h4>
+<h4>Differences from the reference implementation</h4>
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a
 href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. Three
-points change the outcome of an expression. The previous implementation
+points change the outcome of an expression. The reference implementation
 refused the relation name <code>equals</code> and the capital function names
 <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code> with a
 syntax error, where both algebras read them as <code>equal</code> and as
 the functions in lower case. A relation over a list that mixes maps of
-absolute and of relative time, which stopped the previous implementation
+absolute and of relative time, which stopped the reference implementation
 with a <code>TypeError</code>, selects maps here, as in <em>t.rast.algebra</em>:
 maps of the two types relate to nothing.
 
