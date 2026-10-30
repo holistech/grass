@@ -158,11 +158,14 @@ class _AlgebraParser:
         return classic_selected(self.classic)
 
     def _evaluate(self, expression, basename, overwrite, **arguments):
-        # Imported here: import grass.temporal loads this module, and the
-        # classic profile with its grammar and production tables is only
-        # needed when the classic algebra is selected.
-        from .classic import CLASSIC
+        profile = CORE
+        if self._classic():
+            # Imported here: import grass.temporal loads this module, and the
+            # classic profile with its grammar and production tables is only
+            # needed when the classic algebra is selected.
+            from .classic import CLASSIC
 
+            profile = CLASSIC
         return evaluate(
             expression,
             kind=self._kind,
@@ -171,7 +174,7 @@ class _AlgebraParser:
             run=self.run,
             debug=self.debug,
             spatial=self.spatial,
-            profile=CLASSIC if self._classic() else CORE,
+            profile=profile,
             **arguments,
         )
 
