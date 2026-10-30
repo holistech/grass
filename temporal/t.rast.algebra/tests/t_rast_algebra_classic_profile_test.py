@@ -147,8 +147,12 @@ def test_comparison_sees_a_different_result(algebra):
     assert compare("raster", "A + N", reference, profile) is not None
 
 
-# The increment of a time shift or buffer is truncated to whole units on
-# relative time and refused on others, and an empty list passes any increment.
+# On relative time buff_t() truncates a fractional increment to whole units
+# and tshift() refuses it with a SyntaxError (measured 2026-10-30 with
+# differential.outcome on the reference and the profile: buff_t(RT, 1.5)
+# turns the maps [0, 1], [1, 2], [2, 3] of RT into [-1, 2], [0, 3], [1, 4]).
+# An increment of the wrong kind for the time type is refused, and an empty
+# list passes any increment.
 INCREMENTS = [
     "buff_t(RT, 1.5)",
     "tshift(RT, 1.5)",

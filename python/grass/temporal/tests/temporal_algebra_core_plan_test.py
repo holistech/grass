@@ -312,7 +312,8 @@ def test_skip_reduction_of_a_map_at_an_offset_uses_a_temporary_map():
 
 def test_a_reduction_skipping_nulls_reads_its_maps_from_a_file(make_series):
     """The maps reach r.series in a file, as for an aggregation, because the
-    kernel limits a single argument such as input=a,b,... to 131072 bytes"""
+    kernel limits a single argument such as input=a,b,... to 131071
+    characters, 131072 bytes with the terminating NUL"""
     a = make_series("a", (1, 2), (2, 3))
     b = make_series("b", (1, 3))
     (call,) = plan(gather(b, contains, a, reduce="sum", nulls="skip"), "R").processes
