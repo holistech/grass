@@ -108,7 +108,7 @@ over              both overlaps and overlapped
 The relations must be read as: A is related to B, like - A is equal to B - A is
 during B - A contains B <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The previous
+<code>equals</code>; the new algebra and <b>-c</b> read both names. The reference
 implementation refused <code>equals</code> with a syntax error.
 <p>
 Topological relations must be specified in {} parentheses. <br>
@@ -496,16 +496,17 @@ algebras.
 
 Since GRASS 8.6, <em>t.vect.algebra</em> computes its expressions with the
 functions of the Python package <code>grass.temporal.algebra</code>, as
-<em>t.rast.algebra</em> does. The previous implementation stays available as
-the classic algebra, so that published results remain reproducible. The
-classic algebra is a set of rules of the same functions: it reads the syntax
-of the previous implementation and applies its rules for relations, order and
-results. The flag <b>-c</b> selects it for one call, the environment variable
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
-<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable
-selects the new algebra, and the flag takes precedence over the variable.
-In Python, <code>TemporalVectorAlgebraParser</code> takes the keyword
-<code>classic=True</code> for the same purpose.
+<em>t.rast.algebra</em> does. The implementation used before, the reference
+implementation in <code>grass.temporal.classic</code>, stays in the source
+code, and its rules stay available as the classic algebra, so that published
+results remain reproducible. The classic algebra is a set of rules of the same
+functions: it reads the syntax of the reference implementation and applies its
+rules for relations, order and results. The flag <b>-c</b> selects it for one
+call, the environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for
+a whole session or script; <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset
+or empty variable selects the new algebra, and the flag takes precedence over
+the variable. In Python, <code>TemporalVectorAlgebraParser</code> takes the
+keyword <code>classic=True</code> for the same purpose.
 
 <p>
 The two algebras differ in the following points. The examples use four daily
@@ -639,7 +640,7 @@ C = buff_t(B, "-1 day")
 </li>
 
 <li><b>merge() of buffers.</b> The new algebra takes two maps with equal
-content and time stamps as one map. The classic algebra, as the previous
+content and time stamps as one map. The classic algebra, as the reference
 implementation, makes a new map for each buffer of <code>buff_p()</code>,
 <code>buff_l()</code> and <code>buff_a()</code>, and <code>merge()</code> keeps
 such a map next to an equal one. This expression gives the buffers of the maps
@@ -662,7 +663,7 @@ with the error message in both algebras.
 <p>
 Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
 <em>t.rast3d.algebra</em> and <em>t.select</em> as well, so <b>-c</b> gives
-the rules of the previous algebra, not the results of a particular release.
+the rules of the classic algebra, not the results of a particular release.
 First, <code>if({R}, condition, conclusion)</code> reads "condition R
 conclusion": <code>if({contains}, start_doy(A) &gt; 0, B)</code> gives the
 maps of B that lie within a map of A. The code that <em>t.vect.algebra</em>
@@ -688,8 +689,8 @@ both corrections.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the previous implementation, with the
-exceptions below. In these cases the previous implementation ended in an error
+The classic algebra gives the results of the reference implementation, with the
+exceptions below. In these cases the reference implementation ended in an error
 that had no reason or reported the wrong error. <b>-c</b> now gives the result
 described here. The new algebra never had these errors; only the items on month
 steps, on dates beyond the year 9999 and on a failed module concerned the
@@ -809,7 +810,7 @@ above it. No dataset is created.
 </li>
 </ol>
 
-<h4>Differences from the previous implementation</h4>
+<h4>Differences from the reference implementation</h4>
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a

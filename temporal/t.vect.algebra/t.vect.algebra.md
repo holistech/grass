@@ -108,7 +108,7 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra and **-c** read both names. The previous implementation
+the new algebra and **-c** read both names. The reference implementation
 refused `equals` with a syntax error.
 
 Topological relations must be specified in {} parentheses.  
@@ -477,18 +477,19 @@ copies only the maps whose time changes. This holds for both algebras.
 
 ### Core and classic algebra
 
-Since GRASS 8.6, *t.vect.algebra* computes its expressions with the
-functions of the Python package `grass.temporal.algebra`, as
-*t.rast.algebra* does. The previous implementation stays available as the
-classic algebra, so that published results remain reproducible. The classic
-algebra is a set of rules of the same functions: it reads the syntax of the
-previous implementation and applies its rules for relations, order and
-results. The flag **-c** selects it for one call, the environment variable
-`GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or script;
-`GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
+Since GRASS 8.6, *t.vect.algebra* computes its expressions with the functions
+of the Python package `grass.temporal.algebra`, as *t.rast.algebra* does. The
+implementation used before, the reference implementation in
+`grass.temporal.classic`, stays in the source code, and its rules stay
+available as the classic algebra, so that published results remain
+reproducible. The classic algebra is a set of rules of the same functions: it
+reads the syntax of the reference implementation and applies its rules for
+relations, order and results. The flag **-c** selects it for one call, the
+environment variable `GRASS_TEMPORAL_ALGEBRA=classic` for a whole session or
+script; `GRASS_TEMPORAL_ALGEBRA=core` or an unset or empty variable selects the
 new algebra, and the flag takes precedence over the variable. In Python,
-`TemporalVectorAlgebraParser` takes the keyword `classic=True` for the
-same purpose.
+`TemporalVectorAlgebraParser` takes the keyword `classic=True` for the same
+purpose.
 
 The two algebras differ in the following points. The examples use four
 daily maps in A with one area each, and two maps of two days in B that
@@ -611,7 +612,7 @@ of A in its time, and time instances in I.
 
 9. **merge() of buffers.** The new algebra takes two maps with equal
     content and time stamps as one map. The classic algebra, as the
-    previous implementation, makes a new map for each buffer of
+    reference implementation, makes a new map for each buffer of
     `buff_p()`, `buff_l()` and `buff_a()`, and `merge()` keeps such a map
     next to an equal one. This expression gives the buffers of the maps of
     A once in the new algebra and twice in the classic algebra:
@@ -629,7 +630,7 @@ message in both algebras.
 
 Two corrections apply to both algebras, and to *t.rast.algebra*,
 *t.rast3d.algebra* and *t.select* as well, so **-c** gives the rules of
-the previous algebra, not the results of a particular release. First,
+the classic algebra, not the results of a particular release. First,
 `if({R}, condition, conclusion)` reads "condition R conclusion":
 `if({contains}, start_doy(A) > 0, B)` gives the maps of B that lie within
 a map of A. The code that *t.vect.algebra* shares with *t.select* read such
@@ -653,8 +654,8 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the previous implementation, with
-the exceptions below. In these cases the previous implementation ended in an
+The classic algebra gives the results of the reference implementation, with
+the exceptions below. In these cases the reference implementation ended in an
 error that had no reason or reported the wrong error. **-c** now gives the
 result described here. The new algebra never had these errors; only the
 items on month steps, on dates beyond the year 9999 and on a failed module
@@ -768,7 +769,7 @@ versions that used one of these forms need a new run.
    (corrected 24 October 2026); the cause is in the error output of the module
    above it. No dataset is created.
 
-#### Differences from the previous implementation
+#### Differences from the reference implementation
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
