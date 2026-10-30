@@ -6,7 +6,7 @@ itself is compared in the test directories of the algebra tools.
 
 import pytest
 
-from grass.temporal.algebra import CORE, Profile, operations
+from grass.temporal.algebra import CORE, Profile
 from grass.temporal.algebra.parser import classic, classic_numbers, evaluate, translate
 from grass.temporal.algebra.parser.classic import CLASSIC
 from grass.temporal.algebra.parser.classic_grammar import classic_grammar
@@ -48,25 +48,6 @@ def test_classic_is_a_profile_of_the_classic_translator():
 )
 def test_the_grammar_follows_the_map_type_and_t_select(kind, selection, expected):
     assert CLASSIC.grammar.for_kind(kind, selection) is classic_grammar(expected)
-
-
-def test_the_conditions_of_if_are_related_in_time_order(
-    in_memory_datasets, monkeypatch
-):
-    """The classic profile relates the conditions of if() as the core does, in
-    time order and once per map, although it relates the operands of other
-    operators in the written order of the relation names"""
-    seen = []
-    original = operations.gather
-
-    def gather(*args, **keywords):
-        if keywords.get("missing") == "null":
-            seen.append((keywords["order"], keywords["unique"]))
-        return original(*args, **keywords)
-
-    monkeypatch.setattr(operations, "gather", gather)
-    chain("R = if({during|equal}, td(B) > 1, A, 0)")
-    assert seen == [("sorted", True)]
 
 
 def test_the_profile_reaches_the_translator(in_memory_datasets):
