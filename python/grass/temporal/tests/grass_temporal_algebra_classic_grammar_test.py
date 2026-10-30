@@ -32,9 +32,14 @@ from pathlib import Path
 
 import pytest
 
-from grass.temporal.algebra.parser import ast, classic_grammar as classic
-from grass.temporal.testing.expressions import boundary_forms, generate, seed_range
-from grass.temporal.testing.expressions import prepare
+from grass.temporal.algebra.parser import ast, classic_productions
+from grass.temporal.algebra.parser import classic_grammar as classic
+from grass.temporal.testing.expressions import (
+    boundary_forms,
+    generate,
+    prepare,
+    seed_range,
+)
 from grass.temporal.testing.reference import run_reference
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -372,7 +377,7 @@ def drift(kind):
             if lines_of(old_text) != lines_of(new_text)
         )
     old_precedence = tuple(tuple(row) for row in parser_class.precedence)
-    if old_precedence != classic.PRECEDENCE[kind]:
+    if old_precedence != classic_productions.PRECEDENCE[kind]:
         found.append("the precedence differs")
     if tuple(parser_class.tokens) != classic.classic_grammar(kind).tokens:
         found.append("the tokens differ")
@@ -389,12 +394,14 @@ def test_frozen_copy_equals_the_parser_classes(kind):
 
 def test_drift_check_sees_a_changed_production(monkeypatch):
     """Negative check: a changed text or precedence is reported"""
-    changed = dict(classic._TEXTS)  # noqa: SLF001
+    changed = dict(classic_productions.TEXTS)
     changed["p_paren_expr"] = "expr : LPAREN expr expr RPAREN"
-    monkeypatch.setattr(classic, "_TEXTS", changed)
+    monkeypatch.setattr(classic_productions, "TEXTS", changed)
     assert drift("select") == ["p_paren_expr: the production differs"]
     monkeypatch.setattr(
-        classic, "PRECEDENCE", {**classic.PRECEDENCE, "select": (("left", "AND"),)}
+        classic_productions,
+        "PRECEDENCE",
+        {**classic_productions.PRECEDENCE, "select": (("left", "AND"),)},
     )
     assert "the precedence differs" in drift("select")
 
