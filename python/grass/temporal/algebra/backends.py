@@ -488,11 +488,5 @@ _BACKENDS = {
 
 
 def backend_for(kind):
-    """Return the backend of a map type
-
-    :raises NotImplementedError: for a map type without backend
-    """
-    if kind not in _BACKENDS:
-        msg = f"Computing {kind} maps is not supported yet"
-        raise NotImplementedError(msg)
+    """Return the backend of a map type"""
     return _BACKENDS[kind]

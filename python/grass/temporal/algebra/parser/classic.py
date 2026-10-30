@@ -151,15 +151,15 @@ def _check_increment(function, series, increment, with_unit):
     relative = any(slot.extent.unit is not None for slot in series.slots)
     if str(increment).strip().lstrip("-").isdigit() and absolute:
         msg = (
-            "Function {function}() needs a time unit for absolute time, "
-            'e.g. "{increment} days", but got {increment}'
-        ).format(function=function, increment=increment)
+            f"Function {function}() needs a time unit for absolute time, "
+            f'e.g. "{increment} days", but got {increment}'
+        )
         raise SyntaxError(msg)
     if with_unit and relative:
         msg = (
-            "Function {function}() needs a number without a time unit for "
-            'relative time, e.g. 3, but got "{increment}"'
-        ).format(function=function, increment=increment)
+            f"Function {function}() needs a number without a time unit for "
+            f'relative time, e.g. 3, but got "{increment}"'
+        )
         raise SyntaxError(msg)
 
 

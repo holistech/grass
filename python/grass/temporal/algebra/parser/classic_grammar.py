@@ -310,9 +310,9 @@ class ClassicGrammar:
         def p_error(t):
             if t:
                 msg = (
-                    "syntax error on line %d, position %i token %s near '%s' "
-                    "expression '%s'"
-                    % (t.lineno, t.lexpos, t.type, t.value, run.expression)
+                    f"syntax error on line {t.lineno}, position {t.lexpos} "
+                    f"token {t.type} near '{t.value}' "
+                    f"expression '{run.expression}'"
                 )
                 raise SyntaxError(msg)
             msg = "Unexpected syntax error"
