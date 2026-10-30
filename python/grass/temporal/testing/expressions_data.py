@@ -22,7 +22,16 @@ import datetime
 from pathlib import Path
 
 import grass.temporal as tgis
-from grass.temporal.testing.data import MapSpec, create_stds, day, register_stds
+from grass.temporal.testing.data import (
+    MapSpec,
+    create_stds,
+    day,
+    horizontal_line,
+    import_ascii_vector,
+    points_map,
+    register_stds,
+    square_area,
+)
 
 NAMES = {
     "raster": {
@@ -302,37 +311,6 @@ def _raster3d(tools, directory):
     )
 
 
-def _import(tools, directory, name, format_, body, **options):
-    path = directory / f"{name}.txt"
-    path.write_text(body)
-    tools.v_in_ascii(input=path, output=name, format=format_, **options)
-
-
-def _points(tools, directory, name, points):
-    body = "".join(f"{x}|{y}|{i}\n" for i, (x, y) in enumerate(points, 1))
-    _import(tools, directory, name, "point", body, separator="pipe")
-
-
-def _standard(tools, directory, name, body):
-    _import(tools, directory, name, "standard", body, flags="n")
-
-
-def _square(tools, directory, name, x, y):
-    """Import one 10x10 area with centroid, lower left corner at (x, y)"""
-    _standard(
-        tools,
-        directory,
-        name,
-        f"B 5\n {x} {y}\n {x + 10} {y}\n {x + 10} {y + 10}\n {x} {y + 10}\n"
-        f" {x} {y}\nC 1 1\n {x + 5} {y + 5}\n 1 1\n",
-    )
-
-
-def _line(tools, directory, name, x, y):
-    """Import one horizontal line of length 10"""
-    _standard(tools, directory, name, f"L 2 1\n {x} {y}\n {x + 10} {y}\n 1 1\n")
-
-
 def _vector(tools, directory):
     tools.g_region(n=100, s=0, e=100, w=0, res=10)
     days = [day(n) for n in range(6)]
@@ -349,9 +327,9 @@ def _vector(tools, directory):
 
     pa, pb, pc = [], [], []
     for i in (1, 2, 3):
-        _points(tools, directory, f"pa{i}", [(10 * j, 10 * i) for j in range(i)])
-        _points(tools, directory, f"pb{i}", [(3 + 10 * i, 5), (4 + 10 * i, 6)])
-        _points(tools, directory, f"pc{i}", [(0, 0), (10, 10)])
+        points_map(tools, directory, f"pa{i}", [(10 * j, 10 * i) for j in range(i)])
+        points_map(tools, directory, f"pb{i}", [(3 + 10 * i, 5), (4 + 10 * i, 6)])
+        points_map(tools, directory, f"pc{i}", [(0, 0), (10, 10)])
         pa.append((f"pa{i}", days[i - 1], days[i]))
         pb.append((f"pb{i}", days[i - 1], days[i]))
         pc.append((f"pc{i}", days[i - 1], days[i]))
@@ -360,9 +338,9 @@ def _vector(tools, directory):
     register("pc", pc)
     aa, ab, la = [], [], []
     for i, (xa, xb) in enumerate([(0, 5), (20, 25), (40, 70)], 1):
-        _square(tools, directory, f"aa{i}", xa, 0)
-        _square(tools, directory, f"ab{i}", xb, 0)
-        _line(tools, directory, f"la{i}", xa, 5)
+        square_area(tools, directory, f"aa{i}", xa, 0)
+        square_area(tools, directory, f"ab{i}", xb, 0)
+        horizontal_line(tools, directory, f"la{i}", xa, 5)
         aa.append((f"aa{i}", days[i - 1], days[i]))
         ab.append((f"ab{i}", days[i - 1], days[i]))
         la.append((f"la{i}", days[i - 1], days[i]))
@@ -371,26 +349,28 @@ def _vector(tools, directory):
     register("la", la)
     ac = []
     for i in (1, 2, 3):
-        _standard(
+        import_ascii_vector(
             tools,
             directory,
             f"ac{i}",
+            "standard",
             "B 5\n 0 0\n 10 0\n 10 10\n 0 10\n 0 0\nC 1 1\n 5 5\n 1 1\n"
             "B 5\n 50 20\n 60 20\n 60 30\n 50 30\n 50 20\nC 1 1\n 55 25\n 1 1\n",
+            flags="n",
         )
         ac.append((f"ac{i}", days[i - 1], days[i]))
     register("ac", ac)
-    _square(tools, directory, "wide1", 5, 0)
-    _square(tools, directory, "wide2", 45, 0)
+    square_area(tools, directory, "wide1", 5, 0)
+    square_area(tools, directory, "wide2", 45, 0)
     register("wide", [("wide1", days[0], days[2]), ("wide2", days[2], days[4])])
     # Maps without primitives
     for i in (1, 2):
         tools.v_edit(map=f"nv{i}", tool="create")
     register("ne", [("nv1", days[0], days[1]), ("nv2", days[1], days[2])])
     # Two maps with one time stamp, then a third
-    _square(tools, directory, "eq1", 0, 0)
-    _square(tools, directory, "eq2", 5, 0)
-    _square(tools, directory, "eq3", 20, 0)
+    square_area(tools, directory, "eq1", 0, 0)
+    square_area(tools, directory, "eq2", 5, 0)
+    square_area(tools, directory, "eq3", 20, 0)
     register(
         "eq",
         [
@@ -401,14 +381,14 @@ def _vector(tools, directory):
     )
     # Time instances
     for i in (1, 2):
-        _points(tools, directory, f"pi{i}", [(5 * i, 5), (5 * i + 1, 6)])
+        points_map(tools, directory, f"pi{i}", [(5 * i, 5), (5 * i + 1, 6)])
     register("pi", [("pi1", days[0], None), ("pi2", days[1], None)])
     tools.g_copy(vector="pa1,rp1")
     tools.g_copy(vector="pa2,rp2")
     register(
         "rel", [("rp1", 0, 1), ("rp2", 1, 2)], temporaltype="relative", unit="days"
     )
-    _square(tools, directory, "ev", 2, 0)
+    square_area(tools, directory, "ev", 2, 0)
     tgis.register_maps_in_space_time_dataset(
         "vector", None, "ev", start="2001-01-02", end="2001-01-03"
     )

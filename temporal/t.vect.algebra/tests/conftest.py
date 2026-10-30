@@ -5,39 +5,18 @@ from types import SimpleNamespace
 import pytest
 
 from grass.temporal.testing import io_cache
-from grass.temporal.testing.data import MapSpec, day, register_stds, timestamp
+from grass.temporal.testing.data import (
+    MapSpec,
+    day,
+    horizontal_line,
+    import_ascii_vector,
+    points_map,
+    register_stds,
+    square_area,
+    timestamp,
+)
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
-
-
-def import_standard(tools, tmp_path, name, body):
-    """Import vector features written in the GRASS ASCII standard format"""
-    path = tmp_path / f"{name}.txt"
-    path.write_text(body)
-    tools.v_in_ascii(input=path, output=name, format="standard", flags="n")
-
-
-def import_points(tools, tmp_path, name, points):
-    """Import points given as (x, y) tuples"""
-    path = tmp_path / f"{name}.txt"
-    path.write_text("".join(f"{x}|{y}|{i}\n" for i, (x, y) in enumerate(points, 1)))
-    tools.v_in_ascii(input=path, output=name, format="point", separator="pipe")
-
-
-def import_square(tools, tmp_path, name, x, y):
-    """Import one 10x10 area with centroid"""
-    import_standard(
-        tools,
-        tmp_path,
-        name,
-        f"B 5\n {x} {y}\n {x + 10} {y}\n {x + 10} {y + 10}\n {x} {y + 10}\n"
-        f" {x} {y}\nC 1 1\n {x + 5} {y + 5}\n 1 1\n",
-    )
-
-
-def import_line(tools, tmp_path, name, x, y):
-    """Import one horizontal line of length 10"""
-    import_standard(tools, tmp_path, name, f"L 2 1\n {x} {y}\n {x + 10} {y}\n 1 1\n")
 
 
 def create_stvds(tools, name, maps_and_times, **options):
@@ -93,29 +72,27 @@ def vector_series(tmp_path_factory):
 
         pa = []
         for i in (1, 2, 3):
-            import_points(
-                tools, tmp_path, f"pa{i}", [(10 * j, 10 * i) for j in range(i)]
-            )
+            points_map(tools, tmp_path, f"pa{i}", [(10 * j, 10 * i) for j in range(i)])
             pa.append((f"pa{i}", days[i - 1], days[i]))
         create_stvds(tools, "pa", pa)
 
         pb = []
         for i in (1, 2, 3):
-            import_points(tools, tmp_path, f"pb{i}", [(3 + 10 * i, 5), (4 + 10 * i, 6)])
+            points_map(tools, tmp_path, f"pb{i}", [(3 + 10 * i, 5), (4 + 10 * i, 6)])
             pb.append((f"pb{i}", days[i - 1], days[i]))
         create_stvds(tools, "pb", pb)
 
         pc = []
         for i in (1, 2, 3):
-            import_points(tools, tmp_path, f"pc{i}", [(0, 0), (10, 10)])
+            points_map(tools, tmp_path, f"pc{i}", [(0, 0), (10, 10)])
             pc.append((f"pc{i}", days[i - 1], days[i]))
         create_stvds(tools, "pc", pc)
 
         aa, ab, la = [], [], []
         for i, (xa, xb) in enumerate([(0, 5), (20, 25), (40, 70)], 1):
-            import_square(tools, tmp_path, f"aa{i}", xa, 0)
-            import_square(tools, tmp_path, f"ab{i}", xb, 0)
-            import_line(tools, tmp_path, f"la{i}", xa, 5)
+            square_area(tools, tmp_path, f"aa{i}", xa, 0)
+            square_area(tools, tmp_path, f"ab{i}", xb, 0)
+            horizontal_line(tools, tmp_path, f"la{i}", xa, 5)
             aa.append((f"aa{i}", days[i - 1], days[i]))
             ab.append((f"ab{i}", days[i - 1], days[i]))
             la.append((f"la{i}", days[i - 1], days[i]))
@@ -125,18 +102,20 @@ def vector_series(tmp_path_factory):
 
         ac = []
         for i in (1, 2, 3):
-            import_standard(
+            import_ascii_vector(
                 tools,
                 tmp_path,
                 f"ac{i}",
+                "standard",
                 "B 5\n 0 0\n 10 0\n 10 10\n 0 10\n 0 0\nC 1 1\n 5 5\n 1 1\n"
                 "B 5\n 50 20\n 60 20\n 60 30\n 50 30\n 50 20\nC 1 1\n 55 25\n 1 1\n",
+                flags="n",
             )
             ac.append((f"ac{i}", days[i - 1], days[i]))
         create_stvds(tools, "ac", ac)
 
-        import_square(tools, tmp_path, "wide1", 5, 0)
-        import_square(tools, tmp_path, "wide2", 45, 0)
+        square_area(tools, tmp_path, "wide1", 5, 0)
+        square_area(tools, tmp_path, "wide2", 45, 0)
         create_stvds(
             tools,
             "wide",
@@ -153,7 +132,7 @@ def vector_series(tmp_path_factory):
             unit="days",
         )
 
-        import_square(tools, tmp_path, "ev", 2, 0)
+        square_area(tools, tmp_path, "ev", 2, 0)
         tools.t_register(type="vector", maps="ev", start=timestamp(1), end=timestamp(2))
         yield SimpleNamespace(session=session, tools=tools, tmp_path=tmp_path)
 

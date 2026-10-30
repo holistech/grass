@@ -297,6 +297,48 @@ def register_file(path, rows, *, separator="|"):
 _SQL_TYPE = {int: "integer", float: "double precision", str: "text"}
 
 
+def import_ascii_vector(tools, directory, name, format_, body, **options):
+    """Write body to <directory>/<name>.txt and import it with v.in.ascii
+
+    format_ is "standard" (the GRASS ASCII format with its boundaries and
+    centroids; pass ``flags="n"`` because the body has no header) or "point".
+    """
+    path = Path(directory) / f"{name}.txt"
+    path.write_text(body)
+    tools.v_in_ascii(input=path, output=name, format=format_, **options)
+
+
+def points_map(tools, directory, name, points):
+    """Import points given as (x, y) tuples; the category is the position"""
+    body = "".join(f"{x}|{y}|{i}\n" for i, (x, y) in enumerate(points, 1))
+    import_ascii_vector(tools, directory, name, "point", body, separator="pipe")
+
+
+def square_area(tools, directory, name, x, y):
+    """Import one 10x10 area with centroid, lower left corner at (x, y)"""
+    import_ascii_vector(
+        tools,
+        directory,
+        name,
+        "standard",
+        f"B 5\n {x} {y}\n {x + 10} {y}\n {x + 10} {y + 10}\n {x} {y + 10}\n"
+        f" {x} {y}\nC 1 1\n {x + 5} {y + 5}\n 1 1\n",
+        flags="n",
+    )
+
+
+def horizontal_line(tools, directory, name, x, y):
+    """Import one horizontal line of length 10 from (x, y)"""
+    import_ascii_vector(
+        tools,
+        directory,
+        name,
+        "standard",
+        f"L 2 1\n {x} {y}\n {x + 10} {y}\n 1 1\n",
+        flags="n",
+    )
+
+
 def vector_points(
     tools, name, points, *, attributes=None, layers=(1,), overwrite=False
 ):
