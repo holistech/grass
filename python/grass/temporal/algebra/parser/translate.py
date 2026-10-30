@@ -576,9 +576,11 @@ class Translator:
         if({R}, c, X) reads "c R x", so the maps of X are related to the
         conditions by the inverse of R.
         """
-        # order and unique are named, so that the relating options of a
-        # profile do not reach the conditions: the classic profile comes here
-        # through _temporal_if() and relates the conditions as the core does.
+        # Every variant relates the conditions of if() in time order and once
+        # per map, so order and unique are named here and the relating options
+        # of a profile do not reach them. The classic profile comes here
+        # through _temporal_if() and has always related the conditions so;
+        # its results must not change.
         return self._gather_op(
             target,
             inverse(self._relation(operator)),
