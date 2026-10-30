@@ -1,7 +1,8 @@
 """Helpers for tests of the temporal framework
 
-The modules do not import pytest; the fixtures that use them live in
-temporal/conftest.py and python/grass/temporal/tests/conftest.py.
+The modules do not import pytest. The shared fixtures that use them live in
+temporal/conftest.py and python/grass/temporal/tests/conftest.py; the test
+directories of the tools add their own in their conftest.py.
 doc/development/testing.md describes how the tests use them.
 
 Sessions and data:
@@ -33,8 +34,8 @@ differential
     Run an expression on the reference, the classic profile or the core and
     compare two outcomes.
 algebra_cases
-    Datasets and checks of the algebra cases with expected values derived
-    by hand.
+    Datasets and checks of the algebra cases of the library tests that came
+    from the former gunittest files, with expected values derived by hand.
 expressions
     Seeded random expressions in the syntax of the classic algebra, run by
     two runners of differential and compared, in pytest and from the

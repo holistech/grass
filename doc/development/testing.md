@@ -178,8 +178,9 @@ def test_something_which_changes_the_environment(xy_dataset_session):
 
 The helpers for tests of _grass.temporal_ and of the `t.*` tools are in the
 package `grass.temporal.testing`. It does not import pytest, so it can be
-used from any test; the fixtures that wrap it are in
-`temporal/conftest.py` and in `python/grass/temporal/tests/conftest.py`.
+used from any test; the shared fixtures that wrap it are in
+`temporal/conftest.py` and in `python/grass/temporal/tests/conftest.py`, and
+the test directories of the tools add their own in their `conftest.py`.
 
 - `session`: `project_session()` and `temporal_session()` create a project
   and yield a session. `add_mapset()` adds a mapset to it, and
@@ -309,8 +310,9 @@ orphans, run the tests in both settings of the algebra with
 entries that no test read. Tests of the reference itself, tests that check it
 against values derived by hand, and the comparisons of the planned chain and
 of the error texts in `temporal_algebra_core_plan_options_io_test.py`, which
-have no outcome to store, still run it. The cases of the algebra whose
-expected values are derived by hand take their datasets and their checks
+have no outcome to store, still run it. The algebra cases of the library
+tests that came from the former gunittest files
+(`grass_temporal_algebra_legacy_*_test.py`) take their datasets and checks
 from `grass.temporal.testing.algebra_cases`.
 
 The module `grass.temporal.testing.expressions` generates seeded random
