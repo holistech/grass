@@ -49,7 +49,11 @@ STDS_TYPES = {**STDS_TYPE_OF_KIND, "select": "strds"}
 
 
 def _granularity_parser_class(kind):
-    """Return the public parser class of a kind, which the tools call"""
+    """Return the public parser class of a kind, which the tools call
+
+    :raises ValueError: for a kind without a granularity mode, such as
+        ``"select"``
+    """
     from grass.temporal.algebra.parser import facade
 
     from .reference import check_granularity_kind

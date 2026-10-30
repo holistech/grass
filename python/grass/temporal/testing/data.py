@@ -14,6 +14,10 @@ Which helper makes what:
 - ``create_daily_stds`` makes one set of daily maps and registers it in each
   of several datasets. The fixture ``make_stds`` of ``temporal/conftest.py``
   wraps it and names the datasets ``<prefix>_ds0``, ``<prefix>_ds1``, ...;
+- a map with a time stamp but in no dataset is made by ``make_map`` and
+  stamped with ``t.register maps=`` (``algebra_cases.single_map``) or with
+  ``tgis.register_maps_in_space_time_dataset(type, None, name, start=...)``
+  (``expressions_data``);
 - ``register_file`` writes the input file of ``t.register`` and
   ``t.unregister``;
 - ``import_ascii_vector``, ``points_map``, ``square_area`` and
@@ -37,8 +41,9 @@ DAY0 = datetime(2001, 1, 1)
 
 # t.register and the library take the type of the maps, not of the dataset
 # that holds them. The tables are written out here, not taken from
-# grass.temporal.kinds, so that test data does not depend on the library that
-# the tests check.
+# grass.temporal.kinds, as an independent oracle: a wrong table in the library
+# must not drag the test data along. The kind in STDS_TYPE_OF_KIND is the map
+# kind of the algebra: raster, raster3d or vector.
 MAP_TYPE_OF_STDS = {"strds": "raster", "str3ds": "raster_3d", "stvds": "vector"}
 STDS_TYPE_OF_KIND = {"raster": "strds", "raster3d": "str3ds", "vector": "stvds"}
 _MAP_KINDS = tuple(MAP_TYPE_OF_STDS.values())

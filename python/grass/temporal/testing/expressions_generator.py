@@ -58,11 +58,13 @@ class Generator:
     integer ``-1``. A few forms lie outside the classic grammar on purpose,
     so that both sides must reject them.
 
-    Every method returns the text of one production (``_arith`` the text of
-    ``A + B``) and draws from ``self.rng``; a builder takes the depth that is
-    left for its operands. The number and the order of the draws decide the
-    expression of a seed, and the keys of the corpus hold those expressions,
-    so a change to either needs a new recording of the corpus.
+    A builder, one of the methods that the tables of ``expr`` list, returns the
+    text of one production (``_arith`` the text of ``A + B``) and takes the
+    depth that is left for its operands. The draws from ``self.rng`` are
+    ``_chance`` and ``_pick`` and the choices in ``expr`` and ``_name``; the
+    tables only list builders. The number and the order of the draws decide
+    the expression of a seed, and the keys of the corpus hold those
+    expressions, so a change to either needs a new recording of the corpus.
     """
 
     def __init__(self, kind, rng, *, granularity=False, paper=False):
