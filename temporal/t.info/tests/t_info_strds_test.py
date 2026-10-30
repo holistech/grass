@@ -7,7 +7,7 @@ changes to the interface can be checked against the established behavior.
 
 import pytest
 
-from grass.temporal.testing.readback import shell_info
+from grass.temporal.testing.readback import info_text
 from grass.tools import Tools
 from grass.tools.session_tools import ToolError
 
@@ -84,7 +84,7 @@ def stable_items(info):
 def test_shell_keys(temporal_data):
     """Shell output has the expected keys in the expected order"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="strds", input="precip_abs1")
+    info = info_text(tools, type="strds", input="precip_abs1")
 
     assert list(info.keys()) == STRDS_SHELL_KEYS
 
@@ -92,7 +92,7 @@ def test_shell_keys(temporal_data):
 def test_shell_values(temporal_data):
     """Shell output reports the metadata of the dataset"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="strds", input="precip_abs1")
+    info = info_text(tools, type="strds", input="precip_abs1")
 
     assert stable_items(info) == {
         "id": f"precip_abs1@{temporal_data.mapset}",
@@ -207,7 +207,7 @@ def test_nonascii_title_and_description(temporal_data):
 def test_dataset_without_maps(temporal_data):
     """A dataset without registered maps reports None for the empty fields"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="strds", input="empty_ds")
+    info = info_text(tools, type="strds", input="empty_ds")
 
     assert list(info.keys()) == STRDS_SHELL_KEYS
     assert info["start_time"] == "'None'"
@@ -222,7 +222,7 @@ def test_dataset_without_maps(temporal_data):
 def test_relative_time_dataset(temporal_data):
     """A relative time dataset reports its time unit"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="strds", input="precip_rel1")
+    info = info_text(tools, type="strds", input="precip_rel1")
 
     assert info["temporal_type"] == "relative"
     assert info["unit"] == "days"
@@ -235,7 +235,7 @@ def test_relative_time_dataset(temporal_data):
 def test_raster_map_shell(temporal_data):
     """Shell output for a registered raster map reports the map metadata"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="raster", input="prec_1")
+    info = info_text(tools, type="raster", input="prec_1")
 
     assert list(info.keys()) == RASTER_SHELL_KEYS
     assert stable_items(info) == {
@@ -280,7 +280,7 @@ def test_raster_map_plain(temporal_data):
 def test_map_registered_in_two_datasets(temporal_data):
     """A map registered in more than one dataset reports all of them"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="raster", input="prec_2")
+    info = info_text(tools, type="raster", input="prec_2")
 
     mapset = temporal_data.mapset
     assert info["registered_datasets"] == f"precip_abs1@{mapset},precip_abs2@{mapset}"

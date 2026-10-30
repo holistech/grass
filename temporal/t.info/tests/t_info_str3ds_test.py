@@ -5,7 +5,7 @@ The expected values capture the output of t.info as it is now, so that later
 changes to the interface can be checked against the established behavior.
 """
 
-from grass.temporal.testing.readback import shell_info
+from grass.temporal.testing.readback import info_text
 from grass.tools import Tools
 
 # Keys whose values differ between runs, systems, or users.
@@ -82,7 +82,7 @@ def stable_items(info):
 def test_shell_keys(temporal_data):
     """Shell output has the expected keys in the expected order"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="str3ds", input="volume_abs1")
+    info = info_text(tools, type="str3ds", input="volume_abs1")
 
     assert list(info.keys()) == STR3DS_SHELL_KEYS
 
@@ -90,7 +90,7 @@ def test_shell_keys(temporal_data):
 def test_shell_values(temporal_data):
     """Shell output reports the metadata of the dataset"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="str3ds", input="volume_abs1")
+    info = info_text(tools, type="str3ds", input="volume_abs1")
 
     assert stable_items(info) == {
         "id": f"volume_abs1@{temporal_data.mapset}",
@@ -140,7 +140,7 @@ def test_plain_info(temporal_data):
 def test_raster3d_map_shell(temporal_data):
     """Shell output for a registered 3D raster map reports the map metadata"""
     tools = Tools(session=temporal_data.session)
-    info = shell_info(tools, type="raster_3d", input="vol_1")
+    info = info_text(tools, type="raster_3d", input="vol_1")
 
     assert list(info.keys()) == RASTER3D_SHELL_KEYS
     assert stable_items(info) == {

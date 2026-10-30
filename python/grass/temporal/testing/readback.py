@@ -4,6 +4,12 @@ The helpers run the list tools and t.info as subprocesses of the session that
 `tools` is bound to, so they need neither an in-process grass.temporal nor a
 mirrored os.environ.
 
+``list_maps``, ``stds_info``, ``map_info`` and ``info_text`` read the
+registered maps and the metadata of datasets and maps; ``cell_values`` reads a
+raster back; ``inventory`` lists what a session holds; ``message`` normalizes
+the messages of a call. ``time_text``, ``days_text`` and ``delta_row`` read
+nothing back: they format expected values the way the list tools print them.
+
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
@@ -112,8 +118,8 @@ def map_info(tools, map_type, name):
         # t.info says so for a map that was never registered or was
         # unregistered, in the text "not found in temporal database"; the
         # message is wrapped at a width that depends on the length of the
-        # name, so the white space is normalized before the search.
-        if "not found in temporal database" not in " ".join(str(error).split()):
+        # name, so message() normalizes the white space before the search.
+        if "not found in temporal database" not in message(error):
             raise
         return None
 
@@ -145,8 +151,13 @@ def message(source):
     return " ".join(text.split())
 
 
-def shell_info(tools, **kwargs):
-    """Return the shell style output of t.info parsed into a dictionary"""
+def info_text(tools, **kwargs):
+    """t.info -g as a dict of text, for tests of the printed form
+
+    The values stay text (``"3"``, not 3, and ``"None"`` as printed), so a
+    test can compare the form that t.info prints; use stds_info() or
+    map_info() for values.
+    """
     return gs.parse_key_val(tools.t_info(flags="g", **kwargs).text)
 
 

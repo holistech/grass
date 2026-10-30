@@ -1374,11 +1374,11 @@
    "names": {
     "cell_values": "repo",
     "delta_row": "repo",
+    "info_text": "repo",
     "inventory": "repo",
     "list_maps": "repo",
     "map_info": "repo",
     "message": "repo",
-    "shell_info": "repo",
     "stds_info": "repo",
     "time_text": "repo"
    },
