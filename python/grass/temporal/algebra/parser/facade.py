@@ -24,13 +24,13 @@ from __future__ import annotations
 
 from grass.temporal.algebra.profile import CORE
 from grass.temporal.classic.temporal_raster3d_algebra import (
-    TemporalRaster3DAlgebraParser as _Raster3DEngine,
+    TemporalRaster3DAlgebraParser as _Raster3DReference,
 )
 from grass.temporal.classic.temporal_raster_algebra import (
-    TemporalRasterAlgebraParser as _RasterEngine,
+    TemporalRasterAlgebraParser as _RasterReference,
 )
 from grass.temporal.classic.temporal_vector_algebra import (
-    TemporalVectorAlgebraParser as _VectorEngine,
+    TemporalVectorAlgebraParser as _VectorReference,
 )
 
 from . import evaluate
@@ -46,7 +46,7 @@ class _AlgebraParser:
     time it is asked for.
     """
 
-    _engine_class: type
+    _reference_class: type
     _kind: str
     _options = ("pid", "run", "debug", "spatial")
 
@@ -72,19 +72,21 @@ class _AlgebraParser:
         self.debug = debug
         self.spatial = spatial
         self.classic = classic
-        self._engine_object = None
+        self._reference_object = None
 
-    def _engine(self):
+    def _reference(self):
         """Return the classic engine, built with the current options"""
-        if self._engine_object is None:
-            self._engine_object = self._engine_class(**self._engine_arguments())
+        if self._reference_object is None:
+            self._reference_object = self._reference_class(
+                **self._reference_arguments()
+            )
         else:
             # Options set after the construction reach the engine too.
             for name in self._options:
-                setattr(self._engine_object, name, getattr(self, name))
-        return self._engine_object
+                setattr(self._reference_object, name, getattr(self, name))
+        return self._reference_object
 
-    def _engine_arguments(self) -> dict:
+    def _reference_arguments(self) -> dict:
         return {name: getattr(self, name) for name in self._options}
 
     def __getattr__(self, name):
@@ -94,26 +96,33 @@ class _AlgebraParser:
         # __getstate__ and the like on an object that has no attributes yet.
         if name.startswith("_"):
             raise AttributeError(name)
-        return getattr(self._engine(), name)
+        return getattr(self._reference(), name)
 
     def __dir__(self):
         # The names of the engine class, which this class used to inherit.
         # The attributes that an engine object sets in its constructor are only
         # listed once the engine exists.
-        names = set(super().__dir__()) | set(dir(self._engine_class))
-        if self._engine_object is not None:
-            names |= set(vars(self._engine_object))
+        names = set(super().__dir__()) | set(dir(self._reference_class))
+        if self._reference_object is not None:
+            names |= set(vars(self._reference_object))
         return sorted(names)
 
     @property
     def granularity(self):
         """The common granularity of the granularity mode, None before it"""
-        return None if self._engine_object is None else self._engine_object.granularity
+        return (
+            None
+            if self._reference_object is None
+            else self._reference_object.granularity
+        )
 
     @property
     def use_granularity(self) -> bool:
         """True after ``setup_common_granularity`` succeeded"""
-        return self._engine_object is not None and self._engine_object.use_granularity
+        return (
+            self._reference_object is not None
+            and self._reference_object.use_granularity
+        )
 
     def setup_common_granularity(
         self, expression, stdstype="strds", lexer=None
@@ -130,7 +139,7 @@ class _AlgebraParser:
             map type of the tool
         :return: True if successful, False otherwise (a message tells why)
         """
-        return self._engine().setup_common_granularity(
+        return self._reference().setup_common_granularity(
             expression=expression, stdstype=stdstype, lexer=lexer
         )
 
@@ -211,21 +220,21 @@ class _GriddedAlgebraParser(_AlgebraParser):
 class TemporalRasterAlgebraParser(_GriddedAlgebraParser):
     """The temporal raster algebra class"""
 
-    _engine_class = _RasterEngine
+    _reference_class = _RasterReference
     _kind = "raster"
 
 
 class TemporalRaster3DAlgebraParser(_GriddedAlgebraParser):
     """The temporal 3D raster algebra class"""
 
-    _engine_class = _Raster3DEngine
+    _reference_class = _Raster3DReference
     _kind = "raster3d"
 
 
 class TemporalVectorAlgebraParser(_AlgebraParser):
     """The temporal vector algebra class"""
 
-    _engine_class = _VectorEngine
+    _reference_class = _VectorReference
     _kind = "vector"
 
     def parse(self, expression, basename: str | None = None, overwrite: bool = False):
