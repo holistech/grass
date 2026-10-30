@@ -4,6 +4,13 @@ A frozen copy of the p_ methods and precedence tables of the parser classes
 of grass.temporal.classic, from which classic_grammar.py builds the classic
 grammar; a test compares the copy with the parser classes. These tables are
 for variants of the algebra, not for users.
+
+SPDX-FileCopyrightText: 2013-2014 Thomas Leppelt
+SPDX-FileCopyrightText: 2013-2014, 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Thomas Leppelt and Soeren Gebbert
 """
 
 # The productions of every p_ method of the parser classes, by method name.

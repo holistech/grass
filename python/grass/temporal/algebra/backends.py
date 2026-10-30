@@ -1,4 +1,11 @@
-"""Backends turn the content of a slot into module calls"""
+"""Backends turn the content of a slot into module calls
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
+"""
 
 import math
 from dataclasses import dataclass

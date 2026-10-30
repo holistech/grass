@@ -11,6 +11,12 @@ plan and compute maps do not see the profile: plan(), materialize(), source()
 and the backends take the single options they need as keywords, and
 evaluate() fills them from the profile. A field of the profile and the
 keyword it feeds have the same default, the rule of the core.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

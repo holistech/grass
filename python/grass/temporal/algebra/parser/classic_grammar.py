@@ -18,7 +18,12 @@ change of either side is noticed.
 The PLY version of the package builds its tables in memory and writes nothing
 next to the source; debug=False also keeps it from writing a parser.out.
 
+SPDX-FileCopyrightText: 2013-2014 Thomas Leppelt
+SPDX-FileCopyrightText: 2013-2014, 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Thomas Leppelt and Soeren Gebbert
 """
 
 from __future__ import annotations

@@ -2,6 +2,12 @@
 
 The grammar only builds these nodes; it never looks at data. Their meaning
 comes from the translator.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

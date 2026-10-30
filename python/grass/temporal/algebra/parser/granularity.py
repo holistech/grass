@@ -5,6 +5,12 @@ dataset of an expression is replaced by its maps on a regular grid of
 granules before the expression is computed. This module rebuilds that
 sampling from the core operations, so that both algebras sample a dataset
 alike; the rest of the expression is translated as without the mode.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

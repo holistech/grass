@@ -4,6 +4,12 @@ computing its maps
 The backends know how a map is computed. This module knows how a map type
 is named in the temporal database and by the tools of GRASS, and in how
 many dimensions its maps are related in space.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from grass.temporal.space_time_datasets import (

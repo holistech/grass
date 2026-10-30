@@ -1,4 +1,11 @@
-"""Reducers: how gather() combines the related slots of a target slot"""
+"""Reducers: how gather() combines the related slots of a target slot
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
+"""
 
 from dataclasses import dataclass
 

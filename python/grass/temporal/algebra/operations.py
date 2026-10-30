@@ -4,6 +4,12 @@ No operation changes a series; each returns a new one. Series are related
 only through select(), pairs() and gather(); apply() and where() need
 series of equal time stamps and never align them silently. choose() judges
 each slot by the condition of its own time stamp.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 import math

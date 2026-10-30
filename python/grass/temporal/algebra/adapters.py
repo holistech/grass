@@ -7,6 +7,12 @@ once, in the existing code, and no slot is ever changed. Checked 2026-10-11
 with SpatioTemporalTopologyBuilder, temporal_buffer(), shift_map_list() and
 snap_map_list() on such objects: neither a temporal database nor a session
 is needed.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from grass.temporal.space_time_datasets import RasterDataset

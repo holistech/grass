@@ -4,6 +4,12 @@ An operator names a function symbol, the relations, how the conditions of
 several related maps are joined, and which time stamp the result takes.
 The text between the braces is regular, so it is read here and not by the
 grammar; the grammar only decides where an operator may stand.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

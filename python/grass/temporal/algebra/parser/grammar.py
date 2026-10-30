@@ -4,6 +4,12 @@ The rules only build syntax tree nodes; no rule computes or reads data, so
 parsing needs no GRASS session. Precedence and parentheses are settled here
 alone: the precedence table orders the operators, so the grammar needs one
 expression nonterminal for maps, numbers and conditions alike.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

@@ -4,6 +4,12 @@ The classic algebra lists maps of several temporal types in one list and
 tells maps apart by the identity of their map objects; a series of the core
 has neither. These classes and functions hold both for ClassicTranslator
 (classic.py); they are for variants of the algebra, not for users.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

@@ -4,6 +4,12 @@ These functions are for variants of the algebra, not for users. The classic
 profile (parser/classic.py) judges operands, pairs maps of equal time stamps,
 combines boxes and warns with them, so that it does exactly what the core
 does; a change here must therefore be checked against that profile too.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 import warnings

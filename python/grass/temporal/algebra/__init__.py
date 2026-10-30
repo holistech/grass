@@ -30,6 +30,12 @@ slot by the condition of its own time stamp.
 
 Vector maps are combined with the overlays of v.overlay and v.patch, written
 a & b, a | b, a ^ b, a - b and a + b, and buffered with buffer().
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from .backends import MapcalcStyle

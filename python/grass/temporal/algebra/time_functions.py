@@ -1,4 +1,11 @@
-"""Operations on the time stamps of a series"""
+"""Operations on the time stamps of a series
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
+"""
 
 import datetime
 from dataclasses import replace

@@ -10,6 +10,12 @@ of the algebra attaches an identity to a content with it, for the maps that
 it tells apart although their trees are equal. The mark takes no part in
 equality, hash or repr, so two contents that differ only in their mark are
 equal and the core cannot tell them apart.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 import math

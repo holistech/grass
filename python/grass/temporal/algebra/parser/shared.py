@@ -3,6 +3,12 @@
 These names are for variants of the algebra, not for users. Translator and
 ClassicTranslator (classic.py) read the same marks and refuse the same
 operands with them; a change here must therefore be checked against both.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from grass.temporal.algebra import time_functions

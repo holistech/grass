@@ -5,6 +5,12 @@ for which "l R x" holds, as the selection L {:,R} X of the algebra does.
 during includes starts and finishes, contains includes started and
 finished, as the topology builder of grass.temporal defines them. precedes
 and follows are adjacent intervals; intervals with a gap have no relation.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from dataclasses import dataclass, field

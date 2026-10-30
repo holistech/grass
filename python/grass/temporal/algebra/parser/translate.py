@@ -6,6 +6,12 @@ only builds nodes, so the meaning of the syntax is all in this module. A
 value is a series, a content node (numbers, null() and expressions of
 numbers) or a text; a text stands only in comparisons with time functions
 and as the increment of tshift() and buff_t().
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

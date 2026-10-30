@@ -4,6 +4,12 @@ The parser reads an expression such as ``C = A {+,during} B`` into a syntax
 tree, and the translator turns the tree into calls of the core operations.
 evaluate() does with an expression what the parser classes of grass.temporal
 do, and returns the same process chain dictionary.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from __future__ import annotations

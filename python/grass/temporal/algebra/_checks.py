@@ -5,6 +5,12 @@ otherwise fail with an AttributeError from the inside of an operation, or
 only when the series is planned. Every type check raises a TypeError that
 names the argument; check_option() raises a ValueError that names the
 allowed values.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 from collections.abc import Callable

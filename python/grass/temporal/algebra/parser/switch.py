@@ -6,6 +6,12 @@ profile CORE, or with the profile CLASSIC if the classic algebra is chosen.
 The classic algebra stays, because published results rely on it. The
 implementation that predates the profile is reachable only through
 grass.temporal.testing.reference, which tests compare the profile with.
+
+SPDX-FileCopyrightText: 2026 Soeren Gebbert
+SPDX-FileCopyrightText: GRASS Development Team
+SPDX-License-Identifier: GPL-2.0-or-later
+
+:authors: Soeren Gebbert
 """
 
 import os
