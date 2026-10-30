@@ -17,6 +17,13 @@ from typing import NamedTuple
 
 import pytest
 
+# pytest rewrites the assert statements of test modules and conftest.py only. The
+# helpers of grass.temporal.testing compare with a plain assert, which on failure
+# shows no values unless the package is registered before its first import.
+pytest.register_assert_rewrite("grass.temporal.testing")
+# The registration has to precede these imports, so they follow a statement.
+# ruff: noqa: E402
+
 from grass.temporal.testing.data import (
     TIME_FORMAT,
     MapSpec,
