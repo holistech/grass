@@ -345,7 +345,7 @@ debug output, the class of the error of an invalid expression (the profile
 reads the whole expression first and reports the syntax error), the relation
 name `equals` (the reference refuses it), and a relation over a list of
 absolute and relative time (the reference stops with a `TypeError`). The
-section "Differences from the previous implementation" of the
+section "Differences from the reference implementation" of the
 _t.rast.algebra_ manual describes them all. The module docstring lists the
 options.
 

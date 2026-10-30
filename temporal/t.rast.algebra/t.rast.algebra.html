@@ -120,7 +120,7 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
 <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The previous
+<code>equals</code>; the new algebra and <b>-c</b> read both names. The reference
 implementation refused <code>equals</code> with a syntax error.
 <p>
 Topological relations must be specified with curly brackets {}.
@@ -645,10 +645,12 @@ it covers the maps.
 
 Since GRASS 8.6, <em>t.rast.algebra</em> computes its expressions with the
 functions of the Python package <code>grass.temporal.algebra</code>. The
-previous implementation stays available as the classic algebra, so that
-published results remain reproducible. The classic algebra is a set of rules
-of the same functions: it reads the syntax of the previous implementation and
-applies its rules for relations, order and results. The flag <b>-c</b> selects
+implementation that computed them before, the reference implementation in
+<code>grass.temporal.classic</code>, stays in the source code, and its rules
+stay available as the classic algebra, so that published results remain
+reproducible. The classic algebra is a set of rules of the same functions: it
+reads the syntax of the reference implementation and applies its rules for
+relations, order and results. The flag <b>-c</b> selects
 it for one call, the environment variable
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable
@@ -783,7 +785,7 @@ C = buff_t(B, "-1 day")
 
 <li><b>merge() of maps read at an offset.</b> The new algebra takes two maps
 with equal content and time stamps as one map. The classic algebra, as the
-previous implementation, makes a new map for each map read with a temporal
+reference implementation, makes a new map for each map read with a temporal
 neighbourhood modifier and for each value of a temporal function with an
 offset, and <code>merge()</code> keeps such a map next to an equal one. The
 first two expressions give four maps in the new algebra and eight in the
@@ -878,7 +880,7 @@ The tool stops with the error message in both algebras.
 
 <p>
 Two corrections apply to both algebras, so <b>-c</b> gives the rules of the
-previous algebra, not the results of a particular release. First,
+classic algebra, not the results of a particular release. First,
 <code>if({R}, condition, conclusion)</code> reads "condition R conclusion"
 also for conditions on temporal variables, as it always did for conditions on
 map values. Second, with a temporal relation beyond <code>equal</code>, the
@@ -899,8 +901,8 @@ GRASS version they were computed with.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the previous implementation, with the
-exceptions below. In these cases the previous implementation computed wrongly,
+The classic algebra gives the results of the reference implementation, with the
+exceptions below. In these cases the reference implementation computed wrongly,
 ended in an error that had no reason, or reported the wrong error. <b>-c</b>
 now gives the result described here. The new algebra never computed these cases
 wrongly; only the items on infinite values, on month steps, on dates beyond the
@@ -1022,7 +1024,7 @@ C = N + td(A # merge(A, N))
 read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
 joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
 is a truth value, like the time function of any map (corrected 17 October
-2026). The previous implementation wrote the map itself as the operand, so
+2026). The reference implementation wrote the map itself as the operand, so
 that a map with a value other than 0 counted as true whatever the time
 function said. The same holds where the time condition follows further time
 conditions, as in <code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1
@@ -1088,7 +1090,7 @@ time as the next map keeps its own end instead (corrected 21 October 2026).
 Earlier versions gave it the end of the next map, so the two maps swapped
 their ends. In the datasets above, the map of A on days 2 to 3 and the
 map of C on days 2 to 4 start together. In the classic algebra (<b>-c</b>,
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the previous implementation)
+<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the reference implementation)
 the map listed first keeps its end. The new algebra orders such maps by
 their end instead, see item 10 of the differences above:
 
@@ -1150,9 +1152,9 @@ above it. No dataset is created.
 </li>
 </ol>
 
-<h4>Differences from the previous implementation</h4>
+<h4>Differences from the reference implementation</h4>
 
-Besides the corrections, <b>-c</b> differs from the previous implementation in
+Besides the corrections, <b>-c</b> differs from the reference implementation in
 the following points. Only the items on lists of absolute and relative time, on
 the relation <code>equals</code> and on the comparison of related maps change
 the outcome of an expression; the others concern messages, output and the
@@ -1171,23 +1173,23 @@ absolute time by".
 <li><b>Debug output.</b> In Python, with <code>debug=True</code>, the classic
 algebra prints each module call as a command line like the new algebra, for
 example <code>r.mapcalc expression=q_0=(a1@PERMANENT + 1) nprocs=1</code>. The
-previous implementation printed the <em>r.mapcalc</em> commands and the
+reference implementation printed the <em>r.mapcalc</em> commands and the
 resulting statement.
 </li>
 
 <li><b>Order of the errors.</b> Both implementations reject an invalid
 expression, but they can report another class of error. The classic algebra
 reads the whole expression before it computes. An expression with a syntax
-error is therefore a syntax error, where the previous implementation could stop
+error is therefore a syntax error, where the reference implementation could stop
 with the error of a computation before it reached the syntax error. The classic
 algebra also reads a dataset that is an argument of a function before the
 arguments after it. A dataset of another temporal type stops it there
-(<code>FatalError</code>), where the previous implementation reads such a
+(<code>FatalError</code>), where the reference implementation reads such a
 dataset last and can stop with an error of a later argument, for example a
 <code>SyntaxError</code> of <code>buff_t()</code> in
 <code>if(end_year(A) &gt; 3, RT, buff_t(A, 2))</code>. In this expression the
 dataset <code>nosuch</code> does not exist and a bracket is too many; the
-previous implementation reported the missing dataset
+reference implementation reported the missing dataset
 (<code>FatalError</code>):
 
 <div class="code"><pre>
@@ -1196,7 +1198,7 @@ C = nosuch + A )
 </li>
 
 <li><b>Existing result.</b> In Python, without
-<code>tgis.init(raise_fatal_error=True)</code>, the previous implementation
+<code>tgis.init(raise_fatal_error=True)</code>, the reference implementation
 exits the process with <code>SystemExit</code> for an existing result map. The
 classic algebra raises <code>FatalError</code>, as the new algebra does. The
 tools are not affected, because they initialise the library with
@@ -1205,7 +1207,7 @@ tools are not affected, because they initialise the library with
 
 <li><b>Lists of absolute and relative time.</b> A relation over a list that
 mixes maps of absolute and of relative time, made with <code>merge()</code>
-and <code>tmap()</code>, stopped the previous implementation with a
+and <code>tmap()</code>, stopped the reference implementation with a
 <code>TypeError</code> while it related the maps. The classic algebra does not
 reproduce this crash: maps of the two types relate to nothing, so this
 expression selects the maps of <code>RT</code> as <code>RT : RT</code> does:
@@ -1215,7 +1217,7 @@ C = merge(tmap(sinst), RT) : RT
 </pre></div>
 </li>
 
-<li><b>The relation equals.</b> The previous implementation refused the spelling
+<li><b>The relation equals.</b> The reference implementation refused the spelling
 <code>equals</code> of the paper with a syntax error. The classic algebra reads
 it as <code>equal</code>, so this expression gives the same maps as
 <code>C = A {+,equal,l} B</code>:
@@ -1225,7 +1227,7 @@ C = A {+,equals,l} B
 </pre></div>
 </li>
 
-<li><b>Comparison of related maps.</b> The previous implementation refused the
+<li><b>Comparison of related maps.</b> The reference implementation refused the
 comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
 with a syntax error. <b>-c</b> reads it as described in the comparison of
 related maps above:
