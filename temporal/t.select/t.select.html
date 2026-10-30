@@ -116,8 +116,8 @@ over              both overlaps and overlapped
 The relations must be read as: A is related to B, like - A is equal to B - A is
 during B - A contains B <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The reference
-implementation refused <code>equals</code> with a syntax error.
+<code>equals</code>; the new algebra and <b>-c</b> read both names. The releases
+before GRASS 8.6 refused <code>equals</code> with a syntax error.
 <p>
 Topological relations must be specified in {} parentheses. <br>
 <p>
@@ -542,10 +542,14 @@ both corrections.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the reference implementation, with the
-exceptions below. In these cases the reference implementation ended in an error
-that had no reason, reported the wrong error, or did not do what this manual
-describes. <b>-c</b> now gives the result described here. The new algebra never
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases ended in an error that had
+no reason, reported the wrong error, or did not do what this manual describes.
+<b>-c</b> now gives the result described here. The reference implementation was
+corrected in the same way, except in items 5, 6, 9, 11 and 12: items 5, 6 and
+9 say what it does, it still takes the time of a partner whose box only
+touches, and it still raises the <code>CalledModuleError</code> of a failed
+module. The new algebra never
 had these errors; only the items on month steps, on dates beyond the year 9999
 and on a failed module concerned the library and with it both algebras. Results
 of earlier GRASS versions that used one of these forms need a new run.
@@ -699,21 +703,23 @@ error that names the module and its return code, such as
 (corrected 24 October 2026); the cause is in the error output of the module
 above it. No dataset is created.
 </li>
+<li><b>The relation equals and capital function names.</b> The releases before
+GRASS 8.6 refused the relation name <code>equals</code> and the capital function
+names <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>
+of the paper with a syntax error (corrected 17 October 2026). Both algebras
+read them as <code>equal</code> and as the functions in lower case.
+</li>
 </ol>
 
 <h4>Differences from the reference implementation</h4>
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a
-href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. Three
-points change the outcome of an expression. The reference implementation
-refused the relation name <code>equals</code> and the capital function names
-<code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code> with a
-syntax error, where both algebras read them as <code>equal</code> and as
-the functions in lower case. A relation over a list that mixes maps of
-absolute and of relative time, which stopped the reference implementation
-with a <code>TypeError</code>, selects maps here, as in <em>t.rast.algebra</em>:
-maps of the two types relate to nothing.
+href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise. One
+point changes the outcome of an expression: a relation over a list that mixes
+maps of absolute and of relative time, which stopped the reference
+implementation with a <code>TypeError</code>, selects maps here, as in
+<em>t.rast.algebra</em>: maps of the two types relate to nothing.
 
 <h2>EXAMPLES</h2>
 
