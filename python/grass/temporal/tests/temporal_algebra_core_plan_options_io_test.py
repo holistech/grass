@@ -26,7 +26,7 @@ import grass.temporal.algebra as ta
 from grass.exceptions import FatalError
 from grass.temporal.algebra import MapcalcStyle, Profile
 from grass.temporal.algebra.parser import evaluate
-from grass.temporal.testing import differential
+from grass.temporal.testing import differential, readback
 from grass.temporal.testing.corpus import reference_outcome
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.reference import run_reference
@@ -170,6 +170,32 @@ def test_an_empty_result_gets_the_given_temporal_type(session):
     ta.materialize(series, "EmptyAbsolute", overwrite=True)
     dataset = tgis.open_old_stds("EmptyAbsolute", "strds")
     assert dataset.get_temporal_type() == "absolute"
+
+
+def test_materialize_runs_a_given_chain(session):
+    """A chain from plan() gives the maps that its options give to
+    materialize() directly; options of plan() or another dataset name next to
+    it contradict it"""
+    tools = Tools(session=session, overwrite=True, quiet=True)
+    series = ta.source("A") * 2
+
+    def maps():
+        return [
+            (row, readback.cell_values(tools, row.name))
+            for row in readback.list_maps(tools, "strds", "Given")
+        ]
+
+    ta.materialize(series, "Given", basename="given", overwrite=True)
+    expected = maps()
+    assert [row.name for row, _ in expected] == [f"given_{i}" for i in range(4)]
+    chain = ta.plan(series, "Given", basename="given")
+    ta.materialize(series, "Given", chain=chain, overwrite=True)
+    assert maps() == expected
+    with pytest.raises(ValueError, match="basename"):
+        ta.materialize(series, "Given", chain=chain, basename="other", overwrite=True)
+    with pytest.raises(ValueError, match="Other"):
+        ta.materialize(series, "Other", chain=chain, overwrite=True)
+    assert not stds_exists("Other")
 
 
 def test_a_selection_numbers_its_copies_like_the_classic_algebra(session):

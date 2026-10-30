@@ -1,5 +1,6 @@
 """Plan and materialize series: module calls, map names and registration"""
 
+import inspect
 from dataclasses import dataclass
 
 import grass.script as gs
@@ -757,6 +758,30 @@ def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwri
     return empty
 
 
+def _planned(series, name, chain, options):
+    """The chain to run: the given one, or the one plan() makes of options
+
+    A given chain was planned with options of its own, so an option given
+    here as well, which differs from the default of materialize(), could only
+    contradict it.
+    """
+    if chain is None:
+        return plan(series, name, **options)
+    defaults = inspect.signature(materialize).parameters
+    given = [key for key, value in options.items() if value != defaults[key].default]
+    if given:
+        msg = f"A planned chain takes no options of plan(), got {', '.join(given)}"
+        raise ValueError(msg)
+    stds_type = STDS_TYPES[series.kind]
+    if (chain.name, chain.stds_type) != (name, stds_type):
+        msg = (
+            f"The chain plans the {chain.stds_type} <{chain.name}>, not the "
+            f"{stds_type} <{name}>"
+        )
+        raise ValueError(msg)
+    return chain
+
+
 def materialize(
     series,
     name,
@@ -777,6 +802,7 @@ def materialize(
     classic_absence_check=False,
     keep_empty_vector_maps=False,
     vector_dataset_if_empty=True,
+    chain: ProcessChain | None = None,
 ):
     """Compute the maps of a series and register them in a new space time
     dataset
@@ -815,11 +841,14 @@ def materialize(
     Callers that need exceptions instead of a process exit for unforeseen
     database errors call ``tgis.init(raise_fatal_error=True)``.
 
+    :param chain: the chain that plan() made of series and name, which is run
+        instead of planning again; the options of plan() are then not given
     :raises FatalError: if the dataset or a result map exists and overwrite
         is False; nothing is computed then. Also if a module fails; the
         message names the module and its return code
-    :raises ValueError: as plan(), or for nprocs other than 1 with vector
-        maps
+    :raises ValueError: as plan(), for nprocs other than 1 with vector
+        maps, or for a chain together with options of plan(), or with
+        another name or map type
     :return: the space time dataset, or None for a vector result without maps
         if vector_dataset_if_empty is False
     """
@@ -829,19 +858,22 @@ def materialize(
             f"overlay checks its inputs first; nprocs must be 1, got {nprocs}"
         )
         raise ValueError(msg)
-    chain = plan(
+    chain = _planned(
         series,
         name,
-        basename=basename,
-        time_suffix=time_suffix,
-        selection=selection,
-        names=names,
-        mapcalc=mapcalc,
-        union_region=union_region,
-        list_order=list_order,
-        copies_by_position=copies_by_position,
-        temporal_type=temporal_type,
-        last_of_equal_names=last_of_equal_names,
+        chain,
+        {
+            "basename": basename,
+            "time_suffix": time_suffix,
+            "selection": selection,
+            "names": names,
+            "mapcalc": mapcalc,
+            "union_region": union_region,
+            "list_order": list_order,
+            "copies_by_position": copies_by_position,
+            "temporal_type": temporal_type,
+            "last_of_equal_names": last_of_equal_names,
+        },
     )
     no_dataset = series.kind == "vector" and not vector_dataset_if_empty
     if no_dataset and not chain.maps:

@@ -106,26 +106,21 @@ def evaluate(
         profile=profile,
         selection=selection,
     )
-    suffix = time_suffix if time_suffix in _TIME_SUFFIXES else None
-    options = {
-        "mapcalc": profile.mapcalc,
-        "union_region": profile.union_region_when_spatial and spatial,
-        "list_order": profile.list_order,
-        "copies_by_position": profile.copies_by_position,
-        "last_of_equal_names": profile.last_of_equal_names,
-    }
     try:
         name, series = translator.statement(statement)
-        # Known only now, after the datasets are read
-        empty_type = types.first if profile.empty_result_type_from_input else None
         planned = plan(
             series,
             name,
             basename=basename,
-            time_suffix=suffix,
+            time_suffix=time_suffix if time_suffix in _TIME_SUFFIXES else None,
             selection=selection,
-            temporal_type=empty_type,
-            **options,
+            # Known only now, after the datasets are read
+            temporal_type=types.first if profile.empty_result_type_from_input else None,
+            mapcalc=profile.mapcalc,
+            union_region=profile.union_region_when_spatial and spatial,
+            list_order=profile.list_order,
+            copies_by_position=profile.copies_by_position,
+            last_of_equal_names=profile.last_of_equal_names,
         )
         # A vector result without maps has no dataset, if the profile says so.
         # A selection always creates its dataset, as t.select.md promises for
@@ -172,17 +167,13 @@ def evaluate(
             materialize(
                 series,
                 name,
-                basename=basename,
                 overwrite=overwrite,
                 register_null=register_null,
                 nprocs=int(nprocs),
-                time_suffix=suffix,
-                selection=selection,
-                temporal_type=empty_type,
                 classic_absence_check=profile.classic_absence_check,
                 keep_empty_vector_maps=profile.keep_empty_vector_maps,
                 vector_dataset_if_empty=dataset_if_empty,
-                **options,
+                chain=planned,
             )
     except ValueError as error:
         mapped = _classic_error(error) if profile.classic_errors else None
