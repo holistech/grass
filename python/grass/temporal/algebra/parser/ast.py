@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Number:
+    """A numeric constant"""
+
     value: int | float
 
 
@@ -34,6 +36,8 @@ class Name:
 
 @dataclass(frozen=True)
 class Negative:
+    """The arithmetic negation of an operand"""
+
     operand: object
 
 
@@ -69,5 +73,7 @@ class Index:
 
 @dataclass(frozen=True)
 class Statement:
+    """An assignment of an expression to the name of the result"""
+
     target: str
     expression: object

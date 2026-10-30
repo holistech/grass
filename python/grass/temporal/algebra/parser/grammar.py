@@ -172,6 +172,7 @@ class Grammar:
 
     @staticmethod
     def p_error(p):
+        """Raise a SyntaxError for the token p, or for the end of the input"""
         if p is None:
             msg = "Unexpected end of the expression"
             raise SyntaxError(msg)

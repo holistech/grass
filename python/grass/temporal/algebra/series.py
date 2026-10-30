@@ -28,6 +28,7 @@ class Extent:
 
     @property
     def temporal_type(self):
+        """Return "absolute" or "relative" by the unit"""
         return "absolute" if self.unit is None else "relative"
 
     def sort_key(self, order="time"):

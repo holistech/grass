@@ -163,6 +163,7 @@ class Lexer:
     # also when another "{" comes first), so the character is not the fault.
     @staticmethod
     def t_error(t):
+        """Raise a SyntaxError for a character that no token starts with"""
         char = t.value[0]
         if char == "{":
             msg = f"Unterminated '{{' at position {t.lexpos}"
