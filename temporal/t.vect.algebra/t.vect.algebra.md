@@ -108,7 +108,7 @@ The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
 
 Gebbert, Leppelt and Pebesma (2019) write the relation `equal` as `equals`;
-the new algebra and **-c** read both names. The reference implementation
+the new algebra and **-c** read both names. The releases before GRASS 8.6
 refused `equals` with a syntax error.
 
 Topological relations must be specified in {} parentheses.  
@@ -654,13 +654,16 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the reference implementation, with
-the exceptions below. In these cases the reference implementation ended in an
-error that had no reason or reported the wrong error. **-c** now gives the
-result described here. The new algebra never had these errors; only the
-items on month steps, on dates beyond the year 9999 and on a failed module
-concerned the library and with it both algebras. Results of earlier GRASS
-versions that used one of these forms need a new run.
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases computed wrongly, ended in
+an error that had no reason, or reported the wrong error. **-c** now gives the
+result described here. The reference implementation was corrected in the same
+way, except in items 8 and 9: it still takes the time of a partner whose box
+only touches, and it still raises the `CalledModuleError` of a failed module.
+The new algebra never had these errors; only the items on month steps, on
+dates beyond the year 9999 and on a failed module concerned the library and
+with it both algebras. Results of earlier GRASS versions that used one of
+these forms need a new run.
 
 1. **tsnap() and tshift() of no maps.** If the expression inside has no
    maps, the result is empty like any other empty result: the classic
@@ -769,13 +772,17 @@ versions that used one of these forms need a new run.
    (corrected 24 October 2026); the cause is in the error output of the module
    above it. No dataset is created.
 
+10. **The relation equals.** The releases before GRASS 8.6 refused the
+    spelling `equals` of the paper with a syntax error (corrected 17 October
+    2026). The classic algebra reads it as `equal`, as the new algebra does.
+
 #### Differences from the reference implementation
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the
-items on lists of absolute and relative time and on the relation `equals`,
-the two that change the outcome of an expression.
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as does the
+item on lists of absolute and relative time, the one that changes the outcome
+of an expression.
 
 ## REFERENCES
 
