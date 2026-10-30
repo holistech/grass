@@ -35,8 +35,8 @@ import pytest
 from grass.temporal.algebra.parser import ast, classic_productions
 from grass.temporal.algebra.parser import classic_grammar as classic
 from grass.temporal.testing.differential import prepare
-from grass.temporal.testing.expressions_generator import boundary_forms, generate
 from grass.temporal.testing.expressions import seed_range
+from grass.temporal.testing.expressions_generator import boundary_forms, generate
 from grass.temporal.testing.reference import run_reference
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
