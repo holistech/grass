@@ -70,7 +70,7 @@ from .differential import (
     check_agreement,
     cluster,
     compare_runs,
-    key,
+    comparison_key,
     outcome,
     prepare,
 )
@@ -253,7 +253,8 @@ def main(argv=None):
         changed = [
             (seed, new[seed]["expression"], old[seed]["outcome"], new[seed]["outcome"])
             for seed in sorted(old.keys() & new.keys())
-            if key(old[seed]["outcome"]) != key(new[seed]["outcome"])
+            if comparison_key(old[seed]["outcome"])
+            != comparison_key(new[seed]["outcome"])
         ]
         print(
             f"{len(changed)} of {len(old.keys() & new.keys())} seeds differ"

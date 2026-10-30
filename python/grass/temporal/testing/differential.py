@@ -15,7 +15,7 @@ Functions:
   (``grass.temporal.algebra.parser.evaluate``, which the parser classes call
   when the classic algebra is not chosen) and ``classic`` (the same function
   with the classic profile).
-- ``outcome_of_runner(kind, runner, expression, basename)`` is ``outcome``
+- ``outcome_of_runner(kind, expression, runner, basename)`` is ``outcome``
   with a runner chosen by its name in ``RUNNERS`` and with ``-n``;
   ``constant_values(result)`` reads the values of the maps of an outcome.
 - ``compare(kind, expression, first, second)`` returns None for equal outcomes
@@ -268,7 +268,7 @@ def outcome(kind, expression, runner, *, basename="fz", **options):
     return _read_result(kind, result, basename, stdstype)
 
 
-def outcome_of_runner(kind, runner, expression, basename, **options):
+def outcome_of_runner(kind, expression, runner, basename, **options):
     """``outcome`` of the runner that ``RUNNERS`` names, with option ``-n``
 
     :param runner: Key of ``RUNNERS``
@@ -291,7 +291,7 @@ def constant_values(result):
     return [low for *_, low, _high in result["maps"]]
 
 
-def key(result):
+def comparison_key(result):
     """What compare looks at: the error class or the result, not the message"""
     if "error" in result:
         return ("error", result["error"])
@@ -333,7 +333,7 @@ def compare(kind, expression, first, second):
     :return: None for equal outcomes, otherwise a line that names the kind,
         the expression and what differs
     """
-    if key(first) == key(second):
+    if comparison_key(first) == comparison_key(second):
         return None
     if "error" in first or "error" in second:
         what = f"{_signature(first)} against {_signature(second)}"
@@ -353,7 +353,7 @@ def cluster(records):
     counts = collections.Counter()
     example = {}
     for seed, expression, first, second in records:
-        if key(first) == key(second):
+        if comparison_key(first) == comparison_key(second):
             continue
         detail = None
         if "error" not in first and "error" not in second:

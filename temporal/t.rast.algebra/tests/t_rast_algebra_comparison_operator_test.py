@@ -130,7 +130,7 @@ def cached_io(comparisons):
 
 
 def run(runner, expression, basename, **options):
-    return outcome_of_runner(KIND, runner, expression, basename, **options)
+    return outcome_of_runner(KIND, expression, runner, basename, **options)
 
 
 def starts_and_values(result):
