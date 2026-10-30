@@ -270,10 +270,13 @@ both corrections.
 
 <h4>Corrections to the classic algebra</h4>
 
-The classic algebra gives the results of the reference implementation, with the
-exceptions below. In these cases the reference implementation computed wrongly,
-ended in an error that had no reason, or reported the wrong error. <b>-c</b>
-now gives the result described here. The new algebra never computed these cases
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases computed wrongly, ended in
+an error that had no reason, or reported the wrong error. <b>-c</b> now gives
+the result described here. The reference implementation was corrected in the
+same way, except in items 14 and 15: it still takes the time of a partner whose
+box only touches, and it still raises the <code>CalledModuleError</code> of a
+failed module. The new algebra never computed these cases
 wrongly; only the items on month steps, on dates beyond the year 9999 and on a
 failed module concerned the library and with it both algebras. Results of
 earlier GRASS versions that used one of these forms need a new run. The
@@ -368,7 +371,7 @@ C = N + td(A # merge(A, N))
 read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
 joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
 is a truth value, like the time function of any map (corrected 17 October
-2026). The reference implementation wrote the map itself as the operand, so
+2026). The releases before GRASS 8.6 wrote the map itself as the operand, so
 that a map with a value other than 0 counted as true whatever the time
 function said. The same holds where the time condition follows further time
 conditions, as in <code>td(A[1]) > 0.5 &amp;&amp; td(B) > 0.5 &amp;&amp; B >
@@ -476,24 +479,27 @@ end with the error
 (corrected 24 October 2026); the cause is in the error output of the module
 above it. No dataset is created.
 </li>
+<li><b>The relation equals.</b> The relation <code>equal</code> may be written
+<code>equals</code> here too, as in <em>t.rast.algebra</em>; the releases
+before GRASS 8.6 refused that spelling with a syntax error (corrected 17
+October 2026).
+</li>
+<li><b>Comparison of related maps.</b> The comparison of related maps inside
+<code>if()</code>, such as <code>C = if(A {&gt;=, contains, |} B, A, 0)</code>
+or <code>C = if(A &gt;= B, A, B)</code>, described in <a
+href="t.rast.algebra.html">t.rast.algebra</a>, works for 3D raster maps in the
+same way. The releases before GRASS 8.6 refused it with a syntax error
+(corrected 17 October 2026).
+</li>
 </ol>
 
 <h4>Differences from the reference implementation</h4>
 
 The differences in message texts, in the debug output of the Python parser, in
 the order of errors and in the error for an existing result that <a
-href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise, as do the
-items on lists of absolute and relative time, on the relation
-<code>equals</code> and on the comparison of related maps, the three that
-change the outcome of an expression. The relation <code>equal</code> may be
-written <code>equals</code> here too, as in <em>t.rast.algebra</em>; the
-reference implementation refused that spelling with a syntax error.
-
-The comparison of related maps inside <code>if()</code>, such as
-<code>C = if(A {&gt;=, contains, |} B, A, 0)</code> or
-<code>C = if(A &gt;= B, A, B)</code>, described in <a
-href="t.rast.algebra.html">t.rast.algebra</a>, works for 3D raster maps in the
-same way. The reference implementation refused it with a syntax error.
+href="t.rast.algebra.html">t.rast.algebra</a> lists apply here likewise, as does
+the item on lists of absolute and relative time, the one that changes the
+outcome of an expression.
 
 <h3>Granularity algebra</h3>
 

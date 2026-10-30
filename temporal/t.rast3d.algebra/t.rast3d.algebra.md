@@ -249,15 +249,17 @@ both corrections.
 
 #### Corrections to the classic algebra
 
-The classic algebra gives the results of the reference implementation, with
-the exceptions below. In these cases the reference implementation computed
-wrongly, ended in an error that had no reason, or reported the wrong error.
-**-c** now gives the result described here. The new algebra never computed
-these cases wrongly; only the items on month steps, on dates beyond the year
-9999 and on a failed module concerned the library and with it both algebras.
-Results of earlier GRASS versions that used one of these forms need a new
-run. The examples use the datasets of the list above and, in addition, N
-with daily maps.
+The classic algebra gives the results of the releases before GRASS 8.6, with
+the exceptions below. In these cases those releases computed wrongly, ended in
+an error that had no reason, or reported the wrong error. **-c** now gives the
+result described here. The reference implementation was corrected in the same
+way, except in items 14 and 15: it still takes the time of a partner whose box
+only touches, and it still raises the `CalledModuleError` of a failed module.
+The new algebra never computed these cases wrongly; only the items on month
+steps, on dates beyond the year 9999 and on a failed module concerned the
+library and with it both algebras. Results of earlier GRASS versions that used
+one of these forms need a new run. The examples use the datasets of the list
+above and, in addition, N with daily maps.
 
 1. **td() of an expression** on the right of an operator used the value of
    the expression instead of the duration of its maps. With daily maps in N
@@ -336,8 +338,8 @@ with daily maps.
 8. **A map read at an offset as a truth value.** A time function of a
    map read at an offset in time or in cells, such as `end_year(A[1])`,
    joined with `&&` or `||` to a condition on cells is a truth value, like
-   the time function of any map (corrected 17 October 2026). The reference
-   implementation wrote the map itself as the operand, so that a map with
+   the time function of any map (corrected 17 October 2026). The releases
+   before GRASS 8.6 wrote the map itself as the operand, so that a map with
    a value other than 0 counted as true whatever the time function said. The
    same holds where the time condition follows further time conditions, as in
    `td(A[1]) > 0.5 && td(B) > 0.5 && B > 0`.
@@ -441,21 +443,23 @@ with daily maps.
     (corrected 24 October 2026); the cause is in the error output of the module
     above it. No dataset is created.
 
+16. **The relation equals.** The relation `equal` may be written `equals` here
+    too, as in *t.rast.algebra*; the releases before GRASS 8.6 refused that
+    spelling with a syntax error (corrected 17 October 2026).
+
+17. **Comparison of related maps.** The comparison of related maps inside
+    `if()`, such as `C = if(A {>=, contains, |} B, A, 0)` or
+    `C = if(A >= B, A, B)`, described in [t.rast.algebra](t.rast.algebra.md),
+    works for 3D raster maps in the same way. The releases before GRASS 8.6
+    refused it with a syntax error (corrected 17 October 2026).
+
 #### Differences from the reference implementation
 
 The differences in message texts, in the debug output of the Python
 parser, in the order of errors and in the error for an existing result that
-[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as do the
-items on lists of absolute and relative time, on the relation `equals` and
-on the comparison of related maps, the three that change the outcome of an
-expression. The relation `equal` may be written `equals` here too, as in
-*t.rast.algebra*; the reference implementation refused that spelling with a
-syntax error.
-
-The comparison of related maps inside `if()`, such as
-`C = if(A {>=, contains, |} B, A, 0)` or `C = if(A >= B, A, B)`, described
-in [t.rast.algebra](t.rast.algebra.md), works for 3D raster maps in the
-same way. The reference implementation refused it with a syntax error.
+[t.rast.algebra](t.rast.algebra.md) lists apply here likewise, as does the
+item on lists of absolute and relative time, the one that changes the outcome
+of an expression.
 
 ### Granularity algebra
 
