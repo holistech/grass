@@ -30,7 +30,6 @@ from grass.temporal.classic.temporal_vector_algebra import (
 )
 
 from . import evaluate
-from .classic import CLASSIC
 from .switch import classic_selected
 
 
@@ -135,6 +134,11 @@ class _AlgebraParser:
         return classic_selected(self.classic)
 
     def _evaluate(self, expression, basename, overwrite, **arguments):
+        # Imported here: import grass.temporal loads this module, and the
+        # classic profile with its grammar and production tables is only
+        # needed when the classic algebra is selected.
+        from .classic import CLASSIC
+
         return evaluate(
             expression,
             kind=self._kind,
