@@ -11,6 +11,9 @@ import pytest
 import grass.temporal as tgis
 from grass.exceptions import FatalError
 from grass.exceptions import FatalError as TemporalAlgebraFatalError
+from grass.temporal.testing.data import MapSpec, create_stds
+from grass.temporal.testing.differential import RUNNERS, outcome
+from grass.tools import Tools
 
 
 def test_complex_operator_aggregates_all_equal_maps(algebra):
@@ -100,3 +103,49 @@ def test_condition_on_unequal_numbers_of_equal_maps_fails(
     )
     with pytest.raises(errors, match=message):
         algebra.parse("if(E > 2, E2, null())", classic=classic)
+
+
+@pytest.mark.fixed_algebra
+def test_conditions_related_by_two_names_pair_with_maps_of_equal_time(algebra):
+    """Two condition maps of one time are paired one to one with two
+    conclusion maps of another time, also where each condition map relates
+    to each conclusion map by two of the written names: ec1 and ec2 [1,2]
+    are during and start ea1 and ea2 [1,3]. A related map counts once, so
+    the classic algebra, the classic profile and the core agree. td() is
+    one day, so ea1 and ea2 are kept; ea3 [3,4] has no related condition,
+    which a relation beyond equal reads as false, so it gets the else 0."""
+    tools = Tools(session=algebra.session)
+    create_stds(
+        tools,
+        "strds",
+        "EC",
+        [
+            MapSpec("ec1", 1, algebra.day(1), algebra.day(2)),
+            MapSpec("ec2", 2, algebra.day(1), algebra.day(2)),
+        ],
+        overwrite=True,
+    )
+    create_stds(
+        tools,
+        "strds",
+        "EA",
+        [
+            MapSpec("ea1", 10, algebra.day(1), algebra.day(3)),
+            MapSpec("ea2", 20, algebra.day(1), algebra.day(3)),
+            MapSpec("ea3", 30, algebra.day(3), algebra.day(4)),
+        ],
+        overwrite=True,
+    )
+    expected = [
+        ["N_0", "2001-01-01T00:00:00", "2001-01-03T00:00:00", 10.0, 10.0],
+        ["N_1", "2001-01-01T00:00:00", "2001-01-03T00:00:00", 20.0, 20.0],
+        ["N_2", "2001-01-03T00:00:00", "2001-01-04T00:00:00", 0.0, 0.0],
+    ]
+    for runner, basename in (("reference", "fa"), ("classic", "fc"), ("core", "fk")):
+        result = outcome(
+            "raster",
+            "if({during|starts}, td(EC) > 0, EA, 0)",
+            RUNNERS[runner],
+            basename=basename,
+        )
+        assert result.get("maps") == expected, (runner, result)
