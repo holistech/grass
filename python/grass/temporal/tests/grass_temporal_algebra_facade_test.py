@@ -17,7 +17,7 @@ import pytest
 
 import grass.temporal as tgis
 from grass.temporal.algebra.parser import facade
-from grass.temporal.classic import temporal_algebra as engine
+from grass.temporal.classic import temporal_algebra as reference
 
 CLASSES = [
     ("TemporalRasterAlgebraParser", facade.TemporalRasterAlgebraParser),
@@ -33,8 +33,8 @@ def test_the_package_exports_the_facade(name, parser_class):
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
 def test_a_facade_is_not_an_engine(name, parser_class):
-    assert not issubclass(parser_class, engine.TemporalAlgebraParser)
-    assert not isinstance(parser_class(), engine.TemporalAlgebraParser)
+    assert not issubclass(parser_class, reference.TemporalAlgebraParser)
+    assert not isinstance(parser_class(), reference.TemporalAlgebraParser)
 
 
 @pytest.mark.parametrize(("name", "parser_class"), CLASSES)
