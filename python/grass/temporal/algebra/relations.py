@@ -178,8 +178,10 @@ def _partners(topology, names, index):
 
 
 def related(left, relation_, other, *, dimension="2D", order="sorted", unique=True):
-    """Return, per slot l of left, the indices of the slots x of other with
-    "l R x", in the order of other
+    """Return, per slot l of left, the indices of the slots x with "l R x"
+
+    The slots x are those of other, listed in its order unless order says
+    otherwise.
 
     :param left: sequence of slots
     :param other: sequence of slots

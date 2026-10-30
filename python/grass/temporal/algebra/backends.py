@@ -83,8 +83,12 @@ _LOOSE = frozenset({"&&", "||"})
 
 @dataclass(frozen=True)
 class ModuleCall:
-    """A planned module call: the module, its parameters, and, for r.series
-    over a file, the related map names to write into that file at run time"""
+    """A planned module call
+
+    name is the module and parameters its parameters; for r.series over a
+    file, inputs are the related map names to write into that file at run
+    time.
+    """
 
     name: str
     parameters: dict
@@ -143,9 +147,9 @@ def _quote(name, quote_names=True):
 
 
 class RasterBackend:
-    """Plan raster maps with r.mapcalc, and with r.series where a reduction
-    skips null cells
+    """Plan raster maps with r.mapcalc and r.series
 
+    r.series computes a reduction that skips null cells and an aggregation.
     r.series has no region option and computes in the current region, also
     for a series whose maps were related in space; r.mapcalc computes those
     in the union of the regions.
@@ -388,8 +392,11 @@ def _find_series_node(content):
 
 
 def describe(node):
-    """Name a content node in words for a message to the user; the sentence
-    starts with a capital letter"""
+    """Name a content node in words for a message to the user
+
+    The words start a sentence, with a capital letter, except for null,
+    which is named "null()" as it is written.
+    """
     match node:
         case Const(value=None):
             return "null()"

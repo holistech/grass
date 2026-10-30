@@ -1,9 +1,8 @@
-"""What the algebra core needs to know about a map type, apart from
-computing its maps
+"""What the algebra core needs to know about a map type
 
-The backends know how a map is computed. This module knows how a map type
-is named in the temporal database and by the tools of GRASS, and in how
-many dimensions its maps are related in space.
+Computing its maps is left out: the backends know how a map is computed. This
+module knows how a map type is named in the temporal database and by the tools
+of GRASS, and in how many dimensions its maps are related in space.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team

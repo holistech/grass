@@ -501,20 +501,21 @@ def _module(call, overwrite):
         # The r.series input file is written now, at run time, not when the
         # chain was planned, so that a dry run stays free of side effects.
         # A file and not input=, because one argument is limited in size (see
-        # RasterBackend); an aggregation also matches the classic module call
-        # that way (a file, with -z past the open file limit). The file is
-        # not removed here: g.tempfile puts it into the temporary directory
-        # of the session, which GRASS cleans up, and the classic aggregation
-        # leaves its file the same way.
+        # RasterBackend); an aggregation so calls r.series as
+        # aggregate_raster_maps() in aggregation.py does (a file, with -z past
+        # the open file limit). The file is not removed here: g.tempfile puts
+        # it into the temporary directory of the session, which GRASS cleans
+        # up, and aggregate_raster_maps() leaves its file the same way.
         filename = gs.tempfile(True)
         with open(filename, "w") as handle:
             handle.write("\n".join(call.inputs) + "\n")
         parameters = {**call.parameters, "file": filename}
-    # quiet is set here and not among the parameters of the call, so that
-    # plan() and the debug output show the calls as before. Without it the
-    # progress of v.overlay drowned the warnings: measured 2026-10-13 in
-    # grass --tmp-project XY, t.vect.algebra "C = A & B" over three map pairs
-    # wrote 108 lines to stderr, the classic algebra 23.
+    # quiet is set here and not among the parameters of the call, so that the
+    # process chain of plan() and the debug output list only the parameters
+    # that decide what is computed. Without it the progress of v.overlay
+    # drowned the warnings: measured 2026-10-13 in grass --tmp-project XY,
+    # t.vect.algebra "C = A & B" over three map pairs wrote 108 lines to
+    # stderr, the reference 23.
     module = Module(call.name, run_=False, quiet=True, **parameters)
     module.flags["overwrite"].value = overwrite
     return module
@@ -594,12 +595,11 @@ def _count_computed(chain):
 
 
 def _run(chain, overwrite, nprocs):
-    """Compute the maps, in parallel for nprocs > 1; the calls of one map run
-    in order
+    """Compute the maps, in parallel for nprocs > 1
 
-    The progress counts the maps handed to the queue when running in
-    parallel, as the classic aggregation did, because a finished process is
-    not reported back.
+    The calls of one map run in order. The progress counts the maps handed to
+    the queue when running in parallel, because a finished process is not
+    reported back.
 
     :return: the names of the maps that were dropped before they were
         computed
@@ -666,7 +666,8 @@ def _store(map_, overwrite, dbif):
 
 
 # Names per g.remove call, so that the list of arguments of the process stays
-# small however many maps a series has; the same chunk size as t.rast.algebra.
+# small however many maps a series has; the chunk size of the reference
+# (temporal_algebra.py).
 _REMOVE_CHUNK = 100
 
 
@@ -817,8 +818,7 @@ def materialize(
     vector_dataset_if_empty=True,
     chain: ProcessChain | None = None,
 ):
-    """Compute the maps of a series and register them in a new space time
-    dataset
+    """Compute the maps of a series and register them in a new space time dataset
 
     Needs a GRASS session and a temporal database. Maps without any valid
     cell are removed and not registered unless register_null is True; if

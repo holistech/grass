@@ -201,11 +201,11 @@ def select(
     unique=True,
     mixed_times="error",
 ):
-    """Keep the slots l of left for which a slot x of other with "l R x"
-    exists (related=True) or none exists (related=False)
+    """Keep the slots l of left by whether a slot x of other with "l R x" exists
 
-    Content stays as it is. select(L, R, X) and select(L, R, X, related=False)
-    are disjoint and together are L.
+    With related=True a slot is kept if such a slot exists, with related=False
+    if none exists. Content stays as it is. select(L, R, X) and
+    select(L, R, X, related=False) are disjoint and together are L.
 
     :param extent: the time stamp of a kept slot: its own ("left"), or its own
         combined with the time stamps of its partners one after the other:

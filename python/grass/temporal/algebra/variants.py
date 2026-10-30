@@ -38,15 +38,19 @@ def describe_extent(extent):
 
 
 def check_comparable(first, second, mixed_times="error", *, times_only=False):
-    """Relations exist only between series of one temporal type, and of one
-    map type where their contents meet
+    """Refuse two series that relations cannot relate
 
-    related() does not check this itself: on mixed absolute and relative
-    time, or on different units, it finds no relation instead of failing.
-    mixed_times="unrelated" leaves it at that, as the classic algebra does.
-    times_only says that no map of second enters the result, only its time
-    stamps and boxes or its numbers, so that its map type does not matter:
-    t.select relates a vector series to a raster series.
+    Relations exist only between series of one temporal type, and of one map
+    type where their contents meet. related() does not check this itself: on
+    mixed absolute and relative time, or on different units, it finds no
+    relation instead of failing. mixed_times="unrelated" leaves it at that, as
+    the classic algebra does. times_only says that no map of second enters the
+    result, only its time stamps and boxes or its numbers, so that its map type
+    does not matter: t.select relates a vector series to a raster series.
+
+    :raises ValueError: for series of different map types without
+        times_only, and with mixed_times="error" for series of different
+        temporal types or units
     """
     check_option("mixed_times", mixed_times, MIXED_TIMES)
     if first.kind != second.kind and not times_only:
@@ -118,15 +122,16 @@ def pair_equal_times(targets, matches, others, *, order="sorted", error=ValueErr
 
 
 def combine_boxes(first, second, operation, three_d):
-    """The common box ("intersection") or the box around both ("union") of
-    two boxes, as SpatialExtent computes them; None if there is no common box
+    """Return the common box or the box around both of two boxes
 
-    The classic algebra asks its map objects for these boxes, which is not
-    the test of operations._combined_space(). Measured 2026-10-16 by calling
-    SpatialExtent.intersect_2d() and intersect() on such boxes: boxes that
-    share only an edge or a corner have no common box, and neither have two
-    3D boxes of no height, where _combined_space() finds one. A box around
-    both always exists.
+    operation "intersection" gives the common box, None if there is none, and
+    "union" the box around both, as SpatialExtent computes them. The reference
+    implementation (grass.temporal.classic) asks its map objects for these
+    boxes, which is not the test of operations._combined_space(). Measured
+    2026-10-16 by calling SpatialExtent.intersect_2d() and intersect() on such
+    boxes: boxes that share only an edge or a corner have no common box, and
+    neither have two 3D boxes of no height, where _combined_space() finds one.
+    A box around both always exists.
     """
     boxes = [
         SpatialExtent(
