@@ -1,11 +1,15 @@
-"""Run the earlier implementation of the temporal algebra
+"""Run the reference implementation of the temporal algebra
 
-The classic algebra, the engine in ``grass.temporal.classic``, is the reference
-that tests compare the classic profile of the algebra core with. The public
-parser classes choose between the core and the profile in ``parse()``; once
-``-c`` runs on the profile, they no longer reach the earlier implementation.
-This module therefore builds the engine objects directly, independent of
-``GRASS_TEMPORAL_ALGEBRA``.
+The reference implementation (``grass.temporal.classic``) is the
+implementation of the classic algebra that tests compare the classic profile
+of the algebra core with. The public parser classes choose between the core
+and the classic profile in ``parse()`` and run ``-c`` on the profile, so they
+never reach the reference; this module builds the parsers of the reference
+directly, independent of ``GRASS_TEMPORAL_ALGEBRA``.
+
+``sample_by_dataset`` keeps the sampling of a dataset by the granules of
+another in its classic form, which the sampling of
+``grass.temporal.related_maps`` is compared with.
 
 The module does not import pytest and does not touch ``os.environ``.
 
@@ -22,7 +26,7 @@ KINDS = ("raster", "raster3d", "vector", "select")
 
 
 def _engine_class(kind):
-    """Return the class of the classic engine for a kind"""
+    """Return the parser class of the reference for a kind"""
     # Imported on use, so that importing the testing package does not load
     # the parser modules of the algebras a test does not need.
     if kind == "raster":
@@ -52,7 +56,7 @@ def _engine_class(kind):
 
 
 class _SelectEngine:
-    """The engine of t.select with the ``parse`` signature of the others"""
+    """The parser of t.select in the reference, with the ``parse`` of the others"""
 
     def __init__(self, engine, stdstype):
         self._engine = engine
@@ -69,7 +73,7 @@ class _SelectEngine:
 
 
 def reference_parser(kind, **options):
-    """Create a parser of the earlier implementation
+    """Create a parser of the reference
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
     :param options: Arguments of the constructor of the parser class, such as
@@ -77,8 +81,7 @@ def reference_parser(kind, **options):
         ``nprocs`` and ``time_suffix``. The kind ``"select"`` also takes
         ``stdstype`` (default ``"strds"``), the dataset type that t.select
         passes to ``TemporalAlgebraParser.parse``.
-    :return: The engine of the classic algebra
-        (``grass.temporal.classic``), independent of
+    :return: A parser object of the reference, independent of
         ``GRASS_TEMPORAL_ALGEBRA``. Its ``parse`` takes ``(expression,
         basename=None, overwrite=False)`` for every kind; for ``"select"`` the
         dataset type is fixed by ``stdstype``.
@@ -105,11 +108,12 @@ def setup_granularity(parser, kind, expression):
 
     Does what the granularity mode (-g) of t.rast.algebra and t.rast3d.algebra
     does before ``parse()``: ``parser.setup_common_granularity`` with the lexer
-    and dataset type of the kind. It works on the classic parser classes and on
-    the switching classes alike, so the algebra core can be run in the mode
-    too.
+    and dataset type of the kind. It works on a parser of the reference and on
+    an object of the public parser classes alike, so the algebra core can be
+    run in the mode too.
 
-    :param parser: A parser of ``reference_parser`` or a parser class instance
+    :param parser: A parser of ``reference_parser`` or an object of a public
+        parser class
     :param kind: ``"raster"``, ``"raster3d"`` or ``"vector"``; the tool for
         vector maps has no such mode, the parser has
     :param expression: The whole statement, ``"R = A + B"``
@@ -138,7 +142,7 @@ def setup_granularity(parser, kind, expression):
 
 
 def run_reference(kind, expression, *, basename, overwrite=False, **options):
-    """Compute an expression with the earlier implementation
+    """Compute an expression with the reference
 
     :param kind: ``"raster"``, ``"raster3d"``, ``"vector"`` or ``"select"``
     :param expression: The algebra expression, e.g. ``"R = A + B"``
@@ -148,7 +152,8 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
         expression is only parsed, which tells accepted from rejected
         expressions. ``granularity=True`` first calls ``setup_granularity``.
     :return: The process chain dictionary, like ``parse()``
-    :raises SyntaxError: for expressions that the earlier grammar rejects
+    :raises SyntaxError: for expressions that the grammar of the reference
+        rejects
     :raises FatalError: see ``setup_granularity``
     """
     granularity = options.pop("granularity", False)
@@ -161,11 +166,11 @@ def run_reference(kind, expression, *, basename, overwrite=False, **options):
 def _maps_with_gaps_as_before(sampler, where, dbif):
     """List the maps of sampler by start time with a gap map between neighbours
 
-    This is get_registered_maps_as_objects_with_gaps() as it was before the
-    dataset passed over a map without start time. The reference computes as it
-    always did, so it keeps its own copy: a gap is only inserted between two
-    adjacent maps, and never next to a map without time or one that ends
-    before it starts.
+    The classic rule of get_registered_maps_as_objects_with_gaps(), which the
+    reference keeps: a gap is only inserted between two adjacent maps, and
+    never next to a map without time or one that ends before it starts. The
+    method of the library passes over a map without start time instead and
+    puts the gap before the next map with one.
 
     :return: The map objects with the gaps (maps with id None) in between
     """
@@ -228,12 +233,12 @@ def _sampling_relations(method):
 
 
 def sample_by_dataset(stds, sampler, method, spatial=False, dbif=None, where=None):
-    """Sample a dataset with the granules of a sampler dataset, the earlier way
+    """Sample a dataset with the granules of a sampler dataset, the classic way
 
-    This is the classic AbstractSpaceTimeDataset.sample_by_dataset(), kept as
-    the reference that t.sample, t.rast.mapcalc, t.rast3d.mapcalc and
-    sample_stds_by_stds_topology() are compared with. These now take their
-    granules and related maps from grass.temporal.related_maps.
+    This is the classic AbstractSpaceTimeDataset.sample_by_dataset(), kept so
+    that t.sample, t.rast.mapcalc, t.rast3d.mapcalc and
+    sample_stds_by_stds_topology(), which take their granules and related maps
+    from grass.temporal.related_maps, are compared with it.
 
     The sampler must have interval time and the temporal type of stds,
     otherwise the function reports an error and returns None. A gap between

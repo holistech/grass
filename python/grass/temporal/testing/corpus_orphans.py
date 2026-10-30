@@ -11,9 +11,9 @@ by the unread keys of that kind, and exits with 1 if any key is unread. Run
 the tests in both settings of the algebra into the same trace directory
 first: some cases only exist in one of them.
 
-The check only reports. Deleting an entry drops an outcome of the earlier
-implementation that can be recorded again only by running that
-implementation.
+The check only reports. Deleting an entry drops an outcome of the reference
+implementation (``grass.temporal.classic``) that only a new run of the
+reference can record again.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team

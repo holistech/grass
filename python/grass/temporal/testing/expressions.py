@@ -45,7 +45,8 @@ Python. A batch runs in a temporary project and gives each expression
 
 The test modules that use this fuzzer run the seeds 0 to 199 per map type
 through ``check_seed``, ``check_agreement`` and ``check_difference_seen``,
-which take the outcome of the earlier implementation from the corpus of
+which take the outcome of the reference implementation
+(``grass.temporal.classic``) from the corpus of
 ``grass.temporal.testing.corpus``. ``GRASS_TEMPORAL_FUZZ_COUNT`` sets another
 count and ``GRASS_TEMPORAL_FUZZ_SEED`` the first seed for acceptance runs.
 
@@ -220,6 +221,8 @@ def _print_clusters(records):
 
 def main(argv=None):
     """Command line of the batch, see the module docstring"""
+    # The summary line only: the rest of the docstring, which ends with the
+    # license header, would bury the options in --help.
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--kind", choices=KINDS)
     parser.add_argument("--seeds", help="first-last, both included, or one seed")

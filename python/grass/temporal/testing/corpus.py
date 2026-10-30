@@ -1,63 +1,61 @@
-"""Recorded outcomes of the earlier classic implementation for the tests
+"""Recorded outcomes of the reference implementation for the tests
 
 The differential tests compare the classic profile of the algebra core, and
-in places the core itself, with the earlier implementation of the classic
-algebra (``grass.temporal.testing.reference``). That implementation stays in
-the repository for good: publications refer to it, and the profile has to
-reproduce its results completely. This module keeps what the earlier
-implementation computed for each case of the test suite in a corpus and hands
-the stored outcome to the tests in place of a run; this is the default way of
-the comparisons.
+in places the core itself, with the reference implementation of the classic
+algebra (``grass.temporal.classic``, run by
+``grass.temporal.testing.reference``). The reference stays in the repository
+for good: publications refer to it, and the profile has to reproduce its
+results completely. This module keeps what the reference computed for each
+case of the test suite in a corpus and hands the stored outcome to the tests
+in place of a run; this is the default way of the comparisons.
 
-Two functions take the place of the runs of the earlier implementation:
+Two functions take the place of the runs of the reference:
 
 - ``reference_outcome(kind, expression, **options)`` is
   ``outcome(kind, expression, RUNNERS["reference"], basename="fa", **options)``
   of ``grass.temporal.testing.differential``.
 - ``reference_rejects_syntax(kind, expression, **options)`` tells whether the
-  earlier implementation rejects the expression with a ``SyntaxError`` when it
-  runs without computing (``run=False``, without the granularity mode), the
-  run that ``accepted_error_pair`` makes.
+  reference rejects the expression with a ``SyntaxError`` when it runs without
+  computing (``run=False``, without the granularity mode), the run that
+  ``accepted_error_pair`` makes.
 
 The corpus is the directory ``corpus`` next to this module, one file per kind
 (``raster``, ``raster3d``, ``vector``, ``select``): ``<kind>.jsonl``, or
 ``<kind>.jsonl.gz`` for every kind when the plain files together would be
-larger than ``SIZE_LIMIT``.
-Each line is a JSON object with ``key`` and ``value``. The key is
-``corpus_key()``: the node id of the test (``case_id()``), the kind, the
-expression and the options, plus the mark ``"dry_run"`` for the run without
-computing. So the same expression in two tests has two entries, and a test
-that changes its data or its options cannot read an outcome of other data.
-The key hangs on the node id: a test that is renamed or moved finds no entry
-and goes red, and its old entries stay in the corpus as orphans. Record the corpus again
-for a renamed test.
-The value is the outcome or, for the run without computing, true or false.
+larger than ``SIZE_LIMIT``. Each line is a JSON object with ``key`` and
+``value``. The key is ``corpus_key()``: the node id of the test
+(``case_id()``), the kind, the expression and the options, plus the mark
+``"dry_run"`` for the run without computing. So the same expression in two
+tests has two entries, and a test that changes its data or its options cannot
+read an outcome of other data. The key hangs on the node id: a test that is
+renamed or moved finds no entry and goes red, and its old entries stay in the
+corpus as orphans. Record the corpus again for a renamed test. The value is
+the outcome or, for the run without computing, true or false.
 
 The variable ``GRASS_TEMPORAL_REFERENCE`` chooses where the outcome comes
 from:
 
-- unset or ``corpus``: from the corpus, without running the earlier
-  implementation. A case without entry fails with an ``AssertionError`` that
-  names the key and how to record. If the variable is unset and
-  ``GRASS_TEMPORAL_FUZZ_SEED`` or ``GRASS_TEMPORAL_FUZZ_COUNT`` is set, the
-  run is an acceptance run with seeds outside the corpus, and the mode is
-  ``live``.
-- ``live``: the earlier implementation runs. Where the corpus holds the
-  case, both must be equal, as ``differential.compare()`` sees it and in the
-  message, which ``compare()`` leaves out. A run of the suite in this mode
-  shows that the corpus still holds what the implementation computes.
-- ``record``: the earlier implementation runs, and each result is appended to
-  a file in the directory that ``GRASS_TEMPORAL_REFERENCE_RECORD_DIR`` names,
-  one file per process: ``<worker>-<pid>.jsonl``, with the worker of
-  pytest-xdist or ``main``.
+- unset or ``corpus``: from the corpus, without running the reference. A
+  case without entry fails with an ``AssertionError`` that names the key and
+  how to record. If the variable is unset and ``GRASS_TEMPORAL_FUZZ_SEED`` or
+  ``GRASS_TEMPORAL_FUZZ_COUNT`` is set, the run is an acceptance run with
+  seeds outside the corpus, and the mode is ``live``.
+- ``live``: the reference runs. Where the corpus holds the case, both must
+  be equal, as ``differential.compare()`` sees it and in the message, which
+  ``compare()`` leaves out. A run of the suite in this mode shows that the
+  corpus still holds what the reference computes.
+- ``record``: the reference runs, and each result is appended to a file in
+  the directory that ``GRASS_TEMPORAL_REFERENCE_RECORD_DIR`` names, one file
+  per process: ``<worker>-<pid>.jsonl``, with the worker of pytest-xdist or
+  ``main``.
 
-Outside a pytest test there is no case to look up; the earlier
-implementation runs in every mode but ``record``, which needs the case.
+Outside a pytest test there is no case to look up; the reference runs in
+every mode but ``record``, which needs the case.
 
-To record the corpus again, run all test directories that use the earlier
-implementation in both settings of the algebra into the same record
-directory, then merge the files of the processes once, from the root of the
-source tree, and install the package::
+To record the corpus again, run all test directories that use the reference
+in both settings of the algebra into the same record directory, then merge
+the files of the processes once, from the root of the source tree, and
+install the package::
 
     export GRASS_TEMPORAL_REFERENCE=record
     export GRASS_TEMPORAL_REFERENCE_RECORD_DIR=/tmp/corpus-records
@@ -69,8 +67,8 @@ source tree, and install the package::
 
 The record directory should be empty before the recording. A merge after
 each setting would keep only the cases of the second, because ``merge``
-replaces the file of each kind (see below). ``merge`` writes
-into ``python/grass/temporal/testing/corpus`` below the current directory,
+replaces the file of each kind (see below). ``merge`` writes into
+``python/grass/temporal/testing/corpus`` below the current directory,
 because the tests import the installed package, whose directory is not the
 one in version control; ``--corpus-dir`` names another directory. ``merge``
 replaces the file of each kind in the records: a recording of only some
@@ -172,7 +170,7 @@ def corpus_key(kind, expression, options, *, dry_run=False):
 
 
 def reference_outcome(kind, expression, **options):
-    """Return the outcome of the earlier implementation for an expression
+    """Return the outcome of the reference for an expression
 
     The outcome is that of ``differential.outcome()`` with the runner
     ``"reference"`` and the basename ``fa``, taken from the corpus or computed,
@@ -186,9 +184,9 @@ def reference_outcome(kind, expression, **options):
 
 
 def reference_rejects_syntax(kind, expression, **options):
-    """Tell whether the earlier implementation rejects the syntax
+    """Tell whether the reference rejects the syntax
 
-    The earlier implementation runs ``Rfa = expression`` without computing
+    The reference runs ``Rfa = expression`` without computing
     (``run=False``) and without the granularity mode, which would read and
     sample the datasets before it parses. Any other error than a
     ``SyntaxError`` is no rejection.
