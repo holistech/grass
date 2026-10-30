@@ -2,8 +2,9 @@
 
 The reference implementation (grass.temporal.classic) lists maps of several
 temporal types in one list and tells maps apart by the identity of their map
-objects; a series of the core has neither. These classes and functions hold both for ClassicTranslator
-(classic.py); they are for variants of the algebra, not for users.
+objects; a series of the core has neither. These classes and functions hold
+both for ClassicTranslator (classic.py); they are for variants of the algebra,
+not for users.
 
 SPDX-FileCopyrightText: 2026 Soeren Gebbert
 SPDX-FileCopyrightText: GRASS Development Team
@@ -26,8 +27,11 @@ if TYPE_CHECKING:
 
 
 def unit_of(series):
-    """The temporal type and unit of a series: the unit of relative time,
-    None for absolute time, ABSENT for a map without time stamp"""
+    """Return the temporal type and unit of a series
+
+    That is the unit of relative time, None for absolute time and ABSENT for a
+    map without time stamp.
+    """
     extent = series.slots[0].extent
     return ABSENT if extent is None else extent.unit
 
@@ -47,8 +51,11 @@ class Mixed:
     parts: tuple[Series, ...]
 
     def part(self, unit):
-        """The series of maps of a unit; for a unit the list lacks, a series
-        that relates to nothing of that unit"""
+        """Return the series of the maps of a unit
+
+        For a unit the list lacks, it is a series that relates to nothing of
+        that unit.
+        """
         return next(
             (part for part in self.parts if unit_of(part) == unit), self.parts[0]
         )

@@ -98,11 +98,11 @@ def _pairing_error(message):
 
 
 def _joined(symbol, first, second):
-    """The content of two conditions joined by && or ||, as r.mapcalc reads
-    the text of the classic algebra
+    """Return the content of two conditions joined by && or ||
 
-    The classic algebra writes "a||(b)&&(c)" and r.mapcalc binds && stronger,
-    so the condition is a || (b && c) whatever grouped the operands before.
+    It is grouped as r.mapcalc reads the text of the classic algebra: that
+    text is "a||(b)&&(c)" and r.mapcalc binds && stronger, so the condition
+    is a || (b && c) whatever grouped the operands before.
     """
     if (
         symbol == "&&"
@@ -146,8 +146,9 @@ def _check_increment(function, series, increment, with_unit):
     """Refuse an increment of the wrong kind for the time type of the maps
 
     Absolute time takes a number and a unit, relative time a number of its
-    unit. A fractional number is no refusal for relative time: it is truncated
-    to a whole one, as the reference does.
+    unit. A fractional number on relative time passes here: buff_t() truncates
+    it to a whole one, as the reference does, and tshift() refuses it in the
+    core with the SyntaxError of the reference (see ClassicTranslator._tshift()).
 
     :raises SyntaxError: for a number without unit on absolute time, and a
         unit on relative time
@@ -191,9 +192,12 @@ class ClassicTranslator(Translator):
 
     @staticmethod
     def _by_start(resolve):
-        """resolve, with the series ordered by start alone as the datasets are
-        (see resolve in evaluate()): a single map joins lists of datasets, and
-        the order of its list decides the ties in the lists it joins"""
+        """Return resolve with the series ordered by start alone
+
+        The datasets are ordered so (see resolve in evaluate()): a single map
+        joins lists of datasets, and the order of its list decides the ties in
+        the lists it joins.
+        """
 
         def read(*arguments, **keywords):
             series = resolve(*arguments, **keywords)
@@ -221,11 +225,14 @@ class ClassicTranslator(Translator):
         return read
 
     def statement(self, node):
-        """A selection and the vector algebra register a map unchanged if its
+        """Return the name of the result and its series
+
+        A selection and the vector algebra register a map unchanged if its
         time stamp is the stored one, also after tshift(), tsnap() and buff_t()
         moved it away and back; the classic algebra compares the time stamps
         only. Raster maps are computed, so they are always new. A selection
-        that would register the value of a time function is refused."""
+        that would register the value of a time function is refused.
+        """
         name, series = super().statement(node)
         if self._selection and any(
             id(slot.content) in self._time_values for slot in series.slots
@@ -253,18 +260,24 @@ class ClassicTranslator(Translator):
         return name, classic_maps.with_slots(series, slots)
 
     def _operands(self, node):
-        """The classic production for a bare name reads the dataset only when
-        it reduces, after the other operand: that operand's errors and
-        temporal type come first"""
+        """Return the values of the left and right operand of a binary node
+
+        A bare dataset name on the left is read last: the classic production
+        for a bare name reads the dataset only when it reduces, after the other
+        operand, so that operand's errors and temporal type come first.
+        """
         if isinstance(node.left, ast.Name) and not isinstance(node.right, ast.Name):
             right = self.value(node.right)
             return self.value(node.left), right
         return super()._operands(node)
 
     def _binary(self, node):
-        """The classic hash production refuses a temporal reference other
-        than l before it reads its datasets; operands that are expressions
-        were evaluated before"""
+        """Return the value of a binary node
+
+        The classic hash production refuses a temporal reference other than l
+        before it reads its datasets; operands that are expressions were
+        evaluated before.
+        """
         operator = node.operator
         if node.symbol == "#" and operator is not None and operator.temporal != "l":
             for operand in (node.left, node.right):
@@ -293,10 +306,10 @@ class ClassicTranslator(Translator):
         return super()._binary_values(node, left, right)
 
     def _each_unit(self, function, *arguments):
-        """function of arguments, once for each temporal type and unit of
-        the maps of a classic_maps.Mixed among them
+        """Return function of arguments, once per temporal type and unit
 
-        The unit is that of the first argument with time stamps: its maps
+        The units are those of the maps of a classic_maps.Mixed among the
+        arguments. The unit is that of the first argument with time stamps: its maps
         meet only the maps of their unit in the other arguments, as maps of
         different units relate to nothing. An argument may be a list of
         values, as the arguments of a function are.
@@ -332,8 +345,13 @@ class ClassicTranslator(Translator):
         )
 
     def _result(self, target, result):
-        """The classic dataset takes the temporal type and unit of its first
-        map; registering a map of another fails"""
+        """Return result, or refuse a list of several temporal types or units
+
+        The classic dataset takes the temporal type and unit of its first map;
+        registering a map of another fails.
+
+        :raises FatalError: for a classic_maps.Mixed
+        """
         if not isinstance(result, classic_maps.Mixed):
             return result
         first, second = result.parts[:2]
@@ -352,9 +370,11 @@ class ClassicTranslator(Translator):
         raise FatalError(msg.format(name=target))
 
     def _apply(self, function, *operands):
-        """The classic result of function; a count that meets numbers stays a
-        count of the same map, as the map changed by a number keeps its id
-        and its first count"""
+        """Return the classic result of function on the operands
+
+        A count that meets numbers stays a count of the same map, as the map
+        changed by a number keeps its id and its first count.
+        """
         result = self._applied(function, *operands)
         series = [operand for operand in operands if isinstance(operand, Series)]
         if not (
@@ -391,8 +411,10 @@ class ClassicTranslator(Translator):
         return dataclasses.replace(result, slots=tuple(slots))
 
     def _text_of(self, function, operands, index):
-        """The command of function on the operands in the slot at index,
-        written with the commands of the operands and not folded"""
+        """Return the command of function on the operands in the slot at index
+
+        It is written with the commands of the operands and not folded.
+        """
         return Call(
             function,
             tuple(
@@ -426,15 +448,20 @@ class ClassicTranslator(Translator):
 
     @staticmethod
     def _written(content):
-        """The content as the classic algebra writes its command: unfolded
-        where the profile folded it to a number"""
+        """Return the content as the classic algebra writes its command
+
+        That is unfolded where the profile folded it to a number.
+        """
         mark = content.mark
         return content if mark is None or mark.text is None else mark.text
 
     @staticmethod
     def _new_maps(series, *, bare=False):
-        """series with a new map object for each content; bare if the command
-        of the map only names the map it reads, as for a neighbour map"""
+        """Return series with a new map object for each content
+
+        bare marks a map whose command only names the map it reads, as for a
+        neighbour map.
+        """
         return dataclasses.replace(
             series,
             slots=tuple(
@@ -450,11 +477,14 @@ class ClassicTranslator(Translator):
 
     @staticmethod
     def _has_command(content):
-        """True if the map of content has a command of its own in the classic
-        algebra: it is computed or a new map object whose command does more
-        than name the map it reads. A neighbour map (read at an offset in time
-        or in cells) only names it, so the truth value of its time function is
-        the operand of && and || and not the map itself."""
+        """Tell whether the map of content has a command of its own
+
+        In the classic algebra it has one if it is computed or a new map object
+        whose command does more than name the map it reads. A neighbour map
+        (read at an offset in time or in cells) only names it, so the truth
+        value of its time function is the operand of && and || and not the map
+        itself.
+        """
         return not isinstance(content, MapRef) or (
             content.mark is not None
             and content.mark.map is classic_maps.OWN
@@ -462,16 +492,15 @@ class ClassicTranslator(Translator):
         )
 
     def _first_counts(self, series):
-        """series with the first count in place of each content made of a
-        count, or series itself if it has none
+        """Return series with the first count in place of each counted content
 
-        The classic algebra keeps the count on the map object of the left
-        map, and the map stays that object through numbers, functions,
-        selections, merge() and if() on time with a number as else; if() on
-        time with maps only as then and else clears the count, see
-        _uncounted(). Where it is an operand of an operation with
-        another map or of a cell condition of if(), the classic text takes
-        the first count kept on it, not the expression built so far:
+        Without a counted content it is series itself. The classic algebra
+        keeps the count on the map object of the left map, and the map stays
+        that object through numbers, functions, selections, merge() and if() on
+        time with a number as else; if() on time with maps only as then and
+        else clears the count, see _uncounted(). Where it is an operand of an
+        operation with another map or of a cell condition of if(), the classic
+        text takes the first count kept on it, not the expression built so far:
         exp(A # A) + N computes 1 + N.
         """
         if not isinstance(series, Series) or not any(
@@ -489,8 +518,11 @@ class ClassicTranslator(Translator):
         )
 
     def _arithmetic(self, symbol, left, right, operator):
-        """An operation of two map lists writes the first count of a counted
-        map (see _first_counts()) and gives new maps"""
+        """Return an arithmetic operation as the classic algebra computes it
+
+        An operation of two map lists writes the first count of a counted map
+        (see _first_counts()) and gives new maps.
+        """
         if not (isinstance(left, Series) and isinstance(right, Series)):
             return super()._arithmetic(symbol, left, right, operator)
         left, right = self._first_counts(left), self._first_counts(right)
@@ -506,9 +538,12 @@ class ClassicTranslator(Translator):
         return dataclasses.replace(result, slots=tuple(slots))
 
     def _applied(self, function, *operands):
-        """Functions of time constants such as sqrt(start_doy(A, 0)) are
-        computed by r.mapcalc per map in the classic algebra, while the core
-        computes scalars in Python and lacks most of the functions"""
+        """Return function of the operands as the classic algebra computes it
+
+        Functions of time constants such as sqrt(start_doy(A, 0)) are computed
+        by r.mapcalc per map in the classic algebra, while the core computes
+        scalars in Python and lacks most of the functions.
+        """
         if function in _ARITHMETIC and self._kind != "vector":
             computed = self._computed_time_values(function, operands)
             if computed is not None:
@@ -551,13 +586,13 @@ class ClassicTranslator(Translator):
 
     @staticmethod
     def _computed_time_values(function, operands):
-        """function of time function values and numbers as r.mapcalc computes
-        it, one value per map, or None for other operands
+        """Return function of time values and numbers as r.mapcalc computes it
 
-        The classic algebra writes such arithmetic (td(A) * 2) into the
-        expression of r.mapcalc, so the result is a series of cells and a
-        comparison on it a condition on cells, decided with the integers of
-        r.mapcalc (see classic_numbers.mapcalc_arithmetic()). Probes of 2026-10-24 with
+        The result has one value per map; it is None for other operands. The
+        classic algebra writes such arithmetic (td(A) * 2) into the expression
+        of r.mapcalc, so the result is a series of cells and a comparison on it
+        a condition on cells, decided with the integers of r.mapcalc (see
+        classic_numbers.mapcalc_arithmetic()). Probes of 2026-10-24 with
         GRASS_TEMPORAL_REFERENCE=live: if(td(RM) * 2 > 5, RM, 1) with maps of
         2000000000 seconds gives 1 for each map in the reference, as the
         product wraps around to -294967296; if(td(RM) * 2 > 5, RM) gives 0.
@@ -597,9 +632,12 @@ class ClassicTranslator(Translator):
 
     @staticmethod
     def _unfolded(function, operands):
-        """The call of function for each slot of the series among operands,
-        or for numbers alone, without computing it; None where the series do
-        not agree, which apply() reports"""
+        """Return the call of function for each slot, without computing it
+
+        The calls are those for each slot of the series among operands, or
+        for numbers alone the one call; None where the series do not agree,
+        which apply() reports.
+        """
         series = [operand for operand in operands if isinstance(operand, Series)]
         if not series:
             return Call(function, operands)
@@ -625,13 +663,18 @@ class ClassicTranslator(Translator):
         return dataclasses.replace(first, slots=tuple(slots), sort="field")
 
     def _relating_options(self):
-        """The classic algebra visits the related maps in the written order
-        of the relation names, once per name"""
+        """Return the options of every select(), pairs() and gather()
+
+        The classic algebra visits the related maps in the written order of
+        the relation names, once per name.
+        """
         return super()._relating_options() | {"order": "written", "unique": False}
 
     def _relation(self, operator):
-        """The relation in the written order of its names; a spatial name
-        relates in space also without the spatial flag"""
+        """Return the relation of operator in the written order of its names
+
+        A spatial name relates in space also without the spatial flag.
+        """
         names = tuple(operator.relations)
         temporal = tuple(name for name in names if name in TEMPORAL_RELATIONS)
         spatial = frozenset(names) - frozenset(temporal)
@@ -673,8 +716,11 @@ class ClassicTranslator(Translator):
         return dataclasses.replace(right, kind=left.kind)
 
     def _meeting(self, slot, other, found):
-        """The partners of slot up to the first whose box does not meet the
-        box combined so far, as the classic result map stops there"""
+        """Yield the partners of slot that the classic result map reaches
+
+        They end before the first partner whose box does not meet the box
+        combined so far, as the classic result map stops there.
+        """
         space = slot.space
         three_d = DIMENSIONS[other.kind] == "3D"
         for index in found:
@@ -686,12 +732,13 @@ class ClassicTranslator(Translator):
             yield index
 
     def _select(self, left, right, operator, *, one_per_map=True):
-        """Selections keep one map per selected left map; with a temporal
-        reference other than l its time stamp is combined with the partners
-        one after the other, skipping those that do not combine
+        """Return the selection of the maps of left by their relation to right
 
-        Only the selection in braces ({:,equal}) keeps one map per map id
-        (set_granularity() of the classic algebra collects the maps by id);
+        Selections keep one map per selected left map; with a temporal
+        reference other than l its time stamp is combined with the partners
+        one after the other, skipping those that do not combine. Only the
+        selection in braces ({:,equal}) keeps one map per map id
+        (set_granularity() of the reference collects the maps by id);
         A : B and A !: B keep every selected map, also two of one id.
         """
         self._pair(operator.symbol, left, right)
@@ -711,9 +758,11 @@ class ClassicTranslator(Translator):
         return selected
 
     def _source(self, content):
-        """The id of the map that the map of content is, or None: a computed
-        map keeps the id of the first map it was made of, and so does a count
-        of the left map"""
+        """Return the id of the map that the map of content is, or None
+
+        A computed map keeps the id of the first map it was made of, and so
+        does a count of the left map.
+        """
         if content.mark is not None:
             return (
                 content.mark
@@ -730,13 +779,15 @@ class ClassicTranslator(Translator):
         return None
 
     def _one_per_map(self, series):
-        """series with one slot per registered map: a map that came twice
-        with different time stamps, as in merge(tshift(A, "1 hours"), A),
-        stays with the latest start once it is selected, as the reference
-        keeps its selected maps in a dictionary by map id, the last of the
-        start-sorted list winning. Not where a dataset reads one map for
-        several granules (granularity mode): there the reference holds
-        separate map objects of the same id and keeps them all"""
+        """Return series with one slot per registered map
+
+        A map that came twice with different time stamps, as in
+        merge(tshift(A, "1 hours"), A), stays with the latest start once it is
+        selected, as the reference keeps its selected maps in a dictionary by
+        map id, the last of the start-sorted list winning. Not where a dataset
+        reads one map for several granules (granularity mode): there the
+        reference holds separate map objects of the same id and keeps them all.
+        """
 
         def map_id(slot):
             return None if slot.extent is None else self._source(slot.content)
@@ -804,17 +855,17 @@ class ClassicTranslator(Translator):
         return counts
 
     def _combine(self, symbol, left, right, operator, reduce, *, space="keep"):
-        """Fold each left map with all its partners in the written order of
-        the relation names
+        """Return each left map folded with its partners in the written order
 
-        l keeps the left time stamp; r gives a map per partner with the time
-        stamp of the partner and the whole fold as content, and for vector
-        maps only the map of the last partner, as the result maps of one left
-        map share their id; u, i and d combine the time stamp with the
-        partners one after the other and stop at the first that does not
-        combine, keeping what was combined before. The boxes combine in the
-        same steps, also without the spatial flag: an intersection for
-        everything but the overlays of vector maps that are not "and".
+        The order is that of the relation names. l keeps the left time stamp; r
+        gives a map per partner with the time stamp of the partner and the
+        whole fold as content, and for vector maps only the map of the last
+        partner, as the result maps of one left map share their id; u, i and d
+        combine the time stamp with the partners one after the other and stop
+        at the first that does not combine, keeping what was combined before.
+        The boxes combine in the same steps, also without the spatial flag: an
+        intersection for everything but the overlays of vector maps that are
+        not "and".
         """
         relation = self._relation(operator)
         left, right = classic_numbers.read_as_mapcalc(left, right)
@@ -878,9 +929,12 @@ class ClassicTranslator(Translator):
         )
 
     def _index(self, node):
-        """A map read at an offset, in time or in cells, is a new map object
-        in the classic algebra with an id of its own, whose command only names
-        the map it reads (bare, see _has_command())"""
+        """Return the value of a dataset read at an offset
+
+        A map read at an offset, in time or in cells, is a new map object in
+        the classic algebra with an id of its own, whose command only names the
+        map it reads (bare, see _has_command()).
+        """
         result = super()._index(node)
         return (
             self._new_maps(result, bare=True) if isinstance(result, Series) else result
@@ -904,9 +958,11 @@ class ClassicTranslator(Translator):
             self._commands.note(result, argument)
 
     def _carry_commands(self, result, source):
-        """Note for result the commands of source, a condition on a time
-        function: result keeps the maps of the left operand, so what the
-        classic algebra found at their argument is still there"""
+        """Note for result the commands of source, a condition on a time function
+
+        result keeps the maps of the left operand, so what the classic algebra
+        found at their argument is still there.
+        """
         argument = self._commands.get(source)
         if argument is None:
             return
@@ -928,9 +984,12 @@ class ClassicTranslator(Translator):
         self._remember_commands(result, classic_maps.with_slots(argument, slots))
 
     def _compare(self, symbol, left, right):
-        """A comparison of the hash operator itself (A # B == 2) is a condition
-        on time on the first count; any other comparison of a count, as
-        (A # B) + 1 > 2, is a cell condition in the r.mapcalc text"""
+        """Return the comparison of left and right
+
+        A comparison of the hash operator itself (A # B == 2) is a condition on
+        time on the first count; any other comparison of a count, as
+        (A # B) + 1 > 2, is a cell condition in the r.mapcalc text.
+        """
         if left in self._hashes:
             left = self._first_counts(left)
         else:
@@ -949,10 +1008,10 @@ class ClassicTranslator(Translator):
         return result
 
     def _as_command(self, series):
-        """series, with the command of the argument of its time function in
-        place of the truth value of each map that has one
+        """Return series with the commands of the argument of its time function
 
-        A condition that joins a condition on a time function with one on
+        The command takes the place of the truth value of each map that has
+        one. A condition that joins a condition on a time function with one on
         cells (A > 1 && start_month(A * 0) == 1) takes the command of the
         argument, so the cells of the expression decide and not the time,
         where the classic algebra finds a command at the argument. A
@@ -971,8 +1030,11 @@ class ClassicTranslator(Translator):
         return classic_maps.with_slots(series, slots, "field")
 
     def _logical(self, symbol, left, right, operator):
-        """&& and || of two condition series combine the boxes in the same
-        steps as the time stamps, as every classic combination of maps does"""
+        """Return && or || of two conditions
+
+        Two condition series combine the boxes in the same steps as the time
+        stamps, as every classic combination of maps does.
+        """
         if operator is None and (left.sort == "field") != (right.sort == "field"):
             left, right = self._as_command(left), self._as_command(right)
         if not (shared.timed(left) and shared.timed(right)):
@@ -1023,10 +1085,10 @@ class ClassicTranslator(Translator):
         return joined
 
     def _logical_per_partner(self, symbol, left, relation, right, operator):
-        """&& and || with the temporal reference r: a map per partner, with
-        the time stamp of the partner and the whole condition as content
+        """Return && or || with the temporal reference r: a map per partner
 
-        The classic algebra joins all partners of a left map with the
+        Each map has the time stamp of the partner and the whole condition as
+        content. The classic algebra joins all partners of a left map with the
         aggregate (a1 > 1 && (b1 > 1 && b2 > 1)) and gives every partner a
         copy of that map, as it does for arithmetic with r.
         """
@@ -1046,9 +1108,11 @@ class ClassicTranslator(Translator):
         return self._place(left, relation, right, joined, "r")
 
     def _place(self, left, relation, right, conditions, temporal, sort=None):
-        """The conditions of the left maps, or other contents computed per
-        left map, with the time stamps that the temporal reference gives the
-        pairs of a map and its related maps
+        """Return the contents of the left maps with the time stamps of the pairs
+
+        The contents are the conditions of the left maps or other contents
+        computed per left map; the time stamps are those that the temporal
+        reference gives the pairs of a map and its related maps.
 
         :param conditions: One content for each slot of left, in its order
         :param temporal: l, r, u, i or d; r gives a map per partner that
@@ -1089,12 +1153,12 @@ class ClassicTranslator(Translator):
         )
 
     def _compare_related(self, symbol, left, right, operator):
-        """A comparison of two datasets: each left map is compared with every
-        related map, and the comparisons are joined by the aggregation, as
-        (a1 >= f1 && a1 >= f2)
+        """Return a comparison of two datasets
 
-        A count is a cell value here, as in other cell conditions. A left map
-        without related map gives no map.
+        Each left map is compared with every related map, and the comparisons
+        are joined by the aggregation, as (a1 >= f1 && a1 >= f2). A count is a
+        cell value here, as in other cell conditions. A left map without
+        related map gives no map.
         """
         left, right = self._cells(left), self._cells(self._aligned(left, right))
         left, right = classic_numbers.read_as_mapcalc(left, right)
@@ -1121,11 +1185,14 @@ class ClassicTranslator(Translator):
         return series
 
     def _time_variable(self, name, arguments):
-        """td() needs intervals; in a selection start_doy(A, 1) and the like
-        keep the neighbour map itself under the time stamp of each map, as no
-        value is computed there. With an offset only the maps whose value is
-        read are asked for the variable: start_hour(RT, 5) of three maps of
-        relative time is empty, not an error."""
+        """Return the value of the time function name of the arguments
+
+        td() needs intervals; in a selection start_doy(A, 1) and the like keep
+        the neighbour map itself under the time stamp of each map, as no value
+        is computed there. With an offset only the maps whose value is read are
+        asked for the variable: start_hour(RT, 5) of three maps of relative
+        time is empty, not an error.
+        """
         series = arguments[0] if arguments else None
         used = series
         offset = None
@@ -1205,15 +1272,16 @@ class ClassicTranslator(Translator):
         return result
 
     def _merge(self, first, second):
-        """The classic map lists mix maps and numbers freely: a number in a
-        list is a constant map, so merging a count with maps is a list of
-        maps. A map that the second list shares with the first is kept once;
-        what repeats in the first list stays, as the lists of the classic
-        algebra tell two computed maps apart by the map they came from.
+        """Return merge() of two classic map lists
 
-        Shared means the same map id, time stamp and text, as in the classic
-        algebra; the core compares the contents only, which would take the
-        counts of two datasets (merge(A # N, N # A)) for one map.
+        The classic map lists mix maps and numbers freely: a number in a list
+        is a constant map, so merging a count with maps is a list of maps. A
+        map that the second list shares with the first is kept once; what
+        repeats in the first list stays, as the lists of the classic algebra
+        tell two computed maps apart by the map they came from. Shared means
+        the same map id, time stamp and text, as in the classic algebra; the
+        core compares the contents only, which would take the counts of two
+        datasets (merge(A # N, N # A)) for one map.
         """
         firsts, seconds = (
             value.parts if isinstance(value, classic_maps.Mixed) else (value,)
@@ -1262,27 +1330,36 @@ class ClassicTranslator(Translator):
         )
 
     def _merge_key(self, slot):
-        """The identity of a map in merge(): time stamp, text and the id of
-        the map, as the classic key (map id, time stamp, command)
+        """Return the identity of a map in merge()
 
-        Box and origin, which the slots of the core also compare, follow from
-        the map id and the text: a map of one id and text has one box, and
-        the origin is the id of a registered map.
+        It is the time stamp, the text and the id of the map, as the classic
+        key (map id, time stamp, command). Box and origin, which the slots of
+        the core also compare, follow from the map id and the text: a map of
+        one id and text has one box, and the origin is the id of a registered
+        map.
         """
         return (slot.extent, self._written(slot.content), self._source(slot.content))
 
     def _tshift(self, series, increment):
-        """Shift by an increment; a number needs relative and a text with a
-        unit absolute time"""
+        """Return series shifted by an increment
+
+        A number needs relative and a text with a unit absolute time. The
+        increment reaches retime() as a text: a fraction on relative time
+        ("1.5") is then no number there and raises TimeStepError, which
+        evaluate() reports as the SyntaxError of the reference, where a float
+        would raise the plain ValueError of the core.
+        """
         value, with_unit = _written_increment(increment)
         _check_increment("tshift", series, value, with_unit)
         return time_functions.retime(series, shift=str(value))
 
     def _buff_t(self, series, increment):
-        """Buffer by temporal_buffer() of the map objects, as the classic
-        algebra does: a negative buffer gives an instant where the end meets
-        the start and keeps the time stamp where the end would fall before
-        the start, and instants stay"""
+        """Return series buffered by temporal_buffer() of the map objects
+
+        This is what the classic algebra does: a negative buffer gives an
+        instant where the end meets the start and keeps the time stamp where
+        the end would fall before the start, and instants stay.
+        """
         value, with_unit = _written_increment(increment)
         _check_increment("buff_t", series, value, with_unit)
         slots = []
@@ -1300,11 +1377,14 @@ class ClassicTranslator(Translator):
         return classic_maps.with_slots(series, slots)
 
     def _if(self, arguments, relation):
-        """The classic if(): conditions on map values choose per cell, one map
-        per pair of condition and conclusion; conditions on temporal
-        variables judge each conclusion map by the conditions related to it.
-        The maps of then and else are listed together in time order, where
-        the core lists those of then first."""
+        """Return the classic if() of the arguments
+
+        Conditions on map values choose per cell, one map per pair of condition
+        and conclusion; conditions on temporal variables judge each conclusion
+        map by the conditions related to it. The maps of then and else are
+        listed together in time order, where the core lists those of then
+        first.
+        """
         # Without maps in then and else, the result is the list of the
         # condition as it stands, also if that list is not in time order.
         listed = not any(shared.timed(branch) for branch in arguments[1:])
@@ -1337,13 +1417,12 @@ class ClassicTranslator(Translator):
         return order(self._field_if(condition, then, otherwise, relation))
 
     def _uncounted(self, series):
-        """series with the counted maps no longer counted, but still the maps
-        they were
+        """Return series with the counted maps no longer counted
 
-        if() on time with maps as then and else ends by clearing the values
-        of the selected map objects (check_stds(..., clear=True)), the count
-        among them, and keeps their text; the form with a number as else
-        does not, see _temporal_if().
+        They are still the maps they were. if() on time with maps as then and
+        else ends by clearing the values of the selected map objects
+        (check_stds(..., clear=True)), the count among them, and keeps their
+        text; the form with a number as else does not, see _temporal_if().
         """
         slots = []
         for slot in series.slots:
@@ -1357,9 +1436,11 @@ class ClassicTranslator(Translator):
         return dataclasses.replace(series, slots=tuple(slots))
 
     def _temporal_if(self, condition, then, otherwise, relation, first):
-        """if() on time with maps as then and a number as else: the classic
-        algebra writes the number on the map objects of then that the
-        condition rejects, so a counted map there stays counted"""
+        """Return if() on time with maps as then and a number as else
+
+        The classic algebra writes the number on the map objects of then that
+        the condition rejects, so a counted map there stays counted.
+        """
         result = super()._temporal_if(condition, then, otherwise, relation, first)
         if not (
             shared.timed(then)
@@ -1395,12 +1476,12 @@ class ClassicTranslator(Translator):
         )
 
     def _judged_if(self, condition, then, otherwise=None, *, relation):
-        """if() on temporal variables: each conclusion map is judged by all
-        condition maps related to it, over all of them and without pairing
-        maps of equal time; a map without related condition is left out,
-        except in else with a relation beyond equal
+        """Return if() on temporal variables
 
-        The relation reads "condition R conclusion", so the conclusion maps
+        Each conclusion map is judged by all condition maps related to it,
+        over all of them and without pairing maps of equal time; a map without
+        related condition is left out, except in else with a relation beyond
+        equal. The relation reads "condition R conclusion", so the conclusion maps
         are related to the conditions by its inverse. Maps of other types than
         the result relate as well (t.select with stvds() and the like).
         """
@@ -1506,9 +1587,9 @@ class ClassicTranslator(Translator):
         return classic_maps.with_slots(condition, slots, "field")
 
     def _numbers_if(self, condition, then, otherwise):
-        """if() of a cell condition with numbers as then and else: the list of
-        the condition, each map with its if() text
+        """Return if() of a cell condition with numbers as then and else
 
+        The result is the list of the condition, each map with its if() text.
         The classic algebra writes the text on the map objects of the
         condition, so a counted condition map stays the same counted map.
         """

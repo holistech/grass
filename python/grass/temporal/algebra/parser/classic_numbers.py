@@ -24,8 +24,7 @@ _INT64_MAX = 2**63 - 1
 
 
 def beyond_int32(content):
-    """Whether content is an integer constant that r.mapcalc reads with an
-    overflow"""
+    """Tell whether content is an integer that r.mapcalc reads with overflow"""
     return (
         isinstance(content, Const)
         and isinstance(content.value, int)
@@ -34,15 +33,15 @@ def beyond_int32(content):
 
 
 def as_mapcalc_reads(value):
-    """The number that r.mapcalc computes for the integer value written in
-    its expression, None for null
+    """Return the number r.mapcalc computes for an integer in its expression
 
-    The scanner of r.mapcalc reads the digits with atoi(), which glibc
-    implements as strtol() cast to int: the number saturates at 2**63 - 1 and
-    keeps its lower 32 bits, and -2**31 is the null of a CELL map. A minus in
-    front is an operator on the number read. Measured 2026-10-23 with
-    r.mapcalc "x = <literal>" in a temporary project, one literal per run;
-    the values are those of temporal_algebra_classic_profile_test.py.
+    None stands for null. The scanner of r.mapcalc reads the digits with
+    atoi(), which glibc implements as strtol() cast to int: the number
+    saturates at 2**63 - 1 and keeps its lower 32 bits, and -2**31 is the null
+    of a CELL map. A minus in front is an operator on the number read. Measured
+    2026-10-23 with r.mapcalc "x = <literal>" in a temporary project, one
+    literal per run; the values are those of
+    temporal_algebra_classic_profile_test.py.
     """
     if value < 0:
         read = as_mapcalc_reads(-value)
@@ -54,18 +53,17 @@ def as_mapcalc_reads(value):
 
 
 def mapcalc_arithmetic(symbol, left, right):
-    """The number that r.mapcalc computes for left symbol right, None for
-    null
+    """Return the number that r.mapcalc computes for left symbol right
 
-    left and right are numbers as r.mapcalc holds them: int for a CELL
-    value, float for a DCELL value and None for null, as as_mapcalc_reads()
-    gives them. Two integers give an integer of 32 bits, whose value -2**31
-    is null; the product of two such integers stays below the saturation of
-    as_mapcalc_reads(), so it keeps exactly the lower 32 bits. Division and
-    remainder are those of the core (C rules, null for a divisor 0).
-    Measured 2026-10-24 with r.mapcalc "x = <left> <symbol> <right>" in a
-    temporary project, one expression per run, value with r.stats -n1; the
-    values are those of temporal_algebra_classic_profile_test.py.
+    None stands for null. left and right are numbers as r.mapcalc holds them:
+    int for a CELL value, float for a DCELL value and None for null, as
+    as_mapcalc_reads() gives them. Two integers give an integer of 32 bits,
+    whose value -2**31 is null; the product of two such integers stays below
+    the saturation of as_mapcalc_reads(), so it keeps exactly the lower 32
+    bits. Division and remainder are those of the core (C rules, null for a
+    divisor 0). Measured 2026-10-24 with r.mapcalc "x = <left> <symbol>
+    <right>" in a temporary project, one expression per run, value with r.stats
+    -n1; the values are those of temporal_algebra_classic_profile_test.py.
     """
     value = evaluate(symbol, [left, right])
     if isinstance(value, int):
@@ -74,16 +72,20 @@ def mapcalc_arithmetic(symbol, left, right):
 
 
 def mapcalc_number(content):
-    """The number of a constant as r.mapcalc holds it, see
-    mapcalc_arithmetic()"""
+    """Return the number of a constant as r.mapcalc holds it
+
+    See mapcalc_arithmetic().
+    """
     value = content.value
     return as_mapcalc_reads(value) if isinstance(value, int) else value
 
 
 def time_values(operand):
-    """Whether operand is a series of numbers that time functions such as
-    td() gave, which the classic algebra writes into the expression of
-    r.mapcalc when it computes with them"""
+    """Tell whether operand is a series of numbers that time functions gave
+
+    The classic algebra writes the numbers of time functions such as td()
+    into the expression of r.mapcalc when it computes with them.
+    """
     return (
         isinstance(operand, Series)
         and not operand.timeless
@@ -93,8 +95,10 @@ def time_values(operand):
 
 
 def number(content):
-    """Whether content is a number or null; a time function such as
-    start_time() gives a date instead"""
+    """Tell whether content is a number or null
+
+    A time function such as start_time() gives a date instead.
+    """
     return isinstance(content, Const) and (
         content.value is None or type(content.value) in {int, float}
     )
@@ -113,16 +117,16 @@ def same_times(series):
 
 
 def read_as_mapcalc(left, right):
-    """left and right, where one of them is a series of cells, with each
-    integer constant beyond 32 bits in their slots replaced by the number
-    r.mapcalc reads for it
+    """Return left and right with their integers read as r.mapcalc reads them
 
-    Where a series of cells meets another series, the classic algebra writes
-    the numbers of both, also those of time functions such as td() of
-    relative time, into the expression of r.mapcalc, while the core folds two
-    constants in Python. Two series of time function values are computed by
-    mapcalc_arithmetic() instead (see ClassicTranslator._combine()), which reads their
-    integers as r.mapcalc does.
+    Where one of them is a series of cells, each integer constant beyond 32
+    bits in their slots is replaced by the number r.mapcalc reads for it. The
+    classic algebra writes the numbers of both series, also those of time
+    functions such as td() of relative time, into the expression of
+    r.mapcalc, while the core folds two constants in Python. Two series of
+    time function values are computed by mapcalc_arithmetic() instead (see
+    ClassicTranslator._combine()), which reads their integers as r.mapcalc
+    does.
     """
     if "field" not in (left.sort, right.sort):
         return left, right
