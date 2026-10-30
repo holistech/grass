@@ -699,6 +699,64 @@ def _forget(ident, kind, dbif):
     MAP_CLASSES[kind](ident).delete(dbif)
 
 
+def _register_results(chain, dataset, mapset, dbif, keep_empty, dropped, overwrite):
+    """Register the maps of chain in dataset and return the names of the
+    empty ones
+
+    A map in dropped was not computed, and an empty map is not registered
+    unless keep_empty is set; their old entries in the temporal database are
+    deleted, and the caller removes the maps. A map that the chain computes no
+    call for is registered as it is, also from another mapset.
+    """
+    empty = []
+    for planned in chain.maps:
+        if planned.name in dropped:
+            empty.append(planned.name)
+            # An earlier run may have registered a map of this name.
+            _forget(f"{planned.name}@{mapset}", _kind(chain), dbif)
+            continue
+        if not planned.calls:
+            map_ = MAP_CLASSES[_kind(chain)](planned.name)
+            map_.select(dbif)
+            if not map_.is_in_db(dbif, mapset=mapset):
+                # A map of another mapset is only in the database of its
+                # own mapset, but register_map() needs it in this one; it
+                # is referenced there, not copied, as t.register does.
+                map_.insert(dbif)
+            if not dataset.register_map(map_, dbif):
+                # register_map() refuses a map that is registered already,
+                # e.g. one taken over unchanged in two slots.
+                get_tgis_message_interface().warning(
+                    _(
+                        "Unable to register map <{map}> in space time dataset <{name}>"
+                    ).format(map=map_.get_id(), name=dataset.get_id())
+                )
+            continue
+        map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
+        if not map_.load():
+            raise FatalError(
+                _("Map <{name}> was not computed").format(name=map_.get_id())
+            )
+        _set_time(map_, planned.extent)
+        if not keep_empty and _is_empty(map_, _kind(chain)):
+            if _emptied_by_region(planned, _kind(chain)):
+                get_tgis_message_interface().warning(
+                    _(
+                        "Map <{map}> is empty in the current region and is "
+                        "not registered; it copies <{source}>, which has data "
+                        "outside the region. Set the region with g.region, or "
+                        "register empty maps with -n where the tool offers it."
+                    ).format(map=map_.get_id(), source=planned.source)
+                )
+            empty.append(planned.name)
+            # An earlier run may have registered a map of this name.
+            _forget(map_.get_id(), _kind(chain), dbif)
+            continue
+        _store(map_, overwrite, dbif)
+        dataset.register_map(map_, dbif)
+    return empty
+
+
 def materialize(
     series,
     name,
@@ -824,56 +882,12 @@ def materialize(
             dbif,
             overwrite=overwrite,
         )
-        empty = []
         keep_empty = register_null or (
             keep_empty_vector_maps and _kind(chain) == "vector"
         )
-        for planned in chain.maps:
-            if planned.name in dropped:
-                empty.append(planned.name)
-                # An earlier run may have registered a map of this name.
-                _forget(f"{planned.name}@{mapset}", _kind(chain), dbif)
-                continue
-            if not planned.calls:
-                map_ = MAP_CLASSES[_kind(chain)](planned.name)
-                map_.select(dbif)
-                if not map_.is_in_db(dbif, mapset=mapset):
-                    # A map of another mapset is only in the database of its
-                    # own mapset, but register_map() needs it in this one; it
-                    # is referenced there, not copied, as t.register does.
-                    map_.insert(dbif)
-                if not dataset.register_map(map_, dbif):
-                    # register_map() refuses a map that is registered already,
-                    # e.g. one taken over unchanged in two slots.
-                    get_tgis_message_interface().warning(
-                        _(
-                            "Unable to register map <{map}> in space time "
-                            "dataset <{name}>"
-                        ).format(map=map_.get_id(), name=dataset.get_id())
-                    )
-                continue
-            map_ = MAP_CLASSES[_kind(chain)](f"{planned.name}@{mapset}")
-            if not map_.load():
-                raise FatalError(
-                    _("Map <{name}> was not computed").format(name=map_.get_id())
-                )
-            _set_time(map_, planned.extent)
-            if not keep_empty and _is_empty(map_, _kind(chain)):
-                if _emptied_by_region(planned, _kind(chain)):
-                    get_tgis_message_interface().warning(
-                        _(
-                            "Map <{map}> is empty in the current region and is "
-                            "not registered; it copies <{source}>, which has data "
-                            "outside the region. Set the region with g.region, or "
-                            "register empty maps with -n where the tool offers it."
-                        ).format(map=map_.get_id(), source=planned.source)
-                    )
-                empty.append(planned.name)
-                # An earlier run may have registered a map of this name.
-                _forget(map_.get_id(), _kind(chain), dbif)
-                continue
-            _store(map_, overwrite, dbif)
-            dataset.register_map(map_, dbif)
+        empty = _register_results(
+            chain, dataset, mapset, dbif, keep_empty, dropped, overwrite
+        )
         dataset.update_from_registered_maps(dbif)
         if len(empty) == len(chain.maps):
             get_tgis_message_interface().warning(
