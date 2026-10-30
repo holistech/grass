@@ -489,15 +489,8 @@ def compare_runs(kind, expression, first, second, **options):
     return compare(kind, expression, first, second)
 
 
-#: The two runners that the test modules compare, as keys of ``RUNNERS``: the
-#: earlier implementation of the classic algebra and the classic profile of
-#: the core, which ``-c`` runs. The test modules take the pair from here, so
-#: switching is one edit.
-DIFFERENTIAL = ("reference", "classic")
-
-
 def check_agreement(kind, expression, **options):
-    """Run an expression on the runners of ``DIFFERENTIAL`` and compare them
+    """Compare the earlier implementation with the classic profile of the core
 
     The outcome of the earlier implementation is ``corpus.reference_outcome``:
     in a pytest test it comes from the corpus, without running that
@@ -505,15 +498,8 @@ def check_agreement(kind, expression, **options):
 
     :raises AssertionError: with the text of ``compare`` when they differ
     """
-    if DIFFERENTIAL[0] == "reference":
-        first = corpus.reference_outcome(kind, expression, **options)
-    else:
-        first = outcome(
-            kind, expression, RUNNERS[DIFFERENTIAL[0]], basename="fa", **options
-        )
-    second = outcome(
-        kind, expression, RUNNERS[DIFFERENTIAL[1]], basename="fb", **options
-    )
+    first = corpus.reference_outcome(kind, expression, **options)
+    second = outcome(kind, expression, RUNNERS["classic"], basename="fb", **options)
     difference = compare_runs(kind, expression, first, second, **options)
     if difference is not None:
         raise AssertionError(difference)

@@ -1,10 +1,9 @@
 """Differential fuzzing of the algebras for vector maps
 
 Random expressions of the classic grammar (grass.temporal.testing.expressions)
-must register the same maps in two implementations of the algebra. Which two
-is set in one place, DIFFERENTIAL in that module: the earlier implementation,
-whose outcomes grass.temporal.testing.corpus holds, and the classic profile of
-the core. That must give 0 differences. The test of the listed differences
+must register the same maps in two implementations of the algebra: the earlier
+implementation, whose outcomes grass.temporal.testing.corpus holds, and the
+classic profile of the core. That must give 0 differences. The test of the listed differences
 shows that the fuzzer sees one where there is one: the expressions of the
 differential test of this directory, run on the core and compared with the
 recorded outcomes of the reference.
