@@ -121,7 +121,7 @@ class MapSpec:
     """
 
     name: str
-    value: float | None
+    value: float | str | None
     start: datetime | int
     end: datetime | int | None = None
     semantic_label: str | None = None
