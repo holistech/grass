@@ -131,7 +131,7 @@ def check(reducer, nulls):
     if reducer not in REDUCERS:
         msg = (
             f"Unknown reducer {reducer!r}, use one of {', '.join(REDUCERS)}, "
-            "fold(operator) or None"
+            "fold(operator), compare(symbol, join), series_method(method) or None"
         )
         raise ValueError(msg)
     if reducer == "prod" and nulls == "skip":

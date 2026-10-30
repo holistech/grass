@@ -5,9 +5,11 @@ intervals [1, 3] and [3, 5], C the interval [2, 4].
 """
 
 import datetime
+import re
 
 import pytest
 
+from grass.temporal.algebra import reducers
 from grass.temporal.algebra.content import NULL, Call, Const, MapRef, SeriesReduce
 from grass.temporal.algebra.materialize import plan
 from grass.temporal.algebra.operations import gather, select
@@ -141,6 +143,21 @@ def test_reducers_without_skip_semantics(a, b, reduce):
 def test_unknown_reducer(a, b):
     with pytest.raises(ValueError, match="Unknown reducer"):
         gather(b, contains, a, reduce="median")
+
+
+def test_unknown_reducer_names_every_kind_of_reducer(a, b):
+    """compare() and series_method() can be imported from where the
+    message points"""
+    from grass.temporal.algebra import compare, series_method
+
+    assert (compare, series_method) == (reducers.compare, reducers.series_method)
+    expected = (
+        "Unknown reducer 'nonsense', use one of sum, prod, min, max, mean, "
+        "count, all, any, and, or, first, last, fold(operator), "
+        "compare(symbol, join), series_method(method) or None"
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(expected)}$"):
+        gather(b, contains, a, reduce="nonsense")
 
 
 def test_scalar_reduction_in_python(b, make_series):

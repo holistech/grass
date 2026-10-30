@@ -48,7 +48,7 @@ from .operations import (
 )
 from .materialize import ProcessChain, materialize, plan
 from .profile import CORE, Profile
-from .reducers import fold, series_method
+from .reducers import compare, fold, series_method
 from .relations import (
     Relation,
     contains,
@@ -89,6 +89,7 @@ __all__ = [
     "buffer",
     "cell_offset",
     "choose",
+    "compare",
     "contains",
     "during",
     "equal",
