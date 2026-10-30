@@ -57,10 +57,10 @@ class Generator:
     """Draw one expression from a random generator
 
     The productions follow the classic grammar (the docstrings of the ``p_``
-    methods of the classic parser classes). Every binary operator is written
-    with spaces, because the classic lexer reads ``A-1`` as ``A`` and the
-    integer ``-1``. A few forms lie outside the classic grammar on purpose,
-    so that both sides must reject them.
+    methods of the reference implementation, ``grass.temporal.classic``).
+    Every binary operator is written with spaces, because the classic lexer
+    reads ``A-1`` as ``A`` and the integer ``-1``. A few forms lie outside the
+    classic grammar on purpose, so that both sides must reject them.
 
     A builder, one of the methods that the tables of ``expr`` list, returns the
     text of one production (``_arith`` the text of ``A + B``) and takes the
@@ -75,8 +75,8 @@ class Generator:
         self.kind = kind
         self.rng = rng
         # A paper seed adds builders for the forms that the published paper
-        # prints; the other seeds draw as they did before the builders were
-        # written, see generate().
+        # prints. It draws from a stream of its own, so the expressions of the
+        # other seeds do not depend on these builders, see generate().
         self.paper = paper
         # The granularity mode refuses temporal operators and relations
         # (setup_common_granularity), so none are written, and it needs the
@@ -428,8 +428,8 @@ def generate(
         published paper, for the kinds ``"raster"``, ``"raster3d"`` and
         ``"select"`` (see ``PAPER_KINDS``). Like the granularity mode, it is
         drawn from its own random stream and such a seed has a stream of its
-        own, so every other seed gives the expression it gave before these
-        forms were generated. The vector kind ignores it.
+        own, so the expressions of the other seeds do not depend on these
+        forms. The vector kind ignores it.
     :return: ``(expression, options)``. The expression is the right hand side
         of a statement. The options are keyword arguments for the runner:
         ``register_null`` (random for raster kinds), ``spatial`` and
@@ -474,9 +474,8 @@ def generate(
 # grammar of the core: syntax that one reads and the other may refuse or read
 # differently (signs, spacing in increments, relations, spatial relation names
 # without a temporal one, neighbour indices, precedence of && and ||, large
-# integers). They were found while comparing
-# the two grammars; whether a form is read or refused is the result of a run,
-# not a property of the list.
+# integers). They were found while comparing the two grammars; whether a form
+# is read or refused is the result of a run, not a property of the list.
 _RASTER_FORMS = [
     "A-1", "A -1", "A * 1e-5", "A + (1 + 2)", "A { +, equal , l } N",
     "A { +, equal } N", "if(start_date(A) < 5, A)", 'tshift(A, "+1 day")',

@@ -144,9 +144,8 @@ def mapsets_cache(key=mapsets_key, cache=None):
     Replaces the module attribute in grass.temporal.db, which is where the
     library calls it (SQLDatabaseInterfaceConnection and its add_mapset), and
     the re-exports in grass.temporal.core and, for the names that the package
-    still exports (init), in grass.temporal. Only non-empty
-    answers are cached: an empty one is what comes back before the first
-    init() of a session. The
+    exports (init), in grass.temporal. Only non-empty answers are cached: an
+    empty one is what comes back before the first init() of a session. The
     cache is also emptied when create_temporal_database() or init() run
     through the module attributes; code that bound init at import time (as
     stds_import does) does not reach the wrapper, which is harmless because

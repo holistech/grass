@@ -115,7 +115,9 @@ class MapSpec:
     start and end are datetimes for absolute time and numbers in the unit of
     the dataset for relative time. Without end the map is a time point.
     semantic_label is set on raster maps only. value is None only for
-    register_stds() with maps that already exist; make_map() needs a number.
+    register_stds() with maps that already exist. For make_map() it is a
+    number or, for raster and raster_3d maps, also the text of an r.mapcalc
+    expression such as "null()"; a vector map needs a number.
     """
 
     name: str
@@ -128,9 +130,11 @@ class MapSpec:
 def make_map(tools, kind, name, value, *, region=None, overwrite=False):
     """Create a map of kind "raster", "raster_3d" or "vector" with a constant
 
-    raster and raster_3d hold value in every cell (r.mapcalc, r3.mapcalc);
-    a vector map gets one point at (value, value) with the attribute value
-    (v.in.ascii). region, if given, is a dict for g.region used only for
+    raster and raster_3d hold value in every cell (r.mapcalc, r3.mapcalc),
+    which may also be an expression such as "null()" because it is written
+    into the expression unchanged; a vector map gets one point at
+    (value, value) with the attribute value (v.in.ascii), so value must be a
+    number. region, if given, is a dict for g.region used only for
     this map (the session region is restored). A vector map made here has
     one point and its own topology and table; vector maps from other tools,
     for example v.random, can be registered with register_stds().
@@ -380,10 +384,9 @@ def vector_points(
 
     layers are the layers that get the categories; they must include 1.
     Every layer gets its own copy of the table, named name for layer 1 and
-    name_<layer> for the others, the names v.db.addtable would give. This
-    is the map that the shell tests of t.register, t.vect.list and
-    t.vect.what.strds built with v.category option=transfer and db.copy, to
-    register it as name:layer.
+    name_<layer> for the others, the names v.db.addtable would give, so
+    that a test can register the map as name:layer for each layer, as the
+    tests of t.register, t.vect.list and t.vect.what.strds do.
 
     Register the map with a MapSpec whose value is None. make_map() makes the
     simplest map, one point per map; use this when a test needs several

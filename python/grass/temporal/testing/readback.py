@@ -85,8 +85,8 @@ def stds_info(tools, stds_type, name):
     Values are converted by Result.keyval: int or float where the text is a
     number (number_of_maps is 3, not "3"), otherwise the text t.info prints,
     so quoted times keep their quotes and a dataset that never held a map
-    reports "None" for most keys. The converted form is what the existing
-    t.info assertions of the tool tests compare against.
+    reports "None" for most keys. Use info_text() to compare the printed
+    form instead.
     """
     return tools.t_info(type=stds_type, input=name, flags="g").keyval
 
@@ -99,6 +99,11 @@ def inventory(tools):
     the mapsets of the search path. Tests compare it before and after a
     refused run to show that the run left no new map and no new dataset
     behind; maps registered in an existing dataset do not show here.
+
+    tools must be created with ``consistent_return_value=True``: otherwise a
+    call that prints nothing returns None, as g.list does for an empty mapset
+    and t.list for a type without datasets, and the function fails with an
+    AttributeError.
     """
     return (
         tools.g_list(type="all", mapset=".").stdout.split(),
