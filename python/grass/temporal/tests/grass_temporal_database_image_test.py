@@ -42,7 +42,7 @@ def test_read_image_matches(tmp_path):
     image = (RECORDINGS / "database_write.sql").read_text(encoding="utf-8")
     with temporal_session(tmp_path / "project"):
         database_image.load_image(image, Path(tgis.get_tgis_database_string()))
-        differences = recordings.compare(
+        differences = recordings.differences(
             "database_read", database_image.read_cases(), RECORDINGS
         )
     assert not differences[:10], f"{len(differences)} cases differ"

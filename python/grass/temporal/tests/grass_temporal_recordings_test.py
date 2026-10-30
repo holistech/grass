@@ -24,9 +24,9 @@ def session(temporal_module_session):
     return temporal_module_session
 
 
-@pytest.mark.parametrize("name", recordings.NAMES)
+@pytest.mark.parametrize("name", recordings.RECORD_NAMES)
 def test_recording_matches(name):
-    differences = recordings.compare(name, recordings.CASES[name](), RECORDINGS)
+    differences = recordings.differences(name, recordings.CASES[name](), RECORDINGS)
     assert not differences[:10], f"{len(differences)} cases differ"
     assert not differences
 
@@ -34,6 +34,6 @@ def test_recording_matches(name):
 def test_recordings_are_complete():
     """Every record is there and no stray file is left in the directory"""
     found = sorted(path.name for path in RECORDINGS.iterdir())
-    expected = [f"{name}.json.gz" for name in recordings.NAMES]
+    expected = [f"{name}.json.gz" for name in recordings.RECORD_NAMES]
     expected += ["database_read.json.gz", "database_write.sql"]
     assert found == sorted(expected)

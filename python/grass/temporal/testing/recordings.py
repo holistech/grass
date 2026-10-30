@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
-NAMES = (
+RECORD_NAMES = (
     "spatial_extent",
     "temporal_extent",
     "granularity",
@@ -58,7 +58,7 @@ NAMES = (
 _SHOWN = 300
 
 
-def outcome(function: Callable, *args) -> str:
+def result_text(function: Callable, *args) -> str:
     """Return repr() of the result of function(*args), or the exception"""
     try:
         return repr(function(*args))
@@ -76,7 +76,7 @@ def _run(cases: Iterable[tuple[str, Callable[[], object]]]) -> dict[str, str]:
         if case in results:
             msg = f"Case {case!r} is listed twice"
             raise ValueError(msg)
-        results[case] = outcome(function)
+        results[case] = result_text(function)
     return results
 
 
@@ -97,7 +97,7 @@ def record(
         packed.write(text.encode("utf-8"))
 
 
-def load(name: str, path: Path) -> dict[str, str]:
+def load_record(name: str, path: Path) -> dict[str, str]:
     """Return the recorded results"""
     with gzip.open(_file(name, path), "rt", encoding="utf-8") as packed:
         return json.load(packed)
@@ -107,7 +107,7 @@ def _shown(text: str) -> str:
     return text if len(text) <= _SHOWN else text[:_SHOWN] + "..."
 
 
-def compare(
+def differences(
     name: str, cases: Iterable[tuple[str, Callable[[], object]]], path: Path
 ) -> list[str]:
     """Run the cases and list their differences to the record
@@ -115,20 +115,20 @@ def compare(
     :return: one text per case that differs, is missing in the record or is
              missing in the cases; the list is empty if all is equal
     """
-    recorded = load(name, path)
+    recorded = load_record(name, path)
     results = _run(cases)
-    differences = []
+    found = []
     for case, result in results.items():
         if case not in recorded:
-            differences.append(f"{case}: not recorded, got {_shown(result)}")
+            found.append(f"{case}: not recorded, got {_shown(result)}")
         elif recorded[case] != result:
-            differences.append(
+            found.append(
                 f"{case}: recorded {_shown(recorded[case])}, got {_shown(result)}"
             )
-    differences.extend(
+    found.extend(
         f"{case}: recorded but not run" for case in recorded if case not in results
     )
-    return differences
+    return found
 
 
 ###############################################################################
@@ -517,14 +517,14 @@ def datetime_math_cases():
             yield (
                 f"increment/{step}/{mult}",
                 lambda step=step, mult=mult: [
-                    outcome(tgis.increment_datetime_by_string, date, step, mult)
+                    result_text(tgis.increment_datetime_by_string, date, step, mult)
                     for date in dates
                 ],
             )
         yield (
             f"decrement/{step}",
             lambda step=step: [
-                outcome(tgis.datetime_math.decrement_datetime_by_string, date, step)
+                result_text(tgis.datetime_math.decrement_datetime_by_string, date, step)
                 for date in dates
             ],
         )
@@ -532,7 +532,7 @@ def datetime_math_cases():
             yield (
                 f"after_steps/{step}/{count}",
                 lambda step=step, count=count: [
-                    outcome(tgis.datetime_after_steps, date, step, count)
+                    result_text(tgis.datetime_after_steps, date, step, count)
                     for date in dates
                 ],
             )
@@ -540,7 +540,7 @@ def datetime_math_cases():
         yield (
             f"adjust/{gran}",
             lambda gran=gran: [
-                outcome(tgis.adjust_datetime_to_granularity, date, gran)
+                result_text(tgis.adjust_datetime_to_granularity, date, gran)
                 for date in dates
             ],
         )
@@ -548,7 +548,7 @@ def datetime_math_cases():
         yield (
             f"delta/{start}",
             lambda start=start: [
-                outcome(tgis.datetime_math.compute_datetime_delta, start, end)
+                result_text(tgis.datetime_math.compute_datetime_delta, start, end)
                 for end in dates
             ],
         )
@@ -567,7 +567,7 @@ def datetime_math_cases():
             yield (
                 f"next_cycle/{cycle}/{offset}/{origin}",
                 lambda cycle=cycle, offset=offset, origin=origin: [
-                    outcome(
+                    result_text(
                         tgis.next_cycle, origin, number, origin, cycle, offset, True
                     )
                     for number in range(14)
@@ -577,7 +577,7 @@ def datetime_math_cases():
         yield (
             f"next_cycle_relative/{cycle}/{offset}",
             lambda cycle=cycle, offset=offset: [
-                outcome(tgis.next_cycle, 0, number, 10, cycle, offset, False)
+                result_text(tgis.next_cycle, 0, number, 10, cycle, offset, False)
                 for number in range(5)
             ],
         )
@@ -624,7 +624,9 @@ def _datetime_conversion_cases(dates):
         yield (
             f"modify/{index}/{modifier}",
             lambda modifier=modifier: [
-                outcome(lambda date: datetime_math.modify_datetime(date, **modifier), d)
+                result_text(
+                    lambda date: datetime_math.modify_datetime(date, **modifier), d
+                )
                 for d in dates
             ],
         )
@@ -633,7 +635,7 @@ def _datetime_conversion_cases(dates):
             yield (
                 f"modify_by_string/{step}/{mult}/{sign}",
                 lambda step=step, mult=mult, sign=sign: [
-                    outcome(
+                    result_text(
                         datetime_math.modify_datetime_by_string, date, step, mult, sign
                     )
                     for date in dates
@@ -643,15 +645,15 @@ def _datetime_conversion_cases(dates):
         yield (
             f"string_to_datetime/{text}",
             lambda text=text: [
-                outcome(tgis.string_to_datetime, text),
-                outcome(datetime_math.check_datetime_string, text),
-                outcome(datetime_math.check_datetime_string, text, False),
+                result_text(tgis.string_to_datetime, text),
+                result_text(datetime_math.check_datetime_string, text),
+                result_text(datetime_math.check_datetime_string, text, False),
             ],
         )
     yield (
         "to_grass_string",
         lambda: [
-            outcome(tgis.datetime_to_grass_datetime_string, date)
+            result_text(tgis.datetime_to_grass_datetime_string, date)
             for date in (*dates, None)
         ],
     )
@@ -659,14 +661,14 @@ def _datetime_conversion_cases(dates):
         yield (
             f"suffix_from_datetime/{gran}",
             lambda gran=gran: [
-                outcome(datetime_math.create_suffix_from_datetime, date, gran)
+                result_text(datetime_math.create_suffix_from_datetime, date, gran)
                 for date in dates
             ],
         )
     yield (
         "numeric_suffix",
         lambda: [
-            outcome(datetime_math.create_numeric_suffix, base, count, zeros)
+            result_text(datetime_math.create_numeric_suffix, base, count, zeros)
             for base in ("m", "")
             for count in (0, 1, 9, 10, 123)
             for zeros in ("%05d", "%d", "%02d", "")
@@ -676,7 +678,7 @@ def _datetime_conversion_cases(dates):
         "relative_conversions",
         lambda: (
             [
-                outcome(function, timedelta(**kwargs))
+                result_text(function, timedelta(**kwargs))
                 for function in (
                     datetime_math.time_delta_to_relative_time,
                     datetime_math.time_delta_to_relative_time_seconds,
@@ -695,12 +697,12 @@ def _datetime_conversion_cases(dates):
         "gcd",
         lambda: (
             [
-                outcome(tgis.temporal_granularity.gcd, a, b)
+                result_text(tgis.temporal_granularity.gcd, a, b)
                 for a in (0, 1, 6, 12, 35)
                 for b in (0, 1, 4, 18)
             ]
             + [
-                outcome(tgis.temporal_granularity.gcd_list, items)
+                result_text(tgis.temporal_granularity.gcd_list, items)
                 for items in ([], [4], [4, 6], [12, 18, 8])
             ]
         ),
@@ -893,7 +895,7 @@ def main(argv: list[str]) -> int:
     if len(argv) < 2 or argv[0] not in {"record", "compare"}:
         print(__doc__)
         return 2
-    action, directory, names = argv[0], Path(argv[1]), argv[2:] or list(NAMES)
+    action, directory, names = argv[0], Path(argv[1]), argv[2:] or list(RECORD_NAMES)
     tgis.init(raise_fatal_error=True)
     failed = False
     for name in names:
@@ -901,10 +903,10 @@ def main(argv: list[str]) -> int:
             record(name, CASES[name](), directory)
             print(f"{name}: recorded")
         else:
-            differences = compare(name, CASES[name](), directory)
-            failed = failed or bool(differences)
-            print(f"{name}: {len(differences)} differences")
-            for line in differences[:20]:
+            found = differences(name, CASES[name](), directory)
+            failed = failed or bool(found)
+            print(f"{name}: {len(found)} differences")
+            for line in found[:20]:
                 print(f"  {line}")
     return 1 if failed else 0
 

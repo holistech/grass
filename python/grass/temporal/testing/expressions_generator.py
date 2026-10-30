@@ -25,8 +25,7 @@ from .expressions_data import (
     NAMES,
     SINGLE,
 )
-
-KINDS = ("raster", "raster3d", "vector", "select")
+from .reference import KINDS
 
 TEMPORAL = (
     "equal", "during", "contains", "starts", "started", "finishes",
