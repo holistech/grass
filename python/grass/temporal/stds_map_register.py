@@ -54,6 +54,60 @@ def _placeholder(dbif) -> str:
     return sql_placeholder(dbif.get_dbmi().paramstyle)
 
 
+class GroupedRow:
+    """A row of get_registered_maps(group=...), read by position or by name
+
+    The names are those of the selected columns, the group columns first, as
+    sqlite3.Row has them; the list of a column is a comma separated text.
+    """
+
+    __slots__ = ("_names", "_values")
+
+    def __init__(self, names, values):
+        self._names = tuple(names)
+        self._values = tuple(values)
+
+    def keys(self):
+        """Return the column names"""
+        return list(self._names)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self._values[self._names.index(key)]
+        return self._values[key]
+
+    def __len__(self):
+        return len(self._values)
+
+    def __iter__(self):
+        return iter(self._values)
+
+
+def _grouped_rows(rows, group_columns, joined_columns):
+    """Return one row per group with the other columns joined by commas
+
+    rows hold the group columns, the joined columns and the id, in that
+    order, sorted by the group. The values of a group are joined in the
+    order of the ids, so that position i of every list belongs to the same
+    map. A NULL is skipped and a list of only NULLs is NULL, as group_concat
+    has it.
+    """
+    count = len(group_columns)
+    groups = {}
+    for row in rows:
+        groups.setdefault(tuple(row[:count]), []).append(row)
+    names = [*group_columns, *joined_columns]
+    grouped = []
+    for key, members in groups.items():
+        members.sort(key=lambda row: row[-1])
+        values = []
+        for position in range(count, count + len(joined_columns)):
+            texts = [str(row[position]) for row in members if row[position] is not None]
+            values.append(",".join(texts) if texts else None)
+        grouped.append(GroupedRow(names, [*key, *values]))
+    return grouped
+
+
 # A map with a layer has a sentence of its own in each of these messages rather
 # than the plain one with words inserted, so that a translator can inflect it.
 def _invalid_time_message(map_) -> str:
@@ -432,21 +486,16 @@ class StdsMapRegister:
                 map_view = map_type + "_view_rel_time"
 
             if group:
-                if not columns:
-                    columns = f"{group},group_concat(id,',') AS id"
-                else:
-                    columns = (
-                        group
-                        + ", "
-                        + ", ".join(
-                            [
-                                f"group_concat({column},',') AS {column}"
-                                for column in columns.split(",")
-                            ]
-                        )
-                    )
-                if order is not None and order != "":
-                    order = f"{group},{order}"
+                # The rows are grouped in Python: group_concat does not exist
+                # on PostgreSQL, string_agg and group_concat order the list
+                # only from SQLite 3.44 and GRASS accepts 3.33, and a list per
+                # column ordered by its own values would not stay aligned.
+                group_columns = [name.strip() for name in group.split(",")]
+                joined_columns = (
+                    [name.strip() for name in columns.split(",")] if columns else ["id"]
+                )
+                columns = ",".join([*group_columns, *joined_columns, "id"])
+                order = f"{group},{order},id" if order else f"{group},id"
             else:
                 columns = columns or "*"
 
@@ -466,19 +515,21 @@ class StdsMapRegister:
                 table=table,
             )
             condition = f" AND ({where})" if where else ""
-            grouping = f" GROUP BY {group}" if group else ""
             ordering = f" ORDER BY {order}" if order else ""
             # The columns, where, group and order are SQL of the caller by design.
-            sql = f"SELECT {columns} FROM {registered}{condition}{grouping}{ordering};"  # noqa: S608
+            sql = f"SELECT {columns} FROM {registered}{condition}{ordering};"  # noqa: S608
 
             try:
                 dbif.execute(sql, mapset=stds.base.mapset)
-                return dbif.fetchall(mapset=stds.base.mapset)
+                rows = dbif.fetchall(mapset=stds.base.mapset)
             except RuntimeError:
                 stds.msgr.error(
                     _("Unable to get map ids from register table <{}>").format(table)
                 )
                 raise
+            if group:
+                return _grouped_rows(rows, group_columns, joined_columns)
+            return rows
 
     def update_extent(self, dbif=None) -> None:
         """Update the extent, the metadata and the time type of the dataset

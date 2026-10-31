@@ -441,12 +441,51 @@ def test_registered_maps_grouped_by_start_time(tmp_path, request, backend):
                 data.MapSpec("a", 2, data.day(1), data.day(2)),
             ],
         )
+        mapset = tgis.get_current_mapset()
         stds = tgis.open_old_stds("grouped", "strds")
-        rows = stds.get_registered_maps(columns="id", group="start_time")
+        (row,) = stds.get_registered_maps(columns="id", group="start_time")
 
-    assert [row["id"].replace("@", "").split(",") for row in rows] == [
-        [f"a{tgis.get_current_mapset()}", f"b{tgis.get_current_mapset()}"]
-    ]
+    assert row["id"] == f"a@{mapset},b@{mapset}"
+    # Rows are read by name and by position, the group column first
+    assert row.keys() == ["start_time", "id"]
+    assert row[1] == row["id"]
+    assert row[0] == row["start_time"]
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_grouped_columns_stay_aligned(tmp_path, request, backend):
+    import grass.temporal as tgis
+
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / backend, backend, dbstring) as (tools, _):
+        data.small_region(tools, 1, 1)
+        # Same start; the end times run against the order of the ids
+        data.create_stds(
+            tools,
+            "strds",
+            "aligned",
+            [
+                data.MapSpec("b", 1, data.day(1), data.day(2)),
+                data.MapSpec("a", 2, data.day(1), data.day(3)),
+            ],
+        )
+        stds = tgis.open_old_stds("aligned", "strds")
+        ends = {
+            row["id"]: str(row["end_time"])
+            for row in stds.get_registered_maps(columns="id,end_time")
+        }
+        (row,) = stds.get_registered_maps(columns="id,end_time", group="start_time")
+
+    ids = row["id"].split(",")
+    assert len(ids) == 2
+    assert row["end_time"].split(",") == [ends[name] for name in ids]
+    assert len(set(row["end_time"].split(","))) == 2
 
 
 @pytest.mark.parametrize(
