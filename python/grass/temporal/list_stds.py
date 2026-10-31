@@ -331,15 +331,19 @@ def _requested_columns(dbif, columns, schemas, stds_type):
         if col in valid:
             continue
         if all(col in _COLUMNS_ADDED_TO_VIEWS.get(dtype, ()) for dtype in stds_type):
-            for mapset, mapset_views in schemas.items():
-                if any(col not in view for view in mapset_views):
-                    msgr.fatal(
-                        _(
-                            "Column <{column}> is missing from the views of the"
-                            " temporal database <{database}>. Run t.upgrade to"
-                            " create the views anew."
-                        ).format(column=col, database=dbif.tgis_mapsets[mapset][1])
-                    )
+            # The column is not among the common ones, so a view lacks it.
+            mapset = next(
+                mapset
+                for mapset, mapset_views in schemas.items()
+                if any(col not in view for view in mapset_views)
+            )
+            msgr.fatal(
+                _(
+                    "Column <{column}> is missing from the views of the"
+                    " temporal database <{database}>. Run t.upgrade to"
+                    " create the views anew."
+                ).format(column=col, database=dbif.tgis_mapsets[mapset][1])
+            )
         if len(stds_type) == 1:
             msgr.fatal(
                 _("Column '%s' is not available for the requested dataset type") % col
