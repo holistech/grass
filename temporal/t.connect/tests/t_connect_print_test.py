@@ -209,3 +209,39 @@ def test_a_mapset_with_path_parts_is_treated_as_missing(t_connect_session, name)
 
     assert list(result) == [{"mapset": name, "driver": None, "database": None}]
     assert f"Mapset <{name}> does not exist." in message(result)
+
+
+def test_a_missing_mapset_prints_null_fields(t_connect_session):
+    # Both fields are asked for separately, so the warning comes once for the
+    # driver and once for the database.
+    tools = Tools(
+        session=t_connect_session.session,
+        consistent_return_value=True,
+        capture_stderr=True,
+    )
+
+    result = tools.t_connect(flags="p", format="json", mapset="no_such_mapset")
+
+    assert list(result) == [
+        {"mapset": "no_such_mapset", "driver": None, "database": None}
+    ]
+    assert message(result).count("Mapset <no_such_mapset> does not exist.") == 2
+
+
+def test_g_with_mapset_requires_p(t_connect_session):
+    tools = Tools(session=t_connect_session.session)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(flags="g", mapset="PERMANENT")
+
+    assert "Option <mapset> requires <-p>" in message(error.value)
+
+
+def test_a_mapset_listed_twice_is_printed_twice(t_connect_session):
+    # The current mapset is the only one here, so "." and "*" name the same one.
+    tools = Tools(session=t_connect_session.session)
+
+    result = tools.t_connect(flags="p", format="json", mapset=".,*")
+
+    assert [entry["mapset"] for entry in result] == ["PERMANENT", "PERMANENT"]
+    assert result[0] == result[1]

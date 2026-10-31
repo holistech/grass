@@ -218,3 +218,23 @@ def test_p_is_refused_together_with_c_or_d(tools, flag):
 
     assert f"Options <-p> and <-{flag}> are mutually exclusive" in message(error.value)
     assert _var_file(tools) == before
+
+
+def test_a_value_longer_than_4096_characters_is_cut(tools):
+    # libgis reads a VAR line into a buffer of GPATH_MAX characters, so the
+    # tail of a longer value is lost without a message. The current mapset is
+    # read by libgis (-p), any mapset named with mapset= by the reader in
+    # lib/temporal; both cut at the same place (4094 characters of value,
+    # measured 31.10.2026 with values of 4000 to 5000 characters). The test
+    # pins what the two readers share, not the exact length.
+    value = "a" * 5000
+
+    tools.t_connect(database=value)
+
+    assert len(_var_file(tools).split("TGISDB_DATABASE:")[1].split()[0]) == 5000
+    (plain,) = tools.t_connect(flags="p").stdout.splitlines()[1:]
+    (_, other) = _printed(tools)
+    printed = plain.removeprefix("database:")
+    assert printed == other
+    assert len(printed) < len(value)
+    assert value.startswith(printed)
