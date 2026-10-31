@@ -14,8 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <grass/temporal.h>
 #include <grass/glocale.h>
+#include <grass/temporal.h>
 
 /*!
  * \brief Get TGIS driver name of the current mapset

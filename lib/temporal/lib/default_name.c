@@ -55,11 +55,13 @@ char *tgis_get_default_database_name(void)
 int tgis_set_default_connection(void)
 {
     dbConnection connection = {0};
+    char *driver_name = G_store(tgis_get_default_driver_name());
     char *db_name = tgis_get_default_database_name();
 
-    connection.driverName = (char *)tgis_get_default_driver_name();
+    connection.driverName = driver_name;
     connection.databaseName = db_name;
     tgis_set_connection(&connection);
+    G_free(driver_name);
     G_free(db_name);
 
     return DB_OK;
