@@ -89,6 +89,11 @@ kept. A map whose start and end time fall into the same second is
 therefore registered as a time instance, as when start and end time are
 equal.
 
+A temporal database on PostgreSQL stores times without a time zone. A
+start or end time with a time zone offset, including `+00:00` and `Z`,
+is refused before the first map is registered; remove the offset or use
+SQLite.
+
 ## INPUT FILE FORMAT
 
 There are several options to register maps by means of a file. The input

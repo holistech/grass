@@ -90,6 +90,11 @@ fraction of a second is cut off, not rounded, and a time zone offset is
 kept. A map whose start and end time fall into the same second is
 therefore registered as a time instance, as when start and end time are
 equal.
+<p>
+A temporal database on PostgreSQL stores times without a time zone. A
+start or end time with a time zone offset, including <code>+00:00</code> and
+<code>Z</code>, is refused before the first map is registered; remove the
+offset or use SQLite.
 
 <h2>INPUT FILE FORMAT</h2>
 
