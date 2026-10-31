@@ -12,11 +12,9 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include <grass/gis.h>
 #include <grass/temporal.h>
-#include <grass/glocale.h>
 
 /*!
    \brief Get default TGIS driver name
@@ -52,21 +50,13 @@ char *tgis_get_default_database_name(void)
  */
 int tgis_set_default_connection(void)
 {
-    dbConnection connection;
-    char db_name[2048];
-    char *tmp = tgis_get_default_database_name();
+    dbConnection connection = {0};
+    char *db_name = tgis_get_default_database_name();
 
-    snprintf(db_name, 2048, "%s", tmp);
-    G_free(tmp);
-
-    if (strcmp(TGISDB_DEFAULT_DRIVER, "sqlite") == 0) {
-        connection.driverName = "sqlite";
-        connection.databaseName = db_name;
-        tgis_set_connection(&connection);
-    }
-    else
-        G_fatal_error(
-            _("Programmer error - only SQLite driver is currently supported"));
+    connection.driverName = (char *)tgis_get_default_driver_name();
+    connection.databaseName = db_name;
+    tgis_set_connection(&connection);
+    G_free(db_name);
 
     return DB_OK;
 }
