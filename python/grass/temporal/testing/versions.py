@@ -99,9 +99,7 @@ def downgrade_postgresql_to_version_2(session, dbstring: str) -> None:
         with connection, connection.cursor() as cursor:
             cursor.execute((templates / "drop_views.sql").read_text())
             for index in sorted(NEWER_INDEXES):
-                # IF EXISTS, because postgresql_indexes.sql does not create
-                # every index that sqlite3_indexes.sql does
-                cursor.execute(f"DROP INDEX IF EXISTS {index}")
+                cursor.execute(f"DROP INDEX {index}")
             cursor.execute("ALTER TABLE raster_metadata DROP COLUMN semantic_label")
             cursor.execute(
                 "ALTER TABLE strds_metadata DROP COLUMN number_of_semantic_labels"

@@ -236,6 +236,35 @@ def test_upgrade_creates_the_same_indexes_as_a_new_database(project):
     assert indexes(database) == expected
 
 
+def postgresql_indexes(dbstring):
+    """Name, table and definition of every index of a PostgreSQL database"""
+    return sorted(
+        fetch(
+            "postgresql",
+            dbstring,
+            "SELECT indexname, tablename, indexdef FROM pg_indexes"
+            " WHERE schemaname = 'public'",
+        )
+    )
+
+
+@pytest.mark.postgresql
+def test_new_and_upgraded_postgresql_databases_have_the_same_indexes(
+    tmp_path, postgresql_database
+):
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        tools.t_connect(driver="pg", database=postgresql_database)
+        create_stds(tools, "strds", "series", [MapSpec("map1", 1, day(0), day(1))])
+        new = postgresql_indexes(postgresql_database)
+        downgrade_postgresql_to_version_2(session, postgresql_database)
+
+        tools.t_upgrade()
+
+        assert postgresql_indexes(postgresql_database) == new
+    assert {name for name, _, _ in new} >= NEWER_INDEXES
+
+
 @pytest.mark.slow
 def test_semantic_labels_work_after_the_upgrade(project):
     tools, session, _ = project
