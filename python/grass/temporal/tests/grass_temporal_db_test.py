@@ -593,6 +593,8 @@ def test_postgresql_gets_whole_seconds():
 
 
 def test_postgresql_refuses_a_time_with_a_time_zone():
+    # The constructor of the connection names the psycopg2 module.
+    pytest.importorskip("psycopg2")
     zone = datetime.timezone(datetime.timedelta(hours=2))
     moment = datetime.datetime(2001, 1, 1, 6, 30, 0, tzinfo=zone)
     log = []
@@ -670,6 +672,8 @@ def test_mogrify_on_psycopg2_returns_text(connected):
 
     Callers append it to other statements, which fails with bytes.
     """
+    # The constructor of the connection names the psycopg2 module.
+    pytest.importorskip("psycopg2")
     log = []
     conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
     conn.dbmi = fake_pg_returning_bytes(log)
