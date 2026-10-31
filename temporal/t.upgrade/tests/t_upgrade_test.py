@@ -331,6 +331,22 @@ def test_a_second_upgrade_after_a_failed_one_runs_through(either_backend):
     assert stored_version(backend, dbstring) == CURRENT_VERSION
 
 
+def test_the_upgrade_counts_no_semantic_labels_in_old_datasets(either_backend):
+    backend, tools, session, dbstring = either_backend
+    downgrade(backend, session, dbstring)
+
+    tools.t_upgrade()
+
+    counts = dict(
+        fetch(
+            backend,
+            dbstring,
+            "SELECT id, number_of_semantic_labels FROM strds_metadata",
+        )
+    )
+    assert counts == {"series@PERMANENT": 0, "empty@PERMANENT": None}
+
+
 def test_version_2_with_data_is_upgraded_on_both_backends(either_backend):
     backend, tools, session, dbstring = either_backend
     downgrade(backend, session, dbstring)

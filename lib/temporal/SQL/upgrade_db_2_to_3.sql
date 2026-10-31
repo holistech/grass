@@ -11,6 +11,11 @@ ALTER TABLE raster_metadata
 -- strds_metadata_table.sql
 ALTER TABLE strds_metadata
  ADD COLUMN number_of_semantic_labels INTEGER;
+-- Version 2 knows no semantic labels, so a dataset with maps has none. A new
+-- database counts 0 when the first map is registered; empty datasets keep NULL.
+UPDATE strds_metadata
+  SET number_of_semantic_labels = 0
+  WHERE number_of_maps > 0;
 
 -- sqlite3_indexes.sql: the indexes that came after version 2 was released.
 -- IF NOT EXISTS keeps the script safe for a database that already has them.
