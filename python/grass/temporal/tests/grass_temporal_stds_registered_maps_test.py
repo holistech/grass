@@ -935,3 +935,27 @@ def test_the_update_sql_of_a_valid_id_is_unchanged():
     assert without_comments(update_script("ds@PERMANENT")) == without_comments(
         OLD_UPDATE_SCRIPT
     )
+
+
+def test_the_update_templates_keep_placeholders_out_of_comments():
+    # _fill_template drops only whole comment lines. A comment after code or a
+    # block comment would survive it, and a placeholder in one would put the
+    # identifier into text that a line break can leave.
+    import re
+    from pathlib import Path
+
+    from grass.temporal.schema import get_sql_template_path
+
+    names = re.compile(
+        r"\b(GRASS_MAP|STDS|SPACETIME_ID|SPACETIME_REGISTER_TABLE|SPACETIME_NAME)\b"
+    )
+    templates = sorted(Path(get_sql_template_path()).glob("update_*_template.sql"))
+    assert len(templates) == 4
+    for template in templates:
+        text = template.read_text()
+        assert "/*" not in text, template.name
+        for line in text.splitlines():
+            if line.lstrip().startswith("--"):
+                assert not names.search(line), (template.name, line)
+            else:
+                assert "--" not in line, (template.name, line)
