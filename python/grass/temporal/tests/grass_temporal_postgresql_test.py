@@ -15,9 +15,9 @@ import types
 
 import pytest
 
-from grass.temporal.testing import data, postgresql, versions
+from grass.temporal.testing import data, postgresql, readback, versions
 from grass.temporal.testing.session import temporal_session
-from grass.tools import Tools
+from grass.tools import Tools, ToolError
 
 
 def database_names(server):
@@ -563,3 +563,155 @@ def test_a_line_break_in_the_dataset_id_runs_no_sql(tmp_path, request, backend):
     assert after == before
     assert ids == [stds.get_id()]
     assert "\n" in ids[0]
+
+
+ZONE_REFUSAL = (
+    "The temporal database on PostgreSQL stores times without a time zone; "
+    "remove the time zone from <{time}> or use SQLite."
+)
+
+
+def rows_in_database(dsn):
+    """The number of maps in the raster_base table of a PostgreSQL database"""
+    import psycopg2
+
+    connection = psycopg2.connect(dsn)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM raster_base")
+            return cursor.fetchone()[0]
+    finally:
+        connection.close()
+
+
+def new_dataset_with_maps(tools, names):
+    data.small_region(tools, 1, 1)
+    for value, name in enumerate(names, start=1):
+        data.make_map(tools, "raster", name, value)
+    tools.t_create(
+        type="strds",
+        temporaltype="absolute",
+        output="A",
+        title="A",
+        description="A",
+    )
+
+
+def registered_names(tools):
+    return [row.name for row in readback.list_maps(tools, "strds", "A")]
+
+
+@pytest.mark.postgresql
+def test_a_time_with_zone_is_refused_on_postgresql(tmp_path, postgresql_database):
+    with backend_session(
+        tmp_path / "postgresql", "postgresql", postgresql_database
+    ) as (tools, _):
+        new_dataset_with_maps(tools, ["a1"])
+        with pytest.raises(ToolError) as raised:
+            tools.t_register(
+                type="raster",
+                input="A",
+                maps="a1",
+                start="2001-01-01 10:00:00+02:00",
+                end="2001-01-02 10:00:00+02:00",
+            )
+        names = registered_names(tools)
+        stored = rows_in_database(postgresql_database)
+
+    text = readback.message(raised.value)
+    assert ZONE_REFUSAL.format(time="2001-01-01 10:00:00+02:00") in text
+    assert "Traceback" not in text
+    assert names == []
+    assert stored == 0
+
+
+@pytest.mark.postgresql
+@pytest.mark.parametrize("zone", ["+00:00", "Z"])
+def test_a_time_with_zone_zero_is_refused_on_postgresql(
+    tmp_path, postgresql_database, zone
+):
+    # Zone 0 is lost in the same way as any other zone, so it is no exception.
+    with backend_session(
+        tmp_path / "postgresql", "postgresql", postgresql_database
+    ) as (tools, _):
+        new_dataset_with_maps(tools, ["a1"])
+        with pytest.raises(ToolError) as raised:
+            tools.t_register(
+                type="raster", input="A", maps="a1", start=f"2001-01-01 10:00:00{zone}"
+            )
+        stored = rows_in_database(postgresql_database)
+
+    assert "stores times without a time zone" in readback.message(raised.value)
+    assert stored == 0
+
+
+@pytest.mark.postgresql
+def test_a_later_map_with_a_time_zone_writes_nothing_on_postgresql(
+    tmp_path, postgresql_database
+):
+    with backend_session(
+        tmp_path / "postgresql", "postgresql", postgresql_database
+    ) as (tools, _):
+        new_dataset_with_maps(tools, ["a1", "a2"])
+        file = tmp_path / "maps.txt"
+        file.write_text(
+            "a1|2001-01-01 10:00:00|2001-01-02 10:00:00\n"
+            "a2|2001-01-02 10:00:00+02:00|2001-01-03 10:00:00+02:00\n"
+        )
+        with pytest.raises(ToolError) as raised:
+            tools.t_register(type="raster", input="A", file=file)
+        names = registered_names(tools)
+        stored = rows_in_database(postgresql_database)
+
+    assert ZONE_REFUSAL.format(time="2001-01-02 10:00:00+02:00") in readback.message(
+        raised.value
+    )
+    assert names == []
+    assert stored == 0
+
+
+@pytest.mark.postgresql
+def test_the_library_refuses_a_time_with_zone_before_writing_on_postgresql(
+    tmp_path, postgresql_database
+):
+    import grass.temporal as tgis
+
+    with backend_session(
+        tmp_path / "postgresql", "postgresql", postgresql_database
+    ) as (tools, _):
+        data.small_region(tools, 1, 1)
+        data.make_map(tools, "raster", "a1", 1)
+        raster = tgis.RasterDataset("a1@PERMANENT")
+        raster.load()
+        raster.set_absolute_time(
+            datetime.datetime(
+                2001, 1, 1, 10, tzinfo=datetime.timezone(datetime.timedelta(hours=2))
+            )
+        )
+        dbif = tgis.SQLDatabaseInterfaceConnection()
+        dbif.connect()
+        try:
+            with pytest.raises(tgis.FatalError) as raised:
+                raster.insert(dbif)
+        finally:
+            dbif.close()
+        stored = rows_in_database(postgresql_database)
+
+    assert "stores times without a time zone" in str(raised.value)
+    assert stored == 0
+
+
+def test_sqlite_keeps_the_time_zone(tmp_path):
+    with backend_session(tmp_path / "sqlite", "sqlite") as (tools, _):
+        new_dataset_with_maps(tools, ["a1"])
+        tools.t_register(
+            type="raster",
+            input="A",
+            maps="a1",
+            start="2001-01-01 10:00:00+02:00",
+            end="2001-01-02 10:00:00+02:00",
+        )
+        (row,) = readback.list_maps(tools, "strds", "A")
+
+    assert row.start == "2001-01-01 10:00:00+02:00"
+    assert row.end == "2001-01-02 10:00:00+02:00"

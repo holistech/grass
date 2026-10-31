@@ -557,8 +557,9 @@ def test_an_old_value_reads_in_whole_seconds():
 
 
 def test_postgresql_gets_whole_seconds():
-    zone = datetime.timezone(datetime.timedelta(hours=2))
-    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456, tzinfo=zone)
+    # A time with a time zone never gets here: PostgreSQL has no column for it
+    # and the connection refuses it (see the test of the refusal).
+    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, 123456)
     log = []
     conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
     conn.dbmi = fake_pg(log)
@@ -572,9 +573,23 @@ def test_postgresql_gets_whole_seconds():
         (sent,) = call[2]
         assert sent == moment.replace(microsecond=0)
         assert sent.microsecond == 0
-        assert sent.tzinfo is moment.tzinfo
     # The value of the caller is not changed.
     assert moment.microsecond == 123456
+
+
+def test_postgresql_refuses_a_time_with_a_time_zone():
+    zone = datetime.timezone(datetime.timedelta(hours=2))
+    moment = datetime.datetime(2001, 1, 1, 6, 30, 0, tzinfo=zone)
+    log = []
+    conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
+    conn.dbmi = fake_pg(log)
+
+    with pytest.raises(tgis.FatalError, match="stores times without a time zone"):
+        conn.execute("SELECT %s", (moment,))
+    with pytest.raises(tgis.FatalError, match="2001-01-01 06:30:00\\+02:00"):
+        conn.mogrify_sql_statement(["SELECT %s", (moment,)])
+
+    assert [c for c in log if c[0] in {"cursor.execute", "cursor.mogrify"}] == []
 
 
 def test_a_failing_mogrify_prints_nothing(capsys):

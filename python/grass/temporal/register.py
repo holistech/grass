@@ -34,7 +34,7 @@ from .datetime_math import (
     increment_datetime_by_string,
     string_to_datetime,
 )
-from .db import SQLDatabaseInterfaceConnection, connection
+from .db import SQLDatabaseInterfaceConnection, connection, refuse_time_zone
 from .factory import dataset_factory
 from .kinds import MAP_ALIASES, find_kind, stds_kind_of
 from .open_stds import open_old_stds
@@ -491,6 +491,20 @@ def _check_zone_consistency(run, map_object):
         )
 
 
+def _check_time_zone_fits_database(run, map_object):
+    """Refuse a time with a time zone when the database is PostgreSQL
+
+    The refusal comes while the maps are checked, so a later map of the list
+    cannot leave the earlier ones written.
+    """
+    if run.dbif.get_dbmi().__name__ != "psycopg2":
+        return
+    extent = map_object.temporal_extent
+    for time in (extent.get_start_time(), extent.get_end_time()):
+        if isinstance(time, datetime):
+            refuse_time_zone(time)
+
+
 def _check_label_fits_database(run, map_object, semantic_label):
     """Refuse a semantic label when the database has no column for it
 
@@ -576,6 +590,7 @@ def _validate_map(run, count, row):
             row.semantic_label or map_object.metadata.get_semantic_label(),
         )
 
+    _check_time_zone_fits_database(run, map_object)
     _check_zone_consistency(run, map_object)
 
     # The dataset refuses a map of another temporal type or relative unit

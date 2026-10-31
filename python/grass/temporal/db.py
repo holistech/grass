@@ -759,12 +759,40 @@ def sql_statement(template: str, **identifiers: str) -> str:
     )
 
 
+def refuse_time_zone(value: datetime) -> None:
+    """End with a message if a time carries a time zone, for PostgreSQL
+
+    The time columns are TIMESTAMP without time zone. Measured 31.10.2026
+    against PostgreSQL 16 with psycopg2: a datetime with an offset is sent as
+    a timestamptz literal and stored as the clock time of the session zone
+    (10:00+02:00 becomes 08:00 in Etc/UTC, 09:00 in Europe/Berlin); a text
+    literal with an offset loses the offset and keeps the clock time. In
+    neither case the zone comes back, and a changed column type would change
+    the schema. A zone of 0 is lost in the same way, so it is refused too.
+    Callers check before the first write; _pg_args() is the net below them.
+
+    :param value: A datetime that is about to be sent to PostgreSQL
+    :raises FatalError: if the time has a time zone
+    """
+    if value.tzinfo is not None:
+        get_tgis_message_interface().fatal(
+            _(
+                "The temporal database on PostgreSQL stores times without a "
+                "time zone; remove the time zone from <{time}> or use SQLite."
+            ).format(time=value.isoformat(sep=" "))
+        )
+
+
 def _pg_args(args):
     """Bring the datetimes among the arguments for psycopg2 to database time
 
     SQLite does this in its adapter. psycopg2 sends a datetime as it is, with
-    microseconds, so it is done before the call.
+    microseconds, so it is done before the call. A datetime with a time zone
+    is refused (refuse_time_zone()).
     """
+    for a in args:
+        if isinstance(a, datetime):
+            refuse_time_zone(a)
     return tuple(db_datetime(a) if isinstance(a, datetime) else a for a in args)
 
 
