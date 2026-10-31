@@ -9,7 +9,8 @@ from dataclasses import replace
 
 import pytest
 
-from grass.temporal.algebra import backends, variants
+from grass.temporal import series_limits
+from grass.temporal.algebra import variants
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
 from grass.temporal.algebra.content import (
@@ -356,7 +357,7 @@ def test_a_reduction_skipping_nulls_keeps_its_maps_open_within_the_open_files(
 
 def test_without_a_thread_count_every_usable_processor_runs_a_thread(monkeypatch):
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
-    monkeypatch.setattr(backends, "available_cpus", lambda: 4)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: 4)
     _open_files(monkeypatch, 79)
     calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
     assert calls[0].parameters["flags"] == "z"
@@ -414,7 +415,7 @@ def test_the_threads_are_counted_as_r_series_counts_them(
     """r.series takes NPROCS of the session file, then OMP_NUM_THREADS, then
     the usable processors, here 24 (measured 2026-10-31 for NPROCS, 4,2 and
     a negative NPROCS: the open files r.series needed matched these counts)"""
-    monkeypatch.setattr(backends, "available_cpus", lambda: 24)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: 24)
     if gisrc is None:
         monkeypatch.delenv("GISRC", raising=False)
     else:
@@ -425,7 +426,7 @@ def test_the_threads_are_counted_as_r_series_counts_them(
         monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     else:
         monkeypatch.setenv("OMP_NUM_THREADS", omp)
-    assert backends._series_threads() == expected
+    assert series_limits.series_threads() == expected
 
 
 def test_without_a_session_the_warning_of_a_reduction_goes_to_python(monkeypatch):

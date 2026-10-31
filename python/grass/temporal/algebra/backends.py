@@ -8,11 +8,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import math
-import os
 from dataclasses import dataclass
-from pathlib import Path
 
-from grass.script.utils import available_cpus, resolve_nprocs
+from grass.temporal.series_limits import series_map_limit
 
 from .content import (
     COMPARISONS,
@@ -151,86 +149,6 @@ def _quote(name, quote_names=True):
     return f'"{name}"'
 
 
-# Files r.series holds besides the maps: the standard streams, the list of
-# names and the output map. They were 6 with one thread and with 24 (measured
-# 2026-10-31 in grass --tmp-project XY with r.series file=... method=sum over
-# 21 maps of 2x2 cells: nprocs=1 ran at ulimit -n 48 and failed at 46,
-# nprocs=24 ran at 1014 and failed at 1012); 64 leaves a margin.
-_SERIES_SPARE_FILES = 64
-
-
-def _session_nprocs():
-    """Return NPROCS of the session file as r.series reads it, else 0
-
-    Without nprocs= r.series takes NPROCS of the file GISRC names (set with
-    g.gisenv) as its default. The file is read here and not through
-    g.gisenv, because plan() needs no session. Like the C library, the
-    first colon splits a line, an empty name or value is passed over and
-    the last line wins.
-    """
-    gisrc = os.environ.get("GISRC")
-    if not gisrc:
-        return 0
-    try:
-        # The C library reads bytes; a value in another encoding must not
-        # stop the plan, and NPROCS is ASCII.
-        lines = Path(gisrc).read_text(errors="replace").splitlines()
-    except OSError:
-        return 0
-    value = "0"
-    for line in lines:
-        name, colon, text = line.partition(":")
-        if colon and name.strip() == "NPROCS" and text.strip():
-            value = text.strip()
-    try:
-        return int(value)
-    except ValueError:
-        return 0
-
-
-def _series_threads():
-    """Return the number of threads r.series runs when nprocs is not given
-
-    r.series takes NPROCS of the session; a positive number is the count, a
-    negative one is taken from the usable processors. 0 makes it ask
-    OpenMP, which takes the first number of OMP_NUM_THREADS and otherwise
-    one thread per usable processor. A GRASS without OpenMP, or a raster
-    mask, runs one thread; counting more only switches to -z earlier than
-    needed.
-    """
-    nprocs = _session_nprocs()
-    if nprocs != 0:
-        return resolve_nprocs(nprocs)
-    first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()
-    try:
-        threads = int(first)
-    except ValueError:
-        threads = 0
-    return threads if threads > 0 else available_cpus()
-
-
-def _series_map_limit():
-    """Return how many maps r.series can keep open in this process, or None
-
-    r.series opens every map once per thread and needs two files per map
-    and thread: with ulimit -n 1024 it ran with 509 maps on one thread, 127 on
-    four and 21 on 24 and failed with one map more, for CELL, FCELL and
-    DCELL maps alike (measured 2026-10-31 by bisection with r.series
-    file=... method=sum nprocs=1, 4 and 24 over 2x2 maps in grass
-    --tmp-project XY). The modules inherit the soft limit of this process.
-    None means no limit, or a system without the resource module, where the
-    maps stay open as before.
-    """
-    try:
-        import resource  # noqa: PLC0415 - not on Windows
-    except ImportError:
-        return None
-    soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
-    if soft == resource.RLIM_INFINITY:
-        return None
-    return max(0, (soft - _SERIES_SPARE_FILES) // (2 * _series_threads()))
-
-
 class RasterBackend:
     """Plan raster maps with r.mapcalc and r.series
 
@@ -250,7 +168,7 @@ class RasterBackend:
     "Argument list too long" (measured 2026-10-30 with r.series
     input=name_2020_01_01@PERMANENT,... in grass --tmp-project XY), which is
     about 5000 maps. r.series keeps its maps open unless they would exceed
-    the open files of the process, see _series_map_limit(); then it reads
+    the open files of the process, see series_map_limit(); then it reads
     them with -z and a warning says so.
     """
 
@@ -399,7 +317,7 @@ class RasterBackend:
                 inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
                 parameters = {"output": name, "method": node.method}
-                limit = _series_map_limit()
+                limit = series_map_limit()
                 if limit is not None and len(inputs) > limit:
                     # Without -z r.series fails with "Too many open files";
                     # with it, it reads the maps row by row, about 20 times
