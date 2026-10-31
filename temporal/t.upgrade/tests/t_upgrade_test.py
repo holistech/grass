@@ -152,12 +152,17 @@ def stored_version(backend, dbstring):
 def test_current_database_is_left_alone(project):
     tools, _, database = project
     before = structure_of(database)
+    statements = dump(database)
 
     result = tools.t_upgrade()
 
     assert "up-to-date" in message(result)
     assert "created anew" in message(result)
     assert structure_of(database) == before
+    # The views are created from the same files, so every row and every
+    # statement is as before. Sorted, because the dump follows the order of
+    # sqlite_master, where the views created anew stand last.
+    assert sorted(dump(database)) == sorted(statements)
     assert version_of(database) == CURRENT_VERSION
 
 
