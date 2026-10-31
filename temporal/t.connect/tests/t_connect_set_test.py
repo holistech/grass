@@ -220,6 +220,21 @@ def test_p_is_refused_together_with_c_or_d(tools, flag):
     assert _var_file(tools) == before
 
 
+@pytest.mark.parametrize("flag", ["c", "d"])
+def test_deprecated_g_is_refused_together_with_c_or_d(tools, flag):
+    # -g prints like -p but is turned into a print only after the parser has
+    # looked at the flags, so it needs its own exclusion; otherwise it printed
+    # and skipped the setting.
+    tools.t_connect(driver="pg", database="dbname=x")
+    before = _var_file(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(flags=f"g{flag}")
+
+    assert f"Options <-g> and <-{flag}> are mutually exclusive" in message(error.value)
+    assert _var_file(tools) == before
+
+
 def test_a_value_longer_than_4096_characters_is_cut(tools):
     # libgis reads a VAR line into a buffer of GPATH_MAX characters, so the
     # tail of a longer value is lost without a message. The current mapset is

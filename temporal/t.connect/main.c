@@ -139,9 +139,12 @@ int main(int argc, char *argv[])
 
     G_option_requires(mapset_opt, print, NULL);
     /* -p returns before -c and -d are looked at, so a call with both would
-     * print and set nothing. -c with -d stays allowed: -c wins, as before. */
+     * print and set nothing. The deprecated -g prints as well. -c with -d
+     * stays allowed: -c wins, as before. */
     G_option_exclusive(print, check_set_default, NULL);
     G_option_exclusive(print, def, NULL);
+    G_option_exclusive(sh, check_set_default, NULL);
+    G_option_exclusive(sh, def, NULL);
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
