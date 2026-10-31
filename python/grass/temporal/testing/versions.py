@@ -92,12 +92,15 @@ def downgrade_to_version_2(session) -> None:
     called band references, came) differ from today's in the two columns that
     upgrade_db_2_to_3.sql adds, in the views that list them (the label of the
     raster maps, the count of the labels of the space time raster datasets),
-    and in NEWER_INDEXES. So the indexes and the columns go, the views are
-    rebuilt from the installed templates without those columns, and the
-    version is set to 2. Compared on 18.10.2026 with git show of the SQL files
-    before the band reference commit. The indexes on the id alone that
-    version 2 had are not added back: today's files no longer create them, and
-    the upgrade neither needs nor touches them.
+    in NEWER_INDEXES, and in the indexes on the id alone of the tables in
+    VERSION_2_ID_INDEXED_TABLES and of every register table, which neither
+    today's files nor the library create. So NEWER_INDEXES and the columns
+    go, the views are rebuilt from the installed templates without those
+    columns, the indexes on the id are created, and the version is set to 2.
+    Compared on 18.10.2026 with git show of the SQL files before the band
+    reference commit; the indexes compared again on 31.10.2026 by name, table
+    and columns with sqlite3_indexes.sql of that commit plus one per register
+    table: equal, and 30 missing without the indexes on the id.
     """
     database = database_file(session)
     templates = sql_files(session)
