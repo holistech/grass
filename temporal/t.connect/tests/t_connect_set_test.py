@@ -177,3 +177,30 @@ def test_an_unknown_driver_is_refused(tools):
 
     assert "Value <mysql> out of range for parameter <driver>" in message(error.value)
     assert _printed(tools) == (None, None)
+
+
+def test_a_database_of_only_spaces_is_refused(tools):
+    # The value would be stripped to nothing and the variable removed, which
+    # left a driver without a database and an exit code of 0.
+    tools.t_connect(flags="c")
+    before = _var_file(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(database="   ")
+
+    assert "Option <database> must not be empty." in message(error.value)
+    assert _var_file(tools) == before
+    assert _printed(tools) == ("sqlite", DEFAULT_DATABASE)
+
+
+def test_a_driver_of_only_spaces_is_refused(tools):
+    # The parser already refuses it, because spaces are no driver of the list;
+    # the test keeps the connection from changing if that check ever moves.
+    tools.t_connect(flags="c")
+    before = _var_file(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(driver="   ")
+
+    assert "out of range for parameter <driver>" in message(error.value)
+    assert _var_file(tools) == before

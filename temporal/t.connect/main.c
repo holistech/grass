@@ -9,6 +9,7 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
  *****************************************************************************/
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,22 @@
 #include <grass/gjson.h>
 
 enum OutputFormat { PLAIN, SHELL, JSON };
+
+/* libgis removes a variable whose value is empty after stripping, so a blank
+ * value would silently unset the setting instead of changing it. */
+static void check_not_blank(const struct Option *option)
+{
+    const char *c;
+
+    if (!option->answer)
+        return;
+
+    for (c = option->answer; *c; c++)
+        if (!isspace((unsigned char)*c))
+            return;
+
+    G_fatal_error(_("Option <%s> must not be empty."), option->key);
+}
 
 static void print_tgis_connection(const char *mapset, G_JSON_Array *json_array)
 {
@@ -288,6 +305,8 @@ int main(int argc, char *argv[])
     }
 
     /* set connection */
+    check_not_blank(driver);
+    check_not_blank(database);
     tgis_get_connection(&conn); /* read current */
 
     if (driver->answer)
