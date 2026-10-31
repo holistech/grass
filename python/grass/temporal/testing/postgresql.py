@@ -29,6 +29,7 @@ import datetime
 import os
 import re
 import sqlite3
+import tempfile
 import uuid
 from decimal import Decimal
 
@@ -40,6 +41,9 @@ SERVER_VARIABLE = "GRASS_TEMPORAL_TEST_POSTGRESQL"
 _MASKED_COLUMNS = frozenset({"creation_time", "modification_time", "creator"})
 # The command history of a dataset starts each entry with the time of the call
 _HISTORY_TIME = re.compile(r"^# \d{4}-\d\d-\d\d \d\d:\d\d:\d\d ", re.MULTILINE)
+# A file handed to a tool, such as the map list of data.register_stds(), lies
+# in a directory of tempfile with a random name, which the history records
+_TEMPORARY_DIRECTORY = re.compile(re.escape(tempfile.gettempdir()) + r"/tmp\w+")
 _REGISTER_TABLE = re.compile(r"(raster|raster3d|vector)_map_register_[0-9a-f]+")
 _REGISTER_COLUMN = {
     "strds": "raster_register",
@@ -179,6 +183,7 @@ def _cell(column, value, declared, register_names):
     if isinstance(value, str) and value in register_names:
         return f"REGISTER({register_names[value]})"
     if isinstance(value, str):
+        value = _TEMPORARY_DIRECTORY.sub("<temporary directory>", value)
         return _HISTORY_TIME.sub("# <time> ", value)
     return _comparable(value, declared.get(column))
 
@@ -190,7 +195,8 @@ def rows_of(backend: str, dbstring: str) -> dict[str, list[tuple]]:
     libpq text). The result is equal for the two backends when the library
     wrote the same. What differs between runs is replaced: the times of
     creation and modification and the user by "<masked>" (also the creation
-    time kept in tgis_metadata), the times in a command history by "<time>".
+    time kept in tgis_metadata), the times in a command history by "<time>"
+    and a temporary directory in it by "<temporary directory>".
     Truth values are bool, numbers float, times text, and a register table is
     keyed REGISTER(<id of its dataset>) instead of by its random name. Views
     are keyed "VIEW <name>".

@@ -9,10 +9,11 @@ import datetime
 import getpass
 import re
 import sqlite3
+import tempfile
 
 import pytest
 
-from grass.temporal.testing import postgresql
+from grass.temporal.testing import data, postgresql
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
@@ -181,3 +182,20 @@ def test_the_scenario_lets_the_caller_read_the_database_after_each_step(tmp_path
         if isinstance(value, str) and value.startswith("S2_")
     }
     assert labels == {"S2_1", "S2_2"}
+
+
+def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
+    import grass.temporal as tgis
+
+    with temporal_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        data.small_region(tools, 1, 1)
+        # Registers from a file in a new temporary directory
+        data.create_stds(
+            tools, "strds", "listed", [data.MapSpec("one", 1, data.day(1))]
+        )
+        rows = postgresql.rows_of("sqlite", tgis.get_tgis_database_string())
+
+    (history,) = [row[-1] for row in rows["VIEW strds_view_abs_time"]]
+    assert 'file="<temporary directory>/maps.txt"' in history
+    assert tempfile.gettempdir() not in history
