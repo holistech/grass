@@ -5,9 +5,10 @@
 -- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
 --#############################################################################
 
--- SPACETIME_REGISTER_TABLE is a placeholder for specific stds map register table name (SQL compliant)
--- SPACETIME_ID is a placeholder for the stds id as an SQL literal: 'name@mapset'
--- for TGIS < 3 the lines for semantic labels get replaced / commented out
+-- The caller fills in the name of the map register table of the dataset and the
+-- dataset id as an SQL literal: 'name@mapset'.
+-- For a database of version 2 the caller comments out the lines for semantic
+-- labels.
 
 UPDATE strds_metadata
    SET

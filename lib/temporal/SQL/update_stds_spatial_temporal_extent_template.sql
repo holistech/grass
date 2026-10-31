@@ -8,13 +8,11 @@
 -- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
 --#############################################################################
 
--- SPACETIME_REGISTER_TABLE is a placeholder for specific stds map register table name (SQL compliant)
--- SPACETIME_ID is a placeholder for the stds id as an SQL literal: 'name@mapset'
--- GRASS_MAP is a placeholder for specific map type: raster, raster3d or vector
--- STDS is a placeholder for specific space-time dataset type: strds, str3ds, stvds
+-- The caller fills in the name of the map register table of the dataset and the
+-- dataset id as an SQL literal: 'name@mapset'.
 
--- UPDATE STDS_base SET modification_time = datetime("NOW") WHERE id = SPACETIME_ID;
--- UPDATE STDS_base SET revision = (revision + 1) WHERE id = SPACETIME_ID;
+-- The caller also fills in the map type (raster, raster3d or vector) and the dataset type
+-- (strds, str3ds or stvds) that complete the names of the tables.
 
 -- Number of registered maps
 UPDATE STDS_metadata SET number_of_maps =

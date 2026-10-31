@@ -928,9 +928,10 @@ def without_comments(script):
 
 
 def test_the_update_sql_of_a_valid_id_is_unchanged():
-    # The comment that explains the placeholder holds the placeholder, so the
-    # filled-in identifier is quoted there now. Comments do not run; the
-    # statements are compared line by line.
+    # The filled-in script has no comment lines, as they are dropped before
+    # the placeholders are filled in (a line break in an identifier would end
+    # a comment). The old script keeps its comments, so both sides are
+    # compared without them, line by line.
     assert without_comments(update_script("ds@PERMANENT")) == without_comments(
         OLD_UPDATE_SCRIPT
     )
