@@ -806,7 +806,7 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     None is NULL; a float that is not finite is NULL too, because SQLite has
     no literal for inf and nan and would read the bare word as a column name
     (statistics of a map with infinite values are unknown, which is what NULL
-    says). Floats have six decimals. Datetimes are written in whole seconds,
+    says). Floats are written in full, as repr() does. Datetimes are written in whole seconds,
     the resolution of the database, with their offset if they have one: the
     same text as the SQLite adapter stores (db_datetime()).
 
@@ -836,7 +836,10 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     if isinstance(value, float) and not math.isfinite(value):
         return "NULL"
     if isinstance(value, float):
-        return f"{value:f}"
+        # repr() gives the shortest text that reads back as the same float;
+        # "%f" cut a value to six decimals (1.5e-8 became 0.000000). float()
+        # keeps a subclass such as numpy.float64 from writing its own repr.
+        return repr(float(value))
     if isinstance(value, datetime):
         value = db_datetime(value)
     # Default is a string, this works for date objects too

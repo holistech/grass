@@ -261,31 +261,6 @@ def test_a_fresh_database_has_the_tables_views_and_triggers_of_sqlite(
     assert actual == expected
 
 
-def floats_as_sqlite_stores_them(stages):
-    """Return the rows with every float written with six decimals and read back
-
-    SQLite gets the values of an insert or update as text with six decimals,
-    PostgreSQL gets the full value. Applied to both sides, this tolerates
-    that difference and nothing else.
-    """
-    return {
-        step: {
-            name: sorted(
-                (
-                    tuple(
-                        float(f"{value:f}") if isinstance(value, float) else value
-                        for value in row
-                    )
-                    for row in table
-                ),
-                key=repr,
-            )
-            for name, table in rows.items()
-        }
-        for step, rows in stages.items()
-    }
-
-
 @pytest.mark.postgresql
 def test_the_scenario_gives_the_same_rows_on_both_backends(
     tmp_path, postgresql_database
@@ -314,9 +289,7 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
             postgresql.run_scenario(tools, after=after)
 
     assert len(stages["postgresql"]) == 9
-    assert floats_as_sqlite_stores_them(
-        stages["postgresql"]
-    ) == floats_as_sqlite_stores_them(stages["sqlite"])
+    assert stages["postgresql"] == stages["sqlite"]
     assert labels["sqlite"]["strds registered"] == "S2_1,S2_2"
     assert labels["postgresql"] == labels["sqlite"]
 
@@ -715,3 +688,25 @@ def test_sqlite_keeps_the_time_zone(tmp_path):
 
     assert row.start == "2001-01-01 10:00:00+02:00"
     assert row.end == "2001-01-02 10:00:00+02:00"
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_small_values_are_stored_in_full(tmp_path, request, backend):
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / backend, backend, dbstring) as (tools, _):
+        data.small_region(tools, 1, 1)
+        data.create_stds(
+            tools,
+            "strds",
+            "tiny",
+            [data.MapSpec("small", 1.5e-8, data.day(1), data.day(2))],
+        )
+        (row,) = readback.list_maps(tools, "strds", "tiny")
+
+    assert (row.min, row.max) == (1.5e-8, 1.5e-8)
