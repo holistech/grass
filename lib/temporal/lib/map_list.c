@@ -13,6 +13,7 @@
  *****************************************************************************/
 
 #include <stdlib.h>
+
 #include <grass/gis.h>
 #include <grass/temporal.h>
 
@@ -127,8 +128,8 @@ void tgis_map_list_add(tgisMapList *list, tgisMap *map)
  * \param ts A pointer to the timestamp of the map
  *
  * */
-void tgis_map_list_insert(tgisMapList *list, char *name, char *mapset,
-                          struct TimeStamp *ts)
+void tgis_map_list_insert(tgisMapList *list, const char *name,
+                          const char *mapset, const struct TimeStamp *ts)
 {
     tgisMap *map = G_calloc(1, sizeof(tgisMap));
 

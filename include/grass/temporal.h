@@ -2,8 +2,8 @@
 #define GRASS_TEMPORAL_H
 
 #include <grass/datetime.h>
-#include <grass/gis.h>
 #include <grass/dbmi.h>
+#include <grass/gis.h>
 
 #define TGISDB_DEFAULT_DRIVER      "sqlite"
 /* Default path in the current location */
@@ -53,8 +53,8 @@ void tgis_free_map_list(tgisMapList *list);
 tgisMapList *tgis_new_map_list(void);
 
 /*! Insert a new map to the map list */
-void tgis_map_list_insert(tgisMapList *list, char *name, char *mapset,
-                          struct TimeStamp *ts);
+void tgis_map_list_insert(tgisMapList *list, const char *name,
+                          const char *mapset, const struct TimeStamp *ts);
 /*! Add a new map to the map list */
 void tgis_map_list_add(tgisMapList *list, tgisMap *map);
 
