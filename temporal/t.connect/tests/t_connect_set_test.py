@@ -204,3 +204,17 @@ def test_a_driver_of_only_spaces_is_refused(tools):
 
     assert "out of range for parameter <driver>" in message(error.value)
     assert _var_file(tools) == before
+
+
+@pytest.mark.parametrize("flag", ["c", "d"])
+def test_p_is_refused_together_with_c_or_d(tools, flag):
+    # -p used to win without a word, so the setting the caller asked for with
+    # -c or -d was never made.
+    tools.t_connect(driver="pg", database="dbname=x")
+    before = _var_file(tools)
+
+    with pytest.raises(ToolError) as error:
+        tools.t_connect(flags=f"p{flag}")
+
+    assert f"Options <-p> and <-{flag}> are mutually exclusive" in message(error.value)
+    assert _var_file(tools) == before

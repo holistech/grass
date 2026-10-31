@@ -137,6 +137,10 @@ int main(int argc, char *argv[])
     mapset_opt->guisection = _("Print");
 
     G_option_requires(mapset_opt, print, NULL);
+    /* -p returns before -c and -d are looked at, so a call with both would
+     * print and set nothing. -c with -d stays allowed: -c wins, as before. */
+    G_option_exclusive(print, check_set_default, NULL);
+    G_option_exclusive(print, def, NULL);
 
     if (G_parser(argc, argv))
         exit(EXIT_FAILURE);
