@@ -194,3 +194,18 @@ def test_an_unknown_format_is_refused(t_connect_session):
         tools.t_connect(flags="p", format="xml")
 
     assert "Value <xml> out of range for parameter <format>" in message(error.value)
+
+
+@pytest.mark.parametrize("name", ["..", "../{location}/PERMANENT"])
+def test_a_mapset_with_path_parts_is_treated_as_missing(t_connect_session, name):
+    # The name is joined to a path; without a check, "../<project>/PERMANENT"
+    # was read as the mapset PERMANENT and ".." was found as a directory.
+    session = t_connect_session.session
+    tools = Tools(session=session, consistent_return_value=True, capture_stderr=True)
+    location = tools.g_gisenv(get="LOCATION_NAME").stdout.strip()
+    name = name.format(location=location)
+
+    result = tools.t_connect(flags="p", format="json", mapset=name)
+
+    assert list(result) == [{"mapset": name, "driver": None, "database": None}]
+    assert f"Mapset <{name}> does not exist." in message(result)

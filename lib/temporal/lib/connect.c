@@ -140,6 +140,13 @@ static char *get_mapset_connection_name(const char *mapset, int contype)
     const char *name;
 
     G_debug(1, "Checking mapset <%s>", mapset);
+    /* The name is joined to a path, so a name with path parts would reach
+     * a directory outside the project. */
+    if (!*mapset || strchr(mapset, '/') || strcmp(mapset, ".") == 0 ||
+        strcmp(mapset, "..") == 0) {
+        G_warning(_("Mapset <%s> does not exist."), mapset);
+        return NULL;
+    }
     /* Only a missing mapset is refused. G_mapset_permissions2() returns 0 for
      * a mapset of another owner, but it does not check the access privileges
      * of a different user properly, so a warning would be misleading. Reading
