@@ -105,25 +105,31 @@ def get_database_info_string():
     return info
 
 
+def _views_sql() -> str:
+    """Return the SQL text that creates all views of the temporal database"""
+    template_path = Path(get_sql_template_path())
+
+    return "\n".join(
+        (template_path / f"{sql_filename}.sql").read_text()
+        for sql_filename in (
+            "raster_views",
+            "raster3d_views",
+            "vector_views",
+            "strds_views",
+            "str3ds_views",
+            "stvds_views",
+        )
+    )
+
+
 def _create_temporal_database_views(dbif) -> None:
     """Create all views in the temporal database (internal use only)
 
-    Used by create_temporal_database() and upgrade_temporal_database().
+    Used by create_temporal_database().
 
     :param dbif: The database interface to be used
     """
-    template_path = Path(get_sql_template_path())
-
-    for sql_filename in (
-        "raster_views",
-        "raster3d_views",
-        "vector_views",
-        "strds_views",
-        "str3ds_views",
-        "stvds_views",
-    ):
-        sql_filepath = (template_path / f"{sql_filename}.sql").read_text()
-        dbif.execute_transaction(sql_filepath)
+    dbif.execute_transaction(_views_sql())
 
 
 def create_temporal_database(dbif) -> None:
@@ -244,12 +250,17 @@ def upgrade_temporal_database(dbif) -> None:
         _("Upgrading temporal database <%s> from version %s to %s...")
         % (STATE.database_string, upgrade_db_from, get_tgis_db_version())
     )
-    # Drop views
-    dbif.execute_transaction(drop_views_sql)
-    # Perform upgrade
-    dbif.execute_transaction(upgrade_db_sql)
-    # Recreate views
-    _create_temporal_database_views(dbif)
+    # One transaction: the views must not be gone when the upgrade fails,
+    # and the version must stay what it was.
+    try:
+        dbif.execute_transaction(f"{drop_views_sql}\n{upgrade_db_sql}\n{_views_sql()}")
+    except SQLStatementError as error:
+        dbif.close()
+        msgr.fatal(
+            _(
+                "The upgrade of the temporal database failed and was rolled back: {error}"
+            ).format(error=error)
+        )
 
     dbif.close()
 

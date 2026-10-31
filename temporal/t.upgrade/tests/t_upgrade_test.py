@@ -7,14 +7,17 @@ change the database.
 
 import sqlite3
 
+import psycopg2
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.postgresql import rows_of
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.temporal.testing.versions import (
     NEWER_INDEXES,
     database_file,
+    downgrade_postgresql_to_version_2,
     downgrade_to_version_2,
     set_version,
 )
@@ -76,6 +79,71 @@ def project(tmp_path):
             [MapSpec(f"map{i}", i, day(i - 1), day(i)) for i in (1, 2)],
         )
         yield tools, session, database_file(session)
+
+
+BACKENDS = ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+VIEW_COUNT = 12
+
+
+def fetch(backend, dbstring, statement):
+    """Run a statement on either backend and return its rows"""
+    if backend == "sqlite":
+        return query(dbstring, statement)
+    connection = psycopg2.connect(dbstring)
+    try:
+        with connection, connection.cursor() as cursor:
+            cursor.execute(statement)
+            return cursor.fetchall() if cursor.description else []
+    finally:
+        connection.close()
+
+
+@pytest.fixture(params=BACKENDS)
+def either_backend(request, tmp_path):
+    """Backend, tools, session and database of a project with a current database
+
+    Like project, on sqlite and on PostgreSQL. The dataset "series" has two
+    maps; "empty" has none. The database is a string: the file for sqlite,
+    the libpq text for PostgreSQL.
+    """
+    backend = request.param
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(
+            session=session, consistent_return_value=True, capture_stderr=True
+        )
+        if backend == "postgresql":
+            tools.t_connect(driver="pg", database=dbstring)
+        tools.g_region(n=1, s=0, e=1, w=0, res=1)
+        create_stds(
+            tools,
+            "strds",
+            "series",
+            [MapSpec(f"map{i}", i, day(i - 1), day(i)) for i in (1, 2)],
+        )
+        create_stds(tools, "strds", "empty", [])
+        if backend == "sqlite":
+            dbstring = str(database_file(session))
+        yield backend, tools, session, dbstring
+
+
+def downgrade(backend, session, dbstring):
+    if backend == "sqlite":
+        downgrade_to_version_2(session)
+    else:
+        downgrade_postgresql_to_version_2(session, dbstring)
+
+
+def stored_version(backend, dbstring):
+    return fetch(
+        backend,
+        dbstring,
+        "SELECT value FROM tgis_metadata WHERE key = 'tgis_db_version'",
+    )[0][0]
 
 
 def test_current_database_is_left_alone(project):
@@ -217,3 +285,76 @@ def test_other_versions_are_refused_and_left_alone(project, version):
         in message(raised.value)
     )
     assert dump(database) == before
+
+
+def test_a_failed_upgrade_leaves_the_views_and_the_version(either_backend):
+    backend, tools, session, dbstring = either_backend
+    downgrade(backend, session, dbstring)
+    # Stands in for any error inside the upgrade script (a lock, a full disk,
+    # a change made by hand): the script adds this column itself.
+    fetch(
+        backend,
+        dbstring,
+        "ALTER TABLE strds_metadata ADD COLUMN number_of_semantic_labels INTEGER",
+    )
+    before = rows_of(backend, dbstring)
+    assert sum(key.startswith("VIEW ") for key in before) == VIEW_COUNT
+
+    with pytest.raises(ToolError) as raised:
+        tools.t_upgrade()
+
+    text = message(raised.value)
+    assert "The upgrade of the temporal database failed and was rolled back" in text
+    assert "Traceback" not in text
+    assert stored_version(backend, dbstring) == "2"
+    assert rows_of(backend, dbstring) == before
+
+
+def test_a_second_upgrade_after_a_failed_one_runs_through(either_backend):
+    backend, tools, session, dbstring = either_backend
+    downgrade(backend, session, dbstring)
+    fetch(
+        backend,
+        dbstring,
+        "ALTER TABLE strds_metadata ADD COLUMN number_of_semantic_labels INTEGER",
+    )
+    with pytest.raises(ToolError):
+        tools.t_upgrade()
+    fetch(
+        backend,
+        dbstring,
+        "ALTER TABLE strds_metadata DROP COLUMN number_of_semantic_labels",
+    )
+
+    tools.t_upgrade()
+
+    assert stored_version(backend, dbstring) == CURRENT_VERSION
+
+
+def test_version_2_with_data_is_upgraded_on_both_backends(either_backend):
+    backend, tools, session, dbstring = either_backend
+    downgrade(backend, session, dbstring)
+    before = rows_of(backend, dbstring)
+
+    tools.t_upgrade()
+
+    assert stored_version(backend, dbstring) == CURRENT_VERSION
+    after = rows_of(backend, dbstring)
+    assert after.keys() == before.keys()
+    for name, rows in before.items():
+        if name == "tgis_metadata":
+            expected = sorted(
+                [
+                    (k, CURRENT_VERSION if k == "tgis_db_version" else v)
+                    for k, v in rows
+                ],
+                key=repr,
+            )
+            assert after[name] == expected
+        elif name.startswith("VIEW "):
+            assert len(after[name]) == len(rows)
+        elif name in ("raster_metadata", "strds_metadata"):
+            # The two tables got one column at their end.
+            assert sorted((row[:-1] for row in after[name]), key=repr) == rows
+        else:
+            assert after[name] == rows
