@@ -126,11 +126,12 @@ def aggregate_raster_maps(
                          time raster dataset, if false not
     :param dbif: The temporal database interface to use
     :param offset: Offset to be added to the map counter to create the map ids
-    :param nprocs: Number of threads r.series is given (0 means use all
-                  available cores). It also decides how many open files the
-                  maps need: r.series runs with flag z when 2 x threads x
-                  maps + 64 exceeds the open files of the process, or when
-                  there are more than 1000 maps
+    :param nprocs: Number of threads r.series is given. 0 lets r.series use
+                  the OpenMP default (OMP_NUM_THREADS, else all usable cores)
+                  and NPROCS of the session does not count. It also decides
+                  how many open files the maps need: r.series runs with flag
+                  z when 2 x threads x maps + 64 exceeds the open files of
+                  the process, or when there are more than 1000 maps
     """
 
     msgr = get_tgis_message_interface()
