@@ -31,6 +31,14 @@ The <b>mapset</b> parameter accepts the following inputs:
 bypassing the search path.
 <tt>mapset=name1,name2</tt> lists datasets strictly from the explicitly named
 mapsets, even if they are outside the current search path.
+<p>
+Space time raster datasets have the column <tt>number_of_semantic_labels</tt>.
+A temporal database created before this column was added to the database
+views lacks it there: <tt>columns=all</tt> and the JSON output leave it out,
+and <tt>columns=number_of_semantic_labels</tt> ends with a message that names
+<em><a href="t.upgrade.html">t.upgrade</a></em>, which creates the views anew.
+When the temporal databases of the listed mapsets differ in this,
+<tt>columns=all</tt> lists the columns that all of them have.
 
 <h2>EXAMPLES</h2>
 
@@ -207,6 +215,7 @@ t.list type=strds,stvds columns=id format=json
 <a href="t.info.html">t.info</a>,
 <a href="t.rast.list.html">t.rast.list</a>,
 <a href="t.rast3d.list.html">t.rast3d.list</a>,
+<a href="t.upgrade.html">t.upgrade</a>,
 <a href="t.vect.list.html">t.vect.list</a>
 </em>
 

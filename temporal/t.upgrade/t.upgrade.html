@@ -4,6 +4,15 @@ The <em>t.upgrade</em> module upgrades the temporal database in the current
 mapset from version 2 (default in GRASS 7) to 3 (default in GRASS 8).
 The version 3 introduces a semantic label support, see
 <em><a href="i.band.library.html">i.band.library</a></em> for details.
+<p>
+On a temporal database that already has the current version, <em>t.upgrade</em>
+drops all views of the database and creates them again in one transaction,
+and reports that the database is up-to-date and that its views were created
+anew. A database created before a view gained a column, such as
+<tt>number_of_semantic_labels</tt> of the space time raster datasets (see
+<em><a href="t.list.html">t.list</a></em>), gets the views of the installed
+version this way. The tables and the rows stay as they are, and a second run
+changes nothing.
 
 <h2>EXAMPLE</h2>
 
@@ -14,7 +23,8 @@ t.upgrade
 <h2>SEE ALSO</h2>
 
 <em>
-<a href="t.info.html">t.info</a>
+<a href="t.info.html">t.info</a>,
+<a href="t.list.html">t.list</a>
 </em>
 
 <h2>AUTHORS</h2>

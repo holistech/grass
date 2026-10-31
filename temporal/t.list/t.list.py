@@ -40,7 +40,7 @@
 # %option
 # % key: order
 # % type: string
-# % description: Columns number_of_maps and granularity only available for space time datasets
+# % description: Columns number_of_maps and granularity only available for space time datasets, number_of_semantic_labels only for space time raster datasets
 # % label: Sort the space time dataset by category
 # % guisection: Formatting
 # % required: no
@@ -52,7 +52,7 @@
 # %option
 # % key: columns
 # % type: string
-# % description: Columns number_of_maps and granularity only available for space time datasets
+# % description: Columns number_of_maps and granularity only available for space time datasets, number_of_semantic_labels only for space time raster datasets
 # % label: Columns to be printed to stdout
 # % guisection: Selection
 # % required: no

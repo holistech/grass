@@ -213,10 +213,13 @@ def create_temporal_database(dbif) -> None:
 
 
 def upgrade_temporal_database(dbif) -> None:
-    """This function will upgrade the temporal database if needed.
+    """Upgrade the temporal database to the current version, or renew its views
 
-    It will update all tables and triggers that are requested by
-    currently supported TGIS DB version.
+    A database of an older version gets the tables, indexes and views of the
+    current one. A database of the current version gets its views dropped and
+    created again, because a view can gain a column without a new version.
+    Either runs in one transaction; on failure the database stays as it was
+    and a fatal error is reported, as for a version without an upgrade path.
 
     :param dbif: The database interface to be used
     """

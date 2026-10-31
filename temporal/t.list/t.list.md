@@ -31,6 +31,14 @@ the search path.
 `mapset=name1,name2` lists datasets strictly from the explicitly named mapsets,
 even if they are outside the current search path.
 
+Space time raster datasets have the column `number_of_semantic_labels`. A
+temporal database created before this column was added to the database views
+lacks it there: `columns=all` and the JSON output leave it out, and
+`columns=number_of_semantic_labels` ends with a message that names
+*[t.upgrade](t.upgrade.md)*, which creates the views anew. When the temporal
+databases of the listed mapsets differ in this, `columns=all` lists the
+columns that all of them have.
+
 ## EXAMPLES
 
 Obtain the list of space time raster dataset(s) in the current search path:
@@ -201,7 +209,7 @@ t.list type=strds,stvds columns=id format=json
 
 *[g.list](g.list.md), [t.create](t.create.md), [t.info](t.info.md),
 [t.rast.list](t.rast.list.md), [t.rast3d.list](t.rast3d.list.md),
-[t.vect.list](t.vect.list.md)*
+[t.upgrade](t.upgrade.md), [t.vect.list](t.vect.list.md)*
 
 ## AUTHOR
 

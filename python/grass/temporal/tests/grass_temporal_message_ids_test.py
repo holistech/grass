@@ -6,7 +6,7 @@ A translator works on the text inside ``_()``, and a changed text loses the
 translation. The golden file lists every message id that the library and the
 tools under ``temporal/`` had before the clean-up and still have: whole
 sentences, one per map type and per form with or without a layer, rather than
-one sentence with an English word inserted. Thirteen ids are not in the list on
+one sentence with an English word inserted. Fourteen ids are not in the list on
 purpose: those of code that was deleted (the aggregation by topology, the
 volume computation, the export of 3D rasters, the unreachable branch of
 t.rast.what without points or coordinates, the checks of t.rast.accdetect for
@@ -17,8 +17,9 @@ gap without predecessor or successor in t.rast.gapfill, which the list of
 gaps makes unreachable, and the conversion error of the percentile option of
 t.rast.univar and t.rast3d.univar, which the parser makes unreachable), the
 one that was renamed to the ``str.format`` convention
-(``Aggregating {} raster maps``) and
-the one whose text carried the indentation of the source. The ids were
+(``Aggregating {} raster maps``), the one whose text carried the indentation
+of the source, and the report of t.upgrade on a database of the current
+version, which now creates the views anew and says so. The ids were
 extracted on 26.10.2026 from the tree before the clean-up (commit
 b8f890df1c) by parsing every ``_("...")`` literal.
 """

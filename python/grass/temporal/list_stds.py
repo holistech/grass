@@ -316,7 +316,9 @@ def _view_columns(dbif, dataset_type, temporal_type, mapset):
 def _requested_columns(dbif, columns, schemas, stds_type):
     """Return the columns to read: the requested ones or all the common ones
 
-    Stops with a message for a requested column that the types do not share.
+    schemas maps each mapset to the columns of the views of the types there.
+    Stops with a message for a requested column that the views do not share,
+    naming t.upgrade when only the views of an older database lack it.
     """
     views = [view for mapset_views in schemas.values() for view in mapset_views]
     common_columns = [col for col in views[0] if all(col in view for view in views)]
@@ -357,14 +359,15 @@ def listed_columns(dbif, type, temporal_type, columns, mapsets):
     """Return the database columns that get_dataset_list() reads for columns
 
     The requested columns without blanks and in their order, or all the
-    columns the views of the types share when columns is empty or contains
-    "all". The type column is not a database column and is left out.
+    columns the views of the types share in all the mapsets when columns is
+    empty or contains "all". The type column is not a database column and is
+    left out.
 
     :param dbif: The database interface to be used
     :param type: The dataset type as a string or a list of strings
     :param temporal_type: A single temporal type (absolute or relative)
     :param columns: A comma separated list of columns or None
-    :param mapset: The mapset whose database holds the views
+    :param mapsets: The mapsets whose databases hold the views
     :return: The list of the column names
     """
     stds_type = [type] if isinstance(type, str) else type
