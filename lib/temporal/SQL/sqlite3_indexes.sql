@@ -1,6 +1,6 @@
 -- Create the indexes of the temporal database on SQLite
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Soeren Gebbert
@@ -12,7 +12,8 @@
 -- The time indexes start with the id: they cover the join of a time table with
 -- the other tables of a map on the id, they do not serve a condition on the time
 -- alone, which scans the table (checked 31.10.2026 with EXPLAIN QUERY PLAN on
--- raster_absolute_time). PostgreSQL indexes the time alone instead.
+-- raster_absolute_time). PostgreSQL indexes (start_time, end_time) without
+-- the id.
 
 -- Indexes for raster, vector and 3D raster maps
 

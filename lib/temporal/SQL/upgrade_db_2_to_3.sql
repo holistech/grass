@@ -2,7 +2,7 @@
 --
 -- The script runs on SQLite and on PostgreSQL.
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2020-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Martin Landa

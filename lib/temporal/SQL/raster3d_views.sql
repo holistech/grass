@@ -1,14 +1,15 @@
 -- Create the views of 3D raster maps that join all of their tables
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Soeren Gebbert
 --
 -- A map appears in a view only if it has a row in each of the five tables that
--- the view joins (base data, time, spatial extent, metadata and register
--- table). A map that lacks one of the rows is in no list but is still counted
--- in number_of_maps of its dataset.
+-- the view joins (base data, time, spatial extent, metadata and the table
+-- *_stds_register that lists the datasets the map is registered in). A map
+-- that lacks one of the rows is in no list but is still counted in
+-- number_of_maps of its dataset.
 
 -- Create the views to access all cols for the absolute and relative time
 

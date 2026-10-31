@@ -1,6 +1,6 @@
 -- Create the PostgreSQL triggers that delete the dependent rows of a map
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Soeren Gebbert

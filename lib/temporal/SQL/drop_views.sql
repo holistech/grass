@@ -1,6 +1,6 @@
 -- Drop all views of the temporal database so that they can be created anew
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2020-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Martin Landa

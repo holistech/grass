@@ -1,6 +1,6 @@
 -- Create the views of space-time 3D raster datasets that join all of their tables
 --
--- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-FileCopyrightText: 2013-2026 GRASS Development Team
 -- SPDX-License-Identifier: GPL-2.0-or-later
 --
 -- Author: Soeren Gebbert
