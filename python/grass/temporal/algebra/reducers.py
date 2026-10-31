@@ -98,9 +98,10 @@ class SeriesMethod:
 
     method is one of SERIES_METHODS and reaches r.series unchanged. A lone
     related map is copied verbatim instead (see series_aggregate), so the
-    method is applied only from two maps on. file_limit is the open file
-    limit of r.series, carried here so the backend can set the -z flag per
-    granule.
+    method is applied only from two maps on. file_limit is the number of maps
+    above which r.series runs with -z; fewer maps also do when they exceed
+    the open files of the process (see series_limits). It is carried here so
+    the backend can set the flag per granule.
     """
 
     method: str
