@@ -27,6 +27,12 @@ def database_names(server):
         connection.close()
 
 
+def dbname_of(dsn):
+    import psycopg2.extensions
+
+    return psycopg2.extensions.parse_dsn(dsn)["dbname"]
+
+
 @pytest.mark.postgresql
 def test_fresh_databases_of_two_calls_differ_and_are_dropped():
     server = postgresql.server_or_skip()
@@ -35,16 +41,28 @@ def test_fresh_databases_of_two_calls_differ_and_are_dropped():
         postgresql.fresh_database("t") as second,
     ):
         assert first != second
-        names = database_names(server)
-        for dsn in (first, second):
-            name = dict(part.split("=") for part in dsn.split())["dbname"]
-            assert name.startswith("t_")
-            assert name in names
-    after = database_names(server)
-    assert not {name for name in after if name.startswith("t_")} & {
-        dict(part.split("=") for part in dsn.split())["dbname"]
-        for dsn in (first, second)
-    }
+        names = {dbname_of(first), dbname_of(second)}
+        assert all(name.startswith("t_") for name in names)
+        assert names <= database_names(server)
+    assert not names & database_names(server)
+
+
+def fail_inside_a_fresh_database(server, seen):
+    with postgresql.fresh_database("t") as dsn:
+        seen.append(dbname_of(dsn))
+        assert seen[0] in database_names(server)
+        msg = "test failure"
+        raise RuntimeError(msg)
+
+
+@pytest.mark.postgresql
+def test_a_fresh_database_is_dropped_when_the_block_raises():
+    server = postgresql.server_or_skip()
+    seen = []
+    with pytest.raises(RuntimeError, match="test failure"):
+        fail_inside_a_fresh_database(server, seen)
+    assert seen
+    assert seen[0] not in database_names(server)
 
 
 @pytest.mark.postgresql
@@ -115,3 +133,9 @@ def test_rows_of_a_sqlite_database_mask_times_and_users(tmp_path):
         isinstance(value, bool) for row in rows["vector_metadata"] for value in row
     )
     assert not [name for name in rows if "_map_register_" in name]
+    # SQLite stores a truth value as 0 or 1; a view has no type of its own
+    assert any(
+        isinstance(value, bool)
+        for row in rows["VIEW vector_view_abs_time"]
+        for value in row
+    )

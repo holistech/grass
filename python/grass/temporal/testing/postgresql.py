@@ -125,13 +125,13 @@ def _comparable(value, declared_type: str | None):
     return value
 
 
-# The statements below interpolate names of tables, views and columns that were
-# read from the database itself or are constants of this module, so they cannot
-# carry user input; the S608 exceptions rest on that.
-
-
 def _read_all(backend: str, dbstring: str):
-    """Return (names of tables, names of views, column types, a query function)"""
+    """Return (connection, names of tables, names of views, column types, query)
+
+    The statements here and in rows_of() interpolate names of tables, views and
+    columns that were read from the database itself or are constants of this
+    module, so they cannot carry user input; the S608 exceptions rest on that.
+    """
     if backend == "sqlite":
         connection = sqlite3.connect(dbstring)
 
@@ -147,7 +147,9 @@ def _read_all(backend: str, dbstring: str):
         }
         types = {
             table: {row[1]: row[2] for row in query(f"PRAGMA table_info({table})")}
-            for table in kinds["table"]
+            # A view reports the declared type of the column it selects, which
+            # turns the 0 and 1 of a BOOLEAN column in a view into bool as well
+            for table in kinds["table"] + kinds["view"]
         }
         return connection, kinds["table"], kinds["view"], types, query
     import psycopg2
