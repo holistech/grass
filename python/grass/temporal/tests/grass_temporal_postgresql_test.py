@@ -268,17 +268,29 @@ def floats_as_sqlite_stores_them(stages):
     """
     return {
         step: {
-            name: [
-                tuple(
-                    float(f"{value:f}") if isinstance(value, float) else value
-                    for value in row
-                )
-                for row in table
-            ]
+            name: sorted(
+                (
+                    tuple(
+                        float(f"{value:f}") if isinstance(value, float) else value
+                        for value in row
+                    )
+                    for row in table
+                ),
+                key=repr,
+            )
             for name, table in rows.items()
         }
         for step, rows in stages.items()
     }
+
+
+def label_lists_in_any_order(labels):
+    """Return each comma separated list of semantic labels sorted
+
+    The labels of a dataset are read without an order, and the backends
+    return them in different ones. This tolerates that and nothing else.
+    """
+    return {step: sorted(text.split(",")) for step, text in labels.items()}
 
 
 @pytest.mark.postgresql
@@ -286,11 +298,13 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
     tmp_path, postgresql_database
 ):
     stages = {}
+    labels = {}
     for backend, dbstring in (
         ("sqlite", None),
         ("postgresql", postgresql_database),
     ):
         seen = stages[backend] = {}
+        listed = labels[backend] = {}
         with backend_session(tmp_path / backend, backend, dbstring) as (
             tools,
             database,
@@ -298,6 +312,11 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
 
             def after(step, backend=backend, database=database, seen=seen):
                 seen[step] = postgresql.rows_of(backend, database)
+                # The list of labels is not stored but read by t.info
+                if step in {"strds registered", "strds unregistered"}:
+                    listed[step] = tools.t_info(
+                        flags="g", type="strds", input="scenario_strds"
+                    ).keyval["semantic_labels"]
 
             postgresql.run_scenario(tools, after=after)
 
@@ -305,6 +324,10 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
     assert floats_as_sqlite_stores_them(
         stages["postgresql"]
     ) == floats_as_sqlite_stores_them(stages["sqlite"])
+    assert labels["sqlite"]["strds registered"] == "S2_1,S2_2"
+    assert label_lists_in_any_order(labels["postgresql"]) == label_lists_in_any_order(
+        labels["sqlite"]
+    )
 
 
 def tables_naming(rows, prefix):
