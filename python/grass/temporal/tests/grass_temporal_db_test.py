@@ -678,3 +678,34 @@ def test_a_mapset_without_a_database_is_refused_by_name(call, text):
     assert f"Unable to {text}." in message
     assert "<nosuchmapset>" in message
     assert "Accessible mapsets are:" in message
+
+
+class NamedColumnRow(list):
+    """A row like psycopg2's DictRow: ``in`` asks for column names, not values"""
+
+    def __init__(self, names, values):
+        super().__init__(values)
+        self.names = names
+
+    def __contains__(self, item):
+        return item in self.names
+
+
+def test_the_db_version_is_read_from_rows_with_named_columns():
+    from grass.temporal.schema import get_tgis_db_version_from_metadata
+
+    metadata = [
+        NamedColumnRow(("key", "value"), ("tgis_version", "2")),
+        NamedColumnRow(("key", "value"), ("tgis_db_version", "2")),
+    ]
+    # The supported version is 3, so only reading the row can give 2
+    assert get_tgis_db_version_from_metadata(metadata) == 2
+
+
+def test_a_metadata_value_is_found_in_tuples_and_rows_and_may_be_missing():
+    from grass.temporal.schema import metadata_value
+
+    rows = [("tgis_version", "2"), NamedColumnRow(("key", "value"), ("a", "b"))]
+    assert metadata_value(rows, "tgis_version") == "2"
+    assert metadata_value(rows, "a") == "b"
+    assert metadata_value(rows, "value") is None

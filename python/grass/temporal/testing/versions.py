@@ -74,3 +74,36 @@ def downgrade_to_version_2(session) -> None:
             view = (templates / f"{name}_views.sql").read_text()
             connection.executescript(view.replace("A4.semantic_label, ", ""))
     set_version(database, 2)
+
+
+def downgrade_postgresql_to_version_2(session, dbstring: str) -> None:
+    """Turn a PostgreSQL temporal database into the layout of version 2
+
+    The same steps as downgrade_to_version_2(), run through psycopg2 on the
+    database dbstring, which t.connect and the first tgis.init() of the
+    session have filled with the current tables. The SQL files are the ones of
+    the session, as they are for sqlite.
+    """
+    import psycopg2  # noqa: PLC0415
+
+    templates = sql_files(session)
+    connection = psycopg2.connect(dbstring)
+    try:
+        with connection, connection.cursor() as cursor:
+            cursor.execute((templates / "drop_views.sql").read_text())
+            for index in sorted(NEWER_INDEXES):
+                # IF EXISTS, because postgresql_indexes.sql does not create
+                # every index that sqlite3_indexes.sql does
+                cursor.execute(f"DROP INDEX IF EXISTS {index}")
+            cursor.execute("ALTER TABLE raster_metadata DROP COLUMN semantic_label")
+            cursor.execute(
+                "ALTER TABLE strds_metadata DROP COLUMN number_of_semantic_labels"
+            )
+            for name in VIEW_TEMPLATES:
+                view = (templates / f"{name}_views.sql").read_text()
+                cursor.execute(view.replace("A4.semantic_label, ", ""))
+            cursor.execute(
+                "UPDATE tgis_metadata SET value = '2' WHERE key = 'tgis_db_version'"
+            )
+    finally:
+        connection.close()

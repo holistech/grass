@@ -27,6 +27,27 @@ from .state import (
 )
 
 
+def metadata_value(metadata, key):
+    """Return the value stored under key in the rows of tgis_metadata, or None
+
+    The rows are read by the columns key and value. ``key in row`` must not be
+    used for this: it asks for a column name on the rows of psycopg2, so on
+    PostgreSQL it is never true for a key. Plain tuples work as well.
+
+    :param metadata: The rows of the table tgis_metadata
+    :param str key: The key to look up
+    :returns: The value as text, or None if no row has the key
+    """
+    for entry in metadata:
+        try:
+            row_key, value = entry["key"], entry["value"]
+        except TypeError:
+            row_key, value = entry[0], entry[1]
+        if row_key == key:
+            return value
+    return None
+
+
 def get_tgis_db_version_from_metadata(metadata=None):
     """Get the version number of the temporal database from metadata
 
@@ -35,9 +56,9 @@ def get_tgis_db_version_from_metadata(metadata=None):
     """
     if metadata is None:
         metadata = get_tgis_metadata()
-    for entry in metadata:
-        if "tgis_db_version" in entry:
-            return int(entry[1])
+    version = metadata_value(metadata, "tgis_db_version")
+    if version is not None:
+        return int(version)
 
     # return supported version if not possible to get from metadata
     return get_tgis_db_version()
@@ -196,11 +217,9 @@ def upgrade_temporal_database(dbif) -> None:
     metadata = get_tgis_metadata(dbif)
 
     msgr = get_tgis_message_interface()
-    upgrade_db_from = None
-    for entry in metadata:
-        if "tgis_db_version" in entry and entry[1] != str(get_tgis_db_version()):
-            upgrade_db_from = entry[1]
-            break
+    upgrade_db_from = metadata_value(metadata, "tgis_db_version")
+    if upgrade_db_from == str(get_tgis_db_version()):
+        upgrade_db_from = None
 
     if upgrade_db_from is None:
         msgr.message(_("Temporal database is up-to-date. Operation canceled"))

@@ -7,13 +7,15 @@ GRASS_TEMPORAL_TEST_POSTGRESQL and are skipped without one.
 import contextlib
 import datetime
 import getpass
+import os
 import re
 import sqlite3
 import tempfile
+import types
 
 import pytest
 
-from grass.temporal.testing import data, postgresql
+from grass.temporal.testing import data, postgresql, versions
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
 
@@ -396,3 +398,36 @@ def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
     (history,) = [row[-1] for row in rows["VIEW strds_view_abs_time"]]
     assert 'file="<temporary directory>/maps.txt"' in history
     assert tempfile.gettempdir() not in history
+
+
+@pytest.mark.parametrize(
+    "backend",
+    ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)],
+)
+def test_a_version_2_database_is_recognized(tmp_path, backend, request):
+    from grass.temporal import SQLDatabaseInterfaceConnection, state
+
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / backend, backend, dbstring) as (_, database):
+        # temporal_session mirrors the session environment into os.environ
+        session = types.SimpleNamespace(env=os.environ)
+        if backend == "sqlite":
+            versions.downgrade_to_version_2(session)
+        else:
+            versions.downgrade_postgresql_to_version_2(session, database)
+        warnings = []
+        message_interface = state.STATE.message_interface
+        original = message_interface.warning
+        message_interface.warning = warnings.append
+        try:
+            state._check_versions(SQLDatabaseInterfaceConnection())
+        finally:
+            message_interface.warning = original
+
+    assert len(warnings) == 1
+    assert "Temporal database version mismatch detected" in warnings[0]
+    assert "Your existing temporal database version: 2" in warnings[0]

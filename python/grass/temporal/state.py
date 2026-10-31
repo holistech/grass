@@ -484,6 +484,7 @@ def _check_versions(dbif) -> None:
         get_database_info_string,
         get_tgis_db_version_from_metadata,
         get_tgis_metadata,
+        metadata_value,
     )
 
     msgr = STATE.message_interface
@@ -500,24 +501,24 @@ def _check_versions(dbif) -> None:
         dbif.close()
 
     # temporal framework version check
-    for entry in metadata:
-        if "tgis_version" in entry and entry[1] != str(get_tgis_version()):
-            msgr.fatal(
-                _(
-                    "Unsupported temporal database: version mismatch."
-                    "\n %(backup)s Supported temporal API version is:"
-                    " %(api)i.\nPlease update your GRASS "
-                    "installation.\nCurrent temporal database info:"
-                    "%(info)s"
-                )
-                % (
-                    {
-                        "backup": backup_howto,
-                        "api": get_tgis_version(),
-                        "info": get_database_info_string(),
-                    }
-                )
+    api_version = metadata_value(metadata, "tgis_version")
+    if api_version is not None and api_version != str(get_tgis_version()):
+        msgr.fatal(
+            _(
+                "Unsupported temporal database: version mismatch."
+                "\n %(backup)s Supported temporal API version is:"
+                " %(api)i.\nPlease update your GRASS "
+                "installation.\nCurrent temporal database info:"
+                "%(info)s"
             )
+            % (
+                {
+                    "backup": backup_howto,
+                    "api": get_tgis_version(),
+                    "info": get_database_info_string(),
+                }
+            )
+        )
 
     # temporal database version check
     tgis_db_version_meta = get_tgis_db_version_from_metadata(metadata)
