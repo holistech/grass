@@ -286,15 +286,6 @@ def floats_as_sqlite_stores_them(stages):
     }
 
 
-def label_lists_in_any_order(labels):
-    """Return each comma separated list of semantic labels sorted
-
-    The labels of a dataset are read without an order, and the backends
-    return them in different ones. This tolerates that and nothing else.
-    """
-    return {step: sorted(text.split(",")) for step, text in labels.items()}
-
-
 @pytest.mark.postgresql
 def test_the_scenario_gives_the_same_rows_on_both_backends(
     tmp_path, postgresql_database
@@ -327,9 +318,7 @@ def test_the_scenario_gives_the_same_rows_on_both_backends(
         stages["postgresql"]
     ) == floats_as_sqlite_stores_them(stages["sqlite"])
     assert labels["sqlite"]["strds registered"] == "S2_1,S2_2"
-    assert label_lists_in_any_order(labels["postgresql"]) == label_lists_in_any_order(
-        labels["sqlite"]
-    )
+    assert labels["postgresql"] == labels["sqlite"]
 
 
 def tables_naming(rows, prefix):
@@ -426,3 +415,63 @@ def test_a_version_2_database_is_recognized(tmp_path, backend, request, monkeypa
     assert len(warnings) == 1
     assert "Temporal database version mismatch detected" in warnings[0]
     assert "Your existing temporal database version: 2" in warnings[0]
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_registered_maps_grouped_by_start_time(tmp_path, request, backend):
+    import grass.temporal as tgis
+
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / backend, backend, dbstring) as (tools, _):
+        data.small_region(tools, 1, 1)
+        # The later name is registered first, so that the order of the ids
+        # inside the group is not the order of registration.
+        data.create_stds(
+            tools,
+            "strds",
+            "grouped",
+            [
+                data.MapSpec("b", 1, data.day(1), data.day(2)),
+                data.MapSpec("a", 2, data.day(1), data.day(2)),
+            ],
+        )
+        stds = tgis.open_old_stds("grouped", "strds")
+        rows = stds.get_registered_maps(columns="id", group="start_time")
+
+    assert [row["id"].replace("@", "").split(",") for row in rows] == [
+        [f"a{tgis.get_current_mapset()}", f"b{tgis.get_current_mapset()}"]
+    ]
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_semantic_labels_are_listed_by_name(tmp_path, request, backend):
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / backend, backend, dbstring) as (tools, _):
+        data.small_region(tools, 1, 1)
+        # S2_2 comes first in the registration and in the file order
+        data.create_stds(
+            tools,
+            "strds",
+            "labelled",
+            [
+                data.MapSpec("m2", 1, data.day(1), data.day(2), "S2_2"),
+                data.MapSpec("m1", 2, data.day(2), data.day(3), "S2_1"),
+            ],
+        )
+        listed = tools.t_info(flags="g", type="strds", input="labelled").keyval[
+            "semantic_labels"
+        ]
+
+    assert listed == "S2_1,S2_2"

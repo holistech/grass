@@ -469,7 +469,8 @@ class _SemanticLabelsMetadata:
                 return None
             sql = sql_statement(
                 "SELECT distinct semantic_label FROM raster_metadata"
-                " WHERE raster_metadata.id IN (SELECT id FROM {register})",
+                " WHERE raster_metadata.id IN (SELECT id FROM {register})"
+                " ORDER BY semantic_label",
                 register=self.get_raster_register(),
             )
             dbif.execute(sql, mapset=self.mapset)
