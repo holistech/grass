@@ -760,6 +760,15 @@ class ScriptRecorder:
     def __init__(self):
         self.script = None
 
+    def is_connected(self):
+        return True
+
+    def execute(self, statement, *args, **kwargs):
+        """Take the query for the database version; the answer is version 3"""
+
+    def fetchall(self, *args, **kwargs):
+        return [("tgis_db_version", "3")]
+
     def execute_transaction(self, script, mapset=None):
         self.script = script
 

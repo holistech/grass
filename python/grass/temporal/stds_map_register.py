@@ -41,7 +41,11 @@ from .db import (
     sql_placeholder,
     sql_statement,
 )
-from .schema import get_sql_template_path, get_tgis_db_version_from_metadata
+from .schema import (
+    get_sql_template_path,
+    get_tgis_db_version_from_metadata,
+    get_tgis_metadata,
+)
 from .state import get_current_mapset
 from .temporal_granularity import (
     compute_absolute_time_granularity,
@@ -650,7 +654,7 @@ class StdsMapRegister:
         sql = sql.read_text()
 
         # Comment out update of semantic labels for DB version < 3
-        if get_tgis_db_version_from_metadata() < 3:
+        if get_tgis_db_version_from_metadata(get_tgis_metadata(dbif)) < 3:
             sql = sql.replace(
                 "number_of_semantic_labels = number_of_semantic_labels_new,",
                 "-- number_of_semantic_labels = number_of_semantic_labels_new,",
