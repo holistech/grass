@@ -381,13 +381,23 @@ CREATE TABLE vector_stds_register (
   PRIMARY KEY (id)
 );
 CREATE INDEX raster3d_absolute_time_index ON raster3d_absolute_time (id, start_time, end_time);
+CREATE INDEX raster3d_map_register_7f402c6f1a3eb2af4c63c569ee489d93_index ON raster3d_map_register_7f402c6f1a3eb2af4c63c569ee489d93 (id);
+CREATE INDEX raster3d_map_register_ba841f5ed408aa3b1114defc53dc2ff2_index ON raster3d_map_register_ba841f5ed408aa3b1114defc53dc2ff2 (id);
 CREATE INDEX raster3d_relative_time_index ON raster3d_relative_time (id, start_time, end_time);
 CREATE INDEX raster3d_spatial_extent_index_bbox ON raster3d_spatial_extent (id, north, south, east, west, top, bottom);
 CREATE INDEX raster_absolute_time_index ON raster_absolute_time (id, start_time, end_time);
+CREATE INDEX raster_map_register_22e3c261135396136fb4632c4a1f5601_index ON raster_map_register_22e3c261135396136fb4632c4a1f5601 (id);
+CREATE INDEX raster_map_register_61faa24dfaecfe07b7c99ea4666187c8_index ON raster_map_register_61faa24dfaecfe07b7c99ea4666187c8 (id);
+CREATE INDEX raster_map_register_638463c28b29c46ee1ff78f2993f2bc1_index ON raster_map_register_638463c28b29c46ee1ff78f2993f2bc1 (id);
+CREATE INDEX raster_map_register_a9894a19e40d453484aac2241aa57ab7_index ON raster_map_register_a9894a19e40d453484aac2241aa57ab7 (id);
+CREATE INDEX raster_map_register_a9ad879a5ba0038ca0ea7257d239a0d1_index ON raster_map_register_a9ad879a5ba0038ca0ea7257d239a0d1 (id);
+CREATE INDEX raster_map_register_f258237acb32c393a438f22c9634201b_index ON raster_map_register_f258237acb32c393a438f22c9634201b (id);
 CREATE INDEX raster_metadata_index_semantic_label ON raster_metadata (id, semantic_label);
 CREATE INDEX raster_relative_time_index ON raster_relative_time (id, start_time, end_time);
 CREATE INDEX raster_spatial_extent_index_bbox ON raster_spatial_extent (id, north, south, east, west);
 CREATE INDEX vector_absolute_time_index ON vector_absolute_time (id, start_time, end_time);
+CREATE INDEX vector_map_register_46aab9946b1c5c16112d3e4b761007e7_index ON vector_map_register_46aab9946b1c5c16112d3e4b761007e7 (id);
+CREATE INDEX vector_map_register_88f60c6d82d6b5d5a15b96d6d64da7d4_index ON vector_map_register_88f60c6d82d6b5d5a15b96d6d64da7d4 (id);
 CREATE INDEX vector_relative_time_index ON vector_relative_time (id, start_time, end_time);
 CREATE INDEX vector_spatial_extent_index_bbox ON vector_spatial_extent (id, north, south, east, west, top, bottom);
 CREATE VIEW raster3d_view_abs_time AS SELECT

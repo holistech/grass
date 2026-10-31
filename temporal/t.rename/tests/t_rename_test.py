@@ -149,37 +149,75 @@ def test_the_name_can_carry_the_current_mapset(tools, prefix, has_dataset):
     assert not has_dataset(name)
 
 
-def test_an_older_register_index_follows_the_new_name(tmp_path):
-    # Older databases have an index on the id of each register table, named
-    # after the table; new ones have none, because SQLite indexes the
-    # primary key itself.
+def _register_indexes(database):
+    """The register table of the dataset <prefix>_ds with its indexes"""
+    with sqlite3.connect(database) as connection:
+        (table,) = connection.execute(
+            "SELECT raster_register FROM strds_metadata"
+        ).fetchone()
+        rows = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index'"
+            " AND tbl_name = ? AND name NOT LIKE 'sqlite_%'",
+            (table,),
+        ).fetchall()
+    return table, [row[0] for row in rows]
+
+
+def test_a_new_register_table_has_its_index(tmp_path):
+    # Released GRASS 8.x renames a dataset with an unconditional
+    # DROP INDEX <register table>_index, so a database made by this version
+    # must have that index.
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        _make(tools, "indexed")
+        table, indexes = _register_indexes(database_file(session))
+    assert indexes == [f"{table}_index"]
+
+
+def test_the_rename_of_grass_8_runs_on_a_new_database(tmp_path):
+    # The statements are those that released GRASS 8.x executes for the
+    # register table of a renamed dataset.
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        _make(tools, "eight")
+        database = database_file(session)
+        table, _ = _register_indexes(database)
+        with sqlite3.connect(database) as connection:
+            connection.executescript(
+                f'ALTER TABLE {table} RENAME TO "renamed_register";\n'
+                f"DROP INDEX {table}_index;\n"
+                "CREATE INDEX renamed_register_index ON renamed_register (id);"
+            )
+        with sqlite3.connect(database) as connection:
+            indexes = [
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index'"
+                    " AND tbl_name = 'renamed_register'"
+                    " AND name NOT LIKE 'sqlite_%'"
+                )
+            ]
+    assert indexes == ["renamed_register_index"]
+
+
+@pytest.mark.parametrize("has_index", [True, False])
+def test_an_older_register_index_follows_the_new_name(tmp_path, has_index):
+    # A database that has no index on the id of its register tables, such as
+    # one that was made without it, is renamed without making one.
     with project_session(tmp_path / "project") as session:
         tools = Tools(session=session, consistent_return_value=True)
         name, _ = _make(tools, "older")
         database = database_file(session)
-
-        def register_indexes():
+        table, _ = _register_indexes(database)
+        if not has_index:
             with sqlite3.connect(database) as connection:
-                (table,) = connection.execute(
-                    "SELECT raster_register FROM strds_metadata"
-                ).fetchone()
-                rows = connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'index'"
-                    " AND tbl_name = ? AND name NOT LIKE 'sqlite_%'",
-                    (table,),
-                ).fetchall()
-            return table, [row[0] for row in rows]
-
-        table, indexes = register_indexes()
-        assert indexes == []
-        with sqlite3.connect(database) as connection:
-            connection.execute(f"CREATE INDEX {table}_index ON {table} (id)")
+                connection.execute(f"DROP INDEX {table}_index")
 
         tools.t_rename(input=name, output="renamed")
 
-        new_table, indexes = register_indexes()
-        assert new_table != table
-        assert indexes == [f"{new_table}_index"]
+        new_table, indexes = _register_indexes(database)
+    assert new_table != table
+    assert indexes == ([f"{new_table}_index"] if has_index else [])
 
 
 def test_renaming_to_the_same_name_changes_nothing(tools, prefix):

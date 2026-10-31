@@ -459,6 +459,12 @@
    "unique": false,
    "origin": "c"
   },
+  "raster3d_map_register_a23c49112437343c579b24577ebb8e11_index": {
+   "table": "raster3d_map_register_a23c49112437343c579b24577ebb8e11",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
   "raster3d_relative_time_index": {
    "table": "raster3d_relative_time",
    "columns": ["id", "start_time", "end_time"],
@@ -474,6 +480,12 @@
   "raster_absolute_time_index": {
    "table": "raster_absolute_time",
    "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c_index": {
+   "table": "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c",
+   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },
@@ -714,6 +726,12 @@
   "vector_absolute_time_index": {
    "table": "vector_absolute_time",
    "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_map_register_1cb921a2deeaf234fe439866ee839fa1_index": {
+   "table": "vector_map_register_1cb921a2deeaf234fe439866ee839fa1",
+   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },

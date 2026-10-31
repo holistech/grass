@@ -77,7 +77,9 @@ def test_the_structure_of_a_new_database_matches_the_recording(tmp_path):
 
 def test_a_new_database_has_no_index_that_repeats_a_primary_key(tmp_path):
     # SQLite indexes each primary key itself (origin "pk"), so an index made
-    # by CREATE INDEX on exactly the key columns is a second copy.
+    # by CREATE INDEX on exactly the key columns is a second copy. The index
+    # of a register table is the one copy that stays, because released
+    # GRASS 8.x drops it by name when it renames a dataset.
     with temporal_session(tmp_path / "project") as session:
         database_image.structure_scenario(
             Tools(session=session, consistent_return_value=True)
@@ -90,6 +92,8 @@ def test_a_new_database_has_no_index_that_repeats_a_primary_key(tmp_path):
     repeating = [
         name
         for name, index in structure["indexes"].items()
-        if index["origin"] == "c" and index["columns"] == keys[index["table"]]
+        if index["origin"] == "c"
+        and index["columns"] == keys[index["table"]]
+        and "_map_register_" not in index["table"]
     ]
     assert repeating == []

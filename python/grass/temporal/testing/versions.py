@@ -31,6 +31,7 @@ NEWER_INDEXES = {
 # The tables that sqlite3_indexes.sql of version 2 indexed on the id alone,
 # each with an index named <table>_index. SQLite indexes the primary key
 # itself, so new databases no longer get them; databases of version 2 have them.
+# The register tables are not among them: they keep their index in new databases.
 VERSION_2_ID_INDEXED_TABLES = tuple(
     f"{kind}_{table}"
     for kind in ("strds", "str3ds", "stvds")
@@ -46,13 +47,6 @@ VERSION_2_ID_INDEXED_TABLES = tuple(
     for kind in ("raster", "raster3d", "vector")
     for table in ("base", "spatial_extent", "stds_register", "metadata")
 )
-# The column of the metadata table of each dataset type that names its
-# register table; the library of version 2 indexed each register table on id.
-REGISTER_COLUMNS = {
-    "strds_metadata": "raster_register",
-    "str3ds_metadata": "raster3d_register",
-    "stvds_metadata": "vector_register",
-}
 
 
 # The line of strds_views.sql that lists the count of the semantic labels.
@@ -93,14 +87,16 @@ def downgrade_to_version_2(session) -> None:
     upgrade_db_2_to_3.sql adds, in the views that list them (the label of the
     raster maps, the count of the labels of the space time raster datasets),
     in NEWER_INDEXES, and in the indexes on the id alone of the tables in
-    VERSION_2_ID_INDEXED_TABLES and of every register table, which neither
-    today's files nor the library create. So NEWER_INDEXES and the columns
-    go, the views are rebuilt from the installed templates without those
-    columns, the indexes on the id are created, and the version is set to 2.
+    VERSION_2_ID_INDEXED_TABLES, which today's files no longer create. So
+    NEWER_INDEXES and the columns go, the views are rebuilt from the installed
+    templates without those columns, the indexes on the id are created, and
+    the version is set to 2. The register tables have their index on the id
+    already, from the library.
     Compared on 18.10.2026 with git show of the SQL files before the band
     reference commit; the indexes compared again on 31.10.2026 by name, table
     and columns with sqlite3_indexes.sql of that commit plus one per register
-    table: equal, and 30 missing without the indexes on the id.
+    table: equal, and 30 missing without the indexes on the id; the 10 of the
+    register tables are the library's own.
     """
     database = database_file(session)
     templates = sql_files(session)
@@ -115,14 +111,7 @@ def downgrade_to_version_2(session) -> None:
         for name in VIEW_TEMPLATES:
             view = (templates / f"{name}_views.sql").read_text()
             connection.executescript(_version_2_view(view))
-        tables = list(VERSION_2_ID_INDEXED_TABLES)
-        for metadata, column in REGISTER_COLUMNS.items():
-            # The names come from the database under test, not from input.
-            rows = connection.execute(
-                f"SELECT {column} FROM {metadata} WHERE {column} IS NOT NULL"  # noqa: S608
-            )
-            tables.extend(row[0] for row in rows)
-        for table in tables:
+        for table in VERSION_2_ID_INDEXED_TABLES:
             connection.execute(f"CREATE INDEX {table}_index ON {table} (id)")
     set_version(database, 2)
 

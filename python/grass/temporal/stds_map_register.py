@@ -232,6 +232,14 @@ class StdsMapRegister:
         statement = sql.read_text().replace(
             "SPACETIME_REGISTER_TABLE", sql_identifier(name)
         )
+        # SQLite indexes the primary key itself, so this index repeats it. It
+        # stays because released GRASS 8.x renames a dataset with an
+        # unconditional DROP INDEX <register table>_index, which fails on a
+        # database made without it.
+        if dbif.get_dbmi().__name__ == "sqlite3":
+            statement += sql_statement(
+                "CREATE INDEX {table}_index ON {table} (id);", table=name
+            )
         self._stds.set_map_register(name)
         self._stds.msgr.debug(
             1,
@@ -260,9 +268,8 @@ class StdsMapRegister:
         statement = sql_statement(
             'ALTER TABLE {old} RENAME TO "{new}";\n', old=old, new=new
         )
-        # SQLite indexes the primary key itself, so a new register table has
-        # no index of its own. An older database has one on the id, named
-        # after the table; it keeps it under the new name.
+        # The index on the id, named after the table, follows the table to its
+        # new name. A table without it gets none, because DROP INDEX fails.
         if dbif.get_dbmi().__name__ == "sqlite3":
             mapset = self._stds.base.mapset
             dbif.execute(

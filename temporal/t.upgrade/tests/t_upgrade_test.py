@@ -565,13 +565,13 @@ def test_t_upgrade_creates_the_views_of_a_current_database_anew(either_backend):
 @pytest.mark.slow
 def test_an_old_database_keeps_working_until_t_upgrade(project):
     # A database of version 3 made before: its strds views lack the count of
-    # the semantic labels, and it has indexes on the id alone.
+    # the semantic labels, and it has an index on the id alone (the one of
+    # the register table is made by the library).
     tools, session, database = project
     use_older_strds_views(session)
     (register,) = query(database, "SELECT raster_register FROM strds_metadata")[0]
     old_indexes = {"strds_base_index", f"{register}_index"}
     query(database, "CREATE INDEX strds_base_index ON strds_base (id)")
-    query(database, f"CREATE INDEX {register}_index ON {register} (id)")
     make_map(tools, "raster", "map3", 3)
 
     tools.t_register(input="series", maps="map3", start="2001-01-03", end="2001-01-04")
