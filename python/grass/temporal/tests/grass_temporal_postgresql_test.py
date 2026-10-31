@@ -404,7 +404,7 @@ def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
     "backend",
     ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)],
 )
-def test_a_version_2_database_is_recognized(tmp_path, backend, request):
+def test_a_version_2_database_is_recognized(tmp_path, backend, request, monkeypatch):
     from grass.temporal import SQLDatabaseInterfaceConnection, state
 
     dbstring = (
@@ -420,13 +420,8 @@ def test_a_version_2_database_is_recognized(tmp_path, backend, request):
         else:
             versions.downgrade_postgresql_to_version_2(session, database)
         warnings = []
-        message_interface = state.STATE.message_interface
-        original = message_interface.warning
-        message_interface.warning = warnings.append
-        try:
-            state._check_versions(SQLDatabaseInterfaceConnection())
-        finally:
-            message_interface.warning = original
+        monkeypatch.setattr(state.STATE.message_interface, "warning", warnings.append)
+        state._check_versions(SQLDatabaseInterfaceConnection())
 
     assert len(warnings) == 1
     assert "Temporal database version mismatch detected" in warnings[0]
