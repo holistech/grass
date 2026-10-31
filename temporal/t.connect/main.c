@@ -21,7 +21,8 @@
 enum OutputFormat { PLAIN, SHELL, JSON };
 
 /* libgis removes a variable whose value is empty after stripping, so a blank
- * value would silently unset the setting instead of changing it. */
+ * value would silently unset the setting instead of changing it. The parser
+ * already refuses a blank driver, because it is not in the list of drivers. */
 static void check_not_blank(const struct Option *option)
 {
     const char *c;
@@ -309,7 +310,6 @@ int main(int argc, char *argv[])
     }
 
     /* set connection */
-    check_not_blank(driver);
     check_not_blank(database);
     tgis_get_connection(&conn); /* read current */
 
