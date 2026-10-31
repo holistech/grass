@@ -50,10 +50,11 @@ files per map and thread. The module therefore runs *r.series* with the flag
 64 exceeds the limit of open files of the process (`ulimit -n`). The threads
 are counted as *r.series* chooses them: `NPROCS` of the GRASS session (see
 *g.gisenv*), else `OMP_NUM_THREADS`, else the usable processors. The module
-warns whenever it sets the flag. Without a limit on open files, the limit of
-1000 maps counts. The flag does not change the result but is slower: for 100
-maps of 1000 x 1000 cells, *r.series* took 5.2 s with **-z** instead of 0.25 s
-(measured 31.10.2026, three runs).
+warns whenever it sets the flag. Without a limit on open files, or without the
+Python module `resource` (for example on Windows), the limit of 1000 maps
+counts. The flag does not change the result but is slower: for 100 maps of
+1000 x 1000 cells, *r.series* took 5.2 s with **-z** instead of 0.25 s
+(measured 31.10.2026 with method sum, three runs).
 
 ## EXAMPLES
 

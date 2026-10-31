@@ -90,10 +90,11 @@ exceeds the limit of open files of the process (<code>ulimit -n</code>). The
 threads are counted as <em>r.series</em> chooses them: <code>NPROCS</code> of
 the GRASS session (see <em>g.gisenv</em>), else <code>OMP_NUM_THREADS</code>,
 else the usable processors. The module warns whenever it sets the flag.
-Without a limit on open files, <b>file_limit</b> counts. The flag does not
-change the result but is slower: for 100 maps of 1000 &times; 1000 cells,
-<em>r.series</em> took 5.2 s with <b>-z</b> instead of 0.25 s (measured
-31.10.2026, three runs).
+Without a limit on open files, or without the Python module
+<code>resource</code> (for example on Windows), <b>file_limit</b> counts. The
+flag does not change the result but is slower: for 100 maps of 1000 &times;
+1000 cells, <em>r.series</em> took 5.2 s with <b>-z</b> instead of 0.25 s
+(measured 31.10.2026 with method sum, three runs).
 
 <h2>EXAMPLES</h2>
 
