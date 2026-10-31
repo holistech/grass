@@ -806,9 +806,9 @@ def sql_literal(value: object, dbmi_paramstyle: str = "qmark") -> str:
     None is NULL; a float that is not finite is NULL too, because SQLite has
     no literal for inf and nan and would read the bare word as a column name
     (statistics of a map with infinite values are unknown, which is what NULL
-    says). Floats are written in full, as repr() does. Datetimes are written in whole seconds,
-    the resolution of the database, with their offset if they have one: the
-    same text as the SQLite adapter stores (db_datetime()).
+    says). Floats are written in full, as repr() does. Datetimes are written
+    in whole seconds, the resolution of the database, with their offset if
+    they have one: the same text as the SQLite adapter stores (db_datetime()).
 
     A text is written the same for every database: single quotes with the
     quotes inside doubled is standard SQL. The callers that put a text into a
