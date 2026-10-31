@@ -20,6 +20,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import grass.script as gs
 from grass.exceptions import CalledModuleError
 
+from .series_limits import exceeded_series_limit, series_limit_warning
 from .space_time_datasets import RasterDataset
 from .topology import (
     create_temporal_relation_sql_where_statement,
@@ -165,12 +166,19 @@ def aggregate_raster_maps(
             string = f"{name}\n"
             out_file.write(string)
 
+    # r.series holds every map open once per thread; -z reads row by row. The
+    # limit is checked with the nprocs passed on, because that decides the
+    # threads, and 1000 maps stay the limit whatever the process allows.
+    limit = exceeded_series_limit(len(inputs), file_limit=1000, nprocs=nprocs)
+    if limit is not None:
+        msgr.warning(series_limit_warning(limit, len(inputs)))
+
     # Run r.series
     try:
         gs.run_command(
             "r.series",
             nprocs=nprocs,
-            flags="z" if len(inputs) > 1000 else "",
+            flags="z" if limit is not None else "",
             file=filename,
             output=output,
             overwrite=gs.overwrite(),
