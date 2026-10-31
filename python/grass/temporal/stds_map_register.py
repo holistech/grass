@@ -151,7 +151,17 @@ def _fill_template(sql: str, values: dict[str, str]) -> str:
     for another placeholder: replaced one after the other, the identifier
     STDS_x@PERMANENT lost its STDS to the type of the dataset, and the
     update found no row.
+
+    Comment lines are dropped first: a line break in an identifier ends a
+    comment, so a placeholder inside one would let the rest of the identifier
+    run as SQL. The templates hold no string literal or code before a
+    comment, so a line that starts with -- is the only form to drop.
     """
+    sql = "".join(
+        line
+        for line in sql.splitlines(keepends=True)
+        if not line.lstrip().startswith("--")
+    )
     pattern = "|".join(re.escape(placeholder) for placeholder in values)
     return re.sub(pattern, lambda match: values[match.group()], sql)
 

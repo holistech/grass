@@ -924,7 +924,7 @@ UPDATE strds_metadata
 
 
 def without_comments(script):
-    return [line for line in script.splitlines() if not line.startswith("--")]
+    return [line for line in script.splitlines() if not line.lstrip().startswith("--")]
 
 
 def test_the_update_sql_of_a_valid_id_is_unchanged():

@@ -514,3 +514,52 @@ def test_semantic_labels_are_listed_by_name(tmp_path, request, backend):
         ]
 
     assert listed == "S2_1,S2_2"
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_a_line_break_in_the_dataset_id_runs_no_sql(tmp_path, request, backend):
+    import grass.temporal as tgis
+
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    # The tools refuse such a name; the Python API takes any text, and the id
+    # ends up in the update statements.
+    evil = "x\nDELETE FROM raster_base;--@PERMANENT"
+    with backend_session(tmp_path / backend, backend, dbstring) as (tools, _):
+        data.small_region(tools, 1, 1)
+        data.make_map(tools, "raster", "a1", 1)
+        dbif = tgis.SQLDatabaseInterfaceConnection()
+        dbif.connect()
+        try:
+            stds = tgis.SpaceTimeRasterDataset(evil)
+            stds.set_initial_values(
+                temporal_type="absolute",
+                semantic_type="mean",
+                title="t",
+                description="d",
+            )
+            stds.insert(dbif)
+            raster = tgis.RasterDataset("a1@PERMANENT")
+            raster.load()
+            raster.set_absolute_time(data.day(1), data.day(2))
+            raster.insert(dbif)
+            dbif.execute("SELECT count(*) FROM raster_base")
+            before = dbif.fetchone()[0]
+            stds.register_map(raster, dbif)
+            stds.update_from_registered_maps(dbif)
+            dbif.execute("SELECT count(*) FROM raster_base")
+            after = dbif.fetchone()[0]
+            dbif.execute("SELECT id FROM strds_base")
+            ids = [row[0] for row in dbif.fetchall()]
+        finally:
+            dbif.close()
+
+    assert before == 1
+    assert after == before
+    assert ids == [stds.get_id()]
+    assert "\n" in ids[0]
