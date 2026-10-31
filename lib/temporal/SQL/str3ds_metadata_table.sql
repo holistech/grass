@@ -4,7 +4,7 @@
 -- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
 --#############################################################################
 
-CREATE TABLE  str3ds_metadata (
+CREATE TABLE str3ds_metadata (
   id VARCHAR NOT NULL,          -- Id of the space time 3D raster dataset, this is the primary key
   raster3d_register VARCHAR,    -- The id of the table in which the 3D raster maps are registered for this dataset
   number_of_maps INTEGER,       -- The number of registered 3D raster maps

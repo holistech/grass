@@ -1,11 +1,11 @@
 CREATE TABLE "raster_map_register_a9ad879a5ba0038ca0ea7257d239a0d1" (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_absolute_time (
   id VARCHAR NOT NULL,   -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
-  start_time TIMESTAMP,  --  Start of the valid time, can be NULL if no time information is available
-  end_time TIMESTAMP,    --  End of the valid time, can be NULL if no time information is available or valid time is a single point in time
+  start_time TIMESTAMP,  -- Start of the valid time, can be NULL if no time information is available
+  end_time TIMESTAMP,    -- End of the valid time, can be NULL if no time information is available or valid time is a single point in time
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_base (
@@ -19,11 +19,11 @@ CREATE TABLE raster3d_base (
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_map_register_7f402c6f1a3eb2af4c63c569ee489d93 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_map_register_ba841f5ed408aa3b1114defc53dc2ff2 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_metadata (
@@ -41,10 +41,10 @@ CREATE TABLE raster3d_metadata (
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_relative_time (
-  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary foreign key
-  start_time INTEGER,  -- The relative valid start time in
-  end_time INTEGER,    -- The relative valid end time in
-  unit VARCHAR,                 -- The relative time unit, available are "years, months, days, minutes, seconds"
+  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
+  start_time INTEGER,  -- The relative valid start time in the unit of the column unit
+  end_time INTEGER,    -- The relative valid end time in the unit of the column unit
+  unit VARCHAR,                 -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
   PRIMARY KEY (id)
 );
 CREATE TABLE raster3d_spatial_extent (
@@ -66,8 +66,8 @@ CREATE TABLE raster3d_stds_register (
 );
 CREATE TABLE raster_absolute_time (
   id VARCHAR NOT NULL,   -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
-  start_time TIMESTAMP,  --  Start of the valid time, can be NULL if no time information is available
-  end_time TIMESTAMP,    --  End of the valid time, can be NULL if no time information is available or valid time is a single point in time
+  start_time TIMESTAMP,  -- Start of the valid time, can be NULL if no time information is available
+  end_time TIMESTAMP,    -- End of the valid time, can be NULL if no time information is available or valid time is a single point in time
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_base (
@@ -81,27 +81,27 @@ CREATE TABLE raster_base (
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_map_register_22e3c261135396136fb4632c4a1f5601 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_map_register_61faa24dfaecfe07b7c99ea4666187c8 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_map_register_638463c28b29c46ee1ff78f2993f2bc1 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_map_register_a9894a19e40d453484aac2241aa57ab7 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_map_register_f258237acb32c393a438f22c9634201b (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_metadata (
-  id VARCHAR NOT NULL,               -- The id (PFK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
+  id VARCHAR NOT NULL,               -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
   datatype VARCHAR NOT NULL,
   cols INTEGER NOT NULL,
   rows INTEGER NOT NULL,
@@ -114,10 +114,10 @@ CREATE TABLE raster_metadata (
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_relative_time (
-  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary foreign key
-  start_time INTEGER,  -- The relative valid start time in
-  end_time INTEGER,    -- The relative valid end time in
-  unit VARCHAR,                 -- The relative time unit, available are "years, months, days, minutes, seconds"
+  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
+  start_time INTEGER,  -- The relative valid start time in the unit of the column unit
+  end_time INTEGER,    -- The relative valid end time in the unit of the column unit
+  unit VARCHAR,                 -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
   PRIMARY KEY (id)
 );
 CREATE TABLE raster_spatial_extent (
@@ -142,11 +142,11 @@ CREATE TABLE str3ds_absolute_time (
   start_time TIMESTAMP,           -- Start of the valid time, can be NULL if no map is registered
   end_time TIMESTAMP,             -- End of the valid time, can be NULL if no map is registered
   granularity VARCHAR,            -- The granularity "NNN seconds, NNN minutes, NNN hours, NNN days, NNN months, NNN years"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE str3ds_base (
-  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset this is the primary key
+  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset, this is the primary key
   name VARCHAR NOT NULL,               -- name of the space-time dataset
   mapset VARCHAR NOT NULL,             -- mapset of the space-time dataset
   creator VARCHAR NOT NULL,            -- Name of the creator
@@ -181,8 +181,8 @@ CREATE TABLE str3ds_relative_time (
   start_time INTEGER,             -- The relative valid start time
   end_time INTEGER,               -- The relative valid end time
   granularity INTEGER,            -- The granularity
-  unit VARCHAR,                   -- The relative time unit, available are "years, months, days, minutes, seconds"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  unit VARCHAR,                   -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE str3ds_spatial_extent (
@@ -193,7 +193,7 @@ CREATE TABLE str3ds_spatial_extent (
   west DOUBLE PRECISION,    -- The spatial west extent, derived from the registered maps
   top DOUBLE PRECISION,     -- The spatial top extent, derived from the registered maps
   bottom DOUBLE PRECISION,  -- The spatial bottom extent, derived from the registered maps
-  proj VARCHAR,      -- The projection of the space time dataset (XY of LL)
+  proj VARCHAR,      -- The projection of the space time dataset (XY or LL)
   PRIMARY KEY (id)
 );
 CREATE TABLE strds_absolute_time (
@@ -201,11 +201,11 @@ CREATE TABLE strds_absolute_time (
   start_time TIMESTAMP,           -- Start of the valid time, can be NULL if no map is registered
   end_time TIMESTAMP,             -- End of the valid time, can be NULL if no map is registered
   granularity VARCHAR,            -- The granularity "NNN seconds, NNN minutes, NNN hours, NNN days, NNN months, NNN years"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE strds_base (
-  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset this is the primary key
+  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset, this is the primary key
   name VARCHAR NOT NULL,               -- name of the space-time dataset
   mapset VARCHAR NOT NULL,             -- mapset of the space-time dataset
   creator VARCHAR NOT NULL,            -- Name of the creator
@@ -239,8 +239,8 @@ CREATE TABLE strds_relative_time (
   start_time INTEGER,             -- The relative valid start time
   end_time INTEGER,               -- The relative valid end time
   granularity INTEGER,            -- The granularity
-  unit VARCHAR,                   -- The relative time unit, available are "years, months, days, minutes, seconds"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  unit VARCHAR,                   -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE strds_spatial_extent (
@@ -251,7 +251,7 @@ CREATE TABLE strds_spatial_extent (
   west DOUBLE PRECISION,    -- The spatial west extent, derived from the registered maps
   top DOUBLE PRECISION,     -- The spatial top extent, derived from the registered maps
   bottom DOUBLE PRECISION,  -- The spatial bottom extent, derived from the registered maps
-  proj VARCHAR,      -- The projection of the space time dataset (XY of LL)
+  proj VARCHAR,      -- The projection of the space time dataset (XY or LL)
   PRIMARY KEY (id)
 );
 CREATE TABLE stvds_absolute_time (
@@ -259,11 +259,11 @@ CREATE TABLE stvds_absolute_time (
   start_time TIMESTAMP,           -- Start of the valid time, can be NULL if no map is registered
   end_time TIMESTAMP,             -- End of the valid time, can be NULL if no map is registered
   granularity VARCHAR,            -- The granularity "NNN seconds, NNN minutes, NNN hours, NNN days, NNN months, NNN years"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE stvds_base (
-  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset this is the primary key
+  id VARCHAR NOT NULL,                 -- Id of the space-time dataset, name@mapset, this is the primary key
   name VARCHAR NOT NULL,               -- name of the space-time dataset
   mapset VARCHAR NOT NULL,             -- mapset of the space-time dataset
   creator VARCHAR NOT NULL,            -- Name of the creator
@@ -274,7 +274,7 @@ CREATE TABLE stvds_base (
   PRIMARY KEY (id)
 );
 CREATE TABLE stvds_metadata (
-  id VARCHAR NOT NULL,    -- Name of the space-time vector dataset, this is the primary key
+  id VARCHAR NOT NULL,    -- Id of the space-time vector dataset, this is the primary key
   vector_register VARCHAR,-- The id of the table in which the vector maps are registered for this dataset
   number_of_maps INTEGER, -- The number of registered vector maps
   title VARCHAR,          -- Title of the space-time vector dataset
@@ -291,7 +291,7 @@ CREATE TABLE stvds_metadata (
   areas INTEGER,          -- The number of areas accumulated from all registered maps (topological information)
   islands INTEGER,        -- The number of islands accumulated from all registered maps (topological information)
   holes INTEGER,          -- The number of holes accumulated from all registered maps (topological information)
-  volumes INTEGER,        -- The number of volumes accumulated from all registered maps (topological information)           -- The command that was used to create the space time raster dataset
+  volumes INTEGER,        -- The number of volumes accumulated from all registered maps (topological information)
   PRIMARY KEY (id)
 );
 CREATE TABLE stvds_relative_time (
@@ -299,8 +299,8 @@ CREATE TABLE stvds_relative_time (
   start_time INTEGER,             -- The relative valid start time
   end_time INTEGER,               -- The relative valid end time
   granularity INTEGER,            -- The granularity
-  unit VARCHAR,                   -- The relative time unit, available are "years, months, days, minutes, seconds"
-  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point or mixed
+  unit VARCHAR,                   -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
+  map_time VARCHAR,               -- The temporal type of the registered maps, may be interval, point, mixed or invalid
   PRIMARY KEY (id)
 );
 CREATE TABLE stvds_spatial_extent (
@@ -311,14 +311,14 @@ CREATE TABLE stvds_spatial_extent (
   west DOUBLE PRECISION,    -- The spatial west extent, derived from the registered maps
   top DOUBLE PRECISION,     -- The spatial top extent, derived from the registered maps
   bottom DOUBLE PRECISION,  -- The spatial bottom extent, derived from the registered maps
-  proj VARCHAR,      -- The projection of the space time dataset (XY of LL)
+  proj VARCHAR,      -- The projection of the space time dataset (XY or LL)
   PRIMARY KEY (id)
 );
 CREATE TABLE tgis_metadata (key VARCHAR NOT NULL, value VARCHAR);
 CREATE TABLE vector_absolute_time (
   id VARCHAR NOT NULL,   -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
-  start_time TIMESTAMP,  --  Start of the valid time, can be NULL if no time information is available
-  end_time TIMESTAMP,    --  End of the valid time, can be NULL if no time information is available or valid time is a single point in time
+  start_time TIMESTAMP,  -- Start of the valid time, can be NULL if no time information is available
+  end_time TIMESTAMP,    -- End of the valid time, can be NULL if no time information is available or valid time is a single point in time
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_base (
@@ -332,11 +332,11 @@ CREATE TABLE vector_base (
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_map_register_46aab9946b1c5c16112d3e4b761007e7 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_map_register_88f60c6d82d6b5d5a15b96d6d64da7d4 (
-  id VARCHAR NOT NULL, -- This column is a primary key storing the registered GRASS_MAP map.ids
+  id VARCHAR NOT NULL, -- This column is a primary key storing the ids of the registered maps
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_metadata (
@@ -357,10 +357,10 @@ CREATE TABLE vector_metadata (
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_relative_time (
-  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary foreign key
-  start_time INTEGER,  -- The relative valid start time in
-  end_time INTEGER,    -- The relative valid end time in
-  unit VARCHAR,                 -- The relative time unit, available are "years, months, days, minutes, seconds"
+  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
+  start_time INTEGER,  -- The relative valid start time in the unit of the column unit
+  end_time INTEGER,    -- The relative valid end time in the unit of the column unit
+  unit VARCHAR,                 -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
   PRIMARY KEY (id)
 );
 CREATE TABLE vector_spatial_extent (
@@ -506,7 +506,7 @@ CREATE VIEW str3ds_view_abs_time AS SELECT
             A4.title, A4.description, A4.command
             FROM str3ds_base A1, str3ds_absolute_time A2,
             str3ds_spatial_extent A3, str3ds_metadata A4 WHERE A1.id = A2.id AND
-	    A1.id = A3.id AND A1.id = A4.id;
+            A1.id = A3.id AND A1.id = A4.id;
 CREATE VIEW str3ds_view_rel_time AS SELECT
             A1.id, A1.name, A1.mapset, A1.temporal_type,
             A1.semantic_type,

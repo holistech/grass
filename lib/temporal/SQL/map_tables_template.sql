@@ -13,7 +13,7 @@
 -- GRASS_MAP is a placeholder for specific map type: raster, raster3d or vector
 
 
-CREATE TABLE  GRASS_MAP_base (
+CREATE TABLE GRASS_MAP_base (
   id VARCHAR NOT NULL,                  -- The id (PK) is the unique identifier for all tables, it is based on name (layer) and mapset (name(:layer)@mapset) and is used as primary key
   name VARCHAR NOT NULL,                -- name of the grass map
   mapset VARCHAR NOT NULL,              -- mapset of the grass map
@@ -25,24 +25,24 @@ CREATE TABLE  GRASS_MAP_base (
 );
 
 -- Relative valid time interval with start and end time
-CREATE TABLE  GRASS_MAP_relative_time (
-  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary foreign key
-  start_time INTEGER,  -- The relative valid start time in
-  end_time INTEGER,    -- The relative valid end time in
-  unit VARCHAR,                 -- The relative time unit, available are "years, months, days, minutes, seconds"
+CREATE TABLE GRASS_MAP_relative_time (
+  id VARCHAR NOT NULL,          -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
+  start_time INTEGER,  -- The relative valid start time in the unit of the column unit
+  end_time INTEGER,    -- The relative valid end time in the unit of the column unit
+  unit VARCHAR,                 -- The relative time unit: years, months, days, hours, minutes or seconds, also in the singular
   PRIMARY KEY (id)
 );
 
-CREATE TABLE  GRASS_MAP_absolute_time (
+CREATE TABLE GRASS_MAP_absolute_time (
   id VARCHAR NOT NULL,   -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
-  start_time TIMESTAMP,  --  Start of the valid time, can be NULL if no time information is available
-  end_time TIMESTAMP,    --  End of the valid time, can be NULL if no time information is available or valid time is a single point in time
+  start_time TIMESTAMP,  -- Start of the valid time, can be NULL if no time information is available
+  end_time TIMESTAMP,    -- End of the valid time, can be NULL if no time information is available or valid time is a single point in time
   PRIMARY KEY (id)
 );
 
 -- The spatial extent of a raster map
 
-CREATE TABLE  GRASS_MAP_spatial_extent (
+CREATE TABLE GRASS_MAP_spatial_extent (
   id VARCHAR NOT NULL,                  -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key
   -- below is the spatial extent of the map
   north DOUBLE PRECISION NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE  GRASS_MAP_spatial_extent (
 
 -- We have a specific table that stores the space time dataset ids in which the maps a registered
 
-CREATE TABLE  GRASS_MAP_stds_register (
+CREATE TABLE GRASS_MAP_stds_register (
   id VARCHAR NOT NULL,                  -- The id (PK) is the unique identifier for all tables, it is based on name (layer) and mapset (name(:layer)@mapset) and is used as primary key
   registered_stds VARCHAR,              -- This column stores the names of all space time datasets in which a specific map is registered
   PRIMARY KEY (id)

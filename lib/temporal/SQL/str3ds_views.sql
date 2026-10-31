@@ -23,7 +23,7 @@ CREATE VIEW str3ds_view_abs_time AS SELECT
             A4.title, A4.description, A4.command
             FROM str3ds_base A1, str3ds_absolute_time A2,
             str3ds_spatial_extent A3, str3ds_metadata A4 WHERE A1.id = A2.id AND
-	    A1.id = A3.id AND A1.id = A4.id;
+            A1.id = A3.id AND A1.id = A4.id;
 
 CREATE VIEW str3ds_view_rel_time AS SELECT
             A1.id, A1.name, A1.mapset, A1.temporal_type,
