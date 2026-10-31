@@ -253,6 +253,23 @@ def test_upgrade_creates_the_same_indexes_as_a_new_database(project):
     assert indexes(database) == expected | version_2
 
 
+@pytest.mark.slow
+def test_the_register_index_of_an_upgraded_database_follows_a_rename(project):
+    tools, session, database = project
+    downgrade_to_version_2(session)
+    tools.t_upgrade()
+    statement = "SELECT raster_register FROM strds_metadata WHERE id = '{}@PERMANENT'"
+    (old,) = query(database, statement.format("series"))[0]
+    assert f"{old}_index" in indexes(database)
+
+    tools.t_rename(input="series", output="renamed")
+
+    (new,) = query(database, statement.format("renamed"))[0]
+    assert new != old
+    assert f"{new}_index" in indexes(database)
+    assert f"{old}_index" not in indexes(database)
+
+
 def postgresql_indexes(dbstring):
     """Name, table and definition of every index of a PostgreSQL database"""
     return sorted(
