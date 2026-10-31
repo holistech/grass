@@ -94,8 +94,9 @@ def db_datetime(value: datetime) -> datetime:
     time; t.register relies on the stored zone to refuse a dataset that would
     mix times with and without one. Every value that goes into or comes out
     of the database passes here, so the paths of SQLite (adapter and written
-    statement) and PostgreSQL store the same time. The values in memory are
-    not touched.
+    statement) and PostgreSQL store the same time. PostgreSQL has no column
+    for a zone: refuse_time_zone() ends a time with one before it gets here,
+    so only SQLite stores a zone. The values in memory are not touched.
     """
     return value.replace(microsecond=0)
 
