@@ -379,7 +379,7 @@ local interface only, name it in the environment, and remove it afterwards:
 docker run -d --rm --name grass-tgis-pg -e POSTGRES_HOST_AUTH_METHOD=trust \
     -p 127.0.0.1:55432:5432 postgres:16
 export GRASS_TEMPORAL_TEST_POSTGRESQL="host=127.0.0.1 port=55432 user=postgres dbname=postgres"
-pytest -m postgresql -n auto python/grass/temporal/tests
+pytest -m postgresql -n auto python/grass/temporal/tests temporal/t.upgrade/tests
 docker rm -f grass-tgis-pg
 ```
 
