@@ -83,6 +83,13 @@ def downgrade_postgresql_to_version_2(session, dbstring: str) -> None:
     database dbstring, which t.connect and the first tgis.init() of the
     session have filled with the current tables. The SQL files are the ones of
     the session, as they are for sqlite.
+
+    Compared on 31.10.2026 with a database of version 2 built in PostgreSQL 16
+    from the SQL files before the band reference commit (git history, created
+    as create_temporal_database() then did): the columns of all tables and
+    views (name, type, nullability), the views, the indexes and the version
+    row were equal. Run again, left out the downgrade, the comparison showed
+    the four extra columns and the version, so it can see a difference.
     """
     import psycopg2  # noqa: PLC0415
 
