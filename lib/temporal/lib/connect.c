@@ -97,7 +97,7 @@ int tgis_get_connection(dbConnection *connection)
  *
  * The reader of libgis is not used because the only way to point it at
  * another mapset is G_create_alt_env(), and an environment made that way can
- * never be freed. That lost about 1.1 kB per call (growth of 48,444 kB over
+ * never be freed. That lost about 1.2 kB per call (growth of 48,444 kB over
  * 40,000 calls, measured 31.10.2026 with a C program reading /proc/self/statm
  * around the calls). */
 static char *read_mapset_variable(const char *gisdbase, const char *location,
