@@ -1,12 +1,14 @@
---#############################################################################
--- This SQL script is to update the spatial and temporal extent as well as
--- the modification time and revision of a space time dataset. This script
--- should be called when maps inserted or deleted in a space time dataset.
+-- Update the map count, the temporal extent and the spatial extent of a
+-- space-time dataset from the maps registered in it
 --
+-- The caller runs it after maps were inserted into or removed from the dataset.
+-- The modification time is set by the caller, not here.
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
--- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+-- UPDATE FROM syntax: Stefan Blumentrath
 
 -- The caller fills in the name of the map register table of the dataset and the
 -- dataset id as an SQL literal: 'name@mapset'.

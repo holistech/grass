@@ -1,8 +1,9 @@
---#############################################################################
--- This SQL script drops all existing vies (used by upgrade_temporal_database())
+-- Drop all views of the temporal database so that they can be created anew
 --
--- Author: Martin Landa landa.martin <at> gmail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Martin Landa
 
 -- raster_views
 DROP VIEW IF EXISTS raster_view_abs_time;

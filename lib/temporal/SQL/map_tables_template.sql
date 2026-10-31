@@ -1,17 +1,14 @@
---#############################################################################
--- This SQL script generates the grass map tables to store time stamps, revision
--- and spatial extent for SQL queries and temporal GIS support.
--- Additionally several triggers are created for convenient functions
--- The grass map metadata is map specific (raster, raster3d and vector maps are
--- supported)
+-- Create the tables of one map type: base data, time stamps, spatial extent,
+-- and the table that lists the space-time datasets the map is registered in
 --
--- The placeholder GRASS_MAP will be replaced by raster, raster3d and vector
+-- The placeholder GRASS_MAP is replaced by raster, raster3d or vector.
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- GRASS_MAP is a placeholder for specific map type: raster, raster3d or vector
-
 
 CREATE TABLE GRASS_MAP_base (
   id VARCHAR NOT NULL,                  -- The id (PK) is the unique identifier for all tables, it is based on name (layer) and mapset (name(:layer)@mapset) and is used as primary key
@@ -40,7 +37,7 @@ CREATE TABLE GRASS_MAP_absolute_time (
   PRIMARY KEY (id)
 );
 
--- The spatial extent of a raster map
+-- The spatial extent of a map
 
 CREATE TABLE GRASS_MAP_spatial_extent (
   id VARCHAR NOT NULL,                  -- The id (PK) is the unique identifier for all tables, it is based on name and mapset (name@mapset) and is used as primary key

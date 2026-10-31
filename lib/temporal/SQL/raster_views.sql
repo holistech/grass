@@ -1,9 +1,14 @@
---#############################################################################
--- This SQL script generates two views to access all map specific tables.
+-- Create the views of raster maps that join all of their tables
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
-
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+--
+-- A map appears in a view only if it has a row in each of the five tables that
+-- the view joins (base data, time, spatial extent, metadata and register
+-- table). A map that lacks one of the rows is in no list but is still counted
+-- in number_of_maps of its dataset.
 
 -- Create the views to access all cols for the absolute and relative time
 

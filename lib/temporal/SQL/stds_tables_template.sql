@@ -1,9 +1,12 @@
---#############################################################################
--- This SQL script generates the space time dataset tables to store time
--- stamps and revision for SQL queries and temporal GIS support.
+-- Create the tables of one space-time dataset type: base data, time stamps
+-- and spatial extent
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- The placeholder STDS is replaced by strds, str3ds or stvds.
+--
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- STDS is a placeholder for specific space-time dataset type: strds, str3ds, stvds
 

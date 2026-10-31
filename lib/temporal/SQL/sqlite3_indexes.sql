@@ -1,12 +1,18 @@
---#############################################################################
--- This SQL script generates the sqlite3 indexes
+-- Create the indexes of the temporal database on SQLite
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- SQLite indexes every primary key itself, so only indexes on more columns
 -- than the key are created here. Older databases also have an index on id
 -- alone for most tables; they keep it.
+--
+-- The time indexes start with the id: they cover the join of a time table with
+-- the other tables of a map on the id, they do not serve a condition on the time
+-- alone, which scans the table (checked 31.10.2026 with EXPLAIN QUERY PLAN on
+-- raster_absolute_time). PostgreSQL indexes the time alone instead.
 
 -- Indexes for raster, vector and 3D raster maps
 

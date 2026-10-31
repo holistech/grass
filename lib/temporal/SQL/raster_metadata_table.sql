@@ -1,11 +1,9 @@
---#############################################################################
--- This SQL script generates the raster metadata table to store
--- and metadata for SQL queries and temporal GIS support.
+-- Create the metadata table of raster maps
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
-
---PRAGMA foreign_keys = ON;
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- The metadata table reflects most of the raster metadata available in grass
 

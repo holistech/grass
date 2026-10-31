@@ -1,8 +1,9 @@
---#############################################################################
--- This SQL script generates the space time 3D raster dataset metadata table.
+-- Create the metadata table of space-time 3D raster datasets
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 CREATE TABLE str3ds_metadata (
   id VARCHAR NOT NULL,          -- Id of the space time 3D raster dataset, this is the primary key

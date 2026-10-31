@@ -1,10 +1,9 @@
---#############################################################################
--- This SQL script generates the raster3d metadata table to store
--- and metadata for SQL queries and temporal GIS support.
+-- Create the metadata table of 3D raster maps
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
-
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 -- The metadata table reflects most of the raster3d metadata available in grass
 

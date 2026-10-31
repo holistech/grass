@@ -1,8 +1,9 @@
---#############################################################################
--- This SQL script generates the postgresql indexes
+-- Create the indexes of the temporal database on PostgreSQL
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 CREATE INDEX raster_relative_time_index ON raster_relative_time (start_time, end_time);
 CREATE INDEX raster_absolute_time_index ON raster_absolute_time (start_time, end_time);

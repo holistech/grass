@@ -1,9 +1,10 @@
---#############################################################################
--- This SQL script is to update a space-time raster3d dataset metadata
+-- Update the metadata of a space-time 3D raster dataset from its maps
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
--- UPDATE FROM syntax: Stefan Blumentrath stefan  <dot>  blumentrath <at> gmx <dot> de
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
+-- UPDATE FROM syntax: Stefan Blumentrath
 
 -- The caller fills in the name of the map register table of the dataset and the
 -- dataset id as an SQL literal: 'name@mapset'.

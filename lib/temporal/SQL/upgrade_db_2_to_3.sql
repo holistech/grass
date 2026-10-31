@@ -1,8 +1,11 @@
---#############################################################################
--- This SQL script upgrades TGIS DB from version 2 to version 3.
+-- Upgrade the temporal database from version 2 to version 3
 --
--- Author: Martin Landa landa.martin <at> gmail <dot> com
---#############################################################################
+-- The script runs on SQLite and on PostgreSQL.
+--
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Martin Landa
 
 -- raster_metadata_table.sql
 ALTER TABLE raster_metadata

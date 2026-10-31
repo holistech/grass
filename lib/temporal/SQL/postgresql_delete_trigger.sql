@@ -1,8 +1,9 @@
---#############################################################################
--- Create trigger for automated deletion of dependent rows
+-- Create the PostgreSQL triggers that delete the dependent rows of a map
 --
--- Author: Soeren Gebbert soerengebbert <at> googlemail <dot> com
---#############################################################################
+-- SPDX-FileCopyrightText: 2011-2026 GRASS Development Team
+-- SPDX-License-Identifier: GPL-2.0-or-later
+--
+-- Author: Soeren Gebbert
 
 CREATE OR REPLACE FUNCTION delete_strds_base() RETURNS TRIGGER AS $$
 BEGIN
