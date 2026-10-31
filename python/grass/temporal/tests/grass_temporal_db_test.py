@@ -376,6 +376,21 @@ def test_sql_literal_is_what_mogrify_writes(value, literal):
     assert literal == f"SELECT {sql_literal(value)}"
 
 
+@pytest.mark.parametrize(
+    "value", [-0.0, 1e22, 5e-324, 1.7976931348623157e308, 0.1 + 0.2, 1.5e-8]
+)
+def test_sql_literal_of_a_float_reads_back_as_the_same_float(value):
+    import sqlite3  # noqa: PLC0415
+
+    from grass.temporal.db import sql_literal  # noqa: PLC0415
+
+    (stored,) = (
+        sqlite3.connect(":memory:").execute(f"SELECT {sql_literal(value)}").fetchone()
+    )
+    # repr() of -0.0 and 0.0 differ, == does not tell them apart
+    assert repr(stored) == repr(value)
+
+
 def test_sql_literal_needs_a_connection_for_postgresql():
     from grass.temporal.db import sql_literal  # noqa: PLC0415
 
