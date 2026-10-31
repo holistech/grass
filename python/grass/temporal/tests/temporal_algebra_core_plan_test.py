@@ -335,7 +335,7 @@ def _open_files(monkeypatch, soft, threads=None):
     return warnings
 
 
-def test_a_reduction_skipping_nulls_reads_cell_by_cell_past_the_open_files(
+def test_a_reduction_skipping_nulls_reads_row_by_row_past_the_open_files(
     monkeypatch,
 ):
     """Two maps on three threads hold 12 files besides the 64 kept free, one
@@ -436,7 +436,7 @@ def test_without_a_session_the_warning_of_a_reduction_goes_to_python(monkeypatch
         RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
 
 
-def test_a_reduction_read_cell_by_cell_says_so(monkeypatch):
+def test_a_reduction_read_row_by_row_says_so(monkeypatch):
     """The text is that of t.rast.aggregate, so its translations apply"""
     warnings = _open_files(monkeypatch, 75, 3)
     RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
