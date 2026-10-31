@@ -250,19 +250,25 @@ def upgrade_temporal_database(dbif) -> None:
         _("Upgrading temporal database <%s> from version %s to %s...")
         % (STATE.database_string, upgrade_db_from, get_tgis_db_version())
     )
-    # One transaction: the views must not be gone when the upgrade fails,
-    # and the version must stay what it was.
+    _run_upgrade(dbif, f"{drop_views_sql}\n{upgrade_db_sql}\n{_views_sql()}")
+    dbif.close()
+
+
+def _run_upgrade(dbif, sql: str) -> None:
+    """Run the SQL of an upgrade in one transaction, or end with a message
+
+    One transaction: the views must not be gone when the upgrade fails, and
+    the version must stay what it was.
+    """
     try:
-        dbif.execute_transaction(f"{drop_views_sql}\n{upgrade_db_sql}\n{_views_sql()}")
+        dbif.execute_transaction(sql)
     except SQLStatementError as error:
         dbif.close()
-        msgr.fatal(
+        get_tgis_message_interface().fatal(
             _(
                 "The upgrade of the temporal database failed and was rolled back: {error}"
             ).format(error=error)
         )
-
-    dbif.close()
 
 
 # One row of the metadata table. The values go in through sql_literal(), so a
