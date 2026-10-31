@@ -367,7 +367,8 @@ def listed_columns(dbif, type, temporal_type, columns, mapsets):
     :param type: The dataset type as a string or a list of strings
     :param temporal_type: A single temporal type (absolute or relative)
     :param columns: A comma separated list of columns or None
-    :param mapsets: The mapsets whose databases hold the views
+    :param mapsets: The mapset or the list of mapsets whose databases hold
+                    the views
     :return: The list of the column names
     """
     stds_type = [type] if isinstance(type, str) else type

@@ -33,7 +33,8 @@ bug that changes a result, never to make a refactor pass), run in a session::
         record <directory>
 
 ``compare <directory>`` prints the differences. The database image
-(``database_write.sql`` and ``database_read.json.gz``) is recorded by
+(``database_write.sql`` and ``database_read.json.gz``) and the structure of a
+new database (``database_structure.json``) are recorded by
 ``grass.temporal.testing.database_image``. The module does not import pytest.
 """
 
