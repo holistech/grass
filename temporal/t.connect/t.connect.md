@@ -172,6 +172,10 @@ t.connect -p
 t.info -s
 ```
 
+## SEE ALSO
+
+*[db.connect](db.connect.md), [t.info](t.info.md), [t.list](t.list.md)*
+
 ## AUTHOR
 
 Soeren Gebbert, Thünen Institute of Climate-Smart Agriculture
