@@ -4,13 +4,12 @@ plan() runs nothing, so these tests need no session.
 """
 
 import datetime
-import os
-import resource
+import sys
 from dataclasses import replace
 
 import pytest
 
-from grass.temporal.algebra import backends
+from grass.temporal.algebra import backends, variants
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
 from grass.temporal.algebra.content import (
@@ -316,9 +315,11 @@ def test_skip_reduction_of_a_map_at_an_offset_uses_a_temporary_map():
 def _open_files(monkeypatch, soft, threads=None):
     """Let the plan see soft open files and r.series run threads threads
 
-    Return the list that collects the warnings of the plan; plan() runs
-    without a session, which has no message interface.
+    No session file is named, so NPROCS of a session of another test cannot
+    count. Return the list that collects the warnings of the plan.
     """
+    resource = pytest.importorskip("resource")
+    monkeypatch.delenv("GISRC", raising=False)
     if threads is not None:
         monkeypatch.setenv("OMP_NUM_THREADS", str(threads))
     monkeypatch.setattr(
@@ -330,7 +331,7 @@ def _open_files(monkeypatch, soft, threads=None):
         def warning(self, message):
             warnings.append(message)
 
-    monkeypatch.setattr(backends, "get_tgis_message_interface", Messages)
+    monkeypatch.setattr(variants, "get_tgis_message_interface", Messages)
     return warnings
 
 
@@ -338,7 +339,7 @@ def test_a_reduction_skipping_nulls_reads_cell_by_cell_past_the_open_files(
     monkeypatch,
 ):
     """Two maps on three threads hold 12 files besides the 64 kept free, one
-    more than a limit of 75 allows"""
+    more than a limit of 75 allows, so r.series reads them row by row"""
     _open_files(monkeypatch, 75, 3)
     calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
     assert calls[0].parameters == {"output": "R_0", "method": "sum", "flags": "z"}
@@ -355,7 +356,7 @@ def test_a_reduction_skipping_nulls_keeps_its_maps_open_within_the_open_files(
 
 def test_without_a_thread_count_every_usable_processor_runs_a_thread(monkeypatch):
     monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
-    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: {0, 1, 2, 3})
+    monkeypatch.setattr(backends, "available_cpus", lambda: 4)
     _open_files(monkeypatch, 79)
     calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
     assert calls[0].parameters["flags"] == "z"
@@ -367,10 +368,70 @@ def test_without_a_thread_count_every_usable_processor_runs_a_thread(monkeypatch
 def test_without_a_limit_of_open_files_a_reduction_keeps_its_maps_open(
     monkeypatch,
 ):
+    resource = pytest.importorskip("resource")
     _open_files(monkeypatch, resource.RLIM_INFINITY)
     maps = tuple(MapRef(f"m{number}") for number in range(5000))
     calls, _ = RasterBackend().plan(SeriesReduce("sum", maps), "R_0")
     assert "flags" not in calls[0].parameters
+
+
+def test_without_the_resource_module_a_reduction_keeps_its_maps_open(monkeypatch):
+    """Windows has no resource module; there nothing changes"""
+    monkeypatch.setitem(sys.modules, "resource", None)
+    maps = tuple(MapRef(f"m{number}") for number in range(5000))
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", maps), "R_0")
+    assert "flags" not in calls[0].parameters
+
+
+def test_below_the_spare_files_every_reduction_reads_row_by_row(monkeypatch):
+    warnings = _open_files(monkeypatch, 10, 1)
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1,)), "R_0")
+    assert calls[0].parameters["flags"] == "z"
+    assert warnings[0].startswith("The limit of open files (0) was reached (1).")
+
+
+@pytest.mark.parametrize(
+    ("gisrc", "omp", "expected"),
+    [
+        (None, None, 24),
+        (None, "3", 3),
+        (None, "4,2", 4),
+        (None, "0", 24),
+        (None, "abc", 24),
+        (None, "\u00b2", 24),
+        ("NPROCS: 2\n", "8", 2),
+        ("NPROCS: -20\n", None, 4),
+        ("NPROCS: 0\n", "3", 3),
+        ("NPROCS: 2\nNPROCS: 5\n", None, 5),
+        ("NPROCS:\n", "3", 3),
+        ("MAPSET: user\n", None, 24),
+    ],
+)
+def test_the_threads_are_counted_as_r_series_counts_them(
+    tmp_path, monkeypatch, gisrc, omp, expected
+):
+    """r.series takes NPROCS of the session file, then OMP_NUM_THREADS, then
+    the usable processors, here 24 (measured 2026-10-31 for NPROCS, 4,2 and
+    a negative NPROCS: the open files r.series needed matched these counts)"""
+    monkeypatch.setattr(backends, "available_cpus", lambda: 24)
+    if gisrc is None:
+        monkeypatch.delenv("GISRC", raising=False)
+    else:
+        (tmp_path / "rc").write_text(gisrc)
+        monkeypatch.setenv("GISRC", str(tmp_path / "rc"))
+    if omp is None:
+        monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    else:
+        monkeypatch.setenv("OMP_NUM_THREADS", omp)
+    assert backends._series_threads() == expected
+
+
+def test_without_a_session_the_warning_of_a_reduction_goes_to_python(monkeypatch):
+    """plan() needs no session, and the messenger exists only after init()"""
+    _open_files(monkeypatch, 75, 3)
+    monkeypatch.setattr(variants, "get_tgis_message_interface", lambda: None)
+    with pytest.warns(UserWarning, match=r"The limit of open files \(1\)"):
+        RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
 
 
 def test_a_reduction_read_cell_by_cell_says_so(monkeypatch):

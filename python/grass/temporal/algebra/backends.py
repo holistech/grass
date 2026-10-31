@@ -10,8 +10,9 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import math
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
-from grass.temporal.state import get_tgis_message_interface
+from grass.script.utils import available_cpus, resolve_nprocs
 
 from .content import (
     COMPARISONS,
@@ -22,6 +23,7 @@ from .content import (
     SeriesAggregate,
     SeriesReduce,
 )
+from .variants import warn
 
 # Operators of r.mapcalc written before one operand; the content tree names
 # the negation "neg" so that it cannot be mistaken for the subtraction.
@@ -156,21 +158,52 @@ def _quote(name, quote_names=True):
 _SERIES_SPARE_FILES = 64
 
 
+def _session_nprocs():
+    """Return NPROCS of the session file as r.series reads it, else 0
+
+    Without nprocs= r.series takes NPROCS of the file GISRC names (set with
+    g.gisenv) as its default. The file is read here and not through
+    g.gisenv, because plan() needs no session. Like the C library, the
+    first colon splits a line, an empty name or value is passed over and
+    the last line wins.
+    """
+    gisrc = os.environ.get("GISRC")
+    if not gisrc:
+        return 0
+    try:
+        lines = Path(gisrc).read_text().splitlines()
+    except OSError:
+        return 0
+    value = "0"
+    for line in lines:
+        name, colon, text = line.partition(":")
+        if colon and name.strip() == "NPROCS" and text.strip():
+            value = text.strip()
+    try:
+        return int(value)
+    except ValueError:
+        return 0
+
+
 def _series_threads():
     """Return the number of threads r.series runs when nprocs is not given
 
-    nprocs=0 makes r.series ask OpenMP, which takes the first number of
-    OMP_NUM_THREADS and otherwise one thread per usable processor. A GRASS
-    without OpenMP, or a raster mask, runs one thread; counting more only
-    switches to -z earlier than needed.
+    r.series takes NPROCS of the session; a positive number is the count, a
+    negative one is taken from the usable processors. 0 makes it ask
+    OpenMP, which takes the first number of OMP_NUM_THREADS and otherwise
+    one thread per usable processor. A GRASS without OpenMP, or a raster
+    mask, runs one thread; counting more only switches to -z earlier than
+    needed.
     """
+    nprocs = _session_nprocs()
+    if nprocs != 0:
+        return resolve_nprocs(nprocs)
     first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()
-    if first.isdigit() and int(first) > 0:
-        return int(first)
     try:
-        return len(os.sched_getaffinity(0))
-    except AttributeError:
-        return os.cpu_count() or 1
+        threads = int(first)
+    except ValueError:
+        threads = 0
+    return threads if threads > 0 else available_cpus()
 
 
 def _series_map_limit():
@@ -371,7 +404,7 @@ class RasterBackend:
                     # over 100 maps of 1000x1000 cells: 5.2 s against
                     # 0.25 s), so it is set only when needed.
                     parameters["flags"] = "z"
-                    get_tgis_message_interface().warning(
+                    warn(
                         _(
                             "The limit of open files ({}) was reached ({}). The "
                             "module r.series will be run with flag z, to avoid "

@@ -1,11 +1,10 @@
 """materialize() of a reduction that skips null cells past the open files
 
-r.series holds two files per map and thread unless -z makes it read the
-maps cell by cell, so a reduction over more maps than the open files of the
-process allow must run with -z.
+r.series holds two files per map and thread unless -z makes it reopen the
+maps for each row, so a reduction over more maps than the open files of the
+process allow must run with -z. The tests can fail without -z only on a
+GRASS with OpenMP, where r.series runs more than one thread.
 """
-
-import resource
 
 import pytest
 
@@ -13,6 +12,8 @@ from grass.temporal.algebra.content import MapRef, SeriesReduce
 from grass.temporal.algebra.materialize import materialize
 from grass.temporal.algebra.series import Extent, Series, Slot
 from grass.tools import Tools
+
+resource = pytest.importorskip("resource")
 
 MAPS = 20
 
@@ -51,3 +52,20 @@ def test_a_reduction_past_the_open_files_runs_and_sums(
     slot = Slot(Extent(0, 1, "days"), SeriesReduce("sum", maps))
     materialize(Series((slot,)), "skipsum", names=["skipsum_1"], overwrite=True)
     assert float(tools.r_univar(map="skipsum_1", flags="g").keyval["min"]) == 210.0
+
+
+def test_nprocs_of_the_session_counts_for_the_open_files(
+    session, few_open_files, monkeypatch
+):
+    """NPROCS=8 of the session makes r.series run 8 threads although
+    OMP_NUM_THREADS says one, so 20 maps hold 320 files"""
+    grass_session, tools = session
+    monkeypatch.setenv("OMP_NUM_THREADS", "1")
+    tools.g_gisenv(set="NPROCS=8")
+    try:
+        maps = tuple(MapRef(f"n{number}") for number in range(1, MAPS + 1))
+        slot = Slot(Extent(0, 1, "days"), SeriesReduce("sum", maps))
+        materialize(Series((slot,)), "npsum", names=["npsum_1"], overwrite=True)
+    finally:
+        tools.g_gisenv(unset="NPROCS")
+    assert float(tools.r_univar(map="npsum_1", flags="g").keyval["min"]) == 210.0
