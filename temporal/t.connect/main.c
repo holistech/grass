@@ -13,10 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <grass/gis.h>
-#include <grass/temporal.h>
-#include <grass/glocale.h>
 #include <grass/gjson.h>
+#include <grass/glocale.h>
+#include <grass/temporal.h>
 
 enum OutputFormat { PLAIN, SHELL, JSON };
 
@@ -70,7 +71,6 @@ int main(int argc, char *argv[])
     struct GModule *module;
 
     enum OutputFormat format;
-    G_JSON_Value *root_value = NULL;
 
     /* Initialize the GIS calls */
     G_gisinit(argv[0]);
@@ -166,9 +166,6 @@ int main(int argc, char *argv[])
             _("Flag 'g' is deprecated and will be removed in a future "
               "release. Please use format=shell instead."));
         if (format == JSON) {
-            /* Free memory before failing to prevent memory leaks */
-            if (root_value)
-                G_json_value_free(root_value);
             G_fatal_error(_("The -g flag cannot be used with format=json. "
                             "Please select only one output format."));
         }
@@ -182,8 +179,6 @@ int main(int argc, char *argv[])
     }
 
     if (mapset_opt->answer && format != JSON) {
-        if (root_value)
-            G_json_value_free(root_value);
         G_fatal_error(_("The mapset option requires format=json."));
     }
 
@@ -191,7 +186,8 @@ int main(int argc, char *argv[])
         if (format == JSON) {
             /* JSON always outputs an array. When mapset is not specified,
              * report connections for all mapsets on the current search path. */
-            G_JSON_Array *json_array = NULL;
+            G_JSON_Value *root_value;
+            G_JSON_Array *json_array;
             char *json_string;
 
             root_value = G_json_value_init_array();
@@ -241,31 +237,21 @@ int main(int argc, char *argv[])
             G_json_value_free(root_value);
         }
         else {
-            /* PLAIN / SHELL: report the current mapset's connection */
-            if (tgis_get_connection(&conn) == DB_OK) {
-                switch (format) {
-                case SHELL:
-                    fprintf(stdout, "driver=%s\n",
-                            conn.driverName ? conn.driverName : "");
-                    fprintf(stdout, "database=%s\n",
-                            conn.databaseName ? conn.databaseName : "");
-                    break;
+            /* PLAIN / SHELL: report the current mapset's connection. The
+             * variables are not set in a new mapset, which prints empty
+             * values and is no error. */
+            const char *drv, *db;
 
-                case PLAIN:
-                    fprintf(stdout, "driver:%s\n",
-                            conn.driverName ? conn.driverName : "");
-                    fprintf(stdout, "database:%s\n",
-                            conn.databaseName ? conn.databaseName : "");
-                    break;
-
-                case JSON:
-                    /* unreachable: JSON is handled above */
-                    break;
-                }
+            tgis_get_connection(&conn);
+            drv = conn.driverName ? conn.driverName : "";
+            db = conn.databaseName ? conn.databaseName : "";
+            if (format == SHELL) {
+                fprintf(stdout, "driver=%s\n", drv);
+                fprintf(stdout, "database=%s\n", db);
             }
             else {
-                G_fatal_error(_("Temporal GIS database connection not defined. "
-                                "Run t.connect."));
+                fprintf(stdout, "driver:%s\n", drv);
+                fprintf(stdout, "database:%s\n", db);
             }
         }
 
