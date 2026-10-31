@@ -367,6 +367,33 @@ included. Record again only with the permission of the maintainer, after a fix
 that changes a result on purpose, never to make a refactor pass; the module
 docstrings give the commands.
 
+### Tests against PostgreSQL
+
+The temporal database is SQLite by default. Tests marked
+`@pytest.mark.postgresql` and the fixture `postgresql_database` run against a
+PostgreSQL server instead, which the tests do not start. Without the server
+they are skipped, so an ordinary run is unchanged. Start a server bound to the
+local interface only, name it in the environment, and remove it afterwards:
+
+```bash
+docker run -d --rm --name grass-tgis-pg -e POSTGRES_HOST_AUTH_METHOD=trust \
+    -p 127.0.0.1:55432:5432 postgres:16
+export GRASS_TEMPORAL_TEST_POSTGRESQL="host=127.0.0.1 port=55432 user=postgres dbname=postgres"
+pytest -m postgresql -n auto python/grass/temporal/tests
+docker rm -f grass-tgis-pg
+```
+
+The tests need the Python package psycopg2 (without it they are skipped) and a
+server of PostgreSQL 13 or newer, because dropping a database uses `DROP
+DATABASE ... WITH (FORCE)`. The variable holds a libpq connection string of a
+database from which the user may create others. The fixture creates a database
+of its own for each test and drops it afterwards, so tests running in parallel
+under `-n auto` never share one. The module `grass.temporal.testing.postgresql`
+also has `rows_of()`, which reads a temporal database of either backend into the
+same form, and `run_scenario()`, which fills one through the tools; together
+they compare the two backends row by row. The tests are skipped, not reported as
+an error, when the variable is unset or the server does not answer.
+
 ### Real and cached IO in library tests
 
 Tests of the library mock the slow IO that always gives the same answer, where
