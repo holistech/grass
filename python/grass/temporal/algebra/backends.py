@@ -8,7 +8,10 @@ SPDX-License-Identifier: GPL-2.0-or-later
 """
 
 import math
+import os
 from dataclasses import dataclass
+
+from grass.temporal.state import get_tgis_message_interface
 
 from .content import (
     COMPARISONS,
@@ -144,6 +147,52 @@ def _quote(name, quote_names=True):
         msg = f"The map name {name!r} contains a quote and cannot be used in r.mapcalc"
         raise ValueError(msg)
     return f'"{name}"'
+
+
+# Files r.series holds besides the maps: the list of names, the output map and
+# its libraries. The measurement in _series_map_limit() leaves at most 6 of
+# them with one thread and 16 with 24 threads; 64 leaves room for what was
+# not measured.
+_SERIES_SPARE_FILES = 64
+
+
+def _series_threads():
+    """Return the number of threads r.series runs when nprocs is not given
+
+    nprocs=0 makes r.series ask OpenMP, which takes the first number of
+    OMP_NUM_THREADS and otherwise one thread per usable processor. A GRASS
+    without OpenMP, or a raster mask, runs one thread; counting more only
+    switches to -z earlier than needed.
+    """
+    first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()
+    if first.isdigit() and int(first) > 0:
+        return int(first)
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
+def _series_map_limit():
+    """Return how many maps r.series can keep open in this process, or None
+
+    r.series opens every map once per thread and needs two files per map
+    and thread: with ulimit -n 1024 it ran with 509 maps on one thread, 127 on
+    four and 21 on 24 and failed with one map more, for CELL, FCELL and
+    DCELL maps alike (measured 2026-10-31 by bisection with r.series
+    file=... method=sum nprocs=1, 4 and 24 over 2x2 maps in grass
+    --tmp-project XY). The modules inherit the soft limit of this process.
+    None means no limit, or a system without the resource module, where the
+    maps stay open as before.
+    """
+    try:
+        import resource  # noqa: PLC0415 - not on Windows
+    except ImportError:
+        return None
+    soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if soft == resource.RLIM_INFINITY:
+        return None
+    return max(0, (soft - _SERIES_SPARE_FILES) // (2 * _series_threads()))
 
 
 class RasterBackend:
@@ -311,13 +360,23 @@ class RasterBackend:
             if isinstance(node, SeriesReduce):
                 inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
-                calls.append(
-                    ModuleCall(
-                        "r.series",
-                        {"output": name, "method": node.method},
-                        inputs=tuple(inputs),
+                parameters = {"output": name, "method": node.method}
+                limit = _series_map_limit()
+                if limit is not None and len(inputs) > limit:
+                    # Without -z r.series fails with "Too many open files";
+                    # with it, it reads the maps row by row, about 20 times
+                    # slower (measured 2026-10-31 with r.series method=sum
+                    # over 100 maps of 1000x1000 cells: 5.2 s against
+                    # 0.25 s), so it is set only when needed.
+                    parameters["flags"] = "z"
+                    get_tgis_message_interface().warning(
+                        _(
+                            "The limit of open files ({}) was reached ({}). The "
+                            "module r.series will be run with flag z, to avoid "
+                            "open files limit exceeding."
+                        ).format(limit, len(inputs))
                     )
-                )
+                calls.append(ModuleCall("r.series", parameters, inputs=tuple(inputs)))
                 return MapRef(name)
             if isinstance(node, Call):
                 return Call(node.function, tuple(lower(arg) for arg in node.args))

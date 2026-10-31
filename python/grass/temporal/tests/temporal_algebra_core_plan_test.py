@@ -4,10 +4,13 @@ plan() runs nothing, so these tests need no session.
 """
 
 import datetime
+import os
+import resource
 from dataclasses import replace
 
 import pytest
 
+from grass.temporal.algebra import backends
 from grass.temporal.algebra import parser as algebra_parser
 from grass.temporal.algebra.backends import ModuleCall, Raster3DBackend, RasterBackend
 from grass.temporal.algebra.content import (
@@ -308,6 +311,79 @@ def test_skip_reduction_of_a_map_at_an_offset_uses_a_temporary_map():
     assert calls[0].parameters["expression"] == '"R_0_tmp0"="a1@PERMANENT"[1,0]'
     assert calls[1].inputs == ("R_0_tmp0", "a2@PERMANENT")
     assert temporaries == ["R_0_tmp0"]
+
+
+def _open_files(monkeypatch, soft, threads=None):
+    """Let the plan see soft open files and r.series run threads threads
+
+    Return the list that collects the warnings of the plan; plan() runs
+    without a session, which has no message interface.
+    """
+    if threads is not None:
+        monkeypatch.setenv("OMP_NUM_THREADS", str(threads))
+    monkeypatch.setattr(
+        resource, "getrlimit", lambda resource_: (soft, resource.RLIM_INFINITY)
+    )
+    warnings = []
+
+    class Messages:
+        def warning(self, message):
+            warnings.append(message)
+
+    monkeypatch.setattr(backends, "get_tgis_message_interface", Messages)
+    return warnings
+
+
+def test_a_reduction_skipping_nulls_reads_cell_by_cell_past_the_open_files(
+    monkeypatch,
+):
+    """Two maps on three threads hold 12 files besides the 64 kept free, one
+    more than a limit of 75 allows"""
+    _open_files(monkeypatch, 75, 3)
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert calls[0].parameters == {"output": "R_0", "method": "sum", "flags": "z"}
+    assert calls[0].inputs == ("a1@PERMANENT", "a2@PERMANENT")
+
+
+def test_a_reduction_skipping_nulls_keeps_its_maps_open_within_the_open_files(
+    monkeypatch,
+):
+    _open_files(monkeypatch, 76, 3)
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert calls[0].parameters == {"output": "R_0", "method": "sum"}
+
+
+def test_without_a_thread_count_every_usable_processor_runs_a_thread(monkeypatch):
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: {0, 1, 2, 3})
+    _open_files(monkeypatch, 79)
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert calls[0].parameters["flags"] == "z"
+    _open_files(monkeypatch, 80)
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert "flags" not in calls[0].parameters
+
+
+def test_without_a_limit_of_open_files_a_reduction_keeps_its_maps_open(
+    monkeypatch,
+):
+    _open_files(monkeypatch, resource.RLIM_INFINITY)
+    maps = tuple(MapRef(f"m{number}") for number in range(5000))
+    calls, _ = RasterBackend().plan(SeriesReduce("sum", maps), "R_0")
+    assert "flags" not in calls[0].parameters
+
+
+def test_a_reduction_read_cell_by_cell_says_so(monkeypatch):
+    """The text is that of t.rast.aggregate, so its translations apply"""
+    warnings = _open_files(monkeypatch, 75, 3)
+    RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert warnings == [
+        "The limit of open files (1) was reached (2). The module r.series will "
+        "be run with flag z, to avoid open files limit exceeding."
+    ]
+    warnings = _open_files(monkeypatch, 76, 3)
+    RasterBackend().plan(SeriesReduce("sum", (A1, A2)), "R_0")
+    assert warnings == []
 
 
 def test_a_reduction_skipping_nulls_reads_its_maps_from_a_file(make_series):
