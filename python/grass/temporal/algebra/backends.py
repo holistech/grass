@@ -172,7 +172,9 @@ def _session_nprocs():
     if not gisrc:
         return 0
     try:
-        lines = Path(gisrc).read_text().splitlines()
+        # The C library reads bytes; a value in another encoding must not
+        # stop the plan, and NPROCS is ASCII.
+        lines = Path(gisrc).read_text(errors="replace").splitlines()
     except OSError:
         return 0
     value = "0"

@@ -405,6 +405,7 @@ def test_below_the_spare_files_every_reduction_reads_row_by_row(monkeypatch):
         ("NPROCS: 2\nNPROCS: 5\n", None, 5),
         ("NPROCS:\n", "3", 3),
         ("MAPSET: user\n", None, 24),
+        (b"LOCATION_NAME: \xff\xfe\nNPROCS: 2\n", None, 2),
     ],
 )
 def test_the_threads_are_counted_as_r_series_counts_them(
@@ -417,8 +418,9 @@ def test_the_threads_are_counted_as_r_series_counts_them(
     if gisrc is None:
         monkeypatch.delenv("GISRC", raising=False)
     else:
-        (tmp_path / "rc").write_text(gisrc)
-        monkeypatch.setenv("GISRC", str(tmp_path / "rc"))
+        rc = tmp_path / "rc"
+        rc.write_bytes(gisrc if isinstance(gisrc, bytes) else gisrc.encode())
+        monkeypatch.setenv("GISRC", str(rc))
     if omp is None:
         monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
     else:
