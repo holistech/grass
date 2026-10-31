@@ -18,9 +18,9 @@
 #include <grass/glocale.h>
 
 /*!
- * \brief Get TGIS driver name
+ * \brief Get TGIS driver name of the current mapset
  *
- * \return pointer to TGIS driver name
+ * \return pointer to a copy of the TGIS driver name, to be freed with G_free()
  * \return NULL if not set
  */
 char *tgis_get_driver_name(void)
@@ -34,9 +34,13 @@ char *tgis_get_driver_name(void)
 }
 
 /*!
- * \brief Get TGIS database name
+ * \brief Get TGIS database name of the current mapset
  *
- * \return pointer to TGIS database name
+ * The name is returned as it is stored, with the variables $GISDBASE,
+ * $LOCATION_NAME and $MAPSET not yet replaced.
+ *
+ * \return pointer to a copy of the TGIS database name, to be freed with
+ *         G_free()
  * \return NULL if not set
  */
 char *tgis_get_database_name(void)
@@ -52,7 +56,10 @@ char *tgis_get_database_name(void)
 /*!
    \brief Set Temporal GIS DB connection settings
 
-   This function sets environmental variables as TGISDB_DRIVER, TGISDB_DATABASE.
+   This function sets the variables TGISDB_DRIVER and TGISDB_DATABASE in the
+   VAR file of the current mapset; a member of the connection that is NULL is
+   left as it is. An empty value, or one of only white space, removes the
+   variable, because the file reader of the GIS library skips it.
 
    \param connection pointer to dbConnection with default settings
 
@@ -70,7 +77,11 @@ int tgis_set_connection(dbConnection *connection)
 }
 
 /*!
-   \brief Get Temporal GIS DB connection settings
+   \brief Get Temporal GIS DB connection settings of the current mapset
+
+   The members are NULL for a variable that is not set. They point into the
+   environment of the GIS library and are not copied: they are valid only until
+   the next call of G_setenv() or G_setenv2(), and must not be freed.
 
    \param[out] connection pointer to dbConnection to be modified
 
@@ -166,12 +177,13 @@ static char *get_mapset_connection_name(const char *mapset, int contype)
 /*!
  * \brief Get TGIS driver name from a specific mapset
  *
- * This function give a warning in case the mapset does not exists
- * or it is not allowed to access the mapset. NULL is returned in this case.
+ * This function gives a warning in case the mapset does not exist or its name
+ * has path parts; NULL is returned in this case. A mapset that cannot be read
+ * gives NULL without a warning.
  *
  * \param mapset The name of the mapset to receive the driver name from
  *
- * \return pointer to TGIS driver name
+ * \return pointer to a copy of the TGIS driver name, to be freed with G_free()
  * \return NULL if not set
  */
 char *tgis_get_mapset_driver_name(const char *mapset)
@@ -180,14 +192,20 @@ char *tgis_get_mapset_driver_name(const char *mapset)
 }
 
 /*!
- * \brief Get TGIS database name
+ * \brief Get TGIS database name from a specific mapset
  *
- * This function give a warning in case the mapset does not exists
- * or it is not allowed to access the mapset. NULL is returned in this case..
+ * This function gives a warning in case the mapset does not exist or its name
+ * has path parts; NULL is returned in this case. A mapset that cannot be read
+ * gives NULL without a warning.
  *
- * \param mapset The name of the mapset to receive the driver name from
-
- * \return pointer to TGIS database name
+ * The name is returned as it is stored: the variables $GISDBASE,
+ * $LOCATION_NAME and $MAPSET in it are not replaced. The Python library
+ * replaces them with the values of the project it runs in.
+ *
+ * \param mapset The name of the mapset to receive the database name from
+ *
+ * \return pointer to a copy of the TGIS database name, to be freed with
+ *         G_free()
  * \return NULL if not set
  */
 char *tgis_get_mapset_database_name(const char *mapset)

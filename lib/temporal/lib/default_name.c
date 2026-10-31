@@ -1,5 +1,5 @@
 /*!
-   \file lib/db/dbmi_base/default_name.c
+   \file lib/temporal/lib/default_name.c
 
    \brief Temporal GIS Library (base) - default settings
 
@@ -45,6 +45,10 @@ char *tgis_get_default_database_name(void)
 
 /*!
    \brief Sets up TGIS database connection settings using GRASS default
+
+   Writes the default driver and the default database name, which still
+   contains the unexpanded variables $GISDBASE, $LOCATION_NAME and $MAPSET, to
+   the VAR file of the current mapset. Replaces a connection that exists.
 
    \return returns DB_OK
  */
