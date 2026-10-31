@@ -949,16 +949,20 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         are specified, each returned row represents a dataset and
         includes all columns specified in the datatype specific view.
 
-        If group is not None, the rows in the register tables are
-        grouped_by the list of columns in the group option. This
-        function is useful to retrieve e.g. granules from an STRDS
-        with satellite imagery where scene consists of different bands
-        that have different semantic_labels but equal an temporal extend
-        (group=["start_time", "end_time"]).
-        The returned SQL rows of grouped output contain the selected
-        columns plus the columns in the group option. If no columns
-        are selected only the "id" column is returned. Content of the
-        selected columns is concatenated to a comma separated string.
+        If group is not None, the rows of the register table are grouped by
+        the columns in the group option, in Python and not by an SQL GROUP
+        BY. This function is useful to retrieve e.g. granules from an STRDS
+        with satellite imagery where a scene consists of different bands
+        that have different semantic_labels but equal temporal extent
+        (group="start_time,end_time").
+        The returned rows contain the group columns followed by the selected
+        columns. If no columns are selected only the "id" column is
+        returned. The values of a selected column are joined to a comma
+        separated string in the order of the map ids, so that position i of
+        every column belongs to the same map. A NULL value is skipped and a
+        group with only NULL values gives None. A row is read by column name
+        and by index, the group columns come first. The order option sorts
+        the groups; inside a group the values follow the map id.
 
         The combination of the spatial_extent and spatial_relation parameters
         can be used to return only SQL rows of maps with the given spatial
@@ -968,8 +972,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
                         default is "*" or "id" if group is given.
         :param where: The SQL where statement to select a subset
                       of the registered maps without "WHERE"
-        :param group: The columns to be used in the SQL GROUP BY statement
-                      as SQL compliant string without "GROUP BY"
+        :param group: The names of the columns to group by as a comma
+                      separated string; expressions such as "start_time DESC"
+                      are not supported
         :param spatial_extent: Spatial extent dict and projection information
             e.g. from g.region -ug3 with GRASS region keys
             "n", "s", "e", "w", "b", "t", and  "projection".
