@@ -80,8 +80,14 @@ int tgis_set_connection(dbConnection *connection)
    \brief Get Temporal GIS DB connection settings of the current mapset
 
    The members are NULL for a variable that is not set. They point into the
-   environment of the GIS library and are not copied: they are valid only until
-   the next call of G_setenv() or G_setenv2(), and must not be freed.
+   environment of the GIS library and are not copied, so they must not be
+   freed. The library gives no promise how long they stay valid: do not use
+   them after any call that changes the environment, that is G_setenv(),
+   G_setenv2(), G_setenv_nogisrc(), G_unsetenv(), G_unsetenv2(),
+   G_create_alt_env(), G_switch_env(), G__read_gisrc_env() or
+   G__read_mapset_env(), nor after tgis_set_connection() and
+   tgis_set_default_connection(), which call G_setenv2(). Copy the strings
+   first if they are needed later.
 
    \param[out] connection pointer to dbConnection to be modified
 
