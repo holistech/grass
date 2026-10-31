@@ -81,6 +81,20 @@ first day of a month, for example a series from 31 January, the default
 sampling <code>contains</code> finds nothing; <code>sampling=overlaps</code>
 relates each map to the interval in which it starts and which it outlasts.
 
+<p>
+<em>r.series</em> keeps every map of a granule open once per thread and needs
+two files per map and thread. The module therefore runs <em>r.series</em> with
+the flag <b>-z</b>, which reads the maps row by row, when the maps of a
+granule exceed <b>file_limit</b> or when 2 &times; threads &times; maps + 64
+exceeds the limit of open files of the process (<code>ulimit -n</code>). The
+threads are counted as <em>r.series</em> chooses them: <code>NPROCS</code> of
+the GRASS session (see <em>g.gisenv</em>), else <code>OMP_NUM_THREADS</code>,
+else the usable processors. The module warns whenever it sets the flag.
+Without a limit on open files, <b>file_limit</b> counts. The flag does not
+change the result but is slower: for 100 maps of 1000 &times; 1000 cells,
+<em>r.series</em> took 5.2 s with <b>-z</b> instead of 0.25 s (measured
+31.10.2026, three runs).
+
 <h2>EXAMPLES</h2>
 
 <h3>Aggregation of monthly data into yearly data</h3>

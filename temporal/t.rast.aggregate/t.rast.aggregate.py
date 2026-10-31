@@ -76,7 +76,7 @@
 # %option
 # % key: file_limit
 # % type: integer
-# % description: The maximum number of open files allowed for each r.series process
+# % description: Number of maps of a granule above which r.series reopens the maps for each row (flag z); fewer maps also do when they exceed the open files of the process
 # % required: no
 # % multiple: no
 # % answer: 1000
