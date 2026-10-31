@@ -13,6 +13,7 @@ from grass.temporal.algebra.content import Const, MapRef  # noqa: E402
 from grass.temporal.algebra.series import Extent, Series, Slot  # noqa: E402
 from grass.temporal.state import set_raise_on_error  # noqa: E402
 from grass.temporal.testing import io_cache  # noqa: E402
+from grass.temporal.testing import postgresql  # noqa: E402
 from grass.temporal.testing.session import temporal_session  # noqa: E402
 
 
@@ -109,3 +110,15 @@ def cached_io(request, io_cache_storage):
         return
     with io_cache.cached_io(io_cache_storage):
         yield
+
+
+@pytest.fixture
+def postgresql_database():
+    """Yield the connection string of a new, empty database on the test server
+
+    Skips without GRASS_TEMPORAL_TEST_POSTGRESQL or when the server does not
+    answer. The database is dropped after the test.
+    """
+    postgresql.server_or_skip()
+    with postgresql.fresh_database("t") as dbstring:
+        yield dbstring

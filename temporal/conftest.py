@@ -22,6 +22,7 @@ import pytest
 # shows no values unless the package is registered before its first import.
 pytest.register_assert_rewrite("grass.temporal.testing")
 # The registration has to precede these imports, so they follow a statement.
+from grass.temporal.testing import postgresql  # noqa: E402
 from grass.temporal.testing.data import (  # noqa: E402
     TIME_FORMAT,
     MapSpec,
@@ -317,3 +318,15 @@ def sampling_relations(tools):
         sums=_SAMPLING_SUMS,
         start=day(10).strftime(TIME_FORMAT),
     )
+
+
+@pytest.fixture
+def postgresql_database():
+    """Yield the connection string of a new, empty database on the test server
+
+    Skips without GRASS_TEMPORAL_TEST_POSTGRESQL or when the server does not
+    answer. The database is dropped after the test.
+    """
+    postgresql.server_or_skip()
+    with postgresql.fresh_database("t") as dbstring:
+        yield dbstring

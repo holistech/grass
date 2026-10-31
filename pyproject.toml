@@ -542,6 +542,7 @@ markers = [
     "needs_solo_run: marks tests that must be run without any other tests running in parallel",
     "fixed_algebra: test selects the algebra itself; runs once whatever GRASS_TEMPORAL_ALGEBRA says",
     "real_io: test runs without the test-only caches of grass.temporal.testing.fakes",
+    "postgresql: test needs the PostgreSQL server named by GRASS_TEMPORAL_TEST_POSTGRESQL; skipped without one",
 ]
 minversion = "8.2"
 python_files = """
