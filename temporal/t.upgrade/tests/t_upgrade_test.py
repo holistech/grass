@@ -17,6 +17,7 @@ from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
 from grass.temporal.testing.versions import (
     NEWER_INDEXES,
+    VERSION_2_ID_INDEXED_TABLES,
     database_file,
     downgrade_postgresql_to_version_2,
     downgrade_to_version_2,
@@ -192,6 +193,11 @@ def test_downgrade_for_the_tests_gives_version_2(project):
     assert "semantic_label" not in columns(database, "raster_metadata")
     assert "number_of_semantic_labels" not in columns(database, "strds_metadata")
     assert not indexes(database) & NEWER_INDEXES
+    (register,) = query(database, "SELECT raster_register FROM strds_metadata")[0]
+    assert indexes(database) >= {
+        f"{table}_index" for table in VERSION_2_ID_INDEXED_TABLES
+    }
+    assert f"{register}_index" in indexes(database)
     warning = message(tools.t_info(type="strds", input="series", flags="g"))
     assert "Temporal database version mismatch detected" in warning
     assert "Run t.upgrade" in warning
@@ -233,10 +239,13 @@ def test_upgrade_creates_the_same_indexes_as_a_new_database(project):
     tools, session, database = project
     expected = indexes(database)
     downgrade_to_version_2(session)
+    version_2 = indexes(database)
 
     tools.t_upgrade()
 
-    assert indexes(database) == expected
+    # A new database has no index on the id alone, version 2 had them; the
+    # upgrade keeps them, nothing drops them.
+    assert indexes(database) == expected | version_2
 
 
 def postgresql_indexes(dbstring):

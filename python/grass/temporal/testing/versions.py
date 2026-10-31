@@ -28,6 +28,33 @@ NEWER_INDEXES = {
 }
 
 
+# The tables that sqlite3_indexes.sql of version 2 indexed on the id alone,
+# each with an index named <table>_index. SQLite indexes the primary key
+# itself, so new databases no longer get them; databases of version 2 have them.
+VERSION_2_ID_INDEXED_TABLES = tuple(
+    f"{kind}_{table}"
+    for kind in ("strds", "str3ds", "stvds")
+    for table in (
+        "base",
+        "relative_time",
+        "absolute_time",
+        "spatial_extent",
+        "metadata",
+    )
+) + tuple(
+    f"{kind}_{table}"
+    for kind in ("raster", "raster3d", "vector")
+    for table in ("base", "spatial_extent", "stds_register", "metadata")
+)
+# The column of the metadata table of each dataset type that names its
+# register table; the library of version 2 indexed each register table on id.
+REGISTER_COLUMNS = {
+    "strds_metadata": "raster_register",
+    "str3ds_metadata": "raster3d_register",
+    "stvds_metadata": "vector_register",
+}
+
+
 # The line of strds_views.sql that lists the count of the semantic labels.
 _LABEL_COUNT_LINE = "A4.number_of_semantic_labels,\n"
 
@@ -85,6 +112,15 @@ def downgrade_to_version_2(session) -> None:
         for name in VIEW_TEMPLATES:
             view = (templates / f"{name}_views.sql").read_text()
             connection.executescript(_version_2_view(view))
+        tables = list(VERSION_2_ID_INDEXED_TABLES)
+        for metadata, column in REGISTER_COLUMNS.items():
+            # The names come from the database under test, not from input.
+            rows = connection.execute(
+                f"SELECT {column} FROM {metadata} WHERE {column} IS NOT NULL"  # noqa: S608
+            )
+            tables.extend(row[0] for row in rows)
+        for table in tables:
+            connection.execute(f"CREATE INDEX {table}_index ON {table} (id)")
     set_version(database, 2)
 
 
