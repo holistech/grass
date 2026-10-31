@@ -6,10 +6,13 @@ times, user and register table names replaced by fixed values.
 database_read.json.gz holds what the library prints and returns when it reads
 that database back. Both were taken before the library was refactored. A
 failure here means a change altered the stored rows or what a read makes of
-them. Never record again to make this test pass.
+them. database_structure.json holds the tables, views, triggers and indexes of
+a new database without the text of their statements. Never record again to
+make this test pass.
 """
 
 import difflib
+import json
 import re
 from pathlib import Path
 
@@ -53,3 +56,20 @@ def test_image_has_no_volatile_values():
     image = (RECORDINGS / "database_write.sql").read_text(encoding="utf-8")
     assert "/tmp/" not in image
     assert not re.search(r"'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d+'", image)
+
+
+def test_the_structure_of_a_new_database_matches_the_recording(tmp_path):
+    """Tables, columns, keys, views, triggers and indexes of a new database
+
+    The recording holds no statement text, so a change of a comment inside a
+    CREATE statement leaves it as it is.
+    """
+    expected = json.loads(
+        (RECORDINGS / "database_structure.json").read_text(encoding="utf-8")
+    )
+    with temporal_session(tmp_path / "project") as session:
+        database_image.structure_scenario(
+            Tools(session=session, consistent_return_value=True)
+        )
+        actual = database_image.structure_of(Path(tgis.get_tgis_database_string()))
+    assert actual == expected

@@ -1,0 +1,913 @@
+{
+ "tables": {
+  "raster3d_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["layer", "VARCHAR", false, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", false, 0],
+    ["creation_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_map_register_a23c49112437343c579b24577ebb8e11": {
+   "columns": [
+    ["id", "VARCHAR", true, 1]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["datatype", "VARCHAR", true, 0],
+    ["cols", "INTEGER", true, 0],
+    ["rows", "INTEGER", true, 0],
+    ["depths", "INTEGER", true, 0],
+    ["number_of_cells", "INTEGER", true, 0],
+    ["nsres", "DOUBLE PRECISION", true, 0],
+    ["ewres", "DOUBLE PRECISION", true, 0],
+    ["tbres", "DOUBLE PRECISION", true, 0],
+    ["min", "DOUBLE PRECISION", false, 0],
+    ["max", "DOUBLE PRECISION", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", true, 0],
+    ["south", "DOUBLE PRECISION", true, 0],
+    ["east", "DOUBLE PRECISION", true, 0],
+    ["west", "DOUBLE PRECISION", true, 0],
+    ["top", "DOUBLE PRECISION", true, 0],
+    ["bottom", "DOUBLE PRECISION", true, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster3d_stds_register": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["registered_stds", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["layer", "VARCHAR", false, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", false, 0],
+    ["creation_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c": {
+   "columns": [
+    ["id", "VARCHAR", true, 1]
+   ],
+   "foreign_keys": []
+  },
+  "raster_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["datatype", "VARCHAR", true, 0],
+    ["cols", "INTEGER", true, 0],
+    ["rows", "INTEGER", true, 0],
+    ["number_of_cells", "INTEGER", true, 0],
+    ["nsres", "DOUBLE PRECISION", true, 0],
+    ["ewres", "DOUBLE PRECISION", true, 0],
+    ["min", "DOUBLE PRECISION", false, 0],
+    ["max", "DOUBLE PRECISION", false, 0],
+    ["semantic_label", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", true, 0],
+    ["south", "DOUBLE PRECISION", true, 0],
+    ["east", "DOUBLE PRECISION", true, 0],
+    ["west", "DOUBLE PRECISION", true, 0],
+    ["top", "DOUBLE PRECISION", true, 0],
+    ["bottom", "DOUBLE PRECISION", true, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "raster_stds_register": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["registered_stds", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "str3ds_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0],
+    ["granularity", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "str3ds_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", true, 0],
+    ["semantic_type", "VARCHAR", true, 0],
+    ["creation_time", "TIMESTAMP", true, 0],
+    ["modification_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "str3ds_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["raster3d_register", "VARCHAR", false, 0],
+    ["number_of_maps", "INTEGER", false, 0],
+    ["max_min", "DOUBLE PRECISION", false, 0],
+    ["min_min", "DOUBLE PRECISION", false, 0],
+    ["max_max", "DOUBLE PRECISION", false, 0],
+    ["min_max", "DOUBLE PRECISION", false, 0],
+    ["nsres_min", "DOUBLE PRECISION", false, 0],
+    ["nsres_max", "DOUBLE PRECISION", false, 0],
+    ["ewres_min", "DOUBLE PRECISION", false, 0],
+    ["ewres_max", "DOUBLE PRECISION", false, 0],
+    ["tbres_min", "DOUBLE PRECISION", false, 0],
+    ["tbres_max", "DOUBLE PRECISION", false, 0],
+    ["aggregation_type", "VARCHAR", false, 0],
+    ["title", "VARCHAR", false, 0],
+    ["description", "VARCHAR", false, 0],
+    ["command", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "str3ds_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["granularity", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "str3ds_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", false, 0],
+    ["south", "DOUBLE PRECISION", false, 0],
+    ["east", "DOUBLE PRECISION", false, 0],
+    ["west", "DOUBLE PRECISION", false, 0],
+    ["top", "DOUBLE PRECISION", false, 0],
+    ["bottom", "DOUBLE PRECISION", false, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "strds_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0],
+    ["granularity", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "strds_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", true, 0],
+    ["semantic_type", "VARCHAR", true, 0],
+    ["creation_time", "TIMESTAMP", true, 0],
+    ["modification_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "strds_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["raster_register", "VARCHAR", false, 0],
+    ["number_of_maps", "INTEGER", false, 0],
+    ["max_min", "DOUBLE PRECISION", false, 0],
+    ["min_min", "DOUBLE PRECISION", false, 0],
+    ["max_max", "DOUBLE PRECISION", false, 0],
+    ["min_max", "DOUBLE PRECISION", false, 0],
+    ["nsres_min", "DOUBLE PRECISION", false, 0],
+    ["nsres_max", "DOUBLE PRECISION", false, 0],
+    ["ewres_min", "DOUBLE PRECISION", false, 0],
+    ["ewres_max", "DOUBLE PRECISION", false, 0],
+    ["aggregation_type", "VARCHAR", false, 0],
+    ["number_of_semantic_labels", "INTEGER", false, 0],
+    ["title", "VARCHAR", false, 0],
+    ["description", "VARCHAR", false, 0],
+    ["command", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "strds_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["granularity", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "strds_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", false, 0],
+    ["south", "DOUBLE PRECISION", false, 0],
+    ["east", "DOUBLE PRECISION", false, 0],
+    ["west", "DOUBLE PRECISION", false, 0],
+    ["top", "DOUBLE PRECISION", false, 0],
+    ["bottom", "DOUBLE PRECISION", false, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "stvds_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0],
+    ["granularity", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "stvds_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", true, 0],
+    ["semantic_type", "VARCHAR", true, 0],
+    ["creation_time", "TIMESTAMP", true, 0],
+    ["modification_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "stvds_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["vector_register", "VARCHAR", false, 0],
+    ["number_of_maps", "INTEGER", false, 0],
+    ["title", "VARCHAR", false, 0],
+    ["description", "VARCHAR", false, 0],
+    ["command", "VARCHAR", false, 0],
+    ["points", "INTEGER", false, 0],
+    ["lines", "INTEGER", false, 0],
+    ["boundaries", "INTEGER", false, 0],
+    ["centroids", "INTEGER", false, 0],
+    ["faces", "INTEGER", false, 0],
+    ["kernels", "INTEGER", false, 0],
+    ["primitives", "INTEGER", false, 0],
+    ["nodes", "INTEGER", false, 0],
+    ["areas", "INTEGER", false, 0],
+    ["islands", "INTEGER", false, 0],
+    ["holes", "INTEGER", false, 0],
+    ["volumes", "INTEGER", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "stvds_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["granularity", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0],
+    ["map_time", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "stvds_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", false, 0],
+    ["south", "DOUBLE PRECISION", false, 0],
+    ["east", "DOUBLE PRECISION", false, 0],
+    ["west", "DOUBLE PRECISION", false, 0],
+    ["top", "DOUBLE PRECISION", false, 0],
+    ["bottom", "DOUBLE PRECISION", false, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "tgis_metadata": {
+   "columns": [
+    ["key", "VARCHAR", true, 0],
+    ["value", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_absolute_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "TIMESTAMP", false, 0],
+    ["end_time", "TIMESTAMP", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_base": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["name", "VARCHAR", true, 0],
+    ["mapset", "VARCHAR", true, 0],
+    ["layer", "VARCHAR", false, 0],
+    ["creator", "VARCHAR", true, 0],
+    ["temporal_type", "VARCHAR", false, 0],
+    ["creation_time", "TIMESTAMP", true, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_map_register_1cb921a2deeaf234fe439866ee839fa1": {
+   "columns": [
+    ["id", "VARCHAR", true, 1]
+   ],
+   "foreign_keys": []
+  },
+  "vector_metadata": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["is_3d", "BOOLEAN", false, 0],
+    ["points", "INTEGER", false, 0],
+    ["lines", "INTEGER", false, 0],
+    ["boundaries", "INTEGER", false, 0],
+    ["centroids", "INTEGER", false, 0],
+    ["faces", "INTEGER", false, 0],
+    ["kernels", "INTEGER", false, 0],
+    ["primitives", "INTEGER", false, 0],
+    ["nodes", "INTEGER", false, 0],
+    ["areas", "INTEGER", false, 0],
+    ["islands", "INTEGER", false, 0],
+    ["holes", "INTEGER", false, 0],
+    ["volumes", "INTEGER", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_relative_time": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["start_time", "INTEGER", false, 0],
+    ["end_time", "INTEGER", false, 0],
+    ["unit", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_spatial_extent": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["north", "DOUBLE PRECISION", true, 0],
+    ["south", "DOUBLE PRECISION", true, 0],
+    ["east", "DOUBLE PRECISION", true, 0],
+    ["west", "DOUBLE PRECISION", true, 0],
+    ["top", "DOUBLE PRECISION", true, 0],
+    ["bottom", "DOUBLE PRECISION", true, 0],
+    ["proj", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  },
+  "vector_stds_register": {
+   "columns": [
+    ["id", "VARCHAR", true, 1],
+    ["registered_stds", "VARCHAR", false, 0]
+   ],
+   "foreign_keys": []
+  }
+ },
+ "views": {
+  "raster3d_view_abs_time": ["id", "mapset", "name", "temporal_type", "creation_time", "creator", "start_time", "end_time", "north", "south", "east", "west", "bottom", "top", "proj", "datatype", "cols", "rows", "depths", "nsres", "ewres", "tbres", "min", "max", "number_of_cells", "registered_stds"],
+  "raster3d_view_rel_time": ["id", "mapset", "name", "temporal_type", "creation_time", "creator", "start_time", "end_time", "unit", "north", "south", "east", "west", "bottom", "top", "proj", "datatype", "cols", "rows", "depths", "nsres", "ewres", "tbres", "min", "max", "number_of_cells", "registered_stds"],
+  "raster_view_abs_time": ["id", "mapset", "name", "temporal_type", "creation_time", "creator", "start_time", "end_time", "north", "south", "east", "west", "bottom", "top", "proj", "datatype", "cols", "rows", "nsres", "ewres", "min", "max", "number_of_cells", "semantic_label", "registered_stds"],
+  "raster_view_rel_time": ["id", "mapset", "name", "temporal_type", "creation_time", "creator", "start_time", "end_time", "unit", "north", "south", "east", "west", "bottom", "top", "proj", "datatype", "cols", "rows", "nsres", "ewres", "min", "max", "number_of_cells", "semantic_label", "registered_stds"],
+  "str3ds_view_abs_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "raster3d_register", "number_of_maps", "nsres_min", "ewres_min", "nsres_max", "ewres_max", "tbres_min", "tbres_max", "min_min", "min_max", "max_min", "max_max", "aggregation_type", "title", "description", "command"],
+  "str3ds_view_rel_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "unit", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "raster3d_register", "number_of_maps", "nsres_min", "ewres_min", "nsres_max", "ewres_max", "tbres_min", "tbres_max", "min_min", "min_max", "max_min", "max_max", "aggregation_type", "title", "description", "command"],
+  "strds_view_abs_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "raster_register", "number_of_maps", "nsres_min", "ewres_min", "nsres_max", "ewres_max", "min_min", "min_max", "max_min", "max_max", "aggregation_type", "title", "description", "command"],
+  "strds_view_rel_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "unit", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "raster_register", "number_of_maps", "nsres_min", "ewres_min", "nsres_max", "ewres_max", "min_min", "min_max", "max_min", "max_max", "aggregation_type", "title", "description", "command"],
+  "stvds_view_abs_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "vector_register", "number_of_maps", "title", "description", "command", "points", "lines", "boundaries", "centroids", "faces", "kernels", "primitives", "nodes", "areas", "islands", "holes", "volumes"],
+  "stvds_view_rel_time": ["id", "name", "mapset", "temporal_type", "semantic_type", "creation_time", "modification_time", "creator", "start_time", "end_time", "unit", "granularity", "north", "south", "east", "west", "bottom", "top", "proj", "vector_register", "number_of_maps", "title", "description", "command", "points", "lines", "boundaries", "centroids", "faces", "kernels", "primitives", "nodes", "areas", "islands", "holes", "volumes"],
+  "vector_view_abs_time": ["id", "mapset", "name", "layer", "temporal_type", "creation_time", "creator", "start_time", "end_time", "north", "south", "east", "west", "bottom", "top", "proj", "is_3d", "points", "lines", "boundaries", "centroids", "faces", "kernels", "primitives", "nodes", "areas", "islands", "holes", "volumes", "registered_stds"],
+  "vector_view_rel_time": ["id", "mapset", "name", "layer", "temporal_type", "creation_time", "creator", "start_time", "end_time", "unit", "north", "south", "east", "west", "bottom", "top", "proj", "is_3d", "points", "lines", "boundaries", "centroids", "faces", "kernels", "primitives", "nodes", "areas", "islands", "holes", "volumes", "registered_stds"]
+ },
+ "triggers": {
+  "delete_raster3d_base": "raster3d_base",
+  "delete_raster_base": "raster_base",
+  "delete_str3ds_base": "str3ds_base",
+  "delete_strds_base": "strds_base",
+  "delete_stvds_base": "stvds_base",
+  "delete_vector_base": "vector_base"
+ },
+ "indexes": {
+  "raster3d_absolute_time_index": {
+   "table": "raster3d_absolute_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_base_index": {
+   "table": "raster3d_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_map_register_a23c49112437343c579b24577ebb8e11_index": {
+   "table": "raster3d_map_register_a23c49112437343c579b24577ebb8e11",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_metadata_index": {
+   "table": "raster3d_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_relative_time_index": {
+   "table": "raster3d_relative_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_spatial_extent_index": {
+   "table": "raster3d_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_spatial_extent_index_bbox": {
+   "table": "raster3d_spatial_extent",
+   "columns": ["id", "north", "south", "east", "west", "top", "bottom"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster3d_stds_register_index": {
+   "table": "raster3d_stds_register",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_absolute_time_index": {
+   "table": "raster_absolute_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_base_index": {
+   "table": "raster_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c_index": {
+   "table": "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_metadata_index": {
+   "table": "raster_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_metadata_index_semantic_label": {
+   "table": "raster_metadata",
+   "columns": ["id", "semantic_label"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_relative_time_index": {
+   "table": "raster_relative_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_spatial_extent_index": {
+   "table": "raster_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_spatial_extent_index_bbox": {
+   "table": "raster_spatial_extent",
+   "columns": ["id", "north", "south", "east", "west"],
+   "unique": false,
+   "origin": "c"
+  },
+  "raster_stds_register_index": {
+   "table": "raster_stds_register",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "sqlite_autoindex_raster3d_absolute_time_1": {
+   "table": "raster3d_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_base_1": {
+   "table": "raster3d_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_map_register_a23c49112437343c579b24577ebb8e11_1": {
+   "table": "raster3d_map_register_a23c49112437343c579b24577ebb8e11",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_metadata_1": {
+   "table": "raster3d_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_relative_time_1": {
+   "table": "raster3d_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_spatial_extent_1": {
+   "table": "raster3d_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster3d_stds_register_1": {
+   "table": "raster3d_stds_register",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_absolute_time_1": {
+   "table": "raster_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_base_1": {
+   "table": "raster_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c_1": {
+   "table": "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_metadata_1": {
+   "table": "raster_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_relative_time_1": {
+   "table": "raster_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_spatial_extent_1": {
+   "table": "raster_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_raster_stds_register_1": {
+   "table": "raster_stds_register",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_str3ds_absolute_time_1": {
+   "table": "str3ds_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_str3ds_base_1": {
+   "table": "str3ds_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_str3ds_metadata_1": {
+   "table": "str3ds_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_str3ds_relative_time_1": {
+   "table": "str3ds_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_str3ds_spatial_extent_1": {
+   "table": "str3ds_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_strds_absolute_time_1": {
+   "table": "strds_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_strds_base_1": {
+   "table": "strds_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_strds_metadata_1": {
+   "table": "strds_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_strds_relative_time_1": {
+   "table": "strds_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_strds_spatial_extent_1": {
+   "table": "strds_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_stvds_absolute_time_1": {
+   "table": "stvds_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_stvds_base_1": {
+   "table": "stvds_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_stvds_metadata_1": {
+   "table": "stvds_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_stvds_relative_time_1": {
+   "table": "stvds_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_stvds_spatial_extent_1": {
+   "table": "stvds_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_absolute_time_1": {
+   "table": "vector_absolute_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_base_1": {
+   "table": "vector_base",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_map_register_1cb921a2deeaf234fe439866ee839fa1_1": {
+   "table": "vector_map_register_1cb921a2deeaf234fe439866ee839fa1",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_metadata_1": {
+   "table": "vector_metadata",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_relative_time_1": {
+   "table": "vector_relative_time",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_spatial_extent_1": {
+   "table": "vector_spatial_extent",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "sqlite_autoindex_vector_stds_register_1": {
+   "table": "vector_stds_register",
+   "columns": ["id"],
+   "unique": true,
+   "origin": "pk"
+  },
+  "str3ds_absolute_time_index": {
+   "table": "str3ds_absolute_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "str3ds_base_index": {
+   "table": "str3ds_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "str3ds_metadata_index": {
+   "table": "str3ds_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "str3ds_relative_time_index": {
+   "table": "str3ds_relative_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "str3ds_spatial_extent_index": {
+   "table": "str3ds_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "strds_absolute_time_index": {
+   "table": "strds_absolute_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "strds_base_index": {
+   "table": "strds_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "strds_metadata_index": {
+   "table": "strds_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "strds_relative_time_index": {
+   "table": "strds_relative_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "strds_spatial_extent_index": {
+   "table": "strds_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "stvds_absolute_time_index": {
+   "table": "stvds_absolute_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "stvds_base_index": {
+   "table": "stvds_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "stvds_metadata_index": {
+   "table": "stvds_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "stvds_relative_time_index": {
+   "table": "stvds_relative_time",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "stvds_spatial_extent_index": {
+   "table": "stvds_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_absolute_time_index": {
+   "table": "vector_absolute_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_base_index": {
+   "table": "vector_base",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_map_register_1cb921a2deeaf234fe439866ee839fa1_index": {
+   "table": "vector_map_register_1cb921a2deeaf234fe439866ee839fa1",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_metadata_index": {
+   "table": "vector_metadata",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_relative_time_index": {
+   "table": "vector_relative_time",
+   "columns": ["id", "start_time", "end_time"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_spatial_extent_index": {
+   "table": "vector_spatial_extent",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_spatial_extent_index_bbox": {
+   "table": "vector_spatial_extent",
+   "columns": ["id", "north", "south", "east", "west", "top", "bottom"],
+   "unique": false,
+   "origin": "c"
+  },
+  "vector_stds_register_index": {
+   "table": "vector_stds_register",
+   "columns": ["id"],
+   "unique": false,
+   "origin": "c"
+  }
+ }
+}

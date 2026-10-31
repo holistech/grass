@@ -9,8 +9,9 @@
 between runs (times, user and register table names replaced by fixed values).
 ``read_cases`` lists what the library prints and returns when it reads that
 image back, in the form that ``grass.temporal.testing.recordings`` records and
-compares. The image is proof, not a test oracle: it holds what the code wrote
-on the day it was recorded.
+compares. ``structure_of`` gives the tables, views, triggers and indexes of a
+database without the text of their statements. The image is proof, not a test
+oracle: it holds what the code wrote on the day it was recorded.
 
 To record again (only with the permission of the maintainer, after a fix of a
 bug that changes a result, never to make a refactor pass), run outside a
@@ -18,8 +19,8 @@ GRASS session with the GRASS tools in PATH::
 
     python3 -m grass.temporal.testing.database_image image <directory>
 
-This writes ``database_write.sql`` and ``database_read.json.gz`` to the
-directory. The module does not import pytest.
+This writes ``database_write.sql``, ``database_read.json.gz`` and
+``database_structure.json`` to the directory. The module does not import pytest.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import io
+import json
 import re
 import sqlite3
 import sys
@@ -215,6 +217,25 @@ def _register_owners(connection: sqlite3.Connection, names: list[str]) -> dict:
     return owners
 
 
+def _register_names(connection: sqlite3.Connection, names: list[str]):
+    """Return a function that names each register table in a text by its owner
+
+    The 32 hex digits of the name become the digest of the id of the dataset
+    that owns the table, so the text does not depend on the order in which
+    the datasets were made.
+    """
+    owners = _register_owners(connection, names)
+
+    def register_name(match):
+        table = match.group(0)
+        if table not in owners:
+            msg = f"Register table {table} has no owner"
+            raise ValueError(msg)
+        return table[: -len("0" * 32)] + owners[table]
+
+    return lambda text: _REGISTER_TABLE.sub(register_name, text)
+
+
 def _normalized_value(name, column, row, value, clean):
     """Return the value of a column of table ``name`` without run-specific parts"""
     if column in {"creation_time", "modification_time"}:
@@ -251,17 +272,10 @@ def normalized_dump(path: Path) -> str:
                 " AND name NOT LIKE 'sqlite_%'"
             )
         ]
-        owners = _register_owners(connection, names)
-
-        def register_name(match):
-            table = match.group(0)
-            if table not in owners:
-                msg = f"Register table {table} has no owner"
-                raise ValueError(msg)
-            return table[: -len("0" * 32)] + owners[table]
+        register_names = _register_names(connection, names)
 
         def clean(text: str) -> str:
-            text = _REGISTER_TABLE.sub(register_name, text)
+            text = register_names(text)
             text = _COMMAND_TIME.sub("# TIME ", text)
             return _TEMPORARY_DIRECTORY.sub("TMPDIR/", text)
 
@@ -295,6 +309,103 @@ def normalized_dump(path: Path) -> str:
     finally:
         connection.close()
     return "\n".join(lines) + "\n"
+
+
+def structure_scenario(tools) -> None:
+    """Give a new temporal database one dataset of each type with one map
+
+    Registering a map creates the register table of the dataset, so the
+    database then holds every kind of table, view, trigger and index that the
+    library creates.
+    """
+    data.small_region(tools, 1, 1, depths=1)
+    for stds_type in MAP_TYPE_OF_STDS:
+        data.create_stds(
+            tools,
+            stds_type,
+            f"new_{stds_type}",
+            [data.MapSpec(f"{stds_type}_map", 1, data.day(0), data.day(1))],
+        )
+
+
+def structure_of(path: Path) -> dict:
+    """Return the structure of the SQLite temporal database at path
+
+    Tables with their columns (name, type, NOT NULL, position in the primary
+    key) and foreign keys, views with their columns, triggers with their
+    table, indexes with their table, columns, uniqueness and origin ("c" for
+    CREATE INDEX, "pk" for the one SQLite makes for a primary key). The text
+    of the statements is left out: a comment or the layout inside a CREATE
+    statement is stored with it but is not structure. Register tables are
+    named as in normalized_dump(). Lists only, so the result equals itself
+    after a JSON round trip.
+    """
+    connection = sqlite3.connect(path)
+    try:
+        rows = connection.execute(
+            "SELECT type, name, tbl_name FROM sqlite_master"
+            " WHERE type IN ('table', 'view', 'trigger')"
+            " AND name NOT LIKE 'sqlite_%'"
+        ).fetchall()
+        tables = [name for kind, name, _ in rows if kind == "table"]
+        clean = _register_names(connection, tables)
+
+        def pragma(name: str, of: str) -> list:
+            # The names come from sqlite_master of the database under test.
+            return connection.execute(f'PRAGMA {name}("{of}")').fetchall()
+
+        structure = {"tables": {}, "views": {}, "triggers": {}, "indexes": {}}
+        for kind, name, table in rows:
+            if kind == "table":
+                structure["tables"][clean(name)] = {
+                    "columns": [
+                        [column, column_type, bool(notnull), key]
+                        for _, column, column_type, notnull, _, key in pragma(
+                            "table_info", name
+                        )
+                    ],
+                    "foreign_keys": sorted(
+                        [clean(row[2]), row[3], row[4]]
+                        for row in pragma("foreign_key_list", name)
+                    ),
+                }
+                for _, index, unique, origin, _ in pragma("index_list", name):
+                    # SQLite writes the table name right after this prefix,
+                    # with no word boundary for _REGISTER_TABLE to match.
+                    prefix = "sqlite_autoindex_"
+                    shown = (
+                        prefix + clean(index.removeprefix(prefix))
+                        if index.startswith(prefix)
+                        else clean(index)
+                    )
+                    structure["indexes"][shown] = {
+                        "table": clean(name),
+                        "columns": [row[2] for row in pragma("index_info", index)],
+                        "unique": bool(unique),
+                        "origin": origin,
+                    }
+            elif kind == "view":
+                structure["views"][name] = [
+                    row[1] for row in pragma("table_info", name)
+                ]
+            else:
+                structure["triggers"][name] = clean(table)
+    finally:
+        connection.close()
+    return {key: dict(sorted(value.items())) for key, value in structure.items()}
+
+
+def structure_text(structure: dict) -> str:
+    """Return the structure as the JSON text of its recording
+
+    A list of plain values stays on one line, so a diff of two recordings
+    shows one column or index per line.
+    """
+    text = json.dumps(structure, indent=1)
+    return (
+        re.sub(r"\[[^\[\]{}]*\]", lambda match: json.dumps(json.loads(match[0])), text)
+        + "\n"
+    )
 
 
 def load_image(text: str, path: Path) -> None:
@@ -428,8 +539,9 @@ def record_database_image(directory: Path) -> None:
     """Run the scenario in a project of its own and record both images
 
     Writes database_write.sql, then loads it into a second project and writes
-    database_read.json.gz from there. Run it outside a GRASS session, with
-    the GRASS tools in PATH.
+    database_read.json.gz from there, then database_structure.json from the
+    structure scenario in a third project. Run it outside a GRASS session,
+    with the GRASS tools in PATH.
     """
     import grass.temporal as tgis
     from grass.temporal.testing.session import temporal_session
@@ -445,6 +557,12 @@ def record_database_image(directory: Path) -> None:
         with temporal_session(Path(work) / "read"):
             load_image(text, Path(tgis.get_tgis_database_string()))
             record("database_read", read_cases(), directory)
+        with temporal_session(Path(work) / "structure") as session:
+            structure_scenario(Tools(session=session, consistent_return_value=True))
+            structure = structure_of(Path(tgis.get_tgis_database_string()))
+        (directory / "database_structure.json").write_text(
+            structure_text(structure), encoding="utf-8"
+        )
 
 
 def main(argv: list[str]) -> int:

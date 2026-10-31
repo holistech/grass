@@ -35,5 +35,9 @@ def test_recordings_are_complete():
     """Every record is there and no stray file is left in the directory"""
     found = sorted(path.name for path in RECORDINGS.iterdir())
     expected = [f"{name}.json.gz" for name in recordings.RECORD_NAMES]
-    expected += ["database_read.json.gz", "database_write.sql"]
+    expected += [
+        "database_read.json.gz",
+        "database_structure.json",
+        "database_write.sql",
+    ]
     assert found == sorted(expected)
