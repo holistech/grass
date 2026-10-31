@@ -10,7 +10,7 @@ import sqlite3
 import psycopg2
 import pytest
 
-from grass.temporal.testing.data import MapSpec, create_stds, day
+from grass.temporal.testing.data import MapSpec, create_stds, day, make_map
 from grass.temporal.testing.postgresql import rows_of
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
@@ -377,3 +377,66 @@ def test_version_2_with_data_is_upgraded_on_both_backends(either_backend):
             assert sorted((row[:-1] for row in after[name]), key=repr) == rows
         else:
             assert after[name] == rows
+
+
+def make_maps(tools, *, label=None):
+    """Create a1 without and a2 with the semantic label, return their names"""
+    for name, value in (("a1", 1), ("a2", 2)):
+        make_map(tools, "raster", name, value)
+    if label:
+        tools.r_support(map="a2", semantic_label=label)
+    return "a1,a2"
+
+
+def registered_ids(backend, dbstring, table):
+    return sorted(row[0] for row in fetch(backend, dbstring, f"SELECT id FROM {table}"))
+
+
+def test_registering_a_labelled_map_in_version_2_names_t_upgrade(either_backend):
+    backend, tools, session, dbstring = either_backend
+    maps = make_maps(tools, label="S2_1")
+    downgrade(backend, session, dbstring)
+    before = rows_of(backend, dbstring)
+
+    # Only the second map has a label, and no write may have happened before
+    # it is found.
+    with pytest.raises(ToolError) as raised:
+        tools.t_register(
+            input="series",
+            maps=maps,
+            start="2001-01-03",
+            increment="1 day",
+        )
+
+    text = message(raised.value)
+    assert (
+        f"The temporal database <{dbstring}> has version 2, which cannot store "
+        "the semantic label of <a2@PERMANENT>. Run t.upgrade first."
+    ) in text
+    assert "Traceback" not in text
+    assert "no column named" not in text
+    assert registered_ids(backend, dbstring, "raster_base") == [
+        "map1@PERMANENT",
+        "map2@PERMANENT",
+    ]
+    assert registered_ids(backend, dbstring, "raster_metadata") == [
+        "map1@PERMANENT",
+        "map2@PERMANENT",
+    ]
+    assert [row.name for row in list_maps(tools, "strds", "series")] == ["map1", "map2"]
+    assert rows_of(backend, dbstring) == before
+
+
+def test_registering_maps_without_labels_works_in_version_2(either_backend):
+    backend, tools, session, dbstring = either_backend
+    make_maps(tools)
+    downgrade(backend, session, dbstring)
+
+    tools.t_register(
+        input="series", maps="a1,a2", start="2001-01-03", increment="1 day"
+    )
+
+    expected = ["a1@PERMANENT", "a2@PERMANENT", "map1@PERMANENT", "map2@PERMANENT"]
+    assert registered_ids(backend, dbstring, "raster_base") == expected
+    names = [row.name for row in list_maps(tools, "strds", "series")]
+    assert names == ["map1", "map2", "a1", "a2"]

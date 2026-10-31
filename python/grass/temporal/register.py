@@ -38,7 +38,12 @@ from .db import SQLDatabaseInterfaceConnection, connection
 from .factory import dataset_factory
 from .kinds import MAP_ALIASES, find_kind, stds_kind_of
 from .open_stds import open_old_stds
-from .state import get_current_mapset, get_tgis_message_interface
+from .schema import get_tgis_db_version_from_metadata, get_tgis_metadata
+from .state import (
+    get_current_mapset,
+    get_tgis_database_string,
+    get_tgis_message_interface,
+)
 
 # The names of the map types that dataset_factory() knows
 MAP_TYPES = MAP_ALIASES
@@ -486,6 +491,27 @@ def _check_zone_consistency(run, map_object):
         )
 
 
+def _check_label_fits_database(run, map_object, semantic_label):
+    """Refuse a semantic label when the database has no column for it
+
+    A database of version 2 is accepted for reading and for maps without a
+    label. The insert of a label would end in an SQL error about a missing
+    column, after other maps of the run were checked; this check names the
+    way out and stops before the first write.
+    """
+    if not semantic_label:
+        return
+    metadata = get_tgis_metadata(run.dbif)
+    if get_tgis_db_version_from_metadata(metadata) < 3:
+        get_tgis_message_interface().fatal(
+            _(
+                "The temporal database <{database}> has version 2, which "
+                "cannot store the semantic label of <{map}>. "
+                "Run t.upgrade first."
+            ).format(database=get_tgis_database_string(), map=map_object.get_id())
+        )
+
+
 def _validate_map(run, count, row):
     """Check one map and set its time; queue it for writing and registering
 
@@ -542,6 +568,13 @@ def _validate_map(run, count, row):
     # label is read from the GRASS database (only raster type supported).
     if not row.semantic_label:
         map_object.read_semantic_label_from_grass()
+    # Only raster maps carry a semantic label.
+    if map_object.get_type() == "raster":
+        _check_label_fits_database(
+            run,
+            map_object,
+            row.semantic_label or map_object.metadata.get_semantic_label(),
+        )
 
     _check_zone_consistency(run, map_object)
 
