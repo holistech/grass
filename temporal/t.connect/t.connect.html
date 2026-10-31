@@ -25,11 +25,15 @@ option requires both the <b>-p</b> flag and <b>format=json</b>; the
 <p>The <b>-g</b> flag is deprecated and will be removed in a future release.
 Please use <b>format=shell</b> option with the <b>-p</b> flag instead.
 
-<p>The <b>-c</b> flag will silently check if the temporal database connection
+<p>The <b>-c</b> flag will check if the temporal database connection
 parameters have been set, and if not will set them to use GRASS's
-default values.
+default values and report them. It prints nothing if the parameters
+are already set.
 
-<p>The <b>-d</b> flag will set the default TGIS connection parameters.
+<p>The <b>-d</b> flag will set the default TGIS connection parameters and
+report them.
+
+<p>The <b>-p</b> flag cannot be combined with <b>-c</b> or <b>-d</b>.
 
 <p>As in <a href="db.connect.html">db.connect</a>, an option that is not given
 is set to its default: a call with only <b>database</b> sets the driver to
