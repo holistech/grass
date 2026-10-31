@@ -167,25 +167,15 @@ def aggregate_raster_maps(
 
     # Run r.series
     try:
-        if len(inputs) > 1000:
-            gs.run_command(
-                "r.series",
-                nprocs=nprocs,
-                flags="z",
-                file=filename,
-                output=output,
-                overwrite=gs.overwrite(),
-                method=method,
-            )
-        else:
-            gs.run_command(
-                "r.series",
-                nprocs=nprocs,
-                file=filename,
-                output=output,
-                overwrite=gs.overwrite(),
-                method=method,
-            )
+        gs.run_command(
+            "r.series",
+            nprocs=nprocs,
+            flags="z" if len(inputs) > 1000 else "",
+            file=filename,
+            output=output,
+            overwrite=gs.overwrite(),
+            method=method,
+        )
 
     except CalledModuleError:
         msgr.fatal(_("Error occurred in r.series computation"))
