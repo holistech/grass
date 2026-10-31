@@ -553,7 +553,9 @@ def gather(
         "pairwise" pairs maps of equal time stamps one to one; without effect
         if space takes part in the relation
     :param nulls: "propagate" makes a cell null if a related cell is null,
-        "skip" passes over null cells
+        "skip" passes over null cells; a raster sum or mean that skips them
+        runs r.series, which reads the maps with -z and warns when they
+        would exceed the open files of the process
     :param space: the spatial extent of a result slot: that of the target
         ("keep"), the box around the target and its related slots
         ("union"), or their common box ("intersection"), which keeps the

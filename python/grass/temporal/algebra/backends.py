@@ -213,7 +213,9 @@ class RasterBackend:
     input=... of 131071 bytes ran and one of 131072 bytes failed with
     "Argument list too long" (measured 2026-10-30 with r.series
     input=name_2020_01_01@PERMANENT,... in grass --tmp-project XY), which is
-    about 5000 maps.
+    about 5000 maps. r.series keeps its maps open unless they would exceed
+    the open files of the process, see _series_map_limit(); then it reads
+    them with -z and a warning says so.
     """
 
     kind = "raster"
