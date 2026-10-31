@@ -961,8 +961,9 @@ class AbstractSpaceTimeDataset(AbstractDataset, metaclass=ABCMeta):
         separated string in the order of the map ids, so that position i of
         every column belongs to the same map. A NULL value is skipped and a
         group with only NULL values gives None. A row is read by column name
-        and by index, the group columns come first. The order option sorts
-        the groups; inside a group the values follow the map id.
+        and by index, the group columns come first. The groups follow the
+        group columns and the order option does not change the result; inside
+        a group the values follow the map id.
 
         The combination of the spatial_extent and spatial_relation parameters
         can be used to return only SQL rows of maps with the given spatial
