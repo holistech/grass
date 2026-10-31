@@ -28,6 +28,15 @@ NEWER_INDEXES = {
 }
 
 
+# The line of strds_views.sql that lists the count of the semantic labels.
+_LABEL_COUNT_LINE = "A4.number_of_semantic_labels,\n"
+
+
+def _version_2_view(view: str) -> str:
+    """The SQL of a view template without the columns that version 3 added"""
+    return view.replace("A4.semantic_label, ", "").replace(_LABEL_COUNT_LINE, "")
+
+
 def database_file(session) -> Path:
     """The sqlite file of the temporal database in the mapset of the session"""
     env = gs.gisenv(env=session.env)
@@ -72,7 +81,7 @@ def downgrade_to_version_2(session) -> None:
         )
         for name in VIEW_TEMPLATES:
             view = (templates / f"{name}_views.sql").read_text()
-            connection.executescript(view.replace("A4.semantic_label, ", ""))
+            connection.executescript(_version_2_view(view))
     set_version(database, 2)
 
 
@@ -106,9 +115,36 @@ def downgrade_postgresql_to_version_2(session, dbstring: str) -> None:
             )
             for name in VIEW_TEMPLATES:
                 view = (templates / f"{name}_views.sql").read_text()
-                cursor.execute(view.replace("A4.semantic_label, ", ""))
+                cursor.execute(_version_2_view(view))
             cursor.execute(
                 "UPDATE tgis_metadata SET value = '2' WHERE key = 'tgis_db_version'"
             )
+    finally:
+        connection.close()
+
+
+def use_older_strds_views(session, dbstring: str | None = None) -> None:
+    """Give a current database the strds views it had before t.upgrade
+
+    The views of the space time raster datasets got number_of_semantic_labels
+    without a new version of the database, so a database of version 3 made
+    before has views without that column. On SQLite the database is the one of
+    the session; on PostgreSQL it is dbstring.
+    """
+    view = (sql_files(session) / "strds_views.sql").read_text()
+    sql = (
+        "DROP VIEW strds_view_abs_time;\nDROP VIEW strds_view_rel_time;\n"
+        + view.replace(_LABEL_COUNT_LINE, "")
+    )
+    if dbstring is None:
+        with sqlite3.connect(database_file(session)) as connection:
+            connection.executescript(sql)
+        return
+    import psycopg2  # noqa: PLC0415
+
+    connection = psycopg2.connect(dbstring)
+    try:
+        with connection, connection.cursor() as cursor:
+            cursor.execute(sql)
     finally:
         connection.close()

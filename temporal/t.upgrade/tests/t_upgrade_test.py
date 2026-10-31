@@ -11,6 +11,7 @@ import psycopg2
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, make_map
+from grass.temporal.testing.database_image import structure_of
 from grass.temporal.testing.postgresql import rows_of
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.temporal.testing.session import project_session
@@ -20,6 +21,7 @@ from grass.temporal.testing.versions import (
     downgrade_postgresql_to_version_2,
     downgrade_to_version_2,
     set_version,
+    use_older_strds_views,
 )
 from grass.tools import ToolError, Tools
 
@@ -148,12 +150,13 @@ def stored_version(backend, dbstring):
 
 def test_current_database_is_left_alone(project):
     tools, _, database = project
-    before = dump(database)
+    before = structure_of(database)
 
     result = tools.t_upgrade()
 
-    assert "Temporal database is up-to-date. Operation canceled" in message(result)
-    assert dump(database) == before
+    assert "up-to-date" in message(result)
+    assert "created anew" in message(result)
+    assert structure_of(database) == before
     assert version_of(database) == CURRENT_VERSION
 
 
@@ -469,3 +472,91 @@ def test_registering_maps_without_labels_works_in_version_2(either_backend):
     assert registered_ids(backend, dbstring, "raster_base") == expected
     names = [row.name for row in list_maps(tools, "strds", "series")]
     assert names == ["map1", "map2", "a1", "a2"]
+
+
+def view_columns(backend, dbstring):
+    """The columns of every view, in their order, by view"""
+    if backend == "sqlite":
+        statement = (
+            "SELECT m.name, p.name FROM sqlite_master m, pragma_table_info(m.name) p"
+            " WHERE m.type = 'view' ORDER BY m.name, p.cid"
+        )
+    else:
+        statement = (
+            "SELECT c.table_name, c.column_name FROM information_schema.columns c"
+            " JOIN information_schema.views v ON v.table_schema = c.table_schema"
+            " AND v.table_name = c.table_name WHERE c.table_schema = 'public'"
+            " ORDER BY c.table_name, c.ordinal_position"
+        )
+    columns = {}
+    for view, column in fetch(backend, dbstring, statement):
+        columns.setdefault(view, []).append(column)
+    return columns
+
+
+def all_indexes(backend, dbstring):
+    if backend == "sqlite":
+        statement = "SELECT name, sql FROM sqlite_master WHERE type = 'index'"
+    else:
+        statement = (
+            "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public'"
+        )
+    return sorted(fetch(backend, dbstring, statement), key=repr)
+
+
+def test_t_upgrade_creates_the_views_of_a_current_database_anew(either_backend):
+    backend, tools, session, dbstring = either_backend
+    current = view_columns(backend, dbstring)
+    assert "number_of_semantic_labels" in current["strds_view_abs_time"]
+    use_older_strds_views(session, None if backend == "sqlite" else dbstring)
+    assert (
+        "number_of_semantic_labels"
+        not in view_columns(backend, dbstring)["strds_view_rel_time"]
+    )
+
+    result = tools.t_upgrade()
+
+    assert (
+        f"Temporal database <{dbstring}> is up-to-date; its views were created anew."
+    ) in message(result)
+    assert view_columns(backend, dbstring) == current
+    first = (rows_of(backend, dbstring), all_indexes(backend, dbstring))
+
+    tools.t_upgrade()
+
+    assert view_columns(backend, dbstring) == current
+    assert (rows_of(backend, dbstring), all_indexes(backend, dbstring)) == first
+    assert stored_version(backend, dbstring) == CURRENT_VERSION
+
+
+@pytest.mark.slow
+def test_an_old_database_keeps_working_until_t_upgrade(project):
+    # A database of version 3 made before: its strds views lack the count of
+    # the semantic labels, and it has indexes on the id alone.
+    tools, session, database = project
+    use_older_strds_views(session)
+    (register,) = query(database, "SELECT raster_register FROM strds_metadata")[0]
+    old_indexes = {"strds_base_index", f"{register}_index"}
+    query(database, "CREATE INDEX strds_base_index ON strds_base (id)")
+    query(database, f"CREATE INDEX {register}_index ON {register} (id)")
+    make_map(tools, "raster", "map3", 3)
+
+    tools.t_register(input="series", maps="map3", start="2001-01-03", end="2001-01-04")
+
+    assert [row.name for row in list_maps(tools, "strds", "series")] == [
+        "map1",
+        "map2",
+        "map3",
+    ]
+    assert stds_info(tools, "strds", "series")["number_of_maps"] == 3
+    assert tools.t_list(type="strds", columns="name").stdout == "series\n"
+    (row,) = tools.t_list(type="strds", format="json").json
+    assert row["number_of_maps"] == 3
+    assert "number_of_semantic_labels" not in row
+
+    result = tools.t_upgrade()
+
+    assert "created anew" in message(result)
+    (row,) = tools.t_list(type="strds", format="json").json
+    assert row["number_of_semantic_labels"] == 0
+    assert indexes(database) >= old_indexes

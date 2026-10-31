@@ -41,6 +41,11 @@ from .topology import _has_start
 #: no such columns.
 _DELTA_ONLY_COLUMNS = ("interval_length", "distance_from_begin")
 
+#: Columns that the views of a dataset type gained without a new version of
+#: the database: the views of an older database lack them until t.upgrade
+#: creates the views anew.
+_COLUMNS_ADDED_TO_VIEWS = {"strds": ("number_of_semantic_labels",)}
+
 
 def message_option_value_excludes_option_value(
     option_name, option_value, excluded_option_name, excluded_option_value, reason
@@ -299,54 +304,56 @@ def _view_name(dataset_type, temporal_type):
     return f"{prefix}_view_{suffix}"
 
 
-def _common_columns(dbif, stds_type, ttype, mapset):
-    """Return the columns that the views of all the dataset types have
-
-    The schema is read from the view of each type in the database of the mapset.
-    """
-    type_schemas = []
-    for dtype in stds_type:
-        sql = sql_statement(
-            "SELECT * FROM {view} WHERE 0=1", view=_view_name(dtype, ttype)
-        )
-        dbif.execute(sql, mapset=mapset)
-        type_schemas.append([d[0] for d in dbif.connections[mapset].cursor.description])
-    return [
-        col
-        for col in type_schemas[0]
-        if all(col in schema for schema in type_schemas[1:])
-    ]
+def _view_columns(dbif, dataset_type, temporal_type, mapset):
+    """Return the columns of the view of a type in the database of the mapset"""
+    sql = sql_statement(
+        "SELECT * FROM {view} WHERE 0=1", view=_view_name(dataset_type, temporal_type)
+    )
+    dbif.execute(sql, mapset=mapset)
+    return [d[0] for d in dbif.connections[mapset].cursor.description]
 
 
-def _requested_columns(columns, common_columns, stds_type):
+def _requested_columns(dbif, columns, schemas, stds_type):
     """Return the columns to read: the requested ones or all the common ones
 
     Stops with a message for a requested column that the types do not share.
     """
+    views = [view for mapset_views in schemas.values() for view in mapset_views]
+    common_columns = [col for col in views[0] if all(col in view for view in views)]
     if not columns or columns.find("all") != -1:
         return common_columns
     msgr = get_tgis_message_interface()
     requested_columns = [col.strip() for col in columns.split(",") if col != "type"]
     valid = set(common_columns)
     for col in requested_columns:
-        if col not in valid:
-            if len(stds_type) == 1:
-                msgr.fatal(
-                    _("Column '%s' is not available for the requested dataset type")
-                    % col
-                )
-            else:
-                msgr.fatal(
-                    _(
-                        "Column '%s' is not available for the requested combination"
-                        " of dataset types"
+        if col in valid:
+            continue
+        if all(col in _COLUMNS_ADDED_TO_VIEWS.get(dtype, ()) for dtype in stds_type):
+            for mapset, mapset_views in schemas.items():
+                if any(col not in view for view in mapset_views):
+                    msgr.fatal(
+                        _(
+                            "Column <{column}> is missing from the views of the"
+                            " temporal database <{database}>. Run t.upgrade to"
+                            " create the views anew."
+                        ).format(column=col, database=dbif.tgis_mapsets[mapset][1])
                     )
-                    % col
+        if len(stds_type) == 1:
+            msgr.fatal(
+                _("Column '%s' is not available for the requested dataset type") % col
+            )
+        else:
+            msgr.fatal(
+                _(
+                    "Column '%s' is not available for the requested combination"
+                    " of dataset types"
                 )
+                % col
+            )
     return requested_columns
 
 
-def listed_columns(dbif, type, temporal_type, columns, mapset):
+def listed_columns(dbif, type, temporal_type, columns, mapsets):
     """Return the database columns that get_dataset_list() reads for columns
 
     The requested columns without blanks and in their order, or all the
@@ -361,8 +368,15 @@ def listed_columns(dbif, type, temporal_type, columns, mapset):
     :return: The list of the column names
     """
     stds_type = [type] if isinstance(type, str) else type
-    common_columns = _common_columns(dbif, stds_type, temporal_type, mapset)
-    return _requested_columns(columns, common_columns, stds_type)
+    if isinstance(mapsets, str):
+        mapsets = [mapsets]
+    schemas = {
+        mapset: [
+            _view_columns(dbif, dtype, temporal_type, mapset) for dtype in stds_type
+        ]
+        for mapset in mapsets
+    }
+    return _requested_columns(dbif, columns, schemas, stds_type)
 
 
 def get_dataset_list(
@@ -446,14 +460,13 @@ def get_dataset_list(
         result = {}
 
         for ttype in temporal_type:
-            mapset_for_schema = (
-                list(dbif.tgis_mapsets.keys())[0] if dbif.tgis_mapsets else None
-            )
-            if not mapset_for_schema:
+            if not dbif.tgis_mapsets:
                 continue
 
+            # From the views of every mapset: an older database in the search
+            # path may lack a column that the views of a newer one have.
             final_columns = listed_columns(
-                dbif, stds_type, ttype, columns, mapset_for_schema
+                dbif, stds_type, ttype, columns, list(dbif.tgis_mapsets)
             )
 
             if not final_columns:

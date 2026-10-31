@@ -254,7 +254,6 @@
  "Starting spatio-temporal sampling...",
  "Starting temporal sampling...",
  "Temporal database connection for mapset <%s> defined as:\n %s\nBut database file does not exist.",
- "Temporal database is up-to-date. Operation canceled",
  "Temporal database version mismatch detected.\n{backup}Supported temporal database version is: {tdb}\nYour existing temporal database version: {ctdb}\nCurrent temporal database info: {info}",
  "Temporal function {func}() is not available for map <{map}>. It requires absolute time, end time functions also an end time.",
  "Temporal type of input strds and lower strds must be equal",

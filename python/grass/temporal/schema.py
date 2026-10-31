@@ -223,16 +223,25 @@ def upgrade_temporal_database(dbif) -> None:
     metadata = get_tgis_metadata(dbif)
 
     msgr = get_tgis_message_interface()
+    template_path = Path(get_sql_template_path())
+    drop_views_sql = (template_path / "drop_views.sql").read_text()
     upgrade_db_from = metadata_value(metadata, "tgis_db_version")
     if upgrade_db_from == str(get_tgis_db_version()):
         upgrade_db_from = None
 
     if upgrade_db_from is None:
-        msgr.message(_("Temporal database is up-to-date. Operation canceled"))
+        # A view can gain a column without a new version of the database, so
+        # a database of the current version gets the views of today.
+        _run_upgrade(dbif, f"{drop_views_sql}\n{_views_sql()}")
+        msgr.message(
+            _(
+                "Temporal database <{database}> is up-to-date; its views were"
+                " created anew."
+            ).format(database=STATE.database_string)
+        )
         dbif.close()
         return
 
-    template_path = Path(get_sql_template_path())
     try:
         upgrade_db_sql = (
             template_path
@@ -243,8 +252,6 @@ def upgrade_temporal_database(dbif) -> None:
             _("Unsupported TGIS DB upgrade scenario: from version %s to %s")
             % (upgrade_db_from, get_tgis_db_version())
         )
-
-    drop_views_sql = (template_path / "drop_views.sql").read_text()
 
     msgr.message(
         _("Upgrading temporal database <%s> from version %s to %s...")

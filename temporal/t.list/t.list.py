@@ -57,7 +57,7 @@
 # % guisection: Selection
 # % required: no
 # % multiple: yes
-# % options: id,name,type,semantic_type,semantic_label,creator,mapset,number_of_maps,creation_time,start_time,end_time,north,south,west,east,granularity,all
+# % options: id,name,type,semantic_type,semantic_label,creator,mapset,number_of_maps,number_of_semantic_labels,creation_time,start_time,end_time,north,south,west,east,granularity,all
 # % answer:
 # %end
 
@@ -211,14 +211,14 @@ def header_names(dbif, stds_type, temporal_type, columns_for_db):
     database columns of get_dataset_list() and type last when it is listed
     per row.
     """
-    # Like get_dataset_list(), which takes the columns from the first mapset
-    # and uses the same columns for every temporal type.
+    # Like get_dataset_list(), which takes the columns from the views of all
+    # mapsets and uses the same columns for every temporal type.
     names = tgis.list_stds.listed_columns(
         dbif,
         stds_type,
         temporal_type.split(",")[0],
         columns_for_db,
-        next(iter(dbif.tgis_mapsets)),
+        list(dbif.tgis_mapsets),
     )
     return names if isinstance(stds_type, str) else [*names, "type"]
 

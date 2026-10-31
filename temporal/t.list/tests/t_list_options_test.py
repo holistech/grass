@@ -8,9 +8,11 @@ import json
 
 import pytest
 
-from grass.temporal.testing.data import create_daily_stds
+from grass.temporal.testing.data import MapSpec, create_daily_stds, create_stds, day
 from grass.temporal.testing.readback import message
-from grass.tools import ToolError
+from grass.temporal.testing.session import mapset_session, project_session
+from grass.temporal.testing.versions import database_file, use_older_strds_views
+from grass.tools import ToolError, Tools
 
 # Most tests make maps and datasets with tools, which takes more than a second
 # (measured 18.10.2026 with a serial pytest --durations=0).
@@ -490,3 +492,49 @@ def test_the_header_without_matches_is_that_of_a_listing_with_rows(
     # header does the same. A blank after a comma never reaches it, because
     # the parser refuses it.
     assert without_rows.stdout == with_rows.stdout.splitlines()[0] + "\n"
+
+
+def _tools(session):
+    return Tools(session=session, consistent_return_value=True, capture_stderr=True)
+
+
+def test_a_column_missing_from_an_old_view_names_t_upgrade(tmp_path):
+    # A database made before the strds views listed the count of the semantic
+    # labels has views without it until t.upgrade creates them anew.
+    with project_session(tmp_path / "project") as session:
+        tools = _tools(session)
+        create_stds(tools, "strds", "series", [MapSpec("map1", 1, day(0), day(1))])
+        use_older_strds_views(session)
+
+        with pytest.raises(ToolError) as raised:
+            tools.t_list(type="strds", columns="name,number_of_semantic_labels")
+
+        text = message(raised.value)
+        assert (
+            "Column <number_of_semantic_labels> is missing from the views of the"
+            f" temporal database <{database_file(session)}>. Run t.upgrade to"
+            " create the views anew."
+        ) in text
+        assert "Traceback" not in text
+        assert tools.t_list(type="strds", columns="name").stdout == "series\n"
+
+
+def test_all_columns_are_those_that_the_views_of_every_mapset_have(tmp_path):
+    with (
+        project_session(tmp_path / "project", mapset="work") as work,
+        mapset_session(work, "other") as other,
+    ):
+        work_tools, other_tools = _tools(work), _tools(other)
+        create_stds(other_tools, "strds", "old", [MapSpec("o1", 1, day(0), day(1))])
+        use_older_strds_views(other)
+        create_stds(work_tools, "strds", "new", [MapSpec("n1", 1, day(0), day(1))])
+        work_tools.g_mapsets(operation="add", mapset="other")
+
+        rows = work_tools.t_list(type="strds", format="json").json
+
+        assert sorted(row["id"] for row in rows) == ["new@work", "old@other"]
+        assert all("number_of_semantic_labels" not in row for row in rows)
+        assert all("number_of_maps" in row for row in rows)
+        with pytest.raises(ToolError) as raised:
+            work_tools.t_list(type="strds", columns="name,number_of_semantic_labels")
+        assert f"temporal database <{database_file(other)}>" in message(raised.value)
