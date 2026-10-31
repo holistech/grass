@@ -151,10 +151,11 @@ def _quote(name, quote_names=True):
     return f'"{name}"'
 
 
-# Files r.series holds besides the maps: the list of names, the output map and
-# its libraries. The measurement in _series_map_limit() leaves at most 6 of
-# them with one thread and 16 with 24 threads; 64 leaves room for what was
-# not measured.
+# Files r.series holds besides the maps: the standard streams, the list of
+# names and the output map. They were 6 with one thread and with 24 (measured
+# 2026-10-31 in grass --tmp-project XY with r.series file=... method=sum over
+# 21 maps of 2x2 cells: nprocs=1 ran at ulimit -n 48 and failed at 46,
+# nprocs=24 ran at 1014 and failed at 1012); 64 leaves a margin.
 _SERIES_SPARE_FILES = 64
 
 
@@ -386,7 +387,7 @@ class RasterBackend:
                     parameters = {"output": name, "method": node.method}
                     if len(inputs) > node.file_limit:
                         # r.series opens every input at once unless -z makes
-                        # it read them cell by cell; the limit is file_limit.
+                        # it reopen them for each row; the limit is file_limit.
                         parameters["flags"] = "z"
                     calls.append(
                         ModuleCall("r.series", parameters, inputs=tuple(inputs))
