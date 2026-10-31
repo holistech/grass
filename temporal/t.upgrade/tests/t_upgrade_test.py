@@ -7,7 +7,6 @@ change the database.
 
 import sqlite3
 
-import psycopg2
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day, make_map
@@ -92,6 +91,9 @@ def fetch(backend, dbstring, statement):
     """Run a statement on either backend and return its rows"""
     if backend == "sqlite":
         return query(dbstring, statement)
+    # Imported here, so that the SQLite tests run without psycopg2.
+    import psycopg2  # noqa: PLC0415
+
     connection = psycopg2.connect(dbstring)
     try:
         with connection, connection.cursor() as cursor:
