@@ -31,7 +31,8 @@ are already set.
 
 The **-d** flag will set the default TGIS connection parameters and report them.
 
-The **-p** flag cannot be combined with **-c** or **-d**.
+The **-p** flag and the deprecated **-g** flag cannot be combined with **-c**
+or **-d**.
 
 As in [db.connect](db.connect.md), an option that is not given is set to its
 default: a call with only **database** sets the driver to `sqlite`, a call
