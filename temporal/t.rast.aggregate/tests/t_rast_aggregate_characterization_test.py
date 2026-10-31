@@ -42,10 +42,12 @@ TWO_MAP_METHODS = {
     "slope": (2.0, "DCELL"),
     "offset": (1.0, "DCELL"),
     "detcoeff": (1.0, "DCELL"),
-    # 1 + 0.25 * 2, 1 + 0.75 * 2 and 1 + 0.9 * 2.
+    # 1 + 0.25 * 2, 1 + 0.75 * 2 and 1 + 0.9 * 2. The interpolation in C
+    # gives the double next to 2.8 for the last (measured 31.10.2026 as the
+    # stored minimum of the result), and the database keeps the value in full.
     "quart1": (1.5, "DCELL"),
     "quart3": (2.5, "DCELL"),
-    "perc90": (2.8, "DCELL"),
+    "perc90": (2.8000000000000003, "DCELL"),
     # t.rast.aggregate has no quantile option, so r.series uses quantile 0
     # (raster/r.series/main.c) and c_quant (lib/stats/c_percentile.c) returns
     # the smallest value.
