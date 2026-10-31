@@ -4,9 +4,11 @@ The tests marked postgresql need the server named by
 GRASS_TEMPORAL_TEST_POSTGRESQL and are skipped without one.
 """
 
+import contextlib
 import datetime
 import getpass
 import re
+import sqlite3
 
 import pytest
 
@@ -117,7 +119,13 @@ def test_rows_of_a_sqlite_database_mask_times_and_users(tmp_path):
         tools.t_register(
             type="raster", input="kept_ds", maps="kept", start="2001-01-01"
         )
-        rows = postgresql.rows_of("sqlite", tgis.get_tgis_database_string())
+        database = tgis.get_tgis_database_string()
+        rows = postgresql.rows_of("sqlite", database)
+        with contextlib.closing(sqlite3.connect(database)) as connection:
+            view_columns = [
+                row[1]
+                for row in connection.execute("PRAGMA table_info(vector_view_abs_time)")
+            ]
 
     assert [row for row in rows["strds_base"] if row[0].startswith("scenario")] == []
     assert all("<masked>" in row for row in rows["strds_base"])
@@ -133,9 +141,10 @@ def test_rows_of_a_sqlite_database_mask_times_and_users(tmp_path):
         isinstance(value, bool) for row in rows["vector_metadata"] for value in row
     )
     assert not [name for name in rows if "_map_register_" in name]
-    # SQLite stores a truth value as 0 or 1; a view has no type of its own
-    assert any(
-        isinstance(value, bool)
-        for row in rows["VIEW vector_view_abs_time"]
-        for value in row
+    # SQLite stores a truth value as 0 or 1; the view reports the declared
+    # type of the column it selects, which makes it a bool there as well
+    is_3d = view_columns.index("is_3d")
+    assert rows["VIEW vector_view_abs_time"]
+    assert all(
+        isinstance(row[is_3d], bool) for row in rows["VIEW vector_view_abs_time"]
     )
