@@ -245,7 +245,8 @@ class Cursor:
 
     def mogrify(self, *a):
         self.log.append(("cursor.mogrify", *a))
-        return "MOGRIFIED"
+        # psycopg2 returns bytes in the client encoding of the connection
+        return b"MOGRIFIED"
 
     def fetchone(self):
         self.log.append(("cursor.fetchone",))
@@ -260,6 +261,8 @@ class Cursor:
 
 
 class Connection:
+    encoding = "UTF8"
+
     def __init__(self, log):
         self.log = log
 
@@ -286,6 +289,7 @@ def fake_pg(log):
         __name__="psycopg2",
         connect=connect,
         extras=types.SimpleNamespace(DictCursor="DictCursor"),
+        extensions=types.SimpleNamespace(encodings={"UTF8": "utf_8"}),
         paramstyle="pyformat",
     )
 
@@ -594,6 +598,60 @@ def test_a_failing_mogrify_prints_nothing(capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == ""
+
+
+class BytesCursor(Cursor):
+    """Return mogrify() as bytes in the client encoding, as psycopg2 does
+
+    The client encoding is LATIN1, so that a decoding which ignores the
+    encoding of the connection and assumes UTF-8 fails on the umlaut.
+    """
+
+    def mogrify(self, *a):
+        super().mogrify(*a)
+        return "SELECT 'Grünland'".encode("iso8859_1")
+
+
+class BytesConnection(Connection):
+    encoding = "LATIN1"
+
+    def cursor(self, cursor_factory=None):
+        self.log.append(("connection.cursor", cursor_factory))
+        return BytesCursor(self.log)
+
+
+def fake_pg_returning_bytes(log):
+    def connect(dbstring):
+        log.append(("connect", dbstring))
+        return BytesConnection(log)
+
+    return types.SimpleNamespace(
+        __name__="psycopg2",
+        connect=connect,
+        extras=types.SimpleNamespace(DictCursor="DictCursor"),
+        extensions=types.SimpleNamespace(encodings={"LATIN1": "iso8859_1"}),
+        paramstyle="pyformat",
+    )
+
+
+@pytest.mark.parametrize("connected", [False, True])
+def test_mogrify_on_psycopg2_returns_text(connected):
+    """The statement comes back as str, decoded in the client encoding
+
+    Callers append it to other statements, which fails with bytes.
+    """
+    log = []
+    conn = db_module().DBConnection(backend="pg", dbstring="host=x dbname=y")
+    conn.dbmi = fake_pg_returning_bytes(log)
+    if connected:
+        conn.connect()
+
+    statement = conn.mogrify_sql_statement(["SELECT %s", ("Grünland",)])
+
+    assert statement == "SELECT 'Grünland'"
+    assert ("cursor.mogrify", "SELECT %s", ("Grünland",)) in log
+    assert conn.connected is connected
+    conn.close()
 
 
 @pytest.mark.parametrize(

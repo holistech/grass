@@ -184,6 +184,180 @@ def test_the_scenario_lets_the_caller_read_the_database_after_each_step(tmp_path
     assert labels == {"S2_1", "S2_2"}
 
 
+@contextlib.contextmanager
+def backend_session(path, backend, dbstring=None):
+    """Yield the tools of a session and the string of its temporal database
+
+    backend "postgresql" connects the mapset to the database dbstring and
+    creates the tables there; "sqlite" keeps the database of the mapset.
+    """
+    import grass.temporal as tgis
+
+    with temporal_session(path) as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        if backend == "postgresql":
+            tools.t_connect(driver="pg", database=dbstring)
+            tgis.init(raise_fatal_error=True)
+        yield tools, tgis.get_tgis_database_string()
+
+
+def structure_of(backend, dbstring):
+    """Return the columns of each table and view and the table of each trigger"""
+    if backend == "sqlite":
+        with contextlib.closing(sqlite3.connect(dbstring)) as connection:
+            objects = connection.execute(
+                "SELECT type, name, tbl_name FROM sqlite_master "
+                "WHERE type IN ('table', 'view', 'trigger')"
+            ).fetchall()
+            return {
+                f"{kind} {name}": (
+                    table
+                    if kind == "trigger"
+                    else [
+                        row[1]
+                        for row in connection.execute(f"PRAGMA table_info({name})")
+                    ]
+                )
+                for kind, name, table in objects
+            }
+    import psycopg2
+
+    with contextlib.closing(psycopg2.connect(dbstring)) as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT t.table_type, t.table_name, c.column_name "
+            "FROM information_schema.tables t JOIN information_schema.columns c "
+            "USING (table_schema, table_name) WHERE table_schema = 'public' "
+            "ORDER BY t.table_name, c.ordinal_position"
+        )
+        result = {}
+        for kind, name, column in cursor.fetchall():
+            key = f"{'view' if kind == 'VIEW' else 'table'} {name}"
+            result.setdefault(key, []).append(column)
+        # One row per event of a trigger; the temporal triggers have one each
+        cursor.execute(
+            "SELECT trigger_name, event_object_table FROM information_schema.triggers "
+            "WHERE trigger_schema = 'public'"
+        )
+        for name, table in cursor.fetchall():
+            result[f"trigger {name}"] = table
+        return result
+
+
+@pytest.mark.postgresql
+def test_a_fresh_database_has_the_tables_views_and_triggers_of_sqlite(
+    tmp_path, postgresql_database
+):
+    with backend_session(tmp_path / "sqlite", "sqlite") as (_, database):
+        expected = structure_of("sqlite", database)
+    with backend_session(
+        tmp_path / "postgresql", "postgresql", postgresql_database
+    ) as (_, database):
+        actual = structure_of("postgresql", database)
+
+    assert "trigger delete_raster_base" in expected
+    assert actual == expected
+
+
+def floats_as_sqlite_stores_them(stages):
+    """Return the rows with every float written with six decimals and read back
+
+    SQLite gets the values of an insert or update as text with six decimals,
+    PostgreSQL gets the full value. Applied to both sides, this tolerates
+    that difference and nothing else.
+    """
+    return {
+        step: {
+            name: [
+                tuple(
+                    float(f"{value:f}") if isinstance(value, float) else value
+                    for value in row
+                )
+                for row in table
+            ]
+            for name, table in rows.items()
+        }
+        for step, rows in stages.items()
+    }
+
+
+@pytest.mark.postgresql
+def test_the_scenario_gives_the_same_rows_on_both_backends(
+    tmp_path, postgresql_database
+):
+    stages = {}
+    for backend, dbstring in (
+        ("sqlite", None),
+        ("postgresql", postgresql_database),
+    ):
+        seen = stages[backend] = {}
+        with backend_session(tmp_path / backend, backend, dbstring) as (
+            tools,
+            database,
+        ):
+
+            def after(step, backend=backend, database=database, seen=seen):
+                seen[step] = postgresql.rows_of(backend, database)
+
+            postgresql.run_scenario(tools, after=after)
+
+    assert len(stages["postgresql"]) == 9
+    assert floats_as_sqlite_stores_them(
+        stages["postgresql"]
+    ) == floats_as_sqlite_stores_them(stages["sqlite"])
+
+
+def tables_naming(rows, prefix):
+    """Return the names of the tables and views with a value starting with prefix"""
+    return {
+        name
+        for name, table in rows.items()
+        for row in table
+        if any(str(value).startswith(prefix) for value in row)
+    }
+
+
+@pytest.mark.parametrize(
+    "backend", ["sqlite", pytest.param("postgresql", marks=pytest.mark.postgresql)]
+)
+def test_deleting_a_map_removes_its_rows_from_every_table(tmp_path, request, backend):
+    """The delete triggers remove the rows the library does not delete itself"""
+    dbstring = (
+        request.getfixturevalue("postgresql_database")
+        if backend == "postgresql"
+        else None
+    )
+    with backend_session(tmp_path / "project", backend, dbstring) as (
+        tools,
+        database,
+    ):
+        data.small_region(tools, 1, 1, depths=1)
+        for stds_type in data.MAP_TYPE_OF_STDS:
+            data.create_stds(
+                tools,
+                stds_type,
+                f"kept_{stds_type}",
+                [
+                    data.MapSpec(f"gone_{stds_type}", 1, data.day(1), data.day(2)),
+                    data.MapSpec(f"stays_{stds_type}", 2, data.day(2), data.day(3)),
+                ],
+            )
+        before = tables_naming(postgresql.rows_of(backend, database), "gone_")
+        for stds_type, map_type in data.MAP_TYPE_OF_STDS.items():
+            # Without input the map leaves the temporal database
+            tools.t_unregister(type=map_type, maps=f"gone_{stds_type}")
+        after = tables_naming(postgresql.rows_of(backend, database), "gone_")
+
+    for kind in ("raster", "raster3d", "vector"):
+        assert {
+            f"{kind}_base",
+            f"{kind}_absolute_time",
+            f"{kind}_spatial_extent",
+            f"{kind}_metadata",
+        } <= before
+    assert after == set()
+
+
 def test_rows_of_masks_the_temporary_directory_in_a_command_history(tmp_path):
     import grass.temporal as tgis
 

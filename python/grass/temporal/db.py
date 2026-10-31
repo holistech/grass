@@ -531,9 +531,9 @@ class DBConnection:
                 return sql
             args = _pg_args(args)
             if self.connected:
-                return self.cursor.mogrify(sql, args)
+                return self._pg_text(self.cursor.mogrify(sql, args))
             self.connect()
-            statement = self.cursor.mogrify(sql, args)
+            statement = self._pg_text(self.cursor.mogrify(sql, args))
             self.close()
             return statement
 
@@ -557,6 +557,14 @@ class DBConnection:
                 statement += sql_literal(args[count]) + part
 
             return statement
+
+    def _pg_text(self, statement: bytes) -> str:
+        """Decode a statement from psycopg2 mogrify() in the client encoding
+
+        The callers join it with other statements, which are str.
+        """
+        codec = self.dbmi.extensions.encodings[self.connection.encoding]
+        return statement.decode(codec)
 
     def check_table(self, table_name: str):
         """Check if a table exists in the temporal database
