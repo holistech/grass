@@ -95,7 +95,7 @@ def test_aggregate_raster_maps_counts_the_passed_nprocs(
     recorded, monkeypatch, tmp_path
 ):
     """nprocs=0 asks OpenMP for 24 threads whatever NPROCS of the session is,
-    so 5 maps hold 240 of the 256 - 64 files"""
+    so 5 maps need 2 x 24 x 5 + 64 = 304 files, more than the 256 allowed"""
     _limits(monkeypatch, tmp_path, 256, nprocs_of_session=4)
     call = recorded(5, nprocs=0)
     assert call["flags"] == "z"
@@ -144,8 +144,8 @@ def few_open_files():
 def test_aggregate_raster_maps_past_the_open_files_runs_and_sums(
     session, few_open_files, monkeypatch
 ):
-    """20 maps on 8 threads hold 320 files, more than the 256 allowed; with -z
-    r.series runs and gives the sum 1 + 2 + ... + 20"""
+    """20 maps on 8 threads need 2 x 8 x 20 + 64 = 384 files, more than the 256
+    allowed; with -z r.series runs and gives the sum 1 + 2 + ... + 20"""
     grass_session, tools = session
     monkeypatch.setenv("OMP_NUM_THREADS", "8")
     dbif = tgis.SQLDatabaseInterfaceConnection()
