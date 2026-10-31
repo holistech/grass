@@ -688,6 +688,19 @@ def _get_mapset(**_):
     return decode(libgis.G_mapset())
 
 
+def _take_string(answer):
+    """Return the bytes of a string made by the C library and free the string
+
+    The library functions hand over a copy made with G_store(), which the
+    caller owns. The answer is None when the C function returned NULL.
+    """
+    if not answer.raw:
+        return None
+    data = answer.data
+    libgis.G_free(answer.raw)
+    return data
+
+
 @_handler("get_driver_name", on_error=_NO_ANSWER)
 def _get_driver_name(*, mapset, **_):
     """Return the temporal database driver of a mapset
@@ -695,7 +708,7 @@ def _get_driver_name(*, mapset, **_):
     The answer is None if no temporal database is present.
     """
     mapset = libgis.G_mapset() if not mapset else encode(mapset)
-    return decode(libtgis.tgis_get_mapset_driver_name(mapset).data)
+    return decode(_take_string(libtgis.tgis_get_mapset_driver_name(mapset)))
 
 
 @_handler("get_database_name")
@@ -705,7 +718,7 @@ def _get_database_name(*, mapset, **_):
     The answer is None if no temporal database is present.
     """
     mapset = libgis.G_mapset() if not mapset else encode(mapset)
-    dbstring = libtgis.tgis_get_mapset_database_name(mapset).data
+    dbstring = _take_string(libtgis.tgis_get_mapset_database_name(mapset))
 
     if dbstring:
         # We substitute GRASS variables if they are located in the database string
