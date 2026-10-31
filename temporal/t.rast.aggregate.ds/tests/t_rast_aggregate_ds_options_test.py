@@ -20,6 +20,8 @@ from grass.temporal.testing.data import (
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
+resource = pytest.importorskip("resource")
+
 TIME = "%Y-%m-%d %H:%M:%S"
 
 
@@ -650,3 +652,55 @@ def test_overlaps_sampling_helps_monthly_maps_that_start_late(tools, month_ends)
     )
 
     assert [row[3] for row in _rows(tools, "overlap_out")] == [1.0, 2.0, 3.0]
+
+
+@pytest.fixture(scope="module")
+def hourly_maps(tools):
+    """20 maps of one hour, map k holds k, and a sampler of one 20 hour interval"""
+    tools.r_mapcalc(file=StringIO("".join(f"dsoh{k} = {k}\n" for k in range(1, 21))))
+    register_stds(
+        tools,
+        "strds",
+        "ds_hourly20",
+        [
+            MapSpec(f"dsoh{k}", k, day(0, hours=k - 1), day(0, hours=k))
+            for k in range(1, 21)
+        ],
+    )
+    create_stds(
+        tools,
+        "strds",
+        "ds_hourly_sampler",
+        [MapSpec("dsos1", 1, day(0), day(0, hours=20))],
+    )
+
+
+@pytest.fixture
+def few_open_files(tools, monkeypatch):
+    """Lower the soft limit of open files to 256 and let r.series run 8 threads
+
+    The tools run as children of this process and inherit the limit. The
+    environment of the session is changed through monkeypatch and the limit
+    is set back afterwards.
+    """
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
+    monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "8")  # noqa: SLF001
+    yield
+    resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+
+def test_an_aggregate_past_the_open_files_runs_and_sums(
+    tools, hourly_maps, few_open_files
+):
+    # 20 maps on 8 threads hold 320 files, more than the 256 allowed; the
+    # sum is 1 + ... + 20.
+    tools.t_rast_aggregate_ds(
+        input="ds_hourly20",
+        sample="ds_hourly_sampler",
+        output="ds_ofl",
+        basename="ds_ofl",
+        method="sum",
+    )
+
+    assert [row[3] for row in _rows(tools, "ds_ofl")] == [210.0]

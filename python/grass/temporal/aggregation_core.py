@@ -80,30 +80,6 @@ def _report_granules(reduced):
             )
 
 
-def _warn_file_limit(reduced, file_limit):
-    """Warn for each granule that r.series reads with flag z
-
-    The backend sets the flag silently; the classic tool told the user, and
-    a user who set file_limit wants to know that the run is slower.
-    """
-    msgr = get_tgis_message_interface()
-    for slot in reduced.slots:
-        content = slot.content
-        # A lone related map is copied with g.copy, and r.series never runs.
-        if (
-            isinstance(content, ta.SeriesAggregate)
-            and len(content.args) > 1
-            and len(content.args) > file_limit
-        ):
-            msgr.warning(
-                _(
-                    "The limit of open files ({}) was reached ({}). The module "
-                    "r.series will be run with flag z, to avoid open files "
-                    "limit exceeding."
-                ).format(file_limit, len(content.args))
-            )
-
-
 def aggregate_series(
     input_series,
     target,
@@ -152,7 +128,6 @@ def aggregate_series(
         )
         return None
     _report_granules(reduced)
-    _warn_file_limit(reduced, int(file_limit))
     names = _names(target, reduced, basename, granularity, time_suffix, offset)
     # materialize() sees only the maps of the reduced series; a granule that
     # was dropped or reduced away may still read a map with a result's name.

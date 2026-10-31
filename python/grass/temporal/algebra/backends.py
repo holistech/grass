@@ -305,10 +305,17 @@ class RasterBackend:
                     calls.append(ModuleCall("g.copy", {"raster": (inputs[0], name)}))
                 else:
                     parameters = {"output": name, "method": node.method}
-                    if len(inputs) > node.file_limit:
+                    limit = exceeded_series_limit(
+                        len(inputs), file_limit=node.file_limit
+                    )
+                    if limit is not None:
                         # r.series opens every input at once unless -z makes
-                        # it reopen them for each row; the limit is file_limit.
+                        # it reopen them for each row. It must, when the
+                        # inputs exceed file_limit or the open files of the
+                        # process, which the threads multiply (measured
+                        # 2026-10-31, see series_map_limit()).
                         parameters["flags"] = "z"
+                        warn(series_limit_warning(limit, len(inputs)))
                     calls.append(
                         ModuleCall("r.series", parameters, inputs=tuple(inputs))
                     )

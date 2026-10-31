@@ -12,7 +12,7 @@ import pytest
 
 import grass.script as gs
 import grass.temporal.algebra as ta
-from grass.temporal.algebra import reducers
+from grass.temporal.algebra import reducers, variants
 from grass.temporal.algebra.backends import RasterBackend
 from grass.temporal.algebra.content import MapRef, SeriesAggregate
 from grass.temporal.algebra.materialize import _map_names
@@ -89,6 +89,65 @@ def test_z_flag_past_the_file_limit():
     calls, _ = RasterBackend().plan(node, "out")
     assert calls[0].parameters["flags"] == "z"
     assert calls[0].inputs == ("m0", "m1", "m2")
+
+
+def _open_files(monkeypatch, soft, threads):
+    """Let the plan see soft open files and r.series run threads threads
+
+    No session file is named, so NPROCS of a session of another test cannot
+    count. Return the list that collects the warnings of the plan.
+    """
+    resource = pytest.importorskip("resource")
+    monkeypatch.delenv("GISRC", raising=False)
+    monkeypatch.setenv("OMP_NUM_THREADS", str(threads))
+    monkeypatch.setattr(
+        resource, "getrlimit", lambda resource_: (soft, resource.RLIM_INFINITY)
+    )
+    warnings = []
+
+    class Messages:
+        def warning(self, message):
+            warnings.append(message)
+
+    monkeypatch.setattr(variants, "get_tgis_message_interface", Messages)
+    return warnings
+
+
+def test_an_aggregate_past_the_open_files_reads_row_by_row(monkeypatch):
+    """Two maps on three threads hold 12 files besides the 64 kept free, one
+    more than a limit of 75 allows, although file_limit is far away"""
+    warnings = _open_files(monkeypatch, 75, 3)
+    node = SeriesAggregate("sum", (MapRef("a"), MapRef("b")), 1000)
+    calls, _ = RasterBackend().plan(node, "out")
+    assert calls[0].parameters["flags"] == "z"
+    assert len(warnings) == 1
+    assert warnings[0].startswith("The limit of open files (1) was reached (2). ")
+
+
+def test_an_aggregate_within_both_limits_keeps_its_maps_open(monkeypatch):
+    warnings = _open_files(monkeypatch, 76, 3)
+    node = SeriesAggregate("sum", (MapRef("a"), MapRef("b")), 1000)
+    calls, _ = RasterBackend().plan(node, "out")
+    assert "flags" not in calls[0].parameters
+    assert warnings == []
+
+
+def test_an_aggregate_past_file_limit_warns_with_file_limit(monkeypatch):
+    resource = pytest.importorskip("resource")
+    warnings = _open_files(monkeypatch, resource.RLIM_INFINITY, 1)
+    node = SeriesAggregate("sum", tuple(MapRef(f"m{i}") for i in range(3)), 2)
+    calls, _ = RasterBackend().plan(node, "out")
+    assert calls[0].parameters["flags"] == "z"
+    assert len(warnings) == 1
+    assert "(2) was reached (3)" in warnings[0]
+
+
+def test_a_lone_map_is_copied_without_a_warning(monkeypatch):
+    warnings = _open_files(monkeypatch, 10, 1)
+    node = SeriesAggregate("sum", (MapRef("a"),), 0)
+    calls, _ = RasterBackend().plan(node, "out")
+    assert [c.name for c in calls] == ["g.copy"]
+    assert warnings == []
 
 
 def test_names_must_match_and_be_unique():

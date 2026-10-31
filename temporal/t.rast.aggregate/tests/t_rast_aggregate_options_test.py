@@ -19,6 +19,8 @@ from grass.temporal.testing.data import (
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
+resource = pytest.importorskip("resource")
+
 
 def _rows(tools, name):
     return [
@@ -470,3 +472,108 @@ def test_overlaps_sampling_helps_monthly_maps_that_start_late(tools, month_ends)
         ("overlap_out_2001_02", "2001-02-01 00:00:00", "2001-03-01 00:00:00", 2.0),
         ("overlap_out_2001_03", "2001-03-01 00:00:00", "2001-04-01 00:00:00", 3.0),
     ]
+
+
+# 20 maps of one hour make one granule of 20 hours, and r.series on 8 threads
+# holds two files for each map and thread, 320 files, more than the soft limit
+# of 256 allows. The sum of a granule is derived from the values: map k holds
+# k, so the first granule sums to 1 + ... + 20 = 210 and the second one to
+# 21 + ... + 40 = 610.
+HOURLY_MAPS = 40
+
+
+@pytest.fixture(scope="module")
+def hourly_maps(tools):
+    """Datasets hourly20 (the first 20 maps) and hourly40 (all 40 maps)"""
+    tools.r_mapcalc(
+        file=StringIO("".join(f"oh{k} = {k}\n" for k in range(1, HOURLY_MAPS + 1)))
+    )
+    specs = [
+        MapSpec(f"oh{k}", k, day(0, hours=k - 1), day(0, hours=k))
+        for k in range(1, HOURLY_MAPS + 1)
+    ]
+    register_stds(tools, "strds", "hourly40", specs)
+    register_stds(tools, "strds", "hourly20", specs[:20])
+
+
+@pytest.fixture
+def few_open_files(tools, monkeypatch):
+    """Lower the soft limit of open files to 256 and let r.series run 8 threads
+
+    The tools run as children of this process and inherit the limit. The
+    environment of the session is changed through monkeypatch, so the
+    modules of the other tests keep their files. The limit is set back
+    afterwards.
+    """
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
+    monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "8")  # noqa: SLF001
+    yield
+    resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+
+
+def test_an_aggregate_past_the_open_files_runs_and_sums(
+    tools, hourly_maps, few_open_files
+):
+    result = tools.t_rast_aggregate(
+        input="hourly20",
+        output="ofl_one",
+        basename="ofl_one",
+        granularity="20 hours",
+        method="sum",
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_one")] == [210.0]
+    # file_limit is 1000, so the open files of the process gave the reason.
+    assert message(result).count("limit of open files") == 1
+
+
+def test_nprocs_of_the_session_counts_for_an_aggregate(
+    tools, hourly_maps, few_open_files, monkeypatch
+):
+    # NPROCS=8 of the session makes r.series run 8 threads although
+    # OMP_NUM_THREADS says one.
+    monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "1")  # noqa: SLF001
+    tools.g_gisenv(set="NPROCS=8")
+    try:
+        tools.t_rast_aggregate(
+            input="hourly20",
+            output="ofl_session",
+            basename="ofl_session",
+            granularity="20 hours",
+            method="sum",
+        )
+    finally:
+        tools.g_gisenv(unset="NPROCS")
+
+    assert [row[3] for row in _rows(tools, "ofl_session")] == [210.0]
+
+
+def test_parallel_granules_past_the_open_files_run_and_sum(
+    tools, hourly_maps, few_open_files
+):
+    # Each of the two r.series processes holds 8 threads of its own.
+    tools.t_rast_aggregate(
+        input="hourly40",
+        output="ofl_parallel",
+        basename="ofl_parallel",
+        granularity="20 hours",
+        method="sum",
+        nprocs=2,
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_parallel")] == [210.0, 610.0]
+
+
+def test_each_granule_read_row_by_row_warns_once(tools, hourly_maps):
+    # file_limit=1 puts both granules of 20 maps past the limit.
+    result = tools.t_rast_aggregate(
+        input="hourly40",
+        output="ofl_warn",
+        basename="ofl_warn",
+        granularity="20 hours",
+        method="sum",
+        file_limit=1,
+    )
+
+    assert message(result).count("limit of open files") == 2
