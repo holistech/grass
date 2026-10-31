@@ -10,7 +10,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 import math
 from dataclasses import dataclass
 
-from grass.temporal.series_limits import series_map_limit
+from grass.temporal.series_limits import exceeded_series_limit, series_limit_warning
 
 from .content import (
     COMPARISONS,
@@ -168,7 +168,7 @@ class RasterBackend:
     "Argument list too long" (measured 2026-10-30 with r.series
     input=name_2020_01_01@PERMANENT,... in grass --tmp-project XY), which is
     about 5000 maps. r.series keeps its maps open unless they would exceed
-    the open files of the process, see series_map_limit(); then it reads
+    the open files of the process, see exceeded_series_limit(); then it reads
     them with -z and a warning says so.
     """
 
@@ -317,21 +317,15 @@ class RasterBackend:
                 inputs = [map_name_of(lower(arg)) for arg in node.args]
                 name = target or temporary()
                 parameters = {"output": name, "method": node.method}
-                limit = series_map_limit()
-                if limit is not None and len(inputs) > limit:
+                limit = exceeded_series_limit(len(inputs))
+                if limit is not None:
                     # Without -z r.series fails with "Too many open files";
                     # with it, it reads the maps row by row, about 20 times
                     # slower (measured 2026-10-31 with r.series method=sum
                     # over 100 maps of 1000x1000 cells: 5.2 s against
                     # 0.25 s), so it is set only when needed.
                     parameters["flags"] = "z"
-                    warn(
-                        _(
-                            "The limit of open files ({}) was reached ({}). The "
-                            "module r.series will be run with flag z, to avoid "
-                            "open files limit exceeding."
-                        ).format(limit, len(inputs))
-                    )
+                    warn(series_limit_warning(limit, len(inputs)))
                 calls.append(ModuleCall("r.series", parameters, inputs=tuple(inputs)))
                 return MapRef(name)
             if isinstance(node, Call):

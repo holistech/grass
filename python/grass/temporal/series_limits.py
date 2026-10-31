@@ -49,17 +49,23 @@ def session_nprocs():
         return 0
 
 
-def series_threads():
-    """Return the number of threads r.series runs when nprocs is not given
+def series_threads(nprocs=None):
+    """Return the number of threads r.series runs
 
-    r.series takes NPROCS of the session; a positive number is the count, a
-    negative one is taken from the usable processors. 0 makes it ask
-    OpenMP, which takes the first number of OMP_NUM_THREADS and otherwise
-    one thread per usable processor. A GRASS without OpenMP, or a raster
-    mask, runs one thread; counting more only switches to -z earlier than
-    needed.
+    Without nprocs r.series is given no nprocs= and takes NPROCS of the
+    session; a positive number is the count, a negative one is taken from
+    the usable processors. 0 makes it ask OpenMP, which takes the first
+    number of OMP_NUM_THREADS and otherwise one thread per usable processor.
+    A passed nprocs is the value given to r.series as nprocs=: it counts as
+    it stands, 0 asks OpenMP and NPROCS of the session is not looked at
+    (measured 2026-10-31 by bisection at ulimit -n 1024 with NPROCS=4 in the
+    session: 127 maps without nprocs, 21 with nprocs=0 on 24 processors, 63
+    with nprocs=0 and OMP_NUM_THREADS=8). A GRASS without
+    OpenMP, or a raster mask, runs one thread; counting more only switches
+    to -z earlier than needed.
     """
-    nprocs = session_nprocs()
+    if nprocs is None:
+        nprocs = session_nprocs()
     if nprocs != 0:
         return resolve_nprocs(nprocs)
     first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()
@@ -70,7 +76,7 @@ def series_threads():
     return threads if threads > 0 else available_cpus()
 
 
-def series_map_limit():
+def series_map_limit(nprocs=None):
     """Return how many maps r.series can keep open in this process, or None
 
     r.series opens every map once per thread and needs two files per map
@@ -80,7 +86,8 @@ def series_map_limit():
     file=... method=sum nprocs=1, 4 and 24 over 2x2 maps in grass
     --tmp-project XY). The modules inherit the soft limit of this process.
     None means no limit, or a system without the resource module, where the
-    maps stay open as before.
+    maps stay open as before. nprocs is the one passed to r.series, see
+    series_threads().
     """
     try:
         import resource  # noqa: PLC0415 - not on Windows
@@ -89,4 +96,32 @@ def series_map_limit():
     soft, _hard = resource.getrlimit(resource.RLIMIT_NOFILE)
     if soft == resource.RLIM_INFINITY:
         return None
-    return max(0, (soft - SPARE_FILES) // (2 * series_threads()))
+    return max(0, (soft - SPARE_FILES) // (2 * series_threads(nprocs)))
+
+
+def exceeded_series_limit(count, *, file_limit=None, nprocs=None):
+    """Return the limit that count maps exceed, or None if r.series may stay open
+
+    The limits are file_limit, the number of maps a caller lets r.series
+    keep open whatever the process allows, and series_map_limit(nprocs).
+    The smaller of the two is returned when count is above either of them,
+    which is when r.series must run with -z. A limit that is None does not
+    count.
+    """
+    limits = [file_limit, series_map_limit(nprocs)]
+    limits = [limit for limit in limits if limit is not None]
+    if not limits or count <= min(limits):
+        return None
+    return min(limits)
+
+
+def series_limit_warning(limit, count):
+    """Return the warning that r.series runs with -z for count maps
+
+    The text is that of t.rast.aggregate before the rule moved here, so its
+    translations stay valid.
+    """
+    return _(
+        "The limit of open files ({}) was reached ({}). The module r.series "
+        "will be run with flag z, to avoid open files limit exceeding."
+    ).format(limit, count)
