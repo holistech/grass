@@ -349,6 +349,7 @@ def test_the_upgrade_counts_no_semantic_labels_in_old_datasets(either_backend):
 
 def test_version_2_with_data_is_upgraded_on_both_backends(either_backend):
     backend, tools, session, dbstring = either_backend
+    current = rows_of(backend, dbstring)
     downgrade(backend, session, dbstring)
     before = rows_of(backend, dbstring)
 
@@ -368,7 +369,9 @@ def test_version_2_with_data_is_upgraded_on_both_backends(either_backend):
             )
             assert after[name] == expected
         elif name.startswith("VIEW "):
-            assert len(after[name]) == len(rows)
+            # The views of the upgraded database are those of the database
+            # before the downgrade, with their rows.
+            assert after[name] == current[name]
         elif name in ("raster_metadata", "strds_metadata"):
             # The two tables got one column at their end.
             assert sorted((row[:-1] for row in after[name]), key=repr) == rows
