@@ -232,10 +232,6 @@ class StdsMapRegister:
         statement = sql.read_text().replace(
             "SPACETIME_REGISTER_TABLE", sql_identifier(name)
         )
-        if dbif.get_dbmi().__name__ == "sqlite3":
-            statement += sql_statement(
-                "CREATE INDEX {table}_index ON {table} (id);", table=name
-            )
         self._stds.set_map_register(name)
         self._stds.msgr.debug(
             1,
@@ -264,13 +260,22 @@ class StdsMapRegister:
         statement = sql_statement(
             'ALTER TABLE {old} RENAME TO "{new}";\n', old=old, new=new
         )
-        # SQLite names the index after the table
+        # SQLite indexes the primary key itself, so a new register table has
+        # no index of its own. An older database has one on the id, named
+        # after the table; it keeps it under the new name.
         if dbif.get_dbmi().__name__ == "sqlite3":
-            statement += sql_statement(
-                "DROP INDEX {old}_index;\nCREATE INDEX {new}_index ON {new} (id);",
-                old=old,
-                new=new,
+            mapset = self._stds.base.mapset
+            dbif.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                (f"{old}_index",),
+                mapset=mapset,
             )
+            if dbif.fetchone(mapset=mapset) is not None:
+                statement += sql_statement(
+                    "DROP INDEX {old}_index;\nCREATE INDEX {new}_index ON {new} (id);",
+                    old=old,
+                    new=new,
+                )
         return statement
 
     def contains(self, map_id: str, dbif=None) -> bool:

@@ -5,11 +5,15 @@ The dataset <prefix>_ds holds three maps, map n from day n-1 to day n
 by the test, so that the tests can tell what the rename keeps.
 """
 
+import sqlite3
+
 import pytest
 
 from grass.temporal.testing.data import MapSpec, create_stds, day
 from grass.temporal.testing.readback import list_maps, stds_info
-from grass.tools import ToolError
+from grass.temporal.testing.session import project_session
+from grass.temporal.testing.versions import database_file
+from grass.tools import ToolError, Tools
 
 # Every test makes maps and datasets with tools, which takes more than a second
 # (measured 18.10.2026 with a serial pytest --durations=0).
@@ -143,6 +147,39 @@ def test_the_name_can_carry_the_current_mapset(tools, prefix, has_dataset):
 
     assert has_dataset(f"{prefix}_new")
     assert not has_dataset(name)
+
+
+def test_an_older_register_index_follows_the_new_name(tmp_path):
+    # Older databases have an index on the id of each register table, named
+    # after the table; new ones have none, because SQLite indexes the
+    # primary key itself.
+    with project_session(tmp_path / "project") as session:
+        tools = Tools(session=session, consistent_return_value=True)
+        name, _ = _make(tools, "older")
+        database = database_file(session)
+
+        def register_indexes():
+            with sqlite3.connect(database) as connection:
+                (table,) = connection.execute(
+                    "SELECT raster_register FROM strds_metadata"
+                ).fetchone()
+                rows = connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index'"
+                    " AND tbl_name = ? AND name NOT LIKE 'sqlite_%'",
+                    (table,),
+                ).fetchall()
+            return table, [row[0] for row in rows]
+
+        table, indexes = register_indexes()
+        assert indexes == []
+        with sqlite3.connect(database) as connection:
+            connection.execute(f"CREATE INDEX {table}_index ON {table} (id)")
+
+        tools.t_rename(input=name, output="renamed")
+
+        new_table, indexes = register_indexes()
+        assert new_table != table
+        assert indexes == [f"{new_table}_index"]
 
 
 def test_renaming_to_the_same_name_changes_nothing(tools, prefix):

@@ -73,3 +73,23 @@ def test_the_structure_of_a_new_database_matches_the_recording(tmp_path):
         )
         actual = database_image.structure_of(Path(tgis.get_tgis_database_string()))
     assert actual == expected
+
+
+def test_a_new_database_has_no_index_that_repeats_a_primary_key(tmp_path):
+    # SQLite indexes each primary key itself (origin "pk"), so an index made
+    # by CREATE INDEX on exactly the key columns is a second copy.
+    with temporal_session(tmp_path / "project") as session:
+        database_image.structure_scenario(
+            Tools(session=session, consistent_return_value=True)
+        )
+        structure = database_image.structure_of(Path(tgis.get_tgis_database_string()))
+    keys = {
+        name: [c[0] for c in sorted(table["columns"], key=lambda c: c[3]) if c[3]]
+        for name, table in structure["tables"].items()
+    }
+    repeating = [
+        name
+        for name, index in structure["indexes"].items()
+        if index["origin"] == "c" and index["columns"] == keys[index["table"]]
+    ]
+    assert repeating == []

@@ -459,33 +459,9 @@
    "unique": false,
    "origin": "c"
   },
-  "raster3d_base_index": {
-   "table": "raster3d_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster3d_map_register_a23c49112437343c579b24577ebb8e11_index": {
-   "table": "raster3d_map_register_a23c49112437343c579b24577ebb8e11",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster3d_metadata_index": {
-   "table": "raster3d_metadata",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
   "raster3d_relative_time_index": {
    "table": "raster3d_relative_time",
    "columns": ["id", "start_time", "end_time"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster3d_spatial_extent_index": {
-   "table": "raster3d_spatial_extent",
-   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },
@@ -495,33 +471,9 @@
    "unique": false,
    "origin": "c"
   },
-  "raster3d_stds_register_index": {
-   "table": "raster3d_stds_register",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
   "raster_absolute_time_index": {
    "table": "raster_absolute_time",
    "columns": ["id", "start_time", "end_time"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster_base_index": {
-   "table": "raster_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c_index": {
-   "table": "raster_map_register_838a8db6e5d7f92f2a7d6a30b134639c",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster_metadata_index": {
-   "table": "raster_metadata",
-   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },
@@ -537,21 +489,9 @@
    "unique": false,
    "origin": "c"
   },
-  "raster_spatial_extent_index": {
-   "table": "raster_spatial_extent",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
   "raster_spatial_extent_index_bbox": {
    "table": "raster_spatial_extent",
    "columns": ["id", "north", "south", "east", "west"],
-   "unique": false,
-   "origin": "c"
-  },
-  "raster_stds_register_index": {
-   "table": "raster_stds_register",
-   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },
@@ -771,117 +711,9 @@
    "unique": true,
    "origin": "pk"
   },
-  "str3ds_absolute_time_index": {
-   "table": "str3ds_absolute_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "str3ds_base_index": {
-   "table": "str3ds_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "str3ds_metadata_index": {
-   "table": "str3ds_metadata",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "str3ds_relative_time_index": {
-   "table": "str3ds_relative_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "str3ds_spatial_extent_index": {
-   "table": "str3ds_spatial_extent",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "strds_absolute_time_index": {
-   "table": "strds_absolute_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "strds_base_index": {
-   "table": "strds_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "strds_metadata_index": {
-   "table": "strds_metadata",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "strds_relative_time_index": {
-   "table": "strds_relative_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "strds_spatial_extent_index": {
-   "table": "strds_spatial_extent",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "stvds_absolute_time_index": {
-   "table": "stvds_absolute_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "stvds_base_index": {
-   "table": "stvds_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "stvds_metadata_index": {
-   "table": "stvds_metadata",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "stvds_relative_time_index": {
-   "table": "stvds_relative_time",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "stvds_spatial_extent_index": {
-   "table": "stvds_spatial_extent",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
   "vector_absolute_time_index": {
    "table": "vector_absolute_time",
    "columns": ["id", "start_time", "end_time"],
-   "unique": false,
-   "origin": "c"
-  },
-  "vector_base_index": {
-   "table": "vector_base",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "vector_map_register_1cb921a2deeaf234fe439866ee839fa1_index": {
-   "table": "vector_map_register_1cb921a2deeaf234fe439866ee839fa1",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
-  "vector_metadata_index": {
-   "table": "vector_metadata",
-   "columns": ["id"],
    "unique": false,
    "origin": "c"
   },
@@ -891,21 +723,9 @@
    "unique": false,
    "origin": "c"
   },
-  "vector_spatial_extent_index": {
-   "table": "vector_spatial_extent",
-   "columns": ["id"],
-   "unique": false,
-   "origin": "c"
-  },
   "vector_spatial_extent_index_bbox": {
    "table": "vector_spatial_extent",
    "columns": ["id", "north", "south", "east", "west", "top", "bottom"],
-   "unique": false,
-   "origin": "c"
-  },
-  "vector_stds_register_index": {
-   "table": "vector_stds_register",
-   "columns": ["id"],
    "unique": false,
    "origin": "c"
   }
