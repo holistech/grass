@@ -148,3 +148,36 @@ def test_rows_of_a_sqlite_database_mask_times_and_users(tmp_path):
     assert all(
         isinstance(row[is_3d], bool) for row in rows["VIEW vector_view_abs_time"]
     )
+
+
+def test_the_scenario_lets_the_caller_read_the_database_after_each_step(tmp_path):
+    import grass.temporal as tgis
+
+    seen = {}
+    with temporal_session(tmp_path / "project") as session:
+        database = tgis.get_tgis_database_string()
+
+        def after(step):
+            seen[step] = postgresql.rows_of("sqlite", database)
+
+        postgresql.run_scenario(
+            Tools(session=session, consistent_return_value=True), after=after
+        )
+
+    assert list(seen) == [
+        f"{stds_type} {step}"
+        for stds_type in ("strds", "str3ds", "stvds")
+        for step in ("registered", "unregistered", "removed")
+    ]
+    for stds_type in ("strds", "str3ds", "stvds"):
+        register = f"REGISTER(scenario_{stds_type}@PERMANENT)"
+        assert len(seen[f"{stds_type} registered"][register]) == 3
+        assert len(seen[f"{stds_type} unregistered"][register]) == 2
+        assert register not in seen[f"{stds_type} removed"]
+    labels = {
+        value
+        for row in seen["strds registered"]["raster_metadata"]
+        for value in row
+        if isinstance(value, str) and value.startswith("S2_")
+    }
+    assert labels == {"S2_1", "S2_2"}

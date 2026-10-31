@@ -247,16 +247,25 @@ def _column_names(backend, query, name):
     ]
 
 
-def run_scenario(tools) -> None:
+def run_scenario(tools, after=None) -> None:
     """Fill the temporal database of the session of tools through the tools
 
     Creates a space time raster, 3D raster and vector dataset with maps
     registered, lists them, unregisters one map of each and removes the
     datasets with -r. The session of tools decides the backend, so the
     same steps give the rows that rows_of() compares between backends.
+
+    after, if given, is called with the name of each step that wrote to the
+    database, such as "strds registered", "strds unregistered" and "strds
+    removed", right after the step, so that a caller can read the database
+    in between; at the end most rows are gone. The maps hold thirds, which
+    have more decimals than a float literal on SQLite keeps, and two raster
+    maps carry semantic labels, so that the dataset has a list of labels.
     """
     spec = data.MapSpec
     day = data.day
+    labels = {1: "S2_1", 2: "S2_2"}
+    report = after or (lambda step: None)
     data.small_region(tools, 1, 1, depths=1)
     for stds_type, map_type, listing in (
         ("strds", "raster", "t_rast_list"),
@@ -268,8 +277,21 @@ def run_scenario(tools) -> None:
             tools,
             stds_type,
             name,
-            [spec(f"{name}_{n}", n, day(n), day(n + 1)) for n in (1, 2, 3)],
+            [
+                spec(
+                    f"{name}_{n}",
+                    # A vector map takes a number, raster maps an expression
+                    n / 3 if map_type == "vector" else f"{n} / 3.0",
+                    day(n),
+                    day(n + 1),
+                    labels.get(n) if map_type == "raster" else None,
+                )
+                for n in (1, 2, 3)
+            ],
         )
+        report(f"{stds_type} registered")
         getattr(tools, listing)(input=name)
         tools.t_unregister(type=map_type, input=name, maps=f"{name}_3")
+        report(f"{stds_type} unregistered")
         tools.t_remove(flags="rf", type=stds_type, inputs=name)
+        report(f"{stds_type} removed")
