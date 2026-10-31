@@ -5,6 +5,7 @@ the test, because other tests list the same tables.
 """
 
 import json
+import sqlite3
 
 import pytest
 
@@ -498,6 +499,12 @@ def _tools(session):
     return Tools(session=session, consistent_return_value=True, capture_stderr=True)
 
 
+def _strds_view_columns(session):
+    with sqlite3.connect(database_file(session)) as connection:
+        rows = connection.execute("PRAGMA table_info(strds_view_abs_time)")
+        return [row[1] for row in rows]
+
+
 def test_a_column_missing_from_an_old_view_names_t_upgrade(tmp_path):
     # A database made before the strds views listed the count of the semantic
     # labels has views without it until t.upgrade creates them anew.
@@ -505,6 +512,7 @@ def test_a_column_missing_from_an_old_view_names_t_upgrade(tmp_path):
         tools = _tools(session)
         create_stds(tools, "strds", "series", [MapSpec("map1", 1, day(0), day(1))])
         use_older_strds_views(session)
+        assert "number_of_semantic_labels" not in _strds_view_columns(session)
 
         with pytest.raises(ToolError) as raised:
             tools.t_list(type="strds", columns="name,number_of_semantic_labels")
@@ -527,6 +535,7 @@ def test_all_columns_are_those_that_the_views_of_every_mapset_have(tmp_path):
         work_tools, other_tools = _tools(work), _tools(other)
         create_stds(other_tools, "strds", "old", [MapSpec("o1", 1, day(0), day(1))])
         use_older_strds_views(other)
+        assert "number_of_semantic_labels" not in _strds_view_columns(other)
         create_stds(work_tools, "strds", "new", [MapSpec("n1", 1, day(0), day(1))])
         work_tools.g_mapsets(operation="add", mapset="other")
 
