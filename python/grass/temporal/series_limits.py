@@ -20,31 +20,39 @@ from grass.script.utils import available_cpus, resolve_nprocs
 SPARE_FILES = 64
 
 
+def _gisrc_variables():
+    """Return the variables of the file GISRC names, read as the C library does
+
+    The file is read here and not through g.gisenv, because plan() needs no
+    session. Like the C library, the first colon splits a line, an empty
+    name or value is passed over and the last line wins.
+    """
+    gisrc = os.environ.get("GISRC")
+    if not gisrc:
+        return {}
+    try:
+        # The C library reads bytes; a value in another encoding must not
+        # stop the plan, and the variables read here are ASCII.
+        lines = Path(gisrc).read_text(errors="replace").splitlines()
+    except OSError:
+        return {}
+    variables = {}
+    for line in lines:
+        name, colon, value = line.partition(":")
+        name, value = name.strip(), value.strip()
+        if colon and name and value:
+            variables[name] = value
+    return variables
+
+
 def session_nprocs():
     """Return NPROCS of the session file as r.series reads it, else 0
 
     Without nprocs= r.series takes NPROCS of the file GISRC names (set with
-    g.gisenv) as its default. The file is read here and not through
-    g.gisenv, because plan() needs no session. Like the C library, the
-    first colon splits a line, an empty name or value is passed over and
-    the last line wins.
+    g.gisenv) as its default.
     """
-    gisrc = os.environ.get("GISRC")
-    if not gisrc:
-        return 0
     try:
-        # The C library reads bytes; a value in another encoding must not
-        # stop the plan, and NPROCS is ASCII.
-        lines = Path(gisrc).read_text(errors="replace").splitlines()
-    except OSError:
-        return 0
-    value = "0"
-    for line in lines:
-        name, colon, text = line.partition(":")
-        if colon and name.strip() == "NPROCS" and text.strip():
-            value = text.strip()
-    try:
-        return int(value)
+        return int(_gisrc_variables().get("NPROCS", "0"))
     except ValueError:
         return 0
 
