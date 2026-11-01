@@ -549,6 +549,44 @@ def test_nprocs_of_the_session_counts_for_an_aggregate(
     assert [row[3] for row in _rows(tools, "ofl_session")] == [210.0]
 
 
+# With a raster mask r.series reads on one thread, which needs 2 x 20 + 64
+# files, within the 256 that 8 threads would exceed. Without the warning the
+# maps stay open, so the sum shows that r.series ran without -z.
+def test_a_raster_mask_keeps_the_maps_of_an_aggregate_open(
+    tools, hourly_maps, few_open_files
+):
+    tools.r_mask(raster="oh1")
+    try:
+        result = tools.t_rast_aggregate(
+            input="hourly20",
+            output="ofl_mask",
+            basename="ofl_mask",
+            granularity="20 hours",
+            method="sum",
+        )
+    finally:
+        tools.r_mask(flags="r")
+
+    assert [row[3] for row in _rows(tools, "ofl_mask")] == [210.0]
+    assert "limit of open files" not in message(result)
+
+
+def test_grass_mask_keeps_the_maps_of_an_aggregate_open(
+    tools, hourly_maps, few_open_files, monkeypatch
+):
+    monkeypatch.setitem(tools._original_env, "GRASS_MASK", "oh2")  # noqa: SLF001
+    result = tools.t_rast_aggregate(
+        input="hourly20",
+        output="ofl_grass_mask",
+        basename="ofl_grass_mask",
+        granularity="20 hours",
+        method="sum",
+    )
+
+    assert [row[3] for row in _rows(tools, "ofl_grass_mask")] == [210.0]
+    assert "limit of open files" not in message(result)
+
+
 def test_parallel_granules_past_the_open_files_run_and_sum(
     tools, hourly_maps, few_open_files
 ):

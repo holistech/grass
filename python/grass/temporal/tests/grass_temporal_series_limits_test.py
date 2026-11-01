@@ -55,6 +55,81 @@ def test_a_passed_nprocs_of_0_ignores_nprocs_of_the_session(tmp_path, monkeypatc
     assert series_limits.series_threads() == 4
 
 
+def _project(monkeypatch, tmp_path, rasters):
+    """Let the rule see a session in mapset user with NPROCS=4 and rasters
+
+    A raster is given as name@mapset; its cell file is what makes it exist.
+    """
+    database = tmp_path / "db"
+    rc = tmp_path / "rc"
+    rc.write_text(f"GISDBASE: {database}\nLOCATION_NAME: xy\nMAPSET: user\nNPROCS: 4\n")
+    monkeypatch.setenv("GISRC", str(rc))
+    monkeypatch.delenv("GRASS_MASK", raising=False)
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.setattr(series_limits, "available_cpus", lambda: 24)
+    for raster in rasters:
+        name, _at, mapset = raster.partition("@")
+        cell = database / "xy" / mapset / "cell" / name
+        cell.parent.mkdir(parents=True, exist_ok=True)
+        cell.touch()
+
+
+@pytest.mark.parametrize("nprocs", [None, 24, 0, -2])
+def test_a_raster_mask_counts_one_thread(tmp_path, monkeypatch, nprocs):
+    _project(monkeypatch, tmp_path, ["MASK@user"])
+    assert series_limits.series_threads(nprocs) == 1
+
+
+def test_a_mask_of_another_mapset_is_no_mask(tmp_path, monkeypatch):
+    _project(monkeypatch, tmp_path, ["MASK@other", "dem@user"])
+    assert series_limits.series_threads() == 4
+
+
+@pytest.mark.parametrize(
+    ("grass_mask", "threads"),
+    [
+        ("dem", 1),
+        ("far@other", 1),
+        # A name without mapset is looked up in the current mapset only.
+        ("far", 4),
+        ("dem@other", 4),
+        # GRASS_MASK replaces MASK, which exists here.
+        ("missing", 4),
+    ],
+)
+def test_grass_mask_names_the_mask(tmp_path, monkeypatch, grass_mask, threads):
+    _project(monkeypatch, tmp_path, ["dem@user", "far@other", "MASK@user"])
+    monkeypatch.setenv("GRASS_MASK", grass_mask)
+    assert series_limits.series_threads() == threads
+
+
+def test_an_empty_grass_mask_leaves_mask(tmp_path, monkeypatch):
+    _project(monkeypatch, tmp_path, ["MASK@user"])
+    monkeypatch.setenv("GRASS_MASK", "")
+    assert series_limits.series_threads() == 1
+
+
+@pytest.mark.parametrize("grass_mask", [".hidden", "sub/dem", "dem@", "dem@user@user"])
+def test_a_name_the_c_library_rejects_is_no_mask(tmp_path, monkeypatch, grass_mask):
+    _project(monkeypatch, tmp_path, [".hidden@user", "sub/dem@user", "dem@user"])
+    monkeypatch.setenv("GRASS_MASK", grass_mask)
+    assert series_limits.series_threads() == 4
+
+
+def test_without_a_session_there_is_no_mask(tmp_path, monkeypatch):
+    _project(monkeypatch, tmp_path, ["MASK@user"])
+    monkeypatch.delenv("GISRC")
+    assert series_limits.series_threads(24) == 24
+
+
+def test_a_raster_mask_raises_the_real_limit(tmp_path, monkeypatch):
+    # On one thread 2 x 480 + 64 files fit into 1024.
+    _project(monkeypatch, tmp_path, ["MASK@user"])
+    _soft_limit(monkeypatch, 1024)
+    assert series_limits.series_map_limit(24) == 480
+    assert series_limits.exceeded_series_limit(30, nprocs=24) is None
+
+
 def test_below_both_limits_nothing_is_exceeded(tmp_path, monkeypatch):
     _session(monkeypatch, tmp_path, omp="3")
     _soft_limit(monkeypatch, 76)

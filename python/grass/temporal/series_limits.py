@@ -74,14 +74,61 @@ def series_threads(nprocs=None):
     """
     if nprocs is None:
         nprocs = session_nprocs()
-    if nprocs != 0:
-        return resolve_nprocs(nprocs)
+    threads = resolve_nprocs(nprocs) if nprocs != 0 else _openmp_threads()
+    # Rast_disable_omp_on_mask() lets r.series read a raster mask on one
+    # thread only (measured 2026-11-01 in grass --tmp-project XY with
+    # r.series file=... method=sum over 30 maps of 2x2 cells at ulimit -n
+    # 1024 on 24 processors: it failed without a mask and ran with r.mask
+    # raster=m1 and with GRASS_MASK naming another raster).
+    if threads > 1 and _raster_mask_present():
+        return 1
+    return threads
+
+
+def _openmp_threads():
+    """Return the first number of OMP_NUM_THREADS, else the usable processors"""
     first = os.environ.get("OMP_NUM_THREADS", "").split(",")[0].strip()
     try:
         threads = int(first)
     except ValueError:
         threads = 0
     return threads if threads > 0 else available_cpus()
+
+
+# G_legal_filename() rejects these characters in a map or mapset name, as
+# well as a leading dot and any character up to the space or past the tilde.
+_ILLEGAL_NAME_CHARACTERS = frozenset("/\"'@,=*")
+
+
+def _legal_name(name):
+    return (
+        bool(name)
+        and not name.startswith(".")
+        and all(" " < char <= "~" for char in name)
+        and not _ILLEGAL_NAME_CHARACTERS.intersection(name)
+    )
+
+
+def _raster_mask_present():
+    """Return whether r.series finds a raster mask, as Rast_mask_is_present()
+
+    The mask is the raster GRASS_MASK names, else MASK. A name without
+    mapset is looked up in the current mapset only, not in the search path.
+    The raster exists when its cell file does, which FCELL and DCELL maps
+    have too. The session file gives the mapset and the project path, so
+    that no module has to run.
+    """
+    variables = _gisrc_variables()
+    name = os.environ.get("GRASS_MASK") or "MASK"
+    if "@" in name:
+        name, _at, mapset = name.partition("@")
+    else:
+        mapset = variables.get("MAPSET", "")
+    database = variables.get("GISDBASE")
+    project = variables.get("LOCATION_NAME")
+    if not (database and project and _legal_name(name) and _legal_name(mapset)):
+        return False
+    return Path(database, project, mapset, "cell", name).exists()
 
 
 def series_map_limit(nprocs=None):
