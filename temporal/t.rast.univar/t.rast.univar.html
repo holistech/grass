@@ -1,57 +1,878 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.univar</em> calculates univariate statistics from the
-non-null cells for each registered raster map of a space time raster
-dataset.
+<em>t.rast.univar</em> calculates univariate statistics of each raster map
+registered in a space time raster dataset and prints one line of statistics
+per map, ordered by start time. It runs
+<em><a href="r.univar.html">r.univar</a></em> for every map, so the statistics
+are those of <em>r.univar</em>: they are taken from the cells of the current
+computational region and count only cells with a value (non-null cells). See
+the <a href="temporalintro.html">introduction to temporal data processing</a>
+for space time datasets. Space time 3D raster datasets have their own tool,
+<em><a href="t.rast3d.univar.html">t.rast3d.univar</a></em>, space time vector
+datasets <em><a href="t.vect.univar.html">t.vect.univar</a></em>.
 <p>
-By default it returns the name of the map, the semantic label of the
-map, the start and end date of the map and the following values:
-mean, minimum and maximum vale, mean_of_abs, standard deviation, variance,
-coeff_var, number of null cells, total number of cells.
-<p>
-Using the <em>e</em> flag it can calculate also extended statistics:
-first quartile, median value, third quartile and percentile 90.
-<p>
-If a <em>zones</em> raster map is provided, statistics are computed for
-each zone (category) in that input raster map. The <em>zones</em> option
-does not support space time raster datasets (STRDS) but only a single,
-static raster map.
-<p>
-Space time raster datasets may contain raster maps with varying spatial
-extent like for example series of scenes of satellite images. With the
-<em>region_relation</em> option, computations can be limited to
-maps of the space time raster dataset that have a given spatial relation
-to the current computational region. Supported spatial relations are:
+The option <b>input</b> names the space time raster dataset. Each line of the
+output starts with four columns that name the map:
 <ul>
- <li>"overlaps": process only maps that spatially overlap ("intersect")
-with the current computational region</li>
- <li>"is_contained": process only maps that are fully within the current
-computational region</li>
- <li>"contains": process only maps that contain (fully cover) the current
-computational region</li>
+<li><code>id</code>, the name of the map with its mapset, such as
+<code>temperature_1@PERMANENT</code>;</li>
+<li><code>semantic_label</code>, the semantic label of the map, empty if it
+has none;</li>
+<li><code>start</code> and <code>end</code>, the start and end time of the
+map; the end of a map registered as a time instance is
+<code>None</code>.</li>
 </ul>
+<p>
+The statistics follow:
+<ul>
+<li><code>non_null_cells</code> and <code>null_cells</code>: the number of
+cells with and without a value;</li>
+<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and
+the largest value and their difference;</li>
+<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and
+the mean of their absolute values;</li>
+<li><code>stddev</code> and <code>variance</code>: the variance is the sum of
+the squared deviations from the mean divided by the number of non-null cells
+(the population variance), the standard deviation is its square root;</li>
+<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times
+the standard deviation divided by the mean. It grows without bound when the
+mean approaches 0, and it is negative for a negative mean;</li>
+<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of
+their absolute values.</li>
+</ul>
+<p>
+The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>,
+<code>median</code>, <code>third_quartile</code> and the 90th percentile
+<code>percentile_90</code>. <em>r.univar</em> finds a percentile p in the
+sorted values of the n non-null cells: it takes the value at position
+<code>n * p / 100 - 0.5</code>, rounded down and counted from 0. The quartiles
+follow the same rule with p = 25 and p = 75. The median is the middle value, or
+the mean of the two middle values when n is even, so it can differ from the
+50th percentile. The option <b>percentile</b> replaces the 90th percentile by
+one or more percentiles from 0 to 100, separated by commas; it requires
+<b>-e</b>. Each percentile gets a column of its own, named after it, with an
+underscore for a decimal point: <code>percentile=97.5</code> gives
+<code>percentile_97_5</code>.
+<p>
+Three ways select the maps of the dataset, and they can be combined:
+<ul>
+<li>the option <b>where</b> takes an SQL condition on the registered maps,
+for instance on <code>start_time</code> or <code>name</code>;</li>
+<li>a semantic label after the name of the dataset,
+<code>input=name.label</code>, keeps only the maps with this label;</li>
+<li>the option <b>region_relation</b> keeps the maps that have a spatial
+relation with the current computational region: <code>overlaps</code> keeps
+the maps that share at least a part of the region, <code>contains</code> the
+maps that cover the whole region, and <code>is_contained</code> the maps that
+lie inside the region. A map with the extent of the region both contains it
+and is contained in it. The option only selects maps; it does not change the
+cells the statistics are taken from.</li>
+</ul>
+<p>
+Without the flag <b>-r</b>, the statistics of every map are taken in the
+current computational region: cells of the map outside the region are not
+counted, and cells of the region outside the map are null cells. With
+<b>-r</b>, the statistics of each map are taken in the region of that map, so
+every cell of the map is counted, whatever the current region.
+<p>
+The option <b>zones</b> names an integer (CELL) raster map whose categories
+divide the region into zones. <em>t.rast.univar</em> then prints one line per
+map and zone, with the columns <code>zone</code> (the category) and
+<code>label</code> (the category label) after the four columns of the map.
+<b>zones</b> takes a single raster map, not a space time dataset; the same
+zones apply to every map.
+<p>
+The option <b>nprocs</b> sets the number of maps that are processed at the
+same time. The default 0 uses all CPU cores, a negative number leaves that
+many cores unused. The output is the same, in the same order, for any value.
+<p>
+The option <b>format</b> chooses the form of the output:
+<ul>
+<li><code>plain</code> (the default) separates the columns with a vertical
+bar <code>|</code>;</li>
+<li><code>csv</code> separates them with a comma, or with another single
+character given in <b>separator</b>;</li>
+<li><code>json</code> prints a list with one object per map. The objects use
+the names of <em>r.univar</em>: <code>n</code> for the number of non-null
+cells, <code>cells</code> for the number of all cells, and the list
+<code>percentiles</code> for the percentiles. They have no
+<code>sum_abs</code>. A value that does not exist, such as the semantic label
+of a map without one, is <code>null</code>.</li>
+</ul>
+<p>
+The option <b>separator</b> sets the separator of the formats
+<code>plain</code> and <code>csv</code>. The flag <b>-u</b> leaves out the line
+with the column names. The format <code>json</code> always names the values
+and accepts neither <b>separator</b> nor <b>-u</b>.
+<p>
+The option <b>output</b> writes the statistics to a file instead of the
+standard output; <code>output=-</code> is the standard output. An existing file
+is replaced only with <b>--overwrite</b>.
 
-<h2>EXAMPLE</h2>
+<h2>NOTES</h2>
 
-Obtain the univariate statistics for the raster space time dataset
-"tempmean_monthly" (precision reduced to 2 decimals in this example):
+The current computational region decides which cells are counted, unless
+<b>-r</b> is given. A map that does not reach into the region has only null
+cells there; its <code>min</code> and <code>max</code> are <code>nan</code>.
+The raster mask is respected: cells outside the mask are null cells. Region
+and mask are the same for all maps, so maps with different extents can have
+different numbers of non-null cells, as the example with the scenes below
+shows.
+<p>
+If no map is selected, for instance because the condition in <b>where</b>
+matches none, <em>t.rast.univar</em> prints nothing, not even the line with
+the column names, in all formats. With the format <code>json</code>, the output
+is then empty, not an empty list <code>[]</code>.
+<p>
+The option <b>zones</b> takes a map of type CELL; <em>t.rast.univar</em> stops
+with the error "Zoning raster must be of type CELL" for a floating point map.
+<p>
+The format <code>csv</code> refuses a separator of more than one character,
+the format <code>json</code> refuses <b>separator</b> and <b>-u</b>.
+<b>percentile</b> without <b>-e</b> is refused by the parser.
+
+<h2>EXAMPLES</h2>
+
+<h3>Statistics of each map of a dataset</h3>
+
+Three maps of daily mean air temperature on a small region of two rows and
+three columns make up the dataset <code>temperature</code>. The helper map
+<code>cell_number</code> numbers the cells from 1 to 6, row by row, so each map
+is simple to follow:
+<ul>
+<li><code>temperature_1</code> holds -2, -1, 0 in the northern row and 1, 2, 3
+in the southern row;</li>
+<li><code>temperature_2</code> holds 1, 2, 3 and 4, 5, 6;</li>
+<li><code>temperature_3</code> holds 4, 5 and 7, 8, and nothing in the eastern
+column, as if a sensor had failed there.</li>
+</ul>
+<p>
+The maps are registered as daily intervals starting on 1 March 2026.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.univar -e tempmean_monthly
-id|start|end|mean|min|max|mean_of_abs|stddev|variance|coeff_var|sum|null_cells|cells|first_quartile|median|third_quartile|percentile_90
-2009_01_tempmean@climate_2009_2012|2009-01-01 00:00:00|2009-02-01 00:00:00|3.90|-3.38|7.43|3.95|1.79|3.20|45.91|1977967.31|503233|1010600|2.80|3.92|5.21|6.23
-2009_02_tempmean@climate_2009_2012|2009-02-01 00:00:00|2009-03-01 00:00:00|5.91|-1.82|8.01|5.92|1.63|2.65|27.53|2999555.60|503233|1010600|5.44|6.26|7.07|7.48
-...
-2012_11_tempmean@climate_2009_2012|2012-11-01 00:00:00|2012-12-01 00:00:00|8.03|1.79|10.91|8.03|1.32|1.73|16.41|4072472.77|503233|1010600|7.49|8.13|8.96|9.48
-2012_12_tempmean@climate_2009_2012|2012-12-01 00:00:00|2013-01-01 00:00:00|8.71|1.76|11.98|8.71|1.72|2.95|19.74|4418403.77|503233|1010600|7.84|8.95|9.99|10.67
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="cell_number = 3 * (row() - 1) + col()"
+r.mapcalc expression="temperature_1 = cell_number - 3"
+r.mapcalc expression="temperature_2 = cell_number"
+r.mapcalc expression="temperature_3 = if(col() == 3, null(), cell_number + 3)"
+t.create output=temperature title="Air temperature" \
+    description="Daily mean air temperature in degrees Celsius"
+t.register -i input=temperature \
+    maps=temperature_1,temperature_2,temperature_3 \
+    start=2026-03-01 increment="1 day"
+t.rast.univar input=temperature
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
+tools.r_mapcalc(expression="temperature_1 = cell_number - 3")
+tools.r_mapcalc(expression="temperature_2 = cell_number")
+tools.r_mapcalc(
+    expression="temperature_3 = if(col() == 3, null(), cell_number + 3)"
+)
+tools.t_create(
+    output="temperature",
+    title="Air temperature",
+    description="Daily mean air temperature in degrees Celsius",
+)
+tools.t_register(
+    input="temperature",
+    maps="temperature_1,temperature_2,temperature_3",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_rast_univar(input="temperature").text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+</pre></div>
+
+<p>
+The output reads line by line:
+<ul>
+<li><code>temperature_2</code> has six values, 1 to 6: the mean is 21 / 6 =
+3.5, the range 6 - 1 = 5. The squared deviations from the mean add up to 17.5,
+so the variance is 17.5 / 6 = 2.9166..., the standard deviation its square root
+1.7078..., and the coefficient of variation <code>100 * 1.7078 / 3.5</code> =
+48.79...</li>
+<li><code>temperature_1</code> holds the same values minus 3, so range,
+variance and standard deviation are those of <code>temperature_2</code>. Its
+values -2 to 3 add up to 3 and give the mean 0.5, while their absolute values
+add up to 9 and give <code>mean_of_abs</code> 1.5. With a mean close to 0, the
+coefficient of variation becomes 341.6 and says little.</li>
+<li><code>temperature_3</code> has four non-null cells and two null cells; its
+mean is (4 + 5 + 7 + 8) / 4 = 6.</li>
+</ul>
+<p>
+The semantic label is empty, because the maps have none.
+
+<h3>Select maps with a where condition</h3>
+
+The option <b>where</b> takes an SQL condition on the registered maps. Here it
+keeps the maps that start on 2 March 2026 or later.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar input=temperature where="start_time &gt;= '2026-03-02'"
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_univar(
+    input="temperature", where="start_time &gt;= '2026-03-02'"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+</pre></div>
+
+<h3>Calculate extended statistics</h3>
+
+The flag <b>-e</b> adds the quartiles, the median and the 90th percentile. The
+six values 1 to 6 of <code>temperature_2</code> give the first quartile at
+position <code>6 * 25 / 100 - 0.5</code> = 1 (the value 2), the third quartile
+at position 4 (the value 5), and the 90th percentile at position 4.9, rounded
+down to 4 (the value 5). The median is the mean of the two middle values 3 and
+4.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar -e input=temperature
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9|-1|0.5|2|2
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|5
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24|4|6|7|8
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+print(tools.t_rast_univar(input="temperature", flags="e").text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9|-1|0.5|2|2
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|5
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24|4|6|7|8
+</pre></div>
+
+<h3>Choose the percentiles</h3>
+
+The option <b>percentile</b> replaces the 90th percentile by the listed ones.
+For <code>temperature_2</code>, the 10th percentile is at position 0.1 (the
+value 1), the 50th at position 2.5 (the value 3) and the 95th at position 5.2
+(the value 6). The 50th percentile 3 is not the median 3.5: the median takes
+the mean of the two middle values, the percentile one value.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar -e input=temperature percentile=10,50,95 \
+    where="name = 'temperature_2'"
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|1|3|6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_univar(
+    input="temperature",
+    percentile=[10, 50, 95],
+    where="name = 'temperature_2'",
+    flags="e",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|1|3|6
+</pre></div>
+
+<h3>Statistics per zone</h3>
+
+The map <code>zones</code> divides the region into the northern row (category
+1, label <code>north</code>) and the southern row (category 2, label
+<code>south</code>). With <b>zones</b>, each map gets one line per zone. In the
+northern row, <code>temperature_2</code> holds 1, 2 and 3 with the mean 2, in
+the southern row 4, 5 and 6 with the mean 5.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="zones = row()"
+r.category map=zones separator=":" rules=- &lt;&lt;EOF
+1:north
+2:south
+EOF
+t.rast.univar input=temperature zones=zones \
+    where="name = 'temperature_2'"
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|1|north|3|0|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|2|south|3|0|4|6|2|5|5|0.816496580927726|0.666666666666667|16.3299316185545|15|15
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+tools.r_mapcalc(expression="zones = row()")
+tools.r_category(map="zones", separator=":", rules=StringIO("1:north\n2:south\n"))
+result = tools.t_rast_univar(
+    input="temperature", zones="zones", where="name = 'temperature_2'"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|1|north|3|0|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|2|south|3|0|4|6|2|5|5|0.816496580927726|0.666666666666667|16.3299316185545|15|15
+</pre></div>
+
+<h3>Restrict the statistics with a raster mask</h3>
+
+A raster mask restricts the statistics in the same way as for
+<em>r.univar</em>. With the mask on the northern row (category 1 of
+<code>zones</code>), three cells of <code>temperature_2</code> remain, 1, 2 and
+3, and the other three count as null cells. <em>r.mask</em> with <b>-r</b>
+removes the mask again.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mask raster=zones maskcats=1
+t.rast.univar input=temperature where="name = 'temperature_2'"
+r.mask -r
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|3|3|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mask(raster="zones", maskcats="1")
+result = tools.t_rast_univar(input="temperature", where="name = 'temperature_2'")
+print(result.text)
+tools.r_mask(flags="r")
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|3|3|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+</pre></div>
+
+<h3>Change the separator and leave out the column names</h3>
+
+The option <b>separator</b> sets another separator, and the flag <b>-u</b>
+leaves out the line with the column names, for instance to append the lines to
+a table that has them already.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar -u input=temperature separator=";"
+</pre></div>
+
+<div class="code"><pre>
+temperature_1@PERMANENT;;2026-03-01 00:00:00;2026-03-02 00:00:00;6;0;-2;3;5;0.5;1.5;1.70782512765993;2.91666666666667;341.565025531987;3;9
+temperature_2@PERMANENT;;2026-03-02 00:00:00;2026-03-03 00:00:00;6;0;1;6;5;3.5;3.5;1.70782512765993;2.91666666666667;48.7950036474267;21;21
+temperature_3@PERMANENT;;2026-03-03 00:00:00;2026-03-04 00:00:00;4;2;4;8;4;6;6;1.58113883008419;2.5;26.3523138347365;24;24
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_univar(input="temperature", separator=";", flags="u")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+temperature_1@PERMANENT;;2026-03-01 00:00:00;2026-03-02 00:00:00;6;0;-2;3;5;0.5;1.5;1.70782512765993;2.91666666666667;341.565025531987;3;9
+temperature_2@PERMANENT;;2026-03-02 00:00:00;2026-03-03 00:00:00;6;0;1;6;5;3.5;3.5;1.70782512765993;2.91666666666667;48.7950036474267;21;21
+temperature_3@PERMANENT;;2026-03-03 00:00:00;2026-03-04 00:00:00;4;2;4;8;4;6;6;1.58113883008419;2.5;26.3523138347365;24;24
+</pre></div>
+
+<h3>Write CSV to a file</h3>
+
+With <b>format</b> <code>csv</code>, the columns are separated by commas. The
+option <b>output</b> writes the statistics to a file.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar input=temperature format=csv output=temperature.csv
+cat temperature.csv
+</pre></div>
+
+<div class="code"><pre>
+id,semantic_label,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
+temperature_1@PERMANENT,,2026-03-01 00:00:00,2026-03-02 00:00:00,6,0,-2,3,5,0.5,1.5,1.70782512765993,2.91666666666667,341.565025531987,3,9
+temperature_2@PERMANENT,,2026-03-02 00:00:00,2026-03-03 00:00:00,6,0,1,6,5,3.5,3.5,1.70782512765993,2.91666666666667,48.7950036474267,21,21
+temperature_3@PERMANENT,,2026-03-03 00:00:00,2026-03-04 00:00:00,4,2,4,8,4,6,6,1.58113883008419,2.5,26.3523138347365,24,24
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+tools.t_rast_univar(input="temperature", format="csv", output="temperature.csv")
+print(Path("temperature.csv").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+id,semantic_label,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
+temperature_1@PERMANENT,,2026-03-01 00:00:00,2026-03-02 00:00:00,6,0,-2,3,5,0.5,1.5,1.70782512765993,2.91666666666667,341.565025531987,3,9
+temperature_2@PERMANENT,,2026-03-02 00:00:00,2026-03-03 00:00:00,6,0,1,6,5,3.5,3.5,1.70782512765993,2.91666666666667,48.7950036474267,21,21
+temperature_3@PERMANENT,,2026-03-03 00:00:00,2026-03-04 00:00:00,4,2,4,8,4,6,6,1.58113883008419,2.5,26.3523138347365,24,24
+</pre></div>
+
+<h3>Print JSON</h3>
+
+With <b>format</b> <code>json</code>, <em>t.rast.univar</em> prints a list with
+one object per map. The command line shows the output for
+<code>temperature_2</code> with the extended statistics. In Python, the
+attribute <code>json</code> of the result holds the list, and the example
+prints the mean, the median and the percentiles of each map.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar -e input=temperature format=json percentile=50,90 \
+    where="name = 'temperature_2'"
+</pre></div>
+
+<div class="code"><pre>
+[
+    {
+        "id": "temperature_2@PERMANENT",
+        "semantic_label": null,
+        "start": "2026-03-02 00:00:00",
+        "end": "2026-03-03 00:00:00",
+        "n": 6,
+        "null_cells": 0,
+        "cells": 6,
+        "min": 1,
+        "max": 6,
+        "range": 5,
+        "mean": 3.5,
+        "mean_of_abs": 3.5,
+        "stddev": 1.707825127659933,
+        "variance": 2.9166666666666665,
+        "coeff_var": 48.795003647426654,
+        "sum": 21,
+        "first_quartile": 2,
+        "median": 3.5,
+        "third_quartile": 5,
+        "percentiles": [
+            {
+                "percentile": 50,
+                "value": 3
+            },
+            {
+                "percentile": 90,
+                "value": 5
+            }
+        ]
+    }
+]
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_rast_univar(
+    input="temperature", format="json", flags="e", percentile=[50, 90]
+)
+for stats in result.json:
+    percentiles = {item["percentile"]: item["value"] for item in stats["percentiles"]}
+    print(
+        f"{stats['id']}: mean {stats['mean']}, median {stats['median']},"
+        f" percentiles {percentiles}"
+    )
+</pre></div>
+
+<div class="code"><pre>
+temperature_1@PERMANENT: mean 0.5, median 0.5, percentiles {50: 0, 90: 2}
+temperature_2@PERMANENT: mean 3.5, median 3.5, percentiles {50: 3, 90: 5}
+temperature_3@PERMANENT: mean 6, median 6, percentiles {50: 5, 90: 8}
+</pre></div>
+
+<h3>Statistics of the maps with one semantic label</h3>
+
+A satellite takes the bands of a scene at the same moment. The dataset
+<code>sentinel</code> holds the red band (semantic label <code>S2_B4</code>)
+and the near infrared band (<code>S2_B8</code>) of two scenes as maps with
+constant reflectance, registered as time instances, so their end time is
+<code>None</code>. The name <code>sentinel.S2_B8</code> selects the near
+infrared band; without the label, all four maps would be processed.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="red_1 = 0.05"
+r.mapcalc expression="nir_1 = 0.30"
+r.mapcalc expression="red_2 = 0.07"
+r.mapcalc expression="nir_2 = 0.40"
+r.support map=red_1 semantic_label=S2_B4
+r.support map=red_2 semantic_label=S2_B4
+r.support map=nir_1 semantic_label=S2_B8
+r.support map=nir_2 semantic_label=S2_B8
+t.create output=sentinel title="Reflectance" \
+    description="Red and near infrared reflectance of two scenes"
+t.register input=sentinel maps=red_1,nir_1 start="2026-06-01 10:30:00"
+t.register input=sentinel maps=red_2,nir_2 start="2026-06-11 10:30:00"
+t.rast.univar input=sentinel.S2_B8
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+nir_1@PERMANENT|S2_B8|2026-06-01 10:30:00|None|6|0|0.3|0.3|0|0.3|0.3|0|0|0|1.8|1.8
+nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2.4
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for name, value, label in (
+    ("red_1", 0.05, "S2_B4"),
+    ("nir_1", 0.30, "S2_B8"),
+    ("red_2", 0.07, "S2_B4"),
+    ("nir_2", 0.40, "S2_B8"),
+):
+    tools.r_mapcalc(expression=f"{name} = {value:.2f}")
+    tools.r_support(map=name, semantic_label=label)
+tools.t_create(
+    output="sentinel",
+    title="Reflectance",
+    description="Red and near infrared reflectance of two scenes",
+)
+tools.t_register(input="sentinel", maps="red_1,nir_1", start="2026-06-01 10:30:00")
+tools.t_register(input="sentinel", maps="red_2,nir_2", start="2026-06-11 10:30:00")
+print(tools.t_rast_univar(input="sentinel.S2_B8").text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+nir_1@PERMANENT|S2_B8|2026-06-01 10:30:00|None|6|0|0.3|0.3|0|0.3|0.3|0|0|0|1.8|1.8
+nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2.4
+</pre></div>
+
+<h3>Maps with extents of their own</h3>
+
+Satellite scenes rarely share one extent. The dataset <code>scenes</code> holds
+four maps with constant values on extents of their own; the current region is
+the square from (0, 0) to (4, 4) with 16 cells:
+<ul>
+<li><code>scene_1</code> covers the square from (-1, -1) to (5, 5) and so the
+whole region;</li>
+<li><code>scene_2</code> lies inside the region, from (1, 1) to (3, 3);</li>
+<li><code>scene_3</code> reaches from (2, 2) to (6, 6) and shares 4 cells with
+the region;</li>
+<li><code>scene_4</code> lies outside, from (10, 10) to (12, 12).</li>
+</ul>
+<p>
+The examples print the columns <code>id</code>, <code>non_null_cells</code>
+and <code>null_cells</code> only: on the command line, <em>cut</em> keeps the
+first, fifth and sixth column; in Python, the function <code>cells()</code>
+reads them from the JSON output, where <code>n</code> is the number of
+non-null cells. The next two examples use <code>cells()</code> again. By
+default, the cells are counted in the current region: <code>scene_1</code> has
+16 non-null cells there, <code>scene_2</code> and <code>scene_3</code> have 4,
+and <code>scene_4</code> none.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for scene in "scene_1 -1 5 10" "scene_2 1 3 20" \
+    "scene_3 2 6 30" "scene_4 10 12 40"; do
+    set -- $scene
+    g.region s=$2 n=$3 w=$2 e=$3 res=1
+    r.mapcalc expression="$1 = $4"
+done
+t.create output=scenes title="Scenes" \
+    description="Scenes with extents of their own"
+t.register -i input=scenes maps=scene_1,scene_2,scene_3,scene_4 \
+    start=2026-07-01 increment="1 day"
+g.region s=0 n=4 w=0 e=4 res=1
+t.rast.univar input=scenes | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+scene_2@PERMANENT|4|12
+scene_3@PERMANENT|4|12
+scene_4@PERMANENT|0|16
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for name, low, high, value in (
+    ("scene_1", -1, 5, 10),
+    ("scene_2", 1, 3, 20),
+    ("scene_3", 2, 6, 30),
+    ("scene_4", 10, 12, 40),
+):
+    tools.g_region(s=low, n=high, w=low, e=high, res=1)
+    tools.r_mapcalc(expression=f"{name} = {value}")
+tools.t_create(
+    output="scenes",
+    title="Scenes",
+    description="Scenes with extents of their own",
+)
+tools.t_register(
+    input="scenes",
+    maps="scene_1,scene_2,scene_3,scene_4",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.g_region(s=0, n=4, w=0, e=4, res=1)
+
+
+def cells(**options):
+    result = tools.t_rast_univar(input="scenes", format="json", **options)
+    print("id|non_null_cells|null_cells")
+    for stats in result.json:
+        print(f"{stats['id']}|{stats['n']}|{stats['null_cells']}")
+
+
+cells()
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+scene_2@PERMANENT|4|12
+scene_3@PERMANENT|4|12
+scene_4@PERMANENT|0|16
+</pre></div>
+
+<h3>Use the region of each map</h3>
+
+With <b>-r</b>, each map of the dataset <code>scenes</code> from the previous
+example is counted in its own region: <code>scene_1</code> has 36 cells,
+<code>scene_3</code> 16, and <code>scene_4</code>, outside the current region,
+4.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar -r input=scenes | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|36|0
+scene_2@PERMANENT|4|0
+scene_3@PERMANENT|16|0
+scene_4@PERMANENT|4|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+cells(flags="r")
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|36|0
+scene_2@PERMANENT|4|0
+scene_3@PERMANENT|16|0
+scene_4@PERMANENT|4|0
+</pre></div>
+
+<h3>Select maps by their spatial relation to the region</h3>
+
+The option <b>region_relation</b> selects maps of the dataset
+<code>scenes</code> from the previous example by their relation to the current
+region: <code>overlaps</code> keeps all but <code>scene_4</code>,
+<code>contains</code> only <code>scene_1</code>, which covers the region, and
+<code>is_contained</code> only <code>scene_2</code>, which lies inside it.
+Combined with <b>-r</b>, the selected maps are counted in their own regions.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.univar input=scenes region_relation=overlaps | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+scene_2@PERMANENT|4|12
+scene_3@PERMANENT|4|12
+</pre></div>
+
+<div class="code"><pre>
+t.rast.univar input=scenes region_relation=contains | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+</pre></div>
+
+<div class="code"><pre>
+t.rast.univar input=scenes region_relation=is_contained | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_2@PERMANENT|4|12
+</pre></div>
+
+<div class="code"><pre>
+t.rast.univar -r input=scenes region_relation=overlaps | cut -d"|" -f1,5,6
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|36|0
+scene_2@PERMANENT|4|0
+scene_3@PERMANENT|16|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+cells(region_relation="overlaps")
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+scene_2@PERMANENT|4|12
+scene_3@PERMANENT|4|12
+</pre></div>
+
+<div class="code"><pre>
+cells(region_relation="contains")
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|16|0
+</pre></div>
+
+<div class="code"><pre>
+cells(region_relation="is_contained")
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_2@PERMANENT|4|12
+</pre></div>
+
+<div class="code"><pre>
+cells(region_relation="overlaps", flags="r")
+</pre></div>
+
+<div class="code"><pre>
+id|non_null_cells|null_cells
+scene_1@PERMANENT|36|0
+scene_2@PERMANENT|4|0
+scene_3@PERMANENT|16|0
+</pre></div>
+
+<h3>Process the maps in parallel</h3>
+
+The option <b>nprocs</b> sets how many maps are processed at the same time.
+The output does not depend on it. The region is set back to the one of the
+dataset <code>temperature</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1
+t.rast.univar input=temperature nprocs=2
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+print(tools.t_rast_univar(input="temperature", nprocs=2).text)
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
+temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
+<a href="g.region.html">g.region</a>,
+<a href="r.mask.html">r.mask</a>,
+<a href="r.univar.html">r.univar</a>,
 <a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>
-<a href="r.univar.html">t.create</a>,
+<a href="t.info.html">t.info</a>,
+<a href="t.rast3d.univar.html">t.rast3d.univar</a>,
+<a href="t.register.html">t.register</a>,
+<a href="t.vect.univar.html">t.vect.univar</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
