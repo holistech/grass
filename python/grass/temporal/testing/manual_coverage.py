@@ -124,7 +124,7 @@ class _Page(html.parser.HTMLParser):
         if tag != self._open:
             return
         if tag == "pre":
-            self.pre.append(self._text.strip("\n"))
+            self.pre.append(_without_line_end_blanks(self._text))
         else:
             self.headings.add(" ".join(self._text.split()))
         self._open = None
@@ -132,6 +132,10 @@ class _Page(html.parser.HTMLParser):
     def handle_data(self, data):
         if self._open:
             self._text += data
+
+
+def _without_line_end_blanks(text: str) -> str:
+    return "\n".join(line.rstrip(" \t") for line in text.split("\n")).strip("\n")
 
 
 def _markdown_blocks(path: Path) -> list[tuple[int, str]]:
@@ -178,16 +182,20 @@ def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
     Every fenced block of the ``.md`` (code and shown output, inside the
     examples and elsewhere) has to be the text of a ``<pre>`` of the ``.html``
     after its entities are resolved (``&lt;`` is ``<``) and the newlines at
-    both ends are dropped; every image of the ``.md`` has to be the ``src``
-    of an ``<img>``; every ``##`` heading has to be an ``<h2>``. An empty
-    list means the two agree in these respects.
+    both ends are dropped. Blanks at the end of a line do not count on either
+    side: the trailing-whitespace hook of pre-commit strips them from .html
+    files but not from .md files, which it leaves out, and a reader cannot see
+    them. The comparison of a shown output with the run stays exact (see
+    manual_examples.check_manual). Every image of the ``.md`` has to be the
+    ``src`` of an ``<img>``; every ``##`` heading has to be an ``<h2>``. An
+    empty list means the two agree in these respects.
     """
     page = _Page()
     page.feed(Path(html_path).read_text(encoding="utf-8"))
     page.close()
     missing = []
     for line, text in _markdown_blocks(manual.path):
-        if text not in page.pre:
+        if _without_line_end_blanks(text) not in page.pre:
             missing.append(
                 f"{manual.path}:{line}: block not in a <pre> of {html_path}:\n{text}"
             )

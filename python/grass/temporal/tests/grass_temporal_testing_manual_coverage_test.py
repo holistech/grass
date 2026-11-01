@@ -381,6 +381,31 @@ def test_escaped_html_matches_the_markdown_block(tmp_path):
     assert any("SEE ALSO" in item for item in missing)
 
 
+def test_blanks_at_line_ends_do_not_count_in_the_html(tmp_path):
+    shell = blocks("sh", ("t.info input=a\n", " | # 2026-11-01 12:00:00 \n | \n"))
+    python = blocks("python", 'tools.t_info(input="a")\n')
+    manual = write_manual(tmp_path, example("Blanks", shell, python))
+    page = (
+        "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n"
+        "<pre>\nt.info input=a\n</pre>\n"
+        "<pre>\n | # 2026-11-01 12:00:00\n |\n</pre>\n"
+        '<pre>\ntools.t_info(input="a")\n</pre>\n<h2>SEE ALSO</h2>\n'
+    )
+    html_path = manual.path.with_suffix(".html")
+    # As the trailing-whitespace hook of pre-commit leaves the .html.
+    html_path.write_text(page)
+    assert mc.check_html_sync(manual, html_path) == []
+
+    # Blanks that only the .html has do not count either.
+    html_path.write_text(page.replace("input=a\n", "input=a  \n"))
+    assert mc.check_html_sync(manual, html_path) == []
+
+    html_path.write_text(page.replace("12:00:00\n", "12:00:01\n"))
+    missing = mc.check_html_sync(manual, html_path)
+    assert len(missing) == 1
+    assert "12:00:00" in missing[0]
+
+
 def test_tool_options_lists_parameters_and_short_flags(session):
     options = mc.tool_options("t.create", session.env)
     assert options == {
