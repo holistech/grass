@@ -68,9 +68,12 @@ def series_threads(nprocs=None):
     it stands, 0 asks OpenMP and NPROCS of the session is not looked at
     (measured 2026-10-31 by bisection at ulimit -n 1024 with NPROCS=4 in the
     session: 127 maps without nprocs, 21 with nprocs=0 on 24 processors, 63
-    with nprocs=0 and OMP_NUM_THREADS=8). A GRASS without
-    OpenMP, or a raster mask, runs one thread; counting more only switches
-    to -z earlier than needed.
+    with nprocs=0 and OMP_NUM_THREADS=8). A passed nprocs given as text,
+    as option values are, counts as its number.
+
+    With a raster mask r.series runs one thread, and so does the count. In
+    a GRASS built without OpenMP r.series runs one thread; the count does
+    not know this and may set -z earlier than needed.
     """
     nprocs = session_nprocs() if nprocs is None else int(nprocs)
     threads = resolve_nprocs(nprocs) if nprocs != 0 else _openmp_threads()
@@ -172,7 +175,7 @@ def exceeded_series_limit(count, *, file_limit=None, nprocs=None):
 def series_limit_warning(limit, count):
     """Return the warning that r.series runs with -z for count maps
 
-    The text is that of t.rast.aggregate before the rule moved here, so its
+    The text is the one t.rast.aggregate has used for this warning, so its
     translations stay valid.
     """
     return _(
