@@ -20,8 +20,6 @@ from grass.temporal.testing.data import (
 from grass.temporal.testing.readback import list_maps, message, stds_info
 from grass.tools import ToolError
 
-resource = pytest.importorskip("resource")
-
 TIME = "%Y-%m-%d %H:%M:%S"
 
 
@@ -683,6 +681,8 @@ def few_open_files(tools, monkeypatch):
     environment of the session is changed through monkeypatch and the limit
     is set back afterwards.
     """
+    # Only this fixture needs the module, which Windows lacks.
+    resource = pytest.importorskip("resource")
     soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
     monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "8")  # noqa: SLF001
@@ -695,7 +695,7 @@ def test_an_aggregate_past_the_open_files_runs_and_sums(
 ):
     # 20 maps on 8 threads hold 320 files, more than the 256 allowed; the
     # sum is 1 + ... + 20.
-    tools.t_rast_aggregate_ds(
+    result = tools.t_rast_aggregate_ds(
         input="ds_hourly20",
         sample="ds_hourly_sampler",
         output="ds_ofl",
@@ -704,3 +704,4 @@ def test_an_aggregate_past_the_open_files_runs_and_sums(
     )
 
     assert [row[3] for row in _rows(tools, "ds_ofl")] == [210.0]
+    assert message(result).count("limit of open files") == 1

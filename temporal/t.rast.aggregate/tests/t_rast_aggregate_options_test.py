@@ -19,8 +19,6 @@ from grass.temporal.testing.data import (
 from grass.temporal.testing.readback import list_maps, message
 from grass.tools import ToolError
 
-resource = pytest.importorskip("resource")
-
 
 def _rows(tools, name):
     return [
@@ -505,6 +503,8 @@ def few_open_files(tools, monkeypatch):
     modules of the other tests keep their files. The limit is set back
     afterwards.
     """
+    # Only this fixture needs the module, which Windows lacks.
+    resource = pytest.importorskip("resource")
     soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (256, hard))
     monkeypatch.setitem(tools._original_env, "OMP_NUM_THREADS", "8")  # noqa: SLF001

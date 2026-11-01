@@ -142,12 +142,11 @@ def few_open_files():
 
 
 def test_aggregate_raster_maps_past_the_open_files_runs_and_sums(
-    session, few_open_files, monkeypatch
+    session, few_open_files
 ):
     """20 maps on 8 threads need 2 x 8 x 20 + 64 = 384 files, more than the 256
     allowed; with -z r.series runs and gives the sum 1 + 2 + ... + 20"""
     grass_session, tools = session
-    monkeypatch.setenv("OMP_NUM_THREADS", "8")
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()
     try:

@@ -70,7 +70,11 @@ def test_single_map_plans_g_copy():
     assert remove == []
 
 
-def test_two_maps_plan_r_series_without_z():
+def test_two_maps_plan_r_series_without_z(monkeypatch):
+    # One thread and no session file: two maps need 68 open files, which
+    # any machine allows, whatever its processors and NPROCS.
+    monkeypatch.delenv("GISRC", raising=False)
+    monkeypatch.setenv("OMP_NUM_THREADS", "1")
     node = SeriesAggregate("sum", (MapRef("a"), MapRef("b")), 1000)
     calls, _ = RasterBackend().plan(node, "out")
     assert [c.name for c in calls] == ["r.series"]
