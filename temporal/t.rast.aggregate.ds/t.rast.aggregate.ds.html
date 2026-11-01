@@ -60,15 +60,17 @@ two files per map and thread. The module therefore runs <em>r.series</em> with
 the flag <b>-z</b>, which reads the maps row by row, when the maps of a
 granule exceed 1000 (this module has no <b>file_limit</b> option) or when 2
 &times; threads &times; maps + 64 exceeds the limit of open files of the
-process (<code>ulimit -n</code>). The threads are counted as <em>r.series</em>
-chooses them: <code>NPROCS</code> of the GRASS session (see
-<em>g.gisenv</em>), else <code>OMP_NUM_THREADS</code>, else the usable
-processors. The module warns whenever it sets the flag. Without a limit on
-open files, or without the Python module <code>resource</code> (for example on
-Windows), the limit of 1000 maps counts. The flag does not change the result
-but is slower: for 100 maps of 1000 &times; 1000 cells, <em>r.series</em> took
-5.2 s with <b>-z</b> instead of 0.25 s (measured 31.10.2026 with method sum,
-three runs).
+process (<code>ulimit -n</code>). The threads are counted from
+<code>NPROCS</code> of the GRASS session (see <em>g.gisenv</em>), else
+<code>OMP_NUM_THREADS</code>, else the usable processors. With a raster mask
+(see <em>r.mask</em>), <em>r.series</em> runs one thread, and so does the
+count. In a GRASS built without OpenMP, <em>r.series</em> runs one thread; the
+count does not know this and may set <b>-z</b> earlier than needed. The module
+warns whenever it sets the flag. Without a limit on open files, or without the
+Python module <code>resource</code> (for example on Windows), the limit of 1000
+maps counts. The flag does not change the result but is slower: for 100 maps
+of 1000 &times; 1000 cells, <em>r.series</em> took 5.2 s with <b>-z</b>
+instead of 0.25 s (measured 31.10.2026 with method sum, three runs).
 
 <h2>EXAMPLES</h2>
 
