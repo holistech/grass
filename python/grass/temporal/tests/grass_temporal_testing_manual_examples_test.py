@@ -303,3 +303,32 @@ def test_normalize_keeps_values_next_to_a_replaced_time():
 def test_normalize_keeps_a_time_outside_the_labelled_fields():
     shown = "Start time: 2020-01-01 00:00:00\n"
     assert me.normalize(shown, CONTEXT) == shown
+
+
+def test_normalize_replaces_the_hex_of_the_register_table_name():
+    one = " | Raster register table:...... raster_map_register_" + "a" * 32 + "\n"
+    two = one.replace("a" * 32, "b" * 32)
+    assert me.normalize(one, CONTEXT) == me.normalize(two, CONTEXT)
+    assert me.normalize(one, CONTEXT).startswith(" | Raster register table:")
+    vector = one.replace("raster_map", "vector_map")
+    assert me.normalize(vector, CONTEXT) != me.normalize(one, CONTEXT)
+    assert "raster_map_register_" + "a" * 32 not in me.normalize(one, CONTEXT)
+    other = "register=raster_map_register_" + "a" * 32 + " | min: 3\n"
+    assert me.normalize(other, CONTEXT).endswith(" | min: 3\n")
+
+
+def test_normalize_keeps_a_comment_line_that_starts_with_a_time():
+    shown = "# 2020-01-01 00:00:00 start\n"
+    assert me.normalize(shown, CONTEXT) == shown
+
+
+def test_a_closing_fence_with_trailing_spaces_closes_the_block(tmp_path):
+    shell = "```sh\nt.a\n```  \n\n```text\nout\n```"
+    text = manual(
+        "### T\n\n"
+        + tab("Command line", shell)
+        + "\n"
+        + tab("Python (grass.tools)", "```python\nx\n```")
+    )
+    parsed = me.parse_manual(write(tmp_path, text))
+    assert parsed.examples[0].blocks[0].shown_output == "out\n"

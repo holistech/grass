@@ -46,6 +46,8 @@ INDENT = "    "
 FIXED_TIME = "2026-11-01 12:00:00"
 FIXED_DATABASE = "/home/user/grassdata"
 FIXED_USER = "user"
+# Any 32 hex digits; the real name carries a uuid4 that differs every run.
+FIXED_REGISTER = "0" * 32
 
 CONTROL_KEYS = ("requires", "not-run", "reason")
 SIMPLE_REQUIREMENTS = ("postgresql", "old-database")
@@ -188,7 +190,7 @@ class _Parser:
     def __init__(self, path: Path):
         self.path = path
         self.tool = path.stem
-        self.lines = path.read_text().split("\n")
+        self.lines = path.read_text(encoding="utf-8").split("\n")
         if self.lines and self.lines[-1] == "":
             self.lines.pop()
         self.sections: list[_Section] = []
@@ -230,7 +232,7 @@ class _Parser:
     def fence(self, number: int, indent: str, language: str):
         body = []
         end = self.index + 1
-        while end < len(self.lines) and self.lines[end] != f"{indent}```":
+        while end < len(self.lines) and self.lines[end].rstrip() != f"{indent}```":
             body.append(self.lines[end])
             end += 1
         if end >= len(self.lines):
@@ -363,8 +365,10 @@ _TIME_FIELDS = (
     # t.info -g: creation_time='TIME'
     re.compile(rf"((?:creation|modification)_time=')({_TIME})(')"),
     # t.info "Command history": the " | # TIME" line of every command
-    re.compile(rf"^(\s*\|? ?# ){_TIME}", re.MULTILINE),
+    re.compile(rf"^( \| # ){_TIME}", re.MULTILINE),
 )
+
+_REGISTER = re.compile(r"(\b\w+_map_register_)[0-9a-f]{32}\b")
 
 
 def normalize(text: str, context: NormalizeContext) -> str:
@@ -382,9 +386,15 @@ def normalize(text: str, context: NormalizeContext) -> str:
       and ``t.info -g`` print them, and the time stamps of its command history:
       the time of the run. Only the time is replaced, not the rest of its line.
 
-    Not covered because none of the pilot tools prints them: the creator and
-    time columns of ``t.list`` (unlabelled), the creation time of single maps,
-    and the random name of the register table (``raster_map_register_...``).
+    - the hex part of the register table name (``raster_map_register_<hex>``,
+      likewise ``raster3d_``, ``vector_``) that ``t.info`` prints: it is a
+      new uuid4 for every dataset. The type prefix and the rest of the line
+      stay comparable.
+
+    The time rules also cover single maps, whose ``t.info`` prints the same
+    ``Creation time:`` and ``creation_time=`` lines (base.py). Not covered
+    because none of the pilot tools prints them: the creator and time columns
+    of ``t.list`` (unlabelled).
     """
     if context.database:
         text = text.replace(context.database, FIXED_DATABASE)
@@ -393,4 +403,5 @@ def normalize(text: str, context: NormalizeContext) -> str:
     text = re.sub(rf"(?m)^(creator=){user}$", rf"\g<1>{FIXED_USER}", text)
     text = _TIME_FIELDS[0].sub(rf"\g<1>{FIXED_TIME}", text)
     text = _TIME_FIELDS[1].sub(rf"\g<1>{FIXED_TIME}\g<3>", text)
-    return _TIME_FIELDS[2].sub(rf"\g<1>{FIXED_TIME}", text)
+    text = _TIME_FIELDS[2].sub(rf"\g<1>{FIXED_TIME}", text)
+    return _REGISTER.sub(rf"\g<1>{FIXED_REGISTER}", text)
