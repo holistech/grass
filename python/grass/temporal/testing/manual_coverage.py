@@ -1,0 +1,204 @@
+# SPDX-FileCopyrightText: 2026 Soeren Gebbert
+# SPDX-FileCopyrightText: GRASS Development Team
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+"""Check that a temporal manual shows every option and agrees with its .html
+
+``tool_options`` asks a tool for its options, ``shown_options`` collects the
+ones the examples of its manual use, and ``NOT_SHOWN`` lists the options that
+a manual leaves out on purpose. ``check_html_sync`` compares the ``.md`` with
+the ``.html`` kept by hand next to it.
+"""
+
+from __future__ import annotations
+
+import html.parser
+import subprocess
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+from .manual_examples import FENCE, Manual, python_calls, shell_calls
+
+# The flags that the parser gives every tool. A tool does not have to show
+# them; the shell spells them --overwrite, grass.tools takes keywords.
+STANDARD_FLAGS = frozenset({"overwrite", "help", "verbose", "quiet", "ui"})
+STANDARD_KEYWORDS = STANDARD_FLAGS | {"superquiet"}
+
+# (tool, option) -> why the manual of the tool does not show the option; an
+# option is spelled as in tool_options(), a flag as "-x".
+NOT_SHOWN: dict[tuple[str, str], str] = {}
+
+
+def tool_options(tool: str, env) -> set[str]:
+    """Return the parameters and flags (as ``-x``) of a tool
+
+    Read from ``<tool> --interface-description`` in the environment env; the
+    standard flags of the parser are left out.
+    """
+    process = subprocess.run(
+        [tool, "--interface-description"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if process.returncode:
+        msg = f"{tool} --interface-description failed: {process.stderr}"
+        raise RuntimeError(msg)
+    # The XML comes from the installed tool, not from outside.
+    root = ET.fromstring(process.stdout)  # noqa: S314
+    options = {parameter.get("name") for parameter in root.iter("parameter")}
+    options.update(
+        f"-{flag.get('name')}"
+        for flag in root.iter("flag")
+        if flag.get("name") not in STANDARD_FLAGS
+    )
+    return options
+
+
+def _shell_options(code: str, tool: str) -> set[str]:
+    shown = set()
+    for words in shell_calls(code, tool):
+        for word in words:
+            if word.startswith("--"):
+                continue
+            if "=" in word:
+                shown.add(word.split("=", 1)[0])
+            elif word.startswith("-"):
+                shown.update(f"-{letter}" for letter in word[1:])
+    return shown
+
+
+def _python_options(code: str, tool: str) -> set[str]:
+    shown = set()
+    for keywords in python_calls(code, tool):
+        for name, value in keywords.items():
+            if name == "flags" and isinstance(value, str):
+                shown.update(f"-{letter}" for letter in value)
+            elif name not in STANDARD_KEYWORDS:
+                shown.add(name)
+    return shown
+
+
+def shown_options(manual: Manual) -> set[str]:
+    """Return the options of the manual's tool that its examples run with
+
+    An option counts as ``name=`` on a command line of the tool in a shell
+    block, a flag as ``-x`` or within a group ``-xy``; in a Python block as a
+    keyword of ``<object>.<tool with _>(...)``, a flag as a letter of
+    ``flags="..."``. Blocks marked not-run do not count, blocks with a
+    requirement do, because they run where it holds. The standard flags are
+    left out.
+    """
+    shown = set()
+    for example in manual.examples:
+        for block in example.blocks:
+            if "not-run" in block.control:
+                continue
+            if block.language == "sh":
+                shown |= _shell_options(block.code, manual.tool)
+            else:
+                shown |= _python_options(block.code, manual.tool)
+    return shown
+
+
+class _Page(html.parser.HTMLParser):
+    """The text of each <pre>, the src of each <img> and the text of each <h2>"""
+
+    def __init__(self):
+        # convert_charrefs (the default) hands &lt; to handle_data as "<".
+        super().__init__()
+        self.pre: list[str] = []
+        self.images: set[str] = set()
+        self.headings: set[str] = set()
+        self._open: str | None = None
+        self._text = ""
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "img":
+            self.images.update(value for name, value in attrs if name == "src")
+        elif tag in {"pre", "h2"} and self._open is None:
+            self._open, self._text = tag, ""
+
+    def handle_endtag(self, tag):
+        if tag != self._open:
+            return
+        if tag == "pre":
+            self.pre.append(self._text.strip("\n"))
+        else:
+            self.headings.add(" ".join(self._text.split()))
+        self._open = None
+
+    def handle_data(self, data):
+        if self._open:
+            self._text += data
+
+
+def _markdown_blocks(path: Path) -> list[tuple[int, str]]:
+    """Each fenced block of the file as (line of the fence, content)
+
+    The content loses the indentation of its fence, as a tab of an example
+    is indented by four spaces that the .html does not have.
+    """
+    lines = path.read_text(encoding="utf-8").split("\n")
+    found = []
+    index = 0
+    while index < len(lines):
+        fence = FENCE.match(lines[index])
+        if not fence:
+            index += 1
+            continue
+        indent = fence.group(1)
+        start = index
+        body = []
+        index += 1
+        while index < len(lines) and lines[index].rstrip() != f"{indent}```":
+            row = lines[index]
+            body.append(row[len(indent) :] if row.startswith(indent) else row.strip())
+            index += 1
+        found.append((start + 1, "\n".join(body).strip("\n")))
+        index += 1
+    return found
+
+
+def _markdown_headings(path: Path) -> list[str]:
+    headings = []
+    in_fence = False
+    for line in path.read_text(encoding="utf-8").split("\n"):
+        if FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("## "):
+            headings.append(" ".join(line[3:].split()))
+    return headings
+
+
+def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
+    """Return what of the .md is missing in the .html, one entry per finding
+
+    Every fenced block of the ``.md`` (code and shown output, inside the
+    examples and elsewhere) has to be the text of a ``<pre>`` of the ``.html``
+    after its entities are resolved (``&lt;`` is ``<``) and the newlines at
+    both ends are dropped; every image of the ``.md`` has to be the ``src``
+    of an ``<img>``; every ``##`` heading has to be an ``<h2>``. An empty
+    list means the two agree in these respects.
+    """
+    page = _Page()
+    page.feed(Path(html_path).read_text(encoding="utf-8"))
+    page.close()
+    missing = []
+    for line, text in _markdown_blocks(manual.path):
+        if text not in page.pre:
+            missing.append(
+                f"{manual.path}:{line}: block not in a <pre> of {html_path}:\n{text}"
+            )
+    missing.extend(
+        f"{manual.path}: image {image} not in an <img src> of {html_path}"
+        for image in manual.images
+        if image not in page.images
+    )
+    missing.extend(
+        f"{manual.path}: heading {heading!r} not an <h2> of {html_path}"
+        for heading in _markdown_headings(manual.path)
+        if heading not in page.headings
+    )
+    return missing

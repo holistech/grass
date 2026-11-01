@@ -29,16 +29,34 @@ shown for that block. Blocks of any other language are rejected, so that
 there is one spelling (``sh``, not ``bash``). An HTML comment
 ``<!-- example: key=value -->`` directly before a code block steers the test
 and stays invisible to the reader; ``<!-- example-project: crs=... -->`` under
-``## EXAMPLES`` names the coordinate system the examples need. This module
-only reads; running, coverage and the sync with the ``.html`` live elsewhere.
+``## EXAMPLES`` names the coordinate system the examples need.
+
+``run_manual`` runs the blocks of one tab, ``check_manual`` also compares the
+shown output and the figures. Which options the examples show and whether the
+``.html`` agrees is the business of ``manual_coverage``.
 """
 
 from __future__ import annotations
 
+import ast
+import difflib
+import getpass
+import json
+import os
 import re
 import shlex
+import signal
+import struct
+import subprocess
+import sys
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import grass.script as gs
+
+from . import postgresql
+from .versions import downgrade_to_version_2
 
 TABS = {"Command line": "shell", "Python (grass.tools)": "python"}
 LANGUAGES = {"shell": "sh", "python": "python"}
@@ -405,3 +423,411 @@ def normalize(text: str, context: NormalizeContext) -> str:
     text = _TIME_FIELDS[1].sub(rf"\g<1>{FIXED_TIME}\g<3>", text)
     text = _TIME_FIELDS[2].sub(rf"\g<1>{FIXED_TIME}", text)
     return _REGISTER.sub(rf"\g<1>{FIXED_REGISTER}", text)
+
+
+# The examples work on small regions (at most 20 x 20 cells, a rule of the
+# manuals), so the limit is not a speed check; it stops a hanging command, such
+# as one waiting for input. The Python tab gets the sum for all its blocks.
+# pytest-timeout (300 s for the repository) can end a long test first.
+BLOCK_SECONDS = 120
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+# Tokens that end a shell command, and those whose next word is a file name.
+_SHELL_PUNCTUATION = ";&|()<>\n"
+_REDIRECT = set("<>")
+
+# Runs the blocks of a Python tab one after the other in one namespace, so a
+# later block uses what an earlier one made (tools = Tools()). The separator
+# line between two blocks, on stdout and on stderr, splits the output per block.
+# A block that raises ends the process with 1 after its traceback.
+_DRIVER = """
+import json, os, sys, traceback
+from types import SimpleNamespace
+
+job = json.load(sys.stdin)
+namespace = {"__name__": "__main__"}
+for index, block in enumerate(job["blocks"]):
+    if index:
+        print(job["separator"], flush=True)
+        print(job["separator"], file=sys.stderr, flush=True)
+    if block["old_database"]:
+        from grass.temporal.testing.versions import downgrade_to_version_2
+
+        downgrade_to_version_2(SimpleNamespace(env=dict(os.environ)))
+    try:
+        exec(compile(block["code"], block["name"], "exec"), namespace)
+    except Exception:
+        traceback.print_exc()
+        sys.exit(1)
+"""
+
+
+@dataclass(frozen=True)
+class BlockResult:
+    """What running one code block gave
+
+    ``skipped`` is None for a block that ran, otherwise the reason why it did
+    not run; a skipped block has empty output and return code 0. A return
+    code below 0 is the signal that stopped a block after BLOCK_SECONDS.
+    """
+
+    block: Block
+    stdout: str
+    stderr: str
+    returncode: int
+    skipped: str | None = None
+
+
+def _gdal_reason(driver: str) -> str | None:
+    try:
+        from osgeo import gdal  # noqa: PLC0415
+    except ImportError:
+        return f"requires=gdal:{driver}: the GDAL Python bindings are missing"
+    if gdal.GetDriverByName(driver) is None:
+        return f"requires=gdal:{driver}: GDAL has no driver {driver!r}"
+    return None
+
+
+def _skip_reason(block: Block) -> str | None:
+    """Why the block does not run here, or None if it runs"""
+    control = block.control
+    if "not-run" in control:
+        return f"not-run: {control['reason']}"
+    need = control.get("requires", "")
+    if need == "postgresql" and postgresql.server_string() is None:
+        return (
+            f"requires=postgresql: {postgresql.SERVER_VARIABLE} "
+            "names no PostgreSQL server"
+        )
+    if need.startswith("gdal:"):
+        return _gdal_reason(need[len("gdal:") :])
+    return None
+
+
+def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
+    """Run a process in a group of its own; kill the group after seconds
+
+    As session.run_with_timeout, but with stdout kept. The whole group is
+    killed, because a tool started below bash or python survives the kill of
+    its parent alone.
+    """
+    process = subprocess.Popen(
+        arguments,
+        env=env,
+        cwd=cwd,
+        stdin=subprocess.DEVNULL if stdin is None else subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(stdin, timeout=seconds)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        stdout, stderr = process.communicate()
+        stderr += f"\nStopped after {seconds} s.\n"
+        return -signal.SIGKILL, stdout, stderr
+    return process.returncode, stdout, stderr
+
+
+def _after_failure(block: Block) -> str:
+    return f"not run: the block at line {block.line} failed"
+
+
+def _run_shell(blocks: list[Block], session, workdir: Path) -> list[BlockResult]:
+    results = []
+    failed = None
+    for block in blocks:
+        reason = failed or _skip_reason(block)
+        if reason:
+            results.append(BlockResult(block, "", "", 0, reason))
+            continue
+        if block.control.get("requires") == "old-database":
+            downgrade_to_version_2(session)
+        returncode, stdout, stderr = _run(
+            ["bash", "-e", "-o", "pipefail", "-c", block.code],
+            env=session.env,
+            cwd=workdir,
+            seconds=BLOCK_SECONDS,
+        )
+        results.append(BlockResult(block, stdout, stderr, returncode))
+        if returncode:
+            failed = _after_failure(block)
+    return results
+
+
+def _run_python(
+    blocks: list[Block], session, workdir: Path, path: Path
+) -> list[BlockResult]:
+    reasons = [_skip_reason(block) for block in blocks]
+    runnable = [
+        block for block, reason in zip(blocks, reasons, strict=True) if reason is None
+    ]
+    ran = []
+    if runnable:
+        separator = f"==== end of block {uuid.uuid4().hex} ===="
+        job = {
+            "separator": separator,
+            "blocks": [
+                {
+                    "code": block.code,
+                    "name": f"{path}:{block.line}",
+                    "old_database": block.control.get("requires") == "old-database",
+                }
+                for block in runnable
+            ],
+        }
+        # sys.executable, not a python3 from PATH: the interpreter of the test
+        # has the packages the examples import. -u keeps the order of what
+        # Python prints and what the tools it starts write to the same pipe.
+        returncode, stdout, stderr = _run(
+            [sys.executable, "-u", "-c", _DRIVER],
+            env=session.env,
+            cwd=workdir,
+            seconds=BLOCK_SECONDS * len(runnable),
+            stdin=json.dumps(job),
+        )
+        ran = _split_python(runnable, returncode, stdout, stderr, separator)
+    results = []
+    for block, reason in zip(blocks, reasons, strict=True):
+        results.append(BlockResult(block, "", "", 0, reason) if reason else ran.pop(0))
+    return results
+
+
+def _split_python(runnable, returncode, stdout, stderr, separator):
+    """Turn the output of the Python process into one result per block"""
+    outs = stdout.split(separator + "\n")
+    errs = stderr.split(separator + "\n")
+    last = len(outs) - 1
+    results = []
+    for index, block in enumerate(runnable):
+        if index < last:
+            results.append(BlockResult(block, outs[index], errs[index], 0))
+        elif index == last:
+            err = errs[index] if index < len(errs) else ""
+            results.append(BlockResult(block, outs[index], err, returncode))
+        elif returncode:
+            failed = _after_failure(runnable[last])
+            results.append(BlockResult(block, "", "", 0, failed))
+        else:
+            # A block that calls sys.exit(0) ends the process early.
+            ended = "The Python process ended before this block ran.\n"
+            results.append(BlockResult(block, "", ended, 1))
+    return results
+
+
+def _variant_blocks(manual: Manual, variant: str) -> list[tuple[Example, Block]]:
+    if variant not in TABS.values():
+        msg = f"unknown variant {variant!r}, known: {tuple(TABS.values())}"
+        raise ValueError(msg)
+    return [
+        (example, block)
+        for example in manual.examples
+        if example.variant == variant
+        for block in example.blocks
+    ]
+
+
+def run_manual(
+    manual: Manual, variant: str, session, workdir: Path
+) -> list[BlockResult]:
+    """Run the blocks of one tab ("shell" or "python") of all examples
+
+    The examples run in the order of the document, in the project of the
+    session and with workdir (created if needed) as the current directory, so
+    a later example can use the maps and files of an earlier one. Each shell
+    block runs in ``bash -e -o pipefail``; all Python blocks run in one
+    Python process with a shared namespace. A block is skipped when its
+    control comment says not-run or names a requirement that does not hold
+    here; requires=old-database turns the temporal database into version 2
+    before the block. After a failing block, the later ones are skipped.
+
+    Returns one result per block, in the order of the document.
+    """
+    workdir = Path(workdir)
+    workdir.mkdir(parents=True, exist_ok=True)
+    blocks = [block for _, block in _variant_blocks(manual, variant)]
+    if variant == "shell":
+        return _run_shell(blocks, session, workdir)
+    return _run_python(blocks, session, workdir, manual.path)
+
+
+def _diff(shown: str, printed: str) -> str:
+    lines = difflib.unified_diff(
+        shown.splitlines(keepends=True),
+        printed.splitlines(keepends=True),
+        "shown in the manual",
+        "printed by the run",
+    )
+    # A last line without its newline would run into the next diff line.
+    return "".join(
+        line if line.endswith("\n") else line + "\n\\ No newline at end\n"
+        for line in lines
+    )
+
+
+def shell_calls(code: str, name: str) -> list[list[str]]:
+    """Return the words after ``name`` of each shell command that runs ``name``
+
+    Understands what the examples use: lines continued with a backslash,
+    quotes, comments, commands joined by ``|``, ``;``, ``&&`` and ``||``,
+    redirections (their file name is left out) and variable assignments in
+    front of a command. Not understood: command substitution, here documents,
+    functions and loops; a command inside one of them may be missed.
+    """
+    lexer = shlex.shlex(
+        code.replace("\\\n", ""), posix=True, punctuation_chars=_SHELL_PUNCTUATION
+    )
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    # shlex would also take the newline that ends a comment, which joins two
+    # commands, and it starts a comment inside a word, which bash does not.
+    lexer.commenters = ""
+    commands: list[list[str]] = [[]]
+    skip_word = in_comment = False
+    for token in lexer:
+        if token and set(token) <= set(_SHELL_PUNCTUATION):
+            if set(token) & _REDIRECT:
+                skip_word = True
+            else:
+                commands.append([])
+                in_comment = in_comment and "\n" not in token
+            continue
+        if skip_word or in_comment:
+            skip_word = False
+            continue
+        if token.startswith("#"):
+            in_comment = True
+            continue
+        commands[-1].append(token)
+    calls = []
+    for words in commands:
+        while words and "=" in words[0] and not words[0].startswith("-"):
+            words = words[1:]
+        if words and words[0] == name:
+            calls.append(words[1:])
+    return calls
+
+
+def python_calls(code: str, name: str) -> list[dict[str, object]]:
+    """Return the keywords of each call ``<object>.<name with _>(...)``
+
+    ``tools.t_create(output="a")`` is a call of ``t.create``. A keyword whose
+    value is not a literal maps to None; ``**kwargs`` is left out.
+    """
+    attribute = name.replace(".", "_")
+    calls = []
+    for node in ast.walk(ast.parse(code)):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == attribute
+        ):
+            continue
+        keywords: dict[str, object] = {}
+        for keyword in node.keywords:
+            if keyword.arg is None:
+                continue
+            try:
+                keywords[keyword.arg] = ast.literal_eval(keyword.value)
+            except ValueError:
+                keywords[keyword.arg] = None
+        calls.append(keywords)
+    return calls
+
+
+def _image_size(results: list[BlockResult], image: str) -> tuple[int, int] | None:
+    """The width and height that the d.mon call writing image asks for"""
+    for result in results:
+        code = result.block.code
+        if result.block.language == "sh":
+            calls = [
+                dict(word.split("=", 1) for word in words if "=" in word)
+                for words in shell_calls(code, "d.mon")
+            ]
+        else:
+            calls = python_calls(code, "d.mon")
+        for call in calls:
+            if call.get("output") == image:
+                try:
+                    return int(call["width"]), int(call["height"])
+                except (KeyError, TypeError, ValueError):
+                    msg = (
+                        f"the d.mon call that writes {image} gives no width and height"
+                    )
+                    raise AssertionError(msg) from None
+    return None
+
+
+def _check_image(where: str, results: list[BlockResult], image: str, workdir: Path):
+    size = _image_size(results, image)
+    if size is None:
+        msg = f"{where}: no d.mon call of a block that ran writes {image}"
+        raise AssertionError(msg)
+    path = workdir / image
+    if not path.is_file():
+        msg = f"{where}: the image {image} does not exist after the run"
+        raise AssertionError(msg)
+    head = path.read_bytes()[:24]
+    if not head.startswith(PNG_SIGNATURE) or head[12:16] != b"IHDR":
+        msg = f"{where}: the image {image} is not a PNG"
+        raise AssertionError(msg)
+    width, height = struct.unpack(">II", head[16:24])
+    if (width, height) != size:
+        msg = (
+            f"{where}: the image {image} is {width} x {height} pixels, "
+            f"the d.mon call asks for {size[0]} x {size[1]}"
+        )
+        raise AssertionError(msg)
+
+
+def check_manual(manual: Manual, variant: str, session, workdir: Path) -> None:
+    """Run one tab of the examples and compare what they show with the run
+
+    Raises AssertionError with the manual, the example and the line of the
+    block when a block fails (with its stderr), when its stdout differs from
+    the shown output after ``normalize`` (with a unified diff), or when an
+    image of an example is missing, is no PNG or has another size than its
+    d.mon call asks for. Each tab has to make the images of its examples
+    itself, in workdir. The size comes from the width and height of the
+    ``d.mon`` call (``output=``, ``width=``, ``height=``, or the keywords of
+    ``tools.d_mon(...)``), so the manual states it where the reader sees it.
+    """
+    workdir = Path(workdir)
+    results = run_manual(manual, variant, session, workdir)
+    context = NormalizeContext(
+        database=gs.gisenv(env=session.env)["GISDBASE"], user=getpass.getuser()
+    )
+    examples = _variant_blocks(manual, variant)
+    for (example, block), result in zip(examples, results, strict=True):
+        if result.skipped:
+            continue
+        where = (
+            f"{manual.path}: example {example.title!r}, {variant} tab, "
+            f"block at line {block.line}"
+        )
+        if result.returncode:
+            msg = (
+                f"{where} ended with return code {result.returncode}:\n{result.stderr}"
+            )
+            raise AssertionError(msg)
+        if block.shown_output is None:
+            continue
+        shown = normalize(block.shown_output, context)
+        printed = normalize(result.stdout, context)
+        if shown != printed:
+            diff = _diff(shown, printed)
+            msg = f"{where}: the output differs from the shown one\n{diff}"
+            raise AssertionError(msg)
+    for example in manual.examples:
+        if example.variant != variant:
+            continue
+        ran = [
+            result
+            for (owner, _), result in zip(examples, results, strict=True)
+            if owner is example and not result.skipped
+        ]
+        where = f"{manual.path}: example {example.title!r}, {variant} tab"
+        for image in example.images:
+            _check_image(where, ran, image, workdir)
