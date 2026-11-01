@@ -705,3 +705,25 @@ def test_an_aggregate_past_the_open_files_runs_and_sums(
 
     assert [row[3] for row in _rows(tools, "ds_ofl")] == [210.0]
     assert message(result).count("limit of open files") == 1
+
+
+def test_a_raster_mask_keeps_the_maps_of_an_aggregate_open(
+    tools, hourly_maps, few_open_files
+):
+    # With a raster mask r.series reads on one thread and needs 2 x 20 + 64
+    # files, within the 256 that 8 threads would exceed. Without the warning
+    # the maps stay open, so the sum shows that r.series ran without -z.
+    tools.r_mask(raster="dsoh1")
+    try:
+        result = tools.t_rast_aggregate_ds(
+            input="ds_hourly20",
+            sample="ds_hourly_sampler",
+            output="ds_ofl_mask",
+            basename="ds_ofl_mask",
+            method="sum",
+        )
+    finally:
+        tools.r_mask(flags="r")
+
+    assert [row[3] for row in _rows(tools, "ds_ofl_mask")] == [210.0]
+    assert "limit of open files" not in message(result)
