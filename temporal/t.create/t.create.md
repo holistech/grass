@@ -15,15 +15,20 @@ The option **type** chooses what the dataset collects:
 - `stvds`, a space time vector dataset, holds vector maps.
 
 The option **temporaltype** sets how the maps of the dataset are placed in
-time, and it cannot be changed later:
+time. No tool changes it later; the only way is to replace the dataset with
+**--overwrite**:
 
 - `absolute` (the default) means calendar time: a map has a date and time,
   such as `2026-06-01 00:00:00`, as a time instance or as the start and end
   of an interval;
 - `relative` means a number of time units counted from an arbitrary start,
   such as model step 3. The unit (`years`, `months`, `days`, `hours`,
-  `minutes` or `seconds`) is not set by *t.create*; the first registration of
-  maps with *t.register* sets it from its option **unit**.
+  `minutes` or `seconds`) is not set by *t.create*, but by the first
+  registration of maps with *t.register*: from its option **unit**, or,
+  without it, from the relative time the maps carry already, such as a time
+  stamp `date="5 days"` set with *r.timestamp* or the time of an earlier
+  registration. If neither gives a unit, *t.register* stops with an
+  error.
 
 A dataset holds maps of its own temporal type: *t.register* refuses, for
 instance, to add a map with relative time to a dataset with absolute time.
@@ -32,9 +37,10 @@ The option **semantictype** states how the values of the maps are to be
 understood: `sum` for amounts, such as precipitation sums, `mean` for mean
 values (the default), `min` or `max` for extremes. The temporal tools store
 this label, print it with *[t.info](t.info.md)* and *[t.list](t.list.md)*,
-and tools that derive a new dataset from an existing one, such as *t.copy*
-and *t.rast.aggregate*, take it over. No tool computes with it; it is
-information for the user. *[t.support](t.support.md)* changes it later.
+and tools that derive a new dataset from an existing one, such as
+*[t.copy](t.copy.md)* and *[t.rast.aggregate](t.rast.aggregate.md)*, take it
+over. No tool computes with it; it is information for the user.
+*[t.support](t.support.md)* changes it later.
 
 The options **title** and **description** are required. The title is a short
 name for the dataset, the description can say what the maps show, where they
@@ -42,7 +48,7 @@ come from and how they were made. *t.info* prints both, together with the
 command history, which starts with the *t.create* command.
 
 The option **output** names the new dataset. If a dataset of this type with
-this name exists already, *t.create* stops with an error, unless
+this name exists already, *t.create* stops with an error unless
 **--overwrite** is given (see NOTES).
 
 ## NOTES
@@ -52,9 +58,10 @@ be empty or start with a dot, and it must not contain a space, a slash, a
 quotation mark, an apostrophe, `@`, a comma, `=`, `*` or `~`. *t.create* stops
 with an error for such a name. For a raster dataset (STRDS) the part of the
 name after the first dot is read as a semantic label, as in the input of
-other temporal tools, and not as part of the name; the part before it must be
-legal as well. A dot in the name of a space time raster dataset is
-therefore best avoided.
+other temporal tools, and the part before it must be legal as well.
+*t.create* creates the dataset under the part before the dot and stores no
+label: `output=prec.label` creates the dataset `prec`. A dot in the name of a
+space time raster dataset is therefore best avoided.
 
 A space time dataset is always created in the current mapset. The name may
 carry the current mapset (`output=precipitation@PERMANENT` in the mapset
@@ -110,9 +117,8 @@ maps are amounts, so the semantic type is `sum`.
 ### Look at the new dataset
 
 *t.info* shows what *t.create* stored. Time, extent and the number of maps
-are still `None`, because the dataset holds no maps yet. In Python, the flag
-**-g** prints the information as `key=value` lines, which the attribute
-`keyval` of the result turns into a dictionary.
+are still `None`, because the dataset holds no maps yet. In Python, the
+attribute `stdout` of the result holds the text as the tool printed it.
 
 === "Command line"
 
@@ -175,22 +181,67 @@ are still `None`, because the dataset holds no maps yet. In Python, the flag
 === "Python (grass.tools)"
 
     ```python
-    info = tools.t_info(input="precipitation", flags="g").keyval
-    for key in ("name", "temporal_type", "semantic_type", "number_of_maps"):
-        print(f"{key}: {info[key]}")
+    print(tools.t_info(input="precipitation").stdout, end="")
     ```
 
     ```text
-    name: precipitation
-    temporal_type: absolute
-    semantic_type: sum
-    number_of_maps: None
+     +-------------------- Space Time Raster Dataset -----------------------------+
+     |                                                                            |
+     +-------------------- Basic information -------------------------------------+
+     | Id: ........................ precipitation@PERMANENT
+     | Name: ...................... precipitation
+     | Mapset: .................... PERMANENT
+     | Creator: ................... user
+     | Temporal type: ............. absolute
+     | Creation time: ............. 2026-11-01 12:00:00
+     | Modification time:.......... 2026-11-01 12:00:00
+     | Semantic type:.............. sum
+     +-------------------- Absolute time -----------------------------------------+
+     | Start time:................. None
+     | End time:................... None
+     | Granularity:................ None
+     | Temporal type of maps:...... None
+     +-------------------- Spatial extent ----------------------------------------+
+     | North:...................... None
+     | South:...................... None
+     | East:.. .................... None
+     | West:....................... None
+     | Top:........................ None
+     | Bottom:..................... None
+     +-------------------- Metadata information ----------------------------------+
+     | Raster register table:...... raster_map_register_00000000000000000000000000000000
+     | North-South resolution min:. None
+     | North-South resolution max:. None
+     | East-west resolution min:... None
+     | East-west resolution max:... None
+     | Minimum value min:.......... None
+     | Minimum value max:.......... None
+     | Maximum value min:.......... None
+     | Maximum value max:.......... None
+     | Aggregation type:........... None
+     | Number of semantic labels:.. None
+     | Semantic labels:............ None
+     | Number of registered maps:.. None
+     |
+     | Title:
+     | Daily precipitation
+     | Description:
+     | Daily precipitation sums in millimeters
+     | Command history:
+     | # 2026-11-01 12:00:00 
+     | t.create output="precipitation" type="strds"
+     |     temporaltype="absolute" semantictype="sum" title="Daily precipitation"
+     |     description="Daily precipitation sums in millimeters"
+     | 
+     +----------------------------------------------------------------------------+
     ```
 
 ### Rely on the default values
 
 Without **type**, **temporaltype** and **semantictype**, *t.create* creates a
 space time raster dataset with absolute time and the semantic type `mean`.
+The flag **-g** of *t.info* prints `key=value` lines; in Python, the
+attribute `keyval` of the result turns them into a dictionary.
 
 === "Command line"
 
@@ -215,18 +266,18 @@ space time raster dataset with absolute time and the semantic type `mean`.
     )
     info = tools.t_info(input="temperature", flags="g").keyval
     for key in ("temporal_type", "semantic_type"):
-        print(f"{key}: {info[key]}")
+        print(f"{key}={info[key]}")
     ```
 
     ```text
-    temporal_type: absolute
-    semantic_type: mean
+    temporal_type=absolute
+    semantic_type=mean
     ```
 
 ### Create a space time 3D raster dataset
 
 A space time 3D raster dataset for the daily minimum of the soil temperature
-in several depths; the semantic type `min` marks the values as minima.
+at several depths; the semantic type `min` marks the values as minima.
 
 === "Command line"
 
@@ -282,12 +333,12 @@ the first maps are registered.
     )
     info = tools.t_info(type="stvds", input="wind_gauges", flags="g").keyval
     for key in ("temporal_type", "unit"):
-        print(f"{key}: {info[key]}")
+        print(f"{key}={info[key]}")
     ```
 
     ```text
-    temporal_type: relative
-    unit: None
+    temporal_type=relative
+    unit=None
     ```
 
 ### List the datasets of all types
@@ -332,7 +383,7 @@ Two small raster maps are registered as daily intervals in the dataset
 `precipitation` of the first example. *t.create* with **--overwrite** then
 replaces the dataset with a new, empty one. The maps are no longer part of
 it, but they stay in the temporal database with their time stamps, as
-*t.list* with **type=raster** shows.
+*t.list* with **type** `raster` shows.
 
 === "Command line"
 
@@ -397,7 +448,7 @@ it, but they stay in the temporal database with their time stamps, as
         overwrite=True,
     )
     info = tools.t_info(input="precipitation", flags="g").keyval
-    print(f"number_of_maps: {info['number_of_maps']}")
+    print(f"number_of_maps={info['number_of_maps']}")
     result = tools.t_list(
         type="raster", columns="name,start_time,end_time", flags="c"
     )
@@ -405,7 +456,7 @@ it, but they stay in the temporal database with their time stamps, as
     ```
 
     ```text
-    number_of_maps: None
+    number_of_maps=None
     name|start_time|end_time
     rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00
     rain_2|2026-06-02 00:00:00|2026-06-03 00:00:00
@@ -416,7 +467,8 @@ it, but they stay in the temporal database with their time stamps, as
 ## SEE ALSO
 
 *[t.info](t.info.md), [t.list](t.list.md), [t.register](t.register.md),
-[t.remove](t.remove.md), [t.support](t.support.md)*
+[t.remove](t.remove.md), [t.support](t.support.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 

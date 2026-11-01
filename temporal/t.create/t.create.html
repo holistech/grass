@@ -20,7 +20,8 @@ maps;</li>
 </ul>
 <p>
 The option <b>temporaltype</b> sets how the maps of the dataset are placed in
-time, and it cannot be changed later:
+time. No tool changes it later; the only way is to replace the dataset with
+<b>--overwrite</b>:
 <ul>
 <li><code>absolute</code> (the default) means calendar time: a map has a date
 and time, such as <code>2026-06-01 00:00:00</code>, as a time instance or as
@@ -29,8 +30,12 @@ the start and end of an interval;</li>
 arbitrary start, such as model step 3. The unit (<code>years</code>,
 <code>months</code>, <code>days</code>, <code>hours</code>,
 <code>minutes</code> or <code>seconds</code>) is not set by
-<em>t.create</em>; the first registration of maps with <em>t.register</em>
-sets it from its option <b>unit</b>.</li>
+<em>t.create</em>, but by the first registration of maps with
+<em>t.register</em>: from its option <b>unit</b>, or, without it, from the
+relative time the maps carry already, such as a time stamp
+<code>date="5 days"</code> set with <em>r.timestamp</em> or the time of an
+earlier registration. If neither gives a unit, <em>t.register</em> stops with
+an error.</li>
 </ul>
 <p>
 A dataset holds maps of its own temporal type: <em>t.register</em> refuses,
@@ -42,8 +47,9 @@ understood: <code>sum</code> for amounts, such as precipitation sums,
 <code>max</code> for extremes. The temporal tools store this label, print it
 with <em><a href="t.info.html">t.info</a></em> and
 <em><a href="t.list.html">t.list</a></em>, and tools that derive a new dataset
-from an existing one, such as <em>t.copy</em> and <em>t.rast.aggregate</em>,
-take it over. No tool computes with it; it is information for the user.
+from an existing one, such as <em><a href="t.copy.html">t.copy</a></em> and
+<em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em>, take it
+over. No tool computes with it; it is information for the user.
 <em><a href="t.support.html">t.support</a></em> changes it later.
 <p>
 The options <b>title</b> and <b>description</b> are required. The title is a
@@ -52,7 +58,7 @@ they come from and how they were made. <em>t.info</em> prints both, together
 with the command history, which starts with the <em>t.create</em> command.
 <p>
 The option <b>output</b> names the new dataset. If a dataset of this type with
-this name exists already, <em>t.create</em> stops with an error, unless
+this name exists already, <em>t.create</em> stops with an error unless
 <b>--overwrite</b> is given (see NOTES).
 
 <h2>NOTES</h2>
@@ -63,7 +69,9 @@ quotation mark, an apostrophe, <code>@</code>, a comma, <code>=</code>,
 <code>*</code> or <code>~</code>. <em>t.create</em> stops with an error for
 such a name. For a raster dataset (STRDS) the part of the name after the first
 dot is read as a semantic label, as in the input of other temporal tools, and
-not as part of the name; the part before it must be legal as well. A dot in
+the part before it must be legal as well. <em>t.create</em> creates the
+dataset under the part before the dot and stores no label:
+<code>output=prec.label</code> creates the dataset <code>prec</code>. A dot in
 the name of a space time raster dataset is therefore best avoided.
 <p>
 A space time dataset is always created in the current mapset. The name may
@@ -121,9 +129,8 @@ tools.t_create(
 
 <em>t.info</em> shows what <em>t.create</em> stored. Time, extent and the
 number of maps are still <code>None</code>, because the dataset holds no maps
-yet. In Python, the flag <b>-g</b> prints the information as
-<code>key=value</code> lines, which the attribute <code>keyval</code> of the
-result turns into a dictionary.
+yet. In Python, the attribute <code>stdout</code> of the result holds the text
+as the tool printed it.
 
 <p>Command line:</p>
 
@@ -175,34 +182,79 @@ t.info input=precipitation
  | Description:
  | Daily precipitation sums in millimeters
  | Command history:
- | # 2026-11-01 12:00:00&#32;
+ | # 2026-11-01 12:00:00
  | t.create output="precipitation" type="strds"
  |     temporaltype="absolute" semantictype="sum" title="Daily precipitation"
  |     description="Daily precipitation sums in millimeters"
- |&#32;
+ |
  +----------------------------------------------------------------------------+
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-info = tools.t_info(input="precipitation", flags="g").keyval
-for key in ("name", "temporal_type", "semantic_type", "number_of_maps"):
-    print(f"{key}: {info[key]}")
+print(tools.t_info(input="precipitation").stdout, end="")
 </pre></div>
 
 <div class="code"><pre>
-name: precipitation
-temporal_type: absolute
-semantic_type: sum
-number_of_maps: None
+ +-------------------- Space Time Raster Dataset -----------------------------+
+ |                                                                            |
+ +-------------------- Basic information -------------------------------------+
+ | Id: ........................ precipitation@PERMANENT
+ | Name: ...................... precipitation
+ | Mapset: .................... PERMANENT
+ | Creator: ................... user
+ | Temporal type: ............. absolute
+ | Creation time: ............. 2026-11-01 12:00:00
+ | Modification time:.......... 2026-11-01 12:00:00
+ | Semantic type:.............. sum
+ +-------------------- Absolute time -----------------------------------------+
+ | Start time:................. None
+ | End time:................... None
+ | Granularity:................ None
+ | Temporal type of maps:...... None
+ +-------------------- Spatial extent ----------------------------------------+
+ | North:...................... None
+ | South:...................... None
+ | East:.. .................... None
+ | West:....................... None
+ | Top:........................ None
+ | Bottom:..................... None
+ +-------------------- Metadata information ----------------------------------+
+ | Raster register table:...... raster_map_register_00000000000000000000000000000000
+ | North-South resolution min:. None
+ | North-South resolution max:. None
+ | East-west resolution min:... None
+ | East-west resolution max:... None
+ | Minimum value min:.......... None
+ | Minimum value max:.......... None
+ | Maximum value min:.......... None
+ | Maximum value max:.......... None
+ | Aggregation type:........... None
+ | Number of semantic labels:.. None
+ | Semantic labels:............ None
+ | Number of registered maps:.. None
+ |
+ | Title:
+ | Daily precipitation
+ | Description:
+ | Daily precipitation sums in millimeters
+ | Command history:
+ | # 2026-11-01 12:00:00
+ | t.create output="precipitation" type="strds"
+ |     temporaltype="absolute" semantictype="sum" title="Daily precipitation"
+ |     description="Daily precipitation sums in millimeters"
+ |
+ +----------------------------------------------------------------------------+
 </pre></div>
 
 <h3>Rely on the default values</h3>
 
 Without <b>type</b>, <b>temporaltype</b> and <b>semantictype</b>,
 <em>t.create</em> creates a space time raster dataset with absolute time and
-the semantic type <code>mean</code>.
+the semantic type <code>mean</code>. The flag <b>-g</b> of <em>t.info</em>
+prints <code>key=value</code> lines; in Python, the attribute
+<code>keyval</code> of the result turns them into a dictionary.
 
 <p>Command line:</p>
 
@@ -227,18 +279,18 @@ tools.t_create(
 )
 info = tools.t_info(input="temperature", flags="g").keyval
 for key in ("temporal_type", "semantic_type"):
-    print(f"{key}: {info[key]}")
+    print(f"{key}={info[key]}")
 </pre></div>
 
 <div class="code"><pre>
-temporal_type: absolute
-semantic_type: mean
+temporal_type=absolute
+semantic_type=mean
 </pre></div>
 
 <h3>Create a space time 3D raster dataset</h3>
 
 A space time 3D raster dataset for the daily minimum of the soil temperature
-in several depths; the semantic type <code>min</code> marks the values as
+at several depths; the semantic type <code>min</code> marks the values as
 minima.
 
 <p>Command line:</p>
@@ -295,12 +347,12 @@ tools.t_create(
 )
 info = tools.t_info(type="stvds", input="wind_gauges", flags="g").keyval
 for key in ("temporal_type", "unit"):
-    print(f"{key}: {info[key]}")
+    print(f"{key}={info[key]}")
 </pre></div>
 
 <div class="code"><pre>
-temporal_type: relative
-unit: None
+temporal_type=relative
+unit=None
 </pre></div>
 
 <h3>List the datasets of all types</h3>
@@ -345,7 +397,8 @@ Two small raster maps are registered as daily intervals in the dataset
 <code>precipitation</code> of the first example. <em>t.create</em> with
 <b>--overwrite</b> then replaces the dataset with a new, empty one. The maps
 are no longer part of it, but they stay in the temporal database with their
-time stamps, as <em>t.list</em> with <b>type=raster</b> shows.
+time stamps, as <em>t.list</em> with <b>type</b> <code>raster</code>
+shows.
 
 <p>Command line:</p>
 
@@ -410,7 +463,7 @@ tools.t_create(
     overwrite=True,
 )
 info = tools.t_info(input="precipitation", flags="g").keyval
-print(f"number_of_maps: {info['number_of_maps']}")
+print(f"number_of_maps={info['number_of_maps']}")
 result = tools.t_list(
     type="raster", columns="name,start_time,end_time", flags="c"
 )
@@ -418,7 +471,7 @@ print(result.text)
 </pre></div>
 
 <div class="code"><pre>
-number_of_maps: None
+number_of_maps=None
 name|start_time|end_time
 rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00
 rain_2|2026-06-02 00:00:00|2026-06-03 00:00:00
@@ -431,7 +484,8 @@ rain_2|2026-06-02 00:00:00|2026-06-03 00:00:00
 <a href="t.list.html">t.list</a>,
 <a href="t.register.html">t.register</a>,
 <a href="t.remove.html">t.remove</a>,
-<a href="t.support.html">t.support</a>
+<a href="t.support.html">t.support</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
