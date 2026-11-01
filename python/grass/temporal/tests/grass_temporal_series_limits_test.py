@@ -7,6 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 :authors: Soeren Gebbert
 """
 
+import os
 import sys
 
 import pytest
@@ -133,6 +134,23 @@ def test_without_a_session_there_is_no_mask(tmp_path, monkeypatch):
     _project(monkeypatch, tmp_path, ["MASK@user"])
     monkeypatch.delenv("GISRC")
     assert series_limits.series_threads(24) == 24
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0,
+    reason="root reads any directory and Windows has no directory modes",
+)
+def test_a_mask_in_an_unreadable_mapset_is_no_mask(tmp_path, monkeypatch):
+    # r.series looks with access(), which says no for a mapset of another
+    # user that it cannot read, and runs without a mask on all threads.
+    _project(monkeypatch, tmp_path, ["dem@other"])
+    monkeypatch.setenv("GRASS_MASK", "dem@other")
+    other = tmp_path / "db" / "xy" / "other"
+    other.chmod(0o000)
+    try:
+        assert series_limits.series_threads() == 4
+    finally:
+        other.chmod(0o700)
 
 
 def test_a_raster_mask_raises_the_real_limit(tmp_path, monkeypatch):

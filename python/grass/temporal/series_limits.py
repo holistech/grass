@@ -130,7 +130,9 @@ def _raster_mask_present():
     project = variables.get("LOCATION_NAME")
     if not (database and project and _legal_name(name) and _legal_name(mapset)):
         return False
-    return Path(database, project, mapset, "cell", name).exists()
+    # access() as in find_file(): Path.exists() raises PermissionError for a
+    # mapset this user cannot read, where the C library sees no mask.
+    return os.access(Path(database, project, mapset, "cell", name), os.F_OK)
 
 
 def series_map_limit(nprocs=None):
