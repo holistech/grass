@@ -72,8 +72,7 @@ def series_threads(nprocs=None):
     OpenMP, or a raster mask, runs one thread; counting more only switches
     to -z earlier than needed.
     """
-    if nprocs is None:
-        nprocs = session_nprocs()
+    nprocs = session_nprocs() if nprocs is None else int(nprocs)
     threads = resolve_nprocs(nprocs) if nprocs != 0 else _openmp_threads()
     # Rast_disable_omp_on_mask() lets r.series read a raster mask on one
     # thread only (measured 2026-11-01 in grass --tmp-project XY with

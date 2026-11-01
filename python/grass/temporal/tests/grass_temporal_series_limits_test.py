@@ -49,6 +49,19 @@ def test_a_passed_nprocs_is_counted_as_r_series_counts_it(
     assert series_limits.series_threads(nprocs) == expected
 
 
+# Option values are text, and aggregate_raster_maps() passes nprocs on as
+# it gets it.
+@pytest.mark.parametrize(
+    ("nprocs", "omp", "expected"),
+    [("2", "8", 2), ("-20", None, 4), ("0", None, 24), ("0", "8", 8)],
+)
+def test_a_passed_nprocs_as_text_is_counted_as_a_number(
+    tmp_path, monkeypatch, nprocs, omp, expected
+):
+    _session(monkeypatch, tmp_path, nprocs=4, omp=omp)
+    assert series_limits.series_threads(nprocs) == expected
+
+
 def test_a_passed_nprocs_of_0_ignores_nprocs_of_the_session(tmp_path, monkeypatch):
     _session(monkeypatch, tmp_path, nprocs=4)
     assert series_limits.series_threads(0) == 24
