@@ -55,12 +55,12 @@ def test_shell_and_extended_print_nan(tools, tool, map_name, flags):
     if "g" in flags:
         for key in ("mean", "stddev", "variance", "coeff_var"):
             assert f"{key}=nan\n" in out, out
-    if "e" in flags:
+    if "e" in flags and "g" in flags:
+        for key in ("first_quartile", "median", "third_quartile", "percentile_90"):
+            assert f"{key}=nan\n" in out, out
+    elif "e" in flags:
         for text in ("1st quartile: nan", "3rd quartile: nan", "90th percentile: nan"):
-            assert text in out or "g" in flags, out
-        if "g" in flags:
-            for key in ("first_quartile", "median", "third_quartile", "percentile_90"):
-                assert f"{key}=nan\n" in out, out
+            assert text in out, out
 
 
 @TOOLS
