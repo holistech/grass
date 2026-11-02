@@ -66,15 +66,15 @@ Without the flag **-r**, the statistics of every map are taken in the current
 computational region: cells of the map outside the region are not counted,
 and cells of the region outside the map are null cells. With **-r**, the
 statistics of each map are taken in the region of that map, so every cell of
-the map is counted, whatever the current region. In this version, **-r** has
-no effect together with **zones**: the statistics per zone are taken in the
-current region.
+the map is counted, whatever the current region. This holds together with
+**zones** as well; the zone map is then read in the region of each map, too.
 
 The option **zones** names an integer (CELL) raster map whose categories
 divide the region into zones. *t.rast.univar* then prints one line per map
 and zone, with the columns `zone` (the category) and `label` (the category
-label) after the four columns of the map. **zones** takes a single raster
-map, not a space time dataset; the same zones apply to every map.
+label) after the four columns of the map. A zone without any cell in the
+region gets no line. **zones** takes a single raster map, not a space time
+dataset; the same zones apply to every map.
 
 The option **nprocs** sets the number of maps that are processed at the same
 time. Its default is the variable `NPROCS` of the session, if it is set with
@@ -87,12 +87,13 @@ The option **format** chooses the form of the output:
 - `csv` separates them with a comma, or with another single character given
   in **separator**;
 - `json` prints a list with one object per map, or with **zones** one per
-  map and zone, the category label under the name `zone_label`. The objects
-  use the names of *r.univar*: `n` for the number of non-null cells, `cells`
-  for the number of all cells, and the list `percentiles` for the
-  percentiles. They have no
-  `sum_abs`. A value that does not exist, such as the semantic label of a map
-  without one, is `null`.
+  map and zone. The keys are the column names, except where they follow
+  *r.univar*: `n` instead of `non_null_cells`, `zone_label` instead of
+  `label`, the additional key `cells` for the number of all cells, and no
+  `sum_abs`. With **-e**, the percentiles are the list `percentiles` of
+  objects with the keys `percentile` and `value`, instead of the columns
+  `percentile_90` and so on. A value that does not exist, such as the
+  semantic label of a map without one, is `null`.
 
 The option **separator** sets the separator of the formats `plain` and `csv`.
 The flag **-u** leaves out the line with the column names. The format `json`
@@ -106,11 +107,11 @@ with **--overwrite**.
 
 The current computational region decides which cells are counted, unless
 **-r** is given. A map that does not reach into the region has only null
-cells there; its `min` and `max` are `nan` in the formats `plain` and `csv`
-and `null` in the format `json`. The raster mask is respected: cells outside
-the mask are null cells. Region and mask are the same for all maps, so maps
-with different extents can have different numbers of non-null cells, as the
-example with the scenes below shows.
+cells there; its `min`, `max` and all further statistics are `nan` in the
+formats `plain` and `csv` and `null` in the format `json`. The raster mask is
+respected: cells outside the mask are null cells. Region and mask are the
+same for all maps, so maps with different extents can have different numbers
+of non-null cells, as the example with the scenes below shows.
 
 In a dataset with relative time, `start` and `end` are numbers of the time
 unit of the dataset, printed without the unit: a map registered from 0 to 6
@@ -122,9 +123,9 @@ a name without a mapset is searched in the mapsets of the search path (see
 *[g.mapsets](g.mapsets.md)*). The example at the end shows this.
 
 If no map is selected, for instance because the condition in **where**
-matches none, *t.rast.univar* prints nothing, not even the line with the
-column names, in all formats. With the format `json`, the output is then
-empty, not an empty list `[]`.
+matches none, *t.rast.univar* prints nothing in the formats `plain` and
+`csv`, not even the line with the column names. The format `json` prints an
+empty list `[]`.
 
 The option **zones** takes a map of type CELL; *t.rast.univar* stops with the
 error "Zoning raster must be of type CELL" for a floating point map.
@@ -677,6 +678,12 @@ number of non-null cells.
    `overlaps` keeps all but `scene_4`, `contains` only `scene_1`, which covers
    the region, and `is_contained` only `scene_2`, which lies inside it.
    Combined with **-r**, the selected maps are counted in their own regions.
+4. **-r** works with **zones** as well. The zone map `sides` covers all four
+   scenes and holds 1 west of x = 2 and 2 east of it. In its own region,
+   `scene_1` has 18 cells in each zone and `scene_2` 2; `scene_3` and
+   `scene_4` lie east of x = 2 and get a line for zone 2 only, because a zone
+   without any cell in the region of a map gets no line. The commands print
+   `id`, `zone` and `non_null_cells`.
 
 === "Command line"
 
@@ -753,6 +760,23 @@ number of non-null cells.
     scene_1@PERMANENT|36|0
     scene_2@PERMANENT|4|0
     scene_3@PERMANENT|16|0
+    ```
+
+    ```sh
+    g.region s=-1 n=12 w=-1 e=12 res=1
+    r.mapcalc expression="sides = if(x() < 2, 1, 2)"
+    g.region s=0 n=4 w=0 e=4 res=1
+    t.rast.univar -r input=scenes zones=sides | cut -d"|" -f1,5,7
+    ```
+
+    ```text
+    id|zone|non_null_cells
+    scene_1@PERMANENT|1|18
+    scene_1@PERMANENT|2|18
+    scene_2@PERMANENT|1|2
+    scene_2@PERMANENT|2|2
+    scene_3@PERMANENT|2|16
+    scene_4@PERMANENT|2|4
     ```
 
 === "Python (grass.tools)"
@@ -856,6 +880,26 @@ number of non-null cells.
     scene_1@PERMANENT|36|0
     scene_2@PERMANENT|4|0
     scene_3@PERMANENT|16|0
+    ```
+
+    ```python
+    tools.g_region(s=-1, n=12, w=-1, e=12, res=1)
+    tools.r_mapcalc(expression="sides = if(x() < 2, 1, 2)")
+    tools.g_region(s=0, n=4, w=0, e=4, res=1)
+    result = tools.t_rast_univar(input="scenes", zones="sides", format="json", flags="r")
+    print("id|zone|non_null_cells")
+    for stats in result.json:
+        print(f"{stats['id']}|{stats['zone']}|{stats['n']}")
+    ```
+
+    ```text
+    id|zone|non_null_cells
+    scene_1@PERMANENT|1|18
+    scene_1@PERMANENT|2|18
+    scene_2@PERMANENT|1|2
+    scene_2@PERMANENT|2|2
+    scene_3@PERMANENT|2|16
+    scene_4@PERMANENT|2|4
     ```
 
 ### Use a dataset of another mapset
