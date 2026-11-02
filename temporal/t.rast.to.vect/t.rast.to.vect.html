@@ -1,37 +1,1032 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.to.vect</em> is designed to convert a space time raster dataset
-into a space time vector dataset. This module works as a front-end to
-<a href="r.to.vect.html">r.to.vect</a> and therefore supports all parameter
-of this module. Hence, all raster map layers in a space time raster dataset
-are passed to <a href="r.to.vect.html">r.to.vect</a> that converts them into
-vector map layers (using point,line or area as conversion criteria).
-Please refer to the <a href="r.to.vect.html">r.to.vect</a> documentation
-for a detailed description of the raster to vector conversion options.
-The new generated vector map
-layers will be registered in the output space time vector dataset, using
-the same time stamps as their raster map layer origins.
+<em>t.rast.to.vect</em> converts each raster map of a space time raster dataset
+into a vector map and registers the vector maps in a new space time vector
+dataset. It runs <em><a href="r.to.vect.html">r.to.vect</a></em> for every map,
+so the points, lines and areas are those of <em>r.to.vect</em>; see its manual
+for the details of the conversion. Each new vector map gets the start and end
+time of the raster map it was computed from. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for
+space time datasets.
 <p>
-This module supports the parallel processing of <a href="r.to.vect.html">r.to.vect</a>
-module instances. The number of parallel processes
-can be set with the <em>nprocs</em> option.
-However, this will only work in conjunction with the <em>-t</em>
-flag, that avoids the creation of attribute tables.
-The parallel creation of attribute tables is not supported.
+The option <b>input</b> names the space time raster dataset, the option
+<b>output</b> the new space time vector dataset. The new dataset takes the
+temporal type, the semantic type, the title and the description of the input
+dataset. The option <b>where</b> takes an SQL condition on the registered maps
+and selects the maps to convert, for instance by their
+<code>start_time</code> or their <code>name</code>; without it, all maps are
+converted.
 <p>
-The <em>where</em> option allows selecting subsets of the input space time raster
-dataset.
+The option <b>type</b> is required and sets the kind of feature:
+<ul>
+<li><code>point</code> writes one point at the centre of each cell that has a
+value.</li>
+<li><code>area</code> writes one area for each group of cells with the same
+value that touch along an edge, with a boundary and a centroid; the areas
+follow the cell borders.</li>
+<li><code>line</code> writes the lines between the centres of the cells. It
+needs a raster map of lines that are one cell wide; <em>r.to.vect</em> stops at
+a map that is not thinned and asks for
+<em><a href="r.thin.html">r.thin</a></em>.</li>
+</ul>
 <p>
-The flag <em>-n</em> can be used to force the registration of empty
-vector map layers. Empty vector maps may occur in case that empty
-raster map layers should be converted into vector map layers.
+The option <b>column</b> names the column of the attribute table that stores
+the value of the cell, <code>value</code> by default. Each vector map gets an
+attribute table with the columns <code>cat</code>, the column named by
+<b>column</b> and <code>label</code>. Null cells give no feature. Three flags
+change the table and the categories:
+<ul>
+<li><b>-t</b> creates the vector maps without attribute tables.</li>
+<li><b>-v</b> uses the values of the raster map as categories instead of a
+sequence of numbers. The table then has no column for the value, only
+<code>cat</code> and <code>label</code>, and one row for each value. This works
+for integer raster maps only: for a map with floating point values,
+<em>r.to.vect</em> ignores <b>-v</b>, warns, and writes the values to the column
+named by <b>column</b>, as the third example shows.</li>
+<li><b>-z</b> writes the values of the cells as the z coordinate of the points
+and creates no table. It works for <code>type=point</code> only: with
+<code>type=area</code> or <code>type=line</code>, <em>r.to.vect</em> fails.</li>
+</ul>
+<p>
+Two more flags are passed to <em>r.to.vect</em>:
+<ul>
+<li><b>-s</b> smooths the corners of the areas of <code>type=area</code>.</li>
+<li><b>-b</b> does not build the topology of the vector maps. Such a map has no
+topological counts, such as the number of areas, and no spatial index.</li>
+</ul>
+<p>
+The option <b>nprocs</b> sets the number of <em>r.to.vect</em> runs at the
+same time, <code>1</code> by default. More than one run at a time works only
+with <b>-t</b>: without it, <em>t.rast.to.vect</em> sets <b>nprocs</b> to
+<code>1</code> and warns, because the attribute tables cannot be created in
+parallel.
+<p>
+The new vector maps are named after the option <b>basename</b>, followed by an
+underscore and a suffix that the option <b>suffix</b> chooses:
+<ul>
+<li><code>gran</code> (the default) takes the start time of the raster map,
+cut to the granularity of the input dataset: <code>2026_07_01</code> in a
+dataset of days. A dataset of a single time instance has no granularity;
+<code>gran</code> then takes the full start time, as <code>time</code>
+does.</li>
+<li><code>time</code> takes the full start time:
+<code>2026_07_01T00_00_00</code>.</li>
+<li><code>num</code> numbers the selected maps from 1, with five digits:
+<code>00001</code>. <code>num%03</code> gives three digits:
+<code>001</code>.</li>
+</ul>
+<p>
+In a dataset with relative time, each suffix gives the number, because a
+relative time has no calendar date.
+<p>
+A raster map can give a vector map without features, for instance when all its
+cells are null. Such an empty vector map is removed and not registered, unless
+the flag <b>-n</b> is given; then it is registered as well.
+
+<h2>NOTES</h2>
+
+<em>r.to.vect</em> converts each map in the current computational region, so
+the region decides which cells are converted and where the features end, as the
+last example shows.
+<p>
+If <b>where</b> selects no map, <em>t.rast.to.vect</em> warns that the space
+time raster dataset is empty and creates no output dataset.
+<p>
+An unknown <b>suffix</b> is refused before anything is written, for instance
+with "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or num%NN"
+for <code>suffix=gram</code>. An SQL error in <b>where</b> stops the tool with a
+message that begins with "Invalid where condition". If <em>r.to.vect</em> fails
+for a map, for instance for <code>type=line</code> on a map that is not thinned,
+as in the fourth example, or for <b>-z</b> with <code>type=area</code> or <code>type=line</code>, or for a
+<b>column</b> that is no valid SQL name, <em>t.rast.to.vect</em> stops with a
+message that begins with "Error running r.to.vect" and creates no dataset.
+<p>
+An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>;
+without it, the tool stops with the message that the dataset is already in the
+database. With <b>--overwrite</b>, the vector maps of the same names are
+replaced as well.
+<p>
+The input dataset can be in another mapset of the project; the name with the
+mapset (<code>input=cover@PERMANENT</code>) selects it. The new vector maps and
+the new dataset are always created in the current mapset, as the last example
+shows.
+
+<h2>EXAMPLES</h2>
+
+<h3>Convert the maps of a dataset to areas</h3>
+
+The dataset <code>cover</code> holds the land cover classes of a region of 8 by
+8 cells on three days in July. On the first day, the western half of the region
+has class 1 and the eastern half class 2. On the second day, the classes 1 to 4
+are the four quadrants of 16 cells each: 1 in the north-west, 2 in the
+north-east, 3 in the south-west and 4 in the south-east. On the third day, the
+map has no values.
+<p>
+With <code>type=area</code>, the first map gives 2 areas and the second 4. The
+third map gives no feature: its vector map is empty and
+<em>t.rast.to.vect</em> removes it, so two vector maps are registered, as
+<em>g.list</em> shows. The default suffix <code>gran</code> names the maps
+after the day. The second block prints the values from the attribute tables
+with <em><a href="t.vect.db.select.html">t.vect.db.select</a></em>: one row for
+each area, in the default column <code>value</code>. The third block shows with
+<em><a href="t.info.html">t.info</a></em> that the new dataset
+<code>parcels</code> has the time, the semantic type <code>max</code>, the
+title and the description of the input dataset, and 2 + 4 = 6 areas.
+<p>
+In the fourth block, the flag <b>-n</b> keeps the empty map of the third day,
+and <b>--overwrite</b> replaces the dataset <code>parcels</code> of the first
+block together with its vector maps.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=8 s=0 e=8 w=0 res=1
+r.mapcalc expression="cover_1 = if(col() &lt;= 4, 1, 2)"
+r.mapcalc expression="cover_2 = 1 + if(col() &gt; 4, 1, 0) + if(row() &gt; 4, 2, 0)"
+r.mapcalc expression="cover_3 = null()"
+t.create output=cover semantictype=max title="Land cover" \
+    description="Land cover classes"
+t.register -i input=cover maps=cover_1,cover_2,cover_3 \
+    start=2026-07-01 increment="1 day"
+t.rast.to.vect input=cover output=parcels basename=parcel type=area
+t.vect.list input=parcels columns=name,start_time,end_time,areas
+g.list type=vector pattern="parcel_*"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|areas
+parcel_2026_07_01|2026-07-01 00:00:00|2026-07-02 00:00:00|2
+parcel_2026_07_02|2026-07-02 00:00:00|2026-07-03 00:00:00|4
+parcel_2026_07_01
+parcel_2026_07_02
+</pre></div>
+
+<div class="code"><pre>
+t.vect.db.select input=parcels columns=value
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|value
+2026-07-01 00:00:00|2026-07-02 00:00:00|1
+2026-07-01 00:00:00|2026-07-02 00:00:00|2
+2026-07-02 00:00:00|2026-07-03 00:00:00|1
+2026-07-02 00:00:00|2026-07-03 00:00:00|2
+2026-07-02 00:00:00|2026-07-03 00:00:00|3
+2026-07-02 00:00:00|2026-07-03 00:00:00|4
+</pre></div>
+
+<div class="code"><pre>
+t.info type=stvds input=parcels
+</pre></div>
+
+<div class="code"><pre>
+ +-------------------- Space Time Vector Dataset -----------------------------+
+ |                                                                            |
+ +-------------------- Basic information -------------------------------------+
+ | Id: ........................ parcels@PERMANENT
+ | Name: ...................... parcels
+ | Mapset: .................... PERMANENT
+ | Creator: ................... user
+ | Temporal type: ............. absolute
+ | Creation time: ............. 2026-11-01 12:00:00
+ | Modification time:.......... 2026-11-01 12:00:00
+ | Semantic type:.............. max
+ +-------------------- Absolute time -----------------------------------------+
+ | Start time:................. 2026-07-01 00:00:00
+ | End time:................... 2026-07-03 00:00:00
+ | Granularity:................ 1 day
+ | Temporal type of maps:...... interval
+ +-------------------- Spatial extent ----------------------------------------+
+ | North:...................... 8.0
+ | South:...................... 0.0
+ | East:.. .................... 8.0
+ | West:....................... 0.0
+ | Top:........................ 0.0
+ | Bottom:..................... 0.0
+ +-------------------- Metadata information ----------------------------------+
+ | Vector register table:...... vector_map_register_00000000000000000000000000000000
+ | Number of points ........... 0
+ | Number of lines ............ 0
+ | Number of boundaries ....... 11
+ | Number of centroids ........ 6
+ | Number of faces ............ 0
+ | Number of kernels .......... 0
+ | Number of primitives ....... 17
+ | Number of nodes ............ 7
+ | Number of areas ............ 6
+ | Number of islands .......... 2
+ | Number of holes ............ 0
+ | Number of volumes .......... 0
+ | Number of registered maps:.. 2
+ |
+ | Title:
+ | Land cover
+ | Description:
+ | Land cover classes
+ | Command history:
+ | # 2026-11-01 12:00:00
+ | t.rast.to.vect input="cover" output="parcels"
+ |     basename="parcel" type="area"
+ |
+ +----------------------------------------------------------------------------+
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect -n input=cover output=parcels basename=parcel type=area \
+    --overwrite
+t.vect.list input=parcels columns=name,areas
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+parcel_2026_07_01|2
+parcel_2026_07_02|4
+parcel_2026_07_03|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=8, s=0, e=8, w=0, res=1)
+tools.r_mapcalc(expression="cover_1 = if(col() &lt;= 4, 1, 2)")
+tools.r_mapcalc(expression="cover_2 = 1 + if(col() &gt; 4, 1, 0) + if(row() &gt; 4, 2, 0)")
+tools.r_mapcalc(expression="cover_3 = null()")
+tools.t_create(
+    output="cover",
+    semantictype="max",
+    title="Land cover",
+    description="Land cover classes",
+)
+tools.t_register(
+    input="cover",
+    maps="cover_1,cover_2,cover_3",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_to_vect(input="cover", output="parcels", basename="parcel", type="area")
+result = tools.t_vect_list(input="parcels", columns="name,start_time,end_time,areas")
+print(result.text)
+print(tools.g_list(type="vector", pattern="parcel_*").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|areas
+parcel_2026_07_01|2026-07-01 00:00:00|2026-07-02 00:00:00|2
+parcel_2026_07_02|2026-07-02 00:00:00|2026-07-03 00:00:00|4
+parcel_2026_07_01
+parcel_2026_07_02
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_db_select(input="parcels", columns="value").text)
+</pre></div>
+
+<div class="code"><pre>
+start_time|end_time|value
+2026-07-01 00:00:00|2026-07-02 00:00:00|1
+2026-07-01 00:00:00|2026-07-02 00:00:00|2
+2026-07-02 00:00:00|2026-07-03 00:00:00|1
+2026-07-02 00:00:00|2026-07-03 00:00:00|2
+2026-07-02 00:00:00|2026-07-03 00:00:00|3
+2026-07-02 00:00:00|2026-07-03 00:00:00|4
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_info(type="stvds", input="parcels").stdout, end="")
+</pre></div>
+
+<div class="code"><pre>
+ +-------------------- Space Time Vector Dataset -----------------------------+
+ |                                                                            |
+ +-------------------- Basic information -------------------------------------+
+ | Id: ........................ parcels@PERMANENT
+ | Name: ...................... parcels
+ | Mapset: .................... PERMANENT
+ | Creator: ................... user
+ | Temporal type: ............. absolute
+ | Creation time: ............. 2026-11-01 12:00:00
+ | Modification time:.......... 2026-11-01 12:00:00
+ | Semantic type:.............. max
+ +-------------------- Absolute time -----------------------------------------+
+ | Start time:................. 2026-07-01 00:00:00
+ | End time:................... 2026-07-03 00:00:00
+ | Granularity:................ 1 day
+ | Temporal type of maps:...... interval
+ +-------------------- Spatial extent ----------------------------------------+
+ | North:...................... 8.0
+ | South:...................... 0.0
+ | East:.. .................... 8.0
+ | West:....................... 0.0
+ | Top:........................ 0.0
+ | Bottom:..................... 0.0
+ +-------------------- Metadata information ----------------------------------+
+ | Vector register table:...... vector_map_register_00000000000000000000000000000000
+ | Number of points ........... 0
+ | Number of lines ............ 0
+ | Number of boundaries ....... 11
+ | Number of centroids ........ 6
+ | Number of faces ............ 0
+ | Number of kernels .......... 0
+ | Number of primitives ....... 17
+ | Number of nodes ............ 7
+ | Number of areas ............ 6
+ | Number of islands .......... 2
+ | Number of holes ............ 0
+ | Number of volumes .......... 0
+ | Number of registered maps:.. 2
+ |
+ | Title:
+ | Land cover
+ | Description:
+ | Land cover classes
+ | Command history:
+ | # 2026-11-01 12:00:00
+ | t.rast.to.vect input="cover" output="parcels"
+ |     basename="parcel" type="area"
+ |
+ +----------------------------------------------------------------------------+
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="parcels",
+    basename="parcel",
+    type="area",
+    flags="n",
+    overwrite=True,
+)
+print(tools.t_vect_list(input="parcels", columns="name,areas").text)
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+parcel_2026_07_01|2
+parcel_2026_07_02|4
+parcel_2026_07_03|0
+</pre></div>
+
+<h3>Draw the areas over the raster map</h3>
+
+The figure shows the map of the second day with the boundaries of the areas
+that <em>t.rast.to.vect</em> made from it. <em>d.rast</em> draws the raster
+map, <em>d.vect</em> the boundaries of the vector map and <em>d.legend</em> the
+four classes.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+d.mon start=cairo output=t_rast_to_vect_areas.png width=600 height=400
+d.rast map=cover_2
+d.vect map=parcel_2026_07_02 type=boundary color=white width=3
+d.legend raster=cover_2 at=10,90,84,88 fontsize=14
+d.mon stop=cairo
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.d_mon(start="cairo", output="t_rast_to_vect_areas.png", width=600, height=400)
+tools.d_rast(map="cover_2")
+tools.d_vect(map="parcel_2026_07_02", type="boundary", color="white", width=3)
+tools.d_legend(raster="cover_2", at=[10, 90, 84, 88], fontsize=14)
+tools.d_mon(stop="cairo")
+</pre></div>
+
+<p>
+<img src="t_rast_to_vect_areas.png" alt="Areas of the land cover classes">
+<p>
+<em>Figure: The four areas of the land cover map <code>cover_2</code>,
+outlined by the boundaries of the vector map
+<code>parcel_2026_07_02</code>.</em>
+
+<h3>Convert the cells to points</h3>
+
+With <code>type=point</code>, each cell with a value becomes a point at the
+centre of the cell. The condition in <b>where</b> selects the first map, which
+has 64 cells with values and so gives 64 points. <b>column</b> names the column
+that holds the class of each cell, <code>class</code> instead of
+<code>value</code>. The second block groups the table by the class: 32 cells in
+each half of the map. The third block prints the first two rows of the table,
+with the columns <code>cat</code>, <code>class</code> and <code>label</code>.
+<p>
+The flag <b>-v</b> takes the class of each cell as the category of the point
+instead of a sequence of numbers. The fourth block shows the table of that map:
+only the categories 1 and 2, one for each class, and no column for the value.
+<p>
+The flag <b>-z</b> writes the class as the z coordinate of the points and makes
+no table. The fifth block converts the second map, whose classes are 1 to 4.
+<em>v.out.ascii</em> prints the first three points, the cells of the top row,
+with class 1 as z coordinate, and the z coordinates of all points, 1 to 4.
+<em>v.info</em> shows that the map has no attribute table.
+<p>
+The last block shows the limit of <b>-v</b>. The dataset <code>ratio</code>
+holds the map <code>ratio_1</code> with the floating point values 0.5 and 1.
+With <b>-v</b>, <em>t.rast.to.vect</em> warns that the raster is not CELL and
+that the flag is ignored; the table has the column <code>value</code> with the
+values of the cells, as without the flag, not one category for each value.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.to.vect input=cover output=cells basename=cell type=point \
+    column=class where="start_time &lt; '2026-07-02'"
+t.vect.list input=cells columns=name,points
+</pre></div>
+
+<div class="code"><pre>
+name|points
+cell_2026_07_01|64
+</pre></div>
+
+<div class="code"><pre>
+db.select sql="SELECT class, count(*) AS cells FROM cell_2026_07_01 GROUP BY class"
+</pre></div>
+
+<div class="code"><pre>
+class|cells
+1|32
+2|32
+</pre></div>
+
+<div class="code"><pre>
+v.db.select map=cell_2026_07_01 where="cat &lt;= 2"
+</pre></div>
+
+<div class="code"><pre>
+cat|class|label
+1|1|
+2|1|
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect -v input=cover output=classes basename=class type=point \
+    where="start_time &lt; '2026-07-02'"
+v.db.select map=class_2026_07_01
+</pre></div>
+
+<div class="code"><pre>
+cat|label
+1|
+2|
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect -z input=cover output=heights basename=height type=point \
+    where="name = 'cover_2'"
+v.out.ascii input=height_2026_07_02 format=point separator=space layer=-1 \
+    | head -n 3
+v.out.ascii input=height_2026_07_02 format=point separator=space layer=-1 \
+    | cut -d" " -f3 | sort -u | paste -sd,
+v.info -e map=height_2026_07_02 | grep num_dblinks
+</pre></div>
+
+<div class="code"><pre>
+0.5 7.5 1
+1.5 7.5 1
+2.5 7.5 1
+1,2,3,4
+num_dblinks=0
+</pre></div>
+
+<div class="code"><pre>
+r.mapcalc expression="ratio_1 = cover_1 / 2.0"
+t.create output=ratio title="Ratio" description="Half of the class"
+t.register -i input=ratio maps=ratio_1 start=2026-07-01 increment="1 day"
+t.rast.to.vect -v input=ratio output=ratios basename=ratio type=point
+v.db.select map=ratio_2026_07_01 where="cat &lt;= 2"
+</pre></div>
+
+<div class="code"><pre>
+cat|value
+1|0.5
+2|0.5
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="cells",
+    basename="cell",
+    type="point",
+    column="class",
+    where="start_time &lt; '2026-07-02'",
+)
+print(tools.t_vect_list(input="cells", columns="name,points").text)
+</pre></div>
+
+<div class="code"><pre>
+name|points
+cell_2026_07_01|64
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.db_select(
+        sql="SELECT class, count(*) AS cells FROM cell_2026_07_01 GROUP BY class"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+class|cells
+1|32
+2|32
+</pre></div>
+
+<div class="code"><pre>
+print(tools.v_db_select(map="cell_2026_07_01", where="cat &lt;= 2").text)
+</pre></div>
+
+<div class="code"><pre>
+cat|class|label
+1|1|
+2|1|
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="classes",
+    basename="class",
+    type="point",
+    where="start_time &lt; '2026-07-02'",
+    flags="v",
+)
+print(tools.v_db_select(map="class_2026_07_01").text)
+</pre></div>
+
+<div class="code"><pre>
+cat|label
+1|
+2|
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="heights",
+    basename="height",
+    type="point",
+    where="name = 'cover_2'",
+    flags="z",
+)
+result = tools.v_out_ascii(
+    input="height_2026_07_02", format="point", separator="space", layer=-1
+)
+points = result.text.splitlines()
+print("\n".join(points[:3]))
+print(",".join(sorted({point.split()[2] for point in points})))
+info = tools.v_info(map="height_2026_07_02", flags="e").keyval
+print(f"num_dblinks={info['num_dblinks']}")
+</pre></div>
+
+<div class="code"><pre>
+0.5 7.5 1
+1.5 7.5 1
+2.5 7.5 1
+1,2,3,4
+num_dblinks=0
+</pre></div>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="ratio_1 = cover_1 / 2.0")
+tools.t_create(output="ratio", title="Ratio", description="Half of the class")
+tools.t_register(
+    input="ratio",
+    maps="ratio_1",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_to_vect(
+    input="ratio", output="ratios", basename="ratio", type="point", flags="v"
+)
+print(tools.v_db_select(map="ratio_2026_07_01", where="cat &lt;= 2").text)
+</pre></div>
+
+<div class="code"><pre>
+cat|value
+1|0.5
+2|0.5
+</pre></div>
+
+<h3>Convert thin lines to lines</h3>
+
+With <code>type=line</code>, <em>r.to.vect</em> needs lines that are one cell
+wide. The dataset <code>roads</code> has two maps: the diagonal from the
+north-west to the south-east cell on the first day, and the fourth row on the
+second day. Each map gives one line with two nodes, one at the centre of its
+first and one at the centre of its last cell. The bounding box of the first
+line runs from 0.5 to 7.5 in both directions, the second line lies at
+y = 4.5.
+<p>
+The second block shows what happens with a map that is not thinned. The first
+map of <code>cover</code> fills the whole region, so <em>r.to.vect</em> finds
+no thin lines in it; <em>t.rast.to.vect</em> ends with the message of
+<em>r.to.vect</em> and creates no dataset <code>thick</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="road_1 = if(row() == col(), 1, null())"
+r.mapcalc expression="road_2 = if(row() == 4, 1, null())"
+t.create output=roads title="Roads" description="Two roads"
+t.register -i input=roads maps=road_1,road_2 \
+    start=2026-07-01 increment="1 day"
+t.rast.to.vect input=roads output=tracks basename=track type=line
+t.vect.list input=tracks columns=name,lines,nodes,west,east,south,north
+</pre></div>
+
+<div class="code"><pre>
+name|lines|nodes|west|east|south|north
+track_2026_07_01|1|2|0.5|7.5|0.5|7.5
+track_2026_07_02|1|2|0.5|7.5|4.5|4.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect input=cover output=thick basename=thick type=line \
+    --quiet 2&gt;&amp;1 || echo "t.rast.to.vect failed"
+</pre></div>
+
+<div class="code"><pre>
+r.to.vect input=cover_1@PERMANENT type=line column=value output=thick_2026_07_01@PERMANENT --q
+ERROR: Raster map is not thinned properly.
+       Please run r.thin.
+ERROR: Error running r.to.vect: Module run `r.to.vect
+       input=cover_1@PERMANENT type=line column=value
+       output=thick_2026_07_01@PERMANENT --q` ended with an error.
+       The subprocess ended with a non-zero return code: 1. See errors
+       above the traceback or in the error output.
+t.rast.to.vect failed
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="road_1 = if(row() == col(), 1, null())")
+tools.r_mapcalc(expression="road_2 = if(row() == 4, 1, null())")
+tools.t_create(output="roads", title="Roads", description="Two roads")
+tools.t_register(
+    input="roads",
+    maps="road_1,road_2",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_to_vect(input="roads", output="tracks", basename="track", type="line")
+result = tools.t_vect_list(
+    input="tracks", columns="name,lines,nodes,west,east,south,north"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|lines|nodes|west|east|south|north
+track_2026_07_01|1|2|0.5|7.5|0.5|7.5
+track_2026_07_02|1|2|0.5|7.5|4.5|4.5
+</pre></div>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+try:
+    tools.t_rast_to_vect(
+        input="cover", output="thick", basename="thick", type="line", quiet=True
+    )
+except ToolError as error:
+    print(error.stderr.strip())
+    print("t.rast.to.vect failed")
+</pre></div>
+
+<div class="code"><pre>
+r.to.vect input=cover_1@PERMANENT type=line column=value output=thick_2026_07_01@PERMANENT --q
+ERROR: Raster map is not thinned properly.
+       Please run r.thin.
+ERROR: Error running r.to.vect: Module run `r.to.vect
+       input=cover_1@PERMANENT type=line column=value
+       output=thick_2026_07_01@PERMANENT --q` ended with an error.
+       The subprocess ended with a non-zero return code: 1. See errors
+       above the traceback or in the error output.
+t.rast.to.vect failed
+</pre></div>
+
+<h3>Smooth the corners and skip the topology</h3>
+
+The map <code>stairs_1</code> is a triangle in the south-west of the region: the
+cells with <code>row() &gt;= col()</code>. Its outline is a staircase. The first
+block converts it to an area twice, without and with the flag <b>-s</b>.
+<em>v.out.ascii</em> starts the boundary of each area with <code>B</code> and
+the number of its points: 19 points for the staircase, 22 for the smoothed
+outline, because <b>-s</b> cuts the corners.
+<p>
+The flag <b>-b</b> builds no topology. The second block converts the map with
+<b>-b</b>: the topological counts of the map, such as the number of areas, are
+not known, and <em>t.vect.list</em> shows <code>None</code> for them.
+<em>ls</em> lists the files of the vector maps: the map made with <b>-b</b> has
+none of the topology files <code>topo</code>, <code>sidx</code> and
+<code>cidx</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="stairs_1 = if(row() &gt;= col(), 1, null())"
+t.create output=stairs title="Stairs" description="A staircase"
+t.register -i input=stairs maps=stairs_1 \
+    start=2026-07-01 increment="1 day"
+t.rast.to.vect input=stairs output=sharp basename=sharp type=area
+t.rast.to.vect -s input=stairs output=smooth basename=smooth type=area
+v.out.ascii input=sharp_2026_07_01 format=standard layer=-1 | grep "^B"
+v.out.ascii input=smooth_2026_07_01 format=standard layer=-1 | grep "^B"
+</pre></div>
+
+<div class="code"><pre>
+B  19
+B  22
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect -b input=stairs output=flat basename=flat type=area
+t.vect.list input=flat columns=name,areas
+ls -m "$(g.findfile -n element=vector file=flat_2026_07_01 | sed -n 's/^file=//p')"
+ls -m "$(g.findfile -n element=vector file=sharp_2026_07_01 | sed -n 's/^file=//p')"
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+flat_2026_07_01|None
+coor, dbln, head, hist, timestamp_1
+cidx, coor, dbln, head, hist, sidx, timestamp_1, topo
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+tools.r_mapcalc(expression="stairs_1 = if(row() &gt;= col(), 1, null())")
+tools.t_create(output="stairs", title="Stairs", description="A staircase")
+tools.t_register(
+    input="stairs",
+    maps="stairs_1",
+    start="2026-07-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_to_vect(input="stairs", output="sharp", basename="sharp", type="area")
+tools.t_rast_to_vect(
+    input="stairs", output="smooth", basename="smooth", type="area", flags="s"
+)
+for name in ("sharp_2026_07_01", "smooth_2026_07_01"):
+    result = tools.v_out_ascii(input=name, format="standard", layer=-1)
+    print([line for line in result.text.splitlines() if line.startswith("B")][0])
+</pre></div>
+
+<div class="code"><pre>
+B  19
+B  22
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="stairs", output="flat", basename="flat", type="area", flags="b"
+)
+print(tools.t_vect_list(input="flat", columns="name,areas").text)
+for name in ("flat_2026_07_01", "sharp_2026_07_01"):
+    path = tools.g_findfile(element="vector", file=name, flags="n").keyval["file"]
+    print(", ".join(sorted(item.name for item in Path(path).iterdir())))
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+flat_2026_07_01|None
+coor, dbln, head, hist, timestamp_1
+cidx, coor, dbln, head, hist, sidx, timestamp_1, topo
+</pre></div>
+
+<h3>Choose the names of the new maps and convert in parallel</h3>
+
+The option <b>suffix</b> chooses how the new maps are named after
+<b>basename</b>. The condition in <b>where</b> selects the first two days, and
+the numbers count the selected maps from 1:
+<ol>
+<li><code>time</code> takes the full start time of each raster map.</li>
+<li><code>num%03</code> numbers the maps with three digits.</li>
+<li>In a dataset with relative time, the suffix is always a number. The dataset
+<code>model</code> holds the first two maps of <code>cover</code> as the steps 1
+and 2 of a model run, six hours apart; the default suffix <code>gran</code>
+numbers the maps, and the new dataset has relative time as well.</li>
+</ol>
+<p>
+The last block uses the flag <b>-t</b>: the vector maps get no attribute table,
+and <b>nprocs</b> can run several <em>r.to.vect</em> processes at the same
+time; here three, one for each map. <em>v.info</em> shows that the map of the
+first day is linked to no attribute table.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.to.vect input=cover output=timed basename=timed type=area \
+    suffix=time where="start_time &lt; '2026-07-03'"
+t.vect.list input=timed columns=name
+t.rast.to.vect input=cover output=numbered basename=zone type=area \
+    suffix=num%03 where="start_time &lt; '2026-07-03'"
+t.vect.list input=numbered columns=name
+</pre></div>
+
+<div class="code"><pre>
+name
+timed_2026_07_01T00_00_00
+timed_2026_07_02T00_00_00
+name
+zone_001
+zone_002
+</pre></div>
+
+<div class="code"><pre>
+r.mapcalc expression="step_1 = cover_1"
+r.mapcalc expression="step_2 = cover_2"
+t.create output=model temporaltype=relative title="Model" \
+    description="Model output per step"
+t.register -i input=model maps=step_1,step_2 start=0 increment=6 unit=hours
+t.rast.to.vect input=model output=steps basename=step type=area
+t.vect.list input=steps columns=name,start_time,end_time,areas
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|areas
+step_00001|0|6|2
+step_00002|6|12|4
+</pre></div>
+
+<div class="code"><pre>
+t.rast.to.vect -t input=cover output=quick basename=quick type=point \
+    nprocs=3
+t.vect.list input=quick columns=name,points
+v.info -e map=quick_2026_07_01 | grep num_dblinks
+</pre></div>
+
+<div class="code"><pre>
+name|points
+quick_2026_07_01|64
+quick_2026_07_02|64
+num_dblinks=0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="timed",
+    basename="timed",
+    type="area",
+    suffix="time",
+    where="start_time &lt; '2026-07-03'",
+)
+print(tools.t_vect_list(input="timed", columns="name").text)
+tools.t_rast_to_vect(
+    input="cover",
+    output="numbered",
+    basename="zone",
+    type="area",
+    suffix="num%03",
+    where="start_time &lt; '2026-07-03'",
+)
+print(tools.t_vect_list(input="numbered", columns="name").text)
+</pre></div>
+
+<div class="code"><pre>
+name
+timed_2026_07_01T00_00_00
+timed_2026_07_02T00_00_00
+name
+zone_001
+zone_002
+</pre></div>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="step_1 = cover_1")
+tools.r_mapcalc(expression="step_2 = cover_2")
+tools.t_create(
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step",
+)
+tools.t_register(
+    input="model",
+    maps="step_1,step_2",
+    start=0,
+    increment=6,
+    unit="hours",
+    flags="i",
+)
+tools.t_rast_to_vect(input="model", output="steps", basename="step", type="area")
+result = tools.t_vect_list(input="steps", columns="name,start_time,end_time,areas")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|areas
+step_00001|0|6|2
+step_00002|6|12|4
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_to_vect(
+    input="cover",
+    output="quick",
+    basename="quick",
+    type="point",
+    nprocs=3,
+    flags="t",
+)
+print(tools.t_vect_list(input="quick", columns="name,points").text)
+info = tools.v_info(map="quick_2026_07_01", flags="e").keyval
+print(f"num_dblinks={info['num_dblinks']}")
+</pre></div>
+
+<div class="code"><pre>
+name|points
+quick_2026_07_01|64
+quick_2026_07_02|64
+num_dblinks=0
+</pre></div>
+
+<h3>Use a dataset of another mapset</h3>
+
+The example creates the mapset <code>analysis</code> and switches to it. The
+dataset <code>cover</code> stays in the mapset <code>PERMANENT</code> and is
+named with its mapset; the new dataset <code>west</code> and its vector maps are
+created in <code>analysis</code>, as the column <code>id</code> shows.
+<p>
+The region of the new mapset is set to the western half of the maps, so
+<em>r.to.vect</em> converts only the cells of the western half: the east edge of
+the vector maps lies at x = 4. The first map has one area, class 1; the second
+has two, the classes 1 and 3.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=analysis
+g.region n=8 s=0 e=4 w=0 res=1
+t.rast.to.vect input=cover@PERMANENT output=west basename=west type=area
+t.vect.list input=west columns=id,areas,east
+</pre></div>
+
+<div class="code"><pre>
+id|areas|east
+west_2026_07_01@analysis|1|4.0
+west_2026_07_02@analysis|2|4.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="analysis", flags="c")
+tools.g_region(n=8, s=0, e=4, w=0, res=1)
+tools.t_rast_to_vect(
+    input="cover@PERMANENT", output="west", basename="west", type="area"
+)
+print(tools.t_vect_list(input="west", columns="id,areas,east").text)
+</pre></div>
+
+<div class="code"><pre>
+id|areas|east
+west_2026_07_01@analysis|1|4.0
+west_2026_07_02@analysis|2|4.0
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
+<a href="d.legend.html">d.legend</a>,
+<a href="d.rast.html">d.rast</a>,
+<a href="d.vect.html">d.vect</a>,
+<a href="db.select.html">db.select</a>,
+<a href="g.findfile.html">g.findfile</a>,
+<a href="g.list.html">g.list</a>,
+<a href="g.mapset.html">g.mapset</a>,
+<a href="g.region.html">g.region</a>,
+<a href="r.thin.html">r.thin</a>,
 <a href="r.to.vect.html">r.to.vect</a>,
-<a href="t.vect.db.select.html">t.rast.db.select</a>,
-<a href="t.info.html">t.info</a>
+<a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>,
+<a href="t.rast.contour.html">t.rast.contour</a>,
+<a href="t.register.html">t.register</a>,
+<a href="t.vect.db.select.html">t.vect.db.select</a>,
+<a href="t.vect.list.html">t.vect.list</a>,
+<a href="v.db.select.html">v.db.select</a>,
+<a href="v.info.html">v.info</a>,
+<a href="v.out.ascii.html">v.out.ascii</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
