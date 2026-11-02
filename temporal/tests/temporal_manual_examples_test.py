@@ -10,7 +10,8 @@ tests do not have and stay unchecked until their turn.
 
 CATALOG_MANUALS are the manuals that may keep a catalog of expressions, each
 with its result, in examples without a Python tab (``<!-- example:
-shell-only -->``).
+shell-only -->``). Each tab of a manual runs in one test, whose time limit
+grows with its number of blocks (manual_examples.timeout_for).
 """
 
 from pathlib import Path
@@ -23,7 +24,13 @@ from grass.temporal.testing.manual_coverage import (
     shown_options,
     tool_options,
 )
-from grass.temporal.testing.manual_examples import check_manual, parse_manual
+from grass.temporal.testing.manual_examples import (
+    ManualFormatError,
+    check_manual,
+    parse_manual,
+    stop_example_processes,
+    timeout_for,
+)
 from grass.temporal.testing.session import project_session
 
 REVIEWED_MANUALS = (
@@ -90,9 +97,37 @@ def manual_of(tool):
     return parse_manual(TOOLS / tool / f"{tool}.md")
 
 
-@pytest.mark.parametrize("variant", ["shell", "python"])
-@pytest.mark.parametrize("tool", REVIEWED_MANUALS)
-def test_examples_run_and_show_their_output(tool, variant, tmp_path):
+def example_runs():
+    """Each reviewed manual and tab, with the time limit of its blocks"""
+    for tool in REVIEWED_MANUALS:
+        try:
+            manual = manual_of(tool)
+        except ManualFormatError:
+            # The test of the manual reports the error; until then, the limit
+            # of the repository applies.
+            manual = None
+        for variant in ("shell", "python"):
+            marks = (
+                ()
+                if manual is None
+                else pytest.mark.timeout(timeout_for(manual, variant))
+            )
+            yield pytest.param(tool, variant, marks=marks, id=f"{tool}-{variant}")
+
+
+@pytest.fixture
+def example_processes():
+    """Stop the processes of the examples that a test leaves behind
+
+    pytest-timeout ends a test by an exception in the middle of a block; the
+    tool that the block started would go on running without this teardown.
+    """
+    yield
+    stop_example_processes()
+
+
+@pytest.mark.parametrize(("tool", "variant"), example_runs())
+def test_examples_run_and_show_their_output(tool, variant, tmp_path, example_processes):
     manual = manual_of(tool)
     # A misspelled "## EXAMPLES" leaves a manual without examples, which
     # would otherwise pass unseen.

@@ -403,3 +403,25 @@ def test_a_closing_fence_with_trailing_spaces_closes_the_block(tmp_path):
     )
     parsed = me.parse_manual(write(tmp_path, text))
     assert parsed.examples[0].blocks[0].shown_output == "out\n"
+
+
+def test_timeout_grows_with_the_blocks(tmp_path):
+    def catalog(count, not_run=0):
+        code = "\n\n".join(["```sh\nt.a\n```"] * count)
+        skipped = '<!-- example: not-run reason="x" -->\n```sh\nt.b\n```'
+        code += "".join(f"\n\n{skipped}" for _ in range(not_run))
+        return example("Full", "t.a", "x") + "\n" + shell_only("Catalog", code)
+
+    folder = tmp_path / "small"
+    folder.mkdir()
+    small = me.parse_manual(write(folder, manual(catalog(3))))
+    # Below the floor, both tabs get the 300 s of the repository.
+    assert me.timeout_for(small, "shell") == 300
+    assert me.timeout_for(small, "python") == 300
+    blocks = 300 // me.SECONDS_PER_BLOCK + 10
+    folder = tmp_path / "large"
+    folder.mkdir()
+    large = me.parse_manual(write(folder, manual(catalog(blocks - 1, not_run=7))))
+    # The full example adds one block; the blocks marked not-run do not count.
+    assert me.timeout_for(large, "shell") == me.SECONDS_PER_BLOCK * blocks
+    assert me.timeout_for(large, "python") == 300

@@ -8,8 +8,13 @@ Each test writes a small manual to tmp_path. The tests that run examples do
 so in a real session in a project of their own under tmp_path.
 """
 
+import contextlib
+import os
 import re
+import signal
 import struct
+import threading
+import time
 import zlib
 
 import pytest
@@ -265,6 +270,58 @@ def test_a_hanging_block_is_stopped(tmp_path, session, monkeypatch, variant):
     results = me.run_manual(manual, variant, session, tmp_path / "work")
     assert results[0].returncode < 0
     assert "Stopped after 1 s" in results[0].stderr
+
+
+def wait_for(condition, seconds):
+    """Return whether condition() became true within seconds"""
+    deadline = time.monotonic() + seconds
+    while not condition():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
+def group_exists(group):
+    try:
+        os.killpg(group, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_an_aborted_run_leaves_no_process(tmp_path, session):
+    stop = me.stop_example_processes
+    # The echo after sleep keeps bash from replacing itself by sleep, so the
+    # group has a child below bash, as a tool started by a block has. mv makes
+    # the file appear with the whole number in it.
+    shell = blocks(
+        "sh", "echo $$ > group.part\nmv group.part group\nsleep 600\necho never\n"
+    )
+    manual = write_manual(tmp_path, example("Hang", shell, blocks("python", "x\n")))
+    workdir = tmp_path / "work"
+    results = []
+    thread = threading.Thread(
+        target=lambda: results.extend(me.run_manual(manual, "shell", session, workdir)),
+        daemon=True,
+    )
+    thread.start()
+    assert wait_for((workdir / "group").exists, 30), "the block did not start"
+    group = int((workdir / "group").read_text())
+    try:
+        assert group_exists(group)
+        stop()
+        thread.join(30)
+        assert not thread.is_alive()
+        assert results[0].returncode == -signal.SIGKILL
+        # Orphaned by the end of bash, sleep is reaped by init or a subreaper,
+        # which can take a moment.
+        wait_for(lambda: not group_exists(group), 10)
+        with pytest.raises(ProcessLookupError):
+            os.killpg(group, 0)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(group, signal.SIGKILL)
 
 
 VERSION = (

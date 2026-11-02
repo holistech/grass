@@ -44,6 +44,7 @@ shown output and the figures. Which options the examples show and whether the
 from __future__ import annotations
 
 import ast
+import contextlib
 import difflib
 import getpass
 import json
@@ -473,8 +474,31 @@ def normalize(text: str, context: NormalizeContext) -> str:
 # The examples work on small regions (at most 20 x 20 cells, a rule of the
 # manuals), so the limit is not a speed check; it stops a hanging command, such
 # as one waiting for input. The Python tab gets the sum for all its blocks.
-# pytest-timeout (300 s for the repository) can end a long test first.
+# pytest-timeout, with the limit of timeout_for, can end a long test first.
 BLOCK_SECONDS = 120
+
+# What a block of a manual may take on average, for the time limit of the test
+# of a whole tab. Measured 2026-11-02 with a probe manual of 40 expressions of
+# t.rast.algebra on three maps of 4 x 4 cells, each block one t.rast.algebra
+# and one t.rast.list: 1.01 s per block alone, 1.34 s with 24 copies of the
+# probe under pytest -n auto on 24 cores. Three times 1.34, rounded up.
+SECONDS_PER_BLOCK = 5
+# The limit that pyproject.toml gives every test; no manual gets less.
+MINIMUM_TEST_SECONDS = 300
+
+
+def timeout_for(manual: Manual, variant: str) -> int:
+    """Return the seconds that the test of one tab of manual may take
+
+    SECONDS_PER_BLOCK for each block of the tab that is not marked not-run,
+    at least MINIMUM_TEST_SECONDS. A block skipped for a requirement counts,
+    so the limit does not depend on what the machine has.
+    """
+    blocks = [block for _, block in _variant_blocks(manual, variant)]
+    runnable = [block for block in blocks if "not-run" not in block.control]
+    return max(MINIMUM_TEST_SECONDS, SECONDS_PER_BLOCK * len(runnable))
+
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 # Tokens that end a shell command, and those whose next word is a file name.
@@ -573,12 +597,30 @@ def _skip_reason(block: Block) -> str | None:
     return None
 
 
+# The process groups of the blocks that run now, for stop_example_processes.
+_RUNNING_GROUPS: set[int] = set()
+
+
+def stop_example_processes() -> None:
+    """Kill the process groups of the blocks that are still running
+
+    A block ends on its own or after BLOCK_SECONDS. A test that is ended
+    before, as pytest-timeout does with an exception in the middle of a
+    block, leaves the group running; a fixture calls this in its teardown.
+    """
+    for group in list(_RUNNING_GROUPS):
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(group, signal.SIGKILL)
+        _RUNNING_GROUPS.discard(group)
+
+
 def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
     """Run a process in a group of its own; kill the group after seconds
 
     As session.run_with_timeout, but with stdout kept. The whole group is
     killed, because a tool started below bash or python survives the kill of
-    its parent alone.
+    its parent alone. The group stays in _RUNNING_GROUPS while it runs, and
+    after an exception that ends the wait.
     """
     process = subprocess.Popen(
         arguments,
@@ -590,14 +632,18 @@ def _run(arguments, *, env, cwd, seconds, stdin=None) -> tuple[int, str, str]:
         text=True,
         start_new_session=True,
     )
+    _RUNNING_GROUPS.add(process.pid)
     try:
         stdout, stderr = process.communicate(stdin, timeout=seconds)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
         stdout, stderr = process.communicate()
         stderr += f"\nStopped after {seconds} s.\n"
-        return -signal.SIGKILL, stdout, stderr
-    return process.returncode, stdout, stderr
+        returncode = -signal.SIGKILL
+    else:
+        returncode = process.returncode
+    _RUNNING_GROUPS.discard(process.pid)
+    return returncode, stdout, stderr
 
 
 def _after_failure(block: Block) -> str:
