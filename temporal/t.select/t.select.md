@@ -1794,6 +1794,18 @@ relations from above, the second takes the else maps `c2` for `a4`.
     ```
 
     ```sh
+    # Written as in the older manual. Every map of A starts before 2005,
+    # so the result is the same as for A : B : C, here a2.
+    t.select expression='F = if(start_date(A) < "2005-01-01", A : B : C)'
+    t.rast.list input=F columns=name,start_time,end_time,min
+    ```
+
+    ```text
+    name|start_time|end_time|min
+    a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
+    ```
+
+    ```sh
     # a1 to a3 start before 12 January; for a4, c2 has the same time.
     t.select expression='cond_else = if(start_date(A) < "2001-01-12", A, C)'
     t.rast.list input=cond_else columns=name,start_time,end_time,min
@@ -1918,9 +1930,9 @@ on two datasets.
     ```
 
     ```sh
-    # Written as in the older manual. Only a3 (two maps of B) and a4 (one)
-    # have a count, and neither has more than three, so the else part holds
-    # for both: c2 has the time of a4, and no map of C has the time of a3.
+    # Written as in the older manual. No map of A contains more than three
+    # maps of B, so the else part holds for every map: c2 is the map of C
+    # with the time of a4, the only map of A with a count.
     t.select expression="D = if(A {#, contains} B > 3, A {:, contains} B, C)"
     t.rast.list input=D columns=name,start_time,end_time,min
     ```
