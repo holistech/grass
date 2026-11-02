@@ -28,6 +28,7 @@ REVIEWED_MANUALS = (
     "t.list",
     "t.rast.contour",
     "t.rast.univar",
+    "t.register",
     "t.remove",
 )
 
