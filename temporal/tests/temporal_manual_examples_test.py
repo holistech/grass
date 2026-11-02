@@ -29,6 +29,7 @@ REVIEWED_MANUALS = (
     "t.info",
     "t.list",
     "t.merge",
+    "t.rast.accdetect",
     "t.rast.accumulate",
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
