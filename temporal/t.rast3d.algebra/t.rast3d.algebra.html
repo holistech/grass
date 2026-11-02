@@ -560,7 +560,7 @@ manual of <a href="t.rast.algebra.html">t.rast.algebra</a>.
 The dataset <code>A</code> has four daily maps for 1 to 4 March 2026. Each map has the same value in all cells: 1, 2, 3 and 4. The region from <em>g.region</em> is two by two cells wide and, with <code>t=2</code>, <code>b=0</code> and <code>tbres=1</code>, two layers high, so a map has eight voxels and its smallest and largest values are equal.
 
 <p>
-The expression <code>C = A <em> 2</code> creates the dataset <code>C</code> and doubles each map of <code>A</code>. The new maps are named <code>c_0</code> to <code>c_3</code> after <b>basename</b>, counted from 0, and each has the time of its source map. <b>nprocs</b> lets two </em>r3.mapcalc* processes run at the same time; the result is the same as with one. The values are 2, 4, 6 and 8.
+The expression <code>C = A * 2</code> creates the dataset <code>C</code> and doubles each map of <code>A</code>. The new maps are named <code>c_0</code> to <code>c_3</code> after <b>basename</b>, counted from 0, and each has the time of its source map. <b>nprocs</b> lets two <em>r3.mapcalc</em> processes run at the same time; the result is the same as with one. The values are 2, 4, 6 and 8.
 
 <p>Command line:</p>
 
