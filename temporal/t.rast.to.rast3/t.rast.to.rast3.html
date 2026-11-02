@@ -1,163 +1,794 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.to.rast3</em> is designed to convert a space time raster
-dataset (STRDS) into a space time voxel cube. A space time voxel cube
-is a 3 dimensional raster map layer (3D raster map or voxel map layer)
-that as time as unit for the z-dimension.
+<em>t.rast.to.rast3</em> converts a space time raster dataset (STRDS) into a
+space time voxel cube: a 3D raster map whose vertical axis is time. The maps of
+the dataset become the layers of the cube, the earliest map at the bottom. The
+tool puts the maps on top of each other with
+<em><a href="r.to.rast3.html">r.to.rast3</a></em> and registers the cube in the
+temporal database. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for
+space time datasets.
 <p>
-A space time raster dataset that should be converted into a space time
-voxel cube must have a valid temporal topology. Hence, overlapping or
-inclusion of time stamps is not allowed. The granularity of the STRDS
-is used to set the resolution of the 3D raster map layer and to sample
-the registered time stamped raster map layers.
+The option <b>input</b> names the space time raster dataset, the option
+<b>output</b> the new 3D raster map. Both are required. The tool prints nothing
+to the standard output. The cube gets the title "Space time voxel cube" and a
+description that says it was made with <em>t.rast.to.rast3</em>;
+<em><a href="r3.info.html">r3.info</a></em> shows both.
 <p>
-Gaps between raster map layer in the STRDS will
-be represented by NULL values in the voxel map layer. A STRDS without maps is
-refused.
+<b>Layers.</b> The granularity of the dataset, as
+<em><a href="t.info.html">t.info</a></em> reports it, is the thickness of a
+layer. For maps with an interval, the tool cuts the time from the start of the first map to the end of the
+last map into steps of this size and makes one layer for each step. A step that
+a map covers gets that map. A map that is longer than the granularity covers
+several steps and is copied into each of them; the second example shows a map of
+two days in two layers. A step in which no map is registered, a gap of the
+dataset, becomes a layer without values (null cells). The layers run from the
+bottom upwards in the order of time. A time instant has no end; it gets one
+layer that starts at its time, so the cube of a dataset of time instants
+reaches one granularity beyond its time stamp, as the seventh example shows.
+<p>
+<b>Horizontal extent and resolution.</b> The cube covers the current
+computational region. Its resolution in the horizontal plane is the 3D
+resolution of the region, <b>res3</b> of
+<em><a href="g.region.html">g.region</a></em>, not the 2D resolution
+<b>res</b>; the last example sets a coarser <b>res3</b>. The tool sets the
+vertical extent of the cube itself, from the dataset, in a temporary region and
+leaves the current region as it is.
+<p>
+<b>Data type.</b> All maps of the dataset must have the same data type,
+<code>CELL</code>, <code>FCELL</code> or <code>DCELL</code>. The cube has
+<code>DCELL</code> for maps of type <code>CELL</code> and for maps of type
+<code>DCELL</code>, <code>FCELL</code> for maps of type <code>FCELL</code>. The
+layers of gaps have the same type. A dataset with maps of different types is
+refused, as the eighth example shows.
+<p>
+<b>Vertical axis.</b> The bottom of the cube, its resolution and its vertical
+unit depend on the temporal type and the granularity of the dataset:
+<ul>
+<li>Years: the bottom is the year number counted from 1900,
+<code>2026 - 1900 = 126</code> for a dataset that starts in 2026. The
+resolution is the granularity in years and the vertical unit is
+<code>years</code>.</li>
+<li>Months: the bottom is the month number counted from January 1900,
+<code>(year - 1900) * 12 + month</code>, so <code>1515</code> for March 2026.
+The resolution is the granularity in months and the vertical unit is
+<code>months</code>.</li>
+<li>Days, hours, minutes and seconds: the bottom is the start of the dataset as
+the number of days since 1900-01-01 00:00:00, a decimal number,
+<code>46080</code> for March 1, 2026. The resolution is the granularity
+converted to days, <code>0.5</code> for twelve hours. The vertical unit is
+<code>days</code> for all four granularities, because bottom and resolution are
+counted in days.</li>
+<li>Relative time: the start of the dataset, its granularity and its unit are
+taken as they are, so the cube of a dataset in hours has the vertical unit
+<code>hours</code>.</li>
+</ul>
+<p>
+The reference time 1900-01-01 00:00:00 is the same for all cubes. This allows
+the alignment of cubes with different granularities. Cubes with the unit
+<code>days</code> and cubes with the unit <code>months</code> or
+<code>years</code> do not share an axis.
+<p>
+The cube is registered as a 3D raster map in the temporal database, with the
+temporal type of the dataset and the start and end time of the dataset as its
+time stamp. For a dataset of time instants, the end is the time of the last
+instant. <em><a href="t.info.html">t.info</a></em> with
+<code>type=raster_3d</code> shows it. To convert only some maps, select them
+into a dataset of their own with
+<em><a href="t.rast.extract.html">t.rast.extract</a></em>, as the sixth example
+shows.
 
 <h2>NOTES</h2>
 
-The reference time for all space time voxel cubes is
-1900-01-0100:00:00. This allows the alignment space time voxel cubes
-with different granularities.
+The tool refuses to run in these cases and writes a message:
+<ul>
+<li>The dataset has no maps: "Space time raster dataset
+<code>&lt;name@mapset&gt;</code> is empty".</li>
+<li>The dataset does not exist: "Space time dataset <code>&lt;name&gt;</code>
+of type <code>&lt;strds&gt;</code> not found".</li>
+<li>The cube exists and <b>--overwrite</b> is not given:
+"<code>&lt;name&gt;</code> exists. To overwrite, use the --overwrite flag". With
+<b>--overwrite</b> the tool replaces the cube and its entry in the temporal
+database; the third example shows it.</li>
+<li>The maps have different data types: "Input maps have to be from the same
+type. CELL, FCELL or DCELL!", followed by "Unable to create 3D raster map
+<code>&lt;name&gt;</code>".</li>
+<li>A map of the dataset is gone from the mapset: "Unable to create 3D raster
+map <code>&lt;name&gt;</code>". The cube is not made.</li>
+</ul>
 <p>
-The vertical unit of a cube in absolute time is days for a granularity of
-seconds, minutes, hours and days, since bottom and resolution are counted
-in days; for months and years it is months or years.
+A dataset of time instants gives a cube that is one granularity taller than its
+time stamp: the cube of three daily instants has three layers and spans three
+days, but its time stamp in the temporal database ends at the last instant, two
+days after the start. Use maps with intervals if the time stamp of the cube has
+to match its layers.
 <p>
-Be aware that the granularity of a STRDS is used to sample time stamped
-map layers! If you have gaps between monthly intervals that have the
-size of a second, the monthly intervals will be sampled by a second
-based granularity as well. This may result in millions of space time
-voxel cube layers!
+The gaps are filled with a temporary map of null cells. The tool removes it
+when it is done, also when it stops with a message.
+<p>
+Every layer has the thickness of the granularity. A dataset of long maps with
+one short map or one short gap has a small granularity and so a cube with many
+layers: the layers of the second example are one day thick although one map is
+two days long.
 
-<h3>Management of open file limits</h3>
-The maximum number of raster maps that can be processed is given by the
-per-user limit of the operating system. For example, both the the hard and soft
-limit for users is typically 1024. The soft limit can be changed with e.g.
-ulimit -n 4096 (UNIX-based operating systems) but not higher than the
-hard limit. If the latter is too low, you can as superuser add an entry in
+<h2>EXAMPLES</h2>
+
+<h3>Stack the maps of a dataset</h3>
+
+The dataset <code>daily</code> holds three daily maps of 2 rows and 3 columns,
+from March 1, 2026. The value of a cell is <code>10 * row() + col()</code> plus
+100 for the second and 200 for the third map, so the north row of the first map
+is 11, 12, 13. The first block makes the cube and prints the properties of the
+3D map that <em>r3.info</em> reports with <b>-g</b>. The cube starts at day
+46080 since 1900-01-01 (March 1, 2026), is three layers thick, has the
+resolution 1 and the vertical unit <code>days</code>. The data type is
+<code>DCELL</code> although the maps have integer values.
+<p>
+The second block prints the time stamp of the cube from the temporal database:
+the start of the first and the end of the last map. The third block prints the
+cells of the cube with <em>r3.out.ascii</em> (<b>-h</b> leaves out its header).
+The region is set to the cube first. The output holds the rows of the bottom
+layer first, north row first, then those of the second layer and the third.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-/etc/security/limits.conf
-# &lt;domain&gt;      &lt;type&gt;  &lt;item&gt;         &lt;value&gt;
-your_username  hard    nofile          4096
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="day_1 = 10 * row() + col()"
+r.mapcalc expression="day_2 = 100 + 10 * row() + col()"
+r.mapcalc expression="day_3 = 200 + 10 * row() + col()"
+t.create output=daily title="Daily" description="Three daily maps"
+t.register -i input=daily maps=day_1,day_2,day_3 start=2026-03-01 increment="1 day"
+t.rast.to.rast3 input=daily output=daily_cube
+r3.info -g daily_cube | grep -E "^(bottom|top|tbres|depths|datatype|vertical_units)="
 </pre></div>
 
-This will raise the hard limit to 4096 files. Also have a look at the overall
-limit of the operating system
 <div class="code"><pre>
-cat /proc/sys/fs/file-max
+bottom=46080
+top=46083
+tbres=1
+depths=3
+datatype="DCELL"
+vertical_units="days"
 </pre></div>
-which, on modern Linux systems, is several 100,000 files.
-
-<h2>EXAMPLE</h2>
-
-To create a voxel map layer from a subset of the <em>tempmean_monthly</em>
-space time dataset, run:
 
 <div class="code"><pre>
-# create the subset for 2012 data
-t.rast.extract input=tempmean_monthly output=tempmean_monthly_later_2012 \
-               where="start_time &gt;= '2012-01-01'"
+t.info -g type=raster_3d input=daily_cube | grep -E "^(temporal_type|start_time|end_time)="
+</pre></div>
 
-# set the right 3D region
-g.region -p3 res3=500
+<div class="code"><pre>
+temporal_type=absolute
+start_time='2026-03-01 00:00:00'
+end_time='2026-03-04 00:00:00'
+</pre></div>
 
-# convert to 3D raster map
-t.rast.to.rast3 input=tempmean_monthly_later_2012@climate_2009_2012 output=tempmean_monthly_2012
+<div class="code"><pre>
+g.region raster_3d=daily_cube
+r3.out.ascii input=daily_cube precision=0 -h | sed 's/ *$//'
+</pre></div>
 
-t.info type=raster_3d input=tempmean_monthly_2012
- +-------------------- 3D Raster Dataset -------------------------------------+
- |                                                                            |
- +-------------------- Basic information -------------------------------------+
- | Id: ........................ tempmean_monthly_2012@climate_2009_2012
- | Name: ...................... tempmean_monthly_2012
- | Mapset: .................... climate_2009_2012
- | Creator: ................... lucadelu
- | Temporal type: ............. absolute
- | Creation time: ............. 2014-11-28 11:10:51.679294
- +-------------------- Absolute time -----------------------------------------+
- | Start time:................. 2012-01-01 00:00:00
- | End time:................... 2013-01-01 00:00:00
- +-------------------- Spatial extent ----------------------------------------+
- | North:...................... 320000.0
- | South:...................... 10000.0
- | East:.. .................... 935000.0
- | West:....................... 120000.0
- | Top:........................ 1357.0
- | Bottom:..................... 1345.0
- +-------------------- Metadata information ----------------------------------+
- | Datatype:................... DCELL
- | Number of columns:.......... 620
- | Number of rows:............. 1630
- | Number of cells:............ 12127200
- | North-South resolution:..... 500.0
- | East-west resolution:....... 500.0
- | Minimum value:.............. -0.534994
- | Maximum value:.............. 28.794653
- | Number of depths:........... 12
- | Top-Bottom resolution:...... 1.0
- | Registered datasets ........
- +----------------------------------------------------------------------------+
+<div class="code"><pre>
+11 12 13
+21 22 23
+111 112 113
+121 122 123
+211 212 213
+221 222 223
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
 
 
-r3.info tempmean_monthly_2012
- +----------------------------------------------------------------------------+
- | Layer:    tempmean_monthly_2012          Date: Fri Nov 28 11:10:50 2014    |
- | Mapset:   climate_2009_2012              Login of Creator: lucadelu        |
- | Project: nc_spm_temporal_workshop                                         |
- | DataBase: /grassdata                                                       |
- | Title:    Space time voxel cube                                            |
- | Units:    none                                                             |
- | Vertical unit: months                                                      |
- | Timestamp: none                                                            |
- |----------------------------------------------------------------------------|
- |                                                                            |
- |   Type of Map:  3d cell              Number of Categories: 0               |
- |   Data Type:    DCELL                                                      |
- |   Rows:         620                                                        |
- |   Columns:      1630                                                       |
- |   Depths:       12                                                         |
- |   Total Cells:  12127200                                                   |
- |   Total size:           28414287 Bytes                                     |
- |   Number of tiles:      4230                                               |
- |   Mean tile size:       6717 Bytes                                         |
- |   Tile size in memory:  23520 Bytes                                        |
- |   Number of tiles in x, y and  z:   47, 45, 2                              |
- |   Dimension of a tile in x, y, z:   35, 14, 6                              |
- |                                                                            |
- |        Projection: Lambert Conformal Conic (zone 0)                        |
- |            N:     320000    S:      10000   Res:   500                     |
- |            E:     935000    W:     120000   Res:   500                     |
- |            T:       1357    B:       1345   Res:     1                     |
- |   Range of data:   min = -0.53499434 max = 28.79465315                     |
- |                                                                            |
- |   Data Source:                                                             |
- |                                                                            |
- |                                                                            |
- |                                                                            |
- |   Data Description:                                                        |
- |    This space time voxel cube was created with t.rast.to.rast3             |
- |                                                                            |
- |   Comments:                                                                |
- |    r.to.rast3 input="2012_01_tempmean@climate_2009_2012,2012_02_tempmea\   |
- |    n@climate_2009_2012,2012_03_tempmean@climate_2009_2012,2012_04_tempm\   |
- |    ean@climate_2009_2012,2012_05_tempmean@climate_2009_2012,2012_06_tem\   |
- |    pmean@climate_2009_2012,2012_07_tempmean@climate_2009_2012,2012_08_t\   |
- |    empmean@climate_2009_2012,2012_09_tempmean@climate_2009_2012,2012_10\   |
- |    _tempmean@climate_2009_2012,2012_11_tempmean@climate_2009_2012,2012_\   |
- |    12_tempmean@climate_2009_2012" output="tempmean_monthly_2012" tilesi\   |
- |    ze=32                                                                   |
- |                                                                            |
- +----------------------------------------------------------------------------+
+def print_keys(result, *keys):
+    for key in keys:
+        print(f"{key}={result.keyval[key]}")
+
+
+def print_layers(result):
+    print("\n".join(line.rstrip() for line in result.text.splitlines()))
+
+
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+for step in range(3):
+    tools.r_mapcalc(expression=f"day_{step + 1} = {100 * step} + 10 * row() + col()")
+tools.t_create(output="daily", title="Daily", description="Three daily maps")
+tools.t_register(
+    input="daily",
+    maps="day_1,day_2,day_3",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_to_rast3(input="daily", output="daily_cube")
+print_keys(
+    tools.r3_info(map="daily_cube", flags="g"),
+    "bottom",
+    "top",
+    "tbres",
+    "depths",
+    "datatype",
+    "vertical_units",
+)
+</pre></div>
+
+<div class="code"><pre>
+bottom=46080
+top=46083
+tbres=1
+depths=3
+datatype="DCELL"
+vertical_units="days"
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_info(type="raster_3d", input="daily_cube", flags="g")
+print_keys(result, "temporal_type", "start_time", "end_time")
+</pre></div>
+
+<div class="code"><pre>
+temporal_type=absolute
+start_time='2026-03-01 00:00:00'
+end_time='2026-03-04 00:00:00'
+</pre></div>
+
+<div class="code"><pre>
+tools.g_region(raster_3d="daily_cube")
+print_layers(tools.r3_out_ascii(input="daily_cube", precision=0, flags="h"))
+</pre></div>
+
+<div class="code"><pre>
+11 12 13
+21 22 23
+111 112 113
+121 122 123
+211 212 213
+221 222 223
+</pre></div>
+
+<h3>Gaps, long maps and the data type</h3>
+
+The dataset <code>cover</code> holds a map of one day (March 1) and a map of two
+days (March 3 and 4) with the data type <code>FCELL</code>; March 2 has no map.
+Its granularity is one day, so the cube has four layers. The first layer is the
+first map. The second, the gap, has no values, the cells show as
+<code>*</code>. The map of two days is in the third and the fourth layer. The
+cube has the type <code>FCELL</code> of the maps. The last block lists the
+raster maps: besides the maps of the examples there is no temporary map, the
+tool removed the one it made for the gap.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+r.mapcalc expression="cover_1 = float(10 * row() + col())"
+r.mapcalc expression="cover_2 = float(120 + 10 * row() + col())"
+t.create output=cover title="Cover" description="A gap and a long map"
+t.register input=cover maps=cover_1 start=2026-03-01 end=2026-03-02
+t.register input=cover maps=cover_2 start=2026-03-03 end=2026-03-05
+t.rast.to.rast3 input=cover output=cover_cube
+r3.info -g cover_cube | grep -E "^(bottom|top|tbres|depths|datatype)="
+g.region raster_3d=cover_cube
+r3.out.ascii input=cover_cube precision=0 -h | sed 's/ *$//'
+</pre></div>
+
+<div class="code"><pre>
+bottom=46080
+top=46084
+tbres=1
+depths=4
+datatype="FCELL"
+11 12 13
+21 22 23
+* * *
+* * *
+131 132 133
+141 142 143
+131 132 133
+141 142 143
+</pre></div>
+
+<div class="code"><pre>
+g.list type=raster
+</pre></div>
+
+<div class="code"><pre>
+cover_1
+cover_2
+day_1
+day_2
+day_3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+tools.r_mapcalc(expression="cover_1 = float(10 * row() + col())")
+tools.r_mapcalc(expression="cover_2 = float(120 + 10 * row() + col())")
+tools.t_create(output="cover", title="Cover", description="A gap and a long map")
+tools.t_register(input="cover", maps="cover_1", start="2026-03-01", end="2026-03-02")
+tools.t_register(input="cover", maps="cover_2", start="2026-03-03", end="2026-03-05")
+tools.t_rast_to_rast3(input="cover", output="cover_cube")
+print_keys(
+    tools.r3_info(map="cover_cube", flags="g"),
+    "bottom",
+    "top",
+    "tbres",
+    "depths",
+    "datatype",
+)
+tools.g_region(raster_3d="cover_cube")
+print_layers(tools.r3_out_ascii(input="cover_cube", precision=0, flags="h"))
+</pre></div>
+
+<div class="code"><pre>
+bottom=46080
+top=46084
+tbres=1
+depths=4
+datatype="FCELL"
+11 12 13
+21 22 23
+* * *
+* * *
+131 132 133
+141 142 143
+131 132 133
+141 142 143
+</pre></div>
+
+<div class="code"><pre>
+print(tools.g_list(type="raster").text)
+</pre></div>
+
+<div class="code"><pre>
+cover_1
+cover_2
+day_1
+day_2
+day_3
+</pre></div>
+
+<h3>Replace a cube after the dataset changed</h3>
+
+The map <code>cover_gap</code> has the values 61, 62, 63 and 71, 72, 73. It is
+registered for March 2, the gap of the dataset <code>cover</code>. The cube
+<code>cover_cube</code> exists already, so the tool needs <b>--overwrite</b>
+(<code>overwrite=True</code> in Python) to replace it. The new cube has no gap:
+its second layer is the new map.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+r.mapcalc expression="cover_gap = float(50 + 10 * row() + col())"
+t.register input=cover maps=cover_gap start=2026-03-02 end=2026-03-03
+t.rast.to.rast3 input=cover output=cover_cube --overwrite
+g.region raster_3d=cover_cube
+r3.out.ascii input=cover_cube precision=0 -h | sed 's/ *$//'
+</pre></div>
+
+<div class="code"><pre>
+11 12 13
+21 22 23
+61 62 63
+71 72 73
+131 132 133
+141 142 143
+131 132 133
+141 142 143
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+tools.r_mapcalc(expression="cover_gap = float(50 + 10 * row() + col())")
+tools.t_register(input="cover", maps="cover_gap", start="2026-03-02", end="2026-03-03")
+tools.t_rast_to_rast3(input="cover", output="cover_cube", overwrite=True)
+tools.g_region(raster_3d="cover_cube")
+print_layers(tools.r3_out_ascii(input="cover_cube", precision=0, flags="h"))
+</pre></div>
+
+<div class="code"><pre>
+11 12 13
+21 22 23
+61 62 63
+71 72 73
+131 132 133
+141 142 143
+131 132 133
+141 142 143
+</pre></div>
+
+<h3>The granularity sets the vertical unit</h3>
+
+Three datasets of two maps each, with different granularities. <code>hourly</code>
+has maps of twelve hours from March 1, 2026, 12:00. Its cube starts at day
+46080.5 and has the resolution 0.5, both in days, the vertical unit is
+<code>days</code>. <code>monthly</code> has two maps of one month from March
+2026; its cube starts at month 1515 and has the unit <code>months</code>.
+<code>yearly</code> has two maps of one year from 2026; its cube starts at year
+126 and has the unit <code>years</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+for name in hourly monthly yearly; do
+    r.mapcalc expression="${name}_1 = 1"
+    r.mapcalc expression="${name}_2 = 2"
+    t.create output=$name title="$name" description="Two maps"
+done
+t.register -i input=hourly maps=hourly_1,hourly_2 start="2026-03-01 12:00:00" increment="12 hours"
+t.register -i input=monthly maps=monthly_1,monthly_2 start=2026-03-01 increment="1 month"
+t.register -i input=yearly maps=yearly_1,yearly_2 start=2026-01-01 increment="1 year"
+for name in hourly monthly yearly; do
+    t.rast.to.rast3 input=$name output=${name}_cube
+    echo "$name"
+    r3.info -g ${name}_cube | grep -E "^(bottom|top|tbres|depths|vertical_units)="
+done
+</pre></div>
+
+<div class="code"><pre>
+hourly
+bottom=46080.5
+top=46081.5
+tbres=0.5
+depths=2
+vertical_units="days"
+monthly
+bottom=1515
+top=1517
+tbres=1
+depths=2
+vertical_units="months"
+yearly
+bottom=126
+top=128
+tbres=1
+depths=2
+vertical_units="years"
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+starts = {
+    "hourly": ("2026-03-01 12:00:00", "12 hours"),
+    "monthly": ("2026-03-01", "1 month"),
+    "yearly": ("2026-01-01", "1 year"),
+}
+for name, (start, increment) in starts.items():
+    tools.r_mapcalc(expression=f"{name}_1 = 1")
+    tools.r_mapcalc(expression=f"{name}_2 = 2")
+    tools.t_create(output=name, title=name, description="Two maps")
+    tools.t_register(
+        input=name,
+        maps=f"{name}_1,{name}_2",
+        start=start,
+        increment=increment,
+        flags="i",
+    )
+for name in starts:
+    tools.t_rast_to_rast3(input=name, output=f"{name}_cube")
+    print(name)
+    print_keys(
+        tools.r3_info(map=f"{name}_cube", flags="g"),
+        "bottom",
+        "top",
+        "tbres",
+        "depths",
+        "vertical_units",
+    )
+</pre></div>
+
+<div class="code"><pre>
+hourly
+bottom=46080.5
+top=46081.5
+tbres=0.5
+depths=2
+vertical_units="days"
+monthly
+bottom=1515
+top=1517
+tbres=1
+depths=2
+vertical_units="months"
+yearly
+bottom=126
+top=128
+tbres=1
+depths=2
+vertical_units="years"
+</pre></div>
+
+<h3>Relative time and a coarser horizontal resolution</h3>
+
+The dataset <code>model</code> has relative time. Its two maps cover the hours
+10 to 15 and 15 to 20 on a region of 4 rows and 4 columns. The cube takes
+start, granularity and unit as they are: it starts at 10, its resolution is 5
+and the unit is <code>hours</code>. The 3D resolution of the region is 2, so the
+cube has 2 rows and 2 columns, although the maps have 4 each. The block after
+the cube shows the time stamp of the cube in the temporal database.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=4 s=0 e=4 w=0 res=1 res3=2
+r.mapcalc expression="model_1 = 1"
+r.mapcalc expression="model_2 = 2"
+t.create output=model temporaltype=relative title="Model" description="Two steps"
+t.register -i input=model maps=model_1,model_2 start=10 increment=5 unit=hours
+t.rast.to.rast3 input=model output=model_cube
+r3.info -g model_cube | grep -E "^(bottom|top|tbres|depths|rows|cols|nsres|ewres|vertical_units)="
+</pre></div>
+
+<div class="code"><pre>
+bottom=10
+top=20
+nsres=2
+ewres=2
+tbres=5
+rows=2
+cols=2
+depths=2
+vertical_units="hours"
+</pre></div>
+
+<div class="code"><pre>
+t.info -g type=raster_3d input=model_cube | grep -E "^(temporal_type|start_time|end_time|unit)="
+</pre></div>
+
+<div class="code"><pre>
+temporal_type=relative
+start_time='10'
+end_time='20'
+unit=hours
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=4, s=0, e=4, w=0, res=1, res3=2)
+tools.r_mapcalc(expression="model_1 = 1")
+tools.r_mapcalc(expression="model_2 = 2")
+tools.t_create(
+    output="model", temporaltype="relative", title="Model", description="Two steps"
+)
+tools.t_register(
+    input="model",
+    maps="model_1,model_2",
+    start=10,
+    increment=5,
+    unit="hours",
+    flags="i",
+)
+tools.t_rast_to_rast3(input="model", output="model_cube")
+print_keys(
+    tools.r3_info(map="model_cube", flags="g"),
+    "bottom",
+    "top",
+    "tbres",
+    "depths",
+    "rows",
+    "cols",
+    "nsres",
+    "ewres",
+    "vertical_units",
+)
+</pre></div>
+
+<div class="code"><pre>
+bottom=10
+top=20
+tbres=5
+depths=2
+rows=2
+cols=2
+nsres=2
+ewres=2
+vertical_units="hours"
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_info(type="raster_3d", input="model_cube", flags="g")
+print_keys(result, "temporal_type", "start_time", "end_time", "unit")
+</pre></div>
+
+<div class="code"><pre>
+temporal_type=relative
+start_time='10'
+end_time='20'
+unit=hours
+</pre></div>
+
+<h3>Convert a subset of a dataset</h3>
+
+<em>t.rast.extract</em> selects the maps of <code>daily</code> that start on or
+after March 2 into the dataset <code>daily_late</code>. The cube of the subset
+starts at day 46081 and has two layers, the maps of March 2 and March 3, and its
+time stamp starts on March 2. This example continues with the dataset
+<code>daily</code> of the first example.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+t.rast.extract input=daily output=daily_late where="start_time &gt;= '2026-03-02'"
+t.rast.to.rast3 input=daily_late output=late_cube
+r3.info -g late_cube | grep -E "^(bottom|top|depths)="
+t.info -g type=raster_3d input=late_cube | grep -E "^(start_time|end_time)="
+</pre></div>
+
+<div class="code"><pre>
+bottom=46081
+top=46083
+depths=2
+start_time='2026-03-02 00:00:00'
+end_time='2026-03-04 00:00:00'
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+tools.t_rast_extract(
+    input="daily", output="daily_late", where="start_time &gt;= '2026-03-02'"
+)
+tools.t_rast_to_rast3(input="daily_late", output="late_cube")
+print_keys(tools.r3_info(map="late_cube", flags="g"), "bottom", "top", "depths")
+print_keys(
+    tools.t_info(type="raster_3d", input="late_cube", flags="g"),
+    "start_time",
+    "end_time",
+)
+</pre></div>
+
+<div class="code"><pre>
+bottom=46081
+top=46083
+depths=2
+start_time='2026-03-02 00:00:00'
+end_time='2026-03-04 00:00:00'
+</pre></div>
+
+<h3>Time instants reach beyond the time stamp</h3>
+
+The dataset <code>instants</code> holds three maps registered as time instants,
+March 1, 2, and 3, without an end. Its granularity is one day. Each instant gets
+one layer, so the cube has three layers and spans the days from 46080 to 46083,
+three days. The time stamp of the cube ends at the last instant, March 3, one
+day before the top of the cube.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+for step in 1 2 3; do
+    r.mapcalc expression="instant_$step = $step"
+done
+t.create output=instants title="Instants" description="Three time instants"
+t.register input=instants maps=instant_1,instant_2,instant_3 start=2026-03-01 increment="1 day"
+t.rast.to.rast3 input=instants output=instants_cube
+r3.info -g instants_cube | grep -E "^(bottom|top|depths)="
+t.info -g type=raster_3d input=instants_cube | grep -E "^(start_time|end_time)="
+</pre></div>
+
+<div class="code"><pre>
+bottom=46080
+top=46083
+depths=3
+start_time='2026-03-01 00:00:00'
+end_time='2026-03-03 00:00:00'
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+for step in range(1, 4):
+    tools.r_mapcalc(expression=f"instant_{step} = {step}")
+tools.t_create(output="instants", title="Instants", description="Three time instants")
+tools.t_register(
+    input="instants",
+    maps="instant_1,instant_2,instant_3",
+    start="2026-03-01",
+    increment="1 day",
+)
+tools.t_rast_to_rast3(input="instants", output="instants_cube")
+print_keys(tools.r3_info(map="instants_cube", flags="g"), "bottom", "top", "depths")
+print_keys(
+    tools.t_info(type="raster_3d", input="instants_cube", flags="g"),
+    "start_time",
+    "end_time",
+)
+</pre></div>
+
+<div class="code"><pre>
+bottom=46080
+top=46083
+depths=3
+start_time='2026-03-01 00:00:00'
+end_time='2026-03-03 00:00:00'
+</pre></div>
+
+<h3>Maps of different data types are refused</h3>
+
+The dataset <code>mixed</code> holds a map of type <code>FCELL</code> and a map
+of type <code>DCELL</code>. The tool stops with the message of
+<em>r.to.rast3</em>; the first block prints the error lines of the call.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1 res3=1
+r.mapcalc expression="mixed_1 = float(1)"
+r.mapcalc expression="mixed_2 = double(2)"
+t.create output=mixed title="Mixed" description="Two data types"
+t.register -i input=mixed maps=mixed_1,mixed_2 start=2026-03-01 increment="1 day"
+if ! t.rast.to.rast3 input=mixed output=mixed_cube 2&gt; errors.txt; then
+    grep ERROR errors.txt
+    echo "t.rast.to.rast3 failed"
+fi
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Input maps have to be from the same type. CELL, FCELL or DCELL!
+ERROR: Unable to create 3D raster map &lt;mixed_cube&gt;
+t.rast.to.rast3 failed
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+tools.r_mapcalc(expression="mixed_1 = float(1)")
+tools.r_mapcalc(expression="mixed_2 = double(2)")
+tools.t_create(output="mixed", title="Mixed", description="Two data types")
+tools.t_register(
+    input="mixed",
+    maps="mixed_1,mixed_2",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+try:
+    tools.t_rast_to_rast3(input="mixed", output="mixed_cube")
+except ToolError as error:
+    for line in error.stderr.splitlines():
+        if "ERROR" in line:
+            print(line)
+    print("t.rast.to.rast3 failed")
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Input maps have to be from the same type. CELL, FCELL or DCELL!
+ERROR: Unable to create 3D raster map &lt;mixed_cube&gt;
+t.rast.to.rast3 failed
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
-<a href="r3.mapcalc.html">r3.mapcalc</a>,
-<a href="r3.info.html">r3.info</a>
+<a href="g.region.html">g.region</a>,
+<a href="r.to.rast3.html">r.to.rast3</a>,
+<a href="r3.info.html">r3.info</a>,
+<a href="r3.out.ascii.html">r3.out.ascii</a>,
+<a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>,
+<a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
