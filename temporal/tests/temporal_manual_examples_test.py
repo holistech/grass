@@ -22,7 +22,7 @@ from grass.temporal.testing.manual_coverage import (
 from grass.temporal.testing.manual_examples import check_manual, parse_manual
 from grass.temporal.testing.session import temporal_session
 
-REVIEWED_MANUALS = ("t.create", "t.rast.univar")
+REVIEWED_MANUALS = ("t.create", "t.rast.univar", "t.rast.contour")
 
 TOOLS = Path(__file__).parents[1]
 
