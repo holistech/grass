@@ -51,6 +51,7 @@ REVIEWED_MANUALS = (
     "t.rast.gapfill",
     "t.rast.import",
     "t.rast.list",
+    "t.rast.mapcalc",
     "t.rast.neighbors",
     "t.rast.out.vtk",
     "t.rast.series",
