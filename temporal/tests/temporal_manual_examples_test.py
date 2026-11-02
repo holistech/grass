@@ -44,6 +44,7 @@ REVIEWED_MANUALS = (
     "t.rast.accumulate",
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
+    "t.rast.algebra",
     "t.rast.colors",
     "t.rast.contour",
     "t.rast.export",
