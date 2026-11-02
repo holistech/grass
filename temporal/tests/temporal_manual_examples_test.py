@@ -30,6 +30,7 @@ REVIEWED_MANUALS = (
     "t.rast.univar",
     "t.register",
     "t.remove",
+    "t.rename",
 )
 
 TOOLS = Path(__file__).parents[1]
