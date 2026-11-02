@@ -1,73 +1,720 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.colors</em> computes a color table based on all registered maps
-of a space time raster dataset and to assign this color table to each map.
-Hence the created color table reflects the data range of
-the space time raster dataset. This module is a simple
-wrapper around <a href="r.colors.html">r.colors</a>.
-All options of <em>r.colors</em> are supported.
-Internally a file with map names is created and passed
-to the <em>file</em> option of <em>r.colors</em>.
-<p>
-Please have a look at the <a href="r.colors.html">r.colors</a>
-manual page for further information.
-<p>
-With the <b>-w</b> flag only the maps that have no color table of their own
-get the new one; maps that already have a table, also one that
-<em>r.colors</em> wrote in the current mapset for a map of another mapset, are
-skipped and keep it (changed on 18.10.2026: <em>r.colors</em> alone refuses
-the whole list of maps if one of them has a table). The color table is then
-computed from the data range of the maps that are written.
+<em>t.rast.colors</em> creates or changes the color tables of the raster maps that are
+registered in a space time raster dataset. It is a wrapper around
+<em><a href="r.colors.html">r.colors</a></em>: the tool writes the names of all registered maps to
+a file and runs <em>r.colors</em> once with this file, so all maps are handled in one
+run. A color table that is computed from the values of the maps, such as
+<code>grey</code>, therefore stretches over the combined range of all maps of the dataset,
+and all maps get the same rules. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
 
-<h2>EXAMPLE</h2>
+<p>
+The option <b>input</b> names the space time raster dataset. Every registered map
+is handled; there is no option to select maps. The source of the colors is
+exactly one of the following; the flags <b>-r</b> and <b>-l</b> need none:
 
-Set Celsius color table to monthly dataset
+<p>
+<ul>
+<li><b>color</b> takes the name of a color table of <em>r.colors</em>, such as <code>grey</code> or
+<code>viridis</code>. A table that is defined for a fixed range of values, such as
+<code>celsius</code> (-80 to 80), keeps this range; a table without a fixed range is
+stretched over the range of the values of all maps.</li>
+<li><b>rules</b> takes the path of a file with color rules, as <em>r.colors</em> reads
+them: one rule per line, a value and a color, such as <code>0 blue</code>. The value
+<code>-</code> reads the rules from the standard input.</li>
+<li><b>raster</b> takes a raster map and copies its color table to all maps of the
+dataset, with the rules of that map.</li>
+<li><b>raster_3d</b> does the same with the color table of a 3D raster map.</li>
+</ul>
+
+<p>
+A table that a map has is replaced by the new one; <b>--overwrite</b> is not
+needed.
+
+<p>
+The flags change how the table is made or what is done with it:
+
+<p>
+<ul>
+<li><b>-n</b> inverts the colors: the color of the smallest value becomes that of
+the largest, and the other way round. <em><a href="r.colors.out.html">r.colors.out</a></em>
+prints the same rules with and without the flag, so use
+<em><a href="r.what.color.html">r.what.color</a></em> to see the inversion.</li>
+<li><b>-g</b> scales the colors logarithmically, <b>-a</b> logarithmically with the
+absolute values, so a negative value gets the color of its absolute value.
+Both write a table of many rules that approximates the curve.</li>
+<li><b>-e</b> equalizes the histogram: the colors are spread by the cumulative
+frequency of the values in the cells, so each cell gets about the same step
+of color, and not each interval of values.</li>
+<li><b>-w</b> writes the new table only to the maps that have none. The table is
+computed from the data range of these maps only. Maps that have a table keep
+it, also a table that <em>r.colors</em> wrote in the current mapset for a map of
+another mapset.</li>
+<li><b>-r</b> removes the color table of every map. A map without a table is shown
+with the default table of <em>r.colors</em> for its own range of values.</li>
+<li><b>-l</b> prints the names of the color tables of <b>color</b> and stops.</li>
+</ul>
+
+<h2>NOTES</h2>
+
+Exactly one of <b>color</b>, <b>rules</b>, <b>raster</b>, <b>raster_3d</b>, <b>-r</b> and
+<b>-l</b> is required. If none is given, <em>r.colors</em> stops with the message "At
+least one of the following options is required: <code>&lt;raster&gt;</code>, <code>&lt;raster_3d&gt;</code>,
+<code>&lt;color&gt;</code>, <code>&lt;rules&gt;</code>, <code>&lt;-r&gt;</code>, <code>&lt;-l&gt;</code> and <code>&lt;-d&gt;</code>" and <em>t.rast.colors</em> adds
+"Error in r.colors call". More than one source is refused with "Options
+<code>&lt;color&gt;</code>, <code>&lt;rules&gt;</code>, <code>&lt;raster&gt;</code> and <code>&lt;raster_3d&gt;</code> are mutually exclusive".
+
+<p>
+An unknown name in <b>color</b> is refused by the parser ("Value
+<code>&lt;nosuchtable&gt;</code> out of range for parameter <code>&lt;color&gt;</code>"), and the maps keep their
+tables. A missing file in <b>rules</b> stops with "Unable to load rules file"
+and the path; an unknown map in <b>raster</b> stops with "Error in r.colors
+call".
+
+<p>
+A dataset without maps is left alone, without a message.
+
+<p>
+Datasets with absolute and with relative time are handled in the same way;
+the last example uses relative time.
+
+<p>
+For a dataset of another mapset (<code>input=model@PERMANENT</code>), <em>r.colors</em> writes the
+tables to the current mapset, where they take precedence over the tables of
+the maps for as long as this mapset is the current one. The maps in their own
+mapset are not changed, as the last example shows.
+
+<h2>EXAMPLES</h2>
+
+<h3>Give all maps one color table</h3>
+
+The dataset <code>temperature</code> holds three daily maps on a region of 2 rows and 3
+columns. The helper map <code>cell_number</code> counts the cells from 1 to 6. The
+values of <code>temperature_1</code> are 1 to 6, those of <code>temperature_2</code> are 10 to 60,
+and those of <code>temperature_3</code> are 21 to 121 in steps of 20, so the combined
+range of the dataset is 1 to 121 and all 18 values are different.
+
+<p>
+With <b>color</b> <code>grey</code>, all maps get a table from black at 1 to white at 121,
+not one for the range of each map: the first block prints the table of
+<code>temperature_1</code> and of <code>temperature_3</code>. The lines <code>nv</code> and <code>default</code> are
+the colors of null cells and of values outside the table. A table with a fixed
+range keeps it: <code>celsius</code> runs from -80 to 80, so the second block prints
+only the rules for -80 and 80 of the table of <code>temperature_1</code>.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.colors input=tempmean_monthly color=celsius
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="cell_number = 3 * (row() - 1) + col()"
+r.mapcalc expression="temperature_1 = cell_number"
+r.mapcalc expression="temperature_2 = cell_number * 10"
+r.mapcalc expression="temperature_3 = cell_number * 20 + 1"
+t.create output=temperature title="Air temperature" \
+    description="Daily mean air temperature"
+t.register -i input=temperature \
+    maps=temperature_1,temperature_2,temperature_3 \
+    start=2026-03-01 increment="1 day"
+</pre></div>
 
-r.colors.out map=2009_01_tempmean
+<div class="code"><pre>
+t.rast.colors input=temperature color=grey
+r.colors.out map=temperature_1
+r.colors.out map=temperature_3
+</pre></div>
 
--80 0:0:40
--40 91:10:168
--30 220:220:220
--25 91:50:128
--20 50:0:150
--15 4:25:130
--10 8:54:106
--8 4:20:150
--5 0:50:255
--2 8:10:118
--0.061449 8:113:155
-0.013855 8:118:157
-0.090594 8:123:158
-0.168767 8:128:159
-0.248375 8:133:159
-0.329417 8:136:160
-...
-40.6976 183:163:163
-41.0483 185:167:167
-41.4004 188:170:171
-41.754 190:174:174
-42.109 191:178:178
-42.4655 193:182:182
-42.8233 195:185:185
-43.1827 197:189:189
-43.5434 199:192:193
-43.9056 200:197:197
-44.2692 202:200:201
-44.6342 204:204:204
-45.0007 206:206:206
-80 155:10:155
+<div class="code"><pre>
+1 0:0:0
+121 255:255:255
+nv 255:255:255
+default 255:255:255
+1 0:0:0
+121 255:255:255
 nv 255:255:255
 default 255:255:255
 </pre></div>
 
+<div class="code"><pre>
+t.rast.colors input=temperature color=celsius
+r.colors.out map=temperature_1 | grep -E "^(-80|80) "
+</pre></div>
+
+<div class="code"><pre>
+-80 0:0:40
+80 155:10:155
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
+tools.r_mapcalc(expression="temperature_1 = cell_number")
+tools.r_mapcalc(expression="temperature_2 = cell_number * 10")
+tools.r_mapcalc(expression="temperature_3 = cell_number * 20 + 1")
+tools.t_create(
+    output="temperature",
+    title="Air temperature",
+    description="Daily mean air temperature",
+)
+tools.t_register(
+    input="temperature",
+    maps="temperature_1,temperature_2,temperature_3",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", color="grey")
+print(tools.r_colors_out(map="temperature_1").text)
+print(tools.r_colors_out(map="temperature_3").text)
+</pre></div>
+
+<div class="code"><pre>
+1 0:0:0
+121 255:255:255
+nv 255:255:255
+default 255:255:255
+1 0:0:0
+121 255:255:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", color="celsius")
+for line in tools.r_colors_out(map="temperature_1").text.splitlines():
+    if line.split()[0] in ("-80", "80"):
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+-80 0:0:40
+80 155:10:155
+</pre></div>
+
+<h3>Define the colors by rules and invert them</h3>
+
+The rules <code>1 red</code> and <code>121 blue</code> give a table from red at the smallest to blue
+at the largest value of the dataset. The first block reads them from the
+standard input (<code>rules=-</code>; in Python a <code>StringIO</code> object does this) and prints
+the table of <code>temperature_1</code>; the second block asks <em>r.what.color</em> for the
+colors of the values 1 and 121.
+
+<p>
+With <b>-n</b>, the table has the same two rules, as the third block shows, but
+the colors of the values are the other way round: 1 is blue and 121 red.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.colors input=temperature rules=- &lt;&lt;EOF
+1 red
+121 blue
+EOF
+r.colors.out map=temperature_1
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+121 0:0:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+r.what.color input=temperature_1 value=1,121 format="%d:%d:%d"
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+t.rast.colors -n input=temperature rules=- &lt;&lt;EOF
+1 red
+121 blue
+EOF
+r.colors.out map=temperature_1
+r.what.color input=temperature_1 value=1,121 format="%d:%d:%d"
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+121 0:0:255
+nv 255:255:255
+default 255:255:255
+1: 0:0:255
+121: 255:0:0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+tools.t_rast_colors(input="temperature", rules=StringIO("1 red\n121 blue\n"))
+print(tools.r_colors_out(map="temperature_1").text)
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+121 0:0:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+print(tools.r_what_color(input="temperature_1", value=[1, 121], format="%d:%d:%d").text)
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", rules=StringIO("1 red\n121 blue\n"), flags="n")
+print(tools.r_colors_out(map="temperature_1").text)
+print(tools.r_what_color(input="temperature_1", value=[1, 121], format="%d:%d:%d").text)
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+121 0:0:255
+nv 255:255:255
+default 255:255:255
+1: 0:0:255
+121: 255:0:0
+</pre></div>
+
+<h3>Scale the colors</h3>
+
+The rules <code>1 red</code> and <code>121 blue</code> are used again. The colors of the values 1, 6,
+11 and 121 are printed by <em>r.what.color</em> with the linear table, with <b>-g</b> and
+with <b>-a</b>. The linear table puts 11 at 10 / 120 of the way from red to blue,
+a red of 234 and a blue of 21. With the logarithmic scale 11 lies at
+<code>ln(11) / ln(121)</code> = 0.5 of the way, near the middle: 129 and 126. <b>-g</b> and
+<b>-a</b> give the same colors for positive values. With <b>-a</b>, the value -11
+has the color of 11, within the steps of the table: 128:0:127 against
+129:0:126, as the third block shows.
+
+<p>
+With <b>-e</b> and <code>color=grey</code>, the colors are spread by the frequency of the
+cells. All 18 cells of the dataset have different values, so each value is one
+step of 256 / 18 = 14.2 in grey: the smallest values 1, 2 and 3 get the greys
+7, 21 and 35. The first three rules of <code>temperature_1</code> are printed.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.colors input=temperature rules=- &lt;&lt;EOF
+1 red
+121 blue
+EOF
+r.what.color input=temperature_1 value=1,6,11,121 format="%d:%d:%d"
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+6: 245:0:10
+11: 234:0:21
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+t.rast.colors -g input=temperature rules=- &lt;&lt;EOF
+1 red
+121 blue
+EOF
+r.what.color input=temperature_1 value=1,6,11,121 format="%d:%d:%d"
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+6: 161:0:94
+11: 129:0:126
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+t.rast.colors -a input=temperature rules=- &lt;&lt;EOF
+1 red
+121 blue
+EOF
+r.what.color input=temperature_1 value=-11,11 format="%d:%d:%d"
+</pre></div>
+
+<div class="code"><pre>
+-11: 128:0:127
+11: 129:0:126
+</pre></div>
+
+<div class="code"><pre>
+t.rast.colors -e input=temperature color=grey
+r.colors.out map=temperature_1 | sed -n 1,3p
+</pre></div>
+
+<div class="code"><pre>
+1 7:7:7
+2 21:21:21
+3 35:35:35
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+rules = "1 red\n121 blue\n"
+tools.t_rast_colors(input="temperature", rules=StringIO(rules))
+print(
+    tools.r_what_color(
+        input="temperature_1", value=[1, 6, 11, 121], format="%d:%d:%d"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+6: 245:0:10
+11: 234:0:21
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", rules=StringIO(rules), flags="g")
+print(
+    tools.r_what_color(
+        input="temperature_1", value=[1, 6, 11, 121], format="%d:%d:%d"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+1: 255:0:0
+6: 161:0:94
+11: 129:0:126
+121: 0:0:255
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", rules=StringIO(rules), flags="a")
+print(
+    tools.r_what_color(input="temperature_1", value=[-11, 11], format="%d:%d:%d").text
+)
+</pre></div>
+
+<div class="code"><pre>
+-11: 128:0:127
+11: 129:0:126
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", color="grey", flags="e")
+print("\n".join(tools.r_colors_out(map="temperature_1").text.splitlines()[:3]))
+</pre></div>
+
+<div class="code"><pre>
+1 7:7:7
+2 21:21:21
+3 35:35:35
+</pre></div>
+
+<h3>Copy the color table of another map</h3>
+
+The color table of a map becomes the table of all maps of the dataset, with
+the rules of that map, and not with the range of the dataset. The 2D map
+<code>reference</code> has the rules <code>1 red</code> and <code>5 yellow</code>; <b>raster</b> copies them. The
+3D map <code>volume</code> has the rules <code>0 yellow</code> and <code>10 green</code>; <b>raster_3d</b> copies
+them. The 3D map needs a region with a vertical extent, which the first
+command of the second block sets.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="reference = 7"
+r.colors map=reference rules=- &lt;&lt;EOF
+1 red
+5 yellow
+EOF
+t.rast.colors input=temperature raster=reference
+r.colors.out map=temperature_1
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+5 255:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 t=1 b=0 res=1 res3=1 tbres=1
+r3.mapcalc expression="volume = 5.0"
+r3.colors map=volume rules=- &lt;&lt;EOF
+0 yellow
+10 green
+EOF
+t.rast.colors input=temperature raster_3d=volume
+r.colors.out map=temperature_1
+</pre></div>
+
+<div class="code"><pre>
+0 255:255:0
+10 0:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="reference = 7")
+tools.r_colors(map="reference", rules=StringIO("1 red\n5 yellow\n"))
+tools.t_rast_colors(input="temperature", raster="reference")
+print(tools.r_colors_out(map="temperature_1").text)
+</pre></div>
+
+<div class="code"><pre>
+1 255:0:0
+5 255:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, t=1, b=0, res=1, res3=1, tbres=1)
+tools.r3_mapcalc(expression="volume = 5.0")
+tools.r3_colors(map="volume", rules=StringIO("0 yellow\n10 green\n"))
+tools.t_rast_colors(input="temperature", raster_3d="volume")
+print(tools.r_colors_out(map="temperature_1").text)
+</pre></div>
+
+<div class="code"><pre>
+0 255:255:0
+10 0:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<h3>Keep the tables that exist</h3>
+
+The new map <code>temperature_4</code> has the values 30 to 180 and no color table. It is
+registered in the dataset, which now has four maps; the other three have the
+table of the previous example. With <b>-w</b>, only <code>temperature_4</code> gets the
+table <code>grey</code>, and it is computed from its own range, 30 to 180, and not from
+the range of the dataset. The first block prints the table of
+<code>temperature_4</code>; the second shows that <code>temperature_1</code> keeps the rules of the
+previous example.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="temperature_4 = cell_number * 30"
+t.register input=temperature maps=temperature_4 start=2026-03-04 \
+    end=2026-03-05
+t.rast.colors -w input=temperature color=grey
+r.colors.out map=temperature_4
+</pre></div>
+
+<div class="code"><pre>
+30 0:0:0
+180 255:255:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+r.colors.out map=temperature_1
+</pre></div>
+
+<div class="code"><pre>
+0 255:255:0
+10 0:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="temperature_4 = cell_number * 30")
+tools.t_register(
+    input="temperature",
+    maps="temperature_4",
+    start="2026-03-04",
+    end="2026-03-05",
+)
+tools.t_rast_colors(input="temperature", color="grey", flags="w")
+print(tools.r_colors_out(map="temperature_4").text)
+</pre></div>
+
+<div class="code"><pre>
+30 0:0:0
+180 255:255:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+print(tools.r_colors_out(map="temperature_1").text)
+</pre></div>
+
+<div class="code"><pre>
+0 255:255:0
+10 0:255:0
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<h3>List the color tables and remove the tables</h3>
+
+<b>-l</b> prints the names of all color tables that <b>color</b> accepts, one per
+line; the first block selects two of them. <b>-r</b> removes the color table of
+every map of the dataset. A map without a table is shown with the default
+table of <em>r.colors</em> for the range of the map itself: the second block prints
+the rules for 1 and 6 of <code>temperature_1</code>, the smallest and the largest value
+of this map, and not the range 1 to 121 of the dataset.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.colors -l input=temperature | grep -x -E "grey|viridis"
+</pre></div>
+
+<div class="code"><pre>
+grey
+viridis
+</pre></div>
+
+<div class="code"><pre>
+t.rast.colors -r input=temperature
+r.colors.out map=temperature_1 | grep -E "^(1|6) "
+</pre></div>
+
+<div class="code"><pre>
+1 68:1:84
+6 253:231:37
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for line in tools.t_rast_colors(input="temperature", flags="l").text.splitlines():
+    if line in ("grey", "viridis"):
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+grey
+viridis
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_colors(input="temperature", flags="r")
+for line in tools.r_colors_out(map="temperature_1").text.splitlines():
+    if line.split()[0] in ("1", "6"):
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+1 68:1:84
+6 253:231:37
+</pre></div>
+
+<h3>Color a dataset of another mapset</h3>
+
+The dataset <code>model</code> has relative time and lies in the mapset <code>PERMANENT</code>. The
+example creates the mapset <code>analysis</code>, switches to it and colors <code>model</code>; the
+dataset is named with its mapset. The tables are written to <code>analysis</code>: the
+first block prints the table of <code>step_1@PERMANENT</code> in <code>analysis</code>, the grey
+table for the range 1 to 6 of the dataset; the second block prints the rules
+for 1 and 3 after switching back to <code>PERMANENT</code>, where the map has the
+default table for its own range, 1 to 3. The maps in <code>PERMANENT</code> are not changed.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="step_1 = col()"
+r.mapcalc expression="step_2 = col() * 2"
+t.create output=model temporaltype=relative title="Model" \
+    description="Model output per step"
+t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
+g.mapset -c mapset=analysis
+t.rast.colors input=model@PERMANENT color=grey
+r.colors.out map=step_1@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+1 0:0:0
+6 255:255:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+g.mapset mapset=PERMANENT
+r.colors.out map=step_1 | grep -E "^(1|3) "
+</pre></div>
+
+<div class="code"><pre>
+1 68:1:84
+3 253:231:37
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="step_1 = col()")
+tools.r_mapcalc(expression="step_2 = col() * 2")
+tools.t_create(
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step",
+)
+tools.t_register(
+    input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+)
+tools.g_mapset(mapset="analysis", flags="c")
+tools.t_rast_colors(input="model@PERMANENT", color="grey")
+print(tools.r_colors_out(map="step_1@PERMANENT").text)
+</pre></div>
+
+<div class="code"><pre>
+1 0:0:0
+6 255:255:255
+nv 255:255:255
+default 255:255:255
+</pre></div>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="PERMANENT")
+for line in tools.r_colors_out(map="step_1").text.splitlines():
+    if line.split()[0] in ("1", "3"):
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+1 68:1:84
+3 253:231:37
+</pre></div>
+
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="r.colors.html">r.colors</a>
-</em>
+<em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.colors.html">r.colors</a>,
+<a href="r.colors.out.html">r.colors.out</a>, <a href="r.mapcalc.html">r.mapcalc</a>,
+<a href="r.what.color.html">r.what.color</a>, <a href="r3.colors.html">r3.colors</a>,
+<a href="r3.mapcalc.html">r3.mapcalc</a>, <a href="t.create.html">t.create</a>,
+<a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
