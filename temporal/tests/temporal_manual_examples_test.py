@@ -36,6 +36,7 @@ REVIEWED_MANUALS = (
     "t.shift",
     "t.snap",
     "t.support",
+    "t.topology",
     "t.unregister",
 )
 
