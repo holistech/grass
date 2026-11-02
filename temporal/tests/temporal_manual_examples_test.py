@@ -47,6 +47,7 @@ REVIEWED_MANUALS = (
     "t.rast.to.vect",
     "t.rast.univar",
     "t.rast.what",
+    "t.rast3d.extract",
     "t.rast3d.list",
     "t.register",
     "t.remove",
