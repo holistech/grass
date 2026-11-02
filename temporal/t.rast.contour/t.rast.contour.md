@@ -74,8 +74,8 @@ region ends at the centre of the cell at its border, as the last example
 shows. Null cells, also the cells outside a raster mask, count as cells
 outside the region: a line ends at them in the same way. A raster mask on a
 rectangle therefore gives the same lines as the region of that rectangle, as
-the last example shows as well; only a closed line that stays within about
-one cell of the border can differ (see *r.contour*).
+the last example shows as well; only a closed line or a line with saddles at
+its ends within about one cell of the border can differ (see *r.contour*).
 
 If **where** selects no map, *t.rast.contour* warns that the space time raster
 dataset is empty and creates no output dataset.
