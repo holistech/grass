@@ -14,6 +14,7 @@ shell-only -->``). Each tab of a manual runs in one test, whose time limit
 grows with its number of blocks (manual_examples.timeout_for).
 """
 
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from grass.temporal.testing.manual_coverage import (
     tool_options,
 )
 from grass.temporal.testing.manual_examples import (
+    MINIMUM_TEST_SECONDS,
     ManualFormatError,
     check_manual,
     parse_manual,
@@ -105,21 +107,26 @@ def manual_of(tool):
     return parse_manual(TOOLS / tool / f"{tool}.md")
 
 
+def time_limit(read_manual, variant):
+    """The time limit of the blocks of one tab as a mark, none for a manual
+    that cannot be read
+
+    The test of the manual reports the error; until then, the limit of the
+    repository applies. Reading the manual while the tests are collected must
+    not fail, or one broken manual would stop the whole file.
+    """
+    try:
+        manual = read_manual()
+    except ManualFormatError:
+        return ()
+    return pytest.mark.timeout(timeout_for(manual, variant))
+
+
 def example_runs():
     """Each reviewed manual and tab, with the time limit of its blocks"""
     for tool in REVIEWED_MANUALS:
-        try:
-            manual = manual_of(tool)
-        except ManualFormatError:
-            # The test of the manual reports the error; until then, the limit
-            # of the repository applies.
-            manual = None
         for variant in ("shell", "python"):
-            marks = (
-                ()
-                if manual is None
-                else pytest.mark.timeout(timeout_for(manual, variant))
-            )
+            marks = time_limit(partial(manual_of, tool), variant)
             yield pytest.param(tool, variant, marks=marks, id=f"{tool}-{variant}")
 
 
@@ -179,7 +186,7 @@ def test_markdown_and_html_agree(tool):
     [
         pytest.param(
             variant,
-            marks=pytest.mark.timeout(timeout_for(parse_manual(INTRODUCTION), variant)),
+            marks=time_limit(lambda: parse_manual(INTRODUCTION), variant),
             id=variant,
         )
         for variant in ("shell", "python")
@@ -191,16 +198,24 @@ def test_introduction_examples_run_and_show_their_output(
     check_examples(parse_manual(INTRODUCTION), variant, tmp_path)
 
 
+def test_minimum_time_limit_is_the_limit_of_the_repository(pytestconfig):
+    """A manual gets at least the time limit that every test of the
+    repository gets; the two are set in different places"""
+    assert int(pytestconfig.getini("timeout")) == MINIMUM_TEST_SECONDS
+
+
 def test_introduction_markdown_and_html_agree():
     manual = parse_manual(INTRODUCTION)
     assert check_html_sync(manual, INTRODUCTION.with_suffix(".html")) == []
 
 
 def test_shell_only_examples_are_catalog_manuals():
+    manuals = {tool: manual_of(tool) for tool in REVIEWED_MANUALS}
+    manuals["temporalintro"] = parse_manual(INTRODUCTION)
     users = {
-        tool
-        for tool in REVIEWED_MANUALS
-        if any(example.shell_only for example in manual_of(tool).examples)
+        name
+        for name, manual in manuals.items()
+        if any(example.shell_only for example in manual.examples)
     }
     assert users <= set(CATALOG_MANUALS), (
         f"examples without a Python tab outside a catalog: {sorted(users)}"

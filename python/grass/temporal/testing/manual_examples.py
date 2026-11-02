@@ -488,7 +488,8 @@ BLOCK_SECONDS = 120
 # and one t.rast.list: 1.01 s per block alone, 1.34 s with 24 copies of the
 # probe under pytest -n auto on 24 cores. Three times 1.34, rounded up.
 SECONDS_PER_BLOCK = 5
-# The limit that pyproject.toml gives every test; no manual gets less.
+# The limit that pyproject.toml gives every test; no manual gets less. A test
+# in temporal/tests checks that the two agree.
 MINIMUM_TEST_SECONDS = 300
 
 
