@@ -85,7 +85,7 @@ raster map, not a space time dataset; the same zones apply to every map.
 <p>
 The option <b>nprocs</b> sets the number of maps that are processed at the
 same time. Its default is the variable <code>NPROCS</code> of the session, if
-it is set with <em><a href="g.gisenv.html">g.gisenv</a></em>, and 0 otherwise.
+it is set with <em>g.gisenv</em>, and 0 otherwise.
 0 uses all CPU cores, a negative number leaves that many cores unused. The output is the same, in the same order, for any value.
 <p>
 The option <b>format</b> chooses the form of the output:
@@ -121,7 +121,7 @@ is replaced only with <b>--overwrite</b>.
 
 The current 3D computational region decides which cells are counted, so it
 needs a vertical extent and a 3D resolution (the options <b>t</b>, <b>b</b>
-and <b>res3</b> of <em><a href="g.region.html">g.region</a></em>). A map that
+and <b>res3</b> of <em>g.region</em>). A map that
 does not reach into the region has only null cells there; its <code>min</code>,
 <code>max</code> and all further statistics are <code>nan</code> in the formats
 <code>plain</code> and <code>csv</code> and <code>null</code> in the format
@@ -781,7 +781,7 @@ n: 0, null_cells: 64, min: None, mean: None
 the mapset <code>analysis</code> and switches to it; the dataset
 <code>soil</code> stays in the mapset <code>PERMANENT</code> and is named with
 its mapset. The region of the new mapset is set to the one of the maps. In the
-second block, <em><a href="g.mapsets.html">g.mapsets</a></em> shows that
+second block, <em>g.mapsets</em> shows that
 <code>PERMANENT</code> is in the search path of the new mapset, so the name
 <code>soil</code> without a mapset finds the same dataset.
 

@@ -68,7 +68,7 @@ The option <b>directory</b> names the directory that the archive is extracted
 to. It must exist, and the extracted files stay in it. By default, the tool
 uses a temporary directory. The flag <b>-l</b> links the raster maps to the
 GeoTIFF or ASCII grid files with <em><a href="r.external.html">r.external</a></em> instead of
-importing the cells with <em>r.in.gdal</em>. The maps then read their cells from
+importing the cells with <em><a href="r.in.gdal.html">r.in.gdal</a></em>. The maps then read their cells from
 the extracted files, so with <b>-l</b> choose a <b>directory</b> that you keep.
 The option <b>memory</b> is the cache size in MB for raster rows (default 300)
 that <em>r.in.gdal</em> uses; <em>r.external</em> has none, so <b>-l</b>
@@ -156,7 +156,7 @@ and two rows, and their values are the column number plus the offset 0, 3, 6
 and 9. The first block creates it.
 <p>
 The second block writes the archive <code>temperature.tar.bz2</code> with
-<em>t.rast.export</em> and imports it into the same project. The maps of the
+<em><a href="t.rast.export.html">t.rast.export</a></em> and imports it into the same project. The maps of the
 archive carry the names of the maps that exist already, so <b>basename</b>
 names the new maps <code>imported_1</code> to <code>imported_4</code>. The flag
 <b>-o</b> is needed in the project of the examples, which has no coordinate
@@ -166,7 +166,7 @@ reference system, because the GeoTIFF files hold none. <b>title</b> and
 minimum and the maximum of its maps, which are those of the exported maps (the
 map <code>imported_n</code> holds the values from 3n - 2 to 3n), and the title
 and the description of the dataset from
-<em><a href="t.info.html">t.info</a></em>.
+<em>t.info</em>.
 
 <p>Command line:</p>
 
