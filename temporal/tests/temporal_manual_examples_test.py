@@ -45,6 +45,7 @@ REVIEWED_MANUALS = (
     "t.rast.to.rast3",
     "t.rast.to.vect",
     "t.rast.univar",
+    "t.rast.what",
     "t.register",
     "t.remove",
     "t.rename",
