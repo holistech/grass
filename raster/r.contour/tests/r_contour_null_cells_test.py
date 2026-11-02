@@ -35,11 +35,15 @@ FIELDS = {
     "hill": ("10 + 5 * sin({i} * 40.0) * cos({j} * 35.0)", {"step": 1.5}),
     # One dome whose closed lines run through the interior cells.
     "dome": ("100 - ({i} - 4.5)^2 - ({j} - 4.5)^2", {"levels": [90, 95, 99]}),
-    # Saddle cells everywhere: nodes 1 and 0 as on a chessboard.
-    "saddles": ("if(({i} + {j}) % 2 == 0, 1.0, 0.0)", {"levels": [0.5]}),
     # Saddles of unequal values and a slope.
     "waves": ("({i} * {j}) % 3 + 0.1 * {i}", {"levels": [0.75, 1.5]}),
 }
+# The chessboard of 1 and 0 is not compared with the smaller region, because
+# the smaller region loses lines there: its search for closed lines starts
+# only at the top edge of a cell off the border, so a closed line around a
+# node next to the bottom border is not found. Within null cells it is found.
+# The tests below compare the chessboard with lines derived by hand.
+CHESSBOARD = "if(({i} + {j}) % 2 == 0, 1.0, 0.0)"
 
 
 @pytest.fixture
@@ -112,6 +116,73 @@ def assert_same_lines(padded, shrunk):
     assert padded["table"] == shrunk["table"]
 
 
+def canonical(lines):
+    """Return the lines with category, kind and vertices in one direction
+
+    A closed line has no start, so it starts at its smallest vertex; both
+    kinds run in the direction that gives the smaller sequence. Used where
+    the expected lines are derived by hand, which gives no direction.
+    """
+    result = []
+    for categories, vertices in lines:
+        points = [vertex[:2] for vertex in vertices]
+        if len(points) > 2 and points[0] == points[-1]:
+            ring = points[:-1]
+            forms = [ring[i:] + ring[:i] for i in range(len(ring))]
+            forms += [form[::-1] for form in forms]
+            result.append((categories, "closed", min(tuple(form) for form in forms)))
+        else:
+            form = min(tuple(points), tuple(points[::-1]))
+            result.append((categories, "open", form))
+    return sorted(result)
+
+
+def chessboard_lines(rows, columns, west, north):
+    """Return the lines of level 0.5 of a chessboard, derived by hand
+
+    The node in row i and column j (from 1) has the value 1 if i + j is
+    even, else 0, and lies at x = west + j - 0.5, y = north - i + 0.5. All
+    four neighbours of a node of value 1 have the value 0, so the level
+    crosses each edge from it in the middle, and in each saddle cell
+    r.contour cuts off the corners of value 1 (the cell mean 0.5 counts as
+    below the level). Every node of value 1 thus gets a line through the
+    middles of its edges: closed around a node with four neighbours, with
+    two ends on the border otherwise. The vertices run around the node
+    west, south, east, north; a line with ends starts after the missing
+    neighbours.
+    """
+    lines = []
+    for i in range(1, rows + 1):
+        for j in range(1, columns + 1):
+            if (i + j) % 2:
+                continue
+            x, y = west + j - 0.5, north - i + 0.5
+            around = [
+                ((x - 0.5, y), j > 1),
+                ((x, y - 0.5), i < rows),
+                ((x + 0.5, y), j < columns),
+                ((x, y + 0.5), i > 1),
+            ]
+            if all(present for _, present in around):
+                points = [point for point, _ in around]
+                lines.append(((1,), tuple(points + points[:1])))
+                continue
+            start = next(k for k in range(4) if not around[k - 1][1] and around[k][1])
+            turned = around[start:] + around[:start]
+            points = [point for point, present in turned if present]
+            lines.append(((1,), tuple(points)))
+    return lines
+
+
+def assert_chessboard(result, expected):
+    """Compare the result with the derived lines of a chessboard"""
+    assert canonical(result["vertices"]) == canonical(expected)
+    closed = sum(1 for _, points in expected if points[0] == points[-1])
+    assert result["lines"] == len(expected)
+    assert result["nodes"] == closed + 2 * (len(expected) - closed)
+    assert result["table"].split() == ["cat|level", "1|0.5"]
+
+
 @pytest.mark.parametrize("field", FIELDS)
 def test_null_cells_around_a_rectangle_give_the_lines_of_the_smaller_region(
     tools, field
@@ -145,6 +216,103 @@ def test_a_mask_gives_the_lines_of_the_smaller_region(tools, field):
 
     assert shrunk["lines"] > 0
     assert_same_lines(masked, shrunk)
+
+
+@pytest.mark.parametrize("nulls", ["null cells", "mask"])
+def test_a_chessboard_within_null_cells_gives_the_derived_lines(tools, nulls):
+    # The smaller region of the rectangle loses three closed lines here (29
+    # lines instead of 32), see CHESSBOARD, so the comparison with it does
+    # not apply. Derived: the rectangle of 8 by 8 nodes has 32 nodes of
+    # value 1: 18 inside (closed lines), 12 on the sides and 2 in corners
+    # (lines with ends), 46 nodes in all.
+    tools.g_region(**PADDED, res=1)
+    expression = in_rectangle(CHESSBOARD)
+    if nulls == "mask":
+        tools.r_mapcalc(expression=f"m = {expression}")
+        tools.r_mapcalc(expression=f"rectangle = if({INSIDE}, 1, null())")
+        tools.r_mask(raster="rectangle")
+    else:
+        tools.r_mapcalc(expression=f"m = if({INSIDE}, {expression}, null())")
+
+    result = contour_lines(tools, levels=0.5)
+
+    expected = chessboard_lines(8, 8, RECTANGLE["w"], RECTANGLE["n"])
+    assert len(expected) == 32
+    assert_chessboard(result, expected)
+
+
+# The dome of the rectangle of 6 by 6 nodes, rows and columns 3 to 8 of a
+# region of 10 by 10 whose other cells are null.
+FRAMED_DOME = (
+    "if(row() >= 3 && row() <= 8 && col() >= 3 && col() <= 8,"
+    " 50 - (row() - 5.5)^2 - (col() - 5.5)^2, null())"
+)
+
+
+def test_a_closed_line_inside_a_frame_of_null_cells_is_kept(tools):
+    # The comparison with the smaller region does not apply: in the region
+    # of the rectangle the closed line runs only through cells on its
+    # border, where no closed line is searched, so that region gives no
+    # line. Before 2026-11-02 r.contour found this line within the null
+    # cells, and it still does.
+    # Derived by hand: the inner 4 by 4 nodes have values of 45.5 and more,
+    # the outer ring 43.5 and less, so the level 45 crosses each edge from
+    # the outer ring inwards: 4 on each side. On the edge from 41.5 to 45.5
+    # at 3.5 / 4 = 0.875, from 43.5 to 47.5 at 1.5 / 4 = 0.375 of the way
+    # in. Node centres lie at x = col - 0.5, y = 10.5 - row.
+    tools.g_region(n=10, s=0, w=0, e=10, res=1)
+    tools.r_mapcalc(expression=f"m = {FRAMED_DOME}")
+
+    result = contour_lines(tools, levels=45)
+
+    ring = [
+        (3.5, 6.625),
+        (4.5, 7.125),
+        (5.5, 7.125),
+        (6.5, 6.625),
+        (6.625, 6.5),
+        (7.125, 5.5),
+        (7.125, 4.5),
+        (6.625, 3.5),
+        (6.5, 3.375),
+        (5.5, 2.875),
+        (4.5, 2.875),
+        (3.5, 3.375),
+        (3.375, 3.5),
+        (2.875, 4.5),
+        (2.875, 5.5),
+        (3.375, 6.5),
+    ]
+    assert canonical(result["vertices"]) == canonical([((1,), (*ring, ring[0]))])
+    assert result["lines"] == 1
+    assert result["nodes"] == 1
+
+
+def test_a_line_lost_at_saddles_leaves_no_piece_within_null_cells(tools):
+    # Nodes 0 0 1 / 0 2 0 / 1 0 0 inside two rows and columns of null cells,
+    # level 0.5. The two saddle cells join the nodes above the level (cell
+    # mean 0.75), so two lines with ends cut off the zeros at the top left
+    # and at the bottom right. The region of 3 by 3 draws only the first:
+    # the second starts and ends in the saddle cells, whose hit flag the
+    # first line set. Within null cells the search for closed lines meets
+    # the second line in the middle; a piece of it would end inside the
+    # surface, so it is left out and the result is that of the region.
+    tools.g_region(n=7, s=0, w=0, e=7, res=1)
+    tools.r_mapcalc(
+        expression="m = if(row() < 3 || row() > 5 || col() < 3 || col() > 5,"
+        " null(), if((row() == 3 && col() == 5) || (row() == 5 && col() == 3),"
+        " 1.0, if(row() == 4 && col() == 4, 2.0, 0.0)))"
+    )
+
+    padded = contour_lines(tools, levels=0.5)
+    tools.g_region(n=5, s=2, w=2, e=5, res=1)
+    shrunk = contour_lines(tools, levels=0.5)
+
+    assert_same_lines(padded, shrunk)
+    for _, vertices in padded["vertices"]:
+        for x, y, _ in (vertices[0], vertices[-1]):
+            # The outermost nodes with values lie at 2.5 and 4.5.
+            assert x in {2.5, 4.5} or y in {2.5, 4.5}
 
 
 def test_no_crossings_warning_at_null_cells(tools):
@@ -247,18 +415,25 @@ SADDLES = "if((row() + col()) % 2 == 0, 1.0, 0.0)"
 PAD = 2
 
 
-@pytest.mark.parametrize(
-    ("expression", "level"),
-    [
+# The region of 3 by 3 loses the closed line of the chessboard around its
+# centre, so that case is compared with derived lines instead, see
+# test_a_padded_chessboard_of_three_by_three_keeps_its_centre.
+NARROW_CASES = [
+    (rows, columns, expression, level)
+    for rows, columns in NARROW_REGIONS
+    for expression, level in [
         *(
             (expression, level)
             for expression in NARROW_EXPRESSIONS
             for level in NARROW_LEVELS
         ),
         (SADDLES, 0.5),
-    ],
-)
-@pytest.mark.parametrize(("rows", "columns"), NARROW_REGIONS)
+    ]
+    if (rows, columns, expression) != (3, 3, SADDLES)
+]
+
+
+@pytest.mark.parametrize(("rows", "columns", "expression", "level"), NARROW_CASES)
 def test_narrow_region_padded_with_nulls_gives_the_same_lines(
     tools, rows, columns, expression, level
 ):
@@ -280,6 +455,28 @@ def test_narrow_region_padded_with_nulls_gives_the_same_lines(
     shrunk = contour_lines(tools, levels=level)
 
     assert_same_lines(padded, shrunk)
+
+
+def test_a_padded_chessboard_of_three_by_three_keeps_its_centre(tools):
+    # The comparison with the region of 3 by 3 does not apply: there every
+    # cell lies on the border, no closed line is searched and the line
+    # around the centre node is lost (4 lines instead of 5). Within null
+    # cells it is found. Derived: nodes of value 1 at the four corners
+    # (lines with two vertices) and at the centre (closed line), 9 nodes.
+    tools.g_region(n=3 + 2 * PAD, s=0, w=0, e=3 + 2 * PAD, res=1)
+    shifted = SADDLES.replace("row()", f"(row() - {PAD})").replace(
+        "col()", f"(col() - {PAD})"
+    )
+    inside = (
+        f"row() > {PAD} && row() <= {PAD + 3} && col() > {PAD} && col() <= {PAD + 3}"
+    )
+    tools.r_mapcalc(expression=f"m = if({inside}, {shifted}, null())")
+
+    result = contour_lines(tools, levels=0.5)
+
+    expected = chessboard_lines(3, 3, PAD, 3 + PAD)
+    assert len(expected) == 5
+    assert_chessboard(result, expected)
 
 
 def load_recorder():

@@ -42,7 +42,7 @@ struct cell {
 #define ON_SURFACE 16
 #define BORDER(e)  (1 << (e))
 
-static unsigned char **mark_squares(DCELL **, int, int);
+static unsigned char **mark_squares(DCELL **, int, int, int *);
 static int in_strip(unsigned char);
 static int getnewcell(struct cell *, int, int, DCELL **, unsigned char **);
 static void newedge(struct cell *);
@@ -59,11 +59,12 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     static const int border_order[4] = {0, 2, 3, 1};
     int nrow, ncol;         /* number of rows and columns in current region */
     int startrow, startcol; /* start row and col of current line */
-    int n, i, j, k;         /* loop counters */
+    int n, i, j, k, pass;   /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
     char **used;            /* edges a line has passed, for cells in a strip */
     unsigned char **square; /* ON_SURFACE and BORDER flags of each cell */
+    int has_nulls;          /* 1 if a cell is not part of the surface */
     /* per edge and row: columns of the first and last cell with that
        border edge */
     int *first[4], *last[4];
@@ -103,7 +104,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     for (i = 0; i < nrow - 1; i++)
         used[i] = (char *)G_malloc((ncol - 1) * sizeof(char));
 
-    square = mark_squares(z, nrow, ncol);
+    square = mark_squares(z, nrow, ncol, &has_nulls);
 
     /* The border passes visit only the columns between the first and the
        last cell of a row that has the edge, so that without null cells they
@@ -193,17 +194,28 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
 
-        /* Check each interior Cell for closed lines: the cells without a
-           border edge. Without null cells these are the cells off the border
-           of the region, as before; a closed line that runs only through
-           cells along the border is not found. Within null cells around a
-           rectangle they are the cells the region of that rectangle checks,
-           so the closed lines are the same as there. */
-        for (startrow = 1; startrow <= nrow - 3; startrow++) {
-            for (startcol = 1; startcol <= ncol - 3; startcol++) {
-                /* look for starting point of new line */
-                if (square[startrow][startcol] == ON_SURFACE &&
-                    !hit[startrow][startcol]) {
+        /* Check each interior Cell for closed lines. The first pass takes
+           the cells without a border edge: without null cells these are the
+           cells off the border of the region, as before; within null cells
+           around a rectangle they are the cells the region of that rectangle
+           checks, in the same order, so a closed line starts at the same
+           point there. The second pass, only for a map with null cells,
+           takes the other interior cells, those along null cells (a cell on
+           the surface with a border edge has flags above ON_SURFACE). Before
+           2026-11-02 the search went over all interior cells and found a
+           closed line that runs only through cells along null cells; the
+           second pass keeps it. The region of the rectangle loses such a
+           line, because a closed line that runs only through the cells
+           along the border of the region is not searched, then as now. */
+        for (pass = 0; pass < (has_nulls ? 2 : 1); pass++) {
+            for (startrow = 1; startrow <= nrow - 3; startrow++) {
+                for (startcol = 1; startcol <= ncol - 3; startcol++) {
+                    /* look for starting point of new line */
+                    if (pass == 0 ? square[startrow][startcol] != ON_SURFACE
+                                  : square[startrow][startcol] <= ON_SURFACE)
+                        continue;
+                    if (hit[startrow][startcol])
+                        continue;
                     current.r = startrow;
                     current.c = startcol;
                     current.edge = 0;
@@ -211,34 +223,44 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     p2 = current.edge + 1;
 
                     outside = getnewcell(&current, nrow, ncol, z, square);
-                    if (!outside &&
-                        checkedge(current.z[p1], current.z[p2], level)) {
-                        getpoint(&current, level, Cell, Points);
+                    if (outside ||
+                        !checkedge(current.z[p1], current.z[p2], level))
+                        continue;
+
+                    getpoint(&current, level, Cell, Points);
+                    hit[current.r][current.c] |=
+                        findcrossing(&current, level, Cell, Points, &ncrossing);
+                    newedge(&current);
+                    outside = getnewcell(&current, nrow, ncol, z, square);
+
+                    /* while not back to starting point, follow line */
+                    while (!outside &&
+                           ((current.edge != 0) || ((current.r != startrow) ||
+                                                    (current.c != startcol)))) {
                         hit[current.r][current.c] |= findcrossing(
                             &current, level, Cell, Points, &ncrossing);
                         newedge(&current);
                         outside = getnewcell(&current, nrow, ncol, z, square);
-
-                        /* while not back to starting point, follow line */
-                        while (!outside && ((current.edge != 0) ||
-                                            ((current.r != startrow) ||
-                                             (current.c != startcol)))) {
-                            hit[current.r][current.c] |= findcrossing(
-                                &current, level, Cell, Points, &ncrossing);
-                            newedge(&current);
-                            outside =
-                                getnewcell(&current, nrow, ncol, z, square);
-                        }
-                        if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
-                            Vect_reset_cats(Cats);
-                            Vect_cat_set(Cats, 1, n + 1);
-                            Vect_write_line(&Map, GV_LINE, Points, Cats);
-                        }
+                    }
+                    /* A trace of the second pass that leaves the surface is
+                       a piece of a line with ends, which the border passes
+                       did not start because the cell at each end, a saddle,
+                       was hit by its other segment. The region of the
+                       rectangle loses that line as well, and the piece would
+                       end inside the surface, so it is not written. */
+                    if (pass == 1 && outside) {
                         Vect_reset_line(Points);
-                    } /* if checkedge */
-                } /* if ! hit */
-            } /* for rows */
-        } /* for columns */
+                        continue;
+                    }
+                    if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
+                        Vect_reset_cats(Cats);
+                        Vect_cat_set(Cats, 1, n + 1);
+                        Vect_write_line(&Map, GV_LINE, Points, Cats);
+                    }
+                    Vect_reset_line(Points);
+                }
+            }
+        }
     } /* for levels */
 
     if (ncrossing > 0) {
@@ -264,13 +286,16 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
 
 /***************************************************************************
 mark_squares
-returns the ON_SURFACE and BORDER flags of every cell of four nodes
+returns the ON_SURFACE and BORDER flags of every cell of four nodes and sets
+has_nulls to 1 if a cell is not part of the surface, else to 0
 ***************************************************************************/
-static unsigned char **mark_squares(DCELL **z, int nrow, int ncol)
+static unsigned char **mark_squares(DCELL **z, int nrow, int ncol,
+                                    int *has_nulls)
 {
     unsigned char **square;
     int r, c;
 
+    *has_nulls = 0;
     square = (unsigned char **)G_malloc((nrow - 1) * sizeof(unsigned char *));
     for (r = 0; r < nrow - 1; r++) {
         square[r] = (unsigned char *)G_malloc((ncol - 1) * sizeof(char));
@@ -278,8 +303,10 @@ static unsigned char **mark_squares(DCELL **z, int nrow, int ncol)
             if (Rast_is_d_null_value(&z[r][c]) ||
                 Rast_is_d_null_value(&z[r][c + 1]) ||
                 Rast_is_d_null_value(&z[r + 1][c + 1]) ||
-                Rast_is_d_null_value(&z[r + 1][c]))
+                Rast_is_d_null_value(&z[r + 1][c])) {
                 square[r][c] = 0;
+                *has_nulls = 1;
+            }
             else
                 square[r][c] = ON_SURFACE;
         }
