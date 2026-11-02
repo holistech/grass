@@ -31,6 +31,7 @@ REVIEWED_MANUALS = (
     "t.merge",
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
+    "t.rast.colors",
     "t.rast.contour",
     "t.rast.extract",
     "t.rast.list",
