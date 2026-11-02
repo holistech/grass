@@ -1930,9 +1930,9 @@ on two datasets.
     ```
 
     ```sh
-    # Written as in the older manual. No map of A contains more than three
-    # maps of B, so the else part holds for every map: c2 is the map of C
-    # with the time of a4, the only map of A with a count.
+    # Written as in the older manual. Only a3 (two maps of B) and a4 (one)
+    # have a count, and neither has more than three, so the else part holds
+    # for both: c2 has the time of a4, and no map of C has the time of a3.
     t.select expression="D = if(A {#, contains} B > 3, A {:, contains} B, C)"
     t.rast.list input=D columns=name,start_time,end_time,min
     ```
