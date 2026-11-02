@@ -15,6 +15,7 @@ pass whatever the variable says.
 import itertools
 import random
 import re
+import shlex
 from pathlib import Path
 
 import pytest
@@ -921,7 +922,9 @@ MANUAL = Path(__file__).parents[1] / "t.rast.algebra.md"
 # on corrections and differences, expressions that both algebras reject. The
 # core runs them all; MANUAL_ERRORS is the class of error the manual describes
 # for it. CLASSIC_MANUAL_ERRORS is the class of error of the classic algebra
-# for the expressions that the manual describes as errors there.
+# for the expressions that the manual describes as errors there. The examples
+# of the differences to the classic algebra show errors of both: a command
+# without -c runs the core, one with -c the classic algebra.
 CORE_NOTES = "### Core and classic algebra"
 MANUAL_ERRORS = {
     "C = if(A > 2, A, B)": ValueError,
@@ -940,6 +943,8 @@ MANUAL_ERRORS = {
     "C = A - 1.5 {%,starts} A": SyntaxError,
     # The core relates no series of different temporal types.
     "C = merge(tmap(sinst), RT) : RT": ValueError,
+    "E1 = if(A > 2, A, B)": ValueError,
+    'E9 = buff_t(B, "-1 day")': ValueError,
 }
 CLASSIC_MANUAL_ERRORS = {
     'C = tshift(A, "1 DAY")': SyntaxError,
@@ -949,18 +954,42 @@ CLASSIC_MANUAL_ERRORS = {
     "C = A + end_month(I, 0)": FatalError,
     "C = A + start_month(RT, 1)": FatalError,
     "C = nosuch + A )": SyntaxError,
+    "E5 = if(td(I) > 0, I)": FatalError,
+    "E6 = -A + 10": SyntaxError,
 }
+
+
+def manual_assignments(text):
+    """(assignment, classic) for the assignments 'X = ...' in the sh code
+    blocks of a manual text
+
+    An assignment stands on a line of its own, as in the notes, or is the
+    value of the option expression of a t.rast.algebra command, as in the
+    examples, also within a shell condition that shows an error. classic is
+    None for a line of its own, which may run with either algebra, and for a
+    command whether it has the flag -c: the examples run without
+    GRASS_TEMPORAL_ALGEBRA, so a command without -c runs the core.
+    """
+    assignments = []
+    for block in re.findall(r"```sh\n(.*?)```", text, flags=re.DOTALL):
+        # A command may continue over several lines.
+        for line in re.sub(r"\\\n\s*", " ", block).splitlines():
+            line = line.strip()
+            if re.match(r"^[A-Za-z_]\w* = ", line):
+                assignments.append((line, None))
+            elif re.search(r"(^|\s)t\.rast\.algebra\s", line):
+                words = shlex.split(line, comments=True)
+                assignments.extend(
+                    (word.removeprefix("expression="), "-c" in words)
+                    for word in words
+                    if word.startswith("expression=")
+                )
+    return assignments
 
 
 def manual_expressions(text):
     """Assignments 'X = ...' in the sh code blocks of a manual text"""
-    blocks = re.findall(r"```sh\n(.*?)```", text, flags=re.DOTALL)
-    return [
-        line.strip()
-        for block in blocks
-        for line in block.splitlines()
-        if re.match(r"^[A-Za-z_]\w* = ", line.strip())
-    ]
+    return [assignment for assignment, _classic in manual_assignments(text)]
 
 
 # Single maps of the fixture; map() and tmap() of any other map cannot run.
@@ -991,11 +1020,14 @@ def split_core_notes(text):
 
 def manual_cases():
     """(assignment, classic): the examples of the notes on the core and the
-    classic algebra run with the core, all others with either algebra"""
+    classic algebra run with the core, the commands of the examples with the
+    algebra their flags choose, all other lines with either algebra"""
     notes, rest = split_core_notes(MANUAL.read_text())
     cases = []
-    for classic, text in [(None, rest), (False, notes)]:
-        for assignment in manual_expressions(text):
+    for in_notes, text in [(False, rest), (True, notes)]:
+        for assignment, classic in manual_assignments(text):
+            if in_notes:
+                classic = False
             marks = [] if classic is None else [pytest.mark.fixed_algebra]
             missing = sorted(
                 set(re.findall(r"\bt?map\((\w+)\)", assignment)) - FIXTURE_SINGLE_MAPS
@@ -1031,14 +1063,24 @@ def test_manual_example_runs(algebra, assignment, classic):
     """Every example of the manual on datasets of the fixture parses and plans
     (dry run), or raises the error that the manual describes"""
     _name, expression = assignment.split(" = ", 1)
-    if MANUAL_ERRORS.get(assignment) is not SyntaxError:
-        # An expression that cannot be read has no datasets to look for.
+    errors = CLASSIC_MANUAL_ERRORS if classic else MANUAL_ERRORS
+    if errors.get(assignment) is not SyntaxError:
+        # An expression that cannot be read has no datasets to look for. A
+        # dataset of another mapset is not in the fixture, and R is where the
+        # fixture writes the results, so its maps depend on the tests that
+        # ran before.
         names = dataset_names(parse(assignment).expression)
-        missing = sorted({name for name in names if not algebra.exists(name)})
+        missing = sorted(
+            {
+                name
+                for name in names
+                if "@" in name or name == "R" or not algebra.exists(name)
+            }
+        )
         if missing:
             pytest.skip(f"datasets not in the fixture: {missing}")
-    if assignment in MANUAL_ERRORS:
-        with pytest.raises(MANUAL_ERRORS[assignment]):
+    if assignment in errors:
+        with pytest.raises(errors[assignment]):
             algebra.dry_times(expression, classic=classic)
     else:
         algebra.dry_times(expression, classic=classic)
