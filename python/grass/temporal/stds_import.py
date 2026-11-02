@@ -874,6 +874,11 @@ def import_stds(
     # answers with the message and the exit code 1.
     input_path, directory = _check_archive(input, create, directory)
 
+    # The name check needs no database. It runs before anything is written, so
+    # a refused name leaves neither an extracted archive nor a new project.
+    if not create:
+        check_new_stds_name(output)
+
     if stds_type == "stvds" and not overr:
         gs.warning(
             _(
@@ -915,7 +920,6 @@ def import_stds(
         _write_new_list(maplist, format_, new_list_file_name)
 
         # Check the space time dataset
-        check_new_stds_name(output)
         ident = f"{output}@{mapset}"
         sp = dataset_factory(type_, ident)
         if sp.is_in_db() and gs.overwrite() is False:

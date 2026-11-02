@@ -10,6 +10,7 @@ from grass.exceptions import FatalError
 import grass.temporal as tgis
 from grass.temporal.open_stds import _parse_id, check_new_stds_name
 from grass.temporal.testing.session import temporal_session
+from grass.tools import Tools
 
 
 def test_label_is_split_for_strds():
@@ -127,3 +128,21 @@ def test_an_existing_dataset_with_a_dot_stays_usable(project_session):
     assert sp.get_id() == f"old.name@{mapset}"
     sp.delete()
     assert not tgis.dataset_factory("str3ds", f"old.name@{mapset}").is_in_db()
+
+
+# A strds is left out: "a.b" read as a strds name selects the label b, so
+# t.remove cannot find such a dataset (a fault that existed before the check).
+@pytest.mark.parametrize("stds_type", ["str3ds", "stvds"])
+def test_the_tools_work_on_an_existing_dataset_with_a_dot(project_session, stds_type):
+    """t.info and t.remove accept a dataset that was made past the check."""
+    mapset = tgis.get_current_mapset()
+    old = tgis.dataset_factory(stds_type, f"old.name@{mapset}")
+    old.set_initial_values("absolute", "mean", "t", "d")
+    old.insert()
+    tools = Tools(session=project_session)
+
+    info = tools.t_info(input="old.name", type=stds_type)
+    assert "old.name" in info.stdout
+
+    tools.t_remove(inputs="old.name", type=stds_type, flags="f")
+    assert not tgis.dataset_factory(stds_type, f"old.name@{mapset}").is_in_db()

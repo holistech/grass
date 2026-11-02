@@ -190,3 +190,23 @@ def test_an_unprojected_archive_creates_an_unprojected_project(
     # The new project has no coordinate system, as the exporting one.
     assert not (created / "PROJ_EPSG").exists()
     assert not (created / "PROJ_INFO").exists()
+
+
+def test_a_dotted_output_is_refused_before_the_project_is_made(
+    tools, archive, prefix, tmp_path
+):
+    # The name check needs no database, so it must run before anything is
+    # written; otherwise a refused name leaves a new project behind.
+    gisdbase = Path(tools.g_gisenv(get="GISDBASE").stdout.strip())
+
+    text = _refused(
+        tools,
+        input=str(archive),
+        output=f"{prefix}.dot",
+        basename=prefix,
+        project=f"{prefix}_dotted",
+        directory=str(tmp_path),
+    )
+
+    assert "a dot is not allowed" in text
+    assert not (gisdbase / f"{prefix}_dotted").exists()
