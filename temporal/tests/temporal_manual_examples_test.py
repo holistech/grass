@@ -24,6 +24,7 @@ from grass.temporal.testing.session import project_session
 
 REVIEWED_MANUALS = (
     "t.create",
+    "t.info",
     "t.list",
     "t.rast.contour",
     "t.rast.univar",
