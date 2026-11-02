@@ -33,6 +33,7 @@ REVIEWED_MANUALS = (
     "t.register",
     "t.remove",
     "t.rename",
+    "t.snap",
     "t.unregister",
 )
 
