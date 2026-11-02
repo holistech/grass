@@ -62,6 +62,7 @@ REVIEWED_MANUALS = (
     "t.upgrade",
     "t.vect.extract",
     "t.vect.list",
+    "t.vect.univar",
 )
 
 TOOLS = Path(__file__).parents[1]
