@@ -11,7 +11,8 @@ else 0. Only levels between **minlevel** and **maxlevel** (where given) and
 between the minimum and maximum cell value of the **input** raster map are
 created; both ends are included. A **maxlevel** that is not on the grid is
 not a level itself. If the values of the map lie wholly outside the limits,
-no level and no line is created.
+no level and no line is created. A **minlevel** above **maxlevel** gives no
+level either.
 
 ## NOTES
 
