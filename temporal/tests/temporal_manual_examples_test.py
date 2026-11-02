@@ -38,6 +38,7 @@ REVIEWED_MANUALS = (
     "t.support",
     "t.topology",
     "t.unregister",
+    "t.upgrade",
 )
 
 TOOLS = Path(__file__).parents[1]
