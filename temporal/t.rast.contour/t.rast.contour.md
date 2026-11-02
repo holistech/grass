@@ -21,17 +21,20 @@ Either **levels** or **step** sets the contour levels:
   values of a map gives no line in that map.
 - **step** sets the distance between two levels. *r.contour* places the
   levels within the smallest and the largest value of each map, so maps with
-  different values get different levels; in the first example, **step** 2
+  different values get different levels; in the first example, **step** `2`
   gives the even numbers within the values of each map.
-- **minlevel** and **maxlevel** limit the levels of a step: they start at
-  **minlevel** and go up by **step** to **maxlevel**, as far as the values of
-  the map reach.
+- **minlevel** and **maxlevel** limit the levels of a step. *r.contour* first
+  moves a limit that lies outside the values of a map into them. The levels
+  then go from the lower limit in steps of **step** up to the higher one,
+  which is always the last level, also when it is not a whole number of steps
+  above the lower one. The NOTES name the trap of a map whose values lie
+  wholly below **minlevel** or above **maxlevel**.
 
 If both **levels** and **step** are given, *r.contour* uses the list and
 ignores the step. A level equal to the smallest value of a map gives no line.
 
 The option **cut** leaves out the contour lines with fewer points than the
-given number. The default 0 keeps all lines.
+given number. The default `0` keeps all lines.
 
 Each new vector map has an attribute table with the column `level`, the
 contour level of its lines; *[t.vect.db.select](t.vect.db.select.md)* prints
@@ -39,9 +42,9 @@ these tables for the whole dataset. The flag **-t** creates the vector maps
 without attribute tables.
 
 The option **nprocs** sets the number of *r.contour* runs at the same time,
-1 by default. More than one run at a time works only with **-t**: without it,
-*t.rast.contour* sets **nprocs** to 1 and warns, because the attribute tables
-cannot be created in parallel.
+`1` by default. More than one run at a time works only with **-t**: without
+it, *t.rast.contour* sets **nprocs** to `1` and warns, because the attribute
+tables cannot be created in parallel.
 
 The new vector maps are named after the option **basename**, followed by an
 underscore and a suffix that the option **suffix** chooses:
@@ -67,14 +70,24 @@ registered as well.
 *r.contour* computes each map in the current computational region. The
 contour lines run between the centres of the cells, so a line that leaves the
 region ends at the centre of the cell at its border, as the last example
-shows.
+shows. Use the region, not a raster mask, to restrict the area: at null cells,
+also at those outside a raster mask, *r.contour* draws lines that run back on
+themselves and warns "crossings found". The last example shows this as well.
+
+**minlevel** and **maxlevel** apply to every map of the dataset, but
+*r.contour* moves them into the values of each map. A map whose values lie
+wholly below **minlevel** or above **maxlevel** therefore still gets a level
+within its values and, in most cases, a line. With **step** `1`, **minlevel**
+`24` and **maxlevel** `26`, the first day of the examples (up to 23.29
+degrees) gets a line at 23 degrees. To get lines only at fixed levels, use
+**levels**: a level outside the values of a map gives no line there.
 
 If **where** selects no map, *t.rast.contour* warns that the space time raster
 dataset is empty and creates no output dataset.
 
 If neither **levels** nor **step** is given, *t.rast.contour* stops with the
 error "Either `<levels>` or `<step>` option must be specified"; *r.contour*
-refuses a **step** of 0 with "This step value is not allowed". In both cases
+refuses a **step** of `0` with "This step value is not allowed". In both cases
 no dataset is created. An unknown **suffix** is refused before anything is
 written, for instance with "Invalid suffix `<gram>`, use gran, time, num or
 num%NN" for `suffix=gram`. An SQL error in **where** stops the tool with a
@@ -104,8 +117,8 @@ are 0.71 cells away, so the highest values of the maps are 23.29, 26.29 and
 29.29. A contour line of the level L is a circle around the city centre with
 the radius peak - L.
 
-With **step** 2, the levels are the even numbers between the smallest and the
-largest value of each map:
+With **step** `2`, the levels are the even numbers between the smallest and
+the largest value of each map:
 
 - the first day (21 to 23.29) has one line, at 22 degrees;
 - the second day (21 to 26.29) has three, at 22, 24 and 26 degrees;
@@ -115,10 +128,10 @@ The first block computes the contour lines and lists the new vector maps with
 their number of lines. The default suffix `gran` names the maps after the day.
 The second block prints the levels from the attribute tables with
 *t.vect.db.select*. The third block shows with *[t.info](t.info.md)* that the
-new dataset `isotherms` has the time, the title and the description of the
-input dataset, and 1 + 3 + 4 = 8 lines. *r.contour* writes 3D lines at the
-height of their level, so the top and the bottom of the dataset are the
-highest and the lowest level, 28 and 22.
+new dataset `isotherms` has the time, the semantic type `max`, the title and
+the description of the input dataset, and 1 + 3 + 4 = 8 lines. *r.contour*
+writes 3D lines at the height of their level, so the top and the bottom of
+the dataset are the highest and the lowest level, 28 and 22.
 
 === "Command line"
 
@@ -127,7 +140,7 @@ highest and the lowest level, 28 and 22.
     r.mapcalc expression="tmax_1 = max(21, 24 - sqrt((x() - 10)^2 + (y() - 10)^2))"
     r.mapcalc expression="tmax_2 = max(21, 27 - sqrt((x() - 10)^2 + (y() - 10)^2))"
     r.mapcalc expression="tmax_3 = max(21, 30 - sqrt((x() - 10)^2 + (y() - 10)^2))"
-    t.create output=tmax title="Maximum temperature" \
+    t.create output=tmax semantictype=max title="Maximum temperature" \
         description="Daily maximum air temperature in degrees Celsius"
     t.register -i input=tmax maps=tmax_1,tmax_2,tmax_3 \
         start=2026-07-01 increment="1 day"
@@ -173,7 +186,7 @@ highest and the lowest level, 28 and 22.
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. mean
+     | Semantic type:.............. max
      +-------------------- Absolute time -----------------------------------------+
      | Start time:................. 2026-07-01 00:00:00
      | End time:................... 2026-07-04 00:00:00
@@ -227,6 +240,7 @@ highest and the lowest level, 28 and 22.
         )
     tools.t_create(
         output="tmax",
+        semantictype="max",
         title="Maximum temperature",
         description="Daily maximum air temperature in degrees Celsius",
     )
@@ -280,7 +294,7 @@ highest and the lowest level, 28 and 22.
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. mean
+     | Semantic type:.............. max
      +-------------------- Absolute time -----------------------------------------+
      | Start time:................. 2026-07-01 00:00:00
      | End time:................... 2026-07-04 00:00:00
@@ -326,7 +340,8 @@ highest and the lowest level, 28 and 22.
 The figure shows the map of the third day with its contour lines and their
 levels as labels. *d.rast* draws the raster map, *d.vect* the contour lines
 with the column `level` of the attribute table as label, and *d.legend* the
-colour scale of the temperature.
+colour scale of the temperature, labelled every 2 degrees (**label_step**)
+without decimals (**digits**).
 
 === "Command line"
 
@@ -335,7 +350,7 @@ colour scale of the temperature.
     d.rast map=tmax_3
     d.vect map=isotherm_2026_07_03 color=white width=2 \
         attribute_column=level label_color=white label_size=16
-    d.legend raster=tmax_3 at=10,90,86,90
+    d.legend raster=tmax_3 at=10,90,86,90 label_step=2 digits=0
     d.mon stop=cairo
     ```
 
@@ -352,7 +367,7 @@ colour scale of the temperature.
         label_color="white",
         label_size=16,
     )
-    tools.d_legend(raster="tmax_3", at=[10, 90, 86, 90])
+    tools.d_legend(raster="tmax_3", at=[10, 90, 86, 90], label_step=2, digits=0)
     tools.d_mon(stop="cairo")
     ```
 
@@ -432,9 +447,16 @@ its vector maps.
 
 ### Contour lines in a range of levels
 
-**minlevel** and **maxlevel** limit the levels of a step. With **step** 1 from
-22 to 24 degrees, the second and the third day have lines at 22, 23 and 24
-degrees. The first day reaches only 23.29 degrees, so its levels end at 23.
+**minlevel** and **maxlevel** limit the levels of a step. With **step** `1`,
+**minlevel** `22` and **maxlevel** `24`, the second and the third day have
+lines at 22, 23 and 24 degrees. The first day reaches only 23.29 degrees:
+*r.contour* moves **maxlevel** down by one step into its values, so its levels
+end at 23.
+
+The second block shows that **maxlevel** is always the last level, even when
+it is not a whole number of steps above **minlevel**: with **maxlevel**
+`23.5`, the second and the third day have lines at 22, 23 and 23.5 degrees.
+The condition in **where** leaves out the first day.
 
 === "Command line"
 
@@ -454,6 +476,22 @@ degrees. The first day reaches only 23.29 degrees, so its levels end at 23.
     2026-07-03 00:00:00|2026-07-04 00:00:00|22
     2026-07-03 00:00:00|2026-07-04 00:00:00|23
     2026-07-03 00:00:00|2026-07-04 00:00:00|24
+    ```
+
+    ```sh
+    t.rast.contour input=tmax output=half_top basename=half_top \
+        step=1 minlevel=22 maxlevel=23.5 where="start_time >= '2026-07-02'"
+    t.vect.db.select input=half_top columns=level
+    ```
+
+    ```text
+    start_time|end_time|level
+    2026-07-02 00:00:00|2026-07-03 00:00:00|22
+    2026-07-02 00:00:00|2026-07-03 00:00:00|23
+    2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
+    2026-07-03 00:00:00|2026-07-04 00:00:00|22
+    2026-07-03 00:00:00|2026-07-04 00:00:00|23
+    2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
     ```
 
 === "Python (grass.tools)"
@@ -482,6 +520,29 @@ degrees. The first day reaches only 23.29 degrees, so its levels end at 23.
     2026-07-03 00:00:00|2026-07-04 00:00:00|24
     ```
 
+    ```python
+    tools.t_rast_contour(
+        input="tmax",
+        output="half_top",
+        basename="half_top",
+        step=1,
+        minlevel=22,
+        maxlevel=23.5,
+        where="start_time >= '2026-07-02'",
+    )
+    print(tools.t_vect_db_select(input="half_top", columns="level").text)
+    ```
+
+    ```text
+    start_time|end_time|level
+    2026-07-02 00:00:00|2026-07-03 00:00:00|22
+    2026-07-02 00:00:00|2026-07-03 00:00:00|23
+    2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
+    2026-07-03 00:00:00|2026-07-04 00:00:00|22
+    2026-07-03 00:00:00|2026-07-04 00:00:00|23
+    2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
+    ```
+
 ### Leave out short contour lines
 
 The first block prints the line at 26 degrees of the second day, from the
@@ -489,7 +550,7 @@ dataset `isotherms` of the first example. *[v.out.ascii](v.out.ascii.md)*
 starts a line with `L`, the number of its points and the number of its
 categories: the small circle around the centre has only 9 points.
 
-With **cut** 10, the lines with fewer than 10 points are left out. The second
+With **cut** `10`, the lines with fewer than 10 points are left out. The second
 day keeps its two other lines, at 22 and 24 degrees; the first and the third
 day keep all their lines, because none of them has fewer than 10 points.
 
@@ -724,6 +785,12 @@ cells of the region. A closed circle has one node, as the 8 lines with 8
 nodes of the first example show; a half circle has two, one at each end, so
 the third day has four lines with eight nodes.
 
+The second block restricts the area to the same western half with a raster
+mask instead, on the full region. The cells outside the mask are null cells,
+and at them *r.contour* draws lines that run back on themselves: twice as many
+lines with half as many nodes, and the warning "crossings found" on the
+standard error. The region is the way to restrict the area.
+
 === "Command line"
 
     ```sh
@@ -740,6 +807,22 @@ the third day has four lines with eight nodes.
     west_2026_07_03@analysis|4|8|9.5
     ```
 
+    ```sh
+    g.region n=20 s=0 e=20 w=0 res=1
+    r.mapcalc expression="west_half = if(x() < 10, 1, null())"
+    r.mask raster=west_half
+    t.rast.contour input=tmax@PERMANENT output=masked basename=masked step=2
+    r.mask -r
+    t.vect.list input=masked columns=id,lines,nodes
+    ```
+
+    ```text
+    id|lines|nodes
+    masked_2026_07_01@analysis|2|1
+    masked_2026_07_02@analysis|6|3
+    masked_2026_07_03@analysis|8|4
+    ```
+
 === "Python (grass.tools)"
 
     ```python
@@ -754,6 +837,22 @@ the third day has four lines with eight nodes.
     west_2026_07_01@analysis|1|2|9.5
     west_2026_07_02@analysis|3|6|9.5
     west_2026_07_03@analysis|4|8|9.5
+    ```
+
+    ```python
+    tools.g_region(n=20, s=0, e=20, w=0, res=1)
+    tools.r_mapcalc(expression="west_half = if(x() < 10, 1, null())")
+    tools.r_mask(raster="west_half")
+    tools.t_rast_contour(input="tmax@PERMANENT", output="masked", basename="masked", step=2)
+    tools.r_mask(flags="r")
+    print(tools.t_vect_list(input="masked", columns="id,lines,nodes").text)
+    ```
+
+    ```text
+    id|lines|nodes
+    masked_2026_07_01@analysis|2|1
+    masked_2026_07_02@analysis|6|3
+    masked_2026_07_03@analysis|8|4
     ```
 
 <!-- markdownlint-enable MD046 -->
