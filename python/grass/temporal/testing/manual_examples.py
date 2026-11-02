@@ -402,17 +402,16 @@ def normalize(text: str, context: NormalizeContext) -> str:
       contains it, a user called ``a`` for instance;
     - the creation and modification time of a space time dataset as ``t.info``
       and ``t.info -g`` print them, and the time stamps of its command history:
-      the time of the run. Only the time is replaced, not the rest of its line.
-
+      the time of the run; only the time, not the rest of its line;
     - the hex part of the register table name (``raster_map_register_<hex>``,
       likewise ``raster3d_``, ``vector_``) that ``t.info`` prints: it is a
       new uuid4 for every dataset. The type prefix and the rest of the line
       stay comparable.
 
     The time rules also cover single maps, whose ``t.info`` prints the same
-    ``Creation time:`` and ``creation_time=`` lines (base.py). Not covered
-    because none of the pilot tools prints them: the creator and time columns
-    of ``t.list`` (unlabelled).
+    ``Creation time:`` and ``creation_time=`` lines (base.py). Not covered:
+    the creator and time columns of ``t.list``, which have no label to
+    anchor a rule.
     """
     if context.database:
         text = text.replace(context.database, FIXED_DATABASE)
