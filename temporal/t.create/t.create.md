@@ -449,9 +449,7 @@ it, but they stay in the temporal database with their time stamps, as
     )
     info = tools.t_info(input="precipitation", flags="g").keyval
     print(f"number_of_maps={info['number_of_maps']}")
-    result = tools.t_list(
-        type="raster", columns="name,start_time,end_time", flags="c"
-    )
+    result = tools.t_list(type="raster", columns="name,start_time,end_time", flags="c")
     print(result.text)
     ```
 
