@@ -292,11 +292,15 @@ def test_a_line_lost_at_saddles_leaves_no_piece_within_null_cells(tools):
     # Nodes 0 0 1 / 0 2 0 / 1 0 0 inside two rows and columns of null cells,
     # level 0.5. The two saddle cells join the nodes above the level (cell
     # mean 0.75), so two lines with ends cut off the zeros at the top left
-    # and at the bottom right. The region of 3 by 3 draws only the first:
-    # the second starts and ends in the saddle cells, whose hit flag the
-    # first line set. Within null cells the search for closed lines meets
-    # the second line in the middle; a piece of it would end inside the
-    # surface, so it is left out and the result is that of the region.
+    # and at the bottom right. The comparison with the region of 3 by 3 does
+    # not apply: the region draws only the first line, because the second
+    # starts and ends in the saddle cells, whose hit flag the first line set.
+    # Within null cells the border passes ask the start edge instead, so the
+    # second line is drawn whole; the search for closed lines, which meets
+    # it in the middle, must not add a piece of it that ends inside.
+    # Derived by hand (node centres at x = col + 1.5, y = 5.5 - row for row
+    # and column from 1): an edge from 0 to 1 is crossed in the middle, one
+    # from 0 to 2 at a quarter of its length from the 0.
     tools.g_region(n=7, s=0, w=0, e=7, res=1)
     tools.r_mapcalc(
         expression="m = if(row() < 3 || row() > 5 || col() < 3 || col() > 5,"
@@ -304,15 +308,46 @@ def test_a_line_lost_at_saddles_leaves_no_piece_within_null_cells(tools):
         " 1.0, if(row() == 4 && col() == 4, 2.0, 0.0)))"
     )
 
-    padded = contour_lines(tools, levels=0.5)
-    tools.g_region(n=5, s=2, w=2, e=5, res=1)
-    shrunk = contour_lines(tools, levels=0.5)
+    result = contour_lines(tools, levels=0.5)
 
-    assert_same_lines(padded, shrunk)
-    for _, vertices in padded["vertices"]:
-        for x, y, _ in (vertices[0], vertices[-1]):
-            # The outermost nodes with values lie at 2.5 and 4.5.
-            assert x in {2.5, 4.5} or y in {2.5, 4.5}
+    expected = [
+        ((1,), ((4.0, 4.5), (3.5, 4.25), (2.75, 3.5), (2.5, 3.0))),
+        ((1,), ((3.0, 2.5), (3.5, 2.75), (4.25, 3.5), (4.5, 4.0))),
+    ]
+    assert canonical(result["vertices"]) == canonical(expected)
+    assert result["lines"] == 2
+    assert result["nodes"] == 4
+
+
+def test_a_line_with_a_saddle_at_its_end_is_kept_at_null_cells(tools):
+    # Nodes 0 0 0 / 1 1 0 / 1 0 1 inside two rows and columns of null cells,
+    # level 0.5. The comparison with the region of 3 by 3 does not apply:
+    # there the corner line at the bottom right is lost. Its only cell, a
+    # saddle, is marked hit by its other segment, and the border passes of
+    # the region ask that flag. Before 2026-11-02 r.contour drew this line
+    # within null cells. Derived by hand (nodes 0 and 1, every crossing in
+    # the middle of its edge; node centres at x = col + 1.5 and
+    # y = 5.5 - row for row and column from 1): the saddle cell at the bottom
+    # right has the mean 0.5, which counts as below the level, so it cuts
+    # off its corners of value 1. The first line runs around the nodes
+    # (2, 1), (2, 2), (3, 1) from the bottom to the left border, the second
+    # cuts off the node (3, 3).
+    tools.g_region(n=7, s=0, w=0, e=7, res=1)
+    tools.r_mapcalc(
+        expression="m = if(row() < 3 || row() > 5 || col() < 3 || col() > 5,"
+        " null(), if((row() == 4 && col() <= 4) || (row() == 5 && col() != 4),"
+        " 1.0, 0.0))"
+    )
+
+    result = contour_lines(tools, levels=0.5)
+
+    expected = [
+        ((1,), ((3.0, 2.5), (3.5, 3.0), (4.0, 3.5), (3.5, 4.0), (2.5, 4.0))),
+        ((1,), ((4.0, 2.5), (4.5, 3.0))),
+    ]
+    assert canonical(result["vertices"]) == canonical(expected)
+    assert result["lines"] == 2
+    assert result["nodes"] == 4
 
 
 def test_no_crossings_warning_at_null_cells(tools):

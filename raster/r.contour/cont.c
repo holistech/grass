@@ -38,12 +38,14 @@ struct cell {
    the cell across it is not part of the surface, because it lies outside the
    region or has a null node. A null node counts as a node outside the region:
    lines end at the last edge between two nodes with values, as at the border
-   of the region. */
-#define ON_SURFACE 16
-#define BORDER(e)  (1 << (e))
+   of the region. NEXT_TO_NULL marks a cell on the surface with a border edge
+   to a cell with a null node. */
+#define ON_SURFACE   16
+#define BORDER(e)    (1 << (e))
+#define NEXT_TO_NULL 32
 
 static unsigned char **mark_squares(DCELL **, int, int, int *);
-static int in_strip(unsigned char);
+static int counts_edges(unsigned char);
 static int getnewcell(struct cell *, int, int, DCELL **, unsigned char **);
 static void newedge(struct cell *);
 static int findcrossing(struct cell *, double, struct Cell_head,
@@ -62,7 +64,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     int n, i, j, k, pass;   /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
-    char **used;            /* edges a line has passed, for cells in a strip */
+    char **used;            /* edges a line has passed, see counts_edges */
     unsigned char **square; /* ON_SURFACE and BORDER flags of each cell */
     int has_nulls;          /* 1 if a cell is not part of the surface */
     /* per edge and row: columns of the first and last cell with that
@@ -154,7 +156,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     if (!(square[startrow][startcol] & BORDER(edge)))
                         continue;
                     /* look for starting point of new line */
-                    if (in_strip(square[startrow][startcol])
+                    if (counts_edges(square[startrow][startcol])
                             ? used[startrow][startcol] & (1 << edge)
                             : hit[startrow][startcol])
                         continue;
@@ -239,11 +241,13 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         outside = getnewcell(&current, nrow, ncol, z, square);
                     }
                     /* A trace of the second pass that leaves the surface is
-                       a piece of a line with ends, which the border passes
-                       did not start because the cell at each end, a saddle,
-                       was hit by its other segment. The region of the
-                       rectangle loses that line as well, and the piece would
-                       end inside the surface, so it is not written. */
+                       a piece of a line with ends that the border passes
+                       lost: both ends lie in saddle cells on the border of
+                       the region whose hit flag the other segment set (at
+                       null cells the passes ask the edge, see
+                       counts_edges). The region of the rectangle loses that
+                       line as well, and the piece would end inside the
+                       surface, so it is not written. */
                     if (pass == 1 && outside) {
                         Vect_reset_line(Points);
                         continue;
@@ -306,35 +310,50 @@ static unsigned char **mark_squares(DCELL **z, int nrow, int ncol,
         for (c = 0; c < ncol - 1; c++) {
             if (!(square[r][c] & ON_SURFACE))
                 continue;
-            if (r == 0 || !(square[r - 1][c] & ON_SURFACE))
+            if (r == 0)
                 square[r][c] |= BORDER(0);
-            if (c == ncol - 2 || !(square[r][c + 1] & ON_SURFACE))
+            else if (!(square[r - 1][c] & ON_SURFACE))
+                square[r][c] |= BORDER(0) | NEXT_TO_NULL;
+            if (c == ncol - 2)
                 square[r][c] |= BORDER(1);
-            if (r == nrow - 2 || !(square[r + 1][c] & ON_SURFACE))
+            else if (!(square[r][c + 1] & ON_SURFACE))
+                square[r][c] |= BORDER(1) | NEXT_TO_NULL;
+            if (r == nrow - 2)
                 square[r][c] |= BORDER(2);
-            if (c == 0 || !(square[r][c - 1] & ON_SURFACE))
+            else if (!(square[r + 1][c] & ON_SURFACE))
+                square[r][c] |= BORDER(2) | NEXT_TO_NULL;
+            if (c == 0)
                 square[r][c] |= BORDER(3);
+            else if (!(square[r][c - 1] & ON_SURFACE))
+                square[r][c] |= BORDER(3) | NEXT_TO_NULL;
         }
     }
     return square;
 }
 
 /***************************************************************************
-in_strip
-returns 1 if the cell has border edges on two opposite sides, else 0
+counts_edges
+returns 1 if the border passes ask the cell whether the start edge was passed
+by a line (bit per edge in used), 0 if they ask whether the cell was hit
 
-Such a cell lies in a strip one cell wide; in a region of two rows or two
-columns every cell does. A saddle there (four crossings) has the ends of both
-its segments on border edges. The flag in hit marks the whole cell once the
-first segment is traced, and the second segment would never be started. The
-border passes therefore ask such a cell whether the start edge was passed by a
-line (bit per edge in used) instead of whether the cell was hit. Other cells
-use hit alone, as before, so the lines of regions of three rows and columns
-or more without null cells stay the same.
+The flag in hit marks a saddle cell (four crossings) once a segment through
+its edge 0 is traced. If the other segment ends on a border edge of the cell,
+a border pass that asks hit never starts it, and the line is lost unless it
+is traced from its other end. The edge is asked instead
+- in a cell with border edges on two opposite sides, which lies in a strip
+  one cell wide (in a region of two rows or two columns every cell does):
+  both segments of a saddle there end on border edges;
+- in a cell next to a cell with a null node: before 2026-11-02 lines were
+  not started at null cells, so these lines were drawn from inside and must
+  not be lost now.
+Other cells, those at the border of a region of three rows and columns or
+more, ask hit as before, so the lines of maps without null cells stay the
+same, including the lines lost there.
 ***************************************************************************/
-static int in_strip(unsigned char flags)
+static int counts_edges(unsigned char flags)
 {
-    return (flags & (BORDER(0) | BORDER(2))) == (BORDER(0) | BORDER(2)) ||
+    return (flags & NEXT_TO_NULL) ||
+           (flags & (BORDER(0) | BORDER(2))) == (BORDER(0) | BORDER(2)) ||
            (flags & (BORDER(1) | BORDER(3))) == (BORDER(1) | BORDER(3));
 }
 
