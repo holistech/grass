@@ -11,6 +11,9 @@ SPDX-FileCopyrightText: 2026 GRASS Development Team
 SPDX-License-Identifier: GPL-2.0-or-later
 """
 
+from datetime import datetime
+
+from grass.temporal.testing.data import MapSpec, create_stds
 from grass.tools import Tools
 
 
@@ -140,3 +143,36 @@ def test_spatial_sampling_ignores_the_vertical_extent(mapcalc3d_session):
     assert _maps(tools, "c3_sp") == [
         ("1", "2001-01-01 00:00:00", "2001-02-01 00:00:00", "101.0", "101.0"),
     ]
+
+
+def test_sampler_of_time_instants_gives_no_samples(mapcalc3d_session):
+    """A sampler of time instants gives no samples and no output dataset
+
+    The tool says that the sampler must be of interval time and that it found
+    no samples, but ends with status 0, as t.rast.mapcalc does.
+    """
+    tools = Tools(
+        session=mapcalc3d_session, overwrite=True, consistent_return_value=True
+    )
+    create_stds(
+        tools,
+        "str3ds",
+        "char3_pt_p",
+        [
+            MapSpec("char3_pt_1", 1, datetime(2001, 1, 1)),
+            MapSpec("char3_pt_2", 2, datetime(2001, 1, 2)),
+        ],
+        title="t",
+    )
+    result = tools.t_rast3d_mapcalc(
+        inputs="char3_pt_p,precip3d_1",
+        output="char3_pt_out",
+        expression="char3_pt_p + precip3d_1",
+        basename="char3_pt_out",
+        method="equal",
+    )
+    assert "must be interval" in result.stderr
+    assert "No samples found for map calculation" in result.stderr
+    assert result.returncode == 0
+    listed = tools.t_list(type="str3ds", columns="name", format="plain").text
+    assert "char3_pt_out" not in listed

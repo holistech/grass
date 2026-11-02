@@ -190,6 +190,12 @@ announces its steps on the standard error with "Starting temporal sampling..."
 (with <b>-s</b>: "Starting spatio-temporal sampling...") and "Starting mapcalc
 computation...".
 <p>
+Some inputs give no samples. If <b>inputs</b> names more than one dataset and the
+sampler has only time instants, or the datasets have different temporal types,
+the tool prints a message that names the reason and "No samples found for map
+calculation". It makes no dataset <b>output</b> and ends with status 0. A call
+with one dataset needs no sampling, so time instants work there.
+<p>
 Because the tool replaces the names as text, two datasets whose names share a
 start, such as <code>soil</code> and <code>soil_deep</code>, cannot be used
 together in one call, in whatever order they are listed. Copy one of them with

@@ -173,6 +173,12 @@ on the standard error with "Starting temporal sampling..." (with **-s**:
 "Starting spatio-temporal sampling...") and "Starting mapcalc
 computation...".
 
+Some inputs give no samples. If **inputs** names more than one dataset and the
+sampler has only time instants, or the datasets have different temporal types,
+the tool prints a message that names the reason and "No samples found for map
+calculation". It makes no dataset **output** and ends with status 0. A call
+with one dataset needs no sampling, so time instants work there.
+
 Because the tool replaces the names as text, two datasets whose names share a
 start, such as `soil` and `soil_deep`, cannot be used together in one call, in
 whatever order they are listed. Copy one of them with *[t.copy](t.copy.md)*
