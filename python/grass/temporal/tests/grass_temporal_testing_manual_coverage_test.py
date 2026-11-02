@@ -8,6 +8,7 @@ Each test writes a small manual to tmp_path. The tests that run examples do
 so in a real session in a project of their own under tmp_path.
 """
 
+import re
 import struct
 import zlib
 
@@ -253,6 +254,76 @@ def test_shell_calls_follow_continuations_pipes_and_comments():
         ["-e"],
         ["f=x | y"],
     ]
+
+
+def test_shell_calls_take_a_comment_only_where_a_word_starts():
+    # An apostrophe in a comment is no quote; a # within a word or within
+    # quotes starts no comment.
+    code = (
+        "# set the region's extent\n"
+        "t.a a=1  # the map's name\n"
+        "t.a b=x#y c=\"# z\" d='#'\n"
+    )
+    assert me.shell_calls(code, "t.a") == [["a=1"], ["b=x#y", "c=# z", "d=#"]]
+
+
+def test_shell_calls_leave_out_the_body_of_a_here_document():
+    code = (
+        "cat > list.txt <<EOF\n"
+        "t.a a=1\n"
+        "it's\n"
+        "EOF\n"
+        "t.a b=1 <<-'END' # it's\n"
+        "\tt.a c=1\n"
+        "\tEND\n"
+        "t.a d=1 <<< 't.a e=1'\n"
+        "t.a f=1\n"
+    )
+    assert me.shell_calls(code, "t.a") == [["b=1"], ["d=1"], ["f=1"]]
+
+
+def test_shell_calls_find_a_command_after_a_keyword():
+    code = (
+        "for m in a b; do t.a input=$m; done\n"
+        "if t.a -e; then t.a f=1; elif t.a g=1; then :; else t.a h=1; fi\n"
+        "while t.a i=1; do :; done; until t.a j=1; do :; done\n"
+        "! t.a k=1\n"
+        "{ t.a l=1; }\n"
+        "time t.a m=1\n"
+    )
+    assert me.shell_calls(code, "t.a") == [
+        ["input=$m"],
+        ["-e"],
+        ["f=1"],
+        ["g=1"],
+        ["h=1"],
+        ["i=1"],
+        ["j=1"],
+        ["k=1"],
+        ["l=1"],
+        ["m=1"],
+    ]
+
+
+def test_a_shell_block_that_cannot_be_read_names_its_line(tmp_path, session):
+    # bash takes $'...' with an escaped quote, shlex does not.
+    unreadable = "echo $'it\\'s'\n"
+    with pytest.raises(ValueError, match="quotation"):
+        me.shell_calls(unreadable, "t.create")
+    python = blocks("python", 'tools.t_create(output="a")\n')
+    manual = write_manual(
+        tmp_path,
+        example("Quote", blocks("sh", unreadable), python),
+        tool="t.create",
+    )
+    where = f"{manual.path}:{manual.examples[0].blocks[0].line}:"
+    with pytest.raises(me.ManualFormatError, match=re.escape(where)):
+        mc.shown_options(manual)
+
+    drawing = image_manual(tmp_path, unreadable + DRAW, "unreadable")
+    where = f"{drawing.path}:{drawing.examples[0].blocks[0].line}:"
+    with pytest.raises(me.ManualFormatError, match=re.escape(where)):
+        me.check_manual(drawing, "shell", session, tmp_path / "unreadable" / "work")
 
 
 def test_a_block_runs_where_its_gdal_driver_exists(tmp_path, session):

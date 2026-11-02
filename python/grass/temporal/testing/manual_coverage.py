@@ -17,7 +17,13 @@ import subprocess
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from .manual_examples import FENCE, Manual, python_calls, shell_calls
+from .manual_examples import (
+    FENCE,
+    Block,
+    Manual,
+    block_shell_calls,
+    python_calls,
+)
 
 # The flags that the parser gives every tool. A tool does not have to show
 # them; the shell spells them --overwrite, grass.tools takes keywords.
@@ -56,9 +62,9 @@ def tool_options(tool: str, env) -> set[str]:
     return options
 
 
-def _shell_options(code: str, tool: str) -> set[str]:
+def _shell_options(manual: Manual, block: Block) -> set[str]:
     shown = set()
-    for words in shell_calls(code, tool):
+    for words in block_shell_calls(manual.path, block, manual.tool):
         for word in words:
             if word.startswith("--"):
                 continue
@@ -88,7 +94,8 @@ def shown_options(manual: Manual) -> set[str]:
     keyword of ``<object>.<tool with _>(...)``, a flag as a letter of
     ``flags="..."``. Blocks marked not-run do not count, blocks with a
     requirement do, because they run where it holds. The standard flags are
-    left out.
+    left out. Raises ManualFormatError for a shell block that shell_calls
+    cannot split into words.
     """
     shown = set()
     for example in manual.examples:
@@ -96,7 +103,7 @@ def shown_options(manual: Manual) -> set[str]:
             if "not-run" in block.control:
                 continue
             if block.language == "sh":
-                shown |= _shell_options(block.code, manual.tool)
+                shown |= _shell_options(manual, block)
             else:
                 shown |= _python_options(block.code, manual.tool)
     return shown

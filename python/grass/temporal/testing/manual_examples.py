@@ -435,6 +435,15 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # Tokens that end a shell command, and those whose next word is a file name.
 _SHELL_PUNCTUATION = ";&|()<>\n"
 _REDIRECT = set("<>")
+# Reserved words and the like that bash takes before a command; the word after
+# them is the command.
+_COMMAND_PREFIXES = frozenset(
+    {"!", "{", "do", "elif", "else", "if", "then", "time", "until", "while"}
+)
+# The characters before which a # starts a comment in bash: blanks and the
+# characters that end a word.
+_WORD_ENDS = " \t\n;&|()<>"
+_HERE_DOCUMENT = re.compile(r"<<(-?)[ \t]*(?:'([^']*)'|\"([^\"]*)\"|([^\s;&|()<>]+))")
 
 # Runs the blocks of a Python tab one after the other in one namespace, so a
 # later block uses what an earlier one made (tools = Tools()). The separator
@@ -667,47 +676,144 @@ def _diff(shown: str, printed: str) -> str:
     )
 
 
+def _bash_words(code: str) -> str:
+    """Return the code without comments and without here document bodies
+
+    As bash reads them: a # starts a comment only where a word starts and
+    outside quotes, so an apostrophe in a comment is no quote; the body of a
+    here document starts on the line after its << and ends at the line that
+    is the delimiter alone (after leading tabs for <<-). The operator and
+    the delimiter stay, as a redirection. A quote left open stays open, for
+    shlex to reject.
+    """
+    out = []
+    pending: list[tuple[str, bool]] = []
+    quote = None
+    word_start = True
+    index = 0
+    while index < len(code):
+        char = code[index]
+        if quote:
+            if char == "\\" and quote == '"':
+                out.append(code[index : index + 2])
+                index += 2
+                continue
+            quote = None if char == quote else quote
+        elif char == "\\":
+            # A continued line joins two lines of one word or command; the
+            # start of a word is that of the first line.
+            out.append(code[index : index + 2])
+            if code[index + 1 : index + 2] != "\n":
+                word_start = False
+            index += 2
+            continue
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and word_start:
+            end = code.find("\n", index)
+            index = len(code) if end < 0 else end
+            continue
+        elif code.startswith("<<<", index):
+            out.append("<<<")
+            index += 3
+            word_start = True
+            continue
+        elif match := _HERE_DOCUMENT.match(code, index):
+            delimiter = next(word for word in match.groups()[1:] if word is not None)
+            pending.append((delimiter, bool(match.group(1))))
+            out.append(match.group(0))
+            index = match.end()
+            word_start = False
+            continue
+        elif char == "\n" and pending:
+            out.append(char)
+            index = _after_here_documents(code, index + 1, pending)
+            pending = []
+            word_start = True
+            continue
+        out.append(char)
+        word_start = quote is None and char in _WORD_ENDS
+        index += 1
+    return "".join(out)
+
+
+def _after_here_documents(code: str, index: int, pending) -> int:
+    """The index after the bodies of the here documents that start at index"""
+    for delimiter, strip_tabs in pending:
+        while index < len(code):
+            end = code.find("\n", index)
+            end = len(code) if end < 0 else end
+            line = code[index:end]
+            index = end + 1
+            if (line.lstrip("\t") if strip_tabs else line) == delimiter:
+                break
+    return index
+
+
 def shell_calls(code: str, name: str) -> list[list[str]]:
     """Return the words after ``name`` of each shell command that runs ``name``
 
     Understands what the examples use: lines continued with a backslash,
-    quotes, comments, commands joined by ``|``, ``;``, ``&&`` and ``||``,
-    redirections (their file name is left out) and variable assignments in
-    front of a command. Not understood: command substitution, here documents,
-    functions and loops; a command inside one of them may be missed.
+    quotes, comments, here documents (their body is left out), commands
+    joined by ``|``, ``;``, ``&&`` and ``||``, redirections (their file name
+    is left out), variable assignments in front of a command and the words
+    after which bash expects a command (``do``, ``then``, ``else``,
+    ``elif``, ``if``, ``while``, ``until``, ``!``, ``{``, ``time``).
+
+    Not understood: a command substitution within double quotes or with
+    backquotes, functions, aliases, ``eval`` and a tool name in a variable;
+    a command in one of them may be missed. A command after ``$(`` counts.
+    A shift ``<<`` in arithmetic is taken for a here document. ANSI-C quotes
+    with an escaped quote (``$'it\\'s'``) and other quoting that shlex cannot
+    split raise ValueError.
     """
     lexer = shlex.shlex(
-        code.replace("\\\n", ""), posix=True, punctuation_chars=_SHELL_PUNCTUATION
+        _bash_words(code).replace("\\\n", ""),
+        posix=True,
+        punctuation_chars=_SHELL_PUNCTUATION,
     )
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
-    # shlex would also take the newline that ends a comment, which joins two
-    # commands, and it starts a comment inside a word, which bash does not.
+    # _bash_words has dropped the comments; shlex would also start one inside
+    # a word, which bash does not.
     lexer.commenters = ""
     commands: list[list[str]] = [[]]
-    skip_word = in_comment = False
+    skip_word = False
     for token in lexer:
         if token and set(token) <= set(_SHELL_PUNCTUATION):
             if set(token) & _REDIRECT:
                 skip_word = True
             else:
                 commands.append([])
-                in_comment = in_comment and "\n" not in token
             continue
-        if skip_word or in_comment:
+        if skip_word:
             skip_word = False
-            continue
-        if token.startswith("#"):
-            in_comment = True
             continue
         commands[-1].append(token)
     calls = []
     for words in commands:
-        while words and "=" in words[0] and not words[0].startswith("-"):
+        while words and (
+            words[0] in _COMMAND_PREFIXES
+            or ("=" in words[0] and not words[0].startswith("-"))
+        ):
             words = words[1:]
         if words and words[0] == name:
             calls.append(words[1:])
     return calls
+
+
+def block_shell_calls(path: Path, block: Block, name: str) -> list[list[str]]:
+    """Return shell_calls of a block of the manual at path
+
+    Raises ManualFormatError with the file and the line of the block where
+    shell_calls cannot split the code into words.
+    """
+    try:
+        return shell_calls(block.code, name)
+    except ValueError as error:
+        raise ManualFormatError(
+            path, block.line, f"cannot split the shell block into words: {error}"
+        ) from None
 
 
 def python_calls(code: str, name: str) -> list[dict[str, object]]:
@@ -737,17 +843,19 @@ def python_calls(code: str, name: str) -> list[dict[str, object]]:
     return calls
 
 
-def _image_size(results: list[BlockResult], image: str) -> tuple[int, int] | None:
+def _image_size(
+    path: Path, results: list[BlockResult], image: str
+) -> tuple[int, int] | None:
     """The width and height that the d.mon call writing image asks for"""
     for result in results:
-        code = result.block.code
-        if result.block.language == "sh":
+        block = result.block
+        if block.language == "sh":
             calls = [
                 dict(word.split("=", 1) for word in words if "=" in word)
-                for words in shell_calls(code, "d.mon")
+                for words in block_shell_calls(path, block, "d.mon")
             ]
         else:
-            calls = python_calls(code, "d.mon")
+            calls = python_calls(block.code, "d.mon")
         for call in calls:
             if call.get("output") == image:
                 try:
@@ -760,8 +868,10 @@ def _image_size(results: list[BlockResult], image: str) -> tuple[int, int] | Non
     return None
 
 
-def _check_image(where: str, results: list[BlockResult], image: str, workdir: Path):
-    size = _image_size(results, image)
+def _check_image(
+    manual: Manual, where: str, results: list[BlockResult], image: str, workdir: Path
+):
+    size = _image_size(manual.path, results, image)
     if size is None:
         msg = f"{where}: no d.mon call of a block that ran writes {image}"
         raise AssertionError(msg)
@@ -789,8 +899,9 @@ def check_manual(manual: Manual, variant: str, session, workdir: Path) -> None:
     block when a block fails (with its stderr), when its stdout differs from
     the shown output after ``normalize`` (with a unified diff), or when an
     image of an example is missing, is no PNG or has another size than its
-    d.mon call asks for. Each tab has to make the images of its examples
-    itself, in workdir. The size comes from the width and height of the
+    d.mon call asks for, and ManualFormatError when shell_calls cannot split
+    a shell block that ran into words. Each tab has to make the images of
+    its examples itself, in workdir. The size comes from the width and height of the
     ``d.mon`` call (``output=``, ``width=``, ``height=``, or the keywords of
     ``tools.d_mon(...)``), so the manual states it where the reader sees it.
     """
@@ -830,4 +941,4 @@ def check_manual(manual: Manual, variant: str, session, workdir: Path) -> None:
         ]
         where = f"{manual.path}: example {example.title!r}, {variant} tab"
         for image in example.images:
-            _check_image(where, ran, image, workdir)
+            _check_image(manual, where, ran, image, workdir)
