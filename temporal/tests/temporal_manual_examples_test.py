@@ -31,6 +31,7 @@ REVIEWED_MANUALS = (
     "t.register",
     "t.remove",
     "t.rename",
+    "t.unregister",
 )
 
 TOOLS = Path(__file__).parents[1]
