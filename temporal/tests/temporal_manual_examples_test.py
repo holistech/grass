@@ -43,6 +43,7 @@ REVIEWED_MANUALS = (
     "t.rast.neighbors",
     "t.rast.series",
     "t.rast.to.rast3",
+    "t.rast.to.vect",
     "t.rast.univar",
     "t.register",
     "t.remove",
