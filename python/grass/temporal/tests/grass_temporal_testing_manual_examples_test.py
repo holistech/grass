@@ -388,6 +388,27 @@ def test_normalize_replaces_the_hex_of_the_register_table_name():
     assert me.normalize(other, CONTEXT).endswith(" | min: 3\n")
 
 
+def test_normalize_replaces_the_time_lines_of_the_history():
+    # t.info -h prints the time of each command on a line of its own.
+    shown = (
+        "# Command history:\n"
+        "# 2026-11-01 12:00:00\n"
+        't.create output="a" \\\n'
+        "# 2026-11-01 12:00:00\n"
+        't.register input="a"\n'
+    )
+    printed = (
+        "# Command history:\n"
+        "# 2026-11-02 18:48:15\n"
+        't.create output="a" \\\n'
+        "# 2026-11-02 18:48:16\n"
+        't.register input="a"\n'
+    )
+    assert me.normalize(printed, CONTEXT) == shown
+    changed = printed.replace('input="a"', 'input="b"')
+    assert me.normalize(changed, CONTEXT) != shown
+
+
 def test_normalize_keeps_a_comment_line_that_starts_with_a_time():
     shown = "# 2020-01-01 00:00:00 start\n"
     assert me.normalize(shown, CONTEXT) == shown

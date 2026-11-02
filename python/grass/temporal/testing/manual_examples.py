@@ -431,6 +431,9 @@ _TIME_FIELDS = (
     re.compile(rf"((?:creation|modification)_time=')({_TIME})(')"),
     # t.info "Command history": the " | # TIME" line of every command
     re.compile(rf"^( \| # ){_TIME}", re.MULTILINE),
+    # t.info -h: the "# TIME" line of every command; only a time alone on its
+    # line, so that a comment which starts with a time stays
+    re.compile(rf"^(# ){_TIME}$", re.MULTILINE),
 )
 
 _REGISTER = re.compile(r"(\b\w+_map_register_)[0-9a-f]{32}\b")
@@ -448,8 +451,9 @@ def normalize(text: str, context: NormalizeContext) -> str:
       whoever runs the test, and a blind replace would hit any text that
       contains it, a user called ``a`` for instance;
     - the creation and modification time of a space time dataset as ``t.info``
-      and ``t.info -g`` print them, and the time stamps of its command history:
-      the time of the run; only the time, not the rest of its line;
+      and ``t.info -g`` print them, and the time stamps of its command history
+      in the report of ``t.info`` and in ``t.info -h``: the time of the run;
+      only the time, not the rest of its line;
     - the hex part of the register table name (``raster_map_register_<hex>``,
       likewise ``raster3d_``, ``vector_``) that ``t.info`` prints: it is a
       new uuid4 for every dataset. The type prefix and the rest of the line
@@ -468,6 +472,7 @@ def normalize(text: str, context: NormalizeContext) -> str:
     text = _TIME_FIELDS[0].sub(rf"\g<1>{FIXED_TIME}", text)
     text = _TIME_FIELDS[1].sub(rf"\g<1>{FIXED_TIME}\g<3>", text)
     text = _TIME_FIELDS[2].sub(rf"\g<1>{FIXED_TIME}", text)
+    text = _TIME_FIELDS[3].sub(rf"\g<1>{FIXED_TIME}", text)
     return _REGISTER.sub(rf"\g<1>{FIXED_REGISTER}", text)
 
 
