@@ -81,13 +81,15 @@ The option **method** chooses what is listed. The default is `list`.
   A gap line has `None` as `id`, `name` and `mapset`; its times are the end of
   the map before and the start of the map after the gap, and its length is the
   length of the gap. Maps that follow each other directly leave no gap.
-- `gran` samples the maps by a granule and prints one line per granule, with
-  the columns of `delta`. The times and the length are those of the granule,
-  not of the map, so a map that is longer than the granule is listed once for
-  each granule it covers. A granule without a map has `None` as `id`, `name`
-  and `mapset`. When more than one map meets a granule, the line names one of
-  them: a map that covers or overlaps the granule names it before a map that
-  lies inside it. `gran` refuses a dataset without maps.
+- `gran` samples the maps by a granule and prints one line per granule, with the
+  columns of `delta`. The times and the length are those of the granule, not of
+  the map, so a map that is longer than the granule is listed once for each
+  granule it covers. A granule without a map has `None` as `id`, `name` and
+  `mapset`. When more than one map meets a granule, the line names the map with
+  the earliest start of the first of these groups that is not empty: maps that
+  are equal to the granule, maps that contain it, maps that start inside it and
+  end after it, maps that start before it and end inside it, and maps that lie
+  inside it. `gran` refuses a dataset without maps.
 - `cols` and `comma` are the old names of the formats `plain` and `line`.
   `cols` is the same as `list`, and `comma` is `list` with `format=line`.
   Prefer the option **format**.
@@ -130,16 +132,19 @@ instead of the standard output.
 
 ## NOTES
 
-If no map is listed, the result depends on the method and the format. With
-the method `list` and the formats `plain` and `line`, *t.rast.list* stops with
-the error "Nothing found in the database for space time dataset
-`<name@mapset>` (type: strds)", followed by "Dataset is empty" for a dataset
-without maps and by "Dataset is empty or where clause is too constrained or
-incorrect" when **where** is given. With the format `json`, `data` is an empty
-list. The methods `delta` and `deltagaps` print the line with the column names
-only for a dataset without maps, and `delta` does so also when **where**
-selects nothing. The method `gran` stops for a dataset without maps with the
-error "Dataset is empty".
+If no map is listed, the result depends on the method and the format. With the
+method `list` and the formats `plain` and `line`, *t.rast.list* stops with the
+error "Nothing found in the database for space time dataset `<name@mapset>`
+(type: strds)", followed by "Dataset is empty" for a dataset without maps and by
+"Dataset is empty or where clause is too constrained or incorrect" when
+**where** is given. With the format `json`, `data` is an empty list. The methods
+`delta` and `deltagaps` print the line with the column names only, both for a
+dataset without maps and when **where** selects nothing. The method `gran` does
+the same when **where** selects nothing in a dataset that has a granularity, but
+stops for a dataset without maps with the error "Dataset is empty". A dataset
+with a single map that is a time instant has no granularity, and `gran` without
+**granule** stops for it with the error "Wrong granularity: "None"", whatever
+**where** selects. Give a **granule**, such as `"1 day"`, or use `delta`.
 
 A map without a start time is listed by `delta` and `deltagaps` with `None`
 in all time columns, and *t.rast.list* warns about it. The distances count from

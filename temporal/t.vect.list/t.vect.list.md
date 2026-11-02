@@ -92,17 +92,17 @@ The option **method** chooses what is listed. The default is `cols`.
   the end of the map before and the start of the map after the gap, and its
   length is the length of the gap. Maps that follow each other directly leave
   no gap.
-- `gran` samples the maps by the granularity of the dataset and prints one
-  line per granule, with the columns of `delta`. There is no option to choose
-  another granule. The times and the length are those of the granule, not of
-  the map, so a map that is longer than the granule is listed once for each
-  granule it covers. A granule without a map has `None` as `id`, `name`,
-  `layer` and `mapset`. When more than one map meets a granule, the line names
-  the first map of the first group that is not empty, in this order: maps that
-  are equal to the granule, maps that contain it, maps that overlap it, maps
-  that are overlapped by it and maps that lie inside it. The sixth example
-  shows a map that is equal to a granule named before a longer map that
-  contains it. The granularity of a dataset is shown by
+- `gran` samples the maps by the granularity of the dataset and prints one line
+  per granule, with the columns of `delta`. There is no option to choose another
+  granule. The times and the length are those of the granule, not of the map, so
+  a map that is longer than the granule is listed once for each granule it
+  covers. A granule without a map has `None` as `id`, `name`, `layer` and
+  `mapset`. When more than one map meets a granule, the line names the map with
+  the earliest start of the first of these groups that is not empty: maps that
+  are equal to the granule, maps that contain it, maps that start inside it and
+  end after it, maps that start before it and end inside it, and maps that lie
+  inside it. The sixth example shows a map that is equal to a granule named
+  before a longer map that contains it. The granularity of a dataset is shown by
   *[t.info](t.info.md)* with the flag **-g**.
 - `comma` is the old name of `cols` with `format=line`: it prints the values
   of the chosen column in one line, the ids without **columns**. Prefer the

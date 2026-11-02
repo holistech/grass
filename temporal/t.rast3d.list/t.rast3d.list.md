@@ -78,15 +78,18 @@ The option **method** chooses what is listed. The default is `cols`.
   A gap line has `None` as `id`, `name` and `mapset`; its times are the end of
   the map before and the start of the map after the gap, and its length is the
   length of the gap. Maps that follow each other directly leave no gap.
-- `gran` samples the maps by a granule and prints one line per granule, with
-  the columns of `delta`. The times and the length are those of the granule,
-  not of the map, so a map that is longer than the granule is listed once for
-  each granule it covers. A granule without a map has `None` as `id`, `name`
-  and `mapset`. When more than one map meets a granule, the line names one of
-  them: a map that covers or overlaps the granule names it before a map that
-  lies inside it.
-- `comma` is the old name of `cols` with `format=line`: it prints the ids in
-  one line. Prefer the option **format**.
+- `gran` samples the maps by a granule and prints one line per granule, with the
+  columns of `delta`. The times and the length are those of the granule, not of
+  the map, so a map that is longer than the granule is listed once for each
+  granule it covers. A granule without a map has `None` as `id`, `name` and
+  `mapset`. When more than one map meets a granule, the line names the map with
+  the earliest start of the first of these groups that is not empty: maps that
+  are equal to the granule, maps that contain it, maps that start inside it and
+  end after it, maps that start before it and end inside it, and maps that lie
+  inside it.
+- `comma` is the old name of `cols` with `format=line`: it prints the values of
+  the chosen column in one line, the ids without **columns**. Prefer the option
+  **format**.
 
 The option **granule** is the granule of the method `gran`. For absolute
 time it is a text with a number and a time unit, such as `"2 months"`. For

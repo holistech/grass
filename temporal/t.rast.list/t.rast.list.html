@@ -104,9 +104,7 @@ granule, with the columns of <code>delta</code>. The times and the length are
 those of the granule, not of the map, so a map that is longer than the granule
 is listed once for each granule it covers. A granule without a map has
 <code>None</code> as <code>id</code>, <code>name</code> and
-<code>mapset</code>. When more than one map meets a granule, the line names one
-of them: a map that covers or overlaps the granule names it before a map that
-lies inside it. <code>gran</code> refuses a dataset without maps.</li>
+<code>mapset</code>. When more than one map meets a granule, the line names the map with the earliest start of the first of these groups that is not empty: maps that are equal to the granule, maps that contain it, maps that start inside it and end after it, maps that start before it and end inside it, and maps that lie inside it. <code>gran</code> refuses a dataset without maps.</li>
 <li><code>cols</code> and <code>comma</code> are the old names of the formats
 <code>plain</code> and <code>line</code>. <code>cols</code> is the same as
 <code>list</code>, and <code>comma</code> is <code>list</code> with
@@ -164,11 +162,7 @@ the database for space time dataset <code>&lt;name@mapset&gt;</code> (type:
 strds)", followed by "Dataset is empty" for a dataset without maps and by
 "Dataset is empty or where clause is too constrained or incorrect" when
 <b>where</b> is given. With the format <code>json</code>, <code>data</code> is
-an empty list. The methods <code>delta</code> and <code>deltagaps</code> print
-the line with the column names only for a dataset without maps, and
-<code>delta</code> does so also when <b>where</b> selects nothing. The method
-<code>gran</code> stops for a dataset without maps with the error "Dataset is
-empty".
+an empty list. The methods <code>delta</code> and <code>deltagaps</code> print the line with the column names only, both for a dataset without maps and when <b>where</b> selects nothing. The method <code>gran</code> does the same when <b>where</b> selects nothing in a dataset that has a granularity, but stops for a dataset without maps with the error "Dataset is empty". A dataset with a single map that is a time instant has no granularity, and <code>gran</code> without <b>granule</b> stops for it with the error "Wrong granularity: "None"", whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>, or use <code>delta</code>.
 <p>
 A map without a start time is listed by <code>delta</code> and
 <code>deltagaps</code> with <code>None</code> in all time columns, and
