@@ -41,6 +41,7 @@ REVIEWED_MANUALS = (
     "t.rast.import",
     "t.rast.list",
     "t.rast.neighbors",
+    "t.rast.out.vtk",
     "t.rast.series",
     "t.rast.to.rast3",
     "t.rast.to.vect",
