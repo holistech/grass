@@ -1,8 +1,23 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast3d.algebra</em> performs temporal and spatial map algebra
-operations on space time 3D raster datasets (STR3DS) by using the
-temporal 3D raster algebra.
+<p>
+<em>t.rast3d.algebra</em> performs temporal and spatial map algebra operations on space time 3D raster datasets (STR3DS) by using the temporal 3D raster algebra. It reads an expression of the form <code>result = expression</code>, relates the maps of the datasets in the expression by their time (and, with <b>-s</b>, by their place), computes each result map with <em><a href="r3.mapcalc.html">r3.mapcalc</a></em> and registers the result maps in a new space time 3D raster dataset in the current mapset. Use it when the maps to combine are not simply paired by equal time stamps, or when a result depends on how the time intervals of the maps lie to each other. The 2D counterpart is <em><a href="t.rast.algebra.html">t.rast.algebra</a></em>; to compute with the maps of the datasets for each time step with a single <em>r3.mapcalc</em> expression, see <em><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></em>. See the <a href="temporalintro.html">introduction to temporal data processing</a> for space time datasets.
+
+<h3>Expression, result and maps</h3>
+
+<p>
+The option <b>expression</b> holds the statement <code>result = expression</code>. The name left of the equal sign is the new space time 3D raster dataset; it is created in the current mapset, and an existing dataset of that name is replaced only with <b>--overwrite</b>. A dataset of another mapset is named <code>name@mapset</code> in the expression; a name without mapset is searched only in the current mapset. The right side may contain space time 3D raster datasets, single maps (<code>map()</code> and <code>tmap()</code>), temporal and raster operators and functions, as described below and in <em><a href="t.rast.algebra.html">t.rast.algebra</a></em>.
+
+<p>
+The option <b>basename</b> is required. The result maps are named <code>basename_0</code>, <code>basename_1</code> and so on, counted from 0 in the order in which the algebra computes them. This is not always the order of their time, and in the new algebra a number can be missing: a map that is null everywhere is not registered unless <b>-n</b> is given, but it keeps its number (see the example "Spatially related maps and empty maps"). The classic algebra (<b>-c</b>) does not compute a pair of maps that do not overlap in space at all, so it registers no empty map for it, even with <b>-n</b>, and its numbers have no gap. An expression that leaves no map to register ends with the warning "The expression produced no map, the result is empty", and the result is an empty dataset.
+
+<p>
+The option <b>nprocs</b> is the number of <em>r3.mapcalc</em> processes that run at the same time. The default is 1. The result is the same for any number.
+
+<h3>Flags</h3>
+
+<p>
+<b>-s</b> also checks the spatial topology of temporally related maps and processes only maps that are related in space too. <b>-n</b> registers maps that are null everywhere, which are left out by default; this concerns the new algebra, see above for <b>-c</b>. <b>-g</b> uses the granularity algebra instead of the temporal topology of the maps, see "Granularity algebra" below. <b>-c</b> selects the classic algebra, which gives the results of the releases before GRASS 8.6; see "Core and classic algebra" below. The environment variable <code>GRASS_TEMPORAL_ALGEBRA</code> selects it for a whole session.
 
 <h2>NOTES</h2>
 
@@ -381,7 +396,7 @@ cell value of a map read at an offset, as
 in <code>B[1] &gt; 0.5 &amp;&amp; B</code>, did not change:
 
 <div class="code"><pre>
-C = if(B > 0.5 && td(A[1]) > 0.5, A)
+C = if(B &gt; 0.5 &amp;&amp; td(A[1]) &gt; 0.5, A)
 </pre></div>
 </li>
 
@@ -534,7 +549,997 @@ classic algebra" apply with <b>-g</b> as well, for example item 4, the right
 reference.
 
 <p>
-See the manual of <a href="t.rast.algebra.html">t.rast.algebra</a> for an example.
+See the example "Sample the maps with a common granularity" below and the
+manual of <a href="t.rast.algebra.html">t.rast.algebra</a>.
+
+<h2>EXAMPLES</h2>
+
+<h3>Compute with every map of a dataset</h3>
+
+<p>
+The dataset <code>A</code> has four daily maps for 1 to 4 March 2026. Each map has the same value in all cells: 1, 2, 3 and 4. The region from <em>g.region</em> is two by two cells wide and, with <code>t=2</code>, <code>b=0</code> and <code>tbres=1</code>, two layers high, so a map has eight voxels and its smallest and largest values are equal.
+
+<p>
+The expression <code>C = A <em> 2</code> creates the dataset <code>C</code> and doubles each map of <code>A</code>. The new maps are named <code>c_0</code> to <code>c_3</code> after <b>basename</b>, counted from 0, and each has the time of its source map. <b>nprocs</b> lets two </em>r3.mapcalc* processes run at the same time; the result is the same as with one. The values are 2, 4, 6 and 8.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=2 w=0 t=2 b=0 res=1 res3=1 tbres=1
+for step in 1 2 3 4; do
+    r3.mapcalc expression="a_$step = $step"
+done
+t.create type=str3ds output=A title="Daily maps" \
+    description="Four daily maps with the values 1 to 4"
+t.register -i type=raster_3d input=A maps=a_1,a_2,a_3,a_4 \
+    start=2026-03-01 increment="1 day"
+t.rast3d.list input=A columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+a_1|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+a_2|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+a_3|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+a_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra expression="C = A * 2" basename=c nprocs=2
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|2.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|4.0|4.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|6.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=2, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+for step in range(1, 5):
+    tools.r3_mapcalc(expression=f"a_{step} = {step}")
+tools.t_create(
+    type="str3ds",
+    output="A",
+    title="Daily maps",
+    description="Four daily maps with the values 1 to 4",
+)
+tools.t_register(
+    type="raster_3d",
+    input="A",
+    maps="a_1,a_2,a_3,a_4",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="A", columns="name,start_time,end_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+a_1|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+a_2|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+a_3|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+a_4|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="C = A * 2", basename="c", nprocs=2)
+print(tools.t_rast3d_list(input="C", columns="name,start_time,end_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|2.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|4.0|4.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|6.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
+</pre></div>
+
+<h3>Relate the maps of two datasets by their time</h3>
+
+<p>
+The dataset <code>B</code> has two maps of two days each: <code>b_1</code> with the value 10 for 1 and 2 March and <code>b_2</code> with the value 20 for 3 and 4 March. Each map of <code>B</code> contains two maps of <code>A</code>, and each map of <code>A</code> lies during a map of <code>B</code>. The relation is written in curly brackets after the operator.
+
+<p>
+The first block adds to each map of <code>B</code> all the maps of <code>A</code> that it contains: <code>b_1 + a_1 + a_2</code> is 13 and <code>b_2 + a_3 + a_4</code> is 27. The result has two maps and takes the time of <code>B</code>. The second block adds to each map of <code>A</code> the map of <code>B</code> that it lies in: 11, 12, 23 and 24, with the times of <code>A</code>. The two expressions differ because the operator combines a map with all of its related maps of the right dataset, and does so for each map of the left one.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="b_1 = 10"
+r3.mapcalc expression="b_2 = 20"
+t.create type=str3ds output=B title="Two-day maps" \
+    description="Two maps of two days each"
+t.register -i type=raster_3d input=B maps=b_1,b_2 \
+    start=2026-03-01 increment="2 days"
+t.rast3d.algebra expression="D = B {+,contains} A" basename=d
+t.rast3d.list input=D columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+d_0|2026-03-01 00:00:00|2026-03-03 00:00:00|13.0|13.0
+d_1|2026-03-03 00:00:00|2026-03-05 00:00:00|27.0|27.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra expression="E = A {+,during} B" basename=e
+t.rast3d.list input=E columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+e_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+e_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+e_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+e_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r3_mapcalc(expression="b_1 = 10")
+tools.r3_mapcalc(expression="b_2 = 20")
+tools.t_create(
+    type="str3ds",
+    output="B",
+    title="Two-day maps",
+    description="Two maps of two days each",
+)
+tools.t_register(
+    type="raster_3d",
+    input="B",
+    maps="b_1,b_2",
+    start="2026-03-01",
+    increment="2 days",
+    flags="i",
+)
+tools.t_rast3d_algebra(expression="D = B {+,contains} A", basename="d")
+print(tools.t_rast3d_list(input="D", columns="name,start_time,end_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+d_0|2026-03-01 00:00:00|2026-03-03 00:00:00|13.0|13.0
+d_1|2026-03-03 00:00:00|2026-03-05 00:00:00|27.0|27.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="E = A {+,during} B", basename="e")
+print(tools.t_rast3d_list(input="E", columns="name,start_time,end_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+e_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+e_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+e_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+e_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<h3>Use the classic algebra</h3>
+
+<p>
+With the temporal operator <code>r</code>, the result takes the time of the right dataset. The expression <code>B {+,contains,r} A</code> gives one map for each map of <code>A</code>: the new algebra adds to each map of <code>A</code> the map of <code>B</code> that contains it, so the results are 11, 12, 23 and 24 with the times of <code>A</code>. The flag <b>-c</b> selects the classic algebra, which adds to each of them all maps of <code>A</code> that the map of <code>B</code> contains: 13, 13, 27 and 27, with the same times. This is item 4 in the NOTES; the other differences are listed there.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra expression="core_sum = B {+,contains,r} A" basename=core_sum
+t.rast3d.list input=core_sum columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+core_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+core_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+core_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+core_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -c expression="classic_sum = B {+,contains,r} A" \
+    basename=classic_sum
+t.rast3d.list input=classic_sum columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+classic_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|13.0|13.0
+classic_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|13.0
+classic_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|27.0|27.0
+classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="core_sum = B {+,contains,r} A", basename="core_sum")
+print(
+    tools.t_rast3d_list(
+        input="core_sum", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+core_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+core_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+core_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+core_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(
+    expression="classic_sum = B {+,contains,r} A",
+    basename="classic_sum",
+    flags="c",
+)
+print(
+    tools.t_rast3d_list(
+        input="classic_sum", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+classic_sum_0|2026-03-01 00:00:00|2026-03-02 00:00:00|13.0|13.0
+classic_sum_1|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|13.0
+classic_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|27.0|27.0
+classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
+</pre></div>
+
+<h3>Spatially related maps and empty maps</h3>
+
+<p>
+The dataset <code>P</code> has three daily maps with the values 100, 200 and 300 for 1 to 3 March. The map <code>p_2</code> is created in a region that lies at the columns 10 to 12, far from the region of the other maps; the region is set back afterwards.
+
+<p>
+The expression <code>A + P</code> is computed in the current region. The maps of the second day do not overlap in space, so the result for that day has no data in the region. By default a map without data is not registered, and the first block gives the maps <code>plain_0</code> (1 + 100 = 101) and <code>plain_2</code> (3 + 300 = 303); the number 1 is missing. <b>-n</b> registers the empty map as well: <code>with_null_1</code> has no minimum or maximum, which the list shows as <code>None</code>. With <b>-s</b> the maps of the second day are not related in space, so the algebra does not compute that pair, and with <b>-n</b> there is no empty map either: <code>spatial_0</code> and <code>spatial_1</code> hold 101 and 303 and the numbers are consecutive. This is the new algebra; the classic algebra gives the same two maps with or without <b>-n</b> and <b>-s</b>, see the last example of the catalog.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="p_1 = 100"
+g.region n=2 s=0 e=12 w=10 t=2 b=0 res=1 res3=1 tbres=1
+r3.mapcalc expression="p_2 = 200"
+g.region n=2 s=0 e=2 w=0 t=2 b=0 res=1 res3=1 tbres=1
+r3.mapcalc expression="p_3 = 300"
+t.create type=str3ds output=P title="Patches" \
+    description="Three daily maps, the second one far away"
+t.register -i type=raster_3d input=P maps=p_1,p_2,p_3 \
+    start=2026-03-01 increment="1 day"
+t.rast3d.algebra expression="plain = A + P" basename=plain
+t.rast3d.list input=plain columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -n expression="with_null = A + P" basename=with_null
+t.rast3d.list input=with_null columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+with_null_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+with_null_1|2026-03-02 00:00:00|2026-03-03 00:00:00|None|None
+with_null_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -n -s expression="spatial = A + P" basename=spatial
+t.rast3d.list input=spatial columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+spatial_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r3_mapcalc(expression="p_1 = 100")
+tools.g_region(n=2, s=0, e=12, w=10, t=2, b=0, res=1, res3=1, tbres=1)
+tools.r3_mapcalc(expression="p_2 = 200")
+tools.g_region(n=2, s=0, e=2, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+tools.r3_mapcalc(expression="p_3 = 300")
+tools.t_create(
+    type="str3ds",
+    output="P",
+    title="Patches",
+    description="Three daily maps, the second one far away",
+)
+tools.t_register(
+    type="raster_3d",
+    input="P",
+    maps="p_1,p_2,p_3",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast3d_algebra(expression="plain = A + P", basename="plain")
+print(
+    tools.t_rast3d_list(input="plain", columns="name,start_time,end_time,min,max").text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+plain_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="with_null = A + P", basename="with_null", flags="n")
+print(
+    tools.t_rast3d_list(
+        input="with_null", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+with_null_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+with_null_1|2026-03-02 00:00:00|2026-03-03 00:00:00|None|None
+with_null_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="spatial = A + P", basename="spatial", flags="ns")
+print(
+    tools.t_rast3d_list(
+        input="spatial", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+spatial_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<h3>Sample the maps with a common granularity</h3>
+
+<p>
+<code>A</code> has daily maps and <code>B</code> maps of two days. The expression <code>A + B</code> relates maps of equal time by default, and no map of <code>A</code> has the time of a map of <code>B</code>, so the first block gives a result dataset without maps (the tool warns that the expression produced no map). With <b>-g</b> the datasets are first sampled with their common granularity of one day: each day takes the map of <code>B</code> that contains it, and the sum is computed for every day: 11, 12, 23 and 24.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra expression="unsampled = A + B" basename=unsampled
+t.info -g type=str3ds input=unsampled | grep "^number_of_maps="
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -g expression="sampled = A + B" basename=sampled
+t.rast3d.list input=sampled columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+sampled_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+sampled_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+sampled_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+sampled_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="unsampled = A + B", basename="unsampled")
+info = tools.t_info(type="str3ds", input="unsampled", flags="g").keyval
+print(f"number_of_maps={info['number_of_maps']}")
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_algebra(expression="sampled = A + B", basename="sampled", flags="g")
+print(
+    tools.t_rast3d_list(
+        input="sampled", columns="name,start_time,end_time,min,max"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+sampled_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|11.0
+sampled_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+sampled_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
+sampled_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
+</pre></div>
+
+<h3>Catalog: select and combine maps by temporal relations</h3>
+
+<p>
+The expressions of this and the following sections are shown for the shell only; they use the datasets of the earlier examples and a few more, which the first block creates: <code>I</code> has two time instances (2 and 4 March 2026, values 100 and 200), <code>H</code> one map from 2 to 4 March (value 5), <code>N</code> four daily maps with the values 4, 3, 2 and 1, <code>M</code> one map from 31 January to 31 March 2001 (value 7), <code>Z</code> four daily maps with two layers each (the value is the layer number, 1 or 2, plus 0, 10, 20 and 30), <code>R</code> two maps in relative time (hours 0 to 1 and 1 to 2, values 1 and 2), and the plain map <code>k_1</code> with the value 0.5. Every block replaces the dataset <code>C</code> of the block before (<b>--overwrite</b>) and lists it.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="i_1 = 100"
+r3.mapcalc expression="i_2 = 200"
+t.create type=str3ds output=I title="Instants" description="Two instants"
+t.register type=raster_3d input=I maps=i_1,i_2 \
+    start=2026-03-02 increment="2 days"
+r3.mapcalc expression="h_1 = 5"
+t.create type=str3ds output=H title="Interval" description="One interval"
+t.register type=raster_3d input=H maps=h_1 start=2026-03-02 end=2026-03-04
+for step in 1 2 3 4; do
+    r3.mapcalc expression="n_$step = 5 - $step"
+    r3.mapcalc expression="z_$step = depth() + 10 * ($step - 1)"
+done
+t.create type=str3ds output=N title="Daily maps" description="Values 4 to 1"
+t.register -i type=raster_3d input=N maps=n_1,n_2,n_3,n_4 \
+    start=2026-03-01 increment="1 day"
+t.create type=str3ds output=Z title="Layers" description="Two layers"
+t.register -i type=raster_3d input=Z maps=z_1,z_2,z_3,z_4 \
+    start=2026-03-01 increment="1 day"
+r3.mapcalc expression="m_1 = 7"
+t.create type=str3ds output=M title="Long interval" \
+    description="From January to March 2001"
+t.register type=raster_3d input=M maps=m_1 start=2001-01-31 end=2001-03-31
+r3.mapcalc expression="s_1 = 1"
+r3.mapcalc expression="s_2 = 2"
+t.create type=str3ds output=R temporaltype=relative title="Relative time" \
+    description="Two maps of one hour"
+t.register -i type=raster_3d input=R maps=s_1,s_2 start=0 increment=1 \
+    unit=hours
+r3.mapcalc expression="k_1 = 0.5"
+</pre></div>
+
+<p>
+The selection <code>:</code> takes the maps of the left dataset that are in the given relation to a map of the right one and does not compute any cell. The first block gives all four maps of <code>A</code>, because each lies during a map of <code>B</code>. The temporal operator <code>r</code> gives each of them the time of the map of <code>B</code> it lies in, so two maps share a time.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A {:,during} B" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A {:,during,r} B" basename=c
+t.rast3d.list input=C order=start_time,name \
+    columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|1.0|1.0
+c_1|2026-03-01 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-05 00:00:00|3.0|3.0
+c_3|2026-03-03 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<p>
+The inverse selection <code>!:</code> takes the maps that have no map in the relation. Of the four maps of <code>A</code>, two lie during <code>H</code>, so the maps of the first and the last day remain. A single map with a time stamp, <code>tmap()</code>, can stand on the right side: the selection with it gives the two maps during <code>H</code>.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A {!:,during} H" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A {:,during} tmap(h_1)" \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_1|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+</pre></div>
+
+<p>
+The map of <code>H</code> starts before the second map of <code>B</code> and ends within it, so it overlaps that map; the first map of <code>B</code> is not in this relation to it. The sum is 25 for either operator. The temporal operator decides the time of the sum: <code>i</code> is the intersection of the two times, 3 and 4 March, and <code>u</code> the union, 2 to 5 March.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = H {+,overlaps,i} B" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-03 00:00:00|2026-03-04 00:00:00|25.0|25.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = H {+,overlaps,u} B" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|2026-03-05 00:00:00|25.0|25.0
+</pre></div>
+
+<p>
+The hash operator <code>#</code> counts the related maps: each map of <code>B</code> contains two maps of <code>A</code>. In a condition, the count selects the maps of <code>B</code> that contain more than one map.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = B {#,contains} A" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|2.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = if(B {#,contains} A &gt; 1, B)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|10.0|10.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+</pre></div>
+
+<h3>Catalog: conditions and comparisons</h3>
+
+<p>
+An <code>if</code> statement keeps the cells of the then part where the condition is true. Without an else part, the cells where a condition on map values is false are 0. The first block gives 0, 0, 3 and 4; the second tests the start day of the map instead, so it keeps the first two maps (1 and 2) and gives 0 for the other two.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = if(A &gt; 2, A)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|0.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|0.0|0.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = if(start_day(A) &lt;= 2, A, 0)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|0.0|0.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|0.0|0.0
+</pre></div>
+
+<p>
+With a temporal relation at the start, <code>if({during}, A &gt; 1, B, 0)</code> takes the maps of <code>B</code> that lie during a map of the condition. A map of <code>B</code> contains two maps of <code>A</code>, and the conditions of the related maps are joined with and: the first map of <code>B</code> has a map of <code>A</code> with the value 1, so the result is 0, and the second gives 20. Written as <code>{during,|}</code> the relation joins them with or, so both maps of <code>B</code> are kept: 10 and 20.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = if({during}, A &gt; 1, B, 0)" \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|0.0|0.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = if({during,|}, A &gt; 1, B, 0)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|10.0|10.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+</pre></div>
+
+<p>
+Inside <code>if()</code>, two datasets are compared cell by cell. <code>A &gt;= N</code> compares the maps of equal time, and the <code>if</code> gives the larger of the two: the values of <code>A</code> are 1 to 4 and those of <code>N</code> 4 to 1, so the result is 4, 3, 3 and 4. A comparison with a temporal relation in curly brackets is true for a map of <code>A</code> if the comparison holds for any (<code>|</code>) or all (<code>&amp;</code>) of the related maps: <code>A {&lt;,during,|} B</code> is true for every map of <code>A</code>, since all values are below 10.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = if(A &gt;= N, A, N)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|4.0|4.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|3.0|3.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = if(A {&lt;,during,|} B, A, 0)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<h3>Catalog: temporal functions, shifts and buffers</h3>
+
+<p>
+The temporal functions give the duration or a part of the date of each map as a number. <code>start_day(A)</code> is the day of the month, 1 to 4, so the sum is 2, 4, 6 and 8. <code>td(A)</code> is the duration of a map in days, here 1. The functions <code>tshift()</code>, <code>tsnap()</code> and <code>buff_t()</code> change the time of the maps and leave the cell values alone.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A + start_day(A)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|2.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|4.0|4.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|6.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A * td(A)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<p>
+<code>tshift()</code> moves the maps by one day. <code>tsnap()</code> turns the two time instances of <code>I</code> into intervals of two days, the granularity of <code>I</code>. <code>buff_t()</code> widens the time of the instances by one day on both sides; with a negative size it shrinks the maps of <code>B</code> by half a day at both ends, from two days to one.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression='C = tshift(A, "1 day")' basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|2026-03-03 00:00:00|1.0|1.0
+c_1|2026-03-03 00:00:00|2026-03-04 00:00:00|2.0|2.0
+c_2|2026-03-04 00:00:00|2026-03-05 00:00:00|3.0|3.0
+c_3|2026-03-05 00:00:00|2026-03-06 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = tsnap(I)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|2026-03-04 00:00:00|100.0|100.0
+c_1|2026-03-04 00:00:00|2026-03-06 00:00:00|200.0|200.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression='C = buff_t(I, "1 day")' basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|100.0|100.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|200.0|200.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression='C = buff_t(B, "-12 hours")' \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 12:00:00|2026-03-02 12:00:00|10.0|10.0
+c_1|2026-03-03 12:00:00|2026-03-04 12:00:00|20.0|20.0
+</pre></div>
+
+<p>
+A step in months or years is a calendar step: the map of <code>M</code> lasts from 31 January to 31 March 2001. Shifted by one month it starts on 28 February, the last day of February, and ends on 30 April, the last day of April. Buffered by a month it starts on 31 December 2000 and ends on 30 April 2001.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression='C = tshift(M, "1 months")' \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2001-02-28 00:00:00|2001-04-30 00:00:00|7.0|7.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression='C = buff_t(M, "1 months")' \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2000-12-31 00:00:00|2001-04-30 00:00:00|7.0|7.0
+</pre></div>
+
+<p>
+Datasets with relative time work in the same way, and a step is a number in the unit of the dataset: <code>R * 2</code> doubles the values 1 and 2, and shifting by 1 moves the maps by one hour.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = R * 2" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|0|1|2.0|2.0
+c_1|1|2|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = tshift(R, 1)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|1|2|1.0|1.0
+c_1|2|3|2.0|2.0
+</pre></div>
+
+<h3>Catalog: merge, single maps and the neighbourhood modifier</h3>
+
+<p>
+<code>merge()</code> joins the maps of two datasets into one dataset; here the result has the four maps of <code>A</code> and the two of <code>B</code>. A plain map without time stamp enters through <code>map()</code>: <code>A * map(k_1)</code> multiplies each map of <code>A</code> with 0.5, giving 0.5, 1, 1.5 and 2.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = merge(A, B)" basename=c
+t.rast3d.list input=C order=start_time,name \
+    columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-01 00:00:00|2026-03-03 00:00:00|10.0|10.0
+c_2|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_3|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_4|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+c_5|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = A * map(k_1)" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|0.5|0.5
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|1.0|1.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|1.5|1.5
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|2.0|2.0
+</pre></div>
+
+<p>
+The neighbourhood modifier has four offsets for a 3D raster dataset: <code>Z[row,column,depth,time]</code>. The maps of <code>Z</code> have the values 1 and 2 in their two layers (plus 0, 10, 20 and 30 for the four days). The offset 1 in depth reads the next layer: the first layer sees the value of the second one, and the second layer has no next layer, so it is null. The only value of the result is 2 for the first day, 12 for the second, and so on. The fourth offset reads another map in time: <code>Z[0,0,0,1]</code> has the cells of the next map with the time of the current one, and the last map has no successor, so the result has three maps. The offsets combine: <code>Z[0,0,1,-1]</code> reads the next layer of the previous map, which leaves out the first map.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = Z[0,0,1,0]" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|2.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|22.0|22.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|32.0|32.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = Z[0,0,0,1]" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|11.0|12.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|21.0|22.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|31.0|32.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = Z[0,0,1,-1]" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_1|2026-03-03 00:00:00|2026-03-04 00:00:00|12.0|12.0
+c_2|2026-03-04 00:00:00|2026-03-05 00:00:00|22.0|22.0
+</pre></div>
+
+<h3>Catalog: where the classic algebra differs</h3>
+
+<p>
+Each pair of blocks computes one expression of the list "Core and classic algebra" in the NOTES, first with the new algebra and then with <b>-c</b>. The first pair is item 1: the conditions of the two maps of <code>A</code> within a map of <code>B</code> are joined with and, so the new algebra gives 0 and 20; the classic algebra gives one result for each pair of a condition map and a conclusion map, and four maps in total.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = if({during}, A &gt; 1, B, 0)" \
+    basename=c
+t.rast3d.list input=C order=start_time,name \
+    columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|0.0|0.0
+c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -c --overwrite \
+    expression="C = if({during}, A &gt; 1, B, 0)" basename=c
+t.rast3d.list input=C order=start_time,name \
+    columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-03 00:00:00|0.0|0.0
+c_1|2026-03-01 00:00:00|2026-03-03 00:00:00|10.0|10.0
+c_2|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+c_3|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
+</pre></div>
+
+<p>
+Item 3, precedence: <code>&amp;&amp;</code> binds stronger than <code>||</code> in the new algebra, so each map of <code>A</code> is taken because <code>td(A) == 1</code> is true. The classic algebra reads the condition from left to right and takes no map; the tool warns and the result dataset is empty.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = if(td(A) == 1 || td(A) == 2 &amp;&amp; td(A) == 3, A)" \
+    basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|2.0
+c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|3.0|3.0
+c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -c --overwrite \
+    expression="C = if(td(A) == 1 || td(A) == 2 &amp;&amp; td(A) == 3, A)" \
+    basename=c
+t.info -g type=str3ds input=C | grep "^number_of_maps="
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+</pre></div>
+
+<p>
+The pair of maps without spatial overlap of the example "Spatially related maps and empty maps" is another difference: the classic algebra does not compute it, so <b>-n</b> registers no empty map there and the numbers have no gap.
+
+<div class="code"><pre>
+t.rast3d.algebra -c -n --overwrite expression="C = A + P" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
+c_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
+</pre></div>
+
+<p>
+Item 7, intersection: the map of <code>H</code> follows the map of <code>A</code> of the first day and precedes the one of the fourth day. The new algebra leaves it out, because the two intersections are not the same time; the classic algebra gives one time instance. Item 9: <code>merge()</code> of two equal maps read at an offset gives four maps in the new algebra and eight in the classic one.
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite \
+    expression="C = H {:,follows|precedes,i} A" basename=c
+t.info -g type=str3ds input=C | grep "^number_of_maps="
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -c --overwrite \
+    expression="C = H {:,follows|precedes,i} A" basename=c
+t.rast3d.list input=C columns=name,start_time,end_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time|min|max
+c_0|2026-03-02 00:00:00|None|5.0|5.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra --overwrite expression="C = merge(A[0], A[0])" basename=c
+t.info -g type=str3ds input=C | grep "^number_of_maps="
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=4
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.algebra -c --overwrite expression="C = merge(A[0], A[0])" \
+    basename=c
+t.info -g type=str3ds input=C | grep "^number_of_maps="
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=8
+</pre></div>
 
 <h2>REFERENCES</h2>
 
