@@ -26,9 +26,9 @@ values and no line can be traced. *r.contour* then warns once, also with
 Null cells, also the cells outside a raster mask, count as cells outside the
 region. A contour line ends between the last two cells with values, as at the
 border of the region, so a map whose null cells surround a rectangle gives the
-same lines as the same map in the region of that rectangle. A closed contour
-line that stays within about one cell of the border of the region or of null
-cells is not created.
+same lines as the same map in the region of that rectangle. Only a closed
+contour line that stays within about one cell of the border differs: at the
+border of the region it is not created, along null cells it is.
 
 *r.contour* will either step through incremental contours or produce
 contours from a list of levels, not both. If both a list of levels and a
