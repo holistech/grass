@@ -68,6 +68,7 @@ REVIEWED_MANUALS = (
     "t.vect.list",
     "t.vect.observe.strds",
     "t.vect.univar",
+    "t.vect.what.strds",
 )
 
 TOOLS = Path(__file__).parents[1]
