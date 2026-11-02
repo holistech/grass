@@ -118,6 +118,16 @@ def test_a_step_of_zero_or_less_is_an_error(tools):
             tools.r_contour(input="m", output="lines", step=step, overwrite=True)
 
 
+def test_a_step_that_would_create_too_many_levels_is_an_error(tools):
+    # Measured 2026-11-02: before the check, step=1e-12 on the values 0 to 15
+    # ended in a failing G_realloc() of a huge size.
+    tools.g_region(n=1, s=0, w=0, e=3, res=1)
+    tools.r_mapcalc(expression="m = float(col()) * 7")
+
+    with pytest.raises(Exception, match="more than .* contour levels"):
+        tools.r_contour(input="m", output="lines", step=1e-12, overwrite=True)
+
+
 def lines_of_three_rows(tools, expression):
     """Return the level of each vertex of the lines of a map of 3 rows by 4"""
     tools.g_region(n=3, s=0, w=0, e=4, res=1)

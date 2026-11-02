@@ -40,6 +40,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <float.h>
+#include <limits.h>
 #include <grass/gis.h>
 #include <grass/raster.h>
 #include <grass/dbmi.h>
@@ -339,6 +340,13 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
             kfirst = ceil((lower - anchor) / dstep - 1e-9);
             klast = floor((upper - anchor) / dstep + 1e-9);
             if (klast >= kfirst) {
+                /* The count is converted to int below, which is undefined
+                   above INT_MAX (measured 2026-11-02: step=1e-12 on values
+                   0 to 15 ended in a failing G_realloc() of a huge size). */
+                if (klast - kfirst >= (double)INT_MAX)
+                    G_fatal_error(_("The step <%s> would create more than "
+                                    "%d contour levels, use a larger step"),
+                                  step->answer, INT_MAX);
                 nlevels = (int)(klast - kfirst) + 1;
                 lev = (double *)G_realloc(lev, nlevels * sizeof(double));
                 for (i = 0; i < nlevels; i++) {
