@@ -64,15 +64,16 @@ this name exists already, <em>t.create</em> stops with an error unless
 <h2>NOTES</h2>
 
 The name of a space time dataset follows the rules for map names: it must not
-be empty or start with a dot, and it must not contain a space, a slash, a
-quotation mark, an apostrophe, <code>@</code>, a comma, <code>=</code>,
-<code>*</code> or <code>~</code>. <em>t.create</em> stops with an error for
-such a name. For a raster dataset (STRDS) the part of the name after the first
-dot is read as a semantic label, as in the input of other temporal tools, and
-the part before it must be legal as well. <em>t.create</em> creates the
-dataset under the part before the dot and stores no label:
-<code>output=prec.label</code> creates the dataset <code>prec</code>. A dot in
-the name of a space time raster dataset is therefore best avoided.
+be empty, and it must not contain a space, a slash, a quotation mark, an
+apostrophe, <code>@</code>, a comma, <code>=</code>, <code>*</code> or
+<code>~</code>. The name of a new space time dataset of any type must not
+contain a dot either: in the input of the other temporal tools, the part of a
+raster dataset name after a dot is a semantic label
+(<code>input=prec.label</code>). <em>t.create</em> stops with an error for
+such a name and creates nothing; for
+<code>output=prec.label</code> the error is
+<code>&lt;prec.label&gt; is not a valid name for a new space time dataset: a
+dot is not allowed</code>.
 <p>
 A space time dataset is always created in the current mapset. The name may
 carry the current mapset (<code>output=precipitation@PERMANENT</code> in the
