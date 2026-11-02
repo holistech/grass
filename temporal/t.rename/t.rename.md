@@ -9,6 +9,9 @@ entries of the registered maps.
 Renaming of space time datasets works only for SQLite based temporal
 databases.
 
+The new name must not contain a dot; *t.rename* stops with an error and keeps
+the old name.
+
 ## EXAMPLE
 
 A new vector space time dataset will be created, renamed and in the end
