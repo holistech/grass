@@ -235,10 +235,10 @@ end_time='2026-03-05 00:00:00'
 <h3>Compute new maps from the selected maps</h3>
 
 The first block doubles the maps of <code>temperature</code>. The expression
-<code>2 <em> temperature</code> names the dataset, which stands for the map of each step.
+<code>2 * temperature</code> names the dataset, which stands for the map of each step.
 The new maps are named <code>doubled</code>, an underscore and the day of the map (the
 granularity of <code>temperature</code> is one day), and each has the time of its source
-map. <b>nprocs</b> lets two </em>r.mapcalc* processes run at the same time; the
+map. <b>nprocs</b> lets two <em>r.mapcalc</em> processes run at the same time; the
 result is the same as with one process. The values are twice those of the
 source maps: 2 to 6 for the first day, 14 to 18 for the second.
 <p>
