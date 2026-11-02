@@ -24,7 +24,11 @@ specified saves the user from using a temporary raster map for the result of
 <h2>NOTES</h2>
 
 For a map without any valid cell, <em>r.univar</em> prints <code>nan</code> for the
-minimum and the maximum.
+minimum and the maximum. The statistics that cannot be computed without
+values, such as the mean, the standard deviation, the variance, the variation
+coefficient, the median and the percentiles, are printed as <code>nan</code> as
+well, without a sign, in the plain, shell script and CSV styles. The JSON
+format writes <code>null</code> for them.
 
 As with most GRASS raster modules, <em>r.univar</em> operates on the raster
 array defined by the current region settings, not the original extent and

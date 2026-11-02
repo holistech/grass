@@ -16,6 +16,12 @@ that was rasterized to create the <b>zones</b> input raster.
 
 <h2>NOTES</h2>
 
+For a map without any valid voxel, <em>r3.univar</em> prints <code>nan</code> for the
+statistics that cannot be computed without values, such as the mean, the
+standard deviation, the variance and the variation coefficient, without a
+sign, in the plain, shell script and CSV styles. The JSON format writes
+<code>null</code> for them.
+<p>
 As with most GRASS raster3d modules, <em>r3.univar</em> operates on the voxel
 array defined by the current 3d region settings, not the original extent and
 resolution of the input map. See <em><a href="g.region.html">g.region</a></em>.

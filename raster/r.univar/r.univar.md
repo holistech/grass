@@ -23,7 +23,11 @@ map for the result of *r.series* or *r.patch*.
 ## NOTES
 
 For a map without any valid cell, *r.univar* prints `nan` for the minimum
-and the maximum.
+and the maximum. The statistics that cannot be computed without values,
+such as the mean, the standard deviation, the variance, the variation
+coefficient, the median and the percentiles, are printed as `nan` as
+well, without a sign, in the plain, shell script and CSV styles. The JSON
+format writes `null` for them.
 
 As with most GRASS raster modules, *r.univar* operates on the raster
 array defined by the current region settings, not the original extent
