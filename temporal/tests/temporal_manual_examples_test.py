@@ -39,6 +39,7 @@ REVIEWED_MANUALS = (
     "t.rast.extract",
     "t.rast.gapfill",
     "t.rast.list",
+    "t.rast.neighbors",
     "t.rast.series",
     "t.rast.to.rast3",
     "t.rast.univar",
