@@ -12,6 +12,7 @@ the ``.html`` kept by hand next to it.
 
 from __future__ import annotations
 
+import difflib
 import html.parser
 import subprocess
 from pathlib import Path
@@ -192,13 +193,51 @@ def _markdown_headings(path: Path) -> list[tuple[str, str]]:
     return headings
 
 
-def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
-    """Return what of the .md is missing in the .html, one entry per finding
+def _block_findings(manual: Manual, html_path: Path, pre: list[str]) -> list[str]:
+    """Where the fenced blocks of the .md and the <pre> of the .html differ
 
-    Every fenced block of the ``.md`` (code and shown output, inside the
-    examples and elsewhere) has to be the text of a ``<pre>`` of the ``.html``
-    after its entities are resolved (``&lt;`` is ``<``) and the newlines at
-    both ends are dropped. Blanks at the end of a line do not count on either
+    A block and a <pre> at the same place of a changed stretch form one
+    finding with both texts; what is left of the longer side is reported
+    alone.
+    """
+    blocks = list(_markdown_blocks(manual.path))
+    matcher = difflib.SequenceMatcher(
+        a=[_without_line_end_blanks(text) for _, text in blocks], b=pre, autojunk=False
+    )
+    findings = []
+    for tag, first, last, html_first, html_last in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        changed = blocks[first:last]
+        numbers = range(html_first, html_last)
+        for (line, text), number in zip(changed, numbers, strict=False):
+            findings.append(
+                f"{manual.path}:{line}: block differs from <pre> {number + 1} of "
+                f"{html_path}:\n{text}\n--- the <pre>:\n{pre[number]}"
+            )
+        findings.extend(
+            f"{manual.path}:{line}: block not in a <pre> of {html_path}:\n{text}"
+            for line, text in changed[len(numbers) :]
+        )
+        findings.extend(
+            f"{html_path}: <pre> {number + 1} is no block of {manual.path}:\n"
+            f"{pre[number]}"
+            for number in numbers[len(changed) :]
+        )
+    return findings
+
+
+def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
+    """Return where the .md and the .html differ, one entry per finding
+
+    The fenced blocks of the ``.md`` (code and shown output, inside the
+    examples and elsewhere) and the ``<pre>`` of the ``.html`` have to be the
+    same texts in the same order, after the entities are resolved (``&lt;`` is
+    ``<``) and the newlines at both ends are dropped. The order matters: an
+    output that both tabs show alike is in the ``.html`` twice, and a change
+    of one copy would otherwise go unseen. A block of the ``.md`` that has no
+    ``<pre>`` at its place and a ``<pre>`` that has no block are reported each
+    with its text. Blanks at the end of a line do not count on either
     side: the trailing-whitespace hook of pre-commit strips them from .html
     files but not from .md files, which it leaves out, and a reader cannot see
     them. The comparison of a shown output with the run stays exact (see
@@ -210,12 +249,7 @@ def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
     page = _Page()
     page.feed(Path(html_path).read_text(encoding="utf-8"))
     page.close()
-    missing = []
-    for line, text in _markdown_blocks(manual.path):
-        if _without_line_end_blanks(text) not in page.pre:
-            missing.append(
-                f"{manual.path}:{line}: block not in a <pre> of {html_path}:\n{text}"
-            )
+    missing = _block_findings(manual, html_path, page.pre)
     missing.extend(
         f"{manual.path}: image {image} not in an <img src> of {html_path}"
         for image in manual.images

@@ -617,6 +617,45 @@ def test_escaped_html_matches_the_markdown_block(tmp_path):
     assert any("SEE ALSO" in item for item in missing)
 
 
+def test_a_changed_copy_of_a_repeated_block_is_found(tmp_path):
+    # Both tabs show the same output, so the .html has it twice.
+    shell = blocks("sh", ("t.rast.list input=rain\n", "rain|3\n"))
+    python = blocks(
+        "python", ('print(tools.t_rast_list(input="rain").text)\n', "rain|3\n")
+    )
+    manual = write_manual(tmp_path, example("Twice", shell, python))
+    pre = (
+        "<pre>\nt.rast.list input=rain\n</pre>\n<pre>\nrain|3\n</pre>\n"
+        '<pre>\nprint(tools.t_rast_list(input="rain").text)\n</pre>\n'
+        "<pre>\nrain|3\n</pre>\n"
+    )
+    page = (
+        "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n<h3>Twice</h3>\n"
+        + pre
+        + "<h2>SEE ALSO</h2>\n"
+    )
+    html_path = manual.path.with_suffix(".html")
+    html_path.write_text(page)
+    assert mc.check_html_sync(manual, html_path) == []
+
+    html_path.write_text(page.replace("rain|3\n", "rain|3X\n", 1))
+    missing = mc.check_html_sync(manual, html_path)
+    assert len(missing) == 1
+    assert "rain|3X" in missing[0]
+    assert f"{manual.path}:" in missing[0]
+
+    # The same blocks in another order do not agree either.
+    first, output = "<pre>\nt.rast.list input=rain\n</pre>\n", "<pre>\nrain|3\n</pre>\n"
+    html_path.write_text(page.replace(first + output, output + first, 1))
+    assert mc.check_html_sync(manual, html_path) != []
+
+    # Nor does a <pre> that the .md does not have.
+    html_path.write_text(page.replace(pre, pre + "<pre>\nextra\n</pre>\n"))
+    missing = mc.check_html_sync(manual, html_path)
+    assert len(missing) == 1
+    assert "extra" in missing[0]
+
+
 def test_each_example_heading_is_an_h3_of_the_html(tmp_path):
     shell = blocks("sh", "t.info input=a\n")
     python = blocks("python", 'tools.t_info(input="a")\n')
@@ -625,11 +664,13 @@ def test_each_example_heading_is_an_h3_of_the_html(tmp_path):
         example("First  task", shell, python),
         example("Second task", shell, python),
     )
+    pre = '<pre>\nt.info input=a\n</pre>\n<pre>\ntools.t_info(input="a")\n</pre>\n'
     page = (
         "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n<h3>First\ntask</h3>\n"
-        "<pre>\nt.info input=a\n</pre>\n"
-        '<pre>\ntools.t_info(input="a")\n</pre>\n'
-        "<h3>Second task</h3>\n<h2>SEE ALSO</h2>\n"
+        + pre
+        + "<h3>Second task</h3>\n"
+        + pre
+        + "<h2>SEE ALSO</h2>\n"
     )
     html_path = manual.path.with_suffix(".html")
     html_path.write_text(page)
