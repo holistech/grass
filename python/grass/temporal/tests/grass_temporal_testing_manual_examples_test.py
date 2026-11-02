@@ -253,6 +253,77 @@ def test_a_manual_without_examples_has_none(tmp_path):
     assert parsed.examples == ()
 
 
+SHELL_ONLY = "<!-- example: shell-only -->\n\n"
+
+
+def shell_only(title, shell):
+    """Return one ### section of a catalog: the comment and a shell tab only"""
+    return f"### {title}\n\n{SHELL_ONLY}" + tab("Command line", shell) + "\n"
+
+
+def test_shell_only_example_has_no_python_tab(tmp_path):
+    text = manual(
+        example("Full", "t.a", "tools.t_a()"),
+        shell_only("Catalog", "```sh\nt.b\n```\n\n```text\nout\n```"),
+    )
+    parsed = me.parse_manual(write(tmp_path, text))
+    got = [(e.title, e.variant, e.shell_only) for e in parsed.examples]
+    assert got == [
+        ("Full", "shell", False),
+        ("Full", "python", False),
+        ("Catalog", "shell", True),
+    ]
+    assert parsed.examples[2].blocks[0].code == "t.b\n"
+    assert parsed.examples[2].blocks[0].shown_output == "out\n"
+
+
+@pytest.mark.parametrize(
+    "place",
+    ["after prose", "indented", "inside the tab", "before the heading", "with a key"],
+)
+def test_shell_only_must_follow_the_heading(tmp_path, place):
+    body = tab("Command line", "```sh\nt.b\n```")
+    sections = {
+        "after prose": f"### Catalog\n\nProse.\n\n{SHELL_ONLY}{body}",
+        "indented": f"### Catalog\n\n    {SHELL_ONLY}{body}",
+        "inside the tab": f"### Catalog\n\n{body}\n    {SHELL_ONLY}",
+        "before the heading": f"{SHELL_ONLY}### Catalog\n\n{body}",
+        "with a key": (
+            "### Catalog\n\n<!-- example: shell-only requires=postgresql -->\n\n" + body
+        ),
+    }
+    text = manual(example("Full", "t.a", "x"), sections[place])
+    path = write(tmp_path, text)
+    with pytest.raises(me.ManualFormatError) as excinfo:
+        me.parse_manual(path)
+    line = next(
+        number for number, row in enumerate(text.split("\n"), 1) if "shell-only" in row
+    )
+    assert excinfo.value.path == path
+    assert excinfo.value.line == line
+    assert f"{path}:{line}:" in str(excinfo.value)
+    assert "shell-only" in str(excinfo.value)
+
+
+def test_an_example_without_python_tab_is_still_refused(tmp_path):
+    # The comment of one example does not carry over to the next.
+    text = manual(
+        shell_only("Catalog", "```sh\nt.b\n```"),
+        "### Lonely\n\n" + tab("Command line", "```sh\nt.a\n```"),
+    )
+    with pytest.raises(me.ManualFormatError) as excinfo:
+        me.parse_manual(write(tmp_path, text))
+    message = str(excinfo.value)
+    assert "Lonely" in message
+    assert "'Python (grass.tools)' is missing" in message
+
+
+def test_a_shell_only_example_with_a_python_tab_is_an_error(tmp_path):
+    text = manual(example("Both", "t.a", "x").replace("\n\n", f"\n\n{SHELL_ONLY}", 1))
+    with pytest.raises(me.ManualFormatError, match=r"shell-only.*Python"):
+        me.parse_manual(write(tmp_path, text))
+
+
 CONTEXT = me.NormalizeContext(database="/tmp/work/db", user="soeren")
 
 

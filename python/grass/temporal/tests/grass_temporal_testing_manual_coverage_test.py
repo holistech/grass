@@ -242,6 +242,27 @@ def test_shown_options_counts_names_flags_and_keywords(tmp_path):
     assert mc.shown_options(manual) == {"output", "type", "-g", "-s", "semantictype"}
 
 
+def catalog(title, shell):
+    """Return one ### section of a catalog: the comment and a shell tab only"""
+    return (
+        f"### {title}\n\n<!-- example: shell-only -->\n\n"
+        + tab("Command line", shell)
+        + "\n"
+    )
+
+
+def test_options_of_a_catalog_example_do_not_count(tmp_path):
+    full = example(
+        "Full",
+        blocks("sh", "t.create output=a\n"),
+        blocks("python", 'tools.t_create(output="a")\n'),
+    )
+    listed = catalog("Catalog", blocks("sh", "t.create -g type=stvds\n"))
+    manual = write_manual(tmp_path, full, listed, tool="t.create")
+    assert [example.shell_only for example in manual.examples] == [False, False, True]
+    assert mc.shown_options(manual) == {"output"}
+
+
 def test_flags_without_a_literal_are_no_option(tmp_path):
     python = blocks(
         "python",

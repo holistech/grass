@@ -31,6 +31,11 @@ there is one spelling (``sh``, not ``bash``). An HTML comment
 and stays invisible to the reader; ``<!-- example-project: crs=... -->`` under
 ``## EXAMPLES`` names the coordinate system the examples need.
 
+``<!-- example: shell-only -->`` as the first line after a ``###`` heading
+makes the example one of a catalog, such as the expressions of an algebra
+with their results: it has the ``Command line`` tab only. Elsewhere the
+comment is an error, and every other example needs both tabs.
+
 ``run_manual`` runs the blocks of one tab, ``check_manual`` also compares the
 shown output and the figures. Which options the examples show and whether the
 ``.html`` agrees is the business of ``manual_coverage``.
@@ -68,6 +73,7 @@ FIXED_USER = "user"
 FIXED_REGISTER = "0" * 32
 
 CONTROL_KEYS = ("requires", "not-run", "reason")
+SHELL_ONLY = "shell-only"
 SIMPLE_REQUIREMENTS = ("postgresql", "old-database")
 
 FENCE = re.compile(r"^(\s*)```(\S*)\s*$")
@@ -105,12 +111,16 @@ class Block:
 
 @dataclass(frozen=True)
 class Example:
-    """One variant ("shell" or "python") of a ``###`` example"""
+    """One variant ("shell" or "python") of a ``###`` example
+
+    ``shell_only`` marks an example of a catalog, which has no python variant.
+    """
 
     title: str
     variant: str
     blocks: tuple[Block, ...]
     images: tuple[str, ...]
+    shell_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -118,7 +128,8 @@ class Manual:
     """A parsed manual
 
     ``examples`` follows the document: for each ``###`` the shell variant
-    first, then the python variant. ``images`` lists every image of the file,
+    first, then the python variant, which a shell-only example does not have.
+    ``images`` lists every image of the file,
     ``project`` the key/values of ``example-project``.
     """
 
@@ -146,6 +157,7 @@ class _Section:
     )
     seen: set[str] = field(default_factory=set)
     images: list[str] = field(default_factory=list)
+    shell_only: bool = False
 
 
 def _words(path: Path, number: int, text: str) -> list[tuple[str, str | None]]:
@@ -219,6 +231,8 @@ class _Parser:
         self.variant: str | None = None
         self.pending: dict[str, str] | None = None
         self.last: Block | None = None
+        # True from a ### heading to the next line that is not blank.
+        self.after_heading = False
         self.index = 0
 
     def fail(self, number: int, message: str):
@@ -310,7 +324,12 @@ class _Parser:
             return
         if self.section is not None:
             self.section.images.extend(found)
-        if PROJECT.match(text):
+        after_heading = self.after_heading
+        self.after_heading = after_heading and not text.strip()
+        control = CONTROL.match(text)
+        if control and SHELL_ONLY in dict(_words(self.path, number, control[1])):
+            self.shell_only(number, text, control[1], after_heading)
+        elif PROJECT.match(text):
             if self.section is not None:
                 self.fail(number, "example-project belongs directly under ## EXAMPLES")
             self.project = _project(self.path, number, PROJECT.match(text).group(1))
@@ -318,11 +337,12 @@ class _Parser:
             self.section = _Section(text[4:].strip(), number)
             self.sections.append(self.section)
             self.variant = self.last = None
+            self.after_heading = True
         elif self.section is None:
             return
         elif TAB.match(text):
             self.tab(number, TAB.match(text).group(1))
-        elif CONTROL.match(text):
+        elif control:
             self.control(number, text)
         elif text.strip():
             if not text.startswith(INDENT):
@@ -331,9 +351,25 @@ class _Parser:
                 self.fail(number, "control comment without a code block")
             self.last = None
 
+    def shell_only(self, number: int, text: str, body: str, after_heading: bool):
+        if (
+            self.section is None
+            or not after_heading
+            or text != text.lstrip()
+            or body.split() != [SHELL_ONLY]
+        ):
+            self.fail(
+                number,
+                f"<!-- example: {SHELL_ONLY} --> stands alone on the first line "
+                "after the ### heading",
+            )
+        self.section.shell_only = True
+
     def tab(self, number: int, label: str):
         if label not in TABS:
             self.fail(number, f"unknown tab {label!r}, known: {tuple(TABS)}")
+        if TABS[label] == "python" and self.section.shell_only:
+            self.fail(number, f"a {SHELL_ONLY} example has no tab {label!r}")
         self.variant = TABS[label]
         if self.variant in self.section.seen:
             self.fail(number, f"tab {label!r} given twice")
@@ -351,6 +387,8 @@ class _Parser:
     def examples(self):
         for item in self.sections:
             for label, name in TABS.items():
+                if item.shell_only and name == "python":
+                    continue
                 where = f"{self.tool}, example {item.title!r}: tab {label!r}"
                 if name not in item.seen:
                     raise ManualFormatError(self.path, item.line, f"{where} is missing")
@@ -359,7 +397,11 @@ class _Parser:
                         self.path, item.line, f"{where} has no code"
                     )
                 yield Example(
-                    item.title, name, tuple(item.blocks[name]), tuple(item.images)
+                    item.title,
+                    name,
+                    tuple(item.blocks[name]),
+                    tuple(item.images),
+                    item.shell_only,
                 )
 
 
@@ -369,7 +411,9 @@ def parse_manual(path: Path) -> Manual:
     Raises ManualFormatError for a layout violation: a tab other than the two
     known ones, a code block outside a tab or in the wrong language, a
     ``text`` block that does not follow a code block, an unknown control key,
-    an example that lacks a tab or a code block, or an unclosed fence.
+    an example that lacks a tab or a code block, a shell-only comment that is
+    not the first line after its heading or an example with it that has a
+    Python tab, or an unclosed fence.
     """
     return _Parser(Path(path)).run()
 

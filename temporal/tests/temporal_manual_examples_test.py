@@ -7,6 +7,10 @@
 A manual is listed in REVIEWED_MANUALS once its examples follow the layout of
 grass.temporal.testing.manual_examples. The others still use data that the
 tests do not have and stay unchecked until their turn.
+
+CATALOG_MANUALS are the manuals that may keep a catalog of expressions, each
+with its result, in examples without a Python tab (``<!-- example:
+shell-only -->``).
 """
 
 from pathlib import Path
@@ -71,6 +75,14 @@ REVIEWED_MANUALS = (
     "t.vect.what.strds",
 )
 
+# The algebras, whose manuals list their expressions with the result of each.
+CATALOG_MANUALS = (
+    "t.rast.algebra",
+    "t.rast3d.algebra",
+    "t.select",
+    "t.vect.algebra",
+)
+
 TOOLS = Path(__file__).parents[1]
 
 
@@ -113,3 +125,14 @@ def test_every_option_is_shown(tool, xy_module_session):
 def test_markdown_and_html_agree(tool):
     manual = manual_of(tool)
     assert check_html_sync(manual, manual.path.with_suffix(".html")) == []
+
+
+def test_shell_only_examples_are_catalog_manuals():
+    users = {
+        tool
+        for tool in REVIEWED_MANUALS
+        if any(example.shell_only for example in manual_of(tool).examples)
+    }
+    assert users <= set(CATALOG_MANUALS), (
+        f"examples without a Python tab outside a catalog: {sorted(users)}"
+    )

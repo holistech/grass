@@ -95,12 +95,16 @@ def shown_options(manual: Manual) -> set[str]:
     block, a flag as ``-x`` or within a group ``-xy``; in a Python block as a
     keyword of ``<object>.<tool with _>(...)``, a flag as a letter of
     ``flags="..."``. Blocks marked not-run do not count, blocks with a
-    requirement do, because they run where it holds. The standard flags are
-    left out. Raises ManualFormatError for a shell block that shell_calls
-    cannot split into words.
+    requirement do, because they run where it holds. A shell-only example
+    does not count either: a catalog lists expressions, and an option has to
+    be shown in both tabs. The standard flags are left out. Raises
+    ManualFormatError for a shell block that shell_calls cannot split into
+    words.
     """
     shown = set()
     for example in manual.examples:
+        if example.shell_only:
+            continue
         for block in example.blocks:
             if "not-run" in block.control:
                 continue
