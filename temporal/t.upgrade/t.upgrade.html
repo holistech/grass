@@ -1,31 +1,385 @@
 <h2>DESCRIPTION</h2>
 
-The <em>t.upgrade</em> module upgrades the temporal database in the current
-mapset from version 2 (default in GRASS 7) to 3 (default in GRASS 8).
-The version 3 introduces a semantic label support, see
-<em><a href="i.band.library.html">i.band.library</a></em> for details.
-<p>
-On a temporal database that already has the current version, <em>t.upgrade</em>
-drops all views of the database and creates them again in one transaction,
-and reports that the database is up-to-date and that its views were created
-anew. A database created before a view gained a column, such as
-<tt>number_of_semantic_labels</tt> of the space time raster datasets (see
-<em><a href="t.list.html">t.list</a></em>), gets the views of the installed
-version this way. The tables and the rows stay as they are, and a second run
-changes nothing.
+<em>t.upgrade</em> brings the temporal database of the current mapset to the
+version that the installed GRASS uses, which is version 3. The temporal
+database holds the space time datasets, the registered maps and their time; see
+the <a href="temporalintro.html">introduction to temporal data processing</a>.
+<em>t.upgrade</em> has no options of its own, only the standard options of the
+GRASS parser such as <b>--verbose</b> and <b>--quiet</b>. Which database is used
+is set by <em><a href="t.connect.html">t.connect</a></em>;
+<em><a href="t.info.html">t.info</a></em> with the flags <b>-d</b> and
+<b>-g</b> shows it, with its version in the line <code>tgis_db_version</code>.
 
-<h2>EXAMPLE</h2>
+<p>
+Version 3 of the database introduced semantic labels for maps, see
+<em><a href="i.band.library.html">i.band.library</a></em>. A database of version
+2 has no place for a label. <em>t.upgrade</em> adds the column
+<code>semantic_label</code> to the table of the raster maps and the column
+<code>number_of_semantic_labels</code> to the table of the space time raster
+datasets, adds the indexes of version 3 and creates the views of the database
+again. The maps and datasets that are registered, their times and their other
+values stay as they are. The maps of a version 2 database have no semantic label
+after the upgrade, and its space time raster datasets that hold maps count 0
+labels. Labels are given to maps with
+<em><a href="r.support.html">r.support</a></em> and are listed by
+<em><a href="t.rast.list.html">t.rast.list</a></em> and
+<em><a href="t.list.html">t.list</a></em>, see the third example.
+
+<p>
+<em>t.upgrade</em> does what its database needs:
+
+<ul>
+<li>A database of version 2 is upgraded to version 3. The module reports it in
+the message "Upgrading temporal database ... from version 2 to 3...".</li>
+<li>A database that has the version of the installed GRASS already is not
+upgraded, but its views are dropped and created again from the SQL files of the
+installation, because a view can gain a column without a new version of the
+database. A database made before the column
+<code>number_of_semantic_labels</code> was added to the views of the space time
+raster datasets gets the views of today this way. The module reports that the
+database is up-to-date and that its views were created anew. The tables and
+their rows are not changed, and running <em>t.upgrade</em> again changes nothing
+further.</li>
+<li>A database of any other version is refused with the error "Unsupported TGIS
+DB upgrade scenario: from version 1 to 3" (or the version it has). The database
+is left as it is.</li>
+<li>In a project without a temporal database, <em>t.upgrade</em> creates one of
+the current version.</li>
+</ul>
+
+The upgrade runs in one transaction, with the SQLite back end and with
+PostgreSQL. If a statement fails, the transaction is rolled back: the version,
+the tables and the views are as before, and the module ends with the error "The
+upgrade of the temporal database failed and was rolled back" followed by the
+reason. After the cause is removed, <em>t.upgrade</em> can be run again.
+
+<p>
+The messages of <em>t.upgrade</em> are written to the message channel (standard
+error), not to standard output; <b>--quiet</b> hides them. The module prints
+nothing to standard output, so the examples show the effect with
+<em>t.info</em> and <em>t.list</em>.
+
+<h2>NOTES</h2>
+
+Make a copy of the database before the upgrade of a version 2 database. For
+SQLite the database is the file that <b>Temporal database string</b> of
+<code>t.info -d</code> names. Until a database of version 2 is upgraded,
+commands such as <em>t.info</em> warn "Temporal database version mismatch
+detected" and ask to run <em>t.upgrade</em>.
+
+<p>
+While the database has version 2:
+
+<ul>
+<li><em><a href="t.register.html">t.register</a></em> registers maps without a
+semantic label. A map with a semantic label is refused before anything is
+written, with the message that the temporal database has version 2, "which
+cannot store the semantic label of" the map, and the request "Run t.upgrade
+first.".</li>
+<li><em>t.list</em> with the column <code>number_of_semantic_labels</code> stops
+with the error <code>Column &lt;number_of_semantic_labels&gt; is missing from
+the views of the temporal database</code> and the request to run
+<em>t.upgrade</em>.</li>
+</ul>
+
+The same holds for a database of the current version whose views are older: run
+<em>t.upgrade</em> to get the views of the installed version.
+
+<p>
+The upgrade does not depend on the time type of the datasets: the first example
+has a dataset with absolute and one with relative time, and both are as before
+after the call.
+
+<h2>EXAMPLES</h2>
+
+<h3>Check a database of the current version and renew its views</h3>
+
+The region has 2 rows and 3 columns. The dataset <code>temperature</code> has
+absolute time with two daily maps from 1 March 2026, and the dataset
+<code>model</code> has relative time with two maps of one hour. The first block
+shows the version of the database, <code>tgis_db_version='3'</code>, and the
+second block lists the datasets with their number of maps and of semantic
+labels, which are 0. <em>t.upgrade</em> then reports that the database is
+up-to-date and creates its views again. Nothing is printed on standard output.
+The last two blocks show that the version and the datasets are as before.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="temperature_1 = col()"
+r.mapcalc expression="temperature_2 = col() + 3"
+r.mapcalc expression="step_1 = 1"
+r.mapcalc expression="step_2 = 2"
+t.create output=temperature title="Air temperature" \
+    description="Daily mean air temperature"
+t.register -i input=temperature maps=temperature_1,temperature_2 \
+    start=2026-03-01 increment="1 day"
+t.create output=model temporaltype=relative title="Model" \
+    description="Model output per step"
+t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
+t.info -d -g | grep tgis_db_version
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+t.list type=strds columns=name,number_of_maps,number_of_semantic_labels
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
 
 <div class="code"><pre>
 t.upgrade
 </pre></div>
 
+<div class="code"><pre>
+t.info -d -g | grep tgis_db_version
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+t.list type=strds columns=name,number_of_maps,number_of_semantic_labels
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.r_mapcalc(expression="temperature_1 = col()")
+tools.r_mapcalc(expression="temperature_2 = col() + 3")
+tools.r_mapcalc(expression="step_1 = 1")
+tools.r_mapcalc(expression="step_2 = 2")
+tools.t_create(
+    output="temperature",
+    title="Air temperature",
+    description="Daily mean air temperature",
+)
+tools.t_register(
+    input="temperature",
+    maps="temperature_1,temperature_2",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_create(
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step",
+)
+tools.t_register(
+    input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+)
+info = tools.t_info(flags="dg").keyval
+print(f"tgis_db_version={info['tgis_db_version']}")
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_list(
+        type="strds", columns="name,number_of_maps,number_of_semantic_labels"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_upgrade()
+</pre></div>
+
+<div class="code"><pre>
+info = tools.t_info(flags="dg").keyval
+print(f"tgis_db_version={info['tgis_db_version']}")
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_list(
+        type="strds", columns="name,number_of_maps,number_of_semantic_labels"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
+
+<h3>Upgrade a database of version 2</h3>
+
+The blocks of this example start with a temporal database of version 2: the
+datasets of the first example are there, but the database has the layout from
+before the semantic labels. The first block shows the version, <code>2</code>.
+The call of <em>t.upgrade</em> reports "Upgrading temporal database ... from
+version 2 to 3..." and prints nothing on standard output. Afterwards the version
+is 3, and the datasets have the same number of maps as before.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.info -d -g | grep tgis_db_version
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='2'
+</pre></div>
+
+<div class="code"><pre>
+t.upgrade
+</pre></div>
+
+<div class="code"><pre>
+t.info -d -g | grep tgis_db_version
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+t.list type=strds columns=name,number_of_maps,number_of_semantic_labels
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+info = tools.t_info(flags="dg").keyval
+print(f"tgis_db_version={info['tgis_db_version']}")
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='2'
+</pre></div>
+
+<div class="code"><pre>
+tools.t_upgrade()
+</pre></div>
+
+<div class="code"><pre>
+info = tools.t_info(flags="dg").keyval
+print(f"tgis_db_version={info['tgis_db_version']}")
+</pre></div>
+
+<div class="code"><pre>
+tgis_db_version='3'
+</pre></div>
+
+<div class="code"><pre>
+print(
+    tools.t_list(
+        type="strds", columns="name,number_of_maps,number_of_semantic_labels"
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+temperature|2|0
+model|2|0
+</pre></div>
+
+<h3>Use semantic labels after the upgrade</h3>
+
+The map <code>labelled_1</code> gets the semantic label <code>S2_1</code> and is
+registered in the new dataset <code>labelled</code>.
+<em>t.rast.list</em> shows the label of the map, and <em>t.list</em> counts one
+semantic label for the dataset. The maps of the dataset <code>temperature</code>
+registered before the upgrade have the label <code>None</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="labelled_1 = 7"
+r.support map=labelled_1 semantic_label=S2_1
+t.create output=labelled title="Labelled" description="One labelled map"
+t.register -i input=labelled maps=labelled_1 start=2026-03-01 \
+    increment="1 day"
+t.rast.list input=labelled columns=name,semantic_label
+t.rast.list input=temperature columns=name,semantic_label
+t.list type=strds columns=name,number_of_semantic_labels
+</pre></div>
+
+<div class="code"><pre>
+name|semantic_label
+labelled_1|S2_1
+name|semantic_label
+temperature_1|None
+temperature_2|None
+labelled|1
+temperature|0
+model|0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="labelled_1 = 7")
+tools.r_support(map="labelled_1", semantic_label="S2_1")
+tools.t_create(output="labelled", title="Labelled", description="One labelled map")
+tools.t_register(
+    input="labelled",
+    maps="labelled_1",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_rast_list(input="labelled", columns="name,semantic_label").text)
+print(tools.t_rast_list(input="temperature", columns="name,semantic_label").text)
+print(tools.t_list(type="strds", columns="name,number_of_semantic_labels").text)
+</pre></div>
+
+<div class="code"><pre>
+name|semantic_label
+labelled_1|S2_1
+name|semantic_label
+temperature_1|None
+temperature_2|None
+labelled|1
+temperature|0
+model|0
+</pre></div>
+
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>
-</em>
+<em><a href="i.band.library.html">i.band.library</a>,
+<a href="r.support.html">r.support</a>, <a href="t.connect.html">t.connect</a>,
+<a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
+<a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHORS</h2>
 
