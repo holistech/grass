@@ -967,8 +967,9 @@ def manual_assignments(text):
     value of the option expression of a t.rast.algebra command, as in the
     examples, also within a shell condition that shows an error. classic is
     None for a line of its own, which may run with either algebra, and for a
-    command whether it has the flag -c: the examples run without
-    GRASS_TEMPORAL_ALGEBRA, so a command without -c runs the core.
+    command whether it has the flag -c, alone or with other flags: the
+    examples run without GRASS_TEMPORAL_ALGEBRA, so a command without -c runs
+    the core. The other flags of a command do not reach the dry run.
     """
     assignments = []
     for block in re.findall(r"```sh\n(.*?)```", text, flags=re.DOTALL):
@@ -979,8 +980,9 @@ def manual_assignments(text):
                 assignments.append((line, None))
             elif re.search(r"(^|\s)t\.rast\.algebra\s", line):
                 words = shlex.split(line, comments=True)
+                classic = any(re.fullmatch(r"-[a-z]*c[a-z]*", word) for word in words)
                 assignments.extend(
-                    (word.removeprefix("expression="), "-c" in words)
+                    (word.removeprefix("expression="), classic)
                     for word in words
                     if word.startswith("expression=")
                 )
@@ -1065,10 +1067,12 @@ def test_manual_example_runs(algebra, assignment, classic):
     _name, expression = assignment.split(" = ", 1)
     errors = CLASSIC_MANUAL_ERRORS if classic else MANUAL_ERRORS
     if errors.get(assignment) is not SyntaxError:
-        # An expression that cannot be read has no datasets to look for. A
-        # dataset of another mapset is not in the fixture, and R is where the
-        # fixture writes the results, so its maps depend on the tests that
-        # ran before.
+        # An expression that cannot be read has no datasets to look for. The
+        # fixture looks a name up in its own mapset only, so a name with a
+        # mapset is skipped: the manual uses one for a dataset of another
+        # mapset, whose error comes from the mapset and not the expression. R
+        # is where the fixture writes the results, so its maps depend on the
+        # tests that ran before.
         names = dataset_names(parse(assignment).expression)
         missing = sorted(
             {
