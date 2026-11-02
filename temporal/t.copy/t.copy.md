@@ -1,43 +1,430 @@
 ## DESCRIPTION
 
-The purpose of **t.copy** is to create a copy of a space time dataset.
-The new space time dataset will be located in the current mapset,
-whereas the old space time dataset can be located in a different mapset
-as long as this mapset is in the search path.
+*t.copy* creates a copy of a space time dataset (STRDS, STR3DS or STVDS; see
+the [introduction to temporal data processing](temporalintro.md)). The copy
+has the title, the description, the temporal type and the semantic type of the
+original and holds the same maps with the same time stamps. The original is
+not changed. The copy is a new dataset in the temporal database of the current
+mapset, whereas the original can be in another mapset, as long as this mapset
+is in the search path (see *[g.mapsets](g.mapsets.md)*).
 
-If the *-c* flag is given, the maps of the old space time dataset will
-also be copied to the current mapset, otherwise the original maps will
-be simply registered in the temporal database. The new copies will have
-the same name as the old maps. All checks, such as a map of the same
-name in the current mapset, are made before the first map is copied.
-A map that is in the current mapset already is not copied; it joins the
-new dataset and stays registered in the old one as well, also with
-*--overwrite*.
+The option **input** names the dataset to copy, **output** the new dataset,
+and **type** their type: `strds` (the default), `str3ds` or `stvds`. A dataset
+is found by its type and name. An **input** without a mapset is searched in the
+mapsets of the search path; a mapset in the name (`rain@PERMANENT`) is needed
+only if datasets of that name exist in several mapsets. The mapset of **output**
+can be left out. If it is given, it must be the current mapset.
+
+By default, *t.copy* copies the entries of the dataset only. The maps
+themselves are not copied, so that each map belongs to the original and to the
+copy. With the flag **-c** the maps of the original are copied as well. They
+get the same names in the current mapset and the same time stamps, and, for
+raster maps, the same semantic label; the copy then holds these new maps.
+*t.copy* copies raster maps for `strds`, 3D raster maps for `str3ds` and vector
+maps for `stvds`, with *g.copy*. Only maps of other mapsets are copied: a map
+that is in the current mapset already is not copied, and the copy refers to it,
+as it does without **-c**.
+
+The standard flag **--overwrite** replaces an existing dataset of the name
+**output**; see the notes below for what happens to its maps. Without it, an
+existing **output** stops the call. It does not lift the refusal of **-c** when
+a map of the current mapset has the name of a map to copy; see the notes.
+
+*[t.rast.extract](t.rast.extract.md)*, *[t.rast3d.extract](t.rast3d.extract.md)*
+and *[t.vect.extract](t.vect.extract.md)* copy a selection of the maps into a
+new dataset.
 
 ## NOTES
 
-A fully qualified name for the input space-time dataset is only required
-if space-time datasets with the same name exist in different mapsets.
+All checks are made before the first map is copied: the name of the new
+dataset, an existing dataset of that name and, with **-c**, the maps that would
+be copied. A refused call leaves no copied maps behind. With **-c**, a map of
+the original that has the name of a map in the current mapset stops the call
+with an error such as `A raster map <rain_1> exists already in the current
+mapset <analysis>`. **--overwrite** does not lift this refusal: it concerns the
+output dataset and the entries of the temporal database, not the maps of the
+mapset. The call with **--overwrite** fails in the same way, so that repeating
+a call with **-c** needs the maps removed first, as the last block of the
+fourth example shows (or a call without **-c**).
 
-The name of the new space time dataset must not contain a dot; *t.copy* stops
-with an error before anything is copied.
+The name of the new dataset must not contain a dot; *t.copy* stops with an
+error before anything is copied. The mapset of **output** must be the current
+mapset; a call with another mapset stops with the error that the output
+dataset must be in the current mapset.
 
-## EXAMPLE
+An existing **output** without **--overwrite** stops with the error that the
+dataset is already in the database. With **--overwrite**, the old dataset is
+replaced and its maps are unregistered from it. They stay in the mapset and in
+the temporal database with their time stamps, as the second example shows.
 
-In the North Carolina sample dataset with the separately available
-mapset *modis_lst* included, copy the space-time raster dataset
-*LST_Day_monthly@modis_lst* to the current mapset *user1*:
+A dataset without maps is not copied. *t.copy* warns that there is nothing to
+copy, creates no new dataset and ends without an error.
 
-```sh
-g.mapsets mapset=modis_lst operation=add
-t.copy input=LST_Day_monthly@modis_lst type=strds output=LST_Day_monthly
-```
+If all maps of the original are in the current mapset, **-c** copies nothing.
+The call stops with the error that a map is already in the temporal database;
+with **--overwrite** it succeeds and the copy refers to the maps of the original.
+
+A dataset that does not exist stops *t.copy* with an error such as `Space time
+dataset <nope> of type <strds> not found`. A dataset of another type is not
+found either: give **type=str3ds** or **type=stvds** for 3D raster and vector
+datasets.
+
+## EXAMPLES
+
+<!-- markdownlint-disable MD046 -->
+
+### Copy a dataset and share its maps
+
+The dataset `rain` holds three daily maps and has the semantic type `sum`.
+The first command copies it to `rain_copy`. *t.list* then shows both datasets
+with three maps each and the same semantic type, and *t.rast.list* lists the
+maps of the copy. *t.info* shows with **-g** that the map `rain_2` belongs to
+both datasets.
+
+=== "Command line"
+
+    ```sh
+    g.region n=2 s=0 e=3 w=0 res=1
+    for name in rain_1 rain_2 rain_3; do
+        r.mapcalc expression="$name = 1"
+    done
+    t.create output=rain title="Daily rain" description="Rain per day" \
+        semantictype=sum
+    t.register -i input=rain maps=rain_1,rain_2,rain_3 \
+        start=2026-06-01 increment="1 day"
+    t.copy input=rain output=rain_copy
+    t.list type=strds columns=name,number_of_maps,semantic_type
+    t.rast.list input=rain_copy columns=name,mapset,start_time
+    t.info -g type=raster input=rain_2 | grep registered_datasets
+    ```
+
+    ```text
+    rain|3|sum
+    rain_copy|3|sum
+    name|mapset|start_time
+    rain_1|PERMANENT|2026-06-01 00:00:00
+    rain_2|PERMANENT|2026-06-02 00:00:00
+    rain_3|PERMANENT|2026-06-03 00:00:00
+    registered_datasets=rain@PERMANENT,rain_copy@PERMANENT
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import Tools
+
+    tools = Tools()
+    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    for name in ("rain_1", "rain_2", "rain_3"):
+        tools.r_mapcalc(expression=f"{name} = 1")
+    tools.t_create(
+        output="rain",
+        title="Daily rain",
+        description="Rain per day",
+        semantictype="sum",
+    )
+    tools.t_register(
+        input="rain",
+        maps="rain_1,rain_2,rain_3",
+        start="2026-06-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_copy(input="rain", output="rain_copy")
+    print(tools.t_list(type="strds", columns="name,number_of_maps,semantic_type").text)
+    print(tools.t_rast_list(input="rain_copy", columns="name,mapset,start_time").text)
+    info = tools.t_info(type="raster", input="rain_2", flags="g").keyval
+    print(f"registered_datasets={info['registered_datasets']}")
+    ```
+
+    ```text
+    rain|3|sum
+    rain_copy|3|sum
+    name|mapset|start_time
+    rain_1|PERMANENT|2026-06-01 00:00:00
+    rain_2|PERMANENT|2026-06-02 00:00:00
+    rain_3|PERMANENT|2026-06-03 00:00:00
+    registered_datasets=rain@PERMANENT,rain_copy@PERMANENT
+    ```
+
+### Replace an existing dataset
+
+The dataset `old` holds the map `old_1`. Copying `rain` to `old` without
+**--overwrite** fails because `old` exists, so the example uses **--overwrite**.
+The warning that *t.copy* prints on the standard error says that all maps of
+`old` are unregistered. Afterwards the first listing shows `old` with the three
+maps of `rain`, next to `rain` and `rain_copy`. The second listing still finds
+`old_1` with its time stamp: the map stays in the mapset and in the temporal
+database, but belongs to no dataset.
+
+This example continues with the data of the previous one.
+
+=== "Command line"
+
+    ```sh
+    r.mapcalc expression="old_1 = 1"
+    t.create output=old title="Old" description="Replaced by a copy"
+    t.register input=old maps=old_1 start=2026-01-01
+    t.copy --overwrite input=rain output=old
+    t.list type=strds columns=name,number_of_maps
+    t.list type=raster columns=name,start_time
+    ```
+
+    ```text
+    old|3
+    rain|3
+    rain_copy|3
+    old_1|2026-01-01 00:00:00
+    rain_1|2026-06-01 00:00:00
+    rain_2|2026-06-02 00:00:00
+    rain_3|2026-06-03 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.r_mapcalc(expression="old_1 = 1")
+    tools.t_create(output="old", title="Old", description="Replaced by a copy")
+    tools.t_register(input="old", maps="old_1", start="2026-01-01")
+    tools.t_copy(input="rain", output="old", overwrite=True)
+    print(tools.t_list(type="strds", columns="name,number_of_maps").text)
+    print(tools.t_list(type="raster", columns="name,start_time").text)
+    ```
+
+    ```text
+    old|3
+    rain|3
+    rain_copy|3
+    old_1|2026-01-01 00:00:00
+    rain_1|2026-06-01 00:00:00
+    rain_2|2026-06-02 00:00:00
+    rain_3|2026-06-03 00:00:00
+    ```
+
+### Copy a 3D raster or a vector dataset
+
+The option **type** gives the type of the dataset, here a space time 3D raster
+dataset `soil` and a space time vector dataset `gauges`. The copies hold the
+maps of the originals.
+
+=== "Command line"
+
+    ```sh
+    g.region n=2 s=0 e=3 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    r3.mapcalc expression="soil_1 = depth()"
+    t.create type=str3ds output=soil title="Soil" description="Soil layers"
+    t.register -i type=raster_3d input=soil maps=soil_1 \
+        start=2026-03-01 increment="1 day"
+    t.copy type=str3ds input=soil output=soil_copy
+    t.rast3d.list input=soil_copy columns=name,start_time
+    v.in.ascii input=- output=gauges_1 separator=comma \
+        columns="x double precision, y double precision, speed double precision" <<EOF
+    0.5,0.5,3.0
+    2.5,1.5,5.0
+    EOF
+    t.create type=stvds output=gauges title="Gauges" description="Wind speed"
+    t.register -i type=vector input=gauges maps=gauges_1 \
+        start=2026-03-01 increment="1 day"
+    t.copy type=stvds input=gauges output=gauges_copy
+    t.vect.list input=gauges_copy columns=name,start_time
+    ```
+
+    ```text
+    name|start_time
+    soil_1|2026-03-01 00:00:00
+    name|start_time
+    gauges_1|2026-03-01 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from io import StringIO
+
+    tools.g_region(n=2, s=0, e=3, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.r3_mapcalc(expression="soil_1 = depth()")
+    tools.t_create(type="str3ds", output="soil", title="Soil", description="Soil layers")
+    tools.t_register(
+        type="raster_3d",
+        input="soil",
+        maps="soil_1",
+        start="2026-03-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_copy(type="str3ds", input="soil", output="soil_copy")
+    print(tools.t_rast3d_list(input="soil_copy", columns="name,start_time").text)
+    tools.v_in_ascii(
+        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        output="gauges_1",
+        separator="comma",
+        columns="x double precision, y double precision, speed double precision",
+    )
+    tools.t_create(type="stvds", output="gauges", title="Gauges", description="Wind speed")
+    tools.t_register(
+        type="vector",
+        input="gauges",
+        maps="gauges_1",
+        start="2026-03-01",
+        increment="1 day",
+        flags="i",
+    )
+    tools.t_copy(type="stvds", input="gauges", output="gauges_copy")
+    print(tools.t_vect_list(input="gauges_copy", columns="name,start_time").text)
+    ```
+
+    ```text
+    name|start_time
+    soil_1|2026-03-01 00:00:00
+    name|start_time
+    gauges_1|2026-03-01 00:00:00
+    ```
+
+### Copy a dataset of another mapset
+
+The example creates the mapset `analysis` and switches to it. The dataset
+`rain` stays in the mapset `PERMANENT`; this mapset is in the search path of
+the new mapset, so *t.copy* finds the dataset without naming the mapset. The
+first command copies the dataset to `rain_linked` without **-c**: the maps of
+the copy are still the maps of `PERMANENT`, as the column `mapset` shows. The
+second command copies the dataset with **-c** to `rain_own`: the copy holds new
+maps with the same names in the mapset `analysis`, and the maps of `rain` in
+`PERMANENT` are as they were. *g.list* shows the new maps in `analysis`. The
+third command repeats the call with **--overwrite**: it fails, because the maps
+`rain_1` to `rain_3` exist in `analysis` now. After *g.remove* has removed them,
+the call with **--overwrite** replaces `rain_own` and copies the maps again.
+
+This example continues with the data of the first one.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=analysis
+    t.copy input=rain output=rain_linked
+    t.rast.list input=rain_linked columns=name,mapset
+    ```
+
+    ```text
+    name|mapset
+    rain_1|PERMANENT
+    rain_2|PERMANENT
+    rain_3|PERMANENT
+    ```
+
+    ```sh
+    t.copy -c input=rain@PERMANENT output=rain_own
+    t.rast.list input=rain_own columns=name,mapset
+    g.list type=raster mapset=analysis
+    t.rast.list input=rain@PERMANENT columns=name,mapset
+    ```
+
+    ```text
+    name|mapset
+    rain_1|analysis
+    rain_2|analysis
+    rain_3|analysis
+    rain_1
+    rain_2
+    rain_3
+    name|mapset
+    rain_1|PERMANENT
+    rain_2|PERMANENT
+    rain_3|PERMANENT
+    ```
+
+    ```sh
+    if ! t.copy -c --overwrite input=rain@PERMANENT output=rain_own 2>&1; then
+        echo "t.copy failed"
+    fi
+    g.remove -f type=raster name=rain_1,rain_2,rain_3
+    t.copy -c --overwrite input=rain@PERMANENT output=rain_own
+    t.rast.list input=rain_own columns=name,mapset
+    ```
+
+    ```text
+    Copying raster maps to the current mapset...
+    ERROR: A raster map <rain_1> exists already in the current mapset
+           <analysis>.
+    t.copy failed
+    name|mapset
+    rain_1|analysis
+    rain_2|analysis
+    rain_3|analysis
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_mapset(mapset="analysis", flags="c")
+    tools.t_copy(input="rain", output="rain_linked")
+    print(tools.t_rast_list(input="rain_linked", columns="name,mapset").text)
+    ```
+
+    ```text
+    name|mapset
+    rain_1|PERMANENT
+    rain_2|PERMANENT
+    rain_3|PERMANENT
+    ```
+
+    ```python
+    tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c")
+    print(tools.t_rast_list(input="rain_own", columns="name,mapset").text)
+    print(tools.g_list(type="raster", mapset="analysis").text)
+    print(tools.t_rast_list(input="rain@PERMANENT", columns="name,mapset").text)
+    ```
+
+    ```text
+    name|mapset
+    rain_1|analysis
+    rain_2|analysis
+    rain_3|analysis
+    rain_1
+    rain_2
+    rain_3
+    name|mapset
+    rain_1|PERMANENT
+    rain_2|PERMANENT
+    rain_3|PERMANENT
+    ```
+
+    ```python
+    from grass.tools import ToolError
+
+    try:
+        tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c", overwrite=True)
+    except ToolError as error:
+        print(error.stderr.strip())
+        print("t.copy failed")
+    tools.g_remove(flags="f", type="raster", name="rain_1,rain_2,rain_3")
+    tools.t_copy(input="rain@PERMANENT", output="rain_own", flags="c", overwrite=True)
+    print(tools.t_rast_list(input="rain_own", columns="name,mapset").text)
+    ```
+
+    ```text
+    Copying raster maps to the current mapset...
+    ERROR: A raster map <rain_1> exists already in the current mapset
+           <analysis>.
+    t.copy failed
+    name|mapset
+    rain_1|analysis
+    rain_2|analysis
+    rain_3|analysis
+    ```
+
+<!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[t.rast.extract](t.rast.extract.md),
-[t.rast3d.extract](t.rast3d.extract.md),
-[t.vect.extract](t.vect.extract.md), [t.info](t.info.md)*
+*[g.copy](g.copy.md), [g.list](g.list.md), [g.mapset](g.mapset.md),
+[g.mapsets](g.mapsets.md), [g.region](g.region.md),
+[g.remove](g.remove.md),
+[t.create](t.create.md), [t.info](t.info.md), [t.list](t.list.md),
+[t.rast.extract](t.rast.extract.md), [t.rast.list](t.rast.list.md),
+[t.rast3d.extract](t.rast3d.extract.md), [t.rast3d.list](t.rast3d.list.md),
+[t.register](t.register.md), [t.remove](t.remove.md),
+[t.vect.extract](t.vect.extract.md), [t.vect.list](t.vect.list.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 
