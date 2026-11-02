@@ -1,224 +1,490 @@
 <h2>DESCRIPTION</h2>
 
-The <em>t.merge</em> module is designed to register the maps of several input
-space time datasets in a single output dataset. The datasets to merge can be
-either space time raster, 3D raster or vector datasets and must have
-the same temporal type (absolute or relative).
+<em>t.merge</em> registers the maps of several space time datasets in one output
+dataset: the output holds the maps of all inputs, and the inputs stay as they
+are. See the <a href="temporalintro.html">introduction to temporal data
+processing</a> for an overview. Only the registration is merged.
+<em>t.merge</em> copies no map and changes no time stamp; every map keeps the
+time it has in the temporal database.
+
 <p>
-Existing space time datasets located in the current mapset can be
-specified as output as well. The maps from the input space time
-datasets will be added to the output.
+The option <b>inputs</b> names the datasets to merge, separated by commas, and
+<b>output</b> names the dataset that receives their maps. Both are required. The
+option <b>type</b> gives the type of all datasets of the call:
+<code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A
+dataset is found by its type and name, so a name that belongs to a dataset of
+another type is not found.
+
 <p>
-Maps from the input space time datasets will be registered only once in
-the output space time dataset, hence the same maps can be registered in
-different input space time datasets.
+A map that is a member of several inputs is registered once in the output.
+Registering a map in the output does not unregister it from the input, so the
+map then belongs to all of these datasets, which
+<em><a href="t.info.html">t.info</a></em> shows for the map under
+<code>Registered datasets</code>. The output takes the start and end time, the
+granularity and the range of values from all registered maps (see the first
+example).
+
+<h3>The output dataset</h3>
+
+A new output dataset gets the temporal type of the inputs, the title and the
+description <code>Merged space time dataset</code> and the semantic type
+<code>mean</code>.
+
+<p>
+An output that exists already is refused, unless the flag <b>--overwrite</b> is
+given. With <b>--overwrite</b>, the maps of the inputs are added to the maps
+that the output holds; nothing is removed from the output and the maps it holds
+already are not registered again. The output may also be one of the inputs,
+which adds nothing for that input.
+
+<h3>Temporal type</h3>
+
+All inputs must have the same temporal type, absolute or relative. The type of
+the output is that of the inputs (see the third example). With relative time,
+the inputs must also share the time unit of their maps.
+
+<h3>Mapsets</h3>
+
+The output belongs to the current mapset. An input name without a mapset is
+looked for in the current mapset only, also if another mapset of the search path
+has a dataset of that name; name such a dataset with its mapset
+(<code>temperature@climate</code>). The maps of an input of another mapset are
+registered in the output, in the current mapset.
 
 <h2>NOTES</h2>
 
-Temporal databases stored in other mapsets can be used as long as they
-are in the user's current mapset search path (managed with
-<a href="g.mapsets.html">g.mapsets</a>).
+An output in another mapset is refused with the error "Output space time dataset
+<code>&lt;name@mapset&gt;</code> must be located in this mapset". An existing
+output without <b>--overwrite</b> is refused with an error like "Unable to merge
+maps into space time raster dataset <code>&lt;out@PERMANENT&gt;</code> please use
+the overwrite flag." (raster stands for the type of the maps: raster, raster3d
+or vector).
+
+<p>
+Refusals and what they leave behind:
+<ul>
+<li>A name that is not a dataset of the given type stops the run with the error
+"Space time dataset <code>&lt;name&gt;</code> of type
+<code>&lt;strds&gt;</code> not found", and no output is created.</li>
+<li>Datasets of different temporal types stop the run with the error "Space time
+datasets to merge must have the same temporal type", and no output is
+created.</li>
+<li>Two datasets of relative time in different units, such as hours and years,
+cannot be merged. The error begins with "Relative time units of space time
+dataset" and ends with "are different". This is found while the maps are
+registered, and the new output, which is empty or partly filled by then, is
+removed again.</li>
+</ul>
 
 <h2>EXAMPLES</h2>
 
-In this example we will create two space time raster datasets and
-register two unique maps in each of it. Then we merge the two space
-time raster datasets together.
+<h3>Merge datasets that share a map</h3>
+
+The dataset <code>early</code> holds the maps <code>m_1</code> to
+<code>m_3</code>, one per day from 2026-06-01. The dataset <code>late</code>
+holds <code>m_4</code> and <code>m_5</code> for the next two days and, as a
+third member, <code>m_3</code>, which is registered in <code>early</code>
+already. Registering a map by its name alone gives it the time it has in the
+temporal database. <code>t.rast.list</code> shows that <code>late</code> starts
+with <code>m_3</code>.
+
+<p>
+The second block merges them into the new dataset <code>season</code>, which
+holds five maps, not six: <code>m_3</code> is registered once. Its time is from
+2026-06-01 to 2026-06-06, the granularity is one day, and the values range from
+1 to 5. The datasets <code>early</code> and <code>late</code> keep three maps
+each. The new dataset has the title <code>Merged space time dataset</code> and
+the semantic type <code>mean</code>, and the map <code>m_3</code> now belongs to
+all three datasets.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-r.mapcalc expression="map1 = rand(0, 10)"
-r.mapcalc expression="map2 = rand(10, 20)"
+g.region n=2 s=0 e=3 w=0 res=1
+for n in 1 2 3 4 5; do
+    r.mapcalc expression="m_$n = $n"
+done
+t.create output=early title="Early" description="Days 1 to 3"
+t.register -i input=early maps=m_1,m_2,m_3 \
+    start=2026-06-01 increment="1 day"
+t.create output=late title="Late" description="Days 3 to 5"
+t.register -i input=late maps=m_4,m_5 \
+    start=2026-06-04 increment="1 day"
+t.register input=late maps=m_3
+t.rast.list input=late columns=name,start_time
+</pre></div>
 
-t.create type=strds temporaltype=absolute \
-         output=precipitation_daily_1 \
-         title="Daily precipitation" \
-         description="Test dataset with daily precipitation"
+<div class="code"><pre>
+name|start_time
+m_3|2026-06-03 00:00:00
+m_4|2026-06-04 00:00:00
+m_5|2026-06-05 00:00:00
+</pre></div>
 
-t.register -i type=raster input=precipitation_daily_1 \
-           maps=map1,map2 start=2012-08-20 increment="1 days"
+<div class="code"><pre>
+t.merge inputs=early,late output=season
+t.list type=strds columns=name,number_of_maps
+t.rast.list input=season columns=name,start_time,end_time
+t.info -g input=season | grep -E "^(start_time|end_time|granularity|number_of_maps|min_min|max_max)="
+t.info input=season | grep -E "Semantic type|^ \| Merged"
+t.info type=raster input=m_3 | grep "Registered datasets"
+</pre></div>
 
-t.info precipitation_daily_1
-
- +-------------------- Space Time Raster Dataset -----------------------------+
- |                                                                            |
- +-------------------- Basic information -------------------------------------+
- | Id: ........................ precipitation_daily_1@soeren
- | Name: ...................... precipitation_daily_1
- | Mapset: .................... soeren
- | Creator: ................... soeren
- | Temporal type: ............. absolute
- | Creation time: ............. 2014-11-23 15:26:57.395355
- | Modification time:.......... 2014-11-23 15:26:57.860513
+<div class="code"><pre>
+early|3
+late|3
+season|5
+name|start_time|end_time
+m_1|2026-06-01 00:00:00|2026-06-02 00:00:00
+m_2|2026-06-02 00:00:00|2026-06-03 00:00:00
+m_3|2026-06-03 00:00:00|2026-06-04 00:00:00
+m_4|2026-06-04 00:00:00|2026-06-05 00:00:00
+m_5|2026-06-05 00:00:00|2026-06-06 00:00:00
+start_time='2026-06-01 00:00:00'
+end_time='2026-06-06 00:00:00'
+granularity='1 day'
+min_min=1.0
+max_max=5.0
+number_of_maps=5
  | Semantic type:.............. mean
- +-------------------- Absolute time -----------------------------------------+
- | Start time:................. 2012-08-20 00:00:00
- | End time:................... 2012-08-22 00:00:00
- | Granularity:................ 1 day
- | Temporal type of maps:...... interval
- +-------------------- Spatial extent ----------------------------------------+
- | North:...................... 80.0
- | South:...................... 0.0
- | East:.. .................... 120.0
- | West:....................... 0.0
- | Top:........................ 0.0
- | Bottom:..................... 0.0
- +-------------------- Metadata information ----------------------------------+
- | Raster register table:...... raster_map_register_6e6efe25ee9b40e39eb31421d737439b
- | North-South resolution min:. 10.0
- | North-South resolution max:. 10.0
- | East-west resolution min:... 10.0
- | East-west resolution max:... 10.0
- | Minimum value min:.......... 0.0
- | Minimum value max:.......... 10.0
- | Maximum value min:.......... 9.0
- | Maximum value max:.......... 19.0
- | Aggregation type:........... None
- | Number of registered maps:.. 2
- |
- | Title:
- | Daily precipitation
- | Description:
- | Test dataset with daily precipitation
- | Command history:
- | # 2014-11-23 15:26:57
- | t.create type="strds" temporaltype="absolute"
- |     output="precipitation_daily_1" title="Daily precipitation"
- |     description="Test dataset with daily precipitation"
- | # 2014-11-23 15:26:57
- | t.register -i type="rast"
- |     input="precipitation_daily_1" maps="map1,map2" start="2012-08-20"
- |     increment="1 days"
- |
- +----------------------------------------------------------------------------+
-
-
-r.mapcalc expression="map3 = rand(20, 30)"
-r.mapcalc expression="map4 = rand(30, 40)"
-
-t.create type=strds temporaltype=absolute \
-         output=precipitation_daily_2 \
-         title="Daily precipitation" \
-         description="Test dataset with daily precipitation"
-
-t.register -i type=raster input=precipitation_daily_2 \
-           maps=map3,map4 start=2012-08-22 increment="1 days"
-
-t.info precipitation_daily_2
-
- +-------------------- Space Time Raster Dataset -----------------------------+
- |                                                                            |
- +-------------------- Basic information -------------------------------------+
- | Id: ........................ precipitation_daily_2@soeren
- | Name: ...................... precipitation_daily_2
- | Mapset: .................... soeren
- | Creator: ................... soeren
- | Temporal type: ............. absolute
- | Creation time: ............. 2014-11-23 15:27:20.165074
- | Modification time:.......... 2014-11-23 15:27:20.613543
- | Semantic type:.............. mean
- +-------------------- Absolute time -----------------------------------------+
- | Start time:................. 2012-08-22 00:00:00
- | End time:................... 2012-08-24 00:00:00
- | Granularity:................ 1 day
- | Temporal type of maps:...... interval
- +-------------------- Spatial extent ----------------------------------------+
- | North:...................... 80.0
- | South:...................... 0.0
- | East:.. .................... 120.0
- | West:....................... 0.0
- | Top:........................ 0.0
- | Bottom:..................... 0.0
- +-------------------- Metadata information ----------------------------------+
- | Raster register table:...... raster_map_register_04eaede279b2476a80c2683254232f84
- | North-South resolution min:. 10.0
- | North-South resolution max:. 10.0
- | East-west resolution min:... 10.0
- | East-west resolution max:... 10.0
- | Minimum value min:.......... 20.0
- | Minimum value max:.......... 30.0
- | Maximum value min:.......... 29.0
- | Maximum value max:.......... 39.0
- | Aggregation type:........... None
- | Number of registered maps:.. 2
- |
- | Title:
- | Daily precipitation
- | Description:
- | Test dataset with daily precipitation
- | Command history:
- | # 2014-11-23 15:27:20
- | t.create type="strds" temporaltype="absolute"
- |     output="precipitation_daily_2" title="Daily precipitation"
- |     description="Test dataset with daily precipitation"
- | # 2014-11-23 15:27:20
- | t.register -i type="rast"
- |     input="precipitation_daily_2" maps="map3,map4" start="2012-08-22"
- |     increment="1 days"
- |
- +----------------------------------------------------------------------------+
-
-
-t.merge input=precipitation_daily_1,precipitation_daily_2 \
-        output=precipitation_daily_3
-
-t.info precipitation_daily_3
-
- +-------------------- Space Time Raster Dataset -----------------------------+
- |                                                                            |
- +-------------------- Basic information -------------------------------------+
- | Id: ........................ precipitation_daily_3@soeren
- | Name: ...................... precipitation_daily_3
- | Mapset: .................... soeren
- | Creator: ................... soeren
- | Temporal type: ............. absolute
- | Creation time: ............. 2014-11-23 15:27:44.069272
- | Modification time:.......... 2014-11-23 15:27:44.088930
- | Semantic type:.............. mean
- +-------------------- Absolute time -----------------------------------------+
- | Start time:................. 2012-08-20 00:00:00
- | End time:................... 2012-08-24 00:00:00
- | Granularity:................ 1 day
- | Temporal type of maps:...... interval
- +-------------------- Spatial extent ----------------------------------------+
- | North:...................... 80.0
- | South:...................... 0.0
- | East:.. .................... 120.0
- | West:....................... 0.0
- | Top:........................ 0.0
- | Bottom:..................... 0.0
- +-------------------- Metadata information ----------------------------------+
- | Raster register table:...... raster_map_register_33715c8c849a43fbb9bce02e1f28ff5a
- | North-South resolution min:. 10.0
- | North-South resolution max:. 10.0
- | East-west resolution min:... 10.0
- | East-west resolution max:... 10.0
- | Minimum value min:.......... 0.0
- | Minimum value max:.......... 30.0
- | Maximum value min:.......... 9.0
- | Maximum value max:.......... 39.0
- | Aggregation type:........... None
- | Number of registered maps:.. 4
- |
- | Title:
  | Merged space time dataset
- | Description:
  | Merged space time dataset
- | Command history:
- | # 2014-11-23 15:27:44
- | t.merge
- |     input="precipitation_daily_1,precipitation_daily_2"
- |     output="precipitation_daily_3"
- |
- +----------------------------------------------------------------------------+
+ | Registered datasets ........ early@PERMANENT,late@PERMANENT,season@PERMANENT
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+for n in range(1, 6):
+    tools.r_mapcalc(expression=f"m_{n} = {n}")
+tools.t_create(output="early", title="Early", description="Days 1 to 3")
+tools.t_register(
+    input="early",
+    maps="m_1,m_2,m_3",
+    start="2026-06-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_create(output="late", title="Late", description="Days 3 to 5")
+tools.t_register(
+    input="late",
+    maps="m_4,m_5",
+    start="2026-06-04",
+    increment="1 day",
+    flags="i",
+)
+tools.t_register(input="late", maps="m_3")
+print(tools.t_rast_list(input="late", columns="name,start_time").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+m_3|2026-06-03 00:00:00
+m_4|2026-06-04 00:00:00
+m_5|2026-06-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+tools.t_merge(inputs="early,late", output="season")
+print(tools.t_list(type="strds", columns="name,number_of_maps").text)
+print(tools.t_rast_list(input="season", columns="name,start_time,end_time").text)
+info = tools.t_info(input="season", flags="g").keyval
+for key in (
+    "start_time",
+    "end_time",
+    "granularity",
+    "min_min",
+    "max_max",
+    "number_of_maps",
+):
+    print(f"{key}={info[key]}")
+for line in tools.t_info(input="season").stdout.splitlines():
+    if "Semantic type" in line or line.startswith(" | Merged"):
+        print(line)
+for line in tools.t_info(type="raster", input="m_3").stdout.splitlines():
+    if "Registered datasets" in line:
+        print(line)
+</pre></div>
+
+<div class="code"><pre>
+early|3
+late|3
+season|5
+name|start_time|end_time
+m_1|2026-06-01 00:00:00|2026-06-02 00:00:00
+m_2|2026-06-02 00:00:00|2026-06-03 00:00:00
+m_3|2026-06-03 00:00:00|2026-06-04 00:00:00
+m_4|2026-06-04 00:00:00|2026-06-05 00:00:00
+m_5|2026-06-05 00:00:00|2026-06-06 00:00:00
+start_time='2026-06-01 00:00:00'
+end_time='2026-06-06 00:00:00'
+granularity='1 day'
+min_min=1.0
+max_max=5.0
+number_of_maps=5
+ | Semantic type:.............. mean
+ | Merged space time dataset
+ | Merged space time dataset
+ | Registered datasets ........ early@PERMANENT,late@PERMANENT,season@PERMANENT
+</pre></div>
+
+<h3>Add maps to an existing dataset</h3>
+
+The output <code>season</code> exists from the previous example. A call without
+<b>--overwrite</b> would be refused. With it, the maps of <code>extra</code> are
+added to the five maps <code>season</code> holds. In the second call the output
+is also an input, together with <code>early</code>, whose maps
+<code>season</code> holds already: nothing is registered twice, and
+<code>season</code> keeps six maps.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="m_6 = 6"
+t.create output=extra title="Extra" description="Day 6"
+t.register -i input=extra maps=m_6 start=2026-06-06 increment="1 day"
+t.merge --overwrite inputs=extra output=season
+t.rast.list input=season columns=name,start_time
+t.merge --overwrite inputs=early,season,extra output=season
+t.info -g input=season | grep -E "^(end_time|number_of_maps)="
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+m_1|2026-06-01 00:00:00
+m_2|2026-06-02 00:00:00
+m_3|2026-06-03 00:00:00
+m_4|2026-06-04 00:00:00
+m_5|2026-06-05 00:00:00
+m_6|2026-06-06 00:00:00
+end_time='2026-06-07 00:00:00'
+number_of_maps=6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="m_6 = 6")
+tools.t_create(output="extra", title="Extra", description="Day 6")
+tools.t_register(
+    input="extra", maps="m_6", start="2026-06-06", increment="1 day", flags="i"
+)
+tools.t_merge(inputs="extra", output="season", overwrite=True)
+print(tools.t_rast_list(input="season", columns="name,start_time").text)
+tools.t_merge(inputs="early,season,extra", output="season", overwrite=True)
+info = tools.t_info(input="season", flags="g").keyval
+for key in ("end_time", "number_of_maps"):
+    print(f"{key}={info[key]}")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+m_1|2026-06-01 00:00:00
+m_2|2026-06-02 00:00:00
+m_3|2026-06-03 00:00:00
+m_4|2026-06-04 00:00:00
+m_5|2026-06-05 00:00:00
+m_6|2026-06-06 00:00:00
+end_time='2026-06-07 00:00:00'
+number_of_maps=6
+</pre></div>
+
+<h3>Merge datasets of relative time</h3>
+
+Two model runs have relative time in hours: <code>run1</code> covers the hours 0
+to 3, <code>run2</code> the hours 3 to 5. The merged dataset has relative time
+as well, the unit <code>hours</code> and the times 0 to 5. The maps are new ones;
+a map has one temporal type, so the maps of the first example cannot join a
+dataset of relative time.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for n in 1 2 3 4 5; do
+    r.mapcalc expression="step_$n = $n"
+done
+t.create output=run1 temporaltype=relative title="Run 1" \
+    description="Steps 1 to 3"
+t.register -i input=run1 maps=step_1,step_2,step_3 \
+    start=0 increment=1 unit=hours
+t.create output=run2 temporaltype=relative title="Run 2" \
+    description="Steps 4 and 5"
+t.register -i input=run2 maps=step_4,step_5 \
+    start=3 increment=1 unit=hours
+t.merge inputs=run1,run2 output=full
+t.rast.list input=full columns=name,start_time,end_time
+t.info -g input=full | grep -E "^(temporal_type|start_time|end_time|unit|granularity|number_of_maps)="
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time
+step_1|0|1
+step_2|1|2
+step_3|2|3
+step_4|3|4
+step_5|4|5
+temporal_type=relative
+start_time='0'
+end_time='5'
+unit=hours
+granularity=1
+number_of_maps=5
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for n in range(1, 6):
+    tools.r_mapcalc(expression=f"step_{n} = {n}")
+tools.t_create(
+    output="run1",
+    temporaltype="relative",
+    title="Run 1",
+    description="Steps 1 to 3",
+)
+tools.t_register(
+    input="run1",
+    maps="step_1,step_2,step_3",
+    start=0,
+    increment=1,
+    unit="hours",
+    flags="i",
+)
+tools.t_create(
+    output="run2",
+    temporaltype="relative",
+    title="Run 2",
+    description="Steps 4 and 5",
+)
+tools.t_register(
+    input="run2",
+    maps="step_4,step_5",
+    start=3,
+    increment=1,
+    unit="hours",
+    flags="i",
+)
+tools.t_merge(inputs="run1,run2", output="full")
+print(tools.t_rast_list(input="full", columns="name,start_time,end_time").text)
+info = tools.t_info(input="full", flags="g").keyval
+for key in (
+    "temporal_type",
+    "start_time",
+    "end_time",
+    "unit",
+    "granularity",
+    "number_of_maps",
+):
+    print(f"{key}={info[key]}")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|end_time
+step_1|0|1
+step_2|1|2
+step_3|2|3
+step_4|3|4
+step_5|4|5
+temporal_type=relative
+start_time='0'
+end_time='5'
+unit=hours
+granularity=1
+number_of_maps=5
+</pre></div>
+
+<h3>Merge vector datasets</h3>
+
+With <b>type</b> <code>stvds</code>, <em>t.merge</em> merges space time vector
+datasets. The datasets <code>gauges_a</code> and <code>gauges_b</code> each hold
+one point map, one for each day. Datasets of type <code>str3ds</code> are merged
+the same way. The merged dataset <code>gauges</code> has two maps and two
+points.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for n in 1 2; do
+    echo "$n.5,0.5,$n.0" | v.in.ascii input=- output=gauge_$n \
+        separator=comma \
+        columns="x double precision, y double precision, speed double precision"
+done
+t.create type=stvds output=gauges_a title="Gauges A" description="Day 1"
+t.register -i type=vector input=gauges_a maps=gauge_1 \
+    start=2026-06-01 increment="1 day"
+t.create type=stvds output=gauges_b title="Gauges B" description="Day 2"
+t.register -i type=vector input=gauges_b maps=gauge_2 \
+    start=2026-06-02 increment="1 day"
+t.merge type=stvds inputs=gauges_a,gauges_b output=gauges
+t.vect.list input=gauges columns=name,start_time
+t.info -g type=stvds input=gauges | grep -E "^(points|number_of_maps)="
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+gauge_1|2026-06-01 00:00:00
+gauge_2|2026-06-02 00:00:00
+points=2
+number_of_maps=2
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+for n in range(1, 3):
+    tools.v_in_ascii(
+        input=StringIO(f"{n}.5,0.5,{n}.0\n"),
+        output=f"gauge_{n}",
+        separator="comma",
+        columns="x double precision, y double precision, speed double precision",
+    )
+tools.t_create(type="stvds", output="gauges_a", title="Gauges A", description="Day 1")
+tools.t_register(
+    type="vector",
+    input="gauges_a",
+    maps="gauge_1",
+    start="2026-06-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_create(type="stvds", output="gauges_b", title="Gauges B", description="Day 2")
+tools.t_register(
+    type="vector",
+    input="gauges_b",
+    maps="gauge_2",
+    start="2026-06-02",
+    increment="1 day",
+    flags="i",
+)
+tools.t_merge(type="stvds", inputs="gauges_a,gauges_b", output="gauges")
+print(tools.t_vect_list(input="gauges", columns="name,start_time").text)
+info = tools.t_info(type="stvds", input="gauges", flags="g").keyval
+for key in ("points", "number_of_maps"):
+    print(f"{key}={info[key]}")
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+gauge_1|2026-06-01 00:00:00
+gauge_2|2026-06-02 00:00:00
+points=2
+number_of_maps=2
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.create.html">t.create</a>,
-<a href="t.support.html">t.support</a>,
-<a href="t.register.html">t.register</a>
-</em>
+<em><a href="g.mapsets.html">g.mapsets</a>, <a href="t.copy.html">t.copy</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a
+href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>, <a
+href="t.support.html">t.support</a>, <a
+href="t.unregister.html">t.unregister</a>, <a
+href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
