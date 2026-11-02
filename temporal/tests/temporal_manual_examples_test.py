@@ -32,6 +32,7 @@ REVIEWED_MANUALS = (
     "t.rast.aggregate",
     "t.rast.aggregate.ds",
     "t.rast.contour",
+    "t.rast.extract",
     "t.rast.list",
     "t.rast.univar",
     "t.register",
