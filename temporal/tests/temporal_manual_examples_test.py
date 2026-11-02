@@ -95,6 +95,9 @@ CATALOG_MANUALS = (
 )
 
 TOOLS = Path(__file__).parents[1]
+# The introduction is checked like a manual, but it describes no tool, so
+# it has no options to show.
+INTRODUCTION = TOOLS / "temporalintro.md"
 
 
 def manual_of(tool):
@@ -132,7 +135,11 @@ def example_processes():
 
 @pytest.mark.parametrize(("tool", "variant"), example_runs())
 def test_examples_run_and_show_their_output(tool, variant, tmp_path, example_processes):
-    manual = manual_of(tool)
+    check_examples(manual_of(tool), variant, tmp_path)
+
+
+def check_examples(manual, variant, tmp_path):
+    """Run the examples of one tab of a manual and compare their output"""
     # A misspelled "## EXAMPLES" leaves a manual without examples, which
     # would otherwise pass unseen.
     assert any(example.variant == variant for example in manual.examples), (
@@ -164,6 +171,28 @@ def test_every_option_is_shown(tool, xy_module_session):
 def test_markdown_and_html_agree(tool):
     manual = manual_of(tool)
     assert check_html_sync(manual, manual.path.with_suffix(".html")) == []
+
+
+@pytest.mark.parametrize(
+    "variant",
+    [
+        pytest.param(
+            variant,
+            marks=pytest.mark.timeout(timeout_for(parse_manual(INTRODUCTION), variant)),
+            id=variant,
+        )
+        for variant in ("shell", "python")
+    ],
+)
+def test_introduction_examples_run_and_show_their_output(
+    variant, tmp_path, example_processes
+):
+    check_examples(parse_manual(INTRODUCTION), variant, tmp_path)
+
+
+def test_introduction_markdown_and_html_agree():
+    manual = parse_manual(INTRODUCTION)
+    assert check_html_sync(manual, INTRODUCTION.with_suffix(".html")) == []
 
 
 def test_shell_only_examples_are_catalog_manuals():
