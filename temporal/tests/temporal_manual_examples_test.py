@@ -64,6 +64,7 @@ REVIEWED_MANUALS = (
     "t.vect.db.select",
     "t.vect.export",
     "t.vect.extract",
+    "t.vect.import",
     "t.vect.list",
     "t.vect.observe.strds",
     "t.vect.univar",
