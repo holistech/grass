@@ -126,16 +126,21 @@ def test_json_with_extended_statistics_lists_the_percentiles(tools, values):
     ]
 
 
-@pytest.mark.parametrize("output_format", ["plain", "csv", "json"])
-def test_a_selection_without_maps_prints_nothing_in_any_format(
-    tools, values, output_format
-):
-    # Not even "[]" for json, so the output is no valid JSON then.
+@pytest.mark.parametrize("output_format", ["plain", "csv"])
+def test_plain_of_an_empty_selection_is_unchanged(tools, values, output_format):
     result = tools.t_rast3d_univar(
         input=values, format=output_format, where="start_time > '2010-01-01'"
     )
 
     assert result.stdout == ""
+
+
+def test_json_of_an_empty_selection_is_an_empty_list(tools, values):
+    result = tools.t_rast3d_univar(
+        input=values, format="json", where="start_time > '2010-01-01'"
+    )
+
+    assert json.loads(result.stdout) == []
 
 
 def test_json_refuses_a_separator(tools, values):

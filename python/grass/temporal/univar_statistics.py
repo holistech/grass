@@ -305,7 +305,13 @@ def print_gridded_dataset_univar_statistics(
                     "computational region exist in the dataset."
                 ).format(type=sp.get_new_map_instance(None).get_type(), id=sp.get_id())
             )
-
+            if format == "json":
+                # An empty list keeps the output valid JSON for a reader.
+                if output is None:
+                    print("[]")
+                else:
+                    with open(output, "w") as out_file:
+                        out_file.write("[]\n")
             return
 
         if output is not None:
