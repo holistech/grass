@@ -92,7 +92,8 @@ The tool stops with an error if **expression** is given without **basename**
 ("You need to specify the base name of new created maps"), if the input dataset
 does not exist, if the output dataset exists and **--overwrite** is not given,
 and if **suffix** is not `gran`, `time`, `num` or `num%NN` ("Invalid
-suffix"). An **expression** that *v.extract* does not accept stops with
+suffix"). A dot in the name of the output dataset is refused: "a dot
+is not allowed". An **expression** that *v.extract* does not accept stops with
 "Error in computation process"; the maps that the run has made are removed.
 If a new map is already in the temporal database and **--overwrite** is not
 given, the tool stops before it extracts anything, with "Map ... is already in

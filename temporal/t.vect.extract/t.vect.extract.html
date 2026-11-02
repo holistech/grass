@@ -102,7 +102,8 @@ The tool stops with an error if <b>expression</b> is given without
 the input dataset does not exist, if the output dataset exists and
 <b>--overwrite</b> is not given, and if <b>suffix</b> is not <code>gran</code>,
 <code>time</code>, <code>num</code> or <code>num%NN</code> ("Invalid
-suffix"). An <b>expression</b> that <em>v.extract</em> does not accept stops
+suffix"). A dot in the name of the output dataset is refused: "a dot
+is not allowed". An <b>expression</b> that <em>v.extract</em> does not accept stops
 with "Error in computation process"; the maps that the run has made are
 removed. If a new map is already in the temporal database and
 <b>--overwrite</b> is not given, the tool stops before it extracts anything,
