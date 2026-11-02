@@ -45,7 +45,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
 {
     int nrow, ncol;         /* number of rows and columns in current region */
     int startrow, startcol; /* start row and col of current line */
-    int n, i, j;            /* loop counters */
+    int n, i, j, pass;      /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
 
@@ -63,6 +63,16 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
 
     nrow = Cell.rows;
     ncol = Cell.cols;
+
+    /* A line runs through cells of four nodes, which needs two rows and two
+       columns. With fewer there is no cell and no line. */
+    if (nrow < 2 || ncol < 2) {
+        G_warning(_("The region has fewer than two rows or columns, "
+                    "no contour lines are created"));
+        Vect_destroy_line_struct(Points);
+        Vect_destroy_cats_struct(Cats);
+        return;
+    }
 
     hit = (char **)G_malloc((nrow - 1) * sizeof(char *));
     for (i = 0; i < nrow - 1; i++)
@@ -85,8 +95,14 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
 
-        /* check each cell of top and bottom borders  */
-        for (startrow = 0; startrow <= nrow - 2; startrow += (nrow - 2)) {
+        /* Check each cell of the top and the bottom border. The border row
+           of a pass is the first row of cells for the top and the last for
+           the bottom. With two rows of nodes these are the same row, and
+           each pass starts on its own edge of it. The former loop stepped
+           from the first to the last row by nrow - 2, which is 0 here, and
+           never left the first row. */
+        for (pass = 0; pass < 2; pass++) {
+            startrow = (pass == 0) ? 0 : nrow - 2;
             for (startcol = 0; startcol <= ncol - 2; startcol++) {
 
                 /* look for starting point of new line */
@@ -95,10 +111,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     current.c = startcol;
 
                     /* is this top or bottom? */
-                    if (startrow < nrow - 2) /* top */
-                        current.edge = 0;
-                    else /* bottom edge */
-                        current.edge = 2;
+                    current.edge = (pass == 0) ? 0 : 2;
 
                     outside = getnewcell(&current, nrow, ncol, z);
 
@@ -125,8 +138,10 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             } /* for columns */
         } /* for rows */
 
-        /* check right and left borders (each row of first and last column) */
-        for (startcol = 0; startcol <= ncol - 2; startcol += (ncol - 2)) {
+        /* Check each cell of the left and the right border, the same way as
+           above for two columns of nodes. */
+        for (pass = 0; pass < 2; pass++) {
+            startcol = (pass == 0) ? 0 : ncol - 2;
             for (startrow = 0; startrow <= nrow - 2; startrow++) {
                 /* look for starting point of new line */
                 if (!hit[startrow][startcol]) {
@@ -134,10 +149,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     current.c = startcol;
 
                     /* is this left or right edge? */
-                    if (startcol < ncol - 2) /* left */
-                        current.edge = 3;
-                    else /* right edge */
-                        current.edge = 1;
+                    current.edge = (pass == 0) ? 3 : 1;
 
                     outside = getnewcell(&current, nrow, ncol, z);
 
