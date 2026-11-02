@@ -1,20 +1,917 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast3d.list</em> provides the same functionality as
-<a href="t.rast.list.html">t.rast.list</a>, the only difference is the
-3D raster map layer metadata. Please refer to the manual page of
-<a href="t.rast.list.html">t.rast.list</a>.
+<em>t.rast3d.list</em> lists the 3D raster maps that are registered in a space time 3D raster dataset, with the metadata that the temporal database holds for each map. It reads the temporal database; the maps themselves are not opened. The listing is the usual step after <em><a href="t.info.html">t.info</a></em> has shown the dataset as a whole and before a tool such as the map algebra works on its maps. See the <a href="temporalintro.html">introduction to temporal data processing</a> for space time datasets. The tool is the counterpart of <em><a href="t.rast.list.html">t.rast.list</a></em> for 3D raster maps, with the same options, formats and methods; the differences are the columns of the volume (see below), the flag <b>-s</b> instead of <b>-u</b>, and the method <code>cols</code> instead of <code>list</code>. Space time vector datasets have their own tool, <em><a href="t.vect.list.html">t.vect.list</a></em>, and <em><a href="t.list.html">t.list</a></em> lists the datasets themselves.
+
+<h3>Select the maps</h3>
+
+The option <b>input</b> names the space time 3D raster dataset. The option <b>where</b> takes an SQL condition on the columns of the registered maps, such as <code>max &gt; 5</code>, <code>name = 'soil_1'</code> or <code>start_time &gt;= '2026-03-02'</code>. Times are compared as text, so a time with a clock part needs the whole text: <code>start_time = '2026-03-02'</code> selects nothing, because the stored value is <code>2026-03-02 00:00:00</code>. Use <code>&gt;=</code> and <code>&lt;</code> for a day, or <code>name</code> for a single map. The function <code>strftime()</code> of SQLite selects recurring times, such as one day of the month or one month of the year. With the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code>, the condition selects the maps before the lengths and distances are counted, so the distances start at 0 with the first selected map.
+
+<h3>Columns and order</h3>
+
+The option <b>columns</b> chooses the columns that are printed for each map, separated by commas. The columns are:
+<ul>
+<li><code>id</code>, the name of the map with its mapset, such as <code>soil_1@PERMANENT</code>; <code>name</code> and <code>mapset</code>, the two parts of it;</li>
+<li><code>temporal_type</code>, <code>absolute</code> or <code>relative</code>;</li>
+<li><code>start_time</code> and <code>end_time</code>, the time of the map. The end time of a map registered as a time instant is <code>None</code>. With relative time, they are numbers in the unit of the dataset, printed without the unit;</li>
+<li><code>creator</code> and <code>creation_time</code>, the user who created the entry of the map in the temporal database and the time of its creation;</li>
+<li><code>north</code>, <code>south</code>, <code>west</code> and <code>east</code>, the horizontal extent of the map; <code>nsres</code> and <code>ewres</code>, its horizontal cell sizes;</li>
+<li><code>tbres</code>, the vertical resolution, which is the thickness of one layer; <code>depths</code>, the number of layers; <code>cols</code> and <code>rows</code>, the number of columns and rows of one layer; <code>number_of_cells</code>, the number of cells of the whole map, which is <code>cols * rows * depths</code>. The vertical extent of the map is the number of layers times their thickness;</li>
+<li><code>min</code> and <code>max</code>, the smallest and the largest value of the map, as stored in the temporal database;</li>
+<li><code>interval_length</code> and <code>distance_from_begin</code>, the length of the time interval of the map and the distance of its start from the start of the first listed map. They exist for the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code> only (see below). With absolute time they are numbers of days, with relative time numbers of the time unit of the dataset.</li>
+</ul>
+<p>
+The option <b>order</b> sorts the maps by one or more columns, separated by commas; the possible columns are those of the list above up to <code>max</code>. The default is <code>start_time</code>. The order is ascending, and the option takes names of columns only, no sort direction. The option works with the methods <code>cols</code> and <code>comma</code> only.
+
+<h3>Methods</h3>
+
+The option <b>method</b> chooses what is listed. The default is <code>cols</code>.
+<ul>
+<li><code>cols</code> prints one line per registered map with the columns of <b>columns</b>. Without <b>columns</b>, these are <code>name</code>, <code>mapset</code>, <code>start_time</code> and <code>end_time</code>; with <code>format=line</code>, the column <code>id</code>. It supports all columns except <code>interval_length</code> and <code>distance_from_begin</code>, and <b>order</b> applies to it.</li>
+<li><code>delta</code> prints the maps ordered by start time with the length of their intervals and their distance from the first map. Without <b>columns</b>, the columns are <code>id</code>, <code>name</code>, <code>mapset</code>, <code>start_time</code>, <code>end_time</code>, <code>interval_length</code> and <code>distance_from_begin</code>. The length of a time instant is <code>None</code>. <code>delta</code> supports only these columns.</li>
+<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap between two maps. A gap line has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>; its times are the end of the map before and the start of the map after the gap, and its length is the length of the gap. Maps that follow each other directly leave no gap.</li>
+<li><code>gran</code> samples the maps by a granule and prints one line per granule, with the columns of <code>delta</code>. The times and the length are those of the granule, not of the map, so a map that is longer than the granule is listed once for each granule it covers. A granule without a map has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>. When more than one map meets a granule, the line names one of them: a map that covers or overlaps the granule names it before a map that lies inside it.</li>
+<li><code>comma</code> is the old name of <code>cols</code> with <code>format=line</code>: it prints the ids in one line. Prefer the option <b>format</b>.</li>
+</ul>
+<p>
+The option <b>granule</b> is the granule of the method <code>gran</code>. For absolute time it is a text with a number and a time unit, such as <code>"2 months"</code>. For relative time, leave it out (see the notes). Without it, the granularity of the dataset is used. The first granule starts with the first map; each later start is counted in whole granules from this start. A step of months or years that ends behind the last day of a shorter month ends on that day: with a granule of one month and a first map from 31 January, the granules start on 31 January, 28 February, 31 March and 30 April. The other methods ignore <b>granule</b>.
+
+<h3>Output</h3>
+
+The option <b>format</b> chooses the form of the output:
+<ul>
+<li><code>plain</code> (the default) prints one line per map with the columns separated by a vertical bar <code>|</code>, and the column names as the first line;</li>
+<li><code>line</code> prints the values of one column in one line, separated by commas. It takes one column only; the default column is <code>id</code>, so the line is a list of maps that other tools accept as input;</li>
+<li><code>csv</code> prints comma separated values, with the column names as the first line. Text is enclosed in double quotes and numbers are not. A missing value (<code>None</code>) is an empty text;</li>
+<li><code>json</code> prints an object with the key <code>data</code>, a list with one object per map, and the key <code>metadata</code> with the list <code>column_names</code>. A missing value is <code>null</code>, numbers are numbers, and times with absolute time are text;</li>
+<li><code>yaml</code> prints the same structure as YAML. It needs the PyYAML package.</li>
+</ul>
+<p>
+The flag <b>-s</b> suppresses the line with the column names in the formats <code>plain</code> and <code>csv</code>. The formats <code>json</code> and <code>yaml</code> always name the columns and refuse <b>-s</b>.
+<p>
+The option <b>separator</b> replaces the separator of the formats <code>plain</code>, <code>csv</code> and <code>line</code>. It is a single character or a name such as <code>pipe</code>, <code>comma</code> or <code>tab</code>. The format <code>csv</code> accepts one character only, and <code>json</code> and <code>yaml</code> refuse <b>separator</b>. The option <b>output</b> writes the listing to a file instead of the standard output.
+
+<h2>NOTES</h2>
+
+A column name that is not in the list above is refused by the parser, which names the column.
+<p>
+If no map is listed, the result depends on the method and the format. The methods <code>cols</code> and <code>comma</code> stop with the error "Nothing found in the database for space time dataset <code>&lt;name@mapset&gt;</code> (type: str3ds)", followed by "Dataset is empty" for a dataset without maps and by "Dataset is empty or where clause is too constrained or incorrect" when <b>where</b> selects nothing. With the format <code>json</code>, <code>data</code> is an empty list. The methods <code>delta</code> and <code>deltagaps</code> print the line with the column names only, both for a dataset without maps and when <b>where</b> selects nothing. The method <code>gran</code> does the same when <b>where</b> selects nothing in a dataset that has a granularity, but stops for a dataset without maps with the error "Nothing found in the database for space time dataset <code>&lt;name@mapset&gt;</code> (type: str3ds)", followed by "Dataset is empty". A dataset with a single map that is a time instant has no granularity, and <code>gran</code> without <b>granule</b> stops for it with the error "Wrong granularity: "None"", whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>, or use <code>delta</code>.
+<p>
+With relative time, the times are numbers of the time unit of the dataset, printed without the unit, as the model in the fourth example shows. The method <code>gran</code> works with relative time without <b>granule</b>. Given a <b>granule</b> for a dataset with relative time, it fails: a number ends with a Python error (<code>TypeError</code>) and a text with a unit such as <code>"6 hours"</code> with the error "Wrong granularity". Leave <b>granule</b> out; the granularity of the dataset is used.
+<p>
+The option <b>output</b> takes the name of a file. The name <code>-</code> is not the standard output here: it writes a file with this name, as the last block of the "Choose the output format" example shows. To print the listing, leave out <b>output</b>; to keep it in a file, give a file name other than <code>-</code>.
+<p>
+<em>t.rast3d.list</em> only reads, so it works on a dataset of another mapset as well. The name with the mapset (<code>input=soil@PERMANENT</code>) selects it; a name without a mapset is searched in the mapsets of the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+<p>
+Combinations that cannot work are refused with a message that names the options. <b>order</b> is refused with <code>delta</code>, <code>deltagaps</code> and <code>gran</code>. These three methods list only the columns of <code>delta</code>, so a column of the temporal database is refused with them, and <code>interval_length</code> and <code>distance_from_begin</code> are refused with <code>cols</code>. More than one column is refused with <code>format=line</code>, <b>-s</b> and <b>separator</b> with <code>json</code> and <code>yaml</code>, and a separator of more than one character with <code>csv</code>. A granule of absolute time without a time unit (<code>"2"</code>) or with an unknown unit (<code>"3 foo"</code>) is refused with the error "Wrong granularity".
+
+<h2>EXAMPLES</h2>
+
+
+<h3>List the maps of a dataset</h3>
+
+The dataset <code>soil</code> has four 3D raster maps of the soil temperature on the days from 1 to 4 March 2026. The region of the maps has 3 columns, 2 rows and 4 layers of a thickness of 2, from the bottom 0 to the top 8, so each map has 24 cells. The value of a cell is the number of its layer plus an offset, so the smallest and largest value of <code>soil_1</code> are 1 and 4. The offsets 0, 6, 3 and 9 make the third map colder than the second one. A space time 3D raster dataset has the type <code>str3ds</code>, and its maps are registered with the type <code>raster_3d</code>.
+<p>
+The first block lists the maps with the default columns. The second block adds the flag <b>-s</b>, which suppresses the line with the column names, and names the default method <code>cols</code>. The third block names the columns, among them the smallest and largest value of each map. The fourth block lists the columns of the volume of the first map: the extent in the plane, the cell sizes, the thickness <code>tbres</code> of a layer and the number of layers <code>depths</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 t=8 b=0 res=1 res3=1 tbres=2
+r3.mapcalc expression="soil_1 = depth()"
+r3.mapcalc expression="soil_2 = depth() + 6"
+r3.mapcalc expression="soil_3 = depth() + 3"
+r3.mapcalc expression="soil_4 = depth() + 9"
+t.create type=str3ds output=soil title="Soil temperature" \
+    description="Soil temperature in four layers"
+t.register -i type=raster_3d input=soil \
+    maps=soil_1,soil_2,soil_3,soil_4 \
+    start=2026-03-01 increment="1 day"
+t.rast3d.list input=soil
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+soil_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+soil_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list -s input=soil method=cols
+</pre></div>
+
+<div class="code"><pre>
+soil_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+soil_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,start_time,min,max
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+soil_1|2026-03-01 00:00:00|1.0|4.0
+soil_2|2026-03-02 00:00:00|7.0|10.0
+soil_3|2026-03-03 00:00:00|4.0|7.0
+soil_4|2026-03-04 00:00:00|10.0|13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil where="name = 'soil_1'" \
+    columns=id,name,mapset,temporal_type,start_time,end_time,north,south,west,east,nsres,ewres,tbres,cols,rows,depths,number_of_cells,min,max
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|tbres|cols|rows|depths|number_of_cells|min|max
+soil_1@PERMANENT|soil_1|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|2.0|3|2|4|24|1.0|4.0
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, t=8, b=0, res=1, res3=1, tbres=2)
+for number, offset in enumerate((0, 6, 3, 9), start=1):
+    tools.r3_mapcalc(expression=f"soil_{number} = depth() + {offset}")
+tools.t_create(
+    type="str3ds",
+    output="soil",
+    title="Soil temperature",
+    description="Soil temperature in four layers",
+)
+tools.t_register(
+    type="raster_3d",
+    input="soil",
+    maps="soil_1,soil_2,soil_3,soil_4",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="soil").text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+soil_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+soil_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="soil", method="cols", flags="s").text)
+</pre></div>
+
+<div class="code"><pre>
+soil_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+soil_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="soil", columns="name,start_time,min,max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+soil_1|2026-03-01 00:00:00|1.0|4.0
+soil_2|2026-03-02 00:00:00|7.0|10.0
+soil_3|2026-03-03 00:00:00|4.0|7.0
+soil_4|2026-03-04 00:00:00|10.0|13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil",
+    where="name = 'soil_1'",
+    columns=(
+        "id,name,mapset,temporal_type,start_time,end_time,north,south,west,east,"
+        "nsres,ewres,tbres,cols,rows,depths,number_of_cells,min,max"
+    ),
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|tbres|cols|rows|depths|number_of_cells|min|max
+soil_1@PERMANENT|soil_1|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|2.0|3|2|4|24|1.0|4.0
+</pre></div>
+
+
+<h3>Select and sort the maps</h3>
+
+The maps of <code>soil</code> are sorted by start time. The option <b>order</b> sorts by another column; the first block sorts by <code>max</code>, so the colder third map comes before the second one.
+<p>
+The option <b>where</b> selects the maps. The second block selects the maps that start from 2 March on and before 4 March, so the second and the third map. The third block combines a condition on the smallest value with <b>order</b>. The fourth block uses <code>strftime()</code> to select the maps that start on the 1st or the 4th day of the month, a recurring selection that works the same way for one month of every year.
+<p>
+The last block shows a trap: a time compared with <code>=</code> must be the whole text <code>2026-03-02 00:00:00</code>, and the short form selects no map. The format <code>json</code> shows the empty result, <code>data</code> is an empty list; the formats <code>plain</code> and <code>line</code> stop with an error here.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,max order=max
+</pre></div>
+
+<div class="code"><pre>
+name|max
+soil_1|4.0
+soil_3|7.0
+soil_2|10.0
+soil_4|13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,start_time \
+    where="start_time &gt;= '2026-03-02' and start_time &lt; '2026-03-04'"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+soil_2|2026-03-02 00:00:00
+soil_3|2026-03-03 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,min,max order=max where="min &gt; 3"
+</pre></div>
+
+<div class="code"><pre>
+name|min|max
+soil_3|4.0|7.0
+soil_2|7.0|10.0
+soil_4|10.0|13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,start_time \
+    where="strftime('%d', start_time) in ('01', '04')"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+soil_1|2026-03-01 00:00:00
+soil_4|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name format=json \
+    where="start_time = '2026-03-02'"
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="soil", columns="name,max", order="max").text)
+</pre></div>
+
+<div class="code"><pre>
+name|max
+soil_1|4.0
+soil_3|7.0
+soil_2|10.0
+soil_4|13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil",
+    columns="name,start_time",
+    where="start_time &gt;= '2026-03-02' and start_time &lt; '2026-03-04'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+soil_2|2026-03-02 00:00:00
+soil_3|2026-03-03 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil", columns="name,min,max", order="max", where="min &gt; 3"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|min|max
+soil_3|4.0|7.0
+soil_2|7.0|10.0
+soil_4|10.0|13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil",
+    columns="name,start_time",
+    where="strftime('%d', start_time) in ('01', '04')",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+soil_1|2026-03-01 00:00:00
+soil_4|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil",
+    columns="name",
+    format="json",
+    where="start_time = '2026-03-02'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+
+<h3>Choose the output format</h3>
+
+All blocks list the dataset <code>soil</code>. The first block prints the maps as a list of ids in one line, the form that other tools accept as input; the second block does the same with the old method name <code>comma</code>; the third block prints the names only, with another separator. The fourth and fifth block print CSV with and without the line of column names; text is quoted and numbers are not. The sixth block replaces the separator of the plain format. The seventh block prints JSON, which the Python tab reads from <code>result.json</code> and prints name and <code>max</code> of each map. The eighth block writes the listing to a file and prints the file. The ninth block shows that <code>output=-</code> writes a file named <code>-</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast3d.list input=soil format=line
+</pre></div>
+
+<div class="code"><pre>
+soil_1@PERMANENT,soil_2@PERMANENT,soil_3@PERMANENT,soil_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil method=comma
+</pre></div>
+
+<div class="code"><pre>
+soil_1@PERMANENT,soil_2@PERMANENT,soil_3@PERMANENT,soil_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil format=line columns=name separator=" | "
+</pre></div>
+
+<div class="code"><pre>
+soil_1 | soil_2 | soil_3 | soil_4
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil format=csv columns=name,min,max
+</pre></div>
+
+<div class="code"><pre>
+"name","min","max"
+"soil_1",1.0,4.0
+"soil_2",7.0,10.0
+"soil_3",4.0,7.0
+"soil_4",10.0,13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list -s input=soil format=csv columns=name,min,max
+</pre></div>
+
+<div class="code"><pre>
+"soil_1",1.0,4.0
+"soil_2",7.0,10.0
+"soil_3",4.0,7.0
+"soil_4",10.0,13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,min,max separator=";"
+</pre></div>
+
+<div class="code"><pre>
+name;min;max
+soil_1;1.0;4.0
+soil_2;7.0;10.0
+soil_3;4.0;7.0
+soil_4;10.0;13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,max format=json
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [{"name": "soil_1", "max": 4.0}, {"name": "soil_2", "max": 10.0}, {"name": "soil_3", "max": 7.0}, {"name": "soil_4", "max": 13.0}], "metadata": {"column_names": ["name", "max"]}}
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name,max output=maxima.txt
+cat maxima.txt
+</pre></div>
+
+<div class="code"><pre>
+name|max
+soil_1|4.0
+soil_2|10.0
+soil_3|7.0
+soil_4|13.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=soil columns=name output=-
+cat ./-
+</pre></div>
+
+<div class="code"><pre>
+name
+soil_1
+soil_2
+soil_3
+soil_4
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+print(tools.t_rast3d_list(input="soil", format="line").text)
+</pre></div>
+
+<div class="code"><pre>
+soil_1@PERMANENT,soil_2@PERMANENT,soil_3@PERMANENT,soil_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="soil", method="comma").text)
+</pre></div>
+
+<div class="code"><pre>
+soil_1@PERMANENT,soil_2@PERMANENT,soil_3@PERMANENT,soil_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil", format="line", columns="name", separator=" | "
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+soil_1 | soil_2 | soil_3 | soil_4
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="soil", format="csv", columns="name,min,max")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"name","min","max"
+"soil_1",1.0,4.0
+"soil_2",7.0,10.0
+"soil_3",4.0,7.0
+"soil_4",10.0,13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="soil", format="csv", columns="name,min,max", flags="s"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"soil_1",1.0,4.0
+"soil_2",7.0,10.0
+"soil_3",4.0,7.0
+"soil_4",10.0,13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="soil", columns="name,min,max", separator=";")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name;min;max
+soil_1;1.0;4.0
+soil_2;7.0;10.0
+soil_3;4.0;7.0
+soil_4;10.0;13.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="soil", columns="name,max", format="json")
+for item in result.json["data"]:
+    print(item["name"], item["max"])
+</pre></div>
+
+<div class="code"><pre>
+soil_1 4.0
+soil_2 10.0
+soil_3 7.0
+soil_4 13.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_list(input="soil", columns="name,max", output="maxima.txt")
+print(Path("maxima.txt").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+name|max
+soil_1|4.0
+soil_2|10.0
+soil_3|7.0
+soil_4|13.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast3d_list(input="soil", columns="name", output="-")
+print(Path("-").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+name
+soil_1
+soil_2
+soil_3
+soil_4
+</pre></div>
+
+
+<h3>Intervals, distances and gaps</h3>
+
+The dataset <code>rain</code> has two daily maps, registered with a start and an end: <code>rain_1</code> for 1 June 2026 and <code>rain_3</code> for 3 June, so 2 June is a gap. The method <code>delta</code> prints the length of each map and its distance from the first map in days; it skips the gap. The method <code>deltagaps</code> adds a line for the gap with <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>, and its length. The CSV form of this table shows <code>None</code> as an empty text.
+<p>
+The dataset <code>model</code> has relative time: three model steps of 6 hours. Its times, lengths and distances are numbers of hours, printed without the unit.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r3.mapcalc expression="rain_1 = 4"
+r3.mapcalc expression="rain_3 = 2"
+t.create type=str3ds output=rain title="Rain" \
+    description="Daily rain with a gap"
+t.register type=raster_3d input=rain maps=rain_1 \
+    start=2026-06-01 end=2026-06-02
+t.register type=raster_3d input=rain maps=rain_3 \
+    start=2026-06-03 end=2026-06-04
+t.rast3d.list input=rain method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=rain method=deltagaps
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=rain method=deltagaps format=csv columns=id,interval_length
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"rain_1@PERMANENT",1.0
+"",1.0
+"rain_3@PERMANENT",1.0
+</pre></div>
+
+<div class="code"><pre>
+for step in 1 2 3; do
+    r3.mapcalc expression="step_$step = $step"
+done
+t.create type=str3ds output=model temporaltype=relative title="Model" \
+    description="Model output per step of 6 hours"
+t.register -i type=raster_3d input=model maps=step_1,step_2,step_3 \
+    start=0 increment=6 unit=hours
+t.rast3d.list input=model method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r3_mapcalc(expression="rain_1 = 4")
+tools.r3_mapcalc(expression="rain_3 = 2")
+tools.t_create(
+    type="str3ds", output="rain", title="Rain", description="Daily rain with a gap"
+)
+tools.t_register(
+    type="raster_3d",
+    input="rain",
+    maps="rain_1",
+    start="2026-06-01",
+    end="2026-06-02",
+)
+tools.t_register(
+    type="raster_3d",
+    input="rain",
+    maps="rain_3",
+    start="2026-06-03",
+    end="2026-06-04",
+)
+print(tools.t_rast3d_list(input="rain", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="rain", method="deltagaps").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(
+    input="rain", method="deltagaps", format="csv", columns="id,interval_length"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"rain_1@PERMANENT",1.0
+"",1.0
+"rain_3@PERMANENT",1.0
+</pre></div>
+
+<div class="code"><pre>
+for step in (1, 2, 3):
+    tools.r3_mapcalc(expression=f"step_{step} = {step}")
+tools.t_create(
+    type="str3ds",
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step of 6 hours",
+)
+tools.t_register(
+    type="raster_3d",
+    input="model",
+    maps="step_1,step_2,step_3",
+    start=0,
+    increment=6,
+    unit="hours",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="model", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+</pre></div>
+
+
+<h3>Sample the maps by a granule</h3>
+
+The dataset <code>monthly</code> has four maps that start on the last day of a month and end on the last day of the next one, from 31 January. The first block lists them. The method <code>gran</code> with a granule of one month prints one line per month granule: the granules start on 31 January, 28 February, 31 March and 30 April, as each start is counted in months from 31 January and cut to the last day of a shorter month. With a granule of two months, each line covers two maps and names the first of them. The last block samples the relative dataset <code>model</code> of the previous example without a granule, so it uses the granularity of the dataset, 6 hours.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for month in 1 2 3 4; do
+    r3.mapcalc expression="month_$month = $month"
+done
+t.create type=str3ds output=monthly title="Monthly" \
+    description="Monthly maps"
+t.register -i type=raster_3d input=monthly \
+    maps=month_1,month_2,month_3,month_4 \
+    start=2026-01-31 increment="1 month"
+t.rast3d.list input=monthly
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
+month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
+month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
+month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=monthly method=gran granule="1 month"
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=monthly method=gran granule="2 months"
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+</pre></div>
+
+<div class="code"><pre>
+t.rast3d.list input=model method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for month in (1, 2, 3, 4):
+    tools.r3_mapcalc(expression=f"month_{month} = {month}")
+tools.t_create(
+    type="str3ds", output="monthly", title="Monthly", description="Monthly maps"
+)
+tools.t_register(
+    type="raster_3d",
+    input="monthly",
+    maps="month_1,month_2,month_3,month_4",
+    start="2026-01-31",
+    increment="1 month",
+    flags="i",
+)
+print(tools.t_rast3d_list(input="monthly").text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
+month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
+month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
+month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="monthly", method="gran", granule="1 month")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_rast3d_list(input="monthly", method="gran", granule="2 months")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_rast3d_list(input="model", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+</pre></div>
+
+
+<h3>Use a dataset of another mapset</h3>
+
+<em>t.rast3d.list</em> reads a dataset of another mapset. The example creates the mapset <code>other</code> and switches to it; the dataset <code>soil</code> stays in the mapset <code>PERMANENT</code> and is named with its mapset. In the second block, <em>g.mapsets</em> shows that <code>PERMANENT</code> is in the search path of the new mapset, so the name <code>soil</code> without a mapset finds the same dataset.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=other
+t.rast3d.list input=soil@PERMANENT columns=id,start_time
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+soil_1@PERMANENT|2026-03-01 00:00:00
+soil_2@PERMANENT|2026-03-02 00:00:00
+soil_3@PERMANENT|2026-03-03 00:00:00
+soil_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+g.mapsets -p
+t.rast3d.list input=soil columns=id,start_time
+</pre></div>
+
+<div class="code"><pre>
+other PERMANENT
+id|start_time
+soil_1@PERMANENT|2026-03-01 00:00:00
+soil_2@PERMANENT|2026-03-02 00:00:00
+soil_3@PERMANENT|2026-03-03 00:00:00
+soil_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="other", flags="c")
+result = tools.t_rast3d_list(input="soil@PERMANENT", columns="id,start_time")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+soil_1@PERMANENT|2026-03-01 00:00:00
+soil_2@PERMANENT|2026-03-02 00:00:00
+soil_3@PERMANENT|2026-03-03 00:00:00
+soil_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+print(tools.g_mapsets(flags="p").text)
+print(tools.t_rast3d_list(input="soil", columns="id,start_time").text)
+</pre></div>
+
+<div class="code"><pre>
+other PERMANENT
+id|start_time
+soil_1@PERMANENT|2026-03-01 00:00:00
+soil_2@PERMANENT|2026-03-02 00:00:00
+soil_3@PERMANENT|2026-03-03 00:00:00
+soil_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
 
 <h2>SEE ALSO</h2>
 
 <em>
-<a href="t.rast.list.html">t.rast.list</a>,
 <a href="g.list.html">g.list</a>,
+<a href="g.mapsets.html">g.mapsets</a>,
 <a href="t.create.html">t.create</a>,
 <a href="t.info.html">t.info</a>,
 <a href="t.list.html">t.list</a>,
-<a href="t.vect.list.html">t.vect.list</a>
+<a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.register.html">t.register</a>,
+<a href="t.vect.list.html">t.vect.list</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
+
 
 <h2>AUTHOR</h2>
 
