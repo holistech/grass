@@ -308,7 +308,8 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
         }
 
         dstep = atof(step->answer);
-        if (dstep <= 0)
+        /* NaN and infinity pass a plain comparison and give NaN levels. */
+        if (!(dstep > 0) || !isfinite(dstep))
             G_fatal_error(_("This step value is not allowed"));
 
         /* The levels are the points anchor + k * step of one grid, cut to the
@@ -331,14 +332,23 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
         lev = (double *)G_malloc(sizeof(double));
         if (lower <= upper) {
             /* The tolerance keeps a level that lies on a limit up to rounding
-               (0.3 / 0.1 is 2.9999999999999996) */
+               (0.3 / 0.1 is 2.9999999999999996). */
             kfirst = ceil((lower - anchor) / dstep - 1e-9);
             klast = floor((upper - anchor) / dstep + 1e-9);
             if (klast >= kfirst) {
                 nlevels = (int)(klast - kfirst) + 1;
                 lev = (double *)G_realloc(lev, nlevels * sizeof(double));
-                for (i = 0; i < nlevels; i++)
+                for (i = 0; i < nlevels; i++) {
                     lev[i] = anchor + (kfirst + i) * dstep;
+                    /* The tolerance can leave a level beyond a limit by
+                       rounding (0 + 3 * 0.1 is 0.30000000000000004, above
+                       the maximum 0.3), where no cell value equals it and it
+                       gets no line. Such a level is the limit itself. */
+                    if (lev[i] < lower)
+                        lev[i] = lower;
+                    else if (lev[i] > upper)
+                        lev[i] = upper;
+                }
             }
         }
     }

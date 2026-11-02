@@ -62,7 +62,7 @@ def test_a_negative_minimum_keeps_the_lowest_level_of_the_step_grid(tools):
 
 
 def test_a_map_below_minlevel_gets_no_line(tools):
-    # Values 21 to 23.29, the manual of t.rast.contour has such a map.
+    # Values 21.29 to 22.29, the manual of t.rast.contour has such a map.
     levels, lines = contour(
         tools, "21 + col() * 0.2 + row() * 0.09", 6, step=1, minlevel=24, maxlevel=26
     )
@@ -110,6 +110,60 @@ def test_a_step_of_zero_or_less_is_an_error(tools):
     for step in (0, -1):
         with pytest.raises(Exception, match="step value is not allowed"):
             tools.r_contour(input="m", output="lines", step=step, overwrite=True)
+
+
+def lines_of_three_rows(tools, expression):
+    """Return the level of each vertex of the lines of a map of 3 rows by 4"""
+    tools.g_region(n=3, s=0, w=0, e=4, res=1)
+    tools.r_mapcalc(expression=f"m = {expression}", overwrite=True)
+    tools.r_contour(input="m", output="lines", step=0.1, overwrite=True, quiet=True)
+    text = tools.v_out_ascii(input="lines", format="standard").text
+    rows = iter(text.splitlines())
+    lines = []
+    for row in rows:
+        words = row.split()
+        if words and words[0] == "L":
+            lines.append([next(rows).split()[2] for _ in range(int(words[1]))])
+    return lines
+
+
+def test_a_level_beyond_the_range_by_rounding_is_clamped_to_the_limit(tools):
+    # Values 0 to 0.3. The fourth level is 0 + 3 * 0.1, which is
+    # 0.30000000000000004 and lies above the maximum 0.3 by rounding, so
+    # no cell value equals it and it got no line. Clamped to the maximum it
+    # is the same level as in a map built with a multiplication, where the
+    # maximum is 0.30000000000000004 itself.
+    lines = lines_of_three_rows(tools, "double(col() - 1) / 10.0")
+
+    assert lines == lines_of_three_rows(tools, "(col() - 1) * 0.1")
+    assert len(lines) == 4
+    assert lines[-1] == ["0.3"] * 3
+
+
+def test_step_one_tenth_keeps_the_last_level_of_zero_to_one(tools):
+    # Values 0 to 1: 11 levels, the last one at the maximum.
+    levels, _ = contour(tools, "double(col() - 1) / 10.0", 11, step=0.1)
+
+    assert len(levels) == 11
+    assert levels[-1] == 1.0
+
+
+def test_minlevel_above_maxlevel_gives_an_empty_map(tools):
+    # Values 1 to 9. Before 2026-11-02 the old code swapped the limits;
+    # it now gives no level, see the manual.
+    levels, lines = contour(tools, "float(col())", 9, step=1, minlevel=7, maxlevel=3)
+
+    assert levels == []
+    assert lines == 0
+
+
+@pytest.mark.parametrize("step", ["nan", "inf", "-inf"])
+def test_a_step_that_is_not_a_finite_number_is_an_error(tools, step):
+    tools.g_region(n=1, s=0, w=0, e=3, res=1)
+    tools.r_mapcalc(expression="m = float(col())")
+
+    with pytest.raises(Exception, match="step value is not allowed"):
+        tools.r_contour(input="m", output="lines", step=step, overwrite=True)
 
 
 def test_lines_without_nulls_are_unchanged(session, monkeypatch):
