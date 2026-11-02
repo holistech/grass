@@ -49,6 +49,7 @@ REVIEWED_MANUALS = (
     "t.rast.what",
     "t.rast3d.extract",
     "t.rast3d.list",
+    "t.rast3d.mapcalc",
     "t.rast3d.univar",
     "t.register",
     "t.remove",
