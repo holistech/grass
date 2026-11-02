@@ -4,10 +4,16 @@
 
 Contours can be produced using a comma-separated list of values
 in <b>levels</b>, or at some regular increment using the <b>step</b>
-parameter, using <b>minlevel</b> and <b>maxlevel</b> as minimum and
-maximum contour values, respectively. If no <b>minlevel</b>
-or <b>maxlevel</b> is specified, the minimum and maximum cell values
-in the <b>input</b> raster map will be used.
+parameter, optionally limited by <b>minlevel</b> and <b>maxlevel</b>.
+
+<p>
+With <b>step</b>, the levels are the values <code>a + k * step</code> for whole
+numbers <code>k</code> (negative ones included). The anchor <code>a</code> is
+<b>minlevel</b> if it is given, else 0. Only levels between <b>minlevel</b>
+and <b>maxlevel</b> (where given) and between the minimum and maximum cell
+value of the <b>input</b> raster map are created; both ends are included. A
+<b>maxlevel</b> that is not on the grid is not a level itself. If the values
+of the map lie wholly outside the limits, no level and no line is created.
 
 <h2>NOTES</h2>
 

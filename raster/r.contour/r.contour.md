@@ -3,10 +3,15 @@
 *r.contour* produces a vector map of specified contours from input
 raster map. Contours can be produced using a comma-separated list of
 values in **levels**, or at some regular increment using the **step**
-parameter, using **minlevel** and **maxlevel** as minimum and maximum
-contour values, respectively. If no **minlevel** or **maxlevel** is
-specified, the minimum and maximum cell values in the **input** raster
-map will be used.
+parameter, optionally limited by **minlevel** and **maxlevel**.
+
+With **step**, the levels are the values `a + k * step` for whole numbers
+`k` (negative ones included). The anchor `a` is **minlevel** if it is given,
+else 0. Only levels between **minlevel** and **maxlevel** (where given) and
+between the minimum and maximum cell value of the **input** raster map are
+created; both ends are included. A **maxlevel** that is not on the grid is
+not a level itself. If the values of the map lie wholly outside the limits,
+no level and no line is created.
 
 ## NOTES
 
