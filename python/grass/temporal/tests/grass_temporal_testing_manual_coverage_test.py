@@ -439,7 +439,7 @@ def test_escaped_html_matches_the_markdown_block(tmp_path):
         'tools.t_info(input="a")\n</pre></div>\n'
     )
     page = (
-        "<h2>DESCRIPTION</h2>\n<p>Text.</p>\n<h2>EXAMPLES</h2>\n"
+        "<h2>DESCRIPTION</h2>\n<p>Text.</p>\n<h2>EXAMPLES</h2>\n<h3>Escaped</h3>\n"
         + pre
         + '<img src="t_x_a.png" alt="A figure">\n<h2>SEE ALSO</h2>\n'
     )
@@ -463,12 +463,36 @@ def test_escaped_html_matches_the_markdown_block(tmp_path):
     assert any("SEE ALSO" in item for item in missing)
 
 
+def test_each_example_heading_is_an_h3_of_the_html(tmp_path):
+    shell = blocks("sh", "t.info input=a\n")
+    python = blocks("python", 'tools.t_info(input="a")\n')
+    manual = write_manual(
+        tmp_path,
+        example("First  task", shell, python),
+        example("Second task", shell, python),
+    )
+    page = (
+        "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n<h3>First\ntask</h3>\n"
+        "<pre>\nt.info input=a\n</pre>\n"
+        '<pre>\ntools.t_info(input="a")\n</pre>\n'
+        "<h3>Second task</h3>\n<h2>SEE ALSO</h2>\n"
+    )
+    html_path = manual.path.with_suffix(".html")
+    html_path.write_text(page)
+    assert mc.check_html_sync(manual, html_path) == []
+
+    html_path.write_text(page.replace("<h3>Second task</h3>", "<p>Second task</p>"))
+    assert mc.check_html_sync(manual, html_path) == [
+        f"{manual.path}: heading 'Second task' not an <h3> of {html_path}"
+    ]
+
+
 def test_blanks_at_line_ends_do_not_count_in_the_html(tmp_path):
     shell = blocks("sh", ("t.info input=a\n", " | # 2026-11-01 12:00:00 \n | \n"))
     python = blocks("python", 'tools.t_info(input="a")\n')
     manual = write_manual(tmp_path, example("Blanks", shell, python))
     page = (
-        "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n"
+        "<h2>DESCRIPTION</h2>\n<h2>EXAMPLES</h2>\n<h3>Blanks</h3>\n"
         "<pre>\nt.info input=a\n</pre>\n"
         "<pre>\n | # 2026-11-01 12:00:00\n |\n</pre>\n"
         '<pre>\ntools.t_info(input="a")\n</pre>\n<h2>SEE ALSO</h2>\n'

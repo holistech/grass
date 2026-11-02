@@ -112,21 +112,21 @@ def shown_options(manual: Manual) -> set[str]:
 
 
 class _Page(html.parser.HTMLParser):
-    """The text of each <pre>, the src of each <img> and the text of each <h2>"""
+    """The text of each <pre>, the src of each <img> and of each <h2>, <h3>"""
 
     def __init__(self):
         # convert_charrefs (the default) hands &lt; to handle_data as "<".
         super().__init__()
         self.pre: list[str] = []
         self.images: set[str] = set()
-        self.headings: set[str] = set()
+        self.headings: dict[str, set[str]] = {"h2": set(), "h3": set()}
         self._open: str | None = None
         self._text = ""
 
     def handle_starttag(self, tag, attrs):
         if tag == "img":
             self.images.update(value for name, value in attrs if name == "src")
-        elif tag in {"pre", "h2"} and self._open is None:
+        elif tag in {"pre", "h2", "h3"} and self._open is None:
             self._open, self._text = tag, ""
 
     def handle_endtag(self, tag):
@@ -135,7 +135,7 @@ class _Page(html.parser.HTMLParser):
         if tag == "pre":
             self.pre.append(_without_line_end_blanks(self._text))
         else:
-            self.headings.add(" ".join(self._text.split()))
+            self.headings[tag].add(" ".join(self._text.split()))
         self._open = None
 
     def handle_data(self, data):
@@ -174,14 +174,17 @@ def _markdown_blocks(path: Path) -> list[tuple[int, str]]:
     return found
 
 
-def _markdown_headings(path: Path) -> list[str]:
+def _markdown_headings(path: Path) -> list[tuple[str, str]]:
+    """Each ``##`` and ``###`` heading as (HTML tag, text with single blanks)"""
     headings = []
     in_fence = False
     for line in path.read_text(encoding="utf-8").split("\n"):
         if FENCE.match(line):
             in_fence = not in_fence
-        elif not in_fence and line.startswith("## "):
-            headings.append(" ".join(line[3:].split()))
+            continue
+        marks, _, text = line.partition(" ")
+        if not in_fence and marks in {"##", "###"}:
+            headings.append((f"h{len(marks)}", " ".join(text.split())))
     return headings
 
 
@@ -196,8 +199,9 @@ def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
     files but not from .md files, which it leaves out, and a reader cannot see
     them. The comparison of a shown output with the run stays exact (see
     manual_examples.check_manual). Every image of the ``.md`` has to be the
-    ``src`` of an ``<img>``; every ``##`` heading has to be an ``<h2>``. An
-    empty list means the two agree in these respects.
+    ``src`` of an ``<img>``; every ``##`` heading has to be an ``<h2>``, every
+    ``###`` heading an ``<h3>``. An empty list means the two agree in these
+    respects; the prose between them is not compared.
     """
     page = _Page()
     page.feed(Path(html_path).read_text(encoding="utf-8"))
@@ -214,8 +218,8 @@ def check_html_sync(manual: Manual, html_path: Path) -> list[str]:
         if image not in page.images
     )
     missing.extend(
-        f"{manual.path}: heading {heading!r} not an <h2> of {html_path}"
-        for heading in _markdown_headings(manual.path)
-        if heading not in page.headings
+        f"{manual.path}: heading {heading!r} not an <{tag}> of {html_path}"
+        for tag, heading in _markdown_headings(manual.path)
+        if heading not in page.headings[tag]
     )
     return missing
