@@ -30,6 +30,7 @@ REVIEWED_MANUALS = (
     "t.list",
     "t.merge",
     "t.rast.contour",
+    "t.rast.list",
     "t.rast.univar",
     "t.register",
     "t.remove",
