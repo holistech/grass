@@ -1311,3 +1311,14 @@ def test_one_layer_each_of_two_namesakes_is_exported_as_ogr_files(
         ("lay_PERMANENT", "None", _month(8), 1),
         ("lay_other", "None", _month(11), 2),
     ]
+
+
+def test_a_dot_in_the_output_name_is_refused_before_any_map_is_imported(
+    archives, target, tmp_path
+):
+    """The import builds its dataset itself, so it checks the new name"""
+    with pytest.raises(FatalError, match="a dot is not allowed"):
+        tgis.import_stds(str(archives["GTiff"]), "out.label", tmp_path, overr=True)
+
+    assert not tgis.get_dataset_list("strds", "absolute", columns="name")
+    assert not gs.list_strings("raster")

@@ -60,3 +60,17 @@ def test_an_output_with_too_many_parts_is_refused(tools, make_stds, identifier):
 
     assert "Wrong identifier" in error.value.stderr
     assert "Traceback" not in error.value.stderr
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
+def test_t_copy_refuses_a_dot(tools, make_stds, prefix, stds_type):
+    """A dot in the new name is refused for every type and nothing is copied"""
+    _, (name,) = make_stds(1, stds_type=stds_type)
+    new = f"{prefix}_copy.label"
+
+    with pytest.raises(ToolError, match=r"a\s+dot\s+is\s+not\s+allowed"):
+        tools.t_copy(type=stds_type, input=name, output=new)
+
+    listed = tools.t_list(type=stds_type, columns="name").stdout.split()
+    assert not [item for item in listed if item.startswith(f"{prefix}_copy")]

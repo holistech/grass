@@ -38,6 +38,7 @@ import grass.script as gs
 def main():
     # lazy imports
     import grass.temporal as tgis
+    from grass.temporal.open_stds import check_new_stds_name
 
     # Get the options
     input = options["input"]
@@ -56,6 +57,9 @@ def main():
     # Do not overwrite yourself
     if new_id == old_id:
         return
+
+    # t.rename builds the dataset itself and does not reach check_new_stds().
+    check_new_stds_name(output)
 
     dbif = tgis.SQLDatabaseInterfaceConnection()
     dbif.connect()

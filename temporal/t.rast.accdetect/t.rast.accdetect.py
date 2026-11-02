@@ -155,6 +155,9 @@ def open_occurrence(occurrence, minimum, maximum, range_, mapset, dbif):
                 )
             )
 
+        # The dataset is inserted by register_in_new_stds(), which does not
+        # check the name, so it is checked here before any map is computed.
+        tgis.open_stds.check_new_stds_name(occurrence)
         if occurrence.find("@") >= 0:
             occurrence_id = occurrence
         else:
@@ -184,6 +187,7 @@ def open_indicator(indicator, staend, mapset, dbif):
     if not indicator:
         return None, None
 
+    tgis.open_stds.check_new_stds_name(indicator)
     indicator_id = indicator if indicator.find("@") >= 0 else indicator + "@" + mapset
 
     indicator_strds = tgis.SpaceTimeRasterDataset(indicator_id)

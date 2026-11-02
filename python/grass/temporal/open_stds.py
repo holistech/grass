@@ -146,6 +146,34 @@ def open_old_stds(name, type, dbif=None):
         return sp
 
 
+def check_new_stds_name(name: str) -> None:
+    """Refuse a dot in the name part of a new space time dataset
+
+    The name part is the text before an optional "@mapset". A dot in it was
+    accepted inconsistently: a strds dropped everything after the dot as a
+    semantic label, the other types kept the dot in the name. Reading an
+    existing dataset is not affected, so "name.label" still selects the maps
+    of a strds with that label and a dataset that already has a dot in its
+    name stays usable.
+
+    The check runs on the name as the user gave it, before _parse_id() can
+    split it, so that callers passing a map type such as "raster" are covered
+    too.
+
+    :param name: The name of the new space time dataset, with or without
+                 the mapset
+
+    This function will raise a FatalError if the name contains a dot.
+    """
+    if "." in name.split("@", 1)[0]:
+        get_tgis_message_interface().fatal(
+            _(
+                "<{}> is not a valid name for a new space time dataset: "
+                "a dot is not allowed"
+            ).format(name)
+        )
+
+
 def check_new_stds(name, type, dbif=None, overwrite: bool = False):
     """Check if a new space time dataset of a specific type can be created
 
@@ -165,6 +193,7 @@ def check_new_stds(name, type, dbif=None, overwrite: bool = False):
 
     msgr = get_tgis_message_interface()
 
+    check_new_stds_name(name)
     given_name = name
     name, mapset, _semantic_label = _parse_id(name, stds_type=stds_type)
     # An empty name (".dot" of a strds is split into the name "" and the

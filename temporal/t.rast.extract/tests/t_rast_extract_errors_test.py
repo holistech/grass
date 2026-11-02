@@ -132,3 +132,11 @@ def test_a_where_with_a_syntax_error_is_reported_as_a_message(tools, quarterly, 
     assert "Invalid where condition <nonsense =>" in text
     assert "syntax error" in text
     assert prefix not in tools.t_list(type="strds,str3ds,stvds", columns="name").stdout
+
+
+def test_a_dot_in_the_output_name_is_refused(tools, quarterly, prefix):
+    """The tool passes the map type, which kept the dot in the name before"""
+    text = _refused(tools, input=quarterly, output=f"{prefix}.label")
+
+    assert "a dot is not allowed" in text
+    assert prefix not in tools.t_list(type="strds", columns="name").stdout

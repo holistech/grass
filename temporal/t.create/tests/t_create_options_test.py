@@ -313,6 +313,27 @@ def test_a_leading_dot_is_refused(tmp_path):
         with pytest.raises(ToolError) as error:
             tools.t_create(output=".dot", **CREATE)
 
-        assert "is not a valid name for a space time dataset" in message(error.value)
+        # A leading dot is a dot in the name, which the check of new names
+        # refuses before the test for a legal name is reached. The module
+        # parser still warns about the illegal file name first.
+        assert "is not a valid name for a new space time dataset" in message(
+            error.value
+        )
 
         assert tools.t_list(type="strds", format="json").json == []
+
+
+@pytest.mark.parametrize("stds_type", ["strds", "str3ds", "stvds"])
+def test_t_create_refuses_a_dot(tools, stds_type):
+    """No type makes a dataset of a name with a dot, none drops the label"""
+    name = f"dot_{stds_type}.label"
+
+    with pytest.raises(ToolError) as error:
+        tools.t_create(type=stds_type, output=name, **CREATE)
+
+    assert f"<{name}> is not a valid name for a new space time dataset" in message(
+        error.value
+    )
+    assert "a dot is not allowed" in message(error.value)
+    assert _listed(tools, stds_type, name) == []
+    assert _listed(tools, stds_type, f"dot_{stds_type}") == []

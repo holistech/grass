@@ -173,6 +173,9 @@ def open_datasets(input_name, output_name, mapset, dbif):
 
     input_strds.select(dbif)
 
+    # The output is inserted by register_in_new_stds(), which does not check
+    # the name, so it is checked here before any map is computed.
+    tgis.open_stds.check_new_stds_name(output_name)
     out_id = output_name if output_name.find("@") >= 0 else output_name + "@" + mapset
 
     output_strds = tgis.SpaceTimeRasterDataset(out_id)

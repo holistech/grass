@@ -311,3 +311,13 @@ def test_an_empty_input_dataset_ends_with_a_warning(tools, daily):
     assert "Space time raster dataset <err_empty@PERMANENT> is empty" in (result.stderr)
     assert "Traceback" not in result.stderr
     assert "err_empty_out@" not in tools.t_list(type="strds").text
+
+
+def test_a_dot_in_the_output_name_is_refused_before_any_map_is_made(tools, daily):
+    """The output is inserted without a name check of its own, so the tool checks it"""
+    with pytest.raises(ToolError) as error:
+        _run(tools, "err_dot.label")
+
+    assert "a dot is not allowed" in message(error.value)
+    assert "err_dot" not in tools.t_list(type="strds", columns="name").stdout
+    assert "err_dot" not in tools.g_list(type="raster").stdout

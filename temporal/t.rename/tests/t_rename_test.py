@@ -280,3 +280,16 @@ def test_a_dataset_of_another_type_is_not_found(tools, prefix, has_dataset):
 def test_an_unknown_type_is_refused(tools):
     with pytest.raises(ToolError, match=r"out\s+of\s+range\s+for\s+parameter\s+<type>"):
         tools.t_rename(type="raster", input="a", output="b")
+
+
+@pytest.mark.parametrize(("stds_type", "map_type"), TYPES)
+def test_t_rename_refuses_a_dot(tools, prefix, has_dataset, stds_type, map_type):
+    """A dot in the new name is refused and the dataset keeps its name"""
+    name, _maps = _make(tools, prefix, stds_type)
+    new = f"{prefix}_new.label"
+
+    with pytest.raises(ToolError, match=r"a\s+dot\s+is\s+not\s+allowed"):
+        tools.t_rename(type=stds_type, input=name, output=new)
+
+    assert has_dataset(name, stds_type)
+    assert not has_dataset(new, stds_type)

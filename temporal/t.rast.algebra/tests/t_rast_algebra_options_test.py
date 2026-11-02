@@ -591,3 +591,20 @@ def test_debug_output_of_the_reference(algebra, capsys):
     assert "R = [" in output
     parse(run=False)
     assert "R = A**" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("flags", ["", "c"], ids=["core", "classic"])
+def test_the_algebra_refuses_a_dot_output(algebra, core_tool, flags):
+    """A dot in the name of the result is refused and no dataset is made
+
+    Neither algebra reaches the name check of new datasets: both parsers stop
+    at the dot first. The refusal is what a dot gave before the name check
+    was added, so this test keeps it from turning into a silent label.
+    """
+    with pytest.raises(ToolError):
+        core_tool.t_rast_algebra(
+            expression="OPT_DOT.X = A * 2", basename="opt_dot", flags=flags
+        )
+
+    names = core_tool.t_list(type="strds", columns="name").stdout.split()
+    assert not [name for name in names if name.startswith("OPT_DOT")]

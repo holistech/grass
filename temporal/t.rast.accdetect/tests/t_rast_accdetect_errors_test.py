@@ -350,3 +350,24 @@ def test_an_empty_input_dataset_ends_with_a_warning(tools, cells):
     listed = tools.t_list(type="strds").text
     assert "err_empty_out@" not in listed
     assert "err_empty_ind@" not in listed
+
+
+@pytest.mark.parametrize("output", ["occurrence", "indicator"])
+def test_a_dot_in_an_output_name_is_refused_before_any_map_is_made(
+    tools, cells, output
+):
+    """Both outputs are inserted without a name check of their own"""
+    name = f"err_dot_{output}"
+    options = {"input": cells, "basename": name, "staend": "1,2,3", **OPTIONS}
+    if output == "occurrence":
+        options["occurrence"] = f"{name}.label"
+    else:
+        options["occurrence"] = name
+        options["indicator"] = f"{name}.label"
+
+    with pytest.raises(ToolError) as error:
+        tools.t_rast_accdetect(**options)
+
+    assert "a dot is not allowed" in message(error.value)
+    assert name not in tools.t_list(type="strds", columns="name").stdout
+    assert name not in tools.g_list(type="raster").stdout

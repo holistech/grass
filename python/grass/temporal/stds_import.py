@@ -57,6 +57,7 @@ from .state import (
     init,
 )
 from .factory import dataset_factory
+from .open_stds import check_new_stds_name
 from .register import register_maps_in_space_time_dataset
 from .stds_export import FORMAT_SUFFIX
 
@@ -914,6 +915,7 @@ def import_stds(
         _write_new_list(maplist, format_, new_list_file_name)
 
         # Check the space time dataset
+        check_new_stds_name(output)
         ident = f"{output}@{mapset}"
         sp = dataset_factory(type_, ident)
         if sp.is_in_db() and gs.overwrite() is False:
