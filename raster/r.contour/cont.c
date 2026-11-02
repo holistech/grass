@@ -480,14 +480,10 @@ static void getpoint(struct cell *curr, double level, struct Cell_head Cell,
 
     p1 = curr->edge;
     p2 = (curr->edge + 1) % 4;
-    if (Rast_raster_cmp(&curr->z[p1], &curr->z[p2], DCELL_TYPE) == 0)
-        ratio = 1;
-    else if (Rast_is_d_null_value(&curr->z[p1]))
-        ratio = 0.5;
-    else if (Rast_is_d_null_value(&curr->z[p2]))
-        ratio = 0.5;
-    else
-        ratio = (level - curr->z[p1]) / (curr->z[p2] - curr->z[p1]);
+    /* Every caller has checked that the level lies between the two values
+       (checkedge), which is false for equal values and for a null value
+       (NaN), so the denominator is not zero and both values are numbers. */
+    ratio = (level - curr->z[p1]) / (curr->z[p2] - curr->z[p1]);
 
     switch (curr->edge) {
 
