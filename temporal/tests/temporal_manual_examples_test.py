@@ -26,6 +26,7 @@ REVIEWED_MANUALS = (
     "t.create",
     "t.info",
     "t.list",
+    "t.merge",
     "t.rast.contour",
     "t.rast.univar",
     "t.register",
