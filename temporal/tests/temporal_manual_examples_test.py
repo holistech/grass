@@ -62,6 +62,7 @@ REVIEWED_MANUALS = (
     "t.unregister",
     "t.upgrade",
     "t.vect.db.select",
+    "t.vect.export",
     "t.vect.extract",
     "t.vect.list",
     "t.vect.univar",
