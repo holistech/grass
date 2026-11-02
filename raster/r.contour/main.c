@@ -219,10 +219,13 @@ int main(int argc, char *argv[])
     }
     Vect_build(&Map);
 
-    /* if a contour line hits a border of NULL cells, it traces
-     * itself back until it hits a border of NULL cells again,
-     * then goes back to the starting point
-     * -> cleaning is needed */
+    /* Snapping, breaking and merging join the traced pieces into lines.
+     * Before 2026-11-02 they also had to clean lines that ran back on
+     * themselves at null cells, which the tracing no longer draws. They
+     * are still needed: built without them, r.contour gave more lines with
+     * more nodes on maps without null cells (measured 2026-11-02, 144 runs
+     * on fields of 3 by 3 to 40 by 40 cells, e.g. 6 lines instead of 4 on a
+     * chessboard of 3 by 3 cells). */
     snap = (Wind.ns_res + Wind.ew_res) / 2000.0;
     G_message(_("Snap lines"));
     Vect_snap_lines(&Map, GV_LINE, snap, NULL);

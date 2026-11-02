@@ -1,7 +1,6 @@
 """Test which levels r.contour takes from step, minlevel and maxlevel"""
 
 import importlib.util
-import json
 import os
 from pathlib import Path
 
@@ -189,26 +188,4 @@ def test_lines_without_nulls_are_unchanged(session, monkeypatch):
     # is mirrored into the environment of the process.
     for key, value in session.env.items():
         monkeypatch.setenv(key, value)
-    recorder = load_recorder()
-    recording = json.loads((TESTS / "data" / "lines_without_nulls.json").read_text())
-    made = None
-    for case, expected in recording.items():
-        name = expected["map"]
-        if name != made:
-            rows, columns, expression = recorder.MAPS[name]
-            gs.run_command("g.region", n=rows, s=0, e=columns, w=0, res=1)
-            gs.mapcalc(f"{name} = {expression}", overwrite=True)
-            made = name
-        got = recorder.record_case(name, expected["arguments"])
-        gs.run_command("g.remove", type="vector", name="lines", flags="f", quiet=True)
-        assert got["levels"] == pytest.approx(expected["levels"], abs=1e-9), case
-        assert got["number_of_lines"] == expected["number_of_lines"], case
-        assert got["number_of_nodes"] == expected["number_of_nodes"], case
-        assert len(got["lines"]) == len(expected["lines"]), case
-        for line, want in zip(got["lines"], expected["lines"], strict=True):
-            assert line["level"] == pytest.approx(want["level"], abs=1e-9), case
-            assert len(line["vertices"]) == len(want["vertices"]), case
-            for vertex, want_vertex in zip(
-                line["vertices"], want["vertices"], strict=True
-            ):
-                assert vertex == pytest.approx(want_vertex, abs=1e-9), case
+    load_recorder().assert_cases_as_recorded()

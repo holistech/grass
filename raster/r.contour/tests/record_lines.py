@@ -18,6 +18,9 @@ nodes from ``v.info -t``, and the vertices of every line from
 and then by their vertices, so the order does not depend on how the tracer
 visits the cells.
 
+``assert_cases_as_recorded()`` runs the cases again in the current session and
+compares them with the file; the tests call it.
+
 The maps are made here: smooth, at most 20 by 20 cells, no null cells. Cases
 whose result the planned changes alter on purpose (a negative minimum, limits
 outside the values, a maxlevel off the step grid, null cells, regions with one
@@ -26,6 +29,9 @@ or two rows or columns) are left out.
 
 import json
 import sys
+from pathlib import Path
+
+import pytest
 
 import grass.script as gs
 
@@ -106,12 +112,46 @@ def record_case(name, args):
     }
 
 
+def make_map(name):
+    """Set the region of the map and make it"""
+    rows, columns, expression = MAPS[name]
+    gs.run_command("g.region", n=rows, s=0, e=columns, w=0, res=1)
+    gs.mapcalc(f"{name} = {expression}", overwrite=True)
+
+
+def assert_cases_as_recorded():
+    """Run every recorded case again and compare it with the recording
+
+    The region and the maps of the current session are changed.
+    """
+    path = Path(__file__).parent / "data" / "lines_without_nulls.json"
+    recording = json.loads(path.read_text(encoding="utf-8"))
+    made = None
+    for case, expected in recording.items():
+        name = expected["map"]
+        if name != made:
+            make_map(name)
+            made = name
+        got = record_case(name, expected["arguments"])
+        gs.run_command("g.remove", type="vector", name="lines", flags="f", quiet=True)
+        assert got["levels"] == pytest.approx(expected["levels"], abs=1e-9), case
+        assert got["number_of_lines"] == expected["number_of_lines"], case
+        assert got["number_of_nodes"] == expected["number_of_nodes"], case
+        assert len(got["lines"]) == len(expected["lines"]), case
+        for line, want in zip(got["lines"], expected["lines"], strict=True):
+            assert line["level"] == pytest.approx(want["level"], abs=1e-9), case
+            assert len(line["vertices"]) == len(want["vertices"]), case
+            for vertex, want_vertex in zip(
+                line["vertices"], want["vertices"], strict=True
+            ):
+                assert vertex == pytest.approx(want_vertex, abs=1e-9), case
+
+
 def main(path):
     """Record every case and write the JSON file"""
     recording = {}
-    for name, (rows, columns, expression) in MAPS.items():
-        gs.run_command("g.region", n=rows, s=0, e=columns, w=0, res=1)
-        gs.mapcalc(f"{name} = {expression}", overwrite=True)
+    for name in MAPS:
+        make_map(name)
         for case, (map_name, args) in CASES.items():
             if map_name == name:
                 recording[case] = {"map": name}

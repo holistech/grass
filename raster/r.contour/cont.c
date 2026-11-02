@@ -33,7 +33,18 @@ struct cell {
     int edge;
 };
 
-static int getnewcell(struct cell *, int, int, DCELL **);
+/* Flags of a cell (four nodes) in the array square. A cell is part of the
+   surface when all four nodes have values. Its edge e is a border edge when
+   the cell across it is not part of the surface, because it lies outside the
+   region or has a null node. A null node counts as a node outside the region:
+   lines end at the last edge between two nodes with values, as at the border
+   of the region. */
+#define ON_SURFACE 16
+#define BORDER(e)  (1 << (e))
+
+static unsigned char **mark_squares(DCELL **, int, int);
+static int in_strip(unsigned char);
+static int getnewcell(struct cell *, int, int, DCELL **, unsigned char **);
 static void newedge(struct cell *);
 static int findcrossing(struct cell *, double, struct Cell_head,
                         struct line_pnts *, int *);
@@ -43,19 +54,26 @@ static void getpoint(struct cell *curr, double, struct Cell_head,
 void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
              struct Cell_head Cell, int n_cut)
 {
+    /* Lines with an end are started from the border edges in this order:
+       top, bottom, left, right. */
+    static const int border_order[4] = {0, 2, 3, 1};
     int nrow, ncol;         /* number of rows and columns in current region */
     int startrow, startcol; /* start row and col of current line */
-    int n, i, j, pass;      /* loop counters */
+    int n, i, j, k;         /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
-    char **used;            /* narrow regions: edges a line has passed */
-    int narrow;             /* 1 if the region has two rows or columns */
-    int entry;              /* edge by which the line entered a cell */
+    char **used;            /* edges a line has passed, for cells in a strip */
+    unsigned char **square; /* ON_SURFACE and BORDER flags of each cell */
+    /* per edge and row: columns of the first and last cell with that
+       border edge */
+    int *first[4], *last[4];
+    int edge;  /* border edge of the current start */
+    int entry; /* edge by which the line entered a cell */
 
     /*  0 if Cell is still to be checked */
     struct line_pnts *Points;
     struct line_cats *Cats;
-    int outside; /* 1 if line is exiting region; 0 otherwise */
+    int outside; /* 1 if line is exiting the surface; 0 otherwise */
     struct cell current;
     int p1, p2; /* indexes to end points of cell edges */
 
@@ -81,18 +99,31 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     for (i = 0; i < nrow - 1; i++)
         hit[i] = (char *)G_malloc((ncol - 1) * sizeof(char));
 
-    /* With two rows (columns) of nodes every cell lies on the border, so a
-       cell with a saddle (four crossings) has the ends of both its segments
-       on border edges. The flag in hit marks the whole cell once the first
-       segment is traced, and the second segment would never be started. In
-       such a region the border passes therefore ask whether the start edge
-       was passed by a line (bit per edge in used) instead of whether the
-       cell was hit. From three rows and columns on hit alone is used, as
-       before. */
-    narrow = (nrow == 2 || ncol == 2);
     used = (char **)G_malloc((nrow - 1) * sizeof(char *));
     for (i = 0; i < nrow - 1; i++)
         used[i] = (char *)G_malloc((ncol - 1) * sizeof(char));
+
+    square = mark_squares(z, nrow, ncol);
+
+    /* The border passes visit only the columns between the first and the
+       last cell of a row that has the edge, so that without null cells they
+       visit the cells on the border of the region, as before, and not every
+       cell four times for each level. */
+    for (k = 0; k < 4; k++) {
+        first[k] = (int *)G_malloc((nrow - 1) * sizeof(int));
+        last[k] = (int *)G_malloc((nrow - 1) * sizeof(int));
+        for (i = 0; i < nrow - 1; i++) {
+            first[k][i] = 0;
+            last[k][i] = -1;
+            for (j = 0; j < ncol - 1; j++) {
+                if (square[i][j] & BORDER(k)) {
+                    if (last[k][i] < 0)
+                        first[k][i] = j;
+                    last[k][i] = j;
+                }
+            }
+        }
+    }
 
     ncrossing = 0;
 
@@ -112,109 +143,81 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
 
-        /* Check each cell of the top and the bottom border. The border row
-           of a pass is the first row of cells for the top and the last for
-           the bottom. With two rows of nodes these are the same row, and
-           each pass starts on its own edge of it. The former loop stepped
-           from the first to the last row by nrow - 2, which is 0 here, and
-           never left the first row. */
-        for (pass = 0; pass < 2; pass++) {
-            startrow = (pass == 0) ? 0 : nrow - 2;
-            for (startcol = 0; startcol <= ncol - 2; startcol++) {
-
-                /* look for starting point of new line */
-                current.edge = (pass == 0) ? 0 : 2; /* top or bottom */
-                if (narrow ? !(used[startrow][startcol] & (1 << current.edge))
-                           : !hit[startrow][startcol]) {
-                    current.r = startrow;
-                    current.c = startcol;
-
-                    outside = getnewcell(&current, nrow, ncol, z);
-
-                    p1 = current.edge;
-                    p2 = current.edge + 1;
-
-                    if (checkedge(current.z[p1], current.z[p2], level)) {
-                        getpoint(&current, level, Cell, Points);
-                        /* while not off an edge, follow line */
-                        while (!outside) {
-                            entry = current.edge;
-                            hit[current.r][current.c] |= findcrossing(
-                                &current, level, Cell, Points, &ncrossing);
-                            used[current.r][current.c] |=
-                                (1 << entry) | (1 << current.edge);
-                            newedge(&current);
-                            outside = getnewcell(&current, nrow, ncol, z);
-                        }
-                        if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
-                            Vect_reset_cats(Cats);
-                            Vect_cat_set(Cats, 1, n + 1);
-                            Vect_write_line(&Map, GV_LINE, Points, Cats);
-                        }
-                        Vect_reset_line(Points);
-                    } /* if checkedge */
-                } /* if ! hit */
-            } /* for columns */
-        } /* for rows */
-
-        /* Check each cell of the left and the right border, the same way as
-           above for two columns of nodes. */
-        for (pass = 0; pass < 2; pass++) {
-            startcol = (pass == 0) ? 0 : ncol - 2;
+        /* Start a line at each crossed border edge. Without null cells these
+           are the edges on the border of the region, visited in the same
+           order as before: the top and the bottom row of cells from left to
+           right, then the left and the right column of cells from top to
+           bottom. A null cell counts as a cell outside the region, so the
+           edges along null cells are border edges too. */
+        for (k = 0; k < 4; k++) {
+            edge = border_order[k];
             for (startrow = 0; startrow <= nrow - 2; startrow++) {
-                /* look for starting point of new line */
-                current.edge = (pass == 0) ? 3 : 1; /* left or right */
-                if (narrow ? !(used[startrow][startcol] & (1 << current.edge))
-                           : !hit[startrow][startcol]) {
+                for (startcol = first[edge][startrow];
+                     startcol <= last[edge][startrow]; startcol++) {
+                    if (!(square[startrow][startcol] & BORDER(edge)))
+                        continue;
+                    /* look for starting point of new line */
+                    if (in_strip(square[startrow][startcol])
+                            ? used[startrow][startcol] & (1 << edge)
+                            : hit[startrow][startcol])
+                        continue;
                     current.r = startrow;
                     current.c = startcol;
+                    current.edge = edge;
 
-                    outside = getnewcell(&current, nrow, ncol, z);
+                    outside = getnewcell(&current, nrow, ncol, z, square);
 
                     p1 = current.edge;
                     p2 = (current.edge + 1) % 4;
-                    if (checkedge(current.z[p1], current.z[p2], level)) {
-                        getpoint(&current, level, Cell, Points);
-                        /* while not off an edge, follow line */
-                        while (!outside) {
-                            entry = current.edge;
-                            hit[current.r][current.c] |= findcrossing(
-                                &current, level, Cell, Points, &ncrossing);
-                            used[current.r][current.c] |=
-                                (1 << entry) | (1 << current.edge);
-                            newedge(&current);
-                            outside = getnewcell(&current, nrow, ncol, z);
-                        }
-                        if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
-                            Vect_reset_cats(Cats);
-                            Vect_cat_set(Cats, 1, n + 1);
-                            Vect_write_line(&Map, GV_LINE, Points, Cats);
-                        }
-                        Vect_reset_line(Points);
-                    } /* if checkedge */
-                } /* if ! hit */
-            } /* for rows */
-        } /* for columns */
+                    if (!checkedge(current.z[p1], current.z[p2], level))
+                        continue;
 
-        /* check each interior Cell */
+                    getpoint(&current, level, Cell, Points);
+                    /* while not off an edge, follow line */
+                    while (!outside) {
+                        entry = current.edge;
+                        hit[current.r][current.c] |= findcrossing(
+                            &current, level, Cell, Points, &ncrossing);
+                        used[current.r][current.c] |=
+                            (1 << entry) | (1 << current.edge);
+                        newedge(&current);
+                        outside = getnewcell(&current, nrow, ncol, z, square);
+                    }
+                    if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
+                        Vect_reset_cats(Cats);
+                        Vect_cat_set(Cats, 1, n + 1);
+                        Vect_write_line(&Map, GV_LINE, Points, Cats);
+                    }
+                    Vect_reset_line(Points);
+                }
+            }
+        }
+
+        /* Check each interior Cell for closed lines: the cells without a
+           border edge. Without null cells these are the cells off the border
+           of the region, as before; a closed line that runs only through
+           cells along the border is not found. Within null cells around a
+           rectangle they are the cells the region of that rectangle checks,
+           so the closed lines are the same as there. */
         for (startrow = 1; startrow <= nrow - 3; startrow++) {
             for (startcol = 1; startcol <= ncol - 3; startcol++) {
                 /* look for starting point of new line */
-                if (!hit[startrow][startcol]) {
+                if (square[startrow][startcol] == ON_SURFACE &&
+                    !hit[startrow][startcol]) {
                     current.r = startrow;
                     current.c = startcol;
                     current.edge = 0;
                     p1 = current.edge;
                     p2 = current.edge + 1;
 
-                    outside = getnewcell(&current, nrow, ncol, z);
+                    outside = getnewcell(&current, nrow, ncol, z, square);
                     if (!outside &&
                         checkedge(current.z[p1], current.z[p2], level)) {
                         getpoint(&current, level, Cell, Points);
                         hit[current.r][current.c] |= findcrossing(
                             &current, level, Cell, Points, &ncrossing);
                         newedge(&current);
-                        outside = getnewcell(&current, nrow, ncol, z);
+                        outside = getnewcell(&current, nrow, ncol, z, square);
 
                         /* while not back to starting point, follow line */
                         while (!outside && ((current.edge != 0) ||
@@ -223,7 +226,8 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                             hit[current.r][current.c] |= findcrossing(
                                 &current, level, Cell, Points, &ncrossing);
                             newedge(&current);
-                            outside = getnewcell(&current, nrow, ncol, z);
+                            outside =
+                                getnewcell(&current, nrow, ncol, z, square);
                         }
                         if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
                             Vect_reset_cats(Cats);
@@ -242,33 +246,98 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                   ncrossing);
     }
 
-    for (i = 0; i < nrow - 1; i++)
+    for (k = 0; k < 4; k++) {
+        G_free(first[k]);
+        G_free(last[k]);
+    }
+    for (i = 0; i < nrow - 1; i++) {
         G_free(hit[i]);
-    G_free(hit);
-    for (i = 0; i < nrow - 1; i++)
         G_free(used[i]);
+        G_free(square[i]);
+    }
+    G_free(hit);
     G_free(used);
+    G_free(square);
     Vect_destroy_line_struct(Points);
     Vect_destroy_cats_struct(Cats);
 }
 
 /***************************************************************************
+mark_squares
+returns the ON_SURFACE and BORDER flags of every cell of four nodes
+***************************************************************************/
+static unsigned char **mark_squares(DCELL **z, int nrow, int ncol)
+{
+    unsigned char **square;
+    int r, c;
+
+    square = (unsigned char **)G_malloc((nrow - 1) * sizeof(unsigned char *));
+    for (r = 0; r < nrow - 1; r++) {
+        square[r] = (unsigned char *)G_malloc((ncol - 1) * sizeof(char));
+        for (c = 0; c < ncol - 1; c++) {
+            if (Rast_is_d_null_value(&z[r][c]) ||
+                Rast_is_d_null_value(&z[r][c + 1]) ||
+                Rast_is_d_null_value(&z[r + 1][c + 1]) ||
+                Rast_is_d_null_value(&z[r + 1][c]))
+                square[r][c] = 0;
+            else
+                square[r][c] = ON_SURFACE;
+        }
+    }
+    for (r = 0; r < nrow - 1; r++) {
+        for (c = 0; c < ncol - 1; c++) {
+            if (!(square[r][c] & ON_SURFACE))
+                continue;
+            if (r == 0 || !(square[r - 1][c] & ON_SURFACE))
+                square[r][c] |= BORDER(0);
+            if (c == ncol - 2 || !(square[r][c + 1] & ON_SURFACE))
+                square[r][c] |= BORDER(1);
+            if (r == nrow - 2 || !(square[r + 1][c] & ON_SURFACE))
+                square[r][c] |= BORDER(2);
+            if (c == 0 || !(square[r][c - 1] & ON_SURFACE))
+                square[r][c] |= BORDER(3);
+        }
+    }
+    return square;
+}
+
+/***************************************************************************
+in_strip
+returns 1 if the cell has border edges on two opposite sides, else 0
+
+Such a cell lies in a strip one cell wide; in a region of two rows or two
+columns every cell does. A saddle there (four crossings) has the ends of both
+its segments on border edges. The flag in hit marks the whole cell once the
+first segment is traced, and the second segment would never be started. The
+border passes therefore ask such a cell whether the start edge was passed by a
+line (bit per edge in used) instead of whether the cell was hit. Other cells
+use hit alone, as before, so the lines of regions of three rows and columns
+or more without null cells stay the same.
+***************************************************************************/
+static int in_strip(unsigned char flags)
+{
+    return (flags & (BORDER(0) | BORDER(2))) == (BORDER(0) | BORDER(2)) ||
+           (flags & (BORDER(1) | BORDER(3))) == (BORDER(1) | BORDER(3));
+}
+
+/***************************************************************************
 getnewcell
-if cell is in range, finds data values of corner points of current cell
+if cell is in range and part of the surface (no null node), finds data values
+of corner points of current cell
  returns 0
 else returns 1
 ***************************************************************************/
-static int getnewcell(struct cell *current, int nrow, int ncol, DCELL **z)
+static int getnewcell(struct cell *current, int nrow, int ncol, DCELL **z,
+                      unsigned char **square)
 {
 
     if ((current->r >= 0) && (current->r <= nrow - 2) && (current->c >= 0) &&
-        (current->c <= ncol - 2)) {
+        (current->c <= ncol - 2) &&
+        (square[current->r][current->c] & ON_SURFACE)) {
         current->z[0] = z[current->r][current->c];
         current->z[1] = z[current->r][current->c + 1];
         current->z[2] = z[current->r + 1][current->c + 1];
         current->z[3] = z[current->r + 1][current->c];
-
-        /* testing for NULL values here does not work */
 
         return 0;
     }

@@ -885,9 +885,9 @@ standard error. The region is the way to restrict the area.
 
     ```text
     id|lines|nodes
-    masked_2026_07_01@analysis|2|1
-    masked_2026_07_02@analysis|6|3
-    masked_2026_07_03@analysis|8|4
+    masked_2026_07_01@analysis|1|2
+    masked_2026_07_02@analysis|3|6
+    masked_2026_07_03@analysis|4|8
     ```
 
 === "Python (grass.tools)"
@@ -917,9 +917,9 @@ standard error. The region is the way to restrict the area.
 
     ```text
     id|lines|nodes
-    masked_2026_07_01@analysis|2|1
-    masked_2026_07_02@analysis|6|3
-    masked_2026_07_03@analysis|8|4
+    masked_2026_07_01@analysis|1|2
+    masked_2026_07_02@analysis|3|6
+    masked_2026_07_03@analysis|4|8
     ```
 
 <!-- markdownlint-enable MD046 -->
