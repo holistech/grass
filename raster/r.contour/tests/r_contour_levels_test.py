@@ -39,13 +39,14 @@ def tools(session):
         yield tools
 
 
-def contour(tools, expression, columns, **options):
+def contour(tools, expression, columns, rows=1, **options):
     """Run r.contour on a one row map and return the levels and the line count
 
     The levels are read from the attribute table, because a level without a
-    line is only listed there.
+    line is only listed there. A one row map has no line at all, so a test
+    that counts lines needs rows of at least 2.
     """
-    tools.g_region(n=1, s=0, w=0, e=columns, res=1)
+    tools.g_region(n=rows, s=0, w=0, e=columns, res=1)
     tools.r_mapcalc(expression=f"m = {expression}", overwrite=True)
     tools.r_contour(input="m", output="lines", overwrite=True, quiet=True, **options)
     table = tools.v_db_select(map="lines", columns="level", flags="c").text
@@ -62,9 +63,15 @@ def test_a_negative_minimum_keeps_the_lowest_level_of_the_step_grid(tools):
 
 
 def test_a_map_below_minlevel_gets_no_line(tools):
-    # Values 21.29 to 22.29, the manual of t.rast.contour has such a map.
+    # Values 21.29 to 22.47, the manual of t.rast.contour has such a map.
     levels, lines = contour(
-        tools, "21 + col() * 0.2 + row() * 0.09", 6, step=1, minlevel=24, maxlevel=26
+        tools,
+        "21 + col() * 0.2 + row() * 0.09",
+        6,
+        rows=3,
+        step=1,
+        minlevel=24,
+        maxlevel=26,
     )
 
     assert levels == []
@@ -74,7 +81,7 @@ def test_a_map_below_minlevel_gets_no_line(tools):
 def test_a_map_above_maxlevel_gets_no_line(tools):
     # Values 21 to 29
     levels, lines = contour(
-        tools, "float(20 + col())", 9, minlevel=18, maxlevel=20, step=1
+        tools, "float(20 + col())", 9, rows=3, minlevel=18, maxlevel=20, step=1
     )
 
     assert levels == []
@@ -117,13 +124,13 @@ def lines_of_three_rows(tools, expression):
     tools.g_region(n=3, s=0, w=0, e=4, res=1)
     tools.r_mapcalc(expression=f"m = {expression}", overwrite=True)
     tools.r_contour(input="m", output="lines", step=0.1, overwrite=True, quiet=True)
-    text = tools.v_out_ascii(input="lines", format="standard").text
+    text = tools.v_out_ascii(input="lines", format="standard", precision=17).text
     rows = iter(text.splitlines())
     lines = []
     for row in rows:
         words = row.split()
         if words and words[0] == "L":
-            lines.append([next(rows).split()[2] for _ in range(int(words[1]))])
+            lines.append([float(next(rows).split()[2]) for _ in range(int(words[1]))])
     return lines
 
 
@@ -131,13 +138,21 @@ def test_a_level_beyond_the_range_by_rounding_is_clamped_to_the_limit(tools):
     # Values 0 to 0.3. The fourth level is 0 + 3 * 0.1, which is
     # 0.30000000000000004 and lies above the maximum 0.3 by rounding, so
     # no cell value equals it and it got no line. Clamped to the maximum it
-    # is the same level as in a map built with a multiplication, where the
-    # maximum is 0.30000000000000004 itself.
+    # is the level 0.3 and gets a line, as in a map built with a
+    # multiplication, where the maximum is 0.30000000000000004 itself (the
+    # last line of that map has this level). The vertices are read with 17
+    # digits, the two values differ in the 17th.
+    # A level at a limit does not always get a line: a cell equal to a level
+    # is shifted by value * DBL_EPSILON (displaceMatrix), up for a positive
+    # value, down for a negative one and not at all for 0.
     lines = lines_of_three_rows(tools, "double(col() - 1) / 10.0")
 
-    assert lines == lines_of_three_rows(tools, "(col() - 1) * 0.1")
+    product = lines_of_three_rows(tools, "(col() - 1) * 0.1")
+    assert len(lines) == len(product)
+    assert lines[:3] == product[:3]
+    assert product[-1] == [0.1 * 3] * 3
     assert len(lines) == 4
-    assert lines[-1] == ["0.3"] * 3
+    assert lines[-1] == [0.3] * 3
 
 
 def test_step_one_tenth_keeps_the_last_level_of_zero_to_one(tools):
@@ -151,7 +166,9 @@ def test_step_one_tenth_keeps_the_last_level_of_zero_to_one(tools):
 def test_minlevel_above_maxlevel_gives_an_empty_map(tools):
     # Values 1 to 9. Before 2026-11-02 the old code swapped the limits;
     # it now gives no level, see the manual.
-    levels, lines = contour(tools, "float(col())", 9, step=1, minlevel=7, maxlevel=3)
+    levels, lines = contour(
+        tools, "float(col())", 9, rows=3, step=1, minlevel=7, maxlevel=3
+    )
 
     assert levels == []
     assert lines == 0

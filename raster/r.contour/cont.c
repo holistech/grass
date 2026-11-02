@@ -48,6 +48,9 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     int n, i, j, pass;      /* loop counters */
     double level;           /* current contour level */
     char **hit;             /* array of flags--1 if Cell has been hit;  */
+    char **used;            /* narrow regions: edges a line has passed */
+    int narrow;             /* 1 if the region has two rows or columns */
+    int entry;              /* edge by which the line entered a cell */
 
     /*  0 if Cell is still to be checked */
     struct line_pnts *Points;
@@ -78,6 +81,19 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     for (i = 0; i < nrow - 1; i++)
         hit[i] = (char *)G_malloc((ncol - 1) * sizeof(char));
 
+    /* With two rows (columns) of nodes every cell lies on the border, so a
+       cell with a saddle (four crossings) has the ends of both its segments
+       on border edges. The flag in hit marks the whole cell once the first
+       segment is traced, and the second segment would never be started. In
+       such a region the border passes therefore ask whether the start edge
+       was passed by a line (bit per edge in used) instead of whether the
+       cell was hit. From three rows and columns on hit alone is used, as
+       before. */
+    narrow = (nrow == 2 || ncol == 2);
+    used = (char **)G_malloc((nrow - 1) * sizeof(char *));
+    for (i = 0; i < nrow - 1; i++)
+        used[i] = (char *)G_malloc((ncol - 1) * sizeof(char));
+
     ncrossing = 0;
 
     G_message(n_("Writing vector contour (one level)...",
@@ -92,6 +108,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
         for (i = 0; i < nrow - 1; i++) {
             for (j = 0; j < ncol - 1; j++) {
                 hit[i][j] = 0;
+                used[i][j] = 0;
             }
         }
 
@@ -106,12 +123,11 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             for (startcol = 0; startcol <= ncol - 2; startcol++) {
 
                 /* look for starting point of new line */
-                if (!hit[startrow][startcol]) {
+                current.edge = (pass == 0) ? 0 : 2; /* top or bottom */
+                if (narrow ? !(used[startrow][startcol] & (1 << current.edge))
+                           : !hit[startrow][startcol]) {
                     current.r = startrow;
                     current.c = startcol;
-
-                    /* is this top or bottom? */
-                    current.edge = (pass == 0) ? 0 : 2;
 
                     outside = getnewcell(&current, nrow, ncol, z);
 
@@ -122,8 +138,11 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         getpoint(&current, level, Cell, Points);
                         /* while not off an edge, follow line */
                         while (!outside) {
+                            entry = current.edge;
                             hit[current.r][current.c] |= findcrossing(
                                 &current, level, Cell, Points, &ncrossing);
+                            used[current.r][current.c] |=
+                                (1 << entry) | (1 << current.edge);
                             newedge(&current);
                             outside = getnewcell(&current, nrow, ncol, z);
                         }
@@ -144,12 +163,11 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             startcol = (pass == 0) ? 0 : ncol - 2;
             for (startrow = 0; startrow <= nrow - 2; startrow++) {
                 /* look for starting point of new line */
-                if (!hit[startrow][startcol]) {
+                current.edge = (pass == 0) ? 3 : 1; /* left or right */
+                if (narrow ? !(used[startrow][startcol] & (1 << current.edge))
+                           : !hit[startrow][startcol]) {
                     current.r = startrow;
                     current.c = startcol;
-
-                    /* is this left or right edge? */
-                    current.edge = (pass == 0) ? 3 : 1;
 
                     outside = getnewcell(&current, nrow, ncol, z);
 
@@ -159,8 +177,11 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         getpoint(&current, level, Cell, Points);
                         /* while not off an edge, follow line */
                         while (!outside) {
+                            entry = current.edge;
                             hit[current.r][current.c] |= findcrossing(
                                 &current, level, Cell, Points, &ncrossing);
+                            used[current.r][current.c] |=
+                                (1 << entry) | (1 << current.edge);
                             newedge(&current);
                             outside = getnewcell(&current, nrow, ncol, z);
                         }
@@ -224,6 +245,9 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     for (i = 0; i < nrow - 1; i++)
         G_free(hit[i]);
     G_free(hit);
+    for (i = 0; i < nrow - 1; i++)
+        G_free(used[i]);
+    G_free(used);
     Vect_destroy_line_struct(Points);
     Vect_destroy_cats_struct(Cats);
 }

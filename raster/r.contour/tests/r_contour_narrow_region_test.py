@@ -152,6 +152,77 @@ def test_one_cell_gives_an_empty_map(session, tools):
     assert read_lines(tools) == []
 
 
+def canonical(lines):
+    """Return the lines with both directions merged, rounded and sorted"""
+    result = []
+    for line in lines:
+        forward = tuple((round(x, 9), round(y, 9)) for x, y in line)
+        result.append(min(forward, forward[::-1]))
+    return sorted(result)
+
+
+# Saddle fields: nodes of value 1 and 0 in a chessboard, level 0.5. Every
+# edge between two nodes is crossed in its middle. A cell with the corners
+# 1 0 / 0 1 has four crossings, and r.contour joins them so that the corners
+# of value 1 are cut off (the cell mean 0.5 counts as below the level). On
+# two rows or columns both segments of such a cell start on the border, and
+# a cell marked as hit after the first one lost the second.
+
+
+def test_two_rows_keep_both_segments_of_a_saddle(session, tools):
+    # 2 rows by 2 columns, north = 2, cell corners TL=1 TR=0 / BL=0 BR=1.
+    # The crossings are top (1.0, 1.5), right (1.5, 1.0), bottom (1.0, 0.5)
+    # and left (0.5, 1.0). The corner TL is cut off by top-left, BR by
+    # right-bottom: two lines.
+    make_map(tools, 2, 2, "if((row() + col()) % 2 == 0, 1.0, 0.0)")
+
+    run_contour(session, 0.5)
+
+    assert canonical(read_lines(tools)) == canonical(
+        [[(1.0, 1.5), (0.5, 1.0)], [(1.5, 1.0), (1.0, 0.5)]]
+    )
+
+
+def test_two_rows_join_the_segments_of_neighbouring_saddles(session, tools):
+    # 2 rows by 3 columns. The second cell is the first one mirrored: the
+    # corners TR and BL are cut off. Its left crossing (1.5, 1.0) is the
+    # right crossing of the first cell, so the segments right-bottom of the
+    # first and left-bottom of the second cell form one line through
+    # (1.0, 0.5), (1.5, 1.0), (2.0, 0.5). The cut off corners TL and TR
+    # give the lines (1.0, 1.5)-(0.5, 1.0) and (2.0, 1.5)-(2.5, 1.0).
+    make_map(tools, 2, 3, "if((row() + col()) % 2 == 0, 1.0, 0.0)")
+
+    run_contour(session, 0.5)
+
+    assert canonical(read_lines(tools)) == canonical(
+        [
+            [(1.0, 1.5), (0.5, 1.0)],
+            [(1.0, 0.5), (1.5, 1.0), (2.0, 0.5)],
+            [(2.0, 1.5), (2.5, 1.0)],
+        ]
+    )
+
+
+def test_two_columns_keep_both_segments_of_a_saddle(session, tools):
+    # 3 rows by 2 columns, north = 3. The first cell cuts off TL and BR,
+    # the second (below) cuts off TR and BL. Its top crossing (1.0, 1.5) is
+    # the bottom crossing of the first cell, so right-bottom of the first
+    # and top-right of the second cell form the line (1.5, 2.0), (1.0, 1.5),
+    # (1.5, 1.0). The other lines are (1.0, 2.5)-(0.5, 2.0) and
+    # (0.5, 1.0)-(1.0, 0.5).
+    make_map(tools, 3, 2, "if((row() + col()) % 2 == 0, 1.0, 0.0)")
+
+    run_contour(session, 0.5)
+
+    assert canonical(read_lines(tools)) == canonical(
+        [
+            [(1.0, 2.5), (0.5, 2.0)],
+            [(1.5, 2.0), (1.0, 1.5), (1.5, 1.0)],
+            [(0.5, 1.0), (1.0, 0.5)],
+        ]
+    )
+
+
 @pytest.mark.parametrize("expression", EXPRESSIONS)
 @pytest.mark.parametrize("level", LEVELS)
 @pytest.mark.parametrize(("rows", "columns"), REGIONS)
