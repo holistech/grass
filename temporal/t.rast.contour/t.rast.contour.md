@@ -76,10 +76,10 @@ themselves and warns "crossings found". The last example shows this as well.
 
 **minlevel** and **maxlevel** apply to every map of the dataset, but
 *r.contour* moves them into the values of each map. A map whose values lie
-wholly below **minlevel** or above **maxlevel** therefore still gets a level
-within its values and, in most cases, a line. With **step** `1`, **minlevel**
-`24` and **maxlevel** `26`, the first day of the examples (up to 23.29
-degrees) gets a line at 23 degrees. To get lines only at fixed levels, use
+wholly below **minlevel** or wholly above **maxlevel** therefore still gets
+levels within its values, and a line at each of them, except at a level equal
+to its smallest value, which gives no line. The example "Contour lines in a
+range of levels" shows both cases. To get lines only at fixed levels, use
 **levels**: a level outside the values of a map gives no line there.
 
 If **where** selects no map, *t.rast.contour* warns that the space time raster
@@ -458,6 +458,19 @@ it is not a whole number of steps above **minlevel**: with **maxlevel**
 `23.5`, the second and the third day have lines at 22, 23 and 23.5 degrees.
 The condition in **where** leaves out the first day.
 
+The third and the fourth block show the trap named in the NOTES: the limits
+apply to all maps, but *r.contour* moves them into the values of each map.
+
+- With **minlevel** `24` and **maxlevel** `26`, the values of the first day
+  (21 to 23.29) lie wholly below **minlevel**. Both limits are moved down by
+  whole steps to 23, so the first day still gets a line, at 23 degrees; the
+  last command lists the level of the first day only.
+- With **minlevel** `18` and **maxlevel** `20`, the values of every day lie
+  wholly above **maxlevel**. Both limits are moved up by whole steps to 21,
+  the smallest value of each map, and a level equal to the smallest value
+  gives no line: with **-n**, three empty maps are registered, each with the
+  level 21 in its attribute table.
+
 === "Command line"
 
     ```sh
@@ -492,6 +505,40 @@ The condition in **where** leaves out the first day.
     2026-07-03 00:00:00|2026-07-04 00:00:00|22
     2026-07-03 00:00:00|2026-07-04 00:00:00|23
     2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
+    ```
+
+    ```sh
+    t.rast.contour input=tmax output=below basename=below \
+        step=1 minlevel=24 maxlevel=26
+    t.vect.list input=below columns=name,lines
+    t.vect.db.select input=below columns=level t_where="start_time < '2026-07-02'"
+    ```
+
+    ```text
+    name|lines
+    below_2026_07_01|1
+    below_2026_07_02|3
+    below_2026_07_03|3
+    start_time|end_time|level
+    2026-07-01 00:00:00|2026-07-02 00:00:00|23
+    ```
+
+    ```sh
+    t.rast.contour -n input=tmax output=above basename=above \
+        step=1 minlevel=18 maxlevel=20
+    t.vect.list input=above columns=name,lines
+    t.vect.db.select input=above columns=level
+    ```
+
+    ```text
+    name|lines
+    above_2026_07_01|0
+    above_2026_07_02|0
+    above_2026_07_03|0
+    start_time|end_time|level
+    2026-07-01 00:00:00|2026-07-02 00:00:00|21
+    2026-07-02 00:00:00|2026-07-03 00:00:00|21
+    2026-07-03 00:00:00|2026-07-04 00:00:00|21
     ```
 
 === "Python (grass.tools)"
@@ -541,6 +588,51 @@ The condition in **where** leaves out the first day.
     2026-07-03 00:00:00|2026-07-04 00:00:00|22
     2026-07-03 00:00:00|2026-07-04 00:00:00|23
     2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
+    ```
+
+    ```python
+    tools.t_rast_contour(
+        input="tmax", output="below", basename="below", step=1, minlevel=24, maxlevel=26
+    )
+    print(tools.t_vect_list(input="below", columns="name,lines").text)
+    result = tools.t_vect_db_select(
+        input="below", columns="level", t_where="start_time < '2026-07-02'"
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|lines
+    below_2026_07_01|1
+    below_2026_07_02|3
+    below_2026_07_03|3
+    start_time|end_time|level
+    2026-07-01 00:00:00|2026-07-02 00:00:00|23
+    ```
+
+    ```python
+    tools.t_rast_contour(
+        input="tmax",
+        output="above",
+        basename="above",
+        step=1,
+        minlevel=18,
+        maxlevel=20,
+        flags="n",
+    )
+    print(tools.t_vect_list(input="above", columns="name,lines").text)
+    print(tools.t_vect_db_select(input="above", columns="level").text)
+    ```
+
+    ```text
+    name|lines
+    above_2026_07_01|0
+    above_2026_07_02|0
+    above_2026_07_03|0
+    start_time|end_time|level
+    2026-07-01 00:00:00|2026-07-02 00:00:00|21
+    2026-07-02 00:00:00|2026-07-03 00:00:00|21
+    2026-07-03 00:00:00|2026-07-04 00:00:00|21
     ```
 
 ### Leave out short contour lines

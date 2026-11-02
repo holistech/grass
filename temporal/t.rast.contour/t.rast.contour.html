@@ -86,12 +86,12 @@ well.
 <p>
 <b>minlevel</b> and <b>maxlevel</b> apply to every map of the dataset, but
 <em>r.contour</em> moves them into the values of each map. A map whose values
-lie wholly below <b>minlevel</b> or above <b>maxlevel</b> therefore still gets
-a level within its values and, in most cases, a line. With <b>step</b>
-<code>1</code>, <b>minlevel</b> <code>24</code> and <b>maxlevel</b>
-<code>26</code>, the first day of the examples (up to 23.29 degrees) gets a
-line at 23 degrees. To get lines only at fixed levels, use <b>levels</b>: a
-level outside the values of a map gives no line there.
+lie wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> therefore
+still gets levels within its values, and a line at each of them, except at a
+level equal to its smallest value, which gives no line. The example "Contour
+lines in a range of levels" shows both cases. To get lines only at fixed
+levels, use <b>levels</b>: a level outside the values of a map gives no line
+there.
 <p>
 If <b>where</b> selects no map, <em>t.rast.contour</em> warns that the space
 time raster dataset is empty and creates no output dataset.
@@ -475,6 +475,22 @@ when it is not a whole number of steps above <b>minlevel</b>: with
 <b>maxlevel</b> <code>23.5</code>, the second and the third day have lines at
 22, 23 and 23.5 degrees. The condition in <b>where</b> leaves out the first
 day.
+<p>
+The third and the fourth block show the trap named in the NOTES: the limits
+apply to all maps, but <em>r.contour</em> moves them into the values of each
+map.
+<ul>
+<li>With <b>minlevel</b> <code>24</code> and <b>maxlevel</b> <code>26</code>,
+the values of the first day (21 to 23.29) lie wholly below <b>minlevel</b>.
+Both limits are moved down by whole steps to 23, so the first day still gets
+a line, at 23 degrees; the last command lists the level of the first day
+only.</li>
+<li>With <b>minlevel</b> <code>18</code> and <b>maxlevel</b> <code>20</code>,
+the values of every day lie wholly above <b>maxlevel</b>. Both limits are
+moved up by whole steps to 21, the smallest value of each map, and a level
+equal to the smallest value gives no line: with <b>-n</b>, three empty maps
+are registered, each with the level 21 in its attribute table.</li>
+</ul>
 
 <p>Command line:</p>
 
@@ -510,6 +526,40 @@ start_time|end_time|level
 2026-07-03 00:00:00|2026-07-04 00:00:00|22
 2026-07-03 00:00:00|2026-07-04 00:00:00|23
 2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast.contour input=tmax output=below basename=below \
+    step=1 minlevel=24 maxlevel=26
+t.vect.list input=below columns=name,lines
+t.vect.db.select input=below columns=level t_where="start_time &lt; '2026-07-02'"
+</pre></div>
+
+<div class="code"><pre>
+name|lines
+below_2026_07_01|1
+below_2026_07_02|3
+below_2026_07_03|3
+start_time|end_time|level
+2026-07-01 00:00:00|2026-07-02 00:00:00|23
+</pre></div>
+
+<div class="code"><pre>
+t.rast.contour -n input=tmax output=above basename=above \
+    step=1 minlevel=18 maxlevel=20
+t.vect.list input=above columns=name,lines
+t.vect.db.select input=above columns=level
+</pre></div>
+
+<div class="code"><pre>
+name|lines
+above_2026_07_01|0
+above_2026_07_02|0
+above_2026_07_03|0
+start_time|end_time|level
+2026-07-01 00:00:00|2026-07-02 00:00:00|21
+2026-07-02 00:00:00|2026-07-03 00:00:00|21
+2026-07-03 00:00:00|2026-07-04 00:00:00|21
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -559,6 +609,51 @@ start_time|end_time|level
 2026-07-03 00:00:00|2026-07-04 00:00:00|22
 2026-07-03 00:00:00|2026-07-04 00:00:00|23
 2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_contour(
+    input="tmax", output="below", basename="below", step=1, minlevel=24, maxlevel=26
+)
+print(tools.t_vect_list(input="below", columns="name,lines").text)
+result = tools.t_vect_db_select(
+    input="below", columns="level", t_where="start_time &lt; '2026-07-02'"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|lines
+below_2026_07_01|1
+below_2026_07_02|3
+below_2026_07_03|3
+start_time|end_time|level
+2026-07-01 00:00:00|2026-07-02 00:00:00|23
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_contour(
+    input="tmax",
+    output="above",
+    basename="above",
+    step=1,
+    minlevel=18,
+    maxlevel=20,
+    flags="n",
+)
+print(tools.t_vect_list(input="above", columns="name,lines").text)
+print(tools.t_vect_db_select(input="above", columns="level").text)
+</pre></div>
+
+<div class="code"><pre>
+name|lines
+above_2026_07_01|0
+above_2026_07_02|0
+above_2026_07_03|0
+start_time|end_time|level
+2026-07-01 00:00:00|2026-07-02 00:00:00|21
+2026-07-02 00:00:00|2026-07-03 00:00:00|21
+2026-07-03 00:00:00|2026-07-04 00:00:00|21
 </pre></div>
 
 <h3>Leave out short contour lines</h3>
