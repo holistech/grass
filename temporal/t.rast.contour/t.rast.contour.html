@@ -522,33 +522,26 @@ t.vect.db.select input=half_top columns=level
 start_time|end_time|level
 2026-07-02 00:00:00|2026-07-03 00:00:00|22
 2026-07-02 00:00:00|2026-07-03 00:00:00|23
-2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
 2026-07-03 00:00:00|2026-07-04 00:00:00|22
 2026-07-03 00:00:00|2026-07-04 00:00:00|23
-2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
 </pre></div>
 
 <div class="code"><pre>
 t.rast.contour input=tmax output=below basename=below \
     step=1 minlevel=24 maxlevel=26
 t.vect.list input=below columns=name,lines
-t.vect.db.select input=below columns=level t_where="start_time &lt; '2026-07-02'"
 </pre></div>
 
 <div class="code"><pre>
 name|lines
-below_2026_07_01|1
 below_2026_07_02|3
 below_2026_07_03|3
-start_time|end_time|level
-2026-07-01 00:00:00|2026-07-02 00:00:00|23
 </pre></div>
 
 <div class="code"><pre>
 t.rast.contour -n input=tmax output=above basename=above \
     step=1 minlevel=18 maxlevel=20
 t.vect.list input=above columns=name,lines
-t.vect.db.select input=above columns=level
 </pre></div>
 
 <div class="code"><pre>
@@ -556,10 +549,6 @@ name|lines
 above_2026_07_01|0
 above_2026_07_02|0
 above_2026_07_03|0
-start_time|end_time|level
-2026-07-01 00:00:00|2026-07-02 00:00:00|21
-2026-07-02 00:00:00|2026-07-03 00:00:00|21
-2026-07-03 00:00:00|2026-07-04 00:00:00|21
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -605,10 +594,8 @@ print(tools.t_vect_db_select(input="half_top", columns="level").text)
 start_time|end_time|level
 2026-07-02 00:00:00|2026-07-03 00:00:00|22
 2026-07-02 00:00:00|2026-07-03 00:00:00|23
-2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
 2026-07-03 00:00:00|2026-07-04 00:00:00|22
 2026-07-03 00:00:00|2026-07-04 00:00:00|23
-2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
 </pre></div>
 
 <div class="code"><pre>
@@ -616,19 +603,12 @@ tools.t_rast_contour(
     input="tmax", output="below", basename="below", step=1, minlevel=24, maxlevel=26
 )
 print(tools.t_vect_list(input="below", columns="name,lines").text)
-result = tools.t_vect_db_select(
-    input="below", columns="level", t_where="start_time &lt; '2026-07-02'"
-)
-print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 name|lines
-below_2026_07_01|1
 below_2026_07_02|3
 below_2026_07_03|3
-start_time|end_time|level
-2026-07-01 00:00:00|2026-07-02 00:00:00|23
 </pre></div>
 
 <div class="code"><pre>
@@ -642,7 +622,6 @@ tools.t_rast_contour(
     flags="n",
 )
 print(tools.t_vect_list(input="above", columns="name,lines").text)
-print(tools.t_vect_db_select(input="above", columns="level").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -650,10 +629,6 @@ name|lines
 above_2026_07_01|0
 above_2026_07_02|0
 above_2026_07_03|0
-start_time|end_time|level
-2026-07-01 00:00:00|2026-07-02 00:00:00|21
-2026-07-02 00:00:00|2026-07-03 00:00:00|21
-2026-07-03 00:00:00|2026-07-04 00:00:00|21
 </pre></div>
 
 <h3>Leave out short contour lines</h3>

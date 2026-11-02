@@ -262,12 +262,11 @@ DCELL **get_z_array(int fd, int nrow, int ncol)
 double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
                   struct Option *step, struct FPRange *range, int *num)
 {
-    double dmax, dmin, dstep;
+    double dstep, anchor, lower, upper, kfirst, klast;
     int nlevels, i, k, n;
     double j;
     DCELL zmin, zmax; /* min and max data values */
     double *lev;
-    double tmp;
 
     Rast_get_fp_range_min_max(range, &zmin, &zmax);
 
@@ -309,49 +308,39 @@ double *getlevels(struct Option *levels, struct Option *max, struct Option *min,
         }
 
         dstep = atof(step->answer);
-        /* fix if step < 1, Roger Bivand 1/2001: */
+        if (dstep <= 0)
+            G_fatal_error(_("This step value is not allowed"));
 
-        dmax = (max->answer) ? atof(max->answer)
-               : dstep == 0
-                   ? (G_fatal_error(_("This step value is not allowed")), 0)
-                   : zmax - fmod(zmax, dstep);
-        dmin = (min->answer) ? atof(min->answer)
-               : dstep == 0
-                   ? (G_fatal_error(_("This step value is not allowed")), 0)
-               : fmod(zmin, dstep) ? zmin - fmod(zmin, dstep) + dstep
-                                   : zmin;
+        /* The levels are the points anchor + k * step of one grid, cut to the
+           given limits and to the range of the map, both ends included. The
+           grid starts at minlevel when it is given, else at 0. Before
+           2026-11-02 the limits were pushed into the range of the map (a
+           minlevel above the maximum became a level at the maximum), the grid
+           of a map with a negative minimum lost its lowest level, and a
+           maxlevel off the grid became a level of its own. */
+        anchor = (min->answer) ? atof(min->answer) : 0.0;
+        lower = (min->answer && atof(min->answer) > zmin) ? atof(min->answer)
+                                                          : zmin;
+        upper = (max->answer && atof(max->answer) < zmax) ? atof(max->answer)
+                                                          : zmax;
 
-        while (dmin < zmin) {
-            dmin += dstep;
-        }
-        while (dmin > zmax) {
-            dmin -= dstep;
-        }
+        G_verbose_message(_("Range of levels: min = %f, max = %f"), lower,
+                          upper);
 
-        while (dmax > zmax) {
-            dmax -= dstep;
+        nlevels = 0;
+        lev = (double *)G_malloc(sizeof(double));
+        if (lower <= upper) {
+            /* The tolerance keeps a level that lies on a limit up to rounding
+               (0.3 / 0.1 is 2.9999999999999996) */
+            kfirst = ceil((lower - anchor) / dstep - 1e-9);
+            klast = floor((upper - anchor) / dstep + 1e-9);
+            if (klast >= kfirst) {
+                nlevels = (int)(klast - kfirst) + 1;
+                lev = (double *)G_realloc(lev, nlevels * sizeof(double));
+                for (i = 0; i < nlevels; i++)
+                    lev[i] = anchor + (kfirst + i) * dstep;
+            }
         }
-        while (dmax < zmin) {
-            dmax += dstep;
-        }
-        if (dmin > dmax) {
-            tmp = dmin;
-            dmin = dmax;
-            dmax = tmp;
-        }
-        dmin = dmin < zmin ? zmin : dmin;
-        dmax = dmax > zmax ? zmax : dmax;
-
-        G_verbose_message(_("Range of levels: min = %f, max = %f"), dmin, dmax);
-
-        nlevels = (dmax - dmin) / dstep + 2;
-        lev = (double *)G_malloc(nlevels * sizeof(double));
-        for (nlevels = 0; dmin < dmax; dmin += dstep) {
-            lev[nlevels] = dmin;
-            nlevels++;
-        }
-        lev[nlevels] = dmax;
-        nlevels++;
     }
 
     *num = nlevels;

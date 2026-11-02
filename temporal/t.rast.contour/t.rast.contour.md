@@ -501,33 +501,26 @@ apply to all maps, but *r.contour* moves them into the values of each map.
     start_time|end_time|level
     2026-07-02 00:00:00|2026-07-03 00:00:00|22
     2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
     2026-07-03 00:00:00|2026-07-04 00:00:00|22
     2026-07-03 00:00:00|2026-07-04 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
     ```
 
     ```sh
     t.rast.contour input=tmax output=below basename=below \
         step=1 minlevel=24 maxlevel=26
     t.vect.list input=below columns=name,lines
-    t.vect.db.select input=below columns=level t_where="start_time < '2026-07-02'"
     ```
 
     ```text
     name|lines
-    below_2026_07_01|1
     below_2026_07_02|3
     below_2026_07_03|3
-    start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|23
     ```
 
     ```sh
     t.rast.contour -n input=tmax output=above basename=above \
         step=1 minlevel=18 maxlevel=20
     t.vect.list input=above columns=name,lines
-    t.vect.db.select input=above columns=level
     ```
 
     ```text
@@ -535,10 +528,6 @@ apply to all maps, but *r.contour* moves them into the values of each map.
     above_2026_07_01|0
     above_2026_07_02|0
     above_2026_07_03|0
-    start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|21
-    2026-07-02 00:00:00|2026-07-03 00:00:00|21
-    2026-07-03 00:00:00|2026-07-04 00:00:00|21
     ```
 
 === "Python (grass.tools)"
@@ -584,10 +573,8 @@ apply to all maps, but *r.contour* moves them into the values of each map.
     start_time|end_time|level
     2026-07-02 00:00:00|2026-07-03 00:00:00|22
     2026-07-02 00:00:00|2026-07-03 00:00:00|23
-    2026-07-02 00:00:00|2026-07-03 00:00:00|23.5
     2026-07-03 00:00:00|2026-07-04 00:00:00|22
     2026-07-03 00:00:00|2026-07-04 00:00:00|23
-    2026-07-03 00:00:00|2026-07-04 00:00:00|23.5
     ```
 
     ```python
@@ -595,19 +582,12 @@ apply to all maps, but *r.contour* moves them into the values of each map.
         input="tmax", output="below", basename="below", step=1, minlevel=24, maxlevel=26
     )
     print(tools.t_vect_list(input="below", columns="name,lines").text)
-    result = tools.t_vect_db_select(
-        input="below", columns="level", t_where="start_time < '2026-07-02'"
-    )
-    print(result.text)
     ```
 
     ```text
     name|lines
-    below_2026_07_01|1
     below_2026_07_02|3
     below_2026_07_03|3
-    start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|23
     ```
 
     ```python
@@ -621,7 +601,6 @@ apply to all maps, but *r.contour* moves them into the values of each map.
         flags="n",
     )
     print(tools.t_vect_list(input="above", columns="name,lines").text)
-    print(tools.t_vect_db_select(input="above", columns="level").text)
     ```
 
     ```text
@@ -629,10 +608,6 @@ apply to all maps, but *r.contour* moves them into the values of each map.
     above_2026_07_01|0
     above_2026_07_02|0
     above_2026_07_03|0
-    start_time|end_time|level
-    2026-07-01 00:00:00|2026-07-02 00:00:00|21
-    2026-07-02 00:00:00|2026-07-03 00:00:00|21
-    2026-07-03 00:00:00|2026-07-04 00:00:00|21
     ```
 
 ### Leave out short contour lines
