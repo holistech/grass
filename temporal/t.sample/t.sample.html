@@ -1,180 +1,746 @@
 <h2>DESCRIPTION</h2>
-
-The purpose of <em>t.sample</em> is to compute and to show spatio-temporal
-relations between space time datasets of different type. Several input
-space time datasets are sampled by a <em>sample</em> space time dataset
-using temporal topological relations. The types of the input space time
-datasets and the type of the sample space time dataset can be
-different.
+<em>t.sample</em> shows how the maps of one or more space time datasets lie in time to the maps of another space time dataset, the sampler. It reads the temporal topology of the datasets and prints one row for each map of the sampler and for each gap between two maps of the sampler. A row lists the maps of every input dataset that stand in the chosen temporal relations to that sampler map. The types of the datasets can differ: a vector dataset can be sampled by a raster dataset, and a raster dataset by a 3D raster dataset. See the <a href="temporalintro.html">introduction to temporal data processing</a> for an overview, <em><a href="t.topology.html">t.topology</a></em> for the temporal topology of one dataset and <em><a href="t.rast.list.html">t.rast.list</a></em> for the method <code>deltagaps</code>, which lists the gaps of a dataset in the same way.
+<h3>Datasets</h3>
+The option <b>inputs</b> names the datasets to be sampled, separated by commas, and is required. The option <b>sample</b> names the sampler and is required. All inputs are of the type given by <b>intype</b>, the sampler is of the type given by <b>samtype</b>: <code>strds</code> (the default of both), <code>str3ds</code> or <code>stvds</code>. A name without <code>@mapset</code> means the current mapset. The temporal type, absolute or relative, must be the same for the sampler and for each input, and the maps of the sampler must be intervals. If they are not, the dataset is not sampled, see the NOTES.
 <p>
-This module is useful to analyze temporal relationships between space
-time datasets using temporal topology. The flag <em>-s</em> enables a
-spatio-temporal topology, so that only spatio-temporal related map
-layers of space time datasets are considered in the analysis.
-
+The sampler divides the time into granules: each of its maps is a granule, and a hole between two maps is a granule of its own, a gap. Two maps that touch, where the end of one is the start of the next, leave no gap. A granule includes its start and excludes its end. The sampler should have a valid topology: the tool does not check it, and if sampler maps start at the same time, the rows follow the order of their start and end times.
+<h3>Relations</h3>
+The option <b>method</b> selects the temporal relations between a granule and the maps of an input. The default is <code>during,overlap,contain,equal</code>. It takes the following values:
+<ul>
+<li><code>during</code>: the map is longer than the granule and the granule lies inside it; the two may share the start or the end</li>
+<li><code>overlap</code>: the map reaches over one border of the granule</li>
+<li><code>contain</code>: the map lies inside the granule, also a time instance; a map that shares the start or the end of the granule counts as well</li>
+<li><code>equal</code>: the map has the start and the end of the granule</li>
+<li><code>start</code>: the maps of <code>contain</code>, the maps that begin before the granule and end inside it or at its end, and the maps longer than the granule that begin with it; the maps equal to the granule are never listed</li>
+<li><code>follows</code>: the map ends where the granule starts</li>
+<li><code>precedes</code>: the map starts where the granule ends, also a time instance</li>
+</ul>
+<p>
+Other values are rejected by the parser, among them the inverse relations <code>overlaps</code> and <code>overlapped</code>. Several values are separated by commas. The maps of a cell are listed relation by relation: first those of <code>during</code>, <code>equal</code>, <code>follows</code> and <code>precedes</code>, in the order in which the list names them, then those of the groups <code>start</code>, <code>overlap</code> and <code>contain</code> in this order, whatever the order of the list. A map that stands in two selected relations is listed once. The maps of one of the plain relations follow their start times, and maps that start together follow their ids. A group is made of several relations, which follow one another, so a map need not be listed by its start time: in the call with <code>start</code> of the third example, <code>wide_s</code> stands before <code>wide_e</code>, although it starts later.
+<h3>Output</h3>
+<em>t.sample</em> prints a table to standard output. The columns are separated by the character of the option <b>separator</b>, which is the pipe <code>|</code> by default; the names <code>space</code> and <code>tab</code> are accepted as well. A comma cannot be used, as it separates the map ids inside a cell: with a comma the columns are separated by <code> | </code>, a pipe with a space on each side. The flag <b>-c</b> prints the names of the columns as first row, with the ids of the datasets for the first columns. The columns are:
+<ul>
+<li>the sampler map of the granule, as <code>name@mapset</code>; a gap has no map, and the cell shows <code>None</code></li>
+<li>one column for each input dataset, in the order of <b>inputs</b>: the ids of the maps related to the granule, separated by commas, or <code>None</code> if there are none; a map of a vector dataset registered with a layer shows as <code>name:layer@mapset</code></li>
+<li><code>start_time</code> and <code>end_time</code>: the start and the end of the granule; relative time is printed as the stored numbers, without a unit</li>
+<li><code>interval_length</code>: the length of the granule, <code>end_time</code> minus <code>start_time</code>; absolute time gives days, as a fraction if the granule is shorter than a day (<code>0.25</code> for six hours), relative time gives a number of the unit of the datasets</li>
+<li><code>distance_from_begin</code>: the distance of the start of the granule from the start of the first granule, in the same unit as <code>interval_length</code></li>
+</ul>
+<p>
+The flag <b>-s</b> adds a spatial check: a map stays in a cell only if its spatial extent touches the extent of the granule, where a shared edge or corner counts. For 3D datasets only the north-south and east-west extent is compared, not bottom and top. A gap has no extent of its own and is given the extent <code>(0, 0, 0, 0)</code>: with <b>-s</b> it relates only to maps whose extent touches the origin. Without <b>-s</b> the spatial extent plays no role.
 <h2>NOTES</h2>
-
-The temporal relation <em>start</em> means that the start time of an
-input map layer is temporally located in an interval of a sample map
-layer.
+The tool checks every dataset before it prints anything. A dataset that is not found, an unknown name or a name of another type than <b>intype</b> or <b>samtype</b>, ends the tool with the error <code>Dataset &lt;name@mapset&gt; not found in temporal database</code> and return code 1; the name in the message always has the mapset.
 <p>
-The textual output at the command line shows the names of the maps,
-start and end time as well as the <em>interval length</em> in days and
-the temporal <em>distance from begin</em> in days.
+The two other refusals print an error and no failure code. If the sampler has time instances instead of intervals, the tool prints <code>The temporal map type of the sample dataset must be interval</code>, nothing else, and returns 0. If an input has another temporal type than the sampler, absolute or relative, the tool prints <code>The space time datasets must be of the same temporal type</code>, leaves that input out of the rows and samples the others. With <b>-c</b> the header still names the left-out input, so the header has one column more than the rows.
 <p>
-The default <em>separator</em> is the pipe symbol.
-<p>
-Temporal gaps, if present, in the input and sampling space time
-datasets will be used in the sampling process. Gaps have no map name,
-instead <em>None</em> is printed.
-<p>
-A sampling space time dataset should have a valid topology. The tool
-does not check it; if sample map layers start at the same time, the
-output rows follow the order of their start and end times.
-
-<h2>EXAMPLE</h2>
-
-In the examples below we create a space time raster dataset <em>A</em>
-and a space time vector dataset <em>P</em> that have different temporal
-layouts and number of map layers. The space time vector dataset
-contains a gap, that will be used in the sampling process.
-<p>
-We use <em>t.sample</em> to inspect the topological relations between the
-time stamped map layers in <em>A</em> and <em>P</em>.
-<p>
+Maps outside the time of the sampler get no row of their own. With the default method a map before the first granule, or starting at or after the end of the last one, appears in no cell.
+<h2>EXAMPLES</h2>
+<h3>Sample time instances with intervals</h3>
+Six maps are time instances on June 1 to 6, 2026. The sampler <code>periods</code> has three intervals: June 1 to 3, June 5 to 7 and June 7 to 9. With the flag <b>-c</b> the first row names the columns. The first period holds the readings of June 1 and 2. The reading of June 3 is not in it, as the end of a granule is excluded: it belongs to the gap from June 3 to 5, a row without a sampler map, with the reading of June 4. The second period holds the readings of June 5 and 6. The third period starts where the second one ends, so there is no gap row between them, and it holds no reading: its cell shows <code>None</code>. The length of each granule is 2.0 days, and the distance from the start of the first granule grows by 2.0 days from row to row.
+<p>Command line:</p>
 <div class="code"><pre>
-# Set an appropriate region
-g.region s=0 n=80 w=0 e=120 b=0 t=50 res=10 res3=10 -p3
-
-# Generate the raster map layer
-r.mapcalc expression="a1 = rand(0, 550)"
-r.mapcalc expression="a2 = rand(0, 450)"
-r.mapcalc expression="a3 = rand(0, 320)"
-r.mapcalc expression="a4 = rand(0, 510)"
-r.mapcalc expression="a5 = rand(0, 300)"
-r.mapcalc expression="a6 = rand(0, 650)"
-
-# Generate the vector map layer
-v.random -z output=pnts1 n=20 zmin=0 zmax=100 column=height
-v.random -z output=pnts2 n=20 zmin=0 zmax=100 column=height
-
-n1=`g.tempfile pid=1 -d`
-n2=`g.tempfile pid=2 -d`
-
-cat &gt; "${n1}" &lt;&lt; EOF
-a1
-a2
-a3
-a4
-a5
-a6
-EOF
-
-cat &gt; "${n2}" &lt;&lt; EOF
-pnts1|2001-01-01|2001-03-01
-pnts2|2001-05-01|2001-07-01
-EOF
-
-# Register the maps in new space time datasets
-t.create type=strds temporaltype=absolute output=A \
-    title="A test with raster input files" descr="A test with raster input files"
-
-t.create type=stvds temporaltype=absolute output=P \
-    title="A test with vector input files" descr="A test with vector input files"
-
-t.register type=raster -i input=A file="${n1}" start="2001-01-01" increment="1 months"
-
-# Raster map layer in A
-t.rast.list A
-
-name|mapset|start_time|end_time
-a1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-a2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-a3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
-a4|PERMANENT|2001-04-01 00:00:00|2001-05-01 00:00:00
-a5|PERMANENT|2001-05-01 00:00:00|2001-06-01 00:00:00
-a6|PERMANENT|2001-06-01 00:00:00|2001-07-01 00:00:00
-
-
-t.register type=vector input=P file="${n2}"
-
-# Vector map layer in P
-t.vect.list P
-
-name|layer|mapset|start_time|end_time
-pnts1|None|PERMANENT|2001-01-01 00:00:00|2001-03-01 00:00:00
-pnts2|None|PERMANENT|2001-05-01 00:00:00|2001-07-01 00:00:00
-
-# Start time of maps in A located in maps in P
-t.sample method=start input=A samtype=stvds sample=P -c
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|a1@PERMANENT,a2@PERMANENT|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|a3@PERMANENT,a4@PERMANENT|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|a5@PERMANENT,a6@PERMANENT|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
-
-
-# P contains A
-t.sample method=contain input=A samtype=stvds sample=P -c
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|a1@PERMANENT,a2@PERMANENT|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|a3@PERMANENT,a4@PERMANENT|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|a5@PERMANENT,a6@PERMANENT|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
-
-
-# A during P
-t.sample method=during intype=stvds input=P samtype=strds sample=A -c
-
-A@PERMANENT|P@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-a1@PERMANENT|pnts1@PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00|31.0|0.0
-a2@PERMANENT|pnts1@PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00|28.0|31.0
-a3@PERMANENT|None|2001-03-01 00:00:00|2001-04-01 00:00:00|31.0|59.0
-a4@PERMANENT|None|2001-04-01 00:00:00|2001-05-01 00:00:00|30.0|90.0
-a5@PERMANENT|pnts2@PERMANENT|2001-05-01 00:00:00|2001-06-01 00:00:00|31.0|120.0
-a6@PERMANENT|pnts2@PERMANENT|2001-06-01 00:00:00|2001-07-01 00:00:00|30.0|151.0
-
-
-# No Overlapping
-t.sample method=overlap input=A samtype=stvds sample=P -cs
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|None|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|None|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|None|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
-
-
-t.sample method=precedes input=A samtype=stvds sample=P -c
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|a3@PERMANENT|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|a5@PERMANENT|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|None|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
-
-
-t.sample method=follows  input=A samtype=stvds sample=P -c
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|None|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|a2@PERMANENT|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|a4@PERMANENT|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
-
-
-t.sample method=precedes,follows input=A samtype=stvds sample=P -c
-
-P@PERMANENT|A@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-pnts1@PERMANENT|a3@PERMANENT|2001-01-01 00:00:00|2001-03-01 00:00:00|59.0|0.0
-None|a5@PERMANENT,a2@PERMANENT|2001-03-01 00:00:00|2001-05-01 00:00:00|61.0|59.0
-pnts2@PERMANENT|a4@PERMANENT|2001-05-01 00:00:00|2001-07-01 00:00:00|61.0|120.0
+g.region n=2 s=0 e=3 w=0 res=1
+for step in 1 2 3 4 5 6; do
+    r.mapcalc expression="reading_$step = $step"
+done
+t.create output=readings title="Daily readings" \
+    description="One reading on each day"
+t.register input=readings \
+    maps=reading_1,reading_2,reading_3,reading_4,reading_5,reading_6 \
+    start=2026-06-01 increment="1 day"
+for step in 1 2 3; do
+    r.mapcalc expression="period_$step = $step"
+done
+t.create output=periods title="Sampling periods" \
+    description="Two days, a hole of two days, two and two days"
+t.register input=periods maps=period_1 start=2026-06-01 end=2026-06-03
+t.register input=periods maps=period_2 start=2026-06-05 end=2026-06-07
+t.register input=periods maps=period_3 start=2026-06-07 end=2026-06-09
+t.sample -c inputs=readings sample=periods
 </pre></div>
+<div class="code"><pre>
+periods@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+from grass.tools import Tools
 
+tools = Tools()
+
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+for step in range(1, 7):
+    tools.r_mapcalc(expression=f"reading_{step} = {step}")
+tools.t_create(
+    output="readings",
+    title="Daily readings",
+    description="One reading on each day",
+)
+tools.t_register(
+    input="readings",
+    maps="reading_1,reading_2,reading_3,reading_4,reading_5,reading_6",
+    start="2026-06-01",
+    increment="1 day",
+)
+for step in range(1, 4):
+    tools.r_mapcalc(expression=f"period_{step} = {step}")
+tools.t_create(
+    output="periods",
+    title="Sampling periods",
+    description="Two days, a hole of two days, two and two days",
+)
+for step, start, end in (
+    (1, "2026-06-01", "2026-06-03"),
+    (2, "2026-06-05", "2026-06-07"),
+    (3, "2026-06-07", "2026-06-09"),
+):
+    tools.t_register(input="periods", maps=f"period_{step}", start=start, end=end)
+print(tools.t_sample(inputs="readings", sample="periods", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<h3>Several datasets and the field separator</h3>
+The dataset <code>spans</code> has three intervals of two days: June 1 to 3, June 3 to 5 and June 5 to 7. The first and the last are equal to the granules <code>period_1</code> and <code>period_2</code>, the middle one fills the gap of <code>periods</code>. Naming it after the readings in <b>inputs</b> adds a column in this order. The default method lists each span in the row it is equal to, and the last granule has no span. The second call uses <b>separator</b> <code>space</code>. The third asks for a comma: it cannot separate the columns, as the cells list several map ids with commas, so <code> | </code> is printed.
+<p>Command line:</p>
+<div class="code"><pre>
+for step in 1 2 3; do
+    r.mapcalc expression="span_$step = $step"
+done
+t.create output=spans title="Two-day spans" \
+    description="Three spans of two days without a gap"
+t.register -i input=spans maps=span_1,span_2,span_3 \
+    start=2026-06-01 increment="2 days"
+t.sample -c inputs=readings,spans sample=periods
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|readings@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|span_1@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|reading_3@PERMANENT,reading_4@PERMANENT|span_2@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|span_3@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=readings,spans sample=periods separator=space
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT readings@PERMANENT spans@PERMANENT start_time end_time interval_length distance_from_begin
+period_1@PERMANENT reading_1@PERMANENT,reading_2@PERMANENT span_1@PERMANENT 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
+None reading_3@PERMANENT,reading_4@PERMANENT span_2@PERMANENT 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
+period_2@PERMANENT reading_5@PERMANENT,reading_6@PERMANENT span_3@PERMANENT 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
+period_3@PERMANENT None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=readings,spans sample=periods separator=comma
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT | readings@PERMANENT | spans@PERMANENT | start_time | end_time | interval_length | distance_from_begin
+period_1@PERMANENT | reading_1@PERMANENT,reading_2@PERMANENT | span_1@PERMANENT | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
+None | reading_3@PERMANENT,reading_4@PERMANENT | span_2@PERMANENT | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
+period_2@PERMANENT | reading_5@PERMANENT,reading_6@PERMANENT | span_3@PERMANENT | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
+period_3@PERMANENT | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+for step in range(1, 4):
+    tools.r_mapcalc(expression=f"span_{step} = {step}")
+tools.t_create(
+    output="spans",
+    title="Two-day spans",
+    description="Three spans of two days without a gap",
+)
+tools.t_register(
+    input="spans",
+    maps="span_1,span_2,span_3",
+    start="2026-06-01",
+    increment="2 days",
+    flags="i",
+)
+print(tools.t_sample(inputs="readings,spans", sample="periods", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|readings@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|span_1@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|reading_3@PERMANENT,reading_4@PERMANENT|span_2@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|span_3@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="readings,spans", sample="periods", separator="space", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT readings@PERMANENT spans@PERMANENT start_time end_time interval_length distance_from_begin
+period_1@PERMANENT reading_1@PERMANENT,reading_2@PERMANENT span_1@PERMANENT 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
+None reading_3@PERMANENT,reading_4@PERMANENT span_2@PERMANENT 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
+period_2@PERMANENT reading_5@PERMANENT,reading_6@PERMANENT span_3@PERMANENT 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
+period_3@PERMANENT None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="readings,spans", sample="periods", separator="comma", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT | readings@PERMANENT | spans@PERMANENT | start_time | end_time | interval_length | distance_from_begin
+period_1@PERMANENT | reading_1@PERMANENT,reading_2@PERMANENT | span_1@PERMANENT | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
+None | reading_3@PERMANENT,reading_4@PERMANENT | span_2@PERMANENT | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
+period_2@PERMANENT | reading_5@PERMANENT,reading_6@PERMANENT | span_3@PERMANENT | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
+period_3@PERMANENT | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
+</pre></div>
+<h3>Choose the temporal relations of intervals</h3>
+A granule from June 10 to June 20, in the dataset <code>windows_june</code>, is sampled with the dataset <code>shapes</code>. The maps <code>wide</code>, <code>wide_s</code> and <code>wide_e</code> are longer than the granule, <code>wide_s</code> shares its start and <code>wide_e</code> its end, <code>early</code> and <code>late</code> reach over its start and its end, <code>inside</code> lies in it, <code>same</code> has its start and end and <code>before</code> ends long before it. The first call uses the default method: the plain values <code>during</code> and <code>equal</code> come first, then the groups <code>overlap</code> and <code>contain</code>, so the maps come in the order <code>wide</code>, <code>wide_e</code>, <code>wide_s</code>, <code>same</code>, <code>early</code>, <code>late</code>, <code>inside</code>; the maps of <code>during</code> follow their start times. The other calls select one relation each. <code>before</code> is related by none of them. <code>start</code> lists <code>early</code>, which begins before the granule and ends inside it, <code>wide_e</code>, which begins before it and ends with it, <code>wide_s</code>, which is longer and begins with it, and <code>inside</code>. It does not list <code>wide</code>, <code>late</code> and <code>same</code>: the value <code>start</code> never lists a map equal to the granule. The last call names <code>overlap</code> before <code>start</code>, yet the maps of <code>start</code> come first and <code>late</code>, which only <code>overlap</code> selects, comes last.
+<p>Command line:</p>
+<div class="code"><pre>
+for name in window wide wide_s wide_e early late inside same before; do
+    r.mapcalc expression="$name = 1"
+done
+t.create output=windows_june title="One granule" \
+    description="The granule from June 10 to June 20"
+t.register input=windows_june maps=window start=2026-06-10 end=2026-06-20
+t.create output=shapes title="Shapes" \
+    description="Intervals in different positions to the granule"
+t.register input=shapes maps=wide start=2026-06-05 end=2026-06-25
+t.register input=shapes maps=wide_s start=2026-06-10 end=2026-06-25
+t.register input=shapes maps=wide_e start=2026-06-05 end=2026-06-20
+t.register input=shapes maps=early start=2026-06-08 end=2026-06-12
+t.register input=shapes maps=late start=2026-06-18 end=2026-06-25
+t.register input=shapes maps=inside start=2026-06-12 end=2026-06-15
+t.register input=shapes maps=same start=2026-06-10 end=2026-06-20
+t.register input=shapes maps=before start=2026-06-01 end=2026-06-05
+t.sample -c inputs=shapes sample=windows_june
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT,same@PERMANENT,early@PERMANENT,late@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=during
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=overlap
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=contain
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=equal
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|same@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=start
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=shapes sample=windows_june method=overlap,start
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+for name in (
+    "window",
+    "wide",
+    "wide_s",
+    "wide_e",
+    "early",
+    "late",
+    "inside",
+    "same",
+    "before",
+):
+    tools.r_mapcalc(expression=f"{name} = 1")
+tools.t_create(
+    output="windows_june",
+    title="One granule",
+    description="The granule from June 10 to June 20",
+)
+tools.t_register(
+    input="windows_june", maps="window", start="2026-06-10", end="2026-06-20"
+)
+tools.t_create(
+    output="shapes",
+    title="Shapes",
+    description="Intervals in different positions to the granule",
+)
+for name, start, end in (
+    ("wide", "2026-06-05", "2026-06-25"),
+    ("wide_s", "2026-06-10", "2026-06-25"),
+    ("wide_e", "2026-06-05", "2026-06-20"),
+    ("early", "2026-06-08", "2026-06-12"),
+    ("late", "2026-06-18", "2026-06-25"),
+    ("inside", "2026-06-12", "2026-06-15"),
+    ("same", "2026-06-10", "2026-06-20"),
+    ("before", "2026-06-01", "2026-06-05"),
+):
+    tools.t_register(input="shapes", maps=name, start=start, end=end)
+print(tools.t_sample(inputs="shapes", sample="windows_june", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT,same@PERMANENT,early@PERMANENT,late@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="during", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="overlap", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="contain", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="equal", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|same@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="start", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="shapes", sample="windows_june", method="overlap,start", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+</pre></div>
+<h3>Maps next to the granule</h3>
+The relations <code>follows</code> and <code>precedes</code> select the neighbours of a granule in time. The dataset <code>spans</code> from the previous example has maps June 1 to 3, June 3 to 5 and June 5 to 7, and the sampler is <code>periods</code> again. With <code>follows</code> a cell lists the span that ends where the granule starts: <code>span_1</code> ends on June 3 where the gap starts, <code>span_2</code> where <code>period_2</code> starts and <code>span_3</code> where <code>period_3</code> starts. With <code>precedes</code> it lists the span that starts where the granule ends: <code>span_2</code> for <code>period_1</code> and <code>span_3</code> for the gap. The third call names both values. The gap now lists <code>span_3</code> before <code>span_1</code>, as <code>precedes</code> stands first in the list; with <code>follows,precedes</code> the two would swap.
+<p>Command line:</p>
+<div class="code"><pre>
+t.sample -c inputs=spans sample=periods method=follows
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=spans sample=periods method=precedes
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=spans sample=periods method=precedes,follows
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_3@PERMANENT,span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+print(
+    tools.t_sample(inputs="spans", sample="periods", method="follows", flags="c").text
+)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(inputs="spans", sample="periods", method="precedes", flags="c").text
+)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(
+        inputs="spans", sample="periods", method="precedes,follows", flags="c"
+    ).text
+)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|span_3@PERMANENT,span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<h3>Relative time</h3>
+Relative time is sampled in the same way, with the stored numbers and no unit. The model output <code>output_1</code> to <code>output_4</code> is at the hours 0 to 3, the sampler has the windows 0 to 2 and 4 to 6. The first window holds the outputs at the hours 0 and 1, the gap from 2 to 4 those at the hours 2 and 3. The length of the granules is 2, 2 and 2, and the distance from the first start 0, 2 and 4.
+<p>Command line:</p>
+<div class="code"><pre>
+for step in 1 2 3 4; do
+    r.mapcalc expression="output_$step = $step"
+done
+t.create output=model temporaltype=relative title="Model output" \
+    description="Output at the hours 0, 1, 2 and 3"
+t.register input=model maps=output_1,output_2,output_3,output_4 \
+    start=0 increment=1 unit=hours
+for step in 1 2; do
+    r.mapcalc expression="window_$step = $step"
+done
+t.create output=windows temporaltype=relative title="Windows" \
+    description="Two windows of two hours with a hole between them"
+t.register input=windows maps=window_1 start=0 end=2 unit=hours
+t.register input=windows maps=window_2 start=4 end=6 unit=hours
+t.sample -c inputs=model sample=windows
+</pre></div>
+<div class="code"><pre>
+windows@PERMANENT|model@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window_1@PERMANENT|output_1@PERMANENT,output_2@PERMANENT|0|2|2|0
+None|output_3@PERMANENT,output_4@PERMANENT|2|4|2|2
+window_2@PERMANENT|None|4|6|2|4
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+for step in range(1, 5):
+    tools.r_mapcalc(expression=f"output_{step} = {step}")
+tools.t_create(
+    output="model",
+    temporaltype="relative",
+    title="Model output",
+    description="Output at the hours 0, 1, 2 and 3",
+)
+tools.t_register(
+    input="model",
+    maps="output_1,output_2,output_3,output_4",
+    start=0,
+    increment=1,
+    unit="hours",
+)
+for step in range(1, 3):
+    tools.r_mapcalc(expression=f"window_{step} = {step}")
+tools.t_create(
+    output="windows",
+    temporaltype="relative",
+    title="Windows",
+    description="Two windows of two hours with a hole between them",
+)
+tools.t_register(input="windows", maps="window_1", start=0, end=2, unit="hours")
+tools.t_register(input="windows", maps="window_2", start=4, end=6, unit="hours")
+print(tools.t_sample(inputs="model", sample="windows", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+windows@PERMANENT|model@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+window_1@PERMANENT|output_1@PERMANENT,output_2@PERMANENT|0|2|2|0
+None|output_3@PERMANENT,output_4@PERMANENT|2|4|2|2
+window_2@PERMANENT|None|4|6|2|4
+</pre></div>
+<h3>Granules that are not whole days</h3>
+With absolute time, <code>interval_length</code> and <code>distance_from_begin</code> are given in days, as fractions if needed. The sampler <code>slots</code> has a slot of six hours, a slot of twelve hours starting at 06:00 and a slot of the month July. The first two granules are 0.25 and 0.5 days long, and the second starts 0.25 days after the first. The gap from June 1, 18:00 to July 1 is 29.25 days long and starts 0.75 days after the first start, and the month of July starts 30.0 days after it.
+<p>Command line:</p>
+<div class="code"><pre>
+for step in 1 2 3; do
+    r.mapcalc expression="slot_$step = $step"
+    r.mapcalc expression="probe_$step = $step"
+done
+t.create output=slots title="Slots" \
+    description="A quarter day, half a day and a month"
+t.register input=slots maps=slot_1 \
+    start="2026-06-01 00:00:00" end="2026-06-01 06:00:00"
+t.register input=slots maps=slot_2 \
+    start="2026-06-01 06:00:00" end="2026-06-01 18:00:00"
+t.register input=slots maps=slot_3 start=2026-07-01 end=2026-08-01
+t.create output=probes title="Probes" description="Three time instances"
+t.register input=probes maps=probe_1 start="2026-06-01 03:00:00"
+t.register input=probes maps=probe_2 start="2026-06-01 12:00:00"
+t.register input=probes maps=probe_3 start="2026-07-15 00:00:00"
+t.sample -c inputs=probes sample=slots
+</pre></div>
+<div class="code"><pre>
+slots@PERMANENT|probes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+slot_1@PERMANENT|probe_1@PERMANENT|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
+slot_2@PERMANENT|probe_2@PERMANENT|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
+None|None|2026-06-01 18:00:00|2026-07-01 00:00:00|29.25|0.75
+slot_3@PERMANENT|probe_3@PERMANENT|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+for step in range(1, 4):
+    tools.r_mapcalc(expression=f"slot_{step} = {step}")
+    tools.r_mapcalc(expression=f"probe_{step} = {step}")
+tools.t_create(
+    output="slots",
+    title="Slots",
+    description="A quarter day, half a day and a month",
+)
+for step, start, end in (
+    (1, "2026-06-01 00:00:00", "2026-06-01 06:00:00"),
+    (2, "2026-06-01 06:00:00", "2026-06-01 18:00:00"),
+    (3, "2026-07-01", "2026-08-01"),
+):
+    tools.t_register(input="slots", maps=f"slot_{step}", start=start, end=end)
+tools.t_create(output="probes", title="Probes", description="Three time instances")
+for step, start in (
+    (1, "2026-06-01 03:00:00"),
+    (2, "2026-06-01 12:00:00"),
+    (3, "2026-07-15 00:00:00"),
+):
+    tools.t_register(input="probes", maps=f"probe_{step}", start=start)
+print(tools.t_sample(inputs="probes", sample="slots", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+slots@PERMANENT|probes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+slot_1@PERMANENT|probe_1@PERMANENT|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
+slot_2@PERMANENT|probe_2@PERMANENT|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
+None|None|2026-06-01 18:00:00|2026-07-01 00:00:00|29.25|0.75
+slot_3@PERMANENT|probe_3@PERMANENT|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
+</pre></div>
+<h3>Datasets of different types</h3>
+The dataset type of the inputs and of the sampler are selected with <b>intype</b> and <b>samtype</b>, independent of each other. The first call samples the vector dataset <code>gauges</code> with the raster dataset <code>periods</code> of the first example. The second call samples the raster dataset <code>readings</code> with the 3D raster dataset <code>soil</code>, which has two maps of two days. The region of this example includes the 3D settings (<b>t</b>, <b>b</b>, <b>res3</b> and <b>tbres</b>) that 3D maps need.
+<p>Command line:</p>
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 t=2 b=0 res=1 res3=1 tbres=1
+for step in 1 2 3; do
+    v.in.ascii input=- output=gauge_$step separator=comma \
+        columns="x double precision, y double precision, speed double precision" \
+        &lt;&lt;EOF
+0.5,0.5,3.0
+2.5,1.5,5.0
+EOF
+done
+t.create type=stvds output=gauges title="Gauges" \
+    description="Wind speed on three days"
+t.register type=vector input=gauges maps=gauge_1,gauge_2,gauge_3 \
+    start=2026-06-01 increment="1 day"
+r3.mapcalc expression="soil_1 = depth()"
+r3.mapcalc expression="soil_2 = depth() + 10"
+t.create type=str3ds output=soil title="Soil" \
+    description="Soil temperature in two layers"
+t.register -i type=raster_3d input=soil maps=soil_1,soil_2 \
+    start=2026-06-01 increment="2 days"
+t.sample -c inputs=gauges intype=stvds sample=periods
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|gauges@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|gauge_1@PERMANENT,gauge_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|gauge_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+t.sample -c inputs=readings sample=soil samtype=str3ds
+</pre></div>
+<div class="code"><pre>
+soil@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+soil_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+soil_2@PERMANENT|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+from io import StringIO
+
+tools.g_region(n=2, s=0, e=3, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+for step in range(1, 4):
+    tools.v_in_ascii(
+        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        output=f"gauge_{step}",
+        separator="comma",
+        columns="x double precision, y double precision, speed double precision",
+    )
+tools.t_create(
+    type="stvds",
+    output="gauges",
+    title="Gauges",
+    description="Wind speed on three days",
+)
+tools.t_register(
+    type="vector",
+    input="gauges",
+    maps="gauge_1,gauge_2,gauge_3",
+    start="2026-06-01",
+    increment="1 day",
+)
+tools.r3_mapcalc(expression="soil_1 = depth()")
+tools.r3_mapcalc(expression="soil_2 = depth() + 10")
+tools.t_create(
+    type="str3ds",
+    output="soil",
+    title="Soil",
+    description="Soil temperature in two layers",
+)
+tools.t_register(
+    type="raster_3d",
+    input="soil",
+    maps="soil_1,soil_2",
+    start="2026-06-01",
+    increment="2 days",
+    flags="i",
+)
+print(tools.t_sample(inputs="gauges", intype="stvds", sample="periods", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+periods@PERMANENT|gauges@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+period_1@PERMANENT|gauge_1@PERMANENT,gauge_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+None|gauge_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+</pre></div>
+<div class="code"><pre>
+print(
+    tools.t_sample(inputs="readings", sample="soil", samtype="str3ds", flags="c").text
+)
+</pre></div>
+<div class="code"><pre>
+soil@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+soil_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+soil_2@PERMANENT|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+</pre></div>
+<h3>Keep only maps that touch the granule in space</h3>
+The flag <b>-s</b> drops maps whose spatial extent is apart from the extent of the granule. The sampler <code>plots</code> has one granule of eight days with the map <code>plot</code>, which covers the region 0 to 4 in both directions. The scenes are time instances inside this granule: <code>scene_1</code> covers the area from -1 to 5, <code>scene_2</code> lies inside it, from 1 to 3, <code>scene_3</code> from 4 to 6 touches the granule in the corner (4, 4) and <code>scene_4</code> from 10 to 12 is far away. Without <b>-s</b> the cell lists all four scenes. With <b>-s</b> the scene <code>scene_4</code> is dropped and the scene that touches the corner stays.
+<p>Command line:</p>
+<div class="code"><pre>
+g.region s=0 n=4 w=0 e=4 res=1
+r.mapcalc expression="plot = 1"
+for scene in "scene_1 -1 5 10" "scene_2 1 3 20" \
+    "scene_3 4 6 30" "scene_4 10 12 40"; do
+    set -- $scene
+    g.region s=$2 n=$3 w=$2 e=$3 res=1
+    r.mapcalc expression="$1 = $4"
+done
+g.region s=0 n=4 w=0 e=4 res=1
+t.create output=plots title="Plot" description="One granule of eight days"
+t.register input=plots maps=plot start=2026-06-01 end=2026-06-09
+t.create output=scenes title="Scenes" \
+    description="Four scenes of different extents"
+t.register input=scenes maps=scene_1,scene_2,scene_3,scene_4 \
+    start=2026-06-02 increment="1 day"
+t.sample -c inputs=scenes sample=plots
+</pre></div>
+<div class="code"><pre>
+plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT,scene_4@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+</pre></div>
+<div class="code"><pre>
+t.sample -cs inputs=scenes sample=plots
+</pre></div>
+<div class="code"><pre>
+plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+</pre></div>
+<p>Python (grass.tools):</p>
+<div class="code"><pre>
+tools.g_region(s=0, n=4, w=0, e=4, res=1)
+tools.r_mapcalc(expression="plot = 1")
+for name, low, high, value in (
+    ("scene_1", -1, 5, 10),
+    ("scene_2", 1, 3, 20),
+    ("scene_3", 4, 6, 30),
+    ("scene_4", 10, 12, 40),
+):
+    tools.g_region(s=low, n=high, w=low, e=high, res=1)
+    tools.r_mapcalc(expression=f"{name} = {value}")
+tools.g_region(s=0, n=4, w=0, e=4, res=1)
+tools.t_create(output="plots", title="Plot", description="One granule of eight days")
+tools.t_register(input="plots", maps="plot", start="2026-06-01", end="2026-06-09")
+tools.t_create(
+    output="scenes", title="Scenes", description="Four scenes of different extents"
+)
+tools.t_register(
+    input="scenes",
+    maps="scene_1,scene_2,scene_3,scene_4",
+    start="2026-06-02",
+    increment="1 day",
+)
+print(tools.t_sample(inputs="scenes", sample="plots", flags="c").text)
+</pre></div>
+<div class="code"><pre>
+plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT,scene_4@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+</pre></div>
+<div class="code"><pre>
+print(tools.t_sample(inputs="scenes", sample="plots", flags="cs").text)
+</pre></div>
+<div class="code"><pre>
+plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
+plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+</pre></div>
 <h2>SEE ALSO</h2>
-
-<em>
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>
-</em>
-
+<em><a href="t.rast.list.html">t.rast.list</a>, <a href="t.topology.html">t.topology</a>, <a href="temporalintro.html">temporal data processing</a></em>
 <h2>AUTHOR</h2>
-
 S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart Agriculture
