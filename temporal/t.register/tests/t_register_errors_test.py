@@ -4,6 +4,8 @@ Each case names the message that the library prints. The text is checked
 whitespace-normalised, because the messenger wraps long lines.
 """
 
+from pathlib import Path
+
 import pytest
 
 from grass.temporal.testing.readback import list_maps, message, stds_info
@@ -378,3 +380,45 @@ def test_an_invalid_time_stamp_after_a_valid_map_stops_at_the_invalid_one(
     assert f"<{broken}@PERMANENT>" in output
     assert "<2020>" in output
     assert f"<{good}@PERMANENT>" not in output
+
+
+def _write_timestamp_file(tools, name, text):
+    """Write the time stamp file of a raster map with plain Python.
+
+    r.timestamp refuses texts the C library cannot parse, so the file is
+    written directly to the cell_misc directory of the map.
+    """
+    env = tools.g_gisenv(flags="n", get="GISDBASE,LOCATION_NAME,MAPSET")
+    gisdbase, project, mapset = env.stdout.split()
+    misc = Path(gisdbase) / project / mapset / "cell_misc" / name
+    (misc / "timestamp").write_text(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("garbage text\n", "Unable to read timestamp file for raster map"),
+        ("1 Jan 99999999999\n", "is not a valid date or time"),
+    ],
+)
+def test_an_unparseable_time_stamp_file_stops_t_register(
+    tools, make_maps, dataset, text, expected
+):
+    # The C library answers -2 for a file it cannot parse. That code once
+    # stood for "reads but names no date" too and the message showed
+    # <(None, None, None)>. The second text probes a year beyond what
+    # datetime can hold.
+    good, broken = make_maps(2)
+    name = dataset()
+    tools.r_timestamp(map=good, date="1 Jan 2020")
+    _write_timestamp_file(tools, broken, text)
+
+    output = _register(tools, input=name, maps=f"{good},{broken}")
+
+    assert "Traceback" not in output
+    assert "Connection reset" not in output
+    assert "(None, None, None)" not in output
+    assert f"<{broken}@PERMANENT>" in output
+    assert expected in output
+    assert list_maps(tools, "strds", name) == []
+    assert stds_info(tools, "strds", name)["number_of_maps"] == "None"

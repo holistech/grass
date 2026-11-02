@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from .abstract_map_dataset import AbstractMapDataset
 from .abstract_space_time_dataset import AbstractSpaceTimeDataset
 from .base import BaseRow, RegisterRow
+from .c_libraries_interface import INVALID_TIMESTAMP
 from .metadata import MetadataRow
 from .spatial_extent import SpatialExtentRow
 from .temporal_extent import AbsoluteTimeRow, RelativeTimeRow
@@ -51,6 +52,10 @@ def _cannot_read_timestamp(kind: str) -> str:
 
 
 def _stored_timestamp_is_not_a_time(kind: str) -> str:
+    """Return the message for a stored text that is no valid date or time.
+
+    The message is a str.format() template with the fields map and text.
+    """
     return {
         "raster": _(
             "The timestamp of raster map <{map}> is not a valid date or time: <{text}>"
@@ -217,8 +222,8 @@ class MapDataset(AbstractMapDataset):
 
         check, dates = self._call("read_timestamp", self._layer())
 
-        if check == -2:
-            # The C library stored text it cannot turn into a time (such as
+        if check == INVALID_TIMESTAMP:
+            # The C library read a text it cannot turn into a time (such as
             # "5"); dates is that text. Stopping here keeps register and the
             # other readers from going on with a map that has no usable time.
             self.msgr.fatal(
@@ -226,7 +231,13 @@ class MapDataset(AbstractMapDataset):
                     map=self.get_map_id(), text=dates
                 )
             )
-            return False
+
+        if check == -2:
+            # The C library cannot parse the file at all. The stored text is
+            # not at hand here (the file name is known to libgis only), so the
+            # message names the map and says the file cannot be read; it is
+            # fatal for the same reason as above.
+            self.msgr.fatal(_cannot_read_timestamp(self.kind.name) % self.get_map_id())
 
         if check < 1:
             self.msgr.error(_cannot_read_timestamp(self.kind.name) % self.get_map_id())

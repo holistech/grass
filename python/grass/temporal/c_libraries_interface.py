@@ -537,8 +537,13 @@ def _convert_timestamp_from_grass(ts):
     return (start, end, unit)
 
 
-# The answer of read_timestamp to a stored text that is no valid time
-_INVALID_TIMESTAMP = -2
+# The answer of read_timestamp to a stored text that the C library reads but
+# that names no complete date or time. libgis answers 0, 1, -1 and -2 in
+# G_read_{raster,raster3d,vector}_timestamp (lib/gis/timestamp.c) and the
+# write handler below uses -2 and -3, so -4 is the first free code. With -2 a
+# stored text the C library cannot parse was taken for this case and reported
+# as <(None, None, None)>.
+INVALID_TIMESTAMP = -4
 
 
 def _format_timestamp(ts) -> str:
@@ -583,8 +588,9 @@ def _read_timestamp(*, kind, name, mapset, layer, **_):
     The end time may be None in case of a time instance.
 
     A timestamp that the C library reads but that is no valid absolute or
-    relative time, such as "5" or "2020", is answered by the tuple (-2, text)
-    with the stored text.
+    relative time, such as "5" or "2020", is answered by the tuple
+    (INVALID_TIMESTAMP, text) with the stored text. A file the C library
+    cannot parse at all keeps its return value -2 and has no timestamps.
     """
     ts = libgis.TimeStamp()
     read = getattr(libgis, f"G_read_{kind}_timestamp")
@@ -592,11 +598,13 @@ def _read_timestamp(*, kind, name, mapset, layer, **_):
     try:
         return check, _convert_timestamp_from_grass(ts)
     except ValueError:
+        # The fields are C integers, so a huge year gives ValueError (year out
+        # of range) from datetime(); no OverflowError can arise here.
         # G_read_*_timestamp accepts texts such as "5" or "2020" that name no
         # complete date, so datetime() cannot be built. Raising here would end
         # the server and reset the connection; the client gets the stored text
         # to name in its message instead.
-        return _INVALID_TIMESTAMP, _format_timestamp(ts)
+        return INVALID_TIMESTAMP, _format_timestamp(ts)
 
 
 @_handler("write_timestamp", on_error=-3)

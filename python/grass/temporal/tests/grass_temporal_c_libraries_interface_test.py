@@ -18,7 +18,10 @@ import pytest
 import grass.script as gs
 import grass.temporal as tgis
 from grass.temporal import c_libraries_interface
-from grass.temporal.c_libraries_interface import CLibrariesInterface
+from grass.temporal.c_libraries_interface import (
+    INVALID_TIMESTAMP,
+    CLibrariesInterface,
+)
 from grass.pygrass.messages import FatalError
 from grass.temporal.testing.session import temporal_session
 from grass.tools import Tools
@@ -456,7 +459,7 @@ def test_an_invalid_time_stamp_is_reported_with_map_and_text(
 
     check, stored = function(ciface, "read_timestamp", kind)(name, mapset)
 
-    assert check == -2
+    assert check == INVALID_TIMESTAMP
     assert stored == text
 
     map_object = tgis.dataset_factory(kind, f"{name}@{mapset}")
@@ -470,7 +473,7 @@ def test_the_server_answers_after_an_invalid_time_stamp(ciface, maps, session):
     mapset = tgis.get_current_mapset()
     Tools(session=session).r_timestamp(map="rast", date="5")
     read = function(ciface, "read_timestamp", "raster")
-    assert read("rast", mapset)[0] == -2
+    assert read("rast", mapset)[0] == INVALID_TIMESTAMP
 
     # The same server, not a restarted one, answers the next request.
     assert function(ciface, "map_exists", "raster")("rast", mapset) is True
