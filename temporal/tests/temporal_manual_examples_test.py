@@ -60,6 +60,7 @@ REVIEWED_MANUALS = (
     "t.topology",
     "t.unregister",
     "t.upgrade",
+    "t.vect.extract",
 )
 
 TOOLS = Path(__file__).parents[1]
