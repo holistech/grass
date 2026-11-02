@@ -35,6 +35,7 @@ REVIEWED_MANUALS = (
     "t.rast.aggregate.ds",
     "t.rast.colors",
     "t.rast.contour",
+    "t.rast.export",
     "t.rast.extract",
     "t.rast.list",
     "t.rast.univar",
