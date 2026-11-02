@@ -242,6 +242,17 @@ def test_shown_options_counts_names_flags_and_keywords(tmp_path):
     assert mc.shown_options(manual) == {"output", "type", "-g", "-s", "semantictype"}
 
 
+def test_flags_without_a_literal_are_no_option(tmp_path):
+    python = blocks(
+        "python",
+        'letters = "g"\ntools.t_create(output="a", flags=letters)\n'
+        'tools.t_create(output="b", flags=None)\n',
+    )
+    shell = blocks("sh", "t.create output=a\n")
+    manual = write_manual(tmp_path, example("Flags", shell, python), tool="t.create")
+    assert mc.shown_options(manual) == {"output"}
+
+
 def test_shell_calls_follow_continuations_pipes_and_comments():
     code = (
         "X=1 t.a a=1 \\\n    b=2 | t.a c=3 > t.a\n"

@@ -79,8 +79,10 @@ def _python_options(code: str, tool: str) -> set[str]:
     shown = set()
     for keywords in python_calls(code, tool):
         for name, value in keywords.items():
-            if name == "flags" and isinstance(value, str):
-                shown.update(f"-{letter}" for letter in value)
+            if name == "flags":
+                # Without a literal (a variable, None) no letter is known.
+                if isinstance(value, str):
+                    shown.update(f"-{letter}" for letter in value)
             elif name not in STANDARD_KEYWORDS:
                 shown.add(name)
     return shown
