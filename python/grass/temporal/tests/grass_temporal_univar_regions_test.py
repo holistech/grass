@@ -19,6 +19,8 @@ pytestmark = pytest.mark.usefixtures("temporal_module_session")
 @pytest.fixture(scope="module")
 def tools(temporal_module_session):
     tools = Tools(session=temporal_module_session, overwrite=True, quiet=True)
+    # The last loop pass leaves the region on the cube of the second map; the
+    # first one is larger.
     for name, low, size, value in (("ur3a", 0, 4, 10), ("ur3b", 1, 2, 20)):
         tools.g_region(
             s=low, n=low + size, w=low, e=low + size, b=low, t=low + size, res=1, res3=1
@@ -30,7 +32,6 @@ def tools(temporal_module_session):
         "ur3_ds",
         [MapSpec("ur3a", 0, day(0), day(1)), MapSpec("ur3b", 0, day(1), day(2))],
     )
-    # The current region is the cube of the second map; the first one is larger
     return tools
 
 

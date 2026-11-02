@@ -126,13 +126,20 @@ def test_json_with_extended_statistics_lists_the_percentiles(tools, values):
     ]
 
 
-@pytest.mark.parametrize("output_format", ["plain", "csv"])
-def test_plain_of_an_empty_selection_is_unchanged(tools, values, output_format):
+@pytest.mark.parametrize("output_format", ["plain", "csv", "json"])
+def test_a_selection_without_maps_prints_nothing_in_any_format(
+    tools, values, output_format
+):
+    # Plain and csv have no rows to print. Json prints an empty list instead,
+    # so that a consumer can always parse the output.
     result = tools.t_rast3d_univar(
         input=values, format=output_format, where="start_time > '2010-01-01'"
     )
 
-    assert result.stdout == ""
+    if output_format == "json":
+        assert json.loads(result.stdout) == []
+    else:
+        assert result.stdout == ""
 
 
 def test_json_of_an_empty_selection_is_an_empty_list(tools, values):
