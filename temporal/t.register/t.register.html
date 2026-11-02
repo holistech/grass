@@ -85,6 +85,12 @@ only be modified with <em>t.register</em> because the
 <em>(r|r3|v).timestamp</em> modules have no access to the temporal
 database.
 <p>
+If maps are registered without <b>start</b> and a map carries a timestamp from
+<em>(r|r3|v).timestamp</em> that is no valid date or relative time, such as
+<code>5</code>, <em>t.register</em> stops with an error that names the map and
+the stored text (<code>The timestamp of raster map &lt;broken@PERMANENT&gt; is
+not a valid date or time: &lt;5&gt;</code>) before any map is registered.
+<p>
 The temporal database stores absolute time stamps in whole seconds: a
 fraction of a second is cut off, not rounded, and a time zone offset is
 kept. A map whose start and end time fall into the same second is
