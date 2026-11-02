@@ -59,8 +59,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import grass.script as gs
+from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
 from . import postgresql
+from .corpus import MODE_VARIABLE
 from .versions import downgrade_to_version_2
 
 TABS = {"Command line": "shell", "Python (grass.tools)": "python"}
@@ -530,6 +532,21 @@ class BlockResult:
     skipped: str | None = None
 
 
+def example_environment(env: dict) -> dict:
+    """Return a copy of env for the blocks of a manual
+
+    Without GRASS_TEMPORAL_ALGEBRA and GRASS_TEMPORAL_REFERENCE: the tests of
+    the repository also run with them set, and an example has to show what a
+    reader gets without them. An example of the classic algebra says so with
+    -c or classic=True.
+    """
+    return {
+        key: value
+        for key, value in env.items()
+        if key not in {ALGEBRA_VARIABLE, MODE_VARIABLE}
+    }
+
+
 def _gdal_reason(driver: str) -> str | None:
     try:
         from osgeo import gdal  # noqa: PLC0415
@@ -599,7 +616,7 @@ def _run_shell(blocks: list[Block], session, workdir: Path) -> list[BlockResult]
             downgrade_to_version_2(session)
         returncode, stdout, stderr = _run(
             ["bash", "-e", "-o", "pipefail", "-c", block.code],
-            env=session.env,
+            env=example_environment(session.env),
             cwd=workdir,
             seconds=BLOCK_SECONDS,
         )
@@ -635,7 +652,7 @@ def _run_python(
         # Python prints and what the tools it starts write to the same pipe.
         returncode, stdout, stderr = _run(
             [sys.executable, "-u", "-c", _DRIVER],
-            env=session.env,
+            env=example_environment(session.env),
             cwd=workdir,
             seconds=BLOCK_SECONDS * len(runnable),
             stdin=json.dumps(job),
@@ -693,7 +710,9 @@ def run_manual(
     Python process with a shared namespace. A block is skipped when its
     control comment says not-run or names a requirement that does not hold
     here; requires=old-database turns the temporal database into version 2
-    before the block. After a failing block, the later ones are skipped.
+    before the block. After a failing block, the later ones are skipped. The
+    blocks see the environment of the session without the variables that
+    choose an algebra (example_environment).
 
     Returns one result per block, in the order of the document.
     """

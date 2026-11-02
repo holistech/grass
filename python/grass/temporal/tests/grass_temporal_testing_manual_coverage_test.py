@@ -175,6 +175,82 @@ def test_a_python_block_that_ends_the_process_fails_the_next(tmp_path, session):
     assert "ended before this block" in results[1].stderr
 
 
+# t.rast.algebra reads && before ||, so td(A) == 1 makes the condition true
+# for each daily map of A; the classic algebra reads it from left to right and
+# selects no map (t.rast.algebra manual, "Core and classic algebra", item 3).
+PRECEDENCE = "if(td(A) == 1 || td(A) == 2 && td(A) == 3, A)"
+DAILY_MAPS = (
+    'for i in 1 2 3; do r.mapcalc --quiet expression="a_$i = $i"; done\n'
+    "t.create output=A title=A description=A\n"
+    "t.register --quiet -i input=A maps=a_1,a_2,a_3 start=2026-01-01 "
+    'increment="1 day"\n'
+)
+DAILY_MAPS_PYTHON = (
+    "from grass.tools import Tools\n\n"
+    "tools = Tools()\n"
+    "for i in (1, 2, 3):\n"
+    '    tools.r_mapcalc(expression=f"a_{i} = {i}")\n'
+    'tools.t_create(output="A", title="A", description="A")\n'
+    "tools.t_register(\n"
+    '    input="A", maps="a_1,a_2,a_3", start="2026-01-01", increment="1 day",\n'
+    '    flags="i",\n'
+    ")\n"
+)
+CORE_RESULT = "name|min\nc_0|1.0\nc_1|2.0\nc_2|3.0\n"
+
+
+@pytest.mark.parametrize("variant", ["shell", "python"])
+def test_examples_ignore_the_algebra_setting(tmp_path, session, variant):
+    shell = blocks(
+        "sh",
+        (
+            'echo "${GRASS_TEMPORAL_ALGEBRA-unset} '
+            '${GRASS_TEMPORAL_REFERENCE-unset}"\n',
+            "unset unset\n",
+        ),
+        DAILY_MAPS,
+        (
+            f"t.rast.algebra --quiet expression='C = {PRECEDENCE}' basename=c\n"
+            "t.rast.list input=C columns=name,min\n",
+            CORE_RESULT,
+        ),
+        (
+            f"t.rast.algebra -c --quiet expression='D = {PRECEDENCE}' basename=d\n"
+            "t.info -g input=D | grep number_of_maps\n",
+            "number_of_maps=0\n",
+        ),
+    )
+    python = blocks(
+        "python",
+        (
+            "import os\n\n"
+            "print(\n"
+            '    os.environ.get("GRASS_TEMPORAL_ALGEBRA", "unset"),\n'
+            '    os.environ.get("GRASS_TEMPORAL_REFERENCE", "unset"),\n'
+            ")\n",
+            "unset unset\n",
+        ),
+        DAILY_MAPS_PYTHON,
+        (
+            f'tools.t_rast_algebra(expression="C = {PRECEDENCE}", basename="c")\n'
+            'print(tools.t_rast_list(input="C", columns="name,min").text)\n',
+            CORE_RESULT,
+        ),
+        (
+            f'tools.t_rast_algebra(expression="D = {PRECEDENCE}", basename="d",'
+            ' flags="c")\n'
+            'print(tools.t_info(input="D", flags="g").keyval["number_of_maps"])\n',
+            "0\n",
+        ),
+    )
+    manual = write_manual(tmp_path, example("Precedence", shell, python))
+    # As a test run with either variable exported starts its sessions.
+    session.env["GRASS_TEMPORAL_ALGEBRA"] = "classic"
+    session.env["GRASS_TEMPORAL_REFERENCE"] = "live"
+    me.check_manual(manual, variant, session, tmp_path / "work")
+    assert session.env["GRASS_TEMPORAL_ALGEBRA"] == "classic"
+
+
 @pytest.mark.parametrize("variant", ["shell", "python"])
 def test_a_hanging_block_is_stopped(tmp_path, session, monkeypatch, variant):
     monkeypatch.setattr(me, "BLOCK_SECONDS", 1)
