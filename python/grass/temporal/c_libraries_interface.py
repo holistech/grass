@@ -19,7 +19,15 @@ from __future__ import annotations
 import logging
 import math
 import sys
-from ctypes import CFUNCTYPE, POINTER, byref, c_int, c_void_p, cast
+from ctypes import (
+    CFUNCTYPE,
+    POINTER,
+    byref,
+    c_int,
+    c_void_p,
+    cast,
+    create_string_buffer,
+)
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -529,6 +537,18 @@ def _convert_timestamp_from_grass(ts):
     return (start, end, unit)
 
 
+# The answer of read_timestamp to a stored text that is no valid time
+_INVALID_TIMESTAMP = -2
+
+
+def _format_timestamp(ts) -> str:
+    """Return the text of a GRASS timestamp, as r.timestamp prints it"""
+    buffer = create_string_buffer(1024)
+    if libgis.G_format_timestamp(byref(ts), buffer) < 0:
+        return ""
+    return decode(buffer.value)
+
+
 def _located(kind: str, name: str, layer, mapset) -> tuple:
     """Arguments that find a map in the G_*_timestamp functions
 
@@ -561,11 +581,22 @@ def _read_timestamp(*, kind, name, mapset, layer, **_):
     - absolute time (start, end), start and end are of type datetime
 
     The end time may be None in case of a time instance.
+
+    A timestamp that the C library reads but that is no valid absolute or
+    relative time, such as "5" or "2020", is answered by the tuple (-2, text)
+    with the stored text.
     """
     ts = libgis.TimeStamp()
     read = getattr(libgis, f"G_read_{kind}_timestamp")
     check = read(*_located(kind, name, layer, mapset), byref(ts))
-    return check, _convert_timestamp_from_grass(ts)
+    try:
+        return check, _convert_timestamp_from_grass(ts)
+    except ValueError:
+        # G_read_*_timestamp accepts texts such as "5" or "2020" that name no
+        # complete date, so datetime() cannot be built. Raising here would end
+        # the server and reset the connection; the client gets the stored text
+        # to name in its message instead.
+        return _INVALID_TIMESTAMP, _format_timestamp(ts)
 
 
 @_handler("write_timestamp", on_error=-3)

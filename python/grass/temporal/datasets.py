@@ -50,6 +50,20 @@ def _cannot_read_timestamp(kind: str) -> str:
     }[kind]
 
 
+def _stored_timestamp_is_not_a_time(kind: str) -> str:
+    return {
+        "raster": _(
+            "The timestamp of raster map <{map}> is not a valid date or time: <{text}>"
+        ),
+        "raster3d": _(
+            "The timestamp of 3D raster map <{map}> is not a valid date or time: <{text}>"
+        ),
+        "vector": _(
+            "The timestamp of vector map <{map}> is not a valid date or time: <{text}>"
+        ),
+    }[kind]
+
+
 def _cannot_create_timestamp(kind: str) -> str:
     return {
         "raster": _("Unable to create timestamp file for raster map <%s>"),
@@ -193,12 +207,26 @@ class MapDataset(AbstractMapDataset):
         set the internal time stamp that should be inserted/updated
         in the temporal database.
 
+        A stored timestamp that is no valid absolute or relative time ends
+        with a fatal message that names the map and the stored text.
+
         :return: True if success, False on error
         """
         if not self.has_grass_timestamp():
             return False
 
         check, dates = self._call("read_timestamp", self._layer())
+
+        if check == -2:
+            # The C library stored text it cannot turn into a time (such as
+            # "5"); dates is that text. Stopping here keeps register and the
+            # other readers from going on with a map that has no usable time.
+            self.msgr.fatal(
+                _stored_timestamp_is_not_a_time(self.kind.name).format(
+                    map=self.get_map_id(), text=dates
+                )
+            )
+            return False
 
         if check < 1:
             self.msgr.error(_cannot_read_timestamp(self.kind.name) % self.get_map_id())

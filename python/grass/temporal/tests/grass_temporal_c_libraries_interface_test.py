@@ -432,3 +432,47 @@ def test_a_request_of_the_wrong_length_is_answered_with_an_error(ciface):
 
     assert ciface.get_mapset()
     assert ciface.server.pid == pid
+
+
+@pytest.mark.parametrize("kind", KINDS)
+@pytest.mark.parametrize("text", ["5", "2020", "Jan 2020", "1 Jan 2020 / 5"])
+def test_an_invalid_time_stamp_is_reported_with_map_and_text(
+    ciface, maps, session, kind, text
+):
+    """Texts that r.timestamp stores but that name no complete date
+
+    Measured 02.11.2026 with r.timestamp: "5", "2020" and "1 Jan 2020 / 5"
+    ended the server with "month must be in 1..12", "Jan 2020" with "day is
+    out of range for month".
+    """
+    name = KINDS[kind]
+    mapset = tgis.get_current_mapset()
+    tool = {
+        "raster": "r_timestamp",
+        "raster3d": "r3_timestamp",
+        "vector": "v_timestamp",
+    }
+    getattr(Tools(session=session), tool[kind])(map=name, date=text)
+
+    check, stored = function(ciface, "read_timestamp", kind)(name, mapset)
+
+    assert check == -2
+    assert stored == text
+
+    map_object = tgis.dataset_factory(kind, f"{name}@{mapset}")
+    with pytest.raises(FatalError) as raised:
+        map_object.read_timestamp_from_grass()
+    assert f"{name}@{mapset}" in str(raised.value)
+    assert f"<{text}>" in str(raised.value)
+
+
+def test_the_server_answers_after_an_invalid_time_stamp(ciface, maps, session):
+    mapset = tgis.get_current_mapset()
+    Tools(session=session).r_timestamp(map="rast", date="5")
+    read = function(ciface, "read_timestamp", "raster")
+    assert read("rast", mapset)[0] == -2
+
+    # The same server, not a restarted one, answers the next request.
+    assert function(ciface, "map_exists", "raster")("rast", mapset) is True
+    assert function(ciface, "write_timestamp", "raster")("rast", mapset, TIMESTRING)
+    assert read("rast", mapset) == (1, (TIMESTAMP, None))

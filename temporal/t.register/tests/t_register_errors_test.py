@@ -332,3 +332,49 @@ def test_a_file_that_is_not_utf8_ends_with_a_message(
     assert "'utf-8' codec can't decode byte 0xff" in text
     assert "Traceback" not in text
     assert list_maps(tools, "strds", name) == []
+
+
+def test_an_invalid_time_stamp_stops_t_register(tools, make_maps, dataset):
+    # r.timestamp stores "5" without complaint; the C library reads it, but it
+    # names no date. Measured 02.11.2026: the server ended with a traceback
+    # ("month must be in 1..12") and the tool with "Connection reset by peer".
+    (broken,) = make_maps(1)
+    name = dataset()
+    tools.r_timestamp(map=broken, date="5")
+
+    output = _register(tools, input=name, maps=broken)
+
+    assert f"<{broken}@PERMANENT>" in output
+    assert "is not a valid date or time: <5>" in output
+    assert "Traceback" not in output
+    assert "Connection reset" not in output
+
+
+def test_an_invalid_time_stamp_registers_no_map(tools, make_maps, dataset):
+    good, broken = make_maps(2)
+    name = dataset()
+    tools.r_timestamp(map=good, date="1 Jan 2020")
+    tools.r_timestamp(map=broken, date="5")
+
+    output = _register(tools, input=name, maps=f"{good},{broken}")
+
+    assert "is not a valid date or time" in output
+    assert list_maps(tools, "strds", name) == []
+    assert stds_info(tools, "strds", name)["number_of_maps"] == "None"
+    _untouched(tools, good, "1 Jan 2020\n")
+    _untouched(tools, broken, "5\n")
+
+
+def test_an_invalid_time_stamp_after_a_valid_map_stops_at_the_invalid_one(
+    tools, make_maps, dataset
+):
+    good, broken = make_maps(2)
+    name = dataset()
+    tools.r_timestamp(map=good, date="1 Jan 2020")
+    tools.r_timestamp(map=broken, date="2020")
+
+    output = _register(tools, input=name, maps=f"{broken},{good}")
+
+    assert f"<{broken}@PERMANENT>" in output
+    assert "<2020>" in output
+    assert f"<{good}@PERMANENT>" not in output
