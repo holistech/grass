@@ -1,60 +1,826 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.import</em> imports a space time raster dataset archive that
-was exported with <a href="t.rast.export.html">t.rast.export</a>.
+<em>t.rast.import</em> imports an archive that
+<em><a href="t.rast.export.html">t.rast.export</a></em> wrote: it unpacks the
+archive, imports the raster maps and registers them in a new space time raster
+dataset with the times of the archive. The archive moves a dataset from another
+project or computer into the current project. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for
+space time datasets. The tool for space time vector datasets is
+<em><a href="t.vect.import.html">t.vect.import</a></em>;
+<em>t.rast.import</em> refuses the archive of a vector dataset.
+<p>
+The option <b>input</b> names the archive, and <b>output</b> the new space time
+raster dataset, which is made in the current mapset. The compression of the
+archive (<code>bzip2</code>, <code>gzip</code> or none) and the format of the
+maps in it (<code>GTiff</code>, <code>AAIGrid</code> or <code>pack</code>) are
+found out from the archive. The maps of a <code>GTiff</code> or
+<code>AAIGrid</code> archive are imported with
+<em><a href="r.in.gdal.html">r.in.gdal</a></em>, those of a <code>pack</code>
+archive with <em><a href="r.unpack.html">r.unpack</a></em>. The temporal type,
+the unit of relative time, the semantic type of the dataset, the times of the
+maps and their semantic labels come from the archive, too. The options
+<b>title</b> and <b>description</b> set the title and the description of the
+new dataset.
+
+<h3>Names of the maps</h3>
+
+Without <b>basename</b>, each map keeps the name it has in the archive. The
+option <b>basename</b> names the maps <code>basename_1</code>,
+<code>basename_2</code> and so on, with a numerical suffix in the order of the
+maps in the archive. The suffix has as many digits as the number of maps,
+padded with zeros: a dataset of ten maps gets <code>basename_01</code> to
+<code>basename_10</code> (see the last example). This is the way to import a dataset into the project it
+was exported from, where the names of the archive are taken. A map of the same
+name in the current mapset is refused (see the notes).
+
+<h3>Projection and new projects</h3>
+
+The option <b>project</b> makes a new project with the coordinate reference
+system of the archive in the GRASS database of the session and imports into it.
+The project must not exist yet. When the import is over, the session is in the
+project and mapset it was in before. The flag <b>-c</b> makes the project and
+imports nothing; the archive is needed even then, because the new project takes
+its coordinate reference system from it. An archive made in a project without a
+coordinate reference system (the project <code>XY</code>) makes a project
+without one.
+<p>
+Without <b>project</b>, the maps are imported into the current project. The
+import compares the coordinate reference system of the archive with that of the
+project and refuses a difference. The flag <b>-o</b> assumes that the archive
+has the coordinate reference system of the current project and skips this
+check. In a project without a coordinate reference system, <b>-o</b> is needed
+for GeoTIFF archives as well, because a GeoTIFF file made there holds none; the
+examples import AAIGrid and <code>pack</code> archives there without it. An
+import with <b>project</b> needs no <b>-o</b>.
+<p>
+The flag <b>-e</b> extends the extent of the project to the maps of a
+<code>GTiff</code> or <code>AAIGrid</code> archive: it makes the default region
+and the current region of the project cover the imported maps. With
+<b>project</b>, the flag is always on for these formats, so the new project has
+the extent of the maps. The maps of a <code>pack</code> archive do not change
+the region, with or without <b>-e</b> (see the notes); a new project then keeps
+its default region.
+
+<h3>Files and region</h3>
+
+The option <b>directory</b> names the directory that the archive is extracted
+to. It must exist, and the extracted files stay in it. By default, the tool
+uses a temporary directory. The flag <b>-l</b> links the raster maps to the
+GeoTIFF or ASCII grid files with <em><a href="r.external.html">r.external</a></em> instead of
+importing the cells with <em>r.in.gdal</em>. The maps then read their cells from
+the extracted files, so with <b>-l</b> choose a <b>directory</b> that you keep.
+The option <b>memory</b> is the cache size in MB for raster rows (default 300)
+that <em>r.in.gdal</em> uses; <em>r.external</em> has none, so <b>-l</b>
+ignores it.
+<p>
+The flag <b>-r</b> sets the current computational region to the region of the
+last map that was imported. Without it, the region stays as it is.
+<p>
+An existing dataset <b>output</b> is refused unless <b>--overwrite</b> is
+given. With <b>--overwrite</b>, the dataset is made again from the archive and
+maps of the same names are replaced.
 
 <h2>NOTES</h2>
 
-Optionally a base map name can be provided to avoid that existing
-raster maps are overwritten by the map names that are used in the STRDS
-archive.
+The maps of a <code>pack</code> archive are unpacked with
+<em><a href="r.unpack.html">r.unpack</a></em>, which does not extend the
+region: <b>-e</b> has no effect, the region stays as it is, and with
+<b>project</b> the new project keeps its default region, one cell from (0, 0)
+to (1, 1) for a project without a coordinate reference system. Use <b>-r</b>
+to set the region from the maps of a <code>pack</code> archive, or
+<em><a href="g.region.html">g.region</a></em> afterwards. The example with the
+semantic labels shows the missing extension.
 <p>
 A map that the archive names <code>name@mapset</code>, which
-<a href="t.rast.export.html">t.rast.export</a> writes for maps of one name from
-several mapsets, is imported as <code>name_mapset</code>; every character of the
-mapset other than a letter, a digit or <code>_</code> becomes
-<code>_</code>, so <code>dup@my.set</code> is imported as
+<em><a href="t.rast.export.html">t.rast.export</a></em> writes for maps of one
+name from several mapsets, is imported as <code>name_mapset</code>; every
+character of the mapset other than a letter, a digit or an underscore becomes
+an underscore, so <code>dup@my.set</code> is imported as
 <code>dup_my_set</code>. If two maps of the archive would get one name this
-way, for example <code>dup@other</code> and a map <code>dup_other</code>,
-the import stops before the first map is imported; with <b>basename</b> the
-maps are numbered instead.
-An archive that lists a map more than once, as older exports wrote it for
-maps of one name from several mapsets, is refused before the first map is
-imported; a new export of the dataset names the maps with their mapset.
+way, for example <code>dup@other</code> and a map <code>dup_other</code>, the
+import stops before the first map is imported; with <b>basename</b> the maps are
+numbered instead. An archive that lists a map more than once, as older exports
+wrote it for maps of one name from several mapsets, is refused before the first
+map is imported; a new export of the dataset names the maps with their mapset.
 <p>
-The <b>directory</b> is used as work directory in case of import but
-can also be used as a data directory when using GeoTIFF for the data
-exchange.
+The name of the new dataset may not contain a dot. The tool checks this before
+it makes anything, so a refused name leaves no new project behind.
 <p>
-With the <b>project</b> option an archive of an unprojected project (the
-coordinate system "XY") creates an unprojected project; the maps are
-imported without a coordinate system check, as the GeoTIFF files hold none.
+The dataset and the maps are made in the current mapset. A map of the same
+name in another mapset is no clash, as the example with the semantic labels
+shows. In a dataset with relative time, the unit of the archive is kept.
+<p>
+The tool checks the archive and the names before it imports the first map,
+so a refusal does not leave part of the maps behind:
+<ul>
+<li><code>Space time strds dataset ... is already in the database. Use the
+overwrite flag.</code> for an existing dataset;</li>
+<li><code>... exists. To overwrite, use the --overwrite flag</code> for an
+existing map of the current mapset;</li>
+<li><code>Space time raster dataset archive ... not found</code> and
+<code>Extraction directory ... not found</code> for a missing archive or
+<b>directory</b>;</li>
+<li><code>The archive file is of wrong space time dataset type</code> for an
+archive of vector maps;</li>
+<li><code>Number of maps mismatch in init and list file.</code> if
+<code>number_of_maps</code> in "init.txt" differs from the number of maps in
+"list.txt";</li>
+<li><code>Unable to create location ...</code> for a <b>project</b> that
+exists.</li>
+</ul>
+<p>
+An archive whose coordinate reference system differs from that of the project
+is refused with <code>Projection information does not match.
+Aborting.</code>. A GeoTIFF archive in a project without a coordinate
+reference system is refused with <code>Unable to import/link raster map
+...</code>. <b>-o</b> cures both, if the coordinate reference systems are the
+same.
 <p>
 Blank lines in "list.txt" and "init.txt" are skipped, so an archive edited
 by hand may contain them. A line of "init.txt" without an equals sign stops
 the import with an error; a value is everything after the first equals
 sign.
 
-<h2>EXAMPLE</h2>
+<h2>EXAMPLES</h2>
 
-The North Carolina space time dataset contains a data package called
-<em>lst_daily.tar.bzip2</em> with daily data from MODIS LST. Import it
-by running:
+The examples run in a project called <code>temporal_examples</code>, which has
+no coordinate reference system; where a command names this project, use the
+name of your own project.
+
+<h3>Import an archive under new names</h3>
+
+The dataset <code>temperature</code> has four maps of daily mean air
+temperature for the days from 1 to 4 March 2026. The maps have three columns
+and two rows, and their values are the column number plus the offset 0, 3, 6
+and 9. The first block creates it.
+<p>
+The second block writes the archive <code>temperature.tar.bz2</code> with
+<em>t.rast.export</em> and imports it into the same project. The maps of the
+archive carry the names of the maps that exist already, so <b>basename</b>
+names the new maps <code>imported_1</code> to <code>imported_4</code>. The flag
+<b>-o</b> is needed in the project of the examples, which has no coordinate
+reference system, because the GeoTIFF files hold none. <b>title</b> and
+<b>description</b> are set, and <b>memory</b> limits the cache of
+<em>r.in.gdal</em> to 100 MB. The commands print the new dataset and the
+minimum and the maximum of its maps, which are those of the exported maps (the
+map <code>imported_n</code> holds the values from 3n - 2 to 3n), and the title
+and the description of the dataset from
+<em><a href="t.info.html">t.info</a></em>.
+
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.import input=lst_daily.tar.bzip2 output=lst_daily \
-              basename=lst directory=/tmp
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="temperature_1 = col()"
+r.mapcalc expression="temperature_2 = col() + 3"
+r.mapcalc expression="temperature_3 = col() + 6"
+r.mapcalc expression="temperature_4 = col() + 9"
+t.create output=temperature title="Air temperature" \
+    description="Daily mean air temperature"
+t.register -i input=temperature \
+    maps=temperature_1,temperature_2,temperature_3,temperature_4 \
+    start=2026-03-01 increment="1 day"
+</pre></div>
+
+<div class="code"><pre>
+t.rast.export input=temperature output=temperature.tar.bz2
+t.rast.import -o input=temperature.tar.bz2 output=copy basename=imported \
+    title="Copy of temperature" description="Imported from the archive" \
+    memory=100
+t.rast.list input=copy
+t.rast.univar input=copy | cut -d"|" -f1,7,8
+t.info input=copy | grep -A3 "Title:"
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+imported_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+imported_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+imported_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+imported_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+id|min|max
+imported_1@PERMANENT|1|3
+imported_2@PERMANENT|4|6
+imported_3@PERMANENT|7|9
+imported_4@PERMANENT|10|12
+ | Title:
+ | Copy of temperature
+ | Description:
+ | Imported from the archive
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+for number, offset in enumerate((0, 3, 6, 9), start=1):
+    tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+tools.t_create(
+    output="temperature",
+    title="Air temperature",
+    description="Daily mean air temperature",
+)
+tools.t_register(
+    input="temperature",
+    maps="temperature_1,temperature_2,temperature_3,temperature_4",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_export(input="temperature", output="temperature.tar.bz2")
+tools.t_rast_import(
+    input="temperature.tar.bz2",
+    output="copy",
+    basename="imported",
+    title="Copy of temperature",
+    description="Imported from the archive",
+    memory=100,
+    flags="o",
+)
+print(tools.t_rast_list(input="copy").text)
+for line in tools.t_rast_univar(input="copy").text.splitlines():
+    fields = line.split("|")
+    print("|".join(fields[index] for index in (0, 6, 7)))
+info = tools.t_info(input="copy").stdout.splitlines()
+first = next(index for index, line in enumerate(info) if "Title:" in line)
+print("\n".join(info[first : first + 4]))
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+imported_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+imported_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+imported_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+imported_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+id|min|max
+imported_1@PERMANENT|1|3
+imported_2@PERMANENT|4|6
+imported_3@PERMANENT|7|9
+imported_4@PERMANENT|10|12
+ | Title:
+ | Copy of temperature
+ | Description:
+ | Imported from the archive
+</pre></div>
+
+<h3>Link the files instead of importing the cells</h3>
+
+With <b>-l</b>, the maps are linked to the GeoTIFF files with
+<em>r.external</em>: the cells stay in the files, which <b>directory</b> names
+and the tool leaves there. The directory <code>files</code> has to exist. The
+commands list the GeoTIFF files in it, print the type of the first map,
+<code>GDAL-link</code> for a linked map, and its minimum and maximum, which are
+those of the exported map (1 and 3). The maps read their cells from the files,
+so the files must stay where they are.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+mkdir files
+t.rast.import -l -o input=temperature.tar.bz2 output=linked \
+    basename=linked directory=files
+ls files | grep tif
+r.info -e map=linked_1 | grep maptype
+r.univar -g map=linked_1 | grep -E "^(min|max)="
+</pre></div>
+
+<div class="code"><pre>
+temperature_1.tif
+temperature_2.tif
+temperature_3.tif
+temperature_4.tif
+maptype=GDAL-link
+min=1
+max=3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+Path("files").mkdir()
+tools.t_rast_import(
+    input="temperature.tar.bz2",
+    output="linked",
+    basename="linked",
+    directory="files",
+    flags="lo",
+)
+print("\n".join(sorted(path.name for path in Path("files").glob("*.tif"))))
+print("maptype=" + tools.r_info(map="linked_1", flags="e").keyval["maptype"])
+for key, value in tools.r_univar(map="linked_1", flags="g").keyval.items():
+    if key in ("min", "max"):
+        print(f"{key}={value}")
+</pre></div>
+
+<div class="code"><pre>
+temperature_1.tif
+temperature_2.tif
+temperature_3.tif
+temperature_4.tif
+maptype=GDAL-link
+min=1
+max=3
+</pre></div>
+
+<h3>Import into a new project</h3>
+
+With <b>project</b>, the tool makes a new project with the coordinate reference
+system of the archive, imports into it and goes back to the project it was
+called in. The project of the examples has none, so the new project has none
+either, and <b>-o</b> is not needed. The maps keep their names, because the new
+project has none of them. The new project takes the extent of the maps. The
+commands switch to the new project to look at it and switch back, to the
+project <code>temporal_examples</code> of these examples.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.import input=temperature.tar.bz2 output=temperature \
+    project=archive_copy
+g.mapset project=archive_copy mapset=PERMANENT
+t.rast.list input=temperature
+g.region -dg | grep -E "^(n|s|e|w)="
+g.mapset project=temporal_examples mapset=PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_import(
+    input="temperature.tar.bz2", output="temperature", project="archive_copy"
+)
+tools.g_mapset(project="archive_copy", mapset="PERMANENT")
+print(tools.t_rast_list(input="temperature").text)
+region = tools.g_region(flags="dg").keyval
+print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
+tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<h3>Create a project and extend its region</h3>
+
+The flag <b>-c</b> makes the project and imports nothing. The default region of
+a new project without a coordinate reference system is one cell from (0, 0) to
+(1, 1). The second import into it uses <b>-e</b>, so the default region and the
+current region grow to the extent of the maps, 3 columns and 2 rows.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.import -c input=temperature.tar.bz2 output=temperature \
+    project=empty_project
+g.mapset project=empty_project mapset=PERMANENT
+g.region -dg | grep -E "^(n|s|e|w)="
+t.rast.import -o -e input=temperature.tar.bz2 output=temperature
+g.region -dg | grep -E "^(n|s|e|w)="
+g.mapset project=temporal_examples mapset=PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+n=1
+s=0
+w=0
+e=1
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+def print_extent(flags):
+    region = tools.g_region(flags=flags).keyval
+    print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
+
+
+tools.t_rast_import(
+    input="temperature.tar.bz2",
+    output="temperature",
+    project="empty_project",
+    flags="c",
+)
+tools.g_mapset(project="empty_project", mapset="PERMANENT")
+print_extent("dg")
+tools.t_rast_import(input="temperature.tar.bz2", output="temperature", flags="oe")
+print_extent("dg")
+tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+</pre></div>
+
+<div class="code"><pre>
+n=1
+s=0
+w=0
+e=1
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<h3>Set the region from the imported maps</h3>
+
+The flag <b>-r</b> sets the current region to the region of the last map that
+was imported, here 2 rows and 3 columns. The first command moves the region far
+away from the maps.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=100 s=90 w=50 e=60 res=1
+g.region -g | grep -E "^(n|s|e|w)="
+t.rast.import -o -r input=temperature.tar.bz2 output=moved basename=moved
+g.region -g | grep -E "^(n|s|e|w)="
+</pre></div>
+
+<div class="code"><pre>
+n=100
+s=90
+w=50
+e=60
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=100, s=90, w=50, e=60, res=1)
+print_extent("g")
+tools.t_rast_import(
+    input="temperature.tar.bz2",
+    output="moved",
+    basename="moved",
+    flags="or",
+)
+print_extent("g")
+</pre></div>
+
+<div class="code"><pre>
+n=100
+s=90
+w=50
+e=60
+n=2
+s=0
+w=0
+e=3
+</pre></div>
+
+<h3>Import a dataset with relative time and semantic labels</h3>
+
+The dataset <code>sentinel</code> has relative time in days and four maps of 10
+days each. The maps alternate between the red band (semantic label
+<code>S2_B4</code>) and the near infrared band (<code>S2_B8</code>). The
+archive is in the <code>pack</code> format and needs no GDAL driver. The import
+goes to the new mapset <code>archive</code>; the maps keep their names, because
+the mapset has none of them, and the dataset keeps the unit, the times and the
+labels.
+<p>
+The last block imports the archive a second time with <b>-e</b> under another
+<b>basename</b>. The new mapset has the region of one cell, and the region is
+the same before and after, although the maps have 2 rows and 3 columns:
+<b>-e</b> does nothing for a <code>pack</code> archive.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=2 s=0 e=3 w=0 res=1
+r.mapcalc expression="red_1 = 0.05"
+r.mapcalc expression="nir_1 = 0.30"
+r.mapcalc expression="red_2 = 0.07"
+r.mapcalc expression="nir_2 = 0.40"
+r.support map=red_1 semantic_label=S2_B4
+r.support map=nir_1 semantic_label=S2_B8
+r.support map=red_2 semantic_label=S2_B4
+r.support map=nir_2 semantic_label=S2_B8
+t.create output=sentinel temporaltype=relative title="Reflectance" \
+    description="Alternating red and near infrared reflectance"
+t.register -i input=sentinel maps=red_1,nir_1,red_2,nir_2 \
+    start=0 increment=10 unit=days
+t.rast.export input=sentinel output=sentinel.tar format=pack compression=no
+g.mapset -c mapset=archive
+t.rast.import input=sentinel.tar output=sentinel_copy
+t.rast.list input=sentinel_copy \
+    columns=name,mapset,semantic_label,start_time,end_time
+t.info -g input=sentinel_copy | grep -E "^(temporal_type|unit)="
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|semantic_label|start_time|end_time
+red_1|archive|S2_B4|0|10
+nir_1|archive|S2_B8|10|20
+red_2|archive|S2_B4|20|30
+nir_2|archive|S2_B8|30|40
+temporal_type=relative
+unit=days
+</pre></div>
+
+<div class="code"><pre>
+g.region -g | grep -E "^(n|s|w|e)="
+t.rast.import -e input=sentinel.tar output=sentinel_extended \
+    basename=extended
+g.region -g | grep -E "^(n|s|w|e)="
+g.mapset mapset=PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+n=1
+s=0
+w=0
+e=1
+n=1
+s=0
+w=0
+e=1
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=2, s=0, e=3, w=0, res=1)
+for name, value, label in (
+    ("red_1", 0.05, "S2_B4"),
+    ("nir_1", 0.30, "S2_B8"),
+    ("red_2", 0.07, "S2_B4"),
+    ("nir_2", 0.40, "S2_B8"),
+):
+    tools.r_mapcalc(expression=f"{name} = {value:.2f}")
+    tools.r_support(map=name, semantic_label=label)
+tools.t_create(
+    output="sentinel",
+    temporaltype="relative",
+    title="Reflectance",
+    description="Alternating red and near infrared reflectance",
+)
+tools.t_register(
+    input="sentinel",
+    maps="red_1,nir_1,red_2,nir_2",
+    start=0,
+    increment=10,
+    unit="days",
+    flags="i",
+)
+tools.t_rast_export(
+    input="sentinel", output="sentinel.tar", format="pack", compression="no"
+)
+tools.g_mapset(mapset="archive", flags="c")
+tools.t_rast_import(input="sentinel.tar", output="sentinel_copy")
+print(
+    tools.t_rast_list(
+        input="sentinel_copy",
+        columns="name,mapset,semantic_label,start_time,end_time",
+    ).text
+)
+info = tools.t_info(input="sentinel_copy", flags="g").keyval
+print("\n".join(f"{key}={info[key]}" for key in ("temporal_type", "unit")))
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|semantic_label|start_time|end_time
+red_1|archive|S2_B4|0|10
+nir_1|archive|S2_B8|10|20
+red_2|archive|S2_B4|20|30
+nir_2|archive|S2_B8|30|40
+temporal_type=relative
+unit=days
+</pre></div>
+
+<div class="code"><pre>
+print_extent("g")
+tools.t_rast_import(
+    input="sentinel.tar",
+    output="sentinel_extended",
+    basename="extended",
+    flags="e",
+)
+print_extent("g")
+tools.g_mapset(mapset="PERMANENT")
+</pre></div>
+
+<div class="code"><pre>
+n=1
+s=0
+w=0
+e=1
+n=1
+s=0
+w=0
+e=1
+</pre></div>
+
+<h3>Replace a dataset with an ASCII grid archive</h3>
+
+The archive in the format <code>AAIGrid</code> holds the maps as Arc/Info ASCII
+Grid files, which carry no coordinate reference system; the import needs no
+<b>-o</b> for them in the project of the examples. Importing the same archive
+again under the same names needs <b>--overwrite</b>, which replaces the dataset
+and its maps. The commands list the dataset after the second import. The last
+block links the ASCII grid files with <b>-l</b>; like the GeoTIFF files in the
+second example, they stay in the directory <code>ascii_files</code>.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.export input=temperature output=temperature.tar.gz \
+    format=AAIGrid compression=gzip
+t.rast.import input=temperature.tar.gz output=ascii basename=ascii
+t.rast.import --overwrite input=temperature.tar.gz output=ascii \
+    basename=ascii
+t.rast.list input=ascii
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+ascii_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+ascii_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+ascii_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+ascii_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+mkdir ascii_files
+t.rast.import -l input=temperature.tar.gz output=ascii_linked \
+    basename=linked_ascii directory=ascii_files
+ls ascii_files | grep asc
+r.info -e map=linked_ascii_1 | grep maptype
+</pre></div>
+
+<div class="code"><pre>
+temperature_1.asc
+temperature_2.asc
+temperature_3.asc
+temperature_4.asc
+maptype=GDAL-link
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_export(
+    input="temperature",
+    output="temperature.tar.gz",
+    format="AAIGrid",
+    compression="gzip",
+)
+tools.t_rast_import(input="temperature.tar.gz", output="ascii", basename="ascii")
+tools.t_rast_import(
+    input="temperature.tar.gz", output="ascii", basename="ascii", overwrite=True
+)
+print(tools.t_rast_list(input="ascii").text)
+</pre></div>
+
+<div class="code"><pre>
+name|mapset|start_time|end_time
+ascii_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+ascii_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+ascii_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+ascii_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+Path("ascii_files").mkdir()
+tools.t_rast_import(
+    input="temperature.tar.gz",
+    output="ascii_linked",
+    basename="linked_ascii",
+    directory="ascii_files",
+    flags="l",
+)
+print("\n".join(sorted(path.name for path in Path("ascii_files").glob("*.asc"))))
+print("maptype=" + tools.r_info(map="linked_ascii_1", flags="e").keyval["maptype"])
+</pre></div>
+
+<div class="code"><pre>
+temperature_1.asc
+temperature_2.asc
+temperature_3.asc
+temperature_4.asc
+maptype=GDAL-link
+</pre></div>
+
+<h3>Numbers of the new maps</h3>
+
+The dataset <code>long</code> has ten maps. With <b>basename</b>, the suffix has
+two digits because there are ten maps, so the new maps are
+<code>part_01</code> to <code>part_10</code>. With fewer than ten maps, as in
+the first example, the suffix is a single digit.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+for number in 1 2 3 4 5 6 7 8 9 10; do
+    r.mapcalc expression="long_$number = $number"
+done
+t.create output=long title="Ten maps" description="Ten constant maps"
+t.register -i input=long \
+    maps=long_1,long_2,long_3,long_4,long_5,long_6,long_7,long_8,long_9,long_10 \
+    start=2026-04-01 increment="1 day"
+</pre></div>
+
+<div class="code"><pre>
+t.rast.export input=long output=long.tar
+t.rast.import -o input=long.tar output=part_set basename=part
+t.rast.list input=part_set columns=name
+</pre></div>
+
+<div class="code"><pre>
+name
+part_01
+part_02
+part_03
+part_04
+part_05
+part_06
+part_07
+part_08
+part_09
+part_10
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+names = [f"long_{number}" for number in range(1, 11)]
+for number, name in enumerate(names, start=1):
+    tools.r_mapcalc(expression=f"{name} = {number}")
+tools.t_create(output="long", title="Ten maps", description="Ten constant maps")
+tools.t_register(
+    input="long",
+    maps=",".join(names),
+    start="2026-04-01",
+    increment="1 day",
+    flags="i",
+)
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_export(input="long", output="long.tar")
+tools.t_rast_import(input="long.tar", output="part_set", basename="part", flags="o")
+print(tools.t_rast_list(input="part_set", columns="name").text)
+</pre></div>
+
+<div class="code"><pre>
+name
+part_01
+part_02
+part_03
+part_04
+part_05
+part_06
+part_07
+part_08
+part_09
+part_10
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
-<a href="t.rast.export.html">t.rast.export</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
+<a href="g.region.html">g.region</a>,
+<a href="r.external.html">r.external</a>,
 <a href="r.in.gdal.html">r.in.gdal</a>,
 <a href="r.unpack.html">r.unpack</a>,
-<a href="t.vect.import.html">t.vect.import</a>
+<a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>,
+<a href="t.rast.export.html">t.rast.export</a>,
+<a href="t.vect.import.html">t.vect.import</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
