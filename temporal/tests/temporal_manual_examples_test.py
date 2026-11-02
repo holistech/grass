@@ -74,6 +74,7 @@ REVIEWED_MANUALS = (
     "t.topology",
     "t.unregister",
     "t.upgrade",
+    "t.vect.algebra",
     "t.vect.db.select",
     "t.vect.export",
     "t.vect.extract",
