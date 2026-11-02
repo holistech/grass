@@ -1,78 +1,1350 @@
 <h2>DESCRIPTION</h2>
 
-<!-- this needs to be expanded -->
+<em>t.vect.list</em> lists the vector maps that are registered in a space time vector dataset, with the metadata that the temporal database holds for each map. It reads the temporal database; the maps themselves are not opened. The listing is the usual step after <em><a href="t.info.html">t.info</a></em> has shown the dataset as a whole and before a tool such as <em><a href="t.vect.extract.html">t.vect.extract</a></em> works on its maps. See the <a href="temporalintro.html">introduction to temporal data processing</a> for space time datasets. The tool is the counterpart of <em><a href="t.rast.list.html">t.rast.list</a></em> for vector maps, with the same options, formats and methods; the differences are the columns of the vector topology (see below), the column <code>layer</code>, the method <code>cols</code> instead of <code>list</code>, and the absence of the option <b>granule</b>. Space time 3D raster datasets have their own tool, <em><a href="t.rast3d.list.html">t.rast3d.list</a></em>, and <em><a href="t.list.html">t.list</a></em> lists the datasets themselves.
 
-The <em>t.vect.list</em> module provides the same functionality as
-<a href="t.rast.list.html">t.rast.list</a>, the only difference is the
-vector map layer metadata.
+<h3>Select the maps</h3>
+
+The option <b>input</b> names the space time vector dataset. The option <b>where</b> takes an SQL condition on the columns of the registered maps, such as <code>points &gt; 0</code>, <code>name = 'survey_1'</code> or <code>start_time &gt;= '2026-03-02'</code>. Times are compared as text, so a time with a clock part needs the whole text: <code>start_time = '2026-03-02'</code> selects nothing, because the stored value is <code>2026-03-02 00:00:00</code>. Use <code>&gt;=</code> and <code>&lt;</code> for a day, or <code>name</code> for a single map. The function <code>strftime()</code> of SQLite selects recurring times, such as one day of the month or one month of the year. A condition with a syntax error stops with an error that starts with "Invalid where condition". With the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code>, the condition selects the maps before the lengths and distances are counted, so the distances start at 0 with the first selected map.
+
+<h3>Columns and order</h3>
+
+The option <b>columns</b> chooses the columns that are printed for each map, separated by commas. The columns are:
+<ul>
+<li><code>id</code>, the name of the map with its mapset, such as <code>survey_1@PERMANENT</code>; for a map that is registered with a layer, the layer follows the name after a colon, such as <code>gauge:2@PERMANENT</code>. <code>name</code> and <code>mapset</code> are the two parts of it, without the layer;</li>
+<li><code>layer</code>, the layer of the map that is registered, <code>None</code> for a map that is registered without a layer. Several layers of one map are registered one by one, and each is a map of the dataset with its own time;</li>
+<li><code>temporal_type</code>, <code>absolute</code> or <code>relative</code>;</li>
+<li><code>start_time</code> and <code>end_time</code>, the time of the map. The end time of a map registered as a time instant is <code>None</code>. With relative time, they are numbers in the unit of the dataset, printed without the unit;</li>
+<li><code>creator</code> and <code>creation_time</code>, the user who created the entry of the map in the temporal database and the time of its creation;</li>
+<li><code>north</code>, <code>south</code>, <code>west</code> and <code>east</code>, the bounding box of the map;</li>
+<li><code>points</code>, <code>lines</code>, <code>boundaries</code>, <code>centroids</code>, <code>faces</code> and <code>kernels</code>, the numbers of features of each type. The feature types are the ones that the vector topology of GRASS knows; the maps of the examples hold points, lines, boundaries and centroids only, so <code>faces</code> and <code>kernels</code> are 0 there;</li>
+<li><code>primitives</code>, the number of all features; in the maps of the examples it is the sum of the numbers above;</li>
+<li><code>nodes</code>, the number of nodes, which are the points where a line or a boundary starts or ends; <code>areas</code>, the number of areas that the boundaries enclose, with or without a centroid; <code>islands</code>, the number of islands; <code>holes</code> and <code>volumes</code>, the numbers of holes and volumes that the topology counts (0 for the maps of the examples);</li>
+<li><code>interval_length</code> and <code>distance_from_begin</code>, the length of the time interval of the map and the distance of its start from the start of the first listed map. They exist for the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code> only (see below). With absolute time they are numbers of days, with relative time numbers of the time unit of the dataset.</li>
+</ul>
 <p>
-The methods <em>delta</em>, <em>deltagaps</em> and <em>gran</em> offer the
-columns <em>interval_length</em> and <em>distance_from_begin</em>; without
-<b>columns</b> they list id, name, layer, mapset, start_time, end_time,
-interval_length and distance_from_begin. The other methods do not offer these
-two columns. The delta methods support only the columns listed above, and
-the option <b>order</b> is not available with them, the rows are always
-ordered by start_time. The method <em>comma</em> prints the map ids in one
-line separated by commas, like the <em>line</em> format. The <em>line</em>
-format without <b>columns</b> lists the map ids. The method <em>gran</em>
-refuses an empty space time dataset.
+The numbers of the topology come from the geometry of the map; the first example derives them for four small maps.
+<p>
+The option <b>order</b> sorts the maps by one or more columns, separated by commas; the possible columns are those of the list above up to <code>volumes</code>, so not <code>interval_length</code> and <code>distance_from_begin</code>. The default is <code>start_time</code>. The order is ascending, and the option takes names of columns only, no sort direction. The option works with the methods <code>cols</code> and <code>comma</code> only.
 
-<h2>EXAMPLE</h2>
+<h3>Methods</h3>
 
-<h3>Default query</h3>
+The option <b>method</b> chooses what is listed. The default is <code>cols</code>.
+<ul>
+<li><code>cols</code> prints one line per registered map with the columns of <b>columns</b>. Without <b>columns</b>, these are <code>name</code>, <code>layer</code>, <code>mapset</code>, <code>start_time</code> and <code>end_time</code>; with <code>format=line</code>, the column <code>id</code>. It supports all columns except <code>interval_length</code> and <code>distance_from_begin</code>, and <b>order</b> applies to it.</li>
+<li><code>delta</code> prints the maps ordered by start time with the length of their intervals and their distance from the first map. Without <b>columns</b>, the columns are <code>id</code>, <code>name</code>, <code>layer</code>, <code>mapset</code>, <code>start_time</code>, <code>end_time</code>, <code>interval_length</code> and <code>distance_from_begin</code>. The length of a time instant is <code>None</code>. <code>delta</code> supports only these columns.</li>
+<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap between two maps. A gap line has <code>None</code> as <code>id</code>, <code>name</code>, <code>layer</code> and <code>mapset</code>; its times are the end of the map before and the start of the map after the gap, and its length is the length of the gap. Maps that follow each other directly leave no gap.</li>
+<li><code>gran</code> samples the maps by the granularity of the dataset and prints one line per granule, with the columns of <code>delta</code>. There is no option to choose another granule. The times and the length are those of the granule, not of the map, so a map that is longer than the granule is listed once for each granule it covers. A granule without a map has <code>None</code> as <code>id</code>, <code>name</code>, <code>layer</code> and <code>mapset</code>. When more than one map meets a granule, the line names the first map of the first group that is not empty, in this order: maps that are equal to the granule, maps that contain it, maps that overlap it, maps that are overlapped by it and maps that lie inside it. The sixth example shows a map that is equal to a granule named before a longer map that contains it. The granularity of a dataset is shown by <em><a href="t.info.html">t.info</a></em> with the flag <b>-g</b>.</li>
+<li><code>comma</code> is the old name of <code>cols</code> with <code>format=line</code>: it prints the values of the chosen column in one line, the ids without <b>columns</b>. Prefer the option <b>format</b>.</li>
+</ul>
 
-This example show a relative space time vector dataset with the first
-three maps with a range of years, instead the last five are valid only
-for one year:
+<h3>Output</h3>
+
+The option <b>format</b> chooses the form of the output:
+<ul>
+<li><code>plain</code> (the default) prints one line per map with the columns separated by a vertical bar <code>|</code>, and the column names as the first line;</li>
+<li><code>line</code> prints the values of one column in one line, separated by commas. It takes one column only; the default column is <code>id</code>, so the line is a list of maps that other tools accept as input;</li>
+<li><code>csv</code> prints comma separated values, with the column names as the first line. Text is enclosed in double quotes and numbers are not. A missing value (<code>None</code>) is an empty text;</li>
+<li><code>json</code> prints an object with the key <code>data</code>, a list with one object per map, and the key <code>metadata</code> with the list <code>column_names</code>. A missing value is <code>null</code>, numbers are numbers, and times with absolute time and layers are text;</li>
+<li><code>yaml</code> prints the same structure as YAML. It needs the PyYAML package.</li>
+</ul>
+<p>
+The flag <b>-u</b> suppresses the line with the column names in the formats <code>plain</code> and <code>csv</code>. The formats <code>json</code> and <code>yaml</code> always name the columns and refuse <b>-u</b>.
+<p>
+The option <b>separator</b> replaces the separator of the formats <code>plain</code>, <code>csv</code> and <code>line</code>. It is a single character or a name such as <code>pipe</code>, <code>comma</code> or <code>tab</code>. The format <code>csv</code> accepts one character only, and <code>json</code> and <code>yaml</code> refuse <b>separator</b>. The option <b>output</b> writes the listing to a file instead of the standard output.
+
+<h2>NOTES</h2>
+
+A column name that is not in the list above is refused by the parser, which names the column.
+<p>
+If no map is listed, the result depends on the method and the format. The methods <code>cols</code> and <code>comma</code> stop with the error "Nothing found in the database for space time dataset <code>&lt;name@mapset&gt;</code> (type: stvds)", followed by "Dataset is empty" for a dataset without maps and by "Dataset is empty or where clause is too constrained or incorrect" when <b>where</b> selects nothing. With the format <code>json</code>, <code>data</code> is an empty list. The methods <code>delta</code> and <code>deltagaps</code> print the line with the column names only, both for a dataset without maps and when <b>where</b> selects nothing. The method <code>gran</code> does the same when <b>where</b> selects nothing in a dataset that has a granularity, but stops for a dataset without maps with the error "Nothing found in the database for space time dataset <code>&lt;name@mapset&gt;</code> (type: stvds)", followed by "Dataset is empty". A dataset with a single map that is a time instant has no granularity, and <code>gran</code> stops for it with the error "Wrong granularity: "None"", whatever <b>where</b> selects, as the last block of the sixth example shows. Use <code>delta</code> for such a dataset.
+<p>
+With relative time, the times are numbers of the time unit of the dataset, printed without the unit, as the model in the fifth example shows. The method <code>gran</code> works with relative time as well; the granularity of the dataset is the granule.
+<p>
+The option <b>output</b> takes the name of a file. The name <code>-</code> is not the standard output here: it writes a file with this name, as the last block of the third example shows. To print the listing, leave out <b>output</b>; to keep it in a file, give a file name other than <code>-</code>.
+<p>
+<em>t.vect.list</em> only reads, so it works on a dataset of another mapset as well. The name with the mapset (<code>input=survey@PERMANENT</code>) selects it; a name without a mapset is searched in the mapsets of the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+<p>
+Combinations that cannot work are refused with a message that names the options. <b>order</b> is refused with <code>delta</code>, <code>deltagaps</code> and <code>gran</code>. These three methods list only the columns of <code>delta</code>, so a column of the temporal database is refused with them, and <code>interval_length</code> and <code>distance_from_begin</code> are refused with <code>cols</code> and <code>comma</code>. More than one column is refused with <code>format=line</code>, <b>-u</b> and <b>separator</b> with <code>json</code> and <code>yaml</code>, and a separator of more than one character with <code>csv</code>.
+
+<h2>EXAMPLES</h2>
+
+<h3>List the maps of a dataset</h3>
+
+The dataset <code>survey</code> has four vector maps on the days from 1 to 4 March 2026. The first map has three points at (1, 1), (2, 3) and (5, 2). The second map has two lines: one from (0, 0) to (4, 0) and one from (0, 1) to (0, 3). The third map is a square from (0, 0) to (2, 2): one boundary that closes on itself, and a centroid in the middle. The fourth map is a square from (0, 0) to (4, 4) with a centroid at (3, 3) and a smaller ring from (1, 1) to (2, 2) inside, which has no centroid. A space time vector dataset has the type <code>stvds</code>, and its maps are registered with the type <code>vector</code>.
+<p>
+The first block lists the maps with the default columns. The second block adds the flag <b>-u</b>, which suppresses the line with the column names, and names the default method <code>cols</code>. The third block counts the features of each type and the nodes. The points, lines, boundaries and centroids are the ones that were written in the input, and each is a primitive, so the first map has 3 primitives and the second 2. A line has two nodes, if its ends lie apart, so the second map has 4 nodes; a closed boundary has the node where it starts and ends, so the third map has 1 node and the fourth map, with two rings, 2. The fourth block counts the areas and islands: each ring bounds an island, so the third map has 1 area and 1 island, and the fourth map, with an outer and an inner ring, has 2 islands and 2 areas. The numbers of <code>holes</code>, <code>faces</code>, <code>kernels</code> and <code>volumes</code> are 0 for all of them. The fifth block lists the extent of the fourth map: its bounding box is the outer square.
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.list shoreline@shoreline
-name|layer|mapset|start_time|end_time
-shoreline_1849_1873|None|shoreline|1849|1873
-shoreline_1925_1946|None|shoreline|1925|1946
-shoreline_1970_1988|None|shoreline|1970|1988
-shoreline_1997|None|shoreline|1997|None
-shoreline_1998|None|shoreline|1998|None
-shoreline_2003|None|shoreline|2003|None
-shoreline_2004|None|shoreline|2004|None
-shoreline_2009|None|shoreline|2009|None
+v.in.ascii -n input=- output=survey_1 format=point separator=comma &lt;&lt;EOF
+1,1
+2,3
+5,2
+EOF
+v.in.ascii input=- output=survey_2 format=standard &lt;&lt;EOF
+VERTI:
+L 2 1
+ 0 0
+ 4 0
+ 1 1
+L 2 1
+ 0 1
+ 0 3
+ 2 1
+EOF
+v.in.ascii input=- output=survey_3 format=standard &lt;&lt;EOF
+VERTI:
+B 5
+ 0 0
+ 2 0
+ 2 2
+ 0 2
+ 0 0
+C 1 1
+ 1 1
+ 1 1
+EOF
+v.in.ascii input=- output=survey_4 format=standard &lt;&lt;EOF
+VERTI:
+B 5
+ 0 0
+ 4 0
+ 4 4
+ 0 4
+ 0 0
+B 5
+ 1 1
+ 1 2
+ 2 2
+ 2 1
+ 1 1
+C 1 1
+ 3 3
+ 1 1
+EOF
+t.create type=stvds output=survey title="Survey" \
+    description="Four maps with different features"
+t.register -i type=vector input=survey \
+    maps=survey_1,survey_2,survey_3,survey_4 \
+    start=2026-03-01 increment="1 day"
+t.vect.list input=survey
 </pre></div>
 
-<h3>Using method option</h3>
-
-Method option is able to show vector in different way. By default <em>cols</em>
-value is used, the value <em>deltagaps</em> will print the delta between
-maps and also the gaps if they exist (like in this example).
+<div class="code"><pre>
+name|layer|mapset|start_time|end_time
+survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
 
 <div class="code"><pre>
-t.vect.list method=deltagaps input=shoreline
+t.vect.list -u input=survey method=cols
+</pre></div>
+
+<div class="code"><pre>
+survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey \
+    columns=name,points,lines,boundaries,centroids,primitives,nodes
+</pre></div>
+
+<div class="code"><pre>
+name|points|lines|boundaries|centroids|primitives|nodes
+survey_1|3|0|0|0|3|0
+survey_2|0|2|0|0|2|4
+survey_3|0|0|1|1|2|1
+survey_4|0|0|2|1|3|2
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,areas,islands,holes,faces,kernels,volumes
+</pre></div>
+
+<div class="code"><pre>
+name|areas|islands|holes|faces|kernels|volumes
+survey_1|0|0|0|0|0|0
+survey_2|0|0|0|0|0|0
+survey_3|1|1|0|0|0|0
+survey_4|2|2|0|0|0|0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey where="name = 'survey_4'" \
+    columns=id,temporal_type,north,south,west,east
+</pre></div>
+
+<div class="code"><pre>
+id|temporal_type|north|south|west|east
+survey_4@PERMANENT|absolute|4.0|0.0|0.0|4.0
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+from grass.tools import Tools
+
+tools = Tools()
+tools.v_in_ascii(
+    input=StringIO("1,1\n2,3\n5,2\n"),
+    output="survey_1",
+    format="point",
+    separator="comma",
+    flags="n",
+)
+lines = "VERTI:\nL 2 1\n 0 0\n 4 0\n 1 1\nL 2 1\n 0 1\n 0 3\n 2 1\n"
+tools.v_in_ascii(input=StringIO(lines), output="survey_2", format="standard")
+square = "VERTI:\nB 5\n 0 0\n 2 0\n 2 2\n 0 2\n 0 0\nC 1 1\n 1 1\n 1 1\n"
+tools.v_in_ascii(input=StringIO(square), output="survey_3", format="standard")
+rings = (
+    "VERTI:\nB 5\n 0 0\n 4 0\n 4 4\n 0 4\n 0 0\n"
+    "B 5\n 1 1\n 1 2\n 2 2\n 2 1\n 1 1\n"
+    "C 1 1\n 3 3\n 1 1\n"
+)
+tools.v_in_ascii(input=StringIO(rings), output="survey_4", format="standard")
+tools.t_create(
+    type="stvds",
+    output="survey",
+    title="Survey",
+    description="Four maps with different features",
+)
+tools.t_register(
+    type="vector",
+    input="survey",
+    maps="survey_1,survey_2,survey_3,survey_4",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+print(tools.t_vect_list(input="survey").text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset|start_time|end_time
+survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_list(input="survey", method="cols", flags="u").text)
+</pre></div>
+
+<div class="code"><pre>
+survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey",
+    columns="name,points,lines,boundaries,centroids,primitives,nodes",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|points|lines|boundaries|centroids|primitives|nodes
+survey_1|3|0|0|0|3|0
+survey_2|0|2|0|0|2|4
+survey_3|0|0|1|1|2|1
+survey_4|0|0|2|1|3|2
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey", columns="name,areas,islands,holes,faces,kernels,volumes"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|areas|islands|holes|faces|kernels|volumes
+survey_1|0|0|0|0|0|0
+survey_2|0|0|0|0|0|0
+survey_3|1|1|0|0|0|0
+survey_4|2|2|0|0|0|0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey",
+    where="name = 'survey_4'",
+    columns="id,temporal_type,north,south,west,east",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|temporal_type|north|south|west|east
+survey_4@PERMANENT|absolute|4.0|0.0|0.0|4.0
+</pre></div>
+
+<h3>Select and sort the maps</h3>
+
+The maps of <code>survey</code> are sorted by start time. The option <b>order</b> sorts by other columns; the first block sorts by the number of primitives and then by name, so the two maps with 2 primitives come first, <code>survey_2</code> before <code>survey_3</code>, and the two maps with 3 primitives follow.
+<p>
+The option <b>where</b> selects the maps. The second block selects the maps with areas, which are the third and the fourth. The third block selects the maps that start from 2 March on and before 4 March, so the second and the third map. The fourth block combines a condition on the number of nodes with <b>order</b>; the first map has no node and drops out. The fifth block uses <code>strftime()</code> to select the maps that start on the 1st or the 4th day of the month, a recurring selection that works the same way for one month of every year.
+<p>
+The last block shows a trap: a time compared with <code>=</code> must be the whole text <code>2026-03-02 00:00:00</code>, and the short form selects no map. The format <code>json</code> shows the empty result, <code>data</code> is an empty list; the formats <code>plain</code> and <code>line</code> stop with an error here.
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,primitives order=primitives,name
+</pre></div>
+
+<div class="code"><pre>
+name|primitives
+survey_2|2
+survey_3|2
+survey_1|3
+survey_4|3
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,areas where="areas &gt; 0"
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+survey_3|1
+survey_4|2
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,start_time \
+    where="start_time &gt;= '2026-03-02' and start_time &lt; '2026-03-04'"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+survey_2|2026-03-02 00:00:00
+survey_3|2026-03-03 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,nodes order=nodes,name \
+    where="nodes &gt; 0"
+</pre></div>
+
+<div class="code"><pre>
+name|nodes
+survey_3|1
+survey_4|2
+survey_2|4
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,start_time \
+    where="strftime('%d', start_time) in ('01', '04')"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+survey_1|2026-03-01 00:00:00
+survey_4|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name format=json \
+    where="start_time = '2026-03-02'"
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey", columns="name,primitives", order="primitives,name"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|primitives
+survey_2|2
+survey_3|2
+survey_1|3
+survey_4|3
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="survey", columns="name,areas", where="areas &gt; 0")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|areas
+survey_3|1
+survey_4|2
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey",
+    columns="name,start_time",
+    where="start_time &gt;= '2026-03-02' and start_time &lt; '2026-03-04'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+survey_2|2026-03-02 00:00:00
+survey_3|2026-03-03 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey", columns="name,nodes", order="nodes,name", where="nodes &gt; 0"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|nodes
+survey_3|1
+survey_4|2
+survey_2|4
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey",
+    columns="name,start_time",
+    where="strftime('%d', start_time) in ('01', '04')",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+survey_1|2026-03-01 00:00:00
+survey_4|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey",
+    columns="name",
+    format="json",
+    where="start_time = '2026-03-02'",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+{"data": [], "metadata": {"column_names": ["name"]}}
+</pre></div>
+
+<h3>Choose the output format</h3>
+
+All blocks list the dataset <code>survey</code>. The first block prints the maps as a list of ids in one line, the form that other tools accept as input; the second block does the same with the old method name <code>comma</code>; the third block prints the names only, with another separator. The fourth and fifth block print CSV with and without the line of column names; text is quoted and numbers are not. The sixth block replaces the separator of the plain format. The seventh block prints JSON, which the Python tab reads from <code>result.json</code> and prints name and number of points of each map. The eighth block writes the listing to a file and prints the file. The ninth block shows that <code>output=-</code> writes a file named <code>-</code>.
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.list input=survey format=line
+</pre></div>
+
+<div class="code"><pre>
+survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey method=comma
+</pre></div>
+
+<div class="code"><pre>
+survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey format=line columns=name separator=" | "
+</pre></div>
+
+<div class="code"><pre>
+survey_1 | survey_2 | survey_3 | survey_4
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey format=csv columns=name,points,lines
+</pre></div>
+
+<div class="code"><pre>
+"name","points","lines"
+"survey_1",3,0
+"survey_2",0,2
+"survey_3",0,0
+"survey_4",0,0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list -u input=survey format=csv columns=name,points,lines
+</pre></div>
+
+<div class="code"><pre>
+"survey_1",3,0
+"survey_2",0,2
+"survey_3",0,0
+"survey_4",0,0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,points,lines separator=";"
+</pre></div>
+
+<div class="code"><pre>
+name;points;lines
+survey_1;3;0
+survey_2;0;2
+survey_3;0;0
+survey_4;0;0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,points format=json
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [{"name": "survey_1", "points": 3}, {"name": "survey_2", "points": 0}, {"name": "survey_3", "points": 0}, {"name": "survey_4", "points": 0}], "metadata": {"column_names": ["name", "points"]}}
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name,points output=points.txt
+cat points.txt
+</pre></div>
+
+<div class="code"><pre>
+name|points
+survey_1|3
+survey_2|0
+survey_3|0
+survey_4|0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=survey columns=name output=-
+cat ./-
+</pre></div>
+
+<div class="code"><pre>
+name
+survey_1
+survey_2
+survey_3
+survey_4
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from pathlib import Path
+
+print(tools.t_vect_list(input="survey", format="line").text)
+</pre></div>
+
+<div class="code"><pre>
+survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_list(input="survey", method="comma").text)
+</pre></div>
+
+<div class="code"><pre>
+survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey", format="line", columns="name", separator=" | "
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+survey_1 | survey_2 | survey_3 | survey_4
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="survey", format="csv", columns="name,points,lines")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"name","points","lines"
+"survey_1",3,0
+"survey_2",0,2
+"survey_3",0,0
+"survey_4",0,0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="survey", format="csv", columns="name,points,lines", flags="u"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"survey_1",3,0
+"survey_2",0,2
+"survey_3",0,0
+"survey_4",0,0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="survey", columns="name,points,lines", separator=";")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name;points;lines
+survey_1;3;0
+survey_2;0;2
+survey_3;0;0
+survey_4;0;0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="survey", columns="name,points", format="json")
+for item in result.json["data"]:
+    print(item["name"], item["points"])
+</pre></div>
+
+<div class="code"><pre>
+survey_1 3
+survey_2 0
+survey_3 0
+survey_4 0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_list(input="survey", columns="name,points", output="points.txt")
+print(Path("points.txt").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+name|points
+survey_1|3
+survey_2|0
+survey_3|0
+survey_4|0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_list(input="survey", columns="name", output="-")
+print(Path("-").read_text(), end="")
+</pre></div>
+
+<div class="code"><pre>
+name
+survey_1
+survey_2
+survey_3
+survey_4
+</pre></div>
+
+<h3>Maps with layers</h3>
+
+The map <code>gauge</code> has three points, which have a category in each of the layers 1, 2 and 3. A layer of a map is registered by its own, as <code>gauge:3</code>, and is a map of the dataset with its own time. The dataset <code>layered</code> holds the layer 3 of <code>gauge</code> on 1 March, its layer 1 on 2 March, and the map <code>plain_1</code>, which has no layer, on 3 March; the order in time differs from the order of the layers.
+<p>
+The first block lists the maps: the column <code>layer</code> holds the layer or <code>None</code>. The second block lists the ids, which carry the layer after a colon, with the names and layers. The third block selects one layer with <b>where</b>, and the fourth block sorts by layer. The fifth block prints JSON, which holds the layer as text, and <code>null</code> for the map without one.
+<p>Command line:</p>
+
+<div class="code"><pre>
+v.in.ascii input=- output=gauge_import format=point separator=comma \
+    columns="x double precision, y double precision, cat integer" \
+    x=1 y=2 z=0 cat=3 &lt;&lt;EOF
+1,1,1
+3,4,2
+2,2,3
+EOF
+v.category input=gauge_import output=gauge option=transfer layer=1,2,3
+v.in.ascii -n input=- output=plain_1 format=point separator=comma &lt;&lt;EOF
+1,1
+EOF
+t.create type=stvds output=layered title="Layers" \
+    description="Layers of one map in the order of time"
+t.register type=vector input=layered maps=gauge:3 \
+    start=2026-03-01 end=2026-03-02
+t.register type=vector input=layered maps=gauge:1 \
+    start=2026-03-02 end=2026-03-03
+t.register type=vector input=layered maps=plain_1 \
+    start=2026-03-03 end=2026-03-04
+t.vect.list input=layered
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset|start_time|end_time
+gauge|3|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+gauge|1|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+plain_1|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=layered columns=id,name,layer
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer
+gauge:3@PERMANENT|gauge|3
+gauge:1@PERMANENT|gauge|1
+plain_1@PERMANENT|plain_1|None
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=layered columns=id,layer where="layer = 3"
+</pre></div>
+
+<div class="code"><pre>
+id|layer
+gauge:3@PERMANENT|3
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=layered columns=name,layer order=layer
+</pre></div>
+
+<div class="code"><pre>
+name|layer
+plain_1|None
+gauge|1
+gauge|3
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=layered columns=name,layer format=json
+echo
+</pre></div>
+
+<div class="code"><pre>
+{"data": [{"name": "gauge", "layer": "3"}, {"name": "gauge", "layer": "1"}, {"name": "plain_1", "layer": null}], "metadata": {"column_names": ["name", "layer"]}}
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.v_in_ascii(
+    input=StringIO("1,1,1\n3,4,2\n2,2,3\n"),
+    output="gauge_import",
+    format="point",
+    separator="comma",
+    columns="x double precision, y double precision, cat integer",
+    x=1,
+    y=2,
+    z=0,
+    cat=3,
+)
+tools.v_category(input="gauge_import", output="gauge", option="transfer", layer="1,2,3")
+tools.v_in_ascii(
+    input=StringIO("1,1\n"),
+    output="plain_1",
+    format="point",
+    separator="comma",
+    flags="n",
+)
+tools.t_create(
+    type="stvds",
+    output="layered",
+    title="Layers",
+    description="Layers of one map in the order of time",
+)
+for map_id, start, end in (
+    ("gauge:3", "2026-03-01", "2026-03-02"),
+    ("gauge:1", "2026-03-02", "2026-03-03"),
+    ("plain_1", "2026-03-03", "2026-03-04"),
+):
+    tools.t_register(type="vector", input="layered", maps=map_id, start=start, end=end)
+print(tools.t_vect_list(input="layered").text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset|start_time|end_time
+gauge|3|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+gauge|1|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+plain_1|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="layered", columns="id,name,layer")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer
+gauge:3@PERMANENT|gauge|3
+gauge:1@PERMANENT|gauge|1
+plain_1@PERMANENT|plain_1|None
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="layered", columns="id,layer", where="layer = 3")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|layer
+gauge:3@PERMANENT|3
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="layered", columns="name,layer", order="layer")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer
+plain_1|None
+gauge|1
+gauge|3
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(input="layered", columns="name,layer", format="json")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+{"data": [{"name": "gauge", "layer": "3"}, {"name": "gauge", "layer": "1"}, {"name": "plain_1", "layer": null}], "metadata": {"column_names": ["name", "layer"]}}
+</pre></div>
+
+<h3>Intervals, distances and gaps</h3>
+
+The dataset <code>fires</code> has two daily maps, registered with a start and an end: <code>fire_1</code> for 1 June 2026 and <code>fire_3</code> for 3 June, so 2 June is a gap. The method <code>delta</code> prints the length of each map and its distance from the first map in days; it skips the gap. The method <code>deltagaps</code> adds a line for the gap with <code>None</code> as <code>id</code>, <code>name</code>, <code>layer</code> and <code>mapset</code>, and its length. The CSV form of this table shows <code>None</code> as an empty text. The fourth block selects the map <code>fire_3</code> with <b>where</b>: the distance counts from the first selected map, so it is 0.
+<p>
+The dataset <code>model</code> has relative time: three model steps of 6 hours. Its times, lengths and distances are numbers of hours, printed without the unit.
+<p>
+The dataset <code>sightings</code> has two maps that are time instants, registered with a start only. The length of an instant is <code>None</code>, and so is its end time.
+<p>
+The dataset <code>coast</code> has relative time with the unit years and three time instants: 1997, 1998 and 2003. The method <code>deltagaps</code> lists a gap line between two instants, from the first year to the next one, with the distance in years as its length: 1, then 5.
+<p>Command line:</p>
+
+<div class="code"><pre>
+for name in fire_1 fire_3 step_1 step_2 step_3 sighting_1 sighting_2 \
+        coast_1997 coast_1998 coast_2003; do
+    v.in.ascii -n input=- output=$name format=point separator=comma &lt;&lt;EOF
+1,1
+EOF
+done
+t.create type=stvds output=fires title="Fires" \
+    description="Daily fires with a gap"
+t.register type=vector input=fires maps=fire_1 \
+    start=2026-06-01 end=2026-06-02
+t.register type=vector input=fires maps=fire_3 \
+    start=2026-06-03 end=2026-06-04
+t.vect.list input=fires method=delta
+</pre></div>
+
+<div class="code"><pre>
 id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-shoreline_1849_1873@shoreline|shoreline_1849_1873|None|shoreline|1849|1873|24|0
-None|None|None|None|1873|1925|52|24
-shoreline_1925_1946@shoreline|shoreline_1925_1946|None|shoreline|1925|1946|21|76
-None|None|None|None|1946|1970|24|97
-shoreline_1970_1988@shoreline|shoreline_1970_1988|None|shoreline|1970|1988|18|121
-None|None|None|None|1988|1997|9|139
-shoreline_1997@shoreline|shoreline_1997|None|shoreline|1997|None|None|148
-None|None|None|None|1997|1998|1|148
-shoreline_1998@shoreline|shoreline_1998|None|shoreline|1998|None|None|149
-None|None|None|None|1998|2003|5|149
-shoreline_2003@shoreline|shoreline_2003|None|shoreline|2003|None|None|154
-None|None|None|None|2003|2004|1|154
-shoreline_2004@shoreline|shoreline_2004|None|shoreline|2004|None|None|155
-None|None|None|None|2004|2009|5|155
-shoreline_2009@shoreline|shoreline_2009|None|shoreline|2009|None|None|160
+fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=fires method=deltagaps
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=fires method=deltagaps format=csv columns=id,interval_length
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"fire_1@PERMANENT",1.0
+"",1.0
+"fire_3@PERMANENT",1.0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=fires method=delta where="name = 'fire_3'" columns=name,distance_from_begin
+</pre></div>
+
+<div class="code"><pre>
+name|distance_from_begin
+fire_3|0.0
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=model temporaltype=relative title="Model" \
+    description="Model output per step of 6 hours"
+t.register -i type=vector input=model maps=step_1,step_2,step_3 \
+    start=0 increment=6 unit=hours
+t.vect.list input=model method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=sightings title="Sightings" \
+    description="Two sightings as time instants"
+t.register type=vector input=sightings maps=sighting_1 start=2026-06-01
+t.register type=vector input=sightings maps=sighting_2 start=2026-06-03
+t.vect.list input=sightings method=delta
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+sighting_1@PERMANENT|sighting_1|None|PERMANENT|2026-06-01 00:00:00|None|None|0.0
+sighting_2@PERMANENT|sighting_2|None|PERMANENT|2026-06-03 00:00:00|None|None|2.0
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=coast temporaltype=relative title="Coast" \
+    description="Coast lines at three instants"
+for year in 1997 1998 2003; do
+    t.register type=vector input=coast maps=coast_$year \
+        start=$year unit=years
+done
+t.vect.list input=coast method=deltagaps
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+coast_1997@PERMANENT|coast_1997|None|PERMANENT|1997|None|None|0
+None|None|None|None|1997|1998|1|0
+coast_1998@PERMANENT|coast_1998|None|PERMANENT|1998|None|None|1
+None|None|None|None|1998|2003|5|1
+coast_2003@PERMANENT|coast_2003|None|PERMANENT|2003|None|None|6
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for name in (
+    "fire_1",
+    "fire_3",
+    "step_1",
+    "step_2",
+    "step_3",
+    "sighting_1",
+    "sighting_2",
+    "coast_1997",
+    "coast_1998",
+    "coast_2003",
+):
+    tools.v_in_ascii(
+        input=StringIO("1,1\n"),
+        output=name,
+        format="point",
+        separator="comma",
+        flags="n",
+    )
+tools.t_create(
+    type="stvds",
+    output="fires",
+    title="Fires",
+    description="Daily fires with a gap",
+)
+tools.t_register(
+    type="vector", input="fires", maps="fire_1", start="2026-06-01", end="2026-06-02"
+)
+tools.t_register(
+    type="vector", input="fires", maps="fire_3", start="2026-06-03", end="2026-06-04"
+)
+print(tools.t_vect_list(input="fires", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_list(input="fires", method="deltagaps").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+None|None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="fires", method="deltagaps", format="csv", columns="id,interval_length"
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+"id","interval_length"
+"fire_1@PERMANENT",1.0
+"",1.0
+"fire_3@PERMANENT",1.0
+</pre></div>
+
+<div class="code"><pre>
+result = tools.t_vect_list(
+    input="fires",
+    method="delta",
+    where="name = 'fire_3'",
+    columns="name,distance_from_begin",
+)
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|distance_from_begin
+fire_3|0.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step of 6 hours",
+)
+tools.t_register(
+    type="vector",
+    input="model",
+    maps="step_1,step_2,step_3",
+    start=0,
+    increment=6,
+    unit="hours",
+    flags="i",
+)
+print(tools.t_vect_list(input="model", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="sightings",
+    title="Sightings",
+    description="Two sightings as time instants",
+)
+tools.t_register(
+    type="vector", input="sightings", maps="sighting_1", start="2026-06-01"
+)
+tools.t_register(
+    type="vector", input="sightings", maps="sighting_2", start="2026-06-03"
+)
+print(tools.t_vect_list(input="sightings", method="delta").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+sighting_1@PERMANENT|sighting_1|None|PERMANENT|2026-06-01 00:00:00|None|None|0.0
+sighting_2@PERMANENT|sighting_2|None|PERMANENT|2026-06-03 00:00:00|None|None|2.0
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="coast",
+    temporaltype="relative",
+    title="Coast",
+    description="Coast lines at three instants",
+)
+for year in (1997, 1998, 2003):
+    tools.t_register(
+        type="vector", input="coast", maps=f"coast_{year}", start=year, unit="years"
+    )
+print(tools.t_vect_list(input="coast", method="deltagaps").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+coast_1997@PERMANENT|coast_1997|None|PERMANENT|1997|None|None|0
+None|None|None|None|1997|1998|1|0
+coast_1998@PERMANENT|coast_1998|None|PERMANENT|1998|None|None|1
+None|None|None|None|1998|2003|5|1
+coast_2003@PERMANENT|coast_2003|None|PERMANENT|2003|None|None|6
+</pre></div>
+
+<h3>Sample the maps by the granularity</h3>
+
+The dataset <code>wells</code> has two maps: <code>well_1</code> from 1 to 3 June 2026, which is two days long, and <code>well_2</code> for 4 June, which is one day long. 3 June is a gap. The first block shows the granularity of the dataset, 1 day, which is the granule of the method <code>gran</code>. The second block prints one line per day: <code>well_1</code> is listed for both of its days, the day of the gap has <code>None</code> as <code>id</code>, <code>name</code>, <code>layer</code> and <code>mapset</code>, and <code>well_2</code> follows. The third block samples the relative dataset <code>model</code> of the previous example: its granularity is 6 hours. The dataset <code>nest</code> has the map <code>nest_a</code> from 1 to 3 July and the map <code>nest_b</code> from 2 to 3 July. Its granularity is 1 day. The first granule is covered by <code>nest_a</code> only, and the second one by both maps: <code>nest_b</code> is equal to it and <code>nest_a</code> contains it, so the line names <code>nest_b</code>, although <code>nest_a</code> starts first.
+<p>
+The last block creates the dataset <code>lone</code> with a single map that is a time instant. Such a dataset has no granularity, so <code>gran</code> stops with an error. The shell block prints the message instead of failing.
+<p>Command line:</p>
+
+<div class="code"><pre>
+for name in well_1 well_2 lone_1 nest_a nest_b; do
+    v.in.ascii -n input=- output=$name format=point separator=comma &lt;&lt;EOF
+1,1
+EOF
+done
+t.create type=stvds output=wells title="Wells" \
+    description="One map of two days and one of one day"
+t.register type=vector input=wells maps=well_1 \
+    start=2026-06-01 end=2026-06-03
+t.register type=vector input=wells maps=well_2 \
+    start=2026-06-04 end=2026-06-05
+t.info -g type=stvds input=wells | grep granularity
+</pre></div>
+
+<div class="code"><pre>
+granularity='1 day'
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=wells method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+well_1@PERMANENT|well_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+well_1@PERMANENT|well_1|None|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+None|None|None|None|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+well_2@PERMANENT|well_2|None|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+</pre></div>
+
+<div class="code"><pre>
+t.vect.list input=model method=gran
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=nest title="Nest" \
+    description="A map that contains another one"
+t.register type=vector input=nest maps=nest_a \
+    start=2026-07-01 end=2026-07-03
+t.register type=vector input=nest maps=nest_b \
+    start=2026-07-02 end=2026-07-03
+t.vect.list input=nest method=gran columns=name,start_time
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+nest_a|2026-07-01 00:00:00
+nest_b|2026-07-02 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.create type=stvds output=lone title="Lone" \
+    description="A single time instant"
+t.register type=vector input=lone maps=lone_1 start=2026-06-01
+if ! t.vect.list input=lone method=gran 2&gt;&amp;1; then
+    echo "t.vect.list failed"
+fi
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Wrong granularity: "None"
+t.vect.list failed
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for name in ("well_1", "well_2", "lone_1", "nest_a", "nest_b"):
+    tools.v_in_ascii(
+        input=StringIO("1,1\n"),
+        output=name,
+        format="point",
+        separator="comma",
+        flags="n",
+    )
+tools.t_create(
+    type="stvds",
+    output="wells",
+    title="Wells",
+    description="One map of two days and one of one day",
+)
+tools.t_register(
+    type="vector", input="wells", maps="well_1", start="2026-06-01", end="2026-06-03"
+)
+tools.t_register(
+    type="vector", input="wells", maps="well_2", start="2026-06-04", end="2026-06-05"
+)
+info = tools.t_info(type="stvds", input="wells", flags="g").keyval
+print(f"granularity={info['granularity']}")
+</pre></div>
+
+<div class="code"><pre>
+granularity='1 day'
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_list(input="wells", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+well_1@PERMANENT|well_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+well_1@PERMANENT|well_1|None|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+None|None|None|None|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+well_2@PERMANENT|well_2|None|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+</pre></div>
+
+<div class="code"><pre>
+print(tools.t_vect_list(input="model", method="gran").text)
+</pre></div>
+
+<div class="code"><pre>
+id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
+step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
+step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
+step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+</pre></div>
+
+<div class="code"><pre>
+tools.t_create(
+    type="stvds",
+    output="nest",
+    title="Nest",
+    description="A map that contains another one",
+)
+tools.t_register(
+    type="vector", input="nest", maps="nest_a", start="2026-07-01", end="2026-07-03"
+)
+tools.t_register(
+    type="vector", input="nest", maps="nest_b", start="2026-07-02", end="2026-07-03"
+)
+result = tools.t_vect_list(input="nest", method="gran", columns="name,start_time")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+name|start_time
+nest_a|2026-07-01 00:00:00
+nest_b|2026-07-02 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.t_create(
+    type="stvds",
+    output="lone",
+    title="Lone",
+    description="A single time instant",
+)
+tools.t_register(type="vector", input="lone", maps="lone_1", start="2026-06-01")
+try:
+    tools.t_vect_list(input="lone", method="gran")
+except ToolError as error:
+    print(error.stderr.strip())
+    print("t.vect.list failed")
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Wrong granularity: "None"
+t.vect.list failed
+</pre></div>
+
+<h3>Use a dataset of another mapset</h3>
+
+<em>t.vect.list</em> reads a dataset of another mapset. The example creates the mapset <code>other</code> and switches to it; the dataset <code>survey</code> stays in the mapset <code>PERMANENT</code> and is named with its mapset. In the second block, <em>g.mapsets</em> shows that <code>PERMANENT</code> is in the search path of the new mapset, so the name <code>survey</code> without a mapset finds the same dataset.
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=other
+t.vect.list input=survey@PERMANENT columns=id,start_time
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+survey_1@PERMANENT|2026-03-01 00:00:00
+survey_2@PERMANENT|2026-03-02 00:00:00
+survey_3@PERMANENT|2026-03-03 00:00:00
+survey_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+g.mapsets -p
+t.vect.list input=survey columns=id,start_time
+</pre></div>
+
+<div class="code"><pre>
+other PERMANENT
+id|start_time
+survey_1@PERMANENT|2026-03-01 00:00:00
+survey_2@PERMANENT|2026-03-02 00:00:00
+survey_3@PERMANENT|2026-03-03 00:00:00
+survey_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="other", flags="c")
+result = tools.t_vect_list(input="survey@PERMANENT", columns="id,start_time")
+print(result.text)
+</pre></div>
+
+<div class="code"><pre>
+id|start_time
+survey_1@PERMANENT|2026-03-01 00:00:00
+survey_2@PERMANENT|2026-03-02 00:00:00
+survey_3@PERMANENT|2026-03-03 00:00:00
+survey_4@PERMANENT|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+print(tools.g_mapsets(flags="p").text)
+print(tools.t_vect_list(input="survey", columns="id,start_time").text)
+</pre></div>
+
+<div class="code"><pre>
+other PERMANENT
+id|start_time
+survey_1@PERMANENT|2026-03-01 00:00:00
+survey_2@PERMANENT|2026-03-02 00:00:00
+survey_3@PERMANENT|2026-03-03 00:00:00
+survey_4@PERMANENT|2026-03-04 00:00:00
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
 <a href="g.list.html">g.list</a>,
+<a href="g.mapsets.html">g.mapsets</a>,
 <a href="t.create.html">t.create</a>,
 <a href="t.info.html">t.info</a>,
 <a href="t.list.html">t.list</a>,
 <a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>
+<a href="t.rast3d.list.html">t.rast3d.list</a>,
+<a href="t.register.html">t.register</a>,
+<a href="t.vect.extract.html">t.vect.extract</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
