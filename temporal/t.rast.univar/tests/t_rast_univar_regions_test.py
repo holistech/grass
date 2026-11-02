@@ -73,6 +73,21 @@ def test_the_r_flag_uses_the_region_of_each_map(tools, regions):
     assert [row["mean"] for row in rows] == ["10", "20", "30", "40"]
 
 
+def test_region_flag_with_zones_uses_the_region_of_each_map(tools, regions):
+    # One zone over all maps, so that the zone map does not limit the cells
+    # counted: only the region decides.
+    tools.g_region(s=0, n=12, w=0, e=12, res=1)
+    tools.r_mapcalc(expression="ur_zones = 1", overwrite=True)
+    tools.g_region(s=1, n=3, w=1, e=3, res=1)
+
+    without_zones = _rows(tools, regions, flags="r")
+    with_zones = _rows(tools, regions, flags="r", zones="ur_zones")
+
+    assert [row["id"] for row in with_zones] == [row["id"] for row in without_zones]
+    assert _cells(with_zones) == _cells(without_zones)
+    assert [row["non_null_cells"] for row in with_zones] == ["16", "4", "16", "4"]
+
+
 @pytest.mark.parametrize(
     ("relation", "expected"),
     [

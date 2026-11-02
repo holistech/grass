@@ -22,6 +22,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from multiprocessing import Pool
 from subprocess import PIPE
 import json
+import os
 
 import grass.script as gs
 from grass.exceptions import CalledModuleError
@@ -49,7 +50,6 @@ def compute_univar_stats(
     :param fs: Field separator
     :param rast_region: If set True ignore the current region settings
            and use the raster map regions for univar statistical calculation.
-           Only available for strds.
     :param output_format: Output format specification
     """
     id_ = registered_map_info["id"]
@@ -66,7 +66,15 @@ def compute_univar_stats(
 
     stats_module.inputs.map = id_
     if rast_region and (stats_module.inputs.zones or stats_module.name == "r3.univar"):
-        stats_module.env = gs.region_env(raster=id_)
+        # r.univar refuses -r together with zones and r3.univar has no -r, so
+        # the region of the map goes into the environment of the module.
+        # pygrass reads that from env_ (a dictionary of the whole environment)
+        # and ignores an attribute env.
+        if stats_module.name == "r3.univar":
+            region = gs.region_env(region3d=True, raster_3d=id_)
+        else:
+            region = gs.region_env(raster=id_)
+        stats_module.env_ = {**os.environ, "GRASS_REGION": region}
     stats_module.run()
 
     univar_stats = stats_module.outputs.stdout
