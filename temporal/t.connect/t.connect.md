@@ -1,181 +1,507 @@
 ## DESCRIPTION
 
-*t.connect* allows the user to set or print the temporal database connection.
+*t.connect* prints or sets the connection to the temporal database of the
+current mapset. The temporal database stores the space time datasets and the
+registered maps of the mapset; see the
+[introduction to temporal data processing](temporalintro.md) for the concepts
+and *[t.info](t.info.md)* and *[t.list](t.list.md)* for what the database
+holds. Like *[db.connect](db.connect.md)* for the attribute tables of vector
+maps, *t.connect* only handles the connection parameters: the driver and the
+database. It does not read or create the temporal database.
 
-The default setting is that the temporal database uses the *sqlite* backend,
-where the path to the SQLite database is set to "tgis/sqlite.db" in the current
-mapset directory. In that way it will not interfere with the *sqlite* database
-used for vector attribute storage.
+A connection has two parts. The **driver** is the database back end: `sqlite`
+(the default) or `pg` for PostgreSQL. The **database** is the name of the
+database for that driver: for `sqlite` the path of a file, for `pg` a
+connection string such as `dbname=grass_test host=localhost`. The default
+connection is the driver `sqlite` with the database
+`$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db`: a file in the directory
+`tgis` of the current mapset, apart from the SQLite files that hold the
+attribute tables of vector maps. The variables `$GISDBASE`, `$LOCATION_NAME`
+and `$MAPSET` are replaced by the values of the session when the temporal
+database is opened, so the same setting works in every mapset.
 
-The **-p** flag will display the current temporal database connection
-parameters. Use the **format** option to specify the output format: `plain`,
- `shell`, or `json` — with `plain` being the default.
+*t.connect* does one of four things: it prints the connection (**-p** or
+**-g**), checks it (**-c**), resets it to the default (**-d**), or sets the
+**driver** and **database** that are given. The first three are chosen with a
+flag; without any flag, *t.connect* sets the connection.
 
-**format=json** always returns a JSON array. By default it contains one entry
-per mapset on the current search path.
+### Printing the connection
 
-The optional **mapset** option can be used to extend or restrict the selection
-of mapsets to report the connection information for. Use `.` for the current
-mapset only, `*` for all mapsets in the project, or a comma-separated list for
-specific mapsets. The **mapset** option requires both the **-p** flag and
-**format=json**; the **format=plain** and **format=shell** do not support
-multi-mapset output.
+The flag **-p** prints the connection of the current mapset and ends. The
+option **format** chooses the form of the output:
 
-The **-g** flag is deprecated and will be removed in a future release. Please
-use **format=shell** option with the **-p** flag instead.
+- `plain` (the default) prints the lines `driver:sqlite` and
+  `database:<database>`;
+- `shell` prints the lines `driver=sqlite` and `database=<database>`, which a
+  shell script can read;
+- `json` prints a JSON array with one object per mapset, with the keys
+  `mapset`, `driver` and `database`.
 
-The **-c** flag will check if the temporal database connection
-parameters have been set, and if not will set them to use GRASS's
-default values and report them. It prints nothing if the parameters
-are already set.
+The **format** option needs **-p**. A mapset that has no connection yet, as a
+new mapset has until a connection is set, prints empty values in `plain` and
+`shell` and `null` in `json`.
 
-The **-d** flag will set the default TGIS connection parameters and report them.
+Without **mapset**, `json` reports the mapsets of the current search path, in
+the order of the path. The option **mapset** changes that. It takes a list of
+mapset names, with two special values: `.` is the current mapset and `*` is
+every mapset of the project, whether on the search path or not. The mapsets
+are printed in the order of the list; `*` stands for the mapsets in no defined
+order. The option **mapset** needs **-p** and **format=json**, because
+`plain` and `shell` print the connection of one mapset. A mapset that does
+not exist is reported with a warning and with `null` for driver and
+database.
 
-The **-p** flag and the deprecated **-g** flag cannot be combined with **-c**
-or **-d**.
+The flag **-g** is the old way to ask for `format=shell`. It prints like **-p**
+with `format=shell`, but is deprecated and will be removed in a future release;
+use **-p format=shell**. **-g** cannot be combined with `format=json`.
 
-As in [db.connect](db.connect.md), an option that is not given is set to its
-default: a call with only **database** sets the driver to `sqlite`, a call
-with only **driver** sets the database to
-`$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db`, and a call without any
-option sets both. To change one value and keep the other, give both.
+With **-p**, the options **driver** and **database** are ignored: nothing is
+set.
+
+### Checking and resetting the connection
+
+The flag **-c** checks whether the connection of the current mapset is set. If
+neither driver nor database is set, **-c** sets the default connection and
+reports it in a message. If both are set, **-c** keeps them and prints nothing.
+If only one of the two is set, **-c** stops with the error `Default TGIS driver
+is not set` or `Default TGIS database is not set` and changes nothing; the
+pair must be repaired by setting both.
+
+The flag **-d** sets the default connection in any case, overwriting a
+connection that exists, and reports it in a message. It takes precedence over
+**driver** and **database**.
+
+**-p** and **-g** cannot be combined with **-c** or **-d**.
+
+### Setting the connection
+
+Without a flag, *t.connect* stores the options **driver** and **database** as
+the connection of the current mapset. Each has a default (see above), and an
+option that is not given is set to its default, as in *db.connect*: a call with
+only **database** sets the driver to `sqlite`, a call with only **driver** sets
+the database to the default file of the mapset, and a call without any option
+sets both. To change one value and keep the other, give both. A **database**
+that consists only of spaces is refused with `Option <database> must not be
+empty.`, and the connection stays as it was.
 
 ## NOTES
 
-Setting the connection with *t.connect* will only store connection values
-in the mapset's `VAR` file. It will not test the connection for validity.
-Hence a database connection will not be established. Neither will
-*t.connect* create the temporal database. The temporal database will
-be created by the first run of a tool that creates SpaceTimeDataSets (STDS).
+Setting the connection stores the values in the `VAR` file of the mapset. The
+connection is not tested, and no connection to the database is made. *t.connect*
+does not create the temporal database either: the first run of a tool that
+creates a space time dataset (*[t.create](t.create.md)*) creates it.
 
-In case you have tens of thousands of maps to register in the temporal
-database or you need concurrent read and write access in the temporal
-database, consider to use a PostgreSQL connection instead.
+Every mapset has a connection of its own, and one that is set in a mapset does
+not change the connection of another. A PostgreSQL connection has to be set
+explicitly in every mapset that is to store temporal information in it.
 
-Be aware that you have to set the PostgreSQL connection explicitly in
-every mapset that should store temporal information in the temporal
-database.
+With tens of thousands of maps to register, or when several processes write
+to the temporal database at the same time, consider a PostgreSQL connection
+instead of SQLite.
 
-PostgreSQL and SQLite databases can not be mixed in a project.
+The values are stored with at most 4094 characters; a longer value is cut
+without a message when it is read back.
+
+Errors that the examples do not show:
+
+- `The -p flag is required when using the format option.` for `format=shell`
+  or `format=json` without **-p**;
+- `Option <mapset> requires <-p>` and `The mapset option requires
+  format=json.` for **mapset** without **-p** or without `format=json`;
+- `The -g flag cannot be used with format=json.`;
+- `Options <-p> and <-c> are mutually exclusive`, and the same for **-p** with
+  **-d** and for **-g** with **-c** or **-d**.
 
 ## EXAMPLES
 
-### Print the current connection in different formats
+<!-- markdownlint-disable MD046 -->
 
-Print in plain format (default):
+### Print the connection
 
-```sh
-t.connect -p
-```
+A new project has no connection yet: **-p** prints empty values. **-c** finds
+nothing set, sets the default connection and reports it in a message, which is
+not part of the standard output. After that, **-p** prints the connection in
+the form `plain`, and `format=shell` in the form `shell`. The deprecated flag
+**-g** prints the same as `-p format=shell`. A second **-c** keeps the
+connection and prints nothing.
 
-```text
-driver:sqlite
-database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
-```
+=== "Command line"
 
-Print in shell format:
+    ```sh
+    t.connect -p
+    ```
 
-```sh
-t.connect -p format=shell
-```
+    ```text
+    driver:
+    database:
+    ```
 
-```text
-driver=sqlite
-database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
-```
+    ```sh
+    t.connect -c
+    t.connect -p
+    ```
 
-Print as JSON (reports all mapsets on the search path as an array):
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-```sh
-t.connect -p format=json
-```
+    ```sh
+    t.connect -c
+    ```
 
-```json
-[
-    {
-        "mapset": "PERMANENT",
-        "driver": "sqlite",
-        "database": "$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db"
-    },
-    {
-        "mapset": "user1",
-        "driver": "sqlite",
-        "database": "$GISDBASE/$LOCATION_NAME/user1/tgis/sqlite.db"
-    }
-]
-```
+    ```sh
+    t.connect -p format=shell
+    ```
 
-Restrict JSON output to the current mapset only:
+    ```text
+    driver=sqlite
+    database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-```sh
-t.connect -p format=json mapset=.
-```
+    ```sh
+    t.connect -g
+    ```
 
-```json
-[
-    {
-        "mapset": "user1",
-        "driver": "sqlite",
-        "database": "$GISDBASE/$LOCATION_NAME/user1/tgis/sqlite.db"
-    }
-]
-```
+    ```text
+    driver=sqlite
+    database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-### Print connection for a subset of mapsets
+=== "Python (grass.tools)"
 
-Restrict JSON output to specific mapsets:
+    ```python
+    from grass.tools import Tools
 
-```sh
-t.connect -p format=json mapset=PERMANENT,user1
-```
+    tools = Tools()
+    print(tools.t_connect(flags="p").text)
+    ```
 
-```json
-[
-    {
-        "mapset": "PERMANENT",
-        "driver": "sqlite",
-        "database": "$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db"
-    },
-    {
-        "mapset": "user1",
-        "driver": "sqlite",
-        "database": "$GISDBASE/$LOCATION_NAME/user1/tgis/sqlite.db"
-    }
-]
-```
+    ```text
+    driver:
+    database:
+    ```
 
-Use `mapset=*` to include all mapsets in the project, not just those on the
-search path:
+    ```python
+    tools.t_connect(flags="c")
+    print(tools.t_connect(flags="p").text)
+    ```
 
-```sh
-t.connect -p format=json mapset=*
-```
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-### SQLite
+    ```python
+    tools.t_connect(flags="c")
+    ```
 
-The SQLite database is created automatically when used the first time.
+    ```python
+    print(tools.t_connect(flags="p", format="shell").text)
+    ```
 
-```sh
-# use single quotes here
-t.connect driver=sqlite database='$GISDBASE/$LOCATION_NAME/PERMANENT/tgis/sqlite.db'
-t.connect -p
-t.info -s
-```
+    ```text
+    driver=sqlite
+    database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-### PostgreSQL
+    ```python
+    print(tools.t_connect(flags="g").text)
+    ```
 
-When using a PostgreSQL database, the user will need to specify the TGIS
-database connection for each mapset.
+    ```text
+    driver=sqlite
+    database=$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
 
-```sh
-t.connect driver=pg database="dbname=grass_test user=soeren password=abcdefgh"
-t.connect -p
-t.info -s
-```
+### Print and check the connection of several mapsets
+
+The JSON form lists the mapsets on the search path, here only the current
+mapset `PERMANENT`. JSON escapes the slashes in the path with a backslash.
+The example creates a second mapset `other`, which has no connection yet
+and is not on the search path of `PERMANENT`. The option **mapset** selects
+mapsets by name: `other` and `.` (the current mapset) are printed in this
+order, and `other` has `null` for driver and database. Then **-c** is run in
+`other`: it finds nothing set and sets the default connection, so the same
+call now prints it. `*` stands for all mapsets of the project; their names are
+sorted here because the order of `*` is not defined.
+
+=== "Command line"
+
+    ```sh
+    t.connect -p format=json
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "PERMANENT",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```sh
+    g.mapset -c mapset=other
+    g.mapset mapset=PERMANENT
+    t.connect -p format=json mapset=other,.
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "other",
+            "driver": null,
+            "database": null
+        },
+        {
+            "mapset": "PERMANENT",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```sh
+    g.mapset mapset=other
+    t.connect -c
+    g.mapset mapset=PERMANENT
+    t.connect -p format=json mapset=other
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "other",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```sh
+    t.connect -p format=json mapset='*' | grep -o '"mapset": "[^"]*"' | LC_ALL=C sort
+    ```
+
+    ```text
+    "mapset": "PERMANENT"
+    "mapset": "other"
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    print(tools.t_connect(flags="p", format="json").text)
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "PERMANENT",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```python
+    tools.g_mapset(mapset="other", flags="c")
+    tools.g_mapset(mapset="PERMANENT")
+    print(tools.t_connect(flags="p", format="json", mapset="other,.").text)
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "other",
+            "driver": null,
+            "database": null
+        },
+        {
+            "mapset": "PERMANENT",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```python
+    tools.g_mapset(mapset="other")
+    tools.t_connect(flags="c")
+    tools.g_mapset(mapset="PERMANENT")
+    print(tools.t_connect(flags="p", format="json", mapset="other").text)
+    ```
+
+    ```text
+    [
+        {
+            "mapset": "other",
+            "driver": "sqlite",
+            "database": "$GISDBASE\/$LOCATION_NAME\/$MAPSET\/tgis\/sqlite.db"
+        }
+    ]
+    ```
+
+    ```python
+    result = tools.t_connect(flags="p", format="json", mapset="*")
+    for name in sorted(entry["mapset"] for entry in result.json):
+        print(f'"mapset": "{name}"')
+    ```
+
+    ```text
+    "mapset": "PERMANENT"
+    "mapset": "other"
+    ```
+
+### Use a database file of your own
+
+With **driver** and **database** the connection is set to a SQLite file of your
+choice. The single quotes keep the shell from replacing the variables; the
+temporal tools replace them when they open the database. The file is created by
+the first tool that needs it, here *t.create*; *t.info* with **-d** shows the
+path of the file in use. A call with only **database** sets the driver to its
+default `sqlite`.
+
+=== "Command line"
+
+    ```sh
+    t.connect driver=sqlite database='$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/mine.db'
+    t.connect -p
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/mine.db
+    ```
+
+    ```sh
+    t.create output=demo title="Demo" description="A dataset in mine.db"
+    t.info -d | grep "database string"
+    ```
+
+    ```text
+     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+    ```
+
+    ```sh
+    t.connect database='$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/other.db'
+    t.connect -p
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/other.db
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.t_connect(
+        driver="sqlite",
+        database="$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/mine.db",
+    )
+    print(tools.t_connect(flags="p").text)
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/mine.db
+    ```
+
+    ```python
+    tools.t_create(output="demo", title="Demo", description="A dataset in mine.db")
+    for line in tools.t_info(flags="d").stdout.splitlines():
+        if "database string" in line:
+            print(line)
+    ```
+
+    ```text
+     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/mine.db
+    ```
+
+    ```python
+    tools.t_connect(database="$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/other.db")
+    print(tools.t_connect(flags="p").text)
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/other.db
+    ```
+
+### Reset the connection to the default
+
+**-d** replaces the connection by the default one, whatever it was, and
+reports it in a message.
+
+=== "Command line"
+
+    ```sh
+    t.connect -d
+    t.connect -p
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.t_connect(flags="d")
+    print(tools.t_connect(flags="p").text)
+    ```
+
+    ```text
+    driver:sqlite
+    database:$GISDBASE/$LOCATION_NAME/$MAPSET/tgis/sqlite.db
+    ```
+
+### Connect to PostgreSQL
+
+With the driver `pg`, the **database** is a connection string of PostgreSQL.
+The connection has to be set in every mapset that is to use it. *t.connect*
+does not test it. This example needs a PostgreSQL server and is not run with
+the other examples. Run it last: it changes the connection of the mapset, and
+**-d** returns to SQLite.
+
+=== "Command line"
+
+    <!-- example: requires=postgresql -->
+
+    ```sh
+    t.connect driver=pg database="dbname=grass_test host=localhost"
+    t.connect -p
+    ```
+
+    ```text
+    driver:pg
+    database:dbname=grass_test host=localhost
+    ```
+
+=== "Python (grass.tools)"
+
+    <!-- example: requires=postgresql -->
+
+    ```python
+    tools.t_connect(driver="pg", database="dbname=grass_test host=localhost")
+    print(tools.t_connect(flags="p").text)
+    ```
+
+    ```text
+    driver:pg
+    database:dbname=grass_test host=localhost
+    ```
+
+<!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[db.connect](db.connect.md), [t.info](t.info.md), [t.list](t.list.md)*
+*[db.connect](db.connect.md), [t.create](t.create.md), [t.info](t.info.md),
+[t.list](t.list.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 
