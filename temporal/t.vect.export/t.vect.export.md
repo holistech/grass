@@ -1,147 +1,892 @@
 ## DESCRIPTION
 
-*t.vect.export* exports a space time vector dataset (stvds) to a tar
-archive as either GML (using *[v.out.ogr](v.out.ogr.md)*) or GRASS pack
-files. In addition to the pack or GML files, several metadata files are
-also created in the archive that describe the temporal layout. All time
-stamps are stored in the file "list.txt", for each map one row. The name
-of the map, the start time and the end time are written. In case of a
-time instance, the start time is equal to the end time. The "init.txt"
-file stores the temporal type, the number of maps, the chosen export
-format and some other metadata. The "proj.txt" file stores the
-coordinate reference system information as a proj4 string of the project
-the space time vector dataset was exported from. The file "readme.txt"
-describes the file format. The output of *v.info* for each vector map in
-the space time dataset is stored in "metadata.txt".
+*t.vect.export* writes the maps of a space time vector dataset and a
+description of their times into one tar archive. The archive moves a dataset
+to another project or computer: *[t.vect.import](t.vect.import.md)* reads it
+back and registers the maps in a new dataset. See the
+[introduction to temporal data processing](temporalintro.md) for space time
+datasets. The tool for space time raster datasets is
+*[t.rast.export](t.rast.export.md)*.
 
-The tar archive can be compressed using the **compress** option. Gzip
-and bzip2 (default) are available. A **where** option can be specified,
-to export only a subset of the space time dataset. Archives exported
-with *t.vect.export* can be imported with
-*[t.vect.import](t.vect.import.md)*.
+The option **input** names the space time vector dataset, and **output** the
+archive that is written. The tool uses the name of **output** as it is and adds
+no suffix, so the name should say what the archive is, such as
+`wind.tar.bz2`. An existing archive is refused unless the flag
+**--overwrite** is given.
+
+### Select the maps
+
+The option **where** takes an SQL condition on the columns of the registered
+maps, such as `start_time >= '2026-03-02'`, and exports only the maps it
+selects. Without **where**, all maps are exported. The maps are written in the
+order of their start time. A selection without a map is not an error (see the
+notes).
+
+### Export format
+
+The option **format** chooses how each vector map is stored in the archive:
+
+- `GML`, the default, writes the files `name.xml` and `name.xsd` with
+  *[v.out.ogr](v.out.ogr.md)*;
+- `GPKG` writes a GeoPackage file `name.gpkg` with *v.out.ogr*;
+- `pack` writes the file `name.pack` with *[v.pack](v.pack.md)*, the GRASS
+  format that *v.unpack* reads. The `.pack` file is a tar archive of its own
+  that is not compressed again.
+
+*v.out.ogr* writes one layer per file, *v.pack* all layers of a map (see the
+notes).
+
+### Archive and compression
+
+The option **compression** compresses the archive: `bzip2` (the default),
+`gzip`, or `no` for a plain tar archive. A tool such as `tar -tf` or the Python
+module `tarfile` recognises the compression by itself.
+
+The option **directory** names the working directory, by default `/tmp`.
+*t.vect.export* exports the maps into a temporary subdirectory of it, packs
+them there, moves the archive to the path given by **output** and removes the
+subdirectory. The archive is therefore not written to **directory**, and a
+relative **output** is taken from the current directory.
+
+### Files in the archive
+
+The archive holds the files of the maps, in the order of their start time, and
+then five text files:
+
+- `list.txt` has one line for each map, with the fields name, start time and
+  end time, separated by `|`. The start and end time are in ISO format with
+  absolute time and numbers with relative time. A map that is a time instance
+  has the end time of its start time. In the pack format the name is
+  `name:layer`, with one line for each registered layer of a vector map;
+- `proj.txt` is the output of *[g.proj](g.proj.md)* with `-p format=proj4`,
+  the coordinate reference system of the project;
+- `init.txt` has one `key=value` line for each of the following: `stds_type`,
+  `format`, `temporal_type`, `semantic_type`, `relative_time_unit` (relative
+  time only), `number_of_maps` and the extent `north`, `south`, `east`, `west`.
+  `number_of_maps` counts the exported maps, and the extent is that of the
+  exported maps, not of the region. A selection without a map (see the notes)
+  writes the extent of the whole dataset instead;
+- `readme.txt` describes the files of the archive;
+- `metadata.txt` is the output of *[t.info](t.info.md)* for the dataset.
 
 ## NOTES
 
-The name of output file has to carry the suffix of the archive type, the
-following suffix can be used:
-
-- **.tar** in the case of **compress=no**
-- **.tar.bzip2** in the case of **compress=bzip2**
-- **.tar.gzip** in the case of **compress=gzip**
-
-A **where** option that selects no map gives a warning and an archive
-without maps (`number_of_maps=0` in "init.txt").
-
-In the pack format, "list.txt" names a map as `name:layer` and has one
-line for each registered layer of a vector map; a map with several layers
-is packed once.
+The export reads the maps from the mapsets they were registered from, also
+if a map of the same name exists in the current mapset. The maps of a dataset
+may come from several mapsets. If maps of one name from different mapsets are
+exported together, each of them is named `name@mapset` in the archive, in its
+file names and in `list.txt`, where the pack format writes `name:layer@mapset`.
+A map whose name no other mapset of the selection shares keeps its name, so an
+archive without such maps has the form of older versions. The last example
+shows this. *[t.vect.import](t.vect.import.md)* imports `dup@other` as
+`dup_other`.
 
 The GML and GPKG formats hold one layer per map. A selection that contains
-several layers of one vector map is refused before anything is written;
-use `format=pack` for such a map, or select one layer with **where**. The
-same holds for a map that the selection names several times with the same
-layer, for example registered as `name` and as `name:1`; select it once
-with **where**.
+several layers of one vector map is refused before anything is written; use
+`format=pack` for such a map, or select one layer with **where**. The same
+holds for a map that the selection names several times with the same layer,
+for example registered as `name` and as `name:1`; select it once with
+**where**. The fifth example shows the refusal.
 
-Maps of one name from several mapsets of the selection would meet in one
-file, so each of them is named `name@mapset` in the archive, in its file
-names and in "list.txt", where the pack format writes `name:layer@mapset`.
-A map whose name no other mapset of the selection shares keeps its name, so
-an archive without such maps has the form of older versions. The checks of
-the GML and GPKG formats count the maps by these names: one layer each of
-`dup@PERMANENT` and `dup@other` is exported.
-*[t.vect.import](t.vect.import.md)* imports `dup@other` as `dup_other`.
+With relative time, `list.txt` holds the numbers of the start and end, and
+`init.txt` the unit as `relative_time_unit`.
 
-## EXAMPLE
+A **where** condition that selects no map gives the warning "The selection
+contains no map" and an archive without maps, with `number_of_maps=0` in
+`init.txt`. A condition with a syntax error stops the tool with an error that
+starts with "Invalid where condition".
 
-In this example, five vector maps are created and registered in a single
-space time vector dataset named *random_locations*. Each vector map
-represents random locations within the boundary of the state taken at 1
-month intervals.
+The tool checks the directories before it makes anything. It stops with
+"Directory ... not found" or "... is not writable" for **directory**, and with
+"Output directory ... not found" for the directory of **output**; both must
+exist and be writable. A map that can no longer be exported, for example
+because it was removed, stops the tool with "Unable to export vector map
+`<name@mapset>` as GML with v.out.ogr" (`GPKG` for the format GPKG; the pack
+format ends the message with "with v.pack" instead); no archive is left, and
+the temporary subdirectory is removed in every case.
 
-```sh
-t.vect.export input=shoreline output=shoreline_nc.tar.bzip2
+## EXAMPLES
 
-tar xvfj shoreline_nc.tar.bzip2
-shoreline_1849_1873.xml
-shoreline_1849_1873.xsd
-shoreline_1925_1946.xml
-shoreline_1925_1946.xsd
-shoreline_1970_1988.xml
-shoreline_1970_1988.xsd
-shoreline_1997.xml
-shoreline_1997.xsd
-shoreline_1998.xml
-shoreline_1998.xsd
-shoreline_2003.xml
-shoreline_2003.xsd
-shoreline_2004.xml
-shoreline_2004.xsd
-shoreline_2009.xml
-shoreline_2009.xsd
-list.txt
-proj.txt
-init.txt
-readme.txt
-metadata.txt
+<!-- markdownlint-disable MD046 -->
+
+### Export a dataset as a GML archive
+
+The dataset `wind` has three maps of the wind speed at two gauges on the days
+from 1 to 3 March 2026. The gauge in the south west of the region has the speed
+1, 2 and 3, the gauge in the north east the speed 3, 4 and 5. The maps are time
+instances, since **-i** is not given to *t.register*.
+
+The first block creates the dataset. The second exports it with the default
+format and compression: the files `name.xml` and `name.xsd` of each map, packed
+into a bzip2 compressed archive. `tar -tf` lists the files. The maps come first
+in the order of their start time, then the five text files. The third block
+shows what `list.txt` and `init.txt` say about the dataset: a time instance has
+its start time as end time, and the extent in `init.txt` is that of the maps.
+`proj.txt` shows that the project of the examples has no coordinate reference
+system. The last block reads the speeds of the first map from its GML file.
+
+=== "Command line"
+
+    ```sh
+    g.region n=2 s=0 e=4 w=0 res=1
+    for k in 1 2 3; do
+        v.in.ascii input=- output=wind_$k separator=comma \
+            columns="x double precision, y double precision, speed double precision" <<EOF
+    0.5,0.5,$k
+    2.5,1.5,$((k + 2))
+    EOF
+    done
+    t.create type=stvds output=wind title="Wind" \
+        description="Wind speed at two gauges"
+    t.register type=vector input=wind maps=wind_1,wind_2,wind_3 \
+        start=2026-03-01 increment="1 day"
+    ```
+
+    ```sh
+    t.vect.export input=wind output=wind.tar.bz2
+    tar -tf wind.tar.bz2
+    ```
+
+    ```text
+    wind_1.xml
+    wind_1.xsd
+    wind_2.xml
+    wind_2.xsd
+    wind_3.xml
+    wind_3.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    ```
+
+    ```sh
+    tar -xOf wind.tar.bz2 list.txt
+    tar -xOf wind.tar.bz2 init.txt
+    tar -xOf wind.tar.bz2 proj.txt
+    ```
+
+    ```text
+    wind_1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3|2026-03-03 00:00:00|2026-03-03 00:00:00
+    stds_type=stvds
+    format=GML
+    temporal_type=absolute
+    semantic_type=mean
+    number_of_maps=3
+    north=1.5
+    south=0.5
+    east=2.5
+    west=0.5
+    XY location (unprojected)
+    ```
+
+    ```sh
+    tar -xOf wind.tar.bz2 wind_1.xml | grep -o "<ogr:speed>[^<]*"
+    ```
+
+    ```text
+    <ogr:speed>1
+    <ogr:speed>3
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    import re
+    import tarfile
+    from io import StringIO
+
+    from grass.tools import Tools
+
+    tools = Tools()
+    tools.g_region(n=2, s=0, e=4, w=0, res=1)
+    for k in (1, 2, 3):
+        tools.v_in_ascii(
+            input=StringIO(f"0.5,0.5,{k}\n2.5,1.5,{k + 2}\n"),
+            output=f"wind_{k}",
+            separator="comma",
+            columns="x double precision, y double precision, speed double precision",
+        )
+    tools.t_create(
+        type="stvds",
+        output="wind",
+        title="Wind",
+        description="Wind speed at two gauges",
+    )
+    tools.t_register(
+        type="vector",
+        input="wind",
+        maps="wind_1,wind_2,wind_3",
+        start="2026-03-01",
+        increment="1 day",
+    )
 
 
-cat init.txt
-stds_type=stvds
-format=GML
-temporal_type=relative
-semantic_type=mean
-relative_time_unit=years
-number_of_maps=8
-north=1039175.31479
-south=9403.301982
-east=3052352.00337
-west=651481.84739
+    def read_member(archive, member):
+        with tarfile.open(archive) as tar:
+            return tar.extractfile(member).read().decode()
+    ```
 
-cat proj.txt
-+proj=lcc
-+lat_1=36.16666666666666
-+lat_2=34.33333333333334
-+lat_0=33.75
-+lon_0=-79
-+x_0=609601.22
-+y_0=0
-+no_defs
-+a=6378137
-+rf=298.257222101
-+towgs84=0.000,0.000,0.000
-+to_meter=1
+    ```python
+    tools.t_vect_export(input="wind", output="wind.tar.bz2")
+    with tarfile.open("wind.tar.bz2") as tar:
+        print("\n".join(tar.getnames()))
+    ```
 
+    ```text
+    wind_1.xml
+    wind_1.xsd
+    wind_2.xml
+    wind_2.xsd
+    wind_3.xml
+    wind_3.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    ```
 
-cat list.txt
-shoreline_1849_1873|1849|1873
-shoreline_1925_1946|1925|1946
-shoreline_1970_1988|1970|1988
-shoreline_1997|1997|1997
-shoreline_1998|1998|1998
-shoreline_2003|2003|2003
-shoreline_2004|2004|2004
-shoreline_2009|2009|2009
+    ```python
+    for member in ("list.txt", "init.txt", "proj.txt"):
+        print(read_member("wind.tar.bz2", member), end="")
+    ```
 
+    ```text
+    wind_1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3|2026-03-03 00:00:00|2026-03-03 00:00:00
+    stds_type=stvds
+    format=GML
+    temporal_type=absolute
+    semantic_type=mean
+    number_of_maps=3
+    north=1.5
+    south=0.5
+    east=2.5
+    west=0.5
+    XY location (unprojected)
+    ```
 
-cat readme.txt
-This space time vector dataset was exported with t.vect.export of GRASS GIS 7
+    ```python
+    gml = read_member("wind.tar.bz2", "wind_1.xml")
+    print("\n".join(re.findall("<ogr:speed>[^<]*", gml)))
+    ```
 
-Files:
-       *.xml  -- Vector GML files
-     proj.txt -- Projection information in PROJ format
-     init.txt -- GRASS GIS space time vector dataset information
-     list.txt -- Time series file, lists all maps by name with interval
-                 time stamps in ISO-Format. Field separator is |
- metadata.txt -- The output of t.info
-   readme.txt -- This file
-```
+    ```text
+    <ogr:speed>1
+    <ogr:speed>3
+    ```
+
+### Choose the export format
+
+The first block exports `wind` in the pack format: one `.pack` file for each
+map. `list.txt` names the maps `name:layer`, here with the layer 1 that
+*v.in.ascii* gave the points, and `init.txt` names the format. The second block
+exports the GeoPackage format with **compression=gzip**, which writes one
+`.gpkg` file for each map and a `list.txt` with plain map names.
+
+=== "Command line"
+
+    ```sh
+    t.vect.export input=wind output=wind_pack.tar format=pack compression=no
+    tar -tf wind_pack.tar
+    tar -xOf wind_pack.tar list.txt
+    tar -xOf wind_pack.tar init.txt | grep format
+    ```
+
+    ```text
+    wind_1.pack
+    wind_2.pack
+    wind_3.pack
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    wind_1:1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2:1|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3:1|2026-03-03 00:00:00|2026-03-03 00:00:00
+    format=pack
+    ```
+
+    <!-- example: requires=gdal:GPKG -->
+
+    ```sh
+    t.vect.export input=wind output=wind_gpkg.tar.gz format=GPKG compression=gzip
+    tar -tf wind_gpkg.tar.gz
+    tar -xOf wind_gpkg.tar.gz list.txt
+    tar -xOf wind_gpkg.tar.gz init.txt | grep format
+    ```
+
+    ```text
+    wind_1.gpkg
+    wind_2.gpkg
+    wind_3.gpkg
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    wind_1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3|2026-03-03 00:00:00|2026-03-03 00:00:00
+    format=GPKG
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.t_vect_export(
+        input="wind", output="wind_pack.tar", format="pack", compression="no"
+    )
+    with tarfile.open("wind_pack.tar") as tar:
+        print("\n".join(tar.getnames()))
+    print(read_member("wind_pack.tar", "list.txt"), end="")
+    init = read_member("wind_pack.tar", "init.txt")
+    print("\n".join(line for line in init.splitlines() if line.startswith("format")))
+    ```
+
+    ```text
+    wind_1.pack
+    wind_2.pack
+    wind_3.pack
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    wind_1:1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2:1|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3:1|2026-03-03 00:00:00|2026-03-03 00:00:00
+    format=pack
+    ```
+
+    <!-- example: requires=gdal:GPKG -->
+
+    ```python
+    tools.t_vect_export(
+        input="wind", output="wind_gpkg.tar.gz", format="GPKG", compression="gzip"
+    )
+    with tarfile.open("wind_gpkg.tar.gz") as tar:
+        print("\n".join(tar.getnames()))
+    print(read_member("wind_gpkg.tar.gz", "list.txt"), end="")
+    init = read_member("wind_gpkg.tar.gz", "init.txt")
+    print("\n".join(line for line in init.splitlines() if line.startswith("format")))
+    ```
+
+    ```text
+    wind_1.gpkg
+    wind_2.gpkg
+    wind_3.gpkg
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    wind_1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    wind_2|2026-03-02 00:00:00|2026-03-02 00:00:00
+    wind_3|2026-03-03 00:00:00|2026-03-03 00:00:00
+    format=GPKG
+    ```
+
+### Choose the compression
+
+Each block exports `wind` with one value of **compression** and prints the first
+two bytes of the archive as hexadecimal numbers: `1f8b` for gzip and `425a`
+("BZ") for bzip2. A plain tar archive has no such mark; its first bytes are the
+start of the first file name, `2e2f` for the characters "./". `tar -tf` and
+`tarfile` read all three the same way.
+
+=== "Command line"
+
+    ```sh
+    for method in no gzip bzip2; do
+        t.vect.export input=wind output=wind_$method.tar compression=$method
+        od -An -tx1 -N2 wind_$method.tar | tr -d ' '
+        tar -tf wind_$method.tar | sed -n 1p
+    done
+    ```
+
+    ```text
+    2e2f
+    wind_1.xml
+    1f8b
+    wind_1.xml
+    425a
+    wind_1.xml
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from pathlib import Path
+
+    for method in ("no", "gzip", "bzip2"):
+        archive = f"wind_{method}.tar"
+        tools.t_vect_export(input="wind", output=archive, compression=method)
+        print(Path(archive).read_bytes()[:2].hex())
+        with tarfile.open(archive) as tar:
+            print(tar.getnames()[0])
+    ```
+
+    ```text
+    2e2f
+    wind_1.xml
+    1f8b
+    wind_1.xml
+    425a
+    wind_1.xml
+    ```
+
+### Export the maps of a time window
+
+**where** selects the maps of 2 and 3 March, and **directory** names the
+working directory `work`. The archive holds the files of two maps, and
+`number_of_maps` in `init.txt` counts two. The tool exports and packs in a
+temporary subdirectory of `work` and removes it, so the last command finds
+`work` empty: the archive is in the current directory, where **output** puts
+it.
+
+A condition that selects no map still writes an archive. The second block asks
+for the maps after 2030: the tool warns "The selection contains no map" and the
+archive holds only the five text files, with `number_of_maps=0`.
+
+=== "Command line"
+
+    ```sh
+    mkdir work
+    t.vect.export input=wind output=later.tar compression=no \
+        where="start_time >= '2026-03-02'" directory=work
+    tar -tf later.tar
+    tar -xOf later.tar init.txt | grep number_of_maps
+    ls work
+    ```
+
+    ```text
+    wind_2.xml
+    wind_2.xsd
+    wind_3.xml
+    wind_3.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    number_of_maps=2
+    ```
+
+    ```sh
+    t.vect.export input=wind output=none.tar compression=no \
+        where="start_time > '2030-01-01'" 2>&1
+    tar -tf none.tar
+    tar -xOf none.tar init.txt | grep number_of_maps
+    ```
+
+    ```text
+    WARNING: The selection contains no map of <wind>; the archive holds no map.
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    number_of_maps=0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    Path("work").mkdir()
+    tools.t_vect_export(
+        input="wind",
+        output="later.tar",
+        compression="no",
+        where="start_time >= '2026-03-02'",
+        directory="work",
+    )
+    with tarfile.open("later.tar") as tar:
+        print("\n".join(tar.getnames()))
+    init = read_member("later.tar", "init.txt")
+    print("\n".join(line for line in init.splitlines() if "number_of_maps" in line))
+    print(list(Path("work").iterdir()))
+    ```
+
+    ```text
+    wind_2.xml
+    wind_2.xsd
+    wind_3.xml
+    wind_3.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    number_of_maps=2
+    []
+    ```
+
+    ```python
+    warning_tools = Tools(capture_stderr=True, consistent_return_value=True)
+    result = warning_tools.t_vect_export(
+        input="wind",
+        output="none.tar",
+        compression="no",
+        where="start_time > '2030-01-01'",
+    )
+    print(result.stderr.strip())
+    with tarfile.open("none.tar") as tar:
+        print("\n".join(tar.getnames()))
+    init = read_member("none.tar", "init.txt")
+    print("\n".join(line for line in init.splitlines() if "number_of_maps" in line))
+    ```
+
+    ```text
+    WARNING: The selection contains no map of <wind>; the archive holds no map.
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    number_of_maps=0
+    ```
+
+### A map with several layers
+
+The map `well` has two points, and *v.category* gives them a category in
+layer 2 as well as in layer 1. The dataset `wells` registers the layers as the
+maps `well:1` and `well:2`, in March and April 2026. *t.vect.list* shows the
+two registered maps.
+
+The GML and GPKG formats hold one layer per map, so the first export is refused
+before anything is written: no archive exists afterwards. The pack format holds
+all layers; the map is packed once and `list.txt` has a line for each layer.
+The last block selects layer 2 with **where** and exports it as GML.
+
+=== "Command line"
+
+    ```sh
+    v.in.ascii input=- output=well_one separator=comma \
+        columns="x double precision, y double precision, depth double precision" <<EOF
+    0.5,0.5,12
+    2.5,1.5,30
+    EOF
+    v.category input=well_one output=well option=add layer=2 type=point
+    t.create type=stvds output=wells title="Wells" \
+        description="Wells in two layers"
+    t.register type=vector input=wells maps=well:1,well:2 \
+        start=2026-03-01 increment="1 month"
+    t.vect.list input=wells columns=name,layer,start_time
+    ```
+
+    ```text
+    name|layer|start_time
+    well|1|2026-03-01 00:00:00
+    well|2|2026-04-01 00:00:00
+    ```
+
+    ```sh
+    if ! t.vect.export input=wells output=wells.tar compression=no 2>&1; then
+        echo "t.vect.export failed"
+    fi
+    ls wells.tar || echo "no archive"
+    ```
+
+    ```text
+    ERROR: Vector map <well> is selected with the layers 1, 2; the GML format
+    holds one layer per map, use format=pack
+    t.vect.export failed
+    no archive
+    ```
+
+    ```sh
+    t.vect.export input=wells output=wells_pack.tar compression=no format=pack
+    tar -tf wells_pack.tar
+    tar -xOf wells_pack.tar list.txt
+    ```
+
+    ```text
+    well.pack
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    well:1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    well:2|2026-04-01 00:00:00|2026-04-01 00:00:00
+    ```
+
+    ```sh
+    t.vect.export input=wells output=wells_two.tar compression=no \
+        where="layer = 2"
+    tar -tf wells_two.tar
+    tar -xOf wells_two.tar list.txt
+    ```
+
+    ```text
+    well.xml
+    well.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    well|2026-04-01 00:00:00|2026-04-01 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import ToolError
+
+    tools.v_in_ascii(
+        input=StringIO("0.5,0.5,12\n2.5,1.5,30\n"),
+        output="well_one",
+        separator="comma",
+        columns="x double precision, y double precision, depth double precision",
+    )
+    tools.v_category(input="well_one", output="well", option="add", layer=2, type="point")
+    tools.t_create(
+        type="stvds", output="wells", title="Wells", description="Wells in two layers"
+    )
+    tools.t_register(
+        type="vector",
+        input="wells",
+        maps="well:1,well:2",
+        start="2026-03-01",
+        increment="1 month",
+    )
+    print(tools.t_vect_list(input="wells", columns="name,layer,start_time").text)
+    ```
+
+    ```text
+    name|layer|start_time
+    well|1|2026-03-01 00:00:00
+    well|2|2026-04-01 00:00:00
+    ```
+
+    ```python
+    try:
+        tools.t_vect_export(input="wells", output="wells.tar", compression="no")
+    except ToolError as error:
+        print(error.stderr.strip())
+        print("t.vect.export failed")
+    print(Path("wells.tar").exists())
+    ```
+
+    ```text
+    ERROR: Vector map <well> is selected with the layers 1, 2; the GML format
+    holds one layer per map, use format=pack
+    t.vect.export failed
+    False
+    ```
+
+    ```python
+    tools.t_vect_export(
+        input="wells", output="wells_pack.tar", compression="no", format="pack"
+    )
+    with tarfile.open("wells_pack.tar") as tar:
+        print("\n".join(tar.getnames()))
+    print(read_member("wells_pack.tar", "list.txt"), end="")
+    ```
+
+    ```text
+    well.pack
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    well:1|2026-03-01 00:00:00|2026-03-01 00:00:00
+    well:2|2026-04-01 00:00:00|2026-04-01 00:00:00
+    ```
+
+    ```python
+    tools.t_vect_export(
+        input="wells", output="wells_two.tar", compression="no", where="layer = 2"
+    )
+    with tarfile.open("wells_two.tar") as tar:
+        print("\n".join(tar.getnames()))
+    print(read_member("wells_two.tar", "list.txt"), end="")
+    ```
+
+    ```text
+    well.xml
+    well.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    well|2026-04-01 00:00:00|2026-04-01 00:00:00
+    ```
+
+### Maps of the same name from several mapsets
+
+The map `dup` exists in `PERMANENT` and in the mapset `other`, with one point
+each, and `other` also holds the map `solo`. The dataset `pair` registers
+`dup@PERMANENT` for 1 March and `dup@other` and `solo@other` for 2 March. The
+mapset `other` is added to the search path, so that the maps can be registered.
+The archive names the two maps of the name `dup` with their mapsets, in the file
+names and in `list.txt`; `solo` keeps its name, since no other mapset of the
+selection has a map of that name. In the pack format `list.txt` writes
+`name:layer@mapset`. The last command returns to `PERMANENT`.
+
+=== "Command line"
+
+    ```sh
+    v.in.ascii input=- output=dup separator=comma \
+        columns="x double precision, y double precision, speed double precision" <<EOF
+    0.5,0.5,1
+    EOF
+    g.mapset -c mapset=other
+    v.in.ascii input=- output=dup separator=comma \
+        columns="x double precision, y double precision, speed double precision" <<EOF
+    2.5,1.5,7
+    EOF
+    v.in.ascii input=- output=solo separator=comma \
+        columns="x double precision, y double precision, speed double precision" <<EOF
+    1.5,1.5,3
+    EOF
+    g.mapset mapset=PERMANENT
+    g.mapsets mapset=other operation=add
+    t.create type=stvds output=pair title="Pair" description="Same name twice"
+    t.register type=vector input=pair maps=dup@PERMANENT \
+        start=2026-03-01 end=2026-03-02
+    t.register type=vector input=pair maps=dup@other,solo@other \
+        start=2026-03-02 end=2026-03-03
+    t.vect.list input=pair columns=name,mapset,start_time
+    ```
+
+    ```text
+    name|mapset|start_time
+    dup|PERMANENT|2026-03-01 00:00:00
+    dup|other|2026-03-02 00:00:00
+    solo|other|2026-03-02 00:00:00
+    ```
+
+    ```sh
+    t.vect.export input=pair output=pair.tar compression=no
+    tar -tf pair.tar
+    tar -xOf pair.tar list.txt
+    ```
+
+    ```text
+    dup@PERMANENT.xml
+    dup@PERMANENT.xsd
+    dup@other.xml
+    dup@other.xsd
+    solo.xml
+    solo.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    dup@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    dup@other|2026-03-02 00:00:00|2026-03-03 00:00:00
+    solo|2026-03-02 00:00:00|2026-03-03 00:00:00
+    ```
+
+    ```sh
+    t.vect.export input=pair output=pair_pack.tar compression=no format=pack
+    tar -xOf pair_pack.tar list.txt
+    ```
+
+    ```text
+    dup:1@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    dup:1@other|2026-03-02 00:00:00|2026-03-03 00:00:00
+    solo:1|2026-03-02 00:00:00|2026-03-03 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    point = "x double precision, y double precision, speed double precision"
+    tools.v_in_ascii(
+        input=StringIO("0.5,0.5,1\n"), output="dup", separator="comma", columns=point
+    )
+    tools.g_mapset(mapset="other", flags="c")
+    tools.v_in_ascii(
+        input=StringIO("2.5,1.5,7\n"), output="dup", separator="comma", columns=point
+    )
+    tools.v_in_ascii(
+        input=StringIO("1.5,1.5,3\n"), output="solo", separator="comma", columns=point
+    )
+    tools.g_mapset(mapset="PERMANENT")
+    tools.g_mapsets(mapset="other", operation="add")
+    tools.t_create(type="stvds", output="pair", title="Pair", description="Same name twice")
+    tools.t_register(
+        type="vector",
+        input="pair",
+        maps="dup@PERMANENT",
+        start="2026-03-01",
+        end="2026-03-02",
+    )
+    tools.t_register(
+        type="vector",
+        input="pair",
+        maps="dup@other,solo@other",
+        start="2026-03-02",
+        end="2026-03-03",
+    )
+    print(tools.t_vect_list(input="pair", columns="name,mapset,start_time").text)
+    ```
+
+    ```text
+    name|mapset|start_time
+    dup|PERMANENT|2026-03-01 00:00:00
+    dup|other|2026-03-02 00:00:00
+    solo|other|2026-03-02 00:00:00
+    ```
+
+    ```python
+    tools.t_vect_export(input="pair", output="pair.tar", compression="no")
+    with tarfile.open("pair.tar") as tar:
+        print("\n".join(tar.getnames()))
+    print(read_member("pair.tar", "list.txt"), end="")
+    ```
+
+    ```text
+    dup@PERMANENT.xml
+    dup@PERMANENT.xsd
+    dup@other.xml
+    dup@other.xsd
+    solo.xml
+    solo.xsd
+    list.txt
+    proj.txt
+    init.txt
+    readme.txt
+    metadata.txt
+    dup@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    dup@other|2026-03-02 00:00:00|2026-03-03 00:00:00
+    solo|2026-03-02 00:00:00|2026-03-03 00:00:00
+    ```
+
+    ```python
+    tools.t_vect_export(
+        input="pair", output="pair_pack.tar", compression="no", format="pack"
+    )
+    print(read_member("pair_pack.tar", "list.txt"), end="")
+    ```
+
+    ```text
+    dup:1@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    dup:1@other|2026-03-02 00:00:00|2026-03-03 00:00:00
+    solo:1|2026-03-02 00:00:00|2026-03-03 00:00:00
+    ```
+
+<!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[t.vect.import](t.vect.import.md), [t.create](t.create.md),
-[t.info](t.info.md), [v.out.ogr](v.out.ogr.md), [v.unpack](v.unpack.md),
-[t.rast.export](t.rast.export.md)*
+*[g.proj](g.proj.md), [t.create](t.create.md), [t.info](t.info.md),
+[t.rast.export](t.rast.export.md), [t.vect.import](t.vect.import.md),
+[v.out.ogr](v.out.ogr.md), [v.pack](v.pack.md), [v.unpack](v.unpack.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 
