@@ -35,6 +35,7 @@ REVIEWED_MANUALS = (
     "t.register",
     "t.remove",
     "t.rename",
+    "t.sample",
     "t.shift",
     "t.snap",
     "t.support",
