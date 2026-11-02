@@ -114,7 +114,7 @@ example with the scenes below shows.
 
 In a dataset with relative time, `start` and `end` are numbers of the time
 unit of the dataset, printed without the unit: a map registered from 0 to 6
-hours shows `0` and `6`.
+hours shows `0` and `6`, as the first example shows.
 
 *t.rast.univar* only reads, so it works on a dataset of another mapset as
 well. The name with the mapset (`input=temperature@PERMANENT`) selects it;
@@ -153,6 +153,10 @@ The maps are registered as daily intervals starting on 1 March 2026.
 *t.rast.univar* processes two maps at the same time here (**nprocs**); the
 output does not depend on it.
 
+The second block makes the dataset `model` with relative time: two model
+steps of 6 hours each, with the constant values 1 and 2. Their `start` and
+`end` are numbers of hours, printed without the unit.
+
 === "Command line"
 
     ```sh
@@ -174,6 +178,21 @@ output does not depend on it.
     temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
     temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
     temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+    ```
+
+    ```sh
+    r.mapcalc expression="step_1 = 1"
+    r.mapcalc expression="step_2 = 2"
+    t.create output=model temporaltype=relative title="Model" \
+        description="Model output per step of 6 hours"
+    t.register -i input=model maps=step_1,step_2 start=0 increment=6 unit=hours
+    t.rast.univar input=model
+    ```
+
+    ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    step_1@PERMANENT||0|6|6|0|1|1|0|1|1|0|0|0|6|6
+    step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
     ```
 
 === "Python (grass.tools)"
@@ -209,6 +228,32 @@ output does not depend on it.
     temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
     temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
     temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+    ```
+
+    ```python
+    tools.r_mapcalc(expression="step_1 = 1")
+    tools.r_mapcalc(expression="step_2 = 2")
+    tools.t_create(
+        output="model",
+        temporaltype="relative",
+        title="Model",
+        description="Model output per step of 6 hours",
+    )
+    tools.t_register(
+        input="model",
+        maps="step_1,step_2",
+        start=0,
+        increment=6,
+        unit="hours",
+        flags="i",
+    )
+    print(tools.t_rast_univar(input="model").text)
+    ```
+
+    ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    step_1@PERMANENT||0|6|6|0|1|1|0|1|1|0|0|0|6|6
+    step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
     ```
 
 The output reads line by line:
@@ -826,7 +871,9 @@ number of non-null cells.
 *t.rast.univar* reads a dataset of another mapset. The example creates the
 mapset `analysis` and switches to it; the dataset `temperature` stays in the
 mapset `PERMANENT` and is named with its mapset. The region of the new
-mapset is set to the one of the maps.
+mapset is set to the one of the maps. In the second block, *g.mapsets* shows
+that `PERMANENT` is in the search path of the new mapset, so the name
+`temperature` without a mapset finds the same dataset.
 
 === "Command line"
 
@@ -837,6 +884,17 @@ mapset is set to the one of the maps.
     ```
 
     ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+    ```
+
+    ```sh
+    g.mapsets -p
+    t.rast.univar input=temperature where="name = 'temperature_2'"
+    ```
+
+    ```text
+    analysis PERMANENT
     id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
     temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
     ```
@@ -853,6 +911,18 @@ mapset is set to the one of the maps.
     ```
 
     ```text
+    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
+    temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+    ```
+
+    ```python
+    print(tools.g_mapsets(flags="p").text)
+    result = tools.t_rast_univar(input="temperature", where="name = 'temperature_2'")
+    print(result.text)
+    ```
+
+    ```text
+    analysis PERMANENT
     id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
     temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
     ```
