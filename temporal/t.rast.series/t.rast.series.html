@@ -1,114 +1,677 @@
 <h2>DESCRIPTION</h2>
+<em>t.rast.series</em> reduces the raster maps of a space time raster dataset to one
+raster map for each aggregation method: every cell of a new map holds the
+result of the method over the values of that cell in the selected maps. Daily
+maps give their average, their maximum, or the slope of their values over
+time, for instance. The tool writes the list of the selected maps to a file
+and runs <em><a href="r.series.html">r.series</a></em> on it, so the methods and the results are
+those of <em>r.series</em>; it offers a subset of its methods. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets, and <em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em> for the same
+aggregation over regular periods of time with the results registered in a new
+dataset.
+<p>
+The new maps are ordinary raster maps in the current mapset, not the maps of a
+space time dataset. Unless the flag <b>-t</b> is given, each of them is
+registered in the temporal database with a time stamp (see below). To put them
+into a dataset, register them with <em><a href="t.register.html">t.register</a></em>.
 
-The input of this module is a single space time raster dataset, the
-output is a single raster map layer. A subset of the input space time
-raster dataset can be selected using the <b>where</b> option. The
-sorting of the raster map layer can be set using the <b>order</b>
-option. Be aware that the order of the maps can significantly influence
-the result of the aggregation (e.g.: slope). By default the maps are
-ordered by <b>start_time</b>.
+<h3>Selection</h3>
+The option <b>input</b> names the space time raster dataset. The option
+<b>where</b> takes an SQL condition on the registered maps and selects the input
+maps, for instance by their <code>start_time</code>; without it, all maps are used. SQLite
+functions such as <code>strftime</code> are available, which selects a recurring period of
+a multi-year series. The fourth and the fifth example use <b>where</b>. If the condition selects no map, the tool ends
+without an error, prints no message and creates no map.
 <p>
-<em>t.rast.series</em> is a simple wrapper for the raster module
-<b>r.series</b>. It supports a subset of the aggregation methods of
-<b>r.series</b>.
+The option <b>order</b> sorts the selected maps before <em>r.series</em> reads them. It
+takes the columns <code>id</code>, <code>name</code>, <code>creator</code>, <code>mapset</code>, <code>creation_time</code>,
+<code>start_time</code> (the default), <code>end_time</code>, <code>north</code>, <code>south</code>, <code>west</code>, <code>east</code>,
+<code>min</code> and <code>max</code>, where <code>min</code> and <code>max</code> are the smallest and the largest cell
+value of a map. Several columns are separated by commas. The order changes the
+result of the methods that use the position of a map in the series: <code>slope</code>,
+<code>offset</code> and <code>detcoeff</code> describe the values of a cell at the positions 0, 1,
+2 and so on, and <code>min_raster</code> and <code>max_raster</code> give the position of the map
+with the smallest or the largest value, counted from 0. The fourth example
+shows <code>slope</code> and <code>max_raster</code>.
+The column <code>modification_time</code> is not offered, because the maps in
+the temporal database have no such column.
+
+<h3>Methods and outputs</h3>
+The option <b>method</b> lists the aggregation methods: <code>average</code> (the default),
+<code>count</code>, <code>median</code>, <code>mode</code>, <code>minimum</code>, <code>min_raster</code>, <code>maximum</code>, <code>max_raster</code>,
+<code>stddev</code>, <code>range</code>, <code>sum</code>, <code>variance</code>, <code>diversity</code>, <code>slope</code>, <code>offset</code>,
+<code>detcoeff</code>, <code>quart1</code>, <code>quart3</code>, <code>perc90</code>, <code>quantile</code>, <code>skewness</code> and
+<code>kurtosis</code>; <em>r.series</em> defines each of them. The option <b>output</b> lists the
+names of the new maps, one for each method, in the same order. The tool stops
+with the message "Number requested methods and output maps do not match." if
+the numbers differ. The second example computes three methods in one run.
 <p>
-The method <em>quantile</em> can be given several times, once for each value
-of the <b>quantile</b> option and each output, for example
-<code>method=quantile,quantile quantile=0.1,0.9</code>. It can be combined with
-other methods; the quantiles are assigned to the <em>quantile</em> methods in
-order.
+The method <code>quantile</code> needs a quantile between 0 and 1, which the option
+<b>quantile</b> gives. The values of <b>quantile</b> belong to the methods
+<code>quantile</code> in the order of the list: a method list with two <code>quantile</code> takes
+two values, and <code>quantile</code> next to another method takes one value for the
+<code>quantile</code> and none for the other method. The quantile is the type 7 estimate
+of <em>r.series</em>: the values of a cell are sorted, <code>n</code> is their number and the
+quantile <code>q</code> lies at the position <code>q * (n - 1)</code>, counted from 0, between the
+two neighbouring values with a linear mix. The median of four values is the
+mean of the two in the middle. If the number of values of <b>quantile</b> differs
+from the number of methods <code>quantile</code>, the tool stops with the message given
+above for the outputs; this includes a quantile given for no <code>quantile</code> method
+and a <code>quantile</code> method without a quantile. The third example shows
+quantiles.
 <p>
-Unless the <b>-t</b> flag is given, the time stamp of each output map spans
-the selected maps of the dataset, from the earliest start time to the latest
-end time, whatever the <b>order</b> option says. The option <b>order</b> does
-not offer <code>modification_time</code>, because the maps in the temporal
-database have no such column.
+The flag <b>-n</b> propagates null cells. By default <em>r.series</em> skips them: a cell
+is aggregated over the maps that have a value there. With <b>-n</b>, a cell that
+is null in any selected map is null in the new map. The sixth example shows
+both for <code>average</code> and <code>count</code>.
+
+<h3>Time stamp of the new maps</h3>
+Unless the flag <b>-t</b> is given, every new map gets a time stamp that spans the
+selected maps: it starts at the earliest start time and ends at the latest end
+time, or at the start of the last map if that map is a time instant. If the
+only selected map is a time instant, so is the new map. The stamp does not
+depend on <b>order</b>, and all new maps of one run get the same stamp. In
+relative time, the new maps get numbers in the unit of the input dataset. The
+flag <b>-t</b> gives the new maps no time stamp and does not register them in the
+temporal database. The seventh example shows the stamp with and without <b>-t</b>.
+
+<h3>Computation</h3>
+The option <b>nprocs</b> is the number of threads of <em>r.series</em>: <code>0</code> uses the
+default of OpenMP, a positive number uses that many threads, and a negative
+number uses all but that many threads. Its default is <code>0</code>, or the value of
+<code>NPROCS</code> of the GRASS session if that is set (see <em>g.gisenv</em>). The option
+<b>memory</b> is the size of the row cache of <em>r.series</em> in MB, <code>300</code> by default.
+Both are passed on to <em>r.series</em>, and threads need a GRASS built with OpenMP.
+The result does not depend on them.
+<p>
+<em>r.series</em> keeps every input map open, which can exceed the number of files
+that the operating system allows. If the number of selected maps is greater
+than <b>file_limit</b> (<code>1000</code> by default), the tool runs <em>r.series</em> with its
+flag <b>-z</b>, which reads the maps row by row, and warns "Processing over N
+maps: activating -z flag of r.series which slows down processing", with the
+value of <b>file_limit</b> for N. A number of maps equal to <b>file_limit</b> gives
+no warning. The flag does not change the result but makes the computation
+slower. A higher <b>file_limit</b> avoids it, but should not exceed the limit of
+open files of the operating system (see the
+<a href="https://grasswiki.osgeo.org/wiki/Large_raster_data_processing#Number_of_open_files_limitation">Wiki</a>).
+The eighth example sets a low <b>file_limit</b>.
 
 <h2>NOTES</h2>
-
-To avoid problems with too many open files, by default, the maximum
-number of open files is set to 1000. If the number of input raster
-files exceeds this number, the <b>-z</b> flag will be invoked. Because this
-will slow down processing, the user can set a higher limit with the
-<b>file_limit</b> parameter. Note that <b>file_limit</b> limit should not exceed the
-user-specific limit on open files set by your operating system. See the
-<a href="https://grasswiki.osgeo.org/wiki/Large_raster_data_processing#Number_of_open_files_limitation">Wiki</a>
-for more information.
-
-<h2>Performance</h2>
-To enable parallel processing, the user can specify the number of threads to be
-used with the <b>nprocs</b> parameter (default 1). The <b>memory</b> parameter
-(default 300 MB) can also be provided to determine the size of the buffer in MB for
-computation. Both parameters are passed to <a href="r.series.html">r.series</a>.
-To take advantage of the parallelization, GRASS
-needs to be compiled with OpenMP enabled.
-
+The tool computes in the current computational region, because <em>r.series</em>
+does; see <em>g.region</em>.
+<p>
+An existing map of the name given in <b>output</b> is replaced only with
+<b>--overwrite</b>; without it the tool stops with a message that the map
+exists. With <b>--overwrite</b> the time stamp of the map is replaced as well.
+The name in <b>output</b> may carry the mapset, as in <code>output=mean@PERMANENT</code>.
+<p>
+Wrong input stops the tool with a message before anything is written:
+<p>
+<ul>
+<li>An <b>input</b> dataset that does not exist: "Space time dataset <code>&lt;name&gt;</code> of
+type <code>&lt;strds&gt;</code> not found".</li>
+<li>An SQL error in <b>where</b>: two messages, "Unable to get map ids from
+register table" with the name of the register table, and "Invalid where
+condition" with the condition and the text of the SQL error.</li>
+<li>A value that is not offered for <b>method</b> or <b>order</b>, or a <b>quantile</b>
+outside 0 to 1: the parser stops with "Value <code>&lt;value&gt;</code> out of range for
+parameter" and the name of the option.</li>
+</ul>
+<p>
+If <em>r.series</em> fails, the tool ends with "r.series failed. Check above error
+messages."
 
 <h2>EXAMPLES</h2>
 
-<h3>Estimate the average temperature for the whole time series</h3>
+<h3>Aggregate all maps of a dataset</h3>
+The dataset <code>reading</code> holds four daily maps on a region of one row and three
+cells, from 1 March 2026. Each map is a time interval of one day. The value of
+a cell is its column number, 1 to 3, plus 3, 0, 9 and 1 in the four maps. The
+average of a cell is the column number plus (3 + 0 + 9 + 1) / 4 = 3.25, so the
+new map <code>mean</code> holds 4.25, 5.25 and 6.25. Its time stamp spans the four maps,
+from 1 March to 5 March; <em><a href="t.list.html">t.list</a></em> shows it.
 
-Here the entire stack of input maps is considered:
-
-<div class="code"><pre>
-t.rast.series input=tempmean_monthly output=tempmean_average method=average
-</pre></div>
-
-<h3>Estimate the average temperature for a subset of the time series</h3>
-
-Here the stack of input maps is limited to a certain period of time:
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.series input=tempmean_daily output=tempmean_season method=average \
-  where="start_time &gt;= '2012-06' and start_time &lt;= '2012-08'"
-</pre></div>
-
-<h3>Climatology: single month in a multi-annual time series</h3>
-
-By considering only a single month in a multi-annual time series the so-called
-climatology can be computed.
-
-Estimate average temperature for all January maps in the time series:
-
-<div class="code"><pre>
-t.rast.series input=tempmean_monthly \
-    method=average output=tempmean_january \
-    where="strftime('%m', start_time)='01'"
-
-# equivalently, we can use
-t.rast.series input=tempmean_monthly \
-    output=tempmean_january method=average \
-    where="start_time = datetime(start_time, 'start of year', '0 month')"
-
-# if we want also February and March averages
-
-t.rast.series input=tempmean_monthly \
-    output=tempmean_february method=average \
-    where="start_time = datetime(start_time, 'start of year', '1 month')"
-
-t.rast.series input=tempmean_monthly \
-    output=tempmean_march method=average \
-    where="start_time = datetime(start_time, 'start of year', '2 month')"
-</pre></div>
-
-Generalizing a bit, we can estimate monthly climatologies for all months
-by means of different methods
-
-<div class="code"><pre>
-for i in `seq -w 1 12` ; do
-  for m in average stddev minimum maximum ; do
-    t.rast.series input=tempmean_monthly method=${m} output=tempmean_${m}_${i} \
-    where="strftime('%m', start_time)='${i}'"
-  done
+g.region n=1 s=0 e=3 w=0 res=1
+for map in "reading_1 3" "reading_2 0" "reading_3 9" "reading_4 1"; do
+    set -- $map
+    r.mapcalc expression="$1 = col() + $2"
 done
+t.create output=reading title="Readings" description="Four daily readings"
+t.register -i input=reading maps=reading_1,reading_2,reading_3,reading_4 \
+    start=2026-03-01 increment="1 day"
+t.rast.series input=reading method=average output=mean
+r.stats -1 input=mean | paste -sd' '
+t.list type=raster columns=name,start_time,end_time format=csv separator=pipe \
+    where="name = 'mean'"
+</pre></div>
+
+<div class="code"><pre>
+4.25 5.25 6.25
+name|start_time|end_time
+mean|2026-03-01 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import Tools
+
+tools = Tools()
+
+
+def cells(name):
+    return " ".join(tools.r_stats(input=name, flags="1").text.split())
+
+
+tools.g_region(n=1, s=0, e=3, w=0, res=1)
+for name, offset in (
+    ("reading_1", 3),
+    ("reading_2", 0),
+    ("reading_3", 9),
+    ("reading_4", 1),
+):
+    tools.r_mapcalc(expression=f"{name} = col() + {offset}")
+tools.t_create(output="reading", title="Readings", description="Four daily readings")
+tools.t_register(
+    input="reading",
+    maps="reading_1,reading_2,reading_3,reading_4",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_series(input="reading", method="average", output="mean")
+print(cells("mean"))
+print(
+    tools.t_list(
+        type="raster",
+        columns="name,start_time,end_time",
+        format="csv",
+        separator="pipe",
+        where="name = 'mean'",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+4.25 5.25 6.25
+name|start_time|end_time
+mean|2026-03-01 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<h3>Compute several methods in one run</h3>
+One run takes a list of methods and a list of output names of the same length,
+and the maps come in the order of the lists. With <code>minimum</code>, <code>maximum</code> and
+<code>range</code> the new maps <code>low</code>, <code>high</code> and <code>spread</code> hold the smallest value of
+each cell, 0 + 1 = 1, 2 and 3, the largest, 9 + 1 = 10, 11 and 12, and their
+difference, 9 in every cell. The dataset <code>reading</code> is the one of the previous
+example.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.series input=reading method=minimum,maximum,range \
+    output=low,high,spread
+for map in low high spread; do
+    echo "$map: $(r.stats -1 input=$map | paste -sd' ')"
+done
+</pre></div>
+
+<div class="code"><pre>
+low: 1 2 3
+high: 10 11 12
+spread: 9 9 9
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading", method="minimum,maximum,range", output="low,high,spread"
+)
+for name in ("low", "high", "spread"):
+    print(f"{name}: {cells(name)}")
+</pre></div>
+
+<div class="code"><pre>
+low: 1 2 3
+high: 10 11 12
+spread: 9 9 9
+</pre></div>
+
+<h3>Compute quantiles</h3>
+The four values of a cell, sorted, are 0, 1, 3 and 9 plus the column number.
+The quantile 0.25 lies at the position <code>0.25 * 3 = 0.75</code>, so it is
+<code>0 + 0.75 * (1 - 0) = 0.75</code> plus the column number: 1.75, 2.75 and 3.75. The
+quantile 0.75 lies at the position 2.25, <code>3 + 0.25 * (9 - 3) = 4.5</code> plus the
+column number: 5.5, 6.5 and 7.5. The first block asks for both quantiles with
+two methods <code>quantile</code>. In the second block <code>quantile</code> stands next to
+<code>maximum</code>, which takes no quantile: the median lies at the position 1.5, the
+mean of 1 and 3, which is 2 plus the column number, so 3, 4 and 5, and the
+maximum is 10, 11 and 12.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.series input=reading method=quantile,quantile quantile=0.25,0.75 \
+    output=lower,upper
+for map in lower upper; do
+    echo "$map: $(r.stats -1 input=$map | paste -sd' ')"
+done
+</pre></div>
+
+<div class="code"><pre>
+lower: 1.75 2.75 3.75
+upper: 5.5 6.5 7.5
+</pre></div>
+
+<div class="code"><pre>
+t.rast.series input=reading method=quantile,maximum quantile=0.5 \
+    output=median,top
+for map in median top; do
+    echo "$map: $(r.stats -1 input=$map | paste -sd' ')"
+done
+</pre></div>
+
+<div class="code"><pre>
+median: 3 4 5
+top: 10 11 12
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading",
+    method="quantile,quantile",
+    quantile="0.25,0.75",
+    output="lower,upper",
+)
+for name in ("lower", "upper"):
+    print(f"{name}: {cells(name)}")
+</pre></div>
+
+<div class="code"><pre>
+lower: 1.75 2.75 3.75
+upper: 5.5 6.5 7.5
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading", method="quantile,maximum", quantile=0.5, output="median,top"
+)
+for name in ("median", "top"):
+    print(f"{name}: {cells(name)}")
+</pre></div>
+
+<div class="code"><pre>
+median: 3 4 5
+top: 10 11 12
+</pre></div>
+
+<h3>Select the maps and set their order</h3>
+The first block aggregates only the maps that start on or after 3 March, the
+third and the fourth, with <code>sum</code>: 9 + 1 = 10 plus twice the column number, so
+12, 14 and 16. The new map <code>late</code> starts on 3 March, where the third map
+starts, and ends on 5 March, where the fourth map ends.
+<p>
+The other blocks compute <code>slope</code> and <code>max_raster</code> for two orders. In the time
+order the values of the first cell are 4, 1, 10 and 2. The slope is the slope
+of a line fitted to these values at the positions 0 to 3, and it is 0.3; the
+largest value, 10, is at the position 2, so <code>max_raster</code> is 2. With <b>order</b>
+<code>max</code> the maps are sorted by their largest cell value, which is 6, 3, 12 and 4
+in the time order; the values of the first cell then are 1, 2, 4 and 10, the
+slope is 2.9 and the largest value is at the position 3.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.series input=reading method=sum output=late \
+    where="start_time &gt;= '2026-03-03'"
+r.stats -1 input=late | paste -sd' '
+t.list type=raster columns=name,start_time,end_time format=csv separator=pipe \
+    where="name = 'late'"
+</pre></div>
+
+<div class="code"><pre>
+12 14 16
+name|start_time|end_time
+late|2026-03-03 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+t.rast.series input=reading method=slope,max_raster \
+    output=slope_by_time,max_by_time
+t.rast.series input=reading method=slope,max_raster order=max \
+    output=slope_by_max,max_by_max
+for map in slope_by_time max_by_time slope_by_max max_by_max; do
+    echo "$map: $(r.stats -1 input=$map | paste -sd' ')"
+done
+</pre></div>
+
+<div class="code"><pre>
+slope_by_time: 0.3 0.3 0.3
+max_by_time: 2 2 2
+slope_by_max: 2.9 2.9 2.9
+max_by_max: 3 3 3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading",
+    method="sum",
+    output="late",
+    where="start_time &gt;= '2026-03-03'",
+)
+print(cells("late"))
+print(
+    tools.t_list(
+        type="raster",
+        columns="name,start_time,end_time",
+        format="csv",
+        separator="pipe",
+        where="name = 'late'",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+12 14 16
+name|start_time|end_time
+late|2026-03-03 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading",
+    method="slope,max_raster",
+    output="slope_by_time,max_by_time",
+)
+tools.t_rast_series(
+    input="reading",
+    method="slope,max_raster",
+    order="max",
+    output="slope_by_max,max_by_max",
+)
+for name in ("slope_by_time", "max_by_time", "slope_by_max", "max_by_max"):
+    print(f"{name}: {cells(name)}")
+</pre></div>
+
+<div class="code"><pre>
+slope_by_time: 0.3 0.3 0.3
+max_by_time: 2 2 2
+slope_by_max: 2.9 2.9 2.9
+max_by_max: 3 3 3
+</pre></div>
+
+<h3>Select the same month of several years</h3>
+The dataset <code>temp</code> holds six monthly maps on a region of one row and two
+cells, January to March of 2025 and of 2026. The maps are numbered 1 to 6 in
+time order, and the value of a cell is its column number, 1 or 2, plus 10 times
+the number of the map. The condition <code>strftime('%m', start_time) = '01'</code>
+selects the January maps, 1 and 4, in both years: the average of a cell is the
+column number plus (10 + 40) / 2 = 25, so 26 and 27. The loop in the second
+block computes the climatology of each month for two methods. The maps of a
+month are numbered 1 + k and 4 + k for k = 0, 1 and 2, so the average is the
+column number plus 25, 35 and 45, and the maximum is the column number plus 40,
+50 and 60.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.region n=1 s=0 e=2 w=0 res=1
+for number in 1 2 3 4 5 6; do
+    r.mapcalc expression="temp_$number = col() + 10 * $number"
+done
+t.create output=temp title="Temperature" \
+    description="Three months of two years"
+t.register -i input=temp maps=temp_1,temp_2,temp_3 \
+    start=2025-01-01 increment="1 month"
+t.register -i input=temp maps=temp_4,temp_5,temp_6 \
+    start=2026-01-01 increment="1 month"
+t.rast.series input=temp method=average output=january \
+    where="strftime('%m', start_time) = '01'"
+r.stats -1 input=january | paste -sd' '
+</pre></div>
+
+<div class="code"><pre>
+26 27
+</pre></div>
+
+<div class="code"><pre>
+for month in 01 02 03; do
+    for method in average maximum; do
+        t.rast.series input=temp method=$method output=${method}_$month \
+            where="strftime('%m', start_time) = '$month'"
+        echo "${method}_$month: $(r.stats -1 input=${method}_$month | paste -sd' ')"
+    done
+done
+</pre></div>
+
+<div class="code"><pre>
+average_01: 26 27
+maximum_01: 41 42
+average_02: 36 37
+maximum_02: 51 52
+average_03: 46 47
+maximum_03: 61 62
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_region(n=1, s=0, e=2, w=0, res=1)
+for number in range(1, 7):
+    tools.r_mapcalc(expression=f"temp_{number} = col() + 10 * {number}")
+tools.t_create(
+    output="temp", title="Temperature", description="Three months of two years"
+)
+for maps, start in (
+    ("temp_1,temp_2,temp_3", "2025-01-01"),
+    ("temp_4,temp_5,temp_6", "2026-01-01"),
+):
+    tools.t_register(
+        input="temp", maps=maps, start=start, increment="1 month", flags="i"
+    )
+tools.t_rast_series(
+    input="temp",
+    method="average",
+    output="january",
+    where="strftime('%m', start_time) = '01'",
+)
+print(cells("january"))
+</pre></div>
+
+<div class="code"><pre>
+26 27
+</pre></div>
+
+<div class="code"><pre>
+for month in ("01", "02", "03"):
+    for method in ("average", "maximum"):
+        tools.t_rast_series(
+            input="temp",
+            method=method,
+            output=f"{method}_{month}",
+            where=f"strftime('%m', start_time) = '{month}'",
+        )
+        print(f"{method}_{month}: {cells(f'{method}_{month}')}")
+</pre></div>
+
+<div class="code"><pre>
+average_01: 26 27
+maximum_01: 41 42
+average_02: 36 37
+maximum_02: 51 52
+average_03: 46 47
+maximum_03: 61 62
+</pre></div>
+
+<h3>Handle null cells</h3>
+The dataset <code>gappy</code> holds two daily maps. The first holds 10, 20 and 30, the
+second holds the same values but is null in the first cell. By default the
+average of the first cell is the value of the first map alone, 10, and the
+count is 1 there and 2 in the other cells. With <b>-n</b> a cell that is null in
+one map is null in the result, so the first cell is <code>*</code>, the symbol of
+<em>r.stats</em> for a null cell.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+r.mapcalc expression="gappy_1 = col() * 10"
+r.mapcalc expression="gappy_2 = if(col() == 1, null(), col() * 10)"
+t.create output=gappy title="Gaps" description="One null cell in the second map"
+t.register -i input=gappy maps=gappy_1,gappy_2 start=2026-03-01 \
+    increment="1 day"
+t.rast.series input=gappy method=average,count output=skip_average,skip_count
+t.rast.series -n input=gappy method=average,count \
+    output=keep_average,keep_count
+for map in skip_average skip_count keep_average keep_count; do
+    echo "$map: $(r.stats -1 input=$map | paste -sd' ')"
+done
+</pre></div>
+
+<div class="code"><pre>
+skip_average: 10 20
+skip_count: 1 2
+keep_average: * 20
+keep_count: * 2
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="gappy_1 = col() * 10")
+tools.r_mapcalc(expression="gappy_2 = if(col() == 1, null(), col() * 10)")
+tools.t_create(
+    output="gappy", title="Gaps", description="One null cell in the second map"
+)
+tools.t_register(
+    input="gappy",
+    maps="gappy_1,gappy_2",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.t_rast_series(
+    input="gappy", method="average,count", output="skip_average,skip_count"
+)
+tools.t_rast_series(
+    input="gappy",
+    method="average,count",
+    output="keep_average,keep_count",
+    flags="n",
+)
+for name in ("skip_average", "skip_count", "keep_average", "keep_count"):
+    print(f"{name}: {cells(name)}")
+</pre></div>
+
+<div class="code"><pre>
+skip_average: 10 20
+skip_count: 1 2
+keep_average: * 20
+keep_count: * 2
+</pre></div>
+
+<h3>Give the new map no time stamp</h3>
+With the flag <b>-t</b> the new map <code>plain</code> is computed as before but gets no time
+stamp and is not registered. <em><a href="t.list.html">t.list</a></em> lists the maps registered in
+the temporal database with their time: <code>mean</code> from the first example and <code>late</code>
+from the fourth example are there, <code>plain</code> is not.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.series -t input=reading method=average output=plain
+r.stats -1 input=plain | paste -sd' '
+t.list type=raster columns=name,start_time,end_time format=csv separator=pipe \
+    where="name in ('mean', 'late', 'plain')"
+</pre></div>
+
+<div class="code"><pre>
+4.25 5.25
+name|start_time|end_time
+late|2026-03-03 00:00:00|2026-03-05 00:00:00
+mean|2026-03-01 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_series(input="reading", method="average", output="plain", flags="t")
+print(cells("plain"))
+print(
+    tools.t_list(
+        type="raster",
+        columns="name,start_time,end_time",
+        format="csv",
+        separator="pipe",
+        where="name in ('mean', 'late', 'plain')",
+    ).text
+)
+</pre></div>
+
+<div class="code"><pre>
+4.25 5.25
+name|start_time|end_time
+late|2026-03-03 00:00:00|2026-03-05 00:00:00
+mean|2026-03-01 00:00:00|2026-03-05 00:00:00
+</pre></div>
+
+<h3>Limit the open files and set the threads</h3>
+A <b>file_limit</b> of 2 is below the four maps of <code>reading</code>, so the tool runs
+<em>r.series</em> with its flag <b>-z</b> and warns on the standard error. The result is
+the same as without the flag: the sum of a cell is four times the column number
+plus 13, so 17, 21 and 25. The options <b>nprocs</b> and <b>memory</b> are passed to
+<em>r.series</em> and do not change the result either.
+
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.rast.series input=reading method=sum output=total file_limit=2 nprocs=2 \
+    memory=100
+r.stats -1 input=total | paste -sd' '
+</pre></div>
+
+<div class="code"><pre>
+17 21
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.t_rast_series(
+    input="reading",
+    method="sum",
+    output="total",
+    file_limit=2,
+    nprocs=2,
+    memory=100,
+)
+print(cells("total"))
+</pre></div>
+
+<div class="code"><pre>
+17 21
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
+<a href="g.region.html">g.region</a>,
 <a href="r.series.html">r.series</a>,
+<a href="r.stats.html">r.stats</a>,
 <a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>
+<a href="t.info.html">t.info</a>,
+<a href="t.list.html">t.list</a>,
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
+<a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 <p>
 <a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data processing Wiki</a>
