@@ -19,6 +19,9 @@ new dataset and stays registered in the old one as well, also with
 A fully qualified name for the input space-time dataset is only required
 if space-time datasets with the same name exist in different mapsets.
 
+The name of the new space time dataset must not contain a dot; *t.copy* stops
+with an error before anything is copied.
+
 ## EXAMPLE
 
 In the North Carolina sample dataset with the separately available
