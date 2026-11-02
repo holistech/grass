@@ -37,6 +37,7 @@ REVIEWED_MANUALS = (
     "t.rast.contour",
     "t.rast.export",
     "t.rast.extract",
+    "t.rast.gapfill",
     "t.rast.list",
     "t.rast.univar",
     "t.register",
