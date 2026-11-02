@@ -20,17 +20,19 @@ Either <b>levels</b> or <b>step</b> sets the contour levels:
 <ul>
 <li><b>levels</b> takes a list of levels, separated by commas. A level outside
 the values of a map gives no line in that map.</li>
-<li><b>step</b> sets the distance between two levels. <em>r.contour</em>
-places the levels within the smallest and the largest value of each map, so
-maps with different values get different levels; in the first example,
-<b>step</b> <code>2</code> gives the even numbers within the values of each
-map.</li>
-<li><b>minlevel</b> and <b>maxlevel</b> limit the levels of a step.
-<em>r.contour</em> first moves a limit that lies outside the values of a map
-into them. The levels then go from the lower limit in steps of <b>step</b> up
-to the higher one, which is always the last level, also when it is not a whole
-number of steps above the lower one. The NOTES name the trap of a map whose
-values lie wholly below <b>minlevel</b> or above <b>maxlevel</b>.</li>
+<li><b>step</b> sets the distance between two levels. The levels are the
+multiples of <b>step</b> that lie within the smallest and the largest value of
+each map, so maps with different values get different levels; in the first
+example, <b>step</b> <code>2</code> gives the even numbers within the values
+of each map.</li>
+<li><b>minlevel</b> and <b>maxlevel</b> limit the levels of a step. With
+<b>minlevel</b>, the levels start at <b>minlevel</b> and follow in steps of
+<b>step</b>, instead of being multiples of <b>step</b>. Only the levels from
+<b>minlevel</b> up to <b>maxlevel</b>, both included, that lie within the
+values of a map are used. <b>maxlevel</b> is a level only if it lies on this
+grid of levels. The limits apply to every map of the dataset: a map whose
+values lie wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> gets
+no level.</li>
 </ul>
 <p>
 If both <b>levels</b> and <b>step</b> are given, <em>r.contour</em> uses the
@@ -79,19 +81,11 @@ registered as well.
 <em>r.contour</em> computes each map in the current computational region. The
 contour lines run between the centres of the cells, so a line that leaves the
 region ends at the centre of the cell at its border, as the last example
-shows. Use the region, not a raster mask, to restrict the area: at null cells,
-also at those outside a raster mask, <em>r.contour</em> draws lines that run
-back on themselves and warns "crossings found". The last example shows this as
-well.
-<p>
-<b>minlevel</b> and <b>maxlevel</b> apply to every map of the dataset, but
-<em>r.contour</em> moves them into the values of each map. A map whose values
-lie wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> therefore
-still gets levels within its values, and a line at each of them, except at a
-level equal to its smallest value, which gives no line. The example "Contour
-lines in a range of levels" shows both cases. To get lines only at fixed
-levels, use <b>levels</b>: a level outside the values of a map gives no line
-there.
+shows. Null cells, also the cells outside a raster mask, count as cells
+outside the region: a line ends at them in the same way. A raster mask on a
+rectangle therefore gives the same lines as the region of that rectangle, as
+the last example shows as well; only a closed line that stays within about one
+cell of the border can differ (see <em>r.contour</em>).
 <p>
 If <b>where</b> selects no map, <em>t.rast.contour</em> warns that the space
 time raster dataset is empty and creates no output dataset.
@@ -466,30 +460,25 @@ heat_2026_07_03|2026-07-03 00:00:00|2
 <b>minlevel</b> and <b>maxlevel</b> limit the levels of a step. With
 <b>step</b> <code>1</code>, <b>minlevel</b> <code>22</code> and
 <b>maxlevel</b> <code>24</code>, the second and the third day have lines at
-22, 23 and 24 degrees. The first day reaches only 23.29 degrees:
-<em>r.contour</em> moves <b>maxlevel</b> down by one step into its values, so
-its levels end at 23.
+22, 23 and 24 degrees. The first day reaches only 23.29 degrees, so its
+levels end at 23.
 <p>
-The second block shows that <b>maxlevel</b> is always the last level, even
-when it is not a whole number of steps above <b>minlevel</b>: with
+The second block shows that <b>maxlevel</b> is a limit, not a level, when it
+does not lie on the grid of <b>minlevel</b> and <b>step</b>: with
 <b>maxlevel</b> <code>23.5</code>, the second and the third day have lines at
-22, 23 and 23.5 degrees. The condition in <b>where</b> leaves out the first
-day.
+22 and 23 degrees. The condition in <b>where</b> leaves out the first day.
 <p>
-The third and the fourth block show the trap named in the NOTES: the limits
-apply to all maps, but <em>r.contour</em> moves them into the values of each
-map.
+The third and the fourth block show maps whose values lie outside the limits;
+such a map gets no level and so no line:
 <ul>
 <li>With <b>minlevel</b> <code>24</code> and <b>maxlevel</b> <code>26</code>,
 the values of the first day (21 to 23.29) lie wholly below <b>minlevel</b>.
-Both limits are moved down by whole steps to 23, so the first day still gets
-a line, at 23 degrees; the last command lists the level of the first day
-only.</li>
+Its vector map is empty and is not registered; the second and the third day
+have three lines each, at 24, 25 and 26 degrees.</li>
 <li>With <b>minlevel</b> <code>18</code> and <b>maxlevel</b> <code>20</code>,
-the values of every day lie wholly above <b>maxlevel</b>. Both limits are
-moved up by whole steps to 21, the smallest value of each map, and a level
-equal to the smallest value gives no line: with <b>-n</b>, three empty maps
-are registered, each with the level 21 in its attribute table.</li>
+the values of every day lie wholly above <b>maxlevel</b>, so no day has a
+line. With <b>-n</b>, the three empty vector maps are registered all the
+same.</li>
 </ul>
 
 <p>Command line:</p>
@@ -880,9 +869,8 @@ the third day has four lines with eight nodes.
 <p>
 The second block restricts the area to the same western half with a raster
 mask instead, on the full region. The cells outside the mask are null cells,
-and at them <em>r.contour</em> draws lines that run back on themselves: twice
-as many lines with half as many nodes, and the warning "crossings found" on
-the standard error. The region is the way to restrict the area.
+and the lines end at them as at the border of the region: the half circles
+have the same lines, nodes and eastern edge as with the region.
 
 <p>Command line:</p>
 
@@ -906,14 +894,14 @@ r.mapcalc expression="west_half = if(x() &lt; 10, 1, null())"
 r.mask raster=west_half
 t.rast.contour input=tmax@PERMANENT output=masked basename=masked step=2
 r.mask -r
-t.vect.list input=masked columns=id,lines,nodes
+t.vect.list input=masked columns=id,lines,nodes,east
 </pre></div>
 
 <div class="code"><pre>
-id|lines|nodes
-masked_2026_07_01@analysis|1|2
-masked_2026_07_02@analysis|3|6
-masked_2026_07_03@analysis|4|8
+id|lines|nodes|east
+masked_2026_07_01@analysis|1|2|9.5
+masked_2026_07_02@analysis|3|6|9.5
+masked_2026_07_03@analysis|4|8|9.5
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -938,14 +926,14 @@ tools.r_mapcalc(expression="west_half = if(x() &lt; 10, 1, null())")
 tools.r_mask(raster="west_half")
 tools.t_rast_contour(input="tmax@PERMANENT", output="masked", basename="masked", step=2)
 tools.r_mask(flags="r")
-print(tools.t_vect_list(input="masked", columns="id,lines,nodes").text)
+print(tools.t_vect_list(input="masked", columns="id,lines,nodes,east").text)
 </pre></div>
 
 <div class="code"><pre>
-id|lines|nodes
-masked_2026_07_01@analysis|1|2
-masked_2026_07_02@analysis|3|6
-masked_2026_07_03@analysis|4|8
+id|lines|nodes|east
+masked_2026_07_01@analysis|1|2|9.5
+masked_2026_07_02@analysis|3|6|9.5
+masked_2026_07_03@analysis|4|8|9.5
 </pre></div>
 
 <h2>SEE ALSO</h2>

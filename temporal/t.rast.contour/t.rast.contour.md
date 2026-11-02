@@ -19,16 +19,17 @@ Either **levels** or **step** sets the contour levels:
 
 - **levels** takes a list of levels, separated by commas. A level outside the
   values of a map gives no line in that map.
-- **step** sets the distance between two levels. *r.contour* places the
-  levels within the smallest and the largest value of each map, so maps with
-  different values get different levels; in the first example, **step** `2`
-  gives the even numbers within the values of each map.
-- **minlevel** and **maxlevel** limit the levels of a step. *r.contour* first
-  moves a limit that lies outside the values of a map into them. The levels
-  then go from the lower limit in steps of **step** up to the higher one,
-  which is always the last level, also when it is not a whole number of steps
-  above the lower one. The NOTES name the trap of a map whose values lie
-  wholly below **minlevel** or above **maxlevel**.
+- **step** sets the distance between two levels. The levels are the
+  multiples of **step** that lie within the smallest and the largest value of
+  each map, so maps with different values get different levels; in the first
+  example, **step** `2` gives the even numbers within the values of each map.
+- **minlevel** and **maxlevel** limit the levels of a step. With
+  **minlevel**, the levels start at **minlevel** and follow in steps of
+  **step**, instead of being multiples of **step**. Only the levels from
+  **minlevel** up to **maxlevel**, both included, that lie within the values
+  of a map are used. **maxlevel** is a level only if it lies on this grid of
+  levels. The limits apply to every map of the dataset: a map whose values lie
+  wholly below **minlevel** or wholly above **maxlevel** gets no level.
 
 If both **levels** and **step** are given, *r.contour* uses the list and
 ignores the step. A level equal to the smallest value of a map gives no line.
@@ -70,17 +71,11 @@ registered as well.
 *r.contour* computes each map in the current computational region. The
 contour lines run between the centres of the cells, so a line that leaves the
 region ends at the centre of the cell at its border, as the last example
-shows. Use the region, not a raster mask, to restrict the area: at null cells,
-also at those outside a raster mask, *r.contour* draws lines that run back on
-themselves and warns "crossings found". The last example shows this as well.
-
-**minlevel** and **maxlevel** apply to every map of the dataset, but
-*r.contour* moves them into the values of each map. A map whose values lie
-wholly below **minlevel** or wholly above **maxlevel** therefore still gets
-levels within its values, and a line at each of them, except at a level equal
-to its smallest value, which gives no line. The example "Contour lines in a
-range of levels" shows both cases. To get lines only at fixed levels, use
-**levels**: a level outside the values of a map gives no line there.
+shows. Null cells, also the cells outside a raster mask, count as cells
+outside the region: a line ends at them in the same way. A raster mask on a
+rectangle therefore gives the same lines as the region of that rectangle, as
+the last example shows as well; only a closed line that stays within about
+one cell of the border can differ (see *r.contour*).
 
 If **where** selects no map, *t.rast.contour* warns that the space time raster
 dataset is empty and creates no output dataset.
@@ -449,27 +444,24 @@ its vector maps.
 
 **minlevel** and **maxlevel** limit the levels of a step. With **step** `1`,
 **minlevel** `22` and **maxlevel** `24`, the second and the third day have
-lines at 22, 23 and 24 degrees. The first day reaches only 23.29 degrees:
-*r.contour* moves **maxlevel** down by one step into its values, so its levels
-end at 23.
+lines at 22, 23 and 24 degrees. The first day reaches only 23.29 degrees, so
+its levels end at 23.
 
-The second block shows that **maxlevel** is always the last level, even when
-it is not a whole number of steps above **minlevel**: with **maxlevel**
-`23.5`, the second and the third day have lines at 22, 23 and 23.5 degrees.
-The condition in **where** leaves out the first day.
+The second block shows that **maxlevel** is a limit, not a level, when it does
+not lie on the grid of **minlevel** and **step**: with **maxlevel** `23.5`,
+the second and the third day have lines at 22 and 23 degrees. The condition
+in **where** leaves out the first day.
 
-The third and the fourth block show the trap named in the NOTES: the limits
-apply to all maps, but *r.contour* moves them into the values of each map.
+The third and the fourth block show maps whose values lie outside the limits;
+such a map gets no level and so no line:
 
 - With **minlevel** `24` and **maxlevel** `26`, the values of the first day
-  (21 to 23.29) lie wholly below **minlevel**. Both limits are moved down by
-  whole steps to 23, so the first day still gets a line, at 23 degrees; the
-  last command lists the level of the first day only.
+  (21 to 23.29) lie wholly below **minlevel**. Its vector map is empty and is
+  not registered; the second and the third day have three lines each, at 24,
+  25 and 26 degrees.
 - With **minlevel** `18` and **maxlevel** `20`, the values of every day lie
-  wholly above **maxlevel**. Both limits are moved up by whole steps to 21,
-  the smallest value of each map, and a level equal to the smallest value
-  gives no line: with **-n**, three empty maps are registered, each with the
-  level 21 in its attribute table.
+  wholly above **maxlevel**, so no day has a line. With **-n**, the three
+  empty vector maps are registered all the same.
 
 === "Command line"
 
@@ -854,9 +846,8 @@ the third day has four lines with eight nodes.
 
 The second block restricts the area to the same western half with a raster
 mask instead, on the full region. The cells outside the mask are null cells,
-and at them *r.contour* draws lines that run back on themselves: twice as many
-lines with half as many nodes, and the warning "crossings found" on the
-standard error. The region is the way to restrict the area.
+and the lines end at them as at the border of the region: the half circles
+have the same lines, nodes and eastern edge as with the region.
 
 === "Command line"
 
@@ -880,14 +871,14 @@ standard error. The region is the way to restrict the area.
     r.mask raster=west_half
     t.rast.contour input=tmax@PERMANENT output=masked basename=masked step=2
     r.mask -r
-    t.vect.list input=masked columns=id,lines,nodes
+    t.vect.list input=masked columns=id,lines,nodes,east
     ```
 
     ```text
-    id|lines|nodes
-    masked_2026_07_01@analysis|1|2
-    masked_2026_07_02@analysis|3|6
-    masked_2026_07_03@analysis|4|8
+    id|lines|nodes|east
+    masked_2026_07_01@analysis|1|2|9.5
+    masked_2026_07_02@analysis|3|6|9.5
+    masked_2026_07_03@analysis|4|8|9.5
     ```
 
 === "Python (grass.tools)"
@@ -912,14 +903,14 @@ standard error. The region is the way to restrict the area.
     tools.r_mask(raster="west_half")
     tools.t_rast_contour(input="tmax@PERMANENT", output="masked", basename="masked", step=2)
     tools.r_mask(flags="r")
-    print(tools.t_vect_list(input="masked", columns="id,lines,nodes").text)
+    print(tools.t_vect_list(input="masked", columns="id,lines,nodes,east").text)
     ```
 
     ```text
-    id|lines|nodes
-    masked_2026_07_01@analysis|1|2
-    masked_2026_07_02@analysis|3|6
-    masked_2026_07_03@analysis|4|8
+    id|lines|nodes|east
+    masked_2026_07_01@analysis|1|2|9.5
+    masked_2026_07_02@analysis|3|6|9.5
+    masked_2026_07_03@analysis|4|8|9.5
     ```
 
 <!-- markdownlint-enable MD046 -->
