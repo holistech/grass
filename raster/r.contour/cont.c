@@ -47,7 +47,7 @@ static int in_strip(unsigned char);
 static int getnewcell(struct cell *, int, int, DCELL **, unsigned char **);
 static void newedge(struct cell *);
 static int findcrossing(struct cell *, double, struct Cell_head,
-                        struct line_pnts *, int *);
+                        struct line_pnts *);
 static void getpoint(struct cell *curr, double, struct Cell_head,
                      struct line_pnts *);
 
@@ -77,8 +77,6 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     int outside; /* 1 if line is exiting the surface; 0 otherwise */
     struct cell current;
     int p1, p2; /* indexes to end points of cell edges */
-
-    int ncrossing; /* number of found crossing */
 
     Points = Vect_new_line_struct();
     Cats = Vect_new_cats_struct();
@@ -125,8 +123,6 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
     }
-
-    ncrossing = 0;
 
     G_message(n_("Writing vector contour (one level)...",
                  "Writing vector contours (total levels %d)...", nlevels),
@@ -177,8 +173,8 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     /* while not off an edge, follow line */
                     while (!outside) {
                         entry = current.edge;
-                        hit[current.r][current.c] |= findcrossing(
-                            &current, level, Cell, Points, &ncrossing);
+                        hit[current.r][current.c] |=
+                            findcrossing(&current, level, Cell, Points);
                         used[current.r][current.c] |=
                             (1 << entry) | (1 << current.edge);
                         newedge(&current);
@@ -229,7 +225,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
 
                     getpoint(&current, level, Cell, Points);
                     hit[current.r][current.c] |=
-                        findcrossing(&current, level, Cell, Points, &ncrossing);
+                        findcrossing(&current, level, Cell, Points);
                     newedge(&current);
                     outside = getnewcell(&current, nrow, ncol, z, square);
 
@@ -237,8 +233,8 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                     while (!outside &&
                            ((current.edge != 0) || ((current.r != startrow) ||
                                                     (current.c != startcol)))) {
-                        hit[current.r][current.c] |= findcrossing(
-                            &current, level, Cell, Points, &ncrossing);
+                        hit[current.r][current.c] |=
+                            findcrossing(&current, level, Cell, Points);
                         newedge(&current);
                         outside = getnewcell(&current, nrow, ncol, z, square);
                     }
@@ -262,11 +258,6 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
             }
         }
     } /* for levels */
-
-    if (ncrossing > 0) {
-        G_warning(n_("%d crossing found", "%d crossings found", ncrossing),
-                  ncrossing);
-    }
 
     for (k = 0; k < 4; k++) {
         G_free(first[k]);
@@ -401,12 +392,12 @@ static void newedge(struct cell *current)
 /***********************************************************************
   findcrossing-- decides which edge exit point from cell is on and changes
   value of edge.
-  Returns 1 if only 2 crossings found ( don't want to check this Cell again);
+  Returns 1 if the cell need not be checked again: always with two
+  crossings, with four (a saddle) if the line entered or left by edge 0;
   0 otherwise.
 ****************************************************************************/
 static int findcrossing(struct cell *current, double level,
-                        struct Cell_head Cell, struct line_pnts *Points,
-                        int *ncrossing)
+                        struct Cell_head Cell, struct line_pnts *Points)
 {
     int i, j;
     int numcross;   /* number of crossings found in this Cell */
@@ -432,7 +423,13 @@ static int findcrossing(struct cell *current, double level,
             }
         }
     }
-    else if (numcross == 4) {
+    else {
+        /* Four crossings, a saddle. All four nodes of a cell on the surface
+           have values (getnewcell), so going round the cell the level is
+           crossed an even number of times, and the edge the line entered by
+           is one of them: there are two or four crossings. Before 2026-11-02
+           a cell with a null node could have one or three, and r.contour
+           counted them and warned "crossings found". */
         if (current->edge == 0)
             cellhit = 1;
 
@@ -446,15 +443,6 @@ static int findcrossing(struct cell *current, double level,
 
         if (current->edge == 0)
             cellhit = 1;
-    }
-    else {
-        if (1 == numcross) {
-            G_debug(1, "%d crossings in cell %d, %d", numcross, current->r,
-                    current->c);
-            (*ncrossing)++;
-        }
-
-        cellhit = 1;
     }
 
     return cellhit;
