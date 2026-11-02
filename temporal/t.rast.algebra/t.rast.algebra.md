@@ -65,6 +65,10 @@ from the STRDS **B**.
 
 The map **basename** for the result STRDS must always be specified.
 
+The name of the result STRDS must not contain a dot. The parser stops at the
+dot: the new algebra with the error "Unexpected character '.'", the classic
+algebra (**-c**) with a syntax error. No dataset is created.
+
 ## TEMPORAL RASTER ALGEBRA
 
 The temporal algebra provides a wide range of temporal operators and

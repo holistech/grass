@@ -67,6 +67,10 @@ topology relation) from the STRDS <b>B</b>.
 
 <p>
 The map <b>basename</b> for the result STRDS must always be specified.
+<p>
+The name of the result STRDS must not contain a dot. The parser stops at the
+dot: the new algebra with the error "Unexpected character '.'", the classic
+algebra (<b>-c</b>) with a syntax error. No dataset is created.
 
 <h2>TEMPORAL RASTER ALGEBRA</h2>
 
