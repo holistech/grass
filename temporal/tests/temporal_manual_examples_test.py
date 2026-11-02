@@ -20,7 +20,7 @@ from grass.temporal.testing.manual_coverage import (
     tool_options,
 )
 from grass.temporal.testing.manual_examples import check_manual, parse_manual
-from grass.temporal.testing.session import temporal_session
+from grass.temporal.testing.session import project_session
 
 REVIEWED_MANUALS = ("t.create", "t.rast.univar", "t.rast.contour")
 
@@ -41,7 +41,12 @@ def test_examples_run_and_show_their_output(tool, variant, tmp_path):
         f"{manual.path} has no examples under ## EXAMPLES"
     )
     project = tmp_path / "grassdata" / "temporal_examples"
-    with temporal_session(project, crs=manual.project.get("crs")) as session:
+    # The examples run in child processes and need only session.env, so this
+    # process does not init grass.temporal. With temporal_session, pytest -n
+    # auto temporal/tests reported 12 DeprecationWarnings of multiprocessing
+    # (fork of a multi-threaded process), with project_session none (measured
+    # 2026-11-02).
+    with project_session(project, crs=manual.project.get("crs")) as session:
         check_manual(manual, variant, session, tmp_path / "work")
 
 
