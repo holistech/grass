@@ -1,164 +1,934 @@
 <h2>DESCRIPTION</h2>
 
-The module <em>t.vect.observe.strds</em> is used to observe specific
-locations in a space time raster dataset over a period of time using
-vector points.
-
-The first input is a vector map layer with vector points. The second
-input is one or several space time raster datasets (STRDS) that should
-be sampled over time at the vector point positions. The space time
-raster dataset will be sampled over its whole temporal extent (from
-start to end). A column name must be specified for each input space
-time raster dataset.
+<em>t.vect.observe.strds</em> observes the values of one or several space time
+raster datasets (STRDS) at the positions of the points of a vector map. For
+every raster map of the dataset it reads the value under each point and stores
+it in a column. The result is a new space time vector dataset (STVDS) with one
+vector map and as many layers as the raster dataset has maps: layer 1 holds the
+values of the first map, layer 2 those of the second map, and so on. Every layer
+is registered in the new dataset with the time of its raster map. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for
+space time datasets.
+<em><a href="t.vect.what.strds.html">t.vect.what.strds</a></em> does the
+opposite: it samples at the positions of the maps of a vector dataset and writes
+the values into the table of each vector map.
+<em><a href="t.rast.what.html">t.rast.what</a></em> prints the values at points
+instead of storing them. The values are read with
+<em><a href="v.what.rast.html">v.what.rast</a></em>.
 <p>
-The result is a new space time vector dataset that contains a single
-(new) vector map which links to as many time-stamped attribute tables
-as raster map layers are present in the input space time raster dataset.
-Hence, for each time step in the space time raster dataset a new
-attribute table is created. The GRASS Temporal Framework allows
-to time stamp attribute tables that can be linked to a single vector
-map layer.
+The option <b>input</b> is the vector map with the points; it can be in another
+mapset. The option <b>strds</b> names one or several space time raster
+datasets, separated by commas. The option <b>columns</b> names the columns that
+get the sampled values, one name for each dataset in the order of
+<b>strds</b>; the numbers of names and datasets must be equal. A column of a
+CELL (integer) raster map is of type INTEGER, the column of any other raster map
+of type DOUBLE PRECISION.
 <p>
-The module <em>v.what.rast</em> is used internally for sampling the
-time stamped raster map layers. All sampled values of a single time
-stamped raster map layer are written into a new time stamped attribute
-table.
+The output is made of two parts, both in the current mapset:
+<ul>
+<li>the option <b>vector_output</b> names the new vector map. It is a copy of
+the input in which every point has the same category in each layer. Layer 1 is
+linked to a copy of the table of the input, which gets the new columns in
+addition to the columns that it has; it keeps the layer name of the input.
+Every further layer has a new table <code>&lt;vector_output&gt;_&lt;layer&gt;</code>
+with the columns <code>cat</code> and the new columns;</li>
+<li>the option <b>output</b> names the new space time vector dataset. It takes
+the temporal type (absolute or relative time, with its unit) and the semantic
+type of the first dataset of <b>strds</b>. Its maps are the layers
+<code>&lt;vector_output&gt;:&lt;layer&gt;</code>, each with the start and end
+time of its granule.</li>
+</ul>
 <p>
-Use <em>t.vect.db.select</em> to print attribute values of the space
-time vector dataset to stdout.
+With one dataset, a granule is a map of the dataset. With several datasets, the
+granules are the maps of the first dataset, and the run observes a granule only
+if every other dataset has a map with the same time; a granule for which one
+dataset has no map is left out. If a dataset has several maps with that time,
+only one of them is used. The datasets must have the same temporal type,
+and the first dataset needs maps with intervals. All datasets are sampled as
+they are, over their whole temporal extent.
+<p>
+Points are sampled in the current computational region (see
+<em><a href="g.region.html">g.region</a></em>): a point outside the region, or
+on a cell without a value, gets a NULL in the column.
+<p>
+The option <b>where</b> takes an SQL condition on the table of layer 1 of the
+input and selects the points to observe. The points that it does not select are
+not in the output map, in none of its layers.
+<p>
+Use <em><a href="t.vect.db.select.html">t.vect.db.select</a></em> or
+<em><a href="v.db.select.html">v.db.select</a></em> to print the values of the
+new layers.
 
 <h2>NOTES</h2>
 
-The option <b>where</b> selects points of the input vector map. Points that
-it does not select are not in the output map, in none of its layers. The
-selection works on the table of layer 1, so the module stops with an error
-before it writes anything if the input map has other layers besides layer 1,
-with categories or with a table. Layer 1 of the output keeps the layer name
-that it has in the input map.
-
+The condition <b>where</b> works on the table of layer 1, so the module stops
+with an error before it writes anything if the input map has other layers
+besides layer 1, with categories or with a table. A condition that
+<em><a href="v.extract.html">v.extract</a></em> refuses stops the module with
+the message <code>Unable to select the points of &lt;name&gt; with where</code>,
+again before anything is written.
 <p>
-If a column named in <b>columns</b> exists in the table of a layer of the
-input map, the module stops with an error. With the overwrite flag it keeps
-the column and replaces its values with the sampled ones. A name that differs
-from such a column only in upper and lower case (<code>H</code> for <code>h</code>)
-is refused, with and without <b>--overwrite</b>, before the output map is made.
-
+If a column named in <b>columns</b> exists in the table of a layer of the input
+map, the module stops with an error that names the column and advises the
+overwrite flag. With <b>--overwrite</b> it keeps the column and replaces its
+values with the sampled ones, but a point that is not sampled (a point outside
+the region) keeps its old value; a point on a cell without a value gets a NULL.
+A name that differs from such a column only in upper and lower case
+(<code>Altitude</code> for <code>altitude</code>) is refused, with and without
+<b>--overwrite</b>, before the output map is made, with a message that names
+both spellings.
 <p>
-If a run fails, the module removes the vector map and the space time vector
-dataset it made, so nothing is left behind. With the overwrite flag the
+If a run fails with an error message, the module removes the vector map and the
+space time vector dataset that it made, so nothing is left behind. The
+exception is a <b>where</b> that selects no point, see below. With <b>--overwrite</b> the
 previous output map and dataset of the same names have already been replaced
-when the run fails, so they are gone as well and are not restored. Without the
-overwrite flag an existing output is refused before anything is made and stays
-as it was. To keep a result, give the new run another name.
+when the run fails, so they are gone as well and are not restored. Without
+<b>--overwrite</b> an existing output is refused before anything is made and
+stays as it was. To keep a result, give the new run another name.
+<p>
+If <b>where</b> selects no point, the module ends with a Python error
+(<code>KeyError: 1</code>) and leaves the empty output vector map behind; it
+makes no space time vector dataset. Remove the map with
+<em><a href="g.remove.html">g.remove</a></em>, or check the condition on the
+table of the input with <em><a href="v.db.select.html">v.db.select</a></em>
+first. The second block of the example "Observe a selection of the points"
+shows it.
+<p>
+If several datasets are given and no map of the first dataset has a map with
+the same time in every other dataset, the module ends without a message and with
+the return code 0. It makes an empty space time vector dataset and a vector map
+that has only layer 1. Check the result with
+<em><a href="t.info.html">t.info</a></em> if the datasets may not share a
+granule. The third block of the example "Observe several raster datasets" shows
+it.
+<p>
+The module stops with an error, among others, for these reasons:
+<ul>
+<li>the numbers of <b>columns</b> and datasets differ: <code>The number of
+columns must be equal to the number of space time raster datasets</code>;</li>
+<li>a dataset has no maps: <code>Space time raster dataset &lt;name@mapset&gt;
+is empty</code>;</li>
+<li>the datasets have different temporal types: <code>Temporal type of space
+time raster datasets must be equal</code>;</li>
+<li>with several datasets, the first dataset has maps that are time instances:
+<code>The temporal map type of the sample dataset must be interval</code>;</li>
+<li>a raster map of a dataset does not exist any more.</li>
+</ul>
 
-<h2>EXAMPLE</h2>
+<h2>EXAMPLES</h2>
 
-The example shows how to create a space time vector dataset and a vector
-layer starting from a point vector and a space time raster dataset:
+<h3>Observe a raster dataset at points</h3>
+
+The region has 3 by 3 cells. The raster map <code>temperature_k</code> (k from 1
+to 3, one map for each day from 1 March 2026) holds <code>10 * k</code> plus the
+number of the cell, counted from 1 in the upper left corner row by row: 11 to 19
+in the first map, 21 to 29 in the second, 31 to 39 in the third. The input map
+<code>stations</code> has five points; the column <code>altitude</code> is their
+only attribute, and their categories are 1 to 5. The first four lie in the
+middle of the cells 1, 3, 5 and 7, the fifth outside the region.
+<p>
+The run observes the dataset <code>temperature</code>, so the output has three
+layers with one day each. The first block runs the module and shows the temporal
+properties of the new dataset, which holds 15 points (five in each of the three
+layers), and its maps. The layers have the column <code>temp</code> and, in
+layer 1, the columns of <code>stations</code> in addition: the points in the
+cells 1, 3, 5 and 7 read 11, 13, 15 and 17 in the first layer, 21, 23, 25 and 27
+in the second, 31, 33, 35 and 37 in the third. The fifth point has no value. The
+second block shows the tables of the layers. The third block shows how the
+layers are linked to their tables: layer 1 keeps the layer name
+<code>stations</code> of the input and uses the table <code>obs_points</code>,
+the others have the table <code>obs_points_&lt;layer&gt;</code>.
+<p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.observe.strds input=precip_30ynormals_3d strds=tempmean_monthly \
-                     output=precip_stations vect=precip_stations_monthly \
-                     columns=month
+g.region n=3 s=0 e=3 w=0 res=1
+for k in 1 2 3; do
+    r.mapcalc expression="temperature_$k = 10 * $k + 3 * (row() - 1) + col()"
+done
+t.create output=temperature title="Temperature" \
+    description="Daily temperature"
+t.register -i input=temperature \
+    maps=temperature_1,temperature_2,temperature_3 \
+    start=2026-03-01 increment="1 day"
+v.in.ascii input=- output=stations separator=comma \
+    columns="x double precision, y double precision, altitude double precision" &lt;&lt;EOF
+0.5,2.5,100
+2.5,2.5,200
+1.5,1.5,300
+0.5,0.5,400
+5.5,0.5,500
+EOF
+t.vect.observe.strds input=stations strds=temperature output=obs \
+    vector_output=obs_points columns=temp
+t.info -g type=stvds input=obs | \
+    grep -E "^(temporal_type|semantic_type|number_of_maps|points)="
+t.vect.list input=obs columns=name,layer,start_time,end_time
+</pre></div>
 
-t.info precip_stations type=stvds
- +-------------------- Space Time Vector Dataset -----------------------------+
- |                                                                            |
- +-------------------- Basic information -------------------------------------+
- | Id: ........................ precip_stations@climate_2009_2012
- | Name: ...................... precip_stations
- | Mapset: .................... climate_2009_2012
- | Creator: ................... lucadelu
- | Temporal type: ............. absolute
- | Creation time: ............. 2014-12-02 00:42:39.187615
- | Modification time:.......... 2014-12-02 00:42:55.215169
- | Semantic type:.............. mean
- +-------------------- Absolute time -----------------------------------------+
- | Start time:................. 2009-01-01 00:00:00
- | End time:................... 2013-01-01 00:00:00
- | Granularity:................ 1 month
- | Temporal type of maps:...... interval
- +-------------------- Spatial extent ----------------------------------------+
- | North:...................... 306221.830194
- | South:...................... 27606.895351
- | East:.. .................... 917004.829165
- | West:....................... 151768.568246
- | Top:........................ 1615.44
- | Bottom:..................... 2.4384
- +-------------------- Metadata information ----------------------------------+
- | Vector register table:...... vector_map_register_be074525097c4088997c9a1979f17065
- | Number of points ........... 6664
- | Number of lines ............ 0
- | Number of boundaries ....... 0
- | Number of centroids ........ 0
- | Number of faces ............ 0
- | Number of kernels .......... 0
- | Number of primitives ....... 6664
- | Number of nodes ............ 0
- | Number of areas ............ 0
- | Number of islands .......... 0
- | Number of holes ............ 0
- | Number of volumes .......... 0
- | Number of registered maps:.. 49
- |
- | Title:
- | Observaion of space time raster dataset(s) tempmean_monthly
- | Description:
- | Observation of space time raster dataset(s) tempmean_monthly with vector map precip_30ynormals_3d
- | Command history:
- | # 2014-12-02 00:42:39
- | t.vect.observe.strds input="precip_30ynormals_3d"
- |     strds="tempmean_monthly" output="precip_stations"
- |     vect="precip_stations_monthly" columns="month"
- |
- +----------------------------------------------------------------------------+
+<div class="code"><pre>
+temporal_type=absolute
+semantic_type=mean
+points=15
+number_of_maps=3
+name|layer|start_time|end_time
+obs_points|1|2026-03-01 00:00:00|2026-03-02 00:00:00
+obs_points|2|2026-03-02 00:00:00|2026-03-03 00:00:00
+obs_points|3|2026-03-03 00:00:00|2026-03-04 00:00:00
+</pre></div>
 
+<div class="code"><pre>
+for layer in 1 2 3; do
+    v.db.select map=obs_points layer=$layer
+done
+</pre></div>
 
-v.info precip_stations_monthly
- +----------------------------------------------------------------------------+
- | Name:            precip_stations_monthly                                   |
- | Mapset:          climate_2009_2012                                         |
- | Project:         nc_spm_temporal_workshop                                  |
- | Database:        /grassdata                                                |
- | Title:           North Carolina 30 year precipitation normals (3D)         |
- | Map scale:       1:1                                                       |
- | Name of creator: neteler                                                   |
- | Organization:                                                              |
- | Source date:     Wed May  9 14:32:39 2007                                  |
- | Timestamp (first layer): none                                              |
- |----------------------------------------------------------------------------|
- | Map format:      native                                                    |
- |----------------------------------------------------------------------------|
- |   Type of map: vector (level: 2)                                           |
- |                                                                            |
- |   Number of points:       136             Number of centroids:  0          |
- |   Number of lines:        0               Number of boundaries: 0          |
- |   Number of areas:        0               Number of islands:    0          |
- |   Number of faces:        0               Number of kernels:    0          |
- |   Number of volumes:      0               Number of holes:      0          |
- |                                                                            |
- |   Map is 3D:              Yes                                              |
- |   Number of dblinks:      49                                               |
- |                                                                            |
- |   Projection: Lambert Conformal Conic                                      |
- |                                                                            |
- |               N:     306221.830194    S:      27606.895351                 |
- |               E:     917004.829165    W:     151768.568246                 |
- |               B:            2.4384    T:           1615.44                 |
- |                                                                            |
- |   Digitization threshold: 0                                                |
- |   Comment:                                                                 |
- |                                                                            |
- +----------------------------------------------------------------------------+
+<div class="code"><pre>
+cat|x|y|altitude|temp
+1|0.5|2.5|100|11
+2|2.5|2.5|200|13
+3|1.5|1.5|300|15
+4|0.5|0.5|400|17
+5|5.5|0.5|500|
+cat|temp
+1|21
+2|23
+3|25
+4|27
+5|
+cat|temp
+1|31
+2|33
+3|35
+4|37
+5|
+</pre></div>
+
+<div class="code"><pre>
+v.db.connect -g map=obs_points | cut -d"|" -f1,2
+</pre></div>
+
+<div class="code"><pre>
+1/stations|obs_points
+2/obs_points_2|obs_points_2
+3/obs_points_3|obs_points_3
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from io import StringIO
+
+from grass.tools import Tools
+
+tools = Tools()
+tools.g_region(n=3, s=0, e=3, w=0, res=1)
+for k in (1, 2, 3):
+    tools.r_mapcalc(expression=f"temperature_{k} = 10 * {k} + 3 * (row() - 1) + col()")
+tools.t_create(
+    output="temperature", title="Temperature", description="Daily temperature"
+)
+tools.t_register(
+    input="temperature",
+    maps="temperature_1,temperature_2,temperature_3",
+    start="2026-03-01",
+    increment="1 day",
+    flags="i",
+)
+tools.v_in_ascii(
+    input=StringIO("0.5,2.5,100\n2.5,2.5,200\n1.5,1.5,300\n0.5,0.5,400\n5.5,0.5,500\n"),
+    output="stations",
+    separator="comma",
+    columns="x double precision, y double precision, altitude double precision",
+)
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature",
+    output="obs",
+    vector_output="obs_points",
+    columns="temp",
+)
+info = tools.t_info(type="stvds", input="obs", flags="g").keyval
+for key in ("temporal_type", "semantic_type", "points", "number_of_maps"):
+    print(f"{key}={info[key]}")
+print(tools.t_vect_list(input="obs", columns="name,layer,start_time,end_time").text)
+</pre></div>
+
+<div class="code"><pre>
+temporal_type=absolute
+semantic_type=mean
+points=15
+number_of_maps=3
+name|layer|start_time|end_time
+obs_points|1|2026-03-01 00:00:00|2026-03-02 00:00:00
+obs_points|2|2026-03-02 00:00:00|2026-03-03 00:00:00
+obs_points|3|2026-03-03 00:00:00|2026-03-04 00:00:00
+</pre></div>
+
+<div class="code"><pre>
+for layer in (1, 2, 3):
+    print(tools.v_db_select(map="obs_points", layer=layer).text)
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude|temp
+1|0.5|2.5|100|11
+2|2.5|2.5|200|13
+3|1.5|1.5|300|15
+4|0.5|0.5|400|17
+5|5.5|0.5|500|
+cat|temp
+1|21
+2|23
+3|25
+4|27
+5|
+cat|temp
+1|31
+2|33
+3|35
+4|37
+5|
+</pre></div>
+
+<div class="code"><pre>
+for line in tools.v_db_connect(map="obs_points", flags="g").text.splitlines():
+    print("|".join(line.split("|")[:2]))
+</pre></div>
+
+<div class="code"><pre>
+1/stations|obs_points
+2/obs_points_2|obs_points_2
+3/obs_points_3|obs_points_3
+</pre></div>
+
+<h3>Observe several raster datasets</h3>
+
+The second input is the dataset <code>humidity</code> from the maps
+<code>humidity_2</code> and <code>humidity_3</code>, which are valid on the
+second and the third day. Their values are <code>k + 0.5 * n</code> for
+<code>humidity_k</code> and the cell number <code>n</code>, except that the cell
+number 7 is NULL. The run needs one column for each dataset, so
+<code>columns=temp,hum</code> gives the values of <code>temperature</code> to
+<code>temp</code> and those of <code>humidity</code> to <code>hum</code>. The
+granules are the maps of <code>temperature</code> for which
+<code>humidity</code> has a map with the same time: the first day has no
+humidity, so it is left out and the output has two layers, the second and the
+third day. The point in the cell 7 reads a NULL in <code>hum</code>, and the
+fifth point outside the region a NULL in both columns. The second block shows the
+column types: <code>temp</code> follows the integer maps of
+<code>temperature</code>, <code>hum</code> the floating point maps of
+<code>humidity</code>.
+<p>
+The third block adds the dataset <code>late</code> with one map from noon of the
+first day to noon of the second day. No map of <code>late</code> has the time of
+a map of <code>temperature</code>, so no granule is left: the module ends
+without a message and the new dataset <code>none</code> has no map
+(<code>number_of_maps=0</code>); the vector map <code>none_points</code>
+exists, with layer 1 only. The fourth block adds the dataset
+<code>twice</code> with the two maps <code>twice_a</code> (the value 1) and
+<code>twice_b</code> (the value 2) for the first day. The column
+<code>two</code> gets the value of one of them, here 1, for the points in the
+region; the other map is not used.
+<p>Command line:</p>
+
+<div class="code"><pre>
+for k in 2 3; do
+    r.mapcalc expression="humidity_$k = if(row() == 3 &amp;&amp; col() == 1, null(), $k + 0.5 * (3 * (row() - 1) + col()))"
+done
+t.create output=humidity title="Humidity" description="Daily humidity"
+t.register -i input=humidity maps=humidity_2,humidity_3 \
+    start=2026-03-02 increment="1 day"
+t.vect.observe.strds input=stations strds=temperature,humidity \
+    output=obs_both vector_output=obs_both_points columns=temp,hum
+t.vect.list input=obs_both columns=name,layer,start_time
+for layer in 1 2; do
+    v.db.select map=obs_both_points layer=$layer
+done
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+obs_both_points|1|2026-03-02 00:00:00
+obs_both_points|2|2026-03-03 00:00:00
+cat|x|y|altitude|temp|hum
+1|0.5|2.5|100|21|2.5
+2|2.5|2.5|200|23|3.5
+3|1.5|1.5|300|25|4.5
+4|0.5|0.5|400|27|
+5|5.5|0.5|500||
+cat|temp|hum
+1|31|3.5
+2|33|4.5
+3|35|5.5
+4|37|
+5||
+</pre></div>
+
+<div class="code"><pre>
+db.describe -c table=obs_both_points_2
+</pre></div>
+
+<div class="code"><pre>
+ncols: 3
+nrows: 5
+Column 1: cat:INTEGER:20
+Column 2: temp:INTEGER:20
+Column 3: hum:DOUBLE PRECISION:20
+</pre></div>
+
+<div class="code"><pre>
+r.mapcalc expression="late_1 = 1"
+t.create output=late title="Late" description="Noon to noon"
+t.register input=late maps=late_1 \
+    start="2026-03-01 12:00:00" end="2026-03-02 12:00:00"
+t.vect.observe.strds input=stations strds=temperature,late \
+    output=none vector_output=none_points columns=temp,late
+t.info -g type=stvds input=none | grep -E "^number_of_maps="
+g.list type=vector pattern=none_points
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+none_points
+</pre></div>
+
+<div class="code"><pre>
+r.mapcalc expression="twice_a = 1"
+r.mapcalc expression="twice_b = 2"
+t.create output=twice title="Twice" description="Two maps for one day"
+t.register input=twice maps=twice_a,twice_b start=2026-03-01 end=2026-03-02
+t.vect.observe.strds input=stations strds=temperature,twice \
+    output=both vector_output=both_points columns=temp,two
+v.db.select map=both_points layer=1
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude|temp|two
+1|0.5|2.5|100|11|1
+2|2.5|2.5|200|13|1
+3|1.5|1.5|300|15|1
+4|0.5|0.5|400|17|1
+5|5.5|0.5|500||
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for k in (2, 3):
+    tools.r_mapcalc(
+        expression=(
+            f"humidity_{k} = if(row() == 3 &amp;&amp; col() == 1, null(), "
+            f"{k} + 0.5 * (3 * (row() - 1) + col()))"
+        )
+    )
+tools.t_create(output="humidity", title="Humidity", description="Daily humidity")
+tools.t_register(
+    input="humidity",
+    maps="humidity_2,humidity_3",
+    start="2026-03-02",
+    increment="1 day",
+    flags="i",
+)
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature,humidity",
+    output="obs_both",
+    vector_output="obs_both_points",
+    columns="temp,hum",
+)
+print(tools.t_vect_list(input="obs_both", columns="name,layer,start_time").text)
+for layer in (1, 2):
+    print(tools.v_db_select(map="obs_both_points", layer=layer).text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time
+obs_both_points|1|2026-03-02 00:00:00
+obs_both_points|2|2026-03-03 00:00:00
+cat|x|y|altitude|temp|hum
+1|0.5|2.5|100|21|2.5
+2|2.5|2.5|200|23|3.5
+3|1.5|1.5|300|25|4.5
+4|0.5|0.5|400|27|
+5|5.5|0.5|500||
+cat|temp|hum
+1|31|3.5
+2|33|4.5
+3|35|5.5
+4|37|
+5||
+</pre></div>
+
+<div class="code"><pre>
+print(tools.db_describe(table="obs_both_points_2", flags="c").text)
+</pre></div>
+
+<div class="code"><pre>
+ncols: 3
+nrows: 5
+Column 1: cat:INTEGER:20
+Column 2: temp:INTEGER:20
+Column 3: hum:DOUBLE PRECISION:20
+</pre></div>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="late_1 = 1")
+tools.t_create(output="late", title="Late", description="Noon to noon")
+tools.t_register(
+    input="late",
+    maps="late_1",
+    start="2026-03-01 12:00:00",
+    end="2026-03-02 12:00:00",
+)
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature,late",
+    output="none",
+    vector_output="none_points",
+    columns="temp,late",
+)
+info = tools.t_info(type="stvds", input="none", flags="g").keyval
+print(f"number_of_maps={info['number_of_maps']}")
+print(tools.g_list(type="vector", pattern="none_points").text)
+</pre></div>
+
+<div class="code"><pre>
+number_of_maps=0
+none_points
+</pre></div>
+
+<div class="code"><pre>
+tools.r_mapcalc(expression="twice_a = 1")
+tools.r_mapcalc(expression="twice_b = 2")
+tools.t_create(output="twice", title="Twice", description="Two maps for one day")
+tools.t_register(
+    input="twice", maps="twice_a,twice_b", start="2026-03-01", end="2026-03-02"
+)
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature,twice",
+    output="both",
+    vector_output="both_points",
+    columns="temp,two",
+)
+print(tools.v_db_select(map="both_points", layer=1).text)
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude|temp|two
+1|0.5|2.5|100|11|1
+2|2.5|2.5|200|13|1
+3|1.5|1.5|300|15|1
+4|0.5|0.5|400|17|1
+5|5.5|0.5|500||
+</pre></div>
+
+<h3>Observe a selection of the points</h3>
+
+<b>where</b> selects points of <code>stations</code> by their attributes:
+<code>altitude &gt;= 300</code> keeps the points with the categories 3, 4 and 5.
+The output map has only these points, in every layer, with the categories they
+have in the input. The values are those of the example above. The layer 1 of the
+output keeps the layer name <code>stations</code>.
+<p>
+The second block uses a condition that selects no point. The module ends with a
+Python error, <code>KeyError: 1</code>, and the empty vector map
+<code>nowhere_points</code> stays.
+<p>Command line:</p>
+
+<div class="code"><pre>
+t.vect.observe.strds input=stations strds=temperature output=obs_high \
+    vector_output=obs_high_points columns=temp where="altitude &gt;= 300"
+for layer in 1 3; do
+    v.db.select map=obs_high_points layer=$layer
+done
+v.db.connect -g map=obs_high_points | cut -d"|" -f1,2
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude|temp
+3|1.5|1.5|300|15
+4|0.5|0.5|400|17
+5|5.5|0.5|500|
+cat|temp
+3|35
+4|37
+5|
+1/stations|obs_high_points
+2/obs_high_points_2|obs_high_points_2
+3/obs_high_points_3|obs_high_points_3
+</pre></div>
+
+<div class="code"><pre>
+if ! (t.vect.observe.strds input=stations strds=temperature \
+    output=nowhere vector_output=nowhere_points columns=temp \
+    where="altitude &gt; 900" 2&gt;&amp;1 | grep -E "^KeyError"); then
+    echo "t.vect.observe.strds failed"
+fi
+g.list type=vector pattern=nowhere_points
+</pre></div>
+
+<div class="code"><pre>
+KeyError: 1
+t.vect.observe.strds failed
+nowhere_points
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+from grass.tools import ToolError
+
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature",
+    output="obs_high",
+    vector_output="obs_high_points",
+    columns="temp",
+    where="altitude &gt;= 300",
+)
+for layer in (1, 3):
+    print(tools.v_db_select(map="obs_high_points", layer=layer).text)
+for line in tools.v_db_connect(map="obs_high_points", flags="g").text.splitlines():
+    print("|".join(line.split("|")[:2]))
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude|temp
+3|1.5|1.5|300|15
+4|0.5|0.5|400|17
+5|5.5|0.5|500|
+cat|temp
+3|35
+4|37
+5|
+1/stations|obs_high_points
+2/obs_high_points_2|obs_high_points_2
+3/obs_high_points_3|obs_high_points_3
+</pre></div>
+
+<div class="code"><pre>
+try:
+    tools.t_vect_observe_strds(
+        input="stations",
+        strds="temperature",
+        output="nowhere",
+        vector_output="nowhere_points",
+        columns="temp",
+        where="altitude &gt; 900",
+    )
+except ToolError as error:
+    print(error.stderr.strip().splitlines()[-1])
+    print("t.vect.observe.strds failed")
+print(tools.g_list(type="vector", pattern="nowhere_points").text)
+</pre></div>
+
+<div class="code"><pre>
+KeyError: 1
+t.vect.observe.strds failed
+nowhere_points
+</pre></div>
+
+<h3>Use the name of a column that the input has</h3>
+
+The column <code>altitude</code> exists in the table of <code>stations</code>.
+The first block shows that the module refuses it and prints the error. With
+<b>--overwrite</b> (second block) the module writes the sampled values into the
+existing column of layer 1 and the layers 2 and 3 get a column with that name.
+The fifth point lies outside the region, is not sampled and keeps the altitude
+500. The third block shows that <code>Altitude</code> is refused, with
+<b>--overwrite</b> too, because it differs from <code>altitude</code> only in
+the case of a letter.
+<p>Command line:</p>
+
+<div class="code"><pre>
+if ! (t.vect.observe.strds input=stations strds=temperature \
+    output=check vector_output=check_points columns=altitude 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.observe.strds failed"
+fi
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Unable to add column altitude to vector map &lt;check_points&gt; with
+       layer 1: the column exists, use the overwrite flag to replace its
+       values
+t.vect.observe.strds failed
+</pre></div>
+
+<div class="code"><pre>
+t.vect.observe.strds --overwrite input=stations strds=temperature \
+    output=check vector_output=check_points columns=altitude
+for layer in 1 3; do
+    v.db.select map=check_points layer=$layer
+done
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude
+1|0.5|2.5|11
+2|2.5|2.5|13
+3|1.5|1.5|15
+4|0.5|0.5|17
+5|5.5|0.5|500
+cat|altitude
+1|31
+2|33
+3|35
+4|37
+5|
+</pre></div>
+
+<div class="code"><pre>
+if ! (t.vect.observe.strds --overwrite input=stations strds=temperature \
+    output=check vector_output=check_points columns=Altitude 2&gt;&amp;1 |
+    sed -n '/^ERROR/,$p'); then
+    echo "t.vect.observe.strds failed"
+fi
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Column &lt;Altitude&gt; differs only in case from the column &lt;altitude&gt; of
+       the table of vector map &lt;stations&gt; layer 1
+t.vect.observe.strds failed
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+try:
+    tools.t_vect_observe_strds(
+        input="stations",
+        strds="temperature",
+        output="check",
+        vector_output="check_points",
+        columns="altitude",
+    )
+except ToolError as error:
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.observe.strds failed")
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Unable to add column altitude to vector map &lt;check_points&gt; with
+       layer 1: the column exists, use the overwrite flag to replace its
+       values
+t.vect.observe.strds failed
+</pre></div>
+
+<div class="code"><pre>
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="temperature",
+    output="check",
+    vector_output="check_points",
+    columns="altitude",
+    overwrite=True,
+)
+for layer in (1, 3):
+    print(tools.v_db_select(map="check_points", layer=layer).text)
+</pre></div>
+
+<div class="code"><pre>
+cat|x|y|altitude
+1|0.5|2.5|11
+2|2.5|2.5|13
+3|1.5|1.5|15
+4|0.5|0.5|17
+5|5.5|0.5|500
+cat|altitude
+1|31
+2|33
+3|35
+4|37
+5|
+</pre></div>
+
+<div class="code"><pre>
+try:
+    tools.t_vect_observe_strds(
+        input="stations",
+        strds="temperature",
+        output="check",
+        vector_output="check_points",
+        columns="Altitude",
+        overwrite=True,
+    )
+except ToolError as error:
+    lines = error.stderr.strip().splitlines()
+    first = [line.startswith("ERROR") for line in lines].index(True)
+    print("\n".join(lines[first:]))
+    print("t.vect.observe.strds failed")
+</pre></div>
+
+<div class="code"><pre>
+ERROR: Column &lt;Altitude&gt; differs only in case from the column &lt;altitude&gt; of
+       the table of vector map &lt;stations&gt; layer 1
+t.vect.observe.strds failed
+</pre></div>
+
+<h3>Observe a dataset with relative time</h3>
+
+The dataset <code>model</code> has relative time with the unit hours:
+<code>step_1</code> from 0 to 1 and <code>step_2</code> from 1 to 2, with the
+values <code>100 * k + col()</code> for <code>step_k</code>. The points in the
+columns 1, 3, 2 and 1 read 201, 203, 202 and 201 in layer 2. The output dataset
+has relative time with the same unit, and its layers have the times of the maps
+as numbers.
+<p>Command line:</p>
+
+<div class="code"><pre>
+for k in 1 2; do
+    r.mapcalc expression="step_$k = 100 * $k + col()"
+done
+t.create output=model temporaltype=relative title="Model" \
+    description="Model output per step"
+t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
+t.vect.observe.strds input=stations strds=model output=obs_model \
+    vector_output=obs_model_points columns=step
+t.vect.list input=obs_model columns=name,layer,start_time,end_time
+t.info -g type=stvds input=obs_model | grep -E "^(temporal_type|unit)="
+v.db.select map=obs_model_points layer=2
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time|end_time
+obs_model_points|1|0|1
+obs_model_points|2|1|2
+temporal_type=relative
+unit=hours
+cat|step
+1|201
+2|203
+3|202
+4|201
+5|
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+for k in (1, 2):
+    tools.r_mapcalc(expression=f"step_{k} = 100 * {k} + col()")
+tools.t_create(
+    output="model",
+    temporaltype="relative",
+    title="Model",
+    description="Model output per step",
+)
+tools.t_register(
+    input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+)
+tools.t_vect_observe_strds(
+    input="stations",
+    strds="model",
+    output="obs_model",
+    vector_output="obs_model_points",
+    columns="step",
+)
+print(
+    tools.t_vect_list(input="obs_model", columns="name,layer,start_time,end_time").text
+)
+info = tools.t_info(type="stvds", input="obs_model", flags="g").keyval
+for key in ("temporal_type", "unit"):
+    print(f"{key}={info[key]}")
+print(tools.v_db_select(map="obs_model_points", layer=2).text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|start_time|end_time
+obs_model_points|1|0|1
+obs_model_points|2|1|2
+temporal_type=relative
+unit=hours
+cat|step
+1|201
+2|203
+3|202
+4|201
+5|
+</pre></div>
+
+<h3>Observe data of another mapset</h3>
+
+The input map and the raster dataset may be in another mapset: the names with
+the mapset, <code>stations@PERMANENT</code> and
+<code>temperature@PERMANENT</code>, select them. The output map and dataset are
+made in the current mapset, here the new mapset <code>analysis</code>. A new
+mapset has its own region, so the example sets the region again before the
+points are sampled.
+<p>Command line:</p>
+
+<div class="code"><pre>
+g.mapset -c mapset=analysis
+g.region n=3 s=0 e=3 w=0 res=1
+t.vect.observe.strds input=stations@PERMANENT \
+    strds=temperature@PERMANENT output=remote \
+    vector_output=remote_points columns=temp
+t.vect.list input=remote columns=name,layer,mapset
+v.db.select map=remote_points layer=1 columns=cat,temp
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset
+remote_points|1|analysis
+remote_points|2|analysis
+remote_points|3|analysis
+cat|temp
+1|11
+2|13
+3|15
+4|17
+5|
+</pre></div>
+
+<p>Python (grass.tools):</p>
+
+<div class="code"><pre>
+tools.g_mapset(mapset="analysis", flags="c")
+tools.g_region(n=3, s=0, e=3, w=0, res=1)
+tools.t_vect_observe_strds(
+    input="stations@PERMANENT",
+    strds="temperature@PERMANENT",
+    output="remote",
+    vector_output="remote_points",
+    columns="temp",
+)
+print(tools.t_vect_list(input="remote", columns="name,layer,mapset").text)
+print(tools.v_db_select(map="remote_points", layer=1, columns="cat,temp").text)
+</pre></div>
+
+<div class="code"><pre>
+name|layer|mapset
+remote_points|1|analysis
+remote_points|2|analysis
+remote_points|3|analysis
+cat|temp
+1|11
+2|13
+3|15
+4|17
+5|
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
 <em>
+<a href="g.mapset.html">g.mapset</a>,
+<a href="g.region.html">g.region</a>,
 <a href="t.create.html">t.create</a>,
 <a href="t.info.html">t.info</a>,
+<a href="t.rast.what.html">t.rast.what</a>,
+<a href="t.register.html">t.register</a>,
 <a href="t.vect.db.select.html">t.vect.db.select</a>,
-<a href="t.vect.what.strds.html">t.vect.what.strds</a>
+<a href="t.vect.list.html">t.vect.list</a>,
+<a href="t.vect.what.strds.html">t.vect.what.strds</a>,
+<a href="v.db.select.html">v.db.select</a>,
+<a href="v.extract.html">v.extract</a>,
+<a href="v.what.rast.html">v.what.rast</a>,
+<a href="temporalintro.html">temporal data processing</a>
 </em>
 
 <h2>AUTHOR</h2>
