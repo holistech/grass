@@ -1,244 +1,1088 @@
 ## DESCRIPTION
 
-List time stamped raster map layers that are registered in a space time
-raster dataset. *t.rast.list* provides several options to list map
-layers and their metadata. Listing of map layer can be ordered by
-metadata, metadata columns can be specified and SQL where conditions can
-be provided to select a map layer subset of the input space time raster
-dataset. Most of the raster map specific metadata is available for
-column selection, sorting and SQL where statements. Using the **method**
-option allows the specification of different methods to list map layers.
-Method *list* is the default option and sensitive to the
-**column**,**order** and **where** options.
+*t.rast.list* lists the raster maps that are registered in a space time raster
+dataset, with the metadata that the temporal database holds for each map. It
+reads the temporal database; the maps themselves are not opened. The
+listing is the usual step after *[t.info](t.info.md)* has shown the dataset as
+a whole and before a tool such as *[t.rast.univar](t.rast.univar.md)* or the
+map algebra works on its maps. See the
+[introduction to temporal data processing](temporalintro.md) for space time
+datasets. Space time 3D raster datasets have their own tool,
+*[t.rast3d.list](t.rast3d.list.md)*, space time vector datasets
+*[t.vect.list](t.vect.list.md)*, and *[t.list](t.list.md)* lists the datasets
+themselves.
 
-To print interval length in days and distance from the begin use method
-*delta*. Method *deltagap* will additionally print temporal gaps between
-map layer. The *gran* method allows the listing of map layer sampled by
-a user defined **granule**. As default the granularity of the space time
-raster dataset is used for sampling. The first granule starts with the
-first map, and each later start is counted in whole granules from it. A
-month or year step that ends behind the last day of a shorter month ends on
-that day: with a granule of one month and a first map from 31 January the
-granules start on 31 January, 28 February, 31 March and 30 April.
+### Select the maps
 
-While method *list* supports all columns except for interval_length and
-distance_from_begin, methods *delta*, *deltagap*, and *gran* support
-only the following columns: id, name, mapset, start_time, end_time,
-interval_length, and distance_from_begin. The option **order** is only
-available with method *list*.
+The option **input** names the space time raster dataset. A semantic label
+after the name, `input=name.label`, keeps only the maps with this label; the
+name and the label are separated by a single dot. Labels are given to maps by
+*[r.semantic.label](r.semantic.label.md)* or when the maps are registered
+with *[t.register](t.register.md)*.
 
-Methods *cols* and *comma* are depreciated. The *cols* method is
-replaced by the *plain* format and the *comma* method is replaced by the
-*line* format. The method *comma* prints the map ids in one line separated
-by commas, like the *line* format. The method *gran* refuses an empty space
-time dataset.
+The option **where** takes an SQL condition on the columns of the registered
+maps, such as `max > 5`, `name = 'temperature_1'` or
+`start_time >= '2026-03-02'`. Times are compared as text, so a time with a
+clock part needs the whole text: `start_time = '2026-03-02'` selects nothing,
+because the stored value is `2026-03-02 00:00:00`. Use `>=` and `<` for a day,
+or `name` for a single map. The function `strftime()` of SQLite selects
+recurring times, such as one day of the month or one month of the year. A
+condition with a syntax error stops with an error that starts with "Invalid
+where condition". With the methods `delta`, `deltagaps` and `gran`, the
+condition selects the maps before the lengths and distances are counted, so
+the distances start at 0 with the first selected map.
 
-The **format** option specifies the format of the output data. The
-default *plain* format will simply print user specified metadata columns
-of one map layer per line separated by a pipe by default. The *line*
-format will list fully qualified map names (name and mapset) as a
-comma-separated list of values that can be used as input for spatial
-modules. The *csv* format will print data in the CSV format using comma
-as the value separator (delimiter) and double quote for text field
-quoting. The *json* format generates JSON and, if the PyYAML package is
-installed, The *yaml* format generates YAML. The column (or item)
-separator can be specified with the **separator** option for *plain*,
-*line*, and *csv*.
+### Columns and order
+
+The option **columns** chooses the columns that are printed for each map,
+separated by commas. The columns are:
+
+- `id`, the name of the map with its mapset, such as
+  `temperature_1@PERMANENT`; `name` and `mapset`, the two parts of it;
+- `semantic_label`, the semantic label of the map, `None` for a map without
+  one;
+- `temporal_type`, `absolute` or `relative`;
+- `start_time` and `end_time`, the time of the map. The end time of a map
+  registered as a time instant is `None`. With relative time, they are numbers
+  in the unit of the dataset, printed without the unit;
+- `creator` and `creation_time`, the user who created the entry of the map in
+  the temporal database and the time of its creation;
+- `north`, `south`, `west` and `east`, the spatial extent of the map;
+  `nsres` and `ewres`, its cell sizes; `cols`, `rows` and `number_of_cells`,
+  its size in cells;
+- `min` and `max`, the smallest and the largest value of the map, as stored in
+  the temporal database;
+- `interval_length` and `distance_from_begin`, the length of the time interval
+  of the map and the distance of its start from the start of the first listed
+  map. They exist for the methods `delta`, `deltagaps` and `gran` only (see
+  below). With absolute time they are numbers of days, with relative time
+  numbers of the time unit of the dataset.
+
+The option **order** sorts the maps by one or more columns, separated by
+commas; the possible columns are those of the list above up to `max`. The
+default is `start_time`. The order is ascending, and the option takes names of
+columns only, no sort direction. The option works with the method `list` only.
+
+### Methods
+
+The option **method** chooses what is listed. The default is `list`.
+
+- `list` prints one line per registered map with the columns of **columns**.
+  Without **columns**, these are `name`, `mapset`, `start_time` and
+  `end_time`; with `format=line`, the column `id`. It supports all columns
+  except `interval_length` and `distance_from_begin`, and it is the only
+  method that **order** applies to.
+- `delta` prints the maps ordered by start time with the length of their
+  intervals and their distance from the first map. Without **columns**, the
+  columns are `id`, `name`, `mapset`, `start_time`, `end_time`,
+  `interval_length` and `distance_from_begin`. The length of a time instant is
+  `None`. `delta` supports only these columns.
+- `deltagaps` is `delta` with a line for every temporal gap between two maps.
+  A gap line has `None` as `id`, `name` and `mapset`; its times are the end of
+  the map before and the start of the map after the gap, and its length is the
+  length of the gap. Maps that follow each other directly leave no gap.
+- `gran` samples the maps by a granule and prints one line per granule, with
+  the columns of `delta`. The times and the length are those of the granule,
+  not of the map, so a map that is longer than the granule is listed once for
+  each granule it covers. A granule without a map has `None` as `id`, `name`
+  and `mapset`. When more than one map meets a granule, the line names one of
+  them: a map that covers or overlaps the granule names it before a map that
+  lies inside it. `gran` refuses a dataset without maps.
+- `cols` and `comma` are the old names of the formats `plain` and `line`.
+  `cols` is the same as `list`, and `comma` is `list` with `format=line`.
+  Prefer the option **format**.
+
+The option **granule** is the granule of the method `gran`. For absolute
+time it is a text with a number and a time unit, such as `"2 months"`. For
+relative time, leave it out (see the notes). Without it, the granularity of the
+dataset is used. The first granule starts with the first map; each later start
+is counted in whole granules from this start. A step of months or years that
+ends behind the last day of a shorter month ends on that day: with a granule of
+one month and a first map from 31 January, the granules start on 31 January, 28
+February, 31 March and 30 April. The other methods ignore **granule**.
+
+### Output
+
+The option **format** chooses the form of the output:
+
+- `plain` (the default) prints one line per map with the columns separated by
+  a vertical bar `|`, and the column names as the first line;
+- `line` prints the values of one column in one line, separated by commas. It
+  takes one column only; the default column is `id`, so the line is a list of
+  maps that other tools accept as input;
+- `csv` prints comma separated values, with the column names as the first
+  line. Text is enclosed in double quotes and numbers are not. A missing value
+  (`None`) is an empty text;
+- `json` prints an object with the key `data`, a list with one object per
+  map, and the key `metadata` with the list `column_names`. A missing value is
+  `null`, numbers are numbers, and times with absolute time are text;
+- `yaml` prints the same structure as YAML. It needs the PyYAML package.
+
+The flag **-u** suppresses the line with the column names in the formats
+`plain` and `csv`. The formats `json` and `yaml` always name the columns and
+refuse **-u**.
+
+The option **separator** replaces the separator of the formats `plain`, `csv`
+and `line`. It is a single character or a name such as `pipe`, `comma` or
+`tab`. The format `csv` accepts one character only, and `json` and `yaml`
+refuse **separator**. The option **output** writes the listing to a file
+instead of the standard output.
+
+## NOTES
+
+If no map is listed, the result depends on the method and the format. With
+the method `list` and the formats `plain` and `line`, *t.rast.list* stops with
+the error "Nothing found in the database for space time dataset
+`<name@mapset>` (type: strds)", followed by "Dataset is empty" for a dataset
+without maps and by "Dataset is empty or where clause is too constrained or
+incorrect" when **where** is given. With the format `json`, `data` is an empty
+list. The methods `delta` and `deltagaps` print the line with the column names
+only for a dataset without maps, and `delta` does so also when **where**
+selects nothing. The method `gran` stops for a dataset without maps with the
+error "Dataset is empty".
+
+A map without a start time is listed by `delta` and `deltagaps` with `None`
+in all time columns, and *t.rast.list* warns about it. The distances count from
+the first map that has a start time.
+
+The first example shows the format of a dataset with absolute time, the
+dataset `model` in the fifth example the format of one with relative time:
+the times are numbers of the time unit of the dataset, printed without the
+unit. The method `gran` works with relative time without **granule**. Given
+a **granule** for a dataset with relative time, it fails: a number ends with a
+Python error (`TypeError`) and a text with a unit such as `"6 hours"` with the
+error "Wrong granularity". Leave **granule** out; the granularity of the
+dataset is used.
+
+The option **output** takes the name of a file. The name `-` is not the
+standard output here: it writes a file with this name, as the last block of
+the "Choose the output format" example shows. To print the listing, leave out
+**output**; to keep it in a file, give a file name other than `-`.
+
+*t.rast.list* only reads, so it works on a dataset of another mapset as well.
+The name with the mapset (`input=temperature@PERMANENT`) selects it; a name
+without a mapset is searched in the mapsets of the search path (see
+*[g.mapsets](g.mapsets.md)*). The last example shows this.
+
+Combinations that cannot work are refused with a message that names the
+options: **order** with `delta`, `deltagaps` or `gran`; a column of the
+temporal database with these methods and `interval_length` or
+`distance_from_begin` with `list`; more than one column with `format=line`;
+**-u** or **separator** with `json` or `yaml`; a separator of more than one
+character with `csv`. A granule of absolute time without a time unit (`"2"`)
+or with an unknown unit (`"3 foo"`) is refused with the error "Wrong
+granularity".
 
 ## EXAMPLES
 
-This example shows several options that are available for map layers
-listing.
+<!-- markdownlint-disable MD046 -->
 
-### Default query
+### List the maps of a dataset
 
-The following command is the default one, returning standard information
-like name, mapset, start_time, end_time of each map in the space time
-dataset
+The dataset `temperature` has four maps of daily mean air temperature for the
+days from 1 to 4 March 2026. Each map has three columns and two rows; the
+values are the column number plus an offset, so the smallest and largest
+value of `temperature_1` are 1 and 3. The offsets 0, 6, 3 and 9 make the
+third map colder than the second one.
 
-```sh
-t.rast.list tempmean_monthly
-name|mapset|start_time|end_time
-2009_01_tempmean|climate_2000_2012|2009-01-01 00:00:00|2009-02-01 00:00:00
-2009_02_tempmean|climate_2000_2012|2009-02-01 00:00:00|2009-03-01 00:00:00
-....
-2012_11_tempmean|climate_2000_2012|2012-11-01 00:00:00|2012-12-01 00:00:00
-2012_12_tempmean|climate_2000_2012|2012-12-01 00:00:00|2013-01-01 00:00:00
-```
+The first block lists the maps with the default columns. The second block adds
+the flag **-u**, which suppresses the line with the column names. The third
+block names the columns, among them the smallest and largest value of each
+map. The fourth block lists all columns of the first map except `creator` and
+`creation_time`, which differ from user to user and from day to day. The map
+has no semantic label.
 
-### Add more info
+=== "Command line"
 
-The following command let the user to choose the columns to show
+    ```sh
+    g.region n=2 s=0 e=3 w=0 res=1
+    r.mapcalc expression="temperature_1 = col()"
+    r.mapcalc expression="temperature_2 = col() + 6"
+    r.mapcalc expression="temperature_3 = col() + 3"
+    r.mapcalc expression="temperature_4 = col() + 9"
+    t.create output=temperature title="Air temperature" \
+        description="Daily mean air temperature"
+    t.register -i input=temperature \
+        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
+        start=2026-03-01 increment="1 day"
+    t.rast.list input=temperature
+    ```
 
-```sh
-t.rast.list tempmean_monthly columns=name,start_time,min,max
-name|start_time|min|max
-2009_01_tempmean|2009-01-01 00:00:00|-3.380823|7.426054
-2009_02_tempmean|2009-02-01 00:00:00|-1.820261|8.006386
-...
-2009_01_tempmean|2009-01-01 00:00:00|-3.380823|7.426054
-2009_02_tempmean|2009-02-01 00:00:00|-1.820261|8.006386
-```
+    ```text
+    name|mapset|start_time|end_time
+    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    ```
 
-### Filtering the result by value
+    ```sh
+    t.rast.list -u input=temperature
+    ```
 
-In this example the result is filtered showing only the maps with max
-value major than 24
+    ```text
+    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    ```
 
-```sh
-t.rast.list tempmean_monthly columns=name,start_time,min,max where="max > 24"
-name|start_time|min|max
-2009_06_tempmean|2009-06-01 00:00:00|15.962669|25.819681
-2009_07_tempmean|2009-07-01 00:00:00|15.32852|26.103664
-2009_08_tempmean|2009-08-01 00:00:00|16.37995|27.293282
-....
-2012_06_tempmean|2012-06-01 00:00:00|14.929379|24.000651
-2012_07_tempmean|2012-07-01 00:00:00|18.455802|28.794653
-2012_08_tempmean|2012-08-01 00:00:00|15.718526|26.151115
-```
+    ```sh
+    t.rast.list input=temperature columns=name,start_time,min,max
+    ```
 
-### Filtering the result by time range
+    ```text
+    name|start_time|min|max
+    temperature_1|2026-03-01 00:00:00|1.0|3.0
+    temperature_2|2026-03-02 00:00:00|7.0|9.0
+    temperature_3|2026-03-03 00:00:00|4.0|6.0
+    temperature_4|2026-03-04 00:00:00|10.0|12.0
+    ```
 
-In this example the result is filtered showing only the maps which fall
-into a specified time range (from .. to):
+    ```sh
+    t.rast.list input=temperature where="name = 'temperature_1'" \
+        columns=id,name,semantic_label,mapset,temporal_type,start_time,end_time,north,south,west,east,nsres,ewres,cols,rows,number_of_cells,min,max
+    ```
 
-```sh
-t.rast.list tempmean_monthly columns=name,start_time,min,max \
-  where="start_time > '2009-06-01 00:00:00' and start_time < '2012-08-01 00:00:00'"
-name|start_time|min|max
-2009_06_tempmean|2009-06-01 00:00:00|15.962669|25.819681
-2009_07_tempmean|2009-07-01 00:00:00|15.32852|26.103664
-2009_08_tempmean|2009-08-01 00:00:00|16.37995|27.293282
-....
-2012_06_tempmean|2012-06-01 00:00:00|14.929379|24.000651
-2012_07_tempmean|2012-07-01 00:00:00|18.455802|28.794653
-2012_08_tempmean|2012-08-01 00:00:00|15.718526|26.151115
-```
+    ```text
+    id|name|semantic_label|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|cols|rows|number_of_cells|min|max
+    temperature_1@PERMANENT|temperature_1|None|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|3|2|6|1.0|3.0
+    ```
 
-### Filtering the result by selecting recurring timestamps
+=== "Python (grass.tools)"
 
-In this example the result is filtered showing only the maps which fall
-into a specified recurring time range (here one month per year):
+    ```python
+    from grass.tools import Tools
 
-```sh
-t.rast.list Tseasonal_fieldata_garda where="strftime('%m', start_time)='06'"
-```
-
-### Using method option
-
-Method option is able to show raster in different way. By default *cols*
-value is used, the value *comma* will print only the list of maps inside
-the space time dataset:
-
-```sh
-t.rast.list method=comma input=tempmean_monthly
-2009_01_tempmean@climate_2009_2012,2009_02_tempmean@climate_2009_2012,2009_03_tempmean@climate_2009_2012, \
-2009_04_tempmean@climate_2009_2012,2009_05_tempmean@climate_2009_2012,2009_06_tempmean@climate_2009_2012, \
-2009_07_tempmean@climate_2009_2012,2009_08_tempmean@climate_2009_2012,2009_09_tempmean@climate_2009_2012, \
-2009_10_tempmean@climate_2009_2012,2009_11_tempmean@climate_2009_2012,2009_12_tempmean@climate_2009_2012, \
-2010_01_tempmean@climate_2009_2012,2010_02_tempmean@climate_2009_2012,2010_03_tempmean@climate_2009_2012, \
-2010_04_tempmean@climate_2009_2012,2010_05_tempmean@climate_2009_2012,2010_06_tempmean@climate_2009_2012, \
-2010_07_tempmean@climate_2009_2012,2010_08_tempmean@climate_2009_2012,2010_09_tempmean@climate_2009_2012, \
-2010_10_tempmean@climate_2009_2012,2010_11_tempmean@climate_2009_2012,2010_12_tempmean@climate_2009_2012, \
-2011_01_tempmean@climate_2009_2012,2011_02_tempmean@climate_2009_2012,2011_03_tempmean@climate_2009_2012, \
-2011_04_tempmean@climate_2009_2012,2011_05_tempmean@climate_2009_2012,2011_06_tempmean@climate_2009_2012, \
-2011_07_tempmean@climate_2009_2012,2011_08_tempmean@climate_2009_2012,2011_09_tempmean@climate_2009_2012, \
-2011_10_tempmean@climate_2009_2012,2011_11_tempmean@climate_2009_2012,2011_12_tempmean@climate_2009_2012, \
-2012_01_tempmean@climate_2009_2012,2012_02_tempmean@climate_2009_2012,2012_03_tempmean@climate_2009_2012, \
-2012_04_tempmean@climate_2009_2012,2012_05_tempmean@climate_2009_2012,2012_06_tempmean@climate_2009_2012, \
-2012_07_tempmean@climate_2009_2012,2012_08_tempmean@climate_2009_2012,2012_09_tempmean@climate_2009_2012, \
-2012_10_tempmean@climate_2009_2012,2012_11_tempmean@climate_2009_2012,2012_12_tempmean@climate_2009_2012
-```
-
-The *delta* value calculate the interval between maps and the distance
-from the first map:
-
-```sh
-t.rast.list method=delta input=tempmean_monthly
-id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-2009_01_tempmean@climate_2000_2012|2009_01_tempmean|climate_2000_2012|2009-01-01 00:00:00|2009-02-01 00:00:00|31.0|0.0
-2009_02_tempmean@climate_2000_2012|2009_02_tempmean|climate_2000_2012|2009-02-01 00:00:00|2009-03-01 00:00:00|28.0|31.0
-2009_03_tempmean@climate_2000_2012|2009_03_tempmean|climate_2000_2012|2009-03-01 00:00:00|2009-04-01 00:00:00|31.0|59.0
-...
-2012_10_tempmean@climate_2000_2012|2012_10_tempmean|climate_2000_2012|2012-10-01 00:00:00|2012-11-01 00:00:00|31.0|1369.0
-2012_11_tempmean@climate_2000_2012|2012_11_tempmean|climate_2000_2012|2012-11-01 00:00:00|2012-12-01 00:00:00|30.0|1400.0
-2012_12_tempmean@climate_2000_2012|2012_12_tempmean|climate_2000_2012|2012-12-01 00:00:00|2013-01-01 00:00:00|31.0|1430.0
-```
-
-The *gran* value it is used to return data sampled by a user defined
-granule. As default the granularity of the space time raster dataset is
-used for sampling.
-
-```sh
-t.rast.list  method=gran input=tempmean_monthly
-id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-2009_01_tempmean@climate_2009_2012|2009_01_tempmean|climate_2009_2012|2009-01-01 00:00:00|2009-02-01 00:00:00|31.0|0.0
-2009_02_tempmean@climate_2009_2012|2009_02_tempmean|climate_2009_2012|2009-02-01 00:00:00|2009-03-01 00:00:00|28.0|31.0
-2009_03_tempmean@climate_2009_2012|2009_03_tempmean|climate_2009_2012|2009-03-01 00:00:00|2009-04-01 00:00:00|31.0|59.0
-2009_04_tempmean@climate_2009_2012|2009_04_tempmean|climate_2009_2012|2009-04-01 00:00:00|2009-05-01 00:00:00|30.0|90.0
-....
-2012_09_tempmean@climate_2009_2012|2012_09_tempmean|climate_2009_2012|2012-09-01 00:00:00|2012-10-01 00:00:00|30.0|1339.0
-2012_10_tempmean@climate_2009_2012|2012_10_tempmean|climate_2009_2012|2012-10-01 00:00:00|2012-11-01 00:00:00|31.0|1369.0
-2012_11_tempmean@climate_2009_2012|2012_11_tempmean|climate_2009_2012|2012-11-01 00:00:00|2012-12-01 00:00:00|30.0|1400.0
-2012_12_tempmean@climate_2009_2012|2012_12_tempmean|climate_2009_2012|2012-12-01 00:00:00|2013-01-01 00:00:00|31.0|1430.0
-```
-
-```sh
-t.rast.list  method=gran input=tempmean_monthly gran="2 months"
-id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-2009_01_tempmean@climate_2009_2012|2009_01_tempmean|climate_2009_2012|2009-01-01 00:00:00|2009-03-01 00:00:00|59.0|0.0
-2009_03_tempmean@climate_2009_2012|2009_03_tempmean|climate_2009_2012|2009-03-01 00:00:00|2009-05-01 00:00:00|61.0|59.0
-2009_05_tempmean@climate_2009_2012|2009_05_tempmean|climate_2009_2012|2009-05-01 00:00:00|2009-07-01 00:00:00|61.0|120.0
-....
-2012_07_tempmean@climate_2009_2012|2012_07_tempmean|climate_2009_2012|2012-07-01 00:00:00|2012-09-01 00:00:00|62.0|1277.0
-2012_09_tempmean@climate_2009_2012|2012_09_tempmean|climate_2009_2012|2012-09-01 00:00:00|2012-11-01 00:00:00|61.0|1339.0
-2012_11_tempmean@climate_2009_2012|2012_11_tempmean|climate_2009_2012|2012-11-01 00:00:00|2013-01-01 00:00:00|61.0|1400.0
-```
-
-For the *deltagaps* value you can see the example for space time vector
-dataset [t.vect.list](t.vect.list.md#using-method-option)
-
-### Reading raster names in Python
-
-```python
-result = json.loads(
-    gs.read_command(
-        "t.rast.list", input="tempmean_monthly", format="json"
+    tools = Tools()
+    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    for number, offset in enumerate((0, 6, 3, 9), start=1):
+        tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+    tools.t_create(
+        output="temperature",
+        title="Air temperature",
+        description="Daily mean air temperature",
     )
-)
-for item in result["data"]:
-    print(item["name"])
-```
+    tools.t_register(
+        input="temperature",
+        maps="temperature_1,temperature_2,temperature_3,temperature_4",
+        start="2026-03-01",
+        increment="1 day",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="temperature").text)
+    ```
 
-### Filtering the result by semantic label
+    ```text
+    name|mapset|start_time|end_time
+    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    ```
 
-Semantic label can be assigned to raster maps by
-*[r.semantic.label](r.semantic.label.md)* module or even when
-registering raster maps into STRDS by
-*[t.register](t.register.md#support-for-semantic-labels)*.
+    ```python
+    print(tools.t_rast_list(input="temperature", flags="u").text)
+    ```
 
-Name of STRDS can be extended by semantic label used for filtering. Name
-of STRDS and semantic label is split by a *single dot*.
+    ```text
+    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    ```
 
-```sh
-t.rast.list input=test.S2_1
-```
+    ```python
+    print(tools.t_rast_list(input="temperature", columns="name,start_time,min,max").text)
+    ```
 
-Note that semantic label filtering is *supported by all temporal
-modules*.
+    ```text
+    name|start_time|min|max
+    temperature_1|2026-03-01 00:00:00|1.0|3.0
+    temperature_2|2026-03-02 00:00:00|7.0|9.0
+    temperature_3|2026-03-03 00:00:00|4.0|6.0
+    temperature_4|2026-03-04 00:00:00|10.0|12.0
+    ```
 
-Also note that only STRDS can be filtered by semantic label, see
-*[r.semantic.label](r.semantic.label.md#known-issues)* for current
-limitations.
+    ```python
+    result = tools.t_rast_list(
+        input="temperature",
+        where="name = 'temperature_1'",
+        columns=(
+            "id,name,semantic_label,mapset,temporal_type,start_time,end_time,"
+            "north,south,west,east,nsres,ewres,cols,rows,number_of_cells,min,max"
+        ),
+    )
+    print(result.text)
+    ```
+
+    ```text
+    id|name|semantic_label|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|cols|rows|number_of_cells|min|max
+    temperature_1@PERMANENT|temperature_1|None|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|3|2|6|1.0|3.0
+    ```
+
+### Select and sort the maps
+
+The maps of `temperature` are sorted by start time. The option **order**
+sorts by another column; the first block sorts by `max`, so the colder third
+map comes before the second one.
+
+The option **where** selects the maps. The second block selects the maps that
+start from 2 March on and before 4 March, so the second and the third map. The
+third block combines a condition on the smallest value with **order**. The
+fourth block uses `strftime()` to select the maps that start on the 1st or the
+4th day of the month, a recurring selection that works the same way for one
+month of every year.
+
+The last block shows a trap: a time compared with `=` must be the whole text
+`2026-03-02 00:00:00`, and the short form selects no map. The format `json`
+shows the empty result, `data` is an empty list; the formats `plain` and
+`line` stop with an error here.
+
+=== "Command line"
+
+    ```sh
+    t.rast.list input=temperature columns=name,max order=max
+    ```
+
+    ```text
+    name|max
+    temperature_1|3.0
+    temperature_3|6.0
+    temperature_2|9.0
+    temperature_4|12.0
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,start_time \
+        where="start_time >= '2026-03-02' and start_time < '2026-03-04'"
+    ```
+
+    ```text
+    name|start_time
+    temperature_2|2026-03-02 00:00:00
+    temperature_3|2026-03-03 00:00:00
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,min,max order=max where="min > 3"
+    ```
+
+    ```text
+    name|min|max
+    temperature_3|4.0|6.0
+    temperature_2|7.0|9.0
+    temperature_4|10.0|12.0
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,start_time \
+        where="strftime('%d', start_time) in ('01', '04')"
+    ```
+
+    ```text
+    name|start_time
+    temperature_1|2026-03-01 00:00:00
+    temperature_4|2026-03-04 00:00:00
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name format=json \
+        where="start_time = '2026-03-02'"
+    echo
+    ```
+
+    ```text
+    {"data": [], "metadata": {"column_names": ["name"]}}
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    print(tools.t_rast_list(input="temperature", columns="name,max", order="max").text)
+    ```
+
+    ```text
+    name|max
+    temperature_1|3.0
+    temperature_3|6.0
+    temperature_2|9.0
+    temperature_4|12.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature",
+        columns="name,start_time",
+        where="start_time >= '2026-03-02' and start_time < '2026-03-04'",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|start_time
+    temperature_2|2026-03-02 00:00:00
+    temperature_3|2026-03-03 00:00:00
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature", columns="name,min,max", order="max", where="min > 3"
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|min|max
+    temperature_3|4.0|6.0
+    temperature_2|7.0|9.0
+    temperature_4|10.0|12.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature",
+        columns="name,start_time",
+        where="strftime('%d', start_time) in ('01', '04')",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|start_time
+    temperature_1|2026-03-01 00:00:00
+    temperature_4|2026-03-04 00:00:00
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature",
+        columns="name",
+        format="json",
+        where="start_time = '2026-03-02'",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    {"data": [], "metadata": {"column_names": ["name"]}}
+    ```
+
+### Select maps by semantic label
+
+The dataset `sentinel` has two scenes, on 1 and 11 June 2026, each with a red
+band (`S2_B4`) and a near infrared band (`S2_B8`). The maps are registered at
+an instant, without an end, so their `end_time` is `None`. The name of the
+dataset followed by a dot and a label, `sentinel.S2_B8`, lists the maps with
+this label. The second block adds **where** to the selection by label.
+
+=== "Command line"
+
+    ```sh
+    for scene in 1 2; do
+        r.mapcalc expression="red_$scene = 0.0$((scene + 4))"
+        r.mapcalc expression="nir_$scene = 0.$((scene + 2))5"
+        r.support map=red_$scene semantic_label=S2_B4
+        r.support map=nir_$scene semantic_label=S2_B8
+    done
+    t.create output=sentinel title="Reflectance" \
+        description="Red and near infrared"
+    t.register input=sentinel maps=red_1,nir_1 start="2026-06-01 10:30:00"
+    t.register input=sentinel maps=red_2,nir_2 start="2026-06-11 10:30:00"
+    t.rast.list input=sentinel.S2_B8
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    nir_1|PERMANENT|2026-06-01 10:30:00|None
+    nir_2|PERMANENT|2026-06-11 10:30:00|None
+    ```
+
+    ```sh
+    t.rast.list input=sentinel.S2_B4 columns=name,semantic_label,start_time \
+        where="start_time >= '2026-06-10'"
+    ```
+
+    ```text
+    name|semantic_label|start_time
+    red_2|S2_B4|2026-06-11 10:30:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for scene in (1, 2):
+        tools.r_mapcalc(expression=f"red_{scene} = 0.0{scene + 4}")
+        tools.r_mapcalc(expression=f"nir_{scene} = 0.{scene + 2}5")
+        tools.r_support(map=f"red_{scene}", semantic_label="S2_B4")
+        tools.r_support(map=f"nir_{scene}", semantic_label="S2_B8")
+    tools.t_create(
+        output="sentinel", title="Reflectance", description="Red and near infrared"
+    )
+    tools.t_register(input="sentinel", maps="red_1,nir_1", start="2026-06-01 10:30:00")
+    tools.t_register(input="sentinel", maps="red_2,nir_2", start="2026-06-11 10:30:00")
+    print(tools.t_rast_list(input="sentinel.S2_B8").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    nir_1|PERMANENT|2026-06-01 10:30:00|None
+    nir_2|PERMANENT|2026-06-11 10:30:00|None
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="sentinel.S2_B4",
+        columns="name,semantic_label,start_time",
+        where="start_time >= '2026-06-10'",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    name|semantic_label|start_time
+    red_2|S2_B4|2026-06-11 10:30:00
+    ```
+
+### Choose the output format
+
+All blocks list the dataset `temperature`. The first block prints the maps as
+a list of ids in one line, the form that other tools accept as input; the
+second block does the same with the names only and with another separator.
+The third and fourth block print CSV with and without the line of column
+names; text is quoted and numbers are not. The fifth block replaces the
+separator of the plain format. The sixth block prints JSON, which the Python
+tab reads from `result.json` and prints name and `max` of each map. The
+seventh block writes the listing to a file and prints the file. The eighth
+block shows that `output=-` writes a file named `-`.
+
+=== "Command line"
+
+    ```sh
+    t.rast.list input=temperature format=line
+    ```
+
+    ```text
+    temperature_1@PERMANENT,temperature_2@PERMANENT,temperature_3@PERMANENT,temperature_4@PERMANENT
+    ```
+
+    ```sh
+    t.rast.list input=temperature format=line columns=name separator=" | "
+    ```
+
+    ```text
+    temperature_1 | temperature_2 | temperature_3 | temperature_4
+    ```
+
+    ```sh
+    t.rast.list input=temperature format=csv columns=name,min,max
+    ```
+
+    ```text
+    "name","min","max"
+    "temperature_1",1.0,3.0
+    "temperature_2",7.0,9.0
+    "temperature_3",4.0,6.0
+    "temperature_4",10.0,12.0
+    ```
+
+    ```sh
+    t.rast.list -u input=temperature format=csv columns=name,min,max
+    ```
+
+    ```text
+    "temperature_1",1.0,3.0
+    "temperature_2",7.0,9.0
+    "temperature_3",4.0,6.0
+    "temperature_4",10.0,12.0
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,min,max separator=";"
+    ```
+
+    ```text
+    name;min;max
+    temperature_1;1.0;3.0
+    temperature_2;7.0;9.0
+    temperature_3;4.0;6.0
+    temperature_4;10.0;12.0
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,max format=json
+    echo
+    ```
+
+    ```text
+    {"data": [{"name": "temperature_1", "max": 3.0}, {"name": "temperature_2", "max": 9.0}, {"name": "temperature_3", "max": 6.0}, {"name": "temperature_4", "max": 12.0}], "metadata": {"column_names": ["name", "max"]}}
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name,max output=maxima.txt
+    cat maxima.txt
+    ```
+
+    ```text
+    name|max
+    temperature_1|3.0
+    temperature_2|9.0
+    temperature_3|6.0
+    temperature_4|12.0
+    ```
+
+    ```sh
+    t.rast.list input=temperature columns=name output=-
+    cat ./-
+    ```
+
+    ```text
+    name
+    temperature_1
+    temperature_2
+    temperature_3
+    temperature_4
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from pathlib import Path
+
+    print(tools.t_rast_list(input="temperature", format="line").text)
+    ```
+
+    ```text
+    temperature_1@PERMANENT,temperature_2@PERMANENT,temperature_3@PERMANENT,temperature_4@PERMANENT
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature", format="line", columns="name", separator=" | "
+    )
+    print(result.text)
+    ```
+
+    ```text
+    temperature_1 | temperature_2 | temperature_3 | temperature_4
+    ```
+
+    ```python
+    result = tools.t_rast_list(input="temperature", format="csv", columns="name,min,max")
+    print(result.text)
+    ```
+
+    ```text
+    "name","min","max"
+    "temperature_1",1.0,3.0
+    "temperature_2",7.0,9.0
+    "temperature_3",4.0,6.0
+    "temperature_4",10.0,12.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="temperature", format="csv", columns="name,min,max", flags="u"
+    )
+    print(result.text)
+    ```
+
+    ```text
+    "temperature_1",1.0,3.0
+    "temperature_2",7.0,9.0
+    "temperature_3",4.0,6.0
+    "temperature_4",10.0,12.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(input="temperature", columns="name,min,max", separator=";")
+    print(result.text)
+    ```
+
+    ```text
+    name;min;max
+    temperature_1;1.0;3.0
+    temperature_2;7.0;9.0
+    temperature_3;4.0;6.0
+    temperature_4;10.0;12.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(input="temperature", columns="name,max", format="json")
+    for item in result.json["data"]:
+        print(item["name"], item["max"])
+    ```
+
+    ```text
+    temperature_1 3.0
+    temperature_2 9.0
+    temperature_3 6.0
+    temperature_4 12.0
+    ```
+
+    ```python
+    tools.t_rast_list(input="temperature", columns="name,max", output="maxima.txt")
+    print(Path("maxima.txt").read_text(), end="")
+    ```
+
+    ```text
+    name|max
+    temperature_1|3.0
+    temperature_2|9.0
+    temperature_3|6.0
+    temperature_4|12.0
+    ```
+
+    ```python
+    tools.t_rast_list(input="temperature", columns="name", output="-")
+    print(Path("-").read_text(), end="")
+    ```
+
+    ```text
+    name
+    temperature_1
+    temperature_2
+    temperature_3
+    temperature_4
+    ```
+
+### Intervals, distances and gaps
+
+The dataset `rain` has two daily maps, registered with a start and an end:
+`rain_1` for 1 June 2026 and `rain_3` for 3 June, so 2 June is a gap. The
+method `delta` prints the length of each map and its distance from the first
+map in days; it skips the gap. The method `deltagaps` adds a line for the gap
+with `None` as `id`, `name` and `mapset`, and its length. The CSV form of this
+table shows `None` as an empty text.
+
+The dataset `model` has relative time: three model steps of 6 hours. Its times,
+lengths and distances are numbers of hours, printed without the unit.
+
+=== "Command line"
+
+    ```sh
+    r.mapcalc expression="rain_1 = 4"
+    r.mapcalc expression="rain_3 = 2"
+    t.create output=rain title="Rain" description="Daily rain with a gap"
+    t.register input=rain maps=rain_1 start=2026-06-01 end=2026-06-02
+    t.register input=rain maps=rain_3 start=2026-06-03 end=2026-06-04
+    t.rast.list input=rain method=delta
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    ```
+
+    ```sh
+    t.rast.list input=rain method=deltagaps
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    ```
+
+    ```sh
+    t.rast.list input=rain method=deltagaps format=csv columns=id,interval_length
+    ```
+
+    ```text
+    "id","interval_length"
+    "rain_1@PERMANENT",1.0
+    "",1.0
+    "rain_3@PERMANENT",1.0
+    ```
+
+    ```sh
+    for step in 1 2 3; do
+        r.mapcalc expression="step_$step = $step"
+    done
+    t.create output=model temporaltype=relative title="Model" \
+        description="Model output per step of 6 hours"
+    t.register -i input=model maps=step_1,step_2,step_3 \
+        start=0 increment=6 unit=hours
+    t.rast.list input=model method=delta
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.r_mapcalc(expression="rain_1 = 4")
+    tools.r_mapcalc(expression="rain_3 = 2")
+    tools.t_create(output="rain", title="Rain", description="Daily rain with a gap")
+    tools.t_register(input="rain", maps="rain_1", start="2026-06-01", end="2026-06-02")
+    tools.t_register(input="rain", maps="rain_3", start="2026-06-03", end="2026-06-04")
+    print(tools.t_rast_list(input="rain", method="delta").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    ```
+
+    ```python
+    print(tools.t_rast_list(input="rain", method="deltagaps").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    ```
+
+    ```python
+    result = tools.t_rast_list(
+        input="rain", method="deltagaps", format="csv", columns="id,interval_length"
+    )
+    print(result.text)
+    ```
+
+    ```text
+    "id","interval_length"
+    "rain_1@PERMANENT",1.0
+    "",1.0
+    "rain_3@PERMANENT",1.0
+    ```
+
+    ```python
+    for step in (1, 2, 3):
+        tools.r_mapcalc(expression=f"step_{step} = {step}")
+    tools.t_create(
+        output="model",
+        temporaltype="relative",
+        title="Model",
+        description="Model output per step of 6 hours",
+    )
+    tools.t_register(
+        input="model",
+        maps="step_1,step_2,step_3",
+        start=0,
+        increment=6,
+        unit="hours",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="model", method="delta").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    ```
+
+### Sample the maps by a granule
+
+The dataset `monthly` has four maps that start on the last day of a month
+and end on the last day of the next one, from 31 January. The first block
+lists them. The method `gran` with a granule of one month prints one line per
+month granule: the granules start on 31 January, 28 February, 31 March and 30
+April, as each start is counted in months from 31 January and cut to the last
+day of a shorter month. With a granule of two months, each line covers two
+maps and names the first of them. The last block samples the relative dataset
+`model` of the previous example without a granule, so it uses the granularity
+of the dataset, 6 hours.
+
+=== "Command line"
+
+    ```sh
+    for month in 1 2 3 4; do
+        r.mapcalc expression="month_$month = $month"
+    done
+    t.create output=monthly title="Monthly" description="Monthly maps"
+    t.register -i input=monthly maps=month_1,month_2,month_3,month_4 \
+        start=2026-01-31 increment="1 month"
+    t.rast.list input=monthly
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
+    month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
+    month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
+    month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+    ```
+
+    ```sh
+    t.rast.list input=monthly method=gran granule="1 month"
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    ```
+
+    ```sh
+    t.rast.list input=monthly method=gran granule="2 months"
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+    ```
+
+    ```sh
+    t.rast.list input=model method=gran
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for month in (1, 2, 3, 4):
+        tools.r_mapcalc(expression=f"month_{month} = {month}")
+    tools.t_create(output="monthly", title="Monthly", description="Monthly maps")
+    tools.t_register(
+        input="monthly",
+        maps="month_1,month_2,month_3,month_4",
+        start="2026-01-31",
+        increment="1 month",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="monthly").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
+    month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
+    month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
+    month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+    ```
+
+    ```python
+    print(tools.t_rast_list(input="monthly", method="gran", granule="1 month").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    ```
+
+    ```python
+    print(tools.t_rast_list(input="monthly", method="gran", granule="2 months").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+    ```
+
+    ```python
+    print(tools.t_rast_list(input="model", method="gran").text)
+    ```
+
+    ```text
+    id|name|mapset|start_time|end_time|interval_length|distance_from_begin
+    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
+    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
+    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    ```
+
+### Use a dataset of another mapset
+
+*t.rast.list* reads a dataset of another mapset. The example creates the
+mapset `other` and switches to it; the dataset `temperature` stays in the
+mapset `PERMANENT` and is named with its mapset. In the second block,
+*g.mapsets* shows that `PERMANENT` is in the search path of the new mapset, so
+the name `temperature` without a mapset finds the same dataset.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=other
+    t.rast.list input=temperature@PERMANENT columns=id,start_time
+    ```
+
+    ```text
+    id|start_time
+    temperature_1@PERMANENT|2026-03-01 00:00:00
+    temperature_2@PERMANENT|2026-03-02 00:00:00
+    temperature_3@PERMANENT|2026-03-03 00:00:00
+    temperature_4@PERMANENT|2026-03-04 00:00:00
+    ```
+
+    ```sh
+    g.mapsets -p
+    t.rast.list input=temperature columns=id,start_time
+    ```
+
+    ```text
+    other PERMANENT
+    id|start_time
+    temperature_1@PERMANENT|2026-03-01 00:00:00
+    temperature_2@PERMANENT|2026-03-02 00:00:00
+    temperature_3@PERMANENT|2026-03-03 00:00:00
+    temperature_4@PERMANENT|2026-03-04 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_mapset(mapset="other", flags="c")
+    result = tools.t_rast_list(input="temperature@PERMANENT", columns="id,start_time")
+    print(result.text)
+    ```
+
+    ```text
+    id|start_time
+    temperature_1@PERMANENT|2026-03-01 00:00:00
+    temperature_2@PERMANENT|2026-03-02 00:00:00
+    temperature_3@PERMANENT|2026-03-03 00:00:00
+    temperature_4@PERMANENT|2026-03-04 00:00:00
+    ```
+
+    ```python
+    print(tools.g_mapsets(flags="p").text)
+    print(tools.t_rast_list(input="temperature", columns="id,start_time").text)
+    ```
+
+    ```text
+    other PERMANENT
+    id|start_time
+    temperature_1@PERMANENT|2026-03-01 00:00:00
+    temperature_2@PERMANENT|2026-03-02 00:00:00
+    temperature_3@PERMANENT|2026-03-03 00:00:00
+    temperature_4@PERMANENT|2026-03-04 00:00:00
+    ```
+
+<!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[g.list](g.list.md), [t.create](t.create.md), [t.info](t.info.md),
-[t.list](t.list.md), [t.rast3d.list](t.rast3d.list.md),
-[t.vect.list](t.vect.list.md)*
-
-[Temporal data processing
-Wiki](https://grasswiki.osgeo.org/wiki/Temporal_data_processing)
+*[g.list](g.list.md), [g.mapsets](g.mapsets.md),
+[r.semantic.label](r.semantic.label.md), [t.create](t.create.md),
+[t.info](t.info.md), [t.list](t.list.md), [t.rast.univar](t.rast.univar.md),
+[t.rast3d.list](t.rast3d.list.md), [t.register](t.register.md),
+[t.vect.list](t.vect.list.md),
+[temporal data processing](temporalintro.md)*
 
 ## AUTHOR
 
