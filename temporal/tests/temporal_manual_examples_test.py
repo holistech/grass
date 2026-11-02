@@ -23,6 +23,7 @@ from grass.temporal.testing.manual_examples import check_manual, parse_manual
 from grass.temporal.testing.session import project_session
 
 REVIEWED_MANUALS = (
+    "t.copy",
     "t.create",
     "t.info",
     "t.list",
