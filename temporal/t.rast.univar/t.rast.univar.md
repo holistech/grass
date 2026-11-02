@@ -205,9 +205,7 @@ steps of 6 hours each, with the constant values 1 and 2. Their `start` and
     tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
     tools.r_mapcalc(expression="temperature_1 = cell_number - 3")
     tools.r_mapcalc(expression="temperature_2 = cell_number")
-    tools.r_mapcalc(
-        expression="temperature_3 = if(col() == 3, null(), cell_number + 3)"
-    )
+    tools.r_mapcalc(expression="temperature_3 = if(col() == 3, null(), cell_number + 3)")
     tools.t_create(
         output="temperature",
         title="Air temperature",
@@ -321,9 +319,7 @@ without the label, all four maps would be processed.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_rast_univar(
-        input="temperature", where="start_time >= '2026-03-02'"
-    )
+    result = tools.t_rast_univar(input="temperature", where="start_time >= '2026-03-02'")
     print(result.text)
     ```
 
@@ -815,9 +811,7 @@ number of non-null cells.
     ```
 
     ```python
-    result = tools.t_rast_univar(
-        input="scenes", format="json", region_relation="overlaps"
-    )
+    result = tools.t_rast_univar(input="scenes", format="json", region_relation="overlaps")
     print_cells(result)
     ```
 
@@ -829,9 +823,7 @@ number of non-null cells.
     ```
 
     ```python
-    result = tools.t_rast_univar(
-        input="scenes", format="json", region_relation="contains"
-    )
+    result = tools.t_rast_univar(input="scenes", format="json", region_relation="contains")
     print_cells(result)
     ```
 

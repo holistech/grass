@@ -221,9 +221,7 @@ tools.g_region(n=2, s=0, e=3, w=0, res=1)
 tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
 tools.r_mapcalc(expression="temperature_1 = cell_number - 3")
 tools.r_mapcalc(expression="temperature_2 = cell_number")
-tools.r_mapcalc(
-    expression="temperature_3 = if(col() == 3, null(), cell_number + 3)"
-)
+tools.r_mapcalc(expression="temperature_3 = if(col() == 3, null(), cell_number + 3)")
 tools.t_create(
     output="temperature",
     title="Air temperature",
@@ -341,9 +339,7 @@ nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-result = tools.t_rast_univar(
-    input="temperature", where="start_time &gt;= '2026-03-02'"
-)
+result = tools.t_rast_univar(input="temperature", where="start_time &gt;= '2026-03-02'")
 print(result.text)
 </pre></div>
 
@@ -847,9 +843,7 @@ scene_4@PERMANENT|4|0
 </pre></div>
 
 <div class="code"><pre>
-result = tools.t_rast_univar(
-    input="scenes", format="json", region_relation="overlaps"
-)
+result = tools.t_rast_univar(input="scenes", format="json", region_relation="overlaps")
 print_cells(result)
 </pre></div>
 
@@ -861,9 +855,7 @@ scene_3@PERMANENT|4|12
 </pre></div>
 
 <div class="code"><pre>
-result = tools.t_rast_univar(
-    input="scenes", format="json", region_relation="contains"
-)
+result = tools.t_rast_univar(input="scenes", format="json", region_relation="contains")
 print_cells(result)
 </pre></div>
 
