@@ -1,87 +1,142 @@
 ## DESCRIPTION
 
-The module *t.register* has double functionality: it either only assigns
-timestamps to raster, 3D raster and vector maps in the temporal database
-(if *input* option is not provided, see below) or additionally, it also
-registers them within input space time datasets (stds). The existing
-timestamp modules [r.timestamp](r.timestamp.md),
-[r3.timestamp](r3.timestamp.md) and [v.timestamp](v.timestamp.md) do not
-register the maps in the temporal database of GRASS. However,
-timestamps that have been created with these modules can be read and
-used by *t.register*. This works only for maps that are not already
-registered in the temporal database.
+*t.register* gives raster, 3D raster and vector maps a time and, if a space
+time dataset is named, enters them into that dataset. It is the step after
+*[t.create](t.create.md)* in most temporal workflows: the other temporal
+tools work on the maps of a dataset. See the
+[introduction to temporal data processing](temporalintro.md) for an overview.
 
-If the *input* option is not used (i.e., no stds is provided), maps will
-be only registered in the temporal database with assigned timestamps.
-If, on the other hand, the *input* option is used and a stds is
-provided, maps will be first registered in the temporal database (if not
-registered before) and then, in the stds specified. If the user wants to
-register maps that are already registered in the temporal database in a
-different stds, there is no need to pass information regarding start and
-end time, *t.register* will read timestamps from the temporal database
-(i.e., in this case only passing map names will be enough).
+The time of a map is stored in the temporal database and in the metadata of
+the map itself, so that *[r.timestamp](r.timestamp.md)*,
+*[r3.timestamp](r3.timestamp.md)* and *[v.timestamp](v.timestamp.md)* read it.
+Those three tools set only the time stamp of the map and do not register the
+map in the temporal database; *t.register* can use a time stamp that they
+have set (see below).
 
-Maps can be specified both with their fully qualified map name, meaning
-e.g. *map@mapset* and without the mapset name included. If the mapset
-name is not provided in the input, *t.register* will look for the given
-map on the current search path and assign the matching mapset. If the
-map is not found on the current search path the module will fail. Thus,
-registering maps with fully qualified map name is slightly faster.
+### Maps and dataset
 
-The module *t.register* supports absolute and relative time. The
-absolute temporal type refers to a fixed date while the relative
-temporal type refers to data without fixed timestamps (e.g., sequential
-maps used to calculate multi-decadal averages).
+The option **maps** lists the maps, separated by commas. The option **file**
+names a text file with the maps instead (see the input file below); **maps**
+and **file** exclude each other, and one of them is required. The option
+**type** says what kind of maps they are: `raster` (the default), `raster_3d`
+or `vector`. The dataset has to be of the matching kind (`strds`, `str3ds` or
+`stvds`), otherwise *t.register* does not find it.
 
-Maps can be registered by command line argument (i.e., a list of comma
-separated map names) or using an input file. The start time, end time
-and a temporal increment can be provided through command line or in the
-input file. End time and increment are mutually exclusive. The user can
-register single maps or a list of maps at once. Maps can be registered
-in several space time datasets using the same timestamp. For the case of
-vector time series, the user can also register a single vector map
-connected to different layers representing time steps using the
-**map:layer** notation (See example below).
+A map is named with or without its mapset (`prec_1@PERMANENT` or `prec_1`).
+Without a mapset, *t.register* looks for the map in the mapsets of the search
+path. A map that is not found ends the run before any map is registered. Maps
+of other mapsets can be registered in a dataset of the current mapset, but the
+dataset itself has to belong to the current mapset: *t.register* refuses a
+dataset of another mapset before it writes anything.
 
-The *increment* option and the **-i** flag (to create time intervals)
-work only in conjunction with the **start** option. If an input file
-with timestamps (either start time or start time and end time) is used,
-then the *increment* option and the **-i** flag are not supported.
+The option **input** names the space time dataset. Without it, *t.register*
+only gives the maps their time and registers them in the temporal database.
+A map that is registered already can be entered into a further dataset by its
+name alone: *t.register* then reads its time from the temporal database, and
+**start**, **end** and **increment** are not needed.
 
-The n-th map starts n increments after the **start** time, counted from
-this start. A month or year increment that ends behind the last day of a
-month ends on that last day: with `start="2001-01-31"` and
-`increment="1 months"` the maps start on January 31, February 28,
-March 31 and April 30. With the **-i** flag each map of such an increment
-ends where the next one starts, so the map of February 28 ends on
-March 31. Years and months of an increment such as
-`20 years, 3 months` form one step of `12 * years + months` months. The
-**-i** flag creates consecutive intervals for every *increment*, also for a
-list such as `1 months, 15 days`: map n ends where map n+1 starts, n+1
-increments after the **start** time.
+A vector map can have several layers, and each layer is registered on its own.
+The notation `map:layer` selects a layer, such as `stations:2`, and a time step
+of a series can be a layer of one map. A name without a layer is a map of its
+own next to its layer 1. A layer has to be a number, and a layer that
+a vector map with a database link does not have is refused.
 
-The granularity of a space-time dataset (see *t.info*) counts months and
-years only if the start and the end of every interval lie on the first day
-of a month. A monthly series that starts on another day has the granularity
-in days: with `start="2001-01-31"` and `increment="1 months"` the intervals
-last 28, 31 and 30 days and the granularity is `1 day`, while the same
-series from `2001-01-01` has the granularity `1 month`.
+### Time of the maps
 
-Start time and end time with absolute time must be provided using the
-format **yyyy-mm-dd HH:MM:SS +HHMM**. It is also supported to specify
-only the date **yyyy-mm-dd**. In case of relative time, the temporal
-unit (years, months, days, hours, minutes or seconds) must be provided.
-In this case, the relative start time, end time and increment are
-integers.
+The temporal type of the maps is absolute or relative, and a dataset holds
+only maps of its own type (see the option **temporaltype** of *t.create*).
+Absolute time is a date, and the time of the day if you want it, in the form
+`yyyy-mm-dd`, `yyyy-mm-dd HH:MM`, `yyyy-mm-dd HH:MM:SS` or
+`yyyy-mm-ddTHH:MM:SS`, optionally followed by a time zone offset such as
+`+0200` or `+02:00`. Relative time is an integer number of a time unit counted
+from an arbitrary start; a **start** that is no date is read as relative time.
+
+- The option **start** is the start of the first map. Without **increment**,
+  every map gets this start.
+- The option **end** is the end of every map. With it, all maps have the same
+  interval from **start** to **end**. **end** needs **start**, and it excludes
+  **increment** and the flag **-i**.
+- The option **increment** is the time between maps, such as `1 months`,
+  `12 hours` or `20 seconds, 5 minutes` in absolute time and `5` in relative
+  time. It needs **start**. Map n starts n - 1 increments after **start**,
+  counted from **start** and not from the previous map. A list such as
+  `20 seconds, 5 minutes` is one increment of 5 minutes and 20 seconds.
+- The flag **-i** turns the maps into consecutive intervals: map n starts n - 1
+  increments after **start** and ends where map n + 1 starts, n increments
+  after **start**. Without **-i**, the maps are time instances. **-i** needs
+  **start**, and it excludes **end**.
+- The option **unit** gives the unit of relative time: `years`, `months`,
+  `days`, `hours`, `minutes` or `seconds`. It is required for relative time
+  and refused for absolute time. A relative dataset has one unit: the first
+  registration sets it, from **unit** or from the relative time that the maps
+  have already, and a map with another unit is refused.
+
+Without **start**, *t.register* takes the time that a map has already: the
+time of a map that is registered in the temporal database, or the time stamp
+that *r.timestamp*, *r3.timestamp* or *v.timestamp* has set. A map that has no
+time then makes *t.register* stop with an error.
+
+A map that is registered in the temporal database already keeps its time
+when it is registered again, even if **start** is given. *t.register* warns
+that the map is already registered and that the overwrite flag is not set. With
+**--overwrite**, the time of the map is replaced by the new one, in the
+temporal database and in the metadata of the map.
+
+A month or year increment that ends behind the last day of a month ends on
+that last day: with `start="2001-01-31"` and `increment="1 months"` the maps
+start on January 31, February 28, March 31 and April 30. With the **-i** flag
+each map of such an increment ends where the next one starts, so the map of
+February 28 ends on March 31. Years and months of an increment such as `20
+years, 3 months` form one step of `12 * years + months` months. The **-i**
+flag creates consecutive intervals also for a list such as `1 months, 15
+days`: there is no gap and no overlap between two maps.
+
+The granularity of a space-time dataset (see *[t.info](t.info.md)*) counts
+months and years only if the start and the end of every interval lie on the
+first day of a month. A monthly series that starts on another day has the
+granularity in days: with `start="2001-01-31"` and `increment="1 months"` the
+intervals last 28, 31 and 30 days and the granularity is `1 day`, while the
+same series from `2001-01-01` has the granularity `1 month`.
+
+### Input file
+
+The input file has one map per line, and a line can carry the time of its map.
+The columns of a line are separated by the character of the option
+**separator**, which is the pipe `|` by default. It takes a character or one of
+the names `comma`, `pipe` and `tab`. Empty lines are skipped. The forms of a
+line are:
+
+- `name`: a map without a time of its own, which gets its time from **start**,
+  **end** and **increment**; the position of the line in the file counts, also
+  for lines before it that have a time of their own;
+- `name|start`: a time instance, which ends at **end** if that option is given;
+- `name|start|end`: an interval;
+- `name|start|label` and `name|start|end|label`: the same with a semantic label
+  of the map.
+
+The name can have a mapset, `name@mapset`. The third column is the end time if
+it can be read as one, a date for absolute time and an integer for relative
+time, and a semantic label if it cannot. A line with a time keeps it; it needs
+no **start**. If every line has a time, **start**, **increment** and the flag
+**-i** have no effect, and *t.register* warns about **increment** and **-i**.
+The lines of a file with names only get their times in the same way as the
+maps of the option **maps**.
+
+A semantic label from the file is registered with the map. Without a label in
+the file, the label that the map has, set for instance with
+*[r.support](r.support.md)*, is registered with it. Raster maps with a semantic
+label can only be registered in a temporal database of version 3 or higher. A
+database of version 2 stops the run with an error that says to run
+*[t.upgrade](t.upgrade.md)* first; *[t.connect](t.connect.md)* shows the
+version.
 
 ## NOTES
 
-The timestamps of registered maps will be stored in the temporal
-database and in the metadata of the grass maps in the spatial database.
-This assures that timestamps can always be accessed with
-*(r\|r3\|v).timestamp* and the temporal modules. Timestamps should only
-be modified with *t.register* because the *(r\|r3\|v).timestamp* modules
-have no access to the temporal database.
+The timestamps of registered maps are stored in the temporal database and in
+the metadata of the maps in the spatial database. This assures that timestamps
+can always be accessed with *(r\|r3\|v).timestamp* and the temporal tools.
+Timestamps should only be modified with *t.register*, because the
+*(r\|r3\|v).timestamp* tools have no access to the temporal database.
 
 If maps are registered without **start** and a map carries a timestamp from
 *(r\|r3\|v).timestamp* that is no valid date or relative time, such as `5`,
@@ -100,254 +155,839 @@ start or end time with a time zone offset, including `+00:00` and `Z`,
 is refused before the first map is registered; remove the offset or use
 SQLite.
 
-## INPUT FILE FORMAT
+*t.register* checks all maps before it writes the first one. A map that is
+refused, for instance because its time has another temporal type or another
+relative unit than the dataset, stops the run and leaves the maps before it
+as they were. The checks end with these errors, among others:
 
-There are several options to register maps by means of a file. The input
-file consists of a list of map names, optionally along with timestamps.
-Each map name (and timestamps if provided) should be stored in a new line
-in this file.
+- `maps and file are mutually exclusive`;
+- `end and increment are mutually exclusive`;
+- `end and the interval flag are mutually exclusive`;
+- `The increment option requires the start option` and, with the flag **-i**,
+  `The interval flag requires the start option`;
+- `Please specify maps or file`;
+- `The map has no timestamp and the start time is not set`;
+- `unit can only be set for relative time` for **unit** with absolute time and
+  `unit must be set in case of relative time stamps` for relative time without
+  it;
+- `Space time dataset <name> of type <raster> not found`, also for a dataset
+  of another kind than **type**.
 
-When only map names are provided, the *increment* option and the **-i**
-flag are supported. However, when along with map names any kind of
-timestamp is provided, as well, the *increment* option and the **-i**
-are no longer supported.
+A dataset holds maps with a time zone offset or maps without one, not both: a
+map of the other kind is refused, and the error says which of the two has a
+time zone offset.
 
-Specification of map names only (*increment* option and **-i** flag
-supported):
+A wrong **separator** is not an error of its own: the whole line is read as the
+name of a map, and the map is not found.
 
-```sh
-terra_lst_day20020113
-terra_lst_day20020114
-terra_lst_day20020115
-terra_lst_day20020116
-terra_lst_day20020117
-```
+## EXAMPLES
 
-Specification of map names and absolute start time (date) of the time
-instances (no support for *increment* option nor **-i** flag):
+<!-- markdownlint-disable MD046 -->
 
-```sh
-terra_lst_day20020113|2002-01-13
-terra_lst_day20020114|2002-01-14
-terra_lst_day20020115|2002-01-15
-terra_lst_day20020116|2002-01-16
-terra_lst_day20020117|2002-01-17
-```
+### Register maps as consecutive intervals
 
-Specification of map names and absolute start time (datetime) of the
-time instances (no support for *increment* option nor **-i** flag):
+Three maps of monthly precipitation sums, `prec_1` to `prec_3` with the values
+100, 200 and 300, become the intervals January, February and March 2001 of the
+dataset `precipitation`. The flag **-i** makes each map end where the next one
+starts. The type of the maps is `raster`, the default. *t.rast.list* shows the
+times in the dataset, and *r.timestamp* shows that the first map carries its
+time itself.
 
-```sh
-terra_lst_day20020113|2002-01-13 10:30
-terra_lst_day20020114|2002-01-14 10:30
-terra_lst_day20020115|2002-01-15 10:30
-terra_lst_day20020116|2002-01-16 10:30
-terra_lst_day20020117|2002-01-17 10:30
-```
+=== "Command line"
 
-Specification of map names and absolute time interval with start and end
-time (no support for *increment* option nor **-i** flag):
+    ```sh
+    g.region n=2 s=0 e=3 w=0 res=1
+    for number in 1 2 3; do
+        r.mapcalc expression="prec_$number = 100 * $number"
+    done
+    t.create output=precipitation title="Precipitation" \
+        description="Monthly precipitation sums"
+    t.register -i input=precipitation maps=prec_1,prec_2,prec_3 \
+        start=2001-01-01 increment="1 months"
+    ```
 
-```sh
-prec_1|2001-01-01|2001-04-01
-prec_2|2001-04-01|2001-07-01
-prec_3|2001-07-01|2001-10-01
-prec_4|2001-10-01|2002-01-01
-prec_5|2002-01-01|2002-04-01
-prec_6|2002-04-01|2002-07-01
-```
+    ```sh
+    t.rast.list input=precipitation
+    ```
 
-Same as above but with fully qualified map names (no support for
-*increment* option nor **-i** flag):
+    ```text
+    name|mapset|start_time|end_time
+    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
+    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+    ```
 
-```sh
-prec_1@PERMANENT|2001-01-01|2001-04-01
-prec_2@PERMANENT|2001-04-01|2001-07-01
-prec_3@PERMANENT|2001-07-01|2001-10-01
-prec_4@PERMANENT|2001-10-01|2002-01-01
-prec_5@PERMANENT|2002-01-01|2002-04-01
-prec_6@PERMANENT|2002-04-01|2002-07-01
-```
+    ```sh
+    r.timestamp map=prec_1
+    ```
 
-### Support for semantic labels
+    ```text
+    1 Jan 2001 00:00:00 / 1 Feb 2001 00:00:00
+    ```
 
-For more information about semantic labels and image collections see
-*[i.band.library](i.band.library.md)* module.
+=== "Python (grass.tools)"
 
-Specification of map names and absolute start time (datetime) of the
-time instances. The last column indicates related semantic label. The
-last column is interpreted as a semantic label only when it cannot be
-read as an end time, i.e., when it is not a datetime for absolute time
-or an integer for relative time.
+    ```python
+    from grass.tools import Tools
 
-```sh
-T33UYP_20190331T094039_B01|2019-03-31 09:40:39|S2_1
-T33UYP_20190331T094039_B10|2019-03-31 09:40:39|S2_10
-T33UYP_20190331T094039_B02|2019-03-31 09:40:39|S2_2
-T33UYP_20190331T094039_B05|2019-03-31 09:40:39|S2_5
-T33UYP_20190331T094039_B11|2019-03-31 09:40:39|S2_11
-T33UYP_20190331T094039_B08|2019-03-31 09:40:39|S2_8
-T33UYP_20190331T094039_B12|2019-03-31 09:40:39|S2_12
-T33UYP_20190331T094039_B8A|2019-03-31 09:40:39|S2_8A
-T33UYP_20190331T094039_B06|2019-03-31 09:40:39|S2_6
-T33UYP_20190331T094039_B04|2019-03-31 09:40:39|S2_4
-T33UYP_20190331T094039_B03|2019-03-31 09:40:39|S2_3
-T33UYP_20190331T094039_B09|2019-03-31 09:40:39|S2_9
-```
+    tools = Tools()
+    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    for number in range(1, 4):
+        tools.r_mapcalc(expression=f"prec_{number} = 100 * {number}")
+    tools.t_create(
+        output="precipitation",
+        title="Precipitation",
+        description="Monthly precipitation sums",
+    )
+    tools.t_register(
+        input="precipitation",
+        maps="prec_1,prec_2,prec_3",
+        start="2001-01-01",
+        increment="1 months",
+        flags="i",
+    )
+    ```
 
-In this case *t.register* assigns to given raster maps a semantic label
-similarly as *[r.semantic.label](r.semantic.label.md)* does. Such
-registered raster maps is possible to [filter by a semantic
-label](t.rast.list.md#filtering-the-result-by-semantic-label).
+    ```python
+    print(tools.t_rast_list(input="precipitation").text)
+    ```
 
-Please note that raster maps with semantic labels assigned can be
-registered only in STRDS created in TGIS DB version 3 or higher. *Older
-versions of TGIS DB are not supported.* TGIS DB version can be checked
-*[t.connect](t.connect.md)* module.
+    ```text
+    name|mapset|start_time|end_time
+    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
+    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+    ```
 
-## EXAMPLE
+    ```python
+    print(tools.r_timestamp(map="prec_1").text)
+    ```
 
-### North Carolina dataset
+    ```text
+    1 Jan 2001 00:00:00 / 1 Feb 2001 00:00:00
+    ```
 
-#### Using a text file
+### Register time instances and one interval for all maps
 
-Register maps in an absolute space time dataset, creating a time
-interval
+Without the flag **-i**, **start** and **increment** make time instances: the
+maps `gauge_1` and `gauge_2` are at May 1 and May 2, 2001. The maps `season_1`
+and `season_2` get the same interval from **start** to **end**, June 1 to
+September 1. Both maps have the same time, so *t.info* with the flag **-g**
+shows the time of the dataset as a whole, not one line per map: the maps are
+intervals (`map_time=interval`), and the dataset starts and ends with them.
 
-```sh
-# first:  prepare a text file with a list of input maps (see above)
-# second: register maps
-t.register -i type=raster input=precipitation_monthly \
-    file=list_of_input_maps.txt start="2009-01-01" \
-    increment="1 months"
-```
+=== "Command line"
 
-#### Using *g.list* to generate the input
+    ```sh
+    for number in 1 2; do
+        r.mapcalc expression="gauge_$number = $number"
+        r.mapcalc expression="season_$number = 10 * $number"
+    done
+    t.create output=gauges title="Gauges" description="Gauge readings"
+    t.register input=gauges maps=gauge_1,gauge_2 start=2001-05-01 \
+        increment="1 days"
+    t.rast.list input=gauges
+    ```
 
-Register maps in an absolute space time dataset, creating a time
-interval
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    ```
 
-```sh
-t.register -i type=raster input=precipitation_monthly \
-    maps=`g.list raster pattern="*precip*" sep=comma` start="2009-01-01" \
-    increment="1 months"
-```
+    ```sh
+    t.create output=season title="Season" description="One interval"
+    t.register input=season maps=season_1,season_2 start=2001-06-01 \
+        end=2001-09-01
+    t.info -g input=season | grep -E "^(start_time|end_time|map_time)="
+    ```
 
-#### Register a vector map with layers representing time steps
+    ```text
+    start_time='2001-06-01 00:00:00'
+    end_time='2001-09-01 00:00:00'
+    map_time=interval
+    ```
 
-Assume a vector map of points that represent meteorological stations and
-it is connected to different layers depicting daily time steps. In this
-example, only the fifth layer of the vector map will be registered.
+=== "Python (grass.tools)"
 
-```sh
-# the layer is specified behind the colon
-t.register type=vector input=meteo_stations_nc_daily \
-    maps=meteo_stations_nc:5 start="2009-01-05"
-```
+    ```python
+    for number in range(1, 3):
+        tools.r_mapcalc(expression=f"gauge_{number} = {number}")
+        tools.r_mapcalc(expression=f"season_{number} = {10 * number}")
+    tools.t_create(output="gauges", title="Gauges", description="Gauge readings")
+    tools.t_register(
+        input="gauges",
+        maps="gauge_1,gauge_2",
+        start="2001-05-01",
+        increment="1 days",
+    )
+    print(tools.t_rast_list(input="gauges").text)
+    ```
 
-### Synthetic maps
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    ```
 
-In this example we create 6 raster maps that will be registered in a
-single space time raster dataset named precip_abs using a monthly
-temporal granularity. The **-i** flag generates time intervals of the
-provided *increment*. The generated timestamps will be inspected using
-*r.timestamp* and *t.rast.list*. We will register an additional map with
-a timestamp that was set with *r.timestamp*.
+    ```python
+    tools.t_create(output="season", title="Season", description="One interval")
+    tools.t_register(
+        input="season",
+        maps="season_1,season_2",
+        start="2001-06-01",
+        end="2001-09-01",
+    )
+    info = tools.t_info(input="season", flags="g").keyval
+    for key in ("start_time", "end_time", "map_time"):
+        print(f"{key}={info[key]}")
+    ```
 
-```sh
-r.mapcalc expression="prec_1 = 100"
-r.mapcalc expression="prec_2 = 200"
-r.mapcalc expression="prec_3 = 300"
-r.mapcalc expression="prec_4 = 400"
-r.mapcalc expression="prec_5 = 500"
-r.mapcalc expression="prec_6 = 600"
+    ```text
+    start_time='2001-06-01 00:00:00'
+    end_time='2001-09-01 00:00:00'
+    map_time=interval
+    ```
 
-t.create type=strds temporaltype=absolute \
-    output=precip_abs title="Example" \
-    descr="Example"
+### Use a registered map in a second dataset, or change its time
 
-t.register -i type=raster input=precip_abs \
-    maps=prec_1,prec_2,prec_3,prec_4,prec_5,prec_6 \
-    start="2001-01-01" increment="1 months"
+A map that is registered already is entered into another dataset by its name
+alone: `first_half` takes `prec_1` and `prec_2` with the times they have in
+the temporal database. A second registration with **start** does not change the
+time of `gauge_2`: *t.register* warns and keeps May 2. Only with
+**--overwrite** (the argument `overwrite=True` in Python) does the map get the
+new time, May 10.
 
-r.timestamp prec_1
-1 Jan 2001 00:00:00 / 1 Feb 2001 00:00:00
+=== "Command line"
 
-r.timestamp prec_2
-1 Feb 2001 00:00:00 / 1 Mar 2001 00:00:00
+    ```sh
+    t.create output=first_half title="First half" description="Two months"
+    t.register input=first_half maps=prec_1,prec_2
+    t.rast.list input=first_half
+    ```
 
-t.rast.list input=precip_abs
+    ```text
+    name|mapset|start_time|end_time
+    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
+    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    ```
 
-name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
-prec_4|PERMANENT|2001-04-01 00:00:00|2001-05-01 00:00:00
-prec_5|PERMANENT|2001-05-01 00:00:00|2001-06-01 00:00:00
-prec_6|PERMANENT|2001-06-01 00:00:00|2001-07-01 00:00:00
+    ```sh
+    t.register input=gauges maps=gauge_2 start=2001-05-10
+    t.rast.list input=gauges
+    ```
 
-r.mapcalc expression="prec_7 = 700"
-r.timestamp map=prec_7 date="1 jul 2001 / 1 aug 2001"
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    ```
 
-t.register type=raster input=precip_abs maps=prec_7
+    ```sh
+    t.register --overwrite input=gauges maps=gauge_2 start=2001-05-10
+    t.rast.list input=gauges
+    ```
 
-t.rast.list input=precip_abs
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-10 00:00:00|None
+    ```
 
-name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
-prec_4|PERMANENT|2001-04-01 00:00:00|2001-05-01 00:00:00
-prec_5|PERMANENT|2001-05-01 00:00:00|2001-06-01 00:00:00
-prec_6|PERMANENT|2001-06-01 00:00:00|2001-07-01 00:00:00
-prec_7|PERMANENT|2001-07-01 00:00:00|2001-08-01 00:00:00
-```
+=== "Python (grass.tools)"
 
-### Importing and registering ECA&D climatic data
+    ```python
+    tools.t_create(output="first_half", title="First half", description="Two months")
+    tools.t_register(input="first_half", maps="prec_1,prec_2")
+    print(tools.t_rast_list(input="first_half").text)
+    ```
 
-The European Climate Assessment & Dataset (ECA&D) project offers the
-E-OBS dataset which is a daily gridded observational dataset for
-precipitation, temperature and sea level pressure in Europe based on
-ECA&D information. [Download and decompress mean temperature data here](https://surfobs.climate.copernicus.eu/dataaccess/access_eobs.php#datafiles).
+    ```text
+    name|mapset|start_time|end_time
+    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
+    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    ```
 
-```sh
-# import E-OBS V12 into a lat-long project (alternatively, use r.external)
-r.in.gdal -oe input=tg_0.25deg_reg_1950-1964_v12.0.nc \
-  output=temperature_mean offset=0
-r.in.gdal -oe input=tg_0.25deg_reg_1965-1979_v12.0.nc \
-  output=temperature_mean offset=5479 --o
-r.in.gdal -oe input=tg_0.25deg_reg_1980-1994_v12.0.nc \
-  output=temperature_mean offset=10957 --o
-r.in.gdal -oe input=tg_0.25deg_reg_1995-2015_v12.0.nc \
-  output=temperature_mean offset=16436 --o
+    ```python
+    tools.t_register(input="gauges", maps="gauge_2", start="2001-05-10")
+    print(tools.t_rast_list(input="gauges").text)
+    ```
 
-# create STRDS
-t.create type=strds output=temperature_mean_1950_2015_daily \
-  temporaltype=absolute semantictype=mean \
-  title="European mean temperature 1950-2015" \
-  description="The European daily mean temperature from ECAD"
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    ```
 
-# create text file with all temperature_mean rasters, one per line,
-# a) using a shell script
-for i in `seq 1 23922` ; do
-    echo temperature_mean.$i >> map_list.txt
-done
+    ```python
+    tools.t_register(input="gauges", maps="gauge_2", start="2001-05-10", overwrite=True)
+    print(tools.t_rast_list(input="gauges").text)
+    ```
 
-# b) using a Python script
-file = open("map_list.txt", "w")
-for i in range(23922):
-    file.write("temperature_mean.%i\n" % (i + 1))
-file.close()
+    ```text
+    name|mapset|start_time|end_time
+    gauge_1|PERMANENT|2001-05-01 00:00:00|None
+    gauge_2|PERMANENT|2001-05-10 00:00:00|None
+    ```
 
-# register daily maps using the file created above
-t.register -i type=raster input=temperature_mean_1950_2015_daily \
-              file=map_list.txt start="1950-01-01" increment="1 days"
-```
+### Monthly series that start at the end of a month
+
+Eight maps, `month_1` to `month_8`, are registered as monthly intervals. The
+first four start on January 31. Each start is a month after the previous one,
+counted from January 31, and a month that is too short ends on its last day:
+February 28, March 31 and April 30. The intervals are 28, 31, 30 and 31 days
+long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
+`month_8` start on January 1 and form the dataset `jan01` with the granularity
+`1 month`.
+
+=== "Command line"
+
+    ```sh
+    for number in 1 2 3 4 5 6 7 8; do
+        r.mapcalc expression="month_$number = $number"
+    done
+    t.create output=jan31 title="Month ends" description="From January 31"
+    t.register -i input=jan31 maps=month_1,month_2,month_3,month_4 \
+        start=2001-01-31 increment="1 months"
+    t.rast.list input=jan31
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
+    month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
+    month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
+    month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+    ```
+
+    ```sh
+    t.info -g input=jan31 | grep "^granularity="
+    ```
+
+    ```text
+    granularity='1 day'
+    ```
+
+    ```sh
+    t.create output=jan01 title="Month starts" description="From January 1"
+    t.register -i input=jan01 maps=month_5,month_6,month_7,month_8 \
+        start=2001-01-01 increment="1 months"
+    t.info -g input=jan01 | grep "^granularity="
+    ```
+
+    ```text
+    granularity='1 month'
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for number in range(1, 9):
+        tools.r_mapcalc(expression=f"month_{number} = {number}")
+    tools.t_create(output="jan31", title="Month ends", description="From January 31")
+    tools.t_register(
+        input="jan31",
+        maps="month_1,month_2,month_3,month_4",
+        start="2001-01-31",
+        increment="1 months",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="jan31").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
+    month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
+    month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
+    month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+    ```
+
+    ```python
+    info = tools.t_info(input="jan31", flags="g").keyval
+    print(f"granularity={info['granularity']}")
+    ```
+
+    ```text
+    granularity='1 day'
+    ```
+
+    ```python
+    tools.t_create(output="jan01", title="Month starts", description="From January 1")
+    tools.t_register(
+        input="jan01",
+        maps="month_5,month_6,month_7,month_8",
+        start="2001-01-01",
+        increment="1 months",
+        flags="i",
+    )
+    info = tools.t_info(input="jan01", flags="g").keyval
+    print(f"granularity={info['granularity']}")
+    ```
+
+    ```text
+    granularity='1 month'
+    ```
+
+### Register maps from a file
+
+The dataset `scenes` takes eight maps, `scene_1` to `scene_8`, from three
+files. The first file gives each line its own form: `scene_1` has a start and
+an end, `scene_2` only a start, and `scene_3` a start and the semantic label
+`S2_8`, because `S2_8` cannot be read as an end time. The second file uses
+commas as the separator, which the option **separator** sets, and names the
+maps with their mapset. The third file lists only names, made by
+*[g.list](g.list.md)*, so **start** and **increment** place the maps, here as
+consecutive intervals of 12 hours. The last block shows that the dataset holds
+a mix of intervals and instances.
+
+=== "Command line"
+
+    ```sh
+    for number in 1 2 3 4 5 6 7 8; do
+        r.mapcalc expression="scene_$number = $number"
+    done
+    t.create output=scenes title="Scenes" description="Scenes from files"
+    cat > scenes_a.txt <<EOF
+    scene_1|2001-01-01|2001-04-01
+    scene_2|2001-04-01
+    scene_3|2001-07-01|S2_8
+    EOF
+    t.register input=scenes file=scenes_a.txt
+    t.rast.list input=scenes columns=name,start_time,end_time,semantic_label
+    ```
+
+    ```text
+    name|start_time|end_time|semantic_label
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00|None
+    scene_2|2001-04-01 00:00:00|None|None
+    scene_3|2001-07-01 00:00:00|None|S2_8
+    ```
+
+    ```sh
+    cat > scenes_b.txt <<EOF
+    scene_4@PERMANENT,2002-01-01,2002-02-01
+    scene_5@PERMANENT,2002-02-01,2002-03-01
+    EOF
+    t.register input=scenes file=scenes_b.txt separator=comma
+    t.rast.list input=scenes columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00
+    scene_2|2001-04-01 00:00:00|None
+    scene_3|2001-07-01 00:00:00|None
+    scene_4|2002-01-01 00:00:00|2002-02-01 00:00:00
+    scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
+    ```
+
+    ```sh
+    g.list type=raster pattern="scene_[678]" > scenes_c.txt
+    t.register -i input=scenes file=scenes_c.txt start="2003-01-01 06:00" \
+        increment="12 hours"
+    t.rast.list input=scenes columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00
+    scene_2|2001-04-01 00:00:00|None
+    scene_3|2001-07-01 00:00:00|None
+    scene_4|2002-01-01 00:00:00|2002-02-01 00:00:00
+    scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
+    scene_6|2003-01-01 06:00:00|2003-01-01 18:00:00
+    scene_7|2003-01-01 18:00:00|2003-01-02 06:00:00
+    scene_8|2003-01-02 06:00:00|2003-01-02 18:00:00
+    ```
+
+    ```sh
+    t.info -g input=scenes | grep -E "^(map_time|number_of_maps)="
+    ```
+
+    ```text
+    map_time=mixed
+    number_of_maps=8
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from pathlib import Path
+
+    for number in range(1, 9):
+        tools.r_mapcalc(expression=f"scene_{number} = {number}")
+    tools.t_create(output="scenes", title="Scenes", description="Scenes from files")
+    Path("scenes_a.txt").write_text(
+        "scene_1|2001-01-01|2001-04-01\nscene_2|2001-04-01\nscene_3|2001-07-01|S2_8\n"
+    )
+    tools.t_register(input="scenes", file="scenes_a.txt")
+    print(
+        tools.t_rast_list(
+            input="scenes", columns="name,start_time,end_time,semantic_label"
+        ).text
+    )
+    ```
+
+    ```text
+    name|start_time|end_time|semantic_label
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00|None
+    scene_2|2001-04-01 00:00:00|None|None
+    scene_3|2001-07-01 00:00:00|None|S2_8
+    ```
+
+    ```python
+    Path("scenes_b.txt").write_text(
+        "scene_4@PERMANENT,2002-01-01,2002-02-01\nscene_5@PERMANENT,2002-02-01,2002-03-01\n"
+    )
+    tools.t_register(input="scenes", file="scenes_b.txt", separator="comma")
+    print(tools.t_rast_list(input="scenes", columns="name,start_time,end_time").text)
+    ```
+
+    ```text
+    name|start_time|end_time
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00
+    scene_2|2001-04-01 00:00:00|None
+    scene_3|2001-07-01 00:00:00|None
+    scene_4|2002-01-01 00:00:00|2002-02-01 00:00:00
+    scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
+    ```
+
+    ```python
+    names = tools.g_list(type="raster", pattern="scene_[678]").stdout
+    Path("scenes_c.txt").write_text(names)
+    tools.t_register(
+        input="scenes",
+        file="scenes_c.txt",
+        start="2003-01-01 06:00",
+        increment="12 hours",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="scenes", columns="name,start_time,end_time").text)
+    ```
+
+    ```text
+    name|start_time|end_time
+    scene_1|2001-01-01 00:00:00|2001-04-01 00:00:00
+    scene_2|2001-04-01 00:00:00|None
+    scene_3|2001-07-01 00:00:00|None
+    scene_4|2002-01-01 00:00:00|2002-02-01 00:00:00
+    scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
+    scene_6|2003-01-01 06:00:00|2003-01-01 18:00:00
+    scene_7|2003-01-01 18:00:00|2003-01-02 06:00:00
+    scene_8|2003-01-02 06:00:00|2003-01-02 18:00:00
+    ```
+
+    ```python
+    info = tools.t_info(input="scenes", flags="g").keyval
+    for key in ("map_time", "number_of_maps"):
+        print(f"{key}={info[key]}")
+    ```
+
+    ```text
+    map_time=mixed
+    number_of_maps=8
+    ```
+
+### Register maps with relative time
+
+A dataset with relative time counts in a unit, which **unit** names. The maps
+`step_1` to `step_3` are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
+more maps come from a file whose times are integers in the same unit; the third
+column of a line is an integer, so it is an end time. The unit has to be the one
+of the dataset.
+
+=== "Command line"
+
+    ```sh
+    for number in 1 2 3 4 5; do
+        r.mapcalc expression="step_$number = $number"
+    done
+    t.create output=model temporaltype=relative title="Model" \
+        description="Model output per step"
+    t.register -i input=model maps=step_1,step_2,step_3 start=0 increment=1 \
+        unit=hours
+    t.rast.list input=model
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    step_1|PERMANENT|0|1
+    step_2|PERMANENT|1|2
+    step_3|PERMANENT|2|3
+    ```
+
+    ```sh
+    cat > steps.txt <<EOF
+    step_4|10|12
+    step_5|12|15
+    EOF
+    t.register input=model file=steps.txt unit=hours
+    t.rast.list input=model
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    step_1|PERMANENT|0|1
+    step_2|PERMANENT|1|2
+    step_3|PERMANENT|2|3
+    step_4|PERMANENT|10|12
+    step_5|PERMANENT|12|15
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for number in range(1, 6):
+        tools.r_mapcalc(expression=f"step_{number} = {number}")
+    tools.t_create(
+        output="model",
+        temporaltype="relative",
+        title="Model",
+        description="Model output per step",
+    )
+    tools.t_register(
+        input="model",
+        maps="step_1,step_2,step_3",
+        start=0,
+        increment=1,
+        unit="hours",
+        flags="i",
+    )
+    print(tools.t_rast_list(input="model").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    step_1|PERMANENT|0|1
+    step_2|PERMANENT|1|2
+    step_3|PERMANENT|2|3
+    ```
+
+    ```python
+    Path("steps.txt").write_text("step_4|10|12\nstep_5|12|15\n")
+    tools.t_register(input="model", file="steps.txt", unit="hours")
+    print(tools.t_rast_list(input="model").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    step_1|PERMANENT|0|1
+    step_2|PERMANENT|1|2
+    step_3|PERMANENT|2|3
+    step_4|PERMANENT|10|12
+    step_5|PERMANENT|12|15
+    ```
+
+### Register maps without a dataset, or with a time stamp of the map
+
+Without **input**, the maps only get their time and are registered in the
+temporal database: `free_1` and `free_2` are the days August 1 and 2, 2001.
+*t.list* lists them. The second part sets the time of `stamped_1` and
+`stamped_2` with *r.timestamp* first; *t.register* needs no **start**, because
+it takes the time from the maps.
+
+=== "Command line"
+
+    ```sh
+    for number in 1 2; do
+        r.mapcalc expression="free_$number = $number"
+        r.mapcalc expression="stamped_$number = $number"
+    done
+    t.register -i maps=free_1,free_2 start=2001-08-01 increment="1 days"
+    t.list type=raster columns=name,start_time,end_time \
+        where="name IN ('free_1', 'free_2')" order=start_time format=csv
+    ```
+
+    ```text
+    name,start_time,end_time
+    free_1,2001-08-01 00:00:00,2001-08-02 00:00:00
+    free_2,2001-08-02 00:00:00,2001-08-03 00:00:00
+    ```
+
+    ```sh
+    r.timestamp map=stamped_1 date="1 Sep 2001 / 1 Oct 2001"
+    r.timestamp map=stamped_2 date="1 Oct 2001 / 1 Nov 2001"
+    t.create output=stamped title="Stamped" description="Time from the maps"
+    t.register input=stamped maps=stamped_1,stamped_2
+    t.rast.list input=stamped
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
+    stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for number in range(1, 3):
+        tools.r_mapcalc(expression=f"free_{number} = {number}")
+        tools.r_mapcalc(expression=f"stamped_{number} = {number}")
+    tools.t_register(
+        maps="free_1,free_2", start="2001-08-01", increment="1 days", flags="i"
+    )
+    print(
+        tools.t_list(
+            type="raster",
+            columns="name,start_time,end_time",
+            where="name IN ('free_1', 'free_2')",
+            order="start_time",
+            format="csv",
+        ).text
+    )
+    ```
+
+    ```text
+    name,start_time,end_time
+    free_1,2001-08-01 00:00:00,2001-08-02 00:00:00
+    free_2,2001-08-02 00:00:00,2001-08-03 00:00:00
+    ```
+
+    ```python
+    tools.r_timestamp(map="stamped_1", date="1 Sep 2001 / 1 Oct 2001")
+    tools.r_timestamp(map="stamped_2", date="1 Oct 2001 / 1 Nov 2001")
+    tools.t_create(output="stamped", title="Stamped", description="Time from the maps")
+    tools.t_register(input="stamped", maps="stamped_1,stamped_2")
+    print(tools.t_rast_list(input="stamped").text)
+    ```
+
+    ```text
+    name|mapset|start_time|end_time
+    stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
+    stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+    ```
+
+### Register layers of a vector map
+
+A vector map can stand for a series if each time step is a layer. The map
+`stations` has two points and the layers 1 to 3 with the same categories. With
+`type=vector` and the notation `map:layer`, each layer is registered as a day of
+the dataset `daily`.
+
+=== "Command line"
+
+    ```sh
+    v.in.ascii input=- output=stations_import separator=comma \
+        columns="x double precision, y double precision, speed double precision" <<EOF
+    0.5,0.5,3.0
+    2.5,1.5,5.0
+    EOF
+    v.category input=stations_import output=stations option=transfer layer=1,2,3
+    t.create type=stvds output=daily title="Daily" description="Layers as days"
+    t.register -i type=vector input=daily maps=stations:1,stations:2,stations:3 \
+        start=2001-03-01 increment="1 days"
+    t.vect.list input=daily columns=name,layer,start_time,end_time
+    ```
+
+    ```text
+    name|layer|start_time|end_time
+    stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from io import StringIO
+
+    tools.v_in_ascii(
+        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        output="stations_import",
+        separator="comma",
+        columns="x double precision, y double precision, speed double precision",
+    )
+    tools.v_category(
+        input="stations_import", output="stations", option="transfer", layer="1,2,3"
+    )
+    tools.t_create(
+        type="stvds", output="daily", title="Daily", description="Layers as days"
+    )
+    tools.t_register(
+        type="vector",
+        input="daily",
+        maps="stations:1,stations:2,stations:3",
+        start="2001-03-01",
+        increment="1 days",
+        flags="i",
+    )
+    print(tools.t_vect_list(input="daily", columns="name,layer,start_time,end_time").text)
+    ```
+
+    ```text
+    name|layer|start_time|end_time
+    stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+    ```
+
+### Register 3D raster maps
+
+The 3D raster maps `soil_1` and `soil_2` are registered with `type=raster_3d`
+in a space time 3D raster dataset. The region needs a top, a bottom and the 3D
+resolutions.
+
+=== "Command line"
+
+    ```sh
+    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    r3.mapcalc expression="soil_1 = depth()"
+    r3.mapcalc expression="soil_2 = depth() + 10"
+    t.create type=str3ds output=soil title="Soil" \
+        description="Soil temperature in three layers"
+    t.register -i type=raster_3d input=soil maps=soil_1,soil_2 \
+        start=2001-03-01 increment="1 days"
+    t.rast3d.list input=soil columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    soil_1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    soil_2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.r3_mapcalc(expression="soil_1 = depth()")
+    tools.r3_mapcalc(expression="soil_2 = depth() + 10")
+    tools.t_create(
+        type="str3ds",
+        output="soil",
+        title="Soil",
+        description="Soil temperature in three layers",
+    )
+    tools.t_register(
+        type="raster_3d",
+        input="soil",
+        maps="soil_1,soil_2",
+        start="2001-03-01",
+        increment="1 days",
+        flags="i",
+    )
+    print(tools.t_rast3d_list(input="soil", columns="name,start_time,end_time").text)
+    ```
+
+    ```text
+    name|start_time|end_time
+    soil_1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    soil_2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    ```
+
+<!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[r.timestamp](r.timestamp.md), [t.create](t.create.md),
-[t.info](t.info.md)*
+*[g.list](g.list.md), [r.support](r.support.md), [r.timestamp](r.timestamp.md),
+[r3.timestamp](r3.timestamp.md), [t.connect](t.connect.md),
+[t.create](t.create.md), [t.info](t.info.md), [t.list](t.list.md),
+[t.rast.list](t.rast.list.md), [t.rast3d.list](t.rast3d.list.md),
+[t.upgrade](t.upgrade.md), [t.vect.list](t.vect.list.md),
+[v.timestamp](v.timestamp.md),
+[temporal data processing](temporalintro.md)*
 
 [Maps registration examples in Temporal data processing
 Wiki](https://grasswiki.osgeo.org/wiki/Temporal_data_processing/maps_registration)
