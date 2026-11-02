@@ -607,15 +607,14 @@ examples as well; with a set of keys, it prints only these.
 
 **-h** replaces the report by the title, the description and the commands that
 built the dataset. A line with the time of the command precedes each command.
-The filter of the first command removes these lines, because the times differ
-from run to run. The second command shows that **-h** has no effect on a map:
+The second command shows that **-h** has no effect on a map:
 it prints the report of the map, of which the command selects two lines, the
 header and the id.
 
 === "Command line"
 
     ```sh
-    t.info -h input=temperature | grep -v -E "^# [0-9]{4}-"
+    t.info -h input=temperature
     ```
 
     ```text
@@ -624,8 +623,10 @@ header and the id.
     # Description:
     # Daily mean air temperature in degrees Celsius
     # Command history:
+    # 2026-11-01 12:00:00
     t.create output="temperature" title="Air temperature" \
     description="Daily mean air temperature in degrees Celsius" \
+    # 2026-11-01 12:00:00
     t.register -i input="temperature" \
     maps="temperature_1,temperature_2,temperature_3" start="2026-03-01" \
     increment="1 day"
@@ -643,12 +644,7 @@ header and the id.
 === "Python (grass.tools)"
 
     ```python
-    import re
-
-    result = tools.t_info(input="temperature", flags="h")
-    for line in result.stdout.splitlines():
-        if not re.match(r"# \d{4}-", line):
-            print(line)
+    print(tools.t_info(input="temperature", flags="h").text)
     ```
 
     ```text
@@ -657,8 +653,10 @@ header and the id.
     # Description:
     # Daily mean air temperature in degrees Celsius
     # Command history:
+    # 2026-11-01 12:00:00
     t.create output="temperature" title="Air temperature" \
     description="Daily mean air temperature in degrees Celsius" \
+    # 2026-11-01 12:00:00
     t.register -i input="temperature" \
     maps="temperature_1,temperature_2,temperature_3" start="2026-03-01" \
     increment="1 day"
