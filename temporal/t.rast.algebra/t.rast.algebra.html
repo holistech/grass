@@ -58,8 +58,9 @@ maps with equal temporal topology relation) from the STRDS <b>B</b>.
 <p>
 The result dataset is created in the current mapset, and an existing dataset
 of that name is replaced only with <b>--overwrite</b>; without it the tool stops
-with the error <code>Space time dataset &lt;C@PERMANENT&gt; exists. Use the overwrite
-flag.</code> The name of the result must not contain a dot or a mapset. The parser
+with the error
+<code>Space time dataset &lt;C@t_rast_algebra&gt; exists. Use the overwrite flag.</code> The
+name of the result must not contain a dot or a mapset. The parser
 stops at the dot: the new algebra with the error "Unexpected character '.'",
 the classic algebra (<b>-c</b>) with a syntax error. No dataset is created. A
 dataset of another mapset is named <code>name@mapset</code> in the expression; a name
@@ -1267,7 +1268,7 @@ of <code>tshift()</code> reports that the text cannot be read as a time step, fo
 <code>tshift(A, "1 DAY")</code> instead of "cannot shift absolute time by".</li>
 <li><b>Debug output.</b> In Python, with <code>debug=True</code>, the classic algebra
 prints each module call as a command line like the new algebra, for
-example <code>r.mapcalc expression=q_0=(a1@PERMANENT + 1) nprocs=1</code>. The
+example <code>r.mapcalc expression=q_0=(a1@t_rast_algebra + 1) nprocs=1</code>. The
 reference implementation printed the <em>r.mapcalc</em> commands and the
 resulting statement.</li>
 <li><b>Order of the errors.</b> Both implementations reject an invalid
@@ -1342,11 +1343,20 @@ See the example "Sample the maps with a common granularity" below.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast_algebra</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region unless they say otherwise. Most examples show how the algebra
+relates maps by their time, so their maps hold small constant values; the
+example with satellite scenes and the hydrothermal coefficient in the catalog
+of the publication compute with generated maps that vary in space.
+
 <h3>Compute with every map of a dataset</h3>
 
 The dataset <code>A</code> has four daily maps for 1 to 4 March 2026. Each map has the
-same value in all cells: 1, 2, 3 and 4. The region from <em>g.region</em> is two by
-two cells wide, so the smallest and largest values of a map are equal.
+same value in all cells: 1, 2, 3 and 4, so the smallest and the largest value
+of a map are equal.
 
 <p>
 The expression <code>C = A * 2</code> creates the dataset <code>C</code> and doubles each map of
@@ -1358,7 +1368,8 @@ the same time; the result is the same as with one. The values are 2, 4, 6 and
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=2 w=0 res=1
+g.mapset -c mapset=t_rast_algebra
+g.region raster=elev_state_500m res=1000 -a
 for step in 1 2 3 4; do
     r.mapcalc expression="a_$step = $step"
 done
@@ -1396,7 +1407,8 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=2, w=0, res=1)
+tools.g_mapset(flags="c", mapset="t_rast_algebra")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 for step in range(1, 5):
     tools.r_mapcalc(expression=f"a_{step} = {step}")
 tools.t_create(
@@ -1570,18 +1582,18 @@ by_num_3
 
 <div class="code"><pre>
 t.rast.algebra -d expression="dry = B * 2" basename=dry
-t.list type=strds columns=name
+t.list type=strds columns=name mapset=.
 </pre></div>
 
 <div class="code"><pre>
 {'STDS': {'name': 'dry', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': [],
-                'inputs': [('expression', '"dry_0"=("b_1@PERMANENT" * 2)'),
+                'inputs': [('expression', '"dry_0"=("b_1@t_rast_algebra" * 2)'),
                            ('nprocs', 1)],
                 'name': 'r.mapcalc',
                 'outputs': []},
                {'flags': [],
-                'inputs': [('expression', '"dry_1"=("b_2@PERMANENT" * 2)'),
+                'inputs': [('expression', '"dry_1"=("b_2@t_rast_algebra" * 2)'),
                            ('nprocs', 1)],
                 'name': 'r.mapcalc',
                 'outputs': []}],
@@ -1629,18 +1641,18 @@ by_num_3
 
 <div class="code"><pre>
 print(tools.t_rast_algebra(expression="dry = B * 2", basename="dry", flags="d").text)
-print(tools.t_list(type="strds", columns="name").text)
+print(tools.t_list(type="strds", columns="name", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
 {'STDS': {'name': 'dry', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': [],
-                'inputs': [('expression', '"dry_0"=("b_1@PERMANENT" * 2)'),
+                'inputs': [('expression', '"dry_0"=("b_1@t_rast_algebra" * 2)'),
                            ('nprocs', 1)],
                 'name': 'r.mapcalc',
                 'outputs': []},
                {'flags': [],
-                'inputs': [('expression', '"dry_1"=("b_2@PERMANENT" * 2)'),
+                'inputs': [('expression', '"dry_1"=("b_2@t_rast_algebra" * 2)'),
                            ('nprocs', 1)],
                 'name': 'r.mapcalc',
                 'outputs': []}],
@@ -1736,12 +1748,13 @@ classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
 
 <h3>Spatially related maps and empty maps</h3>
 
-The dataset <code>P</code> has three daily maps with the values 100, 200 and 300 for 1 to
-3 March. The map <code>p_2</code> is created in a region that lies at the columns 10 to
-12, far from the region of the other maps; the region is set back afterwards.
+The dataset <code>patches</code> has three daily maps with the values 100, 200 and 300
+for 1 to 3 March. The map <code>patch_2</code> is created in a window of 10 by 10 cells
+that lies east of the region and has no cell in common with it; the region is
+set back afterwards.
 
 <p>
-The expression <code>A + P</code> is computed in the current region. The maps of the
+The expression <code>A + patches</code> is computed in the current region. The maps of the
 second day do not overlap in space, so the result for that day has no data in
 the region. By default a map without data is not registered, and the first
 block gives the maps <code>plain_0</code> (1 + 100 = 101) and <code>plain_2</code> (3 + 300 = 303);
@@ -1756,16 +1769,16 @@ no gap: <code>classic_0</code> and <code>classic_1</code> hold 101 and 303.
 <p>Command line:</p>
 
 <div class="code"><pre>
-r.mapcalc expression="p_1 = 100"
-g.region n=2 s=0 e=12 w=10 res=1
-r.mapcalc expression="p_2 = 200"
-g.region n=2 s=0 e=2 w=0 res=1
-r.mapcalc expression="p_3 = 300"
-t.create output=P title="Patches" \
+r.mapcalc expression="patch_1 = 100"
+g.region n=319000 s=309000 e=1010000 w=1000000 res=1000
+r.mapcalc expression="patch_2 = 200"
+g.region raster=elev_state_500m res=1000 -a
+r.mapcalc expression="patch_3 = 300"
+t.create output=patches title="Patches" \
     description="Three daily maps, the second one far away"
-t.register -i input=P maps=p_1,p_2,p_3 \
+t.register -i input=patches maps=patch_1,patch_2,patch_3 \
     start=2026-03-01 increment="1 day"
-t.rast.algebra expression="plain = A + P" basename=plain
+t.rast.algebra expression="plain = A + patches" basename=plain
 t.rast.list input=plain columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -1776,7 +1789,7 @@ plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra -n expression="with_null = A + P" basename=with_null
+t.rast.algebra -n expression="with_null = A + patches" basename=with_null
 t.rast.list input=with_null columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -1788,7 +1801,7 @@ with_null_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra -n -s expression="spatial = A + P" basename=spatial
+t.rast.algebra -n -s expression="spatial = A + patches" basename=spatial
 t.rast.list input=spatial columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -1799,7 +1812,7 @@ spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra -n -c expression="classic = A + P" basename=classic
+t.rast.algebra -n -c expression="classic = A + patches" basename=classic
 t.rast.list input=classic columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -1812,24 +1825,24 @@ classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.r_mapcalc(expression="p_1 = 100")
-tools.g_region(n=2, s=0, e=12, w=10, res=1)
-tools.r_mapcalc(expression="p_2 = 200")
-tools.g_region(n=2, s=0, e=2, w=0, res=1)
-tools.r_mapcalc(expression="p_3 = 300")
+tools.r_mapcalc(expression="patch_1 = 100")
+tools.g_region(n=319000, s=309000, e=1010000, w=1000000, res=1000)
+tools.r_mapcalc(expression="patch_2 = 200")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.r_mapcalc(expression="patch_3 = 300")
 tools.t_create(
-    output="P",
+    output="patches",
     title="Patches",
     description="Three daily maps, the second one far away",
 )
 tools.t_register(
-    input="P",
-    maps="p_1,p_2,p_3",
+    input="patches",
+    maps="patch_1,patch_2,patch_3",
     start="2026-03-01",
     increment="1 day",
     flags="i",
 )
-tools.t_rast_algebra(expression="plain = A + P", basename="plain")
+tools.t_rast_algebra(expression="plain = A + patches", basename="plain")
 print(tools.t_rast_list(input="plain", columns="name,start_time,end_time,min,max").text)
 </pre></div>
 
@@ -1840,7 +1853,9 @@ plain_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-tools.t_rast_algebra(expression="with_null = A + P", basename="with_null", flags="n")
+tools.t_rast_algebra(
+    expression="with_null = A + patches", basename="with_null", flags="n"
+)
 print(
     tools.t_rast_list(
         input="with_null", columns="name,start_time,end_time,min,max"
@@ -1856,7 +1871,7 @@ with_null_2|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-tools.t_rast_algebra(expression="spatial = A + P", basename="spatial", flags="ns")
+tools.t_rast_algebra(expression="spatial = A + patches", basename="spatial", flags="ns")
 print(
     tools.t_rast_list(input="spatial", columns="name,start_time,end_time,min,max").text
 )
@@ -1869,7 +1884,7 @@ spatial_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
 <div class="code"><pre>
-tools.t_rast_algebra(expression="classic = A + P", basename="classic", flags="nc")
+tools.t_rast_algebra(expression="classic = A + patches", basename="classic", flags="nc")
 print(
     tools.t_rast_list(input="classic", columns="name,start_time,end_time,min,max").text
 )
@@ -1944,21 +1959,24 @@ sampled_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
 <h3>Compute the NDVI of satellite scenes</h3>
 
 The red and the near infrared band of three scenes are stored in two
-datasets, <code>S2_b4</code> and <code>S2_b8</code>, as time instances five days apart. The red
-bands have the values 30, 10 and 10, the near infrared bands 50, 30 and 70.
-The scenes of the two datasets have equal time, so the expression pairs them,
-and the NDVI <code>(nir - red) / (nir + red)</code> of each scene is 0.25, 0.5 and 0.75.
-<em>float()</em> turns the integer maps into floating point maps before the
-division, because the division of two integers is an integer division.
-<em>t.rast.colors</em> sets the color table <code>ndvi</code> for the maps of the result.
+datasets, <code>S2_b4</code> and <code>S2_b8</code>, as time instances five days apart. The bands
+are generated, not measured: integer reflectances scaled by 10000, as in
+Sentinel-2 products, over North Carolina. From scene to scene the red band
+decreases by 150 and the near infrared band increases by 400, and with the
+elevation the red band rises and the near infrared band falls. The scenes of
+the two datasets have equal time, so the expression pairs them and computes
+the NDVI <code>(nir - red) / (nir + red)</code> of each scene; its smallest and largest
+values grow from scene to scene. <em>float()</em> turns the integer maps into
+floating point maps before the division, because the division of two
+integers is an integer division. <em>t.rast.colors</em> sets the color table <code>ndvi</code>
+for the maps of the result.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-for scene in "1 30 50" "2 10 30" "3 10 70"; do
-    set -- $scene
-    r.mapcalc expression="red_$1 = $2"
-    r.mapcalc expression="nir_$1 = $3"
+for scene in 1 2 3; do
+    r.mapcalc expression="red_$scene = round(900 - 150 * $scene + 0.2 * elev_state_500m)"
+    r.mapcalc expression="nir_$scene = round(2400 + 400 * $scene - 0.5 * elev_state_500m)"
 done
 t.create output=S2_b4 title="Red band" description="Sentinel-2 band 4"
 t.create output=S2_b8 title="Near infrared band" \
@@ -1967,20 +1985,19 @@ t.register input=S2_b4 maps=red_1,red_2,red_3 \
     start=2026-06-01 increment="5 days"
 t.register input=S2_b8 maps=nir_1,nir_2,nir_3 \
     start=2026-06-01 increment="5 days"
-g.region raster=red_1
 t.rast.list input=S2_b4 columns=name,start_time,min,max
 t.rast.list input=S2_b8 columns=name,start_time,min,max
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|min|max
-red_1|2026-06-01 00:00:00|30.0|30.0
-red_2|2026-06-06 00:00:00|10.0|10.0
-red_3|2026-06-11 00:00:00|10.0|10.0
+red_1|2026-06-01 00:00:00|749.0|1130.0
+red_2|2026-06-06 00:00:00|599.0|980.0
+red_3|2026-06-11 00:00:00|449.0|830.0
 name|start_time|min|max
-nir_1|2026-06-01 00:00:00|50.0|50.0
-nir_2|2026-06-06 00:00:00|30.0|30.0
-nir_3|2026-06-11 00:00:00|70.0|70.0
+nir_1|2026-06-01 00:00:00|1850.0|2803.0
+nir_2|2026-06-06 00:00:00|2250.0|3203.0
+nir_3|2026-06-11 00:00:00|2650.0|3603.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1992,19 +2009,21 @@ t.rast.list input=ndvi columns=name,start_time,min,max
 
 <div class="code"><pre>
 name|start_time|min|max
-ndvi_0|2026-06-01 00:00:00|0.25|0.25
-ndvi_1|2026-06-06 00:00:00|0.5|0.5
-ndvi_2|2026-06-11 00:00:00|0.75|0.75
+ndvi_0|2026-06-01 00:00:00|0.24161073565483093|0.5782657861709595
+ndvi_1|2026-06-06 00:00:00|0.39318886399269104|0.6849026679992676
+ndvi_2|2026-06-11 00:00:00|0.522988498210907|0.7783810496330261
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-red = (30, 10, 10)
-nir = (50, 30, 70)
-for scene in range(3):
-    tools.r_mapcalc(expression=f"red_{scene + 1} = {red[scene]}")
-    tools.r_mapcalc(expression=f"nir_{scene + 1} = {nir[scene]}")
+for scene in range(1, 4):
+    tools.r_mapcalc(
+        expression=f"red_{scene} = round(900 - 150 * {scene} + 0.2 * elev_state_500m)"
+    )
+    tools.r_mapcalc(
+        expression=f"nir_{scene} = round(2400 + 400 * {scene} - 0.5 * elev_state_500m)"
+    )
 tools.t_create(output="S2_b4", title="Red band", description="Sentinel-2 band 4")
 tools.t_create(
     output="S2_b8",
@@ -2023,20 +2042,19 @@ tools.t_register(
     start="2026-06-01",
     increment="5 days",
 )
-tools.g_region(raster="red_1")
 print(tools.t_rast_list(input="S2_b4", columns="name,start_time,min,max").text)
 print(tools.t_rast_list(input="S2_b8", columns="name,start_time,min,max").text)
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|min|max
-red_1|2026-06-01 00:00:00|30.0|30.0
-red_2|2026-06-06 00:00:00|10.0|10.0
-red_3|2026-06-11 00:00:00|10.0|10.0
+red_1|2026-06-01 00:00:00|749.0|1130.0
+red_2|2026-06-06 00:00:00|599.0|980.0
+red_3|2026-06-11 00:00:00|449.0|830.0
 name|start_time|min|max
-nir_1|2026-06-01 00:00:00|50.0|50.0
-nir_2|2026-06-06 00:00:00|30.0|30.0
-nir_3|2026-06-11 00:00:00|70.0|70.0
+nir_1|2026-06-01 00:00:00|1850.0|2803.0
+nir_2|2026-06-06 00:00:00|2250.0|3203.0
+nir_3|2026-06-11 00:00:00|2650.0|3603.0
 </pre></div>
 
 <div class="code"><pre>
@@ -2050,42 +2068,46 @@ print(tools.t_rast_list(input="ndvi", columns="name,start_time,min,max").text)
 
 <div class="code"><pre>
 name|start_time|min|max
-ndvi_0|2026-06-01 00:00:00|0.25|0.25
-ndvi_1|2026-06-06 00:00:00|0.5|0.5
-ndvi_2|2026-06-11 00:00:00|0.75|0.75
+ndvi_0|2026-06-01 00:00:00|0.24161073565483093|0.5782657861709595
+ndvi_1|2026-06-06 00:00:00|0.39318886399269104|0.6849026679992676
+ndvi_2|2026-06-11 00:00:00|0.522988498210907|0.7783810496330261
 </pre></div>
 
 <h3>Use datasets of another mapset</h3>
 
 A dataset of another mapset is named <code>name@mapset</code> in the expression; a name
 without mapset is searched only in the current mapset. The example creates the
-mapset <code>analysis</code> and switches to it. The first call names <code>A</code> without mapset
-and fails, because <code>analysis</code> has no dataset <code>A</code>, although <code>A</code> exists in
-<code>PERMANENT</code>. The second call names <code>A@PERMANENT</code>. The result dataset <code>halved</code>
-is always created in the current mapset: its maps are new maps in <code>analysis</code>,
-as the column <code>mapset</code> shows, and the maps of <code>A</code> stay as they were. The last
-command returns to <code>PERMANENT</code> for the following examples.
+mapset <code>t_rast_algebra_2</code>, switches to it, sets the region of the first
+example and adds the mapset <code>t_rast_algebra</code> to its search path. The first
+call names <code>A</code> without mapset and fails, because <code>t_rast_algebra_2</code> has no
+dataset <code>A</code>, although <code>A</code> exists in <code>t_rast_algebra</code>. The second call names
+<code>A@t_rast_algebra</code>. The result dataset <code>halved</code> is always created in the
+current mapset: its maps are new maps in <code>t_rast_algebra_2</code>, as the column
+<code>mapset</code> shows, and the maps of <code>A</code> stay as they were. The last command
+returns to <code>t_rast_algebra</code> for the following examples.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.mapset -c mapset=analysis
+g.mapset -c mapset=t_rast_algebra_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_rast_algebra operation=add
 if ! t.rast.algebra expression="halved = A * 0.5" basename=halved 2&gt;&amp;1; then
     echo "t.rast.algebra failed"
 fi
-t.rast.algebra expression="halved = A@PERMANENT * 0.5" basename=halved
+t.rast.algebra expression="halved = A@t_rast_algebra * 0.5" basename=halved
 t.rast.list input=halved columns=name,mapset,min,max
-g.mapset mapset=PERMANENT
+g.mapset mapset=t_rast_algebra
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Space time raster dataset &lt;A@analysis&gt; not found
+ERROR: Space time raster dataset &lt;A@t_rast_algebra_2&gt; not found
 t.rast.algebra failed
 name|mapset|min|max
-halved_0|analysis|0.5|0.5
-halved_1|analysis|1.0|1.0
-halved_2|analysis|1.5|1.5
-halved_3|analysis|2.0|2.0
+halved_0|t_rast_algebra_2|0.5|0.5
+halved_1|t_rast_algebra_2|1.0|1.0
+halved_2|t_rast_algebra_2|1.5|1.5
+halved_3|t_rast_algebra_2|2.0|2.0
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -2093,25 +2115,27 @@ halved_3|analysis|2.0|2.0
 <div class="code"><pre>
 from grass.tools import ToolError
 
-tools.g_mapset(mapset="analysis", flags="c")
+tools.g_mapset(mapset="t_rast_algebra_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_rast_algebra", operation="add")
 try:
     tools.t_rast_algebra(expression="halved = A * 0.5", basename="halved")
 except ToolError as error:
     print(error.stderr.strip())
     print("t.rast.algebra failed")
-tools.t_rast_algebra(expression="halved = A@PERMANENT * 0.5", basename="halved")
+tools.t_rast_algebra(expression="halved = A@t_rast_algebra * 0.5", basename="halved")
 print(tools.t_rast_list(input="halved", columns="name,mapset,min,max").text)
-tools.g_mapset(mapset="PERMANENT")
+tools.g_mapset(mapset="t_rast_algebra")
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Space time raster dataset &lt;A@analysis&gt; not found
+ERROR: Space time raster dataset &lt;A@t_rast_algebra_2&gt; not found
 t.rast.algebra failed
 name|mapset|min|max
-halved_0|analysis|0.5|0.5
-halved_1|analysis|1.0|1.0
-halved_2|analysis|1.5|1.5
-halved_3|analysis|2.0|2.0
+halved_0|t_rast_algebra_2|0.5|0.5
+halved_1|t_rast_algebra_2|1.0|1.0
+halved_2|t_rast_algebra_2|1.5|1.5
+halved_3|t_rast_algebra_2|2.0|2.0
 </pre></div>
 
 <h3>Catalog: select and combine maps by temporal relations</h3>
@@ -2121,11 +2145,11 @@ only; they use the datasets of the earlier examples and a few more, which the
 first block creates: <code>I</code> has two time instances (2 and 4 March 2026, values
 100 and 200), <code>H</code> one map from 2 to 4 March (value 5), <code>N</code> four daily maps
 with the values 11 to 14, <code>F</code> four daily maps with the value 3, <code>M</code> one map
-from 31 January to 31 March 2001 (value 7), <code>R</code> two maps in relative time
-(hours 0 to 1 and 1 to 2, values 1 and 2), <code>X</code> two daily maps whose cells hold
-their column number (1 and 2, plus 10 for the second map), and the plain map
-<code>k_1</code> with the value 0.5. Every block replaces the dataset <code>C</code> of the block
-before (<b>--overwrite</b>) and lists it.
+from 31 January to 31 March 2001 (value 7), <code>runoff</code> two maps of simulated
+runoff in relative time (hours 0 to 1 and 1 to 2, values 1 and 2), <code>columns</code>
+two daily maps whose cells hold their column number (1 to 839, plus 10 for
+the second map), and the plain map <code>factor</code> with the value 0.5. Every block
+replaces the dataset <code>C</code> of the block before (<b>--overwrite</b>) and lists it.
 
 <p>Command line:</p>
 
@@ -2151,16 +2175,18 @@ r.mapcalc expression="m_1 = 7"
 t.create output=M title="Long interval" \
     description="From January to March 2001"
 t.register input=M maps=m_1 start=2001-01-31 end=2001-03-31
-r.mapcalc expression="s_1 = 1"
-r.mapcalc expression="s_2 = 2"
-t.create output=R temporaltype=relative title="Relative time" \
-    description="Two maps of one hour"
-t.register -i input=R maps=s_1,s_2 start=0 increment=1 unit=hours
-r.mapcalc expression="x_1 = col()"
-r.mapcalc expression="x_2 = col() + 10"
-t.create output=X title="Columns" description="Column numbers"
-t.register -i input=X maps=x_1,x_2 start=2026-03-01 increment="1 day"
-r.mapcalc expression="k_1 = 0.5"
+r.mapcalc expression="runoff_1 = 1"
+r.mapcalc expression="runoff_2 = 2"
+t.create output=runoff temporaltype=relative title="Runoff" \
+    description="Simulated runoff in mm per model hour"
+t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 \
+    unit=hours
+r.mapcalc expression="columns_1 = col()"
+r.mapcalc expression="columns_2 = col() + 10"
+t.create output=columns title="Columns" description="Column numbers"
+t.register -i input=columns maps=columns_1,columns_2 start=2026-03-01 \
+    increment="1 day"
+r.mapcalc expression="factor = 0.5"
 </pre></div>
 
 <p>
@@ -2314,11 +2340,11 @@ c_1|2026-03-03 00:00:00|2026-03-05 00:00:00|20.0|20.0
 
 <p>
 Datasets of absolute and of relative time cannot be related. The dataset
-<code>R</code> has relative time, so the sum with <code>A</code> stops with an error and creates
-no dataset:
+<code>runoff</code> has relative time, so the sum with <code>A</code> stops with an error and
+creates no dataset:
 
 <div class="code"><pre>
-if ! t.rast.algebra expression="mixed = A + R" basename=mixed 2&gt;&amp;1; then
+if ! t.rast.algebra expression="mixed = A + runoff" basename=mixed 2&gt;&amp;1; then
     echo "t.rast.algebra failed"
 fi
 </pre></div>
@@ -2573,11 +2599,11 @@ c_0|2000-12-31 00:00:00|2001-04-30 00:00:00|7.0|7.0
 
 <p>
 Datasets with relative time work in the same way, and a step is a number
-in the unit of the dataset: <code>R * 2</code> doubles the values 1 and 2, and
+in the unit of the dataset: <code>runoff * 2</code> doubles the values 1 and 2, and
 shifting by 1 moves the maps by one hour.
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = R * 2" basename=c
+t.rast.algebra --overwrite expression="C = runoff * 2" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -2588,7 +2614,7 @@ c_1|1|2|4.0|4.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = tshift(R, 1)" basename=c
+t.rast.algebra --overwrite expression="C = tshift(runoff, 1)" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -2602,7 +2628,7 @@ c_1|2|3|2.0|2.0
 
 <code>merge()</code> joins the maps of two datasets into one dataset; here the result
 has the four maps of <code>A</code> and the two of <code>B</code>. A plain map without time stamp
-enters through <code>map()</code>: <code>A * map(k_1)</code> multiplies each map of <code>A</code> with 0.5,
+enters through <code>map()</code>: <code>A * map(factor)</code> multiplies each map of <code>A</code> with 0.5,
 giving 0.5, 1, 1.5 and 2.
 
 <p>Command line:</p>
@@ -2647,7 +2673,7 @@ c_09
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = A * map(k_1)" basename=c
+t.rast.algebra --overwrite expression="C = A * map(factor)" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
@@ -2692,45 +2718,46 @@ c_2|2026-03-04 00:00:00|2026-03-05 00:00:00|7.0|7.0
 
 <p>
 Two offsets are a row and a column offset in the cells of the map. The
-cells of the maps of <code>X</code> hold their column number, 1 and 2 (plus 10 for the
-second map). <code>X[0,1]</code> reads the cell to the right, so the first column
-sees the value of the second column, and the last column has no right
-neighbour and is null: the only value of the result is 2 for the first
-day and 12 for the second. <code>X[0,-1]</code> reads the cell to the left, which
-leaves the value of the first column. Three offsets add the temporal one:
-<code>X[0,1,1]</code> reads the cell to the right in the next map, which leaves out
-the last day.
+cells of the maps of <code>columns</code> hold their column number, 1 to 839 (plus 10
+for the second map). <code>columns[0,1]</code> reads the cell to the right, so each
+column sees the value of the next one, and the last column has no right
+neighbour and is null: the result ranges from 2 to 839 for the first day
+and from 12 to 849 for the second. <code>columns[0,-1]</code> reads the cell to the
+left, so the first column is null and the result ranges from 1 to 838 and
+from 11 to 848. Three offsets add the temporal one: <code>columns[0,1,1]</code> reads
+the cell to the right in the next map, 12 to 849, which leaves out the
+last day.
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = X[0,1]" basename=c
+t.rast.algebra --overwrite expression="C = columns[0,1]" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|end_time|min|max
-c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|2.0
-c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|12.0
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|839.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|12.0|849.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = X[0,-1]" basename=c
+t.rast.algebra --overwrite expression="C = columns[0,-1]" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|end_time|min|max
-c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|1.0
-c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|11.0|11.0
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|1.0|838.0
+c_1|2026-03-02 00:00:00|2026-03-03 00:00:00|11.0|848.0
 </pre></div>
 
 <div class="code"><pre>
-t.rast.algebra --overwrite expression="C = X[0,1,1]" basename=c
+t.rast.algebra --overwrite expression="C = columns[0,1,1]" basename=c
 t.rast.list input=C columns=name,start_time,end_time,min,max
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|end_time|min|max
-c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|12.0|12.0
+c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|12.0|849.0
 </pre></div>
 
 <h3>Catalog: where the classic algebra differs</h3>
@@ -2853,8 +2880,8 @@ fi
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Function td() requires a time interval, but map &lt;i_1@PERMANENT&gt; is a
-       time instance.
+ERROR: Function td() requires a time interval, but map &lt;i_1@t_rast_algebra&gt;
+       is a time instance.
 t.rast.algebra failed
 </pre></div>
 
@@ -2926,7 +2953,7 @@ fi
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Buffering map &lt;b_1@PERMANENT&gt; [2026-03-01 00:00:00, 2026-03-03
+ERROR: Buffering map &lt;b_1@t_rast_algebra&gt; [2026-03-01 00:00:00, 2026-03-03
        00:00:00] by -1 day leaves no time
 t.rast.algebra failed
 </pre></div>
@@ -3376,16 +3403,15 @@ first block creates anew, replacing the datasets with the same names above.
 maps of a month that start on the 15th of January and February (10 and 20),
 <code>E</code> three daily maps from 5 January (1.5, 2.5, 3.5), <code>NIR</code> and <code>RED</code> three
 daily maps from 1 January (8.5, 9.5, 10.5 and 2.5, 3.5, 4.5), <code>H</code> six daily
-maps from 10 January (1.5 to 6.5), <code>DM</code> two maps of three days from 1 January
-(1 and 2), <code>T</code> and <code>P</code> six daily maps from 1 January (5, 12, 20, 8, 15, 11 and
-1 to 6), and the plain map <code>L</code> has the value 0.5. The values are floating point
-numbers, because <em>r.mapcalc</em> divides whole numbers as whole numbers. Every
+maps from 10 January (1.5 to 6.5), and the plain map <code>L</code> has the value 0.5.
+The values are floating point numbers, because <em>r.mapcalc</em> divides whole
+numbers as whole numbers. The hydrothermal coefficient computes with
+generated monthly maps of 2020, which a block of their own creates. Every
 block names its result <code>PUB</code>, which replaces the one before.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=3 s=0 e=3 w=0 res=1
 series() {
     name=$1; start=$2; step=$3; shift 3
     maps=""; i=0
@@ -3406,9 +3432,6 @@ series E 2001-01-05 "1 days" 1.5 2.5 3.5
 series NIR 2001-01-01 "1 days" 8.5 9.5 10.5
 series RED 2001-01-01 "1 days" 2.5 3.5 4.5
 series H 2001-01-10 "1 days" 1.5 2.5 3.5 4.5 5.5 6.5
-series DM 2001-01-01 "3 days" 1 2
-series T 2001-01-01 "1 days" 5 12 20 8 15 11
-series P 2001-01-01 "1 days" 1 2 3 4 5 6
 r.mapcalc --overwrite expression="L = 0.5"
 </pre></div>
 
@@ -3447,10 +3470,72 @@ pub_2|2001-01-03 00:00:00|2001-01-04 00:00:00|0.4|0.4
 </pre></div>
 
 <p>
-The hydrothermal coefficient divides sums over the days of a period. The
-maps of <code>DM</code> last three days and contain three daily maps of <code>T</code> and <code>P</code>.
-In the first period only the second and third day reach 10 degrees, so the
-quotient is <code>(1 + 2 + 3) / (1 + 1.2 + 2.0)</code>.
+The hydrothermal coefficient divides the precipitation of the warm days of
+a period by a tenth of the sum of their temperatures; the publication
+sums daily maps. Here the maps are generated monthly maps of 2020 in North
+Carolina, not measurements. <code>T</code> has the monthly mean air temperature in
+degrees Celsius, rounded to 0.1. <code>precipitation_monthly</code> has monthly
+precipitation sums in mm, interpolated from the climate normals of the
+stations in <code>precip_30ynormals</code> and multiplied with an assumed factor for
+each month. <code>P</code> is the mean daily precipitation of each month in mm per
+day, the monthly sum divided by the days of the month, <code>td()</code>: like <code>T</code>,
+which stands for the mean of every day of its month, it stands for a day,
+so that the ratio keeps the scale of daily sums. The list shows the first
+quarter, where January has 94 to 249 mm in 31 days. <code>DM</code> has the
+four quarters of 2020 with the value 0, so that only the maps they contain
+make up the sums.
+
+<div class="code"><pre>
+for month in $(seq 12); do
+    echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r.mapcalc file=-
+t.create output=T title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius"
+t.register -i input=T \
+    maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+month=1
+for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+    jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+    name=$(printf %02d $month)
+    v.surf.idw input=precip_30ynormals column=${entry%:*} \
+        output=precipitation_normal_$name npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+    month=$((month + 1))
+done
+t.create output=precipitation_monthly title="Precipitation" \
+    description="Monthly precipitation sum 2020 in mm"
+t.register -i input=precipitation_monthly \
+    maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.rast.algebra --overwrite \
+    expression="P = precipitation_monthly * 1.0 / td(precipitation_monthly)" \
+    basename=precipitation_rate suffix=gran
+for quarter in 1 2 3 4; do
+    r.mapcalc expression="quarter_2020_$quarter = 0"
+done
+t.create output=DM title="Quarters" \
+    description="The four quarters of 2020"
+t.register -i input=DM \
+    maps=quarter_2020_1,quarter_2020_2,quarter_2020_3,quarter_2020_4 \
+    start=2020-01-01 increment="3 months"
+t.rast.list input=P columns=name,start_time,min,max where="start_time &lt; '2020-04-01'"
+</pre></div>
+
+<div class="code"><pre>
+name|start_time|min|max
+precipitation_rate_2020_01|2020-01-01 00:00:00|3.032258064516129|8.03225806451613
+precipitation_rate_2020_02|2020-02-01 00:00:00|4.586206896551724|10.655172413793103
+precipitation_rate_2020_03|2020-03-01 00:00:00|2.838709677419355|6.838709677419355
+</pre></div>
+
+<p>
+The sums run over the three months of each quarter, and a month counts
+only where its mean temperature reaches 10 degrees. Where no month of a
+quarter does, both sums are 0, and the quotient 0 / 0 leaves the cell
+null.
 
 <div class="code"><pre>
 t.rast.algebra --overwrite expression="PUB = (DM {+,contains,l} if(T &gt;= 10.0, P, 0.0)) / (DM {+,contains,l} if(T &gt;= 10.0, T / 10.0, 0.0))" basename=pub
@@ -3459,8 +3544,10 @@ t.rast.list input=PUB columns=name,start_time,end_time,min,max
 
 <div class="code"><pre>
 name|start_time|end_time|min|max
-pub_0|2001-01-01 00:00:00|2001-01-04 00:00:00|1.4285714285714286|1.4285714285714286
-pub_1|2001-01-04 00:00:00|2001-01-07 00:00:00|2.8260869565217392|2.8260869565217392
+pub_0|2020-01-01 00:00:00|2020-04-01 00:00:00|2.619244554728426|3.577131906739061
+pub_1|2020-04-01 00:00:00|2020-07-01 00:00:00|1.7792887764424767|5.5561933187923325
+pub_2|2020-07-01 00:00:00|2020-10-01 00:00:00|1.3690615128456503|4.122812780588222
+pub_3|2020-10-01 00:00:00|2021-01-01 00:00:00|1.2582932967284375|5.750350631136045
 </pre></div>
 
 <p>
@@ -3704,12 +3791,12 @@ pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.mapcalc.html">r.mapcalc</a>,
-<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
-<a href="t.rast.colors.html">t.rast.colors</a>, <a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>, <a href="t.rast3d.algebra.html">t.rast3d.algebra</a>,
-<a href="t.register.html">t.register</a>, <a href="t.select.html">t.select</a>,
-<a href="t.vect.algebra.html">t.vect.algebra</a>,
+<em><a href="g.mapset.html">g.mapset</a>, <a href="g.mapsets.html">g.mapsets</a>, <a href="g.region.html">g.region</a>,
+<a href="r.mapcalc.html">r.mapcalc</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.list.html">t.list</a>, <a href="t.rast.colors.html">t.rast.colors</a>,
+<a href="t.rast.list.html">t.rast.list</a>, <a href="t.rast.mapcalc.html">t.rast.mapcalc</a>,
+<a href="t.rast3d.algebra.html">t.rast3d.algebra</a>, <a href="t.register.html">t.register</a>,
+<a href="t.select.html">t.select</a>, <a href="t.vect.algebra.html">t.vect.algebra</a>,
 <a href="temporalintro.html">temporal data processing</a></em>
 
 <p>
