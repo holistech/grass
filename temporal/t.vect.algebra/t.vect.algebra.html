@@ -23,7 +23,7 @@ mapset, and the right side of the equality sign is an expression of
 datasets, operators and functions of the temporal vector algebra described
 below. The tool needs the whole statement as one <b>quoted</b> value:
 <code>expression="sel_equal = A : B"</code>. A dataset in another mapset is named with
-its mapset (<code>A@PERMANENT</code>); a name without mapset is looked up in the
+its mapset (<code>A@t_vect_algebra</code>); a name without mapset is looked up in the
 current mapset only. The tool does not overwrite an existing result dataset
 unless the global flag <b>--overwrite</b> is given.</li>
 <li><b>basename</b> is the prefix of the names of the vector maps that the tool
@@ -869,28 +869,38 @@ of an expression.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_vect_algebra</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. The algebra works on times and shapes, not on measurements, so the
+datasets are small sketches of squares, lines and points a few metres wide
+near the point (300000, 100000) in the region.
+
 <h3>Create the datasets of the examples</h3>
 
 The examples build on each other and use the same datasets, which this example
-creates. All vector areas are squares of 10 by 10 units, made with
-<em><a href="v.in.region.html">v.in.region</a></em> from the region. Their position is given by the
-west and south edge; the extent columns of <em><a href="t.vect.list.html">t.vect.list</a></em>
-show it.
+creates. All vector areas are squares of 10 by 10 metres, made with
+<em><a href="v.in.region.html">v.in.region</a></em> from a small region. The coordinates x and y in
+the descriptions count metres east and north of the point (300000, 100000), so
+x = 20 is 300020 in the map; the extent columns of
+<em><a href="t.vect.list.html">t.vect.list</a></em> show the full values. The position of a square
+is given by its west and south edge.
 
 <ul>
 <li><code>A</code> holds the daily maps <code>a1</code>, <code>a2</code> and <code>a3</code> from 1 March 2026, squares at
 x = 0, 20 and 40, y = 0 to 10.</li>
 <li><code>B</code> holds the daily maps <code>b1</code>, <code>b2</code> and <code>b3</code> of the same days, squares at
 x = 5, 25 and 70, y = 5 to 15. So <code>b1</code> overlaps <code>a1</code> in a square of 5 by 5
-units, area 25, <code>b2</code> overlaps <code>a2</code> the same way, and <code>b3</code> is far from <code>a3</code>.</li>
+metres, area 25, <code>b2</code> overlaps <code>a2</code> the same way, and <code>b3</code> is far from <code>a3</code>.</li>
 <li><code>W</code> holds two maps of two days, <code>w1</code> from 1 to 3 March at x = 5 and <code>w2</code>
 from 3 to 5 March at x = 45, y = 0 to 10. In time, <code>w1</code> contains <code>a1</code> and
 <code>a2</code> (<code>a1</code> starts together with it, <code>a2</code> finishes together with it), and
 <code>w2</code> contains <code>a3</code>.</li>
 <li><code>P</code> holds the daily maps <code>p1</code>, <code>p2</code> and <code>p3</code> with one, two and three points
-at y = 5, ten units apart, starting at x = 5.</li>
-<li><code>L</code> holds the daily maps <code>l1</code> and <code>l2</code>, each with one line of length 10 at
-y = 5, from x = 0 and x = 20.</li>
+at y = 5, ten metres apart, starting at x = 5.</li>
+<li><code>L</code> holds the daily maps <code>l1</code> and <code>l2</code>, each with one line of length 10 metres
+at y = 5, from x = 0 and x = 20.</li>
 <li><code>C</code> holds the maps <code>c1</code> and <code>c2</code>, copies of <code>w1</code> and <code>w2</code> with the same two
 times. It is the else part of an expression of the paper in the
 "Conditions" example.</li>
@@ -905,20 +915,25 @@ The tool calls of the following examples use the datasets by name.
 <p>Command line:</p>
 
 <div class="code"><pre>
+g.mapset -c mapset=t_vect_algebra
+g.region raster=elev_state_500m res=1000 -a
+x0=300000
+y0=100000
 for square in "a1 0 10 0" "a2 20 30 0" "a3 40 50 0" "b1 5 15 5" \
     "b2 25 35 5" "b3 70 80 5" "w1 5 15 0" "w2 45 55 0" "ev 20 30 0"; do
     set -- $square
-    g.region w=$2 e=$3 s=$4 n=$(($4 + 10))
+    g.region w=$((x0 + $2)) e=$((x0 + $3)) s=$((y0 + $4)) n=$((y0 + $4 + 10))
     v.in.region output=$1
 done
-g.region -d
+g.region raster=elev_state_500m res=1000 -a
 for line in "l1 0" "l2 20"; do
     set -- $line
-    printf "L 2 1\n $2 5\n $(($2 + 10)) 5\n 1 1\n" | \
+    printf "L 2 1\n $((x0 + $2)) $((y0 + 5))\n $((x0 + $2 + 10)) $((y0 + 5))\n 1 1\n" | \
         v.in.ascii -n input=- output=$1 format=standard
 done
 for count in 1 2 3; do
-    seq 1 $count | awk '{ print 10 * $1 - 5 ",5," $1 }' | \
+    seq 1 $count | awk -v x0=$x0 -v y0=$y0 \
+        '{ print x0 + 10 * $1 - 5 "," y0 + 5 "," $1 }' | \
         v.in.ascii input=- output=p$count separator=comma
 done
 for dataset in A B W P L C; do
@@ -949,9 +964,9 @@ t.vect.list input=A columns=name,start_time,end_time,west,east,south,north
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-a1|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|10.0|0.0|10.0
-a2|2026-03-02 00:00:00|2026-03-03 00:00:00|20.0|30.0|0.0|10.0
-a3|2026-03-03 00:00:00|2026-03-04 00:00:00|40.0|50.0|0.0|10.0
+a1|2026-03-01 00:00:00|2026-03-02 00:00:00|300000.0|300010.0|100000.0|100010.0
+a2|2026-03-02 00:00:00|2026-03-03 00:00:00|300020.0|300030.0|100000.0|100010.0
+a3|2026-03-03 00:00:00|2026-03-04 00:00:00|300040.0|300050.0|100000.0|100010.0
 </pre></div>
 
 <div class="code"><pre>
@@ -960,9 +975,9 @@ t.vect.list input=B columns=name,start_time,end_time,west,east,south,north
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-b1|2026-03-01 00:00:00|2026-03-02 00:00:00|5.0|15.0|5.0|15.0
-b2|2026-03-02 00:00:00|2026-03-03 00:00:00|25.0|35.0|5.0|15.0
-b3|2026-03-03 00:00:00|2026-03-04 00:00:00|70.0|80.0|5.0|15.0
+b1|2026-03-01 00:00:00|2026-03-02 00:00:00|300005.0|300015.0|100005.0|100015.0
+b2|2026-03-02 00:00:00|2026-03-03 00:00:00|300025.0|300035.0|100005.0|100015.0
+b3|2026-03-03 00:00:00|2026-03-04 00:00:00|300070.0|300080.0|100005.0|100015.0
 </pre></div>
 
 <div class="code"><pre>
@@ -971,8 +986,8 @@ t.vect.list input=W columns=name,start_time,end_time,west,east,south,north
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-w1|2026-03-01 00:00:00|2026-03-03 00:00:00|5.0|15.0|0.0|10.0
-w2|2026-03-03 00:00:00|2026-03-05 00:00:00|45.0|55.0|0.0|10.0
+w1|2026-03-01 00:00:00|2026-03-03 00:00:00|300005.0|300015.0|100000.0|100010.0
+w2|2026-03-03 00:00:00|2026-03-05 00:00:00|300045.0|300055.0|100000.0|100010.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1005,6 +1020,9 @@ from grass.tools import Tools
 
 tools = Tools()
 
+tools.g_mapset(flags="c", mapset="t_vect_algebra")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+x0, y0 = 300000, 100000
 squares = [
     ("a1", 0, 10, 0),
     ("a2", 20, 30, 0),
@@ -1017,14 +1035,14 @@ squares = [
     ("ev", 20, 30, 0),
 ]
 for name, west, east, south in squares:
-    tools.g_region(w=west, e=east, s=south, n=south + 10)
+    tools.g_region(w=x0 + west, e=x0 + east, s=y0 + south, n=y0 + south + 10)
     tools.v_in_region(output=name)
-tools.g_region(flags="d")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 for name, west in (("l1", 0), ("l2", 20)):
-    line = f"L 2 1\n {west} 5\n {west + 10} 5\n 1 1\n"
+    line = f"L 2 1\n {x0 + west} {y0 + 5}\n {x0 + west + 10} {y0 + 5}\n 1 1\n"
     tools.v_in_ascii(input=StringIO(line), output=name, format="standard", flags="n")
 for count in (1, 2, 3):
-    points = "".join(f"{10 * i - 5},5,{i}\n" for i in range(1, count + 1))
+    points = "".join(f"{x0 + 10 * i - 5},{y0 + 5},{i}\n" for i in range(1, count + 1))
     tools.v_in_ascii(input=StringIO(points), output=f"p{count}", separator="comma")
 for dataset in ("A", "B", "W", "P", "L", "C"):
     tools.t_create(
@@ -1089,9 +1107,9 @@ print(tools.t_vect_list(input="A", columns=columns).text)
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-a1|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|10.0|0.0|10.0
-a2|2026-03-02 00:00:00|2026-03-03 00:00:00|20.0|30.0|0.0|10.0
-a3|2026-03-03 00:00:00|2026-03-04 00:00:00|40.0|50.0|0.0|10.0
+a1|2026-03-01 00:00:00|2026-03-02 00:00:00|300000.0|300010.0|100000.0|100010.0
+a2|2026-03-02 00:00:00|2026-03-03 00:00:00|300020.0|300030.0|100000.0|100010.0
+a3|2026-03-03 00:00:00|2026-03-04 00:00:00|300040.0|300050.0|100000.0|100010.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1100,9 +1118,9 @@ print(tools.t_vect_list(input="B", columns=columns).text)
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-b1|2026-03-01 00:00:00|2026-03-02 00:00:00|5.0|15.0|5.0|15.0
-b2|2026-03-02 00:00:00|2026-03-03 00:00:00|25.0|35.0|5.0|15.0
-b3|2026-03-03 00:00:00|2026-03-04 00:00:00|70.0|80.0|5.0|15.0
+b1|2026-03-01 00:00:00|2026-03-02 00:00:00|300005.0|300015.0|100005.0|100015.0
+b2|2026-03-02 00:00:00|2026-03-03 00:00:00|300025.0|300035.0|100005.0|100015.0
+b3|2026-03-03 00:00:00|2026-03-04 00:00:00|300070.0|300080.0|100005.0|100015.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1111,8 +1129,8 @@ print(tools.t_vect_list(input="W", columns=columns).text)
 
 <div class="code"><pre>
 name|start_time|end_time|west|east|south|north
-w1|2026-03-01 00:00:00|2026-03-03 00:00:00|5.0|15.0|0.0|10.0
-w2|2026-03-03 00:00:00|2026-03-05 00:00:00|45.0|55.0|0.0|10.0
+w1|2026-03-01 00:00:00|2026-03-03 00:00:00|300005.0|300015.0|100000.0|100010.0
+w2|2026-03-03 00:00:00|2026-03-05 00:00:00|300045.0|300055.0|100000.0|100010.0
 </pre></div>
 
 <div class="code"><pre>
@@ -1332,7 +1350,7 @@ right_classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00
 t.vect.algebra expression="empty_core = A {:,contains} W" basename=empty_core
 t.vect.algebra -c expression="empty_classic = A {:,contains} W" \
     basename=empty_classic
-t.list type=stvds columns=name,number_of_maps format=csv \
+t.list type=stvds columns=name,number_of_maps format=csv mapset=. \
     where="name LIKE 'empty%'"
 </pre></div>
 
@@ -1385,6 +1403,7 @@ print(
         type="stvds",
         columns="name,number_of_maps",
         format="csv",
+        mapset=".",
         where="name LIKE 'empty%'",
     ).text
 )
@@ -1744,12 +1763,12 @@ b3|2026-03-03 00:00:00|1
 <h3>Buffers and temporal functions</h3>
 
 The buffer functions make areas around the points, lines or areas of each map
-and keep its time. The size is in map units. The temporal functions change the
+and keep its time. The size is in metres. The temporal functions change the
 time of the maps and copy the maps whose time changes.
 
 <ol>
 <li><code>buff_p(P, 1)</code> buffers the points of <code>p1</code>, <code>p2</code> and <code>p3</code>: one, two and three
-circles, as the points are ten units apart.</li>
+circles, as the points are ten metres apart.</li>
 <li><code>buff_p(P, 6)</code> has a radius larger than half the distance of the points, so
 the circles of one map merge into one area.</li>
 <li><code>buff_l(L, 2)</code> buffers the lines: one area for each map.</li>
@@ -1926,7 +1945,8 @@ conditions with or, and <code>w1</code> is true because of <code>a2</code>.</li>
 <div class="code"><pre>
 t.vect.algebra expression="D = if(start_date(A) &lt; \"2005-01-01\", A &amp; B)" \
     basename=d
-t.list type=stvds columns=name,number_of_maps format=csv where="name = 'D'"
+t.list type=stvds columns=name,number_of_maps format=csv mapset=. \
+    where="name = 'D'"
 </pre></div>
 
 <div class="code"><pre>
@@ -2081,12 +2101,13 @@ absolute time. The overlay <code>R &amp; S</code> gives two maps with one area e
 expression cannot mix the two temporal types.
 
 <p>
-The last blocks switch to a new mapset <code>analysis</code> and use the datasets of
-<code>PERMANENT</code>. A dataset name without mapset is looked up in the current mapset
-only, so <code>A</code> is not found, and <code>A@PERMANENT</code> names the dataset. The overlay
-creates its new maps in the current mapset, <code>analysis</code>. The selection
-registers the maps of <code>PERMANENT</code> as they are, so the result dataset in
-<code>analysis</code> holds maps from <code>PERMANENT</code>.
+The last blocks switch to a new mapset <code>t_vect_algebra_2</code>, set the region
+again, add the mapset <code>t_vect_algebra</code> to the search path and use its
+datasets. A dataset name without mapset is looked up in the current mapset
+only, so <code>A</code> is not found, and <code>A@t_vect_algebra</code> names the dataset. The
+overlay creates its new maps in the current mapset, <code>t_vect_algebra_2</code>. The
+selection registers the maps of <code>t_vect_algebra</code> as they are, so the result
+dataset in <code>t_vect_algebra_2</code> holds maps from <code>t_vect_algebra</code>.
 
 <p>Command line:</p>
 
@@ -2128,23 +2149,25 @@ t.vect.algebra failed
 </pre></div>
 
 <div class="code"><pre>
-g.mapset -c mapset=analysis
-t.vect.algebra expression="far_and = A@PERMANENT &amp; B@PERMANENT" \
+g.mapset -c mapset=t_vect_algebra_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_vect_algebra operation=add
+t.vect.algebra expression="far_and = A@t_vect_algebra &amp; B@t_vect_algebra" \
     basename=far_and
 t.vect.list input=far_and columns=name,mapset,start_time,areas
-t.vect.algebra expression="far_sel = A@PERMANENT : B@PERMANENT" \
+t.vect.algebra expression="far_sel = A@t_vect_algebra : B@t_vect_algebra" \
     basename=far_sel
 t.vect.list input=far_sel columns=id,mapset,start_time
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|areas
-far_and_0|analysis|2026-03-01 00:00:00|1
-far_and_1|analysis|2026-03-02 00:00:00|1
+far_and_0|t_vect_algebra_2|2026-03-01 00:00:00|1
+far_and_1|t_vect_algebra_2|2026-03-02 00:00:00|1
 id|mapset|start_time
-a1@PERMANENT|PERMANENT|2026-03-01 00:00:00
-a2@PERMANENT|PERMANENT|2026-03-02 00:00:00
-a3@PERMANENT|PERMANENT|2026-03-03 00:00:00
+a1@t_vect_algebra|t_vect_algebra|2026-03-01 00:00:00
+a2@t_vect_algebra|t_vect_algebra|2026-03-02 00:00:00
+a3@t_vect_algebra|t_vect_algebra|2026-03-03 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -2154,7 +2177,7 @@ fi
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Space time vector dataset &lt;A@analysis&gt; not found
+ERROR: Space time vector dataset &lt;A@t_vect_algebra_2&gt; not found
 t.vect.algebra failed
 </pre></div>
 
@@ -2223,26 +2246,30 @@ t.vect.algebra failed
 </pre></div>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="analysis", flags="c")
+tools.g_mapset(mapset="t_vect_algebra_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_vect_algebra", operation="add")
 tools.t_vect_algebra(
-    expression="far_and = A@PERMANENT &amp; B@PERMANENT", basename="far_and"
+    expression="far_and = A@t_vect_algebra &amp; B@t_vect_algebra",
+    basename="far_and",
 )
 columns = "name,mapset,start_time,areas"
 print(tools.t_vect_list(input="far_and", columns=columns).text)
 tools.t_vect_algebra(
-    expression="far_sel = A@PERMANENT : B@PERMANENT", basename="far_sel"
+    expression="far_sel = A@t_vect_algebra : B@t_vect_algebra",
+    basename="far_sel",
 )
 print(tools.t_vect_list(input="far_sel", columns="id,mapset,start_time").text)
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|areas
-far_and_0|analysis|2026-03-01 00:00:00|1
-far_and_1|analysis|2026-03-02 00:00:00|1
+far_and_0|t_vect_algebra_2|2026-03-01 00:00:00|1
+far_and_1|t_vect_algebra_2|2026-03-02 00:00:00|1
 id|mapset|start_time
-a1@PERMANENT|PERMANENT|2026-03-01 00:00:00
-a2@PERMANENT|PERMANENT|2026-03-02 00:00:00
-a3@PERMANENT|PERMANENT|2026-03-03 00:00:00
+a1@t_vect_algebra|t_vect_algebra|2026-03-01 00:00:00
+a2@t_vect_algebra|t_vect_algebra|2026-03-02 00:00:00
+a3@t_vect_algebra|t_vect_algebra|2026-03-03 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -2254,7 +2281,7 @@ except ToolError as error:
 </pre></div>
 
 <div class="code"><pre>
-ERROR: Space time vector dataset &lt;A@analysis&gt; not found
+ERROR: Space time vector dataset &lt;A@t_vect_algebra_2&gt; not found
 t.vect.algebra failed
 </pre></div>
 
@@ -2263,21 +2290,24 @@ t.vect.algebra failed
 The expression of the paper that buffers points needs datasets of points: the
 datasets <code>A</code> and <code>B</code> of the first example hold areas, and <code>buff_p()</code> of a map
 without points gives nothing, so the result would be empty. The example
-creates the mapset <code>paper</code>, where <code>A</code> and <code>B</code> are new datasets of points,
-copies of <code>p1</code>, <code>p2</code> and <code>p3</code>, each with the days 1 and 2 March. <code>A</code> has one
-and two points and <code>B</code> two and three, ten units apart. The buffers have the
-radius 1, so every point has its own circle. The relations in the braces cover
-every case in which two maps overlap in time, and the temporal operator <b>i</b>
-gives the result the intersection of both times, here the day. The first day
-has one common circle, the second two.
+creates the mapset <code>t_vect_algebra_3</code>, sets its region and adds the mapset
+<code>t_vect_algebra</code> to the search path. There <code>A</code> and <code>B</code> are new datasets of
+points, copies of <code>p1</code>, <code>p2</code> and <code>p3</code>, each with the days 1 and 2 March. <code>A</code>
+has one and two points and <code>B</code> two and three, ten metres apart. The buffers
+have the radius 1, so every point has its own circle. The relations in the
+braces cover every case in which two maps overlap in time, and the temporal
+operator <b>i</b> gives the result the intersection of both times, here the day.
+The first day has one common circle, the second two.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.mapset -c mapset=paper
+g.mapset -c mapset=t_vect_algebra_3
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_vect_algebra operation=add
 for k in 1 2; do
-    g.copy vector=p$k@PERMANENT,pa$k
-    g.copy vector=p$((k + 1))@PERMANENT,pb$k
+    g.copy vector=p$k@t_vect_algebra,pa$k
+    g.copy vector=p$((k + 1))@t_vect_algebra,pb$k
 done
 for dataset in A B; do
     t.create type=stvds output=$dataset title="$dataset" \
@@ -2304,10 +2334,12 @@ d_1|2026-03-02 00:00:00|2026-03-03 00:00:00|2
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="paper", flags="c")
+tools.g_mapset(mapset="t_vect_algebra_3", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_vect_algebra", operation="add")
 for k in (1, 2):
-    tools.g_copy(vector=f"p{k}@PERMANENT,pa{k}")
-    tools.g_copy(vector=f"p{k + 1}@PERMANENT,pb{k}")
+    tools.g_copy(vector=f"p{k}@t_vect_algebra,pa{k}")
+    tools.g_copy(vector=f"p{k + 1}@t_vect_algebra,pb{k}")
 for dataset, maps in (("A", "pa1,pa2"), ("B", "pb1,pb2")):
     tools.t_create(
         type="stvds",

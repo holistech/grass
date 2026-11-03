@@ -21,7 +21,7 @@ The tool has two required options and two flags:
   datasets, operators and functions of the temporal vector algebra described
   below. The tool needs the whole statement as one **quoted** value:
   `expression="sel_equal = A : B"`. A dataset in another mapset is named with
-  its mapset (`A@PERMANENT`); a name without mapset is looked up in the
+  its mapset (`A@t_vect_algebra`); a name without mapset is looked up in the
   current mapset only. The tool does not overwrite an existing result dataset
   unless the global flag **--overwrite** is given.
 - **basename** is the prefix of the names of the vector maps that the tool
@@ -821,29 +821,41 @@ of an expression.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_vect_algebra` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. The algebra works on times and shapes, not on measurements, so the
+datasets are small sketches of squares, lines and points a few metres wide
+near the point (300000, 100000) in the region.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_algebra -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Create the datasets of the examples
 
 The examples build on each other and use the same datasets, which this example
-creates. All vector areas are squares of 10 by 10 units, made with
-*[v.in.region](v.in.region.md)* from the region. Their position is given by the
-west and south edge; the extent columns of *[t.vect.list](t.vect.list.md)*
-show it.
+creates. All vector areas are squares of 10 by 10 metres, made with
+*[v.in.region](v.in.region.md)* from a small region. The coordinates x and y in
+the descriptions count metres east and north of the point (300000, 100000), so
+x = 20 is 300020 in the map; the extent columns of
+*[t.vect.list](t.vect.list.md)* show the full values. The position of a square
+is given by its west and south edge.
 
 - `A` holds the daily maps `a1`, `a2` and `a3` from 1 March 2026, squares at
   x = 0, 20 and 40, y = 0 to 10.
 - `B` holds the daily maps `b1`, `b2` and `b3` of the same days, squares at
   x = 5, 25 and 70, y = 5 to 15. So `b1` overlaps `a1` in a square of 5 by 5
-  units, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
+  metres, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
 - `W` holds two maps of two days, `w1` from 1 to 3 March at x = 5 and `w2`
   from 3 to 5 March at x = 45, y = 0 to 10. In time, `w1` contains `a1` and
   `a2` (`a1` starts together with it, `a2` finishes together with it), and
   `w2` contains `a3`.
 - `P` holds the daily maps `p1`, `p2` and `p3` with one, two and three points
-  at y = 5, ten units apart, starting at x = 5.
-- `L` holds the daily maps `l1` and `l2`, each with one line of length 10 at
-  y = 5, from x = 0 and x = 20.
+  at y = 5, ten metres apart, starting at x = 5.
+- `L` holds the daily maps `l1` and `l2`, each with one line of length 10 metres
+  at y = 5, from x = 0 and x = 20.
 - `C` holds the maps `c1` and `c2`, copies of `w1` and `w2` with the same two
   times. It is the else part of an expression of the paper in the
   "Conditions" example.
@@ -856,20 +868,25 @@ The tool calls of the following examples use the datasets by name.
 === "Command line"
 
     ```sh
+    g.mapset -c mapset=t_vect_algebra
+    g.region raster=elev_state_500m res=1000 -a
+    x0=300000
+    y0=100000
     for square in "a1 0 10 0" "a2 20 30 0" "a3 40 50 0" "b1 5 15 5" \
         "b2 25 35 5" "b3 70 80 5" "w1 5 15 0" "w2 45 55 0" "ev 20 30 0"; do
         set -- $square
-        g.region w=$2 e=$3 s=$4 n=$(($4 + 10))
+        g.region w=$((x0 + $2)) e=$((x0 + $3)) s=$((y0 + $4)) n=$((y0 + $4 + 10))
         v.in.region output=$1
     done
-    g.region -d
+    g.region raster=elev_state_500m res=1000 -a
     for line in "l1 0" "l2 20"; do
         set -- $line
-        printf "L 2 1\n $2 5\n $(($2 + 10)) 5\n 1 1\n" | \
+        printf "L 2 1\n $((x0 + $2)) $((y0 + 5))\n $((x0 + $2 + 10)) $((y0 + 5))\n 1 1\n" | \
             v.in.ascii -n input=- output=$1 format=standard
     done
     for count in 1 2 3; do
-        seq 1 $count | awk '{ print 10 * $1 - 5 ",5," $1 }' | \
+        seq 1 $count | awk -v x0=$x0 -v y0=$y0 \
+            '{ print x0 + 10 * $1 - 5 "," y0 + 5 "," $1 }' | \
             v.in.ascii input=- output=p$count separator=comma
     done
     for dataset in A B W P L C; do
@@ -900,9 +917,9 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    a1|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|10.0|0.0|10.0
-    a2|2026-03-02 00:00:00|2026-03-03 00:00:00|20.0|30.0|0.0|10.0
-    a3|2026-03-03 00:00:00|2026-03-04 00:00:00|40.0|50.0|0.0|10.0
+    a1|2026-03-01 00:00:00|2026-03-02 00:00:00|300000.0|300010.0|100000.0|100010.0
+    a2|2026-03-02 00:00:00|2026-03-03 00:00:00|300020.0|300030.0|100000.0|100010.0
+    a3|2026-03-03 00:00:00|2026-03-04 00:00:00|300040.0|300050.0|100000.0|100010.0
     ```
 
     ```sh
@@ -911,9 +928,9 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    b1|2026-03-01 00:00:00|2026-03-02 00:00:00|5.0|15.0|5.0|15.0
-    b2|2026-03-02 00:00:00|2026-03-03 00:00:00|25.0|35.0|5.0|15.0
-    b3|2026-03-03 00:00:00|2026-03-04 00:00:00|70.0|80.0|5.0|15.0
+    b1|2026-03-01 00:00:00|2026-03-02 00:00:00|300005.0|300015.0|100005.0|100015.0
+    b2|2026-03-02 00:00:00|2026-03-03 00:00:00|300025.0|300035.0|100005.0|100015.0
+    b3|2026-03-03 00:00:00|2026-03-04 00:00:00|300070.0|300080.0|100005.0|100015.0
     ```
 
     ```sh
@@ -922,8 +939,8 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    w1|2026-03-01 00:00:00|2026-03-03 00:00:00|5.0|15.0|0.0|10.0
-    w2|2026-03-03 00:00:00|2026-03-05 00:00:00|45.0|55.0|0.0|10.0
+    w1|2026-03-01 00:00:00|2026-03-03 00:00:00|300005.0|300015.0|100000.0|100010.0
+    w2|2026-03-03 00:00:00|2026-03-05 00:00:00|300045.0|300055.0|100000.0|100010.0
     ```
 
     ```sh
@@ -956,6 +973,9 @@ The tool calls of the following examples use the datasets by name.
 
     tools = Tools()
 
+    tools.g_mapset(flags="c", mapset="t_vect_algebra")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    x0, y0 = 300000, 100000
     squares = [
         ("a1", 0, 10, 0),
         ("a2", 20, 30, 0),
@@ -968,14 +988,14 @@ The tool calls of the following examples use the datasets by name.
         ("ev", 20, 30, 0),
     ]
     for name, west, east, south in squares:
-        tools.g_region(w=west, e=east, s=south, n=south + 10)
+        tools.g_region(w=x0 + west, e=x0 + east, s=y0 + south, n=y0 + south + 10)
         tools.v_in_region(output=name)
-    tools.g_region(flags="d")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     for name, west in (("l1", 0), ("l2", 20)):
-        line = f"L 2 1\n {west} 5\n {west + 10} 5\n 1 1\n"
+        line = f"L 2 1\n {x0 + west} {y0 + 5}\n {x0 + west + 10} {y0 + 5}\n 1 1\n"
         tools.v_in_ascii(input=StringIO(line), output=name, format="standard", flags="n")
     for count in (1, 2, 3):
-        points = "".join(f"{10 * i - 5},5,{i}\n" for i in range(1, count + 1))
+        points = "".join(f"{x0 + 10 * i - 5},{y0 + 5},{i}\n" for i in range(1, count + 1))
         tools.v_in_ascii(input=StringIO(points), output=f"p{count}", separator="comma")
     for dataset in ("A", "B", "W", "P", "L", "C"):
         tools.t_create(
@@ -1040,9 +1060,9 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    a1|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|10.0|0.0|10.0
-    a2|2026-03-02 00:00:00|2026-03-03 00:00:00|20.0|30.0|0.0|10.0
-    a3|2026-03-03 00:00:00|2026-03-04 00:00:00|40.0|50.0|0.0|10.0
+    a1|2026-03-01 00:00:00|2026-03-02 00:00:00|300000.0|300010.0|100000.0|100010.0
+    a2|2026-03-02 00:00:00|2026-03-03 00:00:00|300020.0|300030.0|100000.0|100010.0
+    a3|2026-03-03 00:00:00|2026-03-04 00:00:00|300040.0|300050.0|100000.0|100010.0
     ```
 
     ```python
@@ -1051,9 +1071,9 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    b1|2026-03-01 00:00:00|2026-03-02 00:00:00|5.0|15.0|5.0|15.0
-    b2|2026-03-02 00:00:00|2026-03-03 00:00:00|25.0|35.0|5.0|15.0
-    b3|2026-03-03 00:00:00|2026-03-04 00:00:00|70.0|80.0|5.0|15.0
+    b1|2026-03-01 00:00:00|2026-03-02 00:00:00|300005.0|300015.0|100005.0|100015.0
+    b2|2026-03-02 00:00:00|2026-03-03 00:00:00|300025.0|300035.0|100005.0|100015.0
+    b3|2026-03-03 00:00:00|2026-03-04 00:00:00|300070.0|300080.0|100005.0|100015.0
     ```
 
     ```python
@@ -1062,8 +1082,8 @@ The tool calls of the following examples use the datasets by name.
 
     ```text
     name|start_time|end_time|west|east|south|north
-    w1|2026-03-01 00:00:00|2026-03-03 00:00:00|5.0|15.0|0.0|10.0
-    w2|2026-03-03 00:00:00|2026-03-05 00:00:00|45.0|55.0|0.0|10.0
+    w1|2026-03-01 00:00:00|2026-03-03 00:00:00|300005.0|300015.0|100000.0|100010.0
+    w2|2026-03-03 00:00:00|2026-03-05 00:00:00|300045.0|300055.0|100000.0|100010.0
     ```
 
     ```python
@@ -1283,7 +1303,7 @@ status 0 in both cases and warns that the result is empty.
     t.vect.algebra expression="empty_core = A {:,contains} W" basename=empty_core
     t.vect.algebra -c expression="empty_classic = A {:,contains} W" \
         basename=empty_classic
-    t.list type=stvds columns=name,number_of_maps format=csv \
+    t.list type=stvds columns=name,number_of_maps format=csv mapset=. \
         where="name LIKE 'empty%'"
     ```
 
@@ -1336,6 +1356,7 @@ status 0 in both cases and warns that the result is empty.
             type="stvds",
             columns="name,number_of_maps",
             format="csv",
+            mapset=".",
             where="name LIKE 'empty%'",
         ).text
     )
@@ -1697,11 +1718,11 @@ follow the order of the blocks; item 6 has two blocks.
 <!-- example: shell-only -->
 
 The buffer functions make areas around the points, lines or areas of each map
-and keep its time. The size is in map units. The temporal functions change the
+and keep its time. The size is in metres. The temporal functions change the
 time of the maps and copy the maps whose time changes.
 
 1. `buff_p(P, 1)` buffers the points of `p1`, `p2` and `p3`: one, two and three
-   circles, as the points are ten units apart.
+   circles, as the points are ten metres apart.
 2. `buff_p(P, 6)` has a radius larger than half the distance of the points, so
    the circles of one map merge into one area.
 3. `buff_l(L, 2)` buffers the lines: one area for each map.
@@ -1877,7 +1898,8 @@ items follow the order of the blocks; item 1 has two blocks.
     ```sh
     t.vect.algebra expression="D = if(start_date(A) < \"2005-01-01\", A & B)" \
         basename=d
-    t.list type=stvds columns=name,number_of_maps format=csv where="name = 'D'"
+    t.list type=stvds columns=name,number_of_maps format=csv mapset=. \
+        where="name = 'D'"
     ```
 
     ```text
@@ -2031,12 +2053,13 @@ absolute time. The overlay `R & S` gives two maps with one area each, and
 `tshift(R, 1)` shifts the maps by one hour. The third block shows that an
 expression cannot mix the two temporal types.
 
-The last blocks switch to a new mapset `analysis` and use the datasets of
-`PERMANENT`. A dataset name without mapset is looked up in the current mapset
-only, so `A` is not found, and `A@PERMANENT` names the dataset. The overlay
-creates its new maps in the current mapset, `analysis`. The selection
-registers the maps of `PERMANENT` as they are, so the result dataset in
-`analysis` holds maps from `PERMANENT`.
+The last blocks switch to a new mapset `t_vect_algebra_2`, set the region
+again, add the mapset `t_vect_algebra` to the search path and use its
+datasets. A dataset name without mapset is looked up in the current mapset
+only, so `A` is not found, and `A@t_vect_algebra` names the dataset. The
+overlay creates its new maps in the current mapset, `t_vect_algebra_2`. The
+selection registers the maps of `t_vect_algebra` as they are, so the result
+dataset in `t_vect_algebra_2` holds maps from `t_vect_algebra`.
 
 === "Command line"
 
@@ -2078,23 +2101,25 @@ registers the maps of `PERMANENT` as they are, so the result dataset in
     ```
 
     ```sh
-    g.mapset -c mapset=analysis
-    t.vect.algebra expression="far_and = A@PERMANENT & B@PERMANENT" \
+    g.mapset -c mapset=t_vect_algebra_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_vect_algebra operation=add
+    t.vect.algebra expression="far_and = A@t_vect_algebra & B@t_vect_algebra" \
         basename=far_and
     t.vect.list input=far_and columns=name,mapset,start_time,areas
-    t.vect.algebra expression="far_sel = A@PERMANENT : B@PERMANENT" \
+    t.vect.algebra expression="far_sel = A@t_vect_algebra : B@t_vect_algebra" \
         basename=far_sel
     t.vect.list input=far_sel columns=id,mapset,start_time
     ```
 
     ```text
     name|mapset|start_time|areas
-    far_and_0|analysis|2026-03-01 00:00:00|1
-    far_and_1|analysis|2026-03-02 00:00:00|1
+    far_and_0|t_vect_algebra_2|2026-03-01 00:00:00|1
+    far_and_1|t_vect_algebra_2|2026-03-02 00:00:00|1
     id|mapset|start_time
-    a1@PERMANENT|PERMANENT|2026-03-01 00:00:00
-    a2@PERMANENT|PERMANENT|2026-03-02 00:00:00
-    a3@PERMANENT|PERMANENT|2026-03-03 00:00:00
+    a1@t_vect_algebra|t_vect_algebra|2026-03-01 00:00:00
+    a2@t_vect_algebra|t_vect_algebra|2026-03-02 00:00:00
+    a3@t_vect_algebra|t_vect_algebra|2026-03-03 00:00:00
     ```
 
     ```sh
@@ -2104,7 +2129,7 @@ registers the maps of `PERMANENT` as they are, so the result dataset in
     ```
 
     ```text
-    ERROR: Space time vector dataset <A@analysis> not found
+    ERROR: Space time vector dataset <A@t_vect_algebra_2> not found
     t.vect.algebra failed
     ```
 
@@ -2173,26 +2198,30 @@ registers the maps of `PERMANENT` as they are, so the result dataset in
     ```
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
+    tools.g_mapset(mapset="t_vect_algebra_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_vect_algebra", operation="add")
     tools.t_vect_algebra(
-        expression="far_and = A@PERMANENT & B@PERMANENT", basename="far_and"
+        expression="far_and = A@t_vect_algebra & B@t_vect_algebra",
+        basename="far_and",
     )
     columns = "name,mapset,start_time,areas"
     print(tools.t_vect_list(input="far_and", columns=columns).text)
     tools.t_vect_algebra(
-        expression="far_sel = A@PERMANENT : B@PERMANENT", basename="far_sel"
+        expression="far_sel = A@t_vect_algebra : B@t_vect_algebra",
+        basename="far_sel",
     )
     print(tools.t_vect_list(input="far_sel", columns="id,mapset,start_time").text)
     ```
 
     ```text
     name|mapset|start_time|areas
-    far_and_0|analysis|2026-03-01 00:00:00|1
-    far_and_1|analysis|2026-03-02 00:00:00|1
+    far_and_0|t_vect_algebra_2|2026-03-01 00:00:00|1
+    far_and_1|t_vect_algebra_2|2026-03-02 00:00:00|1
     id|mapset|start_time
-    a1@PERMANENT|PERMANENT|2026-03-01 00:00:00
-    a2@PERMANENT|PERMANENT|2026-03-02 00:00:00
-    a3@PERMANENT|PERMANENT|2026-03-03 00:00:00
+    a1@t_vect_algebra|t_vect_algebra|2026-03-01 00:00:00
+    a2@t_vect_algebra|t_vect_algebra|2026-03-02 00:00:00
+    a3@t_vect_algebra|t_vect_algebra|2026-03-03 00:00:00
     ```
 
     ```python
@@ -2204,7 +2233,7 @@ registers the maps of `PERMANENT` as they are, so the result dataset in
     ```
 
     ```text
-    ERROR: Space time vector dataset <A@analysis> not found
+    ERROR: Space time vector dataset <A@t_vect_algebra_2> not found
     t.vect.algebra failed
     ```
 
@@ -2213,21 +2242,24 @@ registers the maps of `PERMANENT` as they are, so the result dataset in
 The expression of the paper that buffers points needs datasets of points: the
 datasets `A` and `B` of the first example hold areas, and `buff_p()` of a map
 without points gives nothing, so the result would be empty. The example
-creates the mapset `paper`, where `A` and `B` are new datasets of points,
-copies of `p1`, `p2` and `p3`, each with the days 1 and 2 March. `A` has one
-and two points and `B` two and three, ten units apart. The buffers have the
-radius 1, so every point has its own circle. The relations in the braces cover
-every case in which two maps overlap in time, and the temporal operator **i**
-gives the result the intersection of both times, here the day. The first day
-has one common circle, the second two.
+creates the mapset `t_vect_algebra_3`, sets its region and adds the mapset
+`t_vect_algebra` to the search path. There `A` and `B` are new datasets of
+points, copies of `p1`, `p2` and `p3`, each with the days 1 and 2 March. `A`
+has one and two points and `B` two and three, ten metres apart. The buffers
+have the radius 1, so every point has its own circle. The relations in the
+braces cover every case in which two maps overlap in time, and the temporal
+operator **i** gives the result the intersection of both times, here the day.
+The first day has one common circle, the second two.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=paper
+    g.mapset -c mapset=t_vect_algebra_3
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_vect_algebra operation=add
     for k in 1 2; do
-        g.copy vector=p$k@PERMANENT,pa$k
-        g.copy vector=p$((k + 1))@PERMANENT,pb$k
+        g.copy vector=p$k@t_vect_algebra,pa$k
+        g.copy vector=p$((k + 1))@t_vect_algebra,pb$k
     done
     for dataset in A B; do
         t.create type=stvds output=$dataset title="$dataset" \
@@ -2254,10 +2286,12 @@ has one common circle, the second two.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="paper", flags="c")
+    tools.g_mapset(mapset="t_vect_algebra_3", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_vect_algebra", operation="add")
     for k in (1, 2):
-        tools.g_copy(vector=f"p{k}@PERMANENT,pa{k}")
-        tools.g_copy(vector=f"p{k + 1}@PERMANENT,pb{k}")
+        tools.g_copy(vector=f"p{k}@t_vect_algebra,pa{k}")
+        tools.g_copy(vector=f"p{k + 1}@t_vect_algebra,pb{k}")
     for dataset, maps in (("A", "pa1,pa2"), ("B", "pb1,pb2")):
         tools.t_create(
             type="stvds",
