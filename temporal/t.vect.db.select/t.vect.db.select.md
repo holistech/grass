@@ -19,12 +19,12 @@ their own mapsets.
 
 The option **t_where** selects maps of the dataset. It takes an SQL condition on
 the columns of the registered maps, the columns that *t.vect.list* offers, such
-as `start_time >= '2026-03-02'` or `name = 'gauges_2'`. Without **t_where**, all
-maps are used. The option **where** selects rows. It takes an SQL condition on
-the columns of the attribute table, such as `speed > 22`, and is applied to the
-table of each selected map. Both options leave out the word `where`, and they
-can be combined: a row is printed if its map meets **t_where** and the row meets
-**where**.
+as `start_time >= '2026-02-01'` or `name = 'normals_2026_02'`. Without
+**t_where**, all maps are used. The option **where** selects rows. It takes an
+SQL condition on the columns of the attribute table, such as
+`precipitation > 100`, and is applied to the table of each selected map. Both
+options leave out the word `where`, and they can be combined: a row is printed
+if its map meets **t_where** and the row meets **where**.
 
 The option **layer** (default `1`) is the layer whose table is printed. A map
 that is registered in the dataset with a layer, as `name:2`, always uses that
@@ -38,7 +38,7 @@ The option **columns** takes the names of the table columns to print, separated
 by commas, in the order in which they are given. Without **columns**, all
 columns of the table are printed in the order of the table. The names are
 compared without regard to case, as the database does. Besides plain names,
-**columns** takes the star and SQL expressions such as `speed * 2`, which
+**columns** takes the star and SQL expressions such as `precipitation * 2`, which
 *v.db.select* evaluates for each row.
 
 ### Output
@@ -102,303 +102,334 @@ need, as `name:1`, or keep them in a dataset of their own.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_vect_db_select` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. *t.vect.db.select* reads attribute tables, so the maps are copies of
+the climate stations `precip_30ynormals` or of small sketches in the coordinate
+system of the dataset, and the datasets carry times of 2026.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_db_select -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Print the attributes of the maps of a dataset
 
-The dataset `gauges` has three point maps of wind speed for the days from 1 to
-3 March 2026. Map `gauges_k` has three points at `(k, 1)`, `(k, 2)` and
-`(k, 3)` with the speeds `10 * k + 1`, `10 * k + 2` and `10 * k + 3` and the
-sites `inland`, `coast` and `ridge`. The table of each map has the columns
-`cat`, `x`, `y`, `speed` and `site`.
+The dataset `normals` has three point maps for the months from January to March
+2026. Map `normals_2026_k` is a copy of the first three climate stations of
+`precip_30ynormals`, the stations 310090, 310184 and 310241, with the 30-year
+normal of the month `k` as the column `precipitation` in mm: the column `jan`
+of the stations for January, `feb` for February and `mar` for March, rounded to
+whole millimetres. The values are normals of the stations, not measurements of
+2026; the dates only place the maps on the time axis. The column `terrain` is
+`upland` for a station above 300 m and `lowland` for the others. The copy keeps
+the columns `cat`, `station` and `elev` of the stations, so the table of each
+map has the columns `cat`, `station`, `elev`, `precipitation` and `terrain`.
 
 The first block prints the whole table of the three maps, nine rows. Each row
 starts with the start and end time of its map. The second block prints the two
-columns `cat` and `speed` only; the columns come in the order of **columns**.
+columns `precipitation` and `cat` only; the columns come in the order of
+**columns**.
 
 === "Command line"
 
     ```sh
-    for k in 1 2 3; do
-        v.in.ascii input=- output=gauges_$k separator=comma \
-            columns="x double precision, y double precision, speed double precision, site text" <<EOF
-    $k,1,$((10 * k + 1)),inland
-    $k,2,$((10 * k + 2)),coast
-    $k,3,$((10 * k + 3)),ridge
-    EOF
+    g.mapset -c mapset=t_vect_db_select
+    g.region raster=elev_state_500m res=1000 -a
+    for month in 01:jan 02:feb 03:mar; do
+        map=normals_2026_${month%:*}
+        v.extract input=precip_30ynormals output=$map where="cat <= 3"
+        v.db.addcolumn map=$map columns="precipitation integer, terrain text"
+        v.db.update map=$map column=precipitation query_column="round(${month#*:})"
+        v.db.update map=$map column=terrain \
+            query_column="CASE WHEN elev > 300 THEN 'upland' ELSE 'lowland' END"
+        v.db.dropcolumn map=$map \
+            columns=lat,long,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,annual
     done
-    t.create type=stvds output=gauges title="Wind speed" \
-        description="Wind speed at three gauges"
-    t.register -i type=vector input=gauges \
-        maps=gauges_1,gauges_2,gauges_3 \
-        start=2026-03-01 increment="1 day"
-    t.vect.db.select input=gauges
+    t.create type=stvds output=normals title="Precipitation normals" \
+        description="30-year normals in mm at three stations"
+    t.register -i type=vector input=normals \
+        maps=normals_2026_01,normals_2026_02,normals_2026_03 \
+        start=2026-01-01 increment="1 month"
+    t.vect.db.select input=normals
     ```
 
     ```text
-    start_time|end_time|cat|x|y|speed|site
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|1|1|11|inland
-    2026-03-01 00:00:00|2026-03-02 00:00:00|2|1|2|12|coast
-    2026-03-01 00:00:00|2026-03-02 00:00:00|3|1|3|13|ridge
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|2|1|21|inland
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|2|2|22|coast
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|2|3|23|ridge
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|3|1|31|inland
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|3|2|32|coast
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|3|3|33|ridge
+    start_time|end_time|cat|station|elev|precipitation|terrain
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|310090|185.928|111|lowland
+    2026-01-01 00:00:00|2026-02-01 00:00:00|2|310184|533.0952|182|upland
+    2026-01-01 00:00:00|2026-02-01 00:00:00|3|310241|100.584|100|lowland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|310090|185.928|92|lowland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|310184|533.0952|155|upland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|3|310241|100.584|88|lowland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|310090|185.928|123|lowland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|310184|533.0952|177|upland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|310241|100.584|113|lowland
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=speed,cat
+    t.vect.db.select input=normals columns=precipitation,cat
     ```
 
     ```text
-    start_time|end_time|speed|cat
-    2026-03-01 00:00:00|2026-03-02 00:00:00|11|1
-    2026-03-01 00:00:00|2026-03-02 00:00:00|12|2
-    2026-03-01 00:00:00|2026-03-02 00:00:00|13|3
-    2026-03-02 00:00:00|2026-03-03 00:00:00|21|1
-    2026-03-02 00:00:00|2026-03-03 00:00:00|22|2
-    2026-03-02 00:00:00|2026-03-03 00:00:00|23|3
-    2026-03-03 00:00:00|2026-03-04 00:00:00|31|1
-    2026-03-03 00:00:00|2026-03-04 00:00:00|32|2
-    2026-03-03 00:00:00|2026-03-04 00:00:00|33|3
+    start_time|end_time|precipitation|cat
+    2026-01-01 00:00:00|2026-02-01 00:00:00|111|1
+    2026-01-01 00:00:00|2026-02-01 00:00:00|182|2
+    2026-01-01 00:00:00|2026-02-01 00:00:00|100|3
+    2026-02-01 00:00:00|2026-03-01 00:00:00|92|1
+    2026-02-01 00:00:00|2026-03-01 00:00:00|155|2
+    2026-02-01 00:00:00|2026-03-01 00:00:00|88|3
+    2026-03-01 00:00:00|2026-04-01 00:00:00|123|1
+    2026-03-01 00:00:00|2026-04-01 00:00:00|177|2
+    2026-03-01 00:00:00|2026-04-01 00:00:00|113|3
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
-
     from grass.tools import Tools
 
     tools = Tools()
-    sites = ("inland", "coast", "ridge")
-    for k in range(1, 4):
-        rows = "".join(f"{k},{i},{10 * k + i},{sites[i - 1]}\n" for i in (1, 2, 3))
-        tools.v_in_ascii(
-            input=StringIO(rows),
-            output=f"gauges_{k}",
-            separator="comma",
-            columns="x double precision, y double precision, "
-            "speed double precision, site text",
+    tools.g_mapset(flags="c", mapset="t_vect_db_select")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    unused = "lat,long,jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec,annual"
+    for number, column in (("01", "jan"), ("02", "feb"), ("03", "mar")):
+        name = f"normals_2026_{number}"
+        tools.v_extract(input="precip_30ynormals", output=name, where="cat <= 3")
+        tools.v_db_addcolumn(map=name, columns="precipitation integer, terrain text")
+        tools.v_db_update(map=name, column="precipitation", query_column=f"round({column})")
+        tools.v_db_update(
+            map=name,
+            column="terrain",
+            query_column="CASE WHEN elev > 300 THEN 'upland' ELSE 'lowland' END",
         )
+        tools.v_db_dropcolumn(map=name, columns=unused)
     tools.t_create(
         type="stvds",
-        output="gauges",
-        title="Wind speed",
-        description="Wind speed at three gauges",
+        output="normals",
+        title="Precipitation normals",
+        description="30-year normals in mm at three stations",
     )
     tools.t_register(
         type="vector",
-        input="gauges",
-        maps="gauges_1,gauges_2,gauges_3",
-        start="2026-03-01",
-        increment="1 day",
+        input="normals",
+        maps="normals_2026_01,normals_2026_02,normals_2026_03",
+        start="2026-01-01",
+        increment="1 month",
         flags="i",
     )
-    print(tools.t_vect_db_select(input="gauges").text)
+    print(tools.t_vect_db_select(input="normals").text)
     ```
 
     ```text
-    start_time|end_time|cat|x|y|speed|site
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|1|1|11|inland
-    2026-03-01 00:00:00|2026-03-02 00:00:00|2|1|2|12|coast
-    2026-03-01 00:00:00|2026-03-02 00:00:00|3|1|3|13|ridge
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|2|1|21|inland
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|2|2|22|coast
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|2|3|23|ridge
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|3|1|31|inland
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|3|2|32|coast
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|3|3|33|ridge
+    start_time|end_time|cat|station|elev|precipitation|terrain
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|310090|185.928|111|lowland
+    2026-01-01 00:00:00|2026-02-01 00:00:00|2|310184|533.0952|182|upland
+    2026-01-01 00:00:00|2026-02-01 00:00:00|3|310241|100.584|100|lowland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|310090|185.928|92|lowland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|310184|533.0952|155|upland
+    2026-02-01 00:00:00|2026-03-01 00:00:00|3|310241|100.584|88|lowland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|310090|185.928|123|lowland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|310184|533.0952|177|upland
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|310241|100.584|113|lowland
     ```
 
     ```python
-    print(tools.t_vect_db_select(input="gauges", columns="speed,cat").text)
+    print(tools.t_vect_db_select(input="normals", columns="precipitation,cat").text)
     ```
 
     ```text
-    start_time|end_time|speed|cat
-    2026-03-01 00:00:00|2026-03-02 00:00:00|11|1
-    2026-03-01 00:00:00|2026-03-02 00:00:00|12|2
-    2026-03-01 00:00:00|2026-03-02 00:00:00|13|3
-    2026-03-02 00:00:00|2026-03-03 00:00:00|21|1
-    2026-03-02 00:00:00|2026-03-03 00:00:00|22|2
-    2026-03-02 00:00:00|2026-03-03 00:00:00|23|3
-    2026-03-03 00:00:00|2026-03-04 00:00:00|31|1
-    2026-03-03 00:00:00|2026-03-04 00:00:00|32|2
-    2026-03-03 00:00:00|2026-03-04 00:00:00|33|3
+    start_time|end_time|precipitation|cat
+    2026-01-01 00:00:00|2026-02-01 00:00:00|111|1
+    2026-01-01 00:00:00|2026-02-01 00:00:00|182|2
+    2026-01-01 00:00:00|2026-02-01 00:00:00|100|3
+    2026-02-01 00:00:00|2026-03-01 00:00:00|92|1
+    2026-02-01 00:00:00|2026-03-01 00:00:00|155|2
+    2026-02-01 00:00:00|2026-03-01 00:00:00|88|3
+    2026-03-01 00:00:00|2026-04-01 00:00:00|123|1
+    2026-03-01 00:00:00|2026-04-01 00:00:00|177|2
+    2026-03-01 00:00:00|2026-04-01 00:00:00|113|3
     ```
 
 ### Select rows and maps
 
-The first block prints the points with a speed above 22 from every map. The
-condition **where** is applied to each table: the first map has none, the
-second the point with 23, the third all three. The second block selects the maps
-that start on 2 March or later and prints all their rows. The third block
-combines both: the point with the category 2 of the maps that start on 2 March
-or later.
+The first block prints the stations with a precipitation above 100 mm from every
+map. The condition **where** is applied to each table: the first map has two
+such stations, the second one and the third all three. The second block selects
+the maps that start on 1 February or later and prints all their rows. The third
+block combines both: the station with the category 2 of the maps that start on
+1 February or later.
 
 === "Command line"
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,speed where="speed > 22"
+    t.vect.db.select input=normals columns=cat,precipitation \
+        where="precipitation > 100"
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|23
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|33
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-01-01 00:00:00|2026-02-01 00:00:00|2|182
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,speed \
-        t_where="start_time >= '2026-03-02'"
+    t.vect.db.select input=normals columns=cat,precipitation \
+        t_where="start_time >= '2026-02-01'"
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|22
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|23
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|33
+    start_time|end_time|cat|precipitation
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-02-01 00:00:00|2026-03-01 00:00:00|3|88
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,speed \
-        where="cat = 2" t_where="start_time >= '2026-03-02'"
+    t.vect.db.select input=normals columns=cat,precipitation \
+        where="cat = 2" t_where="start_time >= '2026-02-01'"
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|22
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
+    start_time|end_time|cat|precipitation
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
     ```
 
 === "Python (grass.tools)"
 
     ```python
     print(
-        tools.t_vect_db_select(input="gauges", columns="cat,speed", where="speed > 22").text
-    )
-    ```
-
-    ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|23
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|33
-    ```
-
-    ```python
-    print(
         tools.t_vect_db_select(
-            input="gauges", columns="cat,speed", t_where="start_time >= '2026-03-02'"
+            input="normals", columns="cat,precipitation", where="precipitation > 100"
         ).text
     )
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|22
-    2026-03-02 00:00:00|2026-03-03 00:00:00|3|23
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
-    2026-03-03 00:00:00|2026-03-04 00:00:00|3|33
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-01-01 00:00:00|2026-02-01 00:00:00|2|182
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
     ```
 
     ```python
     print(
         tools.t_vect_db_select(
-            input="gauges",
-            columns="cat,speed",
+            input="normals",
+            columns="cat,precipitation",
+            t_where="start_time >= '2026-02-01'",
+        ).text
+    )
+    ```
+
+    ```text
+    start_time|end_time|cat|precipitation
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-02-01 00:00:00|2026-03-01 00:00:00|3|88
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
+    2026-03-01 00:00:00|2026-04-01 00:00:00|3|113
+    ```
+
+    ```python
+    print(
+        tools.t_vect_db_select(
+            input="normals",
+            columns="cat,precipitation",
             where="cat = 2",
-            t_where="start_time >= '2026-03-02'",
+            t_where="start_time >= '2026-02-01'",
         ).text
     )
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-02 00:00:00|2026-03-03 00:00:00|2|22
-    2026-03-03 00:00:00|2026-03-04 00:00:00|2|32
+    start_time|end_time|cat|precipitation
+    2026-02-01 00:00:00|2026-03-01 00:00:00|2|155
+    2026-03-01 00:00:00|2026-04-01 00:00:00|2|177
     ```
 
 ### Choose the output format
 
-All blocks print the point with the category 1 of each map and the columns `cat`
-and `site`. The first block uses `csv`: the separator is a comma and the text
-values are in double quotes. The second block sets **separator** to a semicolon
-for `csv`. The third block shows `plain` with the separator `comma`, which
-differs from `csv` by the missing quotes. The fourth block uses `json`: a list
-with one object for each row, the times first.
+All blocks print the station with the category 2 of each map and the columns
+`cat` and `terrain`. The first block uses `csv`: the separator is a comma and
+the text values are in double quotes. The second block sets **separator** to a
+semicolon for `csv`. The third block shows `plain` with the separator `comma`,
+which differs from `csv` by the missing quotes. The fourth block uses `json`: a
+list with one object for each row, the times first.
 
 === "Command line"
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,site where="cat = 1" format=csv
+    t.vect.db.select input=normals columns=cat,terrain where="cat = 2" format=csv
     ```
 
     ```text
-    start_time,end_time,cat,site
-    2026-03-01 00:00:00,2026-03-02 00:00:00,1,"inland"
-    2026-03-02 00:00:00,2026-03-03 00:00:00,1,"inland"
-    2026-03-03 00:00:00,2026-03-04 00:00:00,1,"inland"
+    start_time,end_time,cat,terrain
+    2026-01-01 00:00:00,2026-02-01 00:00:00,2,"upland"
+    2026-02-01 00:00:00,2026-03-01 00:00:00,2,"upland"
+    2026-03-01 00:00:00,2026-04-01 00:00:00,2,"upland"
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,site where="cat = 1" \
+    t.vect.db.select input=normals columns=cat,terrain where="cat = 2" \
         format=csv separator=";"
     ```
 
     ```text
-    start_time;end_time;cat;site
-    2026-03-01 00:00:00;2026-03-02 00:00:00;1;"inland"
-    2026-03-02 00:00:00;2026-03-03 00:00:00;1;"inland"
-    2026-03-03 00:00:00;2026-03-04 00:00:00;1;"inland"
+    start_time;end_time;cat;terrain
+    2026-01-01 00:00:00;2026-02-01 00:00:00;2;"upland"
+    2026-02-01 00:00:00;2026-03-01 00:00:00;2;"upland"
+    2026-03-01 00:00:00;2026-04-01 00:00:00;2;"upland"
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,site where="cat = 1" \
+    t.vect.db.select input=normals columns=cat,terrain where="cat = 2" \
         separator=comma
     ```
 
     ```text
-    start_time,end_time,cat,site
-    2026-03-01 00:00:00,2026-03-02 00:00:00,1,inland
-    2026-03-02 00:00:00,2026-03-03 00:00:00,1,inland
-    2026-03-03 00:00:00,2026-03-04 00:00:00,1,inland
+    start_time,end_time,cat,terrain
+    2026-01-01 00:00:00,2026-02-01 00:00:00,2,upland
+    2026-02-01 00:00:00,2026-03-01 00:00:00,2,upland
+    2026-03-01 00:00:00,2026-04-01 00:00:00,2,upland
     ```
 
     ```sh
-    t.vect.db.select input=gauges columns=cat,site where="cat = 1" format=json
+    t.vect.db.select input=normals columns=cat,terrain where="cat = 2" format=json
     ```
 
     ```text
     [
         {
+            "start_time": "2026-01-01 00:00:00",
+            "end_time": "2026-02-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
+        },
+        {
+            "start_time": "2026-02-01 00:00:00",
+            "end_time": "2026-03-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
+        },
+        {
             "start_time": "2026-03-01 00:00:00",
-            "end_time": "2026-03-02 00:00:00",
-            "cat": 1,
-            "site": "inland"
-        },
-        {
-            "start_time": "2026-03-02 00:00:00",
-            "end_time": "2026-03-03 00:00:00",
-            "cat": 1,
-            "site": "inland"
-        },
-        {
-            "start_time": "2026-03-03 00:00:00",
-            "end_time": "2026-03-04 00:00:00",
-            "cat": 1,
-            "site": "inland"
+            "end_time": "2026-04-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
         }
     ]
     ```
@@ -408,24 +439,24 @@ with one object for each row, the times first.
     ```python
     print(
         tools.t_vect_db_select(
-            input="gauges", columns="cat,site", where="cat = 1", format="csv"
+            input="normals", columns="cat,terrain", where="cat = 2", format="csv"
         ).text
     )
     ```
 
     ```text
-    start_time,end_time,cat,site
-    2026-03-01 00:00:00,2026-03-02 00:00:00,1,"inland"
-    2026-03-02 00:00:00,2026-03-03 00:00:00,1,"inland"
-    2026-03-03 00:00:00,2026-03-04 00:00:00,1,"inland"
+    start_time,end_time,cat,terrain
+    2026-01-01 00:00:00,2026-02-01 00:00:00,2,"upland"
+    2026-02-01 00:00:00,2026-03-01 00:00:00,2,"upland"
+    2026-03-01 00:00:00,2026-04-01 00:00:00,2,"upland"
     ```
 
     ```python
     print(
         tools.t_vect_db_select(
-            input="gauges",
-            columns="cat,site",
-            where="cat = 1",
+            input="normals",
+            columns="cat,terrain",
+            where="cat = 2",
             format="csv",
             separator=";",
         ).text
@@ -433,31 +464,31 @@ with one object for each row, the times first.
     ```
 
     ```text
-    start_time;end_time;cat;site
-    2026-03-01 00:00:00;2026-03-02 00:00:00;1;"inland"
-    2026-03-02 00:00:00;2026-03-03 00:00:00;1;"inland"
-    2026-03-03 00:00:00;2026-03-04 00:00:00;1;"inland"
+    start_time;end_time;cat;terrain
+    2026-01-01 00:00:00;2026-02-01 00:00:00;2;"upland"
+    2026-02-01 00:00:00;2026-03-01 00:00:00;2;"upland"
+    2026-03-01 00:00:00;2026-04-01 00:00:00;2;"upland"
     ```
 
     ```python
     print(
         tools.t_vect_db_select(
-            input="gauges", columns="cat,site", where="cat = 1", separator="comma"
+            input="normals", columns="cat,terrain", where="cat = 2", separator="comma"
         ).text
     )
     ```
 
     ```text
-    start_time,end_time,cat,site
-    2026-03-01 00:00:00,2026-03-02 00:00:00,1,inland
-    2026-03-02 00:00:00,2026-03-03 00:00:00,1,inland
-    2026-03-03 00:00:00,2026-03-04 00:00:00,1,inland
+    start_time,end_time,cat,terrain
+    2026-01-01 00:00:00,2026-02-01 00:00:00,2,upland
+    2026-02-01 00:00:00,2026-03-01 00:00:00,2,upland
+    2026-03-01 00:00:00,2026-04-01 00:00:00,2,upland
     ```
 
     ```python
     print(
         tools.t_vect_db_select(
-            input="gauges", columns="cat,site", where="cat = 1", format="json"
+            input="normals", columns="cat,terrain", where="cat = 2", format="json"
         ).text
     )
     ```
@@ -465,117 +496,106 @@ with one object for each row, the times first.
     ```text
     [
         {
+            "start_time": "2026-01-01 00:00:00",
+            "end_time": "2026-02-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
+        },
+        {
+            "start_time": "2026-02-01 00:00:00",
+            "end_time": "2026-03-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
+        },
+        {
             "start_time": "2026-03-01 00:00:00",
-            "end_time": "2026-03-02 00:00:00",
-            "cat": 1,
-            "site": "inland"
-        },
-        {
-            "start_time": "2026-03-02 00:00:00",
-            "end_time": "2026-03-03 00:00:00",
-            "cat": 1,
-            "site": "inland"
-        },
-        {
-            "start_time": "2026-03-03 00:00:00",
-            "end_time": "2026-03-04 00:00:00",
-            "cat": 1,
-            "site": "inland"
+            "end_time": "2026-04-01 00:00:00",
+            "cat": 2,
+            "terrain": "upland"
         }
     ]
     ```
 
 ### Time instants and relative time
 
-The dataset `readings` has two maps that are registered as time instants, for 1
-and 2 March 2026. Each has one point with the column `depth`. The end time is
-empty: the first block shows the two separators `||` next to each other in the plain
+The dataset `snapshots` has two maps that are registered as time instants, for 1
+and 2 January 2026. Each has one point: map `snapshot_k` is a copy of the
+station with the category `k` of `precip_30ynormals`. The end time is empty: the
+first block shows the two separators `||` next to each other in the plain
 format, and the second block shows `null` in `json`. The dataset `cycles` has
-two maps of relative time in days, from 0 to 1 and from 1 to 2. Its times are
-numbers.
+two maps of relative time in days, from 0 to 1 and from 1 to 2, with the same
+two stations. Its times are numbers.
 
 === "Command line"
 
     ```sh
     for k in 1 2; do
-        v.in.ascii input=- output=reading_$k separator=comma \
-            columns="x double precision, y double precision, depth double precision" <<EOF
-    $k,1,$((5 * k))
-    EOF
-        v.in.ascii input=- output=cycle_$k separator=comma \
-            columns="x double precision, y double precision, depth double precision" <<EOF
-    $k,1,$((7 * k))
-    EOF
+        v.extract input=precip_30ynormals output=snapshot_$k where="cat = $k"
+        v.extract input=precip_30ynormals output=cycle_$k where="cat = $k"
     done
-    t.create type=stvds output=readings title="Readings" \
-        description="Depth readings as time instants"
-    t.register type=vector input=readings maps=reading_1,reading_2 \
-        start=2026-03-01 increment="1 day"
+    t.create type=stvds output=snapshots title="Snapshots" \
+        description="Stations as time instants"
+    t.register type=vector input=snapshots maps=snapshot_1,snapshot_2 \
+        start=2026-01-01 increment="1 day"
     t.create type=stvds temporaltype=relative output=cycles title="Cycles" \
-        description="Depth per cycle"
+        description="Stations per cycle"
     t.register -i type=vector input=cycles maps=cycle_1,cycle_2 \
         start=0 increment=1 unit=days
-    t.vect.db.select input=readings columns=cat,depth
+    t.vect.db.select input=snapshots columns=cat,station,elev
     ```
 
     ```text
-    start_time|end_time|cat|depth
-    2026-03-01 00:00:00||1|5
-    2026-03-02 00:00:00||1|10
+    start_time|end_time|cat|station|elev
+    2026-01-01 00:00:00||1|310090|185.928
+    2026-01-02 00:00:00||2|310184|533.0952
     ```
 
     ```sh
-    t.vect.db.select input=readings columns=cat,depth where="depth > 5" format=json
+    t.vect.db.select input=snapshots columns=cat,station,elev \
+        where="elev > 300" format=json
     ```
 
     ```text
     [
         {
-            "start_time": "2026-03-02 00:00:00",
+            "start_time": "2026-01-02 00:00:00",
             "end_time": null,
-            "cat": 1,
-            "depth": 10
+            "cat": 2,
+            "station": 310184,
+            "elev": 533.0952
         }
     ]
     ```
 
     ```sh
-    t.vect.db.select input=cycles columns=cat,depth
+    t.vect.db.select input=cycles columns=cat,station,elev
     ```
 
     ```text
-    start_time|end_time|cat|depth
-    0|1|1|7
-    1|2|1|14
+    start_time|end_time|cat|station|elev
+    0|1|1|310090|185.928
+    1|2|2|310184|533.0952
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for k in (1, 2):
-        tools.v_in_ascii(
-            input=StringIO(f"{k},1,{5 * k}\n"),
-            output=f"reading_{k}",
-            separator="comma",
-            columns="x double precision, y double precision, depth double precision",
+        tools.v_extract(
+            input="precip_30ynormals", output=f"snapshot_{k}", where=f"cat = {k}"
         )
-        tools.v_in_ascii(
-            input=StringIO(f"{k},1,{7 * k}\n"),
-            output=f"cycle_{k}",
-            separator="comma",
-            columns="x double precision, y double precision, depth double precision",
-        )
+        tools.v_extract(input="precip_30ynormals", output=f"cycle_{k}", where=f"cat = {k}")
     tools.t_create(
         type="stvds",
-        output="readings",
-        title="Readings",
-        description="Depth readings as time instants",
+        output="snapshots",
+        title="Snapshots",
+        description="Stations as time instants",
     )
     tools.t_register(
         type="vector",
-        input="readings",
-        maps="reading_1,reading_2",
-        start="2026-03-01",
+        input="snapshots",
+        maps="snapshot_1,snapshot_2",
+        start="2026-01-01",
         increment="1 day",
     )
     tools.t_create(
@@ -583,7 +603,7 @@ numbers.
         temporaltype="relative",
         output="cycles",
         title="Cycles",
-        description="Depth per cycle",
+        description="Stations per cycle",
     )
     tools.t_register(
         type="vector",
@@ -594,19 +614,19 @@ numbers.
         unit="days",
         flags="i",
     )
-    print(tools.t_vect_db_select(input="readings", columns="cat,depth").text)
+    print(tools.t_vect_db_select(input="snapshots", columns="cat,station,elev").text)
     ```
 
     ```text
-    start_time|end_time|cat|depth
-    2026-03-01 00:00:00||1|5
-    2026-03-02 00:00:00||1|10
+    start_time|end_time|cat|station|elev
+    2026-01-01 00:00:00||1|310090|185.928
+    2026-01-02 00:00:00||2|310184|533.0952
     ```
 
     ```python
     print(
         tools.t_vect_db_select(
-            input="readings", columns="cat,depth", where="depth > 5", format="json"
+            input="snapshots", columns="cat,station,elev", where="elev > 300", format="json"
         ).text
     )
     ```
@@ -614,31 +634,35 @@ numbers.
     ```text
     [
         {
-            "start_time": "2026-03-02 00:00:00",
+            "start_time": "2026-01-02 00:00:00",
             "end_time": null,
-            "cat": 1,
-            "depth": 10
+            "cat": 2,
+            "station": 310184,
+            "elev": 533.0952
         }
     ]
     ```
 
     ```python
-    print(tools.t_vect_db_select(input="cycles", columns="cat,depth").text)
+    print(tools.t_vect_db_select(input="cycles", columns="cat,station,elev").text)
     ```
 
     ```text
-    start_time|end_time|cat|depth
-    0|1|1|7
-    1|2|1|14
+    start_time|end_time|cat|station|elev
+    0|1|1|310090|185.928
+    1|2|2|310184|533.0952
     ```
 
 ### Choose the layer
 
 The dataset `plots` has two maps for 1 and 2 March 2026. Each has two points
-with the categories 1 and 2 in layer 1 and in layer 2. The table of layer 1 has
+with the categories 1 and 2 in layer 1 and in layer 2. The points lie in the
+southwest of North Carolina: the points of `plots_k` are `k` km east of the
+position (300000, 100000) and 1 and 2 km north of it. The table of layer 1 has
 the column `count` with the values 1 and 2, the table of layer 2 the values 101
-and 102. The maps are registered without a layer, so the first block prints
-layer 1 and the second block, with **layer** set to 2, prints layer 2.
+and 102. The maps are registered
+without a layer, so the first block prints layer 1 and the second block, with
+**layer** set to 2, prints layer 2.
 
 The dataset `both` registers the two layers of `plots_1` as `plots_1:1` and
 `plots_1:2`. The third block prints both, and a **layer** option does not change
@@ -657,11 +681,11 @@ first and shows 101 and 102, not the values 1 and 2 of its layer 1.
         v.edit map=plots_$k tool=add input=- <<EOF
     VERTI:
     P 1 2
-     $k 1
+     $((300000 + 1000 * k)) 101000
      1 1
      2 1
     P 1 2
-     $k 2
+     $((300000 + 1000 * k)) 102000
      1 2
      2 2
     EOF
@@ -736,10 +760,16 @@ first and shows 101 and 102, not the values 1 and 2 of its layer 1.
 === "Python (grass.tools)"
 
     ```python
-    features = "VERTI:\nP 1 2\n {k} 1\n 1 1\n 2 1\nP 1 2\n {k} 2\n 1 2\n 2 2\n"
+    from io import StringIO
+
+    features = "VERTI:\nP 1 2\n {x} 101000\n 1 1\n 2 1\nP 1 2\n {x} 102000\n 1 2\n 2 2\n"
     for k in (1, 2):
         tools.v_edit(map=f"plots_{k}", tool="create")
-        tools.v_edit(map=f"plots_{k}", tool="add", input=StringIO(features.format(k=k)))
+        tools.v_edit(
+            map=f"plots_{k}",
+            tool="add",
+            input=StringIO(features.format(x=300000 + 1000 * k)),
+        )
         tools.v_db_addtable(map=f"plots_{k}", columns="count integer")
         tools.v_db_addtable(
             map=f"plots_{k}", layer=2, table=f"plots_{k}_b", columns="count integer"
@@ -840,63 +870,76 @@ first and shows 101 and 102, not the values 1 and 2 of its layer 1.
 
 ### Print from a dataset of another mapset
 
-The dataset `gauges` stays in the mapset `PERMANENT`. The first block creates
-the mapset `other`, switches to it and prints the dataset by its name alone,
-which is found in the search path. The second block names the mapset. Both
-print the same rows.
+The dataset `normals` stays in the mapset `t_vect_db_select`. The example
+creates the mapset `t_vect_db_select_2` and switches to it, with the region of
+the first example. The first block adds the mapset `t_vect_db_select` to the
+search path of the new mapset with *g.mapsets* and prints the dataset by its
+name alone, which is found in the search path. The second block names the
+mapset. Both print the same rows.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    t.vect.db.select input=gauges columns=cat,speed where="cat = 1"
+    g.mapset -c mapset=t_vect_db_select_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_vect_db_select operation=add
+    t.vect.db.select input=normals columns=cat,precipitation where="cat = 1"
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|11
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
     ```
 
     ```sh
-    t.vect.db.select input=gauges@PERMANENT columns=cat,speed where="cat = 1"
+    t.vect.db.select input=normals@t_vect_db_select columns=cat,precipitation \
+        where="cat = 1"
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|11
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="other", flags="c")
-    print(tools.t_vect_db_select(input="gauges", columns="cat,speed", where="cat = 1").text)
-    ```
-
-    ```text
-    start_time|end_time|cat|speed
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|11
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
-    ```
-
-    ```python
+    tools.g_mapset(mapset="t_vect_db_select_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_vect_db_select", operation="add")
     print(
         tools.t_vect_db_select(
-            input="gauges@PERMANENT", columns="cat,speed", where="cat = 1"
+            input="normals", columns="cat,precipitation", where="cat = 1"
         ).text
     )
     ```
 
     ```text
-    start_time|end_time|cat|speed
-    2026-03-01 00:00:00|2026-03-02 00:00:00|1|11
-    2026-03-02 00:00:00|2026-03-03 00:00:00|1|21
-    2026-03-03 00:00:00|2026-03-04 00:00:00|1|31
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
+    ```
+
+    ```python
+    print(
+        tools.t_vect_db_select(
+            input="normals@t_vect_db_select",
+            columns="cat,precipitation",
+            where="cat = 1",
+        ).text
+    )
+    ```
+
+    ```text
+    start_time|end_time|cat|precipitation
+    2026-01-01 00:00:00|2026-02-01 00:00:00|1|111
+    2026-02-01 00:00:00|2026-03-01 00:00:00|1|92
+    2026-03-01 00:00:00|2026-04-01 00:00:00|1|123
     ```
 
 <!-- markdownlint-enable MD046 -->
