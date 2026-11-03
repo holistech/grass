@@ -106,51 +106,77 @@ The module stops with an error, among others, for these reasons:
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_vect_observe_strds` and sets the computational
+region to North Carolina with cells of 1 km; the later examples work in this
+mapset and region. The raster series are generated, they are not measurements.
+The points are the places of real climate stations of the dataset, rounded to
+the meter, but the values at them come from a formula and say nothing about
+the climate there. The datasets `shifted`, `twin` and `runoff` hold maps with
+small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_observe_strds -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Observe a raster dataset at points
 
-The region has 3 by 3 cells. The raster map `temperature_k` (k from 1 to 3, one
-map for each day from 1 March 2026) holds `10 * k` plus the number of the cell,
-counted from 1 in the upper left corner row by row: 11 to 19 in the first map,
-21 to 29 in the second, 31 to 39 in the third. The input map `stations` has five
-points; the column `altitude` is their only attribute, and their categories are
-1 to 5. The first four lie in the middle of the cells 1, 3, 5 and 7, the fifth
-outside the region.
+The dataset `temperature_monthly` holds the three maps of the monthly mean air
+temperature from January to March 2020, in degrees Celsius rounded to tenths.
+They are generated from the elevation model `elev_state_500m`: 16.5 degrees at
+sea level and the northing 160 km, an annual cycle of plus and minus 10.5
+degrees with its maximum in July, 6.5 degrees less for every 1000 m of
+elevation, and 1 degree more for every 100 km to the south. Each map is an
+interval of one month.
 
-The run observes the dataset `temperature`, so the output has three layers
-with one day each. The first block runs the module and shows the temporal
-properties of the new dataset, which holds 15 points (five in each of the three
-layers), and its maps. The layers have the column `temp`
-and, in layer 1, the columns of `stations` in addition: the points in the cells
-1, 3, 5 and 7 read 11, 13, 15 and 17 in the first layer, 21, 23, 25 and 27 in
-the second, 31, 33, 35 and 37 in the third. The fifth point has no value. The
-second block shows the tables of the layers. The third block shows how the
-layers are linked to their tables: layer 1 keeps the layer name `stations` of
-the input and uses the table `obs_points`, the others have the table
-`obs_points_<layer>`.
+The input map `stations` has five points; the column `altitude` is their only
+attribute besides the coordinates, and their categories are 1 to 5. The first
+three lie at the climate stations 310090, 310184 and 310241, the fourth at the
+station 311458 on the Outer Banks, whose cell has no value in the elevation
+model, and the fifth west of the computational region. The altitudes are those
+of the stations in meters, rounded, the altitude of the fifth point is chosen.
+
+The run observes the dataset `temperature_monthly`, so the output has three
+layers with one month each. The first block runs the module and shows the
+temporal properties of the new dataset, which holds 15 points (five in each of
+the three layers), and its maps. The layers have the column `temp` and, in
+layer 1, the columns of `stations` in addition. The fourth and the fifth point
+have no value. The second block shows the tables of the layers. The third block
+shows how the layers are linked to their tables: layer 1 keeps the layer name
+`stations` of the input and uses the table `obs_points`, the others have the
+table `obs_points_<layer>`.
 
 === "Command line"
 
     ```sh
-    g.region n=3 s=0 e=3 w=0 res=1
-    for k in 1 2 3; do
-        r.mapcalc expression="temperature_$k = 10 * $k + 3 * (row() - 1) + col()"
-    done
-    t.create output=temperature title="Temperature" \
-        description="Daily temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3 \
-        start=2026-03-01 increment="1 day"
+    g.mapset -c mapset=t_vect_observe_strds
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 3); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    ```
+
+    ```sh
     v.in.ascii input=- output=stations separator=comma \
         columns="x double precision, y double precision, altitude double precision" <<EOF
-    0.5,2.5,100
-    2.5,2.5,200
-    1.5,1.5,300
-    0.5,0.5,400
-    5.5,0.5,500
+    500657,183601,186
+    169208,171737,533
+    701031,282371,101
+    917005,169684,3
+    100000,170000,50
     EOF
-    t.vect.observe.strds input=stations strds=temperature output=obs \
+    ```
+
+    ```sh
+    t.vect.observe.strds input=stations strds=temperature_monthly output=obs \
         vector_output=obs_points columns=temp
     t.info -g type=stvds input=obs | \
         grep -E "^(temporal_type|semantic_type|number_of_maps|points)="
@@ -163,9 +189,9 @@ the input and uses the table `obs_points`, the others have the table
     points=15
     number_of_maps=3
     name|layer|start_time|end_time
-    obs_points|1|2026-03-01 00:00:00|2026-03-02 00:00:00
-    obs_points|2|2026-03-02 00:00:00|2026-03-03 00:00:00
-    obs_points|3|2026-03-03 00:00:00|2026-03-04 00:00:00
+    obs_points|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+    obs_points|2|2020-02-01 00:00:00|2020-03-01 00:00:00
+    obs_points|3|2020-03-01 00:00:00|2020-04-01 00:00:00
     ```
 
     ```sh
@@ -176,22 +202,22 @@ the input and uses the table `obs_points`, the others have the table
 
     ```text
     cat|x|y|altitude|temp
-    1|0.5|2.5|100|11
-    2|2.5|2.5|200|13
-    3|1.5|1.5|300|15
-    4|0.5|0.5|400|17
-    5|5.5|0.5|500|
+    1|500657|183601|186|4.7
+    2|169208|171737|533|2.4
+    3|701031|282371|101|4.2
+    4|917005|169684|3|
+    5|100000|170000|50|
     cat|temp
-    1|21
-    2|23
-    3|25
-    4|27
+    1|5.6
+    2|3.2
+    3|5.1
+    4|
     5|
     cat|temp
-    1|31
-    2|33
-    3|35
-    4|37
+    1|9
+    2|6.7
+    3|8.5
+    4|
     5|
     ```
 
@@ -213,28 +239,47 @@ the input and uses the table `obs_points`, the others have the table
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
-    for k in (1, 2, 3):
-        tools.r_mapcalc(expression=f"temperature_{k} = 10 * {k} + 3 * (row() - 1) + col()")
+    tools.g_mapset(flags="c", mapset="t_vect_observe_strds")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 4)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature", title="Temperature", description="Daily temperature"
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
+    ```
+
+    ```python
     tools.v_in_ascii(
-        input=StringIO("0.5,2.5,100\n2.5,2.5,200\n1.5,1.5,300\n0.5,0.5,400\n5.5,0.5,500\n"),
+        input=StringIO(
+            "500657,183601,186\n169208,171737,533\n701031,282371,101\n"
+            "917005,169684,3\n100000,170000,50\n"
+        ),
         output="stations",
         separator="comma",
         columns="x double precision, y double precision, altitude double precision",
     )
+    ```
+
+    ```python
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature",
+        strds="temperature_monthly",
         output="obs",
         vector_output="obs_points",
         columns="temp",
@@ -251,9 +296,9 @@ the input and uses the table `obs_points`, the others have the table
     points=15
     number_of_maps=3
     name|layer|start_time|end_time
-    obs_points|1|2026-03-01 00:00:00|2026-03-02 00:00:00
-    obs_points|2|2026-03-02 00:00:00|2026-03-03 00:00:00
-    obs_points|3|2026-03-03 00:00:00|2026-03-04 00:00:00
+    obs_points|1|2020-01-01 00:00:00|2020-02-01 00:00:00
+    obs_points|2|2020-02-01 00:00:00|2020-03-01 00:00:00
+    obs_points|3|2020-03-01 00:00:00|2020-04-01 00:00:00
     ```
 
     ```python
@@ -263,22 +308,22 @@ the input and uses the table `obs_points`, the others have the table
 
     ```text
     cat|x|y|altitude|temp
-    1|0.5|2.5|100|11
-    2|2.5|2.5|200|13
-    3|1.5|1.5|300|15
-    4|0.5|0.5|400|17
-    5|5.5|0.5|500|
+    1|500657|183601|186|4.7
+    2|169208|171737|533|2.4
+    3|701031|282371|101|4.2
+    4|917005|169684|3|
+    5|100000|170000|50|
     cat|temp
-    1|21
-    2|23
-    3|25
-    4|27
+    1|5.6
+    2|3.2
+    3|5.1
+    4|
     5|
     cat|temp
-    1|31
-    2|33
-    3|35
-    4|37
+    1|9
+    2|6.7
+    3|8.5
+    4|
     5|
     ```
 
@@ -295,38 +340,51 @@ the input and uses the table `obs_points`, the others have the table
 
 ### Observe several raster datasets
 
-The second input is the dataset `humidity` from the maps `humidity_2` and
-`humidity_3`, which are valid on the second and the third day. Their values are
-`k + 0.5 * n` for `humidity_k` and the cell number `n`, except that the cell
-number 7 is NULL. The run needs one column for each dataset, so `columns=temp,hum`
-gives the values of `temperature` to `temp` and those of `humidity` to `hum`.
-The granules are the maps of `temperature` for which `humidity` has a map with
-the same time: the first day has no humidity, so it is left out and the output
-has two layers, the second and the third day. The point in the cell 7 reads a
-NULL in `hum`, and the fifth point outside the region a NULL in both columns.
-The second block shows the column types: `temp` follows the integer maps of
-`temperature`, `hum` the floating point maps of `humidity`.
+The second input is the dataset `precipitation_monthly` with the maps of
+February and March 2020, in whole millimeters. They are generated too: the
+monthly normal of the climate stations (the columns `feb` and `mar` of
+`precip_30ynormals`) is interpolated with *[v.surf.idw](v.surf.idw.md)* and
+multiplied by an assumed factor for a wet year, 1.7 for February and 0.9 for
+March. The run needs one column for each dataset, so `columns=temp,precip`
+gives the values of `temperature_monthly` to `temp` and those of
+`precipitation_monthly` to `precip`. The granules are the maps of
+`temperature_monthly` for which `precipitation_monthly` has a map with the same
+time: January has no precipitation, so it is left out and the output has two
+layers, February and March. The fourth and the fifth point read NULL in both
+columns: the cell of the fourth point has no value in either series, and the
+fifth point lies outside the region. The second block shows the column types:
+`temp` follows the floating point maps of `temperature_monthly`, `precip` the
+integer maps of `precipitation_monthly`.
 
-The third block adds the dataset `late` with one map from noon of the first day
-to noon of the second day. No map of `late` has the time of a map of
-`temperature`, so no granule is left: the module ends without a message and
-the new dataset `none` has no map (`number_of_maps=0`); the vector map
-`none_points` exists, with layer 1 only. The fourth block adds the dataset
-`twice` with the two maps `twice_a` (the value 1) and `twice_b` (the value 2)
-for the first day. The column `two` gets the value of one of them, here 1, for
-the points in the region; the other map is not used.
+The third block adds the dataset `shifted` with one map from noon of 15
+January to noon of 15 February 2020. No map of `shifted` has the time of a map
+of `temperature_monthly`, so no granule is left: the module ends without a
+message and the new dataset `none` has no map (`number_of_maps=0`); the vector
+map `none_points` exists, with layer 1 only. The fourth block adds the dataset
+`twin` with the two maps `twin_a` (the value 1) and `twin_b` (the value 2) for
+January. The column `two` gets the value of one of them, here 1, for the points
+in the region, also for the fourth point on the Outer Banks, where the
+temperature is null: the constant maps have a value in every cell of the region.
+The other map is not used.
 
 === "Command line"
 
     ```sh
-    for k in 2 3; do
-        r.mapcalc expression="humidity_$k = if(row() == 3 && col() == 1, null(), $k + 0.5 * (3 * (row() - 1) + col()))"
+    month=2
+    for entry in feb:1.7 mar:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
     done
-    t.create output=humidity title="Humidity" description="Daily humidity"
-    t.register -i input=humidity maps=humidity_2,humidity_3 \
-        start=2026-03-02 increment="1 day"
-    t.vect.observe.strds input=stations strds=temperature,humidity \
-        output=obs_both vector_output=obs_both_points columns=temp,hum
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-02-01 increment="1 month"
+    t.vect.observe.strds input=stations strds=temperature_monthly,precipitation_monthly \
+        output=obs_both vector_output=obs_both_points columns=temp,precip
     t.vect.list input=obs_both columns=name,layer,start_time
     for layer in 1 2; do
         v.db.select map=obs_both_points layer=$layer
@@ -335,19 +393,19 @@ the points in the region; the other map is not used.
 
     ```text
     name|layer|start_time
-    obs_both_points|1|2026-03-02 00:00:00
-    obs_both_points|2|2026-03-03 00:00:00
-    cat|x|y|altitude|temp|hum
-    1|0.5|2.5|100|21|2.5
-    2|2.5|2.5|200|23|3.5
-    3|1.5|1.5|300|25|4.5
-    4|0.5|0.5|400|27|
-    5|5.5|0.5|500||
-    cat|temp|hum
-    1|31|3.5
-    2|33|4.5
-    3|35|5.5
-    4|37|
+    obs_both_points|1|2020-02-01 00:00:00
+    obs_both_points|2|2020-03-01 00:00:00
+    cat|x|y|altitude|temp|precip
+    1|500657|183601|186|5.6|157
+    2|169208|171737|533|3.2|263
+    3|701031|282371|101|5.1|149
+    4|917005|169684|3||
+    5|100000|170000|50||
+    cat|temp|precip
+    1|9|110
+    2|6.7|159
+    3|8.5|102
+    4||
     5||
     ```
 
@@ -359,17 +417,17 @@ the points in the region; the other map is not used.
     ncols: 3
     nrows: 5
     Column 1: cat:INTEGER:20
-    Column 2: temp:INTEGER:20
-    Column 3: hum:DOUBLE PRECISION:20
+    Column 2: temp:DOUBLE PRECISION:20
+    Column 3: precip:INTEGER:20
     ```
 
     ```sh
-    r.mapcalc expression="late_1 = 1"
-    t.create output=late title="Late" description="Noon to noon"
-    t.register input=late maps=late_1 \
-        start="2026-03-01 12:00:00" end="2026-03-02 12:00:00"
-    t.vect.observe.strds input=stations strds=temperature,late \
-        output=none vector_output=none_points columns=temp,late
+    r.mapcalc expression="shifted_1 = 1"
+    t.create output=shifted title="Shifted" description="Noon to noon"
+    t.register input=shifted maps=shifted_1 \
+        start="2020-01-15 12:00:00" end="2020-02-15 12:00:00"
+    t.vect.observe.strds input=stations strds=temperature_monthly,shifted \
+        output=none vector_output=none_points columns=temp,shifted
     t.info -g type=stvds input=none | grep -E "^number_of_maps="
     g.list type=vector pattern=none_points
     ```
@@ -380,48 +438,55 @@ the points in the region; the other map is not used.
     ```
 
     ```sh
-    r.mapcalc expression="twice_a = 1"
-    r.mapcalc expression="twice_b = 2"
-    t.create output=twice title="Twice" description="Two maps for one day"
-    t.register input=twice maps=twice_a,twice_b start=2026-03-01 end=2026-03-02
-    t.vect.observe.strds input=stations strds=temperature,twice \
-        output=both vector_output=both_points columns=temp,two
-    v.db.select map=both_points layer=1
+    r.mapcalc expression="twin_a = 1"
+    r.mapcalc expression="twin_b = 2"
+    t.create output=twin title="Twin" description="Two maps for one month"
+    t.register input=twin maps=twin_a,twin_b start=2020-01-01 end=2020-02-01
+    t.vect.observe.strds input=stations strds=temperature_monthly,twin \
+        output=obs_twin vector_output=obs_twin_points columns=temp,two
+    v.db.select map=obs_twin_points layer=1
     ```
 
     ```text
     cat|x|y|altitude|temp|two
-    1|0.5|2.5|100|11|1
-    2|2.5|2.5|200|13|1
-    3|1.5|1.5|300|15|1
-    4|0.5|0.5|400|17|1
-    5|5.5|0.5|500||
+    1|500657|183601|186|4.7|1
+    2|169208|171737|533|2.4|1
+    3|701031|282371|101|4.2|1
+    4|917005|169684|3||1
+    5|100000|170000|50||
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for k in (2, 3):
-        tools.r_mapcalc(
-            expression=(
-                f"humidity_{k} = if(row() == 3 && col() == 1, null(), "
-                f"{k} + 0.5 * (3 * (row() - 1) + col()))"
-            )
+    factors = {"feb": 1.7, "mar": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=2):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
         )
-    tools.t_create(output="humidity", title="Humidity", description="Daily humidity")
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
+    tools.t_create(
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
+    )
     tools.t_register(
-        input="humidity",
-        maps="humidity_2,humidity_3",
-        start="2026-03-02",
-        increment="1 day",
+        input="precipitation_monthly",
+        maps="precipitation_monthly_2020_02,precipitation_monthly_2020_03",
+        start="2020-02-01",
+        increment="1 month",
         flags="i",
     )
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature,humidity",
+        strds="temperature_monthly,precipitation_monthly",
         output="obs_both",
         vector_output="obs_both_points",
-        columns="temp,hum",
+        columns="temp,precip",
     )
     print(tools.t_vect_list(input="obs_both", columns="name,layer,start_time").text)
     for layer in (1, 2):
@@ -430,19 +495,19 @@ the points in the region; the other map is not used.
 
     ```text
     name|layer|start_time
-    obs_both_points|1|2026-03-02 00:00:00
-    obs_both_points|2|2026-03-03 00:00:00
-    cat|x|y|altitude|temp|hum
-    1|0.5|2.5|100|21|2.5
-    2|2.5|2.5|200|23|3.5
-    3|1.5|1.5|300|25|4.5
-    4|0.5|0.5|400|27|
-    5|5.5|0.5|500||
-    cat|temp|hum
-    1|31|3.5
-    2|33|4.5
-    3|35|5.5
-    4|37|
+    obs_both_points|1|2020-02-01 00:00:00
+    obs_both_points|2|2020-03-01 00:00:00
+    cat|x|y|altitude|temp|precip
+    1|500657|183601|186|5.6|157
+    2|169208|171737|533|3.2|263
+    3|701031|282371|101|5.1|149
+    4|917005|169684|3||
+    5|100000|170000|50||
+    cat|temp|precip
+    1|9|110
+    2|6.7|159
+    3|8.5|102
+    4||
     5||
     ```
 
@@ -454,25 +519,25 @@ the points in the region; the other map is not used.
     ncols: 3
     nrows: 5
     Column 1: cat:INTEGER:20
-    Column 2: temp:INTEGER:20
-    Column 3: hum:DOUBLE PRECISION:20
+    Column 2: temp:DOUBLE PRECISION:20
+    Column 3: precip:INTEGER:20
     ```
 
     ```python
-    tools.r_mapcalc(expression="late_1 = 1")
-    tools.t_create(output="late", title="Late", description="Noon to noon")
+    tools.r_mapcalc(expression="shifted_1 = 1")
+    tools.t_create(output="shifted", title="Shifted", description="Noon to noon")
     tools.t_register(
-        input="late",
-        maps="late_1",
-        start="2026-03-01 12:00:00",
-        end="2026-03-02 12:00:00",
+        input="shifted",
+        maps="shifted_1",
+        start="2020-01-15 12:00:00",
+        end="2020-02-15 12:00:00",
     )
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature,late",
+        strds="temperature_monthly,shifted",
         output="none",
         vector_output="none_points",
-        columns="temp,late",
+        columns="temp,shifted",
     )
     info = tools.t_info(type="stvds", input="none", flags="g").keyval
     print(f"number_of_maps={info['number_of_maps']}")
@@ -485,37 +550,37 @@ the points in the region; the other map is not used.
     ```
 
     ```python
-    tools.r_mapcalc(expression="twice_a = 1")
-    tools.r_mapcalc(expression="twice_b = 2")
-    tools.t_create(output="twice", title="Twice", description="Two maps for one day")
+    tools.r_mapcalc(expression="twin_a = 1")
+    tools.r_mapcalc(expression="twin_b = 2")
+    tools.t_create(output="twin", title="Twin", description="Two maps for one month")
     tools.t_register(
-        input="twice", maps="twice_a,twice_b", start="2026-03-01", end="2026-03-02"
+        input="twin", maps="twin_a,twin_b", start="2020-01-01", end="2020-02-01"
     )
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature,twice",
-        output="both",
-        vector_output="both_points",
+        strds="temperature_monthly,twin",
+        output="obs_twin",
+        vector_output="obs_twin_points",
         columns="temp,two",
     )
-    print(tools.v_db_select(map="both_points", layer=1).text)
+    print(tools.v_db_select(map="obs_twin_points", layer=1).text)
     ```
 
     ```text
     cat|x|y|altitude|temp|two
-    1|0.5|2.5|100|11|1
-    2|2.5|2.5|200|13|1
-    3|1.5|1.5|300|15|1
-    4|0.5|0.5|400|17|1
-    5|5.5|0.5|500||
+    1|500657|183601|186|4.7|1
+    2|169208|171737|533|2.4|1
+    3|701031|282371|101|4.2|1
+    4|917005|169684|3||1
+    5|100000|170000|50||
     ```
 
 ### Observe a selection of the points
 
-**where** selects points of `stations` by their attributes: `altitude >= 300`
+**where** selects points of `stations` by their attributes: `altitude < 150`
 keeps the points with the categories 3, 4 and 5. The output map has only these
 points, in every layer, with the categories they have in the input. The values
-are those of the example above. The layer 1 of the output keeps the layer name
+are those of the first example. The layer 1 of the output keeps the layer name
 `stations`.
 
 The second block uses a condition that selects no point. The module ends with a
@@ -524,30 +589,30 @@ Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
 === "Command line"
 
     ```sh
-    t.vect.observe.strds input=stations strds=temperature output=obs_high \
-        vector_output=obs_high_points columns=temp where="altitude >= 300"
+    t.vect.observe.strds input=stations strds=temperature_monthly output=obs_low \
+        vector_output=obs_low_points columns=temp where="altitude < 150"
     for layer in 1 3; do
-        v.db.select map=obs_high_points layer=$layer
+        v.db.select map=obs_low_points layer=$layer
     done
-    v.db.connect -g map=obs_high_points | cut -d"|" -f1,2
+    v.db.connect -g map=obs_low_points | cut -d"|" -f1,2
     ```
 
     ```text
     cat|x|y|altitude|temp
-    3|1.5|1.5|300|15
-    4|0.5|0.5|400|17
-    5|5.5|0.5|500|
+    3|701031|282371|101|4.2
+    4|917005|169684|3|
+    5|100000|170000|50|
     cat|temp
-    3|35
-    4|37
+    3|8.5
+    4|
     5|
-    1/stations|obs_high_points
-    2/obs_high_points_2|obs_high_points_2
-    3/obs_high_points_3|obs_high_points_3
+    1/stations|obs_low_points
+    2/obs_low_points_2|obs_low_points_2
+    3/obs_low_points_3|obs_low_points_3
     ```
 
     ```sh
-    if ! (t.vect.observe.strds input=stations strds=temperature \
+    if ! (t.vect.observe.strds input=stations strds=temperature_monthly \
         output=nowhere vector_output=nowhere_points columns=temp \
         where="altitude > 900" 2>&1 | grep -E "^KeyError"); then
         echo "t.vect.observe.strds failed"
@@ -568,37 +633,37 @@ Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
 
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature",
-        output="obs_high",
-        vector_output="obs_high_points",
+        strds="temperature_monthly",
+        output="obs_low",
+        vector_output="obs_low_points",
         columns="temp",
-        where="altitude >= 300",
+        where="altitude < 150",
     )
     for layer in (1, 3):
-        print(tools.v_db_select(map="obs_high_points", layer=layer).text)
-    for line in tools.v_db_connect(map="obs_high_points", flags="g").text.splitlines():
+        print(tools.v_db_select(map="obs_low_points", layer=layer).text)
+    for line in tools.v_db_connect(map="obs_low_points", flags="g").text.splitlines():
         print("|".join(line.split("|")[:2]))
     ```
 
     ```text
     cat|x|y|altitude|temp
-    3|1.5|1.5|300|15
-    4|0.5|0.5|400|17
-    5|5.5|0.5|500|
+    3|701031|282371|101|4.2
+    4|917005|169684|3|
+    5|100000|170000|50|
     cat|temp
-    3|35
-    4|37
+    3|8.5
+    4|
     5|
-    1/stations|obs_high_points
-    2/obs_high_points_2|obs_high_points_2
-    3/obs_high_points_3|obs_high_points_3
+    1/stations|obs_low_points
+    2/obs_low_points_2|obs_low_points_2
+    3/obs_low_points_3|obs_low_points_3
     ```
 
     ```python
     try:
         tools.t_vect_observe_strds(
             input="stations",
-            strds="temperature",
+            strds="temperature_monthly",
             output="nowhere",
             vector_output="nowhere_points",
             columns="temp",
@@ -621,15 +686,16 @@ Python error, `KeyError: 1`, and the empty vector map `nowhere_points` stays.
 The column `altitude` exists in the table of `stations`. The first block shows
 that the module refuses it and prints the error. With **--overwrite** (second
 block) the module writes the sampled values into the existing column of layer 1
-and the layers 2 and 3 get a column with that name. The fifth point lies outside
-the region, is not sampled and keeps the altitude 500. The third block shows
-that `Altitude` is refused, with **--overwrite** too, because it differs from
+and the layers 2 and 3 get a column with that name. The fifth point lies
+outside the region, is not sampled and keeps the altitude 50; the fourth point
+lies on a cell without a value and gets a NULL. The third block shows that
+`Altitude` is refused, with **--overwrite** too, because it differs from
 `altitude` only in the case of a letter.
 
 === "Command line"
 
     ```sh
-    if ! (t.vect.observe.strds input=stations strds=temperature \
+    if ! (t.vect.observe.strds input=stations strds=temperature_monthly \
         output=check vector_output=check_points columns=altitude 2>&1 |
         sed -n '/^ERROR/,$p'); then
         echo "t.vect.observe.strds failed"
@@ -644,7 +710,7 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
     ```
 
     ```sh
-    t.vect.observe.strds --overwrite input=stations strds=temperature \
+    t.vect.observe.strds --overwrite input=stations strds=temperature_monthly \
         output=check vector_output=check_points columns=altitude
     for layer in 1 3; do
         v.db.select map=check_points layer=$layer
@@ -653,21 +719,21 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
 
     ```text
     cat|x|y|altitude
-    1|0.5|2.5|11
-    2|2.5|2.5|13
-    3|1.5|1.5|15
-    4|0.5|0.5|17
-    5|5.5|0.5|500
+    1|500657|183601|4.7
+    2|169208|171737|2.4
+    3|701031|282371|4.2
+    4|917005|169684|
+    5|100000|170000|50
     cat|altitude
-    1|31
-    2|33
-    3|35
-    4|37
+    1|9
+    2|6.7
+    3|8.5
+    4|
     5|
     ```
 
     ```sh
-    if ! (t.vect.observe.strds --overwrite input=stations strds=temperature \
+    if ! (t.vect.observe.strds --overwrite input=stations strds=temperature_monthly \
         output=check vector_output=check_points columns=Altitude 2>&1 |
         sed -n '/^ERROR/,$p'); then
         echo "t.vect.observe.strds failed"
@@ -686,7 +752,7 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
     try:
         tools.t_vect_observe_strds(
             input="stations",
-            strds="temperature",
+            strds="temperature_monthly",
             output="check",
             vector_output="check_points",
             columns="altitude",
@@ -708,7 +774,7 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
     ```python
     tools.t_vect_observe_strds(
         input="stations",
-        strds="temperature",
+        strds="temperature_monthly",
         output="check",
         vector_output="check_points",
         columns="altitude",
@@ -720,16 +786,16 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
 
     ```text
     cat|x|y|altitude
-    1|0.5|2.5|11
-    2|2.5|2.5|13
-    3|1.5|1.5|15
-    4|0.5|0.5|17
-    5|5.5|0.5|500
+    1|500657|183601|4.7
+    2|169208|171737|2.4
+    3|701031|282371|4.2
+    4|917005|169684|
+    5|100000|170000|50
     cat|altitude
-    1|31
-    2|33
-    3|35
-    4|37
+    1|9
+    2|6.7
+    3|8.5
+    4|
     5|
     ```
 
@@ -737,7 +803,7 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
     try:
         tools.t_vect_observe_strds(
             input="stations",
-            strds="temperature",
+            strds="temperature_monthly",
             output="check",
             vector_output="check_points",
             columns="Altitude",
@@ -758,101 +824,110 @@ that `Altitude` is refused, with **--overwrite** too, because it differs from
 
 ### Observe a dataset with relative time
 
-The dataset `model` has relative time with the unit hours: `step_1` from 0 to 1
-and `step_2` from 1 to 2, with the values `100 * k + col()` for `step_k`. The
-points in the columns 1, 3, 2 and 1 read 201, 203, 202 and 201 in layer 2. The
-output dataset has relative time with the same unit, and its layers have the
-times of the maps as numbers.
+The dataset `runoff` has relative time with the unit hours: `runoff_1` from 0
+to 1 and `runoff_2` from 1 to 2, with the constant values 100 and 200. In
+layer 2 the points 1 to 4 read 200, the fifth point outside the region has no
+value. The output dataset has relative time with the same unit, and its
+layers have the times of the maps as numbers.
 
 === "Command line"
 
     ```sh
-    for k in 1 2; do
-        r.mapcalc expression="step_$k = 100 * $k + col()"
+    for step in 1 2; do
+        r.mapcalc expression="runoff_$step = 100 * $step"
     done
-    t.create output=model temporaltype=relative title="Model" \
-        description="Model output per step"
-    t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
-    t.vect.observe.strds input=stations strds=model output=obs_model \
-        vector_output=obs_model_points columns=step
-    t.vect.list input=obs_model columns=name,layer,start_time,end_time
-    t.info -g type=stvds input=obs_model | grep -E "^(temporal_type|unit)="
-    v.db.select map=obs_model_points layer=2
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 unit=hours
+    t.vect.observe.strds input=stations strds=runoff output=obs_runoff \
+        vector_output=obs_runoff_points columns=runoff_mm
+    t.vect.list input=obs_runoff columns=name,layer,start_time,end_time
+    t.info -g type=stvds input=obs_runoff | grep -E "^(temporal_type|unit)="
+    v.db.select map=obs_runoff_points layer=2
     ```
 
     ```text
     name|layer|start_time|end_time
-    obs_model_points|1|0|1
-    obs_model_points|2|1|2
+    obs_runoff_points|1|0|1
+    obs_runoff_points|2|1|2
     temporal_type=relative
     unit=hours
-    cat|step
-    1|201
-    2|203
-    3|202
-    4|201
+    cat|runoff_mm
+    1|200
+    2|200
+    3|200
+    4|200
     5|
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for k in (1, 2):
-        tools.r_mapcalc(expression=f"step_{k} = 100 * {k} + col()")
+    for step in (1, 2):
+        tools.r_mapcalc(expression=f"runoff_{step} = 100 * {step}")
     tools.t_create(
-        output="model",
+        output="runoff",
         temporaltype="relative",
-        title="Model",
-        description="Model output per step",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
     tools.t_register(
-        input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+        input="runoff",
+        maps="runoff_1,runoff_2",
+        start=0,
+        increment=1,
+        unit="hours",
+        flags="i",
     )
     tools.t_vect_observe_strds(
         input="stations",
-        strds="model",
-        output="obs_model",
-        vector_output="obs_model_points",
-        columns="step",
+        strds="runoff",
+        output="obs_runoff",
+        vector_output="obs_runoff_points",
+        columns="runoff_mm",
     )
     print(
-        tools.t_vect_list(input="obs_model", columns="name,layer,start_time,end_time").text
+        tools.t_vect_list(input="obs_runoff", columns="name,layer,start_time,end_time").text
     )
-    info = tools.t_info(type="stvds", input="obs_model", flags="g").keyval
+    info = tools.t_info(type="stvds", input="obs_runoff", flags="g").keyval
     for key in ("temporal_type", "unit"):
         print(f"{key}={info[key]}")
-    print(tools.v_db_select(map="obs_model_points", layer=2).text)
+    print(tools.v_db_select(map="obs_runoff_points", layer=2).text)
     ```
 
     ```text
     name|layer|start_time|end_time
-    obs_model_points|1|0|1
-    obs_model_points|2|1|2
+    obs_runoff_points|1|0|1
+    obs_runoff_points|2|1|2
     temporal_type=relative
     unit=hours
-    cat|step
-    1|201
-    2|203
-    3|202
-    4|201
+    cat|runoff_mm
+    1|200
+    2|200
+    3|200
+    4|200
     5|
     ```
 
 ### Observe data of another mapset
 
 The input map and the raster dataset may be in another mapset: the names with
-the mapset, `stations@PERMANENT` and `temperature@PERMANENT`, select them. The
-output map and dataset are made in the current mapset, here the new mapset
-`analysis`. A new mapset has its own region, so the example sets the region
-again before the points are sampled.
+the mapset, `stations@t_vect_observe_strds` and
+`temperature_monthly@t_vect_observe_strds`, select them. The output map and
+dataset are made in the current mapset, here the new mapset
+`t_vect_observe_strds_2`. A new mapset has its own region, so the example sets
+the region again before the points are sampled. The example adds the mapset
+`t_vect_observe_strds` to the search path of the mapsets with
+*[g.mapsets](g.mapsets.md)*.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=3 s=0 e=3 w=0 res=1
-    t.vect.observe.strds input=stations@PERMANENT \
-        strds=temperature@PERMANENT output=remote \
+    g.mapset -c mapset=t_vect_observe_strds_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_vect_observe_strds operation=add
+    t.vect.observe.strds input=stations@t_vect_observe_strds \
+        strds=temperature_monthly@t_vect_observe_strds output=remote \
         vector_output=remote_points columns=temp
     t.vect.list input=remote columns=name,layer,mapset
     v.db.select map=remote_points layer=1 columns=cat,temp
@@ -860,25 +935,26 @@ again before the points are sampled.
 
     ```text
     name|layer|mapset
-    remote_points|1|analysis
-    remote_points|2|analysis
-    remote_points|3|analysis
+    remote_points|1|t_vect_observe_strds_2
+    remote_points|2|t_vect_observe_strds_2
+    remote_points|3|t_vect_observe_strds_2
     cat|temp
-    1|11
-    2|13
-    3|15
-    4|17
+    1|4.7
+    2|2.4
+    3|4.2
+    4|
     5|
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
+    tools.g_mapset(mapset="t_vect_observe_strds_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_vect_observe_strds", operation="add")
     tools.t_vect_observe_strds(
-        input="stations@PERMANENT",
-        strds="temperature@PERMANENT",
+        input="stations@t_vect_observe_strds",
+        strds="temperature_monthly@t_vect_observe_strds",
         output="remote",
         vector_output="remote_points",
         columns="temp",
@@ -889,14 +965,14 @@ again before the points are sampled.
 
     ```text
     name|layer|mapset
-    remote_points|1|analysis
-    remote_points|2|analysis
-    remote_points|3|analysis
+    remote_points|1|t_vect_observe_strds_2
+    remote_points|2|t_vect_observe_strds_2
+    remote_points|3|t_vect_observe_strds_2
     cat|temp
-    1|11
-    2|13
-    3|15
-    4|17
+    1|4.7
+    2|2.4
+    3|4.2
+    4|
     5|
     ```
 
@@ -904,12 +980,13 @@ again before the points are sampled.
 
 ## SEE ALSO
 
-*[g.mapset](g.mapset.md), [g.region](g.region.md), [t.create](t.create.md),
+*[g.mapset](g.mapset.md), [g.mapsets](g.mapsets.md),
+[g.region](g.region.md), [t.create](t.create.md),
 [t.info](t.info.md), [t.rast.what](t.rast.what.md),
 [t.register](t.register.md), [t.vect.db.select](t.vect.db.select.md),
 [t.vect.list](t.vect.list.md), [t.vect.what.strds](t.vect.what.strds.md),
 [v.db.select](v.db.select.md), [v.extract](v.extract.md),
-[v.what.rast](v.what.rast.md),
+[v.surf.idw](v.surf.idw.md), [v.what.rast](v.what.rast.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR
