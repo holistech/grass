@@ -17,7 +17,7 @@ output starts with four columns that name the map:
 
 <ul>
 <li><code>id</code>, the name of the map with its mapset, such as
-<code>temperature_1@PERMANENT</code>;</li>
+<code>precipitation_monthly_2020_01@t_rast_univar</code>;</li>
 <li><code>semantic_label</code>, the semantic label of the map, empty if it has none;</li>
 <li><code>start</code> and <code>end</code>, the start and end time of the map; the end of a map
 registered as a time instance is <code>None</code>.</li>
@@ -138,7 +138,8 @@ hours shows <code>0</code> and <code>6</code>, as the first example shows.
 
 <p>
 <em>t.rast.univar</em> only reads, so it works on a dataset of another mapset as
-well. The name with the mapset (<code>input=temperature@PERMANENT</code>) selects it;
+well. The name with the mapset
+(<code>input=precipitation_monthly@t_rast_univar</code>) selects it;
 a name without a mapset is searched in the mapsets of the search path (see
 <em><a href="g.mapsets.html">g.mapsets</a></em>). The example at the end shows this.
 
@@ -159,66 +160,79 @@ refused by the parser.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast_univar</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset,
+except the last, which creates a second mapset with the same region. The
+examples that show how the statistics, the selection and the regions work use
+maps with small constant values, so that the results can be checked by hand.
+
 <h3>Statistics of each map of a dataset</h3>
 
-Three maps of daily mean air temperature on a small region of two rows and
-three columns make up the dataset <code>temperature</code>. The helper map <code>cell_number</code>
-numbers the cells from 1 to 6, row by row, so each map is simple to follow:
-
-<ul>
-<li><code>temperature_1</code> holds -2, -1, 0 in the northern row and 1, 2, 3 in the
-southern row;</li>
-<li><code>temperature_2</code> holds 1, 2, 3 and 4, 5, 6;</li>
-<li><code>temperature_3</code> holds 4, 5 and 7, 8, and nothing in the eastern column, as
-if a sensor had failed there.</li>
-</ul>
+The dataset <code>precipitation_monthly</code> holds twelve maps of the monthly
+precipitation sum in 2020, in whole millimetres. They are generated, not
+measured: the monthly normals of the 136 climate stations in the vector map
+<code>precip_30ynormals</code> are interpolated with <em>v.surf.idw</em> for each month and
+multiplied by an assumed factor for a wet year (1.2 in January, 1.7 in
+February and so on), so the pattern changes from month to month. Each map is an
+interval of one month, and cells outside North Carolina are null. Whole
+millimetres are integers, so the sums, the means and the standard deviations
+below are the same on every system.
 
 <p>
-The maps are registered as daily intervals starting on 1 March 2026.
-<em>t.rast.univar</em> processes two maps at the same time here (<b>nprocs</b>); the
-output does not depend on it.
+The first command selects the maps of the first quarter to keep the output
+short. <em>t.rast.univar</em> processes two maps at the same time here (<b>nprocs</b>);
+the output does not depend on it.
 
 <p>
-The second block makes the dataset <code>model</code> with relative time: two model
-steps of 6 hours each, with the constant values 1 and 2. Their <code>start</code> and
-<code>end</code> are numbers of hours, printed without the unit.
+The second block makes the dataset <code>runoff</code> with relative time: two model steps
+of 6 hours each, with the constant values 1 and 2 in every cell of the region.
+Their <code>start</code> and <code>end</code> are numbers of hours, printed without the unit.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=3 w=0 res=1
-r.mapcalc expression="cell_number = 3 * (row() - 1) + col()"
-r.mapcalc expression="temperature_1 = cell_number - 3"
-r.mapcalc expression="temperature_2 = cell_number"
-r.mapcalc expression="temperature_3 = if(col() == 3, null(), cell_number + 3)"
-t.create output=temperature title="Air temperature" \
-    description="Daily mean air temperature in degrees Celsius"
-t.register -i input=temperature \
-    maps=temperature_1,temperature_2,temperature_3 \
-    start=2026-03-01 increment="1 day"
-t.rast.univar input=temperature nprocs=2
+g.mapset -c mapset=t_rast_univar
+g.region raster=elev_state_500m res=1000 -a
+month=1
+for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+    jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+    name=$(printf %02d $month)
+    v.surf.idw input=precip_30ynormals column=${entry%:*} \
+        output=precipitation_normal_$name npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+    month=$((month + 1))
+done
+t.create output=precipitation_monthly title="Precipitation" \
+    description="Monthly precipitation sum 2020 in mm"
+t.register -i input=precipitation_monthly \
+    maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
+t.rast.univar input=precipitation_monthly nprocs=2 \
+    where="start_time &lt; '2020-04-01'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+precipitation_monthly_2020_01@t_rast_univar||2020-01-01 00:00:00|2020-02-01 00:00:00|136502|144563|94|249|155|136.209755168422|136.209755168422|16.7726752415963|281.322634760059|12.3138575653829|18592904|18592904
+precipitation_monthly_2020_02@t_rast_univar||2020-02-01 00:00:00|2020-03-01 00:00:00|136502|144563|133|309|176|160.129097009568|160.129097009568|22.9221610385697|525.425466678125|14.3148006618686|21857942|21857942
+precipitation_monthly_2020_03@t_rast_univar||2020-03-01 00:00:00|2020-04-01 00:00:00|136502|144563|88|212|124|105.972689044849|105.972689044849|13.9251048404704|193.908544818092|13.1402769581293|14465484|14465484
 </pre></div>
 
 <div class="code"><pre>
-r.mapcalc expression="step_1 = 1"
-r.mapcalc expression="step_2 = 2"
-t.create output=model temporaltype=relative title="Model" \
-    description="Model output per step of 6 hours"
-t.register -i input=model maps=step_1,step_2 start=0 increment=6 unit=hours
-t.rast.univar input=model
+r.mapcalc expression="runoff_1 = 1"
+r.mapcalc expression="runoff_2 = 2"
+t.create output=runoff temporaltype=relative title="Runoff" \
+    description="Simulated runoff in mm per model step of 6 hours"
+t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=6 unit=hours
+t.rast.univar input=runoff
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-step_1@PERMANENT||0|6|6|0|1|1|0|1|1|0|0|0|6|6
-step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
+runoff_1@t_rast_univar||0|6|281065|0|1|1|0|1|1|0|0|0|281065|281065
+runoff_2@t_rast_univar||6|12|281065|0|2|2|0|2|2|0|0|0|562130|562130
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -227,74 +241,91 @@ step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
-tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
-tools.r_mapcalc(expression="temperature_1 = cell_number - 3")
-tools.r_mapcalc(expression="temperature_2 = cell_number")
-tools.r_mapcalc(expression="temperature_3 = if(col() == 3, null(), cell_number + 3)")
+tools.g_mapset(flags="c", mapset="t_rast_univar")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = range(1, 13)
+factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+for month, (column, factor) in enumerate(factors.items(), start=1):
+    normal = f"precipitation_normal_{month:02d}"
+    tools.v_surf_idw(
+        input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+    )
+    tools.r_mapcalc(
+        expression=f"precipitation_monthly_2020_{month:02d} ="
+        f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+    )
 tools.t_create(
-    output="temperature",
-    title="Air temperature",
-    description="Daily mean air temperature in degrees Celsius",
+    output="precipitation_monthly",
+    title="Precipitation",
+    description="Monthly precipitation sum 2020 in mm",
 )
 tools.t_register(
-    input="temperature",
-    maps="temperature_1,temperature_2,temperature_3",
-    start="2026-03-01",
-    increment="1 day",
+    input="precipitation_monthly",
+    maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
     flags="i",
 )
-print(tools.t_rast_univar(input="temperature", nprocs=2).text)
+result = tools.t_rast_univar(
+    input="precipitation_monthly", nprocs=2, where="start_time &lt; '2020-04-01'"
+)
+print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+precipitation_monthly_2020_01@t_rast_univar||2020-01-01 00:00:00|2020-02-01 00:00:00|136502|144563|94|249|155|136.209755168422|136.209755168422|16.7726752415963|281.322634760059|12.3138575653829|18592904|18592904
+precipitation_monthly_2020_02@t_rast_univar||2020-02-01 00:00:00|2020-03-01 00:00:00|136502|144563|133|309|176|160.129097009568|160.129097009568|22.9221610385697|525.425466678125|14.3148006618686|21857942|21857942
+precipitation_monthly_2020_03@t_rast_univar||2020-03-01 00:00:00|2020-04-01 00:00:00|136502|144563|88|212|124|105.972689044849|105.972689044849|13.9251048404704|193.908544818092|13.1402769581293|14465484|14465484
 </pre></div>
 
 <div class="code"><pre>
-tools.r_mapcalc(expression="step_1 = 1")
-tools.r_mapcalc(expression="step_2 = 2")
+tools.r_mapcalc(expression="runoff_1 = 1")
+tools.r_mapcalc(expression="runoff_2 = 2")
 tools.t_create(
-    output="model",
+    output="runoff",
     temporaltype="relative",
-    title="Model",
-    description="Model output per step of 6 hours",
+    title="Runoff",
+    description="Simulated runoff in mm per model step of 6 hours",
 )
 tools.t_register(
-    input="model",
-    maps="step_1,step_2",
+    input="runoff",
+    maps="runoff_1,runoff_2",
     start=0,
     increment=6,
     unit="hours",
     flags="i",
 )
-print(tools.t_rast_univar(input="model").text)
+print(tools.t_rast_univar(input="runoff").text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-step_1@PERMANENT||0|6|6|0|1|1|0|1|1|0|0|0|6|6
-step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
+runoff_1@t_rast_univar||0|6|281065|0|1|1|0|1|1|0|0|0|281065|281065
+runoff_2@t_rast_univar||6|12|281065|0|2|2|0|2|2|0|0|0|562130|562130
 </pre></div>
 
 <p>
 The output reads line by line:
 
 <ul>
-<li><code>temperature_2</code> has six values, 1 to 6: the mean is 21 / 6 = 3.5, the
-range 6 - 1 = 5. The squared deviations from the mean add up to 17.5, so
-the variance is 17.5 / 6 = 2.9166..., the standard deviation its square root
-1.7078..., and the coefficient of variation <code>100 * 1.7078 / 3.5</code> = 48.79...</li>
-<li><code>temperature_1</code> holds the same values minus 3, so range, variance and
-standard deviation are those of <code>temperature_2</code>. Its values -2 to 3 add up to
-3 and give the mean 0.5, while their absolute values add up to 9 and give
-<code>mean_of_abs</code> 1.5. With a mean close to 0, the coefficient of variation
-becomes 341.6 and says little.</li>
-<li><code>temperature_3</code> has four non-null cells and two null cells; its mean is
-(4 + 5 + 7 + 8) / 4 = 6.</li>
+<li>Each map of the first quarter has 136502 non-null cells and 144563 null
+cells: the cells outside North Carolina have no value, and the region has
+839 by 335 = 281065 cells in all.</li>
+<li>January has the values 94 to 249 mm, so the range is 249 - 94 = 155. The
+mean is the sum divided by the number of non-null cells,
+18592904 / 136502 = 136.2. The variance 281.32 is the mean of the squared
+deviations from the mean, the standard deviation 16.77 its square root, and
+the coefficient of variation <code>100 * 16.77 / 136.2</code> = 12.3.</li>
+<li>February is the wettest of the three months in this generated series, with a
+mean of 160.1 mm and a largest value of 309 mm; March is the driest with a
+mean of 106.0 mm.</li>
+<li><code>mean_of_abs</code> and <code>sum_abs</code> equal <code>mean</code> and <code>sum</code>, because no value is
+negative.</li>
+<li>The two maps of <code>runoff</code> hold 1 and 2 in all 281065 cells, so the sums are
+281065 and 562130, and range, variance and standard deviation are 0. The
+start and end are the hours 0 to 6 and 6 to 12.</li>
 </ul>
 
 <p>
@@ -303,144 +334,182 @@ The semantic label is empty, because the maps have none.
 <h3>Select maps by start time or semantic label</h3>
 
 The option <b>where</b> takes an SQL condition on the registered maps. The first
-command keeps the maps that start on 2 March 2026 or later.
+command keeps the maps that start on 1 November 2020 or later.
 
 <p>
 The second command uses a dataset of satellite bands. A satellite takes the
 bands of a scene at the same moment. The dataset <code>sentinel</code> holds the red band
 (semantic label <code>S2_B4</code>) and the near infrared band (<code>S2_B8</code>) of two scenes as
 maps with constant reflectance, registered as time instances, so their end
-time is <code>None</code>. The name <code>sentinel.S2_B8</code> selects the near infrared band;
-without the label, all four maps would be processed.
+time is <code>None</code>. The reflectance is stored as integers scaled by 10000, as in
+the Sentinel-2 products: 500 is a reflectance of 0.05. The name
+<code>sentinel.S2_B8</code> selects the near infrared band; without the label, all four
+maps would be processed.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.univar input=temperature where="start_time &gt;= '2026-03-02'"
+t.rast.univar input=precipitation_monthly where="start_time &gt;= '2020-11-01'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+precipitation_monthly_2020_11@t_rast_univar||2020-11-01 00:00:00|2020-12-01 00:00:00|136502|144563|104|350|246|138.642320259044|138.642320259044|26.5987082312919|707.491279573396|19.1851291738295|18924954|18924954
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <div class="code"><pre>
-r.mapcalc expression="red_1 = 0.05"
-r.mapcalc expression="nir_1 = 0.30"
-r.mapcalc expression="red_2 = 0.07"
-r.mapcalc expression="nir_2 = 0.40"
+r.mapcalc expression="red_1 = 500"
+r.mapcalc expression="nir_1 = 3000"
+r.mapcalc expression="red_2 = 700"
+r.mapcalc expression="nir_2 = 4000"
 r.support map=red_1 semantic_label=S2_B4
 r.support map=red_2 semantic_label=S2_B4
 r.support map=nir_1 semantic_label=S2_B8
 r.support map=nir_2 semantic_label=S2_B8
 t.create output=sentinel title="Reflectance" \
-    description="Red and near infrared reflectance of two scenes"
-t.register input=sentinel maps=red_1,nir_1 start="2026-06-01 10:30:00"
-t.register input=sentinel maps=red_2,nir_2 start="2026-06-11 10:30:00"
+    description="Red and near infrared reflectance of two scenes, scaled by 10000"
+t.register input=sentinel maps=red_1,nir_1 start="2020-06-01 10:30:00"
+t.register input=sentinel maps=red_2,nir_2 start="2020-06-11 10:30:00"
 t.rast.univar input=sentinel.S2_B8
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-nir_1@PERMANENT|S2_B8|2026-06-01 10:30:00|None|6|0|0.3|0.3|0|0.3|0.3|0|0|0|1.8|1.8
-nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2.4
+nir_1@t_rast_univar|S2_B8|2020-06-01 10:30:00|None|281065|0|3000|3000|0|3000|3000|0|0|0|843195000|843195000
+nir_2@t_rast_univar|S2_B8|2020-06-11 10:30:00|None|281065|0|4000|4000|0|4000|4000|0|0|0|1124260000|1124260000
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-result = tools.t_rast_univar(input="temperature", where="start_time &gt;= '2026-03-02'")
+result = tools.t_rast_univar(
+    input="precipitation_monthly", where="start_time &gt;= '2020-11-01'"
+)
 print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24
+precipitation_monthly_2020_11@t_rast_univar||2020-11-01 00:00:00|2020-12-01 00:00:00|136502|144563|104|350|246|138.642320259044|138.642320259044|26.5987082312919|707.491279573396|19.1851291738295|18924954|18924954
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <div class="code"><pre>
 for name, value, label in (
-    ("red_1", 0.05, "S2_B4"),
-    ("nir_1", 0.30, "S2_B8"),
-    ("red_2", 0.07, "S2_B4"),
-    ("nir_2", 0.40, "S2_B8"),
+    ("red_1", 500, "S2_B4"),
+    ("nir_1", 3000, "S2_B8"),
+    ("red_2", 700, "S2_B4"),
+    ("nir_2", 4000, "S2_B8"),
 ):
-    tools.r_mapcalc(expression=f"{name} = {value:.2f}")
+    tools.r_mapcalc(expression=f"{name} = {value}")
     tools.r_support(map=name, semantic_label=label)
 tools.t_create(
     output="sentinel",
     title="Reflectance",
-    description="Red and near infrared reflectance of two scenes",
+    description="Red and near infrared reflectance of two scenes, scaled by 10000",
 )
-tools.t_register(input="sentinel", maps="red_1,nir_1", start="2026-06-01 10:30:00")
-tools.t_register(input="sentinel", maps="red_2,nir_2", start="2026-06-11 10:30:00")
+tools.t_register(input="sentinel", maps="red_1,nir_1", start="2020-06-01 10:30:00")
+tools.t_register(input="sentinel", maps="red_2,nir_2", start="2020-06-11 10:30:00")
 print(tools.t_rast_univar(input="sentinel.S2_B8").text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-nir_1@PERMANENT|S2_B8|2026-06-01 10:30:00|None|6|0|0.3|0.3|0|0.3|0.3|0|0|0|1.8|1.8
-nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2.4
+nir_1@t_rast_univar|S2_B8|2020-06-01 10:30:00|None|281065|0|3000|3000|0|3000|3000|0|0|0|843195000|843195000
+nir_2@t_rast_univar|S2_B8|2020-06-11 10:30:00|None|281065|0|4000|4000|0|4000|4000|0|0|0|1124260000|1124260000
 </pre></div>
+
+<p>
+The first output lists November and December. November holds the largest value
+of the whole series, 350 mm, and a mean of 138.6 mm; December is dry, with a
+mean of 81.2 mm. Each of the four maps of <code>sentinel</code> has a constant value, so
+the near infrared map of the first scene holds 3000 in all 281065 cells, and
+its sum is 3000 * 281065 = 843195000. The end time of both lines is <code>None</code>,
+and the semantic label <code>S2_B8</code> is the label of the band.
 
 <h3>Calculate extended statistics and percentiles</h3>
 
 The flag <b>-e</b> adds the quartiles, the median and the 90th percentile. The
-six values 1 to 6 of <code>temperature_2</code> give the first quartile at position
-<code>6 * 25 / 100 - 0.5</code> = 1 (the value 2), the third quartile at position 4 (the
-value 5), and the 90th percentile at position 4.9, which becomes 4 (the value
-5). The median is the mean of the two middle values 3 and 4.
+non-null cells of <code>precipitation_monthly_2020_12</code> are 136502. The first
+quartile is at position <code>136502 * 25 / 100 - 0.5</code> = 34125 (the value 74), the
+third quartile at position 102376 (the value 84), and the 90th percentile at
+position 122851.3, which becomes 122851 (the value 93). The number of cells is
+even, so the median is the mean of the two middle values at the positions 68250
+and 68251; both are 77.
 
 <p>
-The option <b>percentile</b> replaces the 90th percentile by the listed ones.
-For <code>temperature_2</code>, the 10th percentile is at position 0.1 (the value 1), the
-50th at position 2.5 (the value 3) and the 95th at position 5.2 (the value 6).
-The 50th percentile 3 is not the median 3.5: the median takes the mean of the
-two middle values, the percentile one value.
+The option <b>percentile</b> replaces the 90th percentile by the listed ones. For
+December, the 10th percentile is at position 13649.7, which becomes 13649 (the
+value 73), the 50th at position 68250.5, which becomes 68250 (the value 77),
+and the 95th at position 129676.4, which becomes 129676 (the value 112).
+
+<p>
+With so many cells, the median and the 50th percentile are the same value. They
+differ when the number of cells is even and the two middle values differ. The
+third block shows this for a map of the region of 4 by 4 cells that holds the
+column number of each cell: the values 1, 2, 3, 4, four times each. The 50th
+percentile is at position 7.5, which becomes 7, the value 2 in the sorted list,
+while the median is the mean of the values at the positions 7 and 8, 2 and 3:
+2.5. The block sets the region of the first example again at the end.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.univar -e input=temperature
+t.rast.univar -e input=precipitation_monthly where="start_time &gt;= '2020-11-01'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
-temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9|-1|0.5|2|2
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|5
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24|4|6|7|8
+precipitation_monthly_2020_11@t_rast_univar||2020-11-01 00:00:00|2020-12-01 00:00:00|136502|144563|104|350|246|138.642320259044|138.642320259044|26.5987082312919|707.491279573396|19.1851291738295|18924954|18924954|123|131|141|175
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779|74|77|84|93
 </pre></div>
 
 <div class="code"><pre>
-t.rast.univar -e input=temperature percentile=10,50,95 \
-    where="name = 'temperature_2'"
+t.rast.univar -e input=precipitation_monthly percentile=10,50,95 \
+    where="name = 'precipitation_monthly_2020_12'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|1|3|6
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779|74|77|84|73|77|112
+</pre></div>
+
+<div class="code"><pre>
+g.region w=400000 e=404000 s=100000 n=104000 res=1000
+r.mapcalc expression="column_number = col()"
+t.create output=column_numbers title="Column numbers" \
+    description="Column number of each cell of a small region"
+t.register input=column_numbers maps=column_number start=2020-01-01
+t.rast.univar -e input=column_numbers percentile=50
+g.region raster=elev_state_500m res=1000 -a
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_50
+column_number@t_rast_univar||2020-01-01 00:00:00|None|16|0|1|4|3|2.5|2.5|1.11803398874989|1.25|44.7213595499958|40|40|1|2.5|3|2
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-print(tools.t_rast_univar(input="temperature", flags="e").text)
+result = tools.t_rast_univar(
+    input="precipitation_monthly", where="start_time &gt;= '2020-11-01'", flags="e"
+)
+print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
-temperature_1@PERMANENT||2026-03-01 00:00:00|2026-03-02 00:00:00|6|0|-2|3|5|0.5|1.5|1.70782512765993|2.91666666666667|341.565025531987|3|9|-1|0.5|2|2
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|5
-temperature_3@PERMANENT||2026-03-03 00:00:00|2026-03-04 00:00:00|4|2|4|8|4|6|6|1.58113883008419|2.5|26.3523138347365|24|24|4|6|7|8
+precipitation_monthly_2020_11@t_rast_univar||2020-11-01 00:00:00|2020-12-01 00:00:00|136502|144563|104|350|246|138.642320259044|138.642320259044|26.5987082312919|707.491279573396|19.1851291738295|18924954|18924954|123|131|141|175
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779|74|77|84|93
 </pre></div>
 
 <div class="code"><pre>
 result = tools.t_rast_univar(
-    input="temperature",
+    input="precipitation_monthly",
     percentile=[10, 50, 95],
-    where="name = 'temperature_2'",
+    where="name = 'precipitation_monthly_2020_12'",
     flags="e",
 )
 print(result.text)
@@ -448,48 +517,74 @@ print(result.text)
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21|2|3.5|5|1|3|6
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779|74|77|84|73|77|112
+</pre></div>
+
+<div class="code"><pre>
+tools.g_region(w=400000, e=404000, s=100000, n=104000, res=1000)
+tools.r_mapcalc(expression="column_number = col()")
+tools.t_create(
+    output="column_numbers",
+    title="Column numbers",
+    description="Column number of each cell of a small region",
+)
+tools.t_register(input="column_numbers", maps="column_number", start="2020-01-01")
+print(tools.t_rast_univar(input="column_numbers", percentile=[50], flags="e").text)
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+</pre></div>
+
+<div class="code"><pre>
+id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_50
+column_number@t_rast_univar||2020-01-01 00:00:00|None|16|0|1|4|3|2.5|2.5|1.11803398874989|1.25|44.7213595499958|40|40|1|2.5|3|2
 </pre></div>
 
 <h3>Statistics per zone</h3>
 
-The map <code>zones</code> divides the region into the northern row (category 1, label
-<code>north</code>) and the southern row (category 2, label <code>south</code>). With <b>zones</b>,
-each map gets one line per zone. In the northern row, <code>temperature_2</code> holds
-1, 2 and 3 with the mean 2, in the southern row 4, 5 and 6 with the mean 5.
-With <b>format</b> <code>json</code>, each zone is an object of its own, and the category
-label has the name <code>zone_label</code>.
+The map <code>regions</code> divides North Carolina by elevation into three zones, roughly
+the natural regions: the Coastal Plain below 100 m (category 1), the Piedmont
+up to 400 m (category 2) and the Mountains above (category 3). With <b>zones</b>,
+each map gets one line per zone. The three zones hold 71800, 43252 and 21450
+cells, which add up to the 136502 non-null cells of the map; the cells outside
+North Carolina belong to no zone and are not counted. With <b>format</b> <code>json</code>,
+each zone is an object of its own, and the category label has the name
+<code>zone_label</code>. The values are those of the generated series for July, not
+measurements.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-r.mapcalc expression="zones = row()"
-r.category map=zones separator=":" rules=- &lt;&lt;EOF
-1:north
-2:south
+r.mapcalc expression="regions = if(elev_state_500m &lt; 100, 1, if(elev_state_500m &lt; 400, 2, 3))"
+r.category map=regions separator=":" rules=- &lt;&lt;EOF
+1:Coastal Plain
+2:Piedmont
+3:Mountains
 EOF
-t.rast.univar input=temperature zones=zones \
-    where="name = 'temperature_2'"
+t.rast.univar input=precipitation_monthly zones=regions \
+    where="name = 'precipitation_monthly_2020_07'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|1|north|3|0|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|2|south|3|0|4|6|2|5|5|0.816496580927726|0.666666666666667|16.3299316185545|15|15
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|1|Coastal Plain|71800|0|112|223|111|155.746908077994|155.746908077994|18.893553458953|356.966362306315|12.1309332506887|11182628|11182628
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|2|Piedmont|43252|0|86|199|113|123.406732636641|123.406732636641|10.9022827751374|118.859769709058|8.83443110615212|5337588|5337588
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|3|Mountains|21450|0|83|219|136|129.840745920746|129.840745920746|16.0767767300026|258.462750026352|12.3819195707761|2785084|2785084
 </pre></div>
 
 <div class="code"><pre>
-t.rast.univar input=temperature zones=zones format=json \
-    where="name = 'temperature_2'" | grep -E '"(zone|zone_label|mean)"'
+t.rast.univar input=precipitation_monthly zones=regions format=json \
+    where="name = 'precipitation_monthly_2020_07'" | grep -E '"(zone|zone_label|mean)"'
 </pre></div>
 
 <div class="code"><pre>
         "zone": 1,
-        "zone_label": "north",
-        "mean": 2,
+        "zone_label": "Coastal Plain",
+        "mean": 155.74690807799442,
         "zone": 2,
-        "zone_label": "south",
-        "mean": 5,
+        "zone_label": "Piedmont",
+        "mean": 123.40673263664108,
+        "zone": 3,
+        "zone_label": "Mountains",
+        "mean": 129.84074592074592,
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -497,68 +592,82 @@ t.rast.univar input=temperature zones=zones format=json \
 <div class="code"><pre>
 from io import StringIO
 
-tools.r_mapcalc(expression="zones = row()")
-tools.r_category(map="zones", separator=":", rules=StringIO("1:north\n2:south\n"))
+tools.r_mapcalc(
+    expression="regions = if(elev_state_500m &lt; 100, 1, if(elev_state_500m &lt; 400, 2, 3))"
+)
+tools.r_category(
+    map="regions",
+    separator=":",
+    rules=StringIO("1:Coastal Plain\n2:Piedmont\n3:Mountains\n"),
+)
 result = tools.t_rast_univar(
-    input="temperature", zones="zones", where="name = 'temperature_2'"
+    input="precipitation_monthly",
+    zones="regions",
+    where="name = 'precipitation_monthly_2020_07'",
 )
 print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|1|north|3|0|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|2|south|3|0|4|6|2|5|5|0.816496580927726|0.666666666666667|16.3299316185545|15|15
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|1|Coastal Plain|71800|0|112|223|111|155.746908077994|155.746908077994|18.893553458953|356.966362306315|12.1309332506887|11182628|11182628
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|2|Piedmont|43252|0|86|199|113|123.406732636641|123.406732636641|10.9022827751374|118.859769709058|8.83443110615212|5337588|5337588
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|3|Mountains|21450|0|83|219|136|129.840745920746|129.840745920746|16.0767767300026|258.462750026352|12.3819195707761|2785084|2785084
 </pre></div>
 
 <div class="code"><pre>
 result = tools.t_rast_univar(
-    input="temperature",
-    zones="zones",
+    input="precipitation_monthly",
+    zones="regions",
     format="json",
-    where="name = 'temperature_2'",
+    where="name = 'precipitation_monthly_2020_07'",
 )
 for stats in result.json:
     print(f"zone {stats['zone']} ({stats['zone_label']}): mean {stats['mean']}")
 </pre></div>
 
 <div class="code"><pre>
-zone 1 (north): mean 2
-zone 2 (south): mean 5
+zone 1 (Coastal Plain): mean 155.74690807799442
+zone 2 (Piedmont): mean 123.40673263664108
+zone 3 (Mountains): mean 129.84074592074592
 </pre></div>
 
 <h3>Restrict the statistics with a raster mask</h3>
 
-A raster mask restricts the statistics in the same way as for <em>r.univar</em>.
-With the mask on the northern row (category 1 of <code>zones</code>), three cells of
-<code>temperature_2</code> remain, 1, 2 and 3, and the other three count as null cells.
-<code>r.mask -r</code> removes the mask again.
+A raster mask restricts the statistics in the same way as for <em>r.univar</em>. With
+the mask on the Mountains (category 3 of <code>regions</code>), 21450 cells of the July map
+remain, and the other 259615 cells of the region count as null cells. The
+statistics are those of the zone 3 line above. <code>r.mask -r</code> removes the mask
+again.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-r.mask raster=zones maskcats=1
-t.rast.univar input=temperature where="name = 'temperature_2'"
+r.mask raster=regions maskcats=3
+t.rast.univar input=precipitation_monthly \
+    where="name = 'precipitation_monthly_2020_07'"
 r.mask -r
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|3|3|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|21450|259615|83|219|136|129.840745920746|129.840745920746|16.0767767300026|258.462750026352|12.3819195707761|2785084|2785084
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.r_mask(raster="zones", maskcats="1")
-result = tools.t_rast_univar(input="temperature", where="name = 'temperature_2'")
+tools.r_mask(raster="regions", maskcats="3")
+result = tools.t_rast_univar(
+    input="precipitation_monthly", where="name = 'precipitation_monthly_2020_07'"
+)
 print(result.text)
 tools.r_mask(flags="r")
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|3|3|1|3|2|2|2|0.816496580927726|0.666666666666667|40.8248290463863|6|6
+precipitation_monthly_2020_07@t_rast_univar||2020-07-01 00:00:00|2020-08-01 00:00:00|21450|259615|83|219|136|129.840745920746|129.840745920746|16.0767767300026|258.462750026352|12.3819195707761|2785084|2785084
 </pre></div>
 
 <h3>Choose the output format</h3>
@@ -568,69 +677,69 @@ out the line with the column names, for instance to append the lines to a
 table that has them already. With <b>format</b> <code>csv</code>, the columns are separated
 by commas, and the option <b>output</b> writes the statistics to a file. With
 <b>format</b> <code>json</code>, <em>t.rast.univar</em> prints a list with one object per map;
-here for <code>temperature_2</code> with the extended statistics and two percentiles. In
+here for December with the extended statistics and two percentiles. In
 Python, the attribute <code>json</code> of the result holds this list, and the example
 prints the mean, the median and the percentiles from it.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.univar -u input=temperature separator=";"
+t.rast.univar -u input=precipitation_monthly separator=";" \
+    where="start_time &gt;= '2020-11-01'"
 </pre></div>
 
 <div class="code"><pre>
-temperature_1@PERMANENT;;2026-03-01 00:00:00;2026-03-02 00:00:00;6;0;-2;3;5;0.5;1.5;1.70782512765993;2.91666666666667;341.565025531987;3;9
-temperature_2@PERMANENT;;2026-03-02 00:00:00;2026-03-03 00:00:00;6;0;1;6;5;3.5;3.5;1.70782512765993;2.91666666666667;48.7950036474267;21;21
-temperature_3@PERMANENT;;2026-03-03 00:00:00;2026-03-04 00:00:00;4;2;4;8;4;6;6;1.58113883008419;2.5;26.3523138347365;24;24
+precipitation_monthly_2020_11@t_rast_univar;;2020-11-01 00:00:00;2020-12-01 00:00:00;136502;144563;104;350;246;138.642320259044;138.642320259044;26.5987082312919;707.491279573396;19.1851291738295;18924954;18924954
+precipitation_monthly_2020_12@t_rast_univar;;2020-12-01 00:00:00;2021-01-01 00:00:00;136502;144563;59;177;118;81.2133082299161;81.2133082299161;12.9580869230387;167.912016705026;15.9556200892028;11085779;11085779
 </pre></div>
 
 <div class="code"><pre>
-t.rast.univar input=temperature format=csv output=temperature.csv
-cat temperature.csv
+t.rast.univar input=precipitation_monthly format=csv output=precipitation.csv \
+    where="start_time &gt;= '2020-11-01'"
+cat precipitation.csv
 </pre></div>
 
 <div class="code"><pre>
 id,semantic_label,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
-temperature_1@PERMANENT,,2026-03-01 00:00:00,2026-03-02 00:00:00,6,0,-2,3,5,0.5,1.5,1.70782512765993,2.91666666666667,341.565025531987,3,9
-temperature_2@PERMANENT,,2026-03-02 00:00:00,2026-03-03 00:00:00,6,0,1,6,5,3.5,3.5,1.70782512765993,2.91666666666667,48.7950036474267,21,21
-temperature_3@PERMANENT,,2026-03-03 00:00:00,2026-03-04 00:00:00,4,2,4,8,4,6,6,1.58113883008419,2.5,26.3523138347365,24,24
+precipitation_monthly_2020_11@t_rast_univar,,2020-11-01 00:00:00,2020-12-01 00:00:00,136502,144563,104,350,246,138.642320259044,138.642320259044,26.5987082312919,707.491279573396,19.1851291738295,18924954,18924954
+precipitation_monthly_2020_12@t_rast_univar,,2020-12-01 00:00:00,2021-01-01 00:00:00,136502,144563,59,177,118,81.2133082299161,81.2133082299161,12.9580869230387,167.912016705026,15.9556200892028,11085779,11085779
 </pre></div>
 
 <div class="code"><pre>
-t.rast.univar -e input=temperature format=json percentile=50,90 \
-    where="name = 'temperature_2'"
+t.rast.univar -e input=precipitation_monthly format=json percentile=50,90 \
+    where="name = 'precipitation_monthly_2020_12'"
 </pre></div>
 
 <div class="code"><pre>
 [
     {
-        "id": "temperature_2@PERMANENT",
+        "id": "precipitation_monthly_2020_12@t_rast_univar",
         "semantic_label": null,
-        "start": "2026-03-02 00:00:00",
-        "end": "2026-03-03 00:00:00",
-        "n": 6,
-        "null_cells": 0,
-        "cells": 6,
-        "min": 1,
-        "max": 6,
-        "range": 5,
-        "mean": 3.5,
-        "mean_of_abs": 3.5,
-        "stddev": 1.707825127659933,
-        "variance": 2.9166666666666665,
-        "coeff_var": 48.795003647426654,
-        "sum": 21,
-        "first_quartile": 2,
-        "median": 3.5,
-        "third_quartile": 5,
+        "start": "2020-12-01 00:00:00",
+        "end": "2021-01-01 00:00:00",
+        "n": 136502,
+        "null_cells": 144563,
+        "cells": 281065,
+        "min": 59,
+        "max": 177,
+        "range": 118,
+        "mean": 81.21330822991605,
+        "mean_of_abs": 81.21330822991605,
+        "stddev": 12.95808692303869,
+        "variance": 167.91201670502633,
+        "coeff_var": 15.955620089202819,
+        "sum": 11085779,
+        "first_quartile": 74,
+        "median": 77,
+        "third_quartile": 84,
         "percentiles": [
             {
                 "percentile": 50,
-                "value": 3
+                "value": 77
             },
             {
                 "percentile": 90,
-                "value": 5
+                "value": 93
             }
         ]
     }
@@ -640,36 +749,44 @@ t.rast.univar -e input=temperature format=json percentile=50,90 \
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-result = tools.t_rast_univar(input="temperature", separator=";", flags="u")
+result = tools.t_rast_univar(
+    input="precipitation_monthly",
+    separator=";",
+    where="start_time &gt;= '2020-11-01'",
+    flags="u",
+)
 print(result.text)
 </pre></div>
 
 <div class="code"><pre>
-temperature_1@PERMANENT;;2026-03-01 00:00:00;2026-03-02 00:00:00;6;0;-2;3;5;0.5;1.5;1.70782512765993;2.91666666666667;341.565025531987;3;9
-temperature_2@PERMANENT;;2026-03-02 00:00:00;2026-03-03 00:00:00;6;0;1;6;5;3.5;3.5;1.70782512765993;2.91666666666667;48.7950036474267;21;21
-temperature_3@PERMANENT;;2026-03-03 00:00:00;2026-03-04 00:00:00;4;2;4;8;4;6;6;1.58113883008419;2.5;26.3523138347365;24;24
+precipitation_monthly_2020_11@t_rast_univar;;2020-11-01 00:00:00;2020-12-01 00:00:00;136502;144563;104;350;246;138.642320259044;138.642320259044;26.5987082312919;707.491279573396;19.1851291738295;18924954;18924954
+precipitation_monthly_2020_12@t_rast_univar;;2020-12-01 00:00:00;2021-01-01 00:00:00;136502;144563;59;177;118;81.2133082299161;81.2133082299161;12.9580869230387;167.912016705026;15.9556200892028;11085779;11085779
 </pre></div>
 
 <div class="code"><pre>
 from pathlib import Path
 
-tools.t_rast_univar(input="temperature", format="csv", output="temperature.csv")
-print(Path("temperature.csv").read_text(), end="")
+tools.t_rast_univar(
+    input="precipitation_monthly",
+    format="csv",
+    output="precipitation.csv",
+    where="start_time &gt;= '2020-11-01'",
+)
+print(Path("precipitation.csv").read_text(), end="")
 </pre></div>
 
 <div class="code"><pre>
 id,semantic_label,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
-temperature_1@PERMANENT,,2026-03-01 00:00:00,2026-03-02 00:00:00,6,0,-2,3,5,0.5,1.5,1.70782512765993,2.91666666666667,341.565025531987,3,9
-temperature_2@PERMANENT,,2026-03-02 00:00:00,2026-03-03 00:00:00,6,0,1,6,5,3.5,3.5,1.70782512765993,2.91666666666667,48.7950036474267,21,21
-temperature_3@PERMANENT,,2026-03-03 00:00:00,2026-03-04 00:00:00,4,2,4,8,4,6,6,1.58113883008419,2.5,26.3523138347365,24,24
+precipitation_monthly_2020_11@t_rast_univar,,2020-11-01 00:00:00,2020-12-01 00:00:00,136502,144563,104,350,246,138.642320259044,138.642320259044,26.5987082312919,707.491279573396,19.1851291738295,18924954,18924954
+precipitation_monthly_2020_12@t_rast_univar,,2020-12-01 00:00:00,2021-01-01 00:00:00,136502,144563,59,177,118,81.2133082299161,81.2133082299161,12.9580869230387,167.912016705026,15.9556200892028,11085779,11085779
 </pre></div>
 
 <div class="code"><pre>
 result = tools.t_rast_univar(
-    input="temperature",
+    input="precipitation_monthly",
     format="json",
     percentile=[50, 90],
-    where="name = 'temperature_2'",
+    where="name = 'precipitation_monthly_2020_12'",
     flags="e",
 )
 for stats in result.json:
@@ -681,18 +798,19 @@ for stats in result.json:
 </pre></div>
 
 <div class="code"><pre>
-temperature_2@PERMANENT: mean 3.5, median 3.5, percentiles {50: 3, 90: 5}
+precipitation_monthly_2020_12@t_rast_univar: mean 81.21330822991605, median 77, percentiles {50: 77, 90: 93}
 </pre></div>
 
 <h3>Maps with extents of their own</h3>
 
 Satellite scenes rarely share one extent. The dataset <code>scenes</code> holds four
-maps with constant values on extents of their own; the current region is the
-square from (0, 0) to (4, 4) with 16 cells:
+maps with constant values on extents of their own. The current region is the
+square of 4 km by 4 km with 16 cells whose south-west corner is at easting
+400000 and northing 100000; the extents of the scenes are given in km from this
+corner:
 
 <ul>
-<li><code>scene_1</code> covers the square from (-1, -1) to (5, 5) and so the whole
-region;</li>
+<li><code>scene_1</code> covers the square from (-1, -1) to (5, 5) and so the whole region;</li>
 <li><code>scene_2</code> lies inside the region, from (1, 1) to (3, 3);</li>
 <li><code>scene_3</code> reaches from (2, 2) to (6, 6) and shares 4 cells with the region;</li>
 <li><code>scene_4</code> lies outside, from (10, 10) to (12, 12).</li>
@@ -714,11 +832,11 @@ cells, <code>scene_3</code> 16, and <code>scene_4</code>, outside the current re
 the region, and <code>is_contained</code> only <code>scene_2</code>, which lies inside it.
 Combined with <b>-r</b>, the selected maps are counted in their own regions.</li>
 <li><b>-r</b> works with <b>zones</b> as well. The zone map <code>sides</code> covers all four
-scenes and holds 1 west of x = 2 and 2 east of it. In its own region,
-<code>scene_1</code> has 18 cells in each zone and <code>scene_2</code> 2; <code>scene_3</code> and
-<code>scene_4</code> lie east of x = 2 and get a line for zone 2 only, because a zone
-without any cell in the region of a map gets no line. The commands print
-<code>id</code>, <code>zone</code> and <code>non_null_cells</code>.</li>
+scenes and holds 1 west of the easting 402000 (2 km from the corner) and 2
+east of it. In its own region, <code>scene_1</code> has 18 cells in each zone and
+<code>scene_2</code> 2; <code>scene_3</code> and <code>scene_4</code> lie east of it and get a line for zone
+2 only, because a zone without any cell in the region of a map gets no line.
+The commands print <code>id</code>, <code>zone</code> and <code>non_null_cells</code>.</li>
 </ol>
 
 <p>Command line:</p>
@@ -727,23 +845,24 @@ without any cell in the region of a map gets no line. The commands print
 for scene in "scene_1 -1 5 10" "scene_2 1 3 20" \
     "scene_3 2 6 30" "scene_4 10 12 40"; do
     set -- $scene
-    g.region s=$2 n=$3 w=$2 e=$3 res=1
+    g.region w=$((400000 + $2 * 1000)) e=$((400000 + $3 * 1000)) \
+        s=$((100000 + $2 * 1000)) n=$((100000 + $3 * 1000)) res=1000
     r.mapcalc expression="$1 = $4"
 done
 t.create output=scenes title="Scenes" \
     description="Scenes with extents of their own"
 t.register -i input=scenes maps=scene_1,scene_2,scene_3,scene_4 \
-    start=2026-07-01 increment="1 day"
-g.region s=0 n=4 w=0 e=4 res=1
+    start=2020-07-01 increment="1 day"
+g.region w=400000 e=404000 s=100000 n=104000 res=1000
 t.rast.univar input=scenes | cut -d"|" -f1,5,6
 </pre></div>
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
-scene_2@PERMANENT|4|12
-scene_3@PERMANENT|4|12
-scene_4@PERMANENT|0|16
+scene_1@t_rast_univar|16|0
+scene_2@t_rast_univar|4|12
+scene_3@t_rast_univar|4|12
+scene_4@t_rast_univar|0|16
 </pre></div>
 
 <div class="code"><pre>
@@ -752,10 +871,10 @@ t.rast.univar -r input=scenes | cut -d"|" -f1,5,6
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|36|0
-scene_2@PERMANENT|4|0
-scene_3@PERMANENT|16|0
-scene_4@PERMANENT|4|0
+scene_1@t_rast_univar|36|0
+scene_2@t_rast_univar|4|0
+scene_3@t_rast_univar|16|0
+scene_4@t_rast_univar|4|0
 </pre></div>
 
 <div class="code"><pre>
@@ -764,9 +883,9 @@ t.rast.univar input=scenes region_relation=overlaps | cut -d"|" -f1,5,6
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
-scene_2@PERMANENT|4|12
-scene_3@PERMANENT|4|12
+scene_1@t_rast_univar|16|0
+scene_2@t_rast_univar|4|12
+scene_3@t_rast_univar|4|12
 </pre></div>
 
 <div class="code"><pre>
@@ -775,7 +894,7 @@ t.rast.univar input=scenes region_relation=contains | cut -d"|" -f1,5,6
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
+scene_1@t_rast_univar|16|0
 </pre></div>
 
 <div class="code"><pre>
@@ -784,7 +903,7 @@ t.rast.univar input=scenes region_relation=is_contained | cut -d"|" -f1,5,6
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_2@PERMANENT|4|12
+scene_2@t_rast_univar|4|12
 </pre></div>
 
 <div class="code"><pre>
@@ -793,26 +912,26 @@ t.rast.univar -r input=scenes region_relation=overlaps | cut -d"|" -f1,5,6
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|36|0
-scene_2@PERMANENT|4|0
-scene_3@PERMANENT|16|0
+scene_1@t_rast_univar|36|0
+scene_2@t_rast_univar|4|0
+scene_3@t_rast_univar|16|0
 </pre></div>
 
 <div class="code"><pre>
-g.region s=-1 n=12 w=-1 e=12 res=1
-r.mapcalc expression="sides = if(x() &lt; 2, 1, 2)"
-g.region s=0 n=4 w=0 e=4 res=1
+g.region w=399000 e=413000 s=99000 n=113000 res=1000
+r.mapcalc expression="sides = if(x() &lt; 402000, 1, 2)"
+g.region w=400000 e=404000 s=100000 n=104000 res=1000
 t.rast.univar -r input=scenes zones=sides | cut -d"|" -f1,5,7
 </pre></div>
 
 <div class="code"><pre>
 id|zone|non_null_cells
-scene_1@PERMANENT|1|18
-scene_1@PERMANENT|2|18
-scene_2@PERMANENT|1|2
-scene_2@PERMANENT|2|2
-scene_3@PERMANENT|2|16
-scene_4@PERMANENT|2|4
+scene_1@t_rast_univar|1|18
+scene_1@t_rast_univar|2|18
+scene_2@t_rast_univar|1|2
+scene_2@t_rast_univar|2|2
+scene_3@t_rast_univar|2|16
+scene_4@t_rast_univar|2|4
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -824,7 +943,13 @@ for name, low, high, value in (
     ("scene_3", 2, 6, 30),
     ("scene_4", 10, 12, 40),
 ):
-    tools.g_region(s=low, n=high, w=low, e=high, res=1)
+    tools.g_region(
+        w=400000 + low * 1000,
+        e=400000 + high * 1000,
+        s=100000 + low * 1000,
+        n=100000 + high * 1000,
+        res=1000,
+    )
     tools.r_mapcalc(expression=f"{name} = {value}")
 tools.t_create(
     output="scenes",
@@ -834,11 +959,11 @@ tools.t_create(
 tools.t_register(
     input="scenes",
     maps="scene_1,scene_2,scene_3,scene_4",
-    start="2026-07-01",
+    start="2020-07-01",
     increment="1 day",
     flags="i",
 )
-tools.g_region(s=0, n=4, w=0, e=4, res=1)
+tools.g_region(w=400000, e=404000, s=100000, n=104000, res=1000)
 
 
 def print_cells(result):
@@ -852,10 +977,10 @@ print_cells(tools.t_rast_univar(input="scenes", format="json"))
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
-scene_2@PERMANENT|4|12
-scene_3@PERMANENT|4|12
-scene_4@PERMANENT|0|16
+scene_1@t_rast_univar|16|0
+scene_2@t_rast_univar|4|12
+scene_3@t_rast_univar|4|12
+scene_4@t_rast_univar|0|16
 </pre></div>
 
 <div class="code"><pre>
@@ -864,10 +989,10 @@ print_cells(tools.t_rast_univar(input="scenes", format="json", flags="r"))
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|36|0
-scene_2@PERMANENT|4|0
-scene_3@PERMANENT|16|0
-scene_4@PERMANENT|4|0
+scene_1@t_rast_univar|36|0
+scene_2@t_rast_univar|4|0
+scene_3@t_rast_univar|16|0
+scene_4@t_rast_univar|4|0
 </pre></div>
 
 <div class="code"><pre>
@@ -877,9 +1002,9 @@ print_cells(result)
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
-scene_2@PERMANENT|4|12
-scene_3@PERMANENT|4|12
+scene_1@t_rast_univar|16|0
+scene_2@t_rast_univar|4|12
+scene_3@t_rast_univar|4|12
 </pre></div>
 
 <div class="code"><pre>
@@ -889,7 +1014,7 @@ print_cells(result)
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|16|0
+scene_1@t_rast_univar|16|0
 </pre></div>
 
 <div class="code"><pre>
@@ -901,7 +1026,7 @@ print_cells(result)
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_2@PERMANENT|4|12
+scene_2@t_rast_univar|4|12
 </pre></div>
 
 <div class="code"><pre>
@@ -913,15 +1038,15 @@ print_cells(result)
 
 <div class="code"><pre>
 id|non_null_cells|null_cells
-scene_1@PERMANENT|36|0
-scene_2@PERMANENT|4|0
-scene_3@PERMANENT|16|0
+scene_1@t_rast_univar|36|0
+scene_2@t_rast_univar|4|0
+scene_3@t_rast_univar|16|0
 </pre></div>
 
 <div class="code"><pre>
-tools.g_region(s=-1, n=12, w=-1, e=12, res=1)
-tools.r_mapcalc(expression="sides = if(x() &lt; 2, 1, 2)")
-tools.g_region(s=0, n=4, w=0, e=4, res=1)
+tools.g_region(w=399000, e=413000, s=99000, n=113000, res=1000)
+tools.r_mapcalc(expression="sides = if(x() &lt; 402000, 1, 2)")
+tools.g_region(w=400000, e=404000, s=100000, n=104000, res=1000)
 result = tools.t_rast_univar(input="scenes", zones="sides", format="json", flags="r")
 print("id|zone|non_null_cells")
 for stats in result.json:
@@ -930,73 +1055,82 @@ for stats in result.json:
 
 <div class="code"><pre>
 id|zone|non_null_cells
-scene_1@PERMANENT|1|18
-scene_1@PERMANENT|2|18
-scene_2@PERMANENT|1|2
-scene_2@PERMANENT|2|2
-scene_3@PERMANENT|2|16
-scene_4@PERMANENT|2|4
+scene_1@t_rast_univar|1|18
+scene_1@t_rast_univar|2|18
+scene_2@t_rast_univar|1|2
+scene_2@t_rast_univar|2|2
+scene_3@t_rast_univar|2|16
+scene_4@t_rast_univar|2|4
 </pre></div>
 
 <h3>Use a dataset of another mapset</h3>
 
-<em>t.rast.univar</em> reads a dataset of another mapset. The example creates the
-mapset <code>analysis</code> and switches to it; the dataset <code>temperature</code> stays in the
-mapset <code>PERMANENT</code> and is named with its mapset. The region of the new
-mapset is set to the one of the maps. In the second block, <em>g.mapsets</em> shows
-that <code>PERMANENT</code> is in the search path of the new mapset, so the name
-<code>temperature</code> without a mapset finds the same dataset.
+<em>t.rast.univar</em> reads a dataset of another mapset. The new mapset
+<code>t_rast_univar_2</code> has no dataset of its own. A new mapset starts with the
+default region of the dataset, cells of 500 m, so the example sets the region
+of the first example again. <em>g.mapsets</em> adds the mapset <code>t_rast_univar</code> to the
+search path, and the input <code>precipitation_monthly@t_rast_univar</code> names the
+dataset of the first example with its mapset. In the second block,
+<em>g.mapsets</em> shows the search path, now with <code>t_rast_univar</code>, so the name
+<code>precipitation_monthly</code> without a mapset finds the same dataset.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.mapset -c mapset=analysis
-g.region n=2 s=0 e=3 w=0 res=1
-t.rast.univar input=temperature@PERMANENT where="name = 'temperature_2'"
+g.mapset -c mapset=t_rast_univar_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_rast_univar operation=add
+t.rast.univar input=precipitation_monthly@t_rast_univar \
+    where="name = 'precipitation_monthly_2020_12'"
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <div class="code"><pre>
 g.mapsets -p
-t.rast.univar input=temperature where="name = 'temperature_2'"
+t.rast.univar input=precipitation_monthly \
+    where="name = 'precipitation_monthly_2020_12'"
 </pre></div>
 
 <div class="code"><pre>
-analysis PERMANENT
+t_rast_univar_2 PERMANENT t_rast_univar
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_mapset(mapset="analysis", flags="c")
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.g_mapset(flags="c", mapset="t_rast_univar_2")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_rast_univar", operation="add")
 result = tools.t_rast_univar(
-    input="temperature@PERMANENT", where="name = 'temperature_2'"
+    input="precipitation_monthly@t_rast_univar",
+    where="name = 'precipitation_monthly_2020_12'",
 )
 print(result.text)
 </pre></div>
 
 <div class="code"><pre>
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <div class="code"><pre>
 print(tools.g_mapsets(flags="p").text)
-result = tools.t_rast_univar(input="temperature", where="name = 'temperature_2'")
+result = tools.t_rast_univar(
+    input="precipitation_monthly", where="name = 'precipitation_monthly_2020_12'"
+)
 print(result.text)
 </pre></div>
 
 <div class="code"><pre>
-analysis PERMANENT
+t_rast_univar_2 PERMANENT t_rast_univar
 id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
+precipitation_monthly_2020_12@t_rast_univar||2020-12-01 00:00:00|2021-01-01 00:00:00|136502|144563|59|177|118|81.2133082299161|81.2133082299161|12.9580869230387|167.912016705026|15.9556200892028|11085779|11085779
 </pre></div>
 
 <h2>SEE ALSO</h2>
