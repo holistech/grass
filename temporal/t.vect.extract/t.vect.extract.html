@@ -23,8 +23,8 @@ is given; then it is replaced.
 
 The option <b>where</b> takes an SQL condition on the columns of the registered
 maps, the columns that <em><a href="t.vect.list.html">t.vect.list</a></em> offers, such as
-<code>start_time &gt;= '2026-03-03'</code>, which selects the maps that start on 3 March or
-later. Without <b>where</b>, all maps are selected.
+<code>start_time &gt;= '2026-12-01'</code>, which selects the maps that start on 1 December
+2026 or later. Without <b>where</b>, all maps are selected.
 
 <h3>Register or extract</h3>
 
@@ -36,7 +36,7 @@ datasets and the data are not duplicated.
 With <b>expression</b>, the tool runs <em>v.extract</em> once for each selected map and
 registers the new maps, with the start and end time of the map they come from,
 in the new dataset. The expression is an SQL condition without the word
-<code>where</code>, such as <code>speed &gt; 22</code>. It is not a map algebra expression, as in
+<code>where</code>, such as <code>precipitation &gt; 160</code>. It is not a map algebra expression, as in
 <em>t.rast.extract</em>: <em>v.extract</em> applies it to the attribute
 table of the map and copies the features that meet it, with their table rows,
 into the new map. The new maps belong to the current mapset. The expression
@@ -118,18 +118,33 @@ meets, such as <code>level &gt; 0</code> there, to copy the maps instead.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_vect_extract</code> and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. The first two examples and the naming examples use the 136
+climate stations of the map <code>precip_30ynormals</code>. The other examples need only
+the structure of the maps, so they use small sketches: their points and lines
+lie in the corner of North Carolina that starts at (300000, 100000), in metres
+of the project.
+
 <h3>Select maps by time</h3>
 
-The dataset <code>gauges</code> has four point maps of wind speed for the days from 1 to
-4 March 2026. Map <code>gauges_k</code> has three points at <code>(k, 1)</code>, <code>(k, 2)</code> and
-<code>(k, 3)</code> with the speeds <code>10 * k + 1</code>, <code>10 * k + 2</code> and <code>10 * k + 3</code>, so the
-speeds are 11 to 13, 21 to 23, 31 to 33 and 41 to 43.
+The map <code>precip_30ynormals</code> holds the 30-year normals of the monthly
+precipitation sum in mm at 136 stations, in the columns <code>jan</code> to <code>dec</code>. The
+first block makes one map for each of the months from October 2026 to January
+2027: <em>v.extract</em> copies the stations with their table into the mapset, and the
+new column <code>precipitation</code> takes the normal of the month in whole mm. A normal
+belongs to no year; it is registered at the month of the series so that the
+dataset has a time, and its values are not measurements of these months. The
+dataset is <code>normals</code>, with the temporal type absolute and a granularity of one
+month.
 
 <p>
-The first block extracts the maps from 3 March on into the dataset <code>later</code>.
-There is no <b>expression</b>, so no map is made: the second block lists the
-vector maps of the mapset, and they are still the four maps of <code>gauges</code>. The
-dataset <code>later</code> lists two of them, with three points each. The third block
+The first block then extracts the maps from December on into the dataset
+<code>later</code>. There is no <b>expression</b>, so no map is made: the second block lists
+the vector maps of the mapset, and they are still the four maps of <code>normals</code>.
+The dataset <code>later</code> lists two of them, with 136 points each. The third block
 shows what the new dataset takes from the input: the temporal type and the
 semantic type, the start and end time and the number of maps and points that
 follow from the maps it holds.
@@ -137,39 +152,38 @@ follow from the maps it holds.
 <p>Command line:</p>
 
 <div class="code"><pre>
-for k in 1 2 3 4; do
-    v.in.ascii input=- output=gauges_$k separator=comma \
-        columns="x double precision, y double precision, speed double precision" &lt;&lt;EOF
-$k,1,$((10 * k + 1))
-$k,2,$((10 * k + 2))
-$k,3,$((10 * k + 3))
-EOF
+g.mapset -c mapset=t_vect_extract
+g.region raster=elev_state_500m res=1000 -a
+for entry in 2026_10:oct 2026_11:nov 2026_12:dec 2027_01:jan; do
+    v.extract input=precip_30ynormals output=normals_${entry%%:*}
+    v.db.addcolumn map=normals_${entry%%:*} columns="precipitation integer"
+    db.execute sql="UPDATE normals_${entry%%:*} SET precipitation = CAST(round(${entry##*:}) AS integer)"
 done
-t.create type=stvds output=gauges title="Wind speed" \
-    description="Wind speed at three gauges"
-t.register -i type=vector input=gauges \
-    maps=gauges_1,gauges_2,gauges_3,gauges_4 \
-    start=2026-03-01 increment="1 day"
-t.vect.extract input=gauges output=later \
-    where="start_time &gt;= '2026-03-03'"
+t.create type=stvds output=normals title="Monthly precipitation normals" \
+    description="Normal of the monthly precipitation sum in mm at the climate stations"
+t.register -i type=vector input=normals \
+    maps=normals_2026_10,normals_2026_11,normals_2026_12,normals_2027_01 \
+    start=2026-10-01 increment="1 month"
+t.vect.extract input=normals output=later \
+    where="start_time &gt;= '2026-12-01'"
 t.vect.list input=later columns=name,start_time,points
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-gauges_3|2026-03-03 00:00:00|3
-gauges_4|2026-03-04 00:00:00|3
+normals_2026_12|2026-12-01 00:00:00|136
+normals_2027_01|2027-01-01 00:00:00|136
 </pre></div>
 
 <div class="code"><pre>
-g.list type=vector
+g.list type=vector mapset=.
 </pre></div>
 
 <div class="code"><pre>
-gauges_1
-gauges_2
-gauges_3
-gauges_4
+normals_2026_10
+normals_2026_11
+normals_2026_12
+normals_2027_01
 </pre></div>
 
 <div class="code"><pre>
@@ -179,9 +193,9 @@ t.info -g type=stvds input=later | grep -E "^(temporal_type|semantic_type|start_
 <div class="code"><pre>
 temporal_type=absolute
 semantic_type=mean
-start_time='2026-03-03 00:00:00'
-end_time='2026-03-05 00:00:00'
-points=6
+start_time='2026-12-01 00:00:00'
+end_time='2027-02-01 00:00:00'
+points=272
 number_of_maps=2
 </pre></div>
 
@@ -193,47 +207,55 @@ from io import StringIO
 from grass.tools import Tools
 
 tools = Tools()
-for k in range(1, 5):
-    rows = "".join(f"{k},{i},{10 * k + i}\n" for i in (1, 2, 3))
-    tools.v_in_ascii(
-        input=StringIO(rows),
-        output=f"gauges_{k}",
-        separator="comma",
-        columns="x double precision, y double precision, speed double precision",
-    )
+tools.g_mapset(flags="c", mapset="t_vect_extract")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = (
+    ("2026_10", "oct"),
+    ("2026_11", "nov"),
+    ("2026_12", "dec"),
+    ("2027_01", "jan"),
+)
+for suffix, column in months:
+    name = f"normals_{suffix}"
+    tools.v_extract(input="precip_30ynormals", output=name)
+    tools.v_db_addcolumn(map=name, columns="precipitation integer")
+    sql = f"UPDATE {name} SET precipitation = CAST(round({column}) AS integer)"
+    tools.db_execute(sql=sql)
 tools.t_create(
     type="stvds",
-    output="gauges",
-    title="Wind speed",
-    description="Wind speed at three gauges",
+    output="normals",
+    title="Monthly precipitation normals",
+    description="Normal of the monthly precipitation sum in mm at the climate stations",
 )
 tools.t_register(
     type="vector",
-    input="gauges",
-    maps="gauges_1,gauges_2,gauges_3,gauges_4",
-    start="2026-03-01",
-    increment="1 day",
+    input="normals",
+    maps=",".join(f"normals_{suffix}" for suffix, _ in months),
+    start="2026-10-01",
+    increment="1 month",
     flags="i",
 )
-tools.t_vect_extract(input="gauges", output="later", where="start_time &gt;= '2026-03-03'")
+tools.t_vect_extract(
+    input="normals", output="later", where="start_time &gt;= '2026-12-01'"
+)
 print(tools.t_vect_list(input="later", columns="name,start_time,points").text)
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-gauges_3|2026-03-03 00:00:00|3
-gauges_4|2026-03-04 00:00:00|3
+normals_2026_12|2026-12-01 00:00:00|136
+normals_2027_01|2027-01-01 00:00:00|136
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_list(type="vector").text)
+print(tools.g_list(type="vector", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
-gauges_1
-gauges_2
-gauges_3
-gauges_4
+normals_2026_10
+normals_2026_11
+normals_2026_12
+normals_2027_01
 </pre></div>
 
 <div class="code"><pre>
@@ -253,167 +275,181 @@ for key in keys:
 <div class="code"><pre>
 temporal_type=absolute
 semantic_type=mean
-start_time='2026-03-03 00:00:00'
-end_time='2026-03-05 00:00:00'
-points=6
+start_time='2026-12-01 00:00:00'
+end_time='2027-02-01 00:00:00'
+points=272
 number_of_maps=2
 </pre></div>
 
 <h3>Keep the features that meet a condition</h3>
 
-The expression <code>speed &gt; 22</code> keeps the points with a speed above 22: none of
-the first map, the point with 23 of the second, and all points of the third
-and fourth map. The new maps are named <code>fast</code>, an underscore and the day of
-the map (the granularity of <code>gauges</code> is one day). <b>nprocs</b> lets two
-<em>v.extract</em> processes run at the same time.
+The expression <code>precipitation &gt; 160</code> keeps the stations with a normal above
+160 mm. The new maps are named <code>heavy</code>, an underscore and the month of the map
+(the granularity of <code>normals</code> is one month). <b>nprocs</b> lets two <em>v.extract</em>
+processes run at the same time.
 
 <p>
-The first map comes out empty. It is not registered in <code>fast</code>, and the second
-block shows that it is removed: the mapset has three maps <code>fast_...</code>. The third
-block shows that the new map keeps the table rows of the features: the point
-with the speed 23 has the category 3. The fourth block runs the same call with
-the flag <b>-n</b>. The dataset <code>fast_all</code> registers the empty map as well, with 0
-points, and the mapset keeps all four maps.
+The October map comes out empty, because its highest normal is 160 mm. The
+other maps keep 4, 4 and 5 stations. The empty map is not registered in
+<code>heavy</code>, and the second block shows that it is removed: the mapset has three
+maps <code>heavy_...</code>. The third block shows that the new map keeps
+the table rows of the stations, with their categories from <code>precip_30ynormals</code>.
+The fourth block runs the same call with the flag <b>-n</b>. The dataset
+<code>heavy_all</code> registers the empty map as well, with 0 points, and the mapset
+keeps all four maps.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.extract input=gauges output=fast basename=fast \
-    expression="speed &gt; 22" nprocs=2
-t.vect.list input=fast columns=name,start_time,points
+t.vect.extract input=normals output=heavy basename=heavy \
+    expression="precipitation &gt; 160" nprocs=2
+t.vect.list input=heavy columns=name,start_time,points
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-fast_2026_03_02|2026-03-02 00:00:00|1
-fast_2026_03_03|2026-03-03 00:00:00|3
-fast_2026_03_04|2026-03-04 00:00:00|3
+heavy_2026_11|2026-11-01 00:00:00|4
+heavy_2026_12|2026-12-01 00:00:00|4
+heavy_2027_01|2027-01-01 00:00:00|5
 </pre></div>
 
 <div class="code"><pre>
-g.list type=vector pattern="fast*"
+g.list type=vector pattern="heavy*" mapset=.
 </pre></div>
 
 <div class="code"><pre>
-fast_2026_03_02
-fast_2026_03_03
-fast_2026_03_04
+heavy_2026_11
+heavy_2026_12
+heavy_2027_01
 </pre></div>
 
 <div class="code"><pre>
-v.db.select map=fast_2026_03_02
+v.db.select map=heavy_2026_11 columns=cat,station,elev,precipitation
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|speed
-3|2|3|23
+cat|station|elev|precipitation
+31|312102|685.4952|163
+56|314055|1170.432|209
+66|314788|938.784|219
+104|317486|670.56|171
 </pre></div>
 
 <div class="code"><pre>
-t.vect.extract -n input=gauges output=fast_all basename=fast_all \
-    expression="speed &gt; 22"
-t.vect.list input=fast_all columns=name,start_time,points
-g.list type=vector pattern="fast_all*"
+t.vect.extract -n input=normals output=heavy_all basename=heavy_all \
+    expression="precipitation &gt; 160"
+t.vect.list input=heavy_all columns=name,start_time,points
+g.list type=vector pattern="heavy_all*" mapset=.
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-fast_all_2026_03_01|2026-03-01 00:00:00|0
-fast_all_2026_03_02|2026-03-02 00:00:00|1
-fast_all_2026_03_03|2026-03-03 00:00:00|3
-fast_all_2026_03_04|2026-03-04 00:00:00|3
-fast_all_2026_03_01
-fast_all_2026_03_02
-fast_all_2026_03_03
-fast_all_2026_03_04
+heavy_all_2026_10|2026-10-01 00:00:00|0
+heavy_all_2026_11|2026-11-01 00:00:00|4
+heavy_all_2026_12|2026-12-01 00:00:00|4
+heavy_all_2027_01|2027-01-01 00:00:00|5
+heavy_all_2026_10
+heavy_all_2026_11
+heavy_all_2026_12
+heavy_all_2027_01
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.t_vect_extract(
-    input="gauges",
-    output="fast",
-    basename="fast",
-    expression="speed &gt; 22",
+    input="normals",
+    output="heavy",
+    basename="heavy",
+    expression="precipitation &gt; 160",
     nprocs=2,
 )
-print(tools.t_vect_list(input="fast", columns="name,start_time,points").text)
+print(tools.t_vect_list(input="heavy", columns="name,start_time,points").text)
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-fast_2026_03_02|2026-03-02 00:00:00|1
-fast_2026_03_03|2026-03-03 00:00:00|3
-fast_2026_03_04|2026-03-04 00:00:00|3
+heavy_2026_11|2026-11-01 00:00:00|4
+heavy_2026_12|2026-12-01 00:00:00|4
+heavy_2027_01|2027-01-01 00:00:00|5
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_list(type="vector", pattern="fast*").text)
+print(tools.g_list(type="vector", pattern="heavy*", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
-fast_2026_03_02
-fast_2026_03_03
-fast_2026_03_04
+heavy_2026_11
+heavy_2026_12
+heavy_2027_01
 </pre></div>
 
 <div class="code"><pre>
-print(tools.v_db_select(map="fast_2026_03_02").text)
+print(
+    tools.v_db_select(
+        map="heavy_2026_11", columns="cat,station,elev,precipitation"
+    ).text
+)
 </pre></div>
 
 <div class="code"><pre>
-cat|x|y|speed
-3|2|3|23
+cat|station|elev|precipitation
+31|312102|685.4952|163
+56|314055|1170.432|209
+66|314788|938.784|219
+104|317486|670.56|171
 </pre></div>
 
 <div class="code"><pre>
 tools.t_vect_extract(
-    input="gauges",
-    output="fast_all",
-    basename="fast_all",
-    expression="speed &gt; 22",
+    input="normals",
+    output="heavy_all",
+    basename="heavy_all",
+    expression="precipitation &gt; 160",
     flags="n",
 )
 columns = "name,start_time,points"
-print(tools.t_vect_list(input="fast_all", columns=columns).text)
-print(tools.g_list(type="vector", pattern="fast_all*").text)
+print(tools.t_vect_list(input="heavy_all", columns=columns).text)
+print(tools.g_list(type="vector", pattern="heavy_all*", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
 name|start_time|points
-fast_all_2026_03_01|2026-03-01 00:00:00|0
-fast_all_2026_03_02|2026-03-02 00:00:00|1
-fast_all_2026_03_03|2026-03-03 00:00:00|3
-fast_all_2026_03_04|2026-03-04 00:00:00|3
-fast_all_2026_03_01
-fast_all_2026_03_02
-fast_all_2026_03_03
-fast_all_2026_03_04
+heavy_all_2026_10|2026-10-01 00:00:00|0
+heavy_all_2026_11|2026-11-01 00:00:00|4
+heavy_all_2026_12|2026-12-01 00:00:00|4
+heavy_all_2027_01|2027-01-01 00:00:00|5
+heavy_all_2026_10
+heavy_all_2026_11
+heavy_all_2026_12
+heavy_all_2027_01
 </pre></div>
 
 <h3>Choose the feature types</h3>
 
 The dataset <code>tracks</code> has two maps for 1 and 2 March 2026. Each holds one point
-and one line, both with a category in layer 1 and a row in the table. The
-condition <code>cat &gt; 0</code> is met by every feature, so only <b>type</b> decides what is
-copied. <code>type=point</code> keeps the point of every map, <code>type=line</code> the line, and
-without <b>type</b> both are copied. The columns <code>points</code> and <code>lines</code> of
-<em>t.vect.list</em> count the features of each new map.
+and one line, both with a category in layer 1 and a row in the table. In map
+<code>track_k</code> the point lies at (300000 + 1000 k, 101000) and the line runs from
+(300000 + 1000 k, 102000) to (300000 + 1000 k, 103000). The condition
+<code>cat &gt; 0</code> is met by every feature, so only <b>type</b> decides what is copied.
+<code>type=point</code> keeps the point of every map, <code>type=line</code> the line, and without
+<b>type</b> both are copied. The columns <code>points</code> and <code>lines</code> of <em>t.vect.list</em>
+count the features of each new map.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 for k in 1 2; do
+    x=$((300000 + 1000 * k))
     v.edit map=track_$k tool=create
     v.edit map=track_$k tool=add input=- &lt;&lt;EOF
 VERTI:
 P 1 1
- $k 1
+ $x 101000
  1 1
 L 2 1
- $k 2
- $k 3
+ $x 102000
+ $x 103000
  1 2
 EOF
     v.db.addtable map=track_$k
@@ -460,10 +496,14 @@ tb_2026_03_02|1|1
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-features = "VERTI:\nP 1 1\n {k} 1\n 1 1\nL 2 1\n {k} 2\n {k} 3\n 1 2\n"
+features = "VERTI:\nP 1 1\n {x} 101000\n 1 1\nL 2 1\n {x} 102000\n {x} 103000\n 1 2\n"
 for k in (1, 2):
     tools.v_edit(map=f"track_{k}", tool="create")
-    tools.v_edit(map=f"track_{k}", tool="add", input=StringIO(features.format(k=k)))
+    tools.v_edit(
+        map=f"track_{k}",
+        tool="add",
+        input=StringIO(features.format(x=300000 + 1000 * k)),
+    )
     tools.v_db_addtable(map=f"track_{k}")
 tools.t_create(
     type="stvds",
@@ -529,9 +569,10 @@ tb_2026_03_02|1|1
 <h3>Choose the layer</h3>
 
 The dataset <code>plots</code> has two maps for 1 and 2 March 2026. Each has two points
-with the categories 1 and 2 in layer 1 and in layer 2. The table of layer 1 has
-the column <code>count</code> with the values 1 and 2, the table of layer 2 the values 101
-and 102. The maps are registered without a layer.
+with the categories 1 and 2 in layer 1 and in layer 2. In map <code>plots_k</code> the
+points lie at (300000 + 1000 k, 101000) and (300000 + 1000 k, 102000). The
+table of layer 1 has the column <code>count</code> with the values 1 and 2, the table of
+layer 2 the values 101 and 102. The maps are registered without a layer.
 
 <p>
 The first block runs the condition <code>count &gt; 100</code> with the default layer 1,
@@ -551,15 +592,16 @@ the layer is appended to tell them apart. The mapset has the two maps
 
 <div class="code"><pre>
 for k in 1 2; do
+    x=$((300000 + 1000 * k))
     v.edit map=plots_$k tool=create
     v.edit map=plots_$k tool=add input=- &lt;&lt;EOF
 VERTI:
 P 1 2
- $k 1
+ $x 101000
  1 1
  2 1
 P 1 2
- $k 2
+ $x 102000
  1 2
  2 2
 EOF
@@ -615,10 +657,14 @@ bx_2026_03_01_2|2|2
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-features = "VERTI:\nP 1 2\n {k} 1\n 1 1\n 2 1\nP 1 2\n {k} 2\n 1 2\n 2 2\n"
+features = "VERTI:\nP 1 2\n {x} 101000\n 1 1\n 2 1\nP 1 2\n {x} 102000\n 1 2\n 2 2\n"
 for k in (1, 2):
     tools.v_edit(map=f"plots_{k}", tool="create")
-    tools.v_edit(map=f"plots_{k}", tool="add", input=StringIO(features.format(k=k)))
+    tools.v_edit(
+        map=f"plots_{k}",
+        tool="add",
+        input=StringIO(features.format(x=300000 + 1000 * k)),
+    )
     tools.v_db_addtable(map=f"plots_{k}", columns="count integer")
     tools.v_db_addtable(
         map=f"plots_{k}", layer=2, table=f"plots_{k}_b", columns="count integer"
@@ -699,9 +745,9 @@ bx_2026_03_01_2|2|2
 <h3>Name the new maps</h3>
 
 The option <b>suffix</b> chooses the end of the names. Each of the first three
-blocks extracts the four maps of <code>gauges</code> with the condition <code>speed &gt; 0</code> and
-lists the names: <code>time</code> gives the full start time, <code>num</code> a number of five
-digits and <code>num%03</code> a number of three digits.
+blocks extracts the four maps of <code>normals</code> with the condition
+<code>precipitation &gt; 0</code> and lists the names: <code>time</code> gives the full start time,
+<code>num</code> a number of five digits and <code>num%03</code> a number of three digits.
 
 <p>
 The dataset <code>pair</code> in the fourth block has two maps of the same day, <code>pair_a</code>
@@ -715,22 +761,22 @@ the column names of the second.
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.vect.extract input=gauges output=by_time basename=by_time \
-    expression="speed &gt; 0" suffix=time
+t.vect.extract input=normals output=by_time basename=by_time \
+    expression="precipitation &gt; 0" suffix=time
 t.vect.list input=by_time columns=name
 </pre></div>
 
 <div class="code"><pre>
 name
-by_time_2026_03_01T00_00_00
-by_time_2026_03_02T00_00_00
-by_time_2026_03_03T00_00_00
-by_time_2026_03_04T00_00_00
+by_time_2026_10_01T00_00_00
+by_time_2026_11_01T00_00_00
+by_time_2026_12_01T00_00_00
+by_time_2027_01_01T00_00_00
 </pre></div>
 
 <div class="code"><pre>
-t.vect.extract input=gauges output=by_number basename=by_number \
-    expression="speed &gt; 0" suffix=num
+t.vect.extract input=normals output=by_number basename=by_number \
+    expression="precipitation &gt; 0" suffix=num
 t.vect.list input=by_number columns=name
 </pre></div>
 
@@ -743,8 +789,8 @@ by_number_00004
 </pre></div>
 
 <div class="code"><pre>
-t.vect.extract input=gauges output=by_width basename=by_width \
-    expression="speed &gt; 0" suffix=num%03
+t.vect.extract input=normals output=by_width basename=by_width \
+    expression="precipitation &gt; 0" suffix=num%03
 t.vect.list input=by_width columns=name
 </pre></div>
 
@@ -758,20 +804,20 @@ by_width_004
 
 <div class="code"><pre>
 v.in.ascii input=- output=pair_a separator=comma \
-    columns="x double precision, y double precision, speed double precision" &lt;&lt;EOF
-1,1,1
+    columns="x double precision, y double precision, level double precision" &lt;&lt;EOF
+301000,101000,1
 EOF
 v.in.ascii input=- output=pair_b separator=comma \
-    columns="x double precision, y double precision, speed double precision" &lt;&lt;EOF
-2,1,2
-2,2,3
+    columns="x double precision, y double precision, level double precision" &lt;&lt;EOF
+302000,101000,2
+302000,102000,3
 EOF
 t.create type=stvds output=pair title="Two maps of one day" \
     description="Two maps with the same time"
 t.register type=vector input=pair maps=pair_a,pair_b \
     start=2026-06-01 end=2026-06-02
 t.vect.extract input=pair output=pair_ten basename=ten \
-    expression="speed &gt; 0"
+    expression="level &gt; 0"
 t.vect.list input=pair_ten columns=name,start_time,points \
     where="points = 1"
 t.vect.list -u input=pair_ten columns=name,start_time,points \
@@ -788,10 +834,10 @@ ten_2026_06_01_2|2026-06-01 00:00:00|2
 
 <div class="code"><pre>
 tools.t_vect_extract(
-    input="gauges",
+    input="normals",
     output="by_time",
     basename="by_time",
-    expression="speed &gt; 0",
+    expression="precipitation &gt; 0",
     suffix="time",
 )
 print(tools.t_vect_list(input="by_time", columns="name").text)
@@ -799,18 +845,18 @@ print(tools.t_vect_list(input="by_time", columns="name").text)
 
 <div class="code"><pre>
 name
-by_time_2026_03_01T00_00_00
-by_time_2026_03_02T00_00_00
-by_time_2026_03_03T00_00_00
-by_time_2026_03_04T00_00_00
+by_time_2026_10_01T00_00_00
+by_time_2026_11_01T00_00_00
+by_time_2026_12_01T00_00_00
+by_time_2027_01_01T00_00_00
 </pre></div>
 
 <div class="code"><pre>
 tools.t_vect_extract(
-    input="gauges",
+    input="normals",
     output="by_number",
     basename="by_number",
-    expression="speed &gt; 0",
+    expression="precipitation &gt; 0",
     suffix="num",
 )
 print(tools.t_vect_list(input="by_number", columns="name").text)
@@ -826,10 +872,10 @@ by_number_00004
 
 <div class="code"><pre>
 tools.t_vect_extract(
-    input="gauges",
+    input="normals",
     output="by_width",
     basename="by_width",
-    expression="speed &gt; 0",
+    expression="precipitation &gt; 0",
     suffix="num%03",
 )
 print(tools.t_vect_list(input="by_width", columns="name").text)
@@ -844,12 +890,15 @@ by_width_004
 </pre></div>
 
 <div class="code"><pre>
-columns = "x double precision, y double precision, speed double precision"
+columns = "x double precision, y double precision, level double precision"
 tools.v_in_ascii(
-    input=StringIO("1,1,1\n"), output="pair_a", separator="comma", columns=columns
+    input=StringIO("301000,101000,1\n"),
+    output="pair_a",
+    separator="comma",
+    columns=columns,
 )
 tools.v_in_ascii(
-    input=StringIO("2,1,2\n2,2,3\n"),
+    input=StringIO("302000,101000,2\n302000,102000,3\n"),
     output="pair_b",
     separator="comma",
     columns=columns,
@@ -868,7 +917,7 @@ tools.t_register(
     end="2026-06-02",
 )
 tools.t_vect_extract(
-    input="pair", output="pair_ten", basename="ten", expression="speed &gt; 0"
+    input="pair", output="pair_ten", basename="ten", expression="level &gt; 0"
 )
 columns = "name,start_time,points"
 first = tools.t_vect_list(input="pair_ten", columns=columns, where="points = 1")
@@ -888,27 +937,28 @@ ten_2026_06_01_2|2026-06-01 00:00:00|2
 <h3>Extract from a dataset with relative time</h3>
 
 The dataset <code>model</code> has two maps of six hours each, from 0 to 6 and from 6 to
-12 hours. Map <code>run_1</code> has two points with the levels 1 and 3, map <code>run_2</code> the
-levels 2 and 4. In a dataset with relative time a start time is a number, so
-the names of the new maps carry the number of the map instead of a date. The
-first block keeps the levels above 3. The number counts all selected maps, also
-the empty one: the first map has no such point and is left out, so the remaining
-map is <code>m_00002</code>. The new dataset has the times and the unit of the input. The
-second block takes <code>time</code> as the suffix; with relative time it gives the number
-as well.
+12 hours. Map <code>run_1</code> has two points at (301000, 101000) and (301000, 102000)
+with the levels 1 and 3, map <code>run_2</code> two points at (302000, 101000) and
+(302000, 102000) with the levels 2 and 4. In a dataset with relative time a
+start time is a number, so the names of the new maps carry the number of the
+map instead of a date. The first block keeps the levels above 3. The number
+counts all selected maps, also the empty one: the first map has no such point
+and is left out, so the remaining map is <code>m_00002</code>. The new dataset has the
+times and the unit of the input. The second block takes <code>time</code> as the suffix;
+with relative time it gives the number as well.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 v.in.ascii input=- output=run_1 separator=comma \
     columns="x double precision, y double precision, level double precision" &lt;&lt;EOF
-1,1,1
-1,2,3
+301000,101000,1
+301000,102000,3
 EOF
 v.in.ascii input=- output=run_2 separator=comma \
     columns="x double precision, y double precision, level double precision" &lt;&lt;EOF
-2,1,2
-2,2,4
+302000,101000,2
+302000,102000,4
 EOF
 t.create type=stvds output=model temporaltype=relative title="Model" \
     description="Model output per step"
@@ -944,13 +994,13 @@ t_00002
 <div class="code"><pre>
 columns = "x double precision, y double precision, level double precision"
 tools.v_in_ascii(
-    input=StringIO("1,1,1\n1,2,3\n"),
+    input=StringIO("301000,101000,1\n301000,102000,3\n"),
     output="run_1",
     separator="comma",
     columns=columns,
 )
 tools.v_in_ascii(
-    input=StringIO("2,1,2\n2,2,4\n"),
+    input=StringIO("302000,101000,2\n302000,102000,4\n"),
     output="run_2",
     separator="comma",
     columns=columns,
@@ -1007,10 +1057,11 @@ t_00002
 
 <h3>Extract from a dataset of another mapset</h3>
 
-The dataset <code>model</code> stays in the mapset <code>PERMANENT</code>. The first block creates
-the mapset <code>other</code>, switches to it and extracts with an expression. The new
-dataset <code>model_copy</code> and its maps <code>copy_00001</code> and <code>copy_00002</code> belong to
-<code>other</code>. The <code>id</code> column shows the mapset.
+The dataset <code>model</code> stays in the mapset <code>t_vect_extract</code>. The first block
+creates the mapset <code>t_vect_extract_2</code>, switches to it, sets the region, adds
+the mapset <code>t_vect_extract</code> to the search path with <em>g.mapsets</em> and extracts
+with an expression. The new dataset <code>model_copy</code> and its maps <code>copy_00001</code> and
+<code>copy_00002</code> belong to <code>t_vect_extract_2</code>. The <code>id</code> column shows the mapset.
 
 <p>
 The second block shows what happens without an expression. The call is
@@ -1021,20 +1072,22 @@ refused, so the block prints <code>refused</code>. The refusal leaves the empty 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.mapset -c mapset=other
-t.vect.extract input=model@PERMANENT output=model_copy basename=copy \
+g.mapset -c mapset=t_vect_extract_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_vect_extract operation=add
+t.vect.extract input=model@t_vect_extract output=model_copy basename=copy \
     expression="level &gt; 0" suffix=num
 t.vect.list input=model_copy columns=id,start_time,points
 </pre></div>
 
 <div class="code"><pre>
 id|start_time|points
-copy_00001@other|0|2
-copy_00002@other|6|2
+copy_00001@t_vect_extract_2|0|2
+copy_00002@t_vect_extract_2|6|2
 </pre></div>
 
 <div class="code"><pre>
-if t.vect.extract input=model@PERMANENT output=model_copy_empty \
+if t.vect.extract input=model@t_vect_extract output=model_copy_empty \
     2&gt;/dev/null; then echo extracted; else echo refused; fi
 t.info -g type=stvds input=model_copy_empty | grep -E "^(id|number_of_maps)="
 t.remove -f type=stvds inputs=model_copy_empty
@@ -1042,7 +1095,7 @@ t.remove -f type=stvds inputs=model_copy_empty
 
 <div class="code"><pre>
 refused
-id=model_copy_empty@other
+id=model_copy_empty@t_vect_extract_2
 number_of_maps=None
 </pre></div>
 
@@ -1051,9 +1104,11 @@ number_of_maps=None
 <div class="code"><pre>
 from grass.tools import ToolError
 
-tools.g_mapset(mapset="other", flags="c")
+tools.g_mapset(mapset="t_vect_extract_2", flags="c")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_vect_extract", operation="add")
 tools.t_vect_extract(
-    input="model@PERMANENT",
+    input="model@t_vect_extract",
     output="model_copy",
     basename="copy",
     expression="level &gt; 0",
@@ -1064,13 +1119,13 @@ print(tools.t_vect_list(input="model_copy", columns="id,start_time,points").text
 
 <div class="code"><pre>
 id|start_time|points
-copy_00001@other|0|2
-copy_00002@other|6|2
+copy_00001@t_vect_extract_2|0|2
+copy_00002@t_vect_extract_2|6|2
 </pre></div>
 
 <div class="code"><pre>
 try:
-    tools.t_vect_extract(input="model@PERMANENT", output="model_copy_empty")
+    tools.t_vect_extract(input="model@t_vect_extract", output="model_copy_empty")
 except ToolError:
     print("refused")
 else:
@@ -1083,17 +1138,17 @@ tools.t_remove(type="stvds", inputs="model_copy_empty", flags="f")
 
 <div class="code"><pre>
 refused
-id=model_copy_empty@other
+id=model_copy_empty@t_vect_extract_2
 number_of_maps=None
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>, <a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>, <a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>,
-<a href="t.vect.list.html">t.vect.list</a>, <a href="v.extract.html">v.extract</a>,
-<a href="temporalintro.html">temporal data processing</a></em>
+<em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>, <a href="g.mapsets.html">g.mapsets</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.register.html">t.register</a>,
+<a href="t.remove.html">t.remove</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="v.extract.html">v.extract</a>, <a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
