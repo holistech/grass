@@ -111,6 +111,16 @@ last one, appears in no cell.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_sample` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. Most examples are about time, not about maps: their maps hold small
+constant values, and the dates are the point. The last two examples sample
+series of maps over North Carolina and use the extents of the maps.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_sample -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Sample time instances with intervals
@@ -129,7 +139,8 @@ grows by 2.0 days from row to row.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.mapset -c mapset=t_sample
+    g.region raster=elev_state_500m res=1000 -a
     for step in 1 2 3 4 5 6; do
         r.mapcalc expression="reading_$step = $step"
     done
@@ -150,11 +161,11 @@ grows by 2.0 days from row to row.
     ```
 
     ```text
-    periods@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|readings@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|reading_1@t_sample,reading_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|reading_3@t_sample,reading_4@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|reading_5@t_sample,reading_6@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
 === "Python (grass.tools)"
@@ -164,7 +175,8 @@ grows by 2.0 days from row to row.
 
     tools = Tools()
 
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_mapset(flags="c", mapset="t_sample")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     for step in range(1, 7):
         tools.r_mapcalc(expression=f"reading_{step} = {step}")
     tools.t_create(
@@ -195,11 +207,11 @@ grows by 2.0 days from row to row.
     ```
 
     ```text
-    periods@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|readings@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|reading_1@t_sample,reading_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|reading_3@t_sample,reading_4@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|reading_5@t_sample,reading_6@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
 ### Several datasets and the field separator
@@ -227,11 +239,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT|readings@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|span_1@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|reading_3@PERMANENT,reading_4@PERMANENT|span_2@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|span_3@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|readings@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|reading_1@t_sample,reading_2@t_sample|span_1@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|reading_3@t_sample,reading_4@t_sample|span_2@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|reading_5@t_sample,reading_6@t_sample|span_3@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```sh
@@ -239,11 +251,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT readings@PERMANENT spans@PERMANENT start_time end_time interval_length distance_from_begin
-    period_1@PERMANENT reading_1@PERMANENT,reading_2@PERMANENT span_1@PERMANENT 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
-    None reading_3@PERMANENT,reading_4@PERMANENT span_2@PERMANENT 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
-    period_2@PERMANENT reading_5@PERMANENT,reading_6@PERMANENT span_3@PERMANENT 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
-    period_3@PERMANENT None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
+    periods@t_sample readings@t_sample spans@t_sample start_time end_time interval_length distance_from_begin
+    period_1@t_sample reading_1@t_sample,reading_2@t_sample span_1@t_sample 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
+    None reading_3@t_sample,reading_4@t_sample span_2@t_sample 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
+    period_2@t_sample reading_5@t_sample,reading_6@t_sample span_3@t_sample 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
+    period_3@t_sample None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
     ```
 
     ```sh
@@ -251,11 +263,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT | readings@PERMANENT | spans@PERMANENT | start_time | end_time | interval_length | distance_from_begin
-    period_1@PERMANENT | reading_1@PERMANENT,reading_2@PERMANENT | span_1@PERMANENT | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
-    None | reading_3@PERMANENT,reading_4@PERMANENT | span_2@PERMANENT | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
-    period_2@PERMANENT | reading_5@PERMANENT,reading_6@PERMANENT | span_3@PERMANENT | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
-    period_3@PERMANENT | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
+    periods@t_sample | readings@t_sample | spans@t_sample | start_time | end_time | interval_length | distance_from_begin
+    period_1@t_sample | reading_1@t_sample,reading_2@t_sample | span_1@t_sample | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
+    None | reading_3@t_sample,reading_4@t_sample | span_2@t_sample | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
+    period_2@t_sample | reading_5@t_sample,reading_6@t_sample | span_3@t_sample | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
+    period_3@t_sample | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
     ```
 
 === "Python (grass.tools)"
@@ -279,11 +291,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT|readings@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|span_1@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|reading_3@PERMANENT,reading_4@PERMANENT|span_2@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|reading_5@PERMANENT,reading_6@PERMANENT|span_3@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|readings@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|reading_1@t_sample,reading_2@t_sample|span_1@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|reading_3@t_sample,reading_4@t_sample|span_2@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|reading_5@t_sample,reading_6@t_sample|span_3@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```python
@@ -295,11 +307,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT readings@PERMANENT spans@PERMANENT start_time end_time interval_length distance_from_begin
-    period_1@PERMANENT reading_1@PERMANENT,reading_2@PERMANENT span_1@PERMANENT 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
-    None reading_3@PERMANENT,reading_4@PERMANENT span_2@PERMANENT 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
-    period_2@PERMANENT reading_5@PERMANENT,reading_6@PERMANENT span_3@PERMANENT 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
-    period_3@PERMANENT None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
+    periods@t_sample readings@t_sample spans@t_sample start_time end_time interval_length distance_from_begin
+    period_1@t_sample reading_1@t_sample,reading_2@t_sample span_1@t_sample 2026-06-01 00:00:00 2026-06-03 00:00:00 2.0 0.0
+    None reading_3@t_sample,reading_4@t_sample span_2@t_sample 2026-06-03 00:00:00 2026-06-05 00:00:00 2.0 2.0
+    period_2@t_sample reading_5@t_sample,reading_6@t_sample span_3@t_sample 2026-06-05 00:00:00 2026-06-07 00:00:00 2.0 4.0
+    period_3@t_sample None None 2026-06-07 00:00:00 2026-06-09 00:00:00 2.0 6.0
     ```
 
     ```python
@@ -311,11 +323,11 @@ printed.
     ```
 
     ```text
-    periods@PERMANENT | readings@PERMANENT | spans@PERMANENT | start_time | end_time | interval_length | distance_from_begin
-    period_1@PERMANENT | reading_1@PERMANENT,reading_2@PERMANENT | span_1@PERMANENT | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
-    None | reading_3@PERMANENT,reading_4@PERMANENT | span_2@PERMANENT | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
-    period_2@PERMANENT | reading_5@PERMANENT,reading_6@PERMANENT | span_3@PERMANENT | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
-    period_3@PERMANENT | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
+    periods@t_sample | readings@t_sample | spans@t_sample | start_time | end_time | interval_length | distance_from_begin
+    period_1@t_sample | reading_1@t_sample,reading_2@t_sample | span_1@t_sample | 2026-06-01 00:00:00 | 2026-06-03 00:00:00 | 2.0 | 0.0
+    None | reading_3@t_sample,reading_4@t_sample | span_2@t_sample | 2026-06-03 00:00:00 | 2026-06-05 00:00:00 | 2.0 | 2.0
+    period_2@t_sample | reading_5@t_sample,reading_6@t_sample | span_3@t_sample | 2026-06-05 00:00:00 | 2026-06-07 00:00:00 | 2.0 | 4.0
+    period_3@t_sample | None | None | 2026-06-07 00:00:00 | 2026-06-09 00:00:00 | 2.0 | 6.0
     ```
 
 ### Choose the temporal relations of intervals
@@ -359,8 +371,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT,same@PERMANENT,early@PERMANENT,late@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|wide@t_sample,wide_e@t_sample,wide_s@t_sample,same@t_sample,early@t_sample,late@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -368,8 +380,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|wide@t_sample,wide_e@t_sample,wide_s@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -377,8 +389,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -386,8 +398,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -395,8 +407,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|same@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -404,8 +416,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```sh
@@ -413,8 +425,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 === "Python (grass.tools)"
@@ -460,8 +472,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT,same@PERMANENT,early@PERMANENT,late@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|wide@t_sample,wide_e@t_sample,wide_s@t_sample,same@t_sample,early@t_sample,late@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -473,8 +485,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|wide@PERMANENT,wide_e@PERMANENT,wide_s@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|wide@t_sample,wide_e@t_sample,wide_s@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -486,8 +498,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -499,8 +511,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -512,8 +524,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|same@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|same@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -525,8 +537,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
     ```python
@@ -538,8 +550,8 @@ which only `overlap` selects, comes last.
     ```
 
     ```text
-    windows_june@PERMANENT|shapes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window@PERMANENT|early@PERMANENT,wide_s@PERMANENT,wide_e@PERMANENT,inside@PERMANENT,late@PERMANENT|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
+    windows_june@t_sample|shapes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window@t_sample|early@t_sample,wide_s@t_sample,wide_e@t_sample,inside@t_sample,late@t_sample|2026-06-10 00:00:00|2026-06-20 00:00:00|10.0|0.0
     ```
 
 ### Maps next to the granule
@@ -561,11 +573,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_1@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|span_2@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|span_3@t_sample|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```sh
@@ -573,11 +585,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|span_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_3@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```sh
@@ -585,11 +597,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_3@PERMANENT,span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|span_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_3@t_sample,span_1@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|span_2@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|span_3@t_sample|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
 === "Python (grass.tools)"
@@ -601,11 +613,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|None|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_1@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|span_2@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|span_3@t_sample|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```python
@@ -615,11 +627,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|span_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_3@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```python
@@ -631,11 +643,11 @@ in the list; with `follows,precedes` the two would swap.
     ```
 
     ```text
-    periods@PERMANENT|spans@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|span_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|span_3@PERMANENT,span_1@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|span_2@PERMANENT|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|span_3@PERMANENT|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|spans@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|span_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|span_3@t_sample,span_1@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|span_2@t_sample|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|span_3@t_sample|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
 ### Relative time
@@ -667,10 +679,10 @@ the granules is 2, 2 and 2, and the distance from the first start 0, 2 and 4.
     ```
 
     ```text
-    windows@PERMANENT|model@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window_1@PERMANENT|output_1@PERMANENT,output_2@PERMANENT|0|2|2|0
-    None|output_3@PERMANENT,output_4@PERMANENT|2|4|2|2
-    window_2@PERMANENT|None|4|6|2|4
+    windows@t_sample|model@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window_1@t_sample|output_1@t_sample,output_2@t_sample|0|2|2|0
+    None|output_3@t_sample,output_4@t_sample|2|4|2|2
+    window_2@t_sample|None|4|6|2|4
     ```
 
 === "Python (grass.tools)"
@@ -705,10 +717,10 @@ the granules is 2, 2 and 2, and the distance from the first start 0, 2 and 4.
     ```
 
     ```text
-    windows@PERMANENT|model@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    window_1@PERMANENT|output_1@PERMANENT,output_2@PERMANENT|0|2|2|0
-    None|output_3@PERMANENT,output_4@PERMANENT|2|4|2|2
-    window_2@PERMANENT|None|4|6|2|4
+    windows@t_sample|model@t_sample|start_time|end_time|interval_length|distance_from_begin
+    window_1@t_sample|output_1@t_sample,output_2@t_sample|0|2|2|0
+    None|output_3@t_sample,output_4@t_sample|2|4|2|2
+    window_2@t_sample|None|4|6|2|4
     ```
 
 ### Granules that are not whole days
@@ -743,11 +755,11 @@ after the first start, and the month of July starts 30.0 days after it.
     ```
 
     ```text
-    slots@PERMANENT|probes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    slot_1@PERMANENT|probe_1@PERMANENT|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
-    slot_2@PERMANENT|probe_2@PERMANENT|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
+    slots@t_sample|probes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    slot_1@t_sample|probe_1@t_sample|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
+    slot_2@t_sample|probe_2@t_sample|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
     None|None|2026-06-01 18:00:00|2026-07-01 00:00:00|29.25|0.75
-    slot_3@PERMANENT|probe_3@PERMANENT|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
+    slot_3@t_sample|probe_3@t_sample|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
     ```
 
 === "Python (grass.tools)"
@@ -778,36 +790,34 @@ after the first start, and the month of July starts 30.0 days after it.
     ```
 
     ```text
-    slots@PERMANENT|probes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    slot_1@PERMANENT|probe_1@PERMANENT|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
-    slot_2@PERMANENT|probe_2@PERMANENT|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
+    slots@t_sample|probes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    slot_1@t_sample|probe_1@t_sample|2026-06-01 00:00:00|2026-06-01 06:00:00|0.25|0.0
+    slot_2@t_sample|probe_2@t_sample|2026-06-01 06:00:00|2026-06-01 18:00:00|0.5|0.25
     None|None|2026-06-01 18:00:00|2026-07-01 00:00:00|29.25|0.75
-    slot_3@PERMANENT|probe_3@PERMANENT|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
+    slot_3@t_sample|probe_3@t_sample|2026-07-01 00:00:00|2026-08-01 00:00:00|31.0|30.0
     ```
 
 ### Datasets of different types
 
 The dataset type of the inputs and of the sampler are selected with **intype**
 and **samtype**, independent of each other. The first call samples the vector
-dataset `gauges` with the raster dataset `periods` of the first example. The
-second call samples the raster dataset `readings` with the 3D raster dataset
-`soil`, which has two maps of two days. The region of this example includes the
-3D settings (**t**, **b**, **res3** and **tbres**) that 3D maps need.
+dataset `gauges` with the raster dataset `periods` of the first example; each of
+its three maps holds the stream gauges of Crabtree Creek in Raleigh, taken from
+`usgsgages`. The second call samples the raster dataset `readings` with the 3D
+raster dataset `soil`, which has two maps of two days. The region of this
+example includes the 3D settings (**t**, **b**, **res3** and **tbres**) that 3D
+maps need.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 t=2 b=0 res=1 res3=1 tbres=1
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
     for step in 1 2 3; do
-        v.in.ascii input=- output=gauge_$step separator=comma \
-            columns="x double precision, y double precision, speed double precision" \
-            <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
-    EOF
+        v.extract input=usgsgages output=gauge_$step \
+            where="SITE_NAME LIKE 'Crabtree Creek%'"
     done
     t.create type=stvds output=gauges title="Gauges" \
-        description="Wind speed on three days"
+        description="Stream gauges on three days"
     t.register type=vector input=gauges maps=gauge_1,gauge_2,gauge_3 \
         start=2026-06-01 increment="1 day"
     r3.mapcalc expression="soil_1 = depth()"
@@ -820,11 +830,11 @@ second call samples the raster dataset `readings` with the 3D raster dataset
     ```
 
     ```text
-    periods@PERMANENT|gauges@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|gauge_1@PERMANENT,gauge_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|gauge_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|gauges@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|gauge_1@t_sample,gauge_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|gauge_3@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```sh
@@ -832,29 +842,28 @@ second call samples the raster dataset `readings` with the 3D raster dataset
     ```
 
     ```text
-    soil@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    soil_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    soil_2@PERMANENT|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    soil@t_sample|readings@t_sample|start_time|end_time|interval_length|distance_from_begin
+    soil_1@t_sample|reading_1@t_sample,reading_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    soil_2@t_sample|reading_3@t_sample,reading_4@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
-
-    tools.g_region(n=2, s=0, e=3, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
     for step in range(1, 4):
-        tools.v_in_ascii(
-            input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+        tools.v_extract(
+            input="usgsgages",
             output=f"gauge_{step}",
-            separator="comma",
-            columns="x double precision, y double precision, speed double precision",
+            where="SITE_NAME LIKE 'Crabtree Creek%'",
         )
     tools.t_create(
         type="stvds",
         output="gauges",
         title="Gauges",
-        description="Wind speed on three days",
+        description="Stream gauges on three days",
     )
     tools.t_register(
         type="vector",
@@ -883,11 +892,11 @@ second call samples the raster dataset `readings` with the 3D raster dataset
     ```
 
     ```text
-    periods@PERMANENT|gauges@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    period_1@PERMANENT|gauge_1@PERMANENT,gauge_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    None|gauge_3@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
-    period_2@PERMANENT|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
-    period_3@PERMANENT|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
+    periods@t_sample|gauges@t_sample|start_time|end_time|interval_length|distance_from_begin
+    period_1@t_sample|gauge_1@t_sample,gauge_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    None|gauge_3@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    period_2@t_sample|None|2026-06-05 00:00:00|2026-06-07 00:00:00|2.0|4.0
+    period_3@t_sample|None|2026-06-07 00:00:00|2026-06-09 00:00:00|2.0|6.0
     ```
 
     ```python
@@ -897,34 +906,138 @@ second call samples the raster dataset `readings` with the 3D raster dataset
     ```
 
     ```text
-    soil@PERMANENT|readings@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    soil_1@PERMANENT|reading_1@PERMANENT,reading_2@PERMANENT|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
-    soil_2@PERMANENT|reading_3@PERMANENT,reading_4@PERMANENT|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    soil@t_sample|readings@t_sample|start_time|end_time|interval_length|distance_from_begin
+    soil_1@t_sample|reading_1@t_sample,reading_2@t_sample|2026-06-01 00:00:00|2026-06-03 00:00:00|2.0|0.0
+    soil_2@t_sample|reading_3@t_sample,reading_4@t_sample|2026-06-03 00:00:00|2026-06-05 00:00:00|2.0|2.0
+    ```
+
+### Daily precipitation in the months of a temperature series
+
+A common use of the tool is to find out which maps of a fine series fall into
+each granule of a coarse one. The sampler `temperature_monthly` has the monthly
+mean air temperature of June, July and August 2020 in degree Celsius, one map
+for each month. The input `precipitation_daily` has five daily precipitation
+sums in mm, from July 30 to August 3, 2020. The table has one row for each
+month. June has no daily map and shows `None`; July lists its two days and
+August its three, so the series is split at the month boundary. Both series
+are generated: the temperature falls with the height from `elev_state_500m`,
+and the precipitation is the height factor `1 + elev_state_500m / 1000`
+times a fixed amount for each day (8, 0, 14, 21 and 3 mm at sea level), not a
+measurement. The last two columns give the length of each month in days and
+the distance of its start from June 1.
+
+=== "Command line"
+
+    ```sh
+    for month in 6 7 8; do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature June to August 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=temperature_monthly_2020_06,temperature_monthly_2020_07,temperature_monthly_2020_08 \
+        start=2020-06-01 increment="1 month"
+    for entry in 07_30:8 07_31:0 08_01:14 08_02:21 08_03:3; do
+        r.mapcalc expression="precipitation_daily_2020_${entry%:*} = round(${entry#*:} * (1 + elev_state_500m / 1000.0))"
+    done
+    t.create output=precipitation_daily title="Precipitation" \
+        description="Daily precipitation sum July 30 to August 3, 2020 in mm"
+    t.register -i input=precipitation_daily \
+        maps=precipitation_daily_2020_07_30,precipitation_daily_2020_07_31,precipitation_daily_2020_08_01,precipitation_daily_2020_08_02,precipitation_daily_2020_08_03 \
+        start=2020-07-30 increment="1 day"
+    t.sample -c inputs=precipitation_daily sample=temperature_monthly
+    ```
+
+    ```text
+    temperature_monthly@t_sample|precipitation_daily@t_sample|start_time|end_time|interval_length|distance_from_begin
+    temperature_monthly_2020_06@t_sample|None|2020-06-01 00:00:00|2020-07-01 00:00:00|30.0|0.0
+    temperature_monthly_2020_07@t_sample|precipitation_daily_2020_07_30@t_sample,precipitation_daily_2020_07_31@t_sample|2020-07-01 00:00:00|2020-08-01 00:00:00|31.0|30.0
+    temperature_monthly_2020_08@t_sample|precipitation_daily_2020_08_01@t_sample,precipitation_daily_2020_08_02@t_sample,precipitation_daily_2020_08_03@t_sample|2020-08-01 00:00:00|2020-09-01 00:00:00|31.0|61.0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    months = ("06", "07", "08")
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month} = round((16.5"
+            f" + 10.5 * cos(30 * ({int(month)} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
+    tools.t_create(
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature June to August 2020 in degree Celsius",
+    )
+    tools.t_register(
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month}" for month in months),
+        start="2020-06-01",
+        increment="1 month",
+        flags="i",
+    )
+    daily = {"07_30": 8, "07_31": 0, "08_01": 14, "08_02": 21, "08_03": 3}
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"precipitation_daily_2020_{day} = round({amount} * (1 + elev_state_500m / 1000.0))"
+            for day, amount in daily.items()
+        )
+    )
+    tools.t_create(
+        output="precipitation_daily",
+        title="Precipitation",
+        description="Daily precipitation sum July 30 to August 3, 2020 in mm",
+    )
+    tools.t_register(
+        input="precipitation_daily",
+        maps=",".join(f"precipitation_daily_2020_{day}" for day in daily),
+        start="2020-07-30",
+        increment="1 day",
+        flags="i",
+    )
+    print(
+        tools.t_sample(
+            inputs="precipitation_daily", sample="temperature_monthly", flags="c"
+        ).text
+    )
+    ```
+
+    ```text
+    temperature_monthly@t_sample|precipitation_daily@t_sample|start_time|end_time|interval_length|distance_from_begin
+    temperature_monthly_2020_06@t_sample|None|2020-06-01 00:00:00|2020-07-01 00:00:00|30.0|0.0
+    temperature_monthly_2020_07@t_sample|precipitation_daily_2020_07_30@t_sample,precipitation_daily_2020_07_31@t_sample|2020-07-01 00:00:00|2020-08-01 00:00:00|31.0|30.0
+    temperature_monthly_2020_08@t_sample|precipitation_daily_2020_08_01@t_sample,precipitation_daily_2020_08_02@t_sample,precipitation_daily_2020_08_03@t_sample|2020-08-01 00:00:00|2020-09-01 00:00:00|31.0|61.0
     ```
 
 ### Keep only maps that touch the granule in space
 
 The flag **-s** drops maps whose spatial extent is apart from the extent of the
 granule. The sampler `plots` has one granule of eight days with the map `plot`,
-which covers the region 0 to 4 in both directions. The scenes are time
-instances inside this granule: `scene_1` covers the area from -1 to 5, `scene_2`
-lies inside it, from 1 to 3, `scene_3` from 4 to 6 touches the granule in the
-corner (4, 4) and `scene_4` from 10 to 12 is far away. Without **-s** the cell
+which covers a square of 4 km by 4 km, from 200000 to 204000 in both directions
+(meters). The scenes are time instances inside this granule: `scene_1` covers
+the area from 199000 to 205000, `scene_2` lies inside it, from 201000 to 203000,
+`scene_3` from 204000 to 206000 touches the granule in the corner (204000,
+204000) and `scene_4` from 210000 to 212000 is far away. Without **-s** the cell
 lists all four scenes. With **-s** the scene `scene_4` is dropped and the scene
 that touches the corner stays.
 
 === "Command line"
 
     ```sh
-    g.region s=0 n=4 w=0 e=4 res=1
+    g.region s=200000 n=204000 w=200000 e=204000 res=1000
     r.mapcalc expression="plot = 1"
-    for scene in "scene_1 -1 5 10" "scene_2 1 3 20" \
-        "scene_3 4 6 30" "scene_4 10 12 40"; do
+    for scene in "scene_1 199000 205000 10" "scene_2 201000 203000 20" \
+        "scene_3 204000 206000 30" "scene_4 210000 212000 40"; do
         set -- $scene
         g.region s=$2 n=$3 w=$2 e=$3 res=1
         r.mapcalc expression="$1 = $4"
     done
-    g.region s=0 n=4 w=0 e=4 res=1
+    g.region raster=elev_state_500m res=1000 -a
     t.create output=plots title="Plot" description="One granule of eight days"
     t.register input=plots maps=plot start=2026-06-01 end=2026-06-09
     t.create output=scenes title="Scenes" \
@@ -935,8 +1048,8 @@ that touches the corner stays.
     ```
 
     ```text
-    plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT,scene_4@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+    plots@t_sample|scenes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    plot@t_sample|scene_1@t_sample,scene_2@t_sample,scene_3@t_sample,scene_4@t_sample|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
     ```
 
     ```sh
@@ -944,24 +1057,24 @@ that touches the corner stays.
     ```
 
     ```text
-    plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+    plots@t_sample|scenes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    plot@t_sample|scene_1@t_sample,scene_2@t_sample,scene_3@t_sample|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(s=0, n=4, w=0, e=4, res=1)
+    tools.g_region(s=200000, n=204000, w=200000, e=204000, res=1000)
     tools.r_mapcalc(expression="plot = 1")
     for name, low, high, value in (
-        ("scene_1", -1, 5, 10),
-        ("scene_2", 1, 3, 20),
-        ("scene_3", 4, 6, 30),
-        ("scene_4", 10, 12, 40),
+        ("scene_1", 199000, 205000, 10),
+        ("scene_2", 201000, 203000, 20),
+        ("scene_3", 204000, 206000, 30),
+        ("scene_4", 210000, 212000, 40),
     ):
-        tools.g_region(s=low, n=high, w=low, e=high, res=1)
+        tools.g_region(s=low, n=high, w=low, e=high, res=1000)
         tools.r_mapcalc(expression=f"{name} = {value}")
-    tools.g_region(s=0, n=4, w=0, e=4, res=1)
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_create(output="plots", title="Plot", description="One granule of eight days")
     tools.t_register(input="plots", maps="plot", start="2026-06-01", end="2026-06-09")
     tools.t_create(
@@ -977,8 +1090,8 @@ that touches the corner stays.
     ```
 
     ```text
-    plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT,scene_4@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+    plots@t_sample|scenes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    plot@t_sample|scene_1@t_sample,scene_2@t_sample,scene_3@t_sample,scene_4@t_sample|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
     ```
 
     ```python
@@ -986,8 +1099,8 @@ that touches the corner stays.
     ```
 
     ```text
-    plots@PERMANENT|scenes@PERMANENT|start_time|end_time|interval_length|distance_from_begin
-    plot@PERMANENT|scene_1@PERMANENT,scene_2@PERMANENT,scene_3@PERMANENT|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
+    plots@t_sample|scenes@t_sample|start_time|end_time|interval_length|distance_from_begin
+    plot@t_sample|scene_1@t_sample,scene_2@t_sample,scene_3@t_sample|2026-06-01 00:00:00|2026-06-09 00:00:00|8.0|0.0
     ```
 
 <!-- markdownlint-enable MD046 -->
