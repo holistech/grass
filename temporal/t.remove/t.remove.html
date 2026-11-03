@@ -74,30 +74,43 @@ error like <code>Space time dataset &lt;soil&gt; of type &lt;strds&gt; not found
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_remove</code> and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. <em>t.remove</em> removes datasets and, with <b>-d</b>, maps of the current
+mapset only, so no map of the sample dataset is touched. The maps of the
+examples hold small constant values.
+
 <h3>Remove a dataset and keep its maps</h3>
 
 Two space time raster datasets hold five maps in all: <code>rain</code> has three daily
-maps, <code>snow</code> two. <em>t.list</em> shows both datasets and, with <b>type</b> <code>raster</code>,
-all five maps with their time stamps. After <code>t.remove -f inputs=rain</code>, the
-second command lists three results: first the datasets, where only <code>snow</code> is
-left, then the registered maps, where all five are still found, and last the
-maps named <code>rain_*</code> in the mapset, found with <em>g.list</em>.
+maps of precipitation in mm, 4, 2 and 6 mm in every cell, <code>snow</code> two maps of
+snow depth in cm, 5 and 7 cm. <em>t.list</em> shows both datasets of the current
+mapset and, with <b>type</b> <code>raster</code>, all five maps with their time stamps.
+After <code>t.remove -f inputs=rain</code>, the second command lists three results: first
+the datasets, where only <code>snow</code> is left, then the registered maps, where all
+five are still found, and last the maps named <code>rain_*</code> in the mapset, found
+with <em>g.list</em>.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=3 w=0 res=1
-for name in rain_1 rain_2 rain_3 snow_1 snow_2; do
-    r.mapcalc expression="$name = 1"
-done
-t.create output=rain title="Rain" description="Daily rain"
+g.mapset -c mapset=t_remove
+g.region raster=elev_state_500m res=1000 -a
+r.mapcalc expression="rain_1 = 4"
+r.mapcalc expression="rain_2 = 2"
+r.mapcalc expression="rain_3 = 6"
+r.mapcalc expression="snow_1 = 5"
+r.mapcalc expression="snow_2 = 7"
+t.create output=rain title="Rain" description="Daily precipitation in mm"
 t.register -i input=rain maps=rain_1,rain_2,rain_3 \
     start=2026-06-01 increment="1 day"
-t.create output=snow title="Snow" description="Daily snow"
+t.create output=snow title="Snow" description="Daily snow depth in cm"
 t.register -i input=snow maps=snow_1,snow_2 \
     start=2026-06-01 increment="1 day"
-t.list type=strds columns=name,number_of_maps
-t.list type=raster columns=name,start_time
+t.list type=strds columns=name,number_of_maps mapset=.
+t.list type=raster columns=name,start_time mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -112,8 +125,8 @@ snow_2|2026-06-02 00:00:00
 
 <div class="code"><pre>
 t.remove -f inputs=rain
-t.list type=strds columns=name,number_of_maps
-t.list type=raster columns=name,start_time
+t.list type=strds columns=name,number_of_maps mapset=.
+t.list type=raster columns=name,start_time mapset=.
 g.list type=raster pattern="rain_*"
 </pre></div>
 
@@ -135,10 +148,17 @@ rain_3
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
-for name in ("rain_1", "rain_2", "rain_3", "snow_1", "snow_2"):
-    tools.r_mapcalc(expression=f"{name} = 1")
-tools.t_create(output="rain", title="Rain", description="Daily rain")
+tools.g_mapset(flags="c", mapset="t_remove")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+for name, value in (
+    ("rain_1", 4),
+    ("rain_2", 2),
+    ("rain_3", 6),
+    ("snow_1", 5),
+    ("snow_2", 7),
+):
+    tools.r_mapcalc(expression=f"{name} = {value}")
+tools.t_create(output="rain", title="Rain", description="Daily precipitation in mm")
 tools.t_register(
     input="rain",
     maps="rain_1,rain_2,rain_3",
@@ -146,7 +166,7 @@ tools.t_register(
     increment="1 day",
     flags="i",
 )
-tools.t_create(output="snow", title="Snow", description="Daily snow")
+tools.t_create(output="snow", title="Snow", description="Daily snow depth in cm")
 tools.t_register(
     input="snow",
     maps="snow_1,snow_2",
@@ -154,8 +174,8 @@ tools.t_register(
     increment="1 day",
     flags="i",
 )
-print(tools.t_list(type="strds", columns="name,number_of_maps").text)
-print(tools.t_list(type="raster", columns="name,start_time").text)
+print(tools.t_list(type="strds", columns="name,number_of_maps", mapset=".").text)
+print(tools.t_list(type="raster", columns="name,start_time", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -170,8 +190,8 @@ snow_2|2026-06-02 00:00:00
 
 <div class="code"><pre>
 tools.t_remove(inputs="rain", flags="f")
-print(tools.t_list(type="strds", columns="name,number_of_maps").text)
-print(tools.t_list(type="raster", columns="name,start_time").text)
+print(tools.t_list(type="strds", columns="name,number_of_maps", mapset=".").text)
+print(tools.t_list(type="raster", columns="name,start_time", mapset=".").text)
 print(tools.g_list(type="raster", pattern="rain_*").text)
 </pre></div>
 
@@ -199,7 +219,7 @@ others list the maps of the mapset.
 
 <div class="code"><pre>
 t.remove -d inputs=snow
-t.list type=strds columns=name,number_of_maps
+t.list type=strds columns=name,number_of_maps mapset=.
 g.list type=raster pattern="snow_*"
 </pre></div>
 
@@ -213,7 +233,7 @@ snow_2
 
 <div class="code"><pre>
 tools.t_remove(inputs="snow", flags="d")
-print(tools.t_list(type="strds", columns="name,number_of_maps").text)
+print(tools.t_list(type="strds", columns="name,number_of_maps", mapset=".").text)
 print(tools.g_list(type="raster", pattern="snow_*").text)
 </pre></div>
 
@@ -234,7 +254,7 @@ in the mapset: the last two lines come from <em>g.list</em>.
 
 <div class="code"><pre>
 t.remove -rf inputs=snow
-t.list type=raster columns=name,start_time
+t.list type=raster columns=name,start_time mapset=.
 g.list type=raster pattern="snow_*"
 </pre></div>
 
@@ -250,7 +270,7 @@ snow_2
 
 <div class="code"><pre>
 tools.t_remove(inputs="snow", flags="rf")
-print(tools.t_list(type="raster", columns="name,start_time").text)
+print(tools.t_list(type="raster", columns="name,start_time", mapset=".").text)
 print(tools.g_list(type="raster", pattern="snow_*").text)
 </pre></div>
 
@@ -272,19 +292,20 @@ mapset holds only the maps of <code>rain</code> and <code>snow</code>.
 <p>Command line:</p>
 
 <div class="code"><pre>
-for name in wet_1 wet_2 dry_1 dry_2; do
-    r.mapcalc expression="$name = 1"
-done
-t.create output=wet title="Wet" description="Wet days"
+r.mapcalc expression="wet_1 = 12"
+r.mapcalc expression="wet_2 = 15"
+r.mapcalc expression="dry_1 = 0"
+r.mapcalc expression="dry_2 = 0"
+t.create output=wet title="Wet" description="Wet days, precipitation in mm"
 t.register -i input=wet maps=wet_1,wet_2 start=2026-07-01 increment="1 day"
-t.create output=dry title="Dry" description="Dry days"
+t.create output=dry title="Dry" description="Dry days, precipitation in mm"
 t.register -i input=dry maps=dry_1,dry_2 start=2026-07-01 increment="1 day"
 printf "wet\n\ndry\n" &gt; datasets.txt
 t.remove -df file=datasets.txt
 </pre></div>
 
 <div class="code"><pre>
-t.list type=raster columns=name
+t.list type=raster columns=name mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -294,7 +315,7 @@ rain_3
 </pre></div>
 
 <div class="code"><pre>
-g.list type=raster
+g.list type=raster mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -310,9 +331,9 @@ snow_2
 <div class="code"><pre>
 from pathlib import Path
 
-for name in ("wet_1", "wet_2", "dry_1", "dry_2"):
-    tools.r_mapcalc(expression=f"{name} = 1")
-tools.t_create(output="wet", title="Wet", description="Wet days")
+for name, value in (("wet_1", 12), ("wet_2", 15), ("dry_1", 0), ("dry_2", 0)):
+    tools.r_mapcalc(expression=f"{name} = {value}")
+tools.t_create(output="wet", title="Wet", description="Wet days, precipitation in mm")
 tools.t_register(
     input="wet",
     maps="wet_1,wet_2",
@@ -320,7 +341,7 @@ tools.t_register(
     increment="1 day",
     flags="i",
 )
-tools.t_create(output="dry", title="Dry", description="Dry days")
+tools.t_create(output="dry", title="Dry", description="Dry days, precipitation in mm")
 tools.t_register(
     input="dry",
     maps="dry_1,dry_2",
@@ -333,7 +354,7 @@ tools.t_remove(file="datasets.txt", flags="df")
 </pre></div>
 
 <div class="code"><pre>
-print(tools.t_list(type="raster", columns="name").text)
+print(tools.t_list(type="raster", columns="name", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -343,7 +364,7 @@ rain_3
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_list(type="raster").text)
+print(tools.g_list(type="raster", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -364,9 +385,9 @@ end time computed from that map.
 <p>Command line:</p>
 
 <div class="code"><pre>
-for name in shared_1 shared_2 shared_3; do
-    r.mapcalc expression="$name = 1"
-done
+r.mapcalc expression="shared_1 = 3"
+r.mapcalc expression="shared_2 = 5"
+r.mapcalc expression="shared_3 = 8"
 t.create output=first title="First" description="Maps 1 and 2"
 t.register -i input=first maps=shared_1,shared_2 \
     start=2026-08-01 increment="1 day"
@@ -383,14 +404,14 @@ start_time='2026-08-03 00:00:00'
 end_time='2026-08-04 00:00:00'
 number_of_maps=1
 name|mapset|start_time|end_time
-shared_3|PERMANENT|2026-08-03 00:00:00|2026-08-04 00:00:00
+shared_3|t_remove|2026-08-03 00:00:00|2026-08-04 00:00:00
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-for name in ("shared_1", "shared_2", "shared_3"):
-    tools.r_mapcalc(expression=f"{name} = 1")
+for name, value in (("shared_1", 3), ("shared_2", 5), ("shared_3", 8)):
+    tools.r_mapcalc(expression=f"{name} = {value}")
 tools.t_create(output="first", title="First", description="Maps 1 and 2")
 tools.t_register(
     input="first",
@@ -419,7 +440,7 @@ start_time='2026-08-03 00:00:00'
 end_time='2026-08-04 00:00:00'
 number_of_maps=1
 name|mapset|start_time|end_time
-shared_3|PERMANENT|2026-08-03 00:00:00|2026-08-04 00:00:00
+shared_3|t_remove|2026-08-03 00:00:00|2026-08-04 00:00:00
 </pre></div>
 
 <h3>Remove datasets of other types</h3>
@@ -433,22 +454,23 @@ the removal and only the copies after it.
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+g.region raster=elev_state_500m res=1000 -a
+g.region t=3 b=0 res3=1000 tbres=1
 r3.mapcalc expression="soil_1 = depth()"
 t.create type=str3ds output=soil title="Soil" description="Soil layers"
 t.register -i type=raster_3d input=soil maps=soil_1 \
     start=2026-03-01 increment="1 day"
 v.in.ascii input=- output=gauges_1 separator=comma \
     columns="x double precision, y double precision, speed double precision" &lt;&lt;EOF
-0.5,0.5,3.0
-2.5,1.5,5.0
+400000,100000,3.0
+700000,200000,5.0
 EOF
 t.create type=stvds output=gauges title="Gauges" description="Wind speed"
 t.register -i type=vector input=gauges maps=gauges_1 \
     start=2026-03-01 increment="1 day"
 g.copy raster_3d=soil_1,soil_copy
 g.copy vector=gauges_1,gauges_copy
-g.list type=raster_3d
+g.list type=raster_3d mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -457,7 +479,7 @@ soil_copy
 </pre></div>
 
 <div class="code"><pre>
-g.list type=vector
+g.list type=vector mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -468,7 +490,7 @@ gauges_copy
 <div class="code"><pre>
 t.remove -df type=str3ds inputs=soil
 t.remove -df type=stvds inputs=gauges
-g.list type=raster_3d
+g.list type=raster_3d mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -476,7 +498,7 @@ soil_copy
 </pre></div>
 
 <div class="code"><pre>
-g.list type=vector
+g.list type=vector mapset=.
 </pre></div>
 
 <div class="code"><pre>
@@ -488,7 +510,8 @@ gauges_copy
 <div class="code"><pre>
 from io import StringIO
 
-tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_region(t=3, b=0, res3=1000, tbres=1)
 tools.r3_mapcalc(expression="soil_1 = depth()")
 tools.t_create(type="str3ds", output="soil", title="Soil", description="Soil layers")
 tools.t_register(
@@ -500,7 +523,7 @@ tools.t_register(
     flags="i",
 )
 tools.v_in_ascii(
-    input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+    input=StringIO("400000,100000,3.0\n700000,200000,5.0\n"),
     output="gauges_1",
     separator="comma",
     columns="x double precision, y double precision, speed double precision",
@@ -516,7 +539,7 @@ tools.t_register(
 )
 tools.g_copy(raster_3d="soil_1,soil_copy")
 tools.g_copy(vector="gauges_1,gauges_copy")
-print(tools.g_list(type="raster_3d").text)
+print(tools.g_list(type="raster_3d", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -525,7 +548,7 @@ soil_copy
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_list(type="vector").text)
+print(tools.g_list(type="vector", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -536,7 +559,7 @@ gauges_copy
 <div class="code"><pre>
 tools.t_remove(type="str3ds", inputs="soil", flags="df")
 tools.t_remove(type="stvds", inputs="gauges", flags="df")
-print(tools.g_list(type="raster_3d").text)
+print(tools.g_list(type="raster_3d", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -544,7 +567,7 @@ soil_copy
 </pre></div>
 
 <div class="code"><pre>
-print(tools.g_list(type="vector").text)
+print(tools.g_list(type="vector", mapset=".").text)
 </pre></div>
 
 <div class="code"><pre>
