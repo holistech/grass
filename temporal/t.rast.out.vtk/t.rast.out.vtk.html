@@ -33,10 +33,10 @@ are the same with and without <b>-g</b>. A dataset with gaps gets more files wit
 The files are numbered from <code>000000</code> in the order of the maps, and the number
 has six digits. The file name is the number, an underscore, the name of the
 dataset without its mapset and the suffix <code>.vtk</code>, such as
-<code>000002_temperature.vtk</code>. The numbering starts at <code>000000</code> again for every call
-and counts only the written files, so a selection with <b>where</b> is numbered
-without holes. An existing file is refused unless the flag <b>--overwrite</b> is
-given.
+<code>000002_temperature_monthly.vtk</code>. The numbering starts at <code>000000</code> again for
+every call and counts only the written files, so a selection with <b>where</b> is
+numbered without holes. An existing file is refused unless the flag
+<b>--overwrite</b> is given.
 
 <h3>Content of the files</h3>
 
@@ -95,62 +95,77 @@ both.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_rast_out_vtk</code> and sets the computational region
+to North Carolina with cells of 1 km; it builds the dataset
+<code>temperature_monthly</code> with the mean air temperature of each month of 2020 in
+degree Celsius, generated from the elevation by a formula and not measured. A
+VTK file holds every cell of the region as text, and one file of the whole
+state would have more than 280,000 values. The examples
+therefore write a window of three by two cells of 1 km, set with
+<em><a href="g.region.html">g.region</a></em> before each call: <code>n=210000 s=208000 w=600000
+e=603000</code> in the Piedmont and <code>n=200000 s=198000 w=928000 e=931000</code> at the
+Atlantic coast, where the first column holds land and the two others lie
+outside the state and hold no data. The files then have six values each, and
+the shown lines are the same on every system.
+
 <h3>Write one VTK file per map</h3>
 
-The dataset <code>temperature</code> has three maps of two rows and three columns. The
-cell value of <code>temperature_1</code> is <code>10 * row + column</code>, so it is 11, 12, 13 in
-the northern row and 21, 22, 23 in the southern one. <code>temperature_2</code> is the
-same plus 100. <code>temperature_4</code> has the value 1.5 in the first column and no
-data in the others. The first two maps are the days 1 and 2 of March 2026, and
-the third is the day 4, so there is no map for the day 3.
-
-<p>
-The first block creates the dataset. The second block makes the directory
-<code>vtk</code> and writes the files into it. The tool makes one file for each of the
-three maps, numbered in the order of time. The first eight lines of the first
-file are the version, the title, the format, the dataset type and the grid: 4
-by 3 points around 3 by 2 cells with the spacing 1 and the origin in the
-south-west corner of the region. The last two lines hold the values, row by
-row, the southern row first. The line that starts with <code>SCALARS</code> is left out
-because it holds the number of the process.
+The dataset <code>temperature_monthly</code> has the twelve monthly maps of 2020. The
+temperature falls by 0.65 degrees per 100 m of elevation of
+<code>elev_state_500m</code>, is rounded to 0.1 degrees and is highest in July. The
+window is the one in the Piedmont. The tool makes one file for each of the
+twelve maps, numbered in the order of time; the example lists the number of
+files and the first three names. The first eight lines of the first file are
+the version, the title, the format, the dataset type and the grid: 4 by 3
+points around 3 by 2 cells with the spacing 1000 and the origin in the
+south-west corner of the window. The last two lines hold the values of the
+January map, row by row, the southern row first. The line that starts with
+<code>SCALARS</code> is left out because it holds the number of the process.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=3 w=0 res=1
-r.mapcalc expression="temperature_1 = 10 * row() + col()"
-r.mapcalc expression="temperature_2 = 10 * row() + col() + 100"
-r.mapcalc expression="temperature_4 = if(col() == 1, 1.5, null())"
-t.create output=temperature title="Air temperature" \
-    description="Daily mean air temperature"
-t.register -i input=temperature maps=temperature_1,temperature_2 \
-    start=2026-03-01 increment="1 day"
-t.register input=temperature maps=temperature_4 \
-    start=2026-03-04 end=2026-03-05
+g.mapset -c mapset=t_rast_out_vtk
+g.region raster=elev_state_500m res=1000 -a
+for month in $(seq 12); do
+    echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+        "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+        "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+done | r.mapcalc file=-
+t.create output=temperature_monthly title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degree Celsius"
+t.register -i input=temperature_monthly \
+    maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+    start=2020-01-01 increment="1 month"
 </pre></div>
 
 <div class="code"><pre>
+g.region n=210000 s=208000 w=600000 e=603000 res=1000
 mkdir vtk
-t.rast.out.vtk input=temperature directory=vtk
-ls vtk
-head -n 8 vtk/000000_temperature.vtk
-tail -n 2 vtk/000000_temperature.vtk | sed 's/ *$//'
+t.rast.out.vtk input=temperature_monthly directory=vtk
+ls vtk | wc -l
+ls vtk | head -n 3
+head -n 8 vtk/000000_temperature_monthly.vtk
+tail -n 2 vtk/000000_temperature_monthly.vtk | sed 's/ *$//'
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
+12
+000000_temperature_monthly.vtk
+000001_temperature_monthly.vtk
+000002_temperature_monthly.vtk
 # vtk DataFile Version 3.0
 GRASS 8 Export
 ASCII
 DATASET STRUCTURED_POINTS
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 0.000000 0.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600000.000000 208000.000000 0.000000
 CELL_DATA 6
-21.000000000000 22.000000000000 23.000000000000
-11.000000000000 12.000000000000 13.000000000000
+5.100000000000 5.100000000000 5.100000000000
+4.900000000000 5.100000000000 5.100000000000
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -161,124 +176,142 @@ from pathlib import Path
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
-tools.r_mapcalc(expression="temperature_1 = 10 * row() + col()")
-tools.r_mapcalc(expression="temperature_2 = 10 * row() + col() + 100")
-tools.r_mapcalc(expression="temperature_4 = if(col() == 1, 1.5, null())")
+tools.g_mapset(flags="c", mapset="t_rast_out_vtk")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+months = range(1, 13)
+tools.r_mapcalc(
+    expression="\n".join(
+        f"temperature_monthly_2020_{month:02d} = round((16.5"
+        f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+        " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+        for month in months
+    )
+)
 tools.t_create(
-    output="temperature",
+    output="temperature_monthly",
     title="Air temperature",
-    description="Daily mean air temperature",
+    description="Monthly mean air temperature 2020 in degree Celsius",
 )
 tools.t_register(
-    input="temperature",
-    maps="temperature_1,temperature_2",
-    start="2026-03-01",
-    increment="1 day",
+    input="temperature_monthly",
+    maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+    start="2020-01-01",
+    increment="1 month",
     flags="i",
-)
-tools.t_register(
-    input="temperature", maps="temperature_4", start="2026-03-04", end="2026-03-05"
 )
 </pre></div>
 
 <div class="code"><pre>
+tools.g_region(n=210000, s=208000, w=600000, e=603000, res=1000)
 Path("vtk").mkdir()
-tools.t_rast_out_vtk(input="temperature", directory="vtk")
-print("\n".join(sorted(path.name for path in Path("vtk").iterdir())))
-lines = Path("vtk/000000_temperature.vtk").read_text().splitlines()
+tools.t_rast_out_vtk(input="temperature_monthly", directory="vtk")
+names = sorted(path.name for path in Path("vtk").iterdir())
+print(len(names))
+print("\n".join(names[:3]))
+lines = Path("vtk/000000_temperature_monthly.vtk").read_text().splitlines()
 print("\n".join(lines[:8]))
 print("\n".join(line.rstrip() for line in lines[-2:]))
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
+12
+000000_temperature_monthly.vtk
+000001_temperature_monthly.vtk
+000002_temperature_monthly.vtk
 # vtk DataFile Version 3.0
 GRASS 8 Export
 ASCII
 DATASET STRUCTURED_POINTS
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 0.000000 0.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600000.000000 208000.000000 0.000000
 CELL_DATA 6
-21.000000000000 22.000000000000 23.000000000000
-11.000000000000 12.000000000000 13.000000000000
+5.100000000000 5.100000000000 5.100000000000
+4.900000000000 5.100000000000 5.100000000000
 </pre></div>
 
 <h3>Select maps and set the value of cells without data</h3>
 
-<b>where</b> selects the maps <code>temperature_2</code> and <code>temperature_4</code>, those that start
-on or after 2 March. They are written into the new directory <code>selected</code> and
-numbered <code>000000</code> and <code>000001</code>, although they are the second and third map of
-the dataset. <b>null</b> sets <code>-9999</code> for the cells without data, so the last two
-cells in each row of <code>temperature_4</code> hold <code>-9999</code> and the first one holds 1.5.
-The values are written with twelve decimal places.
+<b>where</b> selects the maps of November and December, those that start on or
+after 1 November. They are written into the new directory <code>selected</code> and
+numbered <code>000000</code> and <code>000001</code>, although they are the eleventh and twelfth map
+of the dataset. The window is the one at the coast. <b>null</b> sets <code>-9999</code> for
+the cells without data, so the last two cells in each row hold <code>-9999</code> and the
+first one holds the temperature of the land cell in December, 7.6 degrees. The
+values are written with twelve decimal places.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
+g.region n=200000 s=198000 w=928000 e=931000 res=1000
 mkdir selected
-t.rast.out.vtk input=temperature directory=selected \
-    where="start_time &gt;= '2026-03-02'" null=-9999
+t.rast.out.vtk input=temperature_monthly directory=selected \
+    where="start_time &gt;= '2020-11-01'" null=-9999
 ls selected
-tail -n 2 selected/000001_temperature.vtk | sed 's/ *$//'
+tail -n 2 selected/000001_temperature_monthly.vtk | sed 's/ *$//'
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-1.500000000000 -9999.000000000000 -9999.000000000000
-1.500000000000 -9999.000000000000 -9999.000000000000
+000000_temperature_monthly.vtk
+000001_temperature_monthly.vtk
+7.600000000000 -9999.000000000000 -9999.000000000000
+7.600000000000 -9999.000000000000 -9999.000000000000
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
+tools.g_region(n=200000, s=198000, w=928000, e=931000, res=1000)
 Path("selected").mkdir()
 tools.t_rast_out_vtk(
-    input="temperature",
+    input="temperature_monthly",
     directory="selected",
-    where="start_time &gt;= '2026-03-02'",
+    where="start_time &gt;= '2020-11-01'",
     null=-9999,
 )
 print("\n".join(sorted(path.name for path in Path("selected").iterdir())))
-lines = Path("selected/000001_temperature.vtk").read_text().splitlines()
+lines = Path("selected/000001_temperature_monthly.vtk").read_text().splitlines()
 print("\n".join(line.rstrip() for line in lines[-2:]))
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-1.500000000000 -9999.000000000000 -9999.000000000000
-1.500000000000 -9999.000000000000 -9999.000000000000
+000000_temperature_monthly.vtk
+000001_temperature_monthly.vtk
+7.600000000000 -9999.000000000000 -9999.000000000000
+7.600000000000 -9999.000000000000 -9999.000000000000
 </pre></div>
 
 <h3>Write a file for each time step with the granularity</h3>
 
-The dataset has the granularity of one day, and there is no map on 3 March. The
-flag <b>-g</b> writes a file for every day: four files instead of three. The file
-<code>000002_temperature.vtk</code> is the gap on 3 March; all its cells have the <b>null</b>
-value. The call also has a <b>where</b> condition that would select two maps, but
-<b>-g</b> ignores it: all four files are written. The last two lines of the gap
-file are shown.
+The dataset <code>temperature_gaps</code> holds the maps of January, February and April
+2020 and takes their times from the maps, as <code>t.register</code> does for maps that
+have a time already. It has the granularity of one month, and there is no map
+for March. The flag <b>-g</b> writes a file for every month: four files instead
+of three. The file <code>000002_temperature_gaps.vtk</code> is the gap of March; all its
+cells have the <b>null</b> value. The call also has a <b>where</b> condition that
+would select two maps, but <b>-g</b> ignores it: all four files are written. The
+last two lines of the gap file are shown.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
+t.create output=temperature_gaps title="Air temperature with a gap" \
+    description="Monthly mean air temperature 2020 without March"
+t.register input=temperature_gaps \
+    maps=temperature_monthly_2020_01,temperature_monthly_2020_02,temperature_monthly_2020_04
+g.region n=210000 s=208000 w=600000 e=603000 res=1000
 mkdir granules
-t.rast.out.vtk -g input=temperature directory=granules null=-9999 \
-    where="start_time &gt;= '2026-03-02'"
+t.rast.out.vtk -g input=temperature_gaps directory=granules null=-9999 \
+    where="start_time &gt;= '2020-02-01'"
 ls granules
-tail -n 2 granules/000002_temperature.vtk | sed 's/ *$//'
+tail -n 2 granules/000002_temperature_gaps.vtk | sed 's/ *$//'
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
-000003_temperature.vtk
+000000_temperature_gaps.vtk
+000001_temperature_gaps.vtk
+000002_temperature_gaps.vtk
+000003_temperature_gaps.vtk
 -9999.000000000000 -9999.000000000000 -9999.000000000000
 -9999.000000000000 -9999.000000000000 -9999.000000000000
 </pre></div>
@@ -286,38 +319,47 @@ tail -n 2 granules/000002_temperature.vtk | sed 's/ *$//'
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
+tools.t_create(
+    output="temperature_gaps",
+    title="Air temperature with a gap",
+    description="Monthly mean air temperature 2020 without March",
+)
+tools.t_register(
+    input="temperature_gaps",
+    maps="temperature_monthly_2020_01,temperature_monthly_2020_02,"
+    "temperature_monthly_2020_04",
+)
+tools.g_region(n=210000, s=208000, w=600000, e=603000, res=1000)
 Path("granules").mkdir()
 tools.t_rast_out_vtk(
-    input="temperature",
+    input="temperature_gaps",
     directory="granules",
     flags="g",
     null=-9999,
-    where="start_time &gt;= '2026-03-02'",
+    where="start_time &gt;= '2020-02-01'",
 )
 print("\n".join(sorted(path.name for path in Path("granules").iterdir())))
-lines = Path("granules/000002_temperature.vtk").read_text().splitlines()
+lines = Path("granules/000002_temperature_gaps.vtk").read_text().splitlines()
 print("\n".join(line.rstrip() for line in lines[-2:]))
 </pre></div>
 
 <div class="code"><pre>
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
-000003_temperature.vtk
+000000_temperature_gaps.vtk
+000001_temperature_gaps.vtk
+000002_temperature_gaps.vtk
+000003_temperature_gaps.vtk
 -9999.000000000000 -9999.000000000000 -9999.000000000000
 -9999.000000000000 -9999.000000000000 -9999.000000000000
 </pre></div>
 
 <h3>Draw the maps as a surface</h3>
 
-The map <code>elevation</code> has the value <code>100 * row + column</code>: 101, 102, 103 in the
-northern row and 201, 202, 203 in the southern one. With <b>elevation</b> the
-files hold a surface (<code>DATASET POLYDATA</code>) instead of a grid of cells: six
-points, one at the centre of each cell with the elevation as the third
-coordinate, listed from the southern row, and two quadrilaterals (<code>POLYGONS 2
-10</code>) between them. Each quadrilateral lists four point numbers, counted from 0.
-The values follow with <code>POINT_DATA</code>. The example writes the first map only, the
-one with the values 11 to 23.
+With <b>elevation</b> the files hold a surface (<code>DATASET POLYDATA</code>) instead of a
+grid of cells: six points, one at the centre of each cell with the elevation
+of <code>elev_state_500m</code> in metres as the third coordinate, listed from the
+southern row, and two quadrilaterals (<code>POLYGONS 2 10</code>) between them. Each
+quadrilateral lists four point numbers, counted from 0. The values follow with
+<code>POINT_DATA</code>. The example writes the January map only.
 
 <p>
 The second block repeats the call with <b>-p</b> into another directory and
@@ -327,11 +369,12 @@ changes nothing for a surface.
 <p>Command line:</p>
 
 <div class="code"><pre>
-r.mapcalc expression="elevation = 100 * row() + col()"
+g.region n=210000 s=208000 w=600000 e=603000 res=1000
 mkdir surface surface_p
-t.rast.out.vtk input=temperature directory=surface elevation=elevation \
-    where="name = 'temperature_1'" null=-9999
-grep -v SCALARS surface/000000_temperature.vtk | sed 's/ *$//'
+t.rast.out.vtk input=temperature_monthly directory=surface \
+    elevation=elev_state_500m \
+    where="name = 'temperature_monthly_2020_01'" null=-9999
+grep -v SCALARS surface/000000_temperature_monthly.vtk | sed 's/ *$//'
 </pre></div>
 
 <div class="code"><pre>
@@ -340,26 +383,27 @@ GRASS 8 Export
 ASCII
 DATASET POLYDATA
 POINTS 6 float
-0.500000000000 0.500000000000 201.000000000000
-1.500000000000 0.500000000000 202.000000000000
-2.500000000000 0.500000000000 203.000000000000
-0.500000000000 1.500000000000 101.000000000000
-1.500000000000 1.500000000000 102.000000000000
-2.500000000000 1.500000000000 103.000000000000
+600500.000000000000 208500.000000000000 66.440725843200
+601500.000000000000 208500.000000000000 73.203652627200
+602500.000000000000 208500.000000000000 65.847543590400
+600500.000000000000 209500.000000000000 94.675374580800
+601500.000000000000 209500.000000000000 78.346650316800
+602500.000000000000 209500.000000000000 75.891428100000
 POLYGONS 2 10
 4 0 1 4 3
 4 1 2 5 4
 POINT_DATA 6
 LOOKUP_TABLE default
-21.000000000000 22.000000000000 23.000000000000
-11.000000000000 12.000000000000 13.000000000000
+5.100000000000 5.100000000000 5.100000000000
+4.900000000000 5.100000000000 5.100000000000
 </pre></div>
 
 <div class="code"><pre>
-t.rast.out.vtk -p input=temperature directory=surface_p \
-    elevation=elevation where="name = 'temperature_1'" null=-9999
-diff &lt;(grep -v SCALARS surface/000000_temperature.vtk) \
-    &lt;(grep -v SCALARS surface_p/000000_temperature.vtk) &amp;&amp; echo same
+t.rast.out.vtk -p input=temperature_monthly directory=surface_p \
+    elevation=elev_state_500m \
+    where="name = 'temperature_monthly_2020_01'" null=-9999
+diff &lt;(grep -v SCALARS surface/000000_temperature_monthly.vtk) \
+    &lt;(grep -v SCALARS surface_p/000000_temperature_monthly.vtk) &amp;&amp; echo same
 </pre></div>
 
 <div class="code"><pre>
@@ -369,17 +413,17 @@ same
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.r_mapcalc(expression="elevation = 100 * row() + col()")
+tools.g_region(n=210000, s=208000, w=600000, e=603000, res=1000)
 Path("surface").mkdir()
 Path("surface_p").mkdir()
 tools.t_rast_out_vtk(
-    input="temperature",
+    input="temperature_monthly",
     directory="surface",
-    elevation="elevation",
-    where="name = 'temperature_1'",
+    elevation="elev_state_500m",
+    where="name = 'temperature_monthly_2020_01'",
     null=-9999,
 )
-lines = Path("surface/000000_temperature.vtk").read_text().splitlines()
+lines = Path("surface/000000_temperature_monthly.vtk").read_text().splitlines()
 surface = [line for line in lines if not line.startswith("SCALARS")]
 print("\n".join(line.rstrip() for line in surface))
 </pre></div>
@@ -390,31 +434,32 @@ GRASS 8 Export
 ASCII
 DATASET POLYDATA
 POINTS 6 float
-0.500000000000 0.500000000000 201.000000000000
-1.500000000000 0.500000000000 202.000000000000
-2.500000000000 0.500000000000 203.000000000000
-0.500000000000 1.500000000000 101.000000000000
-1.500000000000 1.500000000000 102.000000000000
-2.500000000000 1.500000000000 103.000000000000
+600500.000000000000 208500.000000000000 66.440725843200
+601500.000000000000 208500.000000000000 73.203652627200
+602500.000000000000 208500.000000000000 65.847543590400
+600500.000000000000 209500.000000000000 94.675374580800
+601500.000000000000 209500.000000000000 78.346650316800
+602500.000000000000 209500.000000000000 75.891428100000
 POLYGONS 2 10
 4 0 1 4 3
 4 1 2 5 4
 POINT_DATA 6
 LOOKUP_TABLE default
-21.000000000000 22.000000000000 23.000000000000
-11.000000000000 12.000000000000 13.000000000000
+5.100000000000 5.100000000000 5.100000000000
+4.900000000000 5.100000000000 5.100000000000
 </pre></div>
 
 <div class="code"><pre>
 tools.t_rast_out_vtk(
-    input="temperature",
+    input="temperature_monthly",
     directory="surface_p",
-    elevation="elevation",
-    where="name = 'temperature_1'",
+    elevation="elev_state_500m",
+    where="name = 'temperature_monthly_2020_01'",
     null=-9999,
     flags="p",
 )
-lines = Path("surface_p/000000_temperature.vtk").read_text().splitlines()
+path = Path("surface_p/000000_temperature_monthly.vtk")
+lines = path.read_text().splitlines()
 if [line for line in lines if not line.startswith("SCALARS")] == surface:
     print("same")
 </pre></div>
@@ -423,71 +468,77 @@ if [line for line in lines if not line.startswith("SCALARS")] == surface:
 same
 </pre></div>
 
-<h3>Point data and coordinates in a large coordinate system</h3>
+<h3>Point data and coordinates of the project</h3>
 
-The region moves to the coordinates 1000 to 1003 and 2000 to 2002, as in a
-project with a projected coordinate system, and the call writes the first map
-four times: without flag, with <b>-p</b>, with <b>-c</b> and with both. Each call
-prints the lines 5 to 8 of the first file, which hold the number of points, the
-spacing, the origin and the kind of data.
+The coordinates of the window are large, as in every project with a
+projected coordinate system. The call writes the January map four times:
+without flag, with <b>-p</b>, with <b>-c</b> and with both. Each call prints the
+lines 5 to 8 of the first file, which hold the number of points, the spacing,
+the origin and the kind of data.
 
 <p>
 Without a flag the file holds cells: 4 by 3 points and the origin in the
-south-west corner, 1000 and 2000. With <b>-p</b> it holds points: 3 by 2 points
-and the origin at the centre of the south-west cell, 1000.5 and 2000.5. The
-default region of a new project is the square from 0 to 1, so its centre is
-0.5; the values below depend on it (<code>g.region -d -p</code> shows the default region
-of another project).
-<b>-c</b> moves the origin by this value: 999.5 and 1999.5 for the cells, and 1000
-and 2000 for the points. The last block sets the region back.
+south-west corner of the window, 600000 and 208000. With <b>-p</b> it holds
+points: 3 by 2 points and the origin at the centre of the south-west cell,
+600500 and 208500. The first command prints the default region of the project
+(<code>g.region -d -u -g</code>; <b>-u</b> leaves the current region as it is). Its centre
+is 527500 and 165000, the mean of the west and east and of the south and north
+values. <b>-c</b> moves the origin by this value: 72500 and 43000 for the cells,
+and 73000 and 43500 for the points. The values depend on the default region
+of the project, which is the same in the sample dataset and its full version.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2002 s=2000 w=1000 e=1003 res=1
+g.region -d -u -g | grep -E "^[nswe]="
 mkdir plain points corrected both
-t.rast.out.vtk input=temperature directory=plain null=-9999 \
-    where="name = 'temperature_1'"
-t.rast.out.vtk -p input=temperature directory=points null=-9999 \
-    where="name = 'temperature_1'"
-t.rast.out.vtk -c input=temperature directory=corrected null=-9999 \
-    where="name = 'temperature_1'"
-t.rast.out.vtk -p -c input=temperature directory=both null=-9999 \
-    where="name = 'temperature_1'"
+t.rast.out.vtk input=temperature_monthly directory=plain null=-9999 \
+    where="name = 'temperature_monthly_2020_01'"
+t.rast.out.vtk -p input=temperature_monthly directory=points null=-9999 \
+    where="name = 'temperature_monthly_2020_01'"
+t.rast.out.vtk -c input=temperature_monthly directory=corrected null=-9999 \
+    where="name = 'temperature_monthly_2020_01'"
+t.rast.out.vtk -p -c input=temperature_monthly directory=both null=-9999 \
+    where="name = 'temperature_monthly_2020_01'"
 for directory in plain points corrected both; do
     echo $directory
-    sed -n 5,8p $directory/000000_temperature.vtk
+    sed -n 5,8p $directory/000000_temperature_monthly.vtk
 done
-g.region n=2 s=0 e=3 w=0 res=1
 </pre></div>
 
 <div class="code"><pre>
+n=320000
+s=10000
+w=120000
+e=935000
 plain
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.000000 2000.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600000.000000 208000.000000 0.000000
 CELL_DATA 6
 points
 DIMENSIONS 3 2 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.500000 2000.500000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600500.000000 208500.000000 0.000000
 POINT_DATA 6
 corrected
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 999.500000 1999.500000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 72500.000000 43000.000000 0.000000
 CELL_DATA 6
 both
 DIMENSIONS 3 2 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.000000 2000.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 73000.000000 43500.000000 0.000000
 POINT_DATA 6
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_region(n=2002, s=2000, w=1000, e=1003, res=1)
+default_region = tools.g_region(flags="dug").keyval
+for key in ("n", "s", "w", "e"):
+    print(f"{key}={default_region[key]}")
 for directory, flags in (
     ("plain", ""),
     ("points", "p"),
@@ -496,38 +547,41 @@ for directory, flags in (
 ):
     Path(directory).mkdir()
     tools.t_rast_out_vtk(
-        input="temperature",
+        input="temperature_monthly",
         directory=directory,
         flags=flags,
         null=-9999,
-        where="name = 'temperature_1'",
+        where="name = 'temperature_monthly_2020_01'",
     )
     print(directory)
-    lines = Path(directory, "000000_temperature.vtk").read_text().splitlines()
-    print("\n".join(lines[4:8]))
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    path = Path(directory, "000000_temperature_monthly.vtk")
+    print("\n".join(path.read_text().splitlines()[4:8]))
 </pre></div>
 
 <div class="code"><pre>
+n=320000
+s=10000
+w=120000
+e=935000
 plain
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.000000 2000.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600000.000000 208000.000000 0.000000
 CELL_DATA 6
 points
 DIMENSIONS 3 2 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.500000 2000.500000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 600500.000000 208500.000000 0.000000
 POINT_DATA 6
 corrected
 DIMENSIONS 4 3 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 999.500000 1999.500000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 72500.000000 43000.000000 0.000000
 CELL_DATA 6
 both
 DIMENSIONS 3 2 1
-SPACING 1.000000 1.000000 0.000000
-ORIGIN 1000.000000 2000.000000 0.000000
+SPACING 1000.000000 1000.000000 0.000000
+ORIGIN 73000.000000 43500.000000 0.000000
 POINT_DATA 6
 </pre></div>
 
@@ -542,16 +596,14 @@ is as it was. The call with <b>--overwrite</b> replaces the files.
 <p>Command line:</p>
 
 <div class="code"><pre>
-t.rast.out.vtk input=temperature directory=vtk 2&gt;&amp;1 | grep "exists" || true
-t.rast.out.vtk --overwrite input=temperature directory=vtk
-ls vtk
+t.rast.out.vtk input=temperature_monthly directory=vtk 2&gt;&amp;1 | grep "exists" || true
+t.rast.out.vtk --overwrite input=temperature_monthly directory=vtk
+ls vtk | wc -l
 </pre></div>
 
 <div class="code"><pre>
-ERROR: option &lt;output&gt;: &lt;000000_temperature.vtk&gt; exists. To overwrite, use the --overwrite flag
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
+ERROR: option &lt;output&gt;: &lt;000000_temperature_monthly.vtk&gt; exists. To overwrite, use the --overwrite flag
+12
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -560,76 +612,88 @@ ERROR: option &lt;output&gt;: &lt;000000_temperature.vtk&gt; exists. To overwrit
 from grass.tools import ToolError
 
 try:
-    tools.t_rast_out_vtk(input="temperature", directory="vtk")
+    tools.t_rast_out_vtk(input="temperature_monthly", directory="vtk")
 except ToolError as error:
     print([line for line in error.stderr.splitlines() if "exists" in line][0])
-tools.t_rast_out_vtk(input="temperature", directory="vtk", overwrite=True)
-print("\n".join(sorted(path.name for path in Path("vtk").iterdir())))
+tools.t_rast_out_vtk(input="temperature_monthly", directory="vtk", overwrite=True)
+print(len(list(Path("vtk").iterdir())))
 </pre></div>
 
 <div class="code"><pre>
-ERROR: option &lt;output&gt;: &lt;000000_temperature.vtk&gt; exists. To overwrite, use the --overwrite flag
-000000_temperature.vtk
-000001_temperature.vtk
-000002_temperature.vtk
+ERROR: option &lt;output&gt;: &lt;000000_temperature_monthly.vtk&gt; exists. To overwrite, use the --overwrite flag
+12
 </pre></div>
 
 <h3>Write a dataset of another mapset with relative time</h3>
 
-The dataset <code>model</code> has relative time and two maps in the mapset <code>PERMANENT</code>. The
-example switches to the mapset <code>analysis</code>, which has the default region, so it
-sets the region of the maps again. The call names the dataset with its mapset.
-The files are numbered as for absolute time.
+The dataset <code>runoff</code> has relative time and two maps with the constant values 1
+and 2 in the mapset <code>t_rast_out_vtk</code>: the simulated runoff in millimetres in
+model hours 0 to 1 and 1 to 2. The example switches to the mapset
+<code>t_rast_out_vtk_2</code>, which starts with the default region of the sample
+dataset, so it sets the region again. The mapset <code>t_rast_out_vtk</code> is added to
+the search path, and the call names the dataset with its mapset. The files are
+numbered as for absolute time.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-r.mapcalc expression="step_1 = 1"
-r.mapcalc expression="step_2 = 2"
-t.create output=model temporaltype=relative title="Model" \
-    description="Model output per step"
-t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
-g.mapset -c mapset=analysis
-g.region n=2 s=0 e=3 w=0 res=1
+for step in 1 2; do
+    r.mapcalc expression="runoff_$step = $step"
+done
+t.create output=runoff temporaltype=relative title="Runoff" \
+    description="Simulated runoff in mm per model hour"
+t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 unit=hours
+g.mapset -c mapset=t_rast_out_vtk_2
+g.region raster=elev_state_500m res=1000 -a
+g.mapsets mapset=t_rast_out_vtk operation=add
+g.region n=210000 s=208000 w=600000 e=603000 res=1000
 mkdir model
-t.rast.out.vtk input=model@PERMANENT directory=model
+t.rast.out.vtk input=runoff@t_rast_out_vtk directory=model
 ls model
 </pre></div>
 
 <div class="code"><pre>
-000000_model.vtk
-000001_model.vtk
+000000_runoff.vtk
+000001_runoff.vtk
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.r_mapcalc(expression="step_1 = 1")
-tools.r_mapcalc(expression="step_2 = 2")
+for step in (1, 2):
+    tools.r_mapcalc(expression=f"runoff_{step} = {step}")
 tools.t_create(
-    output="model",
+    output="runoff",
     temporaltype="relative",
-    title="Model",
-    description="Model output per step",
+    title="Runoff",
+    description="Simulated runoff in mm per model hour",
 )
 tools.t_register(
-    input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+    input="runoff",
+    maps="runoff_1,runoff_2",
+    start=0,
+    increment=1,
+    unit="hours",
+    flags="i",
 )
-tools.g_mapset(flags="c", mapset="analysis")
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.g_mapset(flags="c", mapset="t_rast_out_vtk_2")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+tools.g_mapsets(mapset="t_rast_out_vtk", operation="add")
+tools.g_region(n=210000, s=208000, w=600000, e=603000, res=1000)
 Path("model").mkdir()
-tools.t_rast_out_vtk(input="model@PERMANENT", directory="model")
+tools.t_rast_out_vtk(input="runoff@t_rast_out_vtk", directory="model")
 print("\n".join(sorted(path.name for path in Path("model").iterdir())))
 </pre></div>
 
 <div class="code"><pre>
-000000_model.vtk
-000001_model.vtk
+000000_runoff.vtk
+000001_runoff.vtk
 </pre></div>
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.out.vtk.html">r.out.vtk</a>,
+<em><a href="g.mapset.html">g.mapset</a>, <a href="g.mapsets.html">g.mapsets</a>,
+<a href="g.region.html">g.region</a>, <a href="r.out.vtk.html">r.out.vtk</a>,
 <a href="t.create.html">t.create</a>, <a href="t.rast.export.html">t.rast.export</a>,
 <a href="t.register.html">t.register</a>,
 <a href="temporalintro.html">temporal data processing</a></em>
