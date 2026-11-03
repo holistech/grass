@@ -425,6 +425,19 @@ whose subject is the IO that is cached. A tool started as a subprocess never
 sees the caches, because they live in the test process; the marker matters only
 for the in-process part of such a test.
 
+## Tests that need the North Carolina sample dataset
+
+The manual tests of the temporal framework (`temporal/tests`) and a few tests
+in `python/grass/temporal/tests` run their examples on the North Carolina sample
+dataset. They look for it in the folder named by the environment variable
+`GRASS_TEMPORAL_TEST_NC_SPM`; without the variable they take
+`~/grassdata/nc_spm_08_grass7` and then `~/grassdata/nc_spm_full_v2beta1`. When
+none is found, the tests fail with a message instead of being skipped. Download
+the dataset from
+<https://grass.osgeo.org/sampledata/north_carolina/nc_spm_08_grass7.zip>. The
+tests only read it: they work in a temporary project and fail if the dataset
+changes.
+
 ## More information
 
 - [grass.gunittest documentation](https://grass.osgeo.org/grass-devel/manuals/libpython/gunittest_testing.html)
