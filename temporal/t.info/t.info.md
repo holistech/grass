@@ -35,7 +35,7 @@ the history, whether **-g** or **-d** is given or not.
 The report is a box of sections. A line shows a label, dots, and a value.
 
 The section *Basic information* starts with the lines `Id` (name and mapset,
-`temperature@PERMANENT`), `Name` and `Mapset`. `Creator` is the user who
+`temperature_monthly@t_info`), `Name` and `Mapset`. `Creator` is the user who
 created the dataset, `Temporal type` is `absolute` or `relative`, `Creation
 time` and `Modification time` are the times at which the dataset was created
 and last changed in the database, and `Semantic type` is the label given
@@ -46,7 +46,7 @@ temporal type. `Start time` is the earliest start and `End time` the latest
 end of the registered maps; with absolute time they are dates and times, with
 relative time numbers, and the line `Relative time unit` names the unit of
 those numbers. `Granularity` is the step in which the time of the dataset can
-be counted: `1 day` for maps that are one day long and follow each other
+be counted: `1 month` for maps that are one month long and follow each other
 without gap; with relative time it is a number of the unit, in the example `6`
 for maps that are 6 hours long. With maps of different lengths or gaps between
 them, it is the greatest common divisor of the lengths and gaps, as in the
@@ -185,21 +185,36 @@ columns=name,semantic_label`.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_info`, sets the computational region to North
+Carolina with cells of 1 km and generates the space time dataset
+`temperature_monthly`: twelve maps of the monthly mean air temperature of
+2020 in degrees Celsius, computed from the elevation model `elev_state_500m`,
+not measured. The later examples work in this mapset and region. *t.info* only
+reads the temporal database, so the datasets that show the special cases (relative
+time, mixed time, no maps, semantic labels) hold small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_info -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Report on a space time dataset
 
-The dataset `temperature` holds three maps of daily mean air temperature on a
-region of two rows and three columns. The helper map `cell_number` numbers the
-cells from 1 to 6, so the values can be followed: `temperature_1` holds -2 to
-3, `temperature_2` holds 1 to 6 and `temperature_3` holds 4 to 9. The maps are
-registered as daily intervals from 1 March 2026.
+The dataset `temperature_monthly` holds the twelve monthly maps of 2020. The
+temperature falls by 6.5 degrees per 1000 m of elevation and by 1 degree per
+100 km to the north, and follows a yearly cycle with the maximum in July. The
+maps are registered as monthly intervals from 1 January 2020. A file lists
+their names, so that the command history shows the file instead of the twelve
+names.
 
-The report shows the extent in time of the dataset (1 to 4 March, the end of
-the last interval), the granularity `1 day`, and the extent of the region. The
-smallest of the minima is -2, the largest of the minima is 4, the smallest of
-the maxima is 3 and the largest of the maxima is 9. The command history lists
-the two commands that built the dataset.
+The report shows the extent in time of the dataset (1 January 2020 to 1
+January 2021, the end of the last interval), the granularity `1 month` and the
+extent of the region, 839 columns by 335 rows of 1000 m. The smallest of the
+minima is -7.0 degrees (January, in the mountains), the largest of the minima
+is 13.9 (July), the smallest of the maxima is 7.5 (January) and the largest of
+the maxima is 28.4 (July). The command history lists the two commands that
+built the dataset.
 
 The Python tab prints `result.stdout` unchanged; `result.text` would remove
 the blank at the start of the first line.
@@ -207,70 +222,72 @@ the blank at the start of the first line.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="cell_number = 3 * (row() - 1) + col()"
-    r.mapcalc expression="temperature_1 = cell_number - 3"
-    r.mapcalc expression="temperature_2 = cell_number"
-    r.mapcalc expression="temperature_3 = cell_number + 3"
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature in degrees Celsius"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3 \
-        start=2026-03-01 increment="1 day"
-    t.info input=temperature
+    g.mapset -c mapset=t_info
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degrees Celsius"
+    g.list type=raster pattern="temperature_monthly_*" mapset=. > maps.txt
+    t.register -i input=temperature_monthly file=maps.txt \
+        start=2020-01-01 increment="1 month"
+    t.info input=temperature_monthly
     ```
 
     ```text
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature@PERMANENT
-     | Name: ...................... temperature
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly@t_info
+     | Name: ...................... temperature_monthly
+     | Mapset: .................... t_info
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
      | Semantic type:.............. mean
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-01 00:00:00
-     | End time:................... 2026-03-04 00:00:00
-     | Granularity:................ 1 day
+     | Start time:................. 2020-01-01 00:00:00
+     | End time:................... 2021-01-01 00:00:00
+     | Granularity:................ 1 month
      | Temporal type of maps:...... interval
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Raster register table:...... raster_map_register_00000000000000000000000000000000
-     | North-South resolution min:. 1.0
-     | North-South resolution max:. 1.0
-     | East-west resolution min:... 1.0
-     | East-west resolution max:... 1.0
-     | Minimum value min:.......... -2.0
-     | Minimum value max:.......... 4.0
-     | Maximum value min:.......... 3.0
-     | Maximum value max:.......... 9.0
+     | North-South resolution min:. 1000.0
+     | North-South resolution max:. 1000.0
+     | East-west resolution min:... 1000.0
+     | East-west resolution max:... 1000.0
+     | Minimum value min:.......... -7.0
+     | Minimum value max:.......... 13.9
+     | Maximum value min:.......... 7.5
+     | Maximum value max:.......... 28.4
      | Aggregation type:........... None
      | Number of semantic labels:.. 0
      | Semantic labels:............ None
-     | Number of registered maps:.. 3
+     | Number of registered maps:.. 12
      |
      | Title:
      | Air temperature
      | Description:
-     | Daily mean air temperature in degrees Celsius
+     | Monthly mean air temperature 2020 in degrees Celsius
      | Command history:
      | # 2026-11-01 12:00:00 
-     | t.create output="temperature" title="Air temperature"
-     |     description="Daily mean air temperature in degrees Celsius"
+     | t.create output="temperature_monthly"
+     |     title="Air temperature"
+     |     description="Monthly mean air temperature 2020 in degrees Celsius"
      | # 2026-11-01 12:00:00 
-     | t.register -i input="temperature"
-     |     maps="temperature_1,temperature_2,temperature_3" start="2026-03-01"
-     |     increment="1 day"
+     | t.register -i input="temperature_monthly"
+     |     file="maps.txt" start="2020-01-01" increment="1 month"
      | 
      +----------------------------------------------------------------------------+
     ```
@@ -278,27 +295,38 @@ the blank at the start of the first line.
 === "Python (grass.tools)"
 
     ```python
+    from pathlib import Path
+
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    tools.r_mapcalc(expression="cell_number = 3 * (row() - 1) + col()")
-    tools.r_mapcalc(expression="temperature_1 = cell_number - 3")
-    tools.r_mapcalc(expression="temperature_2 = cell_number")
-    tools.r_mapcalc(expression="temperature_3 = cell_number + 3")
+    tools.g_mapset(flags="c", mapset="t_info")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature",
+        output="temperature_monthly",
         title="Air temperature",
-        description="Daily mean air temperature in degrees Celsius",
+        description="Monthly mean air temperature 2020 in degrees Celsius",
+    )
+    Path("maps.txt").write_text(
+        "".join(f"temperature_monthly_2020_{month:02d}\n" for month in months)
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_monthly",
+        file="maps.txt",
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
-    result = tools.t_info(input="temperature")
+    result = tools.t_info(input="temperature_monthly")
     print(result.stdout, end="")
     ```
 
@@ -306,109 +334,109 @@ the blank at the start of the first line.
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature@PERMANENT
-     | Name: ...................... temperature
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly@t_info
+     | Name: ...................... temperature_monthly
+     | Mapset: .................... t_info
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
      | Semantic type:.............. mean
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-01 00:00:00
-     | End time:................... 2026-03-04 00:00:00
-     | Granularity:................ 1 day
+     | Start time:................. 2020-01-01 00:00:00
+     | End time:................... 2021-01-01 00:00:00
+     | Granularity:................ 1 month
      | Temporal type of maps:...... interval
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Raster register table:...... raster_map_register_00000000000000000000000000000000
-     | North-South resolution min:. 1.0
-     | North-South resolution max:. 1.0
-     | East-west resolution min:... 1.0
-     | East-west resolution max:... 1.0
-     | Minimum value min:.......... -2.0
-     | Minimum value max:.......... 4.0
-     | Maximum value min:.......... 3.0
-     | Maximum value max:.......... 9.0
+     | North-South resolution min:. 1000.0
+     | North-South resolution max:. 1000.0
+     | East-west resolution min:... 1000.0
+     | East-west resolution max:... 1000.0
+     | Minimum value min:.......... -7.0
+     | Minimum value max:.......... 13.9
+     | Maximum value min:.......... 7.5
+     | Maximum value max:.......... 28.4
      | Aggregation type:........... None
      | Number of semantic labels:.. 0
      | Semantic labels:............ None
-     | Number of registered maps:.. 3
+     | Number of registered maps:.. 12
      |
      | Title:
      | Air temperature
      | Description:
-     | Daily mean air temperature in degrees Celsius
+     | Monthly mean air temperature 2020 in degrees Celsius
      | Command history:
      | # 2026-11-01 12:00:00 
-     | t.create output="temperature" title="Air temperature"
-     |     description="Daily mean air temperature in degrees Celsius"
+     | t.create output="temperature_monthly"
+     |     title="Air temperature"
+     |     description="Monthly mean air temperature 2020 in degrees Celsius"
      | # 2026-11-01 12:00:00 
-     | t.register -i input="temperature"
-     |     maps="temperature_1,temperature_2,temperature_3" start="2026-03-01"
-     |     increment="1 day"
+     | t.register -i input="temperature_monthly"
+     |     file="maps.txt" start="2020-01-01" increment="1 month"
      | 
      +----------------------------------------------------------------------------+
     ```
 
 ### Report on a map
 
-**type** selects a map instead of a dataset. The map `temperature_2` holds the
-values 1 to 6 and covers 2 March 2026; the report shows the extent of the
-region, the data type `CELL`, the six cells in three columns and two rows, the
-smallest and the largest value, and the dataset it is registered in,
-`temperature`. Its time is the interval of 2 March 2026.
+**type** selects a map instead of a dataset. The map `temperature_monthly_2020_07`
+covers July 2020, from 1 July to 1 August. The report shows the extent of the
+region, the data type `DCELL`, the 839 columns and 335 rows (281065 cells), the
+smallest and the largest value of July, 13.9 and 28.4 degrees, and the dataset
+the map is registered in, `temperature_monthly`.
 
 === "Command line"
 
     ```sh
-    t.info type=raster input=temperature_2
+    t.info type=raster input=temperature_monthly_2020_07
     ```
 
     ```text
      +-------------------- Raster Dataset ----------------------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature_2@PERMANENT
-     | Name: ...................... temperature_2
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly_2020_07@t_info
+     | Name: ...................... temperature_monthly_2020_07
+     | Mapset: .................... t_info
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-02 00:00:00
-     | End time:................... 2026-03-03 00:00:00
+     | Start time:................. 2020-07-01 00:00:00
+     | End time:................... 2020-08-01 00:00:00
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
-     | Datatype:................... CELL
-     | Number of columns:.......... 3
-     | Number of rows:............. 2
-     | Number of cells:............ 6
-     | North-South resolution:..... 1.0
-     | East-west resolution:....... 1.0
-     | Minimum value:.............. 1.0
-     | Maximum value:.............. 6.0
+     | Datatype:................... DCELL
+     | Number of columns:.......... 839
+     | Number of rows:............. 335
+     | Number of cells:............ 281065
+     | North-South resolution:..... 1000.0
+     | East-west resolution:....... 1000.0
+     | Minimum value:.............. 13.9
+     | Maximum value:.............. 28.4
      | Semantic label:............. None
-     | Registered datasets ........ temperature@PERMANENT
+     | Registered datasets ........ temperature_monthly@t_info
      +----------------------------------------------------------------------------+
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_info(type="raster", input="temperature_2")
+    result = tools.t_info(type="raster", input="temperature_monthly_2020_07")
     print(result.stdout, end="")
     ```
 
@@ -416,33 +444,33 @@ smallest and the largest value, and the dataset it is registered in,
      +-------------------- Raster Dataset ----------------------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ temperature_2@PERMANENT
-     | Name: ...................... temperature_2
-     | Mapset: .................... PERMANENT
+     | Id: ........................ temperature_monthly_2020_07@t_info
+     | Name: ...................... temperature_monthly_2020_07
+     | Mapset: .................... t_info
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-02 00:00:00
-     | End time:................... 2026-03-03 00:00:00
+     | Start time:................. 2020-07-01 00:00:00
+     | End time:................... 2020-08-01 00:00:00
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 2.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 319000.0
+     | South:...................... -16000.0
+     | East:.. .................... 963000.0
+     | West:....................... 124000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
-     | Datatype:................... CELL
-     | Number of columns:.......... 3
-     | Number of rows:............. 2
-     | Number of cells:............ 6
-     | North-South resolution:..... 1.0
-     | East-west resolution:....... 1.0
-     | Minimum value:.............. 1.0
-     | Maximum value:.............. 6.0
+     | Datatype:................... DCELL
+     | Number of columns:.......... 839
+     | Number of rows:............. 335
+     | Number of cells:............ 281065
+     | North-South resolution:..... 1000.0
+     | East-west resolution:....... 1000.0
+     | Minimum value:.............. 13.9
+     | Maximum value:.............. 28.4
      | Semantic label:............. None
-     | Registered datasets ........ temperature@PERMANENT
+     | Registered datasets ........ temperature_monthly@t_info
      +----------------------------------------------------------------------------+
     ```
 
@@ -458,72 +486,72 @@ examples as well; with a set of keys, it prints only these.
 === "Command line"
 
     ```sh
-    t.info -g input=temperature
+    t.info -g input=temperature_monthly
     ```
 
     ```text
-    id=temperature@PERMANENT
-    name=temperature
-    mapset=PERMANENT
+    id=temperature_monthly@t_info
+    name=temperature_monthly
+    mapset=t_info
     creator=user
     temporal_type=absolute
     creation_time='2026-11-01 12:00:00'
     modification_time='2026-11-01 12:00:00'
     semantic_type=mean
-    start_time='2026-03-01 00:00:00'
-    end_time='2026-03-04 00:00:00'
-    granularity='1 day'
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    granularity='1 month'
     map_time=interval
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     top=0.0
     bottom=0.0
     raster_register=raster_map_register_00000000000000000000000000000000
-    nsres_min=1.0
-    nsres_max=1.0
-    ewres_min=1.0
-    ewres_max=1.0
-    min_min=-2.0
-    min_max=4.0
-    max_min=3.0
-    max_max=9.0
+    nsres_min=1000.0
+    nsres_max=1000.0
+    ewres_min=1000.0
+    ewres_max=1000.0
+    min_min=-7.0
+    min_max=13.9
+    max_min=7.5
+    max_max=28.4
     aggregation_type=None
     number_of_semantic_labels=0
     semantic_labels=None
-    number_of_maps=3
+    number_of_maps=12
     ```
 
     ```sh
-    t.info -g type=raster input=temperature_2
+    t.info -g type=raster input=temperature_monthly_2020_07
     ```
 
     ```text
-    id=temperature_2@PERMANENT
-    name=temperature_2
-    mapset=PERMANENT
+    id=temperature_monthly_2020_07@t_info
+    name=temperature_monthly_2020_07
+    mapset=t_info
     creator=user
     temporal_type=absolute
     creation_time='2026-11-01 12:00:00'
-    start_time='2026-03-02 00:00:00'
-    end_time='2026-03-03 00:00:00'
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
+    start_time='2020-07-01 00:00:00'
+    end_time='2020-08-01 00:00:00'
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     top=0.0
     bottom=0.0
-    datatype=CELL
-    cols=3
-    rows=2
-    number_of_cells=6
-    nsres=1.0
-    ewres=1.0
-    min=1.0
-    max=6.0
+    datatype=DCELL
+    cols=839
+    rows=335
+    number_of_cells=281065
+    nsres=1000.0
+    ewres=1000.0
+    min=13.9
+    max=28.4
     semantic_label=None
-    registered_datasets=temperature@PERMANENT
+    registered_datasets=temperature_monthly@t_info
     ```
 
 === "Python (grass.tools)"
@@ -535,72 +563,72 @@ examples as well; with a set of keys, it prints only these.
                 print(f"{key}={value}")
 
 
-    print_keys(tools.t_info(input="temperature", flags="g"))
+    print_keys(tools.t_info(input="temperature_monthly", flags="g"))
     ```
 
     ```text
-    id=temperature@PERMANENT
-    name=temperature
-    mapset=PERMANENT
+    id=temperature_monthly@t_info
+    name=temperature_monthly
+    mapset=t_info
     creator=user
     temporal_type=absolute
     creation_time='2026-11-01 12:00:00'
     modification_time='2026-11-01 12:00:00'
     semantic_type=mean
-    start_time='2026-03-01 00:00:00'
-    end_time='2026-03-04 00:00:00'
-    granularity='1 day'
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    granularity='1 month'
     map_time=interval
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     top=0.0
     bottom=0.0
     raster_register=raster_map_register_00000000000000000000000000000000
-    nsres_min=1.0
-    nsres_max=1.0
-    ewres_min=1.0
-    ewres_max=1.0
-    min_min=-2.0
-    min_max=4.0
-    max_min=3.0
-    max_max=9.0
+    nsres_min=1000.0
+    nsres_max=1000.0
+    ewres_min=1000.0
+    ewres_max=1000.0
+    min_min=-7.0
+    min_max=13.9
+    max_min=7.5
+    max_max=28.4
     aggregation_type=None
     number_of_semantic_labels=0
     semantic_labels=None
-    number_of_maps=3
+    number_of_maps=12
     ```
 
     ```python
-    print_keys(tools.t_info(type="raster", input="temperature_2", flags="g"))
+    print_keys(tools.t_info(type="raster", input="temperature_monthly_2020_07", flags="g"))
     ```
 
     ```text
-    id=temperature_2@PERMANENT
-    name=temperature_2
-    mapset=PERMANENT
+    id=temperature_monthly_2020_07@t_info
+    name=temperature_monthly_2020_07
+    mapset=t_info
     creator=user
     temporal_type=absolute
     creation_time='2026-11-01 12:00:00'
-    start_time='2026-03-02 00:00:00'
-    end_time='2026-03-03 00:00:00'
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
+    start_time='2020-07-01 00:00:00'
+    end_time='2020-08-01 00:00:00'
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     top=0.0
     bottom=0.0
-    datatype=CELL
-    cols=3
-    rows=2
-    number_of_cells=6
-    nsres=1.0
-    ewres=1.0
-    min=1.0
-    max=6.0
+    datatype=DCELL
+    cols=839
+    rows=335
+    number_of_cells=281065
+    nsres=1000.0
+    ewres=1000.0
+    min=13.9
+    max=28.4
     semantic_label=None
-    registered_datasets=temperature@PERMANENT
+    registered_datasets=temperature_monthly@t_info
     ```
 
 ### Print the history of a dataset
@@ -614,56 +642,56 @@ header and the id.
 === "Command line"
 
     ```sh
-    t.info -h input=temperature
+    t.info -h input=temperature_monthly
     ```
 
     ```text
     # Title:
     # Air temperature
     # Description:
-    # Daily mean air temperature in degrees Celsius
+    # Monthly mean air temperature 2020 in degrees Celsius
     # Command history:
     # 2026-11-01 12:00:00
-    t.create output="temperature" title="Air temperature" \
-    description="Daily mean air temperature in degrees Celsius" \
+    t.create output="temperature_monthly" \
+    title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degrees Celsius" \
     # 2026-11-01 12:00:00
-    t.register -i input="temperature" \
-    maps="temperature_1,temperature_2,temperature_3" start="2026-03-01" \
-    increment="1 day"
+    t.register -i input="temperature_monthly" \
+    file="maps.txt" start="2020-01-01" increment="1 month"
     ```
 
     ```sh
-    t.info -h type=raster input=temperature_2 | grep -E "Raster Dataset|Id:"
+    t.info -h type=raster input=temperature_monthly_2020_07 | grep -E "Raster Dataset|Id:"
     ```
 
     ```text
      +-------------------- Raster Dataset ----------------------------------------+
-     | Id: ........................ temperature_2@PERMANENT
+     | Id: ........................ temperature_monthly_2020_07@t_info
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    print(tools.t_info(input="temperature", flags="h").text)
+    print(tools.t_info(input="temperature_monthly", flags="h").text)
     ```
 
     ```text
     # Title:
     # Air temperature
     # Description:
-    # Daily mean air temperature in degrees Celsius
+    # Monthly mean air temperature 2020 in degrees Celsius
     # Command history:
     # 2026-11-01 12:00:00
-    t.create output="temperature" title="Air temperature" \
-    description="Daily mean air temperature in degrees Celsius" \
+    t.create output="temperature_monthly" \
+    title="Air temperature" \
+    description="Monthly mean air temperature 2020 in degrees Celsius" \
     # 2026-11-01 12:00:00
-    t.register -i input="temperature" \
-    maps="temperature_1,temperature_2,temperature_3" start="2026-03-01" \
-    increment="1 day"
+    t.register -i input="temperature_monthly" \
+    file="maps.txt" start="2020-01-01" increment="1 month"
     ```
 
     ```python
-    result = tools.t_info(type="raster", input="temperature_2", flags="h")
+    result = tools.t_info(type="raster", input="temperature_monthly_2020_07", flags="h")
     for line in result.stdout.splitlines():
         if "Raster Dataset" in line or "Id:" in line:
             print(line)
@@ -671,7 +699,7 @@ header and the id.
 
     ```text
      +-------------------- Raster Dataset ----------------------------------------+
-     | Id: ........................ temperature_2@PERMANENT
+     | Id: ........................ temperature_monthly_2020_07@t_info
     ```
 
 ### Datasets with relative time, mixed time and no maps
@@ -682,11 +710,12 @@ the granularity is 6, and the unit has a line of its own (`unit` in the shell
 form).
 
 The dataset `mixed` holds the map `early` as an interval of one day and the
-map `late` as a time instance four days later. The two maps lie in different
-parts of the region and have the resolutions 1 and 2. The map time of the
-dataset is `mixed`, its end is the start of the time instance, its extent is
-the bounding box of both maps, and the resolution lines give the smallest and
-the largest resolution. The region is set back afterwards.
+map `late` as a time instance four days later. The two maps cover squares of
+100 km in different parts of North Carolina and have the resolutions 1000 m and
+2000 m. The map time of the dataset is `mixed`, its end is the start of the
+time instance, its extent is the bounding box of both maps, and the resolution
+lines give the smallest and the largest resolution. The region is set back
+afterwards.
 
 The dataset `uneven` has three maps of 4, 6 and 4 days, with a gap of 4 days
 before the last one. Its granularity is the greatest common divisor, 2 days.
@@ -715,27 +744,27 @@ the granularity, so they are `'None'`.
     ```
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
+    g.region n=100000 s=0 e=300000 w=200000 res=1000
     r.mapcalc expression="early = 1"
-    g.region n=6 s=4 e=8 w=4 res=2
+    g.region n=250000 s=150000 e=500000 w=400000 res=2000
     r.mapcalc expression="late = 2"
     t.create output=mixed title="Mixed" description="An interval and a time instance"
     t.register input=mixed maps=early start=2026-03-01 end=2026-03-02
     t.register input=mixed maps=late start=2026-03-05
     t.info -g input=mixed | grep -E "^(start_time|end_time|map_time|north|south|east|west|nsres_min|nsres_max)="
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.region raster=elev_state_500m res=1000 -a
     ```
 
     ```text
     start_time='2026-03-01 00:00:00'
     end_time='2026-03-05 00:00:00'
     map_time=mixed
-    north=6.0
+    north=250000.0
     south=0.0
-    east=8.0
-    west=0.0
-    nsres_min=1.0
-    nsres_max=2.0
+    east=500000.0
+    west=200000.0
+    nsres_min=1000.0
+    nsres_max=2000.0
     ```
 
     ```sh
@@ -803,9 +832,9 @@ the granularity, so they are `'None'`.
     ```
 
     ```python
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
+    tools.g_region(n=100000, s=0, e=300000, w=200000, res=1000)
     tools.r_mapcalc(expression="early = 1")
-    tools.g_region(n=6, s=4, e=8, w=4, res=2)
+    tools.g_region(n=250000, s=150000, e=500000, w=400000, res=2000)
     tools.r_mapcalc(expression="late = 2")
     tools.t_create(
         output="mixed", title="Mixed", description="An interval and a time instance"
@@ -826,19 +855,19 @@ the granularity, so they are `'None'`.
             "nsres_max",
         },
     )
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     ```
 
     ```text
     start_time='2026-03-01 00:00:00'
     end_time='2026-03-05 00:00:00'
     map_time=mixed
-    north=6.0
+    north=250000.0
     south=0.0
-    east=8.0
-    west=0.0
-    nsres_min=1.0
-    nsres_max=2.0
+    east=500000.0
+    west=200000.0
+    nsres_min=1000.0
+    nsres_max=2000.0
     ```
 
     ```python
@@ -888,165 +917,169 @@ the granularity, so they are `'None'`.
 
 ### Datasets of 3D raster and vector maps
 
-**type** names the kind of the dataset. The 3D raster dataset `soil` holds two
-maps of three layers, each layer one unit high; the report shows the top and
-bottom of the region and the top-bottom resolution. The vector dataset
-`gauges` holds two maps with two and three points; the report counts the points
-and the primitives over both maps. The commands that follow select a few lines
-of the report of a 3D raster map and of a vector map, **-g** with the types
-`raster_3d` and `vector`. The region is set back afterwards.
+**type** names the kind of the dataset. The 3D raster dataset
+`temperature_profile` holds twelve maps of the monthly mean air temperature in
+three layers of 1000 m, from the sea level to 3000 m; the temperature falls by
+6.5 degrees per 1000 m, as in `temperature_monthly`. The report shows the top
+and bottom of the region (3000 and 0) and the top-bottom resolution (1000).
+
+The vector dataset `stations_monthly` holds twelve copies of the 136 climate
+stations `precip_30ynormals` of the sample dataset, one for each month of
+2020, so that the point counts can be followed: the report counts the points
+and the primitives over all twelve maps, 12 times 136 is 1632.
+
+The commands that follow select a few lines of the report of a 3D raster map
+(839 columns, 335 rows and 3 depths) and of a vector map (136 points), **-g**
+with the types `raster_3d` and `vector`. The region keeps the 3D settings of
+this example in the examples that follow, which work on 2D maps only.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
-    r3.mapcalc expression="soil_1 = depth()"
-    r3.mapcalc expression="soil_2 = depth() + 10"
-    t.create type=str3ds output=soil title="Soil" \
-        description="Soil temperature in three layers"
-    t.register -i type=raster_3d input=soil maps=soil_1,soil_2 \
-        start=2026-03-01 increment="1 day"
-    g.region n=2 s=0 e=3 w=0 res=1
-    t.info -g type=str3ds input=soil | grep -E "^(top|bottom|tbres_min|tbres_max|number_of_maps)="
-    t.info -g type=raster_3d input=soil_1 | grep -E "^(depths|tbres|cols|rows)="
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_profile_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * z()" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r3.mapcalc file=-
+    t.create type=str3ds output=temperature_profile title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degrees Celsius, 0 to 3000 m"
+    t.register -i type=raster_3d input=temperature_profile \
+        maps=$(g.list type=raster_3d pattern="temperature_profile_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.info -g type=str3ds input=temperature_profile | grep -E "^(top|bottom|tbres_min|tbres_max|number_of_maps)="
+    t.info -g type=raster_3d input=temperature_profile_2020_07 | grep -E "^(depths|tbres|cols|rows)="
     ```
 
     ```text
-    top=3.0
+    top=3000.0
     bottom=0.0
-    tbres_min=1.0
-    tbres_max=1.0
-    number_of_maps=2
-    cols=2
-    rows=2
+    tbres_min=1000.0
+    tbres_max=1000.0
+    number_of_maps=12
+    cols=839
+    rows=335
     depths=3
-    tbres=1.0
+    tbres=1000.0
     ```
 
     ```sh
-    v.in.ascii input=- output=gauges_1 separator=comma \
-        columns="x double precision, y double precision, speed double precision" <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
-    EOF
-    v.in.ascii input=- output=gauges_2 separator=comma \
-        columns="x double precision, y double precision, speed double precision" <<EOF
-    1.0,1.0,2.0
-    2.0,2.0,4.0
-    0.5,1.5,1.0
-    EOF
-    t.create type=stvds output=gauges title="Gauges" \
-        description="Wind speed at gauges"
-    t.register -i type=vector input=gauges maps=gauges_1,gauges_2 \
-        start=2026-03-01 increment="1 day"
-    t.info -g type=stvds input=gauges | grep -E "^(points|lines|primitives|number_of_maps)="
-    t.info -g type=vector input=gauges_2 | grep -E "^(is_3d|points|primitives)="
+    for month in $(seq -w 12); do
+        v.extract input=precip_30ynormals output=stations_monthly_2020_$month
+    done
+    t.create type=stvds output=stations_monthly title="Climate stations" \
+        description="Copies of the climate stations, one for each month of 2020"
+    t.register -i type=vector input=stations_monthly \
+        maps=$(g.list type=vector pattern="stations_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.info -g type=stvds input=stations_monthly | grep -E "^(points|lines|primitives|number_of_maps)="
+    t.info -g type=vector input=stations_monthly_2020_07 | grep -E "^(is_3d|points|primitives)="
     ```
 
     ```text
-    points=5
+    points=1632
     lines=0
-    primitives=5
-    number_of_maps=2
+    primitives=1632
+    number_of_maps=12
     is_3d=0
-    points=3
-    primitives=3
+    points=136
+    primitives=136
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
-
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
-    tools.r3_mapcalc(expression="soil_1 = depth()")
-    tools.r3_mapcalc(expression="soil_2 = depth() + 10")
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
+    tools.r3_mapcalc(
+        expression="\n".join(
+            f"temperature_profile_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * z()"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
         type="str3ds",
-        output="soil",
-        title="Soil",
-        description="Soil temperature in three layers",
+        output="temperature_profile",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degrees Celsius, 0 to 3000 m",
     )
     tools.t_register(
         type="raster_3d",
-        input="soil",
-        maps="soil_1,soil_2",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_profile",
+        maps=",".join(f"temperature_profile_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
     print_keys(
-        tools.t_info(type="str3ds", input="soil", flags="g"),
+        tools.t_info(type="str3ds", input="temperature_profile", flags="g"),
         {"top", "bottom", "tbres_min", "tbres_max", "number_of_maps"},
     )
     print_keys(
-        tools.t_info(type="raster_3d", input="soil_1", flags="g"),
+        tools.t_info(type="raster_3d", input="temperature_profile_2020_07", flags="g"),
         {"depths", "tbres", "cols", "rows"},
     )
     ```
 
     ```text
-    top=3.0
+    top=3000.0
     bottom=0.0
-    tbres_min=1.0
-    tbres_max=1.0
-    number_of_maps=2
-    cols=2
-    rows=2
+    tbres_min=1000.0
+    tbres_max=1000.0
+    number_of_maps=12
+    cols=839
+    rows=335
     depths=3
-    tbres=1.0
+    tbres=1000.0
     ```
 
     ```python
-    columns = "x double precision, y double precision, speed double precision"
-    tools.v_in_ascii(
-        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
-        output="gauges_1",
-        separator="comma",
-        columns=columns,
-    )
-    tools.v_in_ascii(
-        input=StringIO("1.0,1.0,2.0\n2.0,2.0,4.0\n0.5,1.5,1.0\n"),
-        output="gauges_2",
-        separator="comma",
-        columns=columns,
-    )
+    for month in months:
+        tools.v_extract(
+            input="precip_30ynormals", output=f"stations_monthly_2020_{month:02d}"
+        )
     tools.t_create(
-        type="stvds", output="gauges", title="Gauges", description="Wind speed at gauges"
+        type="stvds",
+        output="stations_monthly",
+        title="Climate stations",
+        description="Copies of the climate stations, one for each month of 2020",
     )
     tools.t_register(
         type="vector",
-        input="gauges",
-        maps="gauges_1,gauges_2",
-        start="2026-03-01",
-        increment="1 day",
+        input="stations_monthly",
+        maps=",".join(f"stations_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     print_keys(
-        tools.t_info(type="stvds", input="gauges", flags="g"),
+        tools.t_info(type="stvds", input="stations_monthly", flags="g"),
         {"points", "lines", "primitives", "number_of_maps"},
     )
     print_keys(
-        tools.t_info(type="vector", input="gauges_2", flags="g"),
+        tools.t_info(type="vector", input="stations_monthly_2020_07", flags="g"),
         {"is_3d", "points", "primitives"},
     )
     ```
 
     ```text
-    points=5
+    points=1632
     lines=0
-    primitives=5
-    number_of_maps=2
+    primitives=1632
+    number_of_maps=12
     is_3d=0
-    points=3
-    primitives=3
+    points=136
+    primitives=136
     ```
 
 ### Semantic labels
 
 The dataset `sentinel` holds the red band (semantic label `S2_B4`) and the near
 infrared band (`S2_B8`) of two scenes, registered as time instances. The
+reflectances are constants over the region. The
 report of the dataset counts the two labels and names them. The second block
 shows what the notes say: the map `nir_1` is a time instance, so its end is
 `None`, and the report gives `None` for its semantic label, although it has
@@ -1157,7 +1190,7 @@ same values are `key='value'` lines.
 
     ```text
      | DBMI Python interface:...... sqlite3
-     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/sqlite.db
+     | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_info/tgis/sqlite.db
      | tgis_version .......... 2
      | tgis_db_version .......... 3
     ```
@@ -1168,7 +1201,7 @@ same values are `key='value'` lines.
 
     ```text
     dbmi_python_interface='sqlite3'
-    dbmi_string='/home/user/grassdata/temporal_examples/PERMANENT/tgis/sqlite.db'
+    dbmi_string='/home/user/grassdata/nc_spm_08_grass7/t_info/tgis/sqlite.db'
     tgis_version='2'
     tgis_db_version='3'
     ```
@@ -1184,7 +1217,7 @@ same values are `key='value'` lines.
 
     ```text
      | DBMI Python interface:...... sqlite3
-     | Temporal database string:... /home/user/grassdata/temporal_examples/PERMANENT/tgis/sqlite.db
+     | Temporal database string:... /home/user/grassdata/nc_spm_08_grass7/t_info/tgis/sqlite.db
      | tgis_version .......... 2
      | tgis_db_version .......... 3
     ```
@@ -1198,7 +1231,7 @@ same values are `key='value'` lines.
 
     ```text
     dbmi_python_interface='sqlite3'
-    dbmi_string='/home/user/grassdata/temporal_examples/PERMANENT/tgis/sqlite.db'
+    dbmi_string='/home/user/grassdata/nc_spm_08_grass7/t_info/tgis/sqlite.db'
     tgis_version='2'
     tgis_db_version='3'
     ```
