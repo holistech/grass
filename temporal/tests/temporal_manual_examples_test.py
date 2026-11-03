@@ -180,7 +180,8 @@ def test_examples_leave_the_dataset_unchanged(dataset_at_start):
     Each run of a manual in the dataset compares the dataset before and after
     and names the manual that changed it (example_session). This test also
     sees a change by anything else that ran in this process before it, and it
-    fails, with one message, when the dataset is missing.
+    fails, with one message, when the dataset is missing (pytest reports it as
+    an error, because the fixture dataset_at_start raises).
     """
     dataset, before = dataset_at_start
     assert differences(before, snapshot(dataset)) == [], (

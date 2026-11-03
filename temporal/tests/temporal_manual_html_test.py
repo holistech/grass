@@ -11,6 +11,7 @@ changed without generating the HTML file again, fails here.
 
 import difflib
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -49,3 +50,41 @@ def test_html_is_generated_from_markdown(manual):
         f"python3 utils/grass_md2html.py {manual.relative_to(TOOLS.parent)}\n"
         f"{difference}"
     )
+
+
+def missing_images(manual, tools=TOOLS):
+    """Return the images that manual references and that no directory holds
+
+    A tool manual finds its images next to itself. The introduction has no
+    directory of its own, so its images may lie in any tool directory, where
+    the build installs them from.
+    """
+    names = re.findall(r"!\[[^\]]*\]\(([^)\s]+)\)", manual.read_text(encoding="utf-8"))
+    if manual.parent == tools:
+        directories = [path for path in tools.iterdir() if path.is_dir()]
+    else:
+        directories = [manual.parent]
+    return [
+        name
+        for name in names
+        if not any((directory / name).is_file() for directory in directories)
+    ]
+
+
+@pytest.mark.parametrize("manual", MANUALS, ids=lambda path: path.stem)
+def test_images_of_the_manual_exist(manual):
+    assert missing_images(manual) == [], (
+        f"{manual.name} references images that are not files next to it"
+    )
+
+
+def test_missing_image_is_seen(tmp_path):
+    """Counter-check: the check above reports a name that is not there"""
+    tool = tmp_path / "t.x"
+    tool.mkdir()
+    (tool / "t.x.md").write_text("![a](there.png)\n![b](gone.png)\n", encoding="utf-8")
+    (tool / "there.png").write_bytes(b"")
+    intro = tmp_path / "temporalintro.md"
+    intro.write_text("![c](there.png)\n![d](gone.png)\n", encoding="utf-8")
+    assert missing_images(tool / "t.x.md", tmp_path) == ["gone.png"]
+    assert missing_images(intro, tmp_path) == ["gone.png"]
