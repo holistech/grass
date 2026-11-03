@@ -28,16 +28,20 @@ A ``text`` block directly after a code block of the same tab is the output
 shown for that block. Blocks of any other language are rejected, so that
 there is one spelling (``sh``, not ``bash``). An HTML comment
 ``<!-- example: key=value -->`` directly before a code block steers the test
-and stays invisible to the reader; ``<!-- example-project: crs=... -->`` under
-``## EXAMPLES`` names the coordinate system the examples need.
+and stays invisible to the reader. ``<!-- example-project: ... -->`` under
+``## EXAMPLES`` names where the examples run: ``crs=...`` a new project with
+that coordinate system, ``dataset=nc_spm_08_grass7 mapset=<name>`` the North
+Carolina sample dataset, in which the first example makes the mapset
+``<name>`` (``example_session``).
 
 ``<!-- example: shell-only -->`` as the first line after a ``###`` heading
 makes the example one of a catalog, such as the expressions of an algebra
 with their results: it has the ``Command line`` tab only. Elsewhere the
 comment is an error, and every other example needs both tabs.
 
-``run_manual`` runs the blocks of one tab, ``check_manual`` also compares the
-shown output and the figures. Which options the examples show and whether the
+``run_manual`` runs the blocks of one tab in a session that
+``example_session`` makes, ``check_manual`` also compares the shown output and
+the figures. Which options the examples show and whether the
 ``.html`` agrees is the business of ``manual_coverage``.
 """
 
@@ -60,10 +64,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import grass.script as gs
+from grass.grassdb.create import create_mapset
 from grass.temporal.algebra.parser.switch import ALGEBRA_VARIABLE
 
-from . import postgresql
+from . import nc_dataset, postgresql
 from .corpus import MODE_VARIABLE
+from .session import project_session
 from .versions import downgrade_to_version_2
 
 TABS = {"Command line": "shell", "Python (grass.tools)": "python"}
@@ -76,6 +82,10 @@ FIXED_USER = "user"
 FIXED_REGISTER = "0" * 32
 
 CONTROL_KEYS = ("requires", "not-run", "reason")
+PROJECT_KEYS = ("crs", "dataset", "mapset")
+# The mapset that the session in the dataset starts in, before the first
+# example makes the mapset of the manual.
+START_MAPSET = "start"
 SHELL_ONLY = "shell-only"
 SIMPLE_REQUIREMENTS = ("postgresql", "old-database")
 
@@ -209,11 +219,33 @@ def _control(path: Path, number: int, text: str) -> dict[str, str]:
 def _project(path: Path, number: int, text: str) -> dict[str, str]:
     project = {}
     for key, value in _words(path, number, text):
-        if key != "crs" or not value:
+        if key not in PROJECT_KEYS or not value:
             raise ManualFormatError(
-                path, number, f"example-project knows only crs=<value>, got {key!r}"
+                path,
+                number,
+                f"example-project knows {PROJECT_KEYS}, each with =<value>, "
+                f"got {key!r}",
             )
+        if key in project:
+            raise ManualFormatError(path, number, f"{key!r} given twice")
         project[key] = value
+    if "dataset" not in project and "mapset" not in project:
+        return project
+    problem = None
+    if project.keys() != {"dataset", "mapset"}:
+        problem = "dataset and mapset belong together, without crs"
+    elif project["dataset"] != nc_dataset.PROJECT_NAME:
+        problem = (
+            f"unknown dataset {project['dataset']!r}, "
+            f"known: {nc_dataset.PROJECT_NAME!r}"
+        )
+    elif project["mapset"] in {"PERMANENT", START_MAPSET}:
+        # PERMANENT is the dataset of the reader; the session starts in
+        # START_MAPSET, so the check that the examples make the mapset
+        # would always pass.
+        problem = f"the examples cannot work in mapset {project['mapset']!r}"
+    if problem:
+        raise ManualFormatError(path, number, f"example-project: {problem}")
     return project
 
 
@@ -748,6 +780,62 @@ def _variant_blocks(manual: Manual, variant: str) -> list[tuple[Example, Block]]
         if example.variant == variant
         for block in example.blocks
     ]
+
+
+@contextlib.contextmanager
+def example_session(manual: Manual, parent: Path):
+    """Yield the session that the examples of manual run in
+
+    The project lies in ``parent/grassdata``, the folder that ``normalize``
+    shows as ``/home/user/grassdata``. Without ``dataset`` in
+    ``manual.project`` it is a new project, XY or of the given ``crs``, and
+    the session runs in its PERMANENT.
+
+    With ``dataset`` it is ``project_in_dataset``: a project of the name of
+    the dataset whose PERMANENT is a link to the one of
+    ``nc_dataset.find_dataset()``, and the session runs in a new mapset
+    START_MAPSET, as a reader who has just opened the dataset. On leaving,
+    also after an exception, an AssertionError names every file of the
+    dataset that changed (``nc_dataset.snapshot``); it replaces the exception
+    of the block, which stays its ``__context__``, because a change of the
+    dataset means the reader loses data. Under pytest-xdist, a change that
+    another process makes at the same time shows here as well. After a block
+    without exception, an AssertionError also says when the examples never
+    made the mapset that ``manual.project`` names.
+
+    :raises nc_dataset.MissingDataset: when the dataset is not found
+    """
+    database = Path(parent) / "grassdata"
+    database.mkdir(parents=True, exist_ok=True)
+    name = manual.project.get("dataset")
+    if name is None:
+        with project_session(
+            database / "temporal_examples", crs=manual.project.get("crs")
+        ) as session:
+            yield session
+        return
+    dataset = nc_dataset.find_dataset()
+    project = nc_dataset.project_in_dataset(dataset, database, name)
+    create_mapset(project / START_MAPSET)
+    before = nc_dataset.snapshot(dataset)
+    try:
+        with gs.setup.init(project / START_MAPSET, env=os.environ.copy()) as session:
+            yield session
+    finally:
+        changed = nc_dataset.differences(before, nc_dataset.snapshot(dataset))
+        if changed:
+            msg = (
+                f"{manual.path}: the examples changed the dataset {dataset}:\n"
+                + "\n".join(changed)
+            )
+            raise AssertionError(msg)
+    mapset = manual.project["mapset"]
+    if not (project / mapset).is_dir():
+        msg = (
+            f"{manual.path}: the examples never make the mapset <{mapset}> "
+            "that example-project names"
+        )
+        raise AssertionError(msg)
 
 
 def run_manual(
