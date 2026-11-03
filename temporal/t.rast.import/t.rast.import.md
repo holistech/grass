@@ -25,7 +25,7 @@ Without **basename**, each map keeps the name it has in the archive. The
 option **basename** names the maps `basename_1`, `basename_2` and so on, with
 a numerical suffix in the order of the maps in the archive. The suffix has as
 many digits as the number of maps, padded with zeros: a dataset of ten maps
-gets `basename_01` to `basename_10` (see the last example). This is the way
+gets `basename_01` to `basename_10` (see the first example). This is the way
 to import a dataset into the project it was exported from, where the names of
 the archive are taken. A map of the same name in the current mapset is
 refused (see the notes).
@@ -45,14 +45,16 @@ import compares the coordinate reference system of the archive with that of the
 project and refuses a difference. The flag **-o** assumes that the archive has
 the coordinate reference system of the current project and skips this check.
 In a project without a coordinate reference system, **-o** is needed for
-GeoTIFF archives as well, because a GeoTIFF file made there holds none; the
-examples import AAIGrid and `pack` archives there without it. An import with
-**project** needs no **-o**.
+GeoTIFF archives as well, because a GeoTIFF file made there holds none. An
+archive of AAIGrid files holds no coordinate reference system either and
+needs no **-o**, as the example with the ASCII grid shows, and neither does
+the `pack` format. An import with **project** needs no **-o**.
 
 The flag **-e** extends the extent of the project to the maps of a `GTiff` or
 `AAIGrid` archive: it makes the default region and the current region of the
 project cover the imported maps. With **project**, the flag is always on for
-these formats, so the new project has the extent of the maps. The maps of a
+these formats. Without **project** it changes the default region of the
+current project, so use it with care in a project that you share. The maps of a
 `pack` archive do not change the region, with or without **-e** (see the
 notes); a new project then keeps its default region.
 
@@ -79,7 +81,7 @@ the same names are replaced.
 The maps of a `pack` archive are unpacked with *[r.unpack](r.unpack.md)*,
 which does not extend the region: **-e** has no effect, the region stays as it
 is, and with **project** the new project keeps its default region, one cell
-from (0, 0) to (1, 1) for a project without a coordinate reference system. Use
+from (0, 0) to (1, 1). Use
 **-r** to set the region from the maps of a `pack` archive, or
 *[g.region](g.region.md)* afterwards. The example with the semantic labels
 shows the missing extension.
@@ -131,70 +133,98 @@ sign.
 
 ## EXAMPLES
 
-The examples run in a project called `temporal_examples`, which has no
-coordinate reference system; where a command names this project, use the name
-of your own project.
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_import`, sets the computational region to
+North Carolina with cells of 1 km, generates a dataset of twelve monthly
+precipitation maps and imports the archive that
+*[t.rast.export](t.rast.export.md)* wrote from it; the later examples work in
+this mapset and with this archive. The example with the semantic labels
+creates a second mapset with the same region. The new projects of two
+examples are made in the GRASS database of the session, next to the dataset,
+and the dataset itself stays as it is. Where a command names the project
+`nc_spm_08_grass7`, use the name of the project you opened.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_import -->
 
 <!-- markdownlint-disable MD046 -->
 
 ### Import an archive under new names
 
-The dataset `temperature` has four maps of daily mean air temperature for the
-days from 1 to 4 March 2026. The maps have three columns and two rows, and
-their values are the column number plus the offset 0, 3, 6 and 9. The first
-block creates it.
+The dataset `precipitation_monthly` holds twelve maps of the monthly
+precipitation sum in 2020, in millimetres. They are generated, not measured:
+the monthly normals of the 136 climate stations of the dataset are
+interpolated with *[v.surf.idw](v.surf.idw.md)* and multiplied by an assumed
+factor for a wet year, which is different for every month. Each map is an
+interval of one month. The first block creates the dataset.
 
-The second block writes the archive `temperature.tar.bz2` with
+The second block writes the archive `precipitation.tar.bz2` with
 *[t.rast.export](t.rast.export.md)* and imports it into the same project. The
 maps of the archive carry the names of the maps that exist already, so
-**basename** names the new maps `imported_1` to `imported_4`. The flag **-o**
-is needed in the project of the examples, which has no coordinate reference
-system, because the GeoTIFF files hold none. **title** and **description** are
-set, and **memory** limits the cache of *r.in.gdal* to 100 MB. The commands
-print the new dataset and the minimum and the maximum of its maps, which are
-those of the exported maps (the map `imported_n` holds the values from 3n - 2
-to 3n), and the title and the description of the dataset from *t.info*.
+**basename** names the new maps `imported_01` to `imported_12`: the suffix has
+two digits because there are twelve maps, and a dataset of fewer than ten maps
+gets a single digit. The archive holds GeoTIFF files with the coordinate
+reference system of the project, so the import needs no **-o**. **title** and
+**description** are set, and **memory** limits the cache of *r.in.gdal* to
+100 MB. The commands print the new dataset with the minimum and the maximum of
+each map, the range of both datasets, which is the same, and the title and the
+description of the new dataset from *t.info*.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col()"
-    r.mapcalc expression="temperature_2 = col() + 3"
-    r.mapcalc expression="temperature_3 = col() + 6"
-    r.mapcalc expression="temperature_4 = col() + 9"
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
-        start=2026-03-01 increment="1 day"
+    g.mapset -c mapset=t_rast_import
+    g.region raster=elev_state_500m res=1000 -a
+    month=1
+    for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+        jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
+    done
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=temperature output=temperature.tar.bz2
-    t.rast.import -o input=temperature.tar.bz2 output=copy basename=imported \
-        title="Copy of temperature" description="Imported from the archive" \
-        memory=100
-    t.rast.list input=copy
-    t.rast.univar input=copy | cut -d"|" -f1,7,8
-    t.info input=copy | grep -A3 "Title:"
+    t.rast.export input=precipitation_monthly output=precipitation.tar.bz2
+    t.rast.import input=precipitation.tar.bz2 output=precipitation_copy \
+        basename=imported title="Copy of precipitation" \
+        description="Imported from the archive" memory=100
+    t.rast.list input=precipitation_copy columns=name,start_time,end_time,min,max
+    for name in precipitation_monthly precipitation_copy; do
+        t.info -g input=$name | grep -E "^(min_min|max_max)="
+    done
+    t.info input=precipitation_copy | grep -A3 "Title:"
     ```
 
     ```text
-    name|mapset|start_time|end_time
-    imported_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    imported_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    imported_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    imported_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    id|min|max
-    imported_1@PERMANENT|1|3
-    imported_2@PERMANENT|4|6
-    imported_3@PERMANENT|7|9
-    imported_4@PERMANENT|10|12
+    name|start_time|end_time|min|max
+    imported_01|2020-01-01 00:00:00|2020-02-01 00:00:00|94.0|249.0
+    imported_02|2020-02-01 00:00:00|2020-03-01 00:00:00|133.0|309.0
+    imported_03|2020-03-01 00:00:00|2020-04-01 00:00:00|88.0|212.0
+    imported_04|2020-04-01 00:00:00|2020-05-01 00:00:00|92.0|231.0
+    imported_05|2020-05-01 00:00:00|2020-06-01 00:00:00|133.0|347.0
+    imported_06|2020-06-01 00:00:00|2020-07-01 00:00:00|71.0|163.0
+    imported_07|2020-07-01 00:00:00|2020-08-01 00:00:00|83.0|223.0
+    imported_08|2020-08-01 00:00:00|2020-09-01 00:00:00|119.0|295.0
+    imported_09|2020-09-01 00:00:00|2020-10-01 00:00:00|60.0|181.0
+    imported_10|2020-10-01 00:00:00|2020-11-01 00:00:00|55.0|160.0
+    imported_11|2020-11-01 00:00:00|2020-12-01 00:00:00|104.0|350.0
+    imported_12|2020-12-01 00:00:00|2021-01-01 00:00:00|59.0|177.0
+    min_min=55.0
+    max_max=350.0
+    min_min=55.0
+    max_max=350.0
      | Title:
-     | Copy of temperature
+     | Copy of precipitation
      | Description:
      | Imported from the archive
     ```
@@ -207,19 +237,29 @@ to 3n), and the title and the description of the dataset from *t.info*.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for number, offset in enumerate((0, 3, 6, 9), start=1):
-        tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast_import")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+    factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=1):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+        )
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
     tools.t_create(
-        output="temperature",
-        title="Air temperature",
-        description="Daily mean air temperature",
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3,temperature_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="precipitation_monthly",
+        maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in range(1, 13)),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     ```
@@ -227,38 +267,45 @@ to 3n), and the title and the description of the dataset from *t.info*.
     <!-- example: requires=gdal:GTiff -->
 
     ```python
-    tools.t_rast_export(input="temperature", output="temperature.tar.bz2")
+    tools.t_rast_export(input="precipitation_monthly", output="precipitation.tar.bz2")
     tools.t_rast_import(
-        input="temperature.tar.bz2",
-        output="copy",
+        input="precipitation.tar.bz2",
+        output="precipitation_copy",
         basename="imported",
-        title="Copy of temperature",
+        title="Copy of precipitation",
         description="Imported from the archive",
         memory=100,
-        flags="o",
     )
-    print(tools.t_rast_list(input="copy").text)
-    for line in tools.t_rast_univar(input="copy").text.splitlines():
-        fields = line.split("|")
-        print("|".join(fields[index] for index in (0, 6, 7)))
-    info = tools.t_info(input="copy").stdout.splitlines()
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="precipitation_copy", columns=columns).text)
+    for name in ("precipitation_monthly", "precipitation_copy"):
+        info = tools.t_info(input=name, flags="g").keyval
+        print("\n".join(f"{key}={info[key]}" for key in ("min_min", "max_max")))
+    info = tools.t_info(input="precipitation_copy").stdout.splitlines()
     first = next(index for index, line in enumerate(info) if "Title:" in line)
     print("\n".join(info[first : first + 4]))
     ```
 
     ```text
-    name|mapset|start_time|end_time
-    imported_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    imported_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    imported_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    imported_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    id|min|max
-    imported_1@PERMANENT|1|3
-    imported_2@PERMANENT|4|6
-    imported_3@PERMANENT|7|9
-    imported_4@PERMANENT|10|12
+    name|start_time|end_time|min|max
+    imported_01|2020-01-01 00:00:00|2020-02-01 00:00:00|94.0|249.0
+    imported_02|2020-02-01 00:00:00|2020-03-01 00:00:00|133.0|309.0
+    imported_03|2020-03-01 00:00:00|2020-04-01 00:00:00|88.0|212.0
+    imported_04|2020-04-01 00:00:00|2020-05-01 00:00:00|92.0|231.0
+    imported_05|2020-05-01 00:00:00|2020-06-01 00:00:00|133.0|347.0
+    imported_06|2020-06-01 00:00:00|2020-07-01 00:00:00|71.0|163.0
+    imported_07|2020-07-01 00:00:00|2020-08-01 00:00:00|83.0|223.0
+    imported_08|2020-08-01 00:00:00|2020-09-01 00:00:00|119.0|295.0
+    imported_09|2020-09-01 00:00:00|2020-10-01 00:00:00|60.0|181.0
+    imported_10|2020-10-01 00:00:00|2020-11-01 00:00:00|55.0|160.0
+    imported_11|2020-11-01 00:00:00|2020-12-01 00:00:00|104.0|350.0
+    imported_12|2020-12-01 00:00:00|2021-01-01 00:00:00|59.0|177.0
+    min_min=55.0
+    max_max=350.0
+    min_min=55.0
+    max_max=350.0
      | Title:
-     | Copy of temperature
+     | Copy of precipitation
      | Description:
      | Imported from the archive
     ```
@@ -267,10 +314,10 @@ to 3n), and the title and the description of the dataset from *t.info*.
 
 With **-l**, the maps are linked to the GeoTIFF files with *r.external*: the
 cells stay in the files, which **directory** names and the tool leaves there.
-The directory `files` has to exist. The commands list the GeoTIFF files in it,
-print the type of the first map, `GDAL-link` for a linked map, and its
-minimum and maximum, which are those of the exported map (1 and 3). The maps
-read their cells from the files, so the files must stay where they are.
+The directory `files` has to exist. The commands count the GeoTIFF files in
+it, print the type of the first map, `GDAL-link` for a linked map, and the
+range of the linked dataset, which is that of the exported maps. The maps read their
+cells from the files, so the files must stay where they are.
 
 === "Command line"
 
@@ -278,21 +325,18 @@ read their cells from the files, so the files must stay where they are.
 
     ```sh
     mkdir files
-    t.rast.import -l -o input=temperature.tar.bz2 output=linked \
+    t.rast.import -l input=precipitation.tar.bz2 output=linked \
         basename=linked directory=files
-    ls files | grep tif
-    r.info -e map=linked_1 | grep maptype
-    r.univar -g map=linked_1 | grep -E "^(min|max)="
+    ls files | grep -c tif
+    r.info -e map=linked_01 | grep maptype
+    t.info -g input=linked | grep -E "^(min_min|max_max)="
     ```
 
     ```text
-    temperature_1.tif
-    temperature_2.tif
-    temperature_3.tif
-    temperature_4.tif
+    12
     maptype=GDAL-link
-    min=1
-    max=3
+    min_min=55.0
+    max_max=350.0
     ```
 
 === "Python (grass.tools)"
@@ -302,121 +346,51 @@ read their cells from the files, so the files must stay where they are.
     ```python
     Path("files").mkdir()
     tools.t_rast_import(
-        input="temperature.tar.bz2",
+        input="precipitation.tar.bz2",
         output="linked",
         basename="linked",
         directory="files",
-        flags="lo",
+        flags="l",
     )
-    print("\n".join(sorted(path.name for path in Path("files").glob("*.tif"))))
-    print("maptype=" + tools.r_info(map="linked_1", flags="e").keyval["maptype"])
-    for key, value in tools.r_univar(map="linked_1", flags="g").keyval.items():
-        if key in ("min", "max"):
-            print(f"{key}={value}")
+    print(len(list(Path("files").glob("*.tif"))))
+    print("maptype=" + tools.r_info(map="linked_01", flags="e").keyval["maptype"])
+    info = tools.t_info(input="linked", flags="g").keyval
+    print("\n".join(f"{key}={info[key]}" for key in ("min_min", "max_max")))
     ```
 
     ```text
-    temperature_1.tif
-    temperature_2.tif
-    temperature_3.tif
-    temperature_4.tif
+    12
     maptype=GDAL-link
-    min=1
-    max=3
+    min_min=55.0
+    max_max=350.0
     ```
 
 ### Import into a new project
 
 With **project**, the tool makes a new project with the coordinate reference
 system of the archive, imports into it and goes back to the project it was
-called in. The project of the examples has none, so the new project has none
-either, and **-o** is not needed. The maps keep their names, because the new
-project has none of them. The new project takes the extent of the maps. The
-commands switch to the new project to look at it and switch back, to the
-project `temporal_examples` of these examples.
+called in. The new project is made in the GRASS database of the session, so it
+lies next to the project `nc_spm_08_grass7`; it must not exist yet. The maps
+keep their names, because the new project has none of them, and **-o** is not
+needed. The commands switch to the new project to look at the
+dataset in it, and switch back to the mapset of these examples.
 
 === "Command line"
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.import input=temperature.tar.bz2 output=temperature \
+    t.rast.import input=precipitation.tar.bz2 output=precipitation \
         project=archive_copy
     g.mapset project=archive_copy mapset=PERMANENT
-    t.rast.list input=temperature
-    g.region -dg | grep -E "^(n|s|e|w)="
-    g.mapset project=temporal_examples mapset=PERMANENT
+    t.info -g input=precipitation | grep -E "^(start_time|end_time|number_of_maps)="
+    g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
     ```
 
     ```text
-    name|mapset|start_time|end_time
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    n=2
-    s=0
-    w=0
-    e=3
-    ```
-
-=== "Python (grass.tools)"
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```python
-    tools.t_rast_import(
-        input="temperature.tar.bz2", output="temperature", project="archive_copy"
-    )
-    tools.g_mapset(project="archive_copy", mapset="PERMANENT")
-    print(tools.t_rast_list(input="temperature").text)
-    region = tools.g_region(flags="dg").keyval
-    print("\n".join(f"{key}={region[key]}" for key in ("n", "s", "w", "e")))
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
-    ```
-
-    ```text
-    name|mapset|start_time|end_time
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    n=2
-    s=0
-    w=0
-    e=3
-    ```
-
-### Create a project and extend its region
-
-The flag **-c** makes the project and imports nothing. The default region of a
-new project without a coordinate reference system is one cell from (0, 0) to
-(1, 1). The second import into it uses **-e**, so the default region and the
-current region grow to the extent of the maps, 3 columns and 2 rows.
-
-=== "Command line"
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```sh
-    t.rast.import -c input=temperature.tar.bz2 output=temperature \
-        project=empty_project
-    g.mapset project=empty_project mapset=PERMANENT
-    g.region -dg | grep -E "^(n|s|e|w)="
-    t.rast.import -o -e input=temperature.tar.bz2 output=temperature
-    g.region -dg | grep -E "^(n|s|e|w)="
-    g.mapset project=temporal_examples mapset=PERMANENT
-    ```
-
-    ```text
-    n=1
-    s=0
-    w=0
-    e=1
-    n=2
-    s=0
-    w=0
-    e=3
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    number_of_maps=12
     ```
 
 === "Python (grass.tools)"
@@ -430,55 +404,48 @@ current region grow to the extent of the maps, 3 columns and 2 rows.
 
 
     tools.t_rast_import(
-        input="temperature.tar.bz2",
-        output="temperature",
-        project="empty_project",
-        flags="c",
+        input="precipitation.tar.bz2", output="precipitation", project="archive_copy"
     )
-    tools.g_mapset(project="empty_project", mapset="PERMANENT")
-    print_extent("dg")
-    tools.t_rast_import(input="temperature.tar.bz2", output="temperature", flags="oe")
-    print_extent("dg")
-    tools.g_mapset(project="temporal_examples", mapset="PERMANENT")
+    tools.g_mapset(project="archive_copy", mapset="PERMANENT")
+    info = tools.t_info(input="precipitation", flags="g").keyval
+    keys = ("start_time", "end_time", "number_of_maps")
+    print("\n".join(f"{key}={info[key]}" for key in keys))
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_rast_import")
     ```
 
     ```text
-    n=1
-    s=0
-    w=0
-    e=1
-    n=2
-    s=0
-    w=0
-    e=3
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    number_of_maps=12
     ```
 
-### Set the region from the imported maps
+### Create a project without importing
 
-The flag **-r** sets the current region to the region of the last map that
-was imported, here 2 rows and 3 columns. The first command moves the region far
-away from the maps.
+The flag **-c** makes the project and imports nothing. The commands switch to
+the new project and show that it has no raster map and no dataset, and that
+its default region is one cell.
 
 === "Command line"
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    g.region n=100 s=90 w=50 e=60 res=1
-    g.region -g | grep -E "^(n|s|e|w)="
-    t.rast.import -o -r input=temperature.tar.bz2 output=moved basename=moved
-    g.region -g | grep -E "^(n|s|e|w)="
+    t.rast.import -c input=precipitation.tar.bz2 output=precipitation \
+        project=empty_project
+    g.mapset project=empty_project mapset=PERMANENT
+    g.list type=raster | wc -l
+    t.list type=strds | wc -l
+    g.region -dg | grep -E "^(n|s|e|w)="
+    g.mapset project=nc_spm_08_grass7 mapset=t_rast_import
     ```
 
     ```text
-    n=100
-    s=90
-    w=50
-    e=60
-    n=2
+    0
+    0
+    n=1
     s=0
     w=0
-    e=3
+    e=1
     ```
 
 === "Python (grass.tools)"
@@ -486,10 +453,67 @@ away from the maps.
     <!-- example: requires=gdal:GTiff -->
 
     ```python
-    tools.g_region(n=100, s=90, w=50, e=60, res=1)
+    tools.t_rast_import(
+        input="precipitation.tar.bz2",
+        output="precipitation",
+        project="empty_project",
+        flags="c",
+    )
+    tools.g_mapset(project="empty_project", mapset="PERMANENT")
+    for result in (tools.g_list(type="raster"), tools.t_list(type="strds")):
+        print(len(result.text.splitlines()) if result else 0)
+    print_extent("dg")
+    tools.g_mapset(project="nc_spm_08_grass7", mapset="t_rast_import")
+    ```
+
+    ```text
+    0
+    0
+    n=1
+    s=0
+    w=0
+    e=1
+    ```
+
+### Set the region from the imported maps
+
+The flag **-r** sets the current region to the region of the last map that
+was imported, here the whole of North Carolina in cells of 1 km. The first
+command moves the region to a small window. The import also sets **-o**,
+which skips the check of the coordinate reference system; this archive passes
+the check anyway, so the flag changes nothing here.
+
+=== "Command line"
+
+    <!-- example: requires=gdal:GTiff -->
+
+    ```sh
+    g.region n=250000 s=240000 w=500000 e=510000 res=1000
+    g.region -g | grep -E "^(n|s|e|w)="
+    t.rast.import -o -r input=precipitation.tar.bz2 output=moved basename=moved
+    g.region -g | grep -E "^(n|s|e|w)="
+    ```
+
+    ```text
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
+    ```
+
+=== "Python (grass.tools)"
+
+    <!-- example: requires=gdal:GTiff -->
+
+    ```python
+    tools.g_region(n=250000, s=240000, w=500000, e=510000, res=1000)
     print_extent("g")
     tools.t_rast_import(
-        input="temperature.tar.bz2",
+        input="precipitation.tar.bz2",
         output="moved",
         basename="moved",
         flags="or",
@@ -498,14 +522,104 @@ away from the maps.
     ```
 
     ```text
-    n=100
-    s=90
-    w=50
-    e=60
-    n=2
-    s=0
-    w=0
-    e=3
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=319000
+    s=-16000
+    w=124000
+    e=963000
+    ```
+
+### Replace a dataset with an ASCII grid archive
+
+The archive in the format `AAIGrid` holds the maps as Arc/Info ASCII Grid
+files, which carry no coordinate reference system; the import needs no **-o**
+for them. Importing the same archive
+again under the same names needs **--overwrite**, which replaces the dataset
+and its maps. The commands list the number of maps of the dataset after the
+second import. The last block links the ASCII grid files with **-l**; like the
+GeoTIFF files in the second example, they stay in the directory `ascii_files`.
+
+=== "Command line"
+
+    <!-- example: requires=gdal:AAIGrid -->
+
+    ```sh
+    t.rast.export input=precipitation_monthly output=precipitation.tar.gz \
+        format=AAIGrid compression=gzip
+    t.rast.import input=precipitation.tar.gz output=ascii basename=ascii
+    t.rast.import --overwrite input=precipitation.tar.gz output=ascii \
+        basename=ascii
+    t.info -g input=ascii | grep -E "^(number_of_maps|min_min|max_max)="
+    ```
+
+    ```text
+    min_min=55.0
+    max_max=350.0
+    number_of_maps=12
+    ```
+
+    <!-- example: requires=gdal:AAIGrid -->
+
+    ```sh
+    mkdir ascii_files
+    t.rast.import -l input=precipitation.tar.gz output=ascii_linked \
+        basename=linked_ascii directory=ascii_files
+    ls ascii_files | grep -c asc
+    r.info -e map=linked_ascii_01 | grep maptype
+    ```
+
+    ```text
+    12
+    maptype=GDAL-link
+    ```
+
+=== "Python (grass.tools)"
+
+    <!-- example: requires=gdal:AAIGrid -->
+
+    ```python
+    tools.t_rast_export(
+        input="precipitation_monthly",
+        output="precipitation.tar.gz",
+        format="AAIGrid",
+        compression="gzip",
+    )
+    tools.t_rast_import(input="precipitation.tar.gz", output="ascii", basename="ascii")
+    tools.t_rast_import(
+        input="precipitation.tar.gz", output="ascii", basename="ascii", overwrite=True
+    )
+    info = tools.t_info(input="ascii", flags="g").keyval
+    keys = ("number_of_maps", "min_min", "max_max")
+    print("\n".join(f"{key}={info[key]}" for key in keys))
+    ```
+
+    ```text
+    number_of_maps=12
+    min_min=55.0
+    max_max=350.0
+    ```
+
+    <!-- example: requires=gdal:AAIGrid -->
+
+    ```python
+    Path("ascii_files").mkdir()
+    tools.t_rast_import(
+        input="precipitation.tar.gz",
+        output="ascii_linked",
+        basename="linked_ascii",
+        directory="ascii_files",
+        flags="l",
+    )
+    print(len(list(Path("ascii_files").glob("*.asc"))))
+    print("maptype=" + tools.r_info(map="linked_ascii_01", flags="e").keyval["maptype"])
+    ```
+
+    ```text
+    12
+    maptype=GDAL-link
     ```
 
 ### Import a dataset with relative time and semantic labels
@@ -513,19 +627,19 @@ away from the maps.
 The dataset `sentinel` has relative time in days and four maps of 10 days
 each. The maps alternate between the red band (semantic label `S2_B4`) and
 the near infrared band (`S2_B8`). The archive is in the `pack` format and
-needs no GDAL driver. The import goes to the new mapset `archive`; the maps
-keep their names, because the mapset has none of them, and the dataset keeps
-the unit, the times and the labels.
+needs no GDAL driver. The import goes to the new mapset `t_rast_import_2`; the
+maps keep their names, because the mapset has none of them, although the maps
+of the same names exist in the first mapset. The dataset keeps the unit, the
+times and the labels.
 
-The last block imports the archive a second time with **-e** under another
-**basename**. The new mapset has the region of one cell, and the region is the
-same before and after, although the maps have 2 rows and 3 columns: **-e**
+The last block moves the region to a small window and imports the archive a
+second time with **-e** under another **basename**. The region is the same
+before and after, although the maps cover the whole of North Carolina: **-e**
 does nothing for a `pack` archive.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
     r.mapcalc expression="red_1 = 0.05"
     r.mapcalc expression="nir_1 = 0.30"
     r.mapcalc expression="red_2 = 0.07"
@@ -539,7 +653,8 @@ does nothing for a `pack` archive.
     t.register -i input=sentinel maps=red_1,nir_1,red_2,nir_2 \
         start=0 increment=10 unit=days
     t.rast.export input=sentinel output=sentinel.tar format=pack compression=no
-    g.mapset -c mapset=archive
+    g.mapset -c mapset=t_rast_import_2
+    g.region raster=elev_state_500m res=1000 -a
     t.rast.import input=sentinel.tar output=sentinel_copy
     t.rast.list input=sentinel_copy \
         columns=name,mapset,semantic_label,start_time,end_time
@@ -548,37 +663,36 @@ does nothing for a `pack` archive.
 
     ```text
     name|mapset|semantic_label|start_time|end_time
-    red_1|archive|S2_B4|0|10
-    nir_1|archive|S2_B8|10|20
-    red_2|archive|S2_B4|20|30
-    nir_2|archive|S2_B8|30|40
+    red_1|t_rast_import_2|S2_B4|0|10
+    nir_1|t_rast_import_2|S2_B8|10|20
+    red_2|t_rast_import_2|S2_B4|20|30
+    nir_2|t_rast_import_2|S2_B8|30|40
     temporal_type=relative
     unit=days
     ```
 
     ```sh
+    g.region n=250000 s=240000 w=500000 e=510000 res=1000
     g.region -g | grep -E "^(n|s|w|e)="
     t.rast.import -e input=sentinel.tar output=sentinel_extended \
         basename=extended
     g.region -g | grep -E "^(n|s|w|e)="
-    g.mapset mapset=PERMANENT
     ```
 
     ```text
-    n=1
-    s=0
-    w=0
-    e=1
-    n=1
-    s=0
-    w=0
-    e=1
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=250000
+    s=240000
+    w=500000
+    e=510000
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
     for name, value, label in (
         ("red_1", 0.05, "S2_B4"),
         ("nir_1", 0.30, "S2_B8"),
@@ -604,7 +718,8 @@ does nothing for a `pack` archive.
     tools.t_rast_export(
         input="sentinel", output="sentinel.tar", format="pack", compression="no"
     )
-    tools.g_mapset(mapset="archive", flags="c")
+    tools.g_mapset(mapset="t_rast_import_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_rast_import(input="sentinel.tar", output="sentinel_copy")
     print(
         tools.t_rast_list(
@@ -618,15 +733,16 @@ does nothing for a `pack` archive.
 
     ```text
     name|mapset|semantic_label|start_time|end_time
-    red_1|archive|S2_B4|0|10
-    nir_1|archive|S2_B8|10|20
-    red_2|archive|S2_B4|20|30
-    nir_2|archive|S2_B8|30|40
+    red_1|t_rast_import_2|S2_B4|0|10
+    nir_1|t_rast_import_2|S2_B8|10|20
+    red_2|t_rast_import_2|S2_B4|20|30
+    nir_2|t_rast_import_2|S2_B8|30|40
     temporal_type=relative
     unit=days
     ```
 
     ```python
+    tools.g_region(n=250000, s=240000, w=500000, e=510000, res=1000)
     print_extent("g")
     tools.t_rast_import(
         input="sentinel.tar",
@@ -635,194 +751,17 @@ does nothing for a `pack` archive.
         flags="e",
     )
     print_extent("g")
-    tools.g_mapset(mapset="PERMANENT")
     ```
 
     ```text
-    n=1
-    s=0
-    w=0
-    e=1
-    n=1
-    s=0
-    w=0
-    e=1
-    ```
-
-### Replace a dataset with an ASCII grid archive
-
-The archive in the format `AAIGrid` holds the maps as Arc/Info ASCII Grid
-files, which carry no coordinate reference system; the import needs no
-**-o** for them in the project of the examples. Importing the same archive
-again under the same names needs **--overwrite**, which replaces the dataset
-and its maps. The commands list the dataset after the second import. The last
-block links the ASCII grid files with **-l**; like the GeoTIFF files in the
-second example, they stay in the directory `ascii_files`.
-
-=== "Command line"
-
-    <!-- example: requires=gdal:AAIGrid -->
-
-    ```sh
-    t.rast.export input=temperature output=temperature.tar.gz \
-        format=AAIGrid compression=gzip
-    t.rast.import input=temperature.tar.gz output=ascii basename=ascii
-    t.rast.import --overwrite input=temperature.tar.gz output=ascii \
-        basename=ascii
-    t.rast.list input=ascii
-    ```
-
-    ```text
-    name|mapset|start_time|end_time
-    ascii_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    ascii_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    ascii_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    ascii_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    ```
-
-    <!-- example: requires=gdal:AAIGrid -->
-
-    ```sh
-    mkdir ascii_files
-    t.rast.import -l input=temperature.tar.gz output=ascii_linked \
-        basename=linked_ascii directory=ascii_files
-    ls ascii_files | grep asc
-    r.info -e map=linked_ascii_1 | grep maptype
-    ```
-
-    ```text
-    temperature_1.asc
-    temperature_2.asc
-    temperature_3.asc
-    temperature_4.asc
-    maptype=GDAL-link
-    ```
-
-=== "Python (grass.tools)"
-
-    <!-- example: requires=gdal:AAIGrid -->
-
-    ```python
-    tools.t_rast_export(
-        input="temperature",
-        output="temperature.tar.gz",
-        format="AAIGrid",
-        compression="gzip",
-    )
-    tools.t_rast_import(input="temperature.tar.gz", output="ascii", basename="ascii")
-    tools.t_rast_import(
-        input="temperature.tar.gz", output="ascii", basename="ascii", overwrite=True
-    )
-    print(tools.t_rast_list(input="ascii").text)
-    ```
-
-    ```text
-    name|mapset|start_time|end_time
-    ascii_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    ascii_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    ascii_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    ascii_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
-    ```
-
-    <!-- example: requires=gdal:AAIGrid -->
-
-    ```python
-    Path("ascii_files").mkdir()
-    tools.t_rast_import(
-        input="temperature.tar.gz",
-        output="ascii_linked",
-        basename="linked_ascii",
-        directory="ascii_files",
-        flags="l",
-    )
-    print("\n".join(sorted(path.name for path in Path("ascii_files").glob("*.asc"))))
-    print("maptype=" + tools.r_info(map="linked_ascii_1", flags="e").keyval["maptype"])
-    ```
-
-    ```text
-    temperature_1.asc
-    temperature_2.asc
-    temperature_3.asc
-    temperature_4.asc
-    maptype=GDAL-link
-    ```
-
-### Numbers of the new maps
-
-The dataset `long` has ten maps. With **basename**, the suffix has two digits
-because there are ten maps, so the new maps are `part_01` to `part_10`. With
-fewer than ten maps, as in the first example, the suffix is a single digit.
-
-=== "Command line"
-
-    ```sh
-    for number in 1 2 3 4 5 6 7 8 9 10; do
-        r.mapcalc expression="long_$number = $number"
-    done
-    t.create output=long title="Ten maps" description="Ten constant maps"
-    t.register -i input=long \
-        maps=long_1,long_2,long_3,long_4,long_5,long_6,long_7,long_8,long_9,long_10 \
-        start=2026-04-01 increment="1 day"
-    ```
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```sh
-    t.rast.export input=long output=long.tar
-    t.rast.import -o input=long.tar output=part_set basename=part
-    t.rast.list input=part_set columns=name
-    ```
-
-    ```text
-    name
-    part_01
-    part_02
-    part_03
-    part_04
-    part_05
-    part_06
-    part_07
-    part_08
-    part_09
-    part_10
-    ```
-
-=== "Python (grass.tools)"
-
-    ```python
-    names = [f"long_{number}" for number in range(1, 11)]
-    for number, name in enumerate(names, start=1):
-        tools.r_mapcalc(expression=f"{name} = {number}")
-    tools.t_create(output="long", title="Ten maps", description="Ten constant maps")
-    tools.t_register(
-        input="long",
-        maps=",".join(names),
-        start="2026-04-01",
-        increment="1 day",
-        flags="i",
-    )
-    ```
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```python
-    tools.t_rast_export(input="long", output="long.tar")
-    tools.t_rast_import(input="long.tar", output="part_set", basename="part", flags="o")
-    print(tools.t_rast_list(input="part_set", columns="name").text)
-    ```
-
-    ```text
-    name
-    part_01
-    part_02
-    part_03
-    part_04
-    part_05
-    part_06
-    part_07
-    part_08
-    part_09
-    part_10
+    n=250000
+    s=240000
+    w=500000
+    e=510000
+    n=250000
+    s=240000
+    w=500000
+    e=510000
     ```
 
 <!-- markdownlint-enable MD046 -->
