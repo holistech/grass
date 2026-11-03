@@ -22,8 +22,8 @@ is given; then it is replaced.
 ### Select the maps
 
 The option **where** takes an SQL condition on the columns of the registered
-maps, such as `start_time >= '2026-03-03'`, which selects the maps that start
-on 3 March or later. Without **where**, all maps are selected.
+maps, such as `start_time >= '2020-06-01'`, which selects the maps that start
+on 1 June 2020 or later. Without **where**, all maps are selected.
 
 ### Register or compute
 
@@ -35,10 +35,10 @@ With **expression**, the tool runs *r3.mapcalc* once for each selected map and
 registers the new maps, with the start and end time of the map they come from,
 in the new dataset. The expression is the right side of an *r3.mapcalc*
 expression, without the `map =` of a full one. The name of the input dataset
-stands for the selected map of each step, so `2 * soil` doubles the map of every
-step of the dataset `soil`. Any other 3D raster map can be used in the
-expression by name. The new maps belong to the current mapset. The expression
-needs the option **basename**.
+stands for the selected map of each step, so `2 * temperature_profile` doubles
+the map of every step of the dataset `temperature_profile`. Any other 3D raster
+map can be used in the expression by name. The new maps belong to the current
+mapset. The expression needs the option **basename**.
 
 The new maps are named after **basename**, followed by an underscore and a
 suffix that the option **suffix** chooses.
@@ -63,7 +63,8 @@ so on after it. A number that another new map has as its name is skipped.
 A new map that has no valid cell, that is, no minimum and no maximum, is
 empty. By default it is not registered in the new dataset and the map is
 removed after the run. The flag **-n** registers the empty maps and keeps
-them. An expression such as `if(soil > 6, soil, null())` therefore selects
+them. An expression such as `if(temperature_profile > 20, temperature_profile,
+null())` therefore selects
 maps by their values as well.
 
 The option **nprocs** sets the number of *r3.mapcalc* processes that run at the
@@ -96,66 +97,95 @@ input dataset to copy the maps instead.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast3d_extract` and sets the computational region
+to North Carolina with cells of 1 km, in the plane and in the vertical (the
+option **res3**), and three layers of 1000 m from 0 to 3000 m; the later
+examples work in this mapset and region, except the last, which creates a
+second mapset with the same region. The examples about names, relative time and
+other mapsets use 3D maps with small constant values, so that the results can
+be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast3d_extract -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Select maps by time
 
-The dataset `soil` has four 3D raster maps of daily mean soil temperature for
-the days from 1 to 4 March 2026. The region has two rows, two columns and three
-layers. The values of a map are the layer number plus the offset 0, 6, 3 and 9,
-so the smallest and largest values of the maps are 1 to 3, 7 to 9, 4 to 6 and
-10 to 12.
+The dataset `temperature_profile` has twelve 3D raster maps of the monthly mean
+air temperature in 2020, in degrees Celsius rounded to tenths. They are
+generated from the height `z()` of the cell: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its maximum
+in July, 6.5 degrees less for every 1000 m of height, and 1 degree more for
+every 100 km to the south. Each map is an interval of one month.
 
-The first block extracts the maps from 3 March on into the dataset `later`.
-There is no **expression**, so no map is made: the second block lists the 3D
-raster maps of the mapset, and they are still the four maps of `soil`. The
-dataset `later` lists two of them. The third block shows what the new dataset
-takes from the input: the temporal type and the semantic type, and the start
-and end time that follow from the maps it holds.
+The first block creates the maps and the dataset. The second block extracts the
+summer months, June to August, into the dataset `summer`. There is no
+**expression**, so no map is made: the third block lists the 3D raster maps of
+the mapset, and they are still the twelve maps of `temperature_profile`. The
+dataset `summer` lists three of them. The fourth block shows what the new
+dataset takes from the input: the temporal type and the semantic type, and the
+start and end time that follow from the maps it holds.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
-    r3.mapcalc expression="soil_1 = depth()"
-    r3.mapcalc expression="soil_2 = depth() + 6"
-    r3.mapcalc expression="soil_3 = depth() + 3"
-    r3.mapcalc expression="soil_4 = depth() + 9"
-    t.create type=str3ds output=soil title="Soil temperature" \
-        description="Daily mean soil temperature"
-    t.register -i type=raster_3d input=soil \
-        maps=soil_1,soil_2,soil_3,soil_4 start=2026-03-01 increment="1 day"
-    t.rast3d.extract input=soil output=later \
-        where="start_time >= '2026-03-03'"
-    t.rast3d.list input=later
+    g.mapset -c mapset=t_rast3d_extract
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_profile_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * z()" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r3.mapcalc file=-
+    t.create type=str3ds output=temperature_profile title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m"
+    t.register -i type=raster_3d input=temperature_profile \
+        maps=$(g.list type=raster_3d pattern="temperature_profile_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    ```
+
+    ```sh
+    t.rast3d.extract input=temperature_profile output=summer \
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'"
+    t.rast3d.list input=summer
     ```
 
     ```text
     name|mapset|start_time|end_time
-    soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_profile_2020_06|t_rast3d_extract|2020-06-01 00:00:00|2020-07-01 00:00:00
+    temperature_profile_2020_07|t_rast3d_extract|2020-07-01 00:00:00|2020-08-01 00:00:00
+    temperature_profile_2020_08|t_rast3d_extract|2020-08-01 00:00:00|2020-09-01 00:00:00
     ```
 
     ```sh
-    g.list type=raster_3d
+    g.list type=raster_3d mapset=.
     ```
 
     ```text
-    soil_1
-    soil_2
-    soil_3
-    soil_4
+    temperature_profile_2020_01
+    temperature_profile_2020_02
+    temperature_profile_2020_03
+    temperature_profile_2020_04
+    temperature_profile_2020_05
+    temperature_profile_2020_06
+    temperature_profile_2020_07
+    temperature_profile_2020_08
+    temperature_profile_2020_09
+    temperature_profile_2020_10
+    temperature_profile_2020_11
+    temperature_profile_2020_12
     ```
 
     ```sh
-    t.info -g type=str3ds input=later | grep -E "^(temporal_type|semantic_type|start_time|end_time)="
+    t.info -g type=str3ds input=summer | grep -E "^(temporal_type|semantic_type|start_time|end_time)="
     ```
 
     ```text
     temporal_type=absolute
     semantic_type=mean
-    start_time='2026-03-03 00:00:00'
-    end_time='2026-03-05 00:00:00'
+    start_time='2020-06-01 00:00:00'
+    end_time='2020-09-01 00:00:00'
     ```
 
 === "Python (grass.tools)"
@@ -164,46 +194,72 @@ and end time that follow from the maps it holds.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
-    for number, offset in enumerate((0, 6, 3, 9), start=1):
-        tools.r3_mapcalc(expression=f"soil_{number} = depth() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast3d_extract")
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
+    months = range(1, 13)
+    tools.r3_mapcalc(
+        expression="\n".join(
+            f"temperature_profile_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * z()"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
         type="str3ds",
-        output="soil",
-        title="Soil temperature",
-        description="Daily mean soil temperature",
+        output="temperature_profile",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m",
     )
     tools.t_register(
         type="raster_3d",
-        input="soil",
-        maps="soil_1,soil_2,soil_3,soil_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_profile",
+        maps=",".join(f"temperature_profile_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
-    tools.t_rast3d_extract(input="soil", output="later", where="start_time >= '2026-03-03'")
-    print(tools.t_rast3d_list(input="later").text)
+    ```
+
+    ```python
+    tools.t_rast3d_extract(
+        input="temperature_profile",
+        output="summer",
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'",
+    )
+    print(tools.t_rast3d_list(input="summer").text)
     ```
 
     ```text
     name|mapset|start_time|end_time
-    soil_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    soil_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_profile_2020_06|t_rast3d_extract|2020-06-01 00:00:00|2020-07-01 00:00:00
+    temperature_profile_2020_07|t_rast3d_extract|2020-07-01 00:00:00|2020-08-01 00:00:00
+    temperature_profile_2020_08|t_rast3d_extract|2020-08-01 00:00:00|2020-09-01 00:00:00
     ```
 
     ```python
-    print(tools.g_list(type="raster_3d").text)
+    print(tools.g_list(type="raster_3d", mapset=".").text)
     ```
 
     ```text
-    soil_1
-    soil_2
-    soil_3
-    soil_4
+    temperature_profile_2020_01
+    temperature_profile_2020_02
+    temperature_profile_2020_03
+    temperature_profile_2020_04
+    temperature_profile_2020_05
+    temperature_profile_2020_06
+    temperature_profile_2020_07
+    temperature_profile_2020_08
+    temperature_profile_2020_09
+    temperature_profile_2020_10
+    temperature_profile_2020_11
+    temperature_profile_2020_12
     ```
 
     ```python
-    info = tools.t_info(type="str3ds", input="later", flags="g").keyval
+    info = tools.t_info(type="str3ds", input="summer", flags="g").keyval
     for key in ("temporal_type", "semantic_type", "start_time", "end_time"):
         print(f"{key}={info[key]}")
     ```
@@ -211,100 +267,102 @@ and end time that follow from the maps it holds.
     ```text
     temporal_type=absolute
     semantic_type=mean
-    start_time='2026-03-03 00:00:00'
-    end_time='2026-03-05 00:00:00'
+    start_time='2020-06-01 00:00:00'
+    end_time='2020-09-01 00:00:00'
     ```
 
 ### Compute new maps from the selected maps
 
-The first block doubles the maps of `soil`. The expression `2 * soil` names the
-dataset, which stands for the map of each step. The new maps are named
-`doubled`, an underscore and the day of the map (the granularity of `soil` is
-one day), and each has the time of its source map. **nprocs** lets two
-*r3.mapcalc* processes run at the same time; the result is the same as with one
-process. The values are twice those of the source maps: 2 to 6 for the first
-day, 14 to 18 for the second.
+The first block converts the maps of the first quarter to degrees Fahrenheit.
+The expression names the dataset, which stands for the map of each step. The new
+maps are named `fahrenheit`, an underscore and the month of the map (the
+granularity of `temperature_profile` is one month), and each has the time of its
+source map. The result is rounded to tenths, so that the values are the same on
+every system. **nprocs** lets two *r3.mapcalc* processes run at the same time;
+the result is the same as with one process.
 
 The second block shows that the expression may use any 3D raster map. The map
-`bias` is 10 everywhere; **where** selects the first two days, and the new maps
-hold the values of their source maps plus 10.
+`correction` is 1.5 everywhere, as a correction of a sensor that reads 1.5
+degrees too low; **where** selects the first two months, and the new maps hold
+the values of their source maps plus 1.5.
 
 === "Command line"
 
     ```sh
-    t.rast3d.extract input=soil output=doubled basename=doubled \
-        expression="2 * soil" nprocs=2
-    t.rast3d.list input=doubled columns=name,start_time,min,max
+    t.rast3d.extract input=temperature_profile output=fahrenheit \
+        basename=fahrenheit where="start_time < '2020-04-01'" \
+        expression="round((temperature_profile * 1.8 + 32) * 10) / 10.0" nprocs=2
+    t.rast3d.list input=fahrenheit columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    doubled_2026_03_01|2026-03-01 00:00:00|2.0|6.0
-    doubled_2026_03_02|2026-03-02 00:00:00|14.0|18.0
-    doubled_2026_03_03|2026-03-03 00:00:00|8.0|12.0
-    doubled_2026_03_04|2026-03-04 00:00:00|20.0|24.0
+    fahrenheit_2020_01|2020-01-01 00:00:00|10.8|40.3
+    fahrenheit_2020_02|2020-02-01 00:00:00|12.4|41.7
+    fahrenheit_2020_03|2020-03-01 00:00:00|18.5|47.8
     ```
 
     ```sh
-    r3.mapcalc expression="bias = 10"
-    t.rast3d.extract input=soil output=biased basename=biased \
-        where="start_time < '2026-03-03'" expression="soil + bias"
-    t.rast3d.list input=biased columns=name,min,max
+    r3.mapcalc expression="correction = 1.5"
+    t.rast3d.extract input=temperature_profile output=corrected \
+        basename=corrected where="start_time < '2020-03-01'" \
+        expression="round((temperature_profile + correction) * 10) / 10.0"
+    t.rast3d.list input=corrected columns=name,min,max
     ```
 
     ```text
     name|min|max
-    biased_2026_03_01|11.0|13.0
-    biased_2026_03_02|17.0|19.0
+    corrected_2020_01|-10.3|6.1
+    corrected_2020_02|-9.4|6.9
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
-        output="doubled",
-        basename="doubled",
-        expression="2 * soil",
+        input="temperature_profile",
+        output="fahrenheit",
+        basename="fahrenheit",
+        where="start_time < '2020-04-01'",
+        expression="round((temperature_profile * 1.8 + 32) * 10) / 10.0",
         nprocs=2,
     )
-    print(tools.t_rast3d_list(input="doubled", columns="name,start_time,min,max").text)
+    print(tools.t_rast3d_list(input="fahrenheit", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    doubled_2026_03_01|2026-03-01 00:00:00|2.0|6.0
-    doubled_2026_03_02|2026-03-02 00:00:00|14.0|18.0
-    doubled_2026_03_03|2026-03-03 00:00:00|8.0|12.0
-    doubled_2026_03_04|2026-03-04 00:00:00|20.0|24.0
+    fahrenheit_2020_01|2020-01-01 00:00:00|10.8|40.3
+    fahrenheit_2020_02|2020-02-01 00:00:00|12.4|41.7
+    fahrenheit_2020_03|2020-03-01 00:00:00|18.5|47.8
     ```
 
     ```python
-    tools.r3_mapcalc(expression="bias = 10")
+    tools.r3_mapcalc(expression="correction = 1.5")
     tools.t_rast3d_extract(
-        input="soil",
-        output="biased",
-        basename="biased",
-        where="start_time < '2026-03-03'",
-        expression="soil + bias",
+        input="temperature_profile",
+        output="corrected",
+        basename="corrected",
+        where="start_time < '2020-03-01'",
+        expression="round((temperature_profile + correction) * 10) / 10.0",
     )
-    print(tools.t_rast3d_list(input="biased", columns="name,min,max").text)
+    print(tools.t_rast3d_list(input="corrected", columns="name,min,max").text)
     ```
 
     ```text
     name|min|max
-    biased_2026_03_01|11.0|13.0
-    biased_2026_03_02|17.0|19.0
+    corrected_2020_01|-10.3|6.1
+    corrected_2020_02|-9.4|6.9
     ```
 
 ### Select maps by their values
 
 An expression that sets cells to null selects maps. The first block takes the
-maps from 2 March on, three maps, and keeps the values above 6. Of the three,
-only the maps with values from 7 to 9 and from 10 to 12 keep cells; the map
-with the values 4 to 6 has none left, so it is empty. The empty map is not
-registered in `warm`, and the second block shows that it is removed: only two
-maps are left in the mapset.
+maps from August to October, three maps, and keeps the values above 20 degrees.
+The maps of August and September have cells above 20 degrees; the map of
+October has none (its largest value is 16.1), so it is empty. The empty map is
+not registered in `warm`, and the second block shows that it is removed: only
+two maps are left in the mapset.
 
 The third block runs the same call with the flag **-n**. The dataset `warm_all`
 registers the empty map as well, with `None` as its smallest and largest value,
@@ -313,129 +371,131 @@ and the mapset keeps all three maps.
 === "Command line"
 
     ```sh
-    t.rast3d.extract input=soil output=warm basename=warm \
-        where="start_time >= '2026-03-02'" \
-        expression="if(soil > 6, soil, null())"
+    t.rast3d.extract input=temperature_profile output=warm basename=warm \
+        where="start_time >= '2020-08-01' and start_time < '2020-11-01'" \
+        expression="if(temperature_profile > 20, temperature_profile, null())"
     t.rast3d.list input=warm columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    warm_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_2026_03_04|2026-03-04 00:00:00|10.0|12.0
+    warm_2020_08|2020-08-01 00:00:00|21.3|24.6
+    warm_2020_09|2020-09-01 00:00:00|20.1|21.2
     ```
 
     ```sh
-    g.list type=raster_3d pattern="warm*"
+    g.list type=raster_3d pattern="warm*" mapset=.
     ```
 
     ```text
-    warm_2026_03_02
-    warm_2026_03_04
+    warm_2020_08
+    warm_2020_09
     ```
 
     ```sh
-    t.rast3d.extract -n input=soil output=warm_all basename=warm_all \
-        where="start_time >= '2026-03-02'" \
-        expression="if(soil > 6, soil, null())"
+    t.rast3d.extract -n input=temperature_profile output=warm_all \
+        basename=warm_all \
+        where="start_time >= '2020-08-01' and start_time < '2020-11-01'" \
+        expression="if(temperature_profile > 20, temperature_profile, null())"
     t.rast3d.list input=warm_all columns=name,start_time,min,max
-    g.list type=raster_3d pattern="warm_all*"
+    g.list type=raster_3d pattern="warm_all*" mapset=.
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_all_2026_03_03|2026-03-03 00:00:00|None|None
-    warm_all_2026_03_04|2026-03-04 00:00:00|10.0|12.0
-    warm_all_2026_03_02
-    warm_all_2026_03_03
-    warm_all_2026_03_04
+    warm_all_2020_08|2020-08-01 00:00:00|21.3|24.6
+    warm_all_2020_09|2020-09-01 00:00:00|20.1|21.2
+    warm_all_2020_10|2020-10-01 00:00:00|None|None
+    warm_all_2020_08
+    warm_all_2020_09
+    warm_all_2020_10
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
+        input="temperature_profile",
         output="warm",
         basename="warm",
-        where="start_time >= '2026-03-02'",
-        expression="if(soil > 6, soil, null())",
+        where="start_time >= '2020-08-01' and start_time < '2020-11-01'",
+        expression="if(temperature_profile > 20, temperature_profile, null())",
     )
     print(tools.t_rast3d_list(input="warm", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_2026_03_04|2026-03-04 00:00:00|10.0|12.0
+    warm_2020_08|2020-08-01 00:00:00|21.3|24.6
+    warm_2020_09|2020-09-01 00:00:00|20.1|21.2
     ```
 
     ```python
-    print(tools.g_list(type="raster_3d", pattern="warm*").text)
+    print(tools.g_list(type="raster_3d", pattern="warm*", mapset=".").text)
     ```
 
     ```text
-    warm_2026_03_02
-    warm_2026_03_04
+    warm_2020_08
+    warm_2020_09
     ```
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
+        input="temperature_profile",
         output="warm_all",
         basename="warm_all",
-        where="start_time >= '2026-03-02'",
-        expression="if(soil > 6, soil, null())",
+        where="start_time >= '2020-08-01' and start_time < '2020-11-01'",
+        expression="if(temperature_profile > 20, temperature_profile, null())",
         flags="n",
     )
     columns = "name,start_time,min,max"
     print(tools.t_rast3d_list(input="warm_all", columns=columns).text)
-    print(tools.g_list(type="raster_3d", pattern="warm_all*").text)
+    print(tools.g_list(type="raster_3d", pattern="warm_all*", mapset=".").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_2026_03_02|2026-03-02 00:00:00|7.0|9.0
-    warm_all_2026_03_03|2026-03-03 00:00:00|None|None
-    warm_all_2026_03_04|2026-03-04 00:00:00|10.0|12.0
-    warm_all_2026_03_02
-    warm_all_2026_03_03
-    warm_all_2026_03_04
+    warm_all_2020_08|2020-08-01 00:00:00|21.3|24.6
+    warm_all_2020_09|2020-09-01 00:00:00|20.1|21.2
+    warm_all_2020_10|2020-10-01 00:00:00|None|None
+    warm_all_2020_08
+    warm_all_2020_09
+    warm_all_2020_10
     ```
 
 ### Name the new maps
 
 The option **suffix** chooses the end of the names. Each of the first three
-blocks copies the four maps of `soil` with the expression `soil` and lists the
-names: `time` gives the full start time, `num` a number of five digits and
-`num%03` a number of three digits.
+blocks copies the maps of the first quarter of `temperature_profile` with the
+expression `temperature_profile` and lists the names: `time` gives the full
+start time, `num` a number of five digits and `num%03` a number of three digits.
 
-The dataset `pair` in the fourth block has two maps of the same day, `pair_a`
-with the value 1 and `pair_b` with the value 2. Their names from the default
-suffix would be the same. The first map in the order of start time and map id,
-`pair_a`, keeps `ten_2026_06_01`; the second one becomes `ten_2026_06_01_2`.
-The values are 10 and 20.
+The dataset `soundings` in the fourth block has two maps of the same day,
+`sounding_a` with the value 1 and `sounding_b` with the value 2. Their names
+from the default suffix would be the same. The first map in the order of start
+time and map id, `sounding_a`, keeps `ten_2026_06_01`; the second one becomes
+`ten_2026_06_01_2`. The values are 10 and 20.
 
 === "Command line"
 
     ```sh
-    t.rast3d.extract input=soil output=by_time basename=by_time \
-        expression="soil" suffix=time
+    t.rast3d.extract input=temperature_profile output=by_time basename=by_time \
+        where="start_time < '2020-04-01'" expression="temperature_profile" \
+        suffix=time
     t.rast3d.list input=by_time columns=name
     ```
 
     ```text
     name
-    by_time_2026_03_01T00_00_00
-    by_time_2026_03_02T00_00_00
-    by_time_2026_03_03T00_00_00
-    by_time_2026_03_04T00_00_00
+    by_time_2020_01_01T00_00_00
+    by_time_2020_02_01T00_00_00
+    by_time_2020_03_01T00_00_00
     ```
 
     ```sh
-    t.rast3d.extract input=soil output=by_number basename=by_number \
-        expression="soil" suffix=num
+    t.rast3d.extract input=temperature_profile output=by_number \
+        basename=by_number where="start_time < '2020-04-01'" \
+        expression="temperature_profile" suffix=num
     t.rast3d.list input=by_number columns=name
     ```
 
@@ -444,12 +504,12 @@ The values are 10 and 20.
     by_number_00001
     by_number_00002
     by_number_00003
-    by_number_00004
     ```
 
     ```sh
-    t.rast3d.extract input=soil output=by_width basename=by_width \
-        expression="soil" suffix=num%03
+    t.rast3d.extract input=temperature_profile output=by_width \
+        basename=by_width where="start_time < '2020-04-01'" \
+        expression="temperature_profile" suffix=num%03
     t.rast3d.list input=by_width columns=name
     ```
 
@@ -458,19 +518,18 @@ The values are 10 and 20.
     by_width_001
     by_width_002
     by_width_003
-    by_width_004
     ```
 
     ```sh
-    r3.mapcalc expression="pair_a = 1"
-    r3.mapcalc expression="pair_b = 2"
-    t.create type=str3ds output=pair title="Two maps of one day" \
+    r3.mapcalc expression="sounding_a = 1"
+    r3.mapcalc expression="sounding_b = 2"
+    t.create type=str3ds output=soundings title="Two soundings of one day" \
         description="Two maps with the same time"
-    t.register type=raster_3d input=pair maps=pair_a,pair_b \
+    t.register type=raster_3d input=soundings maps=sounding_a,sounding_b \
         start=2026-06-01 end=2026-06-02
-    t.rast3d.extract input=pair output=pair_ten basename=ten \
-        expression="pair * 10"
-    t.rast3d.list input=pair_ten columns=name,start_time,min order=name
+    t.rast3d.extract input=soundings output=soundings_ten basename=ten \
+        expression="soundings * 10"
+    t.rast3d.list input=soundings_ten columns=name,start_time,min order=name
     ```
 
     ```text
@@ -483,10 +542,11 @@ The values are 10 and 20.
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
+        input="temperature_profile",
         output="by_time",
         basename="by_time",
-        expression="soil",
+        where="start_time < '2020-04-01'",
+        expression="temperature_profile",
         suffix="time",
     )
     print(tools.t_rast3d_list(input="by_time", columns="name").text)
@@ -494,18 +554,18 @@ The values are 10 and 20.
 
     ```text
     name
-    by_time_2026_03_01T00_00_00
-    by_time_2026_03_02T00_00_00
-    by_time_2026_03_03T00_00_00
-    by_time_2026_03_04T00_00_00
+    by_time_2020_01_01T00_00_00
+    by_time_2020_02_01T00_00_00
+    by_time_2020_03_01T00_00_00
     ```
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
+        input="temperature_profile",
         output="by_number",
         basename="by_number",
-        expression="soil",
+        where="start_time < '2020-04-01'",
+        expression="temperature_profile",
         suffix="num",
     )
     print(tools.t_rast3d_list(input="by_number", columns="name").text)
@@ -516,15 +576,15 @@ The values are 10 and 20.
     by_number_00001
     by_number_00002
     by_number_00003
-    by_number_00004
     ```
 
     ```python
     tools.t_rast3d_extract(
-        input="soil",
+        input="temperature_profile",
         output="by_width",
         basename="by_width",
-        expression="soil",
+        where="start_time < '2020-04-01'",
+        expression="temperature_profile",
         suffix="num%03",
     )
     print(tools.t_rast3d_list(input="by_width", columns="name").text)
@@ -535,30 +595,32 @@ The values are 10 and 20.
     by_width_001
     by_width_002
     by_width_003
-    by_width_004
     ```
 
     ```python
-    tools.r3_mapcalc(expression="pair_a = 1")
-    tools.r3_mapcalc(expression="pair_b = 2")
+    tools.r3_mapcalc(expression="sounding_a = 1")
+    tools.r3_mapcalc(expression="sounding_b = 2")
     tools.t_create(
         type="str3ds",
-        output="pair",
-        title="Two maps of one day",
+        output="soundings",
+        title="Two soundings of one day",
         description="Two maps with the same time",
     )
     tools.t_register(
         type="raster_3d",
-        input="pair",
-        maps="pair_a,pair_b",
+        input="soundings",
+        maps="sounding_a,sounding_b",
         start="2026-06-01",
         end="2026-06-02",
     )
     tools.t_rast3d_extract(
-        input="pair", output="pair_ten", basename="ten", expression="pair * 10"
+        input="soundings",
+        output="soundings_ten",
+        basename="ten",
+        expression="soundings * 10",
     )
     result = tools.t_rast3d_list(
-        input="pair_ten", columns="name,start_time,min", order="name"
+        input="soundings_ten", columns="name,start_time,min", order="name"
     )
     print(result.text)
     ```
@@ -583,12 +645,12 @@ as well.
 === "Command line"
 
     ```sh
-    r3.mapcalc expression="step_1 = 1"
-    r3.mapcalc expression="step_2 = 2"
+    r3.mapcalc expression="model_hour_0 = 1"
+    r3.mapcalc expression="model_hour_6 = 2"
     t.create type=str3ds output=model temporaltype=relative title="Model" \
         description="Model output per step"
-    t.register -i type=raster_3d input=model maps=step_1,step_2 start=0 \
-        increment=6 unit=hours
+    t.register -i type=raster_3d input=model maps=model_hour_0,model_hour_6 \
+        start=0 increment=6 unit=hours
     t.rast3d.extract input=model output=model_high basename=m \
         expression="if(model > 1, model, null())"
     t.rast3d.list input=model_high columns=name,start_time,end_time,min
@@ -617,8 +679,8 @@ as well.
 === "Python (grass.tools)"
 
     ```python
-    tools.r3_mapcalc(expression="step_1 = 1")
-    tools.r3_mapcalc(expression="step_2 = 2")
+    tools.r3_mapcalc(expression="model_hour_0 = 1")
+    tools.r3_mapcalc(expression="model_hour_6 = 2")
     tools.t_create(
         type="str3ds",
         output="model",
@@ -629,7 +691,7 @@ as well.
     tools.t_register(
         type="raster_3d",
         input="model",
-        maps="step_1,step_2",
+        maps="model_hour_0,model_hour_6",
         start=0,
         increment=6,
         unit="hours",
@@ -674,11 +736,13 @@ as well.
 
 ### Extract from a dataset of another mapset
 
-The dataset `model` stays in the mapset `PERMANENT`. The first block creates
-the mapset `other`, switches to it and extracts with an expression. The name
-`model` in the expression stands for the maps of the dataset, though it has no
-mapset, and the output dataset `model_copy` and its maps `copy_00001` and
-`copy_00002` belong to `other`. The `id` column shows the mapset.
+The dataset `model` stays in the mapset `t_rast3d_extract`. The first block
+creates the mapset `t_rast3d_extract_2`, sets the same region, adds the first
+mapset to the search path with *g.mapsets*, and extracts with an expression.
+The name `model` in the expression stands for the maps of the dataset, though
+it has no mapset, and the output dataset `model_copy` and its
+maps `copy_00001` and `copy_00002` belong to `t_rast3d_extract_2`. The `id`
+column shows the mapset.
 
 The second block shows what happens without an expression. The call is
 refused, so the block prints `refused`. The refusal leaves the empty dataset
@@ -688,20 +752,22 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    t.rast3d.extract input=model@PERMANENT output=model_copy basename=copy \
-        expression="model" suffix=num
+    g.mapset -c mapset=t_rast3d_extract_2
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+    g.mapsets mapset=t_rast3d_extract operation=add
+    t.rast3d.extract input=model@t_rast3d_extract output=model_copy \
+        basename=copy expression="model" suffix=num
     t.rast3d.list input=model_copy columns=id,start_time,min
     ```
 
     ```text
     id|start_time|min
-    copy_00001@other|0|1.0
-    copy_00002@other|6|2.0
+    copy_00001@t_rast3d_extract_2|0|1.0
+    copy_00002@t_rast3d_extract_2|6|2.0
     ```
 
     ```sh
-    if t.rast3d.extract input=model@PERMANENT output=model_copy_empty \
+    if t.rast3d.extract input=model@t_rast3d_extract output=model_copy_empty \
         2>/dev/null; then echo extracted; else echo refused; fi
     t.info -g type=str3ds input=model_copy_empty | grep -E "^(id|number_of_maps)="
     t.remove -f type=str3ds inputs=model_copy_empty
@@ -709,7 +775,7 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 
     ```text
     refused
-    id=model_copy_empty@other
+    id=model_copy_empty@t_rast3d_extract_2
     number_of_maps=None
     ```
 
@@ -718,9 +784,13 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
     ```python
     from grass.tools import ToolError
 
-    tools.g_mapset(mapset="other", flags="c")
+    tools.g_mapset(mapset="t_rast3d_extract_2", flags="c")
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
+    tools.g_mapsets(mapset="t_rast3d_extract", operation="add")
     tools.t_rast3d_extract(
-        input="model@PERMANENT",
+        input="model@t_rast3d_extract",
         output="model_copy",
         basename="copy",
         expression="model",
@@ -731,13 +801,13 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 
     ```text
     id|start_time|min
-    copy_00001@other|0|1.0
-    copy_00002@other|6|2.0
+    copy_00001@t_rast3d_extract_2|0|1.0
+    copy_00002@t_rast3d_extract_2|6|2.0
     ```
 
     ```python
     try:
-        tools.t_rast3d_extract(input="model@PERMANENT", output="model_copy_empty")
+        tools.t_rast3d_extract(input="model@t_rast3d_extract", output="model_copy_empty")
     except ToolError:
         print("refused")
     else:
@@ -750,7 +820,7 @@ refused, so the block prints `refused`. The refusal leaves the empty dataset
 
     ```text
     refused
-    id=model_copy_empty@other
+    id=model_copy_empty@t_rast3d_extract_2
     number_of_maps=None
     ```
 
