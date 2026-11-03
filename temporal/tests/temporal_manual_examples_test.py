@@ -12,6 +12,10 @@ CATALOG_MANUALS are the manuals that may keep a catalog of expressions, each
 with its result, in examples without a Python tab (``<!-- example:
 shell-only -->``). Each tab of a manual runs in one test, whose time limit
 grows with its number of blocks (manual_examples.timeout_for).
+
+A manual with ``dataset=`` in its example-project comment runs in the North
+Carolina sample dataset (grass.temporal.testing.nc_dataset), which the tests
+need: without it, they fail with a message that says where to get it.
 """
 
 from functools import partial
@@ -29,11 +33,18 @@ from grass.temporal.testing.manual_examples import (
     MINIMUM_TEST_SECONDS,
     ManualFormatError,
     check_manual,
+    example_session,
     parse_manual,
     stop_example_processes,
     timeout_for,
 )
-from grass.temporal.testing.session import project_session
+from grass.temporal.testing.nc_dataset import (
+    USED_DATA,
+    differences,
+    find_dataset,
+    fingerprint,
+    snapshot,
+)
 
 REVIEWED_MANUALS = (
     "t.connect",
@@ -141,25 +152,57 @@ def example_processes():
     stop_example_processes()
 
 
+@pytest.fixture(scope="session")
+def dataset_at_start():
+    """The North Carolina dataset and its snapshot, checked for the recorded data
+
+    Taken when the first test of this process that needs the dataset asks for
+    it, before that test runs examples. A dataset with other data fails here,
+    so that its manuals do not show a wall of differing output.
+    """
+    dataset = find_dataset()
+    assert differences(USED_DATA, fingerprint(dataset)) == [], (
+        f"{dataset} has other data than the manuals were written with"
+    )
+    return dataset, snapshot(dataset)
+
+
 @pytest.mark.parametrize(("tool", "variant"), example_runs())
-def test_examples_run_and_show_their_output(tool, variant, tmp_path, example_processes):
-    check_examples(manual_of(tool), variant, tmp_path)
+def test_examples_run_and_show_their_output(
+    tool, variant, tmp_path, example_processes, request
+):
+    check_examples(manual_of(tool), variant, tmp_path, request)
 
 
-def check_examples(manual, variant, tmp_path):
+def test_examples_leave_the_dataset_unchanged(dataset_at_start):
+    """Nothing changed the dataset since this process first needed it
+
+    Each run of a manual in the dataset compares the dataset before and after
+    and names the manual that changed it (example_session). This test also
+    sees a change by anything else that ran in this process before it, and it
+    fails, with one message, when the dataset is missing.
+    """
+    dataset, before = dataset_at_start
+    assert differences(before, snapshot(dataset)) == [], (
+        f"the dataset {dataset} changed during the tests"
+    )
+
+
+def check_examples(manual, variant, tmp_path, request):
     """Run the examples of one tab of a manual and compare their output"""
     # A misspelled "## EXAMPLES" leaves a manual without examples, which
     # would otherwise pass unseen.
     assert any(example.variant == variant for example in manual.examples), (
         f"{manual.path} has no examples under ## EXAMPLES"
     )
-    project = tmp_path / "grassdata" / "temporal_examples"
+    if "dataset" in manual.project:
+        request.getfixturevalue("dataset_at_start")
     # The examples run in child processes and need only session.env, so this
-    # process does not init grass.temporal. With temporal_session, pytest -n
-    # auto temporal/tests reported 12 DeprecationWarnings of multiprocessing
-    # (fork of a multi-threaded process), with project_session none (measured
-    # 2026-11-02).
-    with project_session(project, crs=manual.project.get("crs")) as session:
+    # process does not init grass.temporal, and example_session does not
+    # either. With temporal_session, pytest -n auto temporal/tests reported 12
+    # DeprecationWarnings of multiprocessing (fork of a multi-threaded
+    # process), with project_session none (measured 2026-11-02).
+    with example_session(manual, tmp_path) as session:
         check_manual(manual, variant, session, tmp_path / "work")
 
 
@@ -193,9 +236,9 @@ def test_markdown_and_html_agree(tool):
     ],
 )
 def test_introduction_examples_run_and_show_their_output(
-    variant, tmp_path, example_processes
+    variant, tmp_path, example_processes, request
 ):
-    check_examples(parse_manual(INTRODUCTION), variant, tmp_path)
+    check_examples(parse_manual(INTRODUCTION), variant, tmp_path, request)
 
 
 def test_minimum_time_limit_is_the_limit_of_the_repository(pytestconfig):
