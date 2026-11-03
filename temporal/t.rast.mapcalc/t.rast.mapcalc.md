@@ -23,8 +23,8 @@ is related to the granule in time, as the option **method** says. A granule
 for which one of the datasets has no related map is skipped. The order of the
 datasets in the expression does not matter, only their order in **inputs**. If
 the list names only one dataset, every map of it is a granule. The datasets may
-be in other mapsets (`soil@PERMANENT`); the expression then still uses the name
-without the mapset.
+be in other mapsets (`precipitation_monthly@t_rast_mapcalc`); the expression
+then still uses the name without the mapset.
 
 A name with a dot, such as `bands.S2_8`, is a dataset name and a semantic
 label. It selects the maps of the dataset that have this label, and the
@@ -52,10 +52,12 @@ outside the region reads as null.
 
 The option **expression** is the right side of an *r.mapcalc* expression,
 without the `map =` of a full one. In it, the name of each dataset of **inputs**
-stands for the related map of the current granule, so `soil * weight`
-multiplies the map of `soil` by the related map of `weight`, and
-`weight * soil` does the same. Any other raster map can be used by its name.
-The operators and functions of *r.mapcalc* are available.
+stands for the related map of the current granule, so
+`precipitation_monthly * temperature_monthly` multiplies the map of
+`precipitation_monthly` by the related map of `temperature_monthly`, and
+`temperature_monthly * precipitation_monthly` does the same. Any other raster
+map can be used by its name. The operators and functions of *r.mapcalc* are
+available.
 
 The tool puts the names of the maps into the text of the expression and
 numbers the results, so a call with four granules runs four statements such as
@@ -203,56 +205,86 @@ under another name, as the ninth example shows.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_mapcalc` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region, except the last, which creates a second mapset with the same
+region. The first two examples and the sixth compute with generated series of
+monthly temperature and precipitation. The examples that show how granules,
+sampling and the temporal variables work use maps with small constant values,
+so that the results can be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_mapcalc -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Apply an expression to every map
 
-The dataset `soil` has four maps for the days from 1 to 4 March 2026. The
-region from `g.region` is two by two cells wide, and `col()` counts the columns
-from 1. So the maps have two columns of two cells each, and their values are the
-column number (1 and 2) plus 0, 10, 20 and 30, so the smallest and largest
-values are 1 and 2, 11 and 12, 21 and 22, and 31 and 32.
+The dataset `temperature_monthly` holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model `elev_state_500m`: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month.
 
-The first block doubles the maps. The name `soil` in the expression stands for
-the map of each day. The new maps are named `doubled_1` to `doubled_4` after
-the granules, and each has the time of its source map. **nprocs** lets two
-*r.mapcalc* processes run at the same time; the result is the same as with
-one. The values are twice those of the source maps. The second block shows
-what the new dataset takes from `soil`: the temporal type and the semantic
-type, and the granularity that follows from the maps it holds.
+The first block makes the mapset, the region and the dataset, and converts the
+maps to degrees Fahrenheit. The name `temperature_monthly` in the expression
+stands for the map of each month. The new maps are named `fahrenheit_01` to
+`fahrenheit_12` after the granules, and each has the time of its source map.
+**nprocs** lets two *r.mapcalc* processes run at the same time; the result is
+the same as with one. The result is rounded to tenths, as the source maps are.
+In July the warmest cell has 28.4 degrees Celsius, which is 83.1 degrees
+Fahrenheit, and in January the coldest has -7.0 degrees Celsius, which is
+19.4 degrees Fahrenheit. The second block shows what the new dataset takes
+from `temperature_monthly`: the temporal type and the semantic type, and the
+granularity that follows from the maps it holds.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
-    for step in 1 2 3 4; do
-        r.mapcalc expression="soil_$step = col() + 10 * ($step - 1)"
-    done
-    t.create output=soil title="Soil" \
-        description="Soil temperature, one map per day"
-    t.register -i input=soil \
-        maps=soil_1,soil_2,soil_3,soil_4 start=2026-03-01 increment="1 day"
-    t.rast.mapcalc inputs=soil output=doubled basename=doubled \
-        expression="soil * 2" nprocs=2
-    t.rast.list input=doubled columns=name,start_time,end_time,min,max
+    g.mapset -c mapset=t_rast_mapcalc
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.mapcalc inputs=temperature_monthly output=fahrenheit \
+        basename=fahrenheit nprocs=2 \
+        expression="round((temperature_monthly * 1.8 + 32) * 10) / 10.0"
+    t.rast.list input=fahrenheit columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    doubled_1|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|4.0
-    doubled_2|2026-03-02 00:00:00|2026-03-03 00:00:00|22.0|24.0
-    doubled_3|2026-03-03 00:00:00|2026-03-04 00:00:00|42.0|44.0
-    doubled_4|2026-03-04 00:00:00|2026-03-05 00:00:00|62.0|64.0
+    fahrenheit_01|2020-01-01 00:00:00|2020-02-01 00:00:00|19.4|45.5
+    fahrenheit_02|2020-02-01 00:00:00|2020-03-01 00:00:00|21.0|47.1
+    fahrenheit_03|2020-03-01 00:00:00|2020-04-01 00:00:00|27.1|53.2
+    fahrenheit_04|2020-04-01 00:00:00|2020-05-01 00:00:00|36.3|62.4
+    fahrenheit_05|2020-05-01 00:00:00|2020-06-01 00:00:00|45.9|72.0
+    fahrenheit_06|2020-06-01 00:00:00|2020-07-01 00:00:00|53.6|79.7
+    fahrenheit_07|2020-07-01 00:00:00|2020-08-01 00:00:00|57.0|83.1
+    fahrenheit_08|2020-08-01 00:00:00|2020-09-01 00:00:00|55.6|81.7
+    fahrenheit_09|2020-09-01 00:00:00|2020-10-01 00:00:00|49.3|75.6
+    fahrenheit_10|2020-10-01 00:00:00|2020-11-01 00:00:00|40.3|66.4
+    fahrenheit_11|2020-11-01 00:00:00|2020-12-01 00:00:00|30.6|56.7
+    fahrenheit_12|2020-12-01 00:00:00|2021-01-01 00:00:00|23.0|49.1
     ```
 
     ```sh
-    t.info -g input=doubled | grep -E "^(temporal_type|semantic_type|granularity)="
+    t.info -g input=fahrenheit | grep -E "^(temporal_type|semantic_type|granularity)="
     ```
 
     ```text
     temporal_type=absolute
     semantic_type=mean
-    granularity='1 day'
+    granularity='1 month'
     ```
 
 === "Python (grass.tools)"
@@ -261,39 +293,58 @@ type, and the granularity that follows from the maps it holds.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
-    for step in range(1, 5):
-        tools.r_mapcalc(expression=f"soil_{step} = col() + 10 * ({step} - 1)")
+    tools.g_mapset(flags="c", mapset="t_rast_mapcalc")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="soil",
-        title="Soil",
-        description="Soil temperature, one map per day",
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="soil",
-        maps="soil_1,soil_2,soil_3,soil_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     tools.t_rast_mapcalc(
-        inputs="soil", output="doubled", basename="doubled", expression="soil * 2", nprocs=2
+        inputs="temperature_monthly",
+        output="fahrenheit",
+        basename="fahrenheit",
+        expression="round((temperature_monthly * 1.8 + 32) * 10) / 10.0",
+        nprocs=2,
     )
-    print(
-        tools.t_rast_list(input="doubled", columns="name,start_time,end_time,min,max").text
-    )
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="fahrenheit", columns=columns).text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    doubled_1|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|4.0
-    doubled_2|2026-03-02 00:00:00|2026-03-03 00:00:00|22.0|24.0
-    doubled_3|2026-03-03 00:00:00|2026-03-04 00:00:00|42.0|44.0
-    doubled_4|2026-03-04 00:00:00|2026-03-05 00:00:00|62.0|64.0
+    fahrenheit_01|2020-01-01 00:00:00|2020-02-01 00:00:00|19.4|45.5
+    fahrenheit_02|2020-02-01 00:00:00|2020-03-01 00:00:00|21.0|47.1
+    fahrenheit_03|2020-03-01 00:00:00|2020-04-01 00:00:00|27.1|53.2
+    fahrenheit_04|2020-04-01 00:00:00|2020-05-01 00:00:00|36.3|62.4
+    fahrenheit_05|2020-05-01 00:00:00|2020-06-01 00:00:00|45.9|72.0
+    fahrenheit_06|2020-06-01 00:00:00|2020-07-01 00:00:00|53.6|79.7
+    fahrenheit_07|2020-07-01 00:00:00|2020-08-01 00:00:00|57.0|83.1
+    fahrenheit_08|2020-08-01 00:00:00|2020-09-01 00:00:00|55.6|81.7
+    fahrenheit_09|2020-09-01 00:00:00|2020-10-01 00:00:00|49.3|75.6
+    fahrenheit_10|2020-10-01 00:00:00|2020-11-01 00:00:00|40.3|66.4
+    fahrenheit_11|2020-11-01 00:00:00|2020-12-01 00:00:00|30.6|56.7
+    fahrenheit_12|2020-12-01 00:00:00|2021-01-01 00:00:00|23.0|49.1
     ```
 
     ```python
-    info = tools.t_info(input="doubled", flags="g").keyval
+    info = tools.t_info(input="fahrenheit", flags="g").keyval
     for key in ("temporal_type", "semantic_type", "granularity"):
         print(f"{key}={info[key]}")
     ```
@@ -301,76 +352,113 @@ type, and the granularity that follows from the maps it holds.
     ```text
     temporal_type=absolute
     semantic_type=mean
-    granularity='1 day'
+    granularity='1 month'
     ```
 
 ### Combine the maps of several datasets
 
-The dataset `weight` has two maps, each for two days: `weight_1` with the value
-2 for 1 and 2 March, `weight_2` with the value 3 for 3 and 4 March. The first
-block multiplies `soil` by `weight` with **method** `during`. The expression
-names `weight` first, which does not matter. The first dataset of **inputs** is
-the sampler, so the result has four maps of one day each, and each day of `soil`
-lies during a map of `weight`. The values are twice those of `soil` for the
-first two days and three times for the last two: 2 and 4, 22 and 24, 63 and
-66, 93 and 96.
+The dataset `precipitation_monthly` holds twelve maps of the monthly
+precipitation sum in 2020, in whole millimetres. They are generated, not
+measured: the monthly normals of the climate stations in `precip_30ynormals`
+are interpolated for each month with *v.surf.idw* from 12 neighbours and
+multiplied by an assumed factor for a wet year, between 0.8 and 1.7. The maps
+are null outside North Carolina. The twelve interpolated normals stay in the
+mapset as `precipitation_normal_01` to `precipitation_normal_12`.
+*t.rast.aggregate* adds the dataset `precipitation_quarterly` with four maps,
+the sums of three months each, so each map of it is an interval of one quarter.
 
-The second block swaps the order in **inputs**, so the sampler is `weight` and
-the result has two maps of two days each. With **method** `contain`, each
-granule of `weight` contains two maps of `soil`; the tool warns on the standard
-error and uses the first of them. The result is the value of `weight` plus the
-first map of `soil`: 3 and 4 for the first two days (2 plus 1 and 2), 24 and 25
-for the last two (3 plus 21 and 22).
+The first block calculates the share of a month in the precipitation of its
+quarter. The first dataset of **inputs** is the sampler, so the result has
+twelve maps of one month each, and each month of `precipitation_monthly` lies
+during a map of `precipitation_quarterly`. The expression divides the two and
+gives percent rounded to tenths. In January a cell has between 28.0 and 38.6
+percent of the precipitation of the first quarter; before the rounding, the
+three shares of a cell add up to 100 percent.
 
-The third block leaves out **method**. The default is `equal`, and no map of
-`weight` has the time of a day of `soil`, so every granule is skipped. The
-tool does not fail; the new dataset exists and holds no map.
+The second block swaps the order in **inputs**, so the sampler is
+`precipitation_quarterly` and the result has four maps of three months each.
+With **method** `contain`, each granule contains three monthly maps; the tool
+warns on the standard error and uses the first of them, the map of the first
+month of the quarter. The result is the sum of the quarter minus that map, so
+the precipitation of the other two months: 222 to 521 mm for February and
+March.
+
+The third block leaves out **method**. The default is `equal`, and no month
+has the time of a quarter, so every granule is skipped. The tool does not
+fail; the new dataset exists and holds no map.
 
 The fourth block names the default **method** `equal` and gives it partners.
-The dataset `offset` has one map for each day of `soil`, `offset_k` with the
-value `k`, so every day has a map with the same time. The expression chooses
-the calculation by the time of the granule: on the 2nd and 3rd of the month it
-adds the maps, on the other days it multiplies them. The results are 1 and 2
-(1 times 1 and 2), 13 and 14 (11 plus 2 and 12 plus 2), 24 and 25 (21 plus 3
-and 22 plus 3), and 124 and 128 (31 and 32 times 4).
+The sampler is `temperature_monthly`, and every month has a map of
+`precipitation_monthly` with the same time. The expression names
+`precipitation_monthly` first, which does not matter. It chooses the
+calculation by the time of the granule, a simple climatic water balance: from
+April to September it subtracts an assumed evaporation of 4 mm for every
+degree Celsius, rounded to whole millimetres, from the precipitation; in the
+other months it keeps the precipitation. So the maps from October to March
+have the values of `precipitation_monthly`, for example 94 to 249 mm in
+January, and in July the balance is between -14 and 136 mm, negative where the
+evaporation exceeds the precipitation.
 
 === "Command line"
 
     ```sh
-    r.mapcalc expression="weight_1 = 2"
-    r.mapcalc expression="weight_2 = 3"
-    t.create output=weight title="Weight" \
-        description="Factor for two days each"
-    t.register -i input=weight maps=weight_1,weight_2 \
-        start=2026-03-01 increment="2 days"
-    t.rast.mapcalc inputs=soil,weight output=weighted basename=weighted \
-        expression="weight * soil" method=during
-    t.rast.list input=weighted columns=name,start_time,end_time,min,max
+    month=1
+    for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+        jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
+    done
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.aggregate input=precipitation_monthly output=precipitation_quarterly \
+        basename=precipitation_quarterly granularity="3 months" method=sum
+    t.rast.mapcalc inputs=precipitation_monthly,precipitation_quarterly \
+        output=quarter_share basename=quarter_share method=during \
+        expression="round(1000.0 * precipitation_monthly / precipitation_quarterly) / 10.0"
+    t.rast.list input=quarter_share columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    weighted_1|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|4.0
-    weighted_2|2026-03-02 00:00:00|2026-03-03 00:00:00|22.0|24.0
-    weighted_3|2026-03-03 00:00:00|2026-03-04 00:00:00|63.0|66.0
-    weighted_4|2026-03-04 00:00:00|2026-03-05 00:00:00|93.0|96.0
+    quarter_share_01|2020-01-01 00:00:00|2020-02-01 00:00:00|28.0|38.6
+    quarter_share_02|2020-02-01 00:00:00|2020-03-01 00:00:00|35.9|43.7
+    quarter_share_03|2020-03-01 00:00:00|2020-04-01 00:00:00|22.5|30.5
+    quarter_share_04|2020-04-01 00:00:00|2020-05-01 00:00:00|24.4|35.7
+    quarter_share_05|2020-05-01 00:00:00|2020-06-01 00:00:00|39.6|50.0
+    quarter_share_06|2020-06-01 00:00:00|2020-07-01 00:00:00|20.7|33.2
+    quarter_share_07|2020-07-01 00:00:00|2020-08-01 00:00:00|27.4|40.6
+    quarter_share_08|2020-08-01 00:00:00|2020-09-01 00:00:00|38.3|49.7
+    quarter_share_09|2020-09-01 00:00:00|2020-10-01 00:00:00|18.5|27.5
+    quarter_share_10|2020-10-01 00:00:00|2020-11-01 00:00:00|20.0|33.9
+    quarter_share_11|2020-11-01 00:00:00|2020-12-01 00:00:00|40.1|53.6
+    quarter_share_12|2020-12-01 00:00:00|2021-01-01 00:00:00|20.6|31.1
     ```
 
     ```sh
-    t.rast.mapcalc inputs=weight,soil output=summed basename=summed \
-        expression="weight + soil" method=contain
-    t.rast.list input=summed columns=name,start_time,end_time,min,max
+    t.rast.mapcalc inputs=precipitation_quarterly,precipitation_monthly \
+        output=rest_of_quarter basename=rest_of_quarter method=contain \
+        expression="precipitation_quarterly - precipitation_monthly"
+    t.rast.list input=rest_of_quarter columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    summed_1|2026-03-01 00:00:00|2026-03-03 00:00:00|3.0|4.0
-    summed_2|2026-03-03 00:00:00|2026-03-05 00:00:00|24.0|25.0
+    rest_of_quarter_1|2020-01-01 00:00:00|2020-04-01 00:00:00|222.0|521.0
+    rest_of_quarter_2|2020-04-01 00:00:00|2020-07-01 00:00:00|217.0|501.0
+    rest_of_quarter_3|2020-07-01 00:00:00|2020-10-01 00:00:00|186.0|473.0
+    rest_of_quarter_4|2020-10-01 00:00:00|2021-01-01 00:00:00|174.0|518.0
     ```
 
     ```sh
-    t.rast.mapcalc inputs=soil,weight output=unmatched basename=unmatched \
-        expression="soil * weight"
+    t.rast.mapcalc inputs=precipitation_monthly,precipitation_quarterly \
+        output=unmatched basename=unmatched \
+        expression="precipitation_monthly + precipitation_quarterly"
     t.info -g input=unmatched | grep "^number_of_maps="
     ```
 
@@ -379,87 +467,112 @@ and 22 plus 3), and 124 and 128 (31 and 32 times 4).
     ```
 
     ```sh
-    for step in 1 2 3 4; do
-        r.mapcalc expression="offset_$step = $step"
-    done
-    t.create output=offset title="Offset" description="One factor per day"
-    t.register -i input=offset maps=offset_1,offset_2,offset_3,offset_4 \
-        start=2026-03-01 increment="1 day"
-    t.rast.mapcalc inputs=soil,offset output=chosen basename=chosen method=equal \
-        expression="if(start_day() == 2 || start_day() == 3, soil + offset, soil * offset)"
-    t.rast.list input=chosen columns=name,start_time,min,max
+    t.rast.mapcalc inputs=temperature_monthly,precipitation_monthly \
+        output=balance basename=balance method=equal \
+        expression="if(start_month() >= 4 && start_month() <= 9, precipitation_monthly - round(4 * temperature_monthly), precipitation_monthly)"
+    t.rast.list input=balance columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    chosen_1|2026-03-01 00:00:00|1.0|2.0
-    chosen_2|2026-03-02 00:00:00|13.0|14.0
-    chosen_3|2026-03-03 00:00:00|24.0|25.0
-    chosen_4|2026-03-04 00:00:00|124.0|128.0
+    balance_01|2020-01-01 00:00:00|94.0|249.0
+    balance_02|2020-02-01 00:00:00|133.0|309.0
+    balance_03|2020-03-01 00:00:00|88.0|212.0
+    balance_04|2020-04-01 00:00:00|30.0|194.0
+    balance_05|2020-05-01 00:00:00|50.0|289.0
+    balance_06|2020-06-01 00:00:00|-16.0|97.0
+    balance_07|2020-07-01 00:00:00|-14.0|136.0
+    balance_08|2020-08-01 00:00:00|21.0|215.0
+    balance_09|2020-09-01 00:00:00|-15.0|85.0
+    balance_10|2020-10-01 00:00:00|55.0|160.0
+    balance_11|2020-11-01 00:00:00|104.0|350.0
+    balance_12|2020-12-01 00:00:00|59.0|177.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="weight_1 = 2")
-    tools.r_mapcalc(expression="weight_2 = 3")
+    factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+    factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=1):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+        )
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
     tools.t_create(
-        output="weight",
-        title="Weight",
-        description="Factor for two days each",
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
     )
     tools.t_register(
-        input="weight",
-        maps="weight_1,weight_2",
-        start="2026-03-01",
-        increment="2 days",
+        input="precipitation_monthly",
+        maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
+    tools.t_rast_aggregate(
+        input="precipitation_monthly",
+        output="precipitation_quarterly",
+        basename="precipitation_quarterly",
+        granularity="3 months",
+        method="sum",
+    )
     tools.t_rast_mapcalc(
-        inputs="soil,weight",
-        output="weighted",
-        basename="weighted",
-        expression="weight * soil",
+        inputs="precipitation_monthly,precipitation_quarterly",
+        output="quarter_share",
+        basename="quarter_share",
         method="during",
+        expression="round(1000.0 * precipitation_monthly / precipitation_quarterly) / 10.0",
     )
-    print(
-        tools.t_rast_list(input="weighted", columns="name,start_time,end_time,min,max").text
-    )
+    print(tools.t_rast_list(input="quarter_share", columns=columns).text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    weighted_1|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|4.0
-    weighted_2|2026-03-02 00:00:00|2026-03-03 00:00:00|22.0|24.0
-    weighted_3|2026-03-03 00:00:00|2026-03-04 00:00:00|63.0|66.0
-    weighted_4|2026-03-04 00:00:00|2026-03-05 00:00:00|93.0|96.0
+    quarter_share_01|2020-01-01 00:00:00|2020-02-01 00:00:00|28.0|38.6
+    quarter_share_02|2020-02-01 00:00:00|2020-03-01 00:00:00|35.9|43.7
+    quarter_share_03|2020-03-01 00:00:00|2020-04-01 00:00:00|22.5|30.5
+    quarter_share_04|2020-04-01 00:00:00|2020-05-01 00:00:00|24.4|35.7
+    quarter_share_05|2020-05-01 00:00:00|2020-06-01 00:00:00|39.6|50.0
+    quarter_share_06|2020-06-01 00:00:00|2020-07-01 00:00:00|20.7|33.2
+    quarter_share_07|2020-07-01 00:00:00|2020-08-01 00:00:00|27.4|40.6
+    quarter_share_08|2020-08-01 00:00:00|2020-09-01 00:00:00|38.3|49.7
+    quarter_share_09|2020-09-01 00:00:00|2020-10-01 00:00:00|18.5|27.5
+    quarter_share_10|2020-10-01 00:00:00|2020-11-01 00:00:00|20.0|33.9
+    quarter_share_11|2020-11-01 00:00:00|2020-12-01 00:00:00|40.1|53.6
+    quarter_share_12|2020-12-01 00:00:00|2021-01-01 00:00:00|20.6|31.1
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="weight,soil",
-        output="summed",
-        basename="summed",
-        expression="weight + soil",
+        inputs="precipitation_quarterly,precipitation_monthly",
+        output="rest_of_quarter",
+        basename="rest_of_quarter",
         method="contain",
+        expression="precipitation_quarterly - precipitation_monthly",
     )
-    print(
-        tools.t_rast_list(input="summed", columns="name,start_time,end_time,min,max").text
-    )
+    print(tools.t_rast_list(input="rest_of_quarter", columns=columns).text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    summed_1|2026-03-01 00:00:00|2026-03-03 00:00:00|3.0|4.0
-    summed_2|2026-03-03 00:00:00|2026-03-05 00:00:00|24.0|25.0
+    rest_of_quarter_1|2020-01-01 00:00:00|2020-04-01 00:00:00|222.0|521.0
+    rest_of_quarter_2|2020-04-01 00:00:00|2020-07-01 00:00:00|217.0|501.0
+    rest_of_quarter_3|2020-07-01 00:00:00|2020-10-01 00:00:00|186.0|473.0
+    rest_of_quarter_4|2020-10-01 00:00:00|2021-01-01 00:00:00|174.0|518.0
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="soil,weight",
+        inputs="precipitation_monthly,precipitation_quarterly",
         output="unmatched",
         basename="unmatched",
-        expression="soil * weight",
+        expression="precipitation_monthly + precipitation_quarterly",
     )
     info = tools.t_info(input="unmatched", flags="g").keyval
     print(f"number_of_maps={info['number_of_maps']}")
@@ -470,34 +583,34 @@ and 22 plus 3), and 124 and 128 (31 and 32 times 4).
     ```
 
     ```python
-    for step in range(1, 5):
-        tools.r_mapcalc(expression=f"offset_{step} = {step}")
-    tools.t_create(output="offset", title="Offset", description="One factor per day")
-    tools.t_register(
-        input="offset",
-        maps="offset_1,offset_2,offset_3,offset_4",
-        start="2026-03-01",
-        increment="1 day",
-        flags="i",
-    )
     tools.t_rast_mapcalc(
-        inputs="soil,offset",
-        output="chosen",
-        basename="chosen",
-        expression=(
-            "if(start_day() == 2 || start_day() == 3, soil + offset, soil * offset)"
-        ),
+        inputs="temperature_monthly,precipitation_monthly",
+        output="balance",
+        basename="balance",
         method="equal",
+        expression=(
+            "if(start_month() >= 4 && start_month() <= 9,"
+            " precipitation_monthly - round(4 * temperature_monthly),"
+            " precipitation_monthly)"
+        ),
     )
-    print(tools.t_rast_list(input="chosen", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="balance", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    chosen_1|2026-03-01 00:00:00|1.0|2.0
-    chosen_2|2026-03-02 00:00:00|13.0|14.0
-    chosen_3|2026-03-03 00:00:00|24.0|25.0
-    chosen_4|2026-03-04 00:00:00|124.0|128.0
+    balance_01|2020-01-01 00:00:00|94.0|249.0
+    balance_02|2020-02-01 00:00:00|133.0|309.0
+    balance_03|2020-03-01 00:00:00|88.0|212.0
+    balance_04|2020-04-01 00:00:00|30.0|194.0
+    balance_05|2020-05-01 00:00:00|50.0|289.0
+    balance_06|2020-06-01 00:00:00|-16.0|97.0
+    balance_07|2020-07-01 00:00:00|-14.0|136.0
+    balance_08|2020-08-01 00:00:00|21.0|215.0
+    balance_09|2020-09-01 00:00:00|-15.0|85.0
+    balance_10|2020-10-01 00:00:00|55.0|160.0
+    balance_11|2020-11-01 00:00:00|104.0|350.0
+    balance_12|2020-12-01 00:00:00|59.0|177.0
     ```
 
 ### Choose the sampling method
@@ -825,11 +938,13 @@ error when it chooses between maps.
 
 ### Use the time of the granule
 
-Back to `soil`. The expressions of the first four blocks need no map, only the
+The first block makes the dataset `soil` with four maps for the days from 1 to
+4 March 2026. Each map has the same value in every cell: 2, 12, 22 and 32
+degrees Celsius. The expressions of the first four blocks need no map, only the
 time of the granule, so they name `soil` only in **inputs**. The granules are
-the days from 1 to 4 March 2026; 1 March 2026 is a Sunday, the 60th day of the
-year. Each block prints the smallest and largest value of every new map; all
-cells of a map have the same value.
+the days; 1 March 2026 is a Sunday, the 60th day of the year. Each block prints
+the smallest and largest value of every new map; all cells of a map have the
+same value.
 
 - Block 1: `start_time()` counts the hundreds, `td()` the tens and
   `end_time()` the ones. The days start 0, 1, 2 and 3 days after the first,
@@ -869,6 +984,13 @@ hours.
 === "Command line"
 
     ```sh
+    for step in 1 2 3 4; do
+        r.mapcalc expression="soil_$step = $((2 + 10 * ($step - 1)))"
+    done
+    t.create output=soil title="Soil" \
+        description="Soil temperature in degree Celsius, one map per day"
+    t.register -i input=soil \
+        maps=soil_1,soil_2,soil_3,soil_4 start=2026-03-01 increment="1 day"
     t.rast.mapcalc inputs=soil output=when basename=when \
         expression="start_time() * 100 + td() * 10 + end_time()"
     t.rast.list input=when columns=name,min,max
@@ -968,14 +1090,13 @@ hours.
     iso_1|53.0|53.0
     ```
 
-
     ```sh
     for step in 1 2 3; do
-        r.mapcalc expression="step_$step = col() + 10 * ($step - 1)"
+        r.mapcalc expression="model_$step = $step"
     done
     t.create temporaltype=relative output=model title="Model" \
         description="Model output every 5 hours"
-    t.register -i input=model maps=step_1,step_2,step_3 \
+    t.register -i input=model maps=model_1,model_2,model_3 \
         start=0 increment=5 unit=hours
     t.rast.mapcalc inputs=model output=elapsed basename=elapsed \
         expression="start_time() * 100 + td() * 10 + end_time()"
@@ -1006,6 +1127,22 @@ hours.
 === "Python (grass.tools)"
 
     ```python
+    from grass.tools import ToolError
+
+    for step in range(1, 5):
+        tools.r_mapcalc(expression=f"soil_{step} = {2 + 10 * (step - 1)}")
+    tools.t_create(
+        output="soil",
+        title="Soil",
+        description="Soil temperature in degree Celsius, one map per day",
+    )
+    tools.t_register(
+        input="soil",
+        maps="soil_1,soil_2,soil_3,soil_4",
+        start="2026-03-01",
+        increment="1 day",
+        flags="i",
+    )
     tools.t_rast_mapcalc(
         inputs="soil",
         output="when",
@@ -1136,12 +1273,9 @@ hours.
     iso_1|53.0|53.0
     ```
 
-
     ```python
-    from grass.tools import ToolError
-
     for step in range(1, 4):
-        tools.r_mapcalc(expression=f"step_{step} = col() + 10 * ({step} - 1)")
+        tools.r_mapcalc(expression=f"model_{step} = {step}")
     tools.t_create(
         temporaltype="relative",
         output="model",
@@ -1150,7 +1284,7 @@ hours.
     )
     tools.t_register(
         input="model",
-        maps="step_1,step_2,step_3",
+        maps="model_1,model_2,model_3",
         start=0,
         increment=5,
         unit="hours",
@@ -1194,177 +1328,241 @@ hours.
 ### Keep or drop empty results
 
 An expression that sets cells to null selects time steps by their values.
-The first block keeps the values of `soil` above 15, so the maps of the
-first two days (with the largest values 2 and 12) have no valid cell left. They
-are not registered in `warm`, and the second block shows that they are removed
-from the mapset. The new maps `warm_3` and `warm_4` keep the numbers of their
-granules.
+The first block keeps the cells of `temperature_monthly` warmer than 20 degrees
+Celsius. Only the maps from May to September have such cells; the warmest cell
+of May has 22.2 degrees. The maps of the other months have no valid cell left.
+They are not registered in `warm`, and the second block shows that they are
+removed from the mapset. The new maps `warm_05` to `warm_09` keep the numbers
+of their granules.
 
 The third block runs the call again with **-n**. The dataset `warm_all`
 registers the empty maps as well, with `None` as their smallest and largest
-value, and the mapset keeps all four maps.
+value, and the mapset keeps all twelve maps.
 
-The fourth block mixes a condition on the time with one on the values: on the
-2nd of the month, cells of `soil` above 11 become null, and the other days keep
-their values. The map of the second day keeps the smallest value 11 and loses
-12, so its largest value drops to 11; the other maps are those of `soil`.
+The fourth block mixes a condition on the time with one on the values: in July,
+cells of `temperature_monthly` warmer than 25 degrees become null, and the
+other months keep their values. The largest value of July drops from 28.4 to
+25.0 degrees; the other maps are those of `temperature_monthly`.
 
 === "Command line"
 
     ```sh
-    t.rast.mapcalc inputs=soil output=warm basename=warm \
-        expression="if(soil > 15, soil, null())"
+    t.rast.mapcalc inputs=temperature_monthly output=warm basename=warm \
+        expression="if(temperature_monthly > 20, temperature_monthly, null())"
     t.rast.list input=warm columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    warm_3|2026-03-03 00:00:00|21.0|22.0
-    warm_4|2026-03-04 00:00:00|31.0|32.0
+    warm_05|2020-05-01 00:00:00|20.1|22.2
+    warm_06|2020-06-01 00:00:00|20.1|26.5
+    warm_07|2020-07-01 00:00:00|20.1|28.4
+    warm_08|2020-08-01 00:00:00|20.1|27.6
+    warm_09|2020-09-01 00:00:00|20.1|24.2
     ```
 
     ```sh
-    g.list type=raster pattern="warm*"
+    g.list type=raster pattern="warm*" mapset=.
     ```
 
     ```text
-    warm_3
-    warm_4
+    warm_05
+    warm_06
+    warm_07
+    warm_08
+    warm_09
     ```
 
     ```sh
-    t.rast.mapcalc -n inputs=soil output=warm_all basename=warm_all \
-        expression="if(soil > 15, soil, null())"
+    t.rast.mapcalc -n inputs=temperature_monthly output=warm_all basename=warm_all \
+        expression="if(temperature_monthly > 20, temperature_monthly, null())"
     t.rast.list input=warm_all columns=name,start_time,min,max
-    g.list type=raster pattern="warm_all*"
+    g.list type=raster pattern="warm_all*" mapset=.
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_1|2026-03-01 00:00:00|None|None
-    warm_all_2|2026-03-02 00:00:00|None|None
-    warm_all_3|2026-03-03 00:00:00|21.0|22.0
-    warm_all_4|2026-03-04 00:00:00|31.0|32.0
-    warm_all_1
-    warm_all_2
-    warm_all_3
-    warm_all_4
+    warm_all_01|2020-01-01 00:00:00|None|None
+    warm_all_02|2020-02-01 00:00:00|None|None
+    warm_all_03|2020-03-01 00:00:00|None|None
+    warm_all_04|2020-04-01 00:00:00|None|None
+    warm_all_05|2020-05-01 00:00:00|20.1|22.2
+    warm_all_06|2020-06-01 00:00:00|20.1|26.5
+    warm_all_07|2020-07-01 00:00:00|20.1|28.4
+    warm_all_08|2020-08-01 00:00:00|20.1|27.6
+    warm_all_09|2020-09-01 00:00:00|20.1|24.2
+    warm_all_10|2020-10-01 00:00:00|None|None
+    warm_all_11|2020-11-01 00:00:00|None|None
+    warm_all_12|2020-12-01 00:00:00|None|None
+    warm_all_01
+    warm_all_02
+    warm_all_03
+    warm_all_04
+    warm_all_05
+    warm_all_06
+    warm_all_07
+    warm_all_08
+    warm_all_09
+    warm_all_10
+    warm_all_11
+    warm_all_12
     ```
 
     ```sh
-    t.rast.mapcalc inputs=soil output=thinned basename=thinned \
-        expression="if(start_day() == 2 && soil > 11, null(), soil)"
+    t.rast.mapcalc inputs=temperature_monthly output=thinned basename=thinned \
+        expression="if(start_month() == 7 && temperature_monthly > 25, null(), temperature_monthly)"
     t.rast.list input=thinned columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    thinned_1|2026-03-01 00:00:00|1.0|2.0
-    thinned_2|2026-03-02 00:00:00|11.0|11.0
-    thinned_3|2026-03-03 00:00:00|21.0|22.0
-    thinned_4|2026-03-04 00:00:00|31.0|32.0
+    thinned_01|2020-01-01 00:00:00|-7.0|7.5
+    thinned_02|2020-02-01 00:00:00|-6.1|8.4
+    thinned_03|2020-03-01 00:00:00|-2.7|11.8
+    thinned_04|2020-04-01 00:00:00|2.4|16.9
+    thinned_05|2020-05-01 00:00:00|7.7|22.2
+    thinned_06|2020-06-01 00:00:00|12.0|26.5
+    thinned_07|2020-07-01 00:00:00|13.9|25.0
+    thinned_08|2020-08-01 00:00:00|13.1|27.6
+    thinned_09|2020-09-01 00:00:00|9.6|24.2
+    thinned_10|2020-10-01 00:00:00|4.6|19.1
+    thinned_11|2020-11-01 00:00:00|-0.8|13.7
+    thinned_12|2020-12-01 00:00:00|-5.0|9.5
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="soil",
+        inputs="temperature_monthly",
         output="warm",
         basename="warm",
-        expression="if(soil > 15, soil, null())",
+        expression="if(temperature_monthly > 20, temperature_monthly, null())",
     )
     print(tools.t_rast_list(input="warm", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_3|2026-03-03 00:00:00|21.0|22.0
-    warm_4|2026-03-04 00:00:00|31.0|32.0
+    warm_05|2020-05-01 00:00:00|20.1|22.2
+    warm_06|2020-06-01 00:00:00|20.1|26.5
+    warm_07|2020-07-01 00:00:00|20.1|28.4
+    warm_08|2020-08-01 00:00:00|20.1|27.6
+    warm_09|2020-09-01 00:00:00|20.1|24.2
     ```
 
     ```python
-    print(tools.g_list(type="raster", pattern="warm*").text)
+    print(tools.g_list(type="raster", pattern="warm*", mapset=".").text)
     ```
 
     ```text
-    warm_3
-    warm_4
+    warm_05
+    warm_06
+    warm_07
+    warm_08
+    warm_09
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="soil",
+        inputs="temperature_monthly",
         output="warm_all",
         basename="warm_all",
-        expression="if(soil > 15, soil, null())",
+        expression="if(temperature_monthly > 20, temperature_monthly, null())",
         flags="n",
     )
     print(tools.t_rast_list(input="warm_all", columns="name,start_time,min,max").text)
-    print(tools.g_list(type="raster", pattern="warm_all*").text)
+    print(tools.g_list(type="raster", pattern="warm_all*", mapset=".").text)
     ```
 
     ```text
     name|start_time|min|max
-    warm_all_1|2026-03-01 00:00:00|None|None
-    warm_all_2|2026-03-02 00:00:00|None|None
-    warm_all_3|2026-03-03 00:00:00|21.0|22.0
-    warm_all_4|2026-03-04 00:00:00|31.0|32.0
-    warm_all_1
-    warm_all_2
-    warm_all_3
-    warm_all_4
+    warm_all_01|2020-01-01 00:00:00|None|None
+    warm_all_02|2020-02-01 00:00:00|None|None
+    warm_all_03|2020-03-01 00:00:00|None|None
+    warm_all_04|2020-04-01 00:00:00|None|None
+    warm_all_05|2020-05-01 00:00:00|20.1|22.2
+    warm_all_06|2020-06-01 00:00:00|20.1|26.5
+    warm_all_07|2020-07-01 00:00:00|20.1|28.4
+    warm_all_08|2020-08-01 00:00:00|20.1|27.6
+    warm_all_09|2020-09-01 00:00:00|20.1|24.2
+    warm_all_10|2020-10-01 00:00:00|None|None
+    warm_all_11|2020-11-01 00:00:00|None|None
+    warm_all_12|2020-12-01 00:00:00|None|None
+    warm_all_01
+    warm_all_02
+    warm_all_03
+    warm_all_04
+    warm_all_05
+    warm_all_06
+    warm_all_07
+    warm_all_08
+    warm_all_09
+    warm_all_10
+    warm_all_11
+    warm_all_12
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="soil",
+        inputs="temperature_monthly",
         output="thinned",
         basename="thinned",
-        expression="if(start_day() == 2 && soil > 11, null(), soil)",
+        expression=(
+            "if(start_month() == 7 && temperature_monthly > 25,"
+            " null(), temperature_monthly)"
+        ),
     )
     print(tools.t_rast_list(input="thinned", columns="name,start_time,min,max").text)
     ```
 
     ```text
     name|start_time|min|max
-    thinned_1|2026-03-01 00:00:00|1.0|2.0
-    thinned_2|2026-03-02 00:00:00|11.0|11.0
-    thinned_3|2026-03-03 00:00:00|21.0|22.0
-    thinned_4|2026-03-04 00:00:00|31.0|32.0
+    thinned_01|2020-01-01 00:00:00|-7.0|7.5
+    thinned_02|2020-02-01 00:00:00|-6.1|8.4
+    thinned_03|2020-03-01 00:00:00|-2.7|11.8
+    thinned_04|2020-04-01 00:00:00|2.4|16.9
+    thinned_05|2020-05-01 00:00:00|7.7|22.2
+    thinned_06|2020-06-01 00:00:00|12.0|26.5
+    thinned_07|2020-07-01 00:00:00|13.9|25.0
+    thinned_08|2020-08-01 00:00:00|13.1|27.6
+    thinned_09|2020-09-01 00:00:00|9.6|24.2
+    thinned_10|2020-10-01 00:00:00|4.6|19.1
+    thinned_11|2020-11-01 00:00:00|-0.8|13.7
+    thinned_12|2020-12-01 00:00:00|-5.0|9.5
     ```
 
 ### Take only the maps in the same place
 
 The dataset `patch` has four maps for the days of `soil`, with the values
-1000, 2000, 3000 and 4000. The second map `patch_2` lies next to the region
-of `soil`, from 2 to 4 in the east, so it shares an edge with it. The third map
-`patch_3` was made far away, in the region from 10 to 12. The other maps lie in
-the region from 0 to 2, like `soil`. The current region is the one from 0 to 2
-again.
+1000, 2000, 3000 and 4000. The first block makes them. The second map
+`patch_2` lies next to the region of the first example, from 963 km to 1000 km
+in the east, so it shares an edge with it. The third map `patch_3` was made far
+away, from 1090 km to 1100 km. The other maps cover the region, like `soil`.
+The current region is the one of the first example again.
 
-The first block adds `soil` and `patch`, with 100 where `patch` is null. The
+The first call adds `soil` and `patch`, with 100 where `patch` is null. The
 maps `patch_2` and `patch_3` are related in time but read in the current region
 where they have no data, so the result for the second and third day is the
-value of `soil` plus 100: 111 and 112, and 121 and 122. The result of the other
-days is `soil` plus `patch`: 1001 and 1002, and 4031 and 4032.
+value of `soil` plus 100: 112 and 122. The result of the other days is `soil`
+plus `patch`: 1002 and 4032.
 
-With **-s**, the second block takes only maps whose extent touches or
-overlaps that of the granule. `patch_2` touches it and stays, `patch_3` does
-not, so the third granule is skipped, and the result has three maps with the
-numbers 1, 2 and 4.
+With **-s**, the second call takes only maps whose extent touches or overlaps
+that of the granule. `patch_2` touches it and stays, `patch_3` does not, so the
+third granule is skipped, and the result has three maps with the numbers 1, 2
+and 4.
 
 === "Command line"
 
     ```sh
     for step in 1 2 3 4; do
         if [ $step = 2 ]; then
-            g.region n=2 s=0 e=4 w=2 res=1
+            g.region n=319000 s=-16000 e=1000000 w=963000 res=1000
         elif [ $step = 3 ]; then
-            g.region n=12 s=10 e=12 w=10 res=1
+            g.region n=319000 s=-16000 e=1100000 w=1090000 res=1000
         fi
         r.mapcalc expression="patch_$step = 1000 * $step"
-        g.region n=2 s=0 e=2 w=0 res=1
+        g.region raster=elev_state_500m res=1000 -a
     done
     t.create output=patch title="Patch" description="Four patches"
     t.register -i input=patch \
@@ -1376,10 +1574,10 @@ numbers 1, 2 and 4.
 
     ```text
     name|start_time|min|max
-    near_1|2026-03-01 00:00:00|1001.0|1002.0
-    near_2|2026-03-02 00:00:00|111.0|112.0
-    near_3|2026-03-03 00:00:00|121.0|122.0
-    near_4|2026-03-04 00:00:00|4031.0|4032.0
+    near_1|2026-03-01 00:00:00|1002.0|1002.0
+    near_2|2026-03-02 00:00:00|112.0|112.0
+    near_3|2026-03-03 00:00:00|122.0|122.0
+    near_4|2026-03-04 00:00:00|4032.0|4032.0
     ```
 
     ```sh
@@ -1390,9 +1588,9 @@ numbers 1, 2 and 4.
 
     ```text
     name|start_time|min|max
-    near_only_1|2026-03-01 00:00:00|1001.0|1002.0
-    near_only_2|2026-03-02 00:00:00|111.0|112.0
-    near_only_4|2026-03-04 00:00:00|4031.0|4032.0
+    near_only_1|2026-03-01 00:00:00|1002.0|1002.0
+    near_only_2|2026-03-02 00:00:00|112.0|112.0
+    near_only_4|2026-03-04 00:00:00|4032.0|4032.0
     ```
 
 === "Python (grass.tools)"
@@ -1400,11 +1598,11 @@ numbers 1, 2 and 4.
     ```python
     for step in range(1, 5):
         if step == 2:
-            tools.g_region(n=2, s=0, e=4, w=2, res=1)
+            tools.g_region(n=319000, s=-16000, e=1000000, w=963000, res=1000)
         elif step == 3:
-            tools.g_region(n=12, s=10, e=12, w=10, res=1)
+            tools.g_region(n=319000, s=-16000, e=1100000, w=1090000, res=1000)
         tools.r_mapcalc(expression=f"patch_{step} = 1000 * {step}")
-        tools.g_region(n=2, s=0, e=2, w=0, res=1)
+        tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_create(output="patch", title="Patch", description="Four patches")
     tools.t_register(
         input="patch",
@@ -1424,10 +1622,10 @@ numbers 1, 2 and 4.
 
     ```text
     name|start_time|min|max
-    near_1|2026-03-01 00:00:00|1001.0|1002.0
-    near_2|2026-03-02 00:00:00|111.0|112.0
-    near_3|2026-03-03 00:00:00|121.0|122.0
-    near_4|2026-03-04 00:00:00|4031.0|4032.0
+    near_1|2026-03-01 00:00:00|1002.0|1002.0
+    near_2|2026-03-02 00:00:00|112.0|112.0
+    near_3|2026-03-03 00:00:00|122.0|122.0
+    near_4|2026-03-04 00:00:00|4032.0|4032.0
     ```
 
     ```python
@@ -1443,9 +1641,9 @@ numbers 1, 2 and 4.
 
     ```text
     name|start_time|min|max
-    near_only_1|2026-03-01 00:00:00|1001.0|1002.0
-    near_only_2|2026-03-02 00:00:00|111.0|112.0
-    near_only_4|2026-03-04 00:00:00|4031.0|4032.0
+    near_only_1|2026-03-01 00:00:00|1002.0|1002.0
+    near_only_2|2026-03-02 00:00:00|112.0|112.0
+    near_only_4|2026-03-04 00:00:00|4032.0|4032.0
     ```
 
 ### Select maps by semantic label and by time
@@ -1474,7 +1672,6 @@ has the number 1.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
     r.mapcalc expression="nir_1 = 60"
     r.mapcalc expression="red_1 = 20"
     r.mapcalc expression="nir_2 = 70"
@@ -1524,7 +1721,6 @@ has the number 1.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
     for name, value, label in (
         ("nir_1", 60, "S2_8"),
         ("red_1", 20, "S2_4"),
@@ -1738,112 +1934,144 @@ holds the same maps, and the third block computes with it.
 
 ### Use a dataset of another mapset and replace a result
 
-The mapset `analysis` is new and empty. The first block makes it the current
-mapset, sets the region there, and halves `soil@PERMANENT`. The expression still
-uses the name `soil`. The dataset `halved` and its maps belong to the current
-mapset; the listing shows the mapset of the maps.
+The mapset `t_rast_mapcalc_2` is new and empty. A new mapset starts with the
+default region of the dataset, cells of 500 m, so the first block sets the
+region of the first example again. It adds the mapset `t_rast_mapcalc` to the
+search path with *g.mapsets* and converts `precipitation_monthly@t_rast_mapcalc`
+from millimetres to centimetres. The expression still uses the name
+`precipitation_monthly`. The dataset `precipitation_cm` and its maps belong to
+the current mapset; the listing shows the mapset of the maps.
 
 The second block repeats the call without **--overwrite**. The tool stops
-because the dataset `halved` exists. The third block adds **--overwrite** and
-makes the dataset again, with the same four maps; the tool warns on the standard
-error that it unregisters all maps of the old dataset.
+because the dataset `precipitation_cm` exists. The third block adds
+**--overwrite** and makes the dataset again, with the same twelve maps; the tool
+warns on the standard error that it unregisters all maps of the old dataset.
 
-The fourth block replaces `halved` once more, now from the dataset `weight`,
-which has two maps. The new dataset holds two maps, with the values 1 and 1.5.
-The maps `halved_3` and `halved_4` of the earlier run are no longer registered
-in it, but the tool does not remove them: `g.list` still finds all four.
+The fourth block replaces `precipitation_cm` once more, now with a **where**
+condition that leaves the ten months from January to October. The new dataset
+holds ten maps. The maps `precipitation_cm_11` and `precipitation_cm_12` of the
+earlier run are no longer registered in it, but the tool does not remove them:
+`g.list` still finds them.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=2 s=0 e=2 w=0 res=1
-    t.rast.mapcalc inputs=soil@PERMANENT output=halved basename=halved \
-        expression="soil / 2.0"
-    t.rast.list input=halved columns=name,mapset,min,max
+    g.mapset -c mapset=t_rast_mapcalc_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_mapcalc operation=add
+    t.rast.mapcalc inputs=precipitation_monthly@t_rast_mapcalc \
+        output=precipitation_cm basename=precipitation_cm \
+        expression="precipitation_monthly / 10.0"
+    t.rast.list input=precipitation_cm columns=name,mapset,min,max
     ```
 
     ```text
     name|mapset|min|max
-    halved_1|analysis|0.5|1.0
-    halved_2|analysis|5.5|6.0
-    halved_3|analysis|10.5|11.0
-    halved_4|analysis|15.5|16.0
+    precipitation_cm_01|t_rast_mapcalc_2|9.4|24.9
+    precipitation_cm_02|t_rast_mapcalc_2|13.3|30.9
+    precipitation_cm_03|t_rast_mapcalc_2|8.8|21.2
+    precipitation_cm_04|t_rast_mapcalc_2|9.2|23.1
+    precipitation_cm_05|t_rast_mapcalc_2|13.3|34.7
+    precipitation_cm_06|t_rast_mapcalc_2|7.1|16.3
+    precipitation_cm_07|t_rast_mapcalc_2|8.3|22.3
+    precipitation_cm_08|t_rast_mapcalc_2|11.9|29.5
+    precipitation_cm_09|t_rast_mapcalc_2|6.0|18.1
+    precipitation_cm_10|t_rast_mapcalc_2|5.5|16.0
+    precipitation_cm_11|t_rast_mapcalc_2|10.4|35.0
+    precipitation_cm_12|t_rast_mapcalc_2|5.9|17.7
     ```
 
     ```sh
-    if ! t.rast.mapcalc inputs=soil@PERMANENT output=halved basename=halved \
-        expression="soil / 2.0" 2>&1; then
+    if ! t.rast.mapcalc inputs=precipitation_monthly@t_rast_mapcalc \
+        output=precipitation_cm basename=precipitation_cm \
+        expression="precipitation_monthly / 10.0" 2>&1; then
         echo "t.rast.mapcalc failed"
     fi
     ```
 
     ```text
-    ERROR: Space time raster dataset <halved> is already in the database. Use
-    the overwrite flag.
+    ERROR: Space time raster dataset <precipitation_cm> is already in the
+    database. Use the overwrite flag.
     t.rast.mapcalc failed
     ```
 
     ```sh
-    t.rast.mapcalc --overwrite inputs=soil@PERMANENT output=halved \
-        basename=halved expression="soil / 2.0"
-    t.rast.list input=halved columns=name,mapset,min,max
+    t.rast.mapcalc --overwrite inputs=precipitation_monthly@t_rast_mapcalc \
+        output=precipitation_cm basename=precipitation_cm \
+        expression="precipitation_monthly / 10.0"
+    t.rast.list input=precipitation_cm columns=name,mapset,min,max
     ```
 
     ```text
     name|mapset|min|max
-    halved_1|analysis|0.5|1.0
-    halved_2|analysis|5.5|6.0
-    halved_3|analysis|10.5|11.0
-    halved_4|analysis|15.5|16.0
+    precipitation_cm_01|t_rast_mapcalc_2|9.4|24.9
+    precipitation_cm_02|t_rast_mapcalc_2|13.3|30.9
+    precipitation_cm_03|t_rast_mapcalc_2|8.8|21.2
+    precipitation_cm_04|t_rast_mapcalc_2|9.2|23.1
+    precipitation_cm_05|t_rast_mapcalc_2|13.3|34.7
+    precipitation_cm_06|t_rast_mapcalc_2|7.1|16.3
+    precipitation_cm_07|t_rast_mapcalc_2|8.3|22.3
+    precipitation_cm_08|t_rast_mapcalc_2|11.9|29.5
+    precipitation_cm_09|t_rast_mapcalc_2|6.0|18.1
+    precipitation_cm_10|t_rast_mapcalc_2|5.5|16.0
+    precipitation_cm_11|t_rast_mapcalc_2|10.4|35.0
+    precipitation_cm_12|t_rast_mapcalc_2|5.9|17.7
     ```
 
     ```sh
-    t.rast.mapcalc --overwrite inputs=weight@PERMANENT output=halved \
-        basename=halved expression="weight / 2.0"
-    t.rast.list input=halved columns=name,min,max
-    g.list type=raster pattern="halved*"
+    t.rast.mapcalc --overwrite inputs=precipitation_monthly@t_rast_mapcalc \
+        output=precipitation_cm basename=precipitation_cm \
+        expression="precipitation_monthly / 10.0" \
+        where="start_time < '2020-11-01'"
+    t.info -g input=precipitation_cm | grep "^number_of_maps="
+    g.list type=raster pattern="precipitation_cm_1*" mapset=.
     ```
 
     ```text
-    name|min|max
-    halved_1|1.0|1.0
-    halved_2|1.5|1.5
-    halved_1
-    halved_2
-    halved_3
-    halved_4
+    number_of_maps=10
+    precipitation_cm_10
+    precipitation_cm_11
+    precipitation_cm_12
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
+    tools.g_mapset(mapset="t_rast_mapcalc_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_mapcalc", operation="add")
     tools.t_rast_mapcalc(
-        inputs="soil@PERMANENT",
-        output="halved",
-        basename="halved",
-        expression="soil / 2.0",
+        inputs="precipitation_monthly@t_rast_mapcalc",
+        output="precipitation_cm",
+        basename="precipitation_cm",
+        expression="precipitation_monthly / 10.0",
     )
-    print(tools.t_rast_list(input="halved", columns="name,mapset,min,max").text)
+    print(tools.t_rast_list(input="precipitation_cm", columns="name,mapset,min,max").text)
     ```
 
     ```text
     name|mapset|min|max
-    halved_1|analysis|0.5|1.0
-    halved_2|analysis|5.5|6.0
-    halved_3|analysis|10.5|11.0
-    halved_4|analysis|15.5|16.0
+    precipitation_cm_01|t_rast_mapcalc_2|9.4|24.9
+    precipitation_cm_02|t_rast_mapcalc_2|13.3|30.9
+    precipitation_cm_03|t_rast_mapcalc_2|8.8|21.2
+    precipitation_cm_04|t_rast_mapcalc_2|9.2|23.1
+    precipitation_cm_05|t_rast_mapcalc_2|13.3|34.7
+    precipitation_cm_06|t_rast_mapcalc_2|7.1|16.3
+    precipitation_cm_07|t_rast_mapcalc_2|8.3|22.3
+    precipitation_cm_08|t_rast_mapcalc_2|11.9|29.5
+    precipitation_cm_09|t_rast_mapcalc_2|6.0|18.1
+    precipitation_cm_10|t_rast_mapcalc_2|5.5|16.0
+    precipitation_cm_11|t_rast_mapcalc_2|10.4|35.0
+    precipitation_cm_12|t_rast_mapcalc_2|5.9|17.7
     ```
 
     ```python
     try:
         tools.t_rast_mapcalc(
-            inputs="soil@PERMANENT",
-            output="halved",
-            basename="halved",
-            expression="soil / 2.0",
+            inputs="precipitation_monthly@t_rast_mapcalc",
+            output="precipitation_cm",
+            basename="precipitation_cm",
+            expression="precipitation_monthly / 10.0",
         )
     except ToolError as error:
         print(error.stderr.strip())
@@ -1851,50 +2079,57 @@ in it, but the tool does not remove them: `g.list` still finds all four.
     ```
 
     ```text
-    ERROR: Space time raster dataset <halved> is already in the database. Use
-    the overwrite flag.
+    ERROR: Space time raster dataset <precipitation_cm> is already in the
+    database. Use the overwrite flag.
     t.rast.mapcalc failed
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="soil@PERMANENT",
-        output="halved",
-        basename="halved",
-        expression="soil / 2.0",
+        inputs="precipitation_monthly@t_rast_mapcalc",
+        output="precipitation_cm",
+        basename="precipitation_cm",
+        expression="precipitation_monthly / 10.0",
         overwrite=True,
     )
-    print(tools.t_rast_list(input="halved", columns="name,mapset,min,max").text)
+    print(tools.t_rast_list(input="precipitation_cm", columns="name,mapset,min,max").text)
     ```
 
     ```text
     name|mapset|min|max
-    halved_1|analysis|0.5|1.0
-    halved_2|analysis|5.5|6.0
-    halved_3|analysis|10.5|11.0
-    halved_4|analysis|15.5|16.0
+    precipitation_cm_01|t_rast_mapcalc_2|9.4|24.9
+    precipitation_cm_02|t_rast_mapcalc_2|13.3|30.9
+    precipitation_cm_03|t_rast_mapcalc_2|8.8|21.2
+    precipitation_cm_04|t_rast_mapcalc_2|9.2|23.1
+    precipitation_cm_05|t_rast_mapcalc_2|13.3|34.7
+    precipitation_cm_06|t_rast_mapcalc_2|7.1|16.3
+    precipitation_cm_07|t_rast_mapcalc_2|8.3|22.3
+    precipitation_cm_08|t_rast_mapcalc_2|11.9|29.5
+    precipitation_cm_09|t_rast_mapcalc_2|6.0|18.1
+    precipitation_cm_10|t_rast_mapcalc_2|5.5|16.0
+    precipitation_cm_11|t_rast_mapcalc_2|10.4|35.0
+    precipitation_cm_12|t_rast_mapcalc_2|5.9|17.7
     ```
 
     ```python
     tools.t_rast_mapcalc(
-        inputs="weight@PERMANENT",
-        output="halved",
-        basename="halved",
-        expression="weight / 2.0",
+        inputs="precipitation_monthly@t_rast_mapcalc",
+        output="precipitation_cm",
+        basename="precipitation_cm",
+        expression="precipitation_monthly / 10.0",
+        where="start_time < '2020-11-01'",
         overwrite=True,
     )
-    print(tools.t_rast_list(input="halved", columns="name,min,max").text)
-    print(tools.g_list(type="raster", pattern="halved*").text)
+    info = tools.t_info(input="precipitation_cm", flags="g").keyval
+    print(f"number_of_maps={info['number_of_maps']}")
+    print(tools.g_list(type="raster", pattern="precipitation_cm_1*", mapset=".").text)
     ```
 
     ```text
-    name|min|max
-    halved_1|1.0|1.0
-    halved_2|1.5|1.5
-    halved_1
-    halved_2
-    halved_3
-    halved_4
+    number_of_maps=10
+    precipitation_cm_10
+    precipitation_cm_11
+    precipitation_cm_12
     ```
 
 <!-- markdownlint-enable MD046 -->
