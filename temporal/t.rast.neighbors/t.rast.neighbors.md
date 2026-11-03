@@ -79,10 +79,10 @@ The new maps are named after **basename**, followed by an underscore and a
 suffix that the option **suffix** chooses:
 
 - `gran` (the default) takes the start time of the map, cut to the granularity
-  of the input dataset: `2026_03_01` in a dataset of days. A dataset of a
+  of the input dataset: `2020_07_01` in a dataset of days. A dataset of a
   single time instance has no granularity; `gran` then takes the full start
   time, as `time` does.
-- `time` takes the full start time: `2026_03_01T00_00_00`.
+- `time` takes the full start time: `2020_07_01T00_00_00`.
 - `num` numbers the selected maps from 1, with five digits: `00001`.
   `num%03` gives three digits: `001`.
 
@@ -162,115 +162,155 @@ constraint failed") and an empty output dataset that stays behind; with
 for such maps, as the fifth example shows.
 
 The input dataset can be in another mapset of the project; the name with the
-mapset (`input=model@PERMANENT`) selects it. The new maps and the new dataset
+mapset (`input=model@t_rast_neighbors`) selects it. The new maps and the new dataset
 are always created in the current mapset, as the last example shows. Relative
 time works as absolute time; the new maps have the time of the input maps.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_neighbors`, sets the computational region
+to North Carolina with cells of 1 km, builds the dataset `precipitation_daily`
+and then narrows the region to a window of 5 by 5 cells, so that the cells of
+the results can be checked by hand; the later examples work in this mapset and
+change the region as they need. The last example creates a second mapset. The
+examples that show how maps are selected use small constant maps, so that the
+results can be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_neighbors -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Smooth the maps of a dataset
 
-The dataset `ramp` has three daily maps of 3 by 3 cells. The cells of `ramp_1`
-hold the numbers 1 to 9 row by row; `ramp_2` and `ramp_3` have 10 and 20 added.
+The dataset `precipitation_daily` holds 31 maps of the daily precipitation sum
+in July 2020, in whole millimetres. They are generated, not measured: the July
+normal of the climate stations of `precip_30ynormals` (the column `jul`),
+interpolated with *v.surf.idw* and multiplied by an assumed factor of 1.1 for a
+wet July, is spread over the days with the weight `max(0, sin(45 * day))`. It
+rains on the days 1 to 3, 9 to 11, 17 to 19 and 25 to 27, with the weights
+0.71, 1 and 0.71. Each map is an interval of one day.
 
-With the default **method** `average` and a window of **size** 3, each cell
-takes the mean of the cells around it. The cell in the center sees all nine
-cells, so it keeps its value 5, 15 and 25. A cell in a corner sees only the
-four cells that lie in the region: the upper left cell of `ramp_1` is
-`(1 + 2 + 4 + 5) / 4 = 3`. The new maps have a smallest value of 3, 13 and 23
-and a largest value of 7, 17 and 27, and the names of their days. **nprocs**
-`2` computes two maps at the same time.
+The computational region is then narrowed to a window of 5 by 5 cells of 1 km
+in the mountains of the west, so that the cells can be checked by hand. With
+the default **method** `average` and a window of **size** 3, each cell takes
+the mean of the cells around it. The second block prints the cells of the map
+of 2 July and then the cells of the new map. The cell in the center, in the
+third row and the third column, sees all nine cells: the sum of 15, 15, 14,
+16, 15, 15, 16, 16 and 16 is 138, and `138 / 9` is 15.33. A cell in a corner
+sees only the four cells that lie in the region: the upper left cell is
+`(15 + 15 + 16 + 15) / 4`, that is 15.25. The list shows the first three new
+maps with the names of their days and their smallest and largest value; on
+1 and 3 July, with the weight 0.71, the rain is 10 to 12 mm. **nprocs** `2`
+computes two maps at the same time.
 
-The second block prints the cells of the first new map. The third block shows
-with *[t.info](t.info.md)* that the new dataset takes the temporal type, the
-semantic type, the title and the description of `ramp`, and that it holds three
-maps.
+The third block shows with *[t.info](t.info.md)* that the new dataset takes the
+temporal type, the semantic type, the title and the description of
+`precipitation_daily`, that it holds 31 maps and that its extent is the
+window.
 
 === "Command line"
 
     ```sh
-    g.region n=3 s=0 e=3 w=0 res=1
-    for k in 0 1 2; do
-        r.mapcalc expression="ramp_$((k + 1)) = double((row() - 1) * 3 + col()) + 10 * $k"
-    done
-    t.create output=ramp semantictype=max title="Ramps" description="Three ramps of nine cells"
-    t.register -i input=ramp maps=ramp_1,ramp_2,ramp_3 \
-        start=2026-03-01 increment="1 day"
-    t.rast.neighbors input=ramp output=smooth basename=smooth \
-        size=3 method=average nprocs=2
-    t.rast.list input=smooth columns=name,start_time,end_time,min,max
+    g.mapset -c mapset=t_rast_neighbors
+    g.region raster=elev_state_500m res=1000 -a
+    v.surf.idw input=precip_30ynormals column=jul \
+        output=precipitation_normal_07 npoints=12 power=2
+    r.mapcalc expression="precipitation_monthly_2020_07 = if(isnull(elev_state_500m), null(), round(1.1 * precipitation_normal_07))"
+    for day in $(seq 31); do
+        echo "precipitation_daily_2020_07_$(printf %02d $day) =" \
+            "round(precipitation_monthly_2020_07 * max(0, sin(45 * $day)) / 9.65685)"
+    done | r.mapcalc file=-
+    t.create output=precipitation_daily title="Precipitation" \
+        description="Daily precipitation sum July 2020 in mm"
+    t.register -i input=precipitation_daily \
+        maps=$(g.list type=raster pattern="precipitation_daily_*" mapset=. separator=comma) \
+        start=2020-07-01 increment="1 day"
+    g.region w=366000 e=371000 s=270000 n=275000 res=1000
+    t.rast.neighbors input=precipitation_daily output=rain_smooth \
+        basename=rain_smooth size=3 method=average nprocs=2
+    t.rast.list input=rain_smooth columns=name,start_time,end_time,min,max \
+        where="start_time < '2020-07-04'"
     ```
 
     ```text
     name|start_time|end_time|min|max
-    smooth_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|3.0|7.0
-    smooth_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|17.0
-    smooth_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|27.0
+    rain_smooth_2020_07_01|2020-07-01 00:00:00|2020-07-02 00:00:00|10.0|12.0
+    rain_smooth_2020_07_02|2020-07-02 00:00:00|2020-07-03 00:00:00|14.0|16.5
+    rain_smooth_2020_07_03|2020-07-03 00:00:00|2020-07-04 00:00:00|10.0|12.0
     ```
 
     ```sh
-    r.out.ascii -h input=smooth_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    r.out.ascii -h input=precipitation_daily_2020_07_02 output=- precision=2 | sed 's/ *$//'
+    r.out.ascii -h input=rain_smooth_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    3 3.5 4
-    4.5 5 5.5
-    6 6.5 7
+    15 15 14 14 14
+    16 15 15 14 14
+    16 16 15 15 15
+    16 16 16 16 15
+    17 17 16 16 15
+    15.25 15 14.5 14.17 14
+    15.5 15.22 14.78 14.44 14.33
+    15.83 15.67 15.33 15 14.83
+    16.33 16.11 15.89 15.44 15.33
+    16.5 16.33 16.17 15.67 15.5
     ```
 
     ```sh
-    t.info input=smooth
+    t.info input=rain_smooth
     ```
 
     ```text
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ smooth@PERMANENT
-     | Name: ...................... smooth
-     | Mapset: .................... PERMANENT
+     | Id: ........................ rain_smooth@t_rast_neighbors
+     | Name: ...................... rain_smooth
+     | Mapset: .................... t_rast_neighbors
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. max
+     | Semantic type:.............. mean
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-01 00:00:00
-     | End time:................... 2026-03-04 00:00:00
+     | Start time:................. 2020-07-01 00:00:00
+     | End time:................... 2020-08-01 00:00:00
      | Granularity:................ 1 day
      | Temporal type of maps:...... interval
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 3.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 275000.0
+     | South:...................... 270000.0
+     | East:.. .................... 371000.0
+     | West:....................... 366000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Raster register table:...... raster_map_register_00000000000000000000000000000000
-     | North-South resolution min:. 1.0
-     | North-South resolution max:. 1.0
-     | East-west resolution min:... 1.0
-     | East-west resolution max:... 1.0
-     | Minimum value min:.......... 3.0
-     | Minimum value max:.......... 23.0
-     | Maximum value min:.......... 7.0
-     | Maximum value max:.......... 27.0
+     | North-South resolution min:. 1000.0
+     | North-South resolution max:. 1000.0
+     | East-west resolution min:... 1000.0
+     | East-west resolution max:... 1000.0
+     | Minimum value min:.......... 0.0
+     | Minimum value max:.......... 14.0
+     | Maximum value min:.......... 0.0
+     | Maximum value max:.......... 16.5
      | Aggregation type:........... None
      | Number of semantic labels:.. 0
      | Semantic labels:............ None
-     | Number of registered maps:.. 3
+     | Number of registered maps:.. 31
      |
      | Title:
-     | Ramps
+     | Precipitation
      | Description:
-     | Three ramps of nine cells
+     | Daily precipitation sum July 2020 in mm
      | Command history:
      | # 2026-11-01 12:00:00 
-     | t.rast.neighbors input="ramp" output="smooth"
-     |     basename="smooth" size="3" method="average" nprocs="2"
+     | t.rast.neighbors input="precipitation_daily"
+     |     output="rain_smooth" basename="rain_smooth" size="3" method="average"
+     |     nprocs="2"
      | 
      +----------------------------------------------------------------------------+
     ```
@@ -281,37 +321,61 @@ maps.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
-    for k in range(3):
-        tools.r_mapcalc(
-            expression=f"ramp_{k + 1} = double((row() - 1) * 3 + col()) + 10 * {k}"
+    tools.g_mapset(flags="c", mapset="t_rast_neighbors")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.v_surf_idw(
+        input="precip_30ynormals",
+        column="jul",
+        output="precipitation_normal_07",
+        npoints=12,
+        power=2,
+    )
+    tools.r_mapcalc(
+        expression="precipitation_monthly_2020_07 = if(isnull(elev_state_500m),"
+        " null(), round(1.1 * precipitation_normal_07))"
+    )
+    days = range(1, 32)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"precipitation_daily_2020_07_{day:02d} ="
+            f" round(precipitation_monthly_2020_07 * max(0, sin(45 * {day})) / 9.65685)"
+            for day in days
         )
+    )
     tools.t_create(
-        output="ramp",
-        semantictype="max",
-        title="Ramps",
-        description="Three ramps of nine cells",
+        output="precipitation_daily",
+        title="Precipitation",
+        description="Daily precipitation sum July 2020 in mm",
     )
     tools.t_register(
-        input="ramp",
-        maps="ramp_1,ramp_2,ramp_3",
-        start="2026-03-01",
+        input="precipitation_daily",
+        maps=",".join(f"precipitation_daily_2020_07_{day:02d}" for day in days),
+        start="2020-07-01",
         increment="1 day",
         flags="i",
     )
+    tools.g_region(w=366000, e=371000, s=270000, n=275000, res=1000)
     tools.t_rast_neighbors(
-        input="ramp", output="smooth", basename="smooth", size=3, method="average", nprocs=2
+        input="precipitation_daily",
+        output="rain_smooth",
+        basename="rain_smooth",
+        size=3,
+        method="average",
+        nprocs=2,
     )
+    columns = "name,start_time,end_time,min,max"
     print(
-        tools.t_rast_list(input="smooth", columns="name,start_time,end_time,min,max").text
+        tools.t_rast_list(
+            input="rain_smooth", columns=columns, where="start_time < '2020-07-04'"
+        ).text
     )
     ```
 
     ```text
     name|start_time|end_time|min|max
-    smooth_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|3.0|7.0
-    smooth_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|13.0|17.0
-    smooth_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|27.0
+    rain_smooth_2020_07_01|2020-07-01 00:00:00|2020-07-02 00:00:00|10.0|12.0
+    rain_smooth_2020_07_02|2020-07-02 00:00:00|2020-07-03 00:00:00|14.0|16.5
+    rain_smooth_2020_07_03|2020-07-03 00:00:00|2020-07-04 00:00:00|10.0|12.0
     ```
 
     ```python
@@ -321,222 +385,251 @@ maps.
             print(line.rstrip())
 
 
-    print_cells("smooth_2026_03_01")
+    print_cells("precipitation_daily_2020_07_02")
+    print_cells("rain_smooth_2020_07_02")
     ```
 
     ```text
-    3 3.5 4
-    4.5 5 5.5
-    6 6.5 7
+    15 15 14 14 14
+    16 15 15 14 14
+    16 16 15 15 15
+    16 16 16 16 15
+    17 17 16 16 15
+    15.25 15 14.5 14.17 14
+    15.5 15.22 14.78 14.44 14.33
+    15.83 15.67 15.33 15 14.83
+    16.33 16.11 15.89 15.44 15.33
+    16.5 16.33 16.17 15.67 15.5
     ```
 
     ```python
-    print(tools.t_info(input="smooth").stdout, end="")
+    print(tools.t_info(input="rain_smooth").stdout, end="")
     ```
 
     ```text
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ smooth@PERMANENT
-     | Name: ...................... smooth
-     | Mapset: .................... PERMANENT
+     | Id: ........................ rain_smooth@t_rast_neighbors
+     | Name: ...................... rain_smooth
+     | Mapset: .................... t_rast_neighbors
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
      | Modification time:.......... 2026-11-01 12:00:00
-     | Semantic type:.............. max
+     | Semantic type:.............. mean
      +-------------------- Absolute time -----------------------------------------+
-     | Start time:................. 2026-03-01 00:00:00
-     | End time:................... 2026-03-04 00:00:00
+     | Start time:................. 2020-07-01 00:00:00
+     | End time:................... 2020-08-01 00:00:00
      | Granularity:................ 1 day
      | Temporal type of maps:...... interval
      +-------------------- Spatial extent ----------------------------------------+
-     | North:...................... 3.0
-     | South:...................... 0.0
-     | East:.. .................... 3.0
-     | West:....................... 0.0
+     | North:...................... 275000.0
+     | South:...................... 270000.0
+     | East:.. .................... 371000.0
+     | West:....................... 366000.0
      | Top:........................ 0.0
      | Bottom:..................... 0.0
      +-------------------- Metadata information ----------------------------------+
      | Raster register table:...... raster_map_register_00000000000000000000000000000000
-     | North-South resolution min:. 1.0
-     | North-South resolution max:. 1.0
-     | East-west resolution min:... 1.0
-     | East-west resolution max:... 1.0
-     | Minimum value min:.......... 3.0
-     | Minimum value max:.......... 23.0
-     | Maximum value min:.......... 7.0
-     | Maximum value max:.......... 27.0
+     | North-South resolution min:. 1000.0
+     | North-South resolution max:. 1000.0
+     | East-west resolution min:... 1000.0
+     | East-west resolution max:... 1000.0
+     | Minimum value min:.......... 0.0
+     | Minimum value max:.......... 14.0
+     | Maximum value min:.......... 0.0
+     | Maximum value max:.......... 16.5
      | Aggregation type:........... None
      | Number of semantic labels:.. 0
      | Semantic labels:............ None
-     | Number of registered maps:.. 3
+     | Number of registered maps:.. 31
      |
      | Title:
-     | Ramps
+     | Precipitation
      | Description:
-     | Three ramps of nine cells
+     | Daily precipitation sum July 2020 in mm
      | Command history:
      | # 2026-11-01 12:00:00 
-     | t.rast.neighbors input="ramp" output="smooth"
-     |     basename="smooth" size="3" method="average" nprocs="2"
+     | t.rast.neighbors input="precipitation_daily"
+     |     output="rain_smooth" basename="rain_smooth" size="3" method="average"
+     |     nprocs="2"
      | 
      +----------------------------------------------------------------------------+
     ```
 
 ### Choose the statistic and the window
 
-The three blocks use the first map `ramp_1` only (**where**), so each result
-is a dataset of one map. The cells of `ramp_1` are 1 2 3 / 4 5 6 / 7 8 9.
+The three blocks use the map of 2 July only (**where**), so each result is a
+dataset of one map. The cells of that map are the input of the first example:
+the first row is 15 15 14 14 14, the third row 16 16 15 15 15.
 
-1. **method** `maximum` gives the largest value of the window: 5 in the upper
-   left corner (of 1, 2, 4 and 5) and 9 in the center.
+1. **method** `maximum` gives the largest value of the window: 16 in the upper
+   left corner (of 15, 15, 16 and 15) and 16 in the center.
 2. **method** `quantile` with **quantile** `0.25` takes the position
-   `0.25 * (n - 1)` in the sorted values. In the corner there are `n = 4`
-   values 1, 2, 4 and 5; the position 0.75 gives `1 + 0.75 * (2 - 1) = 1.75`.
-   In the center there are nine values and the position is 2, the third value,
-   3.
-3. With **-c**, the window is circular. The center sees the five cells 2, 4, 5,
-   6 and 8, and **method** `sum` gives 25; the upper left corner sees the
-   three cells 1, 2 and 4, which give 7.
+   `0.25 * (n - 1)` in the sorted values. In the center there are nine values
+   and the position is 2, the third value, 15. At the right edge of the third
+   row there are six values, 14, 14, 15, 15, 15 and 16; the position 1.25 gives
+   `14 + 0.25 * (15 - 14) = 14.25`.
+3. With **-c**, the window is circular. The center sees the five cells 15 above,
+   16 left, 15 itself, 15 right and 16 below, and **method** `sum` gives 77; the
+   upper left corner sees the three cells 15, 15 and 16, which give 46.
 
 === "Command line"
 
     ```sh
-    t.rast.neighbors input=ramp output=maxima basename=maximum \
-        method=maximum where="name = 'ramp_1'"
-    r.out.ascii -h input=maximum_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors input=precipitation_daily output=rain_maximum \
+        basename=rain_maximum method=maximum \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_maximum_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    5 6 6
-    8 9 9
-    8 9 9
+    16 16 15 15 14
+    16 16 16 15 15
+    16 16 16 16 16
+    17 17 17 16 16
+    17 17 17 16 16
     ```
 
     ```sh
-    t.rast.neighbors input=ramp output=quartiles basename=quartile \
-        method=quantile quantile=0.25 where="name = 'ramp_1'"
-    r.out.ascii -h input=quartile_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors input=precipitation_daily output=rain_quartile \
+        basename=rain_quartile method=quantile quantile=0.25 \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_quartile_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    1.75 2.25 2.75
-    2.5 3 3.5
-    4.75 5.25 5.75
+    15 15 14 14 14
+    15 15 14 14 14
+    16 15 15 15 14.25
+    16 16 16 15 15
+    16 16 16 15.25 15
     ```
 
     ```sh
-    t.rast.neighbors -c input=ramp output=circular basename=circular \
-        method=sum where="name = 'ramp_1'"
-    r.out.ascii -h input=circular_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors -c input=precipitation_daily output=rain_circular \
+        basename=rain_circular method=sum \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_circular_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    7 11 11
-    17 25 23
-    19 29 23
+    46 59 58 56 42
+    62 77 73 72 57
+    64 78 77 75 59
+    65 81 79 78 61
+    50 66 65 63 46
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_neighbors(
-        input="ramp",
-        output="maxima",
-        basename="maximum",
+        input="precipitation_daily",
+        output="rain_maximum",
+        basename="rain_maximum",
         method="maximum",
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("maximum_2026_03_01")
+    print_cells("rain_maximum_2020_07_02")
     ```
 
     ```text
-    5 6 6
-    8 9 9
-    8 9 9
+    16 16 15 15 14
+    16 16 16 15 15
+    16 16 16 16 16
+    17 17 17 16 16
+    17 17 17 16 16
     ```
 
     ```python
     tools.t_rast_neighbors(
-        input="ramp",
-        output="quartiles",
-        basename="quartile",
+        input="precipitation_daily",
+        output="rain_quartile",
+        basename="rain_quartile",
         method="quantile",
         quantile=0.25,
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("quartile_2026_03_01")
+    print_cells("rain_quartile_2020_07_02")
     ```
 
     ```text
-    1.75 2.25 2.75
-    2.5 3 3.5
-    4.75 5.25 5.75
+    15 15 14 14 14
+    15 15 14 14 14
+    16 15 15 15 14.25
+    16 16 16 15 15
+    16 16 16 15.25 15
     ```
 
     ```python
     tools.t_rast_neighbors(
-        input="ramp",
-        output="circular",
-        basename="circular",
+        input="precipitation_daily",
+        output="rain_circular",
+        basename="rain_circular",
         method="sum",
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
         flags="c",
     )
-    print_cells("circular_2026_03_01")
+    print_cells("rain_circular_2020_07_02")
     ```
 
     ```text
-    7 11 11
-    17 25 23
-    19 29 23
+    46 59 58 56 42
+    62 77 73 72 57
+    64 78 77 75 59
+    65 81 79 78 61
+    50 66 65 63 46
     ```
 
 ### Weight the cells of the window
 
-The three blocks smooth `ramp_1` with weights. The cells of `ramp_1` are
-1 2 3 / 4 5 6 / 7 8 9; without weights the center is 5 and the upper left
-corner 3.
+The three blocks smooth the map of 2 July with weights. Without weights the
+center is 15.33 and the lower left corner 16.5, the mean of 17, 17, 16 and 16.
 
 1. **weighting_function** `gaussian` with **weighting_factor** `1`. The
    weight falls with the distance from the center, so the cell itself counts
-   more than in the plain average: the corner is 2.51, nearer to its own value
-   1 than the plain 3. Cells at the same distance on opposite sides have the
-   same weight, so the center stays 5.
+   more than in the plain average: the lower left corner is 16.62, nearer to
+   its own value 17 than the plain 16.5.
 2. **weighting_function** `exponential` with **weighting_factor** `-1`
    weights by `exp(-d)`, which falls faster with the distance than the
-   Gaussian weights of the first block: the corner is 2.24.
+   Gaussian weights of the first block: the corner is 16.69.
 3. **weighting_function** `file` with **weight** takes the matrix of a text
    file. The matrix 1 1 1 / 1 1 1 / 0 0 0 gives the row below the center the
    weight 0, so the center is the mean of the six cells above and beside it,
-   `(1 + 2 + 3 + 4 + 5 + 6) / 6 = 3.5`.
+   `(15 + 15 + 14 + 16 + 15 + 15) / 6 = 15`.
 
 === "Command line"
 
     ```sh
-    t.rast.neighbors input=ramp output=gauss basename=gauss \
-        weighting_function=gaussian weighting_factor=1 where="name = 'ramp_1'"
-    r.out.ascii -h input=gauss_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors input=precipitation_daily output=rain_gauss \
+        basename=rain_gauss weighting_function=gaussian weighting_factor=1 \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_gauss_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    2.51 3.13 3.76
-    4.38 5 5.62
-    6.24 6.87 7.49
+    15.24 14.93 14.44 14.1 14
+    15.56 15.25 14.75 14.4 14.27
+    15.9 15.68 15.32 15 14.83
+    16.27 16.12 15.88 15.53 15.27
+    16.62 16.45 16.17 15.73 15.38
     ```
 
     ```sh
-    t.rast.neighbors input=ramp output=expo basename=expo \
-        weighting_function=exponential weighting_factor=-1 where="name = 'ramp_1'"
-    r.out.ascii -h input=expo_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors input=precipitation_daily output=rain_expo \
+        basename=rain_expo weighting_function=exponential weighting_factor=-1 \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_expo_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    2.24 2.99 3.62
-    4.33 5 5.67
-    6.38 7.01 7.76
+    15.19 14.95 14.38 14.09 14
+    15.62 15.21 14.79 14.35 14.24
+    15.91 15.72 15.28 15 14.86
+    16.24 16.11 15.89 15.57 15.24
+    16.69 16.53 16.14 15.76 15.31
     ```
 
     ```sh
@@ -545,53 +638,60 @@ corner 3.
     1 1 1
     0 0 0
     EOF
-    t.rast.neighbors input=ramp output=above basename=above \
-        weighting_function=file weight=weights.txt where="name = 'ramp_1'"
-    r.out.ascii -h input=above_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    t.rast.neighbors input=precipitation_daily output=rain_above \
+        basename=rain_above weighting_function=file weight=weights.txt \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_above_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    1.5 2 2.5
-    3 3.5 4
-    6 6.5 7
+    15 14.67 14.33 14 14
+    15.25 15 14.5 14.17 14
+    15.75 15.5 15 14.67 14.5
+    16 15.83 15.67 15.33 15.25
+    16.5 16.33 16.17 15.67 15.5
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_neighbors(
-        input="ramp",
-        output="gauss",
-        basename="gauss",
+        input="precipitation_daily",
+        output="rain_gauss",
+        basename="rain_gauss",
         weighting_function="gaussian",
         weighting_factor=1,
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("gauss_2026_03_01")
+    print_cells("rain_gauss_2020_07_02")
     ```
 
     ```text
-    2.51 3.13 3.76
-    4.38 5 5.62
-    6.24 6.87 7.49
+    15.24 14.93 14.44 14.1 14
+    15.56 15.25 14.75 14.4 14.27
+    15.9 15.68 15.32 15 14.83
+    16.27 16.12 15.88 15.53 15.27
+    16.62 16.45 16.17 15.73 15.38
     ```
 
     ```python
     tools.t_rast_neighbors(
-        input="ramp",
-        output="expo",
-        basename="expo",
+        input="precipitation_daily",
+        output="rain_expo",
+        basename="rain_expo",
         weighting_function="exponential",
         weighting_factor=-1,
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("expo_2026_03_01")
+    print_cells("rain_expo_2020_07_02")
     ```
 
     ```text
-    2.24 2.99 3.62
-    4.33 5 5.67
-    6.38 7.01 7.76
+    15.19 14.95 14.38 14.09 14
+    15.62 15.21 14.79 14.35 14.24
+    15.91 15.72 15.28 15 14.86
+    16.24 16.11 15.89 15.57 15.24
+    16.69 16.53 16.14 15.76 15.31
     ```
 
     ```python
@@ -599,159 +699,172 @@ corner 3.
 
     Path("weights.txt").write_text("1 1 1\n1 1 1\n0 0 0\n")
     tools.t_rast_neighbors(
-        input="ramp",
-        output="above",
-        basename="above",
+        input="precipitation_daily",
+        output="rain_above",
+        basename="rain_above",
         weighting_function="file",
         weight="weights.txt",
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("above_2026_03_01")
+    print_cells("rain_above_2020_07_02")
     ```
 
     ```text
-    1.5 2 2.5
-    3 3.5 4
-    6 6.5 7
+    15 14.67 14.33 14 14
+    15.25 15 14.5 14.17 14
+    15.75 15.5 15 14.67 14.5
+    16 15.83 15.67 15.33 15.25
+    16.5 16.33 16.17 15.67 15.5
     ```
 
 ### Compute only some cells
 
-The raster map `centre` has a value only in the center cell. With
-**selection** `centre`, only the center cell is computed; **method**
-`maximum` gives 9 there. All other cells keep the values of `ramp_1`.
+The raster map `centre` has a value only in the center cell of the window.
+With **selection** `centre`, only the center cell is computed; **method**
+`maximum` gives 16 there. All other cells keep the values of the map of 2 July,
+for instance 15 in the first row.
 
 === "Command line"
 
     ```sh
-    r.mapcalc expression="centre = if(row() == 2 && col() == 2, 1, null())"
-    t.rast.neighbors input=ramp output=picked basename=picked \
-        method=maximum selection=centre where="name = 'ramp_1'"
-    r.out.ascii -h input=picked_2026_03_01 output=- precision=2 | sed 's/ *$//'
+    r.mapcalc expression="centre = if(row() == 3 && col() == 3, 1, null())"
+    t.rast.neighbors input=precipitation_daily output=rain_picked \
+        basename=rain_picked method=maximum selection=centre \
+        where="name = 'precipitation_daily_2020_07_02'"
+    r.out.ascii -h input=rain_picked_2020_07_02 output=- precision=2 | sed 's/ *$//'
     ```
 
     ```text
-    1 2 3
-    4 9 6
-    7 8 9
+    15 15 14 14 14
+    16 15 15 14 14
+    16 16 16 15 15
+    16 16 16 16 15
+    17 17 16 16 15
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="centre = if(row() == 2 && col() == 2, 1, null())")
+    tools.r_mapcalc(expression="centre = if(row() == 3 && col() == 3, 1, null())")
     tools.t_rast_neighbors(
-        input="ramp",
-        output="picked",
-        basename="picked",
+        input="precipitation_daily",
+        output="rain_picked",
+        basename="rain_picked",
         method="maximum",
         selection="centre",
-        where="name = 'ramp_1'",
+        where="name = 'precipitation_daily_2020_07_02'",
     )
-    print_cells("picked_2026_03_01")
+    print_cells("rain_picked_2020_07_02")
     ```
 
     ```text
-    1 2 3
-    4 9 6
-    7 8 9
+    15 15 14 14 14
+    16 15 15 14 14
+    16 16 16 15 15
+    16 16 16 16 15
+    17 17 16 16 15
     ```
 
-### Bands with semantic labels
+### Layers with semantic labels
 
-The dataset `bands` has two maps with the same start time: `red_1` with the
-semantic label `S2_B4` holds 1 to 9 and `nir_1` with `S2_B8` holds 11 to 19.
-Equal start times give equal names with the default **suffix** `gran`, so the
-first block, which smooths both maps, uses **suffix** `num%03`. The new maps
-keep the labels of their input maps (**semantic_labels** `input`, the
-default). The numbering of maps with the same start time is not fixed, so the
-listing is ordered by label.
+The dataset `layers` has two maps with the same start time, 2 July 2020,
+10:30: `layer_elevation` with the semantic label `elevation` holds the
+elevation in whole metres and `layer_rain` with `precipitation` the rain of
+2 July from the first example. Equal start times give equal names with the
+default **suffix** `gran`, so the first block, which smooths both maps, uses
+**suffix** `num%03`. The new maps keep the labels of their input maps
+(**semantic_labels** `input`, the default). The numbering of maps with the same
+start time is not fixed, so the listing is ordered by label.
 
-The second block computes the maximum of both bands with **semantic_labels**
-`method`: the labels get the name of the method, `S2_B4_maximum`. The third
-block selects one band by its label and gives the new map the full start time
+The second block computes the maximum of both layers with **semantic_labels**
+`method`: the labels get the name of the method, `elevation_maximum`. The third
+block selects one layer by its label and gives the new map the full start time
 as its name (**suffix** `time`).
 
 The fourth block shows what happens without **suffix** `num`, with the default
 `gran` and with `time`, and with the default **nprocs** `1`: both new maps
-would get the same name, for instance `failed_2026_06_01T10_30_00`, and the
+would get the same name, for instance `failed_2020_07_02T10_30_00`, and the
 tool stops at the second map and prints that the map exists. The block shows
-only the line with the message. The list of datasets has neither of the
-datasets `failed` and `failed_time`, but the first map of each run stays behind
-as a raster map.
+only the line with the message. The list of datasets of the mapset has neither
+of the datasets `failed` and `failed_time`, but the first map of each run stays
+behind as a raster map.
 
 === "Command line"
 
     ```sh
-    r.mapcalc expression="red_1 = double((row() - 1) * 3 + col())"
-    r.mapcalc expression="nir_1 = double((row() - 1) * 3 + col()) + 10"
-    r.support map=red_1 semantic_label=S2_B4
-    r.support map=nir_1 semantic_label=S2_B8
-    t.create output=bands title="Bands" description="Red and near infrared"
-    t.register input=bands maps=red_1,nir_1 start="2026-06-01 10:30:00"
-    t.rast.neighbors input=bands output=smoothed basename=smoothed suffix=num%03
+    r.mapcalc expression="layer_elevation = round(elev_state_500m)"
+    r.mapcalc expression="layer_rain = precipitation_daily_2020_07_02"
+    r.support map=layer_elevation semantic_label=elevation
+    r.support map=layer_rain semantic_label=precipitation
+    t.create output=layers title="Layers" description="Elevation and precipitation"
+    t.register input=layers maps=layer_elevation,layer_rain start="2020-07-02 10:30:00"
+    t.rast.neighbors input=layers output=smoothed basename=smoothed suffix=num%03
     t.rast.list input=smoothed columns=semantic_label,min,max order=semantic_label
     ```
 
     ```text
     semantic_label|min|max
-    S2_B4|3.0|7.0
-    S2_B8|13.0|17.0
+    elevation|1051.0|1201.0
+    precipitation|14.0|16.5
     ```
 
     ```sh
-    t.rast.neighbors input=bands output=maxima_bands basename=maximum_band \
+    t.rast.neighbors input=layers output=maxima_layers basename=maximum_layer \
         suffix=num method=maximum semantic_labels=method
-    t.rast.list input=maxima_bands columns=semantic_label,min,max \
+    t.rast.list input=maxima_layers columns=semantic_label,min,max \
         order=semantic_label
     ```
 
     ```text
     semantic_label|min|max
-    S2_B4_maximum|5.0|9.0
-    S2_B8_maximum|15.0|19.0
+    elevation_maximum|1096.0|1291.0
+    precipitation_maximum|14.0|17.0
     ```
 
     ```sh
-    t.rast.neighbors input=bands output=red_only basename=red \
+    t.rast.neighbors input=layers output=rain_only basename=rain \
         suffix=time method=maximum semantic_labels=method \
-        where="semantic_label = 'S2_B4'"
-    t.rast.list input=red_only columns=name,semantic_label,min,max
+        where="semantic_label = 'precipitation'"
+    t.rast.list input=rain_only columns=name,semantic_label,min,max
     ```
 
     ```text
     name|semantic_label|min|max
-    red_2026_06_01T10_30_00|S2_B4_maximum|5.0|9.0
+    rain_2020_07_02T10_30_00|precipitation_maximum|14.0|17.0
     ```
 
     ```sh
-    (t.rast.neighbors input=bands output=failed basename=failed 2>&1 || true) \
+    (t.rast.neighbors input=layers output=failed basename=failed 2>&1 || true) \
         | grep exists
-    (t.rast.neighbors input=bands output=failed_time basename=failed_time \
+    (t.rast.neighbors input=layers output=failed_time basename=failed_time \
         suffix=time 2>&1 || true) | grep exists
-    t.list type=strds columns=name format=line
-    g.list type=raster pattern="failed*"
+    t.list type=strds columns=name format=line mapset=.
+    g.list type=raster pattern="failed*" mapset=.
     ```
 
     ```text
-    ERROR: option <output>: <failed_2026_06_01T10_30_00> exists. To overwrite, use the --overwrite flag
-    ERROR: option <output>: <failed_time_2026_06_01T10_30_00> exists. To overwrite, use the --overwrite flag
-    above,bands,circular,expo,gauss,maxima,maxima_bands,picked,quartiles,ramp,red_only,smooth,smoothed
-    failed_2026_06_01T10_30_00
-    failed_time_2026_06_01T10_30_00
+    ERROR: option <output>: <failed_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    ERROR: option <output>: <failed_time_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
+    failed_2020_07_02T10_30_00
+    failed_time_2020_07_02T10_30_00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="red_1 = double((row() - 1) * 3 + col())")
-    tools.r_mapcalc(expression="nir_1 = double((row() - 1) * 3 + col()) + 10")
-    tools.r_support(map="red_1", semantic_label="S2_B4")
-    tools.r_support(map="nir_1", semantic_label="S2_B8")
-    tools.t_create(output="bands", title="Bands", description="Red and near infrared")
-    tools.t_register(input="bands", maps="red_1,nir_1", start="2026-06-01 10:30:00")
+    tools.r_mapcalc(expression="layer_elevation = round(elev_state_500m)")
+    tools.r_mapcalc(expression="layer_rain = precipitation_daily_2020_07_02")
+    tools.r_support(map="layer_elevation", semantic_label="elevation")
+    tools.r_support(map="layer_rain", semantic_label="precipitation")
+    tools.t_create(
+        output="layers", title="Layers", description="Elevation and precipitation"
+    )
+    tools.t_register(
+        input="layers", maps="layer_elevation,layer_rain", start="2020-07-02 10:30:00"
+    )
     tools.t_rast_neighbors(
-        input="bands", output="smoothed", basename="smoothed", suffix="num%03"
+        input="layers", output="smoothed", basename="smoothed", suffix="num%03"
     )
     print(
         tools.t_rast_list(
@@ -762,48 +875,48 @@ as a raster map.
 
     ```text
     semantic_label|min|max
-    S2_B4|3.0|7.0
-    S2_B8|13.0|17.0
+    elevation|1051.0|1201.0
+    precipitation|14.0|16.5
     ```
 
     ```python
     tools.t_rast_neighbors(
-        input="bands",
-        output="maxima_bands",
-        basename="maximum_band",
+        input="layers",
+        output="maxima_layers",
+        basename="maximum_layer",
         suffix="num",
         method="maximum",
         semantic_labels="method",
     )
     print(
         tools.t_rast_list(
-            input="maxima_bands", columns="semantic_label,min,max", order="semantic_label"
+            input="maxima_layers", columns="semantic_label,min,max", order="semantic_label"
         ).text
     )
     ```
 
     ```text
     semantic_label|min|max
-    S2_B4_maximum|5.0|9.0
-    S2_B8_maximum|15.0|19.0
+    elevation_maximum|1096.0|1291.0
+    precipitation_maximum|14.0|17.0
     ```
 
     ```python
     tools.t_rast_neighbors(
-        input="bands",
-        output="red_only",
-        basename="red",
+        input="layers",
+        output="rain_only",
+        basename="rain",
         suffix="time",
         method="maximum",
         semantic_labels="method",
-        where="semantic_label = 'S2_B4'",
+        where="semantic_label = 'precipitation'",
     )
-    print(tools.t_rast_list(input="red_only", columns="name,semantic_label,min,max").text)
+    print(tools.t_rast_list(input="rain_only", columns="name,semantic_label,min,max").text)
     ```
 
     ```text
     name|semantic_label|min|max
-    red_2026_06_01T10_30_00|S2_B4_maximum|5.0|9.0
+    rain_2020_07_02T10_30_00|precipitation_maximum|14.0|17.0
     ```
 
     ```python
@@ -812,54 +925,58 @@ as a raster map.
     for output, suffix in (("failed", "gran"), ("failed_time", "time")):
         try:
             tools.t_rast_neighbors(
-                input="bands", output=output, basename=output, suffix=suffix
+                input="layers", output=output, basename=output, suffix=suffix
             )
         except ToolError as error:
             for line in error.stderr.splitlines():
                 if "exists" in line:
                     print(line)
-    print(tools.t_list(type="strds", columns="name", format="line").text)
-    print(tools.g_list(type="raster", pattern="failed*").text)
+    print(tools.t_list(type="strds", columns="name", format="line", mapset=".").text)
+    print(tools.g_list(type="raster", pattern="failed*", mapset=".").text)
     ```
 
     ```text
-    ERROR: option <output>: <failed_2026_06_01T10_30_00> exists. To overwrite, use the --overwrite flag
-    ERROR: option <output>: <failed_time_2026_06_01T10_30_00> exists. To overwrite, use the --overwrite flag
-    above,bands,circular,expo,gauss,maxima,maxima_bands,picked,quartiles,ramp,red_only,smooth,smoothed
-    failed_2026_06_01T10_30_00
-    failed_time_2026_06_01T10_30_00
+    ERROR: option <output>: <failed_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    ERROR: option <output>: <failed_time_2020_07_02T10_30_00> exists. To overwrite, use the --overwrite flag
+    layers,maxima_layers,precipitation_daily,rain_above,rain_circular,rain_expo,rain_gauss,rain_maximum,rain_only,rain_picked,rain_quartile,rain_smooth,smoothed
+    failed_2020_07_02T10_30_00
+    failed_time_2020_07_02T10_30_00
     ```
 
 ### Select the maps to process
 
-The dataset `scenes` has four daily maps, each with an extent of its own and
-constant values 10, 20, 30 and 40. The current region reaches from 0 to 4 in
-both directions. `scene_1` (from -1 to 5) contains the region, `scene_2`
-(1 to 3) lies within it, `scene_3` (2 to 6) overlaps it and `scene_4` (10 to
-12) is far away.
+The dataset `scenes` has four daily maps from 1 May 2026, each with an extent of
+its own and a constant value of 10, 20, 30 and 40. They are generated for the
+example. The current region has 4 by 4 cells of 1 km. `scene_around` (6 by 6
+cells) contains the region, `scene_inside` (2 by 2 cells) lies within it,
+`scene_shifted` (4 by 4 cells) overlaps it and `scene_remote` (2 by 2 cells)
+is far away.
 
 The first block selects the maps from the second day on with **where**. The new
-map of `scene_4` has no value in the region, so it is empty and not registered:
-two maps remain, with the 4 by 4 cells of the current region. The second block
-adds **-n**, which registers the empty map as well; its smallest and largest
-value are `None`.
+map of `scene_remote` has no value in the region, so it is empty and not
+registered: two maps remain, with the 4 by 4 cells of the current region. The
+second block adds **-n**, which registers the empty map as well; its smallest
+and largest value are `None`.
 
 The third block selects by **region_relation**: `overlaps` takes the first
-three maps, `contains` takes `scene_1` and `is_contained` takes `scene_2`.
+three maps, `contains` takes `scene_around` and `is_contained` takes
+`scene_inside`.
 
 === "Command line"
 
     ```sh
-    for scene in "scene_1 -1 5 10" "scene_2 1 3 20" \
-        "scene_3 2 6 30" "scene_4 10 12 40"; do
+    for scene in "scene_around -1 5 10" "scene_inside 1 3 20" \
+        "scene_shifted 2 6 30" "scene_remote 10 12 40"; do
         set -- $scene
-        g.region s=$2 n=$3 w=$2 e=$3 res=1
+        g.region w=$((640000 + 1000 * $2)) e=$((640000 + 1000 * $3)) \
+            s=$((220000 + 1000 * $2)) n=$((220000 + 1000 * $3)) res=1000
         r.mapcalc expression="$1 = $4"
     done
-    g.region s=0 n=4 w=0 e=4 res=1
+    g.region w=640000 e=644000 s=220000 n=224000 res=1000
     t.create output=scenes title="Scenes" \
         description="Scenes with extents of their own"
-    t.register -i input=scenes maps=scene_1,scene_2,scene_3,scene_4 \
+    t.register -i input=scenes \
+        maps=scene_around,scene_inside,scene_shifted,scene_remote \
         start=2026-05-01 increment="1 day"
     t.rast.neighbors input=scenes output=late basename=late \
         where="start_time >= '2026-05-02'"
@@ -909,20 +1026,26 @@ three maps, `contains` takes `scene_1` and `is_contained` takes `scene_2`.
 
     ```python
     for name, low, high, value in (
-        ("scene_1", -1, 5, 10),
-        ("scene_2", 1, 3, 20),
-        ("scene_3", 2, 6, 30),
-        ("scene_4", 10, 12, 40),
+        ("scene_around", -1, 5, 10),
+        ("scene_inside", 1, 3, 20),
+        ("scene_shifted", 2, 6, 30),
+        ("scene_remote", 10, 12, 40),
     ):
-        tools.g_region(s=low, n=high, w=low, e=high, res=1)
+        tools.g_region(
+            w=640000 + 1000 * low,
+            e=640000 + 1000 * high,
+            s=220000 + 1000 * low,
+            n=220000 + 1000 * high,
+            res=1000,
+        )
         tools.r_mapcalc(expression=f"{name} = {value}")
-    tools.g_region(s=0, n=4, w=0, e=4, res=1)
+    tools.g_region(w=640000, e=644000, s=220000, n=224000, res=1000)
     tools.t_create(
         output="scenes", title="Scenes", description="Scenes with extents of their own"
     )
     tools.t_register(
         input="scenes",
-        maps="scene_1,scene_2,scene_3,scene_4",
+        maps="scene_around,scene_inside,scene_shifted,scene_remote",
         start="2026-05-01",
         increment="1 day",
         flags="i",
@@ -986,10 +1109,10 @@ three maps, `contains` takes `scene_1` and `is_contained` takes `scene_2`.
 ### Use the region of each map and extend a dataset
 
 The first block computes each map in its own region (**-r**) for the maps that
-**region_relation** `overlaps` selects, still with the current region from
-0 to 4. The new maps have 6 by 6, 2 by 2 and 4 by 4 cells, the sizes of
-`scene_1`, `scene_2` and `scene_3`. The current region keeps its 4 rows and
-4 columns.
+**region_relation** `overlaps` selects, still with the current region of 4 by
+4 cells. The new maps have 6 by 6, 2 by 2 and 4 by 4 cells, the sizes of
+`scene_around`, `scene_inside` and `scene_shifted`. The current region keeps
+its 4 rows and 4 columns.
 
 In the second block, the first run makes a dataset `part` from the first two
 days. The run with **-e** adds the maps of the third day (the fourth day is
@@ -1103,51 +1226,61 @@ stays.
 
 ### Draw a map before and after the filter
 
-The dataset `noisy` has two maps of 12 by 12 cells. In the cells of `noisy_1`,
-the column number is the trend and a checkerboard of plus and minus 3 is the
-noise. The figure shows `noisy_1` on the left and its 3 by 3 average on the
-right. The same color table is used for both maps, so the colors mean the
-same values. The average smooths away most of the checkerboard and leaves
-the trend from left to right; the range of the values shrinks from -2 to 15
-in `noisy_1` to 1.5 to 11.5 in the first new map.
+The dataset `rain_noisy` has two maps of 40 by 40 cells, the rain of 2 and
+3 July in a window in the mountains of the west with a checkerboard of plus and
+minus 3 mm added. The noise is assumed; it makes the effect of the filter
+visible. The figure shows `rain_noisy_2020_07_02` on the left and its 3 by 3
+average on the right. The same color table is used for both maps, so the colors
+mean the same values. The average smooths away most of the checkerboard, as
+every window inside the region holds five cells of one sign and four of the
+other, so that a flat field keeps a remainder of 3 / 9 mm; at the edge of the
+region the window holds fewer cells, 2 and 2 in a corner and 3 and 3 at an edge,
+and the noise cancels. The average leaves the trend of the rain; the range of
+the values shrinks from 9 to 20 mm in `rain_noisy_2020_07_02` to 11.9 to 17.3
+mm in the first new map, whose smallest value `107 / 9` and largest value
+`156 / 9` are sums of nine cells. The white cell in the upper left corner of
+the left map has no value in the input; the average fills it from its
+neighbors.
 
 === "Command line"
 
     ```sh
-    g.region n=12 s=0 e=12 w=0 res=1
-    r.mapcalc expression="noisy_1 = double(col()) + if((row() + col()) % 2 == 0, 3, -3)"
-    r.mapcalc expression="noisy_2 = double(col()) + 2 + if((row() + col()) % 2 == 0, 3, -3)"
-    t.create output=noisy title="Noisy" description="Ramp with checkerboard noise"
-    t.register -i input=noisy maps=noisy_1,noisy_2 \
-        start=2026-04-01 increment="1 day"
-    t.rast.neighbors input=noisy output=denoised basename=denoised size=3
-    t.rast.list input=noisy columns=name,min,max
-    t.rast.list input=denoised columns=name,min,max
+    g.region w=350000 e=390000 s=250000 n=290000 res=1000
+    for day in 02 03; do
+        r.mapcalc expression="rain_noisy_2020_07_$day = precipitation_daily_2020_07_$day + if((row() + col()) % 2 == 0, 3.0, -3.0)"
+    done
+    t.create output=rain_noisy title="Noisy precipitation" \
+        description="Daily precipitation with checkerboard noise in mm"
+    t.register -i input=rain_noisy maps=rain_noisy_2020_07_02,rain_noisy_2020_07_03 \
+        start=2020-07-02 increment="1 day"
+    t.rast.neighbors input=rain_noisy output=rain_denoised basename=rain_denoised size=3
+    t.rast.list input=rain_noisy columns=name,min,max
+    t.rast.list input=rain_denoised columns=name,min,max
     ```
 
     ```text
     name|min|max
-    noisy_1|-2.0|15.0
-    noisy_2|0.0|17.0
+    rain_noisy_2020_07_02|9.0|20.0
+    rain_noisy_2020_07_03|6.0|15.0
     name|min|max
-    denoised_2026_04_01|1.5|11.5
-    denoised_2026_04_02|3.5|13.5
+    rain_denoised_2020_07_02|11.88888888888889|17.333333333333332
+    rain_denoised_2020_07_03|8.666666666666666|13.0
     ```
 
     ```sh
-    r.colors map=noisy_1,denoised_2026_04_01 rules=- <<EOF
-    -2 68:1:84
-    2.25 59:82:139
-    6.5 33:145:140
-    10.75 94:201:98
-    15 253:231:37
+    r.colors map=rain_noisy_2020_07_02,rain_denoised_2020_07_02 rules=- <<EOF
+    9 68:1:84
+    11.75 59:82:139
+    14.5 33:145:140
+    17.25 94:201:98
+    20 253:231:37
     EOF
     d.mon start=cairo output=t_rast_neighbors_average.png width=800 height=400
     d.frame -c frame=before at=0,100,0,50
-    d.rast map=noisy_1
+    d.rast map=rain_noisy_2020_07_02
     d.text text="Before" color=white size=6 at=3,92
     d.frame -c frame=after at=0,100,50,100
-    d.rast map=denoised_2026_04_01
+    d.rast map=rain_denoised_2020_07_02
     d.text text="After" color=white size=6 at=3,92
     d.mon stop=cairo
     ```
@@ -1155,77 +1288,88 @@ in `noisy_1` to 1.5 to 11.5 in the first new map.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=12, s=0, e=12, w=0, res=1)
-    for name, shift in (("noisy_1", 0), ("noisy_2", 2)):
+    tools.g_region(w=350000, e=390000, s=250000, n=290000, res=1000)
+    for day in ("02", "03"):
         tools.r_mapcalc(
-            expression=f"{name} = double(col()) + {shift} + "
-            "if((row() + col()) % 2 == 0, 3, -3)"
+            expression=f"rain_noisy_2020_07_{day} = precipitation_daily_2020_07_{day}"
+            " + if((row() + col()) % 2 == 0, 3.0, -3.0)"
         )
     tools.t_create(
-        output="noisy", title="Noisy", description="Ramp with checkerboard noise"
+        output="rain_noisy",
+        title="Noisy precipitation",
+        description="Daily precipitation with checkerboard noise in mm",
     )
     tools.t_register(
-        input="noisy",
-        maps="noisy_1,noisy_2",
-        start="2026-04-01",
+        input="rain_noisy",
+        maps="rain_noisy_2020_07_02,rain_noisy_2020_07_03",
+        start="2020-07-02",
         increment="1 day",
         flags="i",
     )
-    tools.t_rast_neighbors(input="noisy", output="denoised", basename="denoised", size=3)
-    print(tools.t_rast_list(input="noisy", columns="name,min,max").text)
-    print(tools.t_rast_list(input="denoised", columns="name,min,max").text)
+    tools.t_rast_neighbors(
+        input="rain_noisy", output="rain_denoised", basename="rain_denoised", size=3
+    )
+    print(tools.t_rast_list(input="rain_noisy", columns="name,min,max").text)
+    print(tools.t_rast_list(input="rain_denoised", columns="name,min,max").text)
     ```
 
     ```text
     name|min|max
-    noisy_1|-2.0|15.0
-    noisy_2|0.0|17.0
+    rain_noisy_2020_07_02|9.0|20.0
+    rain_noisy_2020_07_03|6.0|15.0
     name|min|max
-    denoised_2026_04_01|1.5|11.5
-    denoised_2026_04_02|3.5|13.5
+    rain_denoised_2020_07_02|11.88888888888889|17.333333333333332
+    rain_denoised_2020_07_03|8.666666666666666|13.0
     ```
 
     ```python
     from io import StringIO
 
-    colors = "-2 68:1:84\n2.25 59:82:139\n6.5 33:145:140\n10.75 94:201:98\n15 253:231:37\n"
-    tools.r_colors(map="noisy_1,denoised_2026_04_01", rules=StringIO(colors))
+    colors = "9 68:1:84\n11.75 59:82:139\n14.5 33:145:140\n17.25 94:201:98\n20 253:231:37\n"
+    tools.r_colors(
+        map="rain_noisy_2020_07_02,rain_denoised_2020_07_02", rules=StringIO(colors)
+    )
     tools.d_mon(start="cairo", output="t_rast_neighbors_average.png", width=800, height=400)
     tools.d_frame(flags="c", frame="before", at=[0, 100, 0, 50])
-    tools.d_rast(map="noisy_1")
+    tools.d_rast(map="rain_noisy_2020_07_02")
     tools.d_text(text="Before", color="white", size=6, at=[3, 92])
     tools.d_frame(flags="c", frame="after", at=[0, 100, 50, 100])
-    tools.d_rast(map="denoised_2026_04_01")
+    tools.d_rast(map="rain_denoised_2020_07_02")
     tools.d_text(text="After", color="white", size=6, at=[3, 92])
     tools.d_mon(stop="cairo")
     ```
 
-![A map with checkerboard noise before and after the average](t_rast_neighbors_average.png)
+![Daily precipitation with assumed checkerboard noise before and after the average](t_rast_neighbors_average.png)
 
-*Figure: The map `noisy_1` (left) and its average in a window of 3 by 3 cells
-(right), `denoised_2026_04_01`, in the same color table.*
+*Figure: The map `rain_noisy_2020_07_02` (left), the rain of 2 July with assumed
+checkerboard noise, and its average in a window of 3 by 3 cells (right),
+`rain_denoised_2020_07_02`, in the same color table.*
 
 ### Relative time and a dataset of another mapset
 
-The dataset `model` has two maps with relative time, the ramp `step_1` with
-the numbers 1 to 9 and `step_2` with 10 added, registered at 0 and 6 hours.
-The new maps have the same times. With the default **suffix** `gran` they are
-numbered, `m1_00001` and `m1_00002`, and so they are with **suffix** `time`;
-**suffix** `num%03` gives three digits.
+The dataset `model` has two maps with relative time, `rain_forecast_0h` with the
+rain of 2 July and `rain_forecast_6h` with the rain of 3 July, registered at 0
+and 6 hours; the region is the window of 5 by 5 cells again. The new maps have
+the same times. With the default **suffix** `gran` they are numbered,
+`m1_00001` and `m1_00002`, and so they are with **suffix** `time`; **suffix**
+`num%03` gives three digits.
 
-After `g.mapset`, the current mapset is `analysis`. The input name
-`model@PERMANENT` selects the dataset of the other mapset; the new maps and
-the new dataset are created in `analysis`, as their ids show.
+The second block creates the mapset `t_rast_neighbors_2`, sets the region to
+North Carolina again and adds the first mapset to the search path with
+*[g.mapsets](g.mapsets.md)*. The input name `model@t_rast_neighbors` selects
+the dataset of the other mapset; the new maps and the new dataset are created in
+`t_rast_neighbors_2`, as their ids show.
 
 === "Command line"
 
     ```sh
-    g.region n=3 s=0 e=3 w=0 res=1
-    r.mapcalc expression="step_1 = double((row() - 1) * 3 + col())"
-    r.mapcalc expression="step_2 = double((row() - 1) * 3 + col()) + 10"
+    g.region w=366000 e=371000 s=270000 n=275000 res=1000
+    r.mapcalc expression="rain_forecast_0h = precipitation_daily_2020_07_02"
+    r.mapcalc expression="rain_forecast_6h = precipitation_daily_2020_07_03"
     t.create output=model temporaltype=relative title="Model" \
         description="Model output every six hours"
-    t.register -i input=model maps=step_1,step_2 start=0 increment=6 unit=hours
+    t.register -i input=model maps=rain_forecast_0h,rain_forecast_6h \
+        start=0 increment=6 unit=hours
     t.rast.neighbors input=model output=m1 basename=m1
     t.rast.list input=m1 columns=name,start_time,end_time,min,max
     t.rast.neighbors input=model output=m2 basename=m2 suffix=time
@@ -1236,8 +1380,8 @@ the new dataset are created in `analysis`, as their ids show.
 
     ```text
     name|start_time|end_time|min|max
-    m1_00001|0|6|3.0|7.0
-    m1_00002|6|12|13.0|17.0
+    m1_00001|0|6|14.0|16.5
+    m1_00002|6|12|10.0|12.0
     name|start_time
     m2_00001|0
     m2_00002|6
@@ -1247,23 +1391,25 @@ the new dataset are created in `analysis`, as their ids show.
     ```
 
     ```sh
-    g.mapset -c mapset=analysis
-    t.rast.neighbors input=model@PERMANENT output=m4 basename=m4
+    g.mapset -c mapset=t_rast_neighbors_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_neighbors operation=add
+    t.rast.neighbors input=model@t_rast_neighbors output=m4 basename=m4
     t.rast.list input=m4 columns=id,mapset,start_time
     ```
 
     ```text
     id|mapset|start_time
-    m4_00001@analysis|analysis|0
-    m4_00002@analysis|analysis|6
+    m4_00001@t_rast_neighbors_2|t_rast_neighbors_2|0
+    m4_00002@t_rast_neighbors_2|t_rast_neighbors_2|6
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
-    tools.r_mapcalc(expression="step_1 = double((row() - 1) * 3 + col())")
-    tools.r_mapcalc(expression="step_2 = double((row() - 1) * 3 + col()) + 10")
+    tools.g_region(w=366000, e=371000, s=270000, n=275000, res=1000)
+    tools.r_mapcalc(expression="rain_forecast_0h = precipitation_daily_2020_07_02")
+    tools.r_mapcalc(expression="rain_forecast_6h = precipitation_daily_2020_07_03")
     tools.t_create(
         output="model",
         temporaltype="relative",
@@ -1271,7 +1417,12 @@ the new dataset are created in `analysis`, as their ids show.
         description="Model output every six hours",
     )
     tools.t_register(
-        input="model", maps="step_1,step_2", start=0, increment=6, unit="hours", flags="i"
+        input="model",
+        maps="rain_forecast_0h,rain_forecast_6h",
+        start=0,
+        increment=6,
+        unit="hours",
+        flags="i",
     )
     tools.t_rast_neighbors(input="model", output="m1", basename="m1")
     print(tools.t_rast_list(input="m1", columns="name,start_time,end_time,min,max").text)
@@ -1283,8 +1434,8 @@ the new dataset are created in `analysis`, as their ids show.
 
     ```text
     name|start_time|end_time|min|max
-    m1_00001|0|6|3.0|7.0
-    m1_00002|6|12|13.0|17.0
+    m1_00001|0|6|14.0|16.5
+    m1_00002|6|12|10.0|12.0
     name|start_time
     m2_00001|0
     m2_00002|6
@@ -1294,15 +1445,17 @@ the new dataset are created in `analysis`, as their ids show.
     ```
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.t_rast_neighbors(input="model@PERMANENT", output="m4", basename="m4")
+    tools.g_mapset(mapset="t_rast_neighbors_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_neighbors", operation="add")
+    tools.t_rast_neighbors(input="model@t_rast_neighbors", output="m4", basename="m4")
     print(tools.t_rast_list(input="m4", columns="id,mapset,start_time").text)
     ```
 
     ```text
     id|mapset|start_time
-    m4_00001@analysis|analysis|0
-    m4_00002@analysis|analysis|6
+    m4_00001@t_rast_neighbors_2|t_rast_neighbors_2|0
+    m4_00002@t_rast_neighbors_2|t_rast_neighbors_2|6
     ```
 
 <!-- markdownlint-enable MD046 -->
@@ -1310,12 +1463,14 @@ the new dataset are created in `analysis`, as their ids show.
 ## SEE ALSO
 
 *[d.frame](d.frame.md), [d.rast](d.rast.md), [d.text](d.text.md),
-[g.mapset](g.mapset.md), [g.region](g.region.md), [r.colors](r.colors.md),
+[g.list](g.list.md), [g.mapset](g.mapset.md), [g.mapsets](g.mapsets.md),
+[g.region](g.region.md), [r.colors](r.colors.md), [r.mapcalc](r.mapcalc.md),
 [r.neighbors](r.neighbors.md), [r.out.ascii](r.out.ascii.md),
 [r.support](r.support.md), [t.create](t.create.md), [t.info](t.info.md),
-[t.rast.aggregate](t.rast.aggregate.md), [t.rast.extract](t.rast.extract.md),
-[t.rast.list](t.rast.list.md), [t.register](t.register.md),
-[temporal data processing](temporalintro.md)*
+[t.list](t.list.md), [t.rast.aggregate](t.rast.aggregate.md),
+[t.rast.extract](t.rast.extract.md), [t.rast.list](t.rast.list.md),
+[t.register](t.register.md), [temporal data processing](temporalintro.md),
+[v.surf.idw](v.surf.idw.md)*
 
 ## AUTHOR
 
