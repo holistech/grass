@@ -679,7 +679,7 @@ generated monthly maps (not measured data).*
 ### Sample one dataset by another
 
 A second generated series, `precipitation_monthly`, holds the monthly
-precipitation sum of 2020 in millimetres. The monthly normals of the 136
+precipitation sum of 2020 in millimeters. The monthly normals of the 136
 climate stations in the vector map `precip_30ynormals` are interpolated for
 each month with *[v.surf.idw](v.surf.idw.md)* and multiplied by an assumed
 factor for the wet year 2020. The maps are registered like the temperature

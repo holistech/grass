@@ -114,7 +114,7 @@ North Carolina with cells of 1 km; the later examples work in this mapset and
 region. The first two examples and the naming examples use the 136 climate
 stations of the map `precip_30ynormals`. The other examples need only the
 structure of the maps, so they use small sketches: their points and lines lie
-north and east of the point (300000, 100000), in metres of the project, in the
+north and east of the point (300000, 100000), in meters of the project, in the
 computational region but south of the state, where the elevation model has no
 value.
 

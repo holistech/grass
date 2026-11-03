@@ -121,7 +121,7 @@ The dataset `normals` has three point maps for the months from January to March
 `precip_30ynormals`, the stations 310090, 310184 and 310241, with the 30-year
 normal of the month `k` as the column `precipitation` in mm: the column `jan`
 of the stations for January, `feb` for February and `mar` for March, rounded to
-whole millimetres. The values are normals of the stations, not measurements of
+whole millimeters. The values are normals of the stations, not measurements of
 2026; the dates only place the maps on the time axis. The column `terrain` is
 `upland` for a station above 300 m and `lowland` for the others. The copy keeps
 the columns `cat`, `station` and `elev` of the stations, so the table of each

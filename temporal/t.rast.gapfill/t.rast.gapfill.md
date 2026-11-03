@@ -291,7 +291,7 @@ cycle.
 ### Fill the gaps of a dataset
 
 The dataset `rain` holds three daily maps with a constant value in every cell:
-the levels are 10 for June 1, 30 for June 3 and 70 for June 7, in millimetres
+the levels are 10 for June 1, 30 for June 3 and 70 for June 7, in millimeters
 of rain. The maps of June 2 and of June 4 to 6 are missing.
 
 The first block lists the dataset with its gaps: one of a day, one of three

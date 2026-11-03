@@ -186,7 +186,7 @@ by hand.
 ### Aggregate by the intervals of another dataset
 
 The dataset `precipitation_daily` holds the precipitation sums of the 31 days
-of July 2020 in whole millimetres, with the semantic type `sum`. The monthly
+of July 2020 in whole millimeters, with the semantic type `sum`. The monthly
 sum of July is interpolated from the normals of the stations with
 *v.surf.idw*, times 1.1 for an assumed wet year; the daily sums distribute it
 over the days `1` to `3`, `9` to `11`, `17` to `19` and `25` to `27`, the days
@@ -197,7 +197,7 @@ July, 11 to 20 July and 21 to 31 July. A dekad is ten days long, the last one
 of a month up to eleven, so the intervals differ in length, which
 *[t.rast.aggregate](t.rast.aggregate.md)* cannot do. The default
 `sampling=contains` takes the daily maps of each interval, and the method
-`sum` gives the precipitation of the dekad in millimetres. The first dekad has
+`sum` gives the precipitation of the dekad in millimeters. The first dekad has
 five days with rain, the days 1 to 3, 9 and 10, the second four, the days 11
 and 17 to 19, and the third three, the days 25 to 27. The sums of the cells
 range from 36 to 94 mm in the first dekad, from 27 to 71 mm in the second and

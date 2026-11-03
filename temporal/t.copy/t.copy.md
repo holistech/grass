@@ -222,8 +222,8 @@ This example continues with the data of the previous one.
 The option **type** gives the type of the dataset, here a space time 3D raster
 dataset `soil` and a space time vector dataset `gauges`. The copies hold the
 maps of the originals. The 3D map holds the number of its layer, 1 to 3, in
-every cell. The two gauges lie in North Carolina and have a wind speed in
-meters per second.
+every cell. The two gauges lie in North Carolina and have a generated
+discharge in cubic meters per second, not a measurement.
 
 === "Command line"
 
@@ -236,11 +236,11 @@ meters per second.
     t.copy type=str3ds input=soil output=soil_copy
     t.rast3d.list input=soil_copy columns=name,start_time
     v.in.ascii input=- output=gauges_1 separator=comma \
-        columns="x double precision, y double precision, speed double precision" <<EOF
+        columns="x double precision, y double precision, discharge double precision" <<EOF
     638000,220000,3.0
     780000,150000,5.0
     EOF
-    t.create type=stvds output=gauges title="Gauges" description="Wind speed"
+    t.create type=stvds output=gauges title="Gauges" description="Discharge"
     t.register -i type=vector input=gauges maps=gauges_1 \
         start=2026-03-01 increment="1 day"
     t.copy type=stvds input=gauges output=gauges_copy
@@ -276,9 +276,9 @@ meters per second.
         input=StringIO("638000,220000,3.0\n780000,150000,5.0\n"),
         output="gauges_1",
         separator="comma",
-        columns="x double precision, y double precision, speed double precision",
+        columns="x double precision, y double precision, discharge double precision",
     )
-    tools.t_create(type="stvds", output="gauges", title="Gauges", description="Wind speed")
+    tools.t_create(type="stvds", output="gauges", title="Gauges", description="Discharge")
     tools.t_register(
         type="vector",
         input="gauges",

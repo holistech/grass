@@ -185,7 +185,7 @@ results can be checked by hand.
 ### Smooth the maps of a dataset
 
 The dataset `precipitation_daily` holds 31 maps of the daily precipitation sum
-in July 2020, in whole millimetres. They are generated, not measured: the July
+in July 2020, in whole millimeters. They are generated, not measured: the July
 normal of the climate stations of `precip_30ynormals` (the column `jul`),
 interpolated with *v.surf.idw* and multiplied by an assumed factor of 1.1 for a
 wet July, is spread over the days with the weight `max(0, sin(45 * day))`. It
@@ -769,7 +769,7 @@ for instance 15 in the first row.
 
 The dataset `layers` has two maps with the same start time, 2 July 2020,
 10:30: `layer_elevation` with the semantic label `elevation` holds the
-elevation in whole metres and `layer_rain` with `precipitation` the rain of
+elevation in whole meters and `layer_rain` with `precipitation` the rain of
 2 July from the first example. Equal start times give equal names with the
 default **suffix** `gran`, so the first block, which smooths both maps, uses
 **suffix** `num%03`. The new maps keep the labels of their input maps

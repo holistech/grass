@@ -186,7 +186,7 @@ values. The first block builds the monthly mean air temperature of 2020 in
 degree Celsius over North Carolina, 12 maps with a computed pattern: warmer in
 summer, colder with height and a little colder towards the north. The dataset
 is generated, not measured. The block then accumulates the heat sum above
-10 degree Celsius with *[t.rast.accumulate](t.rast.accumulate.md)*, with one
+10 degrees Celsius with *[t.rast.accumulate](t.rast.accumulate.md)*, with one
 cycle of 12 months. Its default granularity is one day, so the granularity of
 one month is given; every month then adds its mean minus 10, when that is
 positive, and the unit of the sum is degree months (about 30 degree days).

@@ -97,7 +97,7 @@ names.
 A NULL value is counted in `nnull` and is not part of the statistics, neither
 of the extended ones. With **where**, a feature whose row the condition does
 not select is counted in `nmissing`, a NULL included: the condition
-`speed > 2` is not true for a NULL.
+`discharge > 2` is not true for a NULL.
 
 In a dataset with relative time, `start` and `end` are numbers of the time
 unit of the dataset, printed without the unit: a map registered from 0 to 6
@@ -141,11 +141,14 @@ values, which the examples set to numbers that can be recomputed by hand.
 ### Statistics of each map of a dataset
 
 The points of the maps are stream gauges. Three maps with two integer columns:
-`speed`, a generated wind speed in km/h, and `gust`, which is `speed + 1`.
+`discharge`, a generated discharge in cubic meters per second, and `peak`,
+which is `discharge + 1`. The values are plausible for small streams, a few
+cubic meters per second, with a flood of 40 in the third map, but they are not
+measured.
 
-- `gauges_1` has the speeds 1, 2, 3 and 4, those of the gauges with the
+- `gauges_1` has the discharges 1, 2, 3 and 4, those of the gauges with the
   categories 1 to 4;
-- `gauges_2` has 2, 4, 6 and 8, and a fifth gauge without a speed: its columns
+- `gauges_2` has 2, 4, 6 and 8, and a fifth gauge without a discharge: its columns
   stay NULL;
 - `gauges_3` has 10, 10, 10 and 40.
 
@@ -179,21 +182,21 @@ are the same as there. The region does not change the statistics of
     v.extract input=usgsgages output=gauges_1 where="cat <= 4"
     v.extract input=usgsgages output=gauges_2 where="cat <= 5"
     v.extract input=usgsgages output=gauges_3 where="cat <= 4"
-    v.db.addcolumn map=gauges_1 columns="speed integer, gust integer"
-    v.db.addcolumn map=gauges_2 columns="speed integer, gust integer"
-    v.db.addcolumn map=gauges_3 columns="speed integer, gust integer"
-    v.db.update map=gauges_1 column=speed query_column=cat
-    v.db.update map=gauges_2 column=speed query_column="2 * cat" where="cat <= 4"
-    v.db.update map=gauges_3 column=speed \
+    v.db.addcolumn map=gauges_1 columns="discharge integer, peak integer"
+    v.db.addcolumn map=gauges_2 columns="discharge integer, peak integer"
+    v.db.addcolumn map=gauges_3 columns="discharge integer, peak integer"
+    v.db.update map=gauges_1 column=discharge query_column=cat
+    v.db.update map=gauges_2 column=discharge query_column="2 * cat" where="cat <= 4"
+    v.db.update map=gauges_3 column=discharge \
         query_column="CASE WHEN cat < 4 THEN 10 ELSE 40 END"
     for map in gauges_1 gauges_2 gauges_3; do
-        v.db.update map=$map column=gust query_column="speed + 1"
+        v.db.update map=$map column=peak query_column="discharge + 1"
     done
     t.create type=stvds output=gauges title="Gauges" \
-        description="Wind speed at gauges"
+        description="Discharge at gauges"
     t.register -i type=vector input=gauges \
         maps=gauges_1,gauges_2,gauges_3 start=2026-03-01 increment="1 day"
-    t.vect.univar input=gauges column=speed
+    t.vect.univar input=gauges column=discharge
     ```
 
     ```text
@@ -206,15 +209,15 @@ are the same as there. The region does not change the statistics of
     ```sh
     v.extract input=usgsgages output=step_1 where="cat <= 2"
     v.extract input=usgsgages output=step_2 where="cat <= 2"
-    v.db.addcolumn map=step_1 columns="speed integer"
-    v.db.addcolumn map=step_2 columns="speed integer"
-    v.db.update map=step_1 column=speed query_column="2 * cat - 1"
-    v.db.update map=step_2 column=speed query_column="2 * cat + 3"
+    v.db.addcolumn map=step_1 columns="discharge integer"
+    v.db.addcolumn map=step_2 columns="discharge integer"
+    v.db.update map=step_1 column=discharge query_column="2 * cat - 1"
+    v.db.update map=step_2 column=discharge query_column="2 * cat + 3"
     t.create type=stvds output=steps temporaltype=relative title="Steps" \
         description="Model steps of 6 hours"
     t.register -i type=vector input=steps maps=step_1,step_2 \
         start=0 increment=6 unit=hours
-    t.vect.univar input=steps column=speed | cut -d"|" -f1,4-9
+    t.vect.univar input=steps column=discharge | cut -d"|" -f1,4-9
     ```
 
     ```text
@@ -225,7 +228,7 @@ are the same as there. The region does not change the statistics of
 
     ```sh
     g.region n=334000 s=333000 w=868000 e=869000
-    t.vect.univar input=gauges column=speed | cut -d"|" -f1,4-9
+    t.vect.univar input=gauges column=discharge | cut -d"|" -f1,4-9
     g.region raster=elev_state_500m res=1000 -a
     ```
 
@@ -249,14 +252,14 @@ are the same as there. The region does not change the statistics of
         "gauges_2": ("cat <= 5", "2 * cat", "cat <= 4"),
         "gauges_3": ("cat <= 4", "CASE WHEN cat < 4 THEN 10 ELSE 40 END", None),
     }
-    for name, (selection, speed, speed_where) in gauges.items():
+    for name, (selection, discharge, discharge_where) in gauges.items():
         tools.v_extract(input="usgsgages", output=name, where=selection)
-        tools.v_db_addcolumn(map=name, columns="speed integer, gust integer")
-        options = {"where": speed_where} if speed_where else {}
-        tools.v_db_update(map=name, column="speed", query_column=speed, **options)
-        tools.v_db_update(map=name, column="gust", query_column="speed + 1")
+        tools.v_db_addcolumn(map=name, columns="discharge integer, peak integer")
+        options = {"where": discharge_where} if discharge_where else {}
+        tools.v_db_update(map=name, column="discharge", query_column=discharge, **options)
+        tools.v_db_update(map=name, column="peak", query_column="discharge + 1")
     tools.t_create(
-        type="stvds", output="gauges", title="Gauges", description="Wind speed at gauges"
+        type="stvds", output="gauges", title="Gauges", description="Discharge at gauges"
     )
     tools.t_register(
         type="vector",
@@ -266,7 +269,7 @@ are the same as there. The region does not change the statistics of
         increment="1 day",
         flags="i",
     )
-    print(tools.t_vect_univar(input="gauges", column="speed").text)
+    print(tools.t_vect_univar(input="gauges", column="discharge").text)
     ```
 
     ```text
@@ -278,10 +281,10 @@ are the same as there. The region does not change the statistics of
 
     ```python
     steps = {"step_1": "2 * cat - 1", "step_2": "2 * cat + 3"}
-    for name, speed in steps.items():
+    for name, discharge in steps.items():
         tools.v_extract(input="usgsgages", output=name, where="cat <= 2")
-        tools.v_db_addcolumn(map=name, columns="speed integer")
-        tools.v_db_update(map=name, column="speed", query_column=speed)
+        tools.v_db_addcolumn(map=name, columns="discharge integer")
+        tools.v_db_update(map=name, column="discharge", query_column=discharge)
     tools.t_create(
         type="stvds",
         output="steps",
@@ -306,7 +309,7 @@ are the same as there. The region does not change the statistics of
             print("|".join(columns[:1] + columns[3:9]))
 
 
-    print_columns(tools.t_vect_univar(input="steps", column="speed"))
+    print_columns(tools.t_vect_univar(input="steps", column="discharge"))
     ```
 
     ```text
@@ -317,7 +320,7 @@ are the same as there. The region does not change the statistics of
 
     ```python
     tools.g_region(n=334000, s=333000, w=868000, e=869000)
-    print_columns(tools.t_vect_univar(input="gauges", column="speed"))
+    print_columns(tools.t_vect_univar(input="gauges", column="discharge"))
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     ```
 
@@ -330,7 +333,7 @@ are the same as there. The region does not change the statistics of
 
 ### Choose the attribute and calculate extended statistics
 
-The option **column** chooses the attribute. `gust` is `speed + 1`, so every
+The option **column** chooses the attribute. `peak` is `discharge + 1`, so every
 value is 1 larger: the minimum, the maximum, the mean and the quartiles move
 by 1, while the range, the variances, the kurtosis and the skewness stay the
 same; the coefficient of variation falls, because the mean grows. The flag
@@ -345,7 +348,7 @@ values are 3, 5, 7 and 9.
 === "Command line"
 
     ```sh
-    t.vect.univar -e input=gauges column=gust
+    t.vect.univar -e input=gauges column=peak
     ```
 
     ```text
@@ -358,7 +361,7 @@ values are 3, 5, 7 and 9.
 === "Python (grass.tools)"
 
     ```python
-    print(tools.t_vect_univar(input="gauges", column="gust", flags="e").text)
+    print(tools.t_vect_univar(input="gauges", column="peak", flags="e").text)
     ```
 
     ```text
@@ -374,11 +377,11 @@ The option **twhere** selects maps by their registered times, and the option
 **where** the features of each map by their attributes. The columns `id`, `n`
 to `range` are shown.
 
-1. `where="speed > 2"` counts only the points faster than 2 in every map. In
-   `gauges_1` these are 3 and 4, so `n` is 2 and the 2 other points are
+1. `where="discharge > 2"` counts only the points with a discharge above 2 in every
+   map. In `gauges_1` these are 3 and 4, so `n` is 2 and the 2 other points are
    counted in `nmissing`. `gauges_2` keeps 4, 6 and 8; the points with the
-   speeds 2 and NULL are missing, because the row of a NULL is not selected by
-   the condition, so `nnull` is 0 here. `gauges_3` keeps all of its points.
+   discharges 2 and NULL are missing, because the row of a NULL is not selected
+   by the condition, so `nnull` is 0 here. `gauges_3` keeps all of its points.
 2. `twhere="start_time >= '2026-03-02'"` selects the maps `gauges_2` and
    `gauges_3` and counts all their points.
 3. Both options work together: of the maps that start on 2 March or later,
@@ -387,7 +390,7 @@ to `range` are shown.
 === "Command line"
 
     ```sh
-    t.vect.univar input=gauges column=speed where="speed > 2" |
+    t.vect.univar input=gauges column=discharge where="discharge > 2" |
         cut -d"|" -f1,4-9
     ```
 
@@ -399,7 +402,7 @@ to `range` are shown.
     ```
 
     ```sh
-    t.vect.univar input=gauges column=speed \
+    t.vect.univar input=gauges column=discharge \
         twhere="start_time >= '2026-03-02'" | cut -d"|" -f1,4-9
     ```
 
@@ -410,7 +413,7 @@ to `range` are shown.
     ```
 
     ```sh
-    t.vect.univar input=gauges column=speed where="speed > 2" \
+    t.vect.univar input=gauges column=discharge where="discharge > 2" \
         twhere="start_time >= '2026-03-02'" | cut -d"|" -f1,4-9
     ```
 
@@ -423,7 +426,7 @@ to `range` are shown.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_vect_univar(input="gauges", column="speed", where="speed > 2")
+    result = tools.t_vect_univar(input="gauges", column="discharge", where="discharge > 2")
     print_columns(result)
     ```
 
@@ -436,7 +439,7 @@ to `range` are shown.
 
     ```python
     result = tools.t_vect_univar(
-        input="gauges", column="speed", twhere="start_time >= '2026-03-02'"
+        input="gauges", column="discharge", twhere="start_time >= '2026-03-02'"
     )
     print_columns(result)
     ```
@@ -450,8 +453,8 @@ to `range` are shown.
     ```python
     result = tools.t_vect_univar(
         input="gauges",
-        column="speed",
-        where="speed > 2",
+        column="discharge",
+        where="discharge > 2",
         twhere="start_time >= '2026-03-02'",
     )
     print_columns(result)
@@ -811,7 +814,7 @@ the second block of each tab prints the file.
 === "Command line"
 
     ```sh
-    t.vect.univar -u input=gauges column=speed separator=";" |
+    t.vect.univar -u input=gauges column=discharge separator=";" |
         cut -d";" -f1,4-9
     ```
 
@@ -822,7 +825,7 @@ the second block of each tab prints the file.
     ```
 
     ```sh
-    t.vect.univar input=gauges column=speed separator=comma \
+    t.vect.univar input=gauges column=discharge separator=comma \
         output=gauges.csv
     cat gauges.csv
     ```
@@ -837,7 +840,7 @@ the second block of each tab prints the file.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_vect_univar(input="gauges", column="speed", separator=";", flags="u")
+    result = tools.t_vect_univar(input="gauges", column="discharge", separator=";", flags="u")
     for line in result.text.splitlines():
         columns = line.split(";")
         print(";".join(columns[:1] + columns[3:9]))
@@ -853,7 +856,7 @@ the second block of each tab prints the file.
     from pathlib import Path
 
     tools.t_vect_univar(
-        input="gauges", column="speed", separator="comma", output="gauges.csv"
+        input="gauges", column="discharge", separator="comma", output="gauges.csv"
     )
     print(Path("gauges.csv").read_text(), end="")
     ```
@@ -882,7 +885,7 @@ line of the error message.
     g.mapset -c mapset=t_vect_univar_2
     g.region raster=elev_state_500m res=1000 -a
     g.mapsets mapset=t_vect_univar operation=add
-    t.vect.univar input=gauges@t_vect_univar column=speed \
+    t.vect.univar input=gauges@t_vect_univar column=discharge \
         twhere="start_time < '2026-03-02'" | cut -d"|" -f1,4-9
     ```
 
@@ -893,7 +896,7 @@ line of the error message.
 
     ```sh
     g.mapsets -p
-    t.vect.univar input=gauges column=speed 2>&1 | grep ERROR || true
+    t.vect.univar input=gauges column=discharge 2>&1 | grep ERROR || true
     ```
 
     ```text
@@ -910,7 +913,7 @@ line of the error message.
     tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.g_mapsets(mapset="t_vect_univar", operation="add")
     result = tools.t_vect_univar(
-        input="gauges@t_vect_univar", column="speed", twhere="start_time < '2026-03-02'"
+        input="gauges@t_vect_univar", column="discharge", twhere="start_time < '2026-03-02'"
     )
     print_columns(result)
     ```
@@ -923,7 +926,7 @@ line of the error message.
     ```python
     print(tools.g_mapsets(flags="p").text)
     try:
-        tools.t_vect_univar(input="gauges", column="speed")
+        tools.t_vect_univar(input="gauges", column="discharge")
     except ToolError as error:
         print([line for line in error.stderr.splitlines() if "ERROR" in line][0])
     ```

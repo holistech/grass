@@ -140,10 +140,11 @@ opened.
 
 The dataset `stations_monthly` has three vector maps for January to March 2020.
 Each map is a copy of the 136 climate stations of the dataset, with the column
-`precipitation`, which holds the normal of the month in millimetres, rounded to
-a whole number. The maps are copies in the current mapset, so the dataset stays
-as it is. Each map is an interval of one month. The first block creates the
-dataset.
+`precipitation`, which holds the normal of the month in millimeters, rounded to
+a whole number. These are normals of the stations, not measurements of these
+months; the dates only place the maps on the time axis. The maps are copies in
+the current mapset, so the dataset stays as it is. Each map is an interval of
+one month. The first block creates the dataset.
 
 The second block writes the archive `stations.tar` with
 *[t.vect.export](t.vect.export.md)* and imports it into the same project. The

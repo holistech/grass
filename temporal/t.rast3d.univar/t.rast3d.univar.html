@@ -181,8 +181,8 @@ elevation model, so the region sets <b>res3</b> as well.
 The dataset <code>temperature_profile</code> holds twelve 3D maps of the monthly mean air
 temperature in 2020 in whole degrees Celsius. They are generated, not
 measured: the temperature follows a yearly cycle with its maximum in July,
-falls by 0.0065 degrees per metre of height (<code>z()</code> is the height of the centre
-of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometre to the
+falls by 0.0065 degrees per meter of height (<code>z()</code> is the height of the centre
+of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometer to the
 north. <code>round()</code> in <em>r3.mapcalc</em> rounds the values to whole degrees, which
 keeps the mean, the variance and the sums the same on every platform. Each map
 covers all 839 * 335 * 3 = 843,195 cells of the region, so no cell is null.
@@ -427,7 +427,7 @@ The 3D map <code>layers</code> holds the number of the layer: 1 in the lower lay
 (0 to 1000 m), 2 in the middle and 3 in the upper layer. With <b>zones</b>, each
 map gets one line per zone. Every zone has 839 * 335 = 281,065 cells. In July,
 the mean falls by about 6.5 degrees from layer to layer, as the assumed
-0.0065 degrees per metre say, and the layers do not overlap: the lower layer
+0.0065 degrees per meter say, and the layers do not overlap: the lower layer
 holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The zone
 map has no category labels, so <code>label</code> is empty. With <b>format</b> <code>json</code>, each
 zone is an object of its own, and the category label has the name
@@ -638,7 +638,7 @@ temperature_profile_2020_07@t_rast3d_univar: mean 17.263681592039802, median 17,
 The dataset <code>cubes</code> holds four maps with constant values on cubes of their
 own. The current region is the cube with 64 cells from (200000, 100000, 0) to
 (204000, 104000, 4000), with cells of 1000 m. Each cube is set with <em>g.region</em>,
-in kilometres from the corner of this region, the same in all three directions:
+in kilometers from the corner of this region, the same in all three directions:
 
 <ul>
 <li><code>cube_1</code> covers the cube from (-1, -1, -1) to (5, 5, 5) and so the whole

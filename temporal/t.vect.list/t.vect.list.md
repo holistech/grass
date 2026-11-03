@@ -199,10 +199,10 @@ the datasets carry times of 2026 and 1997 to 2003.
 The dataset `survey` has four vector maps on the days from 1 to 4 March 2026.
 The first map has three points: the stream gauges 149 to 151 of `usgsgages`,
 which *v.extract* copies into the mapset. The other three maps are sketches that
-*v.in.ascii* reads from the standard input. Their coordinates are metres in the
+*v.in.ascii* reads from the standard input. Their coordinates are meters in the
 project, and the sketches lie in the computational region south of the state,
 north and east of the point (300000, 100000); the numbers below are distances
-from this point in kilometres. The second map has two lines: one from (0, 0) to
+from this point in kilometers. The second map has two lines: one from (0, 0) to
 (4, 0) and one from (0, 1) to (0, 3). The third map is a square from (0, 0) to
 (2, 2): one boundary that closes on itself, and a centroid in the middle. The
 fourth map is a square from (0, 0) to (4, 4) with a centroid at (3, 3) and a

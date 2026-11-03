@@ -826,7 +826,7 @@ the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
 example creates the mapset `t_vect_algebra` and sets the computational region
 to North Carolina with cells of 1 km; the later examples work in this mapset
 and region. The algebra works on times and shapes, not on measurements, so the
-datasets are small sketches of squares, lines and points a few metres wide
+datasets are small sketches of squares, lines and points a few meters wide
 near the point (300000, 100000) in the region.
 
 <!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_algebra -->
@@ -836,9 +836,9 @@ near the point (300000, 100000) in the region.
 ### Create the datasets of the examples
 
 The examples build on each other and use the same datasets, which this example
-creates. All vector areas are squares of 10 by 10 metres, made with
+creates. All vector areas are squares of 10 by 10 meters, made with
 *[v.in.region](v.in.region.md)* from a small region. The coordinates x and y in
-the descriptions count metres east and north of the point (300000, 100000), so
+the descriptions count meters east and north of the point (300000, 100000), so
 x = 20 is 300020 in the map; the extent columns of
 *[t.vect.list](t.vect.list.md)* show the full values. The position of a square
 is given by its west and south edge.
@@ -847,14 +847,14 @@ is given by its west and south edge.
   x = 0, 20 and 40, y = 0 to 10.
 - `B` holds the daily maps `b1`, `b2` and `b3` of the same days, squares at
   x = 5, 25 and 70, y = 5 to 15. So `b1` overlaps `a1` in a square of 5 by 5
-  metres, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
+  meters, area 25, `b2` overlaps `a2` the same way, and `b3` is far from `a3`.
 - `W` holds two maps of two days, `w1` from 1 to 3 March at x = 5 and `w2`
   from 3 to 5 March at x = 45, y = 0 to 10. In time, `w1` contains `a1` and
   `a2` (`a1` starts together with it, `a2` finishes together with it), and
   `w2` contains `a3`.
 - `P` holds the daily maps `p1`, `p2` and `p3` with one, two and three points
-  at y = 5, ten metres apart, starting at x = 5.
-- `L` holds the daily maps `l1` and `l2`, each with one line of length 10 metres
+  at y = 5, ten meters apart, starting at x = 5.
+- `L` holds the daily maps `l1` and `l2`, each with one line of length 10 meters
   at y = 5, from x = 0 and x = 20.
 - `C` holds the maps `c1` and `c2`, copies of `w1` and `w2` with the same two
   times. It is the else part of an expression of the paper in the
@@ -1718,11 +1718,11 @@ follow the order of the blocks; item 6 has two blocks.
 <!-- example: shell-only -->
 
 The buffer functions make areas around the points, lines or areas of each map
-and keep its time. The size is in metres. The temporal functions change the
+and keep its time. The size is in meters. The temporal functions change the
 time of the maps and copy the maps whose time changes.
 
 1. `buff_p(P, 1)` buffers the points of `p1`, `p2` and `p3`: one, two and three
-   circles, as the points are ten metres apart.
+   circles, as the points are ten meters apart.
 2. `buff_p(P, 6)` has a radius larger than half the distance of the points, so
    the circles of one map merge into one area.
 3. `buff_l(L, 2)` buffers the lines: one area for each map.
@@ -2245,7 +2245,7 @@ without points gives nothing, so the result would be empty. The example
 creates the mapset `t_vect_algebra_3`, sets its region and adds the mapset
 `t_vect_algebra` to the search path. There `A` and `B` are new datasets of
 points, copies of `p1`, `p2` and `p3`, each with the days 1 and 2 March. `A`
-has one and two points and `B` two and three, ten metres apart. The buffers
+has one and two points and `B` two and three, ten meters apart. The buffers
 have the radius 1, so every point has its own circle. The relations in the
 braces cover every case in which two maps overlap in time, and the temporal
 operator **i** gives the result the intersection of both times, here the day.

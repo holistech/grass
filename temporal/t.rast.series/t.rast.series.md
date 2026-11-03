@@ -147,8 +147,9 @@ level and 300000 in the mountains at about 1168 m.
 
 The dataset `temperature_monthly` holds twelve monthly maps of the mean air
 temperature in degree Celsius for 2020, generated from the elevation and not
-measured: 16.5 degrees at sea level plus a seasonal cycle of 10.5 degrees with
-its maximum in July, minus 6.5 degrees per 1000 m of height, rounded to 0.1.
+measured: 16.5 degrees at sea level and the northing 160 km, plus a seasonal
+cycle of 10.5 degrees with its maximum in July, minus 6.5 degrees per 1000 m of
+height, and 1 degree more for every 100 km to the south, rounded to 0.1.
 Outside North Carolina the maps are null. The average of the twelve maps is
 the annual mean. At 640000 it is 15.225 degrees, the sum 182.7 divided by 12,
 and in the mountains at 300000 it is 8.30833 degrees, 99.7 divided by 12. The
@@ -250,13 +251,13 @@ time stamp of `temperature_mean` spans the twelve maps, from 1 January 2020 to
 ### Compute several methods in one run
 
 The dataset `precipitation_monthly` holds twelve monthly precipitation sums of
-2020 in whole millimetres. They are generated, not measured: the monthly
+2020 in whole millimeters. They are generated, not measured: the monthly
 normals of the 136 climate stations of the dataset are interpolated for each
 month with *[v.surf.idw](v.surf.idw.md)* and multiplied by an assumed factor
 for a wet year. One run takes a list of methods and a list of output names of
 the same length, and the maps come in the order of the lists. With `minimum`,
 `maximum` and `range` the new maps hold the smallest monthly sum of each cell,
-the largest, and their difference. At 640000 these are 73 and 162 millimetres
+the largest, and their difference. At 640000 these are 73 and 162 millimeters
 and the difference 89, at 300000 they are 77, 193 and 116.
 
 === "Command line"
@@ -335,7 +336,7 @@ and the difference 89, at 300000 they are 77, 193 and 116.
 
 The dataset `discharge` holds four daily maps from 1 March 2026, each a time
 interval of one day with the same value in every cell: 4, 1, 10 and 2 cubic
-metres per second. The sorted values are 1, 2, 4 and 10. The quantile 0.25 lies
+meters per second. The sorted values are 1, 2, 4 and 10. The quantile 0.25 lies
 at the position `0.25 * 3 = 0.75`, so it is `1 + 0.75 * (2 - 1) = 1.75`. The
 quantile 0.75 lies at the position 2.25, `4 + 0.25 * (10 - 4) = 5.5`. The first
 block asks for both quantiles with two methods `quantile`. In the second block
@@ -428,7 +429,7 @@ the position 1.5, the mean of 2 and 4, which is 3, and the maximum is 10.
 
 The first block aggregates the maps of June, July and August 2020 with `sum`;
 the condition selects the maps that start from 1 June up to, but not including,
-1 September. The sum is 379 millimetres at 640000 and 362 at 300000. The new
+1 September. The sum is 379 millimeters at 640000 and 362 at 300000. The new
 map `precipitation_summer` starts on 1 June and ends on 1 September, where the
 August map ends.
 
@@ -624,7 +625,7 @@ average is 26, 36 and 46, and the maximum is 41, 51 and 61.
 ### Handle null cells
 
 The dataset `snow_depth` holds two daily maps from 1 March 2026. The first
-holds 10 centimetres in every cell. The second holds 20 centimetres east of the
+holds 10 centimeters in every cell. The second holds 20 centimeters east of the
 easting 500000 and is null west of it, as if a gauge had not reported. By
 default the cells of the east are aggregated over both maps, so the average is
 (10 + 20) / 2 = 15 and the count 2; in the west the first map is the only one

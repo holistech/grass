@@ -161,8 +161,8 @@ elevation model, so the region sets **res3** as well.
 The dataset `temperature_profile` holds twelve 3D maps of the monthly mean air
 temperature in 2020 in whole degrees Celsius. They are generated, not
 measured: the temperature follows a yearly cycle with its maximum in July,
-falls by 0.0065 degrees per metre of height (`z()` is the height of the centre
-of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometre to the
+falls by 0.0065 degrees per meter of height (`z()` is the height of the centre
+of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometer to the
 north. `round()` in *r3.mapcalc* rounds the values to whole degrees, which
 keeps the mean, the variance and the sums the same on every platform. Each map
 covers all 839 \* 335 \* 3 = 843,195 cells of the region, so no cell is null.
@@ -405,7 +405,7 @@ The 3D map `layers` holds the number of the layer: 1 in the lower layer
 (0 to 1000 m), 2 in the middle and 3 in the upper layer. With **zones**, each
 map gets one line per zone. Every zone has 839 \* 335 = 281,065 cells. In July,
 the mean falls by about 6.5 degrees from layer to layer, as the assumed
-0.0065 degrees per metre say, and the layers do not overlap: the lower layer
+0.0065 degrees per meter say, and the layers do not overlap: the lower layer
 holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The zone
 map has no category labels, so `label` is empty. With **format** `json`, each
 zone is an object of its own, and the category label has the name
@@ -616,7 +616,7 @@ the example prints the mean, the median and the percentiles from it.
 The dataset `cubes` holds four maps with constant values on cubes of their
 own. The current region is the cube with 64 cells from (200000, 100000, 0) to
 (204000, 104000, 4000), with cells of 1000 m. Each cube is set with *g.region*,
-in kilometres from the corner of this region, the same in all three directions:
+in kilometers from the corner of this region, the same in all three directions:
 
 - `cube_1` covers the cube from (-1, -1, -1) to (5, 5, 5) and so the whole
   region;

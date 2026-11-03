@@ -267,9 +267,10 @@ the legend in a frame of its own.
     tools.d_mon(stop="cairo")
     ```
 
-![January and July mean air temperature in North Carolina](t_rast_colors_common.png)
+![Generated January and July mean air temperature in North Carolina](t_rast_colors_common.png)
 
-*Figure: Mean air temperature of January and July 2020 with one color table.*
+*Figure: Generated mean air temperature of January and July 2020 with one
+color table.*
 
 ### Define the colors by rules and invert them
 
@@ -378,7 +379,7 @@ the colors of the values are the other way round: -5 is red and 25 blue.
 ### Scale the colors
 
 The dataset `precipitation_monthly` holds twelve maps of the monthly
-precipitation sum in 2020 in whole millimetres. They are generated, not
+precipitation sum in 2020 in whole millimeters. They are generated, not
 measured: the monthly normal of the climate stations of `precip_30ynormals`
 (the columns `jan` to `dec`), interpolated with *v.surf.idw*, times an assumed
 factor for each month of a wet year. The smallest value of all maps is 55 mm,

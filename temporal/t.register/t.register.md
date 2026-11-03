@@ -197,7 +197,7 @@ values.
 
 Three maps of monthly precipitation sums over North Carolina,
 `precipitation_1` to `precipitation_3` with the values 100, 200 and 300
-millimetres in every cell, become the intervals January, February and March
+millimeters in every cell, become the intervals January, February and March
 2001 of the dataset `precipitation`. The flag **-i** makes each map end where
 the next one starts. The type of the maps is `raster`, the default.
 *t.rast.list* shows the times in the dataset, and *r.timestamp* shows that the
@@ -875,7 +875,7 @@ it takes the time from the maps.
 ### Register layers of a vector map
 
 A vector map can stand for a series if each time step is a layer. The map
-`wind_stations` has two points in North Carolina, with a wind speed in metres per
+`wind_stations` has two points in North Carolina, with a wind speed in meters per
 second, and the layers 1 to 3 with the same categories. With
 `type=vector` and the notation `map:layer`, each layer is registered as a day of
 the dataset `daily`.

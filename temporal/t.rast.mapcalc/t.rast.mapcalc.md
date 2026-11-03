@@ -358,7 +358,7 @@ granularity that follows from the maps it holds.
 ### Combine the maps of several datasets
 
 The dataset `precipitation_monthly` holds twelve maps of the monthly
-precipitation sum in 2020, in whole millimetres. They are generated, not
+precipitation sum in 2020, in whole millimeters. They are generated, not
 measured: the monthly normals of the climate stations in `precip_30ynormals`
 are interpolated for each month with *v.surf.idw* from 12 neighbours and
 multiplied by an assumed factor for a wet year, between 0.8 and 1.7. The maps
@@ -393,7 +393,7 @@ The sampler is `temperature_monthly`, and every month has a map of
 `precipitation_monthly` first, which does not matter. It chooses the
 calculation by the time of the granule, a simple climatic water balance: from
 April to September it subtracts an assumed evaporation of 4 mm for every
-degree Celsius, rounded to whole millimetres, from the precipitation; in the
+degree Celsius, rounded to whole millimeters, from the precipitation; in the
 other months it keeps the precipitation. So the maps from October to March
 have the values of `precipitation_monthly`, for example 94 to 249 mm in
 January, and in July the balance is between -14 and 136 mm, negative where the
@@ -1938,7 +1938,7 @@ The mapset `t_rast_mapcalc_2` is new and empty. A new mapset starts with the
 default region of the dataset, cells of 500 m, so the first block sets the
 region of the first example again. It adds the mapset `t_rast_mapcalc` to the
 search path with *g.mapsets* and converts `precipitation_monthly@t_rast_mapcalc`
-from millimetres to centimetres. The expression still uses the name
+from millimeters to centimeters. The expression still uses the name
 `precipitation_monthly`. The dataset `precipitation_cm` and its maps belong to
 the current mapset; the listing shows the mapset of the maps.
 

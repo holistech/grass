@@ -152,13 +152,13 @@ maps with small constant values, so that the results can be checked by hand.
 ### Statistics of each map of a dataset
 
 The dataset `precipitation_monthly` holds twelve maps of the monthly
-precipitation sum in 2020, in whole millimetres. They are generated, not
+precipitation sum in 2020, in whole millimeters. They are generated, not
 measured: the monthly normals of the 136 climate stations in the vector map
 `precip_30ynormals` are interpolated with *v.surf.idw* for each month and
 multiplied by an assumed factor for a wet year (1.2 in January, 1.7 in
 February and so on), so the pattern changes from month to month. Each map is an
 interval of one month, and cells outside North Carolina are null. Whole
-millimetres are integers, so the sums, the means and the standard deviations
+millimeters are integers, so the sums, the means and the standard deviations
 below are the same on every system.
 
 The first command selects the maps of the first quarter to keep the output

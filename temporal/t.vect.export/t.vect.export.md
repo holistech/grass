@@ -123,8 +123,8 @@ The dataset `discharge` has three maps of an assumed discharge at two of the
 five gauges of Crabtree Creek in Raleigh, which *[v.extract](v.extract.md)*
 copies from `usgsgages` (the gauges with the categories 149 and 153). The
 values are generated, not measured: the gauge 149 has the discharge 1, 2 and 3
-cubic metres per second on the days from 1 to 3 March 2026, the gauge 153 the
-discharge 3, 4 and 5 cubic metres per second. The maps are time instances,
+cubic meters per second on the days from 1 to 3 March 2026, the gauge 153 the
+discharge 3, 4 and 5 cubic meters per second. The maps are time instances,
 since **-i** is not given to *t.register*.
 
 The first block creates the dataset. The second exports it with the default

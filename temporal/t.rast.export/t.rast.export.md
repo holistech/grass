@@ -146,7 +146,7 @@ near Wilmington; the later examples work in this mapset and region.
 ### Export a dataset as a GeoTIFF archive
 
 The dataset `precipitation_monthly` has twelve maps of the monthly precipitation
-sum in 2020, in whole millimetres. Each map is an interval of one month. The
+sum in 2020, in whole millimeters. Each map is an interval of one month. The
 maps are generated, not measured: *[v.surf.idw](v.surf.idw.md)* interpolates
 the monthly means of the 136 climate stations in `precip_30ynormals` (columns
 `jan` to `dec`), and an assumed factor between 0.8 and 1.7 for each month turns

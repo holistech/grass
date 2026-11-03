@@ -152,7 +152,7 @@ and the dataset itself stays as it is. Where a command names the project
 ### Import an archive under new names
 
 The dataset `precipitation_monthly` holds twelve maps of the monthly
-precipitation sum in 2020, in millimetres. They are generated, not measured:
+precipitation sum in 2020, in millimeters. They are generated, not measured:
 the monthly normals of the 136 climate stations of the dataset are
 interpolated with *[v.surf.idw](v.surf.idw.md)* and multiplied by an assumed
 factor for a wet year, which is different for every month. Each map is an

@@ -118,7 +118,7 @@ July 2026, so that the results can be checked by hand.
 ### Convert the classes of heavy rain to areas
 
 The dataset `precipitation_monthly` holds twelve maps of the monthly
-precipitation sum in 2020 in whole millimetres. The maps are generated, not
+precipitation sum in 2020 in whole millimeters. The maps are generated, not
 measured: the monthly normals of the 136 climate stations in `precip_30ynormals`
 are interpolated with *v.surf.idw* and multiplied by an assumed factor for each
 month, so the pattern changes from month to month. Each map is an interval of
@@ -584,7 +584,7 @@ row, with class 2 as z coordinate, and the z coordinates of all points, 2 and
 3. *v.info* shows that the map has no attribute table.
 
 The last block shows the limit of **-v**. The dataset `precipitation_cm` holds
-the map of February in centimetres, with floating point values. With **-v**,
+the map of February in centimeters, with floating point values. With **-v**,
 *t.rast.to.vect* warns that the raster is not CELL and that the flag is
 ignored; the table has the column `value` with the values of the cells, as
 without the flag, not one category for each value.

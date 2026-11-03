@@ -354,7 +354,7 @@ last two lines of the gap file are shown.
 
 With **elevation** the files hold a surface (`DATASET POLYDATA`) instead of a
 grid of cells: six points, one at the centre of each cell with the elevation
-of `elev_state_500m` in metres as the third coordinate, listed from the
+of `elev_state_500m` in meters as the third coordinate, listed from the
 southern row, and two quadrilaterals (`POLYGONS 2 10`) between them. Each
 quadrilateral lists four point numbers, counted from 0. The values follow with
 `POINT_DATA`. The example writes the January map only.
@@ -623,7 +623,7 @@ is as it was. The call with **--overwrite** replaces the files.
 ### Write a dataset of another mapset with relative time
 
 The dataset `runoff` has relative time and two maps with the constant values 1
-and 2 in the mapset `t_rast_out_vtk`: the simulated runoff in millimetres in
+and 2 in the mapset `t_rast_out_vtk`: the simulated runoff in millimeters in
 model hours 0 to 1 and 1 to 2. The example switches to the mapset
 `t_rast_out_vtk_2`, which starts with the default region of the sample
 dataset, so it sets the region again. The mapset `t_rast_out_vtk` is added to

@@ -356,7 +356,7 @@ print("\n".join(line.rstrip() for line in lines[-2:]))
 
 With <b>elevation</b> the files hold a surface (<code>DATASET POLYDATA</code>) instead of a
 grid of cells: six points, one at the centre of each cell with the elevation
-of <code>elev_state_500m</code> in metres as the third coordinate, listed from the
+of <code>elev_state_500m</code> in meters as the third coordinate, listed from the
 southern row, and two quadrilaterals (<code>POLYGONS 2 10</code>) between them. Each
 quadrilateral lists four point numbers, counted from 0. The values follow with
 <code>POINT_DATA</code>. The example writes the January map only.
@@ -627,7 +627,7 @@ ERROR: option &lt;output&gt;: &lt;000000_temperature_monthly.vtk&gt; exists. To 
 <h3>Write a dataset of another mapset with relative time</h3>
 
 The dataset <code>runoff</code> has relative time and two maps with the constant values 1
-and 2 in the mapset <code>t_rast_out_vtk</code>: the simulated runoff in millimetres in
+and 2 in the mapset <code>t_rast_out_vtk</code>: the simulated runoff in millimeters in
 model hours 0 to 1 and 1 to 2. The example switches to the mapset
 <code>t_rast_out_vtk_2</code>, which starts with the default region of the sample
 dataset, so it sets the region again. The mapset <code>t_rast_out_vtk</code> is added to

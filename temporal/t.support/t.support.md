@@ -289,7 +289,7 @@ The dataset `temperature_monthly` holds twelve monthly mean air temperatures of
 (about -6.5 degree per 1000 m, with a yearly cycle that peaks in July). The
 dataset `temperature_summer` holds the maps of June, July and August with the
 times they have in the temporal database. Then the July map is made again with a
-correction of +2 degree Celsius. Both datasets still report the range of values
+correction of +2 degrees Celsius. Both datasets still report the range of values
 from before.
 
 A call with **-u** does not change that, because **-u** works on the entries of

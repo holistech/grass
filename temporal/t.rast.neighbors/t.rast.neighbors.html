@@ -202,7 +202,7 @@ results can be checked by hand.
 <h3>Smooth the maps of a dataset</h3>
 
 The dataset <code>precipitation_daily</code> holds 31 maps of the daily precipitation sum
-in July 2020, in whole millimetres. They are generated, not measured: the July
+in July 2020, in whole millimeters. They are generated, not measured: the July
 normal of the climate stations of <code>precip_30ynormals</code> (the column <code>jul</code>),
 interpolated with <em>v.surf.idw</em> and multiplied by an assumed factor of 1.1 for a
 wet July, is spread over the days with the weight <code>max(0, sin(45 * day))</code>. It
@@ -792,7 +792,7 @@ print_cells("rain_picked_2020_07_02")
 
 The dataset <code>layers</code> has two maps with the same start time, 2 July 2020,
 10:30: <code>layer_elevation</code> with the semantic label <code>elevation</code> holds the
-elevation in whole metres and <code>layer_rain</code> with <code>precipitation</code> the rain of
+elevation in whole meters and <code>layer_rain</code> with <code>precipitation</code> the rain of
 2 July from the first example. Equal start times give equal names with the
 default <b>suffix</b> <code>gran</code>, so the first block, which smooths both maps, uses
 <b>suffix</b> <code>num%03</code>. The new maps keep the labels of their input maps

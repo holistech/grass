@@ -333,9 +333,9 @@ frame of its own.
     tools.d_mon(stop="cairo")
     ```
 
-![Monthly and summer mean air temperature in North Carolina](t_rast_aggregate_summer.png)
+![Generated monthly and summer mean air temperature in North Carolina](t_rast_aggregate_summer.png)
 
-*Figure: Mean air temperature of June, July and August 2020 and, at the
+*Figure: Generated mean air temperature of June, July and August 2020 and, at the
 bottom, their mean for the summer.*
 
 ### Choose the method and the names of the new maps
@@ -352,7 +352,7 @@ maps with their granules and their smallest and largest value.
    counting from 1 plus the offset: 11, 12 and 13. In spring, this is March,
    in autumn November.
 3. The third block creates the dataset `precipitation_monthly`, monthly
-   precipitation sums in whole millimetres that are generated from the 30-year
+   precipitation sums in whole millimeters that are generated from the 30-year
    normals, not measured: the monthly normal of the climate stations of
    `precip_30ynormals` (the columns `jan` to `dec`), interpolated with
    *v.surf.idw*, times an assumed factor for each month of a wet year 2020.
