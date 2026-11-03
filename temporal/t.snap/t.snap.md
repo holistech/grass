@@ -64,6 +64,14 @@ flag **-h** of *[t.info](t.info.md)*).
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_snap` and sets the computational region to North
+Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.snap* changes times only, so the maps hold small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_snap -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Turn time instances into intervals
@@ -80,7 +88,8 @@ A second call of *t.snap* does not change the list.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.mapset -c mapset=t_snap
+    g.region raster=elev_state_500m res=1000 -a
     for step in 1 2 3 4; do
         r.mapcalc expression="monthly_$step = $step"
     done
@@ -147,7 +156,8 @@ A second call of *t.snap* does not change the list.
             print(f"{key}={info[key]}")
 
 
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_mapset(flags="c", mapset="t_snap")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     for step in range(1, 5):
         tools.r_mapcalc(expression=f"monthly_{step} = {step}")
     tools.t_create(
@@ -539,7 +549,7 @@ dataset ends on June 2 and the second one day later, on June 3.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
     r3.mapcalc expression="soil_1 = depth()"
     r3.mapcalc expression="soil_2 = depth() + 10"
     t.create type=str3ds output=soil title="Soil" \
@@ -550,8 +560,8 @@ dataset ends on June 2 and the second one day later, on June 3.
         v.in.ascii input=- output=$name separator=comma \
             columns="x double precision, y double precision, speed double precision" \
             <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
+    400000,100000,3.0
+    700000,200000,5.0
     EOF
     done
     t.create type=stvds output=gauges title="Gauges" \
@@ -581,7 +591,9 @@ dataset ends on June 2 and the second one day later, on June 3.
     ```python
     from io import StringIO
 
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
     tools.r3_mapcalc(expression="soil_1 = depth()")
     tools.r3_mapcalc(expression="soil_2 = depth() + 10")
     tools.t_create(
@@ -599,7 +611,7 @@ dataset ends on June 2 and the second one day later, on June 3.
     )
     for name in ("gauges_1", "gauges_2"):
         tools.v_in_ascii(
-            input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
+            input=StringIO("400000,100000,3.0\n700000,200000,5.0\n"),
             output=name,
             separator="comma",
             columns="x double precision, y double precision, speed double precision",
