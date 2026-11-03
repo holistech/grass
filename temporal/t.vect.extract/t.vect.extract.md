@@ -109,13 +109,14 @@ meets, such as `level > 0` there, to copy the maps instead.
 
 The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
 the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
-example creates the mapset `t_vect_extract` and sets the computational region
-to North Carolina with cells of 1 km; the later examples work in this mapset
-and region. The first two examples and the naming examples use the 136
-climate stations of the map `precip_30ynormals`. The other examples need only
-the structure of the maps, so they use small sketches: their points and lines
-lie in the corner of North Carolina that starts at (300000, 100000), in metres
-of the project.
+example creates the mapset `t_vect_extract` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. The first two examples and the naming examples use the 136 climate
+stations of the map `precip_30ynormals`. The other examples need only the
+structure of the maps, so they use small sketches: their points and lines lie
+north and east of the point (300000, 100000), in metres of the project, in the
+computational region but south of the state, where the elevation model has no
+value.
 
 <!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_extract -->
 
