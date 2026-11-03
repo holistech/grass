@@ -1,153 +1,148 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.register</em> gives raster, 3D raster and vector maps a time and, if a
-space time dataset is named, enters them into that dataset. It is the step
-after <em><a href="t.create.html">t.create</a></em> in most temporal
-workflows: the other temporal tools work on the maps of a dataset. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-an overview.
+<em>t.register</em> gives raster, 3D raster and vector maps a time and, if a space
+time dataset is named, enters them into that dataset. It is the step after
+<em><a href="t.create.html">t.create</a></em> in most temporal workflows: the other temporal
+tools work on the maps of a dataset. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for an overview.
+
 <p>
 The time of a map is stored in the temporal database and in the metadata of
 the map itself, so that <em><a href="r.timestamp.html">r.timestamp</a></em>,
-<em><a href="r3.timestamp.html">r3.timestamp</a></em> and
-<em><a href="v.timestamp.html">v.timestamp</a></em> read it. Those three tools
-set only the time stamp of the map and do not register the map in the temporal
-database; <em>t.register</em> can use a time stamp that they have set (see
-below).
+<em><a href="r3.timestamp.html">r3.timestamp</a></em> and <em><a href="v.timestamp.html">v.timestamp</a></em> read it.
+Those three tools set only the time stamp of the map and do not register the
+map in the temporal database; <em>t.register</em> can use a time stamp that they
+have set (see below).
 
 <h3>Maps and dataset</h3>
 
-The option <b>maps</b> lists the maps, separated by commas. The option
-<b>file</b> names a text file with the maps instead (see the input file below);
-<b>maps</b> and <b>file</b> exclude each other, and one of them is required.
-The option <b>type</b> says what kind of maps they are: <code>raster</code>
-(the default), <code>raster_3d</code> or <code>vector</code>. The dataset has
-to be of the matching kind (<code>strds</code>, <code>str3ds</code> or
+The option <b>maps</b> lists the maps, separated by commas. The option <b>file</b>
+names a text file with the maps instead (see the input file below); <b>maps</b>
+and <b>file</b> exclude each other, and one of them is required. The option
+<b>type</b> says what kind of maps they are: <code>raster</code> (the default), <code>raster_3d</code>
+or <code>vector</code>. The dataset has to be of the matching kind (<code>strds</code>, <code>str3ds</code> or
 <code>stvds</code>), otherwise <em>t.register</em> does not find it.
+
 <p>
-A map is named with or without its mapset (<code>prec_1@PERMANENT</code> or
-<code>prec_1</code>). Without a mapset, <em>t.register</em> looks for the map
-in the mapsets of the search path. A map that is not found ends the run before
-any map is registered. Maps of other mapsets can be registered in a dataset of
-the current mapset, but the dataset itself has to belong to the current mapset:
-<em>t.register</em> refuses a dataset of another mapset before it writes
-anything.
+A map is named with or without its mapset (<code>prec_1@PERMANENT</code> or <code>prec_1</code>).
+Without a mapset, <em>t.register</em> looks for the map in the mapsets of the search
+path. A map that is not found ends the run before any map is registered. Maps
+of other mapsets can be registered in a dataset of the current mapset, but the
+dataset itself has to belong to the current mapset: <em>t.register</em> refuses a
+dataset of another mapset before it writes anything.
+
 <p>
-The option <b>input</b> names the space time dataset. Without it,
-<em>t.register</em> only gives the maps their time and registers them in the
-temporal database. A map that is registered already can be entered into a
-further dataset by its name alone: <em>t.register</em> then reads its time from
-the temporal database, and <b>start</b>, <b>end</b> and <b>increment</b> are
-not needed.
+The option <b>input</b> names the space time dataset. Without it, <em>t.register</em>
+only gives the maps their time and registers them in the temporal database.
+A map that is registered already can be entered into a further dataset by its
+name alone: <em>t.register</em> then reads its time from the temporal database, and
+<b>start</b>, <b>end</b> and <b>increment</b> are not needed.
+
 <p>
 A vector map can have several layers, and each layer is registered on its own.
-The notation <code>map:layer</code> selects a layer, such as
-<code>stations:2</code>, and a time step of a series can be a layer of one map.
-A name without a layer is a map of its own next to its layer 1. A layer has to
-be a number, and a layer that a vector map with a database link does not have
-is refused.
+The notation <code>map:layer</code> selects a layer, such as <code>stations:2</code>, and a time step
+of a series can be a layer of one map. A name without a layer is a map of its
+own next to its layer 1. A layer has to be a number, and a layer that
+a vector map with a database link does not have is refused.
 
 <h3>Time of the maps</h3>
 
-The temporal type of the maps is absolute or relative, and a dataset holds only
-maps of its own type (see the option <b>temporaltype</b> of
-<em>t.create</em>). Absolute time is a date, and the time of the day if you
-want it, in the form <code>yyyy-mm-dd</code>, <code>yyyy-mm-dd HH:MM</code>,
-<code>yyyy-mm-dd HH:MM:SS</code> or <code>yyyy-mm-ddTHH:MM:SS</code>,
-optionally followed by a time zone offset such as <code>+0200</code> or
-<code>+02:00</code>. Relative time is an integer number of a time unit counted
-from an arbitrary start; a <b>start</b> that is no date is read as relative
-time.
+The temporal type of the maps is absolute or relative, and a dataset holds
+only maps of its own type (see the option <b>temporaltype</b> of <em>t.create</em>).
+Absolute time is a date, and the time of the day if you want it, in the form
+<code>yyyy-mm-dd</code>, <code>yyyy-mm-dd HH:MM</code>, <code>yyyy-mm-dd HH:MM:SS</code> or
+<code>yyyy-mm-ddTHH:MM:SS</code>, optionally followed by a time zone offset such as
+<code>+0200</code> or <code>+02:00</code>. Relative time is an integer number of a time unit counted
+from an arbitrary start; a <b>start</b> that is no date is read as relative time.
+
 <ul>
-<li>The option <b>start</b> is the start of the first map. Without
-<b>increment</b>, every map gets this start.</li>
-<li>The option <b>end</b> is the end of every map. With it, all maps have the
-same interval from <b>start</b> to <b>end</b>. <b>end</b> needs <b>start</b>,
-and it excludes <b>increment</b> and the flag <b>-i</b>.</li>
-<li>The option <b>increment</b> is the time between maps, such as
-<code>1 months</code>, <code>12 hours</code> or <code>20 seconds, 5
-minutes</code> in absolute time and <code>5</code> in relative time. It needs
-<b>start</b>. Map n starts n - 1 increments after <b>start</b>, counted from
-<b>start</b> and not from the previous map. A list such as <code>20 seconds, 5
-minutes</code> is one increment of 5 minutes and 20 seconds.</li>
-<li>The flag <b>-i</b> turns the maps into consecutive intervals: map n starts
-n - 1 increments after <b>start</b> and ends where map n + 1 starts, n
-increments after <b>start</b>. Without <b>-i</b>, the maps are time instances.
-<b>-i</b> needs <b>start</b>, and it excludes <b>end</b>.</li>
-<li>The option <b>unit</b> gives the unit of relative time: <code>years</code>,
-<code>months</code>, <code>days</code>, <code>hours</code>,
-<code>minutes</code> or <code>seconds</code>. It is required for relative time
+<li>The option <b>start</b> is the start of the first map. Without <b>increment</b>,
+every map gets this start.</li>
+<li>The option <b>end</b> is the end of every map. With it, all maps have the same
+interval from <b>start</b> to <b>end</b>. <b>end</b> needs <b>start</b>, and it excludes
+<b>increment</b> and the flag <b>-i</b>.</li>
+<li>The option <b>increment</b> is the time between maps, such as <code>1 months</code>,
+<code>12 hours</code> or <code>20 seconds, 5 minutes</code> in absolute time and <code>5</code> in relative
+time. It needs <b>start</b>. Map n starts n - 1 increments after <b>start</b>,
+counted from <b>start</b> and not from the previous map. A list such as
+<code>20 seconds, 5 minutes</code> is one increment of 5 minutes and 20 seconds.</li>
+<li>The flag <b>-i</b> turns the maps into consecutive intervals: map n starts n - 1
+increments after <b>start</b> and ends where map n + 1 starts, n increments
+after <b>start</b>. Without <b>-i</b>, the maps are time instances. <b>-i</b> needs
+<b>start</b>, and it excludes <b>end</b>.</li>
+<li>The option <b>unit</b> gives the unit of relative time: <code>years</code>, <code>months</code>,
+<code>days</code>, <code>hours</code>, <code>minutes</code> or <code>seconds</code>. It is required for relative time
 and refused for absolute time. A relative dataset has one unit: the first
 registration sets it, from <b>unit</b> or from the relative time that the maps
 have already, and a map with another unit is refused.</li>
 </ul>
+
 <p>
-Without <b>start</b>, <em>t.register</em> takes the time that a map has
-already: the time of a map that is registered in the temporal database, or the
-time stamp that <em>r.timestamp</em>, <em>r3.timestamp</em> or
-<em>v.timestamp</em> has set. A map that has no time then makes
-<em>t.register</em> stop with an error.
+Without <b>start</b>, <em>t.register</em> takes the time that a map has already: the
+time of a map that is registered in the temporal database, or the time stamp
+that <em>r.timestamp</em>, <em>r3.timestamp</em> or <em>v.timestamp</em> has set. A map that has no
+time then makes <em>t.register</em> stop with an error.
+
 <p>
-A map that is registered in the temporal database already keeps its time when
-it is registered again, even if <b>start</b> is given. <em>t.register</em>
-warns that the map is already registered and that the overwrite flag is not
-set. With <b>--overwrite</b>, the time of the map is replaced by the new one,
-in the temporal database and in the metadata of the map.
+A map that is registered in the temporal database already keeps its time
+when it is registered again, even if <b>start</b> is given. <em>t.register</em> warns
+that the map is already registered and that the overwrite flag is not set. With
+<b>--overwrite</b>, the time of the map is replaced by the new one, in the
+temporal database and in the metadata of the map.
+
 <p>
-A month or year increment that ends behind the last day of a month ends on that
-last day: with <code>start="2001-01-31"</code> and
-<code>increment="1 months"</code> the maps start on January 31, February 28,
-March 31 and April 30. With the <b>-i</b> flag each map of such an increment
-ends where the next one starts, so the map of February 28 ends on March 31.
-Years and months of an increment such as <code>20 years, 3 months</code> form
-one step of <code>12 * years + months</code> months. The <b>-i</b> flag creates
-consecutive intervals also for a list such as <code>1 months, 15 days</code>:
-there is no gap and no overlap between two maps.
+A month or year increment that ends behind the last day of a month ends on
+that last day: with <code>start="2001-01-31"</code> and <code>increment="1 months"</code> the maps
+start on January 31, February 28, March 31 and April 30. With the <b>-i</b> flag
+each map of such an increment ends where the next one starts, so the map of
+February 28 ends on March 31. Years and months of an increment such as <code>20
+years, 3 months</code> form one step of <code>12 * years + months</code> months. The <b>-i</b>
+flag creates consecutive intervals also for a list such as <code>1 months, 15
+days</code>: there is no gap and no overlap between two maps.
+
 <p>
-The granularity of a space-time dataset (see
-<em><a href="t.info.html">t.info</a></em>) counts months and years only if the
-start and the end of every interval lie on the first day of a month. A monthly
-series that starts on another day has the granularity in days: with
-<code>start="2001-01-31"</code> and <code>increment="1 months"</code> the
-intervals last 28, 31 and 30 days and the granularity is <code>1 day</code>,
-while the same series from <code>2001-01-01</code> has the granularity
-<code>1 month</code>.
+The granularity of a space-time dataset (see <em><a href="t.info.html">t.info</a></em>) counts
+months and years only if the start and the end of every interval lie on the
+first day of a month. A monthly series that starts on another day has the
+granularity in days: with <code>start="2001-01-31"</code> and <code>increment="1 months"</code> the
+intervals last 28, 31 and 30 days and the granularity is <code>1 day</code>, while the
+same series from <code>2001-01-01</code> has the granularity <code>1 month</code>.
 
 <h3>Input file</h3>
 
 The input file has one map per line, and a line can carry the time of its map.
 The columns of a line are separated by the character of the option
-<b>separator</b>, which is the pipe <code>|</code> by default. It takes a
-character or one of the names <code>comma</code>, <code>pipe</code> and
-<code>tab</code>. Empty lines are skipped. The forms of a line are:
+<b>separator</b>, which is the pipe <code>|</code> by default. It takes a character or one of
+the names <code>comma</code>, <code>pipe</code> and <code>tab</code>. Empty lines are skipped. The forms of a
+line are:
+
 <ul>
-<li><code>name</code>: a map without a time of its own, which gets its time
-from <b>start</b>, <b>end</b> and <b>increment</b>; the position of the line in
-the file counts, also for lines before it that have a time of their own;</li>
-<li><code>name|start</code>: a time instance, which ends at <b>end</b> if that
-option is given;</li>
+<li><code>name</code>: a map without a time of its own, which gets its time from <b>start</b>,
+<b>end</b> and <b>increment</b>; the position of the line in the file counts, also
+for lines before it that have a time of their own;</li>
+<li><code>name|start</code>: a time instance, which ends at <b>end</b> if that option is given;</li>
 <li><code>name|start|end</code>: an interval;</li>
-<li><code>name|start|label</code> and <code>name|start|end|label</code>: the
-same with a semantic label of the map.</li>
+<li><code>name|start|label</code> and <code>name|start|end|label</code>: the same with a semantic label
+of the map.</li>
 </ul>
+
 <p>
-The name can have a mapset, <code>name@mapset</code>. The third column is the
-end time if it can be read as one, a date for absolute time and an integer for
-relative time, and a semantic label if it cannot. A line with a time keeps it;
-it needs no <b>start</b>. If every line has a time, <b>start</b>,
-<b>increment</b> and the flag <b>-i</b> have no effect, and
-<em>t.register</em> warns about <b>increment</b> and <b>-i</b>. The lines of a
-file with names only get their times in the same way as the maps of the option
-<b>maps</b>.
+The name can have a mapset, <code>name@mapset</code>. The third column is the end time if
+it can be read as one, a date for absolute time and an integer for relative
+time, and a semantic label if it cannot. A line with a time keeps it; it needs
+no <b>start</b>. If every line has a time, <b>start</b>, <b>increment</b> and the flag
+<b>-i</b> have no effect, and <em>t.register</em> warns about <b>increment</b> and <b>-i</b>.
+The lines of a file with names only get their times in the same way as the
+maps of the option <b>maps</b>.
+
 <p>
 A semantic label from the file is registered with the map. Without a label in
 the file, the label that the map has, set for instance with
-<em><a href="r.support.html">r.support</a></em>, is registered with it. Raster
-maps with a semantic label can only be registered in a temporal database of
-version 3 or higher. A database of version 2 stops the run with an error that
-says to run <em><a href="t.upgrade.html">t.upgrade</a></em> first;
-<em><a href="t.connect.html">t.connect</a></em> shows the version.
-
+<em><a href="r.support.html">r.support</a></em>, is registered with it. Raster maps with a semantic
+label can only be registered in a temporal database of version 3 or higher. A
+database of version 2 stops the run with an error that says to run
+<em><a href="t.upgrade.html">t.upgrade</a></em> first; <em><a href="t.connect.html">t.connect</a></em> shows the
+version.
 
 <h2>NOTES</h2>
 
@@ -156,60 +151,67 @@ the metadata of the maps in the spatial database. This assures that timestamps
 can always be accessed with <em>(r|r3|v).timestamp</em> and the temporal tools.
 Timestamps should only be modified with <em>t.register</em>, because the
 <em>(r|r3|v).timestamp</em> tools have no access to the temporal database.
+
 <p>
 If maps are registered without <b>start</b> and a map carries a timestamp from
-<em>(r|r3|v).timestamp</em> that is no valid date or relative time, such as
-<code>5</code>, <em>t.register</em> stops with an error that names the map and
-the stored text (<code>The timestamp of raster map &lt;broken@PERMANENT&gt; is
-not a valid date or time: &lt;5&gt;</code>) before any map is registered.
+<em>(r|r3|v).timestamp</em> that is no valid date or relative time, such as <code>5</code>,
+<em>t.register</em> stops with an error that names the map and the stored text
+(<code>The timestamp of raster map &lt;broken@PERMANENT&gt; is not a valid date or time: &lt;5&gt;</code>)
+before any map is registered.
+
 <p>
-The temporal database stores absolute time stamps in whole seconds: a fraction
-of a second is cut off, not rounded, and a time zone offset is kept. A map
-whose start and end time fall into the same second is therefore registered as a
-time instance, as when start and end time are equal.
+The temporal database stores absolute time stamps in whole seconds: a
+fraction of a second is cut off, not rounded, and a time zone offset is
+kept. A map whose start and end time fall into the same second is
+therefore registered as a time instance, as when start and end time are
+equal.
+
 <p>
-A temporal database on PostgreSQL stores times without a time zone. A start or
-end time with a time zone offset, including <code>+00:00</code> and
-<code>Z</code>, is refused before the first map is registered; remove the
-offset or use SQLite.
+A temporal database on PostgreSQL stores times without a time zone. A
+start or end time with a time zone offset, including <code>+00:00</code> and <code>Z</code>,
+is refused before the first map is registered; remove the offset or use
+SQLite.
+
 <p>
-<em>t.register</em> checks all maps before it writes the first one. A map that
-is refused, for instance because its time has another temporal type or another
-relative unit than the dataset, stops the run and leaves the maps before it as
-they were. The checks end with these errors, among others:
+<em>t.register</em> checks all maps before it writes the first one. A map that is
+refused, for instance because its time has another temporal type or another
+relative unit than the dataset, stops the run and leaves the maps before it
+as they were. The checks end with these errors, among others:
+
 <ul>
 <li><code>maps and file are mutually exclusive</code>;</li>
 <li><code>end and increment are mutually exclusive</code>;</li>
 <li><code>end and the interval flag are mutually exclusive</code>;</li>
-<li><code>The increment option requires the start option</code> and, with the
-flag <b>-i</b>, <code>The interval flag requires the start option</code>;</li>
+<li><code>The increment option requires the start option</code> and, with the flag <b>-i</b>,
+<code>The interval flag requires the start option</code>;</li>
 <li><code>Please specify maps or file</code>;</li>
 <li><code>The map has no timestamp and the start time is not set</code>;</li>
-<li><code>unit can only be set for relative time</code> for <b>unit</b> with
-absolute time and <code>unit must be set in case of relative time
-stamps</code> for relative time without it;</li>
-<li><code>Space time dataset &lt;name&gt; of type &lt;raster&gt; not
-found</code>, also for a dataset of another kind than <b>type</b>.</li>
+<li><code>unit can only be set for relative time</code> for <b>unit</b> with absolute time and
+<code>unit must be set in case of relative time stamps</code> for relative time without
+it;</li>
+<li><code>Space time dataset &lt;name&gt; of type &lt;raster&gt; not found</code>, also for a dataset
+of another kind than <b>type</b>.</li>
 </ul>
+
 <p>
 A dataset holds maps with a time zone offset or maps without one, not both: a
 map of the other kind is refused, and the error says which of the two has a
 time zone offset.
+
 <p>
-A wrong <b>separator</b> is not an error of its own: the whole line is read as
-the name of a map, and the map is not found.
+A wrong <b>separator</b> is not an error of its own: the whole line is read as the
+name of a map, and the map is not found.
 
 <h2>EXAMPLES</h2>
 
 <h3>Register maps as consecutive intervals</h3>
 
-Three maps of monthly precipitation sums, <code>prec_1</code> to
-<code>prec_3</code> with the values 100, 200 and 300, become the intervals
-January, February and March 2001 of the dataset <code>precipitation</code>.
-The flag <b>-i</b> makes each map end where the next one starts. The type of
-the maps is <code>raster</code>, the default. <em>t.rast.list</em> shows the
-times in the dataset, and <em>r.timestamp</em> shows that the first map carries
-its time itself.
+Three maps of monthly precipitation sums, <code>prec_1</code> to <code>prec_3</code> with the values
+100, 200 and 300, become the intervals January, February and March 2001 of the
+dataset <code>precipitation</code>. The flag <b>-i</b> makes each map end where the next one
+starts. The type of the maps is <code>raster</code>, the default. <em>t.rast.list</em> shows the
+times in the dataset, and <em>r.timestamp</em> shows that the first map carries its
+time itself.
 
 <p>Command line:</p>
 
@@ -287,13 +289,12 @@ print(tools.r_timestamp(map="prec_1").text)
 
 <h3>Register time instances and one interval for all maps</h3>
 
-Without the flag <b>-i</b>, <b>start</b> and <b>increment</b> make time
-instances: the maps <code>gauge_1</code> and <code>gauge_2</code> are at May 1
-and May 2, 2001. The maps <code>season_1</code> and <code>season_2</code> get
-the same interval from <b>start</b> to <b>end</b>, June 1 to September 1. Both
-maps have the same time, so <em>t.info</em> with the flag <b>-g</b> shows the
-time of the dataset as a whole, not one line per map: the maps are intervals
-(<code>map_time=interval</code>), and the dataset starts and ends with them.
+Without the flag <b>-i</b>, <b>start</b> and <b>increment</b> make time instances: the
+maps <code>gauge_1</code> and <code>gauge_2</code> are at May 1 and May 2, 2001. The maps <code>season_1</code>
+and <code>season_2</code> get the same interval from <b>start</b> to <b>end</b>, June 1 to
+September 1. Both maps have the same time, so <em>t.info</em> with the flag <b>-g</b>
+shows the time of the dataset as a whole, not one line per map: the maps are
+intervals (<code>map_time=interval</code>), and the dataset starts and ends with them.
 
 <p>Command line:</p>
 
@@ -371,12 +372,11 @@ map_time=interval
 <h3>Use a registered map in a second dataset, or change its time</h3>
 
 A map that is registered already is entered into another dataset by its name
-alone: <code>first_half</code> takes <code>prec_1</code> and
-<code>prec_2</code> with the times they have in the temporal database. A second
-registration with <b>start</b> does not change the time of
-<code>gauge_2</code>: <em>t.register</em> warns and keeps May 2. Only with
-<b>--overwrite</b> (the argument <code>overwrite=True</code> in Python) does
-the map get the new time, May 10.
+alone: <code>first_half</code> takes <code>prec_1</code> and <code>prec_2</code> with the times they have in
+the temporal database. A second registration with <b>start</b> does not change the
+time of <code>gauge_2</code>: <em>t.register</em> warns and keeps May 2. Only with
+<b>--overwrite</b> (the argument <code>overwrite=True</code> in Python) does the map get the
+new time, May 10.
 
 <p>Command line:</p>
 
@@ -452,13 +452,12 @@ gauge_2|PERMANENT|2001-05-10 00:00:00|None
 
 <h3>Monthly series that start at the end of a month</h3>
 
-Eight maps, <code>month_1</code> to <code>month_8</code>, are registered as
-monthly intervals. The first four start on January 31. Each start is a month
-after the previous one, counted from January 31, and a month that is too short
-ends on its last day: February 28, March 31 and April 30. The intervals are 28,
-31, 30 and 31 days long, so the granularity of <code>jan31</code> is
-<code>1 day</code>. The maps <code>month_5</code> to <code>month_8</code> start
-on January 1 and form the dataset <code>jan01</code> with the granularity
+Eight maps, <code>month_1</code> to <code>month_8</code>, are registered as monthly intervals. The
+first four start on January 31. Each start is a month after the previous one,
+counted from January 31, and a month that is too short ends on its last day:
+February 28, March 31 and April 30. The intervals are 28, 31, 30 and 31 days
+long, so the granularity of <code>jan31</code> is <code>1 day</code>. The maps <code>month_5</code> to
+<code>month_8</code> start on January 1 and form the dataset <code>jan01</code> with the granularity
 <code>1 month</code>.
 
 <p>Command line:</p>
@@ -552,16 +551,15 @@ granularity='1 month'
 
 <h3>Register maps from a file</h3>
 
-The dataset <code>scenes</code> takes eight maps, <code>scene_1</code> to
-<code>scene_8</code>, from three files. The first file gives each line its own
-form: <code>scene_1</code> has a start and an end, <code>scene_2</code> only a
-start, and <code>scene_3</code> a start and the semantic label
-<code>S2_8</code>, because <code>S2_8</code> cannot be read as an end time. The
-second file uses commas as the separator, which the option <b>separator</b>
-sets, and names the maps with their mapset. The third file lists only names, made by
-<em><a href="g.list.html">g.list</a></em>, so <b>start</b> and <b>increment</b> place the maps, here as consecutive intervals
-of 12 hours. The last block shows that the dataset holds a mix of intervals and
-instances.
+The dataset <code>scenes</code> takes eight maps, <code>scene_1</code> to <code>scene_8</code>, from three
+files. The first file gives each line its own form: <code>scene_1</code> has a start and
+an end, <code>scene_2</code> only a start, and <code>scene_3</code> a start and the semantic label
+<code>S2_8</code>, because <code>S2_8</code> cannot be read as an end time. The second file uses
+commas as the separator, which the option <b>separator</b> sets, and names the
+maps with their mapset. The third file lists only names, made by
+<em><a href="g.list.html">g.list</a></em>, so <b>start</b> and <b>increment</b> place the maps, here as
+consecutive intervals of 12 hours. The last block shows that the dataset holds
+a mix of intervals and instances.
 
 <p>Command line:</p>
 
@@ -713,11 +711,11 @@ number_of_maps=8
 
 <h3>Register maps with relative time</h3>
 
-A dataset with relative time counts in a unit, which <b>unit</b> names. The
-maps <code>step_1</code> to <code>step_3</code> are the intervals 0 to 1, 1 to
-2 and 2 to 3 hours. Two more maps come from a file whose times are integers in
-the same unit; the third column of a line is an integer, so it is an end time.
-The unit has to be the one of the dataset.
+A dataset with relative time counts in a unit, which <b>unit</b> names. The maps
+<code>step_1</code> to <code>step_3</code> are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
+more maps come from a file whose times are integers in the same unit; the third
+column of a line is an integer, so it is an end time. The unit has to be the one
+of the dataset.
 
 <p>Command line:</p>
 
@@ -804,11 +802,10 @@ step_5|PERMANENT|12|15
 <h3>Register maps without a dataset, or with a time stamp of the map</h3>
 
 Without <b>input</b>, the maps only get their time and are registered in the
-temporal database: <code>free_1</code> and <code>free_2</code> are the days
-August 1 and 2, 2001. <em>t.list</em> lists them. The second part sets the time
-of <code>stamped_1</code> and <code>stamped_2</code> with <em>r.timestamp</em>
-first; <em>t.register</em> needs no <b>start</b>, because it takes the time
-from the maps.
+temporal database: <code>free_1</code> and <code>free_2</code> are the days August 1 and 2, 2001.
+<em>t.list</em> lists them. The second part sets the time of <code>stamped_1</code> and
+<code>stamped_2</code> with <em>r.timestamp</em> first; <em>t.register</em> needs no <b>start</b>, because
+it takes the time from the maps.
 
 <p>Command line:</p>
 
@@ -885,10 +882,9 @@ stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
 <h3>Register layers of a vector map</h3>
 
 A vector map can stand for a series if each time step is a layer. The map
-<code>stations</code> has two points and the layers 1 to 3 with the same
-categories. With <code>type=vector</code> and the notation
-<code>map:layer</code>, each layer is registered as a day of the dataset
-<code>daily</code>.
+<code>stations</code> has two points and the layers 1 to 3 with the same categories. With
+<code>type=vector</code> and the notation <code>map:layer</code>, each layer is registered as a day of
+the dataset <code>daily</code>.
 
 <p>Command line:</p>
 
@@ -949,9 +945,9 @@ stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
 
 <h3>Register 3D raster maps</h3>
 
-The 3D raster maps <code>soil_1</code> and <code>soil_2</code> are registered
-with <code>type=raster_3d</code> in a space time 3D raster dataset. The region
-needs a top, a bottom and the 3D resolutions.
+The 3D raster maps <code>soil_1</code> and <code>soil_2</code> are registered with <code>type=raster_3d</code>
+in a space time 3D raster dataset. The region needs a top, a bottom and the 3D
+resolutions.
 
 <p>Command line:</p>
 
@@ -1003,25 +999,17 @@ soil_2|2001-03-02 00:00:00|2001-03-03 00:00:00
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.list.html">g.list</a>,
-<a href="r.support.html">r.support</a>,
-<a href="r.timestamp.html">r.timestamp</a>,
-<a href="r3.timestamp.html">r3.timestamp</a>,
-<a href="t.connect.html">t.connect</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>,
-<a href="t.upgrade.html">t.upgrade</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
+<em><a href="g.list.html">g.list</a>, <a href="r.support.html">r.support</a>, <a href="r.timestamp.html">r.timestamp</a>,
+<a href="r3.timestamp.html">r3.timestamp</a>, <a href="t.connect.html">t.connect</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
+<a href="t.rast.list.html">t.rast.list</a>, <a href="t.rast3d.list.html">t.rast3d.list</a>,
+<a href="t.upgrade.html">t.upgrade</a>, <a href="t.vect.list.html">t.vect.list</a>,
 <a href="v.timestamp.html">v.timestamp</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <p>
-<a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing/maps_registration">Maps registration examples in Temporal data processing Wiki</a>
+<a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing/maps_registration">Maps registration examples in Temporal data processing
+Wiki</a>
 
 <h2>AUTHOR</h2>
 

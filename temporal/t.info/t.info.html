@@ -1,262 +1,228 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.info</em> reports what the temporal database stores about a space time
-dataset or about a single map: its identifier and creator, its time, its
-spatial extent and metadata that depend on the type of the dataset. The report
-is made for reading, or, with the flag <b>-g</b>, in shell script style with
-one <code>key=value</code> pair per line. <em>t.info</em> only reads; it does
-not change the database. See the <a href="temporalintro.html">introduction to
-temporal data processing</a> for space time datasets. Datasets are created with
-<em><a href="t.create.html">t.create</a></em>, maps are registered in them with
-<em><a href="t.register.html">t.register</a></em>, and <em><a
-href="t.list.html">t.list</a></em> and <em><a
-href="t.rast.list.html">t.rast.list</a></em> list datasets and their maps.
+<em>t.info</em> reports what the temporal database stores about a space time dataset
+or about a single map: its identifier and creator, its time, its spatial extent
+and metadata that depend on the type of the dataset. The report is made for
+reading, or, with the flag <b>-g</b>, in shell script style with one <code>key=value</code>
+pair per line. <em>t.info</em> only reads; it does not change the database. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Datasets are created with <em><a href="t.create.html">t.create</a></em>, maps are
+registered in them with <em><a href="t.register.html">t.register</a></em>, and
+<em><a href="t.list.html">t.list</a></em> and <em><a href="t.rast.list.html">t.rast.list</a></em> list datasets and
+their maps.
 
 <p>
-<em>t.info</em> reports the values stored in the temporal database, it does not
-read the maps. For all values of a map, such as its category table or its
-history, use <em><a href="r.info.html">r.info</a></em>, <em><a
-href="r3.info.html">r3.info</a></em> or <em><a
-href="v.info.html">v.info</a></em>.
+<em>t.info</em> reports the values stored in the temporal database, it does not read
+the maps. For all values of a map, such as its category table or its history,
+use <em><a href="r.info.html">r.info</a></em>, <em><a href="r3.info.html">r3.info</a></em> or <em><a href="v.info.html">v.info</a></em>.
 
 <p>
 The option <b>input</b> names the dataset or the map. A name without a mapset
-refers to the current mapset; <code>name@mapset</code> selects another one.
-<b>input</b> is required, except together with <b>-d</b>.
+refers to the current mapset; <code>name@mapset</code> selects another one. <b>input</b> is
+required, except together with <b>-d</b>.
 
 <p>
 The option <b>type</b> says what <b>input</b> is: a space time dataset of type
-<code>strds</code> (raster maps, the default), <code>str3ds</code> (3D raster
-maps) or <code>stvds</code> (vector maps), or a single map of type
-<code>raster</code>, <code>raster_3d</code> or <code>vector</code>.
+<code>strds</code> (raster maps, the default), <code>str3ds</code> (3D raster maps) or <code>stvds</code>
+(vector maps), or a single map of type <code>raster</code>, <code>raster_3d</code> or <code>vector</code>.
 
 <p>
-The flag <b>-g</b> prints the report in shell script style instead of the
-framed box, as described below. The flag <b>-h</b> prints the history of a
-space time dataset instead of the report. The flag <b>-d</b> prints information
-about the database back end instead of a dataset. <b>-g</b> also changes the
-form of the output of <b>-d</b>. <b>-h</b> takes precedence over both: with
-<b>-h</b>, the output is the history, whether <b>-g</b> or <b>-d</b> is given
-or not.
+The flag <b>-g</b> prints the report in shell script style instead of the framed
+box, as described below. The flag <b>-h</b> prints the history of a space time
+dataset instead of the report. The flag <b>-d</b> prints information about the
+database back end instead of a dataset. <b>-g</b> also changes the form of the
+output of <b>-d</b>. <b>-h</b> takes precedence over both: with <b>-h</b>, the output is
+the history, whether <b>-g</b> or <b>-d</b> is given or not.
 
 <h3>The report of a space time dataset</h3>
 
 The report is a box of sections. A line shows a label, dots, and a value.
 
 <p>
-The section <em>Basic information</em> starts with the lines <code>Id</code>
-(name and mapset, <code>temperature@PERMANENT</code>), <code>Name</code> and
-<code>Mapset</code>. <code>Creator</code> is the user who created the dataset,
-<code>Temporal type</code> is <code>absolute</code> or <code>relative</code>,
-<code>Creation time</code> and <code>Modification time</code> are the times at
-which the dataset was created and last changed in the database, and
-<code>Semantic type</code> is the label given with <b>semantictype</b> of
-<em>t.create</em>: <code>mean</code> unless set otherwise.
+The section <em>Basic information</em> starts with the lines <code>Id</code> (name and mapset,
+<code>temperature@PERMANENT</code>), <code>Name</code> and <code>Mapset</code>. <code>Creator</code> is the user who
+created the dataset, <code>Temporal type</code> is <code>absolute</code> or <code>relative</code>, <code>Creation
+time</code> and <code>Modification time</code> are the times at which the dataset was created
+and last changed in the database, and <code>Semantic type</code> is the label given
+with <b>semantictype</b> of <em>t.create</em>: <code>mean</code> unless set otherwise.
 
 <p>
-The next section is named <em>Absolute time</em> or <em>Relative time</em>,
-after the temporal type. <code>Start time</code> is the earliest start and
-<code>End time</code> the latest end of the registered maps; with absolute time
-they are dates and times, with relative time numbers, and the line
-<code>Relative time unit</code> names the unit of those numbers.
-<code>Granularity</code> is the step in which the time of the dataset can be
-counted: <code>1 day</code> for maps that are one day long and follow each
-other without gap; with relative time it is a number of the unit, in the
-example <code>6</code> for maps that are 6 hours long. With maps of different
-lengths or gaps between them, it is the greatest common divisor of the lengths
-and gaps, as in the dataset <code>uneven</code> of the examples. How months and
-years count is explained in the <a href="temporalintro.html">introduction to
-temporal data processing</a>. <code>Temporal type of maps</code> is
-<code>interval</code> if all maps have a start and an end, <code>point</code>
-if all are time instances, and <code>mixed</code> if both occur.
+The next section is named <em>Absolute time</em> or <em>Relative time</em>, after the
+temporal type. <code>Start time</code> is the earliest start and <code>End time</code> the latest
+end of the registered maps; with absolute time they are dates and times, with
+relative time numbers, and the line <code>Relative time unit</code> names the unit of
+those numbers. <code>Granularity</code> is the step in which the time of the dataset can
+be counted: <code>1 day</code> for maps that are one day long and follow each other
+without gap; with relative time it is a number of the unit, in the example <code>6</code>
+for maps that are 6 hours long. With maps of different lengths or gaps between
+them, it is the greatest common divisor of the lengths and gaps, as in the
+dataset <code>uneven</code> of the examples. How months and years count is explained in the
+<a href="temporalintro.html">introduction to temporal data processing</a>. <code>Temporal type
+of maps</code> is <code>interval</code> if all maps have a start and an end, <code>point</code> if all are
+time instances, and <code>mixed</code> if both occur.
 
 <p>
-The section <em>Spatial extent</em> gives <code>North</code>,
-<code>South</code>, <code>East</code>, <code>West</code>, <code>Top</code> and
-<code>Bottom</code> of the dataset, the bounding box of its registered maps.
-Top and bottom are 0 for datasets of 2D maps.
+The section <em>Spatial extent</em> gives <code>North</code>, <code>South</code>, <code>East</code>, <code>West</code>, <code>Top</code> and
+<code>Bottom</code> of the dataset, the bounding box of its registered maps. Top and
+bottom are 0 for datasets of 2D maps.
 
 <p>
 The section <em>Metadata information</em> depends on the type:
 
 <ul>
-<li>A space time raster dataset (<code>strds</code>) shows the <code>Raster
-register table</code>, the name of the table of its maps in the temporal
-database. The lines <code>North-South resolution min</code> and
-<code>max</code> and <code>East-west resolution min</code> and <code>max</code>
-give the smallest and the largest resolution among the registered maps.
-<code>Minimum value min</code> is the smallest of the minima of the maps and
-<code>Minimum value max</code> the largest of them; <code>Maximum value
-min</code> and <code>Maximum value max</code> are the smallest and the largest
-of the maxima. <code>Aggregation type</code> is the aggregation type stored
-with the dataset, <code>None</code> for all datasets of the examples.
-<code>Number of semantic labels</code> and <code>Semantic labels</code> give
-the number and the names, separated by commas, of the different semantic labels
-of the registered maps, <code>0</code> and <code>None</code> if there are none.</li>
-<li>A space time 3D raster dataset (<code>str3ds</code>) shows the <code>3D raster
-register table</code>, <code>Top-bottom resolution min</code> and
-<code>max</code> in addition, and the same resolution and value lines as
-<code>strds</code>, except the semantic labels.</li>
-<li>A space time vector dataset (<code>stvds</code>) shows the <code>Vector
-register table</code> and the number of <code>points</code>,
-<code>lines</code>, <code>boundaries</code>, <code>centroids</code>,
-<code>faces</code>, <code>kernels</code>, <code>primitives</code>,
-<code>nodes</code>, <code>areas</code>, <code>islands</code>,
-<code>holes</code> and <code>volumes</code>, added up over the registered maps.</li>
+<li>A space time raster dataset (<code>strds</code>) shows the <code>Raster register table</code>,
+the name of the table of its maps in the temporal database. The lines
+<code>North-South resolution min</code> and <code>max</code> and <code>East-west resolution min</code> and
+<code>max</code> give the smallest and the largest resolution among the registered
+maps. <code>Minimum value min</code> is the smallest of the minima of the maps and
+<code>Minimum value max</code> the largest of them; <code>Maximum value min</code> and <code>Maximum
+value max</code> are the smallest and the largest of the maxima. <code>Aggregation
+type</code> is the aggregation type stored with the dataset, <code>None</code> for all
+datasets of the examples. <code>Number of semantic labels</code> and <code>Semantic labels</code>
+give the number and the names, separated by commas, of the different
+semantic labels of the registered maps, <code>0</code> and <code>None</code> if there are none.</li>
+<li>A space time 3D raster dataset (<code>str3ds</code>) shows the <code>3D raster register
+table</code>, <code>Top-bottom resolution min</code> and <code>max</code> in addition, and the same
+resolution and value lines as <code>strds</code>, except the semantic labels.</li>
+<li>A space time vector dataset (<code>stvds</code>) shows the <code>Vector register table</code> and
+the number of <code>points</code>, <code>lines</code>, <code>boundaries</code>, <code>centroids</code>, <code>faces</code>,
+<code>kernels</code>, <code>primitives</code>, <code>nodes</code>, <code>areas</code>, <code>islands</code>, <code>holes</code> and <code>volumes</code>,
+added up over the registered maps.</li>
 </ul>
 
 <p>
-All types end the section with <code>Number of registered maps</code>, followed
-by the <code>Title</code>, the <code>Description</code> and the <code>Command
-history</code>: the commands that created the dataset and registered maps in
-it, each with the time at which it ran. A dataset without maps shows
-<code>None</code> for the time, the extent, the granularity, the type of the
-maps, the values from the maps and the number of maps.
+All types end the section with <code>Number of registered maps</code>, followed by the
+<code>Title</code>, the <code>Description</code> and the <code>Command history</code>: the commands that
+created the dataset and registered maps in it, each with the time at which it
+ran. A dataset without maps shows <code>None</code> for the time, the extent, the
+granularity, the type of the maps, the values from the maps and the number of
+maps.
 
 <h3>The report of a map</h3>
 
-The report of a map (<code>raster</code>, <code>raster_3d</code>,
-<code>vector</code>) has the same sections. Its basic information has no
-modification time and no semantic type, its time has no granularity and no type
-of the maps, and <code>End time</code> is <code>None</code> for a time
-instance. <em>Metadata information</em> shows the values the temporal database
+The report of a map (<code>raster</code>, <code>raster_3d</code>, <code>vector</code>) has the same sections.
+Its basic information has no modification time and no semantic type, its time
+has no granularity and no type of the maps, and <code>End time</code> is <code>None</code> for a
+time instance. <em>Metadata information</em> shows the values the temporal database
 stored when the map was registered:
 
 <ul>
-<li>a raster map: <code>Datatype</code>, <code>Number of columns</code>,
-<code>Number of rows</code>, <code>Number of cells</code>, the resolution, the
-<code>Minimum value</code>, the <code>Maximum value</code> and the
+<li>a raster map: <code>Datatype</code>, <code>Number of columns</code>, <code>Number of rows</code>, <code>Number of
+cells</code>, the resolution, the <code>Minimum value</code>, the <code>Maximum value</code> and the
 <code>Semantic label</code>;</li>
-<li>a 3D raster map: the same without the semantic label, and <code>Number of
-depths</code> and <code>Top-Bottom resolution</code>;</li>
-<li>a vector map: <code>Is map 3d</code> and the numbers of points, lines,
-boundaries, centroids, faces, kernels, primitives, nodes, areas, islands, holes
-and volumes.</li>
+<li>a 3D raster map: the same without the semantic label, and <code>Number of depths</code>
+and <code>Top-Bottom resolution</code>;</li>
+<li>a vector map: <code>Is map 3d</code> and the numbers of points, lines, boundaries,
+centroids, faces, kernels, primitives, nodes, areas, islands, holes and
+volumes.</li>
 </ul>
 
 <p>
-The last line, <code>Registered datasets</code>, lists the space time datasets
-the map is registered in, separated by commas.
+The last line, <code>Registered datasets</code>, lists the space time datasets the map is
+registered in, separated by commas.
 
 <h3>Shell script style</h3>
 
-With <b>-g</b>, each value of the report is printed as <code>key=value</code>,
-in the order of the box. Text values are not quoted, except the times, the
-granularity of a dataset with absolute time and the start and end of a dataset
-with relative time, which are put between single quotes:
-<code>start_time='2026-03-01 00:00:00'</code>. The keys follow the labels of
-the box: <code>id</code>, <code>name</code>, <code>mapset</code>,
-<code>creator</code>, <code>temporal_type</code>, <code>creation_time</code>,
-<code>modification_time</code>, <code>semantic_type</code>,
-<code>start_time</code>, <code>end_time</code>, <code>unit</code>,
-<code>granularity</code>, <code>map_time</code>, <code>north</code>,
-<code>south</code>, <code>east</code>, <code>west</code>, <code>top</code>,
-<code>bottom</code>, then the register table (<code>raster_register</code>,
-<code>raster3d_register</code> or <code>vector_register</code>) and the values
-of the type, such as <code>nsres_min</code>, <code>min_min</code>,
-<code>number_of_semantic_labels</code>, <code>semantic_labels</code>,
-<code>points</code> or, for maps, <code>datatype</code>, <code>cols</code>,
-<code>rows</code>, <code>number_of_cells</code>, <code>nsres</code>,
-<code>min</code>, <code>max</code>, <code>depths</code> and
-<code>registered_datasets</code>. A dataset ends with
-<code>number_of_maps</code>. Empty values are printed as <code>None</code>; the
-title, the description and the history are not part of this form, use <b>-h</b>
-for them.
+With <b>-g</b>, each value of the report is printed as <code>key=value</code>, in the order
+of the box. Text values are not quoted, except the times, the granularity of a
+dataset with absolute time and the start and end of a dataset with relative
+time, which are put between single quotes: <code>start_time='2026-03-01 00:00:00'</code>.
+The keys follow the labels of the box: <code>id</code>, <code>name</code>, <code>mapset</code>, <code>creator</code>,
+<code>temporal_type</code>, <code>creation_time</code>, <code>modification_time</code>, <code>semantic_type</code>,
+<code>start_time</code>, <code>end_time</code>, <code>unit</code>, <code>granularity</code>, <code>map_time</code>, <code>north</code>, <code>south</code>,
+<code>east</code>, <code>west</code>, <code>top</code>, <code>bottom</code>, then the register table (<code>raster_register</code>,
+<code>raster3d_register</code> or <code>vector_register</code>) and the values of the type, such as
+<code>nsres_min</code>, <code>min_min</code>, <code>number_of_semantic_labels</code>, <code>semantic_labels</code>,
+<code>points</code> or, for maps, <code>datatype</code>, <code>cols</code>, <code>rows</code>, <code>number_of_cells</code>, <code>nsres</code>,
+<code>min</code>, <code>max</code>, <code>depths</code> and <code>registered_datasets</code>. A dataset ends with
+<code>number_of_maps</code>. Empty values are printed as <code>None</code>; the title, the
+description and the history are not part of this form, use <b>-h</b> for them.
 
 <h3>The history of a space time dataset</h3>
 
-With <b>-h</b>, <em>t.info</em> prints the title, the description and the
-command history of a space time dataset instead of the report. The lines
-<code># Title:</code>, <code># Description:</code> and <code># Command
-history:</code> and the lines with the title and the description start with
-<code>#</code>. The commands are those that created the dataset and registered
-maps in it; before each command, a line starting with <code>#</code> gives its
-time. The lines of the commands themselves do not start with <code>#</code>.
-Long commands are broken into several lines, and every line of a command ends
-in a backslash, also the last line of a command that is followed by another
-one. Only the last line of the whole history has none. <b>-h</b> with a map
-prints the report of the map; only space time datasets have a history.
-<b>-g</b> has no effect together with <b>-h</b>.
+With <b>-h</b>, <em>t.info</em> prints the title, the description and the command history
+of a space time dataset instead of the report. The lines <code># Title:</code>, <code>#
+Description:</code> and <code># Command history:</code> and the lines with the title and the
+description start with <code>#</code>. The commands are those that created the dataset and
+registered maps in it; before each command, a line starting with <code>#</code> gives its
+time. The lines of the commands themselves do not start with <code>#</code>. Long commands
+are broken into several lines, and every line of a command ends in a backslash,
+also the last line of a command that is followed by another one. Only the last
+line of the whole history has none. <b>-h</b> with a map prints the report of the
+map; only space time datasets have a history. <b>-g</b> has no effect together
+with <b>-h</b>.
 
 <h3>The database back end</h3>
 
-The flag <b>-d</b> prints information about the temporal database of the
-current mapset and ends; <b>input</b> and <b>type</b> are ignored. The lines
-are:
+The flag <b>-d</b> prints information about the temporal database of the current
+mapset and ends; <b>input</b> and <b>type</b> are ignored. The lines are:
 
 <ul>
-<li><code>DBMI Python interface</code>, the name of the Python module that talks to
-the database (<code>sqlite3</code> for the default back end);</li>
-<li><code>Temporal database string</code>, the connection string; with SQLite the
-path of the database file, which lies in the directory <code>tgis</code> of the
-mapset;</li>
-<li><code>SQL template path</code>, the directory of the SQL templates of the
-installation;</li>
-<li><code>tgis_version</code> and <code>tgis_db_version</code>, the version of the
-temporal framework and of the database layout, and <code>creation_time</code>,
-the time at which the database was created.</li>
+<li><code>DBMI Python interface</code>, the name of the Python module that talks to the
+database (<code>sqlite3</code> for the default back end);</li>
+<li><code>Temporal database string</code>, the connection string; with SQLite the path of
+the database file, which lies in the directory <code>tgis</code> of the mapset;</li>
+<li><code>SQL template path</code>, the directory of the SQL templates of the installation;</li>
+<li><code>tgis_version</code> and <code>tgis_db_version</code>, the version of the temporal framework
+and of the database layout, and <code>creation_time</code>, the time at which the
+database was created.</li>
 </ul>
 
 <p>
-With <b>-g</b>, the same values are printed as
-<code>dbmi_python_interface</code>, <code>dbmi_string</code>,
-<code>sql_template_path</code>, <code>tgis_version</code>,
-<code>tgis_db_version</code> and <code>creation_time</code>, each value between
-single quotes. <b>-d</b> together with <b>-h</b> asks for the history of a
-dataset and needs <b>input</b>.
+With <b>-g</b>, the same values are printed as <code>dbmi_python_interface</code>,
+<code>dbmi_string</code>, <code>sql_template_path</code>, <code>tgis_version</code>, <code>tgis_db_version</code> and
+<code>creation_time</code>, each value between single quotes. <b>-d</b> together with <b>-h</b>
+asks for the history of a dataset and needs <b>input</b>.
 
 <h2>NOTES</h2>
 
 A dataset or a map that is not registered in the temporal database ends the
-module with the error "Dataset <code>&lt;name@mapset&gt;</code> of type
-<code>&lt;type&gt;</code> not found in temporal database". The error also
-appears when <b>type</b> does not fit: a map asked for with the default type
-<code>strds</code>, or a dataset asked for with <code>type=raster</code>. A
-name without a mapset refers to the current mapset: a dataset of another mapset
-is selected as <code>input=name@mapset</code>, and without the mapset the error
-names the current mapset. A map of another mapset that is registered in a
-dataset of the current mapset is found with <code>name@mapset</code> as well.
+module with the error "Dataset <code>&lt;name@mapset&gt;</code> of type <code>&lt;type&gt;</code> not found in
+temporal database". The error also appears when <b>type</b> does not fit: a map
+asked for with the default type <code>strds</code>, or a dataset asked for with
+<code>type=raster</code>. A name without a mapset refers to the current mapset: a dataset
+of another mapset is selected as <code>input=name@mapset</code>, and without the mapset
+the error names the current mapset. A map of another mapset that is registered
+in a dataset of the current mapset is found with <code>name@mapset</code> as well.
 
 <p>
 Without <b>input</b> and without <b>-d</b>, the parser stops with "Required
-parameter <code>&lt;input&gt;</code> not set". <b>-d</b> with <b>-h</b> and
-without <b>input</b> stops with "Please specify input=".
+parameter <code>&lt;input&gt;</code> not set". <b>-d</b> with <b>-h</b> and without <b>input</b> stops
+with "Please specify input=".
 
 <p>
-With absolute time, <code>Start time</code>, <code>End time</code> and the
-other times are printed as <code>2026-03-01 00:00:00</code>. With relative
-time, <code>Start time</code> and <code>End time</code> are numbers without
-unit; the unit is the line <code>Relative time unit</code> of the box and the
-key <code>unit</code> of the shell form.
+With absolute time, <code>Start time</code>, <code>End time</code> and the other times are printed
+as <code>2026-03-01 00:00:00</code>. With relative time, <code>Start time</code> and <code>End time</code> are
+numbers without unit; the unit is the line <code>Relative time unit</code> of the box and
+the key <code>unit</code> of the shell form.
 
 <p>
-The <code>Semantic label</code> line of a map, and <code>semantic_label</code>
-in the shell form, show <code>None</code> even for a map that has a semantic
-label, as the last but one example shows. The dataset reports the labels of its
-maps correctly (<code>Semantic labels</code>). To read the label of a map, use
-<code>t.rast.list columns=name,semantic_label</code>.
+The <code>Semantic label</code> line of a map, and <code>semantic_label</code> in the shell form,
+show <code>None</code> even for a map that has a semantic label, as the last but one
+example shows. The dataset reports the labels of its maps correctly (<code>Semantic
+labels</code>). To read the label of a map, use <code>t.rast.list
+columns=name,semantic_label</code>.
 
 <h2>EXAMPLES</h2>
 
 <h3>Report on a space time dataset</h3>
 
-The dataset <code>temperature</code> holds three maps of daily mean air
-temperature on a region of two rows and three columns. The helper map
-<code>cell_number</code> numbers the cells from 1 to 6, so the values can be
-followed: <code>temperature_1</code> holds -2 to 3, <code>temperature_2</code>
-holds 1 to 6 and <code>temperature_3</code> holds 4 to 9. The maps are
+The dataset <code>temperature</code> holds three maps of daily mean air temperature on a
+region of two rows and three columns. The helper map <code>cell_number</code> numbers the
+cells from 1 to 6, so the values can be followed: <code>temperature_1</code> holds -2 to
+3, <code>temperature_2</code> holds 1 to 6 and <code>temperature_3</code> holds 4 to 9. The maps are
 registered as daily intervals from 1 March 2026.
 
 <p>
 The report shows the extent in time of the dataset (1 to 4 March, the end of
-the last interval), the granularity <code>1 day</code>, and the extent of the
-region. The smallest of the minima is -2, the largest of the minima is 4, the
-smallest of the maxima is 3 and the largest of the maxima is 9. The command
-history lists the two commands that built the dataset.
+the last interval), the granularity <code>1 day</code>, and the extent of the region. The
+smallest of the minima is -2, the largest of the minima is 4, the smallest of
+the maxima is 3 and the largest of the maxima is 9. The command history lists
+the two commands that built the dataset.
 
 <p>
-The Python tab prints <code>result.stdout</code> unchanged;
-<code>result.text</code> would remove the blank at the start of the first line.
+The Python tab prints <code>result.stdout</code> unchanged; <code>result.text</code> would remove
+the blank at the start of the first line.
 
 <p>Command line:</p>
 
@@ -413,12 +379,11 @@ print(result.stdout, end="")
 
 <h3>Report on a map</h3>
 
-<b>type</b> selects a map instead of a dataset. The map
-<code>temperature_2</code> holds the values 1 to 6 and covers 2 March 2026; the
-report shows the extent of the region, the data type <code>CELL</code>, the six
-cells in three columns and two rows, the smallest and the largest value, and
-the dataset it is registered in, <code>temperature</code>. Its time is the
-interval of 2 March 2026.
+<b>type</b> selects a map instead of a dataset. The map <code>temperature_2</code> holds the
+values 1 to 6 and covers 2 March 2026; the report shows the extent of the
+region, the data type <code>CELL</code>, the six cells in three columns and two rows, the
+smallest and the largest value, and the dataset it is registered in,
+<code>temperature</code>. Its time is the interval of 2 March 2026.
 
 <p>Command line:</p>
 
@@ -503,13 +468,12 @@ print(result.stdout, end="")
 
 <h3>Print the report in shell script style</h3>
 
-With <b>-g</b>, the same values are printed as <code>key=value</code>. The
-first command reports the dataset, the second the map. In the Python tab,
-<code>.keyval</code> splits the lines into a dictionary of keys and values:
-numbers are converted to numbers, strings keep their quotes, so printing the
-pairs gives the lines of the Command line tab again. The helper
-<code>print_keys()</code> is used in the following examples as well; with a set
-of keys, it prints only these.
+With <b>-g</b>, the same values are printed as <code>key=value</code>. The first command
+reports the dataset, the second the map. In the Python tab, <code>.keyval</code> splits
+the lines into a dictionary of keys and values: numbers are converted to
+numbers, strings keep their quotes, so printing the pairs gives the lines of
+the Command line tab again. The helper <code>print_keys()</code> is used in the following
+examples as well; with a set of keys, it prints only these.
 
 <p>Command line:</p>
 
@@ -661,10 +625,11 @@ registered_datasets=temperature@PERMANENT
 
 <h3>Print the history of a dataset</h3>
 
-<b>-h</b> replaces the report by the title, the description and the commands
-that built the dataset. A line with the time of the command precedes each
-command. The second command shows that <b>-h</b> has no effect on a map: it prints the report of the map, of which the command selects two
-lines, the header and the id.
+<b>-h</b> replaces the report by the title, the description and the commands that
+built the dataset. A line with the time of the command precedes each command.
+The second command shows that <b>-h</b> has no effect on a map:
+it prints the report of the map, of which the command selects two lines, the
+header and the id.
 
 <p>Command line:</p>
 
@@ -731,29 +696,27 @@ for line in result.stdout.splitlines():
 
 <h3>Datasets with relative time, mixed time and no maps</h3>
 
-The dataset <code>model</code> has relative time: two model steps of 6 hours,
-registered with the unit <code>hours</code>. <code>Start time</code> and
-<code>End time</code> are the numbers 0 and 12, the granularity is 6, and the
-unit has a line of its own (<code>unit</code> in the shell form).
+The dataset <code>model</code> has relative time: two model steps of 6 hours, registered
+with the unit <code>hours</code>. <code>Start time</code> and <code>End time</code> are the numbers 0 and 12,
+the granularity is 6, and the unit has a line of its own (<code>unit</code> in the shell
+form).
 
 <p>
-The dataset <code>mixed</code> holds the map <code>early</code> as an interval
-of one day and the map <code>late</code> as a time instance four days later.
-The two maps lie in different parts of the region and have the resolutions 1
-and 2. The map time of the dataset is <code>mixed</code>, its end is the start
-of the time instance, its extent is the bounding box of both maps, and the
-resolution lines give the smallest and the largest resolution. The region is
-set back afterwards.
+The dataset <code>mixed</code> holds the map <code>early</code> as an interval of one day and the
+map <code>late</code> as a time instance four days later. The two maps lie in different
+parts of the region and have the resolutions 1 and 2. The map time of the
+dataset is <code>mixed</code>, its end is the start of the time instance, its extent is
+the bounding box of both maps, and the resolution lines give the smallest and
+the largest resolution. The region is set back afterwards.
 
 <p>
-The dataset <code>uneven</code> has three maps of 4, 6 and 4 days, with a gap
-of 4 days before the last one. Its granularity is the greatest common divisor,
-2 days.
+The dataset <code>uneven</code> has three maps of 4, 6 and 4 days, with a gap of 4 days
+before the last one. Its granularity is the greatest common divisor, 2 days.
 
 <p>
-The dataset <code>nothing</code> has no maps. Its time, extent, values and
-number of maps are <code>None</code>, as the last command shows. The shell form
-quotes the times and the granularity, so they are <code>'None'</code>.
+The dataset <code>nothing</code> has no maps. Its time, extent, values and number of maps
+are <code>None</code>, as the last command shows. The shell form quotes the times and
+the granularity, so they are <code>'None'</code>.
 
 <p>Command line:</p>
 
@@ -948,14 +911,13 @@ number_of_maps=None
 
 <h3>Datasets of 3D raster and vector maps</h3>
 
-<b>type</b> names the kind of the dataset. The 3D raster dataset
-<code>soil</code> holds two maps of three layers, each layer one unit high; the
-report shows the top and bottom of the region and the top-bottom resolution.
-The vector dataset <code>gauges</code> holds two maps with two and three
-points; the report counts the points and the primitives over both maps. The
-commands that follow select a few lines of the report of a 3D raster map and of
-a vector map, <b>-g</b> with the types <code>raster_3d</code> and
-<code>vector</code>. The region is set back afterwards.
+<b>type</b> names the kind of the dataset. The 3D raster dataset <code>soil</code> holds two
+maps of three layers, each layer one unit high; the report shows the top and
+bottom of the region and the top-bottom resolution. The vector dataset
+<code>gauges</code> holds two maps with two and three points; the report counts the points
+and the primitives over both maps. The commands that follow select a few lines
+of the report of a 3D raster map and of a vector map, <b>-g</b> with the types
+<code>raster_3d</code> and <code>vector</code>. The region is set back afterwards.
 
 <p>Command line:</p>
 
@@ -1106,13 +1068,12 @@ primitives=3
 
 <h3>Semantic labels</h3>
 
-The dataset <code>sentinel</code> holds the red band (semantic label
-<code>S2_B4</code>) and the near infrared band (<code>S2_B8</code>) of two
-scenes, registered as time instances. The report of the dataset counts the two
-labels and names them. The second block shows what the notes say: the map
-<code>nir_1</code> is a time instance, so its end is <code>None</code>, and the
-report gives <code>None</code> for its semantic label, although it has one,
-while <em>t.rast.list</em> gives it.
+The dataset <code>sentinel</code> holds the red band (semantic label <code>S2_B4</code>) and the near
+infrared band (<code>S2_B8</code>) of two scenes, registered as time instances. The
+report of the dataset counts the two labels and names them. The second block
+shows what the notes say: the map <code>nir_1</code> is a time instance, so its end is
+<code>None</code>, and the report gives <code>None</code> for its semantic label, although it has
+one, while <em>t.rast.list</em> gives it.
 
 <p>Command line:</p>
 
@@ -1205,11 +1166,11 @@ nir_1|S2_B8
 <h3>Information about the database back end</h3>
 
 <b>-d</b> needs no dataset. The report names the Python interface and the
-connection string of the temporal database, which is the file
-<code>sqlite.db</code> in the directory <code>tgis</code> of the mapset. The
-commands select these and the two version lines; the SQL template path and the
-creation time of the database differ from installation to installation and are
-left out. With <b>-g</b>, the same values are <code>key='value'</code> lines.
+connection string of the temporal database, which is the file <code>sqlite.db</code> in
+the directory <code>tgis</code> of the mapset. The commands select these and the two
+version lines; the SQL template path and the creation time of the database
+differ from installation to installation and are left out. With <b>-g</b>, the
+same values are <code>key='value'</code> lines.
 
 <p>Command line:</p>
 
@@ -1267,16 +1228,11 @@ tgis_db_version='3'
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="r.info.html">r.info</a>,
-<a href="r3.info.html">r3.info</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="r.info.html">r.info</a>, <a href="r3.info.html">r3.info</a>,
+<a href="t.create.html">t.create</a>, <a href="t.list.html">t.list</a>,
+<a href="t.rast.list.html">t.rast.list</a>, <a href="t.register.html">t.register</a>,
 <a href="v.info.html">v.info</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

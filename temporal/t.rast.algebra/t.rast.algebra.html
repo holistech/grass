@@ -1,6 +1,5 @@
 <h2>DESCRIPTION</h2>
 
-<p>
 <em>t.rast.algebra</em> performs temporal and spatial map algebra operations on
 space time raster datasets (STRDS) by using the temporal raster algebra. It
 reads an expression of the form <code>result = expression</code>, relates the maps of the
@@ -32,7 +31,6 @@ between STRDS.
 
 <h3>Expression, result and maps</h3>
 
-<p>
 The statement structure of the option <b>expression</b> is similar to that of
 <em><a href="r.mapcalc.html">r.mapcalc</a></em>:
 
@@ -97,7 +95,6 @@ same time. The default is 1. The result is the same for any number.
 
 <h3>Flags</h3>
 
-<p>
 <b>-s</b> also checks the spatial topology of temporally related maps and
 processes only maps that are related in space too. <b>-n</b> registers maps that
 are null everywhere, which are left out by default; this concerns the new
@@ -116,8 +113,8 @@ functions that will be presented in the following section.
 
 <h3>TEMPORAL RELATIONS</h3>
 
-Several temporal topology relations are supported between maps registered
-in space time datasets:
+Several temporal topology relations are supported between maps
+registered in space time datasets:
 
 <div class="code"><pre>
 equal             A ------
@@ -156,31 +153,34 @@ overlaps          A ------
 over              both overlaps and overlapped
 </pre></div>
 
-<!-- TODO: fix formatting of next sentence to become readable! -->
+<p>
 The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B.
+
 <p>
-Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as
-<code>equals</code>; the new algebra and <b>-c</b> read both names. The releases
-before GRASS 8.6 refused <code>equals</code> with a syntax error.
+Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as <code>equals</code>;
+the new algebra and <b>-c</b> read both names. The releases before GRASS 8.6
+refused <code>equals</code> with a syntax error.
+
 <p>
 Topological relations must be specified with curly brackets {}.
+
 <p>
-The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b>
-also selects maps that start or finish together with the related map (the
-relations <b>starts</b> and <b>finishes</b>), and <b>contains</b> also selects
-maps with the relations <b>started</b> and <b>finished</b>. The relations
-<b>precedes</b> and <b>follows</b> only apply to maps that touch each other,
-that is the end of one map is the start of the other. Maps that are separated
-by a gap have no relation.
+The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b> also
+selects maps that start or finish together with the related map (the
+relations <b>starts</b> and <b>finishes</b>), and <b>contains</b> also selects maps
+with the relations <b>started</b> and <b>finished</b>. The relations <b>precedes</b>
+and <b>follows</b> only apply to maps that touch each other, that is the end of
+one map is the start of the other. Maps that are separated by a gap have no
+relation.
 
 <h3>TEMPORAL OPERATORS</h3>
 
-The temporal algebra defines temporal operators that can be combined with
-other operators to perform spatio-temporal operations.
-The temporal operators process the time instances and intervals of two
-temporally related maps and calculate the resulting temporal extent in
-five possible different ways.
+The temporal algebra defines temporal operators that can be combined
+with other operators to perform spatio-temporal operations. The temporal
+operators process the time instances and intervals of two temporally
+related maps and calculate the resulting temporal extent in five
+possible different ways.
 
 <div class="code"><pre>
 LEFT REFERENCE     l       Use the time stamp of the left space time dataset
@@ -192,18 +192,20 @@ RIGHT REFERENCE    r       Use the time stamp of the right space time dataset
 
 <h3>TEMPORAL SELECTION</h3>
 
-The temporal selection simply selects parts of a space time dataset without
-processing any raster or vector data. The algebra provides a selection
-operator <b>:</b> that by default selects parts of a space time dataset
-that are temporally equal to parts of a second space time dataset. The
-following expression
+The temporal selection simply selects parts of a space time dataset
+without processing any raster or vector data. The algebra provides a
+selection operator <b>:</b> that by default selects parts of a space time
+dataset that are temporally equal to parts of a second space time
+dataset. The following expression
 
 <div class="code"><pre>
 C = A : B
 </pre></div>
 
+<p>
 means: select all parts of space time dataset A that are equal to B and
 store them in space time dataset C. These parts are time stamped maps.
+
 <p>
 In addition, the inverse selection operator <b>!:</b> is defined as the
 complement of the selection operator, hence the following expression
@@ -212,18 +214,20 @@ complement of the selection operator, hence the following expression
 C = A !: B
 </pre></div>
 
+<p>
 means: select all parts of space time time dataset A that are not equal
 to B and store them in space time dataset C.
+
 <p>
 To select parts of a STRDS using different topological relations
-regarding to other STRDS, the temporal topology selection operator
-can be used. This operator consists of the temporal selection operator,
-the topological relations that must be separated by the logical OR
-operator <b>|</b> and, the temporal extent operator. All three parts
-are separated by comma and surrounded by curly brackets as follows:
-{"temporal selection operator", "topological relations", "temporal operator"}.
-<p>
+regarding to other STRDS, the temporal topology selection operator can
+be used. This operator consists of the temporal selection operator, the
+topological relations that must be separated by the logical OR operator
+<b>|</b> and, the temporal extent operator. All three parts are separated
+by comma and surrounded by curly brackets as follows: {"temporal
+selection operator", "topological relations", "temporal operator"}.
 
+<p>
 <b>Examples:</b>
 
 <div class="code"><pre>
@@ -231,15 +235,16 @@ C = A {:,equal} B
 C = A {!:,equal} B
 </pre></div>
 
-We can now define arbitrary topological relations using the OR operator "|"
-to connect them:
+<p>
+We can now define arbitrary topological relations using the OR operator
+"|" to connect them:
 
 <div class="code"><pre>
 C = A {:,equal|during|overlaps} B
 </pre></div>
 
+<p>
 Select all parts of A that are equal to B, during B or overlaps B.<br>
-
 In addition, we can define the temporal extent of the resulting STRDS by
 adding the temporal operator.
 
@@ -247,10 +252,14 @@ adding the temporal operator.
 C = A {:,during,r} B
 </pre></div>
 
+<p>
 Select all parts of A that are during B and use the temporal extents
-from B for C.<br><br>
+from B for C.
+
+<p>
 The selection operator is implicitly contained in the temporal topology
-selection operator, so that the following statements are exactly the same:
+selection operator, so that the following statements are exactly the
+same:
 
 <div class="code"><pre>
 C = A : B
@@ -259,6 +268,7 @@ C = A {:,equal} B
 C = A {:,equal,l} B
 </pre></div>
 
+<p>
 Same for the complementary selection:
 
 <div class="code"><pre>
@@ -287,50 +297,49 @@ if statement                        decision option                        tempo
 </pre></div>
 
 <p>
-An <code>if</code> without else gives 0 where a condition on map values is
-false, like the <code>if()</code> of <em>r.mapcalc</em> with two arguments, so
-a map that is false everywhere is registered with the value 0. The new algebra
-does so since 17 October 2026; before, it gave null there and registered such
-a map only with <b>-n</b>.
-</p>
+An <code>if</code> without else gives 0 where a condition on map values is false, like
+the <code>if()</code> of <em>r.mapcalc</em> with two arguments, so a map that is false
+everywhere is registered with the value 0. The new algebra does so since
+17 October 2026; before, it gave null there and registered such a map only
+with <b>-n</b>.
 
+<p>
 The conditions are comparison expressions that are used to evaluate
-space time datasets. Specific values of temporal variables are
-compared by logical operators and evaluated for each map of the STRDS.
-<br>
-<b>Important:</b> <code>&amp;&amp;</code> binds stronger than <code>||</code>, as in
-<em>r.mapcalc</em>, and conditions can be grouped with parentheses. The
-classic algebra (<b>-c</b>) evaluates conditions on temporal variables from
-left to right instead (see NOTES).
+space time datasets. Specific values of temporal variables are compared
+by logical operators and evaluated for each map of the STRDS.<br>
+<b>Important:</b> <code>&amp;&amp;</code> binds stronger than <code>||</code>, as in <em>r.mapcalc</em>, and
+conditions can be grouped with parentheses. The classic algebra (<b>-c</b>)
+evaluates conditions on temporal variables from left to right instead (see
+NOTES).
+
 <p>
 The relation reads from the condition to the conclusion:
-<code>if({contains}, condition, A)</code> takes the maps of A that lie
-within a map of the condition. A map of the then part gets a result only
-if it has a condition map in the given temporal relation. For a condition
-on temporal variables and a temporal relation beyond <code>equal</code>, the
-else part is also taken for the maps that no condition map is related to,
-while the then part leaves them out. <code>if({equal}, ...)</code> and
-<code>if(...)</code> take no such maps, because the condition speaks of maps
-with equal time only, and neither does a condition on map values. In this
-expression each map of B that contains two maps of A becomes the sum of
-these three maps, and the maps of A outside of B are kept unchanged by the
-else part:
+<code>if({contains}, condition, A)</code> takes the maps of A that lie within a map
+of the condition. A map of the then part gets a result only if it has a
+condition map in the given temporal relation. For a condition on
+temporal variables and a temporal relation beyond <code>equal</code>, the else part
+is also taken for the maps that no condition map is related to, while the
+then part leaves them out. <code>if({equal}, ...)</code> and <code>if(...)</code> take no such
+maps, because the condition speaks of maps with equal time only, and
+neither does a condition on map values. In this expression each map of B
+that contains two maps of A becomes the sum of these three maps, and the
+maps of A outside of B are kept unchanged by the else part:
 
 <div class="code"><pre>
 C = merge(if({equal|contains}, B {#,contains} A == 2, B {+,contains,l} A, A), A {!:,during} B)
 </pre></div>
 
 <p>
-The result stays the same without the <code>merge()</code> and the inverse
-select operator, because the else part takes the maps without condition map.
+The result stays the same without the <code>merge()</code> and the inverse select
+operator, because the else part takes the maps without condition map.
 
 <p>
 Several maps with equal time stamps cannot be told apart by their time.
-An arithmetic operator aggregates them (<code>E + E</code> adds all maps of
-a time to each map of E), a conditional pairs them: a single condition map
-applies to all conclusion maps of its time, n condition maps of a time are
-paired with n conclusion maps of that time in the order of the datasets.
-Different numbers of several maps of one time are an error.
+An arithmetic operator aggregates them (<code>E + E</code> adds all maps of a time
+to each map of E), a conditional pairs them: a single condition map
+applies to all conclusion maps of its time, n condition maps of a time
+are paired with n conclusion maps of that time in the order of the
+datasets. Different numbers of several maps of one time are an error.
 
 <h4>Logical operators</h4>
 
@@ -382,38 +391,38 @@ end_minute(A)            The minute of the end time [0 - 59]
 end_second(A)            The second of the end time [0 - 59]
 </pre></div>
 
-In order to use the numbers returned by the functions in the last block above, an
-offset value needs to be added. For example, start_doy(A, 0) would return the
-DOY of the current map in STDS A. end_hour(A, -1) would return the end hour of
-the previous map in STDS A.
+<p>
+In order to use the numbers returned by the functions in the last block
+above, an offset value needs to be added. For example, start_doy(A, 0)
+would return the DOY of the current map in STDS A. end_hour(A, -1) would
+return the end hour of the previous map in STDS A.
 
 <h4>Comparison operator</h4>
 
 As mentioned above, the conditions are comparison expressions that are
 used to evaluate space time datasets. Specific values of temporal
 variables are compared by logical operators and evaluated for each map
-of the STDS and (optionally) related maps.
-For complex relations, the comparison operator can be used to combine
-conditions.
-<br>
+of the STDS and (optionally) related maps. For complex relations, the
+comparison operator can be used to combine conditions.<br>
 The structure is similar to the select operator with the addition of an
-aggregation operator:
-{"comparison operator", "topological relations", aggregation operator, "temporal operator"}
-<br>
+aggregation operator: {"comparison operator", "topological relations",
+aggregation operator, "temporal operator"}<br>
 This aggregation operator (| or &amp;) defines the behaviour when a map is
-related to more than one map, e.g. for the topological relation 'contains'.
-Should all (&amp;) conditions for the related maps be true or is it sufficient
-to have any (|) condition that is true. The resulting boolean value is
-then compared to the first condition by the comparison operator (|| or &amp;&amp;).
-By default, the aggregation operator is related to the comparison
-operator:<br>
+related to more than one map, e.g. for the topological relation
+'contains'. Should all (&amp;) conditions for the related maps be true or is
+it sufficient to have any (|) condition that is true. The resulting
+boolean value is then compared to the first condition by the comparison
+operator (|| or &amp;&amp;). By default, the aggregation operator is related
+to the comparison operator:<br>
 comparison operator -&gt; aggregation operator:
 
 <div class="code"><pre>
 || -&gt; | and &amp;&amp; -&gt; &amp;
 </pre></div>
 
+<p>
 <b>Examples:</b>
+
 <div class="code"><pre>
 Condition 1 {||, equal, r} Condition 2
 Condition 1 {&amp;&amp;, equal|during, l} Condition 2
@@ -424,22 +433,19 @@ Condition 1 {&amp;&amp;, equal|during, l} Condition 2 {&amp;&amp;,contains, |, r
 
 <h4>Comparison of related maps</h4>
 
-Inside <code>if()</code>, the values of two space time datasets can be
-compared with the comparison operators <code>==</code>, <code>!=</code>,
-<code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code> and
-<code>&lt;=</code>. Each map of the first dataset is compared with every map of
-the second dataset that has one of the given topological relations to it. The
-result for a map is true if all comparisons are true (aggregation
-<code>&amp;</code>) or if any is true (aggregation <code>|</code>). The
-operator in braces has the form {"comparison operator", "topological
-relations", aggregation operator, "temporal operator"}; the aggregation
-operator and the temporal operator are optional, the aggregation operator is
-<code>&amp;</code> and the temporal operator <code>l</code> by default, and the
-relations default to <code>equal</code> if the braces are left out. The short
-form <code>A &gt;= F</code> is the operator
-<code>{&gt;=, equal, &amp;, l}</code>. A map of the first dataset without a
-related map gives no map in the classic algebra and a null map in the new
-algebra:
+Inside <code>if()</code>, the values of two space time datasets can be compared with
+the comparison operators <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>&lt;</code> and <code>&lt;=</code>. Each map of
+the first dataset is compared with every map of the second dataset that has
+one of the given topological relations to it. The result for a map is true
+if all comparisons are true (aggregation <code>&amp;</code>) or if any is true
+(aggregation <code>|</code>). The operator in braces has the form
+{"comparison operator", "topological relations", aggregation operator,
+"temporal operator"}; the aggregation operator and the temporal operator
+are optional, the aggregation operator is <code>&amp;</code> and the temporal operator <code>l</code>
+by default, and the relations default to <code>equal</code> if the braces are left
+out. The short form <code>A &gt;= F</code> is the operator <code>{&gt;=, equal, &amp;, l}</code>. A map of
+the first dataset without a related map gives no map in the classic
+algebra and a null map in the new algebra:
 
 <div class="code"><pre>
 if(A {&gt;=, contains, |} E, A, 0)
@@ -447,53 +453,57 @@ if(A {&lt;, equal|during, &amp;, r} F, F, 0)
 if(A &gt;= F, A, F)
 </pre></div>
 
-The first expression is true for a map of A if it is greater than or equal to
-any related map of E; the last one gives, for each map of A, the value of A
-where it is not smaller than the map of F with the same time, and the value of
-F otherwise. In the new algebra the short form compares maps of equal time
-stamps cell by cell, as <code>A + F</code> does, and stops with an error if the
-time stamps differ. With the temporal reference <code>r</code>, the new algebra
-compares each pair on its own, as it does for <code>&amp;&amp;</code> and <code>||</code>,
-where the classic algebra gives every related map the whole condition of its
-left map. Earlier GRASS releases did not read the comparison of two datasets,
-neither in braces nor as <code>A &gt;= F</code>; both algebras do now.
-The granularity mode (<b>-g</b>) reads the short form; it refuses the operator
-in braces, as it refuses every operator in braces.
+<p>
+The first expression is true for a map of A if it is greater than or equal
+to any related map of E; the last one gives, for each map of A, the value
+of A where it is not smaller than the map of F with the same time, and the
+value of F otherwise. In the new algebra the short form compares maps of
+equal time stamps cell by cell, as <code>A + F</code> does, and stops with an error if
+the time stamps differ. With the temporal reference <code>r</code>, the new algebra
+compares each pair on its own, as it does for <code>&amp;&amp;</code> and <code>||</code>, where the
+classic algebra gives every related map the whole condition of its left
+map. Earlier GRASS releases did not read the comparison of two datasets,
+neither in braces nor as <code>A &gt;= F</code>; both algebras do now. The granularity
+mode (<b>-g</b>) reads the short form; it refuses the operator in braces, as
+it refuses every operator in braces.
 
 <h4>Hash operator</h4>
 
-Additionally, the number of maps in intervals can be computed and used in
-conditional statements with the hash (#) operator.
+Additionally, the number of maps in intervals can be computed and used
+in conditional statements with the hash (#) operator.
 
 <div class="code"><pre>
 A {#, contains} B
 </pre></div>
 
+<p>
 The hash operator is mostly used in the condition of an if statement, but
 it can also stand alone or in arithmetic, where it has the precedence of
-<code>+</code> and <code>-</code>: <code>B {#,contains} A + B</code> adds the
-count to each map of B.
-<p>
+<code>+</code> and <code>-</code>: <code>B {#,contains} A + B</code> adds the count to each map of B.
 
+<p>
 This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.<br>
 A list of integers (scalars) corresponding to the maps of A that contain
 maps from B will be returned.
+
 <p>
 The result keeps the time stamps of the maps of A. The temporal operators
-<code>r</code>, <code>u</code>, <code>i</code> and <code>d</code> have no meaning for the
-count and are rejected with a syntax error; <code>l</code> is the default.
+<code>r</code>, <code>u</code>, <code>i</code> and <code>d</code> have no meaning for the count and are rejected with
+a syntax error; <code>l</code> is the default.
 
 <div class="code"><pre>
 C = if({equal}, A {#, contains} B &gt; 2, A {:, contains} B)
 </pre></div>
 
-This expression selects all maps from A that temporally contain more than 2
-maps from B and stores them in space time dataset C. The leading equal
+<p>
+This expression selects all maps from A that temporally contain more than
+2 maps from B and stores them in space time dataset C. The leading equal
 statement in the if condition specifies the temporal relation between
 the if and then part of the if expression. This is very important, so we
 do not need to specify a global time reference (a space time dataset)
 for temporal processing.
+
 <p>
 Furthermore, the temporal algebra allows temporal buffering, shifting
 and snapping with the functions buff_t(), tshift() and tsnap(),
@@ -505,24 +515,26 @@ tshift(A, size)         Shift STDS A with granule ("1 month" or 5)
 tsnap(A)                Snap time instances and intervals of STDS A
 </pre></div>
 
-A negative size shrinks the maps; the new algebra stops with an error where a
-map would keep no time, see "Core and classic algebra".
+<p>
+A negative size shrinks the maps; the new algebra stops with an error where
+a map would keep no time, see "Core and classic algebra".
 
 <h4>Merge function</h4>
 
-The function <code>merge()</code> returns the union of the maps of two space
-time datasets or of two expressions. The datatype of both operands must be
+The function <code>merge()</code> returns the union of the maps of two space time
+datasets or of two expressions. The datatype of both operands must be
 the same.
 
 <div class="code"><pre>
 C = merge(A, B)
 </pre></div>
 
-A map that occurs in both operands identically, that is with the same map
-name, the same time stamps and the same computation, is kept once in the
-result and the algebra prints a warning. This happens, for example, if two
-selections of one dataset overlap. Maps of equal time stamps that were
-computed differently are both kept:
+<p>
+A map that occurs in both operands identically, that is with the same
+map name, the same time stamps and the same computation, is kept once
+in the result and the algebra prints a warning. This happens, for
+example, if two selections of one dataset overlap. Maps of equal time
+stamps that were computed differently are both kept:
 
 <div class="code"><pre>
 C = merge(A + 1, A + 2)
@@ -537,13 +549,16 @@ tmap() function.
 tmap()
 </pre></div>
 
+<p>
 For example:
+
 <div class="code"><pre>
 C = A {:, during} tmap(event)
 </pre></div>
 
-This statement selects all maps from space time data set A that are during
-the temporal extent of the single map 'event'
+<p>
+This statement selects all maps from space time data set A that are
+during the temporal extent of the single map 'event'
 
 <h3>Spatial raster operators</h3>
 
@@ -561,12 +576,13 @@ Symbol  description     precedence
 
 <p>
 A division of two integers is an integer division, as in <em>r.mapcalc</em>, and
-the result is truncated towards zero: <code>7 / 2</code> is 3,
-<code>-7 / 2</code> is -3 and <code>7.0 / 2</code> is 3.5. In
-<code>7 / 2 / 2 * A</code> the numbers are divided first, so the chain
-multiplies A by 1. Both algebras compute it so.
+the result is truncated towards zero: <code>7 / 2</code> is 3, <code>-7 / 2</code> is -3 and
+<code>7.0 / 2</code> is 3.5. In <code>7 / 2 / 2 * A</code> the numbers are divided first, so the
+chain multiplies A by 1. Both algebras compute it so.
+
 <p>
 And raster functions:
+
 <div class="code"><pre>
 abs(x)                  return absolute value of x
 double(x)               convert x to double-precision floating point
@@ -586,7 +602,7 @@ null                    set null value
 exist(x)                use the values of x as condition (non-zero is true)
 </pre></div>
 
-<h4>Single raster map </h4>
+<h4>Single raster map</h4>
 
 The temporal raster algebra features also a function to integrate single
 raster maps without time stamps into the expressions.
@@ -595,17 +611,19 @@ raster maps without time stamps into the expressions.
 map()
 </pre></div>
 
+<p>
 For example:
+
 <div class="code"><pre>
 C = A * map(constant_value)
 </pre></div>
 
+<p>
 This statement multiplies all raster maps from space time raster data
 set A with the raster map 'constant_value'
 
 <h3>Combinations of temporal, raster and select operators</h3>
 
-<p>
 The user can combine the temporal topology relations, the temporal
 operators and the spatial/select operators to create spatio-temporal
 operators as follows:
@@ -639,7 +657,6 @@ map for a1 of A:
 
 <h3>Temporal neighbourhood modifier</h3>
 
-<p>
 The neighbourhood modifier of <em>r.mapcalc</em> is extended for the temporal
 raster algebra with the temporal dimension. The format is
 strds[r,c,t], where r is the row offset, c is the column offset and
@@ -680,7 +697,6 @@ second predecessor map.
 
 <h2>NOTES</h2>
 
-<p>
 By default, only temporal topological relations among space time
 datasets (STDS) are evaluated.
 The <b>-s</b> flag additionally activates the evaluation of the spatial
@@ -732,75 +748,71 @@ An existing result dataset without <b>--overwrite</b> stops a dry run with
 <h3>Core and classic algebra</h3>
 
 Since GRASS 8.6, <em>t.rast.algebra</em> computes its expressions with the
-functions of the Python package <code>grass.temporal.algebra</code>. The
-implementation that computed them before, the reference implementation in
-<code>grass.temporal.classic</code>, stays in the source code, and its rules
-stay available as the classic algebra, so that published results remain
+functions of the Python package <code>grass.temporal.algebra</code>. The implementation
+that computed them before, the reference implementation in
+<code>grass.temporal.classic</code>, stays in the source code, and its rules stay
+available as the classic algebra, so that published results remain
 reproducible. The classic algebra is a set of rules of the same functions: it
 reads the syntax of the reference implementation and applies its rules for
 relations, order and results. The flag <b>-c</b> selects
-it for one call, the environment variable
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
-<code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable
-selects the new algebra, and the flag takes precedence over the variable.
-In Python, <code>TemporalRasterAlgebraParser</code> takes the keyword
-<code>classic=True</code> for the same purpose. Both algebras compute the
-granularity mode (<b>-g</b>), see below.
+it for one call, the environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code>
+for a whole session or script; <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or
+empty variable selects the new algebra, and the flag takes precedence over the
+variable. In Python, <code>TemporalRasterAlgebraParser</code> takes the keyword
+<code>classic=True</code> for the same purpose. Both algebras compute the granularity
+mode (<b>-g</b>), see below.
 
 <p>
-The two algebras differ in the following points. The examples use four daily
-maps in A with the values 1 to 4, two maps of two days in B that start with A,
-and time instances in I.
+The two algebras differ in the following points. The examples use four
+daily maps in A with the values 1 to 4, two maps of two days in B that
+start with A, and time instances in I.
 
 <ol>
 <li><b>One result per conclusion map.</b> If a map of the conclusion of an
-<code>if</code> has several related condition maps, their conditions are
-joined with and; written as <code>{during,|}</code>, the relation joins them
-with or. The classic algebra gives one result for each pair of condition map
-and conclusion map, so that a conclusion map can occur several times. The
-first expression keeps the cells of B where both maps of A within the map of
-B are greater than 1, the second where one of them is:
+<code>if</code> has several related condition maps, their conditions are joined
+with and; written as <code>{during,|}</code>, the relation joins them with or. The
+classic algebra gives one result for each pair of condition map and
+conclusion map, so that a conclusion map can occur several times. The
+first expression keeps the cells of B where both maps of A within the
+map of B are greater than 1, the second where one of them is:
 
 <div class="code"><pre>
 C = if({during}, A &gt; 1, B, 0)
 C = if({during,|}, A &gt; 1, B, 0)
 </pre></div>
 </li>
-
 <li><b>Equal time stamps for then and else.</b> With a condition on map
 values, the then and the else part need equal time stamps; otherwise the
-algebra stops with an error. The classic algebra computes only the maps whose
-time stamp occurs in both parts and leaves out the others without notice.
-This expression is therefore an error, where the classic algebra gives an
-empty result:
+algebra stops with an error. The classic algebra computes only the maps
+whose time stamp occurs in both parts and leaves out the others without
+notice. This expression is therefore an error, where the classic
+algebra gives an empty result:
 
 <div class="code"><pre>
 C = if(A &gt; 2, A, B)
 </pre></div>
 </li>
-
-<li><b>Precedence.</b> <code>&amp;&amp;</code> binds stronger than
-<code>||</code>, and conditions can be grouped with parentheses. The classic
-algebra evaluates conditions on temporal variables from left to right and
-does not accept parentheses around conditions. The first expression takes all
-maps of A, because <code>td(A) == 1</code> is true for each of them; the
-classic algebra reads it as the second expression and takes none:
+<li><b>Precedence.</b> <code>&amp;&amp;</code> binds stronger than <code>||</code>, and conditions can be
+grouped with parentheses. The classic algebra evaluates conditions on
+temporal variables from left to right and does not accept parentheses
+around conditions. The first expression takes all maps of A, because
+<code>td(A) == 1</code> is true for each of them; the classic algebra reads it as
+the second expression and takes none:
 
 <div class="code"><pre>
 C = if(td(A) == 1 || td(A) == 2 &amp;&amp; td(A) == 3, A)
 C = if((td(A) == 1 || td(A) == 2) &amp;&amp; td(A) == 3, A)
 </pre></div>
 </li>
-
-<li><b>Right reference.</b> <code>A {:,R,r} B</code> and
-<code>A {op,R,r} B</code> give one map per related pair, with the time stamp
-of the right map and, for an operator, the value of this pair. The classic
-algebra keeps only the last pair of a selection, and an operator combines the
-left map with all of its related right maps in every result. The first
-expression gives four maps, the time stamps of A with the values of B; the
-classic algebra gives one map per map of B. If a map b1 contains the maps a1
-and a2, the second expression gives <code>b1 + a1</code> and
-<code>b1 + a2</code>, the classic algebra <code>b1 + a1 + a2</code> for both:
+<li><b>Right reference.</b> <code>A {:,R,r} B</code> and <code>A {op,R,r} B</code> give one map
+per related pair, with the time stamp of the right map and, for an
+operator, the value of this pair. The classic algebra keeps only the
+last pair of a selection, and an operator combines the left map with
+all of its related right maps in every result. The first expression gives
+four maps, the time stamps of A with the values of B; the classic
+algebra gives one map per map of B. If a map b1 contains the maps a1 and
+a2, the second expression gives <code>b1 + a1</code> and <code>b1 + a2</code>, the classic
+algebra <code>b1 + a1 + a2</code> for both:
 
 <div class="code"><pre>
 C = B {:,contains,r} A
@@ -808,13 +820,11 @@ C = B {+,contains,r} A
 </pre></div>
 
 <p>
-The inverse selection <code>A {!:,R,t} B</code> takes only the temporal
-operator <code>l</code>, because its maps have no related map to combine
-with; the classic algebra accepts the other operators.
-</li>
-
-<li><b>td() of a time instance</b> is null instead of an error, so a
-condition on it is neither true nor false. This expression gives no map; the
+The inverse selection <code>A {!:,R,t} B</code> takes only the temporal operator
+<code>l</code>, because its maps have no related map to combine with; the classic
+algebra accepts the other operators.</li>
+<li><b>td() of a time instance</b> is null instead of an error, so a condition
+on it is neither true nor false. This expression gives no map; the
 classic algebra stops with an error:
 
 <div class="code"><pre>
@@ -822,13 +832,11 @@ C = if(td(I) &gt; 0, I)
 </pre></div>
 
 <p>
-A temporal variable that a map does not have, such as <code>end_doy()</code>
-of a time instance or the calendar values of relative time, is an error in
-both algebras.
-</li>
-
-<li><b>More syntax.</b> Comparisons, temporal functions and the minus sign
-may stand anywhere in an expression, and a dataset may have the name of a
+A temporal variable that a map does not have, such as <code>end_doy()</code> of a
+time instance or the calendar values of relative time, is an error in
+both algebras.</li>
+<li><b>More syntax.</b> Comparisons, temporal functions and the minus sign may
+stand anywhere in an expression, and a dataset may have the name of a
 function. The classic algebra reports a syntax error for each of these
 expressions; the last one adds 1 to a dataset named <code>td</code>:
 
@@ -841,43 +849,41 @@ C = isnull(A)
 C = td + 1
 </pre></div>
 </li>
-
 <li><b>Intersection with several related maps.</b> With the temporal
-operator <code>i</code>, a map whose related maps have no common intersection
-is left out. The classic algebra intersects the map with its related maps
-until the first one that has no common time with the result so far, so that
-its result depends on the order of the related maps. If a dataset H has a map
-from day 2 to day 4, this map follows the map of A of day 1 and precedes the
-one of day 4; the intersections are the time instances of day 2 and day 4, and
-the map is left out:
+operator <code>i</code>, a map whose related maps have no common intersection is
+left out. The classic algebra intersects the map with its related maps
+until the first one that has no common time with the result so far,
+so that its result depends on the order of the related maps. If a
+dataset H has a map from day 2 to day 4, this map follows the map of A
+of day 1 and precedes the one of day 4; the intersections are the time
+instances of day 2 and day 4, and the map is left out:
 
 <div class="code"><pre>
 C = H {:,follows|precedes,i} A
 </pre></div>
 </li>
-
-<li><b>Negative buffer.</b> A negative size in <code>buff_t()</code> shrinks the
-maps by that size at both ends. The new algebra stops with an error if a map
-would keep no time, that is if its end would fall on or before its start, and
-for a time instance, which has no duration to shrink. The classic algebra goes
-on instead: for a map whose end would fall before its start it prints an error
-message and keeps the old time stamp, and it makes a time instance of a map
-whose end equals its start. For maps of two days, the first expression shrinks
-them to one day and the second is an error:
+<li><b>Negative buffer.</b> A negative size in <code>buff_t()</code> shrinks the maps
+by that size at both ends. The new algebra stops with an error if a map
+would keep no time, that is if its end would fall on or before its start,
+and for a time instance, which has no duration to shrink. The classic
+algebra goes on instead: for a map whose end would fall before its
+start it prints an error message and keeps the old time stamp, and it
+makes a time instance of a map whose end equals its start. For maps
+of two days, the first expression shrinks them to one day and the
+second is an error:
 
 <div class="code"><pre>
 C = buff_t(B, "-12 hours")
 C = buff_t(B, "-1 day")
 </pre></div>
 </li>
-
 <li><b>merge() of maps read at an offset.</b> The new algebra takes two maps
-with equal content and time stamps as one map. The classic algebra, as the
-reference implementation, makes a new map for each map read with a temporal
-neighbourhood modifier and for each value of a temporal function with an
-offset, and <code>merge()</code> keeps such a map next to an equal one. The
-first two expressions give four maps in the new algebra and eight in the
-classic algebra, the third three and six:
+with equal content and time stamps as one map. The classic algebra, as
+the reference implementation, makes a new map for each map read with a
+temporal neighbourhood modifier and for each value of a temporal
+function with an offset, and <code>merge()</code> keeps such a map next to an
+equal one. The first two expressions give four maps in the new algebra
+and eight in the classic algebra, the third three and six:
 
 <div class="code"><pre>
 C = merge(A[0], A[0])
@@ -886,38 +892,40 @@ C = merge(start_day(A, 1), start_day(A, 1))
 </pre></div>
 </li>
 <li><b>tsnap() of maps that start together.</b> Of maps with the same start,
-<code>tsnap()</code> snaps only one to the start of the next later map; the
-others keep their own ends. The new algebra takes the map that ends last, so
-its result does not depend on the order of the maps. The classic algebra
-takes the map listed last, so that the order of the arguments of
-<code>merge()</code> matters. If C has a map from day 2 to day 4, it starts
-with the map of A on days 2 to 3. The new algebra gives both expressions the
-same maps, the map of C ends on day 3. The classic algebra gives this result
-for the first expression only; in the second the map of C keeps its end on
-day 4 and the map of A ends on day 3:
+<code>tsnap()</code> snaps only one to the start of the next later map; the others
+keep their own ends. The new algebra takes the map that ends last, so
+its result does not depend on the order of the maps. The classic
+algebra takes the map listed last, so that the order of the arguments
+of <code>merge()</code> matters. If C has a map from day 2 to day 4, it starts
+with the map of A on days 2 to 3. The new algebra gives both
+expressions the same maps, the map of C ends on day 3. The classic
+algebra gives this result for the first expression only; in the second
+the map of C keeps its end on day 4 and the map of A ends on day 3:
 
 <div class="code"><pre>
 D = tsnap(merge(A, C))
 D = tsnap(merge(C, A))
 </pre></div>
 </li>
-<li><b>Integers beyond 32 bits.</b> The new algebra keeps an integer constant
-beyond 32 bits and writes it as a floating point number, so the result map is
-of type DCELL. The classic algebra reads it as <em>r.mapcalc</em> does, which
-keeps only its lower 32 bits: 3000000000 becomes -1294967296, and 2147483648
-becomes null. Each map of A lasts one day, so this expression gives 3000000001
-in the new algebra and -1294967295 in the classic algebra:
+<li><b>Integers beyond 32 bits.</b> The new algebra keeps an integer
+constant beyond 32 bits and writes it as a floating point number, so the
+result map is of type DCELL. The classic algebra reads it as <em>r.mapcalc</em>
+does, which keeps only its lower 32 bits: 3000000000 becomes
+-1294967296, and 2147483648 becomes null. Each map of A lasts one day,
+so this expression gives 3000000001 in the new algebra and -1294967295
+in the classic algebra:
 
 <div class="code"><pre>
 C = if(td(A) &lt;= 0.5, A, 3000000000) + td(A)
 </pre></div>
 
-The classic algebra also computes arithmetic on time function values as
-<em>r.mapcalc</em> does, in 32 bits, also in a condition; the new algebra computes
-with all digits. If the two maps of RS last 3000000000 seconds each,
-<code>td(RS) * td(RS)</code> wraps around to -494665728 in the classic algebra,
-so this expression gives the value 1 for both maps there and the maps of RS in
-the new algebra. A time function on its own, as in
+<p>
+The classic algebra also computes arithmetic on time function values
+as <em>r.mapcalc</em> does, in 32 bits, also in a condition; the new algebra
+computes with all digits. If the two maps of RS last 3000000000 seconds
+each, <code>td(RS) * td(RS)</code> wraps around to -494665728 in the classic
+algebra, so this expression gives the value 1 for both maps there and
+the maps of RS in the new algebra. A time function on its own, as in
 <code>if(td(RS) &gt; 2000000000, RS, 1)</code>, keeps all its digits in both
 algebras.
 
@@ -927,9 +935,9 @@ C = if(td(RS) * td(RS) &gt; 5, RS, 1)
 </li>
 <li><b>A number beside a temporal operator.</b> An operator in braces or the
 hash operator <code>#</code> needs a space time dataset on both sides. The
-classic algebra reads the number with the expression behind it as the right
-operand, so that the first expression is the second; the new algebra reports a
-syntax error for the first and computes the second:
+classic algebra reads the number with the expression behind it as the
+right operand, so that the first expression is the second; the new
+algebra reports a syntax error for the first and computes the second:
 
 <div class="code"><pre>
 C = A {*,equal} 2 - B
@@ -938,19 +946,20 @@ C = A # 2 - B
 C = A # (2 - B)
 </pre></div>
 
-With an operator in braces, the same holds for a number with an expression in
-front of it as the left operand. The classic algebra reads this expression, the
-new algebra reports a syntax error:
+<p>
+With an operator in braces, the same holds for a number with an
+expression in front of it as the left operand. The classic algebra reads
+this expression, the new algebra reports a syntax error:
 
 <div class="code"><pre>
 C = A - 1.5 {%,starts} A
 </pre></div>
 </li>
 <li><b>Maps without a related map under -n.</b> With <b>-n</b>, the new algebra
-registers a null map for each map of the left side of <code>{&amp;&amp;,...}</code>
-that has no related map; the classic algebra never registers one. In this
-expression the maps of A that contain no map of E give a null map each in the
-new algebra and no map in the classic algebra:
+registers a null map for each map of the left side of <code>{&amp;&amp;,...}</code> that
+has no related map; the classic algebra never registers one. In this
+expression the maps of A that contain no map of E give a null map each
+in the new algebra and no map in the classic algebra:
 
 <div class="code"><pre>
 C = if(A &gt; 1 {&amp;&amp;,contains,&amp;,l} E &gt; 1, A)
@@ -958,26 +967,27 @@ C = if(A &gt; 1 {&amp;&amp;,contains,&amp;,l} E &gt; 1, A)
 </li>
 </ol>
 
-In Python, both algebras raise <code>SyntaxError</code> for an expression they
-cannot read. For one they cannot compute, the new algebra raises
-<code>ValueError</code> or <code>TypeError</code>, where the classic algebra
-raises <code>FatalError</code>. Both raise <code>FatalError</code> for a
-missing dataset or map and, without overwrite, for an existing result dataset
-or map; a dry run of the classic algebra stops only at an existing result map.
-The tool stops with the error message in both algebras.
+<p>
+In Python, both algebras raise <code>SyntaxError</code> for an expression they cannot
+read. For one they cannot compute, the new algebra raises <code>ValueError</code> or
+<code>TypeError</code>, where the classic algebra raises <code>FatalError</code>. Both raise
+<code>FatalError</code> for a missing dataset or map and, without overwrite, for an
+existing result dataset or map; a dry run of the classic algebra stops only
+at an existing result map. The tool stops with the error message in both
+algebras.
 
 <p>
 Two corrections apply to both algebras, so <b>-c</b> gives the rules of the
 classic algebra, not the results of a particular release. First,
-<code>if({R}, condition, conclusion)</code> reads "condition R conclusion"
-also for conditions on temporal variables, as it always did for conditions on
-map values. Second, with a temporal relation beyond <code>equal</code>, the
-else part of a condition on temporal variables also takes the maps that no
-condition map is related to (see CONDITIONAL STATEMENTS). Figure A3 of
-Gebbert, Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3,
-3 to 5 and 5 to 7 of January 2001, B has daily maps from day 1 to 10, and
-this expression gives the first two maps of A and the maps of B from day 5
-on, as the figure shows, while GRASS 8.4 gives only the two maps of A:
+<code>if({R}, condition, conclusion)</code> reads "condition R conclusion" also for
+conditions on temporal variables, as it always did for conditions on map
+values. Second, with a temporal relation beyond <code>equal</code>, the else part of
+a condition on temporal variables also takes the maps that no condition
+map is related to (see CONDITIONAL STATEMENTS). Figure A3 of Gebbert,
+Leppelt and Pebesma (2019) needs both: A has maps from day 1 to 3, 3 to 5
+and 5 to 7 of January 2001, B has daily maps from day 1 to 10, and this
+expression gives the first two maps of A and the maps of B from day 5 on,
+as the figure shows, while GRASS 8.4 gives only the two maps of A:
 
 <div class="code"><pre>
 C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)
@@ -994,50 +1004,46 @@ exceptions below. In these cases those releases computed wrongly, ended in an
 error that had no reason, or reported the wrong error. <b>-c</b> now gives the
 result described here. The reference implementation was corrected in the same
 way, except in items 16 and 17: it still takes the time of a partner whose box
-only touches, and it still raises the <code>CalledModuleError</code> of a failed
-module. The new algebra never computed these cases wrongly; only the items on
-infinite values, on month steps, on dates beyond the year 9999, on a map that
-starts with the next map in tsnap() and on a failed module concerned the library
-and with it both algebras. Results of earlier GRASS versions that used one of
-these forms need a new run. The examples use the datasets of the list above and,
-in addition, N with daily maps of the values 11 to 14 and RT with maps of
-relative time.
+only touches, and it still raises the <code>CalledModuleError</code> of a failed module.
+The new algebra never computed these cases wrongly; only the items on infinite
+values, on month steps, on dates beyond the year 9999, on a map that starts with
+the next map in tsnap() and on a failed module concerned the library and with it
+both algebras. Results of earlier GRASS versions that used one of these forms
+need a new run. The examples use the datasets of the list above and, in
+addition, N with daily maps of the values 11 to 14 and RT with maps of relative
+time.
 
 <ol>
-<li><b>td() of an expression</b> on the right of an operator used the value of the
-expression instead of the duration of its maps. With daily maps in N and A,
-the expression gave <code>N - A * 2</code> where it now gives
-<code>N - 1</code>:
+<li><b>td() of an expression</b> on the right of an operator used the value of
+the expression instead of the duration of its maps. With daily maps in N
+and A, the expression gave <code>N - A * 2</code> where it now gives <code>N - 1</code>:
 
 <div class="code"><pre>
 C = N - td(A * 2)
 </pre></div>
 </li>
-
-<li><b>tsnap() and tshift() of no maps.</b> If the expression inside has no maps,
-the result is empty, like any other empty result: an empty dataset is created,
-and an enclosing expression goes on with no maps. Earlier versions ended in an
-error. No map of A is equal to a map of B, so both expressions give an empty
-dataset:
+<li><b>tsnap() and tshift() of no maps.</b> If the expression inside has no
+maps, the result is empty, like any other empty result: an empty dataset
+is created, and an enclosing expression goes on with no maps. Earlier
+versions ended in an error. No map of A is equal to a map of B, so both
+expressions give an empty dataset:
 
 <div class="code"><pre>
 C = tsnap(A {:,equal} B)
 C = A + tshift(A {:,equal} B, "1 day")
 </pre></div>
 </li>
-
-<li><b>Increments that the library refuses.</b> An increment of
-<code>tshift()</code> or <code>buff_t()</code> that does not fit the temporal
-type is a syntax error and leaves no result dataset: a text with a time unit
-on relative time, a number without unit on absolute time, or a text that is
-not a time step. Earlier versions raised a <code>TypeError</code> for
-<code>buff_t()</code> on relative time, and for <code>tshift()</code> they did
-not report the increment as the cause: the result was missing, or an enclosing
-operator complained about its input. Each of these expressions is a syntax
-error. The new algebra refuses the same increments with a
-<code>ValueError</code>. A number with a fraction, such as
-<code>buff_t(RT, 1.5)</code>, stays valid on relative time in the classic
-algebra; the new algebra reads whole numbers only and reports a syntax error:
+<li><b>Increments that the library refuses.</b> An increment of <code>tshift()</code> or
+<code>buff_t()</code> that does not fit the temporal type is a syntax error and
+leaves no result dataset: a text with a time unit on relative time, a
+number without unit on absolute time, or a text that is not a time step.
+Earlier versions raised a <code>TypeError</code> for <code>buff_t()</code> on relative time,
+and for <code>tshift()</code> they did not report the increment as the cause: the
+result was missing, or an enclosing operator complained about its input.
+Each of these expressions is a syntax error. The new algebra refuses the
+same increments with a <code>ValueError</code>. A number with a fraction, such as
+<code>buff_t(RT, 1.5)</code>, stays valid on relative time in the classic algebra;
+the new algebra reads whole numbers only and reports a syntax error:
 
 <div class="code"><pre>
 C = tshift(A, "1 DAY")
@@ -1046,127 +1052,114 @@ C = buff_t(RT, "3 hours")
 C = buff_t(A, 3)
 </pre></div>
 </li>
-
-<li><b>merge() and the data type.</b> The data types of the maps are not compared,
-so a dataset may hold integer and floating point maps. Earlier versions
-refused <code>merge()</code> of a dataset with a single map from
-<code>map()</code> or <code>tmap()</code> with the error that the datasets
-must have the same data type. The first expression gives the four maps of A
-and the single map, the second the maps of A and the floating point maps
-computed from them:
+<li><b>merge() and the data type.</b> The data types of the maps are not
+compared, so a dataset may hold integer and floating point maps. Earlier
+versions refused <code>merge()</code> of a dataset with a single map from <code>map()</code> or
+<code>tmap()</code> with the error that the datasets must have the same data type.
+The first expression gives the four maps of A and the single map, the
+second the maps of A and the floating point maps computed from them:
 
 <div class="code"><pre>
 C = merge(A, tmap(singletmap))
 C = merge(A, A * 1.5)
 </pre></div>
 </li>
-
-<li><b>Time constants with offset.</b> A temporal function with an offset needs a
-map with the time value it returns. On a map without it, such as
-<code>end_month()</code> of a time instance or <code>start_month()</code> of
-relative time, the expression stops with an error that says the function
-requires absolute time, as the same function in a condition does. Earlier
-versions wrote <code>None</code> into the <em>r.mapcalc</em> expression, which
-failed when the maps were computed:
+<li><b>Time constants with offset.</b> A temporal function with an offset
+needs a map with the time value it returns. On a map without it, such as
+<code>end_month()</code> of a time instance or <code>start_month()</code> of relative time, the
+expression stops with an error that says the function requires absolute
+time, as the same function in a condition does. Earlier versions wrote
+<code>None</code> into the <em>r.mapcalc</em> expression, which failed when the maps were
+computed:
 
 <div class="code"><pre>
 C = A + end_month(I, 0)
 C = A + start_month(RT, 1)
 </pre></div>
 </li>
-
-<li><b>Intersection with a time instance.</b> With the temporal operator
-<code>i</code>, the time stamp of the result is the time instance, for a
-selection and for an operator, on absolute and on relative time. Earlier
-versions kept the time stamp of the left map for an operator and failed with a
-<code>TypeError</code> for a selection on relative time. If <code>sinst</code>
-is an instance on day 1, both expressions give one map with the instance as
-time:
+<li><b>Intersection with a time instance.</b> With the temporal operator <code>i</code>, the
+time stamp of the result is the time instance, for a selection and for
+an operator, on absolute and on relative time. Earlier versions kept the
+time stamp of the left map for an operator and failed with a <code>TypeError</code>
+for a selection on relative time. If <code>sinst</code> is an instance on day 1,
+both expressions give one map with the instance as time:
 
 <div class="code"><pre>
 C = A {:,contains,i} tmap(sinst)
 C = A {+,contains,i} tmap(sinst)
 </pre></div>
 </li>
-
 <li><b>Infinite values.</b> A map with infinite values, such as the result of
-<code>exp(A * 1000)</code>, is registered with null as its minimum and
-maximum. Earlier versions failed when they wrote the map statistics ("no such
+<code>exp(A * 1000)</code>, is registered with null as its minimum and maximum.
+Earlier versions failed when they wrote the map statistics ("no such
 column: inf") and could leave the temporal database locked.
 
 <div class="code"><pre>
 C = exp(A * 1000)
 </pre></div>
 </li>
-
-<li><b>td() of a counted map.</b> <code>td()</code> of a map counted by the
-hash operator gave the count instead of the duration, as an operand and in a
-comparison (corrected 17 October 2026). The datasets A and N have daily maps
-and <code>A # merge(A, N)</code> counts 2 for each map of A. The expression
-added 2 to the maps of N where it now adds the one day of their duration; a
-condition such as <code>td(A # merge(A, N)) &gt; 1.5</code> was true and is
-false now. The duration of a map that is not counted did not change:
+<li><b>td() of a counted map.</b> <code>td()</code> of a map counted by the hash operator
+gave the count instead of the duration, as an operand and in a
+comparison (corrected 17 October 2026). The datasets A and N have daily
+maps and <code>A # merge(A, N)</code> counts 2 for each map of A. The expression
+added 2 to the maps of N where it now adds the one day of their
+duration; a condition such as <code>td(A # merge(A, N)) &gt; 1.5</code> was true and
+is false now. The duration of a map that is not counted did not change:
 
 <div class="code"><pre>
 C = N + td(A # merge(A, N))
 </pre></div>
 </li>
-
-<li><b>A map read at an offset as a truth value.</b> A time function of a map
-read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
-joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells
-is a truth value, like the time function of any map (corrected 17 October
-2026). The releases before GRASS 8.6 wrote the map itself as the operand, so
-that a map with a value other than 0 counted as true whatever the time
-function said. The same holds where the time condition follows further time
-conditions, as in <code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1
-&amp;&amp; A > 0</code>. With the values 1 to 4 in A, the expression gave 1, 2
-and 3
-and now gives 0, 0 and 3, because <code>end_year(A[1]) == 1</code> is false.
-The cell value of a map read at an offset, as
-in <code>A[1] &gt; 1 &amp;&amp; A</code>, did not change:
+<li><b>A map read at an offset as a truth value.</b> A time function of a
+map read at an offset in time or in cells, such as <code>end_year(A[1])</code>,
+joined with <code>&amp;&amp;</code> or <code>||</code> to a condition on cells is a truth value, like
+the time function of any map (corrected 17 October 2026). The releases
+before GRASS 8.6 wrote the map itself as the operand, so that a map with
+a value other than 0 counted as true whatever the time function said. The
+same holds where the time condition follows further time conditions, as in
+<code>end_year(A[1]) == 1 &amp;&amp; end_year(N) == 1 &amp;&amp; A &gt; 0</code>.
+With the values 1 to 4 in A, the expression gave 1, 2 and 3 and now
+gives 0, 0 and 3, because <code>end_year(A[1]) == 1</code> is false. The cell
+value of a map read at an offset, as in <code>A[1] &gt; 1 &amp;&amp; A</code>, did not
+change:
 
 <div class="code"><pre>
 C = if(end_year(A[1]) == 1 || A &gt; 2, A)
 </pre></div>
 </li>
-
 <li><b>Chains that start with a number or map().</b> A chain of operators whose
 first operand is a number or a map without time stamp, such as
-<code>map(L) - 1 - A</code>, was grouped from the right, as
-<code>map(L) - (1 - A)</code> (corrected 17 October 2026). It is grouped from
-the left now, as in mathematics and in the new algebra. With 0.5 in L and the
-values 1 to 4 in A, the expression gave 0.5, 1.5, 2.5 and 3.5 and now gives
--1.5, -2.5, -3.5 and -4.5, the result of <code>(map(L) - 1) - A</code>. The
-same holds for <code>2 * map(L) + A</code>, <code>1 - 2 - 3 - A</code> and
-chains inside <code>if()</code>. Chains after a dataset, such as
-<code>A + (map(L) - 1 - 1)</code>, which ended in a syntax error, are read now.
-A chain of numbers or maps alone, as in <code>map(L) - 1 - 1</code>, has no
-dataset to compute and stays a syntax error:
+<code>map(L) - 1 - A</code>, was grouped from the right, as <code>map(L) - (1 - A)</code>
+(corrected 17 October 2026). It is grouped from the left now, as in
+mathematics and in the new algebra. With 0.5 in L and the values 1 to 4
+in A, the expression gave 0.5, 1.5, 2.5 and 3.5 and now gives -1.5, -2.5,
+-3.5 and -4.5, the result of <code>(map(L) - 1) - A</code>. The same holds for
+<code>2 * map(L) + A</code>, <code>1 - 2 - 3 - A</code> and chains inside <code>if()</code>. Chains
+after a dataset, such as <code>A + (map(L) - 1 - 1)</code>, which ended in a syntax
+error, are read now. A chain of numbers or maps alone, as in
+<code>map(L) - 1 - 1</code>, has no dataset to compute and stays a syntax error:
 
 <div class="code"><pre>
 C = map(L) - 1 - A
 </pre></div>
 </li>
-
-<li><b>td() as left operand of a stronger operator.</b> An expression such as
-<code>A + td(A) / A</code> was computed as <code>(A + td(A)) / A</code>, because
-<code>td()</code> could only stand right of an operator (corrected 17 October
-2026). The operators <code>*</code>, <code>/</code> and <code>%</code>, also
-with a temporal operator in braces, bind stronger than <code>+</code> and
-<code>-</code> now, as in mathematics and in the new algebra. With daily maps
-and the values 1 to 4 in A, <code>td(A)</code> is one day. The expression gave
-2, 1.5, 1.3333 and 1.25 and now gives 2, 2.5, 3.3333 and 4.25. A
-<code>td()</code> at the start of a product, such as <code>td(A) * 2</code>,
-was a syntax error and is read now:
+<li><b>td() as left operand of a stronger operator.</b> An expression such
+as <code>A + td(A) / A</code> was computed as <code>(A + td(A)) / A</code>, because <code>td()</code>
+could only stand right of an operator (corrected 17 October 2026). The
+operators <code>*</code>, <code>/</code> and <code>%</code>, also with a temporal operator in braces,
+bind stronger than <code>+</code> and <code>-</code> now, as in mathematics and in the new
+algebra. With daily maps and the values 1 to 4 in A, <code>td(A)</code> is one
+day. The expression gave 2, 1.5, 1.3333 and 1.25 and now gives 2, 2.5,
+3.3333 and 4.25. A <code>td()</code> at the start of a product, such as
+<code>td(A) * 2</code>, was a syntax error and is read now:
 
 <div class="code"><pre>
 C = A + td(A) / A
 </pre></div>
 </li>
 <li><b>A spatial relation without a temporal one.</b> An operator with spatial
-relation names only, such as <code>A {+,equivalent,l} N</code>, related no map,
-because maps are related by their temporal relations, and gave an empty result
+relation names only, such as <code>A {+,equivalent,l} N</code>, related no map, because
+maps are related by their temporal relations, and gave an empty result
 without a message (corrected 17 October 2026). It stops now with the error
 "equivalent is a spatial relation and needs a temporal one, as in
 equal|overlap", as in the new algebra. Write a temporal relation beside the
@@ -1182,9 +1175,9 @@ time as the next map keeps its own end instead (corrected 21 October 2026).
 Earlier versions gave it the end of the next map, so the two maps swapped
 their ends. In the datasets above, the map of A on days 2 to 3 and the
 map of C on days 2 to 4 start together. In the classic algebra (<b>-c</b>,
-<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the reference implementation)
-the map listed first keeps its end. The new algebra orders such maps by
-their end instead, see item 10 of the differences above:
+<code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the reference implementation) the map
+listed first keeps its end. The new algebra orders such maps by their
+end instead, see item 10 of the differences above:
 
 <div class="code"><pre>
 D = tsnap(merge(A, C))
@@ -1204,57 +1197,53 @@ C = tshift(M, "1 months")
 C = buff_t(M, "1 months")
 </pre></div>
 
-<p>A month step back that ends in December of the year before last or
+<p>
+A month step back that ends in December of the year before last or
 earlier, for example <code>buff_t(A, "24 months")</code> on a map that starts on 1
 December or <code>tshift(A, "-13 months")</code> on one that starts in January,
 ended in the error "bad month number 0" and now gives a result
 (corrected 23 October 2026). Years and months of one step count as one
 step of 12 * years + months months, so <code>"1 years, 11 months"</code> and
-<code>"23 months"</code> end on the same day.
-</li>
-<li><b>A date beyond the year 9999.</b> A step that ends behind the year
-9999 or before the year 1, for example <code>buff_t(A, "365 days")</code> on a
-map that ends on 1 December 9999, ended with a traceback ("date value out of
-range") in both algebras. It now ends with the error "... is beyond the year
-9999" or "... is before the year 1" (corrected 23 October 2026); no map and no
-dataset is created.
-</li>
-<li><b>A selection with r or u under -s and maps whose boxes only touch.</b> With
-<b>-s</b> two maps are related when they are related in time and in space;
-boxes that meet at an edge or a corner only are not related in space. A
-selection such as <code>A {:,precedes,r} B</code> took the time of every map
-that was related in time, also of one whose box only touches the box of the
-map of A, and the last such map won. An inverse selection such as <code>A
-{!:,precedes,r} B</code> kept a map without a related partner, as it should,
-but gave it the time of a partner that only touches it. The time is now taken
-only from maps that are related in time and in space, and <code>!:</code>
-keeps a map without such a partner with its own time (corrected 23 October
-2026). For example, a map of A from 1 to 2 January whose box meets at a corner
-the box of a map of B from 2 to 3 January keeps the time 1 to 2 January in the
-inverse selection above, where it took 2 to 3 January. Without <b>-s</b>
-nothing changes.
-</li>
+<code>"23 months"</code> end on the same day.</li>
+<li><b>A date beyond the year 9999.</b> A step that ends behind the year 9999
+or before the year 1, for example <code>buff_t(A, "365 days")</code> on a map that ends
+on 1 December 9999, ended with a traceback ("date value out of range")
+in both algebras. It now ends with the error "... is beyond the year
+9999" or "... is before the year 1" (corrected 23 October 2026); no map
+and no dataset is created.</li>
+<li><b>A selection with r or u under -s and maps whose boxes only touch.</b>
+With <b>-s</b> two maps are related when they are related in time and in
+space; boxes that meet at an edge or a corner only are not related in
+space. A selection such as <code>A {:,precedes,r} B</code> took the time of every
+map that was related in time, also of one whose box only touches the box
+of the map of A, and the last such map won. An inverse selection such as
+<code>A {!:,precedes,r} B</code> kept a map without a related partner, as it
+should, but gave it the time of a partner that only touches it. The time
+is now taken only from maps that are related in time and in space, and
+<code>!:</code> keeps a map without such a partner with its own time (corrected 23
+October 2026). For example, a map of A from 1 to 2 January whose box
+meets at a corner the box of a map of B from 2 to 3 January keeps the
+time 1 to 2 January in the inverse selection above, where it took 2 to 3
+January. Without <b>-s</b> nothing changes.</li>
 <li><b>A failed module.</b> If a module fails while the maps are computed, for
-example <em>r.mapcalc</em> on a floating point map as an operand of
-<code>&amp;&amp;</code>, both algebras ended with a Python traceback. They now
-end with the error
+example <em>r.mapcalc</em> on a floating point map as an operand of <code>&amp;&amp;</code>, both
+algebras ended with a Python traceback. They now end with the error
 <code>Module &lt;r.mapcalc&gt; failed with return code 1, see the error output above</code>
 (corrected 24 October 2026); the cause is in the error output of the module
-above it. No dataset is created.
-</li>
+above it. No dataset is created.</li>
 <li><b>The relation equals.</b> The releases before GRASS 8.6 refused the
-spelling <code>equals</code> of the paper with a syntax error (corrected 17
-October 2026). The classic algebra reads it as <code>equal</code>, so this
-expression gives the same maps as <code>C = A {+,equal,l} B</code>:
+spelling <code>equals</code> of the paper with a syntax error (corrected 17 October
+2026). The classic algebra reads it as <code>equal</code>, so this expression gives
+the same maps as <code>C = A {+,equal,l} B</code>:
 
 <div class="code"><pre>
 C = A {+,equals,l} B
 </pre></div>
 </li>
 <li><b>Comparison of related maps.</b> The releases before GRASS 8.6 refused the
-comparison of two space time datasets, in braces and as <code>A &gt;= F</code>,
-with a syntax error (corrected 17 October 2026). <b>-c</b> reads it as
-described in the comparison of related maps above:
+comparison of two space time datasets, in braces and as <code>A &gt;= F</code>, with a
+syntax error (corrected 17 October 2026). <b>-c</b> reads it as described in
+the comparison of related maps above:
 
 <div class="code"><pre>
 C = if(A {&lt;, contains, |, r} B, B, 0)
@@ -1264,62 +1253,52 @@ C = if(A {&lt;, contains, |, r} B, B, 0)
 
 <h4>Differences from the reference implementation</h4>
 
-Besides the corrections, <b>-c</b> differs from the reference implementation in
-the following points. Only the item on lists of absolute and relative time
-changes the outcome of an expression; the others concern messages, output and
-the class of an error.
+Besides the corrections, <b>-c</b> differs from the reference implementation
+in the following points. Only the item on lists of absolute and relative
+time changes the outcome of an expression; the others concern messages, output
+and the class of an error.
 
 <ul>
-<li><b>Message texts.</b> The texts of warnings and errors are those of the new
-algebra. A <code>merge()</code> that meets maps identical in content and time
-warns "merge() dropped 4 duplicate map(s)" for <code>C = merge(A, A)</code>
-instead of "merge() keeps 4 maps of both operands only once". A refused
-increment of <code>tshift()</code> reports that the text cannot be read as a
-time step, for <code>tshift(A, "1 DAY")</code> instead of "cannot shift
-absolute time by".
-</li>
-
-<li><b>Debug output.</b> In Python, with <code>debug=True</code>, the classic
-algebra prints each module call as a command line like the new algebra, for
+<li><b>Message texts.</b> The texts of warnings and errors are those of the
+new algebra. A <code>merge()</code> that meets maps identical in content and time
+warns "merge() dropped 4 duplicate map(s)" for <code>C = merge(A, A)</code> instead
+of "merge() keeps 4 maps of both operands only once". A refused increment
+of <code>tshift()</code> reports that the text cannot be read as a time step, for
+<code>tshift(A, "1 DAY")</code> instead of "cannot shift absolute time by".</li>
+<li><b>Debug output.</b> In Python, with <code>debug=True</code>, the classic algebra
+prints each module call as a command line like the new algebra, for
 example <code>r.mapcalc expression=q_0=(a1@PERMANENT + 1) nprocs=1</code>. The
 reference implementation printed the <em>r.mapcalc</em> commands and the
-resulting statement.
-</li>
-
+resulting statement.</li>
 <li><b>Order of the errors.</b> Both implementations reject an invalid
-expression, but they can report another class of error. The classic algebra
-reads the whole expression before it computes. An expression with a syntax
-error is therefore a syntax error, where the reference implementation could stop
-with the error of a computation before it reached the syntax error. The classic
-algebra also reads a dataset that is an argument of a function before the
-arguments after it. A dataset of another temporal type stops it there
-(<code>FatalError</code>), where the reference implementation reads such a
-dataset last and can stop with an error of a later argument, for example a
-<code>SyntaxError</code> of <code>buff_t()</code> in
-<code>if(end_year(A) &gt; 3, RT, buff_t(A, 2))</code>. In this expression the
-dataset <code>nosuch</code> does not exist and a bracket is too many; the
-reference implementation reported the missing dataset
-(<code>FatalError</code>):
+expression, but they can report another class of error. The classic
+algebra reads the whole expression before it computes. An expression with
+a syntax error is therefore a syntax error, where the reference
+implementation could stop with the error of a computation before it
+reached the syntax error. The classic algebra also reads a dataset that is
+an argument of a function before the arguments after it. A dataset of
+another temporal type stops it there (<code>FatalError</code>), where the reference
+implementation reads such a dataset last and can stop with an error of a
+later argument, for example a <code>SyntaxError</code> of <code>buff_t()</code> in
+<code>if(end_year(A) &gt; 3, RT, buff_t(A, 2))</code>. In this expression the dataset
+<code>nosuch</code> does not exist and a bracket is too many; the reference
+implementation reported the missing dataset (<code>FatalError</code>):
 
 <div class="code"><pre>
 C = nosuch + A )
 </pre></div>
 </li>
-
-<li><b>Existing result.</b> In Python, without
-<code>tgis.init(raise_fatal_error=True)</code>, the reference implementation
-exits the process with <code>SystemExit</code> for an existing result map. The
-classic algebra raises <code>FatalError</code>, as the new algebra does. The
-tools are not affected, because they initialise the library with
-<code>raise_fatal_error=True</code>.
-</li>
-
+<li><b>Existing result.</b> In Python, without <code>tgis.init(raise_fatal_error=True)</code>,
+the reference implementation exits the process with <code>SystemExit</code> for an
+existing result map. The classic algebra raises <code>FatalError</code>, as the new
+algebra does. The tools are not affected, because they initialise the
+library with <code>raise_fatal_error=True</code>.</li>
 <li><b>Lists of absolute and relative time.</b> A relation over a list that
-mixes maps of absolute and of relative time, made with <code>merge()</code>
-and <code>tmap()</code>, stopped the reference implementation with a
-<code>TypeError</code> while it related the maps. The classic algebra does not
-reproduce this crash: maps of the two types relate to nothing, so this
-expression selects the maps of <code>RT</code> as <code>RT : RT</code> does:
+mixes maps of absolute and of relative time, made with <code>merge()</code> and
+<code>tmap()</code>, stopped the reference implementation with a <code>TypeError</code> while it
+related the maps. The classic algebra does not reproduce this crash: maps
+of the two types relate to nothing, so this expression selects the maps
+of <code>RT</code> as <code>RT : RT</code> does:
 
 <div class="code"><pre>
 C = merge(tmap(sinst), RT) : RT
@@ -1329,7 +1308,6 @@ C = merge(tmap(sinst), RT) : RT
 
 <h3>Granularity algebra</h3>
 
-<p>
 With the flag <b>-g</b>, each space time dataset of the expression is first
 sampled with the common granularity of all datasets of the expression. The
 granules of a dataset follow each other from the start of its first map
@@ -1366,7 +1344,6 @@ See the example "Sample the maps with a common granularity" below.
 
 <h3>Compute with every map of a dataset</h3>
 
-<p>
 The dataset <code>A</code> has four daily maps for 1 to 4 March 2026. Each map has the
 same value in all cells: 1, 2, 3 and 4. The region from <em>g.region</em> is two by
 two cells wide, so the smallest and largest values of a map are equal.
@@ -1378,7 +1355,7 @@ the time of its source map. <b>nprocs</b> lets two <em>r.mapcalc</em> processes 
 the same time; the result is the same as with one. The values are 2, 4, 6 and
 8.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 g.region n=2 s=0 e=2 w=0 res=1
@@ -1413,7 +1390,7 @@ c_2|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|6.0
 c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 from grass.tools import Tools
@@ -1460,7 +1437,6 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|8.0|8.0
 
 <h3>Relate the maps of two datasets by their time</h3>
 
-<p>
 The dataset <code>B</code> has two maps of two days each: <code>b_1</code> with the value 10 for 1
 and 2 March and <code>b_2</code> with the value 20 for 3 and 4 March. Each map of <code>B</code>
 contains two maps of <code>A</code>, and each map of <code>A</code> lies during a map of <code>B</code>. The
@@ -1474,7 +1450,7 @@ and takes the time of <code>B</code>. The second block adds to each map of <code
 expressions differ because the operator combines a map with all of its related
 maps of the right dataset, and does so for each map of the left one.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 r.mapcalc expression="b_1 = 10"
@@ -1506,7 +1482,7 @@ e_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
 e_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.r_mapcalc(expression="b_1 = 10")
@@ -1548,7 +1524,6 @@ e_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
 
 <h3>Name the result maps and plan a run</h3>
 
-<p>
 The option <b>suffix</b> decides how the names of the result maps continue after
 the <b>basename</b>. <code>num</code>, the default, counts the maps from 0, as in the first
 example. For a dataset of absolute time, <code>gran</code> names a map after its start
@@ -1564,7 +1539,7 @@ chain as a Python dictionary: the result dataset (<code>STDS</code>), the calls 
 <code>dry</code> nor its maps exist afterwards, so <em>t.list</em> shows only the datasets of the
 earlier examples.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra expression="by_gran = A * 2" basename=by_gran suffix=gran
@@ -1623,7 +1598,7 @@ by_num
 by_time
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.t_rast_algebra(expression="by_gran = A * 2", basename="by_gran", suffix="gran")
@@ -1684,7 +1659,6 @@ by_time
 
 <h3>Use the classic algebra</h3>
 
-<p>
 With the temporal operator <code>r</code>, the result takes the time of the right
 dataset. The expression <code>B {+,contains,r} A</code> gives one map for each map of
 <code>A</code>: the new algebra adds to each map of <code>A</code> the map of <code>B</code> that contains it,
@@ -1693,7 +1667,7 @@ selects the classic algebra, which adds to each of them all maps of <code>A</cod
 the map of <code>B</code> contains: 13, 13, 27 and 27, with the same times. This is item
 4 in the NOTES; the other differences are listed there.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra expression="core_sum = B {+,contains,r} A" basename=core_sum
@@ -1722,7 +1696,7 @@ classic_sum_2|2026-03-03 00:00:00|2026-03-04 00:00:00|27.0|27.0
 classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.t_rast_algebra(expression="core_sum = B {+,contains,r} A", basename="core_sum")
@@ -1762,7 +1736,6 @@ classic_sum_3|2026-03-04 00:00:00|2026-03-05 00:00:00|27.0|27.0
 
 <h3>Spatially related maps and empty maps</h3>
 
-<p>
 The dataset <code>P</code> has three daily maps with the values 100, 200 and 300 for 1 to
 3 March. The map <code>p_2</code> is created in a region that lies at the columns 10 to
 12, far from the region of the other maps; the region is set back afterwards.
@@ -1780,7 +1753,7 @@ and <code>spatial_1</code> hold 101 and 303 and the numbers are consecutive. The
 algebra (<b>-c</b>) registers no empty map even with <b>-n</b>, and its numbers have
 no gap: <code>classic_0</code> and <code>classic_1</code> hold 101 and 303.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 r.mapcalc expression="p_1 = 100"
@@ -1836,7 +1809,7 @@ classic_0|2026-03-01 00:00:00|2026-03-02 00:00:00|101.0|101.0
 classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.r_mapcalc(expression="p_1 = 100")
@@ -1910,7 +1883,6 @@ classic_1|2026-03-03 00:00:00|2026-03-04 00:00:00|303.0|303.0
 
 <h3>Sample the maps with a common granularity</h3>
 
-<p>
 <code>A</code> has daily maps and <code>B</code> maps of two days. The expression <code>A + B</code> relates
 maps of equal time by default, and no map of <code>A</code> has the time of a map of <code>B</code>,
 so the first block gives a result dataset without maps (the tool warns that
@@ -1918,7 +1890,7 @@ the expression produced no map). With <b>-g</b> the datasets are first sampled
 with their common granularity of one day: each day takes the map of <code>B</code> that
 contains it, and the sum is computed for every day: 11, 12, 23 and 24.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra expression="unsampled = A + B" basename=unsampled
@@ -1942,7 +1914,7 @@ sampled_2|2026-03-03 00:00:00|2026-03-04 00:00:00|23.0|23.0
 sampled_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.t_rast_algebra(expression="unsampled = A + B", basename="unsampled")
@@ -1971,7 +1943,6 @@ sampled_3|2026-03-04 00:00:00|2026-03-05 00:00:00|24.0|24.0
 
 <h3>Compute the NDVI of satellite scenes</h3>
 
-<p>
 The red and the near infrared band of three scenes are stored in two
 datasets, <code>S2_b4</code> and <code>S2_b8</code>, as time instances five days apart. The red
 bands have the values 30, 10 and 10, the near infrared bands 50, 30 and 70.
@@ -1981,7 +1952,7 @@ and the NDVI <code>(nir - red) / (nir + red)</code> of each scene is 0.25, 0.5 a
 division, because the division of two integers is an integer division.
 <em>t.rast.colors</em> sets the color table <code>ndvi</code> for the maps of the result.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 for scene in "1 30 50" "2 10 30" "3 10 70"; do
@@ -2026,7 +1997,7 @@ ndvi_1|2026-06-06 00:00:00|0.5|0.5
 ndvi_2|2026-06-11 00:00:00|0.75|0.75
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 red = (30, 10, 10)
@@ -2086,7 +2057,6 @@ ndvi_2|2026-06-11 00:00:00|0.75|0.75
 
 <h3>Use datasets of another mapset</h3>
 
-<p>
 A dataset of another mapset is named <code>name@mapset</code> in the expression; a name
 without mapset is searched only in the current mapset. The example creates the
 mapset <code>analysis</code> and switches to it. The first call names <code>A</code> without mapset
@@ -2096,7 +2066,7 @@ is always created in the current mapset: its maps are new maps in <code>analysis
 as the column <code>mapset</code> shows, and the maps of <code>A</code> stay as they were. The last
 command returns to <code>PERMANENT</code> for the following examples.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 g.mapset -c mapset=analysis
@@ -2118,7 +2088,7 @@ halved_2|analysis|1.5|1.5
 halved_3|analysis|2.0|2.0
 </pre></div>
 
-<p>Python (grass.tools):
+<p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 from grass.tools import ToolError
@@ -2146,7 +2116,6 @@ halved_3|analysis|2.0|2.0
 
 <h3>Catalog: select and combine maps by temporal relations</h3>
 
-<p>
 The expressions of this and the following sections are shown for the shell
 only; they use the datasets of the earlier examples and a few more, which the
 first block creates: <code>I</code> has two time instances (2 and 4 March 2026, values
@@ -2158,7 +2127,7 @@ their column number (1 and 2, plus 10 for the second map), and the plain map
 <code>k_1</code> with the value 0.5. Every block replaces the dataset <code>C</code> of the block
 before (<b>--overwrite</b>) and lists it.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 r.mapcalc expression="i_1 = 100"
@@ -2361,19 +2330,13 @@ t.rast.algebra failed
 
 <h3>Catalog: conditions and comparisons</h3>
 
-<p>
 An <code>if</code> statement keeps the cells of the then part where the condition is true.
 Without an else part, the cells where a condition on map values is false are
-
-<ol>
-<li>The first block gives 0, 0, 3 and 4; the second tests the start day of the</li>
-</ol>
-
-<p>
+0. The first block gives 0, 0, 3 and 4; the second tests the start day of the
 map instead, so it keeps the first two maps (1 and 2) and gives 0 for the
 other two.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra --overwrite expression="C = if(A &gt; 2, A)" basename=c
@@ -2491,14 +2454,13 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|4.0|4.0
 
 <h3>Catalog: temporal functions, shifts and buffers</h3>
 
-<p>
 The temporal functions give the duration or a part of the date of each map
 as a number. <code>start_day(A)</code> is the day of the month, 1 to 4, so the sum is 2,
 4, 6 and 8. <code>td(A)</code> is the duration of a map in days, here 1. The functions
 <code>tshift()</code>, <code>tsnap()</code> and <code>buff_t()</code> change the time of the maps and leave
 the cell values alone.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra --overwrite expression="C = A + start_day(A)" basename=c
@@ -2638,13 +2600,12 @@ c_1|2|3|2.0|2.0
 
 <h3>Catalog: merge, single maps and the neighbourhood modifier</h3>
 
-<p>
 <code>merge()</code> joins the maps of two datasets into one dataset; here the result
 has the four maps of <code>A</code> and the two of <code>B</code>. A plain map without time stamp
 enters through <code>map()</code>: <code>A * map(k_1)</code> multiplies each map of <code>A</code> with 0.5,
 giving 0.5, 1, 1.5 and 2.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra --overwrite expression="C = merge(A, B)" basename=c
@@ -2774,7 +2735,6 @@ c_0|2026-03-01 00:00:00|2026-03-02 00:00:00|12.0|12.0
 
 <h3>Catalog: where the classic algebra differs</h3>
 
-<p>
 Each pair of blocks computes one expression of the list "Core and classic
 algebra" in the NOTES, first with the new algebra and then with <b>-c</b>. The
 first pair is item 1: the conditions of the two maps of <code>A</code> within a map of <code>B</code>
@@ -2782,7 +2742,7 @@ are joined with and, so the new algebra gives 0 and 20; the classic algebra
 gives one result for each pair of a condition map and a conclusion map, and
 four maps in total.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 t.rast.algebra --overwrite expression="C = if({during}, A &gt; 1, B, 0)" \
@@ -3092,7 +3052,6 @@ c_3|2026-03-04 00:00:00|2026-03-05 00:00:00|-1294967295.0|-1294967295.0
 
 <h3>Catalog: the expressions of the original manual</h3>
 
-<p>
 The following expressions come from the first manual of the algebra and from
 the publication cited under REFERENCES. They name the datasets <code>A</code> and <code>B</code>
 for other data than the examples above, so the first block creates them anew
@@ -3104,7 +3063,7 @@ the first expression gives the same sums. The second form of the sum names the
 relation, the temporal operator and the operator <code>+</code> in curly brackets
 explicitly; it gives the same maps.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 i=0
@@ -3409,7 +3368,6 @@ c_7|2001-01-10 00:00:00|2001-01-11 00:00:00|20.0|20.0
 
 <h3>Catalog: expressions of the publication</h3>
 
-<p>
 The expressions of the publication cited under REFERENCES (Gebbert, Leppelt
 and Pebesma, 2019) follow as they are printed there, on small data that the
 first block creates anew, replacing the datasets with the same names above.
@@ -3424,7 +3382,7 @@ maps from 10 January (1.5 to 6.5), <code>DM</code> two maps of three days from 1
 numbers, because <em>r.mapcalc</em> divides whole numbers as whole numbers. Every
 block names its result <code>PUB</code>, which replaces the one before.
 
-<p>Command line:
+<p>Command line:</p>
 
 <div class="code"><pre>
 g.region n=3 s=0 e=3 w=0 res=1
@@ -3746,7 +3704,6 @@ pub_0|2001-01-01 00:00:00|2001-02-01 00:00:00|1.5|1.5
 
 <h2>SEE ALSO</h2>
 
-<p>
 <em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.mapcalc.html">r.mapcalc</a>,
 <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
 <a href="t.rast.colors.html">t.rast.colors</a>, <a href="t.rast.list.html">t.rast.list</a>,
@@ -3761,7 +3718,6 @@ Wiki</a>
 
 <h2>REFERENCES</h2>
 
-<p>
 The use of this module requires the following software to be installed:
 <a href="https://www.dabeaz.com/ply/">PLY(Python-Lex-Yacc)</a>
 
@@ -3794,4 +3750,5 @@ spatio-temporal map algebra for big data analysis</em>. Data 4, 86.
 
 <h2>AUTHORS</h2>
 
-Thomas Leppelt, S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart Agriculture
+Thomas Leppelt, S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart
+Agriculture

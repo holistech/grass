@@ -1,108 +1,103 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.shift</em> moves all maps of a space time dataset in time by one amount.
-Every map is moved by the same amount. Raster, 3D raster and vector datasets
-are supported; the option <b>type</b> selects the kind of the dataset
-(<code>strds</code>, <code>str3ds</code> or <code>stvds</code>, the default is
-<code>strds</code>). Use it to correct a wrong time reference or to move a
-series onto the time axis of another one. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-an overview, <em><a href="t.register.html">t.register</a></em> for giving maps
-their time at the start and <em><a href="t.snap.html">t.snap</a></em> for
-closing the gaps between intervals afterwards.
+<em>t.shift</em> moves all maps of a space time dataset in time by one amount. Every
+map is moved by the same amount. Raster, 3D raster and vector datasets are supported;
+the option <b>type</b> selects the kind of the dataset (<code>strds</code>, <code>str3ds</code> or
+<code>stvds</code>, the default is <code>strds</code>). Use it to correct a wrong time reference or
+to move a series onto the time axis of another one. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for an overview,
+<em><a href="t.register.html">t.register</a></em> for giving maps their time at the start and
+<em><a href="t.snap.html">t.snap</a></em> for closing the gaps between intervals afterwards.
+
 <p>
-The option <b>input</b> names the space time dataset, and <b>granularity</b>
-gives the amount. Both are required. The start and the end of every map are
-moved by the amount, each for itself; a time instance, which has no end, only
-moves its start. A map keeps its kind: an interval stays an interval and an
-instance stays an instance. A negative number moves the maps back in time.
+The option <b>input</b> names the space time dataset, and <b>granularity</b> gives
+the amount. Both are required. The start and the end of every map are moved
+by the amount, each for itself; a time instance, which has no end, only moves
+its start. A map keeps its kind: an interval stays an interval and an instance
+stays an instance. A negative number moves the maps back in time.
 
 <h3>Absolute time</h3>
 
-The granularity of an absolute dataset has the form <code>number unit</code>.
-The number is an integer, and the unit is one of <code>years</code>,
-<code>months</code>, <code>weeks</code>, <code>days</code>, <code>hours</code>,
-<code>minutes</code> or <code>seconds</code>; the singular
-(<code>1 day</code>) is accepted as well. The number alone (<code>5</code>), a
-fraction (<code>1.5 days</code>) and an unknown unit
+The granularity of an absolute dataset has the form <code>number unit</code>. The number
+is an integer, and the unit is one of <code>years</code>, <code>months</code>, <code>weeks</code>, <code>days</code>,
+<code>hours</code>, <code>minutes</code> or <code>seconds</code>; the singular (<code>1 day</code>) is accepted as well.
+The number alone (<code>5</code>), a fraction (<code>1.5 days</code>) and an unknown unit
 (<code>1 fortnight</code>) are refused.
+
 <p>
-A list of such parts separated by commas, such as <code>1 days, 2 hours</code>,
-moves the maps by all parts at once. Every part has to be
-<code>number unit</code>, and every unit may appear once:
-<code>1 days, 2 days</code> is refused instead of adding the days. Years and
-months of a list form one step of <code>12 * years + months</code> months, with
-one cut to the last day of the month. The parts from weeks to seconds are added
+A list of such parts separated by commas, such as <code>1 days, 2 hours</code>, moves the
+maps by all parts at once. Every part has to be <code>number unit</code>, and every unit
+may appear once: <code>1 days, 2 days</code> is refused instead of adding the days. Years
+and months of a list form one step of <code>12 * years + months</code> months, with one
+cut to the last day of the month. The parts from weeks to seconds are added
 as lengths of time after that.
+
 <p>
-A step of months or years that ends behind the last day of a month ends on that
-last day. A map that starts on January 31 and moves by <code>1 month</code>
-starts on February 28. The start and the end are moved each for itself, so the
-length of such a map can change, and a step back does not always lead to the
-old date. Within a list, the step of months and years comes first:
-<code>1 months, 1 days</code> turns January 31 into February 28 and then into
-March 1.
+A step of months or years that ends behind the last day of a month ends on
+that last day. A map that starts on January 31 and moves by <code>1 month</code> starts
+on February 28. The start and the end are moved each for itself, so the length
+of such a map can change, and a step back does not always lead to the old date.
+Within a list, the step of months and years comes first: <code>1 months, 1 days</code>
+turns January 31 into February 28 and then into March 1.
+
 <p>
 The time of a dataset as a whole follows its maps: the start and the end of the
 dataset, and its granularity, are calculated again. A shift by 12 hours of a
-dataset with daily maps gives it the granularity <code>24 hours</code> instead
-of <code>1 day</code>, because the maps then start at noon and not at
-midnight.
+dataset with daily maps gives it the granularity <code>24 hours</code> instead of <code>1 day</code>,
+because the maps then start at noon and not at midnight.
 
 <h3>Relative time</h3>
 
 The granularity of a relative dataset is one integer, positive, negative or
 zero. It is a number of the unit that the dataset has, and the unit cannot be
-changed by <em>t.shift</em>. A list, a fraction or a text with a unit is
-refused.
+changed by <em>t.shift</em>. A list, a fraction or a text with a unit is refused.
 
 <h2>NOTES</h2>
 
 The time belongs to the map, not to the dataset. A map that is registered in
 more than one space time dataset moves in all of them. To shift a part of a
 dataset only, copy that part into new maps first:
-<em><a href="t.rast.extract.html">t.rast.extract</a></em> with the option
-<b>expression</b> makes new maps in a new dataset, and the shift of that
-dataset does not touch the original maps.
+<em><a href="t.rast.extract.html">t.rast.extract</a></em> with the option <b>expression</b> makes new
+maps in a new dataset, and the shift of that dataset does not touch the
+original maps.
+
 <p>
-<em>t.shift</em> computes the new time of every map before it changes the first
-one. A granularity that is refused, a shift that ends behind the year 9999 and
-a list that names a unit twice therefore leave the dataset as it was. The tool
+<em>t.shift</em> computes the new time of every map before it changes the first one.
+A granularity that is refused, a shift that ends behind the year 9999 and a
+list that names a unit twice therefore leave the dataset as it was. The tool
 ends with these messages, among others:
+
 <ul>
-<li><code>Wrong granularity format: &lt;granularity&gt;</code> for a
-granularity that does not fit the temporal type of the dataset or that has a
-part which is no <code>number unit</code>; a second message names the
-dataset;</li>
-<li><code>Each unit may appear only once in the granularity:
-&lt;granularity&gt;</code>;</li>
-<li><code>Unable to shift dataset &lt;name@mapset&gt; by
-&lt;granularity&gt;: ...</code> for a shift behind the year 9999, which no date
-can express. A list names the map whose time cannot be shifted.</li>
+<li><code>Wrong granularity format: &lt;granularity&gt;</code> for a granularity that does not fit
+the temporal type of the dataset or that has a part which is no <code>number unit</code>;
+a second message names the dataset;</li>
+<li><code>Each unit may appear only once in the granularity: &lt;granularity&gt;</code>;</li>
+<li><code>Unable to shift dataset &lt;name@mapset&gt; by &lt;granularity&gt;: ...</code> for a shift
+behind the year 9999, which no date can express. A list names the map whose
+time cannot be shifted.</li>
 </ul>
+
 <p>
-A dataset must belong to the current mapset, as <em>t.shift</em> writes the new
-times into the temporal database. For a dataset of another mapset the tool ends
-with a message that starts <code>Unable to shift dataset
-&lt;name@mapset&gt; of type strds</code> and says <code>The mapset of the
-database does not match the current mapset</code>. The refusal comes before
-anything is written, also for a dataset without maps.
+A dataset must belong to the current mapset, as <em>t.shift</em> writes the new times
+into the temporal database. For a dataset of another mapset the tool ends with
+a message that starts <code>Unable to shift dataset &lt;name@mapset&gt; of type strds</code> and
+says <code>The mapset of the database does not match the current mapset</code>. The
+refusal comes before anything is written, also for a dataset without maps.
+
 <p>
 A dataset without maps is left as it is, also in its command history.
 <em>t.shift</em> reports that the dataset has no maps, nothing to shift, as a
-message and ends without an error. Otherwise the call is added to the command
-history of the dataset (see the flag <b>-h</b> of
-<em><a href="t.info.html">t.info</a></em>).
+message and ends without an error. Otherwise the call is added to the
+command history of the dataset (see the flag <b>-h</b> of <em><a href="t.info.html">t.info</a></em>).
 
 <h2>EXAMPLES</h2>
 
 <h3>Move the maps of a dataset by a length of time</h3>
 
 Three maps of daily air temperature form the intervals March 1 to 4, 2026. The
-shift by <code>12 hours</code> moves each of them to noon. The dataset then has
-the granularity <code>24 hours</code>, while it had <code>1 day</code> before.
-A shift by <code>-12 hours</code> brings the maps back, and the granularity with
-them.
+shift by <code>12 hours</code> moves each of them to noon. The dataset then has the
+granularity <code>24 hours</code>, while it had <code>1 day</code> before. A shift by <code>-12 hours</code>
+brings the maps back, and the granularity with them.
 
 <p>Command line:</p>
 
@@ -230,12 +225,11 @@ granularity='1 day'
 
 <h3>Months that end on a shorter month</h3>
 
-The map <code>season_1</code> lasts from January 31 to March 31, 2001, and
-<code>season_2</code> from March 31 to April 30. Shifted by <code>1 month</code>,
-<code>season_1</code> starts on February 28, the last day of February, and ends
-on April 30, the last day of April. Its length grows from 59 to 61 days. A
-shift by <code>-1 month</code> leads to January 28 and March 30, not back to the
-old dates.
+The map <code>season_1</code> lasts from January 31 to March 31, 2001, and <code>season_2</code> from
+March 31 to April 30. Shifted by <code>1 month</code>, <code>season_1</code> starts on February 28,
+the last day of February, and ends on April 30, the last day of April. Its
+length grows from 59 to 61 days. A shift by <code>-1 month</code> leads to January 28 and
+March 30, not back to the old dates.
 
 <p>Command line:</p>
 
@@ -297,15 +291,14 @@ season_2|2001-03-30 00:00:00|2001-04-30 00:00:00
 
 <h3>Shift by a list of units</h3>
 
-Four datasets with one time instance each show how a list is added.
-<code>plan_a</code> holds the instance February 15, 2003, and
-<code>plan_b</code> the same day. The list <code>1 years, 1 months</code> and
-the single <code>13 months</code> give the same result, March 15, 2004. The list
-<code>1 days, 2 hours</code> then moves <code>plan_a</code> by a day and two
-hours. <code>plan_c</code> holds January 31, 2001: <code>1 months, 1 days</code>
-first moves to February 28 and then adds the day, so the result is March 1.
-<code>plan_d</code> holds the same day: <code>1 months, 1 weeks</code> moves to
-February 28 and then adds seven days, so the result is March 7.
+Four datasets with one time instance each show how a list is added. <code>plan_a</code>
+holds the instance February 15, 2003, and <code>plan_b</code> the same day. The list
+<code>1 years, 1 months</code> and the single <code>13 months</code> give the same result, March 15,
+2004. The list <code>1 days, 2 hours</code> then moves <code>plan_a</code> by a day and two hours.
+<code>plan_c</code> holds January 31, 2001: <code>1 months, 1 days</code> first moves to February 28
+and then adds the day, so the result is March 1.
+<code>plan_d</code> holds the same day: <code>1 months, 1 weeks</code> moves to February 28 and then
+adds seven days, so the result is March 7.
 
 <p>Command line:</p>
 
@@ -392,10 +385,9 @@ point_a|2004-03-16 02:00:00|None
 <h3>Shift a dataset with relative time</h3>
 
 The granularity of a dataset with relative time is an integer in the unit of
-the dataset. The maps <code>step_1</code> to <code>step_3</code> are the
-intervals 0 to 1, 1 to 2 and 2 to 3 hours. The shift by <code>10</code> moves
-them to the intervals 10 to 11 and so on; the unit stays <code>hours</code>. The
-shift by <code>-3</code> leads to 7 to 8 and so on.
+the dataset. The maps <code>step_1</code> to <code>step_3</code> are the intervals 0 to 1, 1 to 2 and
+2 to 3 hours. The shift by <code>10</code> moves them to the intervals 10 to 11 and so on;
+the unit stays <code>hours</code>. The shift by <code>-3</code> leads to 7 to 8 and so on.
 
 <p>Command line:</p>
 
@@ -478,17 +470,14 @@ step_3|9|10
 
 <h3>Maps in several datasets, and a part of a dataset</h3>
 
-The dataset <code>all_days</code> holds the maps <code>day_1</code> to
-<code>day_3</code>, and <code>first_days</code> holds <code>day_1</code> and
-<code>day_2</code> by their names. A shift of <code>first_days</code> by
-<code>10 days</code> moves the two maps in both datasets, and
-<code>all_days</code> shows <code>day_3</code> unchanged and the other two ten
-days later. To move a part of a dataset only, <em>t.rast.extract</em> makes new
-maps: the dataset <code>late_days</code> holds a copy of <code>day_3</code>,
-which the shift by <code>100 days</code> moves without touching
-<code>day_3</code> in <code>all_days</code>. The extract is made with an
-<b>expression</b>, which copies the map; the expression <code>day_3</code> here
-is the map itself.
+The dataset <code>all_days</code> holds the maps <code>day_1</code> to <code>day_3</code>, and <code>first_days</code>
+holds <code>day_1</code> and <code>day_2</code> by their names. A shift of <code>first_days</code> by <code>10 days</code>
+moves the two maps in both datasets, and <code>all_days</code> shows <code>day_3</code> unchanged and
+the other two ten days later. To move a part of a dataset only, <em>t.rast.extract</em>
+makes new maps: the dataset <code>late_days</code> holds a copy of <code>day_3</code>, which
+the shift by <code>100 days</code> moves without touching <code>day_3</code> in <code>all_days</code>. The
+extract is made with an <b>expression</b>, which copies the map; the expression
+<code>day_3</code> here is the map itself.
 
 <p>Command line:</p>
 
@@ -580,11 +569,9 @@ day_2|2026-03-12 00:00:00|2026-03-13 00:00:00
 <h3>Shift 3D raster and vector datasets</h3>
 
 The option <b>type</b> selects the kind of the dataset. The 3D raster maps
-<code>soil_1</code> and <code>soil_2</code> form the dataset <code>soil</code>
-(type <code>str3ds</code>), and the vector maps <code>gauge_1</code> and
-<code>gauge_2</code> the dataset <code>gauges</code> (type <code>stvds</code>).
-Both are registered as consecutive days from March 1, 2026 and shifted by
-<code>1 month</code>.
+<code>soil_1</code> and <code>soil_2</code> form the dataset <code>soil</code> (type <code>str3ds</code>), and the vector
+maps <code>gauge_1</code> and <code>gauge_2</code> the dataset <code>gauges</code> (type <code>stvds</code>). Both are
+registered as consecutive days from March 1, 2026 and shifted by <code>1 month</code>.
 
 <p>Command line:</p>
 
@@ -688,14 +675,10 @@ gauge_2|2026-04-02 00:00:00|2026-04-03 00:00:00
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
+<em><a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.snap.html">t.snap</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="t.register.html">t.register</a>, <a href="t.snap.html">t.snap</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

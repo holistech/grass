@@ -1,51 +1,48 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.snap</em> closes the gaps between the maps of a space time dataset: it
-makes the end of every map the start of the next map. Use it to turn time
-instances (maps with a start and no end) into intervals, or to give maps that
-overlap or leave gaps a valid temporal topology. Raster, 3D raster and vector
-datasets are supported, with absolute and relative time. The option
-<b>type</b> selects the kind of the dataset: <code>strds</code> (the default),
-<code>str3ds</code> or <code>stvds</code>. The option <b>input</b> names the
-dataset and is required. See the <a href="temporalintro.html">introduction to
-temporal data processing</a> for an overview,
+<em>t.snap</em> closes the gaps between the maps of a space time dataset: it makes
+the end of every map the start of the next map. Use it to turn time instances
+(maps with a start and no end) into intervals, or to give maps that overlap or
+leave gaps a valid temporal topology. Raster, 3D raster and vector datasets
+are supported, with absolute and relative time. The option <b>type</b> selects
+the kind of the dataset: <code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. The option
+<b>input</b> names the dataset and is required. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for an overview,
 <em><a href="t.register.html">t.register</a></em> for giving maps their time and
-<em><a href="t.shift.html">t.shift</a></em> for moving the maps of a dataset in
-time.
+<em><a href="t.shift.html">t.shift</a></em> for moving the maps of a dataset in time.
 
 <p>
-<em>t.snap</em> takes the maps in the order of their start times. The end of
-each map becomes the start of the following map, whatever the map had before: a
-time instance gets an end, a gap before the next map is closed, and an interval
-that reaches into the next map is cut at its start. The start times do not
-change.
+<em>t.snap</em> takes the maps in the order of their start times. The end of each map
+becomes the start of the following map, whatever the map had before: a time
+instance gets an end, a gap before the next map is closed, and an interval that
+reaches into the next map is cut at its start. The start times do not change.
 
 <p>
-The last map has no following map. If it is an interval, it keeps its end. If it
-is a time instance, it ends one granularity of the dataset after its start. The
-granularity is the one the dataset has before the call, as
-<em><a href="t.info.html">t.info</a></em> shows it (the largest step that fits
-all start and end times of the maps). In a dataset with absolute time, a
-granularity of months or years is added as calendar months, so maps on the first
-of January, February, March and April give a last map that ends on May 1. A
-dataset with a single time instance has no granularity, and the map stays a time
-instance.
+The last map has no following map. If it is an interval, it keeps its end. If
+it is a time instance, it ends one granularity of the dataset after its start.
+The granularity is the one the dataset has before the call, as <em><a href="t.info.html">t.info</a></em>
+shows it (the largest step that fits all start and end times of the maps).
+In a dataset with absolute time, a granularity of months or years is added as
+calendar months, so maps on the first of January, February, March and April
+give a last map that ends on May 1. A dataset with a single time instance has no
+granularity, and the map stays a time instance.
 
 <p>
-Maps that start at the same time cannot be snapped to each other, as the end of
-one would be its own start. A map keeps its own end if the map taken after it
-starts at the same time. Which of two such maps is taken first is not defined.
-When two maps start together and a map that starts later follows, one of them
-keeps its end and the other one ends at the start of that later map. Such maps
-have to be removed or changed to make the topology of the dataset valid.
+Maps that start at the same time cannot be snapped to each other, as the end
+of one would be its own start. A map keeps its own end if the map taken after
+it starts at the same time. Which of two such maps is taken first is not
+defined. When two maps start together and a map that starts later follows, one
+of them keeps its end and the other one ends at the start of that later map.
+Such maps have to be removed or changed to make the topology of the dataset
+valid.
 
 <p>
 After the call the dataset is recomputed from its maps: if all maps are
-intervals now, <em><a href="t.info.html">t.info</a></em> shows the temporal type
-of the maps as <code>interval</code> instead of <code>point</code>, and the end
-time of the dataset is the end of the last map. The time belongs to the map, not
-to the dataset: a map that is registered in more than one dataset is snapped in
-all of them, and these datasets are recomputed as well.
+intervals now, <em><a href="t.info.html">t.info</a></em> shows the temporal type of the maps as
+<code>interval</code> instead of <code>point</code>, and the end time of the dataset is the end of
+the last map. The time belongs to the map, not to the dataset: a map that is
+registered in more than one dataset is snapped in all of them, and these
+datasets are recomputed as well.
 
 <p>
 A second call changes nothing, as the maps are adjacent after the first one.
@@ -56,36 +53,35 @@ Relative time works as absolute time, with the unit of the dataset: the last
 time instance ends one granularity, a number of that unit, after its start.
 
 <p>
-<em>t.snap</em> writes the new times into the temporal database, so the dataset
-has to belong to the current mapset. For a dataset of another mapset, also for
-an empty one, the tool stops with the error <code>Unable to snap dataset
-&lt;name@mapset&gt; of type strds in the temporal database. The mapset of the
-database does not match the current mapset</code>, and nothing changes.
+<em>t.snap</em> writes the new times into the temporal database, so the dataset has
+to belong to the current mapset. For a dataset of another mapset, also for an
+empty one, the tool stops with the error <code>Unable to snap dataset &lt;name@mapset&gt;
+of type strds in the temporal database. The mapset of the database does not
+match the current mapset</code>, and nothing changes.
 
 <p>
 A dataset is found by its type and name: a call with a type that does not fit
-the name stops with <code>Space time dataset &lt;name&gt; of type &lt;stvds&gt;
-not found</code>, as does an unknown name. Give <b>type=stvds</b> or
-<b>type=str3ds</b> for the other kinds of datasets.
+the name stops with <code>Space time dataset &lt;name&gt; of type &lt;stvds&gt; not found</code>, as
+does an unknown name. Give <b>type=stvds</b> or <b>type=str3ds</b> for the other
+kinds of datasets.
 
 <p>
 A dataset without maps is left as it is, and the call ends without an error.
-Otherwise the call is added to the command history of the dataset (see the flag
-<b>-h</b> of <em><a href="t.info.html">t.info</a></em>).
+Otherwise the call is added to the command history of the dataset (see the
+flag <b>-h</b> of <em><a href="t.info.html">t.info</a></em>).
 
 <h2>EXAMPLES</h2>
 
 <h3>Turn time instances into intervals</h3>
 
 Four maps are registered on the first day of January to April 2026 with an
-increment of one month. As <em><a href="t.register.html">t.register</a></em> is
-called without <b>-i</b>, they are time instances: their end time is
-<code>None</code>, and <em><a href="t.info.html">t.info</a></em> shows the
-temporal type of the maps as <code>point</code>. The granularity of the dataset
-is <code>1 month</code>. After <em>t.snap</em> each map ends on the first of the
-next month and the last map ends one month after its start, on May 1, which is
-also the end of the dataset. The maps are intervals now. The granularity is the
-same as before. A second call of <em>t.snap</em> does not change the list.
+increment of one month. As <em><a href="t.register.html">t.register</a></em> is called without
+<b>-i</b>, they are time instances: their end time is <code>None</code>, and <em><a href="t.info.html">t.info</a></em>
+shows the temporal type of the maps as <code>point</code>. The granularity of the dataset
+is <code>1 month</code>. After <em>t.snap</em> each map ends on the first of the next month and
+the last map ends one month after its start, on May 1, which is also the end of
+the dataset. The maps are intervals now. The granularity is the same as before.
+A second call of <em>t.snap</em> does not change the list.
 
 <p>Command line:</p>
 
@@ -219,10 +215,9 @@ monthly_4|2026-04-01 00:00:00|2026-05-01 00:00:00
 <h3>Instances at uneven distances</h3>
 
 Three maps are time instances on June 1, 3 and 7, 2026. The steps between them
-are two and four days, so the granularity of the dataset is <code>2 days</code>.
-Each map ends where the next one starts, the last one ends two days after its
-start, on June 9. The intervals have different lengths; <em>t.snap</em> does not
-make them equal.
+are two and four days, so the granularity of the dataset is <code>2 days</code>. Each map
+ends where the next one starts, the last one ends two days after its start, on
+June 9. The intervals have different lengths; <em>t.snap</em> does not make them equal.
 
 <p>Command line:</p>
 
@@ -287,16 +282,14 @@ map_time=interval
 
 <h3>Close gaps and cut overlaps between intervals</h3>
 
-Four maps are intervals: <code>gap_1</code> from June 1 to 2, <code>gap_2</code>
-from June 4 to 8, <code>gap_3</code> from June 6 to 7 and <code>gap_4</code>
-from June 10 to 12. There is a gap after <code>gap_1</code> and after
-<code>gap_3</code>, and <code>gap_2</code> reaches into <code>gap_3</code>. The
-method <code>deltagaps</code> of <em><a href="t.rast.list.html">t.rast.list</a></em>
-lists the gaps as lines without a name. After <em>t.snap</em> each map ends where
-the next one starts: <code>gap_1</code> ends on June 4, <code>gap_2</code> on
-June 6, <code>gap_3</code> on June 10. The last map <code>gap_4</code> has an end
-of its own and keeps it. The list has no gaps now, and <code>gap_3</code> is
-longer than before.
+Four maps are intervals: <code>gap_1</code> from June 1 to 2, <code>gap_2</code> from June 4 to 8,
+<code>gap_3</code> from June 6 to 7 and <code>gap_4</code> from June 10 to 12. There is a gap after
+<code>gap_1</code> and after <code>gap_3</code>, and <code>gap_2</code> reaches into <code>gap_3</code>. The method
+<code>deltagaps</code> of <em><a href="t.rast.list.html">t.rast.list</a></em> lists the gaps as lines without
+a name. After <em>t.snap</em> each map ends where the next one starts: <code>gap_1</code> ends on
+June 4, <code>gap_2</code> on June 6, <code>gap_3</code> on June 10. The last map <code>gap_4</code> has an
+end of its own and keeps it. The list has no gaps now, and <code>gap_3</code> is longer
+than before.
 
 <p>Command line:</p>
 
@@ -384,8 +377,7 @@ gap_4|2026-06-10 00:00:00|2026-06-12 00:00:00
 
 Three maps are time instances at the hours 0, 3 and 5 of a model run. The steps
 are three and two hours, so the granularity is 1. The unit of the dataset is
-<code>hours</code>, and the last map ends at hour 6. The times are numbers of
-that unit.
+<code>hours</code>, and the last map ends at hour 6. The times are numbers of that unit.
 
 <p>Command line:</p>
 
@@ -447,15 +439,13 @@ map_time=interval
 
 <h3>Snap a map that is in more than one dataset</h3>
 
-The dataset <code>all</code> holds the time instances <code>shared_1</code>
-(June 1), <code>shared_2</code> (June 2) and <code>shared_3</code> (June 4); the
-dataset <code>part</code> holds <code>shared_1</code> and <code>shared_2</code>
-as well. The granularity of <code>all</code> is <code>1 day</code>. Snapping
-<code>all</code> gives the maps their ends: June 2, June 4 and June 5. Because
-the time belongs to the map, <code>part</code> is snapped too, although it was
-not named: its maps are intervals now, <code>shared_2</code> ending on June 4
-although <code>part</code> has no map after it, and the end time of
-<code>part</code> follows.
+The dataset <code>all</code> holds the time instances <code>shared_1</code> (June 1), <code>shared_2</code>
+(June 2) and <code>shared_3</code> (June 4); the dataset <code>part</code> holds <code>shared_1</code> and
+<code>shared_2</code> as well. The granularity of <code>all</code> is <code>1 day</code>. Snapping <code>all</code> gives
+the maps their ends: June 2, June 4 and June 5. Because the time belongs to
+the map, <code>part</code> is snapped too, although it was not named: its maps are
+intervals now, <code>shared_2</code> ending on June 4 although <code>part</code> has no map after it,
+and the end time of <code>part</code> follows.
 
 <p>Command line:</p>
 
@@ -549,9 +539,8 @@ map_time=interval
 
 The option <b>type</b> selects the kind of the dataset. Two 3D raster maps are
 registered on June 1 and June 2, 2026 and two vector maps on the same days.
-After <em>t.snap</em> with <code>type=str3ds</code> and
-<code>type=stvds</code>, the first map of each dataset ends on June 2 and the
-second one day later, on June 3.
+After <em>t.snap</em> with <code>type=str3ds</code> and <code>type=stvds</code>, the first map of each
+dataset ends on June 2 and the second one day later, on June 3.
 
 <p>Command line:</p>
 

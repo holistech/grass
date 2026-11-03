@@ -1,4 +1,5 @@
 <h2>DESCRIPTION</h2>
+
 <em>t.rast.aggregate</em> aggregates the raster maps of a space time raster dataset
 over regular periods of time, the granules, and registers the results as the
 maps of a new space time raster dataset. A granule is a time interval of the
@@ -11,6 +12,7 @@ are those of <em>r.series</em>. See the
 <a href="temporalintro.html">introduction to temporal data processing</a> for space time
 datasets, and <em><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></em> for granules
 that are given by the maps of another dataset.
+
 <p>
 The option <b>input</b> names the space time raster dataset; <code>input=name.label</code>
 selects the maps of one semantic label. The option <b>output</b> names the new
@@ -21,10 +23,12 @@ and selects the input maps, for instance by their <code>start_time</code>; witho
 all maps are used.
 
 <h3>Granules</h3>
+
 The option <b>granularity</b> gives the length of a granule. In absolute time it
 is one number and one unit, for instance <code>1 months</code> or <code>12 hours</code>; the units
 are <code>seconds</code>, <code>minutes</code>, <code>hours</code>, <code>days</code>, <code>weeks</code>, <code>months</code> and <code>years</code>.
 In relative time it is an integer, counted in the unit of the input dataset.
+
 <p>
 The first granule starts at the start of the first selected map, moved back to
 the beginning of the unit of the granularity: a year to 1 January, a month to
@@ -32,6 +36,7 @@ the first of the month, a day to 00:00:00, an hour to the full hour, a minute
 to the full minute. The fourth example shows this for each unit. The grid ends
 with the granule that holds the end of the last map, or the last map itself if
 it is a time instant.
+
 <p>
 The option <b>sampling</b> is a list of temporal relations, <code>contains</code> by
 default; it sets which maps belong to a granule. The relation is read from the
@@ -44,6 +49,7 @@ instance <code>during</code> and <code>starts</code>, is aggregated once. The fi
 <code>contains</code>, <code>overlaps</code> and <code>equal</code>.
 
 <h3>Aggregation</h3>
+
 The option <b>method</b> is the aggregation of <em>r.series</em>: <code>average</code> (the
 default), <code>count</code>, <code>median</code>, <code>mode</code>, <code>minimum</code>, <code>min_raster</code>, <code>maximum</code>,
 <code>max_raster</code>, <code>stddev</code>, <code>range</code>, <code>sum</code>, <code>variance</code>, <code>diversity</code>, <code>slope</code>,
@@ -53,15 +59,17 @@ matters for <code>min_raster</code>, <code>max_raster</code>, <code>slope</code>
 <em>r.series</em> skips null cells, so a cell is aggregated over the maps that have a
 value there. The method <code>quantile</code> has no quantile option in this tool, so
 <em>r.series</em> uses the quantile <code>0</code>, and the result is the smallest value.
+
 <p>
 The flag <b>-n</b> registers the maps whose cells are all null. Without it, a
 granule whose related maps hold only null cells gives no new map. A granule
 without any related map gives no map in either case.
 
 <h3>Names of the new maps</h3>
+
 The new maps are named after the option <b>basename</b>, followed by an
 underscore and a suffix that the option <b>suffix</b> chooses:
-<p>
+
 <ul>
 <li><code>gran</code> (the default) takes the start time of the granule, cut to the unit of
 the granularity: <code>2026</code> for years, <code>2026_01</code> for months, <code>2026_01_12</code> for
@@ -70,6 +78,7 @@ days or weeks, <code>2026_01_14_12</code> for hours and <code>2026_01_14_12_30</
 <li><code>num</code> takes the number of the granule, from 1, with five digits; <code>num%NN</code>
 takes NN digits, so <code>num%03</code> gives <code>001</code>.</li>
 </ul>
+
 <p>
 The option <b>offset</b> is added to the number of <code>num</code>, <code>0</code> by default. A
 granule without a related map gives no map, but its number is used, so a
@@ -77,6 +86,7 @@ numbered series can have a gap. In relative time, every suffix gives the
 number, because a relative time has no calendar date.
 
 <h3>Computation</h3>
+
 <em>r.series</em> keeps every map of a granule open once per thread and needs two
 files per map and thread. The tool therefore runs <em>r.series</em> with the flag
 <b>-z</b>, which reads the maps row by row, when the maps of a granule exceed
@@ -92,31 +102,38 @@ files, or without the Python module <code>resource</code> (for example on Window
 slower: for 100 maps of 1000 x 1000 cells, <em>r.series</em> took 5.2 s with <b>-z</b>
 instead of 0.25 s (measured 31.10.2026 with method sum, three runs). The eighth
 example sets a low <b>file_limit</b>.
+
 <p>
 The option <b>nprocs</b> sets how many granules are aggregated at the same time,
 <code>1</code> by default; a value below <code>1</code> runs one process. The result does not depend
 on <b>nprocs</b>.
 
 <h2>NOTES</h2>
+
 The tool computes the new maps in the current computational region, as
 <em>r.series</em> does; see <em>g.region</em>.
+
 <p>
 A granule with a single related map is copied as it is: the method does not
 matter, and the value, the type of the map (<code>CELL</code> stays <code>CELL</code>) and its colour
 table stay as they were.
+
 <p>
 An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>; without
 it the tool refuses with one message. The tool stops before the computation if
 the name of a new map equals the name of a map of the input dataset in the
 current mapset.
+
 <p>
 A dot in the name of the new dataset is refused, for instance for
 <code>output=my.out</code>, with the message "<code>&lt;my.out&gt;</code> is not a valid name for a new
 space time dataset: a dot is not allowed".
+
 <p>
 The input dataset can be in another mapset of the project; the name with the
 mapset (<code>input=temp@PERMANENT</code>) selects it. The new maps and the new dataset
 are always created in the current mapset.
+
 <p>
 If no map is related to any granule, the tool warns, names the granularity and
 the sampling, and creates no dataset; it ends without an error. With monthly
@@ -124,9 +141,10 @@ granules and maps that do not start on the first day of a month, for example a
 series that starts on 31 January, the default sampling <code>contains</code> finds
 nothing; <code>sampling=overlaps</code> relates each map to the granule in which it
 starts and which it outlasts.
+
 <p>
 Wrong input stops the tool with a message before anything is written:
-<p>
+
 <ul>
 <li>An <b>input</b> dataset that does not exist: "Space time dataset <code>&lt;name&gt;</code> of
 type <code>&lt;strds&gt;</code> not found".</li>
@@ -143,6 +161,7 @@ step"); without a unit, as in <code>2</code>, the message is "Invalid granularit
 granularity <code>&lt;1.5&gt;</code>") or not positive ("The granularity 0 must be
 positive").</li>
 </ul>
+
 <p>
 For <b>granularity</b> in <code>weeks</code>, the start of the first granule is wrong when
 the first selected map starts in the first days of a month: when the day of
@@ -156,11 +175,13 @@ Mondays.
 <h2>EXAMPLES</h2>
 
 <h3>Aggregate to monthly averages</h3>
+
 The dataset <code>temp</code> holds nine maps of air temperature on a region of 5 by 4
 cells, three in each of January, February and March 2026, at the 1st, the 11th
 and the 21st of the month. Every map is a time instant. The value of a cell is
 its column number, 1 to 5, plus 0, 2 and 4 in January, 10, 12 and 14 in
 February, and 20, 22 and 24 in March.
+
 <p>
 With <b>granularity</b> <code>1 months</code>, each month is a granule that contains its
 three maps, and <b>method</b> <code>average</code> gives, in each cell, the column number
@@ -261,6 +282,7 @@ monthly_2026_03@PERMANENT||2026-03-01 00:00:00|2026-04-01 00:00:00|20|0|23|27|4|
 </pre></div>
 
 <h3>Compare the maps before and after</h3>
+
 The figure shows the nine maps of <code>temp</code> in three rows, one row per month, and
 at the right of each row the monthly average of that month, from the previous
 example. All maps share one colour table, from the smallest value 1 to the
@@ -320,17 +342,20 @@ for row, month in enumerate(("01", "02", "03")):
         tools.d_text(text=name, at=[5, 5], size=12, color="white")
 tools.d_mon(stop="cairo")
 </pre></div>
+
 <p>
 <img src="t_rast_aggregate_months.png" alt="Maps of air temperature and their monthly averages">
+
 <p>
 <em>Figure: The three maps of each month, from January at the top to March at the
 bottom, and their monthly average at the right.</em>
 
 <h3>Choose the method and the names of the new maps</h3>
+
 Three more aggregations of <code>temp</code>, each with a different <b>method</b>, a
 different <b>suffix</b> and, in the second block, an <b>offset</b>. The output lists
 the maps with their granules and the smallest and the largest value.
-<p>
+
 <ol>
 <li><b>method</b> <code>maximum</code> with <b>suffix</b> <code>time</code> names the maps with the full
 start time. The largest value of a cell in January is its column number
@@ -450,6 +475,7 @@ bimonthly_2026_03|2026-03-01 00:00:00|2026-05-01 00:00:00|69.0|81.0
 </pre></div>
 
 <h3>Where the first granule starts</h3>
+
 The dataset <code>clock</code> holds three time instants on 14 January 2026, a Wednesday, at
 12:30:45, 12:31:10 and 12:31:35, with the values 1, 2 and 3. The first block
 aggregates it with six granularities, from years to minutes, and lists the new
@@ -459,6 +485,7 @@ granularity: <code>2026-01-01</code> for years, <code>2026-01-01</code> for mont
 <code>12:30:00</code> for minutes. With minutes, the first instant (12:30:45) lies in
 the granule from 12:30 and the other two (12:31:10 and 12:31:35) in the granule
 from 12:31, so there are two granules.
+
 <p>
 The second block shows the trap of the weeks. The dataset <code>early</code> holds one
 map at 3 January 2026, a Saturday, which has the weekday number 5 and lies on
@@ -613,11 +640,13 @@ top
 </pre></div>
 
 <h3>Choose the maps of a granule</h3>
+
 The dataset <code>periods</code> holds four maps of ten days each, <code>p_1</code> to <code>p_4</code>, with
 the values 1 to 4 in every cell. The maps follow each other: <code>p_1</code> runs from
 21 to 31 January, <code>p_2</code> from 31 January to 10 February, <code>p_3</code> from 10 to
 20 February and <code>p_4</code> from 20 February to 2 March. Two maps cross the border of
 a month.
+
 <p>
 With the default <b>sampling</b> <code>contains</code> and monthly granules, only <code>p_1</code>
 lies within January and only <code>p_3</code> within February: each granule has a single
@@ -775,12 +804,14 @@ copied_2026_03|2026-03-01 00:00:00|23.0|27.0
 </pre></div>
 
 <h3>Null cells and empty granules</h3>
+
 The dataset <code>gappy</code> holds five maps. In January, <code>g_1</code> has the column number
 as value and <code>g_2</code> the column number plus 2, except in column 1, where it is
 null. February has two maps with only null cells, <code>g_3</code> and <code>g_4</code>; March has
 <code>g_5</code>, again the column number. The January average skips the null cell:
 column 1 holds 1, taken from <code>g_1</code> alone, and the other columns hold the
 column number plus 1, so the smallest value is 1 and the largest 6.
+
 <p>
 Without <b>-n</b>, February gives no map, because all its cells are null, so the
 dataset has two maps. The second block aggregates again with <b>-n</b>; the
@@ -876,6 +907,7 @@ gappy_2026_03|2026-03-01 00:00:00|1.0|5.0
 </pre></div>
 
 <h3>Aggregate relative time</h3>
+
 The dataset <code>model</code> holds four maps <code>step_1</code> to <code>step_4</code> with the values 1 to 4,
 one for each hour, from 0 to 4. With the integer <b>granularity</b> <code>2</code>, the
 granules are two hours long, in the unit of the dataset, and the sums are
@@ -935,6 +967,7 @@ pair_00002|2|4|7.0|7.0
 </pre></div>
 
 <h3>Many maps in a granule and parallel granules</h3>
+
 The three maps of a month exceed <b>file_limit</b> <code>2</code>, so the tool runs
 <em>r.series</em> with the flag <b>-z</b> and warns once for each granule; the message
 goes to the error output and is not shown here. <b>nprocs</b> <code>3</code> aggregates the
@@ -980,6 +1013,7 @@ monthly_sum_2026_03|2026-03-01 00:00:00|69.0|81.0
 </pre></div>
 
 <h3>Aggregate a dataset of another mapset</h3>
+
 The new mapset <code>second</code> has its own region and no dataset of its own. The input
 <code>temp@PERMANENT</code> names the dataset of the mapset <code>PERMANENT</code>; the new maps and
 the new dataset are created in <code>second</code>, as the column <code>mapset</code> shows.
@@ -1023,17 +1057,11 @@ monthly_copy_2026_03|second|2026-03-01 00:00:00
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.mask.html">r.mask</a>,
-<a href="r.series.html">r.series</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
+<em><a href="g.region.html">g.region</a>, <a href="r.mask.html">r.mask</a>, <a href="r.series.html">r.series</a>,
+<a href="t.info.html">t.info</a>, <a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.rast.list.html">t.rast.list</a>,
 <a href="t.rast.univar.html">t.rast.univar</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

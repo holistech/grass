@@ -1,4 +1,5 @@
 <h2>DESCRIPTION</h2>
+
 <em>t.rast.series</em> reduces the raster maps of a space time raster dataset to one
 raster map for each aggregation method: every cell of a new map holds the
 result of the method over the values of that cell in the selected maps. Daily
@@ -10,6 +11,7 @@ those of <em>r.series</em>; it offers a subset of its methods. See the
 datasets, and <em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em> for the same
 aggregation over regular periods of time with the results registered in a new
 dataset.
+
 <p>
 The new maps are ordinary raster maps in the current mapset, not the maps of a
 space time dataset. Unless the flag <b>-t</b> is given, each of them is
@@ -17,12 +19,15 @@ registered in the temporal database with a time stamp (see below). To put them
 into a dataset, register them with <em><a href="t.register.html">t.register</a></em>.
 
 <h3>Selection</h3>
+
 The option <b>input</b> names the space time raster dataset. The option
 <b>where</b> takes an SQL condition on the registered maps and selects the input
 maps, for instance by their <code>start_time</code>; without it, all maps are used. SQLite
 functions such as <code>strftime</code> are available, which selects a recurring period of
-a multi-year series. The fourth and the fifth example use <b>where</b>. If the condition selects no map, the tool ends
-without an error, prints no message and creates no map.
+a multi-year series. The fourth and the fifth example use <b>where</b>. If the
+condition selects no map, the tool ends without an error, prints no message and
+creates no map.
+
 <p>
 The option <b>order</b> sorts the selected maps before <em>r.series</em> reads them. It
 takes the columns <code>id</code>, <code>name</code>, <code>creator</code>, <code>mapset</code>, <code>creation_time</code>,
@@ -33,11 +38,11 @@ result of the methods that use the position of a map in the series: <code>slope<
 <code>offset</code> and <code>detcoeff</code> describe the values of a cell at the positions 0, 1,
 2 and so on, and <code>min_raster</code> and <code>max_raster</code> give the position of the map
 with the smallest or the largest value, counted from 0. The fourth example
-shows <code>slope</code> and <code>max_raster</code>.
-The column <code>modification_time</code> is not offered, because the maps in
-the temporal database have no such column.
+shows <code>slope</code> and <code>max_raster</code>. The column <code>modification_time</code> is not offered,
+because the maps in the temporal database have no such column.
 
 <h3>Methods and outputs</h3>
+
 The option <b>method</b> lists the aggregation methods: <code>average</code> (the default),
 <code>count</code>, <code>median</code>, <code>mode</code>, <code>minimum</code>, <code>min_raster</code>, <code>maximum</code>, <code>max_raster</code>,
 <code>stddev</code>, <code>range</code>, <code>sum</code>, <code>variance</code>, <code>diversity</code>, <code>slope</code>, <code>offset</code>,
@@ -46,6 +51,7 @@ The option <b>method</b> lists the aggregation methods: <code>average</code> (th
 names of the new maps, one for each method, in the same order. The tool stops
 with the message "Number requested methods and output maps do not match." if
 the numbers differ. The second example computes three methods in one run.
+
 <p>
 The method <code>quantile</code> needs a quantile between 0 and 1, which the option
 <b>quantile</b> gives. The values of <b>quantile</b> belong to the methods
@@ -60,6 +66,7 @@ from the number of methods <code>quantile</code>, the tool stops with the messag
 above for the outputs; this includes a quantile given for no <code>quantile</code> method
 and a <code>quantile</code> method without a quantile. The third example shows
 quantiles.
+
 <p>
 The flag <b>-n</b> propagates null cells. By default <em>r.series</em> skips them: a cell
 is aggregated over the maps that have a value there. With <b>-n</b>, a cell that
@@ -67,6 +74,7 @@ is null in any selected map is null in the new map. The sixth example shows
 both for <code>average</code> and <code>count</code>.
 
 <h3>Time stamp of the new maps</h3>
+
 Unless the flag <b>-t</b> is given, every new map gets a time stamp that spans the
 selected maps: it starts at the earliest start time and ends at the latest end
 time, or at the start of the last map if that map is a time instant. If the
@@ -77,6 +85,7 @@ flag <b>-t</b> gives the new maps no time stamp and does not register them in th
 temporal database. The seventh example shows the stamp with and without <b>-t</b>.
 
 <h3>Computation</h3>
+
 The option <b>nprocs</b> is the number of threads of <em>r.series</em>: <code>0</code> uses the
 default of OpenMP, a positive number uses that many threads, and a negative
 number uses all but that many threads. Its default is <code>0</code>, or the value of
@@ -84,6 +93,7 @@ number uses all but that many threads. Its default is <code>0</code>, or the val
 <b>memory</b> is the size of the row cache of <em>r.series</em> in MB, <code>300</code> by default.
 Both are passed on to <em>r.series</em>, and threads need a GRASS built with OpenMP.
 The result does not depend on them.
+
 <p>
 <em>r.series</em> keeps every input map open, which can exceed the number of files
 that the operating system allows. If the number of selected maps is greater
@@ -98,16 +108,19 @@ open files of the operating system (see the
 The eighth example sets a low <b>file_limit</b>.
 
 <h2>NOTES</h2>
+
 The tool computes in the current computational region, because <em>r.series</em>
 does; see <em>g.region</em>.
+
 <p>
 An existing map of the name given in <b>output</b> is replaced only with
 <b>--overwrite</b>; without it the tool stops with a message that the map
 exists. With <b>--overwrite</b> the time stamp of the map is replaced as well.
 The name in <b>output</b> may carry the mapset, as in <code>output=mean@PERMANENT</code>.
+
 <p>
 Wrong input stops the tool with a message before anything is written:
-<p>
+
 <ul>
 <li>An <b>input</b> dataset that does not exist: "Space time dataset <code>&lt;name&gt;</code> of
 type <code>&lt;strds&gt;</code> not found".</li>
@@ -118,6 +131,7 @@ condition" with the condition and the text of the SQL error.</li>
 outside 0 to 1: the parser stops with "Value <code>&lt;value&gt;</code> out of range for
 parameter" and the name of the option.</li>
 </ul>
+
 <p>
 If <em>r.series</em> fails, the tool ends with "r.series failed. Check above error
 messages."
@@ -125,6 +139,7 @@ messages."
 <h2>EXAMPLES</h2>
 
 <h3>Aggregate all maps of a dataset</h3>
+
 The dataset <code>reading</code> holds four daily maps on a region of one row and three
 cells, from 1 March 2026. Each map is a time interval of one day. The value of
 a cell is its column number, 1 to 3, plus 3, 0, 9 and 1 in the four maps. The
@@ -203,6 +218,7 @@ mean|2026-03-01 00:00:00|2026-03-05 00:00:00
 </pre></div>
 
 <h3>Compute several methods in one run</h3>
+
 One run takes a list of methods and a list of output names of the same length,
 and the maps come in the order of the lists. With <code>minimum</code>, <code>maximum</code> and
 <code>range</code> the new maps <code>low</code>, <code>high</code> and <code>spread</code> hold the smallest value of
@@ -243,6 +259,7 @@ spread: 9 9 9
 </pre></div>
 
 <h3>Compute quantiles</h3>
+
 The four values of a cell, sorted, are 0, 1, 3 and 9 plus the column number.
 The quantile 0.25 lies at the position <code>0.25 * 3 = 0.75</code>, so it is
 <code>0 + 0.75 * (1 - 0) = 0.75</code> plus the column number: 1.75, 2.75 and 3.75. The
@@ -313,10 +330,12 @@ top: 10 11 12
 </pre></div>
 
 <h3>Select the maps and set their order</h3>
+
 The first block aggregates only the maps that start on or after 3 March, the
 third and the fourth, with <code>sum</code>: 9 + 1 = 10 plus twice the column number, so
 12, 14 and 16. The new map <code>late</code> starts on 3 March, where the third map
 starts, and ends on 5 March, where the fourth map ends.
+
 <p>
 The other blocks compute <code>slope</code> and <code>max_raster</code> for two orders. In the time
 order the values of the first cell are 4, 1, 10 and 2. The slope is the slope
@@ -410,6 +429,7 @@ max_by_max: 3 3 3
 </pre></div>
 
 <h3>Select the same month of several years</h3>
+
 The dataset <code>temp</code> holds six monthly maps on a region of one row and two
 cells, January to March of 2025 and of 2026. The maps are numbered 1 to 6 in
 time order, and the value of a cell is its column number, 1 or 2, plus 10 times
@@ -513,6 +533,7 @@ maximum_03: 61 62
 </pre></div>
 
 <h3>Handle null cells</h3>
+
 The dataset <code>gappy</code> holds two daily maps. The first holds 10, 20 and 30, the
 second holds the same values but is null in the first cell. By default the
 average of the first cell is the value of the first map alone, 10, and the
@@ -579,6 +600,7 @@ keep_count: * 2
 </pre></div>
 
 <h3>Give the new map no time stamp</h3>
+
 With the flag <b>-t</b> the new map <code>plain</code> is computed as before but gets no time
 stamp and is not registered. <em><a href="t.list.html">t.list</a></em> lists the maps registered in
 the temporal database with their time: <code>mean</code> from the first example and <code>late</code>
@@ -624,6 +646,7 @@ mean|2026-03-01 00:00:00|2026-03-05 00:00:00
 </pre></div>
 
 <h3>Limit the open files and set the threads</h3>
+
 A <b>file_limit</b> of 2 is below the four maps of <code>reading</code>, so the tool runs
 <em>r.series</em> with its flag <b>-z</b> and warns on the standard error. The result is
 the same as without the flag: the sum of a cell is four times the column number
@@ -662,19 +685,14 @@ print(cells("total"))
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.series.html">r.series</a>,
-<a href="r.stats.html">r.stats</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
-<a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="g.region.html">g.region</a>, <a href="r.series.html">r.series</a>, <a href="r.stats.html">r.stats</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
+
 <p>
-<a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data processing Wiki</a>
+<a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data processing
+Wiki</a>
 
 <h2>AUTHOR</h2>
 

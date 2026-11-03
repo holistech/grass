@@ -1,219 +1,213 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.neighbors</em> runs <em><a href="r.neighbors.html">r.neighbors</a></em>
-on each raster map of a space time raster dataset (STRDS), so a neighborhood
-analysis such as a smoothing filter, a local maximum or a local quantile is
-applied to every map of the dataset. The new raster maps are registered in a
-new space time raster dataset. Each new map gets the start and end time of the
-map it was computed from. The new dataset takes the temporal type, the
-semantic type, the title and the description of the input dataset. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
+<em>t.rast.neighbors</em> runs <em><a href="r.neighbors.html">r.neighbors</a></em> on each raster map of
+a space time raster dataset (STRDS), so a neighborhood analysis such as a
+smoothing filter, a local maximum or a local quantile is applied to every map
+of the dataset. The new raster maps are registered in a new space time raster
+dataset. Each new map gets the start and end time of the map it was computed
+from. The new dataset takes the temporal type, the semantic type, the title and
+the description of the input dataset. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
+
 <p>
-<em>t.rast.neighbors</em> passes the neighborhood options on to
-<em>r.neighbors</em>; what they mean in detail is described there. The options
-<b>input</b> and <b>output</b> name the input dataset and the new dataset, the
-option <b>basename</b> the names of the new maps.
+<em>t.rast.neighbors</em> passes the neighborhood options on to <em>r.neighbors</em>; what
+they mean in detail is described there. The options <b>input</b> and <b>output</b>
+name the input dataset and the new dataset, the option <b>basename</b> the names
+of the new maps.
 
 <h3>Selection of the maps</h3>
 
 <ul>
-<li><b>where</b> takes an SQL condition on the registered maps, for instance
-on their <code>start_time</code> or their <code>name</code>; only the maps
-that satisfy it are processed. Without it, all maps are processed.</li>
-<li><b>region_relation</b> selects the maps by the relation of their extent to
-the current computational region: <code>overlaps</code> takes the maps that
-share an area with the region (including those that contain the region and
-those that lie within it), <code>contains</code> the maps that contain the
-region and <code>is_contained</code> the maps that lie within the region. A
-map equal to the region contains it and is contained in it. Without the
-option, the extent is not considered. The selection uses the current region
-also with the flag <b>-r</b>.</li>
+<li><b>where</b> takes an SQL condition on the registered maps, for instance on
+their <code>start_time</code> or their <code>name</code>; only the maps that satisfy it are
+processed. Without it, all maps are processed.</li>
+<li><b>region_relation</b> selects the maps by the relation of their extent to the
+current computational region: <code>overlaps</code> takes the maps that share an area
+with the region (including those that contain the region and those that
+lie within it), <code>contains</code> the maps that contain the region and
+<code>is_contained</code> the maps that lie within the region. A map equal to the
+region contains it and is contained in it. Without the option, the extent is
+not considered. The selection uses the current region also with the flag
+<b>-r</b>.</li>
 </ul>
+
 <p>
-If <b>where</b> and <b>region_relation</b> select no map, nothing is computed
-(see NOTES).
+If <b>where</b> and <b>region_relation</b> select no map, nothing is computed (see
+NOTES).
 
 <h3>Neighborhood</h3>
 
 <ul>
-<li><b>size</b> is the size of the window in cells, an odd number,
-<code>3</code> by default. <em>r.neighbors</em> refuses an even size.</li>
-<li><b>method</b> is the statistic computed over the cells of the window,
-<code>average</code> by default. The methods are <code>average</code>,
-<code>median</code>, <code>mode</code>, <code>minimum</code>,
-<code>maximum</code>, <code>range</code>, <code>stddev</code>,
-<code>sum</code>, <code>count</code>, <code>variance</code>,
-<code>diversity</code>, <code>interspersion</code>, <code>quart1</code>,
-<code>quart3</code>, <code>perc90</code> and <code>quantile</code>; see
-<em>r.neighbors</em>. Cells without a value (also those outside the region)
-are left out. At the border of the region the window therefore holds fewer
-cells: with <b>size</b> <code>3</code>, the cell in a corner is computed from
-four cells.</li>
-<li><b>quantile</b> (0.0 to 1.0) is the quantile that <b>method</b>
-<code>quantile</code> calculates; this method needs it. For one given quantile
-<code>q</code> and <code>n</code> sorted values, the result is the linear mix
-of the two sorted values around the position <code>q * (n - 1)</code>
-(counted from 0). Without <b>method</b> <code>quantile</code> the option is
-ignored. It takes one value, not a list.</li>
-<li><b>-c</b> uses a circular window: the cells in the corners of the square
-window are left out. In a window of 3 by 3 cells, five cells remain.</li>
-<li><b>selection</b> names a raster map. Only the cells where it has a value
-are computed; every other cell of the new map keeps the value of the input
-map.</li>
+<li><b>size</b> is the size of the window in cells, an odd number, <code>3</code> by default.
+<em>r.neighbors</em> refuses an even size.</li>
+<li><b>method</b> is the statistic computed over the cells of the window, <code>average</code>
+by default. The methods are <code>average</code>, <code>median</code>, <code>mode</code>, <code>minimum</code>,
+<code>maximum</code>, <code>range</code>, <code>stddev</code>, <code>sum</code>, <code>count</code>, <code>variance</code>, <code>diversity</code>,
+<code>interspersion</code>, <code>quart1</code>, <code>quart3</code>, <code>perc90</code> and <code>quantile</code>; see
+<em>r.neighbors</em>. Cells without a value (also those outside the region) are
+left out. At the border of the region the window therefore holds fewer
+cells: with <b>size</b> <code>3</code>, the cell in a corner is computed from four cells.</li>
+<li><b>quantile</b> (0.0 to 1.0) is the quantile that <b>method</b> <code>quantile</code>
+calculates; this method needs it. For one given quantile <code>q</code> and <code>n</code> sorted
+values, the result is the linear mix of the two sorted values around the
+position <code>q * (n - 1)</code> (counted from 0). Without <b>method</b> <code>quantile</code> the
+option is ignored. It takes one value, not a list.</li>
+<li><b>-c</b> uses a circular window: the cells in the corners of the square window
+are left out. In a window of 3 by 3 cells, five cells remain.</li>
+<li><b>selection</b> names a raster map. Only the cells where it has a value are
+computed; every other cell of the new map keeps the value of the input map.</li>
 </ul>
 
 <h3>Weights</h3>
 
 By default all cells of the window count equally (<b>weighting_function</b>
-<code>none</code>). The other functions give each cell a weight that depends on
-its distance <code>d</code> from the center of the window, measured in cells:
+<code>none</code>). The other functions give each cell a weight that depends on its
+distance <code>d</code> from the center of the window, measured in cells:
+
 <ul>
-<li><code>gaussian</code> weighs by
-<code>exp(-d^2 / (2 * f^2)) / (2 * pi * f^2)</code>, with <code>f</code> the
-<b>weighting_factor</b>;</li>
-<li><code>exponential</code> weighs by <code>exp(f * d)</code>, with
-<code>f</code> the <b>weighting_factor</b>; a negative factor lets the weights
-fall with the distance;</li>
-<li><code>file</code> takes the weights from a text file named by
-<b>weight</b>, a matrix of <b>size</b> rows with <b>size</b> numbers each,
-separated by spaces.</li>
+<li><code>gaussian</code> weighs by <code>exp(-d^2 / (2 * f^2)) / (2 * pi * f^2)</code>, with <code>f</code>
+the <b>weighting_factor</b>;</li>
+<li><code>exponential</code> weighs by <code>exp(f * d)</code>, with <code>f</code> the <b>weighting_factor</b>; a
+negative factor lets the weights fall with the distance;</li>
+<li><code>file</code> takes the weights from a text file named by <b>weight</b>, a matrix of
+<b>size</b> rows with <b>size</b> numbers each, separated by spaces.</li>
 </ul>
+
 <p>
-The functions <code>gaussian</code> and <code>exponential</code> need
-<b>weighting_factor</b>, the function <code>file</code> needs <b>weight</b>;
-without it, <em>r.neighbors</em> fails and <em>t.rast.neighbors</em> stops (see
-NOTES). The weighted <code>average</code> divides by the sum of the weights, so
-a common factor of the weights cancels; the weighted <code>sum</code> keeps it.
-A weighted <code>median</code> is the value at which the cumulative weight of
-the sorted values reaches half of the total weight.
+The functions <code>gaussian</code> and <code>exponential</code> need <b>weighting_factor</b>, the
+function <code>file</code> needs <b>weight</b>; without it, <em>r.neighbors</em> fails and
+<em>t.rast.neighbors</em> stops (see NOTES). The weighted <code>average</code> divides by the
+sum of the weights, so a common factor of the weights cancels; the weighted
+<code>sum</code> keeps it. A weighted <code>median</code> is the value at which the cumulative
+weight of the sorted values reaches half of the total weight.
 
 <h3>Names of the new maps</h3>
 
 The new maps are named after <b>basename</b>, followed by an underscore and a
 suffix that the option <b>suffix</b> chooses:
+
 <ul>
-<li><code>gran</code> (the default) takes the start time of the map, cut to the
-granularity of the input dataset: <code>2026_03_01</code> in a dataset of days.
-A dataset of a single time instance has no granularity; <code>gran</code> then
-takes the full start time, as <code>time</code> does.</li>
-<li><code>time</code> takes the full start time:
-<code>2026_03_01T00_00_00</code>.</li>
-<li><code>num</code> numbers the selected maps from 1, with five digits:
-<code>00001</code>. <code>num%03</code> gives three digits:
-<code>001</code>.</li>
+<li><code>gran</code> (the default) takes the start time of the map, cut to the granularity
+of the input dataset: <code>2026_03_01</code> in a dataset of days. A dataset of a
+single time instance has no granularity; <code>gran</code> then takes the full start
+time, as <code>time</code> does.</li>
+<li><code>time</code> takes the full start time: <code>2026_03_01T00_00_00</code>.</li>
+<li><code>num</code> numbers the selected maps from 1, with five digits: <code>00001</code>.
+<code>num%03</code> gives three digits: <code>001</code>.</li>
 </ul>
+
 <p>
-In a dataset with relative time, <code>gran</code> and <code>time</code> give
-the number as <code>num</code> does, because a relative time has no calendar
-date. Maps with the same start time get the same name with <code>gran</code>
-and <code>time</code>; use <code>num</code> for them (see NOTES).
+In a dataset with relative time, <code>gran</code> and <code>time</code> give the number as <code>num</code>
+does, because a relative time has no calendar date. Maps with the same start
+time get the same name with <code>gran</code> and <code>time</code>; use <code>num</code> for them (see NOTES).
 
 <h3>Semantic labels</h3>
 
 The option <b>semantic_labels</b> sets the semantic label of each new map:
+
 <ul>
-<li><code>input</code> (the default) copies the label of the input map; a map
-without a label gives a new map without a label.</li>
-<li><code>method</code> appends the name of the <b>method</b> to the label of
-the input map, as <code>S2_B4_maximum</code>; a map without a label gets the
-name of the method as its label.</li>
+<li><code>input</code> (the default) copies the label of the input map; a map without a
+label gives a new map without a label.</li>
+<li><code>method</code> appends the name of the <b>method</b> to the label of the input map,
+as <code>S2_B4_maximum</code>; a map without a label gets the name of the method as its
+label.</li>
 </ul>
+
 <p>
-The labels tell the new maps apart when several of them have the same time and
-extent, as the bands of an image do.
+The labels tell the new maps apart when several of them have the same time
+and extent, as the bands of an image do.
 
 <h3>Result and region</h3>
 
 <ul>
-<li><b>-n</b> registers the new maps that have no value in any cell. By
-default such an empty map is removed and not registered, which happens for a
-map that has no value in the region.</li>
-<li><b>-r</b> ignores the current region and computes each map in its own
-region; the new map has the region of its input map. By default all maps are
+<li><b>-n</b> registers the new maps that have no value in any cell. By default
+such an empty map is removed and not registered, which happens for a map
+that has no value in the region.</li>
+<li><b>-r</b> ignores the current region and computes each map in its own region;
+the new map has the region of its input map. By default all maps are
 computed in the current region and the new maps have it. The current region
 stays as it is.</li>
-<li><b>-e</b> adds the new maps to an existing output dataset instead of
-failing because it exists: the dataset keeps its maps and also gets the new
-ones. With <b>-e</b> and an output dataset that does not exist, a new dataset
-is made. <b>--overwrite</b> is needed with <b>-e</b> only if one of the new
-maps already exists; it replaces that map and keeps the others of the dataset.
+<li><b>-e</b> adds the new maps to an existing output dataset instead of failing
+because it exists: the dataset keeps its maps and also gets the new ones.
+With <b>-e</b> and an output dataset that does not exist, a new dataset is
+made. <b>--overwrite</b> is needed with <b>-e</b> only if one of the new maps
+already exists; it replaces that map and keeps the others of the dataset.
 Without <b>-e</b>, <b>--overwrite</b> replaces the whole dataset.</li>
-<li><b>nprocs</b> is the number of <em>r.neighbors</em> processes that run at
-the same time, <code>1</code> by default. The maps are the same for any
-number.</li>
+<li><b>nprocs</b> is the number of <em>r.neighbors</em> processes that run at the same
+time, <code>1</code> by default. The maps are the same for any number.</li>
 </ul>
 
 <h2>NOTES</h2>
 
-If <b>where</b> and <b>region_relation</b> select no map,
-<em>t.rast.neighbors</em> warns that the space time raster dataset is empty and
-creates no output dataset. A syntax error in <b>where</b> stops the tool with the
-error "Unable to get map ids from register table", followed by "Invalid where
-condition" and the message of the database.
+If <b>where</b> and <b>region_relation</b> select no map, <em>t.rast.neighbors</em> warns
+that the space time raster dataset is empty and creates no output dataset. A
+syntax error in <b>where</b> stops the tool with the error "Unable to get map ids
+from register table", followed by "Invalid where condition" and the message of
+the database.
+
 <p>
 An existing <b>output</b> dataset is refused with "Space time raster dataset
-<code>&lt;name&gt;</code> is already in the database" unless <b>-e</b> or
-<b>--overwrite</b> is given. A raster map of the name of a new map that exists
-in the mapset but is not registered in the output dataset stops the tool before
-anything is written, with "Raster map <code>&lt;name@mapset&gt;</code> exists.
-To overwrite, use the --overwrite flag."; <b>--overwrite</b> replaces it. With
-<b>-e</b>, a new map that is registered in the dataset already is refused
-before anything is written with "Map <code>&lt;name@mapset&gt;</code> is
-already in temporal database"; <b>--overwrite</b> replaces it.
+<code>&lt;name&gt;</code> is already in the database" unless <b>-e</b> or <b>--overwrite</b> is
+given. A raster map of the name of a new map that exists in the mapset but
+is not registered in the output dataset stops the tool before anything is
+written, with "Raster map <code>&lt;name@mapset&gt;</code> exists. To overwrite, use the
+--overwrite flag."; <b>--overwrite</b> replaces it. With <b>-e</b>, a new map that
+is registered in the dataset already is refused before anything is written
+with "Map <code>&lt;name@mapset&gt;</code> is already in temporal database"; <b>--overwrite</b>
+replaces it.
+
 <p>
 <em>r.neighbors</em> can fail, for instance with an even <b>size</b>, with
-<b>weighting_function</b> <code>gaussian</code> and no
-<b>weighting_factor</b>, or with <b>weighting_function</b> <code>file</code>
-and no <b>weight</b>. <em>t.rast.neighbors</em> then stops with the message
-"Error running r.neighbors" and creates no dataset. The method
-<code>quantile</code> without <b>quantile</b> stops the tool at the start with
-"The method <code>&lt;quantile&gt;</code> requires input in the 'quantile'
-option."; a list of quantiles is refused by the parser. An unknown
-<b>suffix</b> is refused before anything is written, for instance with
-"Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or num%NN" for
-<code>suffix=gram</code>.
+<b>weighting_function</b> <code>gaussian</code> and no <b>weighting_factor</b>, or with
+<b>weighting_function</b> <code>file</code> and no <b>weight</b>. <em>t.rast.neighbors</em> then stops
+with the message "Error running r.neighbors" and creates no dataset. The method
+<code>quantile</code> without <b>quantile</b> stops the tool at the start with "The method
+<code>&lt;quantile&gt;</code> requires input in the 'quantile' option."; a list of quantiles is
+refused by the parser. An unknown <b>suffix</b> is refused before anything is
+written, for instance with "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or
+num%NN" for <code>suffix=gram</code>.
+
 <p>
-Two maps with the same start time, such as the bands of a scene, get the same
-name with the suffixes <code>gran</code> and <code>time</code>, and the run
-fails. The tool does not check this before it starts, so the outcome depends
-on the options. With <b>nprocs</b> <code>1</code> and without
-<b>--overwrite</b>, <em>r.neighbors</em> writes the first map, fails on the
-second with "<code>&lt;name&gt;</code> exists", and the tool stops; the first
-map stays as a raster map that belongs to no dataset, and no dataset is
-created. With <b>nprocs</b> above 1 or with <b>--overwrite</b>, the maps
-overwrite each other and the tool usually ends with a database error ("UNIQUE
+Two maps with the same start time, such as the bands of a scene, get the
+same name with the suffixes <code>gran</code> and <code>time</code>, and the run fails. The tool
+does not check this before it starts, so the outcome depends on the options.
+With <b>nprocs</b> <code>1</code> and without <b>--overwrite</b>, <em>r.neighbors</em> writes the
+first map, fails on the second with "<code>&lt;name&gt;</code> exists", and the tool stops; the
+first map stays as a raster map that belongs to no dataset, and no dataset is
+created. With <b>nprocs</b> above 1 or with <b>--overwrite</b>, the maps overwrite
+each other and the tool usually ends with a database error ("UNIQUE
 constraint failed") and an empty output dataset that stays behind; with
-<b>nprocs</b> above 1 the outcome varies from run to run. Use <b>suffix</b>
-<code>num</code> for such maps, as the fifth example shows.
+<b>nprocs</b> above 1 the outcome varies from run to run. Use <b>suffix</b> <code>num</code>
+for such maps, as the fifth example shows.
+
 <p>
 The input dataset can be in another mapset of the project; the name with the
-mapset (<code>input=model@PERMANENT</code>) selects it. The new maps and the
-new dataset are always created in the current mapset, as the last example
-shows. Relative time works as absolute time; the new maps have the time of the
-input maps.
+mapset (<code>input=model@PERMANENT</code>) selects it. The new maps and the new dataset
+are always created in the current mapset, as the last example shows. Relative
+time works as absolute time; the new maps have the time of the input maps.
 
 <h2>EXAMPLES</h2>
 
 <h3>Smooth the maps of a dataset</h3>
 
-The dataset <code>ramp</code> has three daily maps of 3 by 3 cells. The cells
-of <code>ramp_1</code> hold the numbers 1 to 9 row by row; <code>ramp_2</code>
-and <code>ramp_3</code> have 10 and 20 added.
+The dataset <code>ramp</code> has three daily maps of 3 by 3 cells. The cells of <code>ramp_1</code>
+hold the numbers 1 to 9 row by row; <code>ramp_2</code> and <code>ramp_3</code> have 10 and 20 added.
+
 <p>
-With the default <b>method</b> <code>average</code> and a window of
-<b>size</b> 3, each cell takes the mean of the cells around it. The cell in the
-center sees all nine cells, so it keeps its value 5, 15 and 25. A cell in a
-corner sees only the four cells that lie in the region: the upper left cell of
-<code>ramp_1</code> is <code>(1 + 2 + 4 + 5) / 4 = 3</code>. The new maps have
-a smallest value of 3, 13 and 23 and a largest value of 7, 17 and 27, and the
-names of their days. <b>nprocs</b> <code>2</code> computes two maps at the same
-time.
+With the default <b>method</b> <code>average</code> and a window of <b>size</b> 3, each cell
+takes the mean of the cells around it. The cell in the center sees all nine
+cells, so it keeps its value 5, 15 and 25. A cell in a corner sees only the
+four cells that lie in the region: the upper left cell of <code>ramp_1</code> is
+<code>(1 + 2 + 4 + 5) / 4 = 3</code>. The new maps have a smallest value of 3, 13 and 23
+and a largest value of 7, 17 and 27, and the names of their days. <b>nprocs</b>
+<code>2</code> computes two maps at the same time.
+
 <p>
 The second block prints the cells of the first new map. The third block shows
-with <em><a href="t.info.html">t.info</a></em> that the new dataset takes the
-temporal type, the semantic type, the title and the description of
-<code>ramp</code>, and that it holds three maps.
+with <em><a href="t.info.html">t.info</a></em> that the new dataset takes the temporal type, the
+semantic type, the title and the description of <code>ramp</code>, and that it holds three
+maps.
 
 <p>Command line:</p>
 
@@ -414,20 +408,20 @@ print(tools.t_info(input="smooth").stdout, end="")
 
 <h3>Choose the statistic and the window</h3>
 
-The three blocks use the first map <code>ramp_1</code> only
-(<b>where</b>), so each result is a dataset of one map. The cells of
-<code>ramp_1</code> are 1 2 3 / 4 5 6 / 7 8 9.
+The three blocks use the first map <code>ramp_1</code> only (<b>where</b>), so each result
+is a dataset of one map. The cells of <code>ramp_1</code> are 1 2 3 / 4 5 6 / 7 8 9.
+
 <ol>
-<li><b>method</b> <code>maximum</code> gives the largest value of the window: 5
-in the upper left corner (of 1, 2, 4 and 5) and 9 in the center.</li>
-<li><b>method</b> <code>quantile</code> with <b>quantile</b> <code>0.25</code>
-takes the position <code>0.25 * (n - 1)</code> in the sorted values. In the
-corner there are <code>n = 4</code> values 1, 2, 4 and 5; the position 0.75
-gives <code>1 + 0.75 * (2 - 1) = 1.75</code>. In the center there are nine
-values and the position is 2, the third value, 3.</li>
-<li>With <b>-c</b>, the window is circular. The center sees the five cells 2,
-4, 5, 6 and 8, and <b>method</b> <code>sum</code> gives 25; the upper left
-corner sees the three cells 1, 2 and 4, which give 7.</li>
+<li><b>method</b> <code>maximum</code> gives the largest value of the window: 5 in the upper
+left corner (of 1, 2, 4 and 5) and 9 in the center.</li>
+<li><b>method</b> <code>quantile</code> with <b>quantile</b> <code>0.25</code> takes the position
+<code>0.25 * (n - 1)</code> in the sorted values. In the corner there are <code>n = 4</code>
+values 1, 2, 4 and 5; the position 0.75 gives <code>1 + 0.75 * (2 - 1) = 1.75</code>.
+In the center there are nine values and the position is 2, the third value,
+3.</li>
+<li>With <b>-c</b>, the window is circular. The center sees the five cells 2, 4, 5,
+6 and 8, and <b>method</b> <code>sum</code> gives 25; the upper left corner sees the
+three cells 1, 2 and 4, which give 7.</li>
 </ol>
 
 <p>Command line:</p>
@@ -525,23 +519,23 @@ print_cells("circular_2026_03_01")
 
 <h3>Weight the cells of the window</h3>
 
-The three blocks smooth <code>ramp_1</code> with weights. The cells of
-<code>ramp_1</code> are 1 2 3 / 4 5 6 / 7 8 9; without weights the center is 5
-and the upper left corner 3.
+The three blocks smooth <code>ramp_1</code> with weights. The cells of <code>ramp_1</code> are
+1 2 3 / 4 5 6 / 7 8 9; without weights the center is 5 and the upper left
+corner 3.
+
 <ol>
-<li><b>weighting_function</b> <code>gaussian</code> with
-<b>weighting_factor</b> <code>1</code>. The weight falls with the distance from
-the center, so the cell itself counts more than in the plain average: the
-corner is 2.51, nearer to its own value 1 than the plain 3. Cells at the same
-distance on opposite sides have the same weight, so the center stays 5.</li>
-<li><b>weighting_function</b> <code>exponential</code> with
-<b>weighting_factor</b> <code>-1</code> weights by <code>exp(-d)</code>, which
-falls faster with the distance than the Gaussian weights of the first block:
-the corner is 2.24.</li>
-<li><b>weighting_function</b> <code>file</code> with <b>weight</b> takes the
-matrix of a text file. The matrix 1 1 1 / 1 1 1 / 0 0 0 gives the row below the
-center the weight 0, so the center is the mean of the six cells above and
-beside it, <code>(1 + 2 + 3 + 4 + 5 + 6) / 6 = 3.5</code>.</li>
+<li><b>weighting_function</b> <code>gaussian</code> with <b>weighting_factor</b> <code>1</code>. The
+weight falls with the distance from the center, so the cell itself counts
+more than in the plain average: the corner is 2.51, nearer to its own value
+1 than the plain 3. Cells at the same distance on opposite sides have the
+same weight, so the center stays 5.</li>
+<li><b>weighting_function</b> <code>exponential</code> with <b>weighting_factor</b> <code>-1</code>
+weights by <code>exp(-d)</code>, which falls faster with the distance than the
+Gaussian weights of the first block: the corner is 2.24.</li>
+<li><b>weighting_function</b> <code>file</code> with <b>weight</b> takes the matrix of a text
+file. The matrix 1 1 1 / 1 1 1 / 0 0 0 gives the row below the center the
+weight 0, so the center is the mean of the six cells above and beside it,
+<code>(1 + 2 + 3 + 4 + 5 + 6) / 6 = 3.5</code>.</li>
 </ol>
 
 <p>Command line:</p>
@@ -649,9 +643,8 @@ print_cells("above_2026_03_01")
 <h3>Compute only some cells</h3>
 
 The raster map <code>centre</code> has a value only in the center cell. With
-<b>selection</b> <code>centre</code>, only the center cell is computed;
-<b>method</b> <code>maximum</code> gives 9 there. All other cells keep the
-values of <code>ramp_1</code>.
+<b>selection</b> <code>centre</code>, only the center cell is computed; <b>method</b>
+<code>maximum</code> gives 9 there. All other cells keep the values of <code>ramp_1</code>.
 
 <p>Command line:</p>
 
@@ -691,29 +684,28 @@ print_cells("picked_2026_03_01")
 
 <h3>Bands with semantic labels</h3>
 
-The dataset <code>bands</code> has two maps with the same start time:
-<code>red_1</code> with the semantic label <code>S2_B4</code> holds 1 to 9 and
-<code>nir_1</code> with <code>S2_B8</code> holds 11 to 19. Equal start times
-give equal names with the default <b>suffix</b> <code>gran</code>, so the first
-block, which smooths both maps, uses <b>suffix</b> <code>num%03</code>. The new
-maps keep the labels of their input maps (<b>semantic_labels</b>
-<code>input</code>, the default). The numbering of maps with the same start
-time is not fixed, so the listing is ordered by label.
+The dataset <code>bands</code> has two maps with the same start time: <code>red_1</code> with the
+semantic label <code>S2_B4</code> holds 1 to 9 and <code>nir_1</code> with <code>S2_B8</code> holds 11 to 19.
+Equal start times give equal names with the default <b>suffix</b> <code>gran</code>, so the
+first block, which smooths both maps, uses <b>suffix</b> <code>num%03</code>. The new maps
+keep the labels of their input maps (<b>semantic_labels</b> <code>input</code>, the
+default). The numbering of maps with the same start time is not fixed, so the
+listing is ordered by label.
+
 <p>
-The second block computes the maximum of both bands with
-<b>semantic_labels</b> <code>method</code>: the labels get the name of the
-method, <code>S2_B4_maximum</code>. The third block selects one band by its
-label and gives the new map the full start time as its name (<b>suffix</b>
-<code>time</code>).
+The second block computes the maximum of both bands with <b>semantic_labels</b>
+<code>method</code>: the labels get the name of the method, <code>S2_B4_maximum</code>. The third
+block selects one band by its label and gives the new map the full start time
+as its name (<b>suffix</b> <code>time</code>).
+
 <p>
-The fourth block shows what happens without <b>suffix</b> <code>num</code>,
-with the default <code>gran</code> and with <code>time</code>, and with the
-default <b>nprocs</b> <code>1</code>: both new maps would get the same name,
-for instance <code>failed_2026_06_01T10_30_00</code>, and the tool stops at the
-second map and prints that the map exists. The block
-shows only the line with the message. The list of datasets has neither of the
-datasets <code>failed</code> and <code>failed_time</code>, but the first map of
-each run stays behind as a raster map.
+The fourth block shows what happens without <b>suffix</b> <code>num</code>, with the default
+<code>gran</code> and with <code>time</code>, and with the default <b>nprocs</b> <code>1</code>: both new maps
+would get the same name, for instance <code>failed_2026_06_01T10_30_00</code>, and the
+tool stops at the second map and prints that the map exists. The block shows
+only the line with the message. The list of datasets has neither of the
+datasets <code>failed</code> and <code>failed_time</code>, but the first map of each run stays behind
+as a raster map.
 
 <p>Command line:</p>
 
@@ -867,21 +859,22 @@ failed_time_2026_06_01T10_30_00
 
 <h3>Select the maps to process</h3>
 
-The dataset <code>scenes</code> has four daily maps, each with an extent of
-its own and constant values 10, 20, 30 and 40. The current region reaches from
-0 to 4 in both directions. <code>scene_1</code> (from -1 to 5) contains the
-region, <code>scene_2</code> (1 to 3) lies within it, <code>scene_3</code> (2
-to 6) overlaps it and <code>scene_4</code> (10 to 12) is far away.
+The dataset <code>scenes</code> has four daily maps, each with an extent of its own and
+constant values 10, 20, 30 and 40. The current region reaches from 0 to 4 in
+both directions. <code>scene_1</code> (from -1 to 5) contains the region, <code>scene_2</code>
+(1 to 3) lies within it, <code>scene_3</code> (2 to 6) overlaps it and <code>scene_4</code> (10 to
+12) is far away.
+
 <p>
-The first block selects the maps from the second day on with <b>where</b>. The
-new map of <code>scene_4</code> has no value in the region, so it is empty and
-not registered: two maps remain, with the 4 by 4 cells of the current region.
-The second block adds <b>-n</b>, which registers the empty map as well; its
-smallest and largest value are <code>None</code>.
+The first block selects the maps from the second day on with <b>where</b>. The new
+map of <code>scene_4</code> has no value in the region, so it is empty and not registered:
+two maps remain, with the 4 by 4 cells of the current region. The second block
+adds <b>-n</b>, which registers the empty map as well; its smallest and largest
+value are <code>None</code>.
+
 <p>
-The third block selects by <b>region_relation</b>: <code>overlaps</code> takes
-the first three maps, <code>contains</code> takes <code>scene_1</code> and
-<code>is_contained</code> takes <code>scene_2</code>.
+The third block selects by <b>region_relation</b>: <code>overlaps</code> takes the first
+three maps, <code>contains</code> takes <code>scene_1</code> and <code>is_contained</code> takes <code>scene_2</code>.
 
 <p>Command line:</p>
 
@@ -1021,18 +1014,19 @@ rel_is_contained_2026_05_02
 
 <h3>Use the region of each map and extend a dataset</h3>
 
-The first block computes each map in its own region (<b>-r</b>) for the maps
-that <b>region_relation</b> <code>overlaps</code> selects, still with the
-current region from 0 to 4. The new maps have 6 by 6, 2 by 2 and 4 by 4 cells,
-the sizes of <code>scene_1</code>, <code>scene_2</code> and
-<code>scene_3</code>. The current region keeps its 4 rows and 4 columns.
+The first block computes each map in its own region (<b>-r</b>) for the maps that
+<b>region_relation</b> <code>overlaps</code> selects, still with the current region from
+0 to 4. The new maps have 6 by 6, 2 by 2 and 4 by 4 cells, the sizes of
+<code>scene_1</code>, <code>scene_2</code> and <code>scene_3</code>. The current region keeps its 4 rows and
+4 columns.
+
 <p>
-In the second block, the first run makes a dataset <code>part</code> from the
-first two days. The run with <b>-e</b> adds the maps of the third day (the
-fourth day is empty and not registered) to it: <code>part</code> has three
-maps. A second run with <b>-e</b> and <b>--overwrite</b> makes the maps of the
-second and third day again; <b>--overwrite</b> is needed because they exist,
-and the map of the first day stays.
+In the second block, the first run makes a dataset <code>part</code> from the first two
+days. The run with <b>-e</b> adds the maps of the third day (the fourth day is
+empty and not registered) to it: <code>part</code> has three maps. A second run with
+<b>-e</b> and <b>--overwrite</b> makes the maps of the second and third day again;
+<b>--overwrite</b> is needed because they exist, and the map of the first day
+stays.
 
 <p>Command line:</p>
 
@@ -1139,14 +1133,13 @@ part_2026_05_03|30.0|30.0
 
 <h3>Draw a map before and after the filter</h3>
 
-The dataset <code>noisy</code> has two maps of 12 by 12 cells. In the cells of
-<code>noisy_1</code>, the column number is the trend and a checkerboard of plus
-and minus 3 is the noise. The figure shows <code>noisy_1</code> on the left and
-its 3 by 3 average on the right. The same color table is used for both maps, so
-the colors mean the same values. The average smooths away most of the
-checkerboard and leaves the trend from left to right; the range of the values
-shrinks from -2 to 15 in <code>noisy_1</code> to 1.5 to 11.5 in the first new
-map.
+The dataset <code>noisy</code> has two maps of 12 by 12 cells. In the cells of <code>noisy_1</code>,
+the column number is the trend and a checkerboard of plus and minus 3 is the
+noise. The figure shows <code>noisy_1</code> on the left and its 3 by 3 average on the
+right. The same color table is used for both maps, so the colors mean the
+same values. The average smooths away most of the checkerboard and leaves
+the trend from left to right; the range of the values shrinks from -2 to 15
+in <code>noisy_1</code> to 1.5 to 11.5 in the first new map.
 
 <p>Command line:</p>
 
@@ -1239,24 +1232,23 @@ tools.d_mon(stop="cairo")
 
 <p>
 <img src="t_rast_neighbors_average.png" alt="A map with checkerboard noise before and after the average">
+
 <p>
-<em>Figure: The map <code>noisy_1</code> (left) and its average in a window of
-3 by 3 cells (right), <code>denoised_2026_04_01</code>, in the same color
-table.</em>
+<em>Figure: The map <code>noisy_1</code> (left) and its average in a window of 3 by 3 cells
+(right), <code>denoised_2026_04_01</code>, in the same color table.</em>
 
 <h3>Relative time and a dataset of another mapset</h3>
 
-The dataset <code>model</code> has two maps with relative time, the ramp
-<code>step_1</code> with the numbers 1 to 9 and <code>step_2</code> with 10
-added, registered at 0 and 6 hours. The new maps have the same times. With the
-default <b>suffix</b> <code>gran</code> they are numbered, <code>m1_00001</code>
-and <code>m1_00002</code>, and so they are with <b>suffix</b> <code>time</code>;
+The dataset <code>model</code> has two maps with relative time, the ramp <code>step_1</code> with
+the numbers 1 to 9 and <code>step_2</code> with 10 added, registered at 0 and 6 hours.
+The new maps have the same times. With the default <b>suffix</b> <code>gran</code> they are
+numbered, <code>m1_00001</code> and <code>m1_00002</code>, and so they are with <b>suffix</b> <code>time</code>;
 <b>suffix</b> <code>num%03</code> gives three digits.
+
 <p>
-After <code>g.mapset</code>, the current mapset is <code>analysis</code>. The
-input name <code>model@PERMANENT</code> selects the dataset of the other
-mapset; the new maps and the new dataset are created in <code>analysis</code>,
-as their ids show.
+After <code>g.mapset</code>, the current mapset is <code>analysis</code>. The input name
+<code>model@PERMANENT</code> selects the dataset of the other mapset; the new maps and
+the new dataset are created in <code>analysis</code>, as their ids show.
 
 <p>Command line:</p>
 
@@ -1348,24 +1340,13 @@ m4_00002@analysis|analysis|6
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="d.frame.html">d.frame</a>,
-<a href="d.rast.html">d.rast</a>,
-<a href="d.text.html">d.text</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r.colors.html">r.colors</a>,
-<a href="r.neighbors.html">r.neighbors</a>,
-<a href="r.out.ascii.html">r.out.ascii</a>,
-<a href="r.support.html">r.support</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="d.frame.html">d.frame</a>, <a href="d.rast.html">d.rast</a>, <a href="d.text.html">d.text</a>,
+<a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.colors.html">r.colors</a>,
+<a href="r.neighbors.html">r.neighbors</a>, <a href="r.out.ascii.html">r.out.ascii</a>,
+<a href="r.support.html">r.support</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>, <a href="t.rast.extract.html">t.rast.extract</a>,
+<a href="t.rast.list.html">t.rast.list</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

@@ -1,228 +1,227 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast3d.mapcalc</em> computes new 3D raster maps from the maps of one or
-more space time 3D raster datasets and registers them in a new space time 3D
-raster dataset. It runs <em><a href="r3.mapcalc.html">r3.mapcalc</a></em> once
-for each time step and adds the temporal variables <code>td()</code>,
-<code>start_time()</code>, <code>end_time()</code> and, for absolute time, the
-calendar functions <code>start_doy()</code>, <code>end_month()</code> and others
+<em>t.rast3d.mapcalc</em> computes new 3D raster maps from the maps of one or more
+space time 3D raster datasets and registers them in a new space time 3D raster
+dataset. It runs <em><a href="r3.mapcalc.html">r3.mapcalc</a></em> once for each time step and
+adds the temporal variables <code>td()</code>, <code>start_time()</code>, <code>end_time()</code> and, for
+absolute time, the calendar functions <code>start_doy()</code>, <code>end_month()</code> and others
 to the expression. Use it when the result of a time step depends on maps of
 several datasets, on the time of the step, or on both. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
-<em><a href="t.rast.mapcalc.html">t.rast.mapcalc</a></em> does the same for
-space time raster datasets,
-<em><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></em> computes with the
-temporal algebra, and
-<em><a href="t.rast3d.list.html">t.rast3d.list</a></em> lists the maps of the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. <em><a href="t.rast.mapcalc.html">t.rast.mapcalc</a></em> does the same for space time
+raster datasets, <em><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></em> computes with the
+temporal algebra, and <em><a href="t.rast3d.list.html">t.rast3d.list</a></em> lists the maps of the
 result.
 
 <h3>Datasets and time steps</h3>
 
-The option <b>inputs</b> lists the datasets whose maps the <b>expression</b>
-uses. The first dataset of the list is the sampler: every map of it is one time
-step, which this manual calls a granule. Each of the other datasets is sampled
-by the granules: for each granule, the tool looks for the map of the dataset
-that is related to the granule in time, as the option <b>method</b> says. A
-granule for which one of the datasets has no related map is skipped. The order
-of the datasets in the expression does not matter, only their order in
-<b>inputs</b>. If the list names only one dataset, every map of it is a
-granule. The datasets may be in other mapsets
-(<code>soil@PERMANENT</code>); the expression then still uses the name without
-the mapset.
+The option <b>inputs</b> lists the datasets whose maps the <b>expression</b> uses.
+The first dataset of the list is the sampler: every map of it is one time step,
+which this manual calls a granule. Each of the other datasets is sampled by
+the granules: for each granule, the tool looks for the map of the dataset that
+is related to the granule in time, as the option <b>method</b> says. A granule
+for which one of the datasets has no related map is skipped. The order of the
+datasets in the expression does not matter, only their order in <b>inputs</b>. If
+the list names only one dataset, every map of it is a granule. The datasets may
+be in other mapsets (<code>soil@PERMANENT</code>); the expression then still uses the name
+without the mapset.
+
 <p>
-The result dataset is the option <b>output</b>. It always belongs to the
-current mapset, and so do the new maps. It takes the temporal type and the
-semantic type of the first dataset of <b>inputs</b>. Each new map has the start
-and end time of its granule. An existing dataset <b>output</b> is refused
-unless the flag <b>--overwrite</b> is given; then it is replaced, and the tool
-warns that it unregisters all maps of the old dataset.
+The result dataset is the option <b>output</b>. It always belongs to the current
+mapset, and so do the new maps. It takes the temporal type and the semantic type
+of the first dataset of <b>inputs</b>. Each new map has the start and end time of
+its granule. An existing dataset <b>output</b> is refused unless the flag
+<b>--overwrite</b> is given; then it is replaced, and the tool warns that it
+unregisters all maps of the old dataset.
+
 <p>
-The tool computes in the current 3D region, as <em>r3.mapcalc</em> does. A map
-that lies outside the region reads as null.
+The tool computes in the current 3D region, as <em>r3.mapcalc</em> does. A map that
+lies outside the region reads as null.
 
 <h3>The expression</h3>
 
-The option <b>expression</b> is the right side of an <em>r3.mapcalc</em>
-expression, without the <code>map =</code> of a full one. In it, the name of
-each dataset of <b>inputs</b> stands for the related map of the current
-granule, so <code>soil * weight</code> multiplies the map of <code>soil</code>
-by the related map of <code>weight</code>, and <code>weight * soil</code> does
-the same. Any other 3D raster map can be used by its name. The operators and
-functions of <em>r3.mapcalc</em> are available.
+The option <b>expression</b> is the right side of an <em>r3.mapcalc</em> expression,
+without the <code>map =</code> of a full one. In it, the name of each dataset of <b>inputs</b>
+stands for the related map of the current granule, so <code>soil * weight</code>
+multiplies the map of <code>soil</code> by the related map of <code>weight</code>, and
+<code>weight * soil</code> does the same. Any other 3D raster map can be used by its
+name. The operators and functions of <em>r3.mapcalc</em> are available.
+
 <p>
-The tool puts the names of the maps into the text of the expression and numbers
-the results, so a call with four granules runs four statements such as
-<code>doubled_1=soil_1*2</code>. Because the replacement works on the text, a
-dataset name must not occur anywhere else in the expression, neither in a
-function name (a dataset <code>day</code> breaks <code>start_day()</code>) nor
-in another dataset name (<code>soil</code> breaks <code>soil_deep</code>); see
-the ninth example.
+The tool puts the names of the maps into the text of the expression and
+numbers the results, so a call with four granules runs four statements such as
+<code>doubled_1=soil_1*2</code>. Because the replacement works on the text, a dataset
+name must not occur anywhere else in the expression, neither in a function name
+(a dataset <code>day</code> breaks <code>start_day()</code>) nor in another dataset name (<code>soil</code>
+breaks <code>soil_deep</code>); see the ninth example.
+
 <p>
-The option <b>basename</b> is required. The new maps are named after it,
-followed by an underscore and the number of their granule, counted from 1 in
-the order of the sampler. The number has as many digits as the number of
-granules needs, filled up with zeros: <code>doubled_1</code> for four granules,
-<code>doubled_01</code> for eleven. A granule that is skipped, or whose result
-is empty, leaves a gap in the numbers.
+The option <b>basename</b> is required. The new maps are named after it, followed
+by an underscore and the number of their granule, counted from 1 in the order
+of the sampler. The number has as many digits as the number of granules
+needs, filled up with zeros: <code>doubled_1</code> for four granules, <code>doubled_01</code> for
+eleven. A granule that is skipped, or whose result is empty, leaves a gap in
+the numbers.
 
 <h3>Temporal variables</h3>
 
 The following variables are replaced by a number for each granule before the
-expression goes to <em>r3.mapcalc</em>. They work with absolute and with
-relative time.
+expression goes to <em>r3.mapcalc</em>. They work with absolute and with relative
+time.
+
 <ul>
-<li><code>td()</code>: the length of the granule, the end minus the start, in
-days and fractions of days for absolute time, in the unit of the dataset for
-relative time; null for a time instant.</li>
-<li><code>start_time()</code>: the start of the granule minus the start of the
-first granule, in days or in the unit.</li>
-<li><code>end_time()</code>: the end of the granule minus the start of the
-first granule, in days or in the unit; null for a time instant, which has no
-end.</li>
+<li><code>td()</code>: the length of the granule, the end minus the start, in days and
+fractions of days for absolute time, in the unit of the dataset for relative
+time; null for a time instant.</li>
+<li><code>start_time()</code>: the start of the granule minus the start of the first
+granule, in days or in the unit.</li>
+<li><code>end_time()</code>: the end of the granule minus the start of the first granule, in
+days or in the unit; null for a time instant, which has no end.</li>
 </ul>
+
 <p>
 For absolute time, the calendar functions give a part of the start or the end
 of the granule as a whole number. Each function exists for the start
-(<code>start_doy()</code>) and for the end (<code>end_doy()</code>) of the
-granule, and the end functions are null for a time instant.
+(<code>start_doy()</code>) and for the end (<code>end_doy()</code>) of the granule, and the end
+functions are null for a time instant.
+
 <ul>
 <li><code>start_doy()</code>: the day of the year, 1 to 366.</li>
 <li><code>start_dow()</code>: the day of the week, 1 to 7; Monday is 1.</li>
 <li><code>start_year()</code>: the year.</li>
 <li><code>start_month()</code>: the month, 1 to 12.</li>
-<li><code>start_week()</code>: the ISO week of the year. Weeks start on Monday,
-and the first days of January can belong to week 52 or 53.</li>
+<li><code>start_week()</code>: the ISO week of the year. Weeks start on Monday, and the
+first days of January can belong to week 52 or 53.</li>
 <li><code>start_day()</code>: the day of the month, 1 to 31.</li>
 <li><code>start_hour()</code>: the hour, 0 to 23.</li>
 <li><code>start_minute()</code>: the minute, 0 to 59.</li>
 <li><code>start_second()</code>: the second, 0 to 59.</li>
 </ul>
+
 <p>
 With relative time, a calendar function stops the tool with an error.
 
 <h3>Select the related maps</h3>
 
-The option <b>method</b> is a list of the sampling methods. It names the
-relation between the granule and the map of another dataset. The default is
-<code>during,overlap,contain,equal</code>. A map is related to the granule if
-it has one of the listed relations. The third example shows the methods.
+The option <b>method</b> is a list of the sampling methods. It names the relation
+between the granule and the map of another dataset. The default is
+<code>during,overlap,contain,equal</code>. A map is related to the granule if it has one of
+the listed relations. The third example shows the methods.
 
 <ul>
-<li><code>equal</code>: the map has the start and the end time of the
-granule.</li>
-<li><code>during</code>: the granule lies inside the time interval of the map.
-The map may share the start or the end of the granule, but is not equal to it:
-for a granule from 10 to 20 the maps from 5 to 25, from 10 to 25 and from 5 to
-20.</li>
+<li><code>equal</code>: the map has the start and the end time of the granule.</li>
+<li><code>during</code>: the granule lies inside the time interval of the map. The map may
+share the start or the end of the granule, but is not equal to it: for a
+granule from 10 to 20 the maps from 5 to 25, from 10 to 25 and from 5 to 20.</li>
 <li><code>contain</code>: the map lies inside the granule.</li>
-<li><code>overlap</code>: the map starts inside the granule and ends after it,
-or starts before it and ends inside it.</li>
+<li><code>overlap</code>: the map starts inside the granule and ends after it, or starts
+before it and ends inside it.</li>
 <li><code>follows</code>: the map ends when the granule starts.</li>
 <li><code>precedes</code>: the map starts when the granule ends.</li>
-<li><code>start</code>: the maps that lie inside the granule, the maps that
-start before it and end inside it, and the maps that cover it while sharing its
-start or its end. It does not take the equal map, a
-map that covers the granule strictly and a map that starts inside it and ends
-after it. The temporal topology names the relations of this group
-<code>overlapped</code>, <code>starts</code>, <code>started</code>,
-<code>finishes</code> and <code>contains</code>.</li>
+<li><code>start</code>: the maps that lie inside the granule, the maps that start before it
+and end inside it, and the maps that cover it while sharing its start or its
+end. It does not take the equal map, a map that covers the granule strictly
+and a map that starts inside it and ends after it. The temporal topology names
+the relations of this group <code>overlapped</code>, <code>starts</code>, <code>started</code>, <code>finishes</code> and
+<code>contains</code>.</li>
 </ul>
 
+<p>
 If more than one map of a dataset is related to a granule, the tool warns on
-the standard error and uses only one of them. Which one, follows from the order
-in which it tries the relations. First come the methods <code>equal</code>,
-<code>during</code>, <code>follows</code> and <code>precedes</code>, in the
-order of the list <b>method</b>; then the group <code>start</code>, then
-<code>overlap</code> and then <code>contain</code>, if they are in the list.
+the standard error and uses only one of them. Which one, follows from the
+order in which it tries the relations. First come the methods <code>equal</code>,
+<code>during</code>, <code>follows</code> and <code>precedes</code>, in the order of the list <b>method</b>; then
+the group <code>start</code>, then <code>overlap</code> and then <code>contain</code>, if they are in the list.
 Within one relation, the map with the earliest start time is taken, and for
 equal start times the map with the smaller id. So for the list
-<code>contain,during</code> a map found by <code>during</code> wins over a map
-found by <code>contain</code>. The fourth example shows this. Choose the first
-dataset of <b>inputs</b> so that its granules are the time steps you want, and
-use <em><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></em> to make
-datasets with one map per step.
+<code>contain,during</code> a map found by <code>during</code> wins over a map found by <code>contain</code>.
+The fourth example shows this. Choose the first dataset of <b>inputs</b> so that
+its granules are the time steps you want, and use
+<em><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></em> to make datasets with one map
+per step.
 
 <h3>Empty results and spatial relation</h3>
 
 A new map that has no valid cell, that is, no minimum and no maximum, is empty.
-By default it is not registered in <b>output</b> and is removed after the run.
-The flag <b>-n</b> registers the empty maps and keeps them. An expression such
-as <code>if(soil &gt; 15, soil, null())</code> selects time steps by values in
-this way. If all results are empty, <b>output</b> exists but holds no map.
+By default it is not registered in <b>output</b> and is removed after the run. The
+flag <b>-n</b> registers the empty maps and keeps them. An expression such as
+<code>if(soil &gt; 15, soil, null())</code> selects time steps by values in this way. If all
+results are empty, <b>output</b> exists but holds no map.
+
 <p>
-The flag <b>-s</b> adds a spatial condition to the temporal one: a map is
-related to the granule only if its 2D extent, from west to east and from south
-to north, touches or overlaps that of the granule, so a shared edge counts. The vertical
+The flag <b>-s</b> adds a spatial condition to the temporal one: a map is related
+to the granule only if its 2D extent, from west to east and from south to north,
+touches or overlaps that of the granule, so a shared edge counts. The vertical
 extent is not compared. A granule without a related map is skipped. The eighth
 example shows the difference.
 
 <h3>Parallel processing</h3>
 
-The option <b>nprocs</b> sets the number of <em>r3.mapcalc</em> processes that
-run at the same time. The default is <code>1</code>. The result does not depend
-on it.
+The option <b>nprocs</b> sets the number of <em>r3.mapcalc</em> processes that run at
+the same time. The default is <code>1</code>. The result does not depend on it.
 
 <h2>NOTES</h2>
 
-<em>t.rast3d.mapcalc</em> has the same options as <em>t.rast.mapcalc</em>,
-except for <b>where</b>, and works on 3D rasters only. The maps of the datasets
-are not touched; the tool makes new maps.
+<em>t.rast3d.mapcalc</em> has the same options as <em>t.rast.mapcalc</em>, except for
+<b>where</b>, and works on 3D rasters only. The maps of the datasets are not
+touched; the tool makes new maps.
+
 <p>
-If a map of the base name exists as a registered map and <b>--overwrite</b> is
-not given, the tool stops before it computes any map, with "Map ... is already
-in temporal database, use overwrite flag to overwrite". If the dataset
-<b>output</b> exists, the tool stops with "Space time raster3d dataset ... is
-already in the database. Use the overwrite flag.".
+If a map of the base name exists as a registered map and <b>--overwrite</b> is not
+given, the tool stops before it computes any map, with "Map ... is already in
+temporal database, use overwrite flag to overwrite". If the dataset <b>output</b>
+exists, the tool stops with "Space time raster3d dataset ... is already in the
+database. Use the overwrite flag.".
+
 <p>
-With <b>--overwrite</b>, the maps of the old dataset are unregistered from it,
-not removed. A new run with fewer maps leaves the surplus old maps in the
-mapset; the tenth example shows it.
+With <b>--overwrite</b>, the maps of the old dataset are unregistered from it, not
+removed. A new run with fewer maps leaves the surplus old maps in the mapset;
+the tenth example shows it.
+
 <p>
 The tool stops with an error if an input dataset does not exist ("Space time
-dataset ... of type str3ds not found"), if <b>method</b> names a method that
-does not exist ("Value ... out of range for parameter method"), and if
-<em>r3.mapcalc</em> does not accept the expression ("Error while mapcalc
-computation"). A calendar function with relative time stops it with
-<code>The temporal operators &lt;start_*&gt; support only absolute time.</code>
-(<code>&lt;end_*&gt;</code> for an end function). The tool
-announces its steps on the standard error with "Starting temporal sampling..."
-(with <b>-s</b>: "Starting spatio-temporal sampling...") and "Starting mapcalc
+dataset ... of type str3ds not found"), if <b>method</b> names a method that does
+not exist ("Value ... out of range for parameter method"), and if <em>r3.mapcalc</em>
+does not accept the expression ("Error while mapcalc computation"). A
+calendar function with relative time stops it with
+<code>The temporal operators &lt;start_*&gt; support only absolute time.</code> (<code>&lt;end_*&gt;</code> for
+an end function). The tool announces its steps
+on the standard error with "Starting temporal sampling..." (with <b>-s</b>:
+"Starting spatio-temporal sampling...") and "Starting mapcalc
 computation...".
+
 <p>
 Some inputs give no samples. If <b>inputs</b> names more than one dataset and the
 sampler has only time instants, or the datasets have different temporal types,
 the tool prints a message that names the reason and "No samples found for map
 calculation". It makes no dataset <b>output</b> and ends with status 0. A call
 with one dataset needs no sampling, so time instants work there.
+
 <p>
 Because the tool replaces the names as text, two datasets whose names share a
-start, such as <code>soil</code> and <code>soil_deep</code>, cannot be used
-together in one call, in whatever order they are listed. Copy one of them with
-<em><a href="t.copy.html">t.copy</a></em> under another name, as the ninth
-example shows.
+start, such as <code>soil</code> and <code>soil_deep</code>, cannot be used together in one call, in
+whatever order they are listed. Copy one of them with <em><a href="t.copy.html">t.copy</a></em>
+under another name, as the ninth example shows.
 
 <h2>EXAMPLES</h2>
 
-
 <h3>Apply an expression to every map</h3>
 
-The dataset <code>soil</code> has four maps for the days from 1 to 4 March
-2026. The region from <code>g.region</code> is two by two cells wide and, with
-<code>t=2</code>, <code>b=0</code> and <code>tbres=1</code>, two layers high,
-and <code>depth()</code> counts the layers from 1. So the maps have two layers
-of two by two voxels, and their values are the layer number (1 and 2) plus 0,
-10, 20 and 30, so the smallest and largest values are 1 and 2, 11 and 12, 21
-and 22, and 31 and 32.
+The dataset <code>soil</code> has four maps for the days from 1 to 4 March 2026. The
+region from <code>g.region</code> is two by two cells wide and, with <code>t=2</code>, <code>b=0</code> and
+<code>tbres=1</code>, two layers high, and <code>depth()</code> counts the layers from 1. So the
+maps have two layers of two by two voxels, and their values are the layer
+number (1 and 2) plus 0, 10, 20 and 30, so the smallest and largest values
+are 1 and 2, 11 and 12, 21 and 22, and 31 and 32.
+
 <p>
-The first block doubles the maps. The name <code>soil</code> in the expression
-stands for the map of each day. The new maps are named <code>doubled_1</code>
-to <code>doubled_4</code> after the granules, and each has the time of its
-source map. <b>nprocs</b> lets two <em>r3.mapcalc</em> processes run at the
-same time; the result is the same as with one. The values are twice those of
-the source maps. The second block shows what the new dataset takes from
-<code>soil</code>: the temporal type and the semantic type, and the
-granularity that follows from the maps it holds.
+The first block doubles the maps. The name <code>soil</code> in the expression stands for
+the map of each day. The new maps are named <code>doubled_1</code> to <code>doubled_4</code> after
+the granules, and each has the time of its source map. <b>nprocs</b> lets two
+<em>r3.mapcalc</em> processes run at the same time; the result is the same as with
+one. The values are twice those of the source maps. The second block shows
+what the new dataset takes from <code>soil</code>: the temporal type and the semantic
+type, and the granularity that follows from the maps it holds.
 
 <p>Command line:</p>
 
@@ -313,22 +312,22 @@ granularity='1 day'
 
 <h3>Combine the maps of several datasets</h3>
 
-The dataset <code>weight</code> has two maps, each for two days:
-<code>weight_1</code> with the value 2 for 1 and 2 March, <code>weight_2</code>
-with the value 3 for 3 and 4 March. The first block multiplies
-<code>soil</code> by <code>weight</code>; the expression names
-<code>weight</code> first, which does not matter. The first dataset of
-<b>inputs</b> is the sampler, so the result has four maps of one day each, and
-each day of <code>soil</code> lies during a map of <code>weight</code>. The
-values are twice those of <code>soil</code> for the first two days and three
-times for the last two: 2 and 4, 22 and 24, 63 and 66, 93 and 96.
+The dataset <code>weight</code> has two maps, each for two days: <code>weight_1</code> with the value
+2 for 1 and 2 March, <code>weight_2</code> with the value 3 for 3 and 4 March. The first
+block multiplies <code>soil</code> by <code>weight</code>; the expression names <code>weight</code> first, which
+does not matter. The first dataset of <b>inputs</b> is the
+sampler, so the result has four maps of one day each, and each day of <code>soil</code>
+lies during a map of <code>weight</code>. The values are twice those of <code>soil</code> for the
+first two days and three times for the last two: 2 and 4, 22 and 24, 63 and
+66, 93 and 96.
+
 <p>
-The second block swaps the order in <b>inputs</b>, so the sampler is
-<code>weight</code> and the result has two maps of two days each. Each granule
-of <code>weight</code> contains two maps of <code>soil</code>; the tool warns
-on the standard error and uses the first of them. The result is the value of
-<code>weight</code> plus the first map of <code>soil</code>: 3 and 4 for the
-first two days (2 plus 1 and 2), 24 and 25 for the last two (3 plus 21 and 22).
+The second block swaps the order in <b>inputs</b>, so the sampler is <code>weight</code> and
+the result has two maps of two days each. Each granule of <code>weight</code> contains two
+maps of <code>soil</code>; the tool warns on the standard error and uses the first of
+them. The result is the value of <code>weight</code> plus the first map of <code>soil</code>: 3 and 4
+for the first two days (2 plus 1 and 2), 24 and 25 for the last two (3 plus 21
+and 22).
 
 <p>Command line:</p>
 
@@ -424,39 +423,37 @@ summed_2|2026-03-03 00:00:00|2026-03-05 00:00:00|24.0|25.0
 
 <h3>Choose the sampling method</h3>
 
-The dataset <code>slots</code> has nine granules of 10 days with relative
-time, from day 110 to 120, from 210 to 220 and so on up to 910 to 920. Its map
-<code>slot_k</code> has the value <code>k</code>. The dataset
-<code>probes</code> has one map for each granule, <code>probe_k</code> with the
+The dataset <code>slots</code> has nine granules of 10 days with relative time, from day
+110 to 120, from 210 to 220 and so on up to 910 to 920. Its map <code>slot_k</code> has the
+value <code>k</code>. The dataset <code>probes</code> has one map for each granule, <code>probe_k</code> with the
 value <code>10 * k</code>, and each has a different position relative to the granule:
+
 <ol>
 <li><code>probe_1</code> has the same times, 110 to 120.</li>
 <li><code>probe_2</code> lies inside the granule, 214 to 218.</li>
 <li><code>probe_3</code> covers the granule, 305 to 325.</li>
-<li><code>probe_4</code> starts inside the granule and ends after it, 415 to
-425.</li>
-<li><code>probe_5</code> starts before the granule and ends inside it, 505 to
-515.</li>
+<li><code>probe_4</code> starts inside the granule and ends after it, 415 to 425.</li>
+<li><code>probe_5</code> starts before the granule and ends inside it, 505 to 515.</li>
 <li><code>probe_6</code> ends when the granule starts, 600 to 610.</li>
 <li><code>probe_7</code> starts when the granule ends, 720 to 730.</li>
-<li><code>probe_8</code> starts with the granule and ends after it, 810 to
-825.</li>
-<li><code>probe_9</code> starts before the granule and ends with it, 905 to
-920.</li>
+<li><code>probe_8</code> starts with the granule and ends after it, 810 to 825.</li>
+<li><code>probe_9</code> starts before the granule and ends with it, 905 to 920.</li>
 </ol>
+
+<p>
 The loop runs the tool once for each method and prints the maps of the result.
 The number at the end of a name is the number of the granule that found a
-related map: <code>equal</code> finds the map of granule 1, <code>during</code>
-the ones of the granules 3, 8 and 9, <code>contain</code> granule 2,
-<code>overlap</code> the granules 4 and 5, <code>follows</code> granule 6 and
-<code>precedes</code> granule 7. The method <code>start</code> finds the
+related map: <code>equal</code> finds the map of granule 1, <code>during</code> the ones of the
+granules 3, 8 and 9, <code>contain</code> granule 2, <code>overlap</code> the granules 4 and 5,
+<code>follows</code> granule 6 and <code>precedes</code> granule 7. The method <code>start</code> finds the
 granules 2, 5, 8 and 9. The last block uses no <b>method</b>, so the default
-<code>during,overlap,contain,equal</code> finds the granules 1 to 5, 8 and 9,
-and the listing shows that the maps have the times of the granules.
+<code>during,overlap,contain,equal</code> finds the granules 1 to 5, 8 and 9, and the
+listing shows that the maps have the times of the granules.
+
 <p>
 The time of the datasets is relative, in days, and the result takes it over.
-The files for <em><a href="t.register.html">t.register</a></em> list one map
-per line with its start and end time.
+The files for <em><a href="t.register.html">t.register</a></em> list one map per line with its
+start and end time.
 
 <p>Command line:</p>
 
@@ -613,26 +610,23 @@ default_9|910|920|99.0|99.0
 
 <h3>Several related maps for one granule</h3>
 
-The dataset <code>window</code> has one map of 10 days, from day 10 to 20, with
-the value 1. The dataset <code>cands</code> has four maps that are all related
-to it, in different ways: <code>cand_a</code> from 12 to 18 with the value 100
-(inside the granule), <code>cand_b</code> from 5 to 25 with the value 200
-(covers it), <code>cand_c</code> from 11 to 13 with the value 300 (inside, and
-starts before <code>cand_a</code>) and <code>cand_d</code> from 10 to 20 with
-the value 400 (equal).
+The dataset <code>window</code> has one map of 10 days, from day 10 to 20, with the
+value 1. The dataset <code>cands</code> has four maps that are all related to it, in
+different ways: <code>cand_a</code> from 12 to 18 with the value 100 (inside the granule),
+<code>cand_b</code> from 5 to 25 with the value 200 (covers it), <code>cand_c</code> from 11 to 13
+with the value 300 (inside, and starts before <code>cand_a</code>) and <code>cand_d</code> from 10 to
+20 with the value 400 (equal).
+
 <p>
-The expression is only <code>cands</code>, so the result holds the value of the
-map the tool took. The loop prints it for four lists of methods. With the
-default <code>during,overlap,contain,equal</code> it is 200: <code>during</code>
-comes before <code>contain</code> and <code>equal</code> and finds
-<code>cand_b</code>. With <code>contain,during</code> it is 200 as well,
-because the order of the list only counts for <code>equal</code>,
-<code>during</code>, <code>follows</code> and <code>precedes</code>, and
-<code>contain</code> is tried after them. With
-<code>equal,during,contain</code> it is 400, because <code>equal</code> is
-first. With <code>contain</code> alone it is 300: of the maps inside the
-granule, <code>cand_c</code> starts first. The tool warns on the standard error
-when it chooses between maps.
+The expression is only <code>cands</code>, so the result holds the value of the map the
+tool took. The loop prints it for four lists of methods. With the default
+<code>during,overlap,contain,equal</code> it is 200: <code>during</code> comes before <code>contain</code> and
+<code>equal</code> and finds <code>cand_b</code>. With <code>contain,during</code> it is 200 as well, because
+the order of the list only counts for <code>equal</code>, <code>during</code>, <code>follows</code> and
+<code>precedes</code>, and <code>contain</code> is tried after them. With <code>equal,during,contain</code> it
+is 400, because <code>equal</code> is first. With <code>contain</code> alone it is 300: of the maps
+inside the granule, <code>cand_c</code> starts first. The tool warns on the standard
+error when it chooses between maps.
 
 <p>Command line:</p>
 
@@ -727,34 +721,35 @@ contain: 300.0
 
 <h3>Use the time of the granule</h3>
 
-Back to <code>soil</code>. The expressions of the first four blocks need no
-map, only the time of the granule, so they name <code>soil</code> only in
-<b>inputs</b>. The granules are the days from 1 to 4 March 2026; 1 March 2026
-is a Sunday, the 60th day of the year.
+Back to <code>soil</code>. The expressions of the first four blocks need no map, only the
+time of the granule, so they name <code>soil</code> only in <b>inputs</b>. The granules are
+the days from 1 to 4 March 2026; 1 March 2026 is a Sunday, the 60th day of the
+year.
+
 <p>
-The first block puts three variables into one number: <code>start_time()</code>
-counts the hundreds, <code>td()</code> the tens and <code>end_time()</code> the
-ones. The days start 0, 1, 2 and 3 days after the first, are 1 day long and end
-1, 2, 3 and 4 days after the start of the first, so the results are 11, 112,
-213 and 314. The second block combines the day of the year and the day of the
-week, tens and ones again: 60 and 7 (Sunday) for the first day, then 61 and 1
-(Monday) and so on, so 607, 611, 622 and 633. The third block gives the month
-and the day at the end: the month is 3 and the end day is 2 to 5, so the
-results are 302 to 305. The fourth block uses the weeks, which start on Monday:
-the first day starts in week 9 and ends on Monday 2 March, in week 10, so 910,
-and 1010 for the other days.
+The first block puts three variables into one number: <code>start_time()</code> counts the
+hundreds, <code>td()</code> the tens and <code>end_time()</code> the ones. The days start 0, 1, 2 and
+3 days after the first, are 1 day long and end 1, 2, 3 and 4 days after the
+start of the first, so the results are 11, 112, 213 and 314. The second block
+combines the day of the year and the day of the week, tens and ones again: 60
+and 7 (Sunday) for the first day, then 61 and 1 (Monday) and so on, so 607, 611,
+622 and 633. The third block gives the month and the day at the end: the month
+is 3 and the end day is 2 to 5, so the results are 302 to 305. The fourth block
+uses the weeks, which start on Monday: the first day starts in week 9 and ends
+on Monday 2 March, in week 10, so 910, and 1010 for the other days.
+
 <p>
-The dataset <code>gauge</code> has two time instants, at 06:00 on 1 March and
-at 18:00 on 2 March, and its maps have the values 1 and 2. The last block shows
-what an instant gets: <code>start_time()</code> is the offset in days and
-fractions of days from the first instant, 0 and 1.5, and
-<code>end_time()</code> is null, so <code>isnull()</code> is true and the
-result is 100 and 101.5. The next block shows that <code>td()</code> of an
+The dataset <code>gauge</code> has two time instants, at 06:00 on 1 March and at 18:00 on 2
+March, and its maps have the values 1 and 2. The last block shows what an
+instant gets: <code>start_time()</code> is the offset in days and fractions of days from
+the first instant, 0 and 1.5, and <code>end_time()</code> is null, so <code>isnull()</code> is true
+and the result is 100 and 101.5. The next block shows that <code>td()</code> of an
 instant is null as well: the result is 7.
+
 <p>
-The weeks are ISO weeks. The dataset <code>newyear</code> has one day, 1
-January 2027, which is a Friday in week 53 of 2026, and the last block gives
-<code>start_week()</code> 53.
+The weeks are ISO weeks. The dataset <code>newyear</code> has one day, 1 January 2027,
+which is a Friday in week 53 of 2026, and the last block gives <code>start_week()</code>
+53.
 
 <p>Command line:</p>
 
@@ -1000,17 +995,16 @@ iso_1|53.0|53.0
 
 <h3>Use the time of a dataset with relative time</h3>
 
-The dataset <code>model</code> has three steps of 5 hours with relative time.
-<code>start_time()</code>, <code>td()</code> and <code>end_time()</code> give
-numbers in the unit of the dataset, hours: the steps start 0, 5 and 10 hours
-after the first, are 5 hours long and end 5, 10 and 15 hours after the start of
-the first. With the expression of the first example of the previous section,
-the results are 55, 560 and 1065.
+The dataset <code>model</code> has three steps of 5 hours with relative time. <code>start_time()</code>,
+<code>td()</code> and <code>end_time()</code> give numbers in the unit of the dataset, hours: the
+steps start 0, 5 and 10 hours after the first, are 5 hours long and end 5, 10
+and 15 hours after the start of the first. With the expression of the first
+example of the previous section, the results are 55, 560 and 1065.
+
 <p>
 The calendar functions need absolute time. The second block calls
-<code>start_doy()</code> on <code>model</code>; the tool prints its error and
-stops without a result dataset. The block shows the error and then prints
-<code>t.rast3d.mapcalc failed</code>.
+<code>start_doy()</code> on <code>model</code>; the tool prints its error and stops without a result
+dataset. The block shows the error and then prints <code>t.rast3d.mapcalc failed</code>.
 
 <p>Command line:</p>
 
@@ -1110,16 +1104,17 @@ t.rast3d.mapcalc failed
 
 <h3>Keep or drop empty results</h3>
 
-An expression that sets voxels to null selects time steps by their values. The
-first block keeps the values of <code>soil</code> above 15, so the maps of the
-first two days (with the largest values 2 and 12) have no valid voxel left.
-They are not registered in <code>warm</code>, and the second block shows that
-they are removed from the mapset. The new maps <code>warm_3</code> and
-<code>warm_4</code> keep the numbers of their granules.
+An expression that sets voxels to null selects time steps by their values.
+The first block keeps the values of <code>soil</code> above 15, so the maps of the
+first two days (with the largest values 2 and 12) have no valid voxel left. They
+are not registered in <code>warm</code>, and the second block shows that they are removed
+from the mapset. The new maps <code>warm_3</code> and <code>warm_4</code> keep the numbers of their
+granules.
+
 <p>
-The third block runs the call again with <b>-n</b>. The dataset
-<code>warm_all</code> registers the empty maps as well, with <code>None</code>
-as their smallest and largest value, and the mapset keeps all four maps.
+The third block runs the call again with <b>-n</b>. The dataset <code>warm_all</code>
+registers the empty maps as well, with <code>None</code> as their smallest and largest
+value, and the mapset keeps all four maps.
 
 <p>Command line:</p>
 
@@ -1216,25 +1211,25 @@ warm_all_4
 
 <h3>Take only the maps in the same place</h3>
 
-The dataset <code>patch</code> has four maps for the days of <code>soil</code>,
-with the values 1000, 2000, 3000 and 4000. The second map <code>patch_2</code>
-lies next to the squares of <code>soil</code>, from 2 to 4 in the east, so it
-shares an edge with them. The third map <code>patch_3</code> was made far away,
-for the squares from 10 to 12. The other maps lie in the squares from 0 to 2,
-like <code>soil</code>. The current region is the one from 0 to 2 again.
+The dataset <code>patch</code> has four maps for the days of <code>soil</code>, with the values
+1000, 2000, 3000 and 4000. The second map <code>patch_2</code> lies next to the squares
+of <code>soil</code>, from 2 to 4 in the east, so it shares an edge with them. The third
+map <code>patch_3</code> was made far away, for the squares from 10 to 12. The other maps
+lie in the squares from 0 to 2, like <code>soil</code>. The current region is the one from
+0 to 2 again.
+
 <p>
-The first block adds <code>soil</code> and <code>patch</code>, with 100 where
-<code>patch</code> is null. The maps <code>patch_2</code> and
-<code>patch_3</code> are related in time but read in the current region where
-they have no data, so the result for the second and third day is the value of
-<code>soil</code> plus 100: 111 and 112, and 121 and 122. The result of the
-other days is <code>soil</code> plus <code>patch</code>: 1001 and 1002, and
-4031 and 4032.
+The first block adds <code>soil</code> and <code>patch</code>, with 100 where <code>patch</code> is null. The
+maps <code>patch_2</code> and <code>patch_3</code> are related in time but read in the current region
+where they have no data, so the result for the second and third day is the
+value of <code>soil</code> plus 100: 111 and 112, and 121 and 122. The result of the other
+days is <code>soil</code> plus <code>patch</code>: 1001 and 1002, and 4031 and 4032.
+
 <p>
 With <b>-s</b>, the second block takes only maps whose 2D extent touches or
-overlaps that of the granule. <code>patch_2</code> touches it and stays,
-<code>patch_3</code> does not, so the third granule is skipped, and the result
-has three maps with the numbers 1, 2 and 4.
+overlaps that of the granule. <code>patch_2</code> touches it and stays, <code>patch_3</code> does
+not, so the third granule is skipped, and the result has three maps with the
+numbers 1, 2 and 4.
 
 <p>Command line:</p>
 
@@ -1334,18 +1329,19 @@ near_only_4|2026-03-04 00:00:00|4031.0|4032.0
 <h3>Names of datasets in the expression</h3>
 
 The tool replaces the name of a dataset in the text of the expression, so the
-name must not appear elsewhere in it. The dataset <code>day</code> has one map.
-In <code>day * start_day()</code> the replacement also changes
-<code>start_day()</code>, and <em>r3.mapcalc</em> stops with the message that
-the function <code>start_day_1</code> is not defined.
+name must not appear elsewhere in it. The dataset <code>day</code> has one map. In
+<code>day * start_day()</code> the replacement also changes <code>start_day()</code>, and
+<em>r3.mapcalc</em> stops with the message that the function <code>start_day_1</code> is not
+defined.
+
 <p>
 Two datasets whose names share a start have the same problem. The dataset
-<code>soil_deep</code> has one map; <code>soil + soil_deep</code> becomes
-<code>soil_1+soil_1_deep</code>, and <em>r3.mapcalc</em> does not know the map
-<code>soil_1_deep</code>.
+<code>soil_deep</code> has one map; <code>soil + soil_deep</code> becomes <code>soil_1+soil_1_deep</code>, and
+<em>r3.mapcalc</em> does not know the map <code>soil_1_deep</code>.
+
 <p>
-Copy a dataset under another name with <em>t.copy</em>, and use the new name.
-The copy holds the same maps, and the third block computes with it.
+Copy a dataset under another name with <em>t.copy</em>, and use the new name. The copy
+holds the same maps, and the third block computes with it.
 
 <p>Command line:</p>
 
@@ -1483,23 +1479,22 @@ sunny_1|2026-03-01 00:00:00|4.0|4.0
 
 <h3>Use a dataset of another mapset and replace a result</h3>
 
-The mapset <code>analysis</code> is new and empty. The first block makes it the
-current mapset, sets the region there, and halves
-<code>soil@PERMANENT</code>. The expression still uses the name
-<code>soil</code>. The dataset <code>halved</code> and its maps belong to the
-current mapset; the listing shows the mapset of the maps.
+The mapset <code>analysis</code> is new and empty. The first block makes it the current
+mapset, sets the region there, and halves <code>soil@PERMANENT</code>. The expression still
+uses the name <code>soil</code>. The dataset <code>halved</code> and its maps belong to the current
+mapset; the listing shows the mapset of the maps.
+
 <p>
 The second block repeats the call without <b>--overwrite</b>. The tool stops
-because the dataset <code>halved</code> exists. The third block adds
-<b>--overwrite</b> and makes the dataset again, with the same four maps; the
-tool warns on the standard error that it unregisters all maps of the old
-dataset.
+because the dataset <code>halved</code> exists. The third block adds <b>--overwrite</b> and
+makes the dataset again, with the same four maps; the tool warns on the standard
+error that it unregisters all maps of the old dataset.
+
 <p>
-The fourth block replaces <code>halved</code> once more, now from the dataset
-<code>weight</code>, which has two maps. The new dataset holds two maps, with
-the values 1 and 1.5. The maps <code>halved_3</code> and <code>halved_4</code>
-of the earlier run are no longer registered in it, but the tool does not remove
-them: <code>g.list</code> still finds all four.
+The fourth block replaces <code>halved</code> once more, now from the dataset <code>weight</code>,
+which has two maps. The new dataset holds two maps, with the values 1 and 1.5.
+The maps <code>halved_3</code> and <code>halved_4</code> of the earlier run are no longer registered
+in it, but the tool does not remove them: <code>g.list</code> still finds all four.
 
 <p>Command line:</p>
 
@@ -1645,22 +1640,14 @@ halved_3
 halved_4
 </pre></div>
 
-
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.list.html">g.list</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="r3.mapcalc.html">r3.mapcalc</a>,
-<a href="t.copy.html">t.copy</a>,
-<a href="t.info.html">t.info</a>,
+<em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>, <a href="r3.mapcalc.html">r3.mapcalc</a>,
+<a href="t.copy.html">t.copy</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
-<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>,
-<a href="t.rast3d.algebra.html">t.rast3d.algebra</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>,
-<a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>, <a href="t.rast3d.algebra.html">t.rast3d.algebra</a>,
+<a href="t.rast3d.list.html">t.rast3d.list</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

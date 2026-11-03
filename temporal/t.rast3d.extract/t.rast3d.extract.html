@@ -3,129 +3,124 @@
 <em>t.rast3d.extract</em> selects maps of a space time 3D raster dataset and
 registers them in a new space time 3D raster dataset. On the way, it can
 compute a new 3D raster map from each selected map with an
-<em><a href="r3.mapcalc.html">r3.mapcalc</a></em> expression. Use it to cut a
-time window out of a dataset, to drop the maps whose values do not matter, or
-to derive a dataset by map algebra when the same expression applies to every
-map. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
-<em><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></em> computes from
-more than one dataset, and
-<em><a href="t.rast3d.list.html">t.rast3d.list</a></em> lists the maps of the
-result. The tool works like
-<em><a href="t.rast.extract.html">t.rast.extract</a></em>, on space time 3D
+<em><a href="r3.mapcalc.html">r3.mapcalc</a></em> expression. Use it to cut a time window out of a
+dataset, to drop the maps whose values do not matter, or to derive a dataset by
+map algebra when the same expression applies to every map. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. <em><a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a></em> computes from more than one
+dataset, and <em><a href="t.rast3d.list.html">t.rast3d.list</a></em> lists the maps of the result.
+The tool works like <em><a href="t.rast.extract.html">t.rast.extract</a></em>, on space time 3D
 raster datasets (STR3DS) and 3D raster maps instead of space time raster
 datasets and raster maps.
+
 <p>
 The option <b>input</b> names the space time 3D raster dataset, the option
 <b>output</b> the new one. The new dataset takes the temporal type and the
 semantic type of the input dataset. The output always belongs to the current
-mapset. An existing output dataset is refused unless the flag
-<b>--overwrite</b> is given; then it is replaced.
+mapset. An existing output dataset is refused unless the flag <b>--overwrite</b>
+is given; then it is replaced.
 
 <h3>Select the maps</h3>
 
-The option <b>where</b> takes an SQL condition on the columns of the
-registered maps, such as <code>start_time &gt;= '2026-03-03'</code>, which
-selects the maps that start on 3 March or later. Without <b>where</b>, all
-maps are selected.
+The option <b>where</b> takes an SQL condition on the columns of the registered
+maps, such as <code>start_time &gt;= '2026-03-03'</code>, which selects the maps that start
+on 3 March or later. Without <b>where</b>, all maps are selected.
 
 <h3>Register or compute</h3>
 
-Without <b>expression</b>, <em>t.rast3d.extract</em> creates no map. It
-registers the selected maps themselves in the new dataset, so a map is then
-part of two datasets and the data are not duplicated.
+Without <b>expression</b>, <em>t.rast3d.extract</em> creates no map. It registers the
+selected maps themselves in the new dataset, so a map is then part of two
+datasets and the data are not duplicated.
+
 <p>
-With <b>expression</b>, the tool runs <em>r3.mapcalc</em> once for each
-selected map and registers the new maps, with the start and end time of the
-map they come from, in the new dataset. The expression is the right side of an
-<em>r3.mapcalc</em> expression, without the <code>map =</code> of a full one.
-The name of the input dataset stands for the selected map of each step, so
-<code>2 * soil</code> doubles the map of every step of the dataset
-<code>soil</code>. Any other 3D raster map can be used in the expression by
-name. The new maps belong to the current mapset. The expression needs the
-option <b>basename</b>.
+With <b>expression</b>, the tool runs <em>r3.mapcalc</em> once for each selected map and
+registers the new maps, with the start and end time of the map they come from,
+in the new dataset. The expression is the right side of an <em>r3.mapcalc</em>
+expression, without the <code>map =</code> of a full one. The name of the input dataset
+stands for the selected map of each step, so <code>2 * soil</code> doubles the map of every
+step of the dataset <code>soil</code>. Any other 3D raster map can be used in the
+expression by name. The new maps belong to the current mapset. The expression
+needs the option <b>basename</b>.
+
 <p>
 The new maps are named after <b>basename</b>, followed by an underscore and a
 suffix that the option <b>suffix</b> chooses.
+
 <ul>
-<li><code>gran</code> (the default) takes the start time of the map, cut to the
-unit of the granularity of the input dataset: year and month for a granularity
-of three months, year, month and day for a granularity of one day
-(<code>2026_03_01</code>). A dataset of a single time instant has no
-granularity; <code>gran</code> then takes the full start time, as
-<code>time</code> does.</li>
-<li><code>time</code> takes the full start time:
-<code>2026_03_01T00_00_00</code>.</li>
-<li><code>num</code> numbers the selected maps from 1 in the order of their
-start time and map id, with five digits (<code>00001</code>); the number counts
-also the maps that come out empty. <code>num%03</code> gives three digits
-(<code>001</code>).</li>
-<li>With relative time, a start time is a number without a calendar date.
-Every suffix then gives the number, as <code>num</code> does.</li>
+<li><code>gran</code> (the default) takes the start time of the map, cut to the unit of the
+granularity of the input dataset: year and month for a granularity of three
+months, year, month and day for a granularity of one day (<code>2026_03_01</code>). A
+dataset of a single time instant has no granularity; <code>gran</code> then takes the
+full start time, as <code>time</code> does.</li>
+<li><code>time</code> takes the full start time: <code>2026_03_01T00_00_00</code>.</li>
+<li><code>num</code> numbers the selected maps from 1 in the order of their start time and
+map id, with five digits (<code>00001</code>); the number counts also the maps that come
+out empty. <code>num%03</code> gives three digits (<code>001</code>).</li>
+<li>With relative time, a start time is a number without a calendar date. Every
+suffix then gives the number, as <code>num</code> does.</li>
 </ul>
+
+<p>
 Two different maps of one time, such as two maps of January 2001, get the same
 name from the suffix. The first of them, in the order of start time and map id,
-keeps the name; the second and every further map get the number
-<code>_2</code>, <code>_3</code> and so on after it. A number that another new
-map has as its name is skipped.
+keeps the name; the second and every further map get the number <code>_2</code>, <code>_3</code> and
+so on after it. A number that another new map has as its name is skipped.
+
 <p>
 A new map that has no valid cell, that is, no minimum and no maximum, is
 empty. By default it is not registered in the new dataset and the map is
 removed after the run. The flag <b>-n</b> registers the empty maps and keeps
-them. An expression such as
-<code>if(soil &gt; 6, soil, null())</code> therefore selects maps by their
-values as well.
+them. An expression such as <code>if(soil &gt; 6, soil, null())</code> therefore selects
+maps by their values as well.
+
 <p>
-The option <b>nprocs</b> sets the number of <em>r3.mapcalc</em> processes that
-run at the same time. The default is <code>1</code>. The result does not
-depend on it.
+The option <b>nprocs</b> sets the number of <em>r3.mapcalc</em> processes that run at the
+same time. The default is <code>1</code>. The result does not depend on it.
 
 <h2>NOTES</h2>
 
-If <b>where</b> selects no map, or the input dataset has none,
-<em>t.rast3d.extract</em> warns "Nothing found in the database for space time
-dataset" and makes no output dataset; for a <b>where</b> that selects nothing,
-the message adds that "Dataset is empty or where clause is too constrained or
-incorrect". A condition with a syntax error stops with the error "Invalid
-where condition".
+If <b>where</b> selects no map, or the input dataset has none, <em>t.rast3d.extract</em>
+warns "Nothing found in the database for space time dataset" and makes no
+output dataset; for a <b>where</b> that selects nothing, the message adds that
+"Dataset is empty or where clause is too constrained or incorrect". A condition
+with a syntax error stops with the error "Invalid where condition".
+
 <p>
-The tool stops with an error if <b>expression</b> is given without
-<b>basename</b> ("You need to specify the base name of new created maps"), if
-the input dataset does not exist, if the output dataset exists and
-<b>--overwrite</b> is not given, and if <b>suffix</b> is not <code>gran</code>,
-<code>time</code>, <code>num</code> or <code>num%NN</code> ("Invalid
+The tool stops with an error if <b>expression</b> is given without <b>basename</b>
+("You need to specify the base name of new created maps"), if the input dataset
+does not exist, if the output dataset exists and <b>--overwrite</b> is not given,
+and if <b>suffix</b> is not <code>gran</code>, <code>time</code>, <code>num</code> or <code>num%NN</code> ("Invalid
 suffix"). A dot in the name of the output dataset is refused: "a dot is not
-allowed". An <b>expression</b> that <em>r3.mapcalc</em> does not accept stops
-with "Error in computation process". If a new map is already in the temporal
-database and <b>--overwrite</b> is not given, the tool stops before it
-computes anything, with "Map ... is already in temporal database, use
-overwrite flag to overwrite", and makes no dataset.
+allowed". An <b>expression</b> that <em>r3.mapcalc</em> does not accept stops with
+"Error in computation process". If a new map is already in the temporal
+database and <b>--overwrite</b> is not given, the tool stops before it computes
+anything, with "Map ... is already in temporal database, use overwrite flag to
+overwrite", and makes no dataset.
+
 <p>
 The last example shows that a dataset of another mapset works as input when an
-<b>expression</b> is given. Without an <b>expression</b>, such a dataset is
-refused, and the empty output dataset that the refusal leaves behind has to be
-removed with <em><a href="t.remove.html">t.remove</a></em>. Add an
-<b>expression</b> such as the name of the input dataset to copy the maps
-instead.
+<b>expression</b> is given. Without an <b>expression</b>, such a dataset is refused,
+and the empty output dataset that the refusal leaves behind has to be removed
+with <em><a href="t.remove.html">t.remove</a></em>. Add an <b>expression</b> such as the name of the
+input dataset to copy the maps instead.
 
 <h2>EXAMPLES</h2>
 
 <h3>Select maps by time</h3>
 
-The dataset <code>soil</code> has four 3D raster maps of daily mean soil
-temperature for the days from 1 to 4 March 2026. The region has two rows, two
-columns and three layers. The values of a map are the layer number plus the
-offset 0, 6, 3 and 9, so the smallest and largest values of the maps are 1 to
-3, 7 to 9, 4 to 6 and 10 to 12.
+The dataset <code>soil</code> has four 3D raster maps of daily mean soil temperature for
+the days from 1 to 4 March 2026. The region has two rows, two columns and three
+layers. The values of a map are the layer number plus the offset 0, 6, 3 and 9,
+so the smallest and largest values of the maps are 1 to 3, 7 to 9, 4 to 6 and
+10 to 12.
+
 <p>
-The first block extracts the maps from 3 March on into the dataset
-<code>later</code>. There is no <b>expression</b>, so no map is made: the
-second block lists the 3D raster maps of the mapset, and they are still the
-four maps of <code>soil</code>. The dataset <code>later</code> lists two of
-them. The third block shows what the new dataset takes from the input: the
-temporal type and the semantic type, and the start and end time that follow
-from the maps it holds.
+The first block extracts the maps from 3 March on into the dataset <code>later</code>.
+There is no <b>expression</b>, so no map is made: the second block lists the 3D
+raster maps of the mapset, and they are still the four maps of <code>soil</code>. The
+dataset <code>later</code> lists two of them. The third block shows what the new dataset
+takes from the input: the temporal type and the semantic type, and the start
+and end time that follow from the maps it holds.
 
 <p>Command line:</p>
 
@@ -231,17 +226,18 @@ end_time='2026-03-05 00:00:00'
 
 <h3>Compute new maps from the selected maps</h3>
 
-The first block doubles the maps of <code>soil</code>. The expression
-<code>2 * soil</code> names the dataset, which stands for the map of each step.
-The new maps are named <code>doubled</code>, an underscore and the day of the
-map (the granularity of <code>soil</code> is one day), and each has the time of
-its source map. <b>nprocs</b> lets two <em>r3.mapcalc</em> processes run at the
-same time; the result is the same as with one process. The values are twice
-those of the source maps: 2 to 6 for the first day, 14 to 18 for the second.
+The first block doubles the maps of <code>soil</code>. The expression <code>2 * soil</code> names the
+dataset, which stands for the map of each step. The new maps are named
+<code>doubled</code>, an underscore and the day of the map (the granularity of <code>soil</code> is
+one day), and each has the time of its source map. <b>nprocs</b> lets two
+<em>r3.mapcalc</em> processes run at the same time; the result is the same as with one
+process. The values are twice those of the source maps: 2 to 6 for the first
+day, 14 to 18 for the second.
+
 <p>
 The second block shows that the expression may use any 3D raster map. The map
-<code>bias</code> is 10 everywhere; <b>where</b> selects the first two days,
-and the new maps hold the values of their source maps plus 10.
+<code>bias</code> is 10 everywhere; <b>where</b> selects the first two days, and the new maps
+hold the values of their source maps plus 10.
 
 <p>Command line:</p>
 
@@ -317,12 +313,13 @@ An expression that sets cells to null selects maps. The first block takes the
 maps from 2 March on, three maps, and keeps the values above 6. Of the three,
 only the maps with values from 7 to 9 and from 10 to 12 keep cells; the map
 with the values 4 to 6 has none left, so it is empty. The empty map is not
-registered in <code>warm</code>, and the second block shows that it is
-removed: only two maps are left in the mapset.
+registered in <code>warm</code>, and the second block shows that it is removed: only two
+maps are left in the mapset.
+
 <p>
-The third block runs the same call with the flag <b>-n</b>. The dataset
-<code>warm_all</code> registers the empty map as well, with <code>None</code>
-as its smallest and largest value, and the mapset keeps all three maps.
+The third block runs the same call with the flag <b>-n</b>. The dataset <code>warm_all</code>
+registers the empty map as well, with <code>None</code> as its smallest and largest value,
+and the mapset keeps all three maps.
 
 <p>Command line:</p>
 
@@ -421,17 +418,16 @@ warm_all_2026_03_04
 <h3>Name the new maps</h3>
 
 The option <b>suffix</b> chooses the end of the names. Each of the first three
-blocks copies the four maps of <code>soil</code> with the expression
-<code>soil</code> and lists the names: <code>time</code> gives the full start
-time, <code>num</code> a number of five digits and <code>num%03</code> a number
-of three digits.
+blocks copies the four maps of <code>soil</code> with the expression <code>soil</code> and lists the
+names: <code>time</code> gives the full start time, <code>num</code> a number of five digits and
+<code>num%03</code> a number of three digits.
+
 <p>
-The dataset <code>pair</code> in the fourth block has two maps of the same day,
-<code>pair_a</code> with the value 1 and <code>pair_b</code> with the value 2.
-Their names from the default suffix would be the same. The first map in the
-order of start time and map id, <code>pair_a</code>, keeps
-<code>ten_2026_06_01</code>; the second one becomes
-<code>ten_2026_06_01_2</code>. The values are 10 and 20.
+The dataset <code>pair</code> in the fourth block has two maps of the same day, <code>pair_a</code>
+with the value 1 and <code>pair_b</code> with the value 2. Their names from the default
+suffix would be the same. The first map in the order of start time and map id,
+<code>pair_a</code>, keeps <code>ten_2026_06_01</code>; the second one becomes <code>ten_2026_06_01_2</code>.
+The values are 10 and 20.
 
 <p>Command line:</p>
 
@@ -587,14 +583,14 @@ ten_2026_06_01_2|2026-06-01 00:00:00|20.0
 
 <h3>Extract from a dataset with relative time</h3>
 
-The dataset <code>model</code> has two maps of six hours each, from 0 to 6 and
-from 6 to 12 hours, with the values 1 and 2. In a dataset with relative time a
-start time is a number, so the names of the new maps carry the number of the
-map instead of a date. The first block keeps the values above 1. The number
-counts all selected maps, also the empty one: the first map is empty and left
-out, so the remaining map is <code>m_00002</code>. The new dataset has the
-times and the unit of the input. The second block takes <code>time</code> as
-the suffix; with relative time it gives the number as well.
+The dataset <code>model</code> has two maps of six hours each, from 0 to 6 and from 6 to
+12 hours, with the values 1 and 2. In a dataset with relative time a start time
+is a number, so the names of the new maps carry the number of the map instead of
+a date. The first block keeps the values above 1. The number counts all selected
+maps, also the empty one: the first map is empty and left out, so the remaining
+map is <code>m_00002</code>. The new dataset has the times and the unit of the input. The
+second block takes <code>time</code> as the suffix; with relative time it gives the number
+as well.
 
 <p>Command line:</p>
 
@@ -690,18 +686,17 @@ t_00002
 
 <h3>Extract from a dataset of another mapset</h3>
 
-The dataset <code>model</code> stays in the mapset <code>PERMANENT</code>. The
-first block creates the mapset <code>other</code>, switches to it and extracts
-with an expression. The name <code>model</code> in the expression stands for
-the maps of the dataset, though it has no mapset, and the output dataset
-<code>model_copy</code> and its maps <code>copy_00001</code> and
-<code>copy_00002</code> belong to <code>other</code>. The <code>id</code>
-column shows the mapset.
+The dataset <code>model</code> stays in the mapset <code>PERMANENT</code>. The first block creates
+the mapset <code>other</code>, switches to it and extracts with an expression. The name
+<code>model</code> in the expression stands for the maps of the dataset, though it has no
+mapset, and the output dataset <code>model_copy</code> and its maps <code>copy_00001</code> and
+<code>copy_00002</code> belong to <code>other</code>. The <code>id</code> column shows the mapset.
+
 <p>
 The second block shows what happens without an expression. The call is
-refused, so the block prints <code>refused</code>. The refusal leaves the empty
-dataset <code>model_copy_empty</code> behind. <code>number_of_maps=None</code>
-shows that it has no maps, and <em>t.remove</em> removes it.
+refused, so the block prints <code>refused</code>. The refusal leaves the empty dataset
+<code>model_copy_empty</code> behind. <code>number_of_maps=None</code> shows that it has no maps, and
+<em>t.remove</em> removes it.
 
 <p>Command line:</p>
 
@@ -774,19 +769,12 @@ number_of_maps=None
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.list.html">g.list</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="r3.mapcalc.html">r3.mapcalc</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>,
-<a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>, <a href="r3.mapcalc.html">r3.mapcalc</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.rast3d.list.html">t.rast3d.list</a>,
+<a href="t.rast3d.mapcalc.html">t.rast3d.mapcalc</a>, <a href="t.register.html">t.register</a>,
 <a href="t.remove.html">t.remove</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

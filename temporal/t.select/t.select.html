@@ -14,8 +14,10 @@ for space time datasets and their temporal relations.
 
 The module expects an <b>expression</b> as input parameter in the following
 form:
+
 <p>
 <code>"result = expression"</code>
+
 <p>
 The statement structure is similar to <em><a href="r.mapcalc.html">r.mapcalc</a></em>. <b>result</b>
 is the name of the space time dataset (STDS) that will contain the maps
@@ -32,6 +34,7 @@ variables like start time, end time, day of year, time differences or number
 of maps per time interval to build up conditions. These operations can be
 assigned to space time datasets or to the results of operations between
 space time datasets.
+
 <p>
 The result dataset is created in the current mapset, with the temporal type
 (absolute or relative) of the datasets in the expression. Maps whose temporal
@@ -48,20 +51,25 @@ that selects no map creates an empty space time dataset.
 
 The option <b>expression</b> takes the statement <code>result = expression</code>. It must
 be passed as <b>quoted</b> expression, for example:
+
 <div class="code"><pre>
 t.select expression="C = A : B"
 </pre></div>
+
+<p>
 Here <b>C</b> is the new space time raster dataset that will contain the maps
 from <b>A</b> that are selected by equal temporal relationships to the existing
 dataset <b>B</b>. An existing dataset <b>C</b> is only replaced with the
 <b>--overwrite</b> flag. Datasets of other mapsets are written as <code>name@mapset</code>;
 a name without mapset means the current mapset only.
+
 <p>
 The option <b>type</b> gives the type of the datasets named in the expression:
 <code>strds</code> (default), <code>stvds</code> or <code>str3ds</code>. The result has this type as a rule.
 Maps of a dataset of another type are pulled into a selection with the
 functions <code>strds()</code>, <code>str3ds()</code> and <code>stvds()</code>; a result whose maps come from
 such a function can have the type of that function, see the NOTES.
+
 <p>
 As default, topological relationships between space time datasets will be
 evaluated only temporal. The <b>-s</b> flag additionally activates the
@@ -73,6 +81,7 @@ spatially related, that is the spatial extents of the maps are equivalent,
 one covers or is covered by the other, they overlap, one lies in the other,
 one contains the other, or they meet (the spatial relations <em>equivalent</em>,
 <em>cover</em>, <em>covered</em>, <em>overlap</em>, <em>in</em>, <em>contain</em> and <em>meet</em>).
+
 <p>
 The <b>-d</b> flag performs a dry run. The tool computes the plan and prints it
 as a Python dictionary to standard output, and creates no dataset and no map.
@@ -80,6 +89,7 @@ The entry <code>STDS</code> holds the name, the type and the temporal type of th
 result, <code>processes</code> the modules that would copy maps, <code>register</code> the maps that
 would be registered in the result with their start and end time, and <code>remove</code>
 the removals, which are empty in the plans shown here.
+
 <p>
 The <b>-c</b> flag uses the classic algebra instead of the algebra core, see the
 NOTES. The environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> selects it
@@ -95,7 +105,8 @@ shows the maps they select.
 <h3>TEMPORAL RELATIONS</h3>
 
 Several temporal topology relations between registered maps of space
-time datasets are supported:<br>
+time datasets are supported:
+
 <div class="code"><pre>
 equal             A ------
                   B ------
@@ -132,14 +143,19 @@ overlaps          A ------
 
 over              both overlaps and overlapped
 </pre></div>
+
+<p>
 The relations must be read as: A is related to B, like - A is equal to B - A
 is during B - A contains B
+
 <p>
 Gebbert, Leppelt and Pebesma (2019) write the relation <code>equal</code> as <code>equals</code>;
 the new algebra and <b>-c</b> read both names. The releases before GRASS 8.6
 refused <code>equals</code> with a syntax error.
+
 <p>
-Topological relations must be specified in {} parentheses.<br>
+Topological relations must be specified in {} parentheses.
+
 <p>
 The relations <b>during</b> and <b>contains</b> are inclusive: <b>during</b> also
 selects maps that start or finish together with the related map (the
@@ -156,6 +172,7 @@ with other operators to perform spatio-temporal operations. The temporal
 operators process the time instances and intervals of two temporal
 related maps and calculate the result temporal extent by five different
 possibilities.
+
 <div class="code"><pre>
 LEFT REFERENCE     l       Use the time stamp of the left space time dataset
 INTERSECTION       i       Intersection
@@ -163,6 +180,8 @@ DISJOINT UNION     d       Disjoint union
 UNION              u       Union
 RIGHT REFERENCE    r       Use the time stamp of the right space time dataset
 </pre></div>
+
+<p>
 Each operator can also be written as a word: <code>left</code>, <code>intersect</code>, <code>disjoint</code>,
 <code>union</code> and <code>right</code>.
 
@@ -173,19 +192,27 @@ without processing raster or vector data. The algebra provides a
 selection operator <b>:</b> that selects parts of a space time dataset that
 are temporally equal to parts of a second one by default. The following
 expression
+
 <div class="code"><pre>
 C = A : B
 </pre></div>
+
+<p>
 means: Select all parts of space time dataset A that are equal to B and
 store it in space time dataset C. The parts are time stamped maps.
+
 <p>
 In addition the inverse selection operator <b>!:</b> is defined as the
 complement of the selection operator, hence the following expression
+
 <div class="code"><pre>
 C = A !: B
 </pre></div>
+
+<p>
 means: select all parts of space time time dataset A that are not equal
 to B and store it in space time dataset (STDS) C.
+
 <p>
 To select parts of a STDS by different topological relations to other
 STDS, the temporal topology selection operator can be used. The operator
@@ -193,38 +220,55 @@ consists of the temporal selection operator, the topological relations,
 that must be separated by the logical OR operator <b>|</b> and the
 temporal extent operator. All three parts are separated by comma and
 surrounded by curly braces:
+
 <div class="code"><pre>
 {"temporal selection operator", "topological relations", "temporal operator"}
 </pre></div>
+
+<p>
 Examples:
+
 <div class="code"><pre>
 C = A {:, equal} B
 C = A {!:, equal} B
 </pre></div>
+
+<p>
 We can now define arbitrary topological relations using the OR operator
 "|" to connect them:
+
 <div class="code"><pre>
 C = A {:,equal|during|overlaps} B
 </pre></div>
+
+<p>
 Select all parts of A that are equal to B, during B or overlaps B.<br>
 In addition we can define the temporal extent of the result STDS by
 adding the temporal operator.
+
 <div class="code"><pre>
 C = A {:, during,r} B
 </pre></div>
+
+<p>
 Select all parts of A that are during B and use the temporal extents
-from B for C.<br>
+from B for C.
+
 <p>
 The selection operator is implicitly contained in the temporal topology
 selection operator, so that the following statements are exactly the
 same:
+
 <div class="code"><pre>
 C = A : B
 C = A {:} B
 C = A {:,equal} B
 C = A {:,equal,l} B
 </pre></div>
+
+<p>
 Same for the complementary selection:
+
 <div class="code"><pre>
 C = A !: B
 C = A {!:} B
@@ -234,7 +278,8 @@ C = A {!:,equal,l} B
 
 <h3>CONDITIONAL STATEMENTS</h3>
 
-Selection operations can be evaluated within conditional statements.<br>
+Selection operations can be evaluated within conditional statements.
+
 <div class="code"><pre>
 Note A and B can either be space time datasets or expressions. The temporal
 relationship between the conditions and the conclusions can be defined at the
@@ -248,6 +293,8 @@ if statement                           decision option                        te
   if(topologies, conditions, A)        A if conditions are True;              temporal topological relation between if and then is explicit specified by topologies.
   if(topologies, conditions, A, B)     A if conditions are True, B otherwise; temporal topological relation between if, then and else is explicit specified by topologies.
 </pre></div>
+
+<p>
 The conditions are comparison expressions that are used to evaluate
 space time datasets. Specific values of temporal variables are compared
 by logical operators and evaluated for each map of the STDS.<br>
@@ -272,6 +319,7 @@ Symbol  description
 
 The following temporal function are evaluated only for the STDS that
 must be given in parenthesis.
+
 <div class="code"><pre>
 td(A)                    Returns a list of time intervals of STDS A
 
@@ -320,10 +368,14 @@ boolean value is then compared to the first condition by the comparison
 operator (|| or &amp;&amp;). As default the aggregation operator is related to
 the comparison operator:<br>
 Comparison operator -&gt; aggregation operator:
+
 <div class="code"><pre>
 || -&gt; | and &amp;&amp; -&gt; &amp;
 </pre></div>
+
+<p>
 Examples:
+
 <div class="code"><pre>
 Condition 1 {||, equal, r} Condition 2
 Condition 1 {&amp;&amp;, equal|during, l} Condition 2
@@ -335,37 +387,49 @@ Condition 1 {&amp;&amp;, equal|during, l} Condition 2 {&amp;&amp;,contains, |, r
 <h4>Hash operator</h4>
 
 Additionally the number of maps in intervals can be computed and used in
-conditional statements with the hash (#) operator.<br>
+conditional statements with the hash (#) operator.
+
 <div class="code"><pre>
 A{#, contains}B
 </pre></div>
+
+<p>
 The hash operator can only be used in the condition of an if statement.
+
 <p>
 This expression computes the number of maps from space time dataset B
 which are during the time intervals of maps from space time dataset A.<br>
 A list of integers (scalars) corresponding to the maps of A that contain
 maps from B will be returned.
+
 <p>
 The result keeps the time stamps of the maps of A. The temporal operators
 <code>r</code>, <code>u</code>, <code>i</code> and <code>d</code> have no meaning for the count and are rejected with
 a syntax error; <code>l</code> is the default.
+
 <div class="code"><pre>
 C = if({equal}, A {#, contains} B &gt; 2, A {:, contains} B)
 </pre></div>
+
+<p>
 This expression selects all maps from A that temporally contains more than
 2 maps from B and stores them in space time dataset C. The leading
 equal statement in the if condition specifies the temporal relation
 between the if and then part of the if expression. This is very
 important, so we do not need to specify a global time reference (a space
 time dataset) for temporal processing.
+
 <p>
 Furthermore the temporal algebra allows temporal buffering, shifting and
 snapping with the functions buff_t(), tshift() and tsnap() respectively.
+
 <div class="code"><pre>
 buff_t(A, size)         Buffer STDS A with granule ("1 month" or 5)
 tshift(A, size)         Shift STDS A with granule ("1 month" or 5)
 tsnap(A)                Snap time instances and intervals of STDS A
 </pre></div>
+
+<p>
 A negative size shrinks the maps; the new algebra stops with an error where
 a map would keep no time, see "Core and classic algebra".
 
@@ -373,15 +437,21 @@ a map would keep no time, see "Core and classic algebra".
 
 The temporal algebra can also handle single maps with time stamps in the
 map function.
+
 <div class="code"><pre>
 tmap()
 </pre></div>
+
+<p>
 For example:
+
 <div class="code"><pre>
  C = A {:,during} tmap(event)
 </pre></div>
+
+<p>
 This statement select all maps from space time data set A that are
-during the temporal extent of single map 'event'<br>
+during the temporal extent of single map 'event'
 
 <h2>NOTES</h2>
 
@@ -394,10 +464,12 @@ mapset <code>paper</code> holds <code>a2@PERMANENT</code>, and no map of that na
 <code>paper</code>. A name without a mapset in the expression refers to the current
 mapset only, so <code>X</code> does not find a dataset <code>X</code> of another mapset; write
 <code>X@mapset</code>.
+
 <p>
 An expression that selects no map creates an empty space time dataset, for
 vector maps also, with <b>-c</b> and without. The empty dataset has the map count
 0 in <em><a href="t.info.html">t.info</a></em>, as the example with the mapset <code>paper</code> shows.
+
 <p>
 Datasets of relative time are selected like those of absolute time, with the
 same relations and operators. The result has the temporal type of the input
@@ -416,6 +488,7 @@ relations and order. The flag <b>-c</b> selects it for one call, the environment
 variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session or script;
 <code>GRASS_TEMPORAL_ALGEBRA=core</code> or an unset or empty variable selects the new
 algebra, and the flag takes precedence over the variable.
+
 <p>
 Both algebras pull maps of another dataset type into a selection with the
 functions <code>strds()</code>, <code>str3ds()</code> and <code>stvds()</code>; the type of the function need
@@ -428,55 +501,48 @@ error. Besides the lower case spelling, <code>str3ds(A)</code>, both read the
 capitals of the paper, <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code>. A capital name
 is a function only before an opening parenthesis, so that a dataset may be
 named <code>STRDS</code>. Other spellings, such as <code>Str3ds(A)</code>, are a syntax error.
+
 <p>
 <em>t.select</em> only selects and retimes maps, it computes none, so most
 differences between the two algebras do not reach it. An expression that
 selects no map creates an empty space time dataset in both algebras. These
 points differ:
+
 <ol>
-<li>
-<b>Spatial relations.</b> A spatial relation in an operator, such as
+<li><b>Spatial relations.</b> A spatial relation in an operator, such as
 <code>{:,equal|overlap}</code>, is read only by the new algebra, with and without
 the flag <b>-s</b>, and needs a temporal relation to go with it. The
 classic algebra reports a syntax error for the name of a spatial
-relation, with and without <b>-s</b>.
-</li>
-<li>
-<b>Right reference.</b> <code>A {:,R,r} B</code> gives one map per related pair, with
+relation, with and without <b>-s</b>.</li>
+<li><b>Right reference.</b> <code>A {:,R,r} B</code> gives one map per related pair, with
 the time stamp of the right map: a map of A that contains two maps of B
 gives two maps. The classic algebra keeps only the last pair of each map
 of A. <code>A {!:,R,t} B</code> with a temporal reference other than <code>l</code> is a
 syntax error, because the inverse selection has no related map to
-combine with; the classic algebra accepts it.
-</li>
-<li>
-<b>More syntax.</b> The neighbourhood modifier <code>A[1]</code> and <code>A[-1]</code>, and
+combine with; the classic algebra accepts it.</li>
+<li><b>More syntax.</b> The neighbourhood modifier <code>A[1]</code> and <code>A[-1]</code>, and
 comparisons and temporal functions anywhere in a condition (also with
 the number on the left, as in <code>20 &lt; start_doy(A)</code>, and in arithmetic, as
 in <code>start_doy(A) - 1 &gt; 20</code>), and the hash operator in arithmetic within
 a condition are read by the new algebra. So is an expression that is only
-a dataset, <code>C = A</code>. The classic algebra reports a syntax error for each.
-</li>
-<li>
-<b>Arithmetic on datasets.</b> An expression such as <code>A + B</code> is read by the
+a dataset, <code>C = A</code>. The classic algebra reports a syntax error for each.</li>
+<li><b>Arithmetic on datasets.</b> An expression such as <code>A + B</code> is read by the
 new algebra, which stops with a message that names the tools that
 compute maps, because it is no selection. The classic algebra cannot
-read it and reports a syntax error.
-</li>
-<li>
-<b>Copy names in a mixed result.</b> When a result mixes maps registered
+read it and reports a syntax error.</li>
+<li><b>Copy names in a mixed result.</b> When a result mixes maps registered
 unchanged with retimed maps, the copied maps are named <code>&lt;result&gt;_1</code>,
 <code>&lt;result&gt;_2</code>, ... in the time order of the result. The classic algebra
 numbers them by their position among all result maps, so the suffixes can
 differ; the maps and their time stamps are the same. If three maps are
 registered unchanged before three copies, the copies are <code>C_1</code> to <code>C_3</code>
 in the new algebra and <code>C_4</code> to <code>C_6</code> in the classic one:
+
 <div class="code"><pre>
 C = merge(A {:,during,l} D, A {:,during,r} D)
 </pre></div>
 </li>
-<li>
-<b>Negative buffer.</b> A negative size in <code>buff_t()</code> shrinks the maps
+<li><b>Negative buffer.</b> A negative size in <code>buff_t()</code> shrinks the maps
 by that size at both ends. The new algebra stops with an error if a map
 would keep no time, that is if its end would fall on or before its start,
 and for a time instance, which has no duration to shrink. The classic
@@ -485,13 +551,13 @@ start it prints an error message and keeps the old time stamp, and it
 makes a time instance of a map whose end equals its start. For maps
 of two days, the first expression shrinks them to one day and the
 second is an error:
+
 <div class="code"><pre>
 C = buff_t(B, "-12 hours")
 C = buff_t(B, "-1 day")
 </pre></div>
 </li>
-<li>
-<b>tsnap() of maps that start together.</b> Of maps with the same start,
+<li><b>tsnap() of maps that start together.</b> Of maps with the same start,
 <code>tsnap()</code> snaps only one to the start of the next later map; the others
 keep their own ends. The new algebra takes the map that ends last, so its
 result does not depend on the order of the maps. The classic algebra
@@ -499,13 +565,13 @@ takes the map listed last, so that the order of the arguments of
 <code>merge()</code> matters. If a map from day 2 to day 4 is in C and a map from
 day 2 to day 3 in A, the new algebra gives both expressions the same
 maps; the classic algebra lets the map of C keep its end in the second:
+
 <div class="code"><pre>
 D = tsnap(merge(A, C))
 D = tsnap(merge(C, A))
 </pre></div>
 </li>
-<li>
-<b>Time functions as the conclusion of if().</b> A time function such as
+<li><b>Time functions as the conclusion of if().</b> A time function such as
 <code>start_doy()</code> gives numbers, not maps, so the new algebra stops with the
 error "A time function such as start_doy() cannot be the result of a
 selection" whenever it is the conclusion of <code>if()</code> beside maps. A time
@@ -515,18 +581,21 @@ selected maps (see the corrections below). If the first map of A starts
 on 1 January, only that map meets the condition, and it has no
 predecessor: the classic algebra selects the other maps of A with the
 first expression and stops with the second:
+
 <div class="code"><pre>
 C = if(start_doy(A) &lt; 3, start_doy(A, -1), A)
 C = if(start_doy(A) &lt; 3, start_doy(A, 1), A)
 </pre></div>
 </li>
 </ol>
+
 <p>
 In Python, both algebras raise <code>SyntaxError</code> for an expression they cannot
 read, and <code>FatalError</code> for a missing dataset and, without overwrite, for an
 existing result. The new algebra raises <code>ValueError</code> for an expression it
 reads but cannot select, such as <code>A + B</code>, where the classic algebra raises
 <code>SyntaxError</code>. The tool stops with the error message in both algebras.
+
 <p>
 Two corrections apply to both algebras, and to <em>t.rast.algebra</em>,
 <em>t.rast3d.algebra</em> and <em>t.vect.algebra</em> as well, so <b>-c</b> gives the rules of
@@ -539,9 +608,12 @@ related to. Figure A3 of Gebbert, Leppelt and Pebesma (2019) needs both: A
 has maps from day 1 to 3, 3 to 5 and 5 to 7 of January 2001, B has daily maps
 from day 1 to 10, and this expression gives the first two maps of A and the
 maps of B from day 5 on, as the figure shows:
+
 <div class="code"><pre>
 C = if({equal|contains}, start_date(A) &lt;= "2001-01-03", A, B)
 </pre></div>
+
+<p>
 Results that rely on the previous reading direction or else rule need the
 GRASS version they were computed with. The section "Core and classic
 algebra" in the NOTES of <a href="t.rast.algebra.html">t.rast.algebra</a> describes both
@@ -560,74 +632,74 @@ never had these errors; only the items on month steps, on dates beyond the year
 9999, on a map that starts with the next map in tsnap() and on a failed module
 concerned the library and with it both algebras. Results of earlier GRASS
 versions that used one of these forms need a new run.
+
 <ol>
-<li>
-<b>tsnap() and tshift() of no maps.</b> If the expression inside selects
+<li><b>tsnap() and tshift() of no maps.</b> If the expression inside selects
 no map, the result is an empty dataset, like any other selection of no
 map, and an enclosing expression goes on with no maps. Earlier versions
 ended in an error. No map of A is equal to a map of D, so both
 expressions give an empty dataset:
+
 <div class="code"><pre>
 C = tsnap(A {:,equal} D)
 C = tshift(A {:,equal} D, "1 day")
 </pre></div>
 </li>
-<li>
-<b>Increments that the library refuses.</b> An increment of <code>tshift()</code> or
+<li><b>Increments that the library refuses.</b> An increment of <code>tshift()</code> or
 <code>buff_t()</code> that does not fit the temporal type, such as a text that is
 not a time step or a number without unit on absolute time, is a syntax
 error and leaves no result dataset. The new algebra refuses the same
 increments with a <code>ValueError</code>:
+
 <div class="code"><pre>
 C = tshift(A, "1 DAY")
 C = buff_t(A, 3)
 </pre></div>
 </li>
-<li>
-<b>Selection with a time instance on relative time.</b> With the temporal
+<li><b>Selection with a time instance on relative time.</b> With the temporal
 operator <code>i</code>, the time stamp of the result is the time instance. Earlier
 versions failed with a <code>TypeError</code> for a selection on relative time. If A
 has maps of relative time that contain the time instances of I, this
 expression gives maps with the instances as time:
+
 <div class="code"><pre>
 C = A {:,contains,i} I
 </pre></div>
 </li>
-<li>
-<b>Spatial relation names alone.</b> A selection in braces refuses spatial
+<li><b>Spatial relation names alone.</b> A selection in braces refuses spatial
 relation names with a syntax error. With spatial names only, such as
 <code>A {:,equivalent} B</code>, it stops now with the error "equivalent is a spatial
 relation and needs a temporal one, as in equal|overlap", as every operator
 of the algebras and the new algebra do (17 October 2026). Selections read
 temporal relations only:
+
 <div class="code"><pre>
 C = A {:,equal} B
 </pre></div>
 </li>
-<li>
-<b>Empty selection of vector maps.</b> An expression that selects no map
+<li><b>Empty selection of vector maps.</b> An expression that selects no map
 creates an empty space time vector dataset, as it does for raster maps
 and in the new algebra (19 October 2026). The reference implementation
 created no dataset for vector maps and gave no warning. With
 <b>type=stvds</b>, if no map of A is equal to a map of D, this expression
 gives an empty dataset:
+
 <div class="code"><pre>
 C = A {:,equal} D
 </pre></div>
 </li>
-<li>
-<b>Planned type of a mixed selection.</b> The dry run (<b>-d</b>) plans the
+<li><b>Planned type of a mixed selection.</b> The dry run (<b>-d</b>) plans the
 type of the dataset that the run creates (19 October 2026). If the maps
 of the result come from a function of another type, the run creates a
 dataset of that type: with <b>type=strds</b>, this expression creates a
 space time 3D raster dataset, and the dry run plans one. The reference
 implementation planned the type given by <b>type</b> and created the other:
+
 <div class="code"><pre>
 C = if({contains}, (stvds(B) {#,contains} str3ds(A)) == 2, str3ds(A))
 </pre></div>
 </li>
-<li>
-<b>A map that starts with the next map in tsnap().</b> <code>tsnap()</code> sets the end
+<li><b>A map that starts with the next map in tsnap().</b> <code>tsnap()</code> sets the end
 of each map to the start of the next map. A map that starts at the same
 time as the next map keeps its own end instead (corrected 21 October 2026).
 Earlier versions gave it the end of the next map, so the two maps swapped
@@ -636,12 +708,12 @@ the one listed first keeps its end in the classic algebra (<b>-c</b>,
 <code>GRASS_TEMPORAL_ALGEBRA=classic</code> and the reference implementation). The new
 algebra orders such maps by their end instead, see item 7 of the
 differences above:
+
 <div class="code"><pre>
 D = tsnap(merge(A, C))
 </pre></div>
 </li>
-<li>
-<b>Month and year steps from the end of a month.</b> <code>tshift()</code> and
+<li><b>Month and year steps from the end of a month.</b> <code>tshift()</code> and
 <code>buff_t()</code> by months or years ended in an error ("day is out of range for
 month") when a time stamp moved to a day that the target month lacks, in
 both algebras. Such a step now ends on the last day of that month
@@ -649,11 +721,11 @@ both algebras. Such a step now ends on the last day of that month
 January to 31 March 2001, the first expression gives a map from 28
 February to 30 April 2001, the second one a map from 31 December 2000 to
 30 April 2001. A year step from 29 February 2004 ends on 28 February 2005:
+
 <div class="code"><pre>
 C = tshift(M, "1 months")
 C = buff_t(M, "1 months")
 </pre></div>
-<p>
 
 <p>
 A month step back that ends in December of the year before last or
@@ -662,10 +734,8 @@ December or <code>tshift(A, "-13 months")</code> on one that starts in January,
 ended in the error "bad month number 0" and now gives a result
 (corrected 23 October 2026). Years and months of one step count as one
 step of 12 * years + months months, so <code>"1 years, 11 months"</code> and
-<code>"23 months"</code> end on the same day.
-</li>
-<li>
-<b>Time functions as the selected maps.</b> In a selection, a time function
+<code>"23 months"</code> end on the same day.</li>
+<li><b>Time functions as the selected maps.</b> In a selection, a time function
 at an offset such as <code>start_doy(A, 1)</code> stands for the map it reads, whose
 value the reference implementation never computed. Where such a value was
 among the selected maps, a dry run listed it and the real run failed when
@@ -674,21 +744,19 @@ function such as start_doy() cannot be the result of a selection" before
 it creates a dataset or a map (corrected 23 October 2026); where no value
 of the time function is selected, the result is the same as before. A
 time function belongs in the condition:
+
 <div class="code"><pre>
 C = if(start_doy(A) &lt; 3, start_doy(A, 1), A)
 C = tshift(start_doy(A, 1), "1 day")
 </pre></div>
 </li>
-<li>
-<b>A date beyond the year 9999.</b> A step that ends behind the year 9999
+<li><b>A date beyond the year 9999.</b> A step that ends behind the year 9999
 or before the year 1, for example <code>buff_t(A, "365 days")</code> on a map that ends
 on 1 December 9999, ended with a traceback ("date value out of range")
 in both algebras. It now ends with the error "... is beyond the year
 9999" or "... is before the year 1" (corrected 23 October 2026); no map
-and no dataset is created.
-</li>
-<li>
-<b>A selection with r or u under -s and maps whose boxes only touch.</b>
+and no dataset is created.</li>
+<li><b>A selection with r or u under -s and maps whose boxes only touch.</b>
 With <b>-s</b> two maps are related when they are related in time and in
 space; boxes that meet at an edge or a corner only are not related in
 space. A selection such as <code>A {:,precedes,r} B</code> took the time of every
@@ -701,23 +769,18 @@ is now taken only from maps that are related in time and in space, and
 October 2026). For example, a map of A from 1 to 2 January whose box
 meets at a corner the box of a map of B from 2 to 3 January keeps the
 time 1 to 2 January in the inverse selection above, where it took 2 to 3
-January. Without <b>-s</b> nothing changes.
-</li>
-<li>
-<b>A failed module.</b> If a module fails while the maps are computed or
+January. Without <b>-s</b> nothing changes.</li>
+<li><b>A failed module.</b> If a module fails while the maps are computed or
 copied, both algebras ended with a Python traceback. They now end with an
 error that names the module and its return code, such as
 <code>Module &lt;g.copy&gt; failed with return code 1, see the error output above</code>
 (corrected 24 October 2026); the cause is in the error output of the module
-above it. No dataset is created.
-</li>
-<li>
-<b>The relation equals and capital function names.</b> The releases before
+above it. No dataset is created.</li>
+<li><b>The relation equals and capital function names.</b> The releases before
 GRASS 8.6 refused the relation name <code>equals</code> and the capital function
 names <code>STRDS(A)</code>, <code>STR3DS(A)</code> and <code>STVDS(A)</code> of the paper with a syntax
 error (corrected 17 October 2026). Both algebras read them as <code>equal</code> and
-as the functions in lower case.
-</li>
+as the functions in lower case.</li>
 </ol>
 
 <h4>Differences from the reference implementation</h4>
@@ -743,6 +806,7 @@ The first example creates four datasets of constant maps in a small region.
 Every time below is a day of January 2001: a map from day 6 to 11 starts at
 00:00 of 6 January and ends at 00:00 of 11 January, so <code>a1</code> from day 1 to 6
 ends where <code>a2</code> starts. The value of each map is the number in its name.
+
 <table>
 <tr><th>Dataset</th><th>Maps from day to day</th></tr>
 <tr><td><code>A</code></td><td><code>a1</code> 1 to 6, <code>a2</code> 6 to 11, <code>a3</code> 11 to 16, <code>a4</code> 16 to 21</td></tr>
@@ -750,12 +814,15 @@ ends where <code>a2</code> starts. The value of each map is the number in its na
 <tr><td><code>C</code></td><td><code>c1</code> 6 to 11, <code>c2</code> 16 to 21</td></tr>
 <tr><td><code>W</code></td><td><code>w1</code> 3 to 19</td></tr>
 </table>
+
 <p>
 The operator <code>:</code> selects the maps of <code>A</code> that are equal in time to a map of
 <code>B</code>; the operator <code>!:</code> selects the ones that are not. Only <code>a2</code> and <code>b2</code> have
 the same time, so the first selection holds <code>a2</code> and the second the other
 three maps. The maps are registered in the result datasets, not copied.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 g.region n=2 s=0 e=2 w=0 res=1
 for dataset in A B C W; do
@@ -783,10 +850,12 @@ C c2 16 21
 W w1 03 19
 EOF
 </pre></div>
+
 <div class="code"><pre>
 t.rast.list input=A columns=name,start_time,end_time
 t.rast.list input=B columns=name,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00
@@ -802,25 +871,31 @@ b5|2001-01-14 00:00:00|2001-01-18 00:00:00
 b6|2001-01-18 00:00:00|2001-01-21 00:00:00
 b7|2001-01-21 00:00:00|2001-01-24 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 t.select expression="same_time = A : B"
 t.rast.list input=same_time columns=name,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 t.select expression="other_time = A !: B"
 t.rast.list input=other_time columns=name,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 from grass.tools import Tools
 
@@ -855,10 +930,12 @@ for dataset, maps in datasets.items():
             end=f"2001-01-{last:02d}",
         )
 </pre></div>
+
 <div class="code"><pre>
 for dataset in ("A", "B"):
     print(tools.t_rast_list(input=dataset, columns="name,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00
@@ -874,18 +951,22 @@ b5|2001-01-14 00:00:00|2001-01-18 00:00:00
 b6|2001-01-18 00:00:00|2001-01-21 00:00:00
 b7|2001-01-21 00:00:00|2001-01-24 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="same_time = A : B")
 print(tools.t_rast_list(input="same_time", columns="name,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="other_time = A !: B")
 print(tools.t_rast_list(input="other_time", columns="name,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00
@@ -903,10 +984,13 @@ and registers the copies, named after the result <code>plan</code>, with the tim
 run without <b>-d</b> then creates it. A second dry run with <b>--overwrite</b>
 plans the same copies, now with the flag <code>overwrite</code>, because the result
 exists.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 t.select -d expression="plan = A {:,during,r} W"
 </pre></div>
+
 <div class="code"><pre>
 {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': [],
@@ -921,9 +1005,11 @@ t.select -d expression="plan = A {:,during,r} W"
               ('plan_2', '2001-01-03 00:00:00', '2001-01-19 00:00:00')],
  'remove': []}
 </pre></div>
+
 <div class="code"><pre>
 t.list type=strds
 </pre></div>
+
 <div class="code"><pre>
 A@PERMANENT
 B@PERMANENT
@@ -932,18 +1018,22 @@ W@PERMANENT
 other_time@PERMANENT
 same_time@PERMANENT
 </pre></div>
+
 <div class="code"><pre>
 t.select expression="plan = A {:,during,r} W"
 t.rast.list input=plan columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 plan_1|2001-01-03 00:00:00|2001-01-19 00:00:00|2.0
 plan_2|2001-01-03 00:00:00|2001-01-19 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 t.select --overwrite -d expression="plan = A {:,during,r} W"
 </pre></div>
+
 <div class="code"><pre>
 {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': ['overwrite'],
@@ -958,10 +1048,13 @@ t.select --overwrite -d expression="plan = A {:,during,r} W"
               ('plan_2', '2001-01-03 00:00:00', '2001-01-19 00:00:00')],
  'remove': []}
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 print(tools.t_select(expression="plan = A {:,during,r} W", flags="d").text)
 </pre></div>
+
 <div class="code"><pre>
 {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': [],
@@ -976,9 +1069,11 @@ print(tools.t_select(expression="plan = A {:,during,r} W", flags="d").text)
               ('plan_2', '2001-01-03 00:00:00', '2001-01-19 00:00:00')],
  'remove': []}
 </pre></div>
+
 <div class="code"><pre>
 print(tools.t_list(type="strds").text)
 </pre></div>
+
 <div class="code"><pre>
 A@PERMANENT
 B@PERMANENT
@@ -987,20 +1082,24 @@ W@PERMANENT
 other_time@PERMANENT
 same_time@PERMANENT
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="plan = A {:,during,r} W")
 print(tools.t_rast_list(input="plan", columns="name,start_time,end_time,min").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 plan_1|2001-01-03 00:00:00|2001-01-19 00:00:00|2.0
 plan_2|2001-01-03 00:00:00|2001-01-19 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 print(
     tools.t_select(expression="plan = A {:,during,r} W", flags="d", overwrite=True).text
 )
 </pre></div>
+
 <div class="code"><pre>
 {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
  'processes': [{'flags': ['overwrite'],
@@ -1025,37 +1124,46 @@ the algebra core gives one map per related pair, so <code>a3</code>, which conta
 and <code>b4</code>, gives two maps, with the times of both. The classic algebra keeps
 only the last pair of each map of <code>A</code>, so <code>a3</code> gives one map, with the time
 of <code>b4</code>. The map of <code>a4</code> with the time of <code>b6</code> is in both results.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 t.select expression="pairs = A {:,contains,r} B"
 t.rast.list input=pairs columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 pairs_1|2001-01-11 00:00:00|2001-01-13 00:00:00|3.0
 pairs_2|2001-01-12 00:00:00|2001-01-14 00:00:00|3.0
 pairs_3|2001-01-18 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 t.select -c expression="pairs_classic = A {:,contains,r} B"
 t.rast.list input=pairs_classic columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 pairs_classic_1|2001-01-12 00:00:00|2001-01-14 00:00:00|3.0
 pairs_classic_2|2001-01-18 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.t_select(expression="pairs = A {:,contains,r} B")
 print(tools.t_rast_list(input="pairs", columns="name,start_time,end_time,min").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 pairs_1|2001-01-11 00:00:00|2001-01-13 00:00:00|3.0
 pairs_2|2001-01-12 00:00:00|2001-01-14 00:00:00|3.0
 pairs_3|2001-01-18 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="pairs_classic = A {:,contains,r} B", flags="c")
 print(
@@ -1064,6 +1172,7 @@ print(
     ).text
 )
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 pairs_classic_1|2001-01-12 00:00:00|2001-01-14 00:00:00|3.0
@@ -1078,7 +1187,9 @@ of <code>A</code> (0 to 2 in both directions), the map <code>east</code> covers 
 to 5, so it has no point in common with them. Both maps are selected by time;
 with <b>-s</b> only <code>west</code> is. The listings are ordered by name because both
 maps have the same start time.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 g.region n=2 s=0 w=0 e=2 res=1
 r.mapcalc expression="west = 1"
@@ -1088,24 +1199,30 @@ g.region n=2 s=0 w=0 e=2 res=1
 t.create output=tiles title="Tiles" description="Two tiles at the time of a2"
 t.register input=tiles maps=west,east start=2001-01-06 end=2001-01-11
 </pre></div>
+
 <div class="code"><pre>
 t.select expression="by_time = tiles : A"
 t.rast.list input=by_time columns=name,start_time,end_time,east,west order=name
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|east|west
 east|2001-01-06 00:00:00|2001-01-11 00:00:00|5.0|3.0
 west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
 </pre></div>
+
 <div class="code"><pre>
 t.select -s expression="by_space = tiles : A"
 t.rast.list input=by_space columns=name,start_time,end_time,east,west order=name
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|east|west
 west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.g_region(n=2, s=0, w=0, e=2, res=1)
 tools.r_mapcalc(expression="west = 1")
@@ -1115,6 +1232,7 @@ tools.g_region(n=2, s=0, w=0, e=2, res=1)
 tools.t_create(output="tiles", title="Tiles", description="Two tiles at the time of a2")
 tools.t_register(input="tiles", maps="west,east", start="2001-01-06", end="2001-01-11")
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="by_time = tiles : A")
 print(
@@ -1123,11 +1241,13 @@ print(
     ).text
 )
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|east|west
 east|2001-01-06 00:00:00|2001-01-11 00:00:00|5.0|3.0
 west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="by_space = tiles : A", flags="s")
 print(
@@ -1136,6 +1256,7 @@ print(
     ).text
 )
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|east|west
 west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
@@ -1148,6 +1269,7 @@ has a dataset <code>A</code> of 3D raster maps and a dataset <code>B</code> of v
 names differ from the raster datasets in <code>PERMANENT</code>. <code>soil_1</code>, <code>soil_2</code> and
 <code>soil_3</code> last from 2 to 5, 5 to 8 and 8 to 11 January, the vector maps <code>g_1</code>
 and <code>g_2</code> from 1 to 6 and 6 to 11 January.
+
 <p>
 The first selection is the one of the paper by Gebbert, Leppelt and Pebesma
 (2019): the 3D raster maps that are during a vector map, written with the
@@ -1159,7 +1281,9 @@ creates an empty dataset with no map, with <b>-c</b> and without. The last one
 selects in the raster datasets of <code>PERMANENT</code>, named with their mapset; the
 result is in the current mapset and registers the map of <code>PERMANENT</code> itself,
 not a copy.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 g.mapset -c mapset=paper
 g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
@@ -1176,45 +1300,56 @@ t.create type=stvds output=B title="Gauges" description="Two gauges"
 t.register -i type=vector input=B maps=g_1,g_2 \
     start=2001-01-01 increment="5 days"
 </pre></div>
+
 <div class="code"><pre>
 t.select type=str3ds expression="inside = STR3DS(A) {:,during,l} STVDS(B)"
 t.rast3d.list input=inside columns=name,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 soil_1|2001-01-02 00:00:00|2001-01-05 00:00:00
 soil_3|2001-01-08 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 t.select type=stvds expression="first = B {:,precedes} B"
 t.vect.list input=first columns=name,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 g_1|2001-01-01 00:00:00|2001-01-06 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 t.select -c type=stvds expression="empty_classic = B {:,contains} B"
 t.info -g type=stvds input=empty_classic | grep number_of_maps
 t.select type=stvds expression="empty_core = B {:,contains} B"
 t.info -g type=stvds input=empty_core | grep number_of_maps
 </pre></div>
+
 <div class="code"><pre>
 number_of_maps=0
 number_of_maps=0
 </pre></div>
+
 <div class="code"><pre>
 t.select expression="main = A@PERMANENT : B@PERMANENT"
 t.rast.list input=main columns=id,start_time,end_time
 </pre></div>
+
 <div class="code"><pre>
 id|start_time|end_time
 a2@PERMANENT|2001-01-06 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 g.mapset mapset=PERMANENT
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.g_mapset(mapset="paper", flags="c")
 tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
@@ -1243,23 +1378,28 @@ tools.t_register(
     flags="i",
 )
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(type="str3ds", expression="inside = STR3DS(A) {:,during,l} STVDS(B)")
 print(tools.t_rast3d_list(input="inside", columns="name,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 soil_1|2001-01-02 00:00:00|2001-01-05 00:00:00
 soil_3|2001-01-08 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(type="stvds", expression="first = B {:,precedes} B")
 print(tools.t_vect_list(input="first", columns="name,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time
 g_1|2001-01-01 00:00:00|2001-01-06 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(type="stvds", expression="empty_classic = B {:,contains} B", flags="c")
 info = tools.t_info(type="stvds", input="empty_classic", flags="g").keyval
@@ -1268,18 +1408,22 @@ tools.t_select(type="stvds", expression="empty_core = B {:,contains} B")
 info = tools.t_info(type="stvds", input="empty_core", flags="g").keyval
 print(f"number_of_maps={info['number_of_maps']}")
 </pre></div>
+
 <div class="code"><pre>
 number_of_maps=0
 number_of_maps=0
 </pre></div>
+
 <div class="code"><pre>
 tools.t_select(expression="main = A@PERMANENT : B@PERMANENT")
 print(tools.t_rast_list(input="main", columns="id,start_time,end_time").text)
 </pre></div>
+
 <div class="code"><pre>
 id|start_time|end_time
 a2@PERMANENT|2001-01-06 00:00:00|2001-01-11 00:00:00
 </pre></div>
+
 <div class="code"><pre>
 tools.g_mapset(mapset="PERMANENT")
 </pre></div>
@@ -1288,6 +1432,7 @@ tools.g_mapset(mapset="PERMANENT")
 
 Every block selects maps of <code>A</code> that are in one temporal relation to a
 map of <code>B</code>. The maps of <code>A</code> stand in these relations to the maps of <code>B</code>:
+
 <table>
 <tr><th>Map of A</th><th>Relation to the maps of B</th></tr>
 <tr><td><code>a1</code></td><td>starts <code>b1</code>, precedes <code>b2</code></td></tr>
@@ -1295,130 +1440,158 @@ map of <code>B</code>. The maps of <code>A</code> stand in these relations to th
 <tr><td><code>a3</code></td><td>follows <code>b1</code> and <code>b2</code>, started by <code>b3</code>, contains <code>b4</code>, overlaps <code>b5</code></td></tr>
 <tr><td><code>a4</code></td><td>overlapped by <code>b5</code>, finished by <code>b6</code>, precedes <code>b7</code></td></tr>
 </table>
+
 <p>
 The last column of each listing is the value of the map, which is the
 number in its name, so the listing also tells which map of <code>A</code> was
 selected when its name changed.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # A map of A with the time of a map of B: a2 and b2.
 t.select expression="rel_equal = A {:,equal} B"
 t.rast.list input=rel_equal columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # The paper writes equal as equals: the same maps.
 t.select expression="rel_equals = A {:,equals} B"
 t.rast.list input=rel_equals columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # During also takes maps that start or finish with the map of B: a1
 # starts b1 and a2 finishes b1.
 t.select expression="rel_during = A {:,during} B"
 t.rast.list input=rel_during columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # a1 starts b1: same start, a1 is shorter.
 t.select expression="rel_starts = A {:,starts} B"
 t.rast.list input=rel_starts columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 </pre></div>
+
 <div class="code"><pre>
 # a2 finishes b1: same end, a2 is shorter.
 t.select expression="rel_finishes = A {:,finishes} B"
 t.rast.list input=rel_finishes columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # Contains also takes maps that start or finish with the map of B: a3
 # contains b3 and b4, a4 contains b6.
 t.select expression="rel_contains = A {:,contains} B"
 t.rast.list input=rel_contains columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # a3 is started by b3: same start, a3 is longer.
 t.select expression="rel_started = A {:,started} B"
 t.rast.list input=rel_started columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # a4 is finished by b6: same end, a4 is longer.
 t.select expression="rel_finished = A {:,finished} B"
 t.rast.list input=rel_finished columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # The end of a1 is the start of b2, a2 of b3, a4 of b7.
 t.select expression="rel_precedes = A {:,precedes} B"
 t.rast.list input=rel_precedes columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # a3 starts where b1 and b2 end.
 t.select expression="rel_follows = A {:,follows} B"
 t.rast.list input=rel_follows columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # a3 starts first and ends inside b5.
 t.select expression="rel_overlaps = A {:,overlaps} B"
 t.rast.list input=rel_overlaps columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # a4 starts inside b5 and ends later.
 t.select expression="rel_overlapped = A {:,overlapped} B"
 t.rast.list input=rel_overlapped columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # over is overlaps or overlapped: a3 and a4.
 t.select expression="rel_over = A {:,over} B"
 t.rast.list input=rel_over columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
@@ -1432,81 +1605,98 @@ second dataset, <code>!:</code> the maps that are not. Relations in braces are
 joined with <code>|</code>. <code>W</code> has one long map, <code>w1</code>, from 3 to 19 January, so
 that <code>a2</code> and <code>a3</code> lie strictly inside it. A chain of selections is read
 from left to right.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # Maps of A equal in time to a map of B.
 t.select expression="sel_equal = A : B"
 t.rast.list input=sel_equal columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # Maps of A that are not.
 t.select expression="sel_not_equal = A !: B"
 t.rast.list input=sel_not_equal columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # Equal, during or overlaps.
 t.select expression="sel_three = A {:,equal|during|overlaps} B"
 t.rast.list input=sel_three columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # Neither equal nor during: the complement of two relations.
 t.select expression="sel_not_two = A {!:,equal|during} B"
 t.rast.list input=sel_not_two columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # Strictly inside the one map of W.
 t.select expression="sel_inside = A {:,during} W"
 t.rast.list input=sel_inside columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # The same pair from the other side selects the map of W.
 t.select expression="sel_wide = W {:,contains} A"
 t.rast.list input=sel_wide columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 w1|2001-01-03 00:00:00|2001-01-19 00:00:00|1.0
 </pre></div>
+
 <div class="code"><pre>
 # Equal to a map of B and of C: only a2.
 t.select expression="sel_chain = A : B : C"
 t.rast.list input=sel_chain columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # A precedes B first, then during W: of a1, a2 and a4 only a2.
 t.select expression="sel_chain_two = A {:,precedes} B {:,during} W"
 t.rast.list input=sel_chain_two columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
@@ -1519,78 +1709,95 @@ the time of the left map (the default), <code>r</code> of the right map, <code>i
 intersection, <code>u</code> the union and <code>d</code> the disjoint union. A map whose
 time differs from its own becomes a copy named after the result, here
 <code>ext_i_1</code>, <code>ext_r_1</code> and so on. <code>a3</code> [11, 16) overlaps <code>b5</code> [14, 18).
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # l keeps 11 to 16 and the map a3 itself.
 t.select expression="ext_l = A {:,overlaps,l} B"
 t.rast.list input=ext_l columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # i: 14 to 16.
 t.select expression="ext_i = A {:,overlaps,i} B"
 t.rast.list input=ext_i columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_i_1|2001-01-14 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # r: 14 to 18.
 t.select expression="ext_r = A {:,overlaps,r} B"
 t.rast.list input=ext_r columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_r_1|2001-01-14 00:00:00|2001-01-18 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # u: 11 to 18.
 t.select expression="ext_u = A {:,overlaps,u} B"
 t.rast.list input=ext_u columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_u_1|2001-01-11 00:00:00|2001-01-18 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # d: 11 to 18 as well, the two maps overlap.
 t.select expression="ext_d = A {:,overlaps,d} B"
 t.rast.list input=ext_d columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_d_1|2001-01-11 00:00:00|2001-01-18 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # The word intersect is i.
 t.select expression="ext_word = A {:,overlaps,intersect} B"
 t.rast.list input=ext_word columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_word_1|2001-01-14 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # r gives one map per related pair: a3 with the times of b3 and b4,
 # a4 with the time of b6.
 t.select expression="ext_pairs = A {:,contains,r} B"
 t.rast.list input=ext_pairs columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 ext_pairs_1|2001-01-11 00:00:00|2001-01-13 00:00:00|3.0
 ext_pairs_2|2001-01-12 00:00:00|2001-01-14 00:00:00|3.0
 ext_pairs_3|2001-01-18 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # The inverse selection keeps the maps with the time of A.
 t.select expression="ext_inverse = A {!:,contains,l} B"
 t.rast.list input=ext_inverse columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
@@ -1604,32 +1811,39 @@ holds. Without an else part, the other maps are dropped; with one, each
 map for which the condition is false is replaced by the map of the else
 dataset that is equal to it in time. The first block is the chain of
 relations from above, the second takes the else maps <code>c2</code> for <code>a4</code>.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # a2 is the only map before 12 January that is equal to maps of
 # B and C.
 t.select expression='cond_chain = if(start_date(A) &lt; "2001-01-12", A : B : C)'
 t.rast.list input=cond_chain columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # Written as in the older manual. Every map of A starts before 2005,
 # so the result is the same as for A : B : C, here a2.
 t.select expression='F = if(start_date(A) &lt; "2005-01-01", A : B : C)'
 t.rast.list input=F columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # a1 to a3 start before 12 January; for a4, c2 has the same time.
 t.select expression='cond_else = if(start_date(A) &lt; "2001-01-12", A, C)'
 t.rast.list input=cond_else columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
@@ -1637,62 +1851,74 @@ a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # &amp;&amp; needs both conditions: a start between day 6 and day 11.
 t.select expression="cond_doy = if(start_doy(A) &gt;= 6 &amp;&amp; start_doy(A) &lt;= 11, A)"
 t.rast.list input=cond_doy columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # || needs one of them: a start before day 3 or after day 10.
 t.select expression="cond_or = if(start_doy(A) &lt; 3 || start_doy(A) &gt; 10, A)"
 t.rast.list input=cond_or columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 a4|2001-01-16 00:00:00|2001-01-21 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # The end date of a3 is 16 January.
 t.select expression='cond_end = if(end_date(A) == "2001-01-16", A)'
 t.rast.list input=cond_end columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # The start of the week is Monday == 1; 1 January 2001 was one.
 t.select expression="cond_dow = if(start_dow(A) == 1, A)"
 t.rast.list input=cond_dow columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 </pre></div>
+
 <div class="code"><pre>
 # td() is the length of a map in days: B maps longer than 3 days.
 t.select expression="cond_td = if(td(B) &gt; 3, B)"
 t.rast.list input=cond_td columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 b1|2001-01-01 00:00:00|2001-01-11 00:00:00|1.0
 b2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 b5|2001-01-14 00:00:00|2001-01-18 00:00:00|5.0
 </pre></div>
+
 <div class="code"><pre>
 # The relation in braces reads condition, relation, conclusion:
 # the maps of B that lie within a map of A.
 t.select expression="cond_relation = if({contains}, start_doy(A) &gt; 0, B)"
 t.rast.list input=cond_relation columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 b3|2001-01-11 00:00:00|2001-01-13 00:00:00|3.0
@@ -1708,26 +1934,32 @@ map has no count: it is neither selected nor used for the else part.
 <code>a1</code> and <code>a2</code> contain no map of <code>B</code>, <code>a3</code> contains <code>b3</code> and <code>b4</code>, <code>a4</code>
 contains <code>b6</code>. A comparison operator in braces combines the conditions
 on two datasets.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # The leading {equal} relates the count to the maps of A.
 t.select expression="count_a3 = if({equal}, A {#, contains} B &gt; 1, A {:, contains} B)"
 t.rast.list input=count_a3 columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 </pre></div>
+
 <div class="code"><pre>
 # a3 has two maps; a4 has one, so c2 comes from the else part.
 t.select expression="count_else = if(A {#, contains} B &gt; 1, A {:, contains} B, C)"
 t.rast.list input=count_else columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a3|2001-01-11 00:00:00|2001-01-16 00:00:00|3.0
 c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # Written as in the older manual. Only a3 (two maps of B) and a4 (one)
 # have a count, and neither has more than three, so the else part holds
@@ -1735,35 +1967,42 @@ c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 t.select expression="D = if(A {#, contains} B &gt; 3, A {:, contains} B, C)"
 t.rast.list input=D columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # During counts starts and finishes: a1 and a2 each have b1.
 t.select expression="count_during = if(A {#, during} B &gt;= 1, A)"
 t.rast.list input=count_during columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a1|2001-01-01 00:00:00|2001-01-06 00:00:00|1.0
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # A map of A that contains no map of B has no count, so no map has
 # count 0 and the result is empty.
 t.select expression="count_zero = if(A {#, contains} B == 0, A)"
 t.info -g input=count_zero | grep number_of_maps
 </pre></div>
+
 <div class="code"><pre>
 number_of_maps=0
 </pre></div>
+
 <div class="code"><pre>
 # A map of A must start after day 5, and the B maps equal or
 # during it must start before day 9: only a2.
 t.select expression="cond_compare = if(start_doy(A) &gt; 5 {&amp;&amp;, equal|during, l} start_doy(B) &lt; 9, A)"
 t.rast.list input=cond_compare columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
@@ -1775,12 +2014,15 @@ a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
 size shrinks it), <code>tshift()</code> moves the maps and <code>tsnap()</code> sets the end
 of each map to the start of the next. Maps with a new time are copies
 named after the result. <code>C</code> has a gap from 11 to 16 January.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # One day at both ends.
 t.select expression='buffered = buff_t(A, "1 days")'
 t.rast.list input=buffered columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 buffered_1|2000-12-31 00:00:00|2001-01-07 00:00:00|1.0
@@ -1788,11 +2030,13 @@ buffered_2|2001-01-05 00:00:00|2001-01-12 00:00:00|2.0
 buffered_3|2001-01-10 00:00:00|2001-01-17 00:00:00|3.0
 buffered_4|2001-01-15 00:00:00|2001-01-22 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # One day less at both ends.
 t.select expression='shrunk = buff_t(A, "-1 days")'
 t.rast.list input=shrunk columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 shrunk_1|2001-01-02 00:00:00|2001-01-05 00:00:00|1.0
@@ -1800,11 +2044,13 @@ shrunk_2|2001-01-07 00:00:00|2001-01-10 00:00:00|2.0
 shrunk_3|2001-01-12 00:00:00|2001-01-15 00:00:00|3.0
 shrunk_4|2001-01-17 00:00:00|2001-01-20 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # Two days later.
 t.select expression='shifted = tshift(A, "2 days")'
 t.rast.list input=shifted columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 shifted_1|2001-01-03 00:00:00|2001-01-08 00:00:00|1.0
@@ -1812,22 +2058,26 @@ shifted_2|2001-01-08 00:00:00|2001-01-13 00:00:00|2.0
 shifted_3|2001-01-13 00:00:00|2001-01-18 00:00:00|3.0
 shifted_4|2001-01-18 00:00:00|2001-01-23 00:00:00|4.0
 </pre></div>
+
 <div class="code"><pre>
 # c1 grows to the start of c2; c2 has no successor and stays.
 t.select expression="snapped = tsnap(C)"
 t.rast.list input=snapped columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 snapped_1|2001-01-06 00:00:00|2001-01-16 00:00:00|1.0
 c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 </pre></div>
+
 <div class="code"><pre>
 # B maps within the buffered A maps, which are 7 days long.
 # The else maps of C are not used: the condition holds everywhere.
 t.select expression='cond_buffered = if({contains}, td(buff_t(A, "1 days")) == 7, B, C)'
 t.rast.list input=cond_buffered columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 b2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
@@ -1835,6 +2085,7 @@ b3|2001-01-11 00:00:00|2001-01-13 00:00:00|3.0
 b4|2001-01-12 00:00:00|2001-01-14 00:00:00|4.0
 b6|2001-01-18 00:00:00|2001-01-21 00:00:00|6.0
 </pre></div>
+
 <div class="code"><pre>
 # Written as in the older manual. The buffered maps are 7 days long,
 # not 3, so the condition never holds and the else part gives the
@@ -1842,6 +2093,7 @@ b6|2001-01-18 00:00:00|2001-01-21 00:00:00|6.0
 t.select expression='E = if({contains}, td(buff_t(A, "1 days")) == 3, B, C)'
 t.rast.list input=E columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 c1|2001-01-06 00:00:00|2001-01-11 00:00:00|1.0
@@ -1851,12 +2103,15 @@ c2|2001-01-16 00:00:00|2001-01-21 00:00:00|2.0
 <h3>Select with the time of a single map</h3>
 
 <code>tmap()</code> takes the time stamp of one single map, here <code>w1</code> of <code>W</code>.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # The same maps as `A {:,during} W`.
 t.select expression="single_map = A {:,during} tmap(w1)"
 t.rast.list input=single_map columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 a2|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0
@@ -1869,7 +2124,9 @@ Datasets of relative time work with the same relations and with
 <code>buff_t()</code> and <code>tshift()</code>, whose size is a number, not a text, and
 the result has relative time. <code>P</code> has four maps of two days, <code>Q</code>
 two maps, 2 to 4 and 3 to 9.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 # Four maps of P with a length of two and two maps of Q, in days.
 r.mapcalc expression="p1 = 1"
@@ -1886,6 +2143,7 @@ t.register input=Q maps=q2 start=3 end=9 unit=days
 t.rast.list input=P columns=name,start_time,end_time,min
 t.rast.list input=Q columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 p1|0|2|1.0
@@ -1896,29 +2154,35 @@ name|start_time|end_time|min
 q1|2|4|1.0
 q2|3|9|2.0
 </pre></div>
+
 <div class="code"><pre>
 # Equal in time: p2.
 t.select expression="rel_equal_q = P : Q"
 t.rast.list input=rel_equal_q columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 p2|2|4|2.0
 </pre></div>
+
 <div class="code"><pre>
 # p2 [2, 4) overlaps q2 [3, 9): the union is 2 to 9.
 t.select expression="rel_union = P {:,overlaps,u} Q"
 t.rast.list input=rel_union columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 rel_union_1|2|9|2.0
 </pre></div>
+
 <div class="code"><pre>
 # One step at both ends.
 t.select expression="rel_buffered = buff_t(P, 1)"
 t.rast.list input=rel_buffered columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 rel_buffered_1|-1|3|1.0
@@ -1926,11 +2190,13 @@ rel_buffered_2|1|5|2.0
 rel_buffered_3|3|7|3.0
 rel_buffered_4|5|9|4.0
 </pre></div>
+
 <div class="code"><pre>
 # Ten steps later.
 t.select expression="rel_shifted_list = tshift(P, 10)"
 t.rast.list input=rel_shifted_list columns=name,start_time,end_time,min
 </pre></div>
+
 <div class="code"><pre>
 name|start_time|end_time|min
 rel_shifted_list_1|10|12|1.0
@@ -1938,11 +2204,13 @@ rel_shifted_list_2|12|14|2.0
 rel_shifted_list_3|14|16|3.0
 rel_shifted_list_4|16|18|4.0
 </pre></div>
+
 <div class="code"><pre>
 # The result has the temporal type of its input.
 t.select expression="rel_shifted = tshift(P, 10)"
 t.info -g input=rel_shifted | grep temporal_type
 </pre></div>
+
 <div class="code"><pre>
 temporal_type=relative
 </pre></div>
@@ -1950,6 +2218,7 @@ temporal_type=relative
 <h2>REFERENCES</h2>
 
 <a href="https://www.dabeaz.com/ply/">PLY(Python-Lex-Yacc)</a>
+
 <p>
 Gebbert, S., Leppelt, T., Pebesma, E., 2019. A topology based
 spatio-temporal map algebra for big data analysis. Data 4, 86.
@@ -1961,4 +2230,5 @@ spatio-temporal map algebra for big data analysis. Data 4, 86.
 
 <h2>AUTHORS</h2>
 
-Thomas Leppelt, S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart Agriculture
+Thomas Leppelt, S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart
+Agriculture

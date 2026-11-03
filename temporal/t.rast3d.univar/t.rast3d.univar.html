@@ -2,191 +2,196 @@
 
 <em>t.rast3d.univar</em> calculates univariate statistics of each 3D raster map
 registered in a space time 3D raster dataset and prints one line of statistics
-per map, ordered by start time. It runs
-<em><a href="r3.univar.html">r3.univar</a></em> for every map, so the
-statistics are those of <em>r3.univar</em>: they are taken from the cells
+per map, ordered by start time. It runs <em><a href="r3.univar.html">r3.univar</a></em> for every
+map, so the statistics are those of <em>r3.univar</em>: they are taken from the cells
 (voxels) of the current 3D computational region and count only cells with a
 value (non-null cells). See the
-<a href="temporalintro.html">introduction to temporal data processing</a>
-for space time datasets. Space time raster datasets have their own tool,
-<em><a href="t.rast.univar.html">t.rast.univar</a></em>, space time vector
-datasets <em><a href="t.vect.univar.html">t.vect.univar</a></em>. Its manual
-page explains the statistics for 2D maps in the same words; this page differs
-in the options that <em>t.rast3d.univar</em> does not have, in the 3D region,
-and in the zones.
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Space time raster datasets have their own tool,
+<em><a href="t.rast.univar.html">t.rast.univar</a></em>, space time vector datasets
+<em><a href="t.vect.univar.html">t.vect.univar</a></em>. Its manual page explains the statistics
+for 2D maps in the same words; this page differs in the options that
+<em>t.rast3d.univar</em> does not have, in the 3D region, and in the zones.
+
 <p>
-The option <b>input</b> names the space time 3D raster dataset. Each line of
-the output starts with three columns that name the map:
+The option <b>input</b> names the space time 3D raster dataset. Each line of the
+output starts with three columns that name the map:
+
 <ul>
-<li><code>id</code>, the name of the map with its mapset, such as
-<code>soil_1@PERMANENT</code>;</li>
-<li><code>start</code> and <code>end</code>, the start and end time of the
-map; the end of a map registered as a time instance is
-<code>None</code>.</li>
+<li><code>id</code>, the name of the map with its mapset, such as <code>soil_1@PERMANENT</code>;</li>
+<li><code>start</code> and <code>end</code>, the start and end time of the map; the end of a map
+registered as a time instance is <code>None</code>.</li>
 </ul>
+
 <p>
 The statistics follow:
+
 <ul>
-<li><code>non_null_cells</code> and <code>null_cells</code>: the number of
-cells with and without a value;</li>
-<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and
-the largest value and their difference;</li>
-<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and
-the mean of their absolute values;</li>
-<li><code>stddev</code> and <code>variance</code>: the variance is the sum of
-the squared deviations from the mean divided by the number of non-null cells
-(the population variance), the standard deviation is its square root;</li>
-<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times
-the standard deviation divided by the mean. It grows without bound when the
-mean approaches 0, and it is negative for a negative mean;</li>
-<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of
-their absolute values.</li>
+<li><code>non_null_cells</code> and <code>null_cells</code>: the number of cells with and without a
+value;</li>
+<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and the largest value and their
+difference;</li>
+<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and the mean of their
+absolute values;</li>
+<li><code>stddev</code> and <code>variance</code>: the variance is the sum of the squared deviations
+from the mean divided by the number of non-null cells (the population
+variance), the standard deviation is its square root;</li>
+<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times the
+standard deviation divided by the mean. It grows without bound when the mean
+approaches 0, and it is negative for a negative mean;</li>
+<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of their absolute values.</li>
 </ul>
+
 <p>
-The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>,
-<code>median</code>, <code>third_quartile</code> and the 90th percentile
-<code>percentile_90</code>. <em>r3.univar</em> finds a percentile p in the
-sorted values of the n non-null cells: it takes the value at position
-<code>n * p / 100 - 0.5</code> with the fractional part dropped, counting
+The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>, <code>median</code>,
+<code>third_quartile</code> and the 90th percentile <code>percentile_90</code>. <em>r3.univar</em> finds a
+percentile p in the sorted values of the n non-null cells: it takes the value
+at position <code>n * p / 100 - 0.5</code> with the fractional part dropped, counting
 from 0, so the percentile 0 is the minimum. The quartiles follow the same rule
-with p = 25 and p = 75. The median is the middle value, or
-the mean of the two middle values when n is even, so it can differ from the
-50th percentile. The option <b>percentile</b> replaces the 90th percentile by
+with p = 25 and p = 75. The median is the middle value,
+or the mean of the two middle values when n is even, so it can differ from
+the 50th percentile. The option <b>percentile</b> replaces the 90th percentile by
 one or more percentiles from 0 to 100, separated by commas; it requires
 <b>-e</b>. Each percentile gets a column of its own, named after it, with an
-underscore for a decimal point: <code>percentile=97.5</code> gives
-<code>percentile_97_5</code>.
+underscore for a decimal point: <code>percentile=97.5</code> gives <code>percentile_97_5</code>.
+
 <p>
 Two options select the maps of the dataset, and they can be combined:
+
 <ul>
-<li>the option <b>where</b> takes an SQL condition on the registered maps,
-for instance on <code>start_time</code> or <code>name</code>;</li>
-<li>the option <b>region_relation</b> keeps the maps that have a spatial
-relation with the current 3D computational region: <code>overlaps</code> keeps
-the maps that share at least a part of the region, <code>contains</code> the
-maps that cover the whole region, and <code>is_contained</code> the maps that
-lie inside the region. A map with the extent of the region both contains it
-and is contained in it. The option only selects maps; it does not change the
-cells the statistics are taken from.</li>
+<li>the option <b>where</b> takes an SQL condition on the registered maps, for
+instance on <code>start_time</code> or <code>name</code>;</li>
+<li>the option <b>region_relation</b> keeps the maps that have a spatial relation
+with the current 3D computational region: <code>overlaps</code> keeps the maps that
+share at least a part of the region, <code>contains</code> the maps that cover the
+whole region, and <code>is_contained</code> the maps that lie inside the region. A map
+with the extent of the region both contains it and is contained in it. The
+option only selects maps; it does not change the cells the statistics are
+taken from.</li>
 </ul>
+
 <p>
 The statistics of every map are taken in the current 3D computational region:
 cells of the map outside the region are not counted, and cells of the region
-outside the map are null cells. Unlike <em>t.rast.univar</em>,
-<em>t.rast3d.univar</em> has no flag to take the statistics in the region of
-each map instead.
+outside the map are null cells. Unlike <em>t.rast.univar</em>, <em>t.rast3d.univar</em> has
+no flag to take the statistics in the region of each map instead.
+
 <p>
 The option <b>zones</b> names a 3D raster map whose integer values divide the
-region into zones. <em>t.rast3d.univar</em> then prints one line per map and
-zone, with the columns <code>zone</code> (the value) and <code>label</code>
-(the category label of the zone, empty in the example below, where the zone map
-has none) after the three columns of the map. <b>zones</b> takes a single 3D
-raster map, not a space time dataset; the same zones apply to every map.
+region into zones. <em>t.rast3d.univar</em> then prints one line per map and zone,
+with the columns <code>zone</code> (the value) and <code>label</code> (the category label of the
+zone, empty in the example below, where the zone map has none) after the three
+columns of the map. <b>zones</b> takes a single 3D raster map, not a space time
+dataset; the same zones apply to every map.
+
 <p>
-The option <b>nprocs</b> sets the number of maps that are processed at the
-same time. Its default is the variable <code>NPROCS</code> of the session, if
-it is set with <em>g.gisenv</em>, and 0 otherwise.
-0 uses all CPU cores, a negative number leaves that many cores unused. The output is the same, in the same order, for any value.
+The option <b>nprocs</b> sets the number of maps that are processed at the same
+time. Its default is the variable <code>NPROCS</code> of the session, if it is set with
+<em>g.gisenv</em>, and 0 otherwise. 0 uses all CPU cores, a negative number leaves
+that many cores unused. The output is the same, in the same order, for any value.
+
 <p>
 The option <b>format</b> chooses the form of the output:
+
 <ul>
-<li><code>plain</code> (the default) separates the columns with a vertical
-bar <code>|</code>;</li>
-<li><code>csv</code> separates them with a comma, or with another single
-character given in <b>separator</b>;</li>
-<li><code>json</code> prints a list with one object per map, or with
-<b>zones</b> one per map and zone. The keys are the column names, except where
-they follow <em>r3.univar</em>: <code>n</code> instead of
-<code>non_null_cells</code>, <code>zone_label</code> instead of
-<code>label</code>, the additional key <code>cells</code> for the number of all
-cells, and no <code>sum_abs</code>. With <b>-e</b>, the percentiles are the
-list <code>percentiles</code> of objects with the keys <code>percentile</code>
-and <code>value</code>, instead of the columns <code>percentile_90</code> and
-so on. A value that does not exist is <code>null</code>. Every object has the
-key <code>semantic_label</code>, which is <code>null</code> for 3D maps; the
-formats <code>plain</code> and <code>csv</code> have no such column.</li>
+<li><code>plain</code> (the default) separates the columns with a vertical bar <code>|</code>;</li>
+<li><code>csv</code> separates them with a comma, or with another single character given
+in <b>separator</b>;</li>
+<li><code>json</code> prints a list with one object per map, or with <b>zones</b> one per
+map and zone. The keys are the column names, except where they follow
+<em>r3.univar</em>: <code>n</code> instead of <code>non_null_cells</code>, <code>zone_label</code> instead of
+<code>label</code>, the additional key <code>cells</code> for the number of all cells, and no
+<code>sum_abs</code>. With <b>-e</b>, the percentiles are the list <code>percentiles</code> of
+objects with the keys <code>percentile</code> and <code>value</code>, instead of the columns
+<code>percentile_90</code> and so on. A value that does not exist is <code>null</code>. Every
+object has the key <code>semantic_label</code>, which is <code>null</code> for 3D maps; the formats
+<code>plain</code> and <code>csv</code> have no such column.</li>
 </ul>
+
 <p>
-The option <b>separator</b> sets the separator of the formats
-<code>plain</code> and <code>csv</code>. The flag <b>-s</b> leaves out the line
-with the column names; it takes the place of the flag <b>-u</b> of
-<em>t.rast.univar</em>. The format <code>json</code> always names the values
-and accepts neither <b>separator</b> nor <b>-s</b>.
+The option <b>separator</b> sets the separator of the formats <code>plain</code> and <code>csv</code>.
+The flag <b>-s</b> leaves out the line with the column names; it takes the place
+of the flag <b>-u</b> of <em>t.rast.univar</em>. The format <code>json</code> always names the
+values and accepts neither <b>separator</b> nor <b>-s</b>.
+
 <p>
-The option <b>output</b> writes the statistics to a file instead of the
-standard output; <code>output=-</code> is the standard output. An existing file
-is replaced only with <b>--overwrite</b>.
+The option <b>output</b> writes the statistics to a file instead of the standard
+output; <code>output=-</code> is the standard output. An existing file is replaced only
+with <b>--overwrite</b>.
 
 <h2>NOTES</h2>
 
 The current 3D computational region decides which cells are counted, so it
-needs a vertical extent and a 3D resolution (the options <b>t</b>, <b>b</b>
-and <b>res3</b> of <em>g.region</em>). A map that
-does not reach into the region has only null cells there; its <code>min</code>,
-<code>max</code> and all further statistics are <code>nan</code> in the formats
-<code>plain</code> and <code>csv</code> and <code>null</code> in the format
-<code>json</code>. A map that lies above or below the region counts as
-outside, too. The region is the same for all maps, so maps with different
-extents can have different numbers of non-null cells, as the example with the
-cubes below shows.
+needs a vertical extent and a 3D resolution (the options <b>t</b>, <b>b</b> and
+<b>res3</b> of <em>g.region</em>). A map that does not reach into the region has only
+null cells there; its <code>min</code>, <code>max</code> and all further statistics are <code>nan</code> in the
+formats <code>plain</code> and <code>csv</code> and <code>null</code> in the format <code>json</code>. A map that lies
+above or below the region counts as outside, too. The region is the same for
+all maps, so maps with different extents can have different numbers of
+non-null cells, as the example with the cubes below shows.
+
 <p>
-In a dataset with relative time, <code>start</code> and <code>end</code> are
-numbers of the time unit of the dataset, printed without the unit: a map
-registered from 0 to 6 hours shows <code>0</code> and <code>6</code>, as the
-first example shows.
+In a dataset with relative time, <code>start</code> and <code>end</code> are numbers of the time
+unit of the dataset, printed without the unit: a map registered from 0 to 6
+hours shows <code>0</code> and <code>6</code>, as the first example shows.
+
 <p>
-<em>t.rast3d.univar</em> only reads, so it works on a dataset of another
-mapset as well. The name with the mapset (<code>input=soil@PERMANENT</code>)
-selects it; a name without a mapset is searched in the mapsets of the search
-path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The last example
-shows this.
+<em>t.rast3d.univar</em> only reads, so it works on a dataset of another mapset as
+well. The name with the mapset (<code>input=soil@PERMANENT</code>) selects it; a name
+without a mapset is searched in the mapsets of the search path (see
+<em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+
 <p>
-The 3D raster mask set with <em><a href="r3.mask.html">r3.mask</a></em> has no
-effect on the statistics: <em>r3.univar</em> does not read it and counts the
-cells that the mask would exclude. To leave cells out, set them to null in the
-maps themselves, for instance with
-<em><a href="r3.mapcalc.html">r3.mapcalc</a></em> and
-<code>if(layers == 2, null(), soil)</code>, or read the lines of the zones that
-are wanted (see <b>zones</b> and the example with the layers).
+The 3D raster mask set with <em><a href="r3.mask.html">r3.mask</a></em> has no effect on the
+statistics: <em>r3.univar</em> does not read it and counts the cells that the mask
+would exclude. To leave cells out, set them to null in the maps themselves, for
+instance with <em><a href="r3.mapcalc.html">r3.mapcalc</a></em> and <code>if(layers == 2, null(), soil)</code>,
+or read the lines of the zones that are wanted (see <b>zones</b> and the example
+with the layers).
+
 <p>
 If no map is selected, for instance because the condition in <b>where</b>
-matches none, <em>t.rast3d.univar</em> prints nothing in the formats
-<code>plain</code> and <code>csv</code>, not even the line with the column
-names. The format <code>json</code> prints an empty list <code>[]</code>.
+matches none, <em>t.rast3d.univar</em> prints nothing in the formats <code>plain</code> and
+<code>csv</code>, not even the line with the column names. The format <code>json</code> prints an
+empty list <code>[]</code>.
+
 <p>
-The option <b>zones</b> also takes a floating point map. <em>r3.univar</em>
-then rounds each value to the nearest integer, halves away from zero, instead
-of refusing the map, so the zone of the value 2.5 is 3.
+The option <b>zones</b> also takes a floating point map. <em>r3.univar</em> then rounds
+each value to the nearest integer, halves away from zero, instead of
+refusing the map, so the zone of the value 2.5 is 3.
+
 <p>
-The format <code>csv</code> refuses a separator of more than one character, the
-format <code>json</code> refuses <b>separator</b> and <b>-s</b>.
-<b>percentile</b> without <b>-e</b> is refused by the parser.
+The format <code>csv</code> refuses a separator of more than one character, the format
+<code>json</code> refuses <b>separator</b> and <b>-s</b>. <b>percentile</b> without <b>-e</b> is
+refused by the parser.
 
 <h2>EXAMPLES</h2>
 
 <h3>Statistics of each map of a dataset</h3>
 
 The region has two rows, three columns and two layers of the size 1, so each
-map has 12 cells. The helper map <code>voxel_number</code> numbers the cells
-from 1 to 12, layer by layer from the bottom and row by row within a layer, so
-each map is simple to follow:
+map has 12 cells. The helper map <code>voxel_number</code> numbers the cells from 1 to
+12, layer by layer from the bottom and row by row within a layer, so each map
+is simple to follow:
+
 <ul>
-<li><code>soil_1</code> holds -2, -1, 0, 1, 2, 3 in the lower layer and 4 to 9
-in the upper layer;</li>
+<li><code>soil_1</code> holds -2, -1, 0, 1, 2, 3 in the lower layer and 4 to 9 in the upper
+layer;</li>
 <li><code>soil_2</code> holds the numbers 1 to 12;</li>
-<li><code>soil_3</code> holds <code>voxel_number + 3</code> for the cells 1, 2,
-4, 5, 7, 8, 10 and 11, that is 4, 5, 7, 8, 10, 11, 13 and 14, and nothing in
-the eastern column, as if a sensor had failed there.</li>
+<li><code>soil_3</code> holds <code>voxel_number + 3</code> for the cells 1, 2, 4, 5, 7, 8, 10 and 11,
+that is 4, 5, 7, 8, 10, 11, 13 and 14, and nothing in the eastern column, as
+if a sensor had failed there.</li>
 </ul>
+
 <p>
 The maps are registered as daily intervals starting on 1 March 2026.
-<em>t.rast3d.univar</em> processes two maps at the same time here
-(<b>nprocs</b>); the output does not depend on it.
+<em>t.rast3d.univar</em> processes two maps at the same time here (<b>nprocs</b>); the
+output does not depend on it.
+
 <p>
-The second block makes the dataset <code>model</code> with relative time: two
-model steps of 6 hours each, with the constant values 1 and 2. Their
-<code>start</code> and <code>end</code> are numbers of hours, printed without
-the unit.
+The second block makes the dataset <code>model</code> with relative time: two model
+steps of 6 hours each, with the constant values 1 and 2. Their <code>start</code> and
+<code>end</code> are numbers of hours, printed without the unit.
 
 <p>Command line:</p>
 
@@ -293,36 +298,36 @@ step_2@PERMANENT|6|12|12|0|2|2|0|2|2|0|0|0|24|24
 
 <p>
 The output reads line by line:
+
 <ul>
-<li><code>soil_2</code> has twelve values, 1 to 12: the mean is 78 / 12 = 6.5,
-the range 12 - 1 = 11. The squared deviations from the mean add up to 143, so
-the variance is 143 / 12 = 11.9166..., the standard deviation its square root
-3.4520..., and the coefficient of variation <code>100 * 3.4520 / 6.5</code> =
-53.10...</li>
-<li><code>soil_1</code> holds the same values minus 3, so range, variance and
-standard deviation are those of <code>soil_2</code>. Its values add up to 42
-and give the mean 3.5, while their absolute values add up to 48 and give
-<code>mean_of_abs</code> 4.</li>
-<li><code>soil_3</code> has eight non-null cells and four null cells; its mean
-is 72 / 8 = 9.</li>
+<li><code>soil_2</code> has twelve values, 1 to 12: the mean is 78 / 12 = 6.5, the range
+12 - 1 = 11. The squared deviations from the mean add up to 143, so the
+variance is 143 / 12 = 11.9166..., the standard deviation its square root
+3.4520..., and the coefficient of variation <code>100 * 3.4520 / 6.5</code> = 53.10...</li>
+<li><code>soil_1</code> holds the same values minus 3, so range, variance and standard
+deviation are those of <code>soil_2</code>. Its values add up to 42 and give the mean
+3.5, while their absolute values add up to 48 and give <code>mean_of_abs</code> 4.</li>
+<li><code>soil_3</code> has eight non-null cells and four null cells; its mean is
+72 / 8 = 9.</li>
 </ul>
 
 <h3>Calculate extended statistics and percentiles</h3>
 
 The flag <b>-e</b> adds the quartiles, the median and the 90th percentile. The
-twelve values 1 to 12 of <code>soil_2</code> give the first quartile at
-position <code>12 * 25 / 100 - 0.5</code> = 2.5, which becomes 2 (the value 3),
-the third quartile at position 8.5, which becomes 8 (the value 9), and the 90th
-percentile at position 10.3, which becomes 10 (the value 11). The median is the
-mean of the two middle values 6 and 7.
+twelve values 1 to 12 of <code>soil_2</code> give the first quartile at position
+<code>12 * 25 / 100 - 0.5</code> = 2.5, which becomes 2 (the value 3), the third quartile
+at position 8.5, which becomes 8 (the value 9), and the 90th percentile at
+position 10.3, which becomes 10 (the value 11). The median is the mean of the
+two middle values 6 and 7.
+
 <p>
 The option <b>percentile</b> replaces the 90th percentile by the listed ones.
-For <code>soil_2</code>, the 10th percentile is at position 0.7 (the value 1),
-the 50th at position 5.5 (the value 6) and the 95th at position 10.9 (the value
-11). The 50th percentile 6 is not the median 6.5: the median takes the mean of
-the two middle values, the percentile one value. The option <b>where</b> keeps
-<code>soil_2</code> in the first command and <code>soil_3</code>, which starts
-on the third of March, in the second command.
+For <code>soil_2</code>, the 10th percentile is at position 0.7 (the value 1), the 50th
+at position 5.5 (the value 6) and the 95th at position 10.9 (the value 11).
+The 50th percentile 6 is not the median 6.5: the median takes the mean of the
+two middle values, the percentile one value. The option <b>where</b> keeps
+<code>soil_2</code> in the first command and <code>soil_3</code>, which starts on the third of
+March, in the second command.
 
 <p>Command line:</p>
 
@@ -376,13 +381,12 @@ soil_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|8|4|4|14|10|9|9|3.39116
 
 <h3>Statistics per zone</h3>
 
-The 3D map <code>layers</code> holds the number of the layer: 1 in the lower
-and 2 in the upper layer. With <b>zones</b>, each map gets one line per zone.
-For <code>soil_2</code>, the lower layer holds 1 to 6 with the mean 3.5, the
-upper layer 7 to 12 with the mean 9.5. The zone map has no category labels, so
-<code>label</code> is empty. With <b>format</b> <code>json</code>, each zone is
-an object of its own, and the category label has the name
-<code>zone_label</code>; it is the empty text here, not <code>null</code>.
+The 3D map <code>layers</code> holds the number of the layer: 1 in the lower and 2 in
+the upper layer. With <b>zones</b>, each map gets one line per zone. For <code>soil_2</code>,
+the lower layer holds 1 to 6 with the mean 3.5, the upper layer 7 to 12 with
+the mean 9.5. The zone map has no category labels, so <code>label</code> is empty. With
+<b>format</b> <code>json</code>, each zone is an object of its own, and the category label
+has the name <code>zone_label</code>; it is the empty text here, not <code>null</code>.
 
 <p>Command line:</p>
 
@@ -440,14 +444,13 @@ zone 2 (''): mean 9.5
 
 <h3>Choose the output format</h3>
 
-The option <b>separator</b> sets another separator, and the flag <b>-s</b>
-leaves out the line with the column names, for instance to append the lines to
-a table that has them already. With <b>format</b> <code>csv</code>, the columns
-are separated by commas, and the option <b>output</b> writes the statistics to
-a file. With <b>format</b> <code>json</code>, <em>t.rast3d.univar</em> prints a
-list with one object per map; here for <code>soil_2</code> with the extended
-statistics and two percentiles. The key <code>semantic_label</code> is
-<code>null</code>. In Python, the attribute <code>json</code> of the result
+The option <b>separator</b> sets another separator, and the flag <b>-s</b> leaves
+out the line with the column names, for instance to append the lines to a
+table that has them already. With <b>format</b> <code>csv</code>, the columns are separated
+by commas, and the option <b>output</b> writes the statistics to a file. With
+<b>format</b> <code>json</code>, <em>t.rast3d.univar</em> prints a list with one object per map;
+here for <code>soil_2</code> with the extended statistics and two percentiles. The key
+<code>semantic_label</code> is <code>null</code>. In Python, the attribute <code>json</code> of the result
 holds this list, and the example prints the mean, the median and the
 percentiles from it.
 
@@ -565,37 +568,35 @@ soil_2@PERMANENT: mean 6.5, median 6.5, percentiles {50: 6, 90: 11}
 
 <h3>Maps with extents of their own</h3>
 
-The dataset <code>cubes</code> holds four maps with constant values on cubes of
-their own; the current region is the cube from (0, 0, 0) to (4, 4, 4) with 64
-cells:
+The dataset <code>cubes</code> holds four maps with constant values on cubes of their
+own; the current region is the cube from (0, 0, 0) to (4, 4, 4) with 64 cells:
+
 <ul>
-<li><code>cube_1</code> covers the cube from (-1, -1, -1) to (5, 5, 5) and so
-the whole region;</li>
-<li><code>cube_2</code> lies inside the region, from (1, 1, 1) to (3, 3,
-3);</li>
-<li><code>cube_3</code> reaches from (2, 2, 2) to (6, 6, 6) and shares 8 cells
-with the region;</li>
+<li><code>cube_1</code> covers the cube from (-1, -1, -1) to (5, 5, 5) and so the whole
+region;</li>
+<li><code>cube_2</code> lies inside the region, from (1, 1, 1) to (3, 3, 3);</li>
+<li><code>cube_3</code> reaches from (2, 2, 2) to (6, 6, 6) and shares 8 cells with the
+region;</li>
 <li><code>cube_4</code> lies outside, from (10, 10, 10) to (12, 12, 12).</li>
 </ul>
+
 <p>
-The commands print the columns <code>id</code>, <code>non_null_cells</code>,
-<code>null_cells</code> and <code>min</code> only: on the command line,
-<em>cut</em> keeps the first, fourth, fifth and sixth column; in Python, the
-function <code>print_columns()</code> picks them from the plain text.
+The commands print the columns <code>id</code>, <code>non_null_cells</code>, <code>null_cells</code> and <code>min</code>
+only: on the command line, <em>cut</em> keeps the first, fourth, fifth and sixth
+column; in Python, the function <code>print_columns()</code> picks them from the plain
+text.
+
 <ol>
-<li>By default, the cells are counted in the current region:
-<code>cube_1</code> has 64 non-null cells there, <code>cube_2</code> and
-<code>cube_3</code> have 8, and <code>cube_4</code> none. As <code>cube_4</code>
-has no value in the region, its <code>min</code> is <code>nan</code>.</li>
-<li><b>region_relation</b> selects maps by their relation to the current
-region: <code>overlaps</code> keeps all but <code>cube_4</code>,
-<code>contains</code> only <code>cube_1</code>, which covers the region, and
-<code>is_contained</code> only <code>cube_2</code>, which lies inside it.</li>
-<li><b>region_relation</b> and <b>where</b> work together: of the maps that
-overlap the region, the condition keeps those that start on 2 July 2026 or
-later.</li>
-<li>With <b>format</b> <code>json</code>, the statistics of
-<code>cube_4</code> that do not exist are <code>null</code>.</li>
+<li>By default, the cells are counted in the current region: <code>cube_1</code> has 64
+non-null cells there, <code>cube_2</code> and <code>cube_3</code> have 8, and <code>cube_4</code> none. As
+<code>cube_4</code> has no value in the region, its <code>min</code> is <code>nan</code>.</li>
+<li><b>region_relation</b> selects maps by their relation to the current region:
+<code>overlaps</code> keeps all but <code>cube_4</code>, <code>contains</code> only <code>cube_1</code>, which covers
+the region, and <code>is_contained</code> only <code>cube_2</code>, which lies inside it.</li>
+<li><b>region_relation</b> and <b>where</b> work together: of the maps that overlap
+the region, the condition keeps those that start on 2 July 2026 or later.</li>
+<li>With <b>format</b> <code>json</code>, the statistics of <code>cube_4</code> that do not exist are
+<code>null</code>.</li>
 </ol>
 
 <p>Command line:</p>
@@ -777,13 +778,12 @@ n: 0, null_cells: 64, min: None, mean: None
 
 <h3>Use a dataset of another mapset</h3>
 
-<em>t.rast3d.univar</em> reads a dataset of another mapset. The example creates
-the mapset <code>analysis</code> and switches to it; the dataset
-<code>soil</code> stays in the mapset <code>PERMANENT</code> and is named with
-its mapset. The region of the new mapset is set to the one of the maps. In the
-second block, <em>g.mapsets</em> shows that
-<code>PERMANENT</code> is in the search path of the new mapset, so the name
-<code>soil</code> without a mapset finds the same dataset.
+<em>t.rast3d.univar</em> reads a dataset of another mapset. The example creates the
+mapset <code>analysis</code> and switches to it; the dataset <code>soil</code> stays in the mapset
+<code>PERMANENT</code> and is named with its mapset. The region of the new mapset is set
+to the one of the maps. In the second block, <em>g.mapsets</em> shows that
+<code>PERMANENT</code> is in the search path of the new mapset, so the name <code>soil</code> without
+a mapset finds the same dataset.
 
 <p>Command line:</p>
 
@@ -837,20 +837,12 @@ soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.gisenv.html">g.gisenv</a>,
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r3.mapcalc.html">r3.mapcalc</a>,
-<a href="r3.mask.html">r3.mask</a>,
-<a href="r3.univar.html">r3.univar</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.univar.html">t.rast.univar</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="g.gisenv.html">g.gisenv</a>, <a href="g.mapsets.html">g.mapsets</a>, <a href="g.region.html">g.region</a>,
+<a href="r3.mapcalc.html">r3.mapcalc</a>, <a href="r3.mask.html">r3.mask</a>,
+<a href="r3.univar.html">r3.univar</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.univar.html">t.rast.univar</a>, <a href="t.register.html">t.register</a>,
 <a href="t.vect.univar.html">t.vect.univar</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

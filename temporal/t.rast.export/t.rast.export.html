@@ -2,177 +2,164 @@
 
 <em>t.rast.export</em> writes the maps of a space time raster dataset and a
 description of their times into one tar archive. The archive moves a dataset
-to another project or computer:
-<em><a href="t.rast.import.html">t.rast.import</a></em> reads it
+to another project or computer: <em><a href="t.rast.import.html">t.rast.import</a></em> reads it
 back and registers the maps in a new dataset. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets. The tool for space time vector datasets is
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. The tool for space time vector datasets is
 <em><a href="t.vect.export.html">t.vect.export</a></em>.
+
 <p>
-The option <b>input</b> names the space time raster dataset, and <b>output</b>
-the archive that is written. The tool uses the name of <b>output</b> as it is
-and adds no suffix, so the name should say what the archive is, such as
-<code>temperature.tar.bz2</code>. An existing archive is refused unless the
-flag <b>--overwrite</b> is given.
+The option <b>input</b> names the space time raster dataset, and <b>output</b> the
+archive that is written. The tool uses the name of <b>output</b> as it is and adds
+no suffix, so the name should say what the archive is, such as
+<code>temperature.tar.bz2</code>. An existing archive is refused unless the flag
+<b>--overwrite</b> is given.
 
 <h3>Select the maps</h3>
 
 The option <b>where</b> takes an SQL condition on the columns of the registered
-maps, such as <code>start_time &gt;= '2026-03-03'</code>, and exports only the
-maps it selects. Without <b>where</b>, all maps are exported. The maps are
-written in the order of their start time; the order of maps with the same start
-time is not defined. A selection without a map is not an error (see the notes).
+maps, such as <code>start_time &gt;= '2026-03-03'</code>, and exports only the maps it
+selects. Without <b>where</b>, all maps are exported. The maps are written in the
+order of their start time; the order of maps with the same start time is not
+defined. A selection without a map is not an error (see the notes).
 
 <h3>Export format</h3>
 
 The option <b>format</b> chooses how each raster map is stored in the archive:
+
 <ul>
-<li><code>GTiff</code>, the default, writes a GeoTIFF file
-<code>name.tif</code> with
-<em><a href="r.out.gdal.html">r.out.gdal</a></em> and the color table of the
-map as the rules file <code>name.color</code> with
-<em><a href="r.colors.out.html">r.colors.out</a></em>;</li>
-<li><code>AAIGrid</code> writes an Arc/Info ASCII Grid file
-<code>name.asc</code> with <em>r.out.gdal</em> and the rules file
-<code>name.color</code>;</li>
-<li><code>pack</code> writes the file <code>name.pack</code> with
-<em><a href="r.pack.html">r.pack</a></em>, the GRASS format that
-<em>r.unpack</em> reads. There is no <code>.color</code> file. The
-<code>.pack</code> file is a tar archive of its own that is not compressed
-again.</li>
+<li><code>GTiff</code>, the default, writes a GeoTIFF file <code>name.tif</code> with
+<em><a href="r.out.gdal.html">r.out.gdal</a></em> and the color table of the map as the rules
+file <code>name.color</code> with <em><a href="r.colors.out.html">r.colors.out</a></em>;</li>
+<li><code>AAIGrid</code> writes an Arc/Info ASCII Grid file <code>name.asc</code> with <em>r.out.gdal</em>
+and the rules file <code>name.color</code>;</li>
+<li><code>pack</code> writes the file <code>name.pack</code> with <em><a href="r.pack.html">r.pack</a></em>, the GRASS
+format that <em>r.unpack</em> reads. There is no <code>.color</code> file. The <code>.pack</code> file is
+a tar archive of its own that is not compressed again.</li>
 </ul>
+
+<p>
 The GeoTIFF and ASCII grid files cover the current computational region, as
-<em>r.out.gdal</em> does, and a <code>pack</code> file holds the whole map (see
-the last example for the region).
+<em>r.out.gdal</em> does, and a <code>pack</code> file holds the whole map (see the last
+example for the region).
 
 <h3>Options of GeoTIFF and ASCII grid files</h3>
 
-The following options are passed on to <em>r.out.gdal</em>. They are skipped
-with a warning for the <code>pack</code> format, which has no use for them.
+The following options are passed on to <em>r.out.gdal</em>. They are skipped with a
+warning for the <code>pack</code> format, which has no use for them.
+
 <ul>
-<li><b>type</b> sets the data type of the files: <code>Byte</code>,
-<code>Int16</code>, <code>UInt16</code>, <code>Int32</code>,
-<code>UInt32</code>, <code>Float32</code>, <code>Float64</code>,
-<code>CInt16</code>, <code>CInt32</code>, <code>CFloat32</code> or
-<code>CFloat64</code>. It is used for <code>GTiff</code> only and skipped with a
-warning for <code>AAIGrid</code> and <code>pack</code>. Without <b>type</b>, a
-map of floating point cells gets the type that <em>r.out.gdal</em> chooses; for
-a map of integer cells the tool chooses the type (see <b>nodata</b>).</li>
-<li><b>nodata</b> sets the value that marks the cells without data in the
-files. Without <b>nodata</b>, a GeoTIFF file of an integer map without
-<b>type</b> gets the value <code>maximum + 1</code> of the map, and the
-smallest of the types <code>Byte</code>, <code>UInt16</code>,
-<code>UInt32</code> and <code>Int32</code> that holds the values of the map and
-this value: a map of the values 5 and NULL becomes a <code>Byte</code> file
-with the nodata value 6. For a map of integer cells with <b>nodata</b> and without <b>type</b>, the
-tool takes the smallest of the types <code>Byte</code>, <code>UInt16</code>,
-<code>Int16</code>, <code>UInt32</code> and <code>Int32</code> that holds the
-values of the map and the nodata value: a map of the values 5 and NULL with
-<code>nodata=-77</code> becomes an <code>Int16</code> file. <b>nodata</b> also
-applies to <code>AAIGrid</code>: it is the value of the cells without data in
-the header and in the rows of the file.</li>
+<li><b>type</b> sets the data type of the files: <code>Byte</code>, <code>Int16</code>, <code>UInt16</code>,
+<code>Int32</code>, <code>UInt32</code>, <code>Float32</code>, <code>Float64</code>, <code>CInt16</code>, <code>CInt32</code>, <code>CFloat32</code> or
+<code>CFloat64</code>. It is used for <code>GTiff</code> only and skipped with a warning for
+<code>AAIGrid</code> and <code>pack</code>. Without <b>type</b>, a map of floating point cells gets
+the type that <em>r.out.gdal</em> chooses; for a map of integer cells the tool
+chooses the type (see <b>nodata</b>).</li>
+<li><b>nodata</b> sets the value that marks the cells without data in the files.
+Without <b>nodata</b>, a GeoTIFF file of an integer map without <b>type</b> gets
+the value <code>maximum + 1</code> of the map, and the smallest of the types <code>Byte</code>,
+<code>UInt16</code>, <code>UInt32</code> and <code>Int32</code> that holds the values of the map and this
+value: a map of the values 5 and NULL becomes a <code>Byte</code> file with the nodata
+value 6. For a map of integer cells with <b>nodata</b> and without <b>type</b>, the
+tool takes the smallest of the types <code>Byte</code>, <code>UInt16</code>, <code>Int16</code>, <code>UInt32</code> and
+<code>Int32</code> that holds the values of the map and the nodata value: a map of the
+values 5 and NULL with <code>nodata=-77</code> becomes an <code>Int16</code> file. <b>nodata</b> also
+applies to <code>AAIGrid</code>: it is the value of the cells without data in the header
+and in the rows of the file.</li>
 <li><b>createopt</b> passes creation options to the GDAL driver, written as
-<code>NAME=VALUE</code> and separated by commas, such as
-<code>COMPRESS=DEFLATE</code> for GeoTIFF. <code>AAIGrid</code> takes
-<b>createopt</b> without a warning.</li>
-<li><b>metaopt</b> writes metadata to the files, written as
-<code>TAG=VALUE</code> and separated by commas. It works for
-<code>GTiff</code> only: <em>r.out.gdal</em> writes the metadata of an ASCII
-grid into a side file that the archive does not hold, so
-<em>t.rast.export</em> skips <b>metaopt</b> with a warning for
-<code>AAIGrid</code> and <code>pack</code>.</li>
+<code>NAME=VALUE</code> and separated by commas, such as <code>COMPRESS=DEFLATE</code> for
+GeoTIFF. <code>AAIGrid</code> takes <b>createopt</b> without a warning.</li>
+<li><b>metaopt</b> writes metadata to the files, written as <code>TAG=VALUE</code> and
+separated by commas. It works for <code>GTiff</code> only: <em>r.out.gdal</em> writes the
+metadata of an ASCII grid into a side file that the archive does not hold,
+so <em>t.rast.export</em> skips <b>metaopt</b> with a warning for <code>AAIGrid</code> and <code>pack</code>.</li>
 </ul>
 
 <h3>Archive and compression</h3>
 
-The option <b>compression</b> compresses the archive: <code>bzip2</code> (the
-default), <code>gzip</code>, or <code>no</code> for a plain tar archive. A tool
-such as <code>tar -tf</code> or the Python module <code>tarfile</code>
-recognises the compression by itself.
+The option <b>compression</b> compresses the archive: <code>bzip2</code> (the default),
+<code>gzip</code>, or <code>no</code> for a plain tar archive. A tool such as <code>tar -tf</code> or the Python
+module <code>tarfile</code> recognises the compression by itself.
+
 <p>
 The option <b>directory</b> names the working directory, by default the current
-directory. <em>t.rast.export</em> exports the maps into a temporary
-subdirectory of it, packs them there, moves the archive to the path given by
-<b>output</b> and removes the subdirectory. The archive is therefore not
-written to <b>directory</b>, and a relative <b>output</b> is taken from the
-current directory.
+directory. <em>t.rast.export</em> exports the maps into a temporary subdirectory of
+it, packs them there, moves the archive to the path given by <b>output</b> and
+removes the subdirectory. The archive is therefore not written to
+<b>directory</b>, and a relative <b>output</b> is taken from the current directory.
 
 <h3>Files in the archive</h3>
 
 The archive holds the files of the maps, in the order of their start time, and
 then five text files:
+
 <ul>
-<li><code>list.txt</code> has one line for each map, with the fields name,
-start time, end time and a fourth field that is <code>None</code> for a map
-without a semantic label, separated by <code>|</code>. Start and end time are
-in ISO format with absolute time and numbers with relative time;</li>
-<li><code>proj.txt</code> is the output of
-<em><a href="g.proj.html">g.proj</a></em> with <code>-p format=proj4</code>,
+<li><code>list.txt</code> has one line for each map, with the fields name, start time, end
+time and a fourth field that is <code>None</code> for a map without a semantic label,
+separated by <code>|</code>. Start and end time are in ISO format with absolute time
+and numbers with relative time;</li>
+<li><code>proj.txt</code> is the output of <em><a href="g.proj.html">g.proj</a></em> with <code>-p format=proj4</code>,
 the coordinate reference system of the project;</li>
-<li><code>init.txt</code> has one <code>key=value</code> line for each of the
-following: <code>stds_type</code>, <code>format</code>,
-<code>temporal_type</code>, <code>semantic_type</code>,
-<code>relative_time_unit</code> (relative time only),
-<code>number_of_maps</code> and the extent <code>north</code>,
-<code>south</code>, <code>east</code>, <code>west</code>.
-<code>number_of_maps</code> counts the exported maps, and the extent is that of
-the exported maps, not of the region;</li>
+<li><code>init.txt</code> has one <code>key=value</code> line for each of the following: <code>stds_type</code>,
+<code>format</code>, <code>temporal_type</code>, <code>semantic_type</code>, <code>relative_time_unit</code> (relative
+time only), <code>number_of_maps</code> and the extent <code>north</code>, <code>south</code>, <code>east</code>, <code>west</code>.
+<code>number_of_maps</code> counts the exported maps, and the extent is that of the
+exported maps, not of the region;</li>
 <li><code>readme.txt</code> describes the files of the archive;</li>
-<li><code>metadata.txt</code> is the output of
-<em><a href="t.info.html">t.info</a></em> for the dataset.</li>
+<li><code>metadata.txt</code> is the output of <em><a href="t.info.html">t.info</a></em> for the dataset.</li>
 </ul>
 
 <h2>NOTES</h2>
 
-The export reads the maps from the mapsets they were registered from, also if a
-map of the same name exists in the current mapset. The maps of a dataset may
-come from several mapsets. If maps of one name from different mapsets are
-exported together, each of them is named <code>name@mapset</code> in the
-archive, in <code>list.txt</code> and in its file names, for example
-<code>dup@other.tif</code> and <code>dup@other.color</code>. A map whose name no
-other mapset of the selection shares keeps its name, so an archive without such
-maps has the form of older versions.
-<em><a href="t.rast.import.html">t.rast.import</a></em> imports <code>dup@other</code> as
-<code>dup_other</code>.
+The export reads the maps from the mapsets they were registered from, also
+if a map of the same name exists in the current mapset. The maps of a dataset
+may come from several mapsets. If maps of one name from different mapsets are
+exported together, each of them is named <code>name@mapset</code> in the archive, in
+<code>list.txt</code> and in its file names, for example <code>dup@other.tif</code> and
+<code>dup@other.color</code>. A map whose name no other mapset of the selection shares
+keeps its name, so an archive without such maps has the form of older versions.
+<em><a href="t.rast.import.html">t.rast.import</a></em> imports <code>dup@other</code> as <code>dup_other</code>.
+
 <p>
-With relative time, <code>list.txt</code> holds the numbers of the start and
-end, and <code>init.txt</code> the unit as <code>relative_time_unit</code>.
+With relative time, <code>list.txt</code> holds the numbers of the start and end, and
+<code>init.txt</code> the unit as <code>relative_time_unit</code>.
+
 <p>
 A <b>where</b> condition that selects no map gives the warning "The selection
-contains no map" and an archive without maps, with
-<code>number_of_maps=0</code> in <code>init.txt</code>. A condition with a
-syntax error stops the tool with an error that starts with "Invalid where
-condition".
+contains no map" and an archive without maps, with <code>number_of_maps=0</code> in
+<code>init.txt</code>. A condition with a syntax error stops the tool with an error that
+starts with "Invalid where condition".
+
 <p>
 The tool checks the directories before it makes anything. It stops with
-"Directory ... not found" or "... is not writable" for <b>directory</b>, and
-with "Output directory ... not found" for the directory of <b>output</b>; both
-must exist and be writable. A map that can no longer be exported, for example
+"Directory ... not found" or "... is not writable" for <b>directory</b>, and with
+"Output directory ... not found" for the directory of <b>output</b>; both must
+exist and be writable. A map that can no longer be exported, for example
 because it was removed, stops the tool with "Unable to export raster map
-<code>name@mapset</code>"; no archive is left, and the temporary subdirectory
-is removed in every case.
+<code>name@mapset</code>"; no archive is left, and the temporary subdirectory is removed
+in every case.
+
 <p>
-For a map of integer cells, a <b>nodata</b> value that no integer type holds,
-such as <code>nan</code>, leaves the choice of the type to <em>r.out.gdal</em>, which refuses it for the
-type it picks; the tool then stops with "Unable to export raster map".
+For a map of integer cells, a <b>nodata</b> value that no integer type holds, such
+as <code>nan</code>, leaves the choice of the type to <em>r.out.gdal</em>, which refuses it for
+the type it picks; the tool then stops with "Unable to export raster map".
 
 <h2>EXAMPLES</h2>
 
 <h3>Export a dataset as a GeoTIFF archive</h3>
 
-The dataset <code>temperature</code> has four maps of daily mean air
-temperature for the days from 1 to 4 March 2026. The maps have three columns
-and two rows, and their values are the column number plus the offset 0, 3, 6
-and 9.
+The dataset <code>temperature</code> has four maps of daily mean air temperature for the
+days from 1 to 4 March 2026. The maps have three columns and two rows, and
+their values are the column number plus the offset 0, 3, 6 and 9.
+
 <p>
 The first block creates the dataset. The second exports it with the default
 format and compression: a GeoTIFF file and a color rules file for each map,
-packed into a bzip2 compressed archive. <code>tar -tf</code> lists the files.
-The maps come first in the order of their start time, then the five text files.
-The third block shows what <code>list.txt</code> and <code>init.txt</code> say
-about the dataset. The extent in <code>init.txt</code> is that of the maps, and
-<code>proj.txt</code> shows that the project of the examples has no coordinate
-reference system.
+packed into a bzip2 compressed archive. <code>tar -tf</code> lists the files. The maps
+come first in the order of their start time, then the five text files. The
+third block shows what <code>list.txt</code> and <code>init.txt</code> say about the dataset. The
+extent in <code>init.txt</code> is that of the maps, and <code>proj.txt</code> shows that the project
+of the examples has no coordinate reference system.
 
 <p>Command line:</p>
 
@@ -310,11 +297,11 @@ XY location (unprojected)
 <h3>Export the maps of a time window</h3>
 
 <b>where</b> selects the maps of 3 and 4 March, and <b>directory</b> names the
-working directory <code>work</code>. The archive holds the files of two maps,
-and <code>number_of_maps</code> in <code>init.txt</code> counts two. The tool
-exports and packs in a temporary subdirectory of <code>work</code> and removes
-it, so the last command finds <code>work</code> empty: the archive is in the
-current directory, where <b>output</b> puts it.
+working directory <code>work</code>. The archive holds the files of two maps, and
+<code>number_of_maps</code> in <code>init.txt</code> counts two. The tool exports and packs in a
+temporary subdirectory of <code>work</code> and removes it, so the last command finds
+<code>work</code> empty: the archive is in the current directory, where <b>output</b> puts
+it.
 
 <p>Command line:</p>
 
@@ -382,12 +369,11 @@ number_of_maps=2
 
 <h3>Choose the compression</h3>
 
-The loop exports the dataset three times into the archive
-<code>all.tar</code>, which <b>--overwrite</b> replaces each time. It prints
-the compression, what the first two bytes of the file say about it and the
-number of files in the archive. A gzip file starts with the bytes
-<code>1f8b</code> and a bzip2 file with <code>425a</code> (the letters
-<code>BZ</code>); a plain tar archive has neither. All three hold the same 13
+The loop exports the dataset three times into the archive <code>all.tar</code>, which
+<b>--overwrite</b> replaces each time. It prints the compression, what the first
+two bytes of the file say about it and the number of files in the archive. A
+gzip file starts with the bytes <code>1f8b</code> and a bzip2 file with <code>425a</code> (the
+letters <code>BZ</code>); a plain tar archive has neither. All three hold the same 13
 files, and <code>tar</code> reads them without being told the compression.
 
 <p>Command line:</p>
@@ -436,18 +422,17 @@ bzip2: bzip2, 13 files
 
 <h3>Set the data type and the nodata value</h3>
 
-The dataset <code>land</code> has two maps of the value 5 and 8 in the third
-column and NULL in the other two. The first block exports it without options
-and reads the data type and the nodata value of the first GeoTIFF file with
-<em>gdalinfo</em>. The maps are integer maps, so the tool takes
-<code>maximum + 1</code> as the nodata value, 6, and <code>Byte</code> as the
-smallest type that holds 5 and 6.
+The dataset <code>land</code> has two maps of the value 5 and 8 in the third column and
+NULL in the other two. The first block exports it without options and reads
+the data type and the nodata value of the first GeoTIFF file with
+<em>gdalinfo</em>. The maps are integer maps, so the tool takes <code>maximum + 1</code> as the
+nodata value, 6, and <code>Byte</code> as the smallest type that holds 5 and 6.
+
 <p>
-The second block adds <code>nodata=-77</code>. A <code>Byte</code> cannot hold
--77, so the tool takes <code>Int16</code>. The third block sets the type itself
-and passes a creation option and a metadata tag to the GeoTIFF driver: the file
-is compressed with <code>DEFLATE</code> and carries the tag
-<code>TAG=hello</code>.
+The second block adds <code>nodata=-77</code>. A <code>Byte</code> cannot hold -77, so the tool
+takes <code>Int16</code>. The third block sets the type itself and passes a creation
+option and a metadata tag to the GeoTIFF driver: the file is compressed with
+<code>DEFLATE</code> and carries the tag <code>TAG=hello</code>.
 
 <p>Command line:</p>
 
@@ -566,15 +551,14 @@ Band 1 Block=3x2 Type=Int16, ColorInterp=Gray
 
 <h3>Export as an ASCII grid or in the GRASS pack format</h3>
 
-With <code>format=AAIGrid</code>, the maps of <code>land</code> are written as
-Arc/Info ASCII Grid files. <code>nodata=-77</code> is the value of the NULL
-cells in the header and in the two rows of the file: the first two columns are
--77, the third is 5.
+With <code>format=AAIGrid</code>, the maps of <code>land</code> are written as Arc/Info ASCII Grid
+files. <code>nodata=-77</code> is the value of the NULL cells in the header and in the
+two rows of the file: the first two columns are -77, the third is 5.
+
 <p>
-With <code>format=pack</code>, each map is one <code>.pack</code> file and there
-are no <code>.color</code> files. <em>r.pack</em> has no use for the options
-<b>type</b>, <b>nodata</b>, <b>createopt</b> and <b>metaopt</b>, so the tool
-skips them with a warning.
+With <code>format=pack</code>, each map is one <code>.pack</code> file and there are no <code>.color</code>
+files. <em>r.pack</em> has no use for the options <b>type</b>, <b>nodata</b>, <b>createopt</b>
+and <b>metaopt</b>, so the tool skips them with a warning.
 
 <p>Command line:</p>
 
@@ -675,12 +659,12 @@ metadata.txt
 
 <h3>Export with a smaller region</h3>
 
-GeoTIFF and ASCII grid files cover the current region, a <code>pack</code> file
-the whole map. The first block narrows the region to the first two columns and
-exports <code>land</code> in all three formats. The GeoTIFF file is 2 by 2
-cells, the ASCII grid has two columns, and the packed map still has its three
-columns and two rows. <code>init.txt</code> still gives the extent of the maps,
-east 3.0. The last command resets the region.
+GeoTIFF and ASCII grid files cover the current region, a <code>pack</code> file the
+whole map. The first block narrows the region to the first two columns and
+exports <code>land</code> in all three formats. The GeoTIFF file is 2 by 2 cells, the
+ASCII grid has two columns, and the packed map still has its three columns
+and two rows. <code>init.txt</code> still gives the extent of the maps, east 3.0. The
+last command resets the region.
 
 <p>Command line:</p>
 
@@ -741,17 +725,11 @@ west=0.0
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.proj.html">g.proj</a>,
-<a href="r.colors.out.html">r.colors.out</a>,
-<a href="r.out.gdal.html">r.out.gdal</a>,
-<a href="r.pack.html">r.pack</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.import.html">t.rast.import</a>,
-<a href="t.vect.export.html">t.vect.export</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="g.proj.html">g.proj</a>, <a href="r.colors.out.html">r.colors.out</a>,
+<a href="r.out.gdal.html">r.out.gdal</a>, <a href="r.pack.html">r.pack</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.import.html">t.rast.import</a>, <a href="t.vect.export.html">t.vect.export</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

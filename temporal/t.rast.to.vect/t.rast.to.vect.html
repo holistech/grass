@@ -1,83 +1,87 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.to.vect</em> converts each raster map of a space time raster dataset
-into a vector map and registers the vector maps in a new space time vector
-dataset. It runs <em><a href="r.to.vect.html">r.to.vect</a></em> for every map,
-so the points, lines and areas are those of <em>r.to.vect</em>; see its manual
-for the details of the conversion. Each new vector map gets the start and end
-time of the raster map it was computed from. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
+<em>t.rast.to.vect</em> converts each raster map of a space time raster dataset into
+a vector map and registers the vector maps in a new space time vector dataset.
+It runs <em><a href="r.to.vect.html">r.to.vect</a></em> for every map, so the points, lines and
+areas are those of <em>r.to.vect</em>; see its manual for the details of the
+conversion. Each new vector map gets the start and end time of the raster map
+it was computed from. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
+
 <p>
 The option <b>input</b> names the space time raster dataset, the option
 <b>output</b> the new space time vector dataset. The new dataset takes the
 temporal type, the semantic type, the title and the description of the input
 dataset. The option <b>where</b> takes an SQL condition on the registered maps
-and selects the maps to convert, for instance by their
-<code>start_time</code> or their <code>name</code>; without it, all maps are
-converted.
+and selects the maps to convert, for instance by their <code>start_time</code> or their
+<code>name</code>; without it, all maps are converted.
+
 <p>
 The option <b>type</b> is required and sets the kind of feature:
+
 <ul>
-<li><code>point</code> writes one point at the centre of each cell that has a
-value.</li>
-<li><code>area</code> writes one area for each group of cells with the same
-value that touch along an edge, with a boundary and a centroid; the areas
-follow the cell borders.</li>
-<li><code>line</code> writes the lines between the centres of the cells. It
-needs a raster map of lines that are one cell wide; <em>r.to.vect</em> stops at
-a map that is not thinned and asks for
-<em><a href="r.thin.html">r.thin</a></em>.</li>
+<li><code>point</code> writes one point at the centre of each cell that has a value.</li>
+<li><code>area</code> writes one area for each group of cells with the same value that
+touch along an edge, with a boundary and a centroid; the areas follow the
+cell borders.</li>
+<li><code>line</code> writes the lines between the centres of the cells. It needs a raster
+map of lines that are one cell wide; <em>r.to.vect</em> stops at a map that is not
+thinned and asks for <em><a href="r.thin.html">r.thin</a></em>.</li>
 </ul>
+
 <p>
-The option <b>column</b> names the column of the attribute table that stores
-the value of the cell, <code>value</code> by default. Each vector map gets an
-attribute table with the columns <code>cat</code>, the column named by
-<b>column</b> and <code>label</code>. Null cells give no feature. Three flags
-change the table and the categories:
+The option <b>column</b> names the column of the attribute table that stores the
+value of the cell, <code>value</code> by default. Each vector map gets an attribute table
+with the columns <code>cat</code>, the column named by <b>column</b> and <code>label</code>. Null cells
+give no feature. Three flags change the table and the categories:
+
 <ul>
 <li><b>-t</b> creates the vector maps without attribute tables.</li>
 <li><b>-v</b> uses the values of the raster map as categories instead of a
-sequence of numbers. The table then has no column for the value, only
-<code>cat</code> and <code>label</code>, and one row for each value. This works
-for integer raster maps only: for a map with floating point values,
-<em>r.to.vect</em> ignores <b>-v</b>, warns, and writes the values to the column
-named by <b>column</b>, as the third example shows.</li>
-<li><b>-z</b> writes the values of the cells as the z coordinate of the points
-and creates no table. It works for <code>type=point</code> only: with
-<code>type=area</code> or <code>type=line</code>, <em>r.to.vect</em> fails.</li>
+sequence of numbers. The table then has no column for the value, only <code>cat</code>
+and <code>label</code>, and one row for each value. This works for integer raster maps
+only: for a map with floating point values, <em>r.to.vect</em> ignores <b>-v</b>,
+warns, and writes the values to the column named by <b>column</b>, as the
+third example shows.</li>
+<li><b>-z</b> writes the values of the cells as the z coordinate of the points and
+creates no table. It works for <code>type=point</code> only: with <code>type=area</code> or
+<code>type=line</code>, <em>r.to.vect</em> fails.</li>
 </ul>
+
 <p>
 Two more flags are passed to <em>r.to.vect</em>:
+
 <ul>
 <li><b>-s</b> smooths the corners of the areas of <code>type=area</code>.</li>
 <li><b>-b</b> does not build the topology of the vector maps. Such a map has no
 topological counts, such as the number of areas, and no spatial index.</li>
 </ul>
+
 <p>
-The option <b>nprocs</b> sets the number of <em>r.to.vect</em> runs at the
-same time, <code>1</code> by default. More than one run at a time works only
-with <b>-t</b>: without it, <em>t.rast.to.vect</em> sets <b>nprocs</b> to
-<code>1</code> and warns, because the attribute tables cannot be created in
-parallel.
+The option <b>nprocs</b> sets the number of <em>r.to.vect</em> runs at the same time,
+<code>1</code> by default. More than one run at a time works only with <b>-t</b>: without
+it, <em>t.rast.to.vect</em> sets <b>nprocs</b> to <code>1</code> and warns, because the attribute
+tables cannot be created in parallel.
+
 <p>
 The new vector maps are named after the option <b>basename</b>, followed by an
 underscore and a suffix that the option <b>suffix</b> chooses:
+
 <ul>
-<li><code>gran</code> (the default) takes the start time of the raster map,
-cut to the granularity of the input dataset: <code>2026_07_01</code> in a
-dataset of days. A dataset of a single time instance has no granularity;
-<code>gran</code> then takes the full start time, as <code>time</code>
-does.</li>
-<li><code>time</code> takes the full start time:
-<code>2026_07_01T00_00_00</code>.</li>
-<li><code>num</code> numbers the selected maps from 1, with five digits:
-<code>00001</code>. <code>num%03</code> gives three digits:
-<code>001</code>.</li>
+<li><code>gran</code> (the default) takes the start time of the raster map, cut to the
+granularity of the input dataset: <code>2026_07_01</code> in a dataset of days. A
+dataset of a single time instance has no granularity; <code>gran</code> then takes the
+full start time, as <code>time</code> does.</li>
+<li><code>time</code> takes the full start time: <code>2026_07_01T00_00_00</code>.</li>
+<li><code>num</code> numbers the selected maps from 1, with five digits: <code>00001</code>.
+<code>num%03</code> gives three digits: <code>001</code>.</li>
 </ul>
+
 <p>
 In a dataset with relative time, each suffix gives the number, because a
 relative time has no calendar date.
+
 <p>
 A raster map can give a vector map without features, for instance when all its
 cells are null. Such an empty vector map is removed and not registered, unless
@@ -85,57 +89,61 @@ the flag <b>-n</b> is given; then it is registered as well.
 
 <h2>NOTES</h2>
 
-<em>r.to.vect</em> converts each map in the current computational region, so
-the region decides which cells are converted and where the features end, as the
+<em>r.to.vect</em> converts each map in the current computational region, so the
+region decides which cells are converted and where the features end, as the
 last example shows.
+
 <p>
-If <b>where</b> selects no map, <em>t.rast.to.vect</em> warns that the space
-time raster dataset is empty and creates no output dataset.
+If <b>where</b> selects no map, <em>t.rast.to.vect</em> warns that the space time
+raster dataset is empty and creates no output dataset.
+
 <p>
 An unknown <b>suffix</b> is refused before anything is written, for instance
-with "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or num%NN"
-for <code>suffix=gram</code>. An SQL error in <b>where</b> stops the tool with a
-message that begins with "Invalid where condition". If <em>r.to.vect</em> fails
-for a map, for instance for <code>type=line</code> on a map that is not thinned,
-as in the fourth example, or for <b>-z</b> with <code>type=area</code> or <code>type=line</code>, or for a
-<b>column</b> that is no valid SQL name, <em>t.rast.to.vect</em> stops with a
-message that begins with "Error running r.to.vect" and creates no dataset.
+with "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or num%NN" for
+<code>suffix=gram</code>. An SQL error in <b>where</b> stops the tool with a message that
+begins with "Invalid where condition". If <em>r.to.vect</em> fails for a map, for
+instance for <code>type=line</code> on a map that is not thinned, as in the fourth
+example, or for <b>-z</b> with <code>type=area</code> or <code>type=line</code>, or for a <b>column</b>
+that is no valid SQL name, <em>t.rast.to.vect</em> stops with a message that begins
+with "Error running r.to.vect" and creates no dataset.
+
 <p>
-An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>;
-without it, the tool stops with the message that the dataset is already in the
+An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>; without
+it, the tool stops with the message that the dataset is already in the
 database. With <b>--overwrite</b>, the vector maps of the same names are
 replaced as well.
+
 <p>
 The input dataset can be in another mapset of the project; the name with the
-mapset (<code>input=cover@PERMANENT</code>) selects it. The new vector maps and
-the new dataset are always created in the current mapset, as the last example
-shows.
+mapset (<code>input=cover@PERMANENT</code>) selects it. The new vector maps and the new
+dataset are always created in the current mapset, as the last example shows.
 
 <h2>EXAMPLES</h2>
 
 <h3>Convert the maps of a dataset to areas</h3>
 
-The dataset <code>cover</code> holds the land cover classes of a region of 8 by
-8 cells on three days in July. On the first day, the western half of the region
-has class 1 and the eastern half class 2. On the second day, the classes 1 to 4
+The dataset <code>cover</code> holds the land cover classes of a region of 8 by 8 cells
+on three days in July. On the first day, the western half of the region has
+class 1 and the eastern half class 2. On the second day, the classes 1 to 4
 are the four quadrants of 16 cells each: 1 in the north-west, 2 in the
 north-east, 3 in the south-west and 4 in the south-east. On the third day, the
 map has no values.
+
 <p>
-With <code>type=area</code>, the first map gives 2 areas and the second 4. The
-third map gives no feature: its vector map is empty and
-<em>t.rast.to.vect</em> removes it, so two vector maps are registered, as
-<em>g.list</em> shows. The default suffix <code>gran</code> names the maps
-after the day. The second block prints the values from the attribute tables
-with <em><a href="t.vect.db.select.html">t.vect.db.select</a></em>: one row for
+With <code>type=area</code>, the first map gives 2 areas and the second 4. The third map
+gives no feature: its vector map is empty and <em>t.rast.to.vect</em> removes it, so
+two vector maps are registered, as <em>g.list</em> shows. The default suffix <code>gran</code>
+names the maps after the day. The second block prints the values from the
+attribute tables with <em><a href="t.vect.db.select.html">t.vect.db.select</a></em>: one row for
 each area, in the default column <code>value</code>. The third block shows with
-<em><a href="t.info.html">t.info</a></em> that the new dataset
-<code>parcels</code> has the time, the semantic type <code>max</code>, the
-title and the description of the input dataset, and 2 + 4 = 6 areas.
+<em><a href="t.info.html">t.info</a></em> that the new dataset <code>parcels</code> has the time, the
+semantic type <code>max</code>, the title and the description of the input dataset, and
+2 + 4 = 6 areas.
+
 <p>
-In the fourth block, the flag <b>-n</b> keeps the empty map of the third day,
-and <b>--overwrite</b> replaces the dataset <code>parcels</code> of the first
-block together with its vector maps.
+In the fourth block, the flag <b>-n</b> keeps the empty map of the third day, and
+<b>--overwrite</b> replaces the dataset <code>parcels</code> of the first block together
+with its vector maps.
 
 <p>Command line:</p>
 
@@ -373,9 +381,8 @@ parcel_2026_07_03|0
 <h3>Draw the areas over the raster map</h3>
 
 The figure shows the map of the second day with the boundaries of the areas
-that <em>t.rast.to.vect</em> made from it. <em>d.rast</em> draws the raster
-map, <em>d.vect</em> the boundaries of the vector map and <em>d.legend</em> the
-four classes.
+that <em>t.rast.to.vect</em> made from it. <em>d.rast</em> draws the raster map, <em>d.vect</em>
+the boundaries of the vector map and <em>d.legend</em> the four classes.
 
 <p>Command line:</p>
 
@@ -399,36 +406,40 @@ tools.d_mon(stop="cairo")
 
 <p>
 <img src="t_rast_to_vect_areas.png" alt="Areas of the land cover classes">
+
 <p>
-<em>Figure: The four areas of the land cover map <code>cover_2</code>,
-outlined by the boundaries of the vector map
-<code>parcel_2026_07_02</code>.</em>
+<em>Figure: The four areas of the land cover map <code>cover_2</code>, outlined by the
+boundaries of the vector map <code>parcel_2026_07_02</code>.</em>
 
 <h3>Convert the cells to points</h3>
 
-With <code>type=point</code>, each cell with a value becomes a point at the
-centre of the cell. The condition in <b>where</b> selects the first map, which
-has 64 cells with values and so gives 64 points. <b>column</b> names the column
-that holds the class of each cell, <code>class</code> instead of
-<code>value</code>. The second block groups the table by the class: 32 cells in
-each half of the map. The third block prints the first two rows of the table,
-with the columns <code>cat</code>, <code>class</code> and <code>label</code>.
+With <code>type=point</code>, each cell with a value becomes a point at the centre of
+the cell. The condition in <b>where</b> selects the first map, which has 64 cells
+with values and so gives 64 points. <b>column</b> names the column that holds
+the class of each cell, <code>class</code> instead of <code>value</code>. The second block groups
+the table by the class: 32 cells in each half of the map. The third block
+prints the first two rows of the table, with the columns <code>cat</code>, <code>class</code> and
+<code>label</code>.
+
 <p>
 The flag <b>-v</b> takes the class of each cell as the category of the point
-instead of a sequence of numbers. The fourth block shows the table of that map:
-only the categories 1 and 2, one for each class, and no column for the value.
+instead of a sequence of numbers. The fourth block shows the table of that
+map: only the categories 1 and 2, one for each class, and no column for the
+value.
+
 <p>
 The flag <b>-z</b> writes the class as the z coordinate of the points and makes
 no table. The fifth block converts the second map, whose classes are 1 to 4.
-<em>v.out.ascii</em> prints the first three points, the cells of the top row,
-with class 1 as z coordinate, and the z coordinates of all points, 1 to 4.
+<em>v.out.ascii</em> prints the first three points, the cells of the top row, with
+class 1 as z coordinate, and the z coordinates of all points, 1 to 4.
 <em>v.info</em> shows that the map has no attribute table.
+
 <p>
-The last block shows the limit of <b>-v</b>. The dataset <code>ratio</code>
-holds the map <code>ratio_1</code> with the floating point values 0.5 and 1.
-With <b>-v</b>, <em>t.rast.to.vect</em> warns that the raster is not CELL and
-that the flag is ignored; the table has the column <code>value</code> with the
-values of the cells, as without the flag, not one category for each value.
+The last block shows the limit of <b>-v</b>. The dataset <code>ratio</code> holds the map
+<code>ratio_1</code> with the floating point values 0.5 and 1. With <b>-v</b>,
+<em>t.rast.to.vect</em> warns that the raster is not CELL and that the flag is
+ignored; the table has the column <code>value</code> with the values of the cells, as
+without the flag, not one category for each value.
 
 <p>Command line:</p>
 
@@ -619,18 +630,18 @@ cat|value
 
 <h3>Convert thin lines to lines</h3>
 
-With <code>type=line</code>, <em>r.to.vect</em> needs lines that are one cell
-wide. The dataset <code>roads</code> has two maps: the diagonal from the
-north-west to the south-east cell on the first day, and the fourth row on the
-second day. Each map gives one line with two nodes, one at the centre of its
-first and one at the centre of its last cell. The bounding box of the first
-line runs from 0.5 to 7.5 in both directions, the second line lies at
-y = 4.5.
+With <code>type=line</code>, <em>r.to.vect</em> needs lines that are one cell wide. The
+dataset <code>roads</code> has two maps: the diagonal from the north-west to the
+south-east cell on the first day, and the fourth row on the second day. Each
+map gives one line with two nodes, one at the centre of its first and one at
+the centre of its last cell. The bounding box of the first line runs from 0.5
+to 7.5 in both directions, the second line lies at y = 4.5.
+
 <p>
-The second block shows what happens with a map that is not thinned. The first
-map of <code>cover</code> fills the whole region, so <em>r.to.vect</em> finds
-no thin lines in it; <em>t.rast.to.vect</em> ends with the message of
-<em>r.to.vect</em> and creates no dataset <code>thick</code>.
+The second block shows what happens with a map that is not thinned. The
+first map of <code>cover</code> fills the whole region, so <em>r.to.vect</em> finds no thin
+lines in it; <em>t.rast.to.vect</em> ends with the message of <em>r.to.vect</em> and creates
+no dataset <code>thick</code>.
 
 <p>Command line:</p>
 
@@ -719,19 +730,18 @@ t.rast.to.vect failed
 
 <h3>Smooth the corners and skip the topology</h3>
 
-The map <code>stairs_1</code> is a triangle in the south-west of the region: the
-cells with <code>row() &gt;= col()</code>. Its outline is a staircase. The first
-block converts it to an area twice, without and with the flag <b>-s</b>.
-<em>v.out.ascii</em> starts the boundary of each area with <code>B</code> and
-the number of its points: 19 points for the staircase, 22 for the smoothed
-outline, because <b>-s</b> cuts the corners.
+The map <code>stairs_1</code> is a triangle in the south-west of the region: the cells
+with <code>row() &gt;= col()</code>. Its outline is a staircase. The first block converts it
+to an area twice, without and with the flag <b>-s</b>. <em>v.out.ascii</em> starts the
+boundary of each area with <code>B</code> and the number of its points: 19 points for
+the staircase, 22 for the smoothed outline, because <b>-s</b> cuts the corners.
+
 <p>
 The flag <b>-b</b> builds no topology. The second block converts the map with
 <b>-b</b>: the topological counts of the map, such as the number of areas, are
-not known, and <em>t.vect.list</em> shows <code>None</code> for them.
-<em>ls</em> lists the files of the vector maps: the map made with <b>-b</b> has
-none of the topology files <code>topo</code>, <code>sidx</code> and
-<code>cidx</code>.
+not known, and <em>t.vect.list</em> shows <code>None</code> for them. <em>ls</em> lists the files of
+the vector maps: the map made with <b>-b</b> has none of the topology files
+<code>topo</code>, <code>sidx</code> and <code>cidx</code>.
 
 <p>Command line:</p>
 
@@ -812,22 +822,24 @@ cidx, coor, dbln, head, hist, sidx, timestamp_1, topo
 
 <h3>Choose the names of the new maps and convert in parallel</h3>
 
-The option <b>suffix</b> chooses how the new maps are named after
-<b>basename</b>. The condition in <b>where</b> selects the first two days, and
-the numbers count the selected maps from 1:
+The option <b>suffix</b> chooses how the new maps are named after <b>basename</b>.
+The condition in <b>where</b> selects the first two days, and the numbers count
+the selected maps from 1:
+
 <ol>
 <li><code>time</code> takes the full start time of each raster map.</li>
 <li><code>num%03</code> numbers the maps with three digits.</li>
-<li>In a dataset with relative time, the suffix is always a number. The dataset
-<code>model</code> holds the first two maps of <code>cover</code> as the steps 1
-and 2 of a model run, six hours apart; the default suffix <code>gran</code>
-numbers the maps, and the new dataset has relative time as well.</li>
+<li>In a dataset with relative time, the suffix is always a number. The
+dataset <code>model</code> holds the first two maps of <code>cover</code> as the steps 1 and 2
+of a model run, six hours apart; the default suffix <code>gran</code> numbers the
+maps, and the new dataset has relative time as well.</li>
 </ol>
+
 <p>
 The last block uses the flag <b>-t</b>: the vector maps get no attribute table,
-and <b>nprocs</b> can run several <em>r.to.vect</em> processes at the same
-time; here three, one for each map. <em>v.info</em> shows that the map of the
-first day is linked to no attribute table.
+and <b>nprocs</b> can run several <em>r.to.vect</em> processes at the same time; here
+three, one for each map. <em>v.info</em> shows that the map of the first day is
+linked to no attribute table.
 
 <p>Command line:</p>
 
@@ -962,14 +974,15 @@ num_dblinks=0
 
 <h3>Use a dataset of another mapset</h3>
 
-The example creates the mapset <code>analysis</code> and switches to it. The
-dataset <code>cover</code> stays in the mapset <code>PERMANENT</code> and is
-named with its mapset; the new dataset <code>west</code> and its vector maps are
-created in <code>analysis</code>, as the column <code>id</code> shows.
+The example creates the mapset <code>analysis</code> and switches to it. The dataset
+<code>cover</code> stays in the mapset <code>PERMANENT</code> and is named with its mapset; the new
+dataset <code>west</code> and its vector maps are created in <code>analysis</code>, as the column
+<code>id</code> shows.
+
 <p>
 The region of the new mapset is set to the western half of the maps, so
-<em>r.to.vect</em> converts only the cells of the western half: the east edge of
-the vector maps lies at x = 4. The first map has one area, class 1; the second
+<em>r.to.vect</em> converts only the cells of the western half: the east edge of the
+vector maps lies at x = 4. The first map has one area, class 1; the second
 has two, the classes 1 and 3.
 
 <p>Command line:</p>
@@ -1006,28 +1019,15 @@ west_2026_07_02@analysis|2|4.0
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="d.legend.html">d.legend</a>,
-<a href="d.rast.html">d.rast</a>,
-<a href="d.vect.html">d.vect</a>,
-<a href="db.select.html">db.select</a>,
-<a href="g.findfile.html">g.findfile</a>,
-<a href="g.list.html">g.list</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r.thin.html">r.thin</a>,
-<a href="r.to.vect.html">r.to.vect</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.contour.html">t.rast.contour</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.vect.db.select.html">t.vect.db.select</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
-<a href="v.db.select.html">v.db.select</a>,
-<a href="v.info.html">v.info</a>,
+<em><a href="d.legend.html">d.legend</a>, <a href="d.rast.html">d.rast</a>, <a href="d.vect.html">d.vect</a>,
+<a href="db.select.html">db.select</a>, <a href="g.findfile.html">g.findfile</a>, <a href="g.list.html">g.list</a>,
+<a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.thin.html">r.thin</a>,
+<a href="r.to.vect.html">r.to.vect</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.contour.html">t.rast.contour</a>, <a href="t.register.html">t.register</a>,
+<a href="t.vect.db.select.html">t.vect.db.select</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="v.db.select.html">v.db.select</a>, <a href="v.info.html">v.info</a>,
 <a href="v.out.ascii.html">v.out.ascii</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

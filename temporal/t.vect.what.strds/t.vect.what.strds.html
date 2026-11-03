@@ -1,57 +1,205 @@
 <h2>DESCRIPTION</h2>
-<em>t.vect.what.strds</em> reads the values of the maps of a space time raster dataset (STRDS) at the points of the maps of a space time vector dataset (STVDS) and stores them as columns in the attribute tables of the vector maps. Use it to attach a time series of raster values, such as temperature or precipitation, to monitoring stations or other sample points. Each vector map of the STVDS has a time interval, which this manual calls its window. For each vector map, the tool collects the raster maps of the STRDS that are related to its window in time, optionally combines them to one map, and lets <em><a href="v.what.rast.html">v.what.rast</a></em> write the raster values at the points into the table. See the <a href="temporalintro.html">introduction to temporal data processing</a> for space time datasets. <em><a href="t.vect.observe.strds.html">t.vect.observe.strds</a></em> does the sampling into new vector maps instead of existing ones, <em><a href="t.vect.list.html">t.vect.list</a></em> lists the vector maps of the dataset, and <em><a href="v.db.select.html">v.db.select</a></em> prints their tables.
+
+<em>t.vect.what.strds</em> reads the values of the maps of a space time raster
+dataset (STRDS) at the points of the maps of a space time vector dataset
+(STVDS) and stores them as columns in the attribute tables of the vector maps.
+Use it to attach a time series of raster values, such as temperature or
+precipitation, to monitoring stations or other sample points. Each vector map
+of the STVDS has a time interval, which this manual calls its window. For each
+vector map, the tool collects the raster maps of the STRDS that are related to
+its window in time, optionally combines them to one map, and lets
+<em><a href="v.what.rast.html">v.what.rast</a></em> write the raster values at the points into the
+table. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. <em><a href="t.vect.observe.strds.html">t.vect.observe.strds</a></em> does the sampling
+into new vector maps instead of existing ones, <em><a href="t.vect.list.html">t.vect.list</a></em>
+lists the vector maps of the dataset, and <em><a href="v.db.select.html">v.db.select</a></em> prints
+their tables.
+
 <h3>Datasets and region</h3>
-The options <b>input</b> (the STVDS) and <b>strds</b> (the STRDS) are required. Both datasets must have the same temporal type, absolute or relative. Every vector map of <b>input</b> must have a time interval; a map with a time instant stops the tool. The tool changes the tables of the vector maps, so the maps must be in the current mapset, and each registered layer must have an attribute table. The STRDS may be in another mapset (<code>strds=levels@PERMANENT</code>), but the vector maps of <b>input</b> must be in the current mapset; the seventh example shows both. Points outside the current region get no value, as <em>v.what.rast</em> skips them; the second example shows it.
+
+The options <b>input</b> (the STVDS) and <b>strds</b> (the STRDS) are required. Both
+datasets must have the same temporal type, absolute or relative. Every vector
+map of <b>input</b> must have a time interval; a map with a time instant stops the
+tool. The tool changes the tables of the vector maps, so the maps must be in the
+current mapset, and each registered layer must have an attribute table. The
+STRDS may be in another mapset (<code>strds=levels@PERMANENT</code>), but the vector maps
+of <b>input</b> must be in the current mapset; the seventh example shows both.
+Points outside the current region get no value, as <em>v.what.rast</em> skips them;
+the second example shows it.
+
 <h3>Select the raster maps of a window</h3>
-The option <b>sampling</b> is a list of temporal relations. A raster map is taken for a vector map if it has one of the listed relations to its window. The default is <code>start</code>. The relations describe the raster map in terms of the window:
+
+The option <b>sampling</b> is a list of temporal relations. A raster map is taken
+for a vector map if it has one of the listed relations to its window. The
+default is <code>start</code>. The relations describe the raster map in terms of the
+window:
+
 <ul>
-<li><code>start</code>: the raster map starts inside the window, at or after its start and before its end. Its end does not matter, so the map may end after the window, and a map that equals the window is taken too.</li>
-<li><code>during</code>: the raster map lies within the window and is not equal to it. It may share the start or the end of the window.</li>
-<li><code>overlap</code>: the raster map starts before the window and ends inside it, or starts inside the window and ends after it.</li>
+<li><code>start</code>: the raster map starts inside the window, at or after its start and
+before its end. Its end does not matter, so the map may end after the window,
+and a map that equals the window is taken too.</li>
+<li><code>during</code>: the raster map lies within the window and is not equal to it. It may
+share the start or the end of the window.</li>
+<li><code>overlap</code>: the raster map starts before the window and ends inside it, or
+starts inside the window and ends after it.</li>
 <li><code>contain</code>: the raster map covers the whole window and is longer than it.</li>
 <li><code>equal</code>: the raster map has the start and the end of the window.</li>
 <li><code>follows</code>: the raster map starts when the window ends.</li>
 <li><code>precedes</code>: the raster map ends when the window starts.</li>
 </ul>
-So <code>start</code> selects more than its name suggests: it takes a map that <code>during</code> rejects because it is equal to the window or because it ends after the window, and it takes nothing that starts before the window, however long it lasts. The fourth example runs every relation on the same windows. If a window has no raster map, the vector map is left as it is, without a new column. The tool takes the maps of a window in the order of their start time.
+
 <p>
-The relations apply only to a STRDS whose maps are all intervals. If the STRDS has time instants, or instants and intervals, <b>sampling</b> has no effect: the tool always takes the raster maps that start inside the window, as <code>start</code> does, even with <code>contain</code>, which no instant can satisfy. The fourth example shows it.
+So <code>start</code> selects more than its name suggests: it takes a map that <code>during</code>
+rejects because it is equal to the window or because it ends after the window,
+and it takes nothing that starts before the window, however long it lasts. The
+fourth example runs every relation on the same windows. If a window has no
+raster map, the vector map is left as it is, without a new column. The tool
+takes the maps of a window in the order of their start time.
+
+<p>
+The relations apply only to a STRDS whose maps are all intervals. If the STRDS
+has time instants, or instants and intervals, <b>sampling</b> has no effect: the
+tool always takes the raster maps that start inside the window, as <code>start</code>
+does, even with <code>contain</code>, which no instant can satisfy. The fourth example
+shows it.
+
 <h3>Choose the columns</h3>
-Without <b>column</b>, each raster map found for a vector map gets a column named after it, with dots replaced by underscores (<code>level_2</code>), in the table of the layer of the vector map. The column type is <code>INT</code> for an integer raster map and <code>DOUBLE PRECISION</code> for any other. The value of a point is the value of the cell below it.
+
+Without <b>column</b>, each raster map found for a vector map gets a column named
+after it, with dots replaced by underscores (<code>level_2</code>), in the table of the
+layer of the vector map. The column type is <code>INT</code> for an integer raster map and
+<code>DOUBLE PRECISION</code> for any other. The value of a point is the value of the cell
+below it.
+
 <p>
-The option <b>column</b> names one column instead, the same in every vector map. It holds the values of one raster map for each vector map: the first map of the window in time order, or the aggregate if <b>method</b> is given and the window has several maps.
+The option <b>column</b> names one column instead, the same in every vector map.
+It holds the values of one raster map for each vector map: the first map of the
+window in time order, or the aggregate if <b>method</b> is given and the window has
+several maps.
+
 <p>
-The option <b>where</b> is an SQL condition on the attribute table of the vector maps. Only the points that satisfy it get a value; the column of the other points stays empty (<code>NULL</code>). The tool tries the condition on the table of each layer before it writes the first value, and stops if it fails.
+The option <b>where</b> is an SQL condition on the attribute table of the vector
+maps. Only the points that satisfy it get a value; the column of the other points
+stays empty (<code>NULL</code>). The tool tries the condition on the table of each layer
+before it writes the first value, and stops if it fails.
+
 <p>
-The option <b>t_where</b> is an SQL condition on the vector maps of <b>input</b>, using the columns of the temporal database such as <code>name</code>, <code>start_time</code> and <code>end_time</code> (see <em><a href="t.vect.list.html">t.vect.list</a></em>). The tool changes only the vector maps that match. SQLite compares times as text: <code>start_time &gt;= '2026-02-01'</code> selects as expected, but an equality with a date without a time of day finds nothing, as the stored value reads <code>2026-02-01 00:00:00</code>.
+The option <b>t_where</b> is an SQL condition on the vector maps of <b>input</b>,
+using the columns of the temporal database such as <code>name</code>, <code>start_time</code> and
+<code>end_time</code> (see <em><a href="t.vect.list.html">t.vect.list</a></em>). The tool changes only the
+vector maps that match. SQLite compares times as text: <code>start_time &gt;=
+'2026-02-01'</code> selects as expected, but an equality with a date without a time of
+day finds nothing, as the stored value reads <code>2026-02-01 00:00:00</code>.
+
 <h3>Aggregate the raster maps of a window</h3>
-With <b>method</b> other than <code>disabled</code> (the default), the tool combines the raster maps of a window to one map with <em><a href="r.series.html">r.series</a></em> and reads that map. It does so only for a window with more than one raster map. A window with a single map is treated as if <b>method</b> were <code>disabled</code>: the values of the map go to the column named after it (or to <b>column</b>). With several maps and without <b>column</b>, the aggregate goes to the column <code>&lt;strds&gt;_&lt;method&gt;</code>, built from the name of the STRDS without the mapset, for example <code>levels_average</code>. Every character outside <code>A-Za-z0-9_</code> is replaced by an underscore, and a name that would start with a digit gets the prefix <code>c_</code>, because <em>v.what.rast</em> cannot write such a column. If the aggregate has no value at all, the tool adds no column. The temporary raster map is removed after it has been read.
+
+With <b>method</b> other than <code>disabled</code> (the default), the tool combines the
+raster maps of a window to one map with <em><a href="r.series.html">r.series</a></em> and reads
+that map. It does so only for a window with more than one raster map. A window
+with a single map is treated as if <b>method</b> were <code>disabled</code>: the values of the
+map go to the column named after it (or to <b>column</b>). With several maps and
+without <b>column</b>, the aggregate goes to the column <code>&lt;strds&gt;_&lt;method&gt;</code>, built
+from the name of the STRDS without the mapset, for example <code>levels_average</code>.
+Every character outside <code>A-Za-z0-9_</code> is replaced by an underscore, and a name
+that would start with a digit gets the prefix <code>c_</code>, because <em>v.what.rast</em>
+cannot write such a column. If the aggregate has no value at all, the tool adds
+no column. The temporary raster map is removed after it has been read.
+
 <p>
-For a window with two raster maps, here <code>level_2</code> and <code>level_3</code>, whose value at one point is 211 and 311 (the first point of the first example), the methods give:
+For a window with two raster maps, here <code>level_2</code> and <code>level_3</code>, whose value
+at one point is 211 and 311 (the first point of the first example), the methods
+give:
+
 <ul>
-<li><code>average</code> 261, <code>median</code> 261, <code>mode</code> 211 (the first of the sorted values with the highest count), <code>minimum</code> 211, <code>maximum</code> 311, <code>sum</code> 522;</li>
-<li><code>count</code> 2 and <code>diversity</code> 2 (the number of maps and the number of different values), <code>range</code> 100 (maximum minus minimum);</li>
-<li><code>variance</code> 2500 and <code>stddev</code> 50: population values, the sum of the squared deviations divided by the number of maps, not by that number minus 1;</li>
-<li><code>min_raster</code> 0 and <code>max_raster</code> 1: the position of the map with the smallest or largest value in the time-ordered list, counted from 0;</li>
-<li><code>slope</code> 100, <code>offset</code> 211 and <code>detcoeff</code> 1: slope, intercept and coefficient of determination of the regression of the values over their position 0, 1 in the list;</li>
-<li><code>quart1</code> 236, <code>quart3</code> 286 and <code>perc90</code> 301: quantiles interpolated between the sorted values by the rule of Hyndman and Fan, type 7, at position <code>q * (n - 1)</code>;</li>
-<li><code>quantile</code> 211: the tool has no option for the quantile, so this is the smallest value;</li>
-<li><code>skewness</code> 0 and <code>kurtosis</code> -2: the skewness and the excess kurtosis of the two values.</li>
+<li><code>average</code> 261, <code>median</code> 261, <code>mode</code> 211 (the first of the sorted values with
+the highest count), <code>minimum</code> 211, <code>maximum</code> 311, <code>sum</code> 522;</li>
+<li><code>count</code> 2 and <code>diversity</code> 2 (the number of maps and the number of different
+values), <code>range</code> 100 (maximum minus minimum);</li>
+<li><code>variance</code> 2500 and <code>stddev</code> 50: population values, the sum of the squared
+deviations divided by the number of maps, not by that number minus 1;</li>
+<li><code>min_raster</code> 0 and <code>max_raster</code> 1: the position of the map with the smallest
+or largest value in the time-ordered list, counted from 0;</li>
+<li><code>slope</code> 100, <code>offset</code> 211 and <code>detcoeff</code> 1: slope, intercept and coefficient of
+determination of the regression of the values over their position 0, 1 in
+the list;</li>
+<li><code>quart1</code> 236, <code>quart3</code> 286 and <code>perc90</code> 301: quantiles interpolated between
+the sorted values by the rule of Hyndman and Fan, type 7, at position
+<code>q * (n - 1)</code>;</li>
+<li><code>quantile</code> 211: the tool has no option for the quantile, so this is the
+smallest value;</li>
+<li><code>skewness</code> 0 and <code>kurtosis</code> -2: the skewness and the excess kurtosis of the
+two values.</li>
 </ul>
+
 <h2>NOTES</h2>
-Before the first value is written, the module checks the target columns of all vector maps and layers. If one of them already exists, a layer to be written has no attribute table, a vector map belongs to another mapset, or the same layer of one map is registered under two ids (for example <code>c</code> and <code>c:1</code>) and both would write the <b>column</b> option's column, the module stops with an error and changes nothing. Without <b>column</b> the same layer under two ids is refused only if both intervals reach one raster map, as they would write its column twice, and is otherwise allowed; two different layers of one map (<code>c:1</code> and <code>c:2</code>) are allowed with <b>column</b>, as each has its own table. With the <b>--overwrite</b> flag, the existing columns are kept and their values are written again, so a second run does not add a second column; the fifth example shows it. An existing column keeps its type: values of a floating-point raster map written into an integer column lose their fractional part, and <em>v.what.rast</em> warns about it. To get a column of the new type, drop the column with <em>v.db.dropcolumn</em> first. A column name that differs from an existing column only in upper and lower case (<code>K</code> for <code>k</code>) is refused, with and without <b>--overwrite</b>, before anything is written.
+
+Before the first value is written, the module checks the target columns of
+all vector maps and layers. If one of them already exists, a layer to be
+written has no attribute table, a vector map belongs to another mapset, or the
+same layer of one map is registered under two ids (for example <code>c</code> and <code>c:1</code>)
+and both would write the <b>column</b> option's column, the module stops with an
+error and changes nothing. Without <b>column</b> the same layer under two ids is
+refused only if both intervals reach one raster map, as they would write its
+column twice, and is otherwise allowed; two different layers of
+one map (<code>c:1</code> and <code>c:2</code>) are allowed with <b>column</b>, as each has its own
+table. With the <b>--overwrite</b> flag,
+the existing columns are kept and their values are written again, so a second
+run does not add a second column; the fifth example shows it. An existing
+column keeps its type: values
+of a floating-point raster map written into an integer column lose their
+fractional part, and <em>v.what.rast</em> warns about it. To get a column of the new
+type, drop the column with <em>v.db.dropcolumn</em> first. A column name that
+differs from an existing column only in upper and lower case (<code>K</code> for <code>k</code>)
+is refused, with and without <b>--overwrite</b>, before anything is written.
+
 <p>
-The tool stops with an error if a required option is missing, if <b>method</b> or <b>sampling</b> has a value outside the lists above, if a dataset does not exist, if the two datasets differ in their temporal type ("Input and aggregation dataset must have the same temporal type"), if a map of the STVDS has a time instant ("All registered maps of the space time vector dataset must have time intervals"), and if the STVDS is empty or <b>t_where</b> selects no map ("is empty"). A <b>where</b> or <b>t_where</b> with a syntax error is reported as a message (<code>Invalid where condition &lt;...&gt; for vector map &lt;...&gt;</code> and <code>Invalid t_where condition &lt;...&gt;</code>), not as a traceback.
+The tool stops with an error if a required option is missing, if <b>method</b> or
+<b>sampling</b> has a value outside the lists above, if a dataset does not exist,
+if the two datasets differ in their temporal type ("Input and aggregation
+dataset must have the same temporal type"), if a map of the STVDS has a time
+instant ("All registered maps of the space time vector dataset must have time
+intervals"), and if the STVDS is empty or <b>t_where</b> selects no map ("is
+empty"). A <b>where</b> or <b>t_where</b> with a syntax error is reported as a
+message (<code>Invalid where condition &lt;...&gt; for vector map &lt;...&gt;</code> and <code>Invalid
+t_where condition &lt;...&gt;</code>), not as a traceback.
+
 <p>
-Relative time works as absolute time does; the sixth example shows it. The relations of <b>sampling</b> then compare the start and end numbers of the maps. The tool neither converts nor checks the units: use the same unit in both datasets. With a STRDS in hours and a vector map from 0 to 2 days, the tool compares 0 to 2 with the hours and takes the maps of the first two hours only, not those of 48 hours; the last block of the sixth example shows it.
+Relative time works as absolute time does; the sixth example shows it. The
+relations of <b>sampling</b> then compare the start and end numbers of the maps.
+The tool neither converts nor checks the units: use the same unit in both
+datasets. With a STRDS in hours and a vector map from 0 to 2 days, the tool
+compares 0 to 2 with the hours and takes the maps of the first two hours only,
+not those of 48 hours; the last block of the sixth example shows it.
+
 <p>
-With <code>method=quantile</code> the tool gives the smallest value, as it has no option for the quantile that <em>r.series</em> would need.
+With <code>method=quantile</code> the tool gives the smallest value, as it has no option
+for the quantile that <em>r.series</em> would need.
+
 <h2>EXAMPLES</h2>
+
 <h3>Sample the raster maps of each interval</h3>
-The dataset <code>levels</code> holds six raster maps, <code>level_1</code> to <code>level_6</code>, one for each month from January to June 2026. The region has two rows and two columns of size 1, and the value of <code>level_k</code> in the cell of row <code>r</code> and column <code>c</code> is <code>100 * k + 10 * r + c</code>. The dataset <code>stations</code> holds three vector maps with the same four points, one at the centre of each cell, with the column <code>height</code> 1 to 4: the points <code>cat</code> 1 and 2 lie in the first row, 3 and 4 in the second. <code>stations_1</code> has the interval January, <code>stations_2</code> February and March, and <code>stations_3</code> April.
+
+The dataset <code>levels</code> holds six raster maps, <code>level_1</code> to <code>level_6</code>, one for
+each month from January to June 2026. The region has two rows and two columns
+of size 1, and the value of <code>level_k</code> in the cell of row <code>r</code> and column <code>c</code> is
+<code>100 * k + 10 * r + c</code>. The dataset <code>stations</code> holds three vector maps with the
+same four points, one at the centre of each cell, with the column <code>height</code> 1 to
+4: the points <code>cat</code> 1 and 2 lie in the first row, 3 and 4 in the second.
+<code>stations_1</code> has the interval January, <code>stations_2</code> February and March, and
+<code>stations_3</code> April.
+
 <p>
-<em>t.vect.what.strds</em> uses the default <b>sampling</b>, <code>start</code>. For each vector map it takes the raster maps that start inside its interval: <code>level_1</code> for <code>stations_1</code>, <code>level_2</code> and <code>level_3</code> for <code>stations_2</code>, and <code>level_4</code> for <code>stations_3</code>. Each vector map gets one column per raster map, named after it. The last two commands print the tables of <code>stations_1</code> and <code>stations_2</code>. The point <code>cat</code> 3, in the second row and first column, reads 121 in <code>level_1</code>, 221 in <code>level_2</code> and 321 in <code>level_3</code>.
+<em>t.vect.what.strds</em> uses the default <b>sampling</b>, <code>start</code>. For each vector map
+it takes the raster maps that start inside its interval: <code>level_1</code> for
+<code>stations_1</code>, <code>level_2</code> and <code>level_3</code> for <code>stations_2</code>, and <code>level_4</code> for
+<code>stations_3</code>. Each vector map gets one column per raster map, named after it.
+The last two commands print the tables of <code>stations_1</code> and <code>stations_2</code>. The
+point <code>cat</code> 3, in the second row and first column, reads 121 in <code>level_1</code>, 221
+in <code>level_2</code> and 321 in <code>level_3</code>.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 g.region n=2 s=0 e=2 w=0 res=1
 for k in 1 2 3 4 5 6; do
@@ -82,6 +230,7 @@ t.vect.what.strds input=stations strds=levels
 v.db.select map=stations_1
 v.db.select map=stations_2
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|level_1
 1|0.5|1.5|1|111
@@ -94,7 +243,9 @@ cat|x|y|height|level_2|level_3
 3|0.5|0.5|3|221|321
 4|1.5|0.5|4|222|322
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 from io import StringIO
 
@@ -136,6 +287,7 @@ tools.t_vect_what_strds(input="stations", strds="levels")
 print(tools.v_db_select(map="stations_1").text)
 print(tools.v_db_select(map="stations_2").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|level_1
 1|0.5|1.5|1|111
@@ -148,16 +300,29 @@ cat|x|y|height|level_2|level_3
 3|0.5|0.5|3|221|321
 4|1.5|0.5|4|222|322
 </pre></div>
+
 <h3>Store one column and read only some points</h3>
-With <b>column</b>, the tool stores the values of one raster map per vector map in the column <code>first</code>. For <code>stations_2</code> that is <code>level_2</code>, the first of its two raster maps. <b>where</b> limits the points: only those with a <code>height</code> above 2 get a value, and the column of the points 1 and 2 stays empty.
+
+With <b>column</b>, the tool stores the values of one raster map per vector map in
+the column <code>first</code>. For <code>stations_2</code> that is <code>level_2</code>, the first of its two
+raster maps. <b>where</b> limits the points: only those with a <code>height</code> above 2
+get a value, and the column of the points 1 and 2 stays empty.
+
 <p>
-The second part reads the points with a smaller region, the first row only (<code>n=2</code>, <code>s=1</code>), and <b>t_where</b> limits the call to <code>stations_2</code>. The points of the second row lie outside the region and get no value in the new column <code>top</code>; the points of the first row read <code>level_2</code> again. The last command sets the region back.
+The second part reads the points with a smaller region, the first row only
+(<code>n=2</code>, <code>s=1</code>), and <b>t_where</b> limits the call to <code>stations_2</code>. The points of
+the second row lie outside the region and get no value in the new column <code>top</code>;
+the points of the first row read <code>level_2</code> again. The last command sets the
+region back.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 t.vect.what.strds input=stations strds=levels column=first \
     where="height &gt; 2"
 v.db.select map=stations_2 columns=cat,height,first
 </pre></div>
+
 <div class="code"><pre>
 cat|height|first
 1|1|
@@ -165,6 +330,7 @@ cat|height|first
 3|3|221
 4|4|222
 </pre></div>
+
 <div class="code"><pre>
 g.region n=2 s=1 e=2 w=0 res=1
 t.vect.what.strds input=stations strds=levels column=top \
@@ -172,6 +338,7 @@ t.vect.what.strds input=stations strds=levels column=top \
 v.db.select map=stations_2 columns=cat,height,top
 g.region n=2 s=0 e=2 w=0 res=1
 </pre></div>
+
 <div class="code"><pre>
 cat|height|top
 1|1|211
@@ -179,13 +346,16 @@ cat|height|top
 3|3|
 4|4|
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.t_vect_what_strds(
     input="stations", strds="levels", column="first", where="height &gt; 2"
 )
 print(tools.v_db_select(map="stations_2", columns="cat,height,first").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|height|first
 1|1|
@@ -193,6 +363,7 @@ cat|height|first
 3|3|221
 4|4|222
 </pre></div>
+
 <div class="code"><pre>
 tools.g_region(n=2, s=1, e=2, w=0, res=1)
 tools.t_vect_what_strds(
@@ -201,6 +372,7 @@ tools.t_vect_what_strds(
 print(tools.v_db_select(map="stations_2", columns="cat,height,top").text)
 tools.g_region(n=2, s=0, e=2, w=0, res=1)
 </pre></div>
+
 <div class="code"><pre>
 cat|height|top
 1|1|211
@@ -208,16 +380,30 @@ cat|height|top
 3|3|
 4|4|
 </pre></div>
+
 <h3>Aggregate the raster maps of an interval</h3>
-The first call aggregates with <b>method</b><code>=average</code>, but only for <code>stations_2</code>, which <b>t_where</b> selects by name: it is the only vector map with two raster maps in its interval. Without <b>column</b> the aggregate goes to the column <code>levels_average</code>, the name of the dataset and the method. For the point <code>cat</code> 1 it is the mean of 211 and 311, which is 261.
+
+The first call aggregates with <b>method</b><code>=average</code>, but only for
+<code>stations_2</code>, which <b>t_where</b> selects by name: it is the only vector map with
+two raster maps in its interval. Without <b>column</b> the aggregate goes to the
+column <code>levels_average</code>, the name of the dataset and the method. For the point
+<code>cat</code> 1 it is the mean of 211 and 311, which is 261.
+
 <p>
-The second call uses <b>column</b><code>=total</code> and <code>sum</code> for all three vector maps. In <code>stations_2</code> the column holds the sum of the two maps, 211 + 311 = 522 for the point 1. <code>stations_1</code> has one raster map in its interval, which is not aggregated: its column holds the values of <code>level_1</code>, 111 for the point 1. The description lists the values of the other methods.
+The second call uses <b>column</b><code>=total</code> and <code>sum</code> for all three vector maps.
+In <code>stations_2</code> the column holds the sum of the two maps, 211 + 311 = 522 for
+the point 1. <code>stations_1</code> has one raster map in its interval, which is not
+aggregated: its column holds the values of <code>level_1</code>, 111 for the point 1. The
+description lists the values of the other methods.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 t.vect.what.strds input=stations strds=levels method=average \
     t_where="name = 'stations_2'"
 v.db.select map=stations_2 columns=cat,levels_average
 </pre></div>
+
 <div class="code"><pre>
 cat|levels_average
 1|261
@@ -225,11 +411,13 @@ cat|levels_average
 3|271
 4|272
 </pre></div>
+
 <div class="code"><pre>
 t.vect.what.strds input=stations strds=levels column=total method=sum
 v.db.select map=stations_2 columns=cat,total
 v.db.select map=stations_1 columns=cat,total
 </pre></div>
+
 <div class="code"><pre>
 cat|total
 1|522
@@ -242,7 +430,9 @@ cat|total
 3|121
 4|122
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.t_vect_what_strds(
     input="stations",
@@ -252,6 +442,7 @@ tools.t_vect_what_strds(
 )
 print(tools.v_db_select(map="stations_2", columns="cat,levels_average").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|levels_average
 1|261
@@ -259,11 +450,13 @@ cat|levels_average
 3|271
 4|272
 </pre></div>
+
 <div class="code"><pre>
 tools.t_vect_what_strds(input="stations", strds="levels", column="total", method="sum")
 print(tools.v_db_select(map="stations_2", columns="cat,total").text)
 print(tools.v_db_select(map="stations_1", columns="cat,total").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|total
 1|522
@@ -276,21 +469,42 @@ cat|total
 3|121
 4|122
 </pre></div>
+
 <h3>Choose the raster maps by their relation to the interval</h3>
-The loop runs every value of <b>sampling</b> on four vector maps with the same points and these windows (all in 2026): <code>a</code> from 15 February to 15 April, <code>b</code> from 10 to 20 March, <code>c</code> from 1 March to 1 April and <code>d</code> from 1 March to 10 April. The raster maps are the monthly maps <code>level_1</code> to <code>level_6</code>, so <code>level_3</code> lasts from 1 March to 1 April, <code>level_2</code> from 1 February to 1 March and <code>level_4</code> from 1 April to 1 May. For each relation the loop makes a dataset <code>windows_&lt;relation&gt;</code> with four copies of a template map, runs the tool, and prints the raster columns of each copy.
+
+The loop runs every value of <b>sampling</b> on four vector maps with the same
+points and these windows (all in 2026): <code>a</code> from 15 February to 15 April, <code>b</code>
+from 10 to 20 March, <code>c</code> from 1 March to 1 April and <code>d</code> from 1 March to 10
+April. The raster maps are the monthly maps <code>level_1</code> to <code>level_6</code>, so
+<code>level_3</code> lasts from 1 March to 1 April, <code>level_2</code> from 1 February to 1 March
+and <code>level_4</code> from 1 April to 1 May. For each relation the loop makes a dataset
+<code>windows_&lt;relation&gt;</code> with four copies of a template map, runs the tool, and
+prints the raster columns of each copy.
+
 <p>
 Compare the rows of a window in the output:
+
 <ul>
-<li><code>start</code>: <code>level_3</code> and <code>level_4</code> for <code>a</code> and <code>d</code>, because both start inside these windows, though <code>level_4</code> ends after them; <code>level_3</code> alone for <code>c</code>, which it equals; nothing for <code>b</code>, because <code>level_3</code> starts before it.</li>
-<li><code>during</code>: <code>level_3</code> for <code>a</code> and for <code>d</code>, which shares its start with <code>level_3</code>; nothing for <code>c</code>, which equals <code>level_3</code>.</li>
+<li><code>start</code>: <code>level_3</code> and <code>level_4</code> for <code>a</code> and <code>d</code>, because both start inside
+these windows, though <code>level_4</code> ends after them; <code>level_3</code> alone for <code>c</code>,
+which it equals; nothing for <code>b</code>, because <code>level_3</code> starts before it.</li>
+<li><code>during</code>: <code>level_3</code> for <code>a</code> and for <code>d</code>, which shares its start with
+<code>level_3</code>; nothing for <code>c</code>, which equals <code>level_3</code>.</li>
 <li><code>overlap</code>: <code>level_2</code> and <code>level_4</code> for <code>a</code>, <code>level_4</code> for <code>d</code>.</li>
 <li><code>contain</code>: <code>level_3</code> for <code>b</code>, which lies inside it.</li>
 <li><code>equal</code>: <code>level_3</code> for <code>c</code>.</li>
 <li><code>follows</code>: <code>level_4</code> for <code>c</code>, which ends when <code>level_4</code> starts.</li>
 <li><code>precedes</code>: <code>level_2</code> for <code>c</code> and <code>d</code>, which start when <code>level_2</code> ends.</li>
 </ul>
-The last block uses a dataset <code>readings</code> of two time instants, 5 and 25 March, and a window from 1 March to 1 April. No instant can contain a window, but with <b>sampling</b><code>=contain</code> the tool writes both columns: a STRDS with time instants is always sampled as with <code>start</code>.
+
+<p>
+The last block uses a dataset <code>readings</code> of two time instants, 5 and 25 March,
+and a window from 1 March to 1 April. No instant can contain a window, but with
+<b>sampling</b><code>=contain</code> the tool writes both columns: a STRDS with time instants
+is always sampled as with <code>start</code>.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 v.in.ascii input=- output=window separator=comma \
     columns="x double precision, y double precision, height integer" &lt;&lt;EOF
@@ -320,6 +534,7 @@ for s in start during overlap contain equal follows precedes; do
     done
 done
 </pre></div>
+
 <div class="code"><pre>
 start_a: level_3,level_4
 start_b: -
@@ -350,6 +565,7 @@ precedes_b: -
 precedes_c: level_2
 precedes_d: level_2
 </pre></div>
+
 <div class="code"><pre>
 for k in 1 2; do
     r.mapcalc expression="reading_$k = 100 * $k + 10 * row() + col()"
@@ -365,10 +581,13 @@ t.register type=vector input=instant_windows maps=instant_window \
 t.vect.what.strds input=instant_windows strds=readings sampling=contain
 db.columns table=instant_window | awk '/^reading_/' | paste -sd, -
 </pre></div>
+
 <div class="code"><pre>
 reading_1,reading_2
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 windows = {
     "a": ("2026-02-15", "2026-04-15"),
@@ -409,6 +628,7 @@ for sampling in (
         raster_columns = [column for column in columns if column.startswith("level_")]
         print(f"{name}: {','.join(raster_columns) or '-'}")
 </pre></div>
+
 <div class="code"><pre>
 start_a: level_3,level_4
 start_b: -
@@ -439,6 +659,7 @@ precedes_b: -
 precedes_c: level_2
 precedes_d: level_2
 </pre></div>
+
 <div class="code"><pre>
 for k in (1, 2):
     tools.r_mapcalc(expression=f"reading_{k} = 100 * {k} + 10 * row() + col()")
@@ -463,14 +684,29 @@ tools.t_vect_what_strds(input="instant_windows", strds="readings", sampling="con
 columns = tools.db_columns(table="instant_window").text.split()
 print(",".join(column for column in columns if column.startswith("reading_")))
 </pre></div>
+
 <div class="code"><pre>
 reading_1,reading_2
 </pre></div>
+
 <h3>Select vector maps by time and write the values again</h3>
-<b>t_where</b> restricts the tool to the vector maps whose temporal metadata match. Here it takes the maps that start on or after 1 February, so <code>stations_2</code> and <code>stations_3</code> get the column <code>late</code> and <code>stations_1</code> does not. The loop prints the columns named <code>late</code>, with <code>-</code> where there is none.
+
+<b>t_where</b> restricts the tool to the vector maps whose temporal metadata
+match. Here it takes the maps that start on or after 1 February, so
+<code>stations_2</code> and <code>stations_3</code> get the column <code>late</code> and <code>stations_1</code> does not.
+The loop prints the columns named <code>late</code>, with <code>-</code> where there is none.
+
 <p>
-The second call repeats the first one with <b>--overwrite</b>. The columns exist now, and the flag lets the tool write them again instead of stopping. The call changes what is read: <b>method</b><code>=maximum</code> takes the larger of the two maps of <code>stations_2</code>, <code>level_3</code>, and <b>where</b> limits the new values to the points with a <code>height</code> of at most 2. The points 1 and 2 of <code>stations_2</code> read 311 and 312 from <code>level_3</code>; the points 3 and 4 keep the values 221 and 222 of the first call.
+The second call repeats the first one with <b>--overwrite</b>. The columns exist
+now, and the flag lets the tool write them again instead of stopping. The call
+changes what is read: <b>method</b><code>=maximum</code> takes the larger of the two maps of
+<code>stations_2</code>, <code>level_3</code>, and <b>where</b> limits the new values to the points
+with a <code>height</code> of at most 2. The points 1 and 2 of <code>stations_2</code> read 311 and
+312 from <code>level_3</code>; the points 3 and 4 keep the values 221 and 222 of the first
+call.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 t.vect.what.strds input=stations strds=levels column=late \
     t_where="start_time &gt;= '2026-02-01'"
@@ -482,6 +718,7 @@ t.vect.what.strds --overwrite input=stations strds=levels column=late \
     method=maximum where="height &lt;= 2" t_where="start_time &gt;= '2026-02-01'"
 v.db.select map=stations_2 columns=cat,height,late
 </pre></div>
+
 <div class="code"><pre>
 stations_1: -
 stations_2: late
@@ -492,7 +729,9 @@ cat|height|late
 3|3|221
 4|4|222
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.t_vect_what_strds(
     input="stations",
@@ -514,6 +753,7 @@ tools.t_vect_what_strds(
 )
 print(tools.v_db_select(map="stations_2", columns="cat,height,late").text)
 </pre></div>
+
 <div class="code"><pre>
 stations_1: -
 stations_2: late
@@ -524,11 +764,25 @@ cat|height|late
 3|3|221
 4|4|222
 </pre></div>
+
 <h3>Relative time</h3>
-The dataset <code>steps</code> has three raster maps for the hours 0 to 1, 1 to 2 and 2 to 3, and <code>probes</code> two vector maps with the intervals 0 to 2 and 2 to 3, both in hours. Both datasets have relative time. <code>probe_1</code> has <code>step_1</code> and <code>step_2</code> in its interval, so <b>method</b><code>=average</code> stores their mean, 111 and 211 for the first point, 161, in the column <code>steps_average</code>. <code>probe_2</code> has only <code>step_3</code>, which is stored under its own name, 311 for the first point.
+
+The dataset <code>steps</code> has three raster maps for the hours 0 to 1, 1 to 2 and 2 to
+3, and <code>probes</code> two vector maps with the intervals 0 to 2 and 2 to 3, both in
+hours. Both datasets have relative time. <code>probe_1</code> has <code>step_1</code> and <code>step_2</code> in
+its interval, so <b>method</b><code>=average</code> stores their mean, 111 and 211 for the
+first point, 161, in the column <code>steps_average</code>. <code>probe_2</code> has only <code>step_3</code>,
+which is stored under its own name, 311 for the first point.
+
 <p>
-The last block shows that the tool does not look at the unit. The vector map <code>probe_days</code> has the interval 0 to 2 days, while <code>steps</code> counts hours. The tool compares the numbers: it takes <code>step_1</code> and <code>step_2</code>, which start at 0 and 1, but not <code>step_3</code>, which starts at 2, although 2 days are 48 hours and cover all three maps. Use the same unit in both datasets.
+The last block shows that the tool does not look at the unit. The vector map
+<code>probe_days</code> has the interval 0 to 2 days, while <code>steps</code> counts hours. The
+tool compares the numbers: it takes <code>step_1</code> and <code>step_2</code>, which start at 0 and
+1, but not <code>step_3</code>, which starts at 2, although 2 days are 48 hours and cover
+all three maps. Use the same unit in both datasets.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 for k in 1 2 3; do
     r.mapcalc expression="step_$k = 100 * $k + 10 * row() + col()"
@@ -547,6 +801,7 @@ t.vect.what.strds input=probes strds=steps method=average
 v.db.select map=probe_1
 v.db.select map=probe_2
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|steps_average
 1|0.5|1.5|1|161
@@ -559,6 +814,7 @@ cat|x|y|height|step_3
 3|0.5|0.5|3|321
 4|1.5|0.5|4|322
 </pre></div>
+
 <div class="code"><pre>
 g.copy vector=window,probe_days
 t.create type=stvds temporaltype=relative output=probes_days \
@@ -568,10 +824,13 @@ t.register type=vector input=probes_days maps=probe_days \
 t.vect.what.strds input=probes_days strds=steps
 db.columns table=probe_days | awk '/^step_/' | paste -sd, -
 </pre></div>
+
 <div class="code"><pre>
 step_1,step_2
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 for k in range(1, 4):
     tools.r_mapcalc(expression=f"step_{k} = 100 * {k} + 10 * row() + col()")
@@ -608,6 +867,7 @@ tools.t_vect_what_strds(input="probes", strds="steps", method="average")
 print(tools.v_db_select(map="probe_1").text)
 print(tools.v_db_select(map="probe_2").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|steps_average
 1|0.5|1.5|1|161
@@ -620,6 +880,7 @@ cat|x|y|height|step_3
 3|0.5|0.5|3|321
 4|1.5|0.5|4|322
 </pre></div>
+
 <div class="code"><pre>
 tools.g_copy(vector="window,probe_days")
 tools.t_create(
@@ -641,12 +902,24 @@ tools.t_vect_what_strds(input="probes_days", strds="steps")
 columns = tools.db_columns(table="probe_days").text.split()
 print(",".join(column for column in columns if column.startswith("step_")))
 </pre></div>
+
 <div class="code"><pre>
 step_1,step_2
 </pre></div>
+
 <h3>Datasets of another mapset</h3>
-The example creates the mapset <code>analysis</code> and switches to it, where the region is its own and is set again. The dataset <code>levels</code> stays in <code>PERMANENT</code>, and <b>strds</b><code>=levels@PERMANENT</code> names it with its mapset. The vector map <code>remote</code> and its dataset belong to <code>analysis</code>, so the tool writes the columns <code>level_2</code> and <code>level_3</code> into the table of <code>remote</code> in the current mapset. The second block asks for the dataset <code>stations</code> in <code>PERMANENT</code> as <b>input</b>. The tool refuses it before it writes anything, because it would have to change the tables of vector maps of another mapset, and the block prints the message.
+
+The example creates the mapset <code>analysis</code> and switches to it, where the region
+is its own and is set again. The dataset <code>levels</code> stays in <code>PERMANENT</code>, and
+<b>strds</b><code>=levels@PERMANENT</code> names it with its mapset. The vector map <code>remote</code>
+and its dataset belong to <code>analysis</code>, so the tool writes the columns <code>level_2</code>
+and <code>level_3</code> into the table of <code>remote</code> in the current mapset. The second
+block asks for the dataset <code>stations</code> in <code>PERMANENT</code> as <b>input</b>. The tool
+refuses it before it writes anything, because it would have to change the
+tables of vector maps of another mapset, and the block prints the message.
+
 <p>Command line:</p>
+
 <div class="code"><pre>
 g.mapset -c mapset=analysis
 g.region n=2 s=0 e=2 w=0 res=1
@@ -658,6 +931,7 @@ t.register type=vector input=remote_ds maps=remote \
 t.vect.what.strds input=remote_ds strds=levels@PERMANENT
 v.db.select map=remote
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|level_2|level_3
 1|0.5|1.5|1|211|311
@@ -665,12 +939,14 @@ cat|x|y|height|level_2|level_3
 3|0.5|0.5|3|221|321
 4|1.5|0.5|4|222|322
 </pre></div>
+
 <div class="code"><pre>
 if ! t.vect.what.strds input=stations@PERMANENT strds=levels@PERMANENT \
     column=other 2&gt;&amp;1; then
     echo "t.vect.what.strds failed"
 fi
 </pre></div>
+
 <div class="code"><pre>
 ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
        its table cannot be written
@@ -680,7 +956,9 @@ ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
        its table cannot be written
 t.vect.what.strds failed
 </pre></div>
+
 <p>Python (grass.tools):</p>
+
 <div class="code"><pre>
 tools.g_mapset(mapset="analysis", flags="c")
 tools.g_region(n=2, s=0, e=2, w=0, res=1)
@@ -701,6 +979,7 @@ tools.t_register(
 tools.t_vect_what_strds(input="remote_ds", strds="levels@PERMANENT")
 print(tools.v_db_select(map="remote").text)
 </pre></div>
+
 <div class="code"><pre>
 cat|x|y|height|level_2|level_3
 1|0.5|1.5|1|211|311
@@ -708,6 +987,7 @@ cat|x|y|height|level_2|level_3
 3|0.5|0.5|3|221|321
 4|1.5|0.5|4|222|322
 </pre></div>
+
 <div class="code"><pre>
 from grass.tools import ToolError
 
@@ -719,6 +999,7 @@ except ToolError as error:
     print(error.stderr.strip())
     print("t.vect.what.strds failed")
 </pre></div>
+
 <div class="code"><pre>
 ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
        its table cannot be written
@@ -728,7 +1009,18 @@ ERROR: Vector map &lt;stations_1@PERMANENT&gt; is not in the current mapset, so
        its table cannot be written
 t.vect.what.strds failed
 </pre></div>
+
 <h2>SEE ALSO</h2>
-<em><a href="r.series.html">r.series</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.rast.aggregate.html">t.rast.aggregate</a>, <a href="t.vect.db.select.html">t.vect.db.select</a>, <a href="t.vect.list.html">t.vect.list</a>, <a href="t.vect.observe.strds.html">t.vect.observe.strds</a>, <a href="v.db.select.html">v.db.select</a>, <a href="v.what.rast.html">v.what.rast</a>, <a href="v.what.rast3.html">v.what.rast3</a>, <a href="v.what.strds.html">v.what.strds</a>, <a href="v.what.vect.html">v.what.vect</a>, <a href="temporalintro.html">temporal data processing</a></em>
+
+<em><a href="r.series.html">r.series</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
+<a href="t.vect.db.select.html">t.vect.db.select</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="t.vect.observe.strds.html">t.vect.observe.strds</a>,
+<a href="v.db.select.html">v.db.select</a>, <a href="v.what.rast.html">v.what.rast</a>,
+<a href="v.what.rast3.html">v.what.rast3</a>, <a href="v.what.strds.html">v.what.strds</a>,
+<a href="v.what.vect.html">v.what.vect</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
+
 <h2>AUTHOR</h2>
+
 S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart Agriculture

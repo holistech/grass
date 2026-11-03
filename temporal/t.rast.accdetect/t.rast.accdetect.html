@@ -11,9 +11,12 @@ range, and the optional <b>indicator</b> dataset marks the start, the course and
 the end of every stretch of time in which it was. See the
 <a href="temporalintro.html">introduction to temporal data processing</a> for space time
 datasets.
+
 <h3>Cycles</h3>
+
 The tool works through the input dataset in cycles, as <em>t.rast.accumulate</em>
 does, and restarts at the beginning of every cycle.
+
 <ul>
 <li><b>start</b> is the beginning of the first cycle and is required. With absolute
 time it is a date such as <code>2026-03-01</code>; with relative time it is an integer
@@ -28,6 +31,7 @@ Without <b>offset</b>, a cycle begins where the cycle before ended.</li>
 <b>stop</b>, the run ends with the input dataset; a map that is a time instant
 at the end of the dataset is processed as well.</li>
 </ul>
+
 <p>
 A map belongs to the cycle in which it starts. A cycle in which no map starts
 is skipped. The <b>cycle</b> and the <b>offset</b> must be the ones that
@@ -38,14 +42,18 @@ month ends on that day, so monthly cycles from 2001-01-31 start on 2001-02-28
 and 2001-03-31. If only one of <b>cycle</b> and <b>offset</b> is in months or years,
 such as a cycle in months with an offset in days, each cycle starts one offset
 after the end of the cycle before.
+
 <p>
 <em>t.rast.accumulate</em> moves its <b>start</b> to the beginning of its
 <b>granularity</b>, a month to its first day, and <em>t.rast.accdetect</em> does not.
 For the same cycles, give <em>t.rast.accdetect</em> the moved start.
+
 <h3>The range</h3>
+
 A cell is in the range when its value is above the minimum and below the
 maximum; the two bounds themselves are not in the range. The bounds come from
 the options <b>minimum</b>, <b>maximum</b> and <b>range</b>:
+
 <ul>
 <li><b>range</b> takes two numbers, <code>min,max</code>, such as <code>range=480,730</code>. They are
 used for all cells and all maps for which no map of <b>minimum</b> or of
@@ -58,6 +66,7 @@ Germany with growing degree days, the cells of the crops differ, and so do
 the bounds of one cell when the crops rotate. Both datasets must have the
 same temporal type as the input dataset.</li>
 </ul>
+
 <p>
 The bound for a map of the input dataset is looked up by the temporal relation
 of the map to the maps of the dataset <b>minimum</b> or <b>maximum</b>. First the
@@ -69,12 +78,15 @@ relations are never mixed. If no map is found, or the dataset is not given,
 the bound comes from <b>range</b>. The tool refuses to start without <b>range</b>
 unless both <b>minimum</b> and <b>maximum</b> are given, and it ends with a message
 when a map of the input dataset has no bound at all.
+
 <h3>Output</h3>
+
 The option <b>occurrence</b> names the new dataset and is required. For every
 input map it has a map that has the time of the input map and holds, in each
 cell in the range, the time from the beginning of the cycle to the start of
 the input map, and null elsewhere. With absolute time the unit is days; with
 relative time it is the unit of the dataset.
+
 <p>
 The option <b>indicator</b> names a second new dataset with the same maps. Its
 cells hold one of three integers: <code>1</code> where a stretch of time in the range
@@ -83,6 +95,7 @@ changes the three values, for instance <code>staend=10,20,30</code>; the default
 <code>1,2,3</code>. A cell that is null in the occurrence map is null in the indicator.
 A stretch that is still going on at the last map of a cycle ends there, so
 that map gets the end value.
+
 <p>
 The flag <b>-r</b> works through every cycle from its last map back, for an input
 dataset that <em>t.rast.accumulate</em> made with its flag <b>-r</b>. The indicator then
@@ -90,15 +103,18 @@ starts a stretch at its last map in time and ends it at an earlier map; a
 stretch that is still going on at the first map of the cycle ends there, so the
 first map gets the end value. The occurrence still counts the time from the
 beginning of the cycle, whatever the direction.
+
 <p>
 The maps in which no cell is in the range are empty. The flag <b>-n</b>
 registers the empty maps in the output datasets; without it, they are removed.
+
 <p>
 The option <b>basename</b> is the beginning of the names of the new maps and is
 required. The name of an occurrence map is the <b>basename</b>, an underscore
 and the suffix, such as <code>occ_2026_03_02</code>. An indicator map has the word
 <code>indicator</code> behind the <b>basename</b>, such as <code>occ_indicator_2026_03_02</code>.
 The option <b>suffix</b> selects the suffix:
+
 <ul>
 <li><code>gran</code> (the default) takes, with absolute time, the start of the input map
 cut to the granularity of the input dataset, such as <code>2026_03_02</code>. An input
@@ -110,11 +126,13 @@ time only.</li>
 <code>num%02</code> gives <code>01</code>. The numbers count the maps of each dataset in the order
 of the computation, over all cycles.</li>
 </ul>
+
 <h2>NOTES</h2>
 
 The new datasets and maps are created in the current mapset. The last example
 reads an input dataset of another mapset by giving the name with the mapset,
 <code>input=gdd@PERMANENT</code>.
+
 <p>
 An existing <b>occurrence</b> or <b>indicator</b> dataset stops the run before any
 computation, unless <b>--overwrite</b> is set. A name with a dot is refused for a
@@ -123,6 +141,7 @@ that is registered elsewhere is refused with the message "Map <code>&lt;name@map
 is already registered in the temporal database, use overwrite flag to
 overwrite"; with <b>--overwrite</b> the new map replaces it and leaves the other
 dataset.
+
 <p>
 If no map with values is computed for an output, the tool warns, for example
 "No map with values was computed in any cycle. No space time dataset <code>&lt;name&gt;</code>
@@ -135,8 +154,10 @@ maps of the removed dataset stay as maps, except for maps that have the name
 of a new map, which the computation replaces and then removes. The first
 example leaves out the empty maps and the second one registers them. An empty
 input dataset ends with a warning and creates no output.
+
 <p>
 Wrong input stops the tool with a message before anything is written:
+
 <ul>
 <li>An <b>input</b>, <b>minimum</b> or <b>maximum</b> dataset that does not exist: "Space
 time raster dataset <code>&lt;name@mapset&gt;</code> not found".</li>
@@ -158,17 +179,21 @@ start of this one".</li>
 <li>An unknown <b>suffix</b>: "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or
 num%NN".</li>
 </ul>
+
 <p>
 With relative time, the unit of the dataset is the unit of <b>start</b>, <b>stop</b>,
 <b>cycle</b> and <b>offset</b>; they are integers without a unit.
+
 <h2>EXAMPLES</h2>
 
 <h3>Find the accumulated values in a range</h3>
+
 The dataset <code>temperature</code> has eight daily maps from 1 to 8 March 2026 on a
 region of three cells in one row. Each map holds the value of a cell as
 <code>base + 2 * (column - 1)</code>. The base is 12, 14, 16 and 18 on the days 1 to 4, and
 the same again on the days 5 to 8, so the data hold two cycles of four days. The
 cells of a map differ by two.
+
 <p>
 The first block accumulates growing degree days above 10 with
 <em><a href="t.rast.accumulate.html">t.rast.accumulate</a></em>, with one cycle of four days. The
@@ -177,6 +202,7 @@ increment of a day is its value minus 10, so the sums of the first cell are 2,
 cell 6, 14, 24 and 36, in each cycle. The tool
 <em><a href="t.rast.what.html">t.rast.what</a></em> prints, for each map, the values of the three
 cells from west to east.
+
 <p>
 The second block detects the sums in the range from 8 to 25 with the same
 cycle. The <b>occurrence</b> dataset holds the days since the beginning of the
@@ -189,6 +215,7 @@ each cycle is empty and not registered. The <b>indicator</b> marks the start wit
 ends on day 2, because its sum 28 on day 3 is above the range; the first cell
 starts on day 2 and is still in the range on day 3, the last map of the cycle,
 so this map gets the end value 3.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -318,6 +345,7 @@ print(tools.t_rast_what(strds="ind", coordinates=points, layout="col").text)
 </pre></div>
 
 <h3>Choose the values of the indicator and keep the empty maps</h3>
+
 The same detection with <b>staend</b> <code>10,20,30</code>, so the indicator holds 10 for
 the start, 20 for the course and 30 for the end of a stretch. The flag <b>-n</b>
 registers the maps in which no cell is in the range, the maps of 1 and 5 March,
@@ -325,6 +353,7 @@ in both datasets. The option <b>suffix</b> <code>num%02</code> numbers the maps 
 instead of naming them after the date. The list shows the empty maps, which
 have no smallest and no largest value, and the table the indicator, which is
 the one of the previous example with the new values.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -395,6 +424,7 @@ occ_all_08|2026-03-08 00:00:00|3.0|3.0
 </pre></div>
 
 <h3>Detect backwards in time</h3>
+
 <em>t.rast.accumulate</em> with its flag <b>-r</b> accumulates every cycle from the last
 day to the first: the map of the last day holds the increment of one day and
 the map of the first day the sum of all. The first cell has 20 on the first
@@ -406,6 +436,7 @@ and ends on the first day (20), so its indicator is 1, 2 and 3 from the third
 to the first day. The third cell starts on the last day (12), and ends on the
 third day (22). The occurrence still counts the days from the beginning of the
 cycle: 0 for the first day of the cycle.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -514,6 +545,7 @@ print(tools.t_rast_what(strds="ind_back", coordinates=points, layout="col").text
 </pre></div>
 
 <h3>Skip time between the cycles and stop early</h3>
+
 Cycles of three days with an <b>offset</b> of one day, and a <b>stop</b> at 7 March.
 The first cycle covers 1 to 3 March, the offset skips 4 March, and the second
 cycle begins on 5 March and ends at the <b>stop</b>, so it holds 5 and 6 March.
@@ -521,6 +553,7 @@ The accumulation uses the same <b>cycle</b> and <b>offset</b>. The occurrence of
 second cycle counts from 5 March, so the 6th is day 1. The maps of 1 and 5
 March are empty. There is no map for 4 March, which the offset skipped, and
 none from 7 March on.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -573,6 +606,7 @@ print(tools.t_rast_what(strds="occ_skip", coordinates=points, layout="col").text
 </pre></div>
 
 <h3>Take the bounds from datasets</h3>
+
 The dataset <code>lower</code> has one map with the value 15 from 5 to 9 March, and the
 dataset <code>upper</code> one map with the value 20 from 1 to 9 March. Used as
 <b>minimum</b> and <b>maximum</b>, they replace the range where a map is found: every
@@ -585,12 +619,14 @@ first cell is not below 20 and does not count. Compared with
 the first example, the first cycle loses the sums 20 and 24, and the second
 cycle all sums but 18, which is above 15: only the second cell on 7 March is
 left there.
+
 <p>
 The second block shows a map within the time of an input map. The dataset
 <code>upper_noon</code> has one map with the value 20 from 6:00 to 18:00 on 3 March. It
 lies within the granule of 3 March and gives the upper bound there; all other
 maps take the upper bound 25 from <b>range</b>. The sum 24 of the third cell on
 3 March is not below 20, but it is below 25 on 7 March.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -707,10 +743,12 @@ print(tools.t_rast_what(strds="occ_noon", coordinates=points, layout="col").text
 </pre></div>
 
 <h3>Detect in a dataset of another mapset</h3>
+
 The new mapset <code>second</code> has no dataset of its own and its own region, which
 the first command sets as in the first example. The input <code>gdd@PERMANENT</code> names
 the dataset of the mapset <code>PERMANENT</code>; the new maps and the new dataset are
 created in <code>second</code>, as the column <code>mapset</code> shows.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -759,17 +797,11 @@ occ_copy_2026_03_08|second|2026-03-08 00:00:00
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.series.accumulate.html">r.series.accumulate</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.accumulate.html">t.rast.accumulate</a>,
-<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>,
-<a href="t.rast.what.html">t.rast.what</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="g.region.html">g.region</a>, <a href="r.series.accumulate.html">r.series.accumulate</a>,
+<a href="t.info.html">t.info</a>, <a href="t.rast.accumulate.html">t.rast.accumulate</a>,
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>, <a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>, <a href="t.rast.what.html">t.rast.what</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

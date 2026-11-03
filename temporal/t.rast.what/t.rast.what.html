@@ -13,6 +13,7 @@ datasets, and <em><a href="v.what.strds.html">v.what.strds</a></em> for sampling
 values in the attribute table of a vector map.
 
 <h3>Locations</h3>
+
 The locations come from one of three sources. The option <b>points</b>
 names a vector map; each point of it is a location. The option <b>coordinates</b>
 lists the locations as <code>east,north</code> pairs, for instance <code>0.5,2.5,2.5,0.5</code> for
@@ -23,18 +24,21 @@ per line, and ignores <b>coordinates</b> and <b>points</b>. A line has the east 
 the north coordinate, separated by blanks. If the first line has a third
 column, it is the name of the location (a site name or an identifier), and the
 tool shows it in every layout. The sixth example uses <b>-i</b>.
+
 <p>
 The tool stops with an error message if no source is given, with a request to
 give the coordinates, the <b>points</b> option or the flag <b>-i</b>, and if
 <b>points</b> and <b>coordinates</b> are given together, also with <b>-i</b>: "Options
 coordinates and points are mutually exclusive". A location outside the current
 region is no error; it gets a null value in every map.
+
 <p>
 The flag <b>-v</b> adds the category of each point of the vector map. It needs
 <b>points</b>; with <b>coordinates</b> or with <b>-i</b> the tool stops with the message
 "Flag 'v' required option 'points'". The third example uses <b>-v</b>.
 
 <h3>Selection of maps</h3>
+
 The option <b>strds</b> names the space time raster dataset. The option <b>where</b>
 takes an SQL condition on the registered maps and selects the maps to sample;
 without it, all maps are sampled. If the condition selects no map, the tool
@@ -47,9 +51,11 @@ The columns are <code>id</code>, <code>name</code>, <code>creator</code>, <code>
 <code>west</code>, <code>east</code>, <code>min</code> and <code>max</code>. The fourth example shows both options.
 
 <h3>Layouts</h3>
+
 The option <b>layout</b> chooses how the table is arranged. With the flag <b>-n</b>
 the table has a header line. Without <b>-n</b> the table has no header line and
 the lines of the data are the same.
+
 <ul>
 <li><code>row</code> (the default) writes one line for each location and map, location
 after location, in the order of the maps. A line holds the coordinates, the
@@ -67,6 +73,8 @@ of a map column is its start and end time, separated by a semicolon. The
 coordinates are written in the shortest form (<code>0.5</code>, not <code>0.5000000000</code>).
 This is the layout of <em>r.what</em> with the time stamps as column titles.</li>
 </ul>
+
+<p>
 With <b>-v</b>, the category of the point comes first in the <code>row</code> and <code>timerow</code>
 layouts (<code>cat</code> in the header) and in front of the coordinates in the title of a
 location column in the <code>col</code> layout, separated from them by the same character
@@ -75,6 +83,7 @@ coordinates: in the column <code>site</code> of the <code>row</code> and <code>t
 third part of the title of a location column in the <code>col</code> layout.
 
 <h3>Output</h3>
+
 The option <b>output</b> names a text file for the table; with <code>-</code>, the default,
 the table goes to stdout. The tool does not overwrite an existing file unless
 the flag <code>--overwrite</code> is given. The option <b>separator</b> sets the character
@@ -85,6 +94,7 @@ separated. The option <b>null_value</b> sets the text that stands for a null
 cell; the default is <code>*</code>. The fifth example shows these options.
 
 <h3>Computation</h3>
+
 The option <b>nprocs</b> sets the number of <em>r.what</em> processes that run at the
 same time (default 1). Each process samples a share of the maps and writes a
 temporary file; the tool puts the files together in the order of the maps. The
@@ -99,9 +109,11 @@ blanks, the tool ends with the message "No location was sampled: r.what
 returned no line. Check the locations and the separator." and writes no
 output. It leaves an existing output file as it is. The same happens with an
 empty vector map in <b>points</b>.
+
 <p>
 A map that is registered in the dataset but no longer exists stops the tool
 with the message "Error running r.what".
+
 <p>
 A dataset with relative time works in the same way; the tables show the start
 and end time of a map as the numbers stored in the temporal database, without
@@ -110,6 +122,7 @@ the unit. The seventh example shows it.
 <h2>EXAMPLES</h2>
 
 <h3>Sample a dataset at coordinates</h3>
+
 The first example creates a space time raster dataset <code>temperature</code> with three
 daily maps on a region of 3 by 3 cells of size 1, and samples it at two
 locations given as <b>coordinates</b>. The map <code>thu</code> holds <code>10 * row + col</code> in
@@ -189,6 +202,7 @@ x|y|start|end|value
 </pre></div>
 
 <h3>Choose the layout</h3>
+
 The same two locations in the layouts <code>col</code> and <code>timerow</code>. In the layout <code>col</code>
 each line is a map and each column a location, whose title is its coordinates.
 In the layout <code>timerow</code> each line is a location and each column a map, whose
@@ -250,6 +264,7 @@ x|y|2026-03-05 00:00:00;2026-03-06 00:00:00|2026-03-06 00:00:00;2026-03-07 00:00
 </pre></div>
 
 <h3>Sample the points of a vector map</h3>
+
 The option <b>points</b> takes the locations from a vector map. The flag <b>-v</b>
 adds the category of each point. The map <code>stations</code> has three points with the
 categories 7, 8 and 9, in the cells with the values 11, 33 and 22. The cell
@@ -343,6 +358,7 @@ start|end|7,0.5000000000,2.5000000000|8,2.5000000000,0.5000000000|9,1.5000000000
 </pre></div>
 
 <h3>Select and order the maps</h3>
+
 The option <b>where</b> samples only the maps that match a condition: the maps
 <code>fri</code> and <code>sat</code> start on or after 2026-03-06. The option <b>order</b> sorts the
 maps; sorted by <code>name</code>, they come in the alphabetical order <code>fri</code>, <code>sat</code>,
@@ -407,6 +423,7 @@ x|y|2026-03-06 00:00:00;2026-03-07 00:00:00|2026-03-07 00:00:00;2026-03-08 00:00
 </pre></div>
 
 <h3>Write a file with another separator and null value</h3>
+
 The locations <code>1.5,1.5</code> and <code>100,100</code> give null values: the middle cell of the
 map <code>fri</code> has no value, and the second location lies outside the region. The
 option <b>null_value</b> writes <code>NA</code> instead of <code>*</code>, the option <b>separator</b>
@@ -491,6 +508,7 @@ start,end,1.5000000000;1.5000000000,100.0000000000;100.0000000000
 </pre></div>
 
 <h3>Read the locations from stdin</h3>
+
 The flag <b>-i</b> reads the locations from stdin: a line has the east and the
 north coordinate and optionally a name, separated by blanks. The name of the
 location appears in the column <code>site</code> of the layout <code>row</code>. The call gives
@@ -534,6 +552,7 @@ x|y|site|start|end|value
 </pre></div>
 
 <h3>Sample a dataset with relative time</h3>
+
 A dataset with relative time shows the start and end of a map as numbers. The
 dataset <code>model</code> has two maps of one hour each, starting at 0; the maps hold the
 values 1 and 2.
@@ -587,17 +606,11 @@ x|y|start|end|value
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.mask.html">r.mask</a>,
-<a href="r.neighbors.html">r.neighbors</a>,
-<a href="r.what.html">r.what</a>,
-<a href="t.info.html">t.info</a>,
+<em><a href="g.region.html">g.region</a>, <a href="r.mask.html">r.mask</a>, <a href="r.neighbors.html">r.neighbors</a>,
+<a href="r.what.html">r.what</a>, <a href="t.info.html">t.info</a>,
 <a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="v.what.strds.html">v.what.strds</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="v.what.strds.html">v.what.strds</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

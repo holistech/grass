@@ -2,180 +2,186 @@
 
 <em>t.rast.univar</em> calculates univariate statistics of each raster map
 registered in a space time raster dataset and prints one line of statistics
-per map, ordered by start time. It runs
-<em><a href="r.univar.html">r.univar</a></em> for every map, so the statistics
-are those of <em>r.univar</em>: they are taken from the cells of the current
-computational region and count only cells with a value (non-null cells). See
-the <a href="temporalintro.html">introduction to temporal data processing</a>
-for space time datasets. Space time 3D raster datasets have their own tool,
-<em><a href="t.rast3d.univar.html">t.rast3d.univar</a></em>, space time vector
-datasets <em><a href="t.vect.univar.html">t.vect.univar</a></em>.
+per map, ordered by start time. It runs <em><a href="r.univar.html">r.univar</a></em> for every
+map, so the statistics are those of <em>r.univar</em>: they are taken from the cells
+of the current computational region and count only cells with a value
+(non-null cells). See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Space time 3D raster datasets have their own tool,
+<em><a href="t.rast3d.univar.html">t.rast3d.univar</a></em>, space time vector datasets
+<em><a href="t.vect.univar.html">t.vect.univar</a></em>.
+
 <p>
 The option <b>input</b> names the space time raster dataset. Each line of the
 output starts with four columns that name the map:
+
 <ul>
 <li><code>id</code>, the name of the map with its mapset, such as
 <code>temperature_1@PERMANENT</code>;</li>
-<li><code>semantic_label</code>, the semantic label of the map, empty if it
-has none;</li>
-<li><code>start</code> and <code>end</code>, the start and end time of the
-map; the end of a map registered as a time instance is
-<code>None</code>.</li>
+<li><code>semantic_label</code>, the semantic label of the map, empty if it has none;</li>
+<li><code>start</code> and <code>end</code>, the start and end time of the map; the end of a map
+registered as a time instance is <code>None</code>.</li>
 </ul>
+
 <p>
 The statistics follow:
+
 <ul>
-<li><code>non_null_cells</code> and <code>null_cells</code>: the number of
-cells with and without a value;</li>
-<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and
-the largest value and their difference;</li>
-<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and
-the mean of their absolute values;</li>
-<li><code>stddev</code> and <code>variance</code>: the variance is the sum of
-the squared deviations from the mean divided by the number of non-null cells
-(the population variance), the standard deviation is its square root;</li>
-<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times
-the standard deviation divided by the mean. It grows without bound when the
-mean approaches 0, and it is negative for a negative mean;</li>
-<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of
-their absolute values.</li>
+<li><code>non_null_cells</code> and <code>null_cells</code>: the number of cells with and without a
+value;</li>
+<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and the largest value and their
+difference;</li>
+<li><code>mean</code> and <code>mean_of_abs</code>, the mean of the values and the mean of their
+absolute values;</li>
+<li><code>stddev</code> and <code>variance</code>: the variance is the sum of the squared deviations
+from the mean divided by the number of non-null cells (the population
+variance), the standard deviation is its square root;</li>
+<li><code>coeff_var</code>, the coefficient of variation in percent, 100 times the
+standard deviation divided by the mean. It grows without bound when the mean
+approaches 0, and it is negative for a negative mean;</li>
+<li><code>sum</code> and <code>sum_abs</code>, the sum of the values and of their absolute values.</li>
 </ul>
+
 <p>
-The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>,
-<code>median</code>, <code>third_quartile</code> and the 90th percentile
-<code>percentile_90</code>. <em>r.univar</em> finds a percentile p in the
-sorted values of the n non-null cells: it takes the value at position
-<code>n * p / 100 - 0.5</code> with the fractional part dropped, counting
+The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>, <code>median</code>,
+<code>third_quartile</code> and the 90th percentile <code>percentile_90</code>. <em>r.univar</em> finds a
+percentile p in the sorted values of the n non-null cells: it takes the value
+at position <code>n * p / 100 - 0.5</code> with the fractional part dropped, counting
 from 0, so the percentile 0 is the minimum. The quartiles follow the same rule
-with p = 25 and p = 75. The median is the middle value, or
-the mean of the two middle values when n is even, so it can differ from the
-50th percentile. The option <b>percentile</b> replaces the 90th percentile by
+with p = 25 and p = 75. The median is the middle value,
+or the mean of the two middle values when n is even, so it can differ from
+the 50th percentile. The option <b>percentile</b> replaces the 90th percentile by
 one or more percentiles from 0 to 100, separated by commas; it requires
 <b>-e</b>. Each percentile gets a column of its own, named after it, with an
-underscore for a decimal point: <code>percentile=97.5</code> gives
-<code>percentile_97_5</code>.
+underscore for a decimal point: <code>percentile=97.5</code> gives <code>percentile_97_5</code>.
+
 <p>
 Three ways select the maps of the dataset, and they can be combined:
+
 <ul>
-<li>the option <b>where</b> takes an SQL condition on the registered maps,
-for instance on <code>start_time</code> or <code>name</code>;</li>
-<li>a semantic label after the name of the dataset,
-<code>input=name.label</code>, keeps only the maps with this label;</li>
-<li>the option <b>region_relation</b> keeps the maps that have a spatial
-relation with the current computational region: <code>overlaps</code> keeps
-the maps that share at least a part of the region, <code>contains</code> the
-maps that cover the whole region, and <code>is_contained</code> the maps that
-lie inside the region. A map with the extent of the region both contains it
-and is contained in it. The option only selects maps; it does not change the
-cells the statistics are taken from.</li>
+<li>the option <b>where</b> takes an SQL condition on the registered maps, for
+instance on <code>start_time</code> or <code>name</code>;</li>
+<li>a semantic label after the name of the dataset, <code>input=name.label</code>, keeps
+only the maps with this label;</li>
+<li>the option <b>region_relation</b> keeps the maps that have a spatial relation
+with the current computational region: <code>overlaps</code> keeps the maps that share
+at least a part of the region, <code>contains</code> the maps that cover the whole
+region, and <code>is_contained</code> the maps that lie inside the region. A map with
+the extent of the region both contains it and is contained in it. The
+option only selects maps; it does not change the cells the statistics are
+taken from.</li>
 </ul>
+
 <p>
-Without the flag <b>-r</b>, the statistics of every map are taken in the
-current computational region: cells of the map outside the region are not
-counted, and cells of the region outside the map are null cells. With
-<b>-r</b>, the statistics of each map are taken in the region of that map, so
-every cell of the map is counted, whatever the current region. This holds
-together with <b>zones</b> as well; the zone map is then read in the region of
-each map, too.
+Without the flag <b>-r</b>, the statistics of every map are taken in the current
+computational region: cells of the map outside the region are not counted,
+and cells of the region outside the map are null cells. With <b>-r</b>, the
+statistics of each map are taken in the region of that map, so every cell of
+the map is counted, whatever the current region. This holds together with
+<b>zones</b> as well; the zone map is then read in the region of each map, too.
+
 <p>
 The option <b>zones</b> names an integer (CELL) raster map whose categories
-divide the region into zones. <em>t.rast.univar</em> then prints one line per
-map and zone, with the columns <code>zone</code> (the category) and
-<code>label</code> (the category label) after the four columns of the map.
-A zone without any cell in the region gets no line. <b>zones</b> takes a
-single raster map, not a space time dataset; the same zones apply to every
-map.
+divide the region into zones. <em>t.rast.univar</em> then prints one line per map
+and zone, with the columns <code>zone</code> (the category) and <code>label</code> (the category
+label) after the four columns of the map. A zone without any cell in the
+region gets no line. <b>zones</b> takes a single raster map, not a space time
+dataset; the same zones apply to every map.
+
 <p>
-The option <b>nprocs</b> sets the number of maps that are processed at the
-same time. Its default is the variable <code>NPROCS</code> of the session, if
-it is set with <em>g.gisenv</em>, and 0 otherwise.
-0 uses all CPU cores, a negative number leaves that many cores unused. The output is the same, in the same order, for any value.
+The option <b>nprocs</b> sets the number of maps that are processed at the same
+time. Its default is the variable <code>NPROCS</code> of the session, if it is set with
+<em>g.gisenv</em>, and 0 otherwise. 0 uses all CPU cores, a negative number leaves
+that many cores unused. The output is the same, in the same order, for any value.
+
 <p>
 The option <b>format</b> chooses the form of the output:
+
 <ul>
-<li><code>plain</code> (the default) separates the columns with a vertical
-bar <code>|</code>;</li>
-<li><code>csv</code> separates them with a comma, or with another single
-character given in <b>separator</b>;</li>
-<li><code>json</code> prints a list with one object per map, or with
-<b>zones</b> one per map and zone. The keys are the column names, except where
-they follow <em>r.univar</em>: <code>n</code> instead of
-<code>non_null_cells</code>, <code>zone_label</code> instead of
-<code>label</code>, the additional key <code>cells</code> for the number of all
-cells, and no <code>sum_abs</code>. With <b>-e</b>, the percentiles are the
-list <code>percentiles</code> of objects with the keys <code>percentile</code>
-and <code>value</code>, instead of the columns <code>percentile_90</code> and
-so on. A value that does not exist, such as the semantic label of a map
-without one, is <code>null</code>.</li>
+<li><code>plain</code> (the default) separates the columns with a vertical bar <code>|</code>;</li>
+<li><code>csv</code> separates them with a comma, or with another single character given
+in <b>separator</b>;</li>
+<li><code>json</code> prints a list with one object per map, or with <b>zones</b> one per
+map and zone. The keys are the column names, except where they follow
+<em>r.univar</em>: <code>n</code> instead of <code>non_null_cells</code>, <code>zone_label</code> instead of
+<code>label</code>, the additional key <code>cells</code> for the number of all cells, and no
+<code>sum_abs</code>. With <b>-e</b>, the percentiles are the list <code>percentiles</code> of
+objects with the keys <code>percentile</code> and <code>value</code>, instead of the columns
+<code>percentile_90</code> and so on. A value that does not exist, such as the
+semantic label of a map without one, is <code>null</code>.</li>
 </ul>
+
 <p>
-The option <b>separator</b> sets the separator of the formats
-<code>plain</code> and <code>csv</code>. The flag <b>-u</b> leaves out the line
-with the column names. The format <code>json</code> always names the values
-and accepts neither <b>separator</b> nor <b>-u</b>.
+The option <b>separator</b> sets the separator of the formats <code>plain</code> and <code>csv</code>.
+The flag <b>-u</b> leaves out the line with the column names. The format <code>json</code>
+always names the values and accepts neither <b>separator</b> nor <b>-u</b>.
+
 <p>
-The option <b>output</b> writes the statistics to a file instead of the
-standard output; <code>output=-</code> is the standard output. An existing file
-is replaced only with <b>--overwrite</b>.
+The option <b>output</b> writes the statistics to a file instead of the standard
+output; <code>output=-</code> is the standard output. An existing file is replaced only
+with <b>--overwrite</b>.
 
 <h2>NOTES</h2>
 
 The current computational region decides which cells are counted, unless
 <b>-r</b> is given. A map that does not reach into the region has only null
-cells there; its <code>min</code>, <code>max</code> and all further
-statistics are <code>nan</code> in the formats <code>plain</code> and
-<code>csv</code> and <code>null</code> in the format <code>json</code>. The
-raster mask is respected: cells outside the mask are null cells. Region and mask are the same for all maps, so maps with
-different extents can have different numbers of non-null cells, as the example
-with the scenes below shows.
+cells there; its <code>min</code>, <code>max</code> and all further statistics are <code>nan</code> in the
+formats <code>plain</code> and <code>csv</code> and <code>null</code> in the format <code>json</code>. The raster mask is
+respected: cells outside the mask are null cells. Region and mask are the
+same for all maps, so maps with different extents can have different numbers
+of non-null cells, as the example with the scenes below shows.
+
 <p>
-In a dataset with relative time, <code>start</code> and <code>end</code> are
-numbers of the time unit of the dataset, printed without the unit: a map
-registered from 0 to 6 hours shows <code>0</code> and <code>6</code>, as the
-first example shows.
+In a dataset with relative time, <code>start</code> and <code>end</code> are numbers of the time
+unit of the dataset, printed without the unit: a map registered from 0 to 6
+hours shows <code>0</code> and <code>6</code>, as the first example shows.
+
 <p>
-<em>t.rast.univar</em> only reads, so it works on a dataset of another mapset
-as well. The name with the mapset (<code>input=temperature@PERMANENT</code>)
-selects it; a name without a mapset is searched in the mapsets of the search
-path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The example at the
-end shows this.
+<em>t.rast.univar</em> only reads, so it works on a dataset of another mapset as
+well. The name with the mapset (<code>input=temperature@PERMANENT</code>) selects it;
+a name without a mapset is searched in the mapsets of the search path (see
+<em><a href="g.mapsets.html">g.mapsets</a></em>). The example at the end shows this.
+
 <p>
 If no map is selected, for instance because the condition in <b>where</b>
-matches none, <em>t.rast.univar</em> prints nothing in the formats
-<code>plain</code> and <code>csv</code>, not even the line with the column
-names. The format <code>json</code> prints an empty list <code>[]</code>.
+matches none, <em>t.rast.univar</em> prints nothing in the formats <code>plain</code> and
+<code>csv</code>, not even the line with the column names. The format <code>json</code> prints an
+empty list <code>[]</code>.
+
 <p>
-The option <b>zones</b> takes a map of type CELL; <em>t.rast.univar</em> stops
-with the error "Zoning raster must be of type CELL" for a floating point map.
+The option <b>zones</b> takes a map of type CELL; <em>t.rast.univar</em> stops with the
+error "Zoning raster must be of type CELL" for a floating point map.
+
 <p>
-The format <code>csv</code> refuses a separator of more than one character,
-the format <code>json</code> refuses <b>separator</b> and <b>-u</b>.
-<b>percentile</b> without <b>-e</b> is refused by the parser.
+The format <code>csv</code> refuses a separator of more than one character, the format
+<code>json</code> refuses <b>separator</b> and <b>-u</b>. <b>percentile</b> without <b>-e</b> is
+refused by the parser.
 
 <h2>EXAMPLES</h2>
 
 <h3>Statistics of each map of a dataset</h3>
 
 Three maps of daily mean air temperature on a small region of two rows and
-three columns make up the dataset <code>temperature</code>. The helper map
-<code>cell_number</code> numbers the cells from 1 to 6, row by row, so each map
-is simple to follow:
+three columns make up the dataset <code>temperature</code>. The helper map <code>cell_number</code>
+numbers the cells from 1 to 6, row by row, so each map is simple to follow:
+
 <ul>
-<li><code>temperature_1</code> holds -2, -1, 0 in the northern row and 1, 2, 3
-in the southern row;</li>
+<li><code>temperature_1</code> holds -2, -1, 0 in the northern row and 1, 2, 3 in the
+southern row;</li>
 <li><code>temperature_2</code> holds 1, 2, 3 and 4, 5, 6;</li>
-<li><code>temperature_3</code> holds 4, 5 and 7, 8, and nothing in the eastern
-column, as if a sensor had failed there.</li>
+<li><code>temperature_3</code> holds 4, 5 and 7, 8, and nothing in the eastern column, as
+if a sensor had failed there.</li>
 </ul>
+
 <p>
 The maps are registered as daily intervals starting on 1 March 2026.
-<em>t.rast.univar</em> processes two maps at the same time here
-(<b>nprocs</b>); the output does not depend on it.
+<em>t.rast.univar</em> processes two maps at the same time here (<b>nprocs</b>); the
+output does not depend on it.
+
 <p>
-The second block makes the dataset <code>model</code> with relative time: two
-model steps of 6 hours each, with the constant values 1 and 2. Their
-<code>start</code> and <code>end</code> are numbers of hours, printed without
-the unit.
+The second block makes the dataset <code>model</code> with relative time: two model
+steps of 6 hours each, with the constant values 1 and 2. Their <code>start</code> and
+<code>end</code> are numbers of hours, printed without the unit.
 
 <p>Command line:</p>
 
@@ -276,35 +282,36 @@ step_2@PERMANENT||6|12|6|0|2|2|0|2|2|0|0|0|12|12
 
 <p>
 The output reads line by line:
+
 <ul>
-<li><code>temperature_2</code> has six values, 1 to 6: the mean is 21 / 6 =
-3.5, the range 6 - 1 = 5. The squared deviations from the mean add up to 17.5,
-so the variance is 17.5 / 6 = 2.9166..., the standard deviation its square root
-1.7078..., and the coefficient of variation <code>100 * 1.7078 / 3.5</code> =
-48.79...</li>
-<li><code>temperature_1</code> holds the same values minus 3, so range,
-variance and standard deviation are those of <code>temperature_2</code>. Its
-values -2 to 3 add up to 3 and give the mean 0.5, while their absolute values
-add up to 9 and give <code>mean_of_abs</code> 1.5. With a mean close to 0, the
-coefficient of variation becomes 341.6 and says little.</li>
-<li><code>temperature_3</code> has four non-null cells and two null cells; its
-mean is (4 + 5 + 7 + 8) / 4 = 6.</li>
+<li><code>temperature_2</code> has six values, 1 to 6: the mean is 21 / 6 = 3.5, the
+range 6 - 1 = 5. The squared deviations from the mean add up to 17.5, so
+the variance is 17.5 / 6 = 2.9166..., the standard deviation its square root
+1.7078..., and the coefficient of variation <code>100 * 1.7078 / 3.5</code> = 48.79...</li>
+<li><code>temperature_1</code> holds the same values minus 3, so range, variance and
+standard deviation are those of <code>temperature_2</code>. Its values -2 to 3 add up to
+3 and give the mean 0.5, while their absolute values add up to 9 and give
+<code>mean_of_abs</code> 1.5. With a mean close to 0, the coefficient of variation
+becomes 341.6 and says little.</li>
+<li><code>temperature_3</code> has four non-null cells and two null cells; its mean is
+(4 + 5 + 7 + 8) / 4 = 6.</li>
 </ul>
+
 <p>
 The semantic label is empty, because the maps have none.
 
 <h3>Select maps by start time or semantic label</h3>
 
-The option <b>where</b> takes an SQL condition on the registered maps. The
-first command keeps the maps that start on 2 March 2026 or later.
+The option <b>where</b> takes an SQL condition on the registered maps. The first
+command keeps the maps that start on 2 March 2026 or later.
+
 <p>
 The second command uses a dataset of satellite bands. A satellite takes the
-bands of a scene at the same moment. The dataset <code>sentinel</code> holds
-the red band (semantic label <code>S2_B4</code>) and the near infrared band
-(<code>S2_B8</code>) of two scenes as maps with constant reflectance,
-registered as time instances, so their end time is <code>None</code>. The name
-<code>sentinel.S2_B8</code> selects the near infrared band; without the label,
-all four maps would be processed.
+bands of a scene at the same moment. The dataset <code>sentinel</code> holds the red band
+(semantic label <code>S2_B4</code>) and the near infrared band (<code>S2_B8</code>) of two scenes as
+maps with constant reflectance, registered as time instances, so their end
+time is <code>None</code>. The name <code>sentinel.S2_B8</code> selects the near infrared band;
+without the label, all four maps would be processed.
 
 <p>Command line:</p>
 
@@ -381,17 +388,17 @@ nir_2@PERMANENT|S2_B8|2026-06-11 10:30:00|None|6|0|0.4|0.4|0|0.4|0.4|0|0|0|2.4|2
 <h3>Calculate extended statistics and percentiles</h3>
 
 The flag <b>-e</b> adds the quartiles, the median and the 90th percentile. The
-six values 1 to 6 of <code>temperature_2</code> give the first quartile at
-position <code>6 * 25 / 100 - 0.5</code> = 1 (the value 2), the third quartile
-at position 4 (the value 5), and the 90th percentile at position 4.9, which
-becomes 4 (the value 5). The median is the mean of the two middle values 3 and
-4.
+six values 1 to 6 of <code>temperature_2</code> give the first quartile at position
+<code>6 * 25 / 100 - 0.5</code> = 1 (the value 2), the third quartile at position 4 (the
+value 5), and the 90th percentile at position 4.9, which becomes 4 (the value
+5). The median is the mean of the two middle values 3 and 4.
+
 <p>
 The option <b>percentile</b> replaces the 90th percentile by the listed ones.
-For <code>temperature_2</code>, the 10th percentile is at position 0.1 (the
-value 1), the 50th at position 2.5 (the value 3) and the 95th at position 5.2
-(the value 6). The 50th percentile 3 is not the median 3.5: the median takes
-the mean of the two middle values, the percentile one value.
+For <code>temperature_2</code>, the 10th percentile is at position 0.1 (the value 1), the
+50th at position 2.5 (the value 3) and the 95th at position 5.2 (the value 6).
+The 50th percentile 3 is not the median 3.5: the median takes the mean of the
+two middle values, the percentile one value.
 
 <p>Command line:</p>
 
@@ -446,13 +453,12 @@ temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3
 
 <h3>Statistics per zone</h3>
 
-The map <code>zones</code> divides the region into the northern row (category
-1, label <code>north</code>) and the southern row (category 2, label
-<code>south</code>). With <b>zones</b>, each map gets one line per zone. In the
-northern row, <code>temperature_2</code> holds 1, 2 and 3 with the mean 2, in
-the southern row 4, 5 and 6 with the mean 5. With <b>format</b>
-<code>json</code>, each zone is an object of its own, and the category label
-has the name <code>zone_label</code>.
+The map <code>zones</code> divides the region into the northern row (category 1, label
+<code>north</code>) and the southern row (category 2, label <code>south</code>). With <b>zones</b>,
+each map gets one line per zone. In the northern row, <code>temperature_2</code> holds
+1, 2 and 3 with the mean 2, in the southern row 4, 5 and 6 with the mean 5.
+With <b>format</b> <code>json</code>, each zone is an object of its own, and the category
+label has the name <code>zone_label</code>.
 
 <p>Command line:</p>
 
@@ -523,11 +529,10 @@ zone 2 (south): mean 5
 
 <h3>Restrict the statistics with a raster mask</h3>
 
-A raster mask restricts the statistics in the same way as for
-<em>r.univar</em>. With the mask on the northern row (category 1 of
-<code>zones</code>), three cells of <code>temperature_2</code> remain, 1, 2 and
-3, and the other three count as null cells. <code>r.mask -r</code> removes the
-mask again.
+A raster mask restricts the statistics in the same way as for <em>r.univar</em>.
+With the mask on the northern row (category 1 of <code>zones</code>), three cells of
+<code>temperature_2</code> remain, 1, 2 and 3, and the other three count as null cells.
+<code>r.mask -r</code> removes the mask again.
 
 <p>Command line:</p>
 
@@ -558,15 +563,14 @@ temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|3|3|1|3|2|2|2|0
 
 <h3>Choose the output format</h3>
 
-The option <b>separator</b> sets another separator, and the flag <b>-u</b>
-leaves out the line with the column names, for instance to append the lines to
-a table that has them already. With <b>format</b> <code>csv</code>, the columns
-are separated by commas, and the option <b>output</b> writes the statistics to
-a file. With <b>format</b> <code>json</code>, <em>t.rast.univar</em> prints a
-list with one object per map; here for <code>temperature_2</code> with the
-extended statistics and two percentiles. In Python, the attribute
-<code>json</code> of the result holds this list, and the example prints the
-mean, the median and the percentiles from it.
+The option <b>separator</b> sets another separator, and the flag <b>-u</b> leaves
+out the line with the column names, for instance to append the lines to a
+table that has them already. With <b>format</b> <code>csv</code>, the columns are separated
+by commas, and the option <b>output</b> writes the statistics to a file. With
+<b>format</b> <code>json</code>, <em>t.rast.univar</em> prints a list with one object per map;
+here for <code>temperature_2</code> with the extended statistics and two percentiles. In
+Python, the attribute <code>json</code> of the result holds this list, and the example
+prints the mean, the median and the percentiles from it.
 
 <p>Command line:</p>
 
@@ -682,43 +686,39 @@ temperature_2@PERMANENT: mean 3.5, median 3.5, percentiles {50: 3, 90: 5}
 
 <h3>Maps with extents of their own</h3>
 
-Satellite scenes rarely share one extent. The dataset <code>scenes</code> holds
-four maps with constant values on extents of their own; the current region is
-the square from (0, 0) to (4, 4) with 16 cells:
+Satellite scenes rarely share one extent. The dataset <code>scenes</code> holds four
+maps with constant values on extents of their own; the current region is the
+square from (0, 0) to (4, 4) with 16 cells:
+
 <ul>
-<li><code>scene_1</code> covers the square from (-1, -1) to (5, 5) and so the
-whole region;</li>
+<li><code>scene_1</code> covers the square from (-1, -1) to (5, 5) and so the whole
+region;</li>
 <li><code>scene_2</code> lies inside the region, from (1, 1) to (3, 3);</li>
-<li><code>scene_3</code> reaches from (2, 2) to (6, 6) and shares 4 cells with
-the region;</li>
+<li><code>scene_3</code> reaches from (2, 2) to (6, 6) and shares 4 cells with the region;</li>
 <li><code>scene_4</code> lies outside, from (10, 10) to (12, 12).</li>
 </ul>
+
 <p>
-The commands print the columns <code>id</code>, <code>non_null_cells</code> and
-<code>null_cells</code> only: on the command line, <em>cut</em> keeps the
-first, fifth and sixth column; in Python, the function
-<code>print_cells()</code> reads them from the JSON output, where
-<code>n</code> is the number of non-null cells.
+The commands print the columns <code>id</code>, <code>non_null_cells</code> and <code>null_cells</code> only:
+on the command line, <em>cut</em> keeps the first, fifth and sixth column; in Python,
+the function <code>print_cells()</code> reads them from the JSON output, where <code>n</code> is the
+number of non-null cells.
+
 <ol>
-<li>By default, the cells are counted in the current region:
-<code>scene_1</code> has 16 non-null cells there, <code>scene_2</code> and
-<code>scene_3</code> have 4, and <code>scene_4</code> none.</li>
-<li>With <b>-r</b>, each map is counted in its own region: <code>scene_1</code>
-has 36 cells, <code>scene_3</code> 16, and <code>scene_4</code>, outside the
-current region, 4.</li>
-<li><b>region_relation</b> selects maps by their relation to the current
-region: <code>overlaps</code> keeps all but <code>scene_4</code>,
-<code>contains</code> only <code>scene_1</code>, which covers the region, and
-<code>is_contained</code> only <code>scene_2</code>, which lies inside it.
-Combined with <b>-r</b>, the selected maps are counted in their own
-regions.</li>
-<li><b>-r</b> works with <b>zones</b> as well. The zone map
-<code>sides</code> covers all four scenes and holds 1 west of x = 2 and 2 east
-of it. In its own region, <code>scene_1</code> has 18 cells in each zone and
-<code>scene_2</code> 2; <code>scene_3</code> and <code>scene_4</code> lie east
-of x = 2 and get a line for zone 2 only, because a zone without any cell in
-the region of a map gets no line. The commands print <code>id</code>,
-<code>zone</code> and <code>non_null_cells</code>.</li>
+<li>By default, the cells are counted in the current region: <code>scene_1</code> has 16
+non-null cells there, <code>scene_2</code> and <code>scene_3</code> have 4, and <code>scene_4</code> none.</li>
+<li>With <b>-r</b>, each map is counted in its own region: <code>scene_1</code> has 36
+cells, <code>scene_3</code> 16, and <code>scene_4</code>, outside the current region, 4.</li>
+<li><b>region_relation</b> selects maps by their relation to the current region:
+<code>overlaps</code> keeps all but <code>scene_4</code>, <code>contains</code> only <code>scene_1</code>, which covers
+the region, and <code>is_contained</code> only <code>scene_2</code>, which lies inside it.
+Combined with <b>-r</b>, the selected maps are counted in their own regions.</li>
+<li><b>-r</b> works with <b>zones</b> as well. The zone map <code>sides</code> covers all four
+scenes and holds 1 west of x = 2 and 2 east of it. In its own region,
+<code>scene_1</code> has 18 cells in each zone and <code>scene_2</code> 2; <code>scene_3</code> and
+<code>scene_4</code> lie east of x = 2 and get a line for zone 2 only, because a zone
+without any cell in the region of a map gets no line. The commands print
+<code>id</code>, <code>zone</code> and <code>non_null_cells</code>.</li>
 </ol>
 
 <p>Command line:</p>
@@ -940,13 +940,12 @@ scene_4@PERMANENT|2|4
 
 <h3>Use a dataset of another mapset</h3>
 
-<em>t.rast.univar</em> reads a dataset of another mapset. The example creates
-the mapset <code>analysis</code> and switches to it; the dataset
-<code>temperature</code> stays in the mapset <code>PERMANENT</code> and is named
-with its mapset. The region of the new mapset is set to the one of the maps.
-In the second block, <em>g.mapsets</em> shows that <code>PERMANENT</code> is in
-the search path of the new mapset, so the name <code>temperature</code> without
-a mapset finds the same dataset.
+<em>t.rast.univar</em> reads a dataset of another mapset. The example creates the
+mapset <code>analysis</code> and switches to it; the dataset <code>temperature</code> stays in the
+mapset <code>PERMANENT</code> and is named with its mapset. The region of the new
+mapset is set to the one of the maps. In the second block, <em>g.mapsets</em> shows
+that <code>PERMANENT</code> is in the search path of the new mapset, so the name
+<code>temperature</code> without a mapset finds the same dataset.
 
 <p>Command line:</p>
 
@@ -1002,21 +1001,15 @@ temperature_2@PERMANENT||2026-03-02 00:00:00|2026-03-03 00:00:00|6|0|1|6|5|3.5|3
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.gisenv.html">g.gisenv</a>,
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r.mask.html">r.mask</a>,
-<a href="r.univar.html">r.univar</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast3d.univar.html">t.rast3d.univar</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="g.gisenv.html">g.gisenv</a>, <a href="g.mapsets.html">g.mapsets</a>, <a href="g.region.html">g.region</a>,
+<a href="r.mask.html">r.mask</a>, <a href="r.univar.html">r.univar</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast3d.univar.html">t.rast3d.univar</a>, <a href="t.register.html">t.register</a>,
 <a href="t.vect.univar.html">t.vect.univar</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
 S&ouml;ren Gebbert, Th&uuml;nen Institute of Climate-Smart Agriculture<br>
-Stefan Blumentrath (support for zones, parallel processing, and spatial relations)
+Stefan Blumentrath (support for zones, parallel processing, and spatial
+relations)

@@ -1,134 +1,136 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.to.rast3</em> converts a space time raster dataset (STRDS) into a
-space time voxel cube: a 3D raster map whose vertical axis is time. The maps of
-the dataset become the layers of the cube, the earliest map at the bottom. The
-tool puts the maps on top of each other with
-<em><a href="r.to.rast3.html">r.to.rast3</a></em> and registers the cube in the
-temporal database. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
+<em>t.rast.to.rast3</em> converts a space time raster dataset (STRDS) into a space
+time voxel cube: a 3D raster map whose vertical axis is time. The maps of the
+dataset become the layers of the cube, the earliest map at the bottom. The tool
+puts the maps on top of each other with <em><a href="r.to.rast3.html">r.to.rast3</a></em> and
+registers the cube in the temporal database. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
+
 <p>
-The option <b>input</b> names the space time raster dataset, the option
-<b>output</b> the new 3D raster map. Both are required. The tool prints nothing
-to the standard output. The cube gets the title "Space time voxel cube" and a
-description that says it was made with <em>t.rast.to.rast3</em>;
-<em><a href="r3.info.html">r3.info</a></em> shows both.
+The option <b>input</b> names the space time raster dataset, the option <b>output</b>
+the new 3D raster map. Both are required. The tool prints nothing to the
+standard output. The cube gets the title "Space time voxel cube" and a
+description that says it was made with <em>t.rast.to.rast3</em>; <em><a href="r3.info.html">r3.info</a></em>
+shows both.
+
 <p>
-<b>Layers.</b> The granularity of the dataset, as
-<em><a href="t.info.html">t.info</a></em> reports it, is the thickness of a
-layer. For maps with an interval, the tool cuts the time from the start of the first map to the end of the
-last map into steps of this size and makes one layer for each step. A step that
-a map covers gets that map. A map that is longer than the granularity covers
-several steps and is copied into each of them; the second example shows a map of
-two days in two layers. A step in which no map is registered, a gap of the
-dataset, becomes a layer without values (null cells). The layers run from the
-bottom upwards in the order of time. A time instant has no end; it gets one
-layer that starts at its time, so the cube of a dataset of time instants
-reaches one granularity beyond its time stamp, as the seventh example shows.
+<b>Layers.</b> The granularity of the dataset, as <em><a href="t.info.html">t.info</a></em> reports
+it, is the thickness of a layer. For maps with an interval, the tool cuts the
+time from the start of the first map to the end of the last map into steps of
+this size and makes one layer for each step. A step that a map covers gets that
+map. A map that is longer than the granularity covers several steps and is
+copied into each of them; the second example shows a map of two days in two
+layers. A step in which no map is registered, a gap of the dataset, becomes a
+layer without values (null cells). The layers run from the bottom upwards in
+the order of time. A time instant has no end; it gets one layer that starts at
+its time, so the cube of a dataset of time instants reaches one granularity
+beyond its time stamp, as the seventh example shows.
+
 <p>
 <b>Horizontal extent and resolution.</b> The cube covers the current
 computational region. Its resolution in the horizontal plane is the 3D
-resolution of the region, <b>res3</b> of
-<em><a href="g.region.html">g.region</a></em>, not the 2D resolution
-<b>res</b>; the last example sets a coarser <b>res3</b>. The tool sets the
-vertical extent of the cube itself, from the dataset, in a temporary region and
-leaves the current region as it is.
+resolution of the region, <b>res3</b> of <em><a href="g.region.html">g.region</a></em>, not the 2D
+resolution <b>res</b>; the last example sets a coarser <b>res3</b>. The tool sets the
+vertical extent of the cube itself, from the dataset, in a temporary region
+and leaves the current region as it is.
+
 <p>
-<b>Data type.</b> All maps of the dataset must have the same data type,
-<code>CELL</code>, <code>FCELL</code> or <code>DCELL</code>. The cube has
-<code>DCELL</code> for maps of type <code>CELL</code> and for maps of type
-<code>DCELL</code>, <code>FCELL</code> for maps of type <code>FCELL</code>. The
-layers of gaps have the same type. A dataset with maps of different types is
-refused, as the eighth example shows.
+<b>Data type.</b> All maps of the dataset must have the same data type, <code>CELL</code>,
+<code>FCELL</code> or <code>DCELL</code>. The cube has <code>DCELL</code> for maps of type <code>CELL</code> and for maps
+of type <code>DCELL</code>, <code>FCELL</code> for maps of type <code>FCELL</code>. The layers of gaps have the
+same type. A dataset with maps of different types is refused, as the eighth
+example shows.
+
 <p>
 <b>Vertical axis.</b> The bottom of the cube, its resolution and its vertical
 unit depend on the temporal type and the granularity of the dataset:
+
 <ul>
-<li>Years: the bottom is the year number counted from 1900,
-<code>2026 - 1900 = 126</code> for a dataset that starts in 2026. The
-resolution is the granularity in years and the vertical unit is
-<code>years</code>.</li>
-<li>Months: the bottom is the month number counted from January 1900,
-<code>(year - 1900) * 12 + month</code>, so <code>1515</code> for March 2026.
-The resolution is the granularity in months and the vertical unit is
-<code>months</code>.</li>
+<li>Years: the bottom is the year number counted from 1900, <code>2026 - 1900 = 126</code>
+for a dataset that starts in 2026. The resolution is the granularity in
+years and the vertical unit is <code>years</code>.</li>
+<li>Months: the bottom is the month number counted from January 1900, <code>(year -
+1900) * 12 + month</code>, so <code>1515</code> for March 2026. The resolution is the
+granularity in months and the vertical unit is <code>months</code>.</li>
 <li>Days, hours, minutes and seconds: the bottom is the start of the dataset as
-the number of days since 1900-01-01 00:00:00, a decimal number,
-<code>46080</code> for March 1, 2026. The resolution is the granularity
-converted to days, <code>0.5</code> for twelve hours. The vertical unit is
-<code>days</code> for all four granularities, because bottom and resolution are
-counted in days.</li>
+the number of days since 1900-01-01 00:00:00, a decimal number, <code>46080</code> for
+March 1, 2026. The resolution is the granularity converted to days, <code>0.5</code>
+for twelve hours. The vertical unit is <code>days</code> for all four granularities,
+because bottom and resolution are counted in days.</li>
 <li>Relative time: the start of the dataset, its granularity and its unit are
 taken as they are, so the cube of a dataset in hours has the vertical unit
 <code>hours</code>.</li>
 </ul>
+
 <p>
 The reference time 1900-01-01 00:00:00 is the same for all cubes. This allows
 the alignment of cubes with different granularities. Cubes with the unit
-<code>days</code> and cubes with the unit <code>months</code> or
-<code>years</code> do not share an axis.
+<code>days</code> and cubes with the unit <code>months</code> or <code>years</code> do not share an axis.
+
 <p>
 The cube is registered as a 3D raster map in the temporal database, with the
 temporal type of the dataset and the start and end time of the dataset as its
 time stamp. For a dataset of time instants, the end is the time of the last
-instant. <em><a href="t.info.html">t.info</a></em> with
-<code>type=raster_3d</code> shows it. To convert only some maps, select them
-into a dataset of their own with
-<em><a href="t.rast.extract.html">t.rast.extract</a></em>, as the sixth example
-shows.
+instant. <em><a href="t.info.html">t.info</a></em> with <code>type=raster_3d</code> shows it. To convert only
+some maps, select them into a dataset of their own with
+<em><a href="t.rast.extract.html">t.rast.extract</a></em>, as the sixth example shows.
 
 <h2>NOTES</h2>
 
 The tool refuses to run in these cases and writes a message:
+
 <ul>
-<li>The dataset has no maps: "Space time raster dataset
-<code>&lt;name@mapset&gt;</code> is empty".</li>
-<li>The dataset does not exist: "Space time dataset <code>&lt;name&gt;</code>
-of type <code>&lt;strds&gt;</code> not found".</li>
-<li>The cube exists and <b>--overwrite</b> is not given:
-"<code>&lt;name&gt;</code> exists. To overwrite, use the --overwrite flag". With
-<b>--overwrite</b> the tool replaces the cube and its entry in the temporal
-database; the third example shows it.</li>
+<li>The dataset has no maps: "Space time raster dataset <code>&lt;name@mapset&gt;</code> is
+empty".</li>
+<li>The dataset does not exist: "Space time dataset <code>&lt;name&gt;</code> of type <code>&lt;strds&gt;</code>
+not found".</li>
+<li>The cube exists and <b>--overwrite</b> is not given: "<code>&lt;name&gt;</code> exists. To
+overwrite, use the --overwrite flag". With <b>--overwrite</b> the tool replaces
+the cube and its entry in the temporal database; the third example shows it.</li>
 <li>The maps have different data types: "Input maps have to be from the same
 type. CELL, FCELL or DCELL!", followed by "Unable to create 3D raster map
 <code>&lt;name&gt;</code>".</li>
 <li>A map of the dataset is gone from the mapset: "Unable to create 3D raster
 map <code>&lt;name&gt;</code>". The cube is not made.</li>
 </ul>
+
 <p>
-A dataset of time instants gives a cube that is one granularity taller than its
-time stamp: the cube of three daily instants has three layers and spans three
-days, but its time stamp in the temporal database ends at the last instant, two
-days after the start. Use maps with intervals if the time stamp of the cube has
-to match its layers.
+A dataset of time instants gives a cube that is one granularity taller than
+its time stamp: the cube of three daily instants has three layers and spans
+three days, but its time stamp in the temporal database ends at the last
+instant, two days after the start. Use maps with intervals if the time stamp
+of the cube has to match its layers.
+
 <p>
 The gaps are filled with a temporary map of null cells. The tool removes it
 when it is done, also when it stops with a message.
+
 <p>
 Every layer has the thickness of the granularity. A dataset of long maps with
 one short map or one short gap has a small granularity and so a cube with many
-layers: the layers of the second example are one day thick although one map is
-two days long.
+layers: the layers of the second example are one day thick although one map
+is two days long.
 
 <h2>EXAMPLES</h2>
 
 <h3>Stack the maps of a dataset</h3>
 
-The dataset <code>daily</code> holds three daily maps of 2 rows and 3 columns,
-from March 1, 2026. The value of a cell is <code>10 * row() + col()</code> plus
-100 for the second and 200 for the third map, so the north row of the first map
-is 11, 12, 13. The first block makes the cube and prints the properties of the
-3D map that <em>r3.info</em> reports with <b>-g</b>. The cube starts at day
-46080 since 1900-01-01 (March 1, 2026), is three layers thick, has the
-resolution 1 and the vertical unit <code>days</code>. The data type is
-<code>DCELL</code> although the maps have integer values.
+The dataset <code>daily</code> holds three daily maps of 2 rows and 3 columns, from March
+1, 2026. The value of a cell is <code>10 * row() + col()</code> plus 100 for the second
+and 200 for the third map, so the north row of the first map is 11, 12, 13.
+The first block makes the cube and prints the properties of the 3D map that
+<em>r3.info</em> reports with <b>-g</b>. The cube starts at day 46080 since 1900-01-01
+(March 1, 2026), is three layers thick, has the resolution 1 and the vertical
+unit <code>days</code>. The data type is <code>DCELL</code> although the maps have integer values.
+
 <p>
 The second block prints the time stamp of the cube from the temporal database:
 the start of the first and the end of the last map. The third block prints the
-cells of the cube with <em>r3.out.ascii</em> (<b>-h</b> leaves out its header).
-The region is set to the cube first. The output holds the rows of the bottom
-layer first, north row first, then those of the second layer and the third.
+cells of the cube with <em>r3.out.ascii</em> (<b>-h</b> leaves out its header). The
+region is set to the cube first. The output holds the rows of the bottom layer
+first, north row first, then those of the second layer and the third.
 
 <p>Command line:</p>
 
@@ -252,14 +254,13 @@ print_layers(tools.r3_out_ascii(input="daily_cube", precision=0, flags="h"))
 
 <h3>Gaps, long maps and the data type</h3>
 
-The dataset <code>cover</code> holds a map of one day (March 1) and a map of two
-days (March 3 and 4) with the data type <code>FCELL</code>; March 2 has no map.
-Its granularity is one day, so the cube has four layers. The first layer is the
-first map. The second, the gap, has no values, the cells show as
-<code>*</code>. The map of two days is in the third and the fourth layer. The
-cube has the type <code>FCELL</code> of the maps. The last block lists the
-raster maps: besides the maps of the examples there is no temporary map, the
-tool removed the one it made for the gap.
+The dataset <code>cover</code> holds a map of one day (March 1) and a map of two days
+(March 3 and 4) with the data type <code>FCELL</code>; March 2 has no map. Its granularity
+is one day, so the cube has four layers. The first layer is the first map. The
+second, the gap, has no values, the cells show as <code>*</code>. The map of two days is
+in the third and the fourth layer. The cube has the type <code>FCELL</code> of the maps.
+The last block lists the raster maps: besides the maps of the examples there is
+no temporary map, the tool removed the one it made for the gap.
 
 <p>Command line:</p>
 
@@ -356,11 +357,10 @@ day_3
 
 <h3>Replace a cube after the dataset changed</h3>
 
-The map <code>cover_gap</code> has the values 61, 62, 63 and 71, 72, 73. It is
-registered for March 2, the gap of the dataset <code>cover</code>. The cube
-<code>cover_cube</code> exists already, so the tool needs <b>--overwrite</b>
-(<code>overwrite=True</code> in Python) to replace it. The new cube has no gap:
-its second layer is the new map.
+The map <code>cover_gap</code> has the values 61, 62, 63 and 71, 72, 73. It is registered
+for March 2, the gap of the dataset <code>cover</code>. The cube <code>cover_cube</code> exists
+already, so the tool needs <b>--overwrite</b> (<code>overwrite=True</code> in Python) to
+replace it. The new cube has no gap: its second layer is the new map.
 
 <p>Command line:</p>
 
@@ -408,13 +408,12 @@ print_layers(tools.r3_out_ascii(input="cover_cube", precision=0, flags="h"))
 
 <h3>The granularity sets the vertical unit</h3>
 
-Three datasets of two maps each, with different granularities. <code>hourly</code>
-has maps of twelve hours from March 1, 2026, 12:00. Its cube starts at day
-46080.5 and has the resolution 0.5, both in days, the vertical unit is
-<code>days</code>. <code>monthly</code> has two maps of one month from March
-2026; its cube starts at month 1515 and has the unit <code>months</code>.
-<code>yearly</code> has two maps of one year from 2026; its cube starts at year
-126 and has the unit <code>years</code>.
+Three datasets of two maps each, with different granularities. <code>hourly</code> has
+maps of twelve hours from March 1, 2026, 12:00. Its cube starts at day 46080.5
+and has the resolution 0.5, both in days, the vertical unit is <code>days</code>.
+<code>monthly</code> has two maps of one month from March 2026; its cube starts at month
+1515 and has the unit <code>months</code>. <code>yearly</code> has two maps of one year from 2026; its
+cube starts at year 126 and has the unit <code>years</code>.
 
 <p>Command line:</p>
 
@@ -512,12 +511,12 @@ vertical_units="years"
 
 <h3>Relative time and a coarser horizontal resolution</h3>
 
-The dataset <code>model</code> has relative time. Its two maps cover the hours
-10 to 15 and 15 to 20 on a region of 4 rows and 4 columns. The cube takes
-start, granularity and unit as they are: it starts at 10, its resolution is 5
-and the unit is <code>hours</code>. The 3D resolution of the region is 2, so the
-cube has 2 rows and 2 columns, although the maps have 4 each. The block after
-the cube shows the time stamp of the cube in the temporal database.
+The dataset <code>model</code> has relative time. Its two maps cover the hours 10 to 15
+and 15 to 20 on a region of 4 rows and 4 columns. The cube takes start,
+granularity and unit as they are: it starts at 10, its resolution is 5 and the
+unit is <code>hours</code>. The 3D resolution of the region is 2, so the cube has 2 rows
+and 2 columns, although the maps have 4 each. The block after the cube shows
+the time stamp of the cube in the temporal database.
 
 <p>Command line:</p>
 
@@ -612,11 +611,10 @@ unit=hours
 
 <h3>Convert a subset of a dataset</h3>
 
-<em>t.rast.extract</em> selects the maps of <code>daily</code> that start on or
-after March 2 into the dataset <code>daily_late</code>. The cube of the subset
-starts at day 46081 and has two layers, the maps of March 2 and March 3, and its
-time stamp starts on March 2. This example continues with the dataset
-<code>daily</code> of the first example.
+<em>t.rast.extract</em> selects the maps of <code>daily</code> that start on or after March 2
+into the dataset <code>daily_late</code>. The cube of the subset starts at day 46081 and
+has two layers, the maps of March 2 and March 3, and its time stamp starts on
+March 2. This example continues with the dataset <code>daily</code> of the first example.
 
 <p>Command line:</p>
 
@@ -662,9 +660,9 @@ end_time='2026-03-04 00:00:00'
 
 <h3>Time instants reach beyond the time stamp</h3>
 
-The dataset <code>instants</code> holds three maps registered as time instants,
-March 1, 2, and 3, without an end. Its granularity is one day. Each instant gets
-one layer, so the cube has three layers and spans the days from 46080 to 46083,
+The dataset <code>instants</code> holds three maps registered as time instants, March 1,
+2, and 3, without an end. Its granularity is one day. Each instant gets one
+layer, so the cube has three layers and spans the days from 46080 to 46083,
 three days. The time stamp of the cube ends at the last instant, March 3, one
 day before the top of the cube.
 
@@ -722,9 +720,9 @@ end_time='2026-03-03 00:00:00'
 
 <h3>Maps of different data types are refused</h3>
 
-The dataset <code>mixed</code> holds a map of type <code>FCELL</code> and a map
-of type <code>DCELL</code>. The tool stops with the message of
-<em>r.to.rast3</em>; the first block prints the error lines of the call.
+The dataset <code>mixed</code> holds a map of type <code>FCELL</code> and a map of type <code>DCELL</code>. The
+tool stops with the message of <em>r.to.rast3</em>; the first block prints the error
+lines of the call.
 
 <p>Command line:</p>
 
@@ -779,17 +777,11 @@ t.rast.to.rast3 failed
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.to.rast3.html">r.to.rast3</a>,
-<a href="r3.info.html">r3.info</a>,
-<a href="r3.out.ascii.html">r3.out.ascii</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="g.region.html">g.region</a>, <a href="r.to.rast3.html">r.to.rast3</a>,
+<a href="r3.info.html">r3.info</a>, <a href="r3.out.ascii.html">r3.out.ascii</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

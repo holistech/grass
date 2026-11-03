@@ -2,43 +2,42 @@
 
 <em>t.support</em> changes the descriptive metadata of a space time dataset and
 brings the metadata that is computed from the registered maps up to date. See
-the <a href="temporalintro.html">introduction to temporal data processing</a>
-for an overview. The maps, their time stamps and their registration stay as they
+the <a href="temporalintro.html">introduction to temporal data processing</a> for an
+overview. The maps, their time stamps and their registration stay as they
 are, with one exception: with the flag <b>-m</b> a map that is gone from the
 spatial database is unregistered.
 
 <p>
-The option <b>input</b> names the dataset, and <b>type</b> gives its type:
-<code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A
-dataset is found by its type and name, so a name that belongs to a dataset of
-another type is not found. The dataset may have absolute or relative time.
+The option <b>input</b> names the dataset, and <b>type</b> gives its type: <code>strds</code>
+(the default), <code>str3ds</code> or <code>stvds</code>. A dataset is found by its type and name,
+so a name that belongs to a dataset of another type is not found. The
+dataset may have absolute or relative time.
 
 <h3>Descriptive metadata</h3>
 
-Each of the following options changes one property and leaves the others as they
-are. A call with only <b>title</b>, for example, keeps the description. An empty
-value changes nothing.
+Each of the following options changes one property and leaves the others as
+they are. A call with only <b>title</b>, for example, keeps the description. An
+empty value changes nothing.
 
 <ul>
 <li><b>title</b> sets the title of the dataset.</li>
 <li><b>description</b> sets its description.</li>
-<li><b>semantictype</b> sets the semantic type, one of <code>min</code>,
-<code>max</code>, <code>sum</code> and <code>mean</code>. It has no default: a
-call without it keeps the semantic type, also a call with <b>-m</b> or
-<b>-u</b>. A new dataset made by <em><a href="t.create.html">t.create</a></em>
+<li><b>semantictype</b> sets the semantic type, one of <code>min</code>, <code>max</code>, <code>sum</code> and
+<code>mean</code>. It has no default: a call without it keeps the semantic type, also
+a call with <b>-m</b> or <b>-u</b>. A new dataset made by <em><a href="t.create.html">t.create</a></em>
 has the semantic type <code>mean</code>.</li>
-<li><b>aggr_type</b> sets the aggregation type of a space time raster or 3D
-raster dataset, the name of the method that produced its maps, such as
-<code>average</code>. The text is stored as it is and not checked against the
-known aggregation methods. <em><a href="t.info.html">t.info</a></em> shows
-<code>None</code> until a type is set. A space time vector dataset has no
-aggregation type: <em>t.support</em> warns about <b>aggr_type</b> for it, ignores
-it and applies the other options.</li>
+<li><b>aggr_type</b> sets the aggregation type of a space time raster or 3D raster
+dataset, the name of the method that produced its maps, such as <code>average</code>.
+The text is stored as it is and not checked against the known aggregation
+methods. <em><a href="t.info.html">t.info</a></em> shows <code>None</code> until a type is set. A space
+time vector dataset has no aggregation type: <em>t.support</em> warns about
+<b>aggr_type</b> for it, ignores it and applies the other options.</li>
 </ul>
 
-<em><a href="t.info.html">t.info</a></em> shows the title and the description in
-its text output and the semantic type and the aggregation type both in its text
-output and with <b>-g</b>.
+<p>
+<em><a href="t.info.html">t.info</a></em> shows the title and the description in its text output
+and the semantic type and the aggregation type both in its text output and with
+<b>-g</b>.
 
 <h3>Updating the metadata computed from the maps</h3>
 
@@ -48,51 +47,51 @@ and the number of maps. The flags compute them again:
 
 <ul>
 <li><b>-u</b> computes them again from the entries of the registered maps in the
-temporal database. It does not read the maps themselves, so a map that was made
-again without a temporal command is not seen by <b>-u</b>; use <b>-m</b> for
+temporal database. It does not read the maps themselves, so a map that was
+made again without a temporal command is not seen by <b>-u</b>; use <b>-m</b> for
 it.</li>
-<li><b>-m</b> reads every registered map from the spatial database again and
-writes its values (extent, resolution, range of values) into the temporal
-database. A map that is gone from the spatial database is deleted from the
-temporal database, which unregisters it from every dataset that held it. The
-other datasets that hold a map that <b>-m</b> read or removed are updated too. <b>-m</b> includes
-the work of <b>-u</b>, so the two flags are not needed together. A map of
-another mapset is read from there.</li>
+<li><b>-m</b> reads every registered map from the spatial database again and writes
+its values (extent, resolution, range of values) into the temporal database.
+A map that is gone from the spatial database is deleted from the temporal
+database, which unregisters it from every dataset that held it. The other
+datasets that hold a map that <b>-m</b> read or removed are updated too. <b>-m</b>
+includes the work of <b>-u</b>, so the two flags are not needed together. A map
+of another mapset is read from there.</li>
 </ul>
 
+<p>
 A call without <b>-u</b>, <b>-m</b> and any other option does not compute these
 values again.
 
 <h2>NOTES</h2>
 
-An unknown name stops the run with the error "Space time dataset
-<code>&lt;name&gt;</code> of type <code>&lt;strds&gt;</code> not found". A
-<b>semantictype</b> other than the four values or a <b>type</b> other than the
-three types is refused by the parser, which names the legal values. A call
-without <b>input</b> is refused with the message that the required parameter is
-not set.
+An unknown name stops the run with the error "Space time dataset <code>&lt;name&gt;</code> of
+type <code>&lt;strds&gt;</code> not found". A <b>semantictype</b> other than the four values or a
+<b>type</b> other than the three types is refused by the parser, which names the
+legal values. A call without <b>input</b> is refused with the message that the
+required parameter is not set.
 
 <p>
 The map values that <b>-m</b> reads are the ones the spatial database holds now.
-For a raster dataset they are the range of values and the extent and resolution
-of each map; for a vector dataset the extent. Changing a map without <b>-m</b>
-or <b>-u</b> leaves the dataset as it was (see the third example).
+For a raster dataset they are the range of values and the extent and
+resolution of each map; for a vector dataset the extent. Changing a map
+without <b>-m</b> or <b>-u</b> leaves the dataset as it was (see the third example).
 
 <p>
-The command history of the dataset records each call of <em>t.support</em>,
-which <em>t.info</em> shows under <code>Command history</code>.
+The command history of the dataset records each call of <em>t.support</em>, which
+<em>t.info</em> shows under <code>Command history</code>.
 
 <h2>EXAMPLES</h2>
 
 <h3>Change title, description and types</h3>
 
-The dataset <code>temp</code> holds three maps, one per day from 2026-06-01.
-<em>t.info</em> shows its title and description, the semantic type
-<code>mean</code> and the aggregation type <code>None</code>.
+The dataset <code>temp</code> holds three maps, one per day from 2026-06-01. <em>t.info</em>
+shows its title and description, the semantic type <code>mean</code> and the aggregation
+type <code>None</code>.
 
 <p>
-The first call of <em>t.support</em> changes all four properties at once. The
-second call gives only a title, so the description, the semantic type and the
+The first call of <em>t.support</em> changes all four properties at once. The second
+call gives only a title, so the description, the semantic type and the
 aggregation type stay.
 
 <p>Command line:</p>
@@ -214,12 +213,11 @@ show_metadata("temp")
 
 <h3>Change the metadata of a vector dataset</h3>
 
-The dataset <code>gauges</code> of type <code>stvds</code> holds one point map.
-The call changes the title and gives an <b>aggr_type</b>, which a vector dataset
-does not have: the module warns, which is not shown here, and applies the title.
-The output of <code>t.info -g</code> has a line for the semantic type and none
-for the aggregation type. Datasets of type <code>str3ds</code> are handled like
-those of type <code>strds</code>.
+The dataset <code>gauges</code> of type <code>stvds</code> holds one point map. The call changes the
+title and gives an <b>aggr_type</b>, which a vector dataset does not have: the
+module warns, which is not shown here, and applies the title. The output of
+<code>t.info -g</code> has a line for the semantic type and none for the aggregation
+type. Datasets of type <code>str3ds</code> are handled like those of type <code>strds</code>.
 
 <p>Command line:</p>
 
@@ -279,18 +277,17 @@ semantic_type=mean
 
 <h3>Read maps that were made again</h3>
 
-The dataset <code>warm</code> holds the maps <code>m_2</code> and
-<code>m_3</code> of <code>temp</code>, with the times they have in the temporal
-database. Then <code>m_3</code> is made again with the value 90. The datasets
-still report the range of values from before: 10 to 30 for <code>temp</code> and
-20 to 30 for <code>warm</code>.
+The dataset <code>warm</code> holds the maps <code>m_2</code> and <code>m_3</code> of <code>temp</code>, with the times
+they have in the temporal database. Then <code>m_3</code> is made again with the value 90.
+The datasets still report the range of values from before: 10 to 30 for <code>temp</code>
+and 20 to 30 for <code>warm</code>.
 
 <p>
-A call with <b>-u</b> does not change that, because <b>-u</b> works on the
-entries of the temporal database and the entry of <code>m_3</code> still says
-30. A call with <b>-m</b> reads <code>m_3</code> from the spatial database. The
-range of <code>temp</code> becomes 10 to 90, and <code>warm</code>, which was not
-named in the call but holds <code>m_3</code>, follows with 20 to 90.
+A call with <b>-u</b> does not change that, because <b>-u</b> works on the entries of
+the temporal database and the entry of <code>m_3</code> still says 30. A call with <b>-m</b>
+reads <code>m_3</code> from the spatial database. The range of <code>temp</code> becomes 10 to 90,
+and <code>warm</code>, which was not named in the call but holds <code>m_3</code>, follows with 20 to
+90.
 
 <p>Command line:</p>
 
@@ -350,13 +347,11 @@ max_max=90.0
 
 <h3>Unregister maps that are gone</h3>
 
-The map <code>m_2</code> is removed from the spatial database with
-<em>g.remove</em>, which leaves it registered in <code>temp</code> and
-<code>warm</code>. The call with <b>-m</b> finds that it is gone, deletes it from
-the temporal database and updates both datasets: <code>temp</code> keeps
-<code>m_1</code> and <code>m_3</code>, <code>warm</code> keeps <code>m_3</code>.
-The dataset <code>warm</code> was not named in the call. The range of values of
-both follows the maps that are left.
+The map <code>m_2</code> is removed from the spatial database with <em>g.remove</em>, which
+leaves it registered in <code>temp</code> and <code>warm</code>. The call with <b>-m</b> finds that it
+is gone, deletes it from the temporal database and updates both datasets: <code>temp</code>
+keeps <code>m_1</code> and <code>m_3</code>, <code>warm</code> keeps <code>m_3</code>. The dataset <code>warm</code> was not named in
+the call. The range of values of both follows the maps that are left.
 
 <p>Command line:</p>
 
@@ -404,10 +399,9 @@ max_max=90.0
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.remove.html">g.remove</a>, <a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>, <a href="t.register.html">t.register</a>, <a
-href="t.unregister.html">t.unregister</a>, <a
-href="temporalintro.html">temporal data processing</a></em>
+<em><a href="g.remove.html">g.remove</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.register.html">t.register</a>, <a href="t.unregister.html">t.unregister</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

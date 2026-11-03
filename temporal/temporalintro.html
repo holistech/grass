@@ -1,15 +1,16 @@
 <!-- meta page description: Temporal data processing in GRASS -->
 <!-- meta page index: temporal -->
 
-<p>
 The temporal framework of GRASS manages time series of maps. It adds three
 types of datasets for them, the <em>space time datasets</em>:
-</p>
 
 <ul>
-<li><em>Space time raster datasets</em> (strds) hold raster map time series. The tools that process strds have the name prefix <em>t.rast</em>.</li>
-<li><em>Space time 3D raster datasets</em> (str3ds) hold 3D raster map time series. The tools that process str3ds have the name prefix <em>t.rast3d</em>.</li>
-<li><em>Space time vector datasets</em> (stvds) hold vector map time series. The tools that process stvds have the name prefix <em>t.vect</em>.</li>
+<li><em>Space time raster datasets</em> (strds) hold raster map time series. The
+tools that process strds have the name prefix <em>t.rast</em>.</li>
+<li><em>Space time 3D raster datasets</em> (str3ds) hold 3D raster map time series.
+The tools that process str3ds have the name prefix <em>t.rast3d</em>.</li>
+<li><em>Space time vector datasets</em> (stvds) hold vector map time series. The
+tools that process stvds have the name prefix <em>t.vect</em>.</li>
 </ul>
 
 <p>
@@ -19,20 +20,21 @@ extent and the range of values that the framework has read from the map. The
 tools of the framework, the temporal tools, create, change, analyze and
 process these datasets. The short example at the end of this page runs the
 main steps with generated data.
-</p>
 
 <h2>Concepts</h2>
 
 <h3>Time of maps</h3>
 
-<p>
 Every map of a space time dataset has a time. The <em>temporal type</em> of the
 dataset is either <em>absolute</em> or <em>relative</em>:
-</p>
 
 <ul>
-<li>With absolute time, the time of a map is a date and time, such as <code>2026-03-01 00:00:00</code>.</li>
-<li>With relative time, the time of a map is a number of time units counted from an arbitrary start, such as model step 3. The unit is <code>years</code>, <code>months</code>, <code>days</code>, <code>hours</code>, <code>minutes</code> or <code>seconds</code> and is the same for all maps of a dataset.</li>
+<li>With absolute time, the time of a map is a date and time, such as
+<code>2026-03-01 00:00:00</code>.</li>
+<li>With relative time, the time of a map is a number of time units counted from
+an arbitrary start, such as model step 3. The unit is <code>years</code>, <code>months</code>,
+<code>days</code>, <code>hours</code>, <code>minutes</code> or <code>seconds</code> and is the same for all maps of a
+dataset.</li>
 </ul>
 
 <p>
@@ -42,18 +44,15 @@ time to an end time. A dataset can hold both. Absolute and relative time are
 set with <em><a href="t.create.html">t.create</a></em> and <em><a href="t.register.html">t.register</a></em>: the
 option <b>temporaltype</b> of <em>t.create</em> chooses the type of the dataset, and
 <em>t.register</em> gives the maps their times and, with relative time, the unit.
-</p>
 
 <h3>Granularity</h3>
 
-<p>
 The granularity of a dataset is the step in which its time can be counted:
 <code>1 day</code> for daily maps that follow each other without a gap. For maps of
 different lengths or with gaps between them, it is the greatest common divisor
 of the lengths and gaps. With relative time it is a number of the unit.
 <em><a href="t.info.html">t.info</a></em> and <em><a href="t.topology.html">t.topology</a></em> print it. A dataset
 with a single map that is a time instant has no granularity.
-</p>
 
 <p>
 The granularity of a space-time dataset counts months and years only if
@@ -63,18 +62,15 @@ with intervals of 28, 31 and 30 days, has the granularity <code>1 day</code>; th
 same series from January 1 has the granularity <code>1 month</code>. Tools that work
 on the granularity (for example <em>t.rast.to.rast3</em> or the <b>-g</b> flag of
 the algebra tools) then use days.
-</p>
 
 <p>
 Tools that cut a dataset into time steps, <em>t.rast.aggregate</em> with its option
 <b>granularity</b> and the method <code>gran</code> of <em><a href="t.rast.list.html">t.rast.list</a></em> with
 its option <b>granule</b>, use such a step as a <em>granule</em>. Their manuals say how
 the first granule is placed and how months are counted.
-</p>
 
 <h3>Temporal topology</h3>
 
-<p>
 The temporal topology of a dataset describes how its maps lie in time to each
 other. <em><a href="t.topology.html">t.topology</a></em> reports it. The topology is <em>valid</em> if no
 two maps are equal, overlap, or lie in each other. Maps that touch, where the
@@ -83,7 +79,6 @@ allowed, as are time instants. A <em>gap</em> lies between two neighbouring maps
 where the later one starts after the earlier one has ended.
 <em><a href="t.snap.html">t.snap</a></em> closes gaps, and <em><a href="t.rast.gapfill.html">t.rast.gapfill</a></em>
 fills them with interpolated maps.
-</p>
 
 <p>
 The temporal relations between two time intervals A and B are <code>equal</code>,
@@ -91,11 +86,9 @@ The temporal relations between two time intervals A and B are <code>equal</code>
 <code>precedes</code> and <code>follows</code>, <code>overlaps</code> and <code>overlapped</code>. The manual of
 <em><a href="t.rast.algebra.html">t.rast.algebra</a></em> draws them and states which relation
 includes which, and the manual of <em>t.topology</em> counts them for a dataset.
-</p>
 
 <h3>Sampling</h3>
 
-<p>
 Sampling relates the maps of one dataset to the maps of another dataset, the
 <em>sampler</em>. Each map of the sampler is a granule of time; for each granule, the
 sampling finds the maps of the other dataset that are in a chosen temporal
@@ -107,11 +100,9 @@ datasets use the same idea, among them
 <em><a href="t.rast.aggregate.ds.html">t.rast.aggregate.ds</a></em>; the manual of
 <em>t.rast3d.mapcalc</em> explains how the tool picks one map when more than one
 map is related to a granule.
-</p>
 
 <h3>Semantic labels</h3>
 
-<p>
 A raster map can carry a semantic label that names its role, such as the band
 <code>S2_B4</code> of a satellite scene (set with <em><a href="r.support.html">r.support</a></em>). Maps of
 different labels may share the same time. With
@@ -120,17 +111,14 @@ different labels may share the same time. With
 of one label from the dataset <code>name</code>. Therefore the name of a new space time
 dataset must not contain a dot. <em>t.info</em> prints the
 labels of a dataset.
-</p>
 
 <p>
 The <em>semantic type</em> of a dataset, set with the option <b>semantictype</b> of
 <em>t.create</em>, is a different thing: it states whether the values are amounts
 (<code>sum</code>), means (<code>mean</code>, the default), minima or maxima.
-</p>
 
 <h3>Temporal algebra</h3>
 
-<p>
 The temporal algebra applies operations to whole datasets. An expression
 such as <code>C = A + B</code> relates the maps of the datasets by their temporal
 relations and registers the results in a new dataset. The tools are
@@ -138,7 +126,6 @@ relations and registers the results in a new dataset. The tools are
 <em><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></em>,
 <em><a href="t.vect.algebra.html">t.vect.algebra</a></em> and <em><a href="t.select.html">t.select</a></em>, which
 selects maps without computing.
-</p>
 
 <p>
 Since GRASS 8.6, the algebra computes with a new implementation. The previous
@@ -146,24 +133,20 @@ algebra stays available as the <em>classic algebra</em> because published result
 rely on it: the flag <b>-c</b> of the algebra tools selects it for one call, and
 the environment variable <code>GRASS_TEMPORAL_ALGEBRA=classic</code> for a whole session
 or script. The manual of <em>t.rast.algebra</em> lists where the two differ.
-</p>
 
 <h2>Temporal data management in general</h2>
 
-<p>
 Space time datasets are stored in a temporal database. A core principle
 of the temporal framework is that temporal databases are mapset
 specific. A new temporal database is created when a temporal command is
 invoked in a mapset that does not contain any temporal databases yet.
 For example, when a mapset was recently created.
-</p>
 
 <p>
 A space time dataset belongs to the mapset in which it was created, and a
 new dataset is always created in the current mapset. Maps of other mapsets
 can be registered in a dataset of the current mapset, but the dataset itself
 has to belong to the current mapset.
-</p>
 
 <p>
 Registering a map in a space time dataset changes the metadata of the map,
@@ -172,7 +155,6 @@ the maps from other mapsets. If a registered map is removed from the spatial
 database in another way than with the temporal tools, the temporal database
 still lists it until <a href="t.support.html">t.support</a> with the flag <b>-m</b> reads the
 maps again and drops the maps that are gone.
-</p>
 
 <p>
 SQLite3 or PostgreSQL are supported as temporal database backends.
@@ -184,7 +166,6 @@ be read with <code>name@mapset</code>, but a tool that changes a dataset, such a
 <em>t.remove</em> stops with an error for a dataset of another mapset. For a
 dataset of the current mapset, the flag <b>-d</b> deletes only its maps of the
 current mapset and warns for each map of another mapset.
-</p>
 
 <p>
 Connection settings are performed with <a href="t.connect.html">t.connect</a>. By
@@ -192,7 +173,6 @@ default, a SQLite3 database is created in the current mapset to store
 all space-time datasets and registered time series maps in that mapset.
 <a href="t.upgrade.html">t.upgrade</a> brings the temporal database of a mapset to the
 version of the installed GRASS.
-</p>
 
 <p>
 New space-time datasets are created in the temporal database with
@@ -200,7 +180,6 @@ New space-time datasets are created in the temporal database with
 str3ds, stvds), the title and the description must be provided for
 creation. Optionally, the temporal type (absolute, relative) and the
 semantic information can be provided.
-</p>
 
 <p>
 The module <a href="t.register.html">t.register</a> is designed to register raster,
@@ -211,7 +190,6 @@ file. The module supports the definition of time stamps (time instances
 or intervals) for each map in the input file. With
 <a href="t.unregister.html">t.unregister</a> maps can be unregistered from space-time
 datasets and from the temporal database.
-</p>
 
 <p>
 <b>Important</b><br>
@@ -222,7 +200,6 @@ they only modify the metadata of the map in the spatial database, but
 they do not register maps in the temporal database. However, maps with
 timestamps attached by means of *.timestamp modules can be registered
 in space-time datasets using the existing timestamp.</em>
-</p>
 
 <p>
 The module <a href="t.remove.html">t.remove</a> will remove the space-time datasets
@@ -236,13 +213,11 @@ space-time datasets accordingly. Rename a space-time dataset with
 <a href="t.rename.html">t.rename</a>. <a href="t.copy.html">t.copy</a> copies a dataset,
 <a href="t.merge.html">t.merge</a> registers the maps of several datasets in one, and
 <a href="t.shift.html">t.shift</a> and <a href="t.snap.html">t.snap</a> change the times of the maps.
-</p>
 
 <p>
 To print information about space-time datasets or registered maps, the
 module <a href="t.info.html">t.info</a> can be used. <a href="t.list.html">t.list</a> will list
 all space-time datasets and registered maps in the temporal database.
-</p>
 
 <p>
 The module <a href="t.topology.html">t.topology</a> was designed to compute and check
@@ -250,11 +225,9 @@ the temporal topology of space-time datasets. Moreover, the module
 <a href="t.sample.html">t.sample</a> samples input space-time dataset(s) with a
 sample space-time dataset and prints the result to standard output.
 Different sampling methods are supported and can be combined.
-</p>
 
 <p>
 List of general management modules:
-</p>
 
 <ul>
 <li><a href="t.connect.html">t.connect</a></li>
@@ -286,24 +259,20 @@ List of general management modules:
 
 <h2>Modules to process space-time raster datasets</h2>
 
-<p>
 The focus of the temporal GIS framework is the processing and analysis
 of raster time series. Hence, the majority of the temporal modules are
 designed to process space-time raster datasets (strds). However, there
 are several modules to process space-time 3D raster datasets and
 space-time vector datasets as well.
-</p>
 
 <h3>Querying and map calculation</h3>
 
-<p>
 Maps registered in a space-time raster dataset can be listed using
 <a href="t.rast.list.html">t.rast.list</a>. This module supports several methods to
 list maps and uses SQL queries to determine how these maps are selected
 and sorted. Subsets of space-time raster datasets can be extracted with
 <a href="t.rast.extract.html">t.rast.extract</a> that allows performing additional
 mapcalc operations on the selected raster maps.
-</p>
 
 <p>
 Several modules in the temporal framework have a <em>where</em> option. This
@@ -315,7 +284,6 @@ east, nsres, ewres, cols, rows, number_of_cells, min and max</em>. Note that
 for vector time series, i.e. stvds, some of the columns that can be
 queried to list/select vector maps differ from those for space-time
 raster datasets (check with <code>t.vect.list --help</code>).
-</p>
 
 <ul>
 <li><a href="t.rast.extract.html">t.rast.extract</a></li>
@@ -334,30 +302,29 @@ Similar to the <em>where</em> option, selected modules like
 limit computations to maps of the space time raster dataset that have a
 given spatial relation to the current computational region. Supported
 spatial relations are:
-</p>
 
 <ul>
-<li>"overlaps": process only maps that spatially overlap ("intersect") with the current computational region</li>
-<li>"is_contained": process only maps that are fully within the current computational region</li>
-<li>"contains": process only maps that contain (fully cover) the current computational region</li>
+<li>"overlaps": process only maps that spatially overlap ("intersect")
+with the current computational region</li>
+<li>"is_contained": process only maps that are fully within the current
+computational region</li>
+<li>"contains": process only maps that contain (fully cover) the current
+computational region</li>
 </ul>
 
 <p>
 Space time raster datasets may contain raster maps with varying spatial
 extent like for example series of scenes of satellite images. For such
 cases the <em>region_relation</em> option can be useful.
-</p>
 
 <p>
 Moreover, there is <a href="v.what.strds.html">v.what.strds</a>, that uploads
 space-time raster dataset values at positions of vector points, to the
 attribute table of the vector map. <a href="t.rast.what.html">t.rast.what</a> samples
 the maps of a dataset at point locations and prints the values.
-</p>
 
 <h3>Aggregation and accumulation analysis</h3>
 
-<p>
 The temporal framework supports the aggregation of space-time raster
 datasets. It provides three modules to perform aggregation using
 different approaches. To aggregate a space-time raster dataset using a
@@ -369,7 +336,6 @@ another space-time dataset (raster, 3D raster and vector). A simple
 interface to <a href="r.series.html">r.series</a> is the module
 <a href="t.rast.series.html">t.rast.series</a> that processes the whole input
 space-time raster dataset or a subset of it.
-</p>
 
 <ul>
 <li><a href="t.rast.aggregate.html">t.rast.aggregate</a></li>
@@ -381,11 +347,9 @@ space-time raster dataset or a subset of it.
 
 <h3>Export/import conversion</h3>
 
-<p>
 Space-time raster datasets can be exported with
 <a href="t.rast.export.html">t.rast.export</a> as a compressed tar archive. Such
 archives can be then imported using <a href="t.rast.import.html">t.rast.import</a>.
-</p>
 
 <p>
 The module <a href="t.rast.to.rast3.html">t.rast.to.rast3</a> converts space-time
@@ -394,7 +358,6 @@ be used to process such voxel cubes. This conversion allows the export
 of space-time raster datasets as netCDF files that include time as one
 dimension. <a href="t.rast.to.vect.html">t.rast.to.vect</a> converts each map of a
 dataset into a vector map and registers them in a space time vector dataset.
-</p>
 
 <ul>
 <li><a href="t.rast.export.html">t.rast.export</a></li>
@@ -414,10 +377,8 @@ dataset into a vector map and registers them in a space time vector dataset.
 
 <h2>Modules to manage, process and analyze STR3DS and STVDS</h2>
 
-<p>
 Several space-time vector dataset modules were developed to allow the
 handling of vector time series data.
-</p>
 
 <ul>
 <li><a href="t.vect.algebra.html">t.vect.algebra</a></li>
@@ -434,7 +395,6 @@ handling of vector time series data.
 <p>
 The space-time 3D raster dataset modules are doing exactly the same as
 their raster pendants, but with 3D raster map layers:
-</p>
 
 <ul>
 <li><a href="t.rast3d.algebra.html">t.rast3d.algebra</a></li>
@@ -447,27 +407,22 @@ their raster pendants, but with 3D raster map layers:
 <p>
 <a href="t.select.html">t.select</a> selects maps of datasets of all three types
 without computing.
-</p>
 
 <h2>EXAMPLES</h2>
 
-<p>
 The examples use one small dataset of four daily air temperature maps that
 they build step by step. The region has 2 by 3 cells, and the map
 <code>temperature_n</code> has the value <code>column + 3 * (n - 1)</code> in each cell, so that the
 values of the four maps are 1 to 3, 4 to 6, 7 to 9 and 10 to 12. Each example
 uses the result of the previous one.
-</p>
 
 <h3>Create a dataset and register maps</h3>
 
-<p>
 <em><a href="t.create.html">t.create</a></em> creates the empty dataset <code>temperature</code> and
 <em><a href="t.register.html">t.register</a></em> registers the four maps in it. With the flag
 <b>-i</b> and the options <b>start</b> and <b>increment</b>, the maps become
 consecutive intervals of one day, the first starting on 1 March 2026. The
 commands print nothing.
-</p>
 
 <p>Command line:</p>
 
@@ -508,14 +463,12 @@ tools.t_register(
 
 <h3>Look at the dataset and its time</h3>
 
-<p>
 <em><a href="t.info.html">t.info</a></em> with the flag <b>-g</b> prints the properties of the dataset.
 The four maps cover 1 to 5 March, and the granularity is one day.
 <em><a href="t.topology.html">t.topology</a></em> shows that the topology is valid: the maps touch
 without gaps, so there are three <code>Follows</code> and three <code>Precedes</code> pairs.
 <em><a href="t.rast.list.html">t.rast.list</a></em> lists the maps with their times and the
 minimum and maximum of their values.
-</p>
 
 <p>Command line:</p>
 
@@ -625,14 +578,12 @@ temperature_4|2026-03-04 00:00:00|2026-03-05 00:00:00|10.0|12.0
 
 <h3>Aggregate over a longer period</h3>
 
-<p>
 <em><a href="t.rast.aggregate.html">t.rast.aggregate</a></em> cuts the time into granules of two
 days and averages the maps of each granule. The two new maps cover 1 to 3 March
 and 3 to 5 March. Here the input maps differ from each other by a constant, so the
 minimum and the maximum of a new map are the means of the minima and of the
 maxima of its input maps: for the first, (1 + 4) / 2 = 2.5 and (3 + 6) / 2 =
 4.5.
-</p>
 
 <p>Command line:</p>
 
@@ -671,7 +622,6 @@ two_days_2026_03_03|2026-03-03 00:00:00|2026-03-05 00:00:00|8.5|10.5
 
 <h3>Sample one dataset by another</h3>
 
-<p>
 <em><a href="t.sample.html">t.sample</a></em> takes <code>two_days</code> as the sampler and prints, for each
 of its maps, the maps of <code>temperature</code> in the default relations <code>during</code>,
 <code>overlap</code>, <code>contain</code> and <code>equal</code>. Each daily map lies in one granule of two
@@ -679,7 +629,6 @@ days, so each row names two maps. The columns are the sampler map, the related
 maps of <code>temperature</code>, the start and end of the granule, its length in days and
 the distance of its start from the first granule in days (the manual of
 <em>t.sample</em> describes them).
-</p>
 
 <p>Command line:</p>
 
@@ -705,14 +654,12 @@ two_days_2026_03_03@PERMANENT|temperature_3@PERMANENT,temperature_4@PERMANENT|20
 
 <h3>Compute with the temporal algebra</h3>
 
-<p>
 <em><a href="t.rast.algebra.html">t.rast.algebra</a></em> adds 10 to every map of <code>temperature</code>
 and registers the results in the new dataset <code>warm</code>, which keeps the times of
 the input maps. The minima and maxima are those of the input plus 10. The flag
 <b>-c</b> selects the classic algebra: the second call computes the same
 expression with it into <code>warm_classic</code>, and the list shows the same values and
 times. The names of the maps differ only in the basename.
-</p>
 
 <p>Command line:</p>
 
@@ -764,17 +711,31 @@ classic_3|2026-03-04 00:00:00|20.0|22.0
 <h2>SEE ALSO</h2>
 
 <ul>
-<li>Gebbert, S., Pebesma, E. 2014. <em>TGRASS: A temporal GIS for field based environmental modeling</em>. Environmental Modelling &amp; Software 53, 1-12 (<a href="https://doi.org/10.1016/j.envsoft.2013.11.001">DOI</a>) - <a href="https://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf">preprint PDF</a></li>
-<li>Gebbert, S., Pebesma, E. 2017. <em>The GRASS GIS temporal framework</em>. International Journal of Geographical Information Science 31, 1273-1292 (<a href="https://doi.org/10.1080/13658816.2017.1306862">DOI</a>)</li>
-<li>Gebbert, S., Leppelt, T., Pebesma, E., 2019. <em>A topology based spatio-temporal map algebra for big data analysis</em>. Data 4, 86. (<a href="https://doi.org/10.3390/data4020086">DOI</a>)</li>
-<li><a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data processing</a> (Wiki)</li>
-<li>Vaclav Petras, Anna Petrasova, Helena Mitasova, Markus Neteler, <b>FOSS4G 2014 workshop</b>: <a href="https://ncsu-geoforall-lab.github.io/grass-temporal-workshop/">Spatio-temporal data handling and visualization in GRASS GIS</a></li>
-<li><a href="https://www.geostat-course.org/Topic_Gebbert">GEOSTAT 2012 GRASS Course</a></li>
+<li>Gebbert, S., Pebesma, E. 2014. <em>TGRASS: A temporal GIS for field based
+environmental modeling</em>. Environmental Modelling &amp; Software 53, 1-12
+(<a href="https://doi.org/10.1016/j.envsoft.2013.11.001">DOI</a>) - <a href="https://ifgi.uni-muenster.de/~epebe_01/tgrass.pdf">preprint
+PDF</a></li>
+<li>Gebbert, S., Pebesma, E. 2017. <em>The GRASS GIS temporal framework</em>.
+International Journal of Geographical Information Science 31,
+1273-1292 (<a href="https://doi.org/10.1080/13658816.2017.1306862">DOI</a>)</li>
+<li>Gebbert, S., Leppelt, T., Pebesma, E., 2019. <em>A topology based
+spatio-temporal map algebra for big data analysis</em>. Data 4, 86.
+(<a href="https://doi.org/10.3390/data4020086">DOI</a>)</li>
+<li><a href="https://grasswiki.osgeo.org/wiki/Temporal_data_processing">Temporal data
+processing</a>
+(Wiki)</li>
+<li>Vaclav Petras, Anna Petrasova, Helena Mitasova, Markus Neteler,
+<b>FOSS4G 2014 workshop</b>:<br>
+<a href="https://ncsu-geoforall-lab.github.io/grass-temporal-workshop/">Spatio-temporal data handling and visualization in GRASS
+GIS</a></li>
+<li><a href="https://www.geostat-course.org/Topic_Gebbert">GEOSTAT 2012 GRASS
+Course</a></li>
 </ul>
 
 <ul>
 <li><a href="rasterintro.html">Introduction into raster data processing</a></li>
-<li><a href="raster3dintro.html">Introduction into 3D raster data (voxel) processing</a></li>
+<li><a href="raster3dintro.html">Introduction into 3D raster data (voxel)
+processing</a></li>
 <li><a href="vectorintro.html">Introduction into vector data processing</a></li>
 <li><a href="imageryintro.html">Introduction into image processing</a></li>
 <li><a href="databaseintro.html">Database management</a></li>

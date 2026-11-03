@@ -1,22 +1,20 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.copy</em> creates a copy of a space time dataset (STRDS, STR3DS or STVDS;
-see the <a href="temporalintro.html">introduction to temporal data
-processing</a>). The copy has the title, the description, the temporal type and
-the semantic type of the original and holds the same maps with the same time
-stamps. The original is not changed. The copy is a new dataset in the temporal
-database of the current mapset, whereas the original can be in another mapset,
-as long as this mapset is in the search path (see <em><a
-href="g.mapsets.html">g.mapsets</a></em>).
+<em>t.copy</em> creates a copy of a space time dataset (STRDS, STR3DS or STVDS; see
+the <a href="temporalintro.html">introduction to temporal data processing</a>). The copy
+has the title, the description, the temporal type and the semantic type of the
+original and holds the same maps with the same time stamps. The original is
+not changed. The copy is a new dataset in the temporal database of the current
+mapset, whereas the original can be in another mapset, as long as this mapset
+is in the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>).
 
 <p>
-The option <b>input</b> names the dataset to copy, <b>output</b> the new
-dataset, and <b>type</b> their type: <code>strds</code> (the default),
-<code>str3ds</code> or <code>stvds</code>. A dataset is found by its type and
-name. An <b>input</b> without a mapset is searched in the mapsets of the search
-path; a mapset in the name (<code>rain@PERMANENT</code>) is needed only if
-datasets of that name exist in several mapsets. The mapset of <b>output</b> can
-be left out. If it is given, it must be the current mapset.
+The option <b>input</b> names the dataset to copy, <b>output</b> the new dataset,
+and <b>type</b> their type: <code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A dataset
+is found by its type and name. An <b>input</b> without a mapset is searched in the
+mapsets of the search path; a mapset in the name (<code>rain@PERMANENT</code>) is needed
+only if datasets of that name exist in several mapsets. The mapset of <b>output</b>
+can be left out. If it is given, it must be the current mapset.
 
 <p>
 By default, <em>t.copy</em> copies the entries of the dataset only. The maps
@@ -24,74 +22,70 @@ themselves are not copied, so that each map belongs to the original and to the
 copy. With the flag <b>-c</b> the maps of the original are copied as well. They
 get the same names in the current mapset and the same time stamps, and, for
 raster maps, the same semantic label; the copy then holds these new maps.
-<em>t.copy</em> copies raster maps for <code>strds</code>, 3D raster maps for
-<code>str3ds</code> and vector maps for <code>stvds</code>, with
-<em>g.copy</em>. Only maps of other mapsets are copied: a map that is in the
-current mapset already is not copied, and the copy refers to it, as it does
-without <b>-c</b>.
+<em>t.copy</em> copies raster maps for <code>strds</code>, 3D raster maps for <code>str3ds</code> and vector
+maps for <code>stvds</code>, with <em>g.copy</em>. Only maps of other mapsets are copied: a map
+that is in the current mapset already is not copied, and the copy refers to it,
+as it does without <b>-c</b>.
 
 <p>
 The standard flag <b>--overwrite</b> replaces an existing dataset of the name
 <b>output</b>; see the notes below for what happens to its maps. Without it, an
-existing <b>output</b> stops the call. It does not lift the refusal of <b>-c</b>
-when a map of the current mapset has the name of a map to copy; see the notes.
+existing <b>output</b> stops the call. It does not lift the refusal of <b>-c</b> when
+a map of the current mapset has the name of a map to copy; see the notes.
 
 <p>
-<em><a href="t.rast.extract.html">t.rast.extract</a></em>,
-<em><a href="t.rast3d.extract.html">t.rast3d.extract</a></em> and
-<em><a href="t.vect.extract.html">t.vect.extract</a></em> copy a selection of
-the maps into a new dataset.
+<em><a href="t.rast.extract.html">t.rast.extract</a></em>, <em><a href="t.rast3d.extract.html">t.rast3d.extract</a></em>
+and <em><a href="t.vect.extract.html">t.vect.extract</a></em> copy a selection of the maps into a
+new dataset.
 
 <h2>NOTES</h2>
 
 All checks are made before the first map is copied: the name of the new
-dataset, an existing dataset of that name and, with <b>-c</b>, the maps that
-would be copied. A refused call leaves no copied maps behind. With <b>-c</b>, a
-map of the original that has the name of a map in the current mapset stops the
-call with an error such as <code>A raster map &lt;rain_1&gt; exists already in
-the current mapset &lt;analysis&gt;</code>. <b>--overwrite</b> does not lift this refusal: it
-concerns the output dataset and the entries of the temporal database, not the
-maps of the mapset. The call with <b>--overwrite</b> fails in the same way, so
-that repeating a call with <b>-c</b> needs the maps removed first, as the last
-block of the fourth example shows (or a call without <b>-c</b>).
+dataset, an existing dataset of that name and, with <b>-c</b>, the maps that would
+be copied. A refused call leaves no copied maps behind. With <b>-c</b>, a map of
+the original that has the name of a map in the current mapset stops the call
+with an error such as <code>A raster map &lt;rain_1&gt; exists already in the current
+mapset &lt;analysis&gt;</code>. <b>--overwrite</b> does not lift this refusal: it concerns the
+output dataset and the entries of the temporal database, not the maps of the
+mapset. The call with <b>--overwrite</b> fails in the same way, so that repeating
+a call with <b>-c</b> needs the maps removed first, as the last block of the
+fourth example shows (or a call without <b>-c</b>).
 
 <p>
-The name of the new dataset must not contain a dot; <em>t.copy</em> stops with
-an error before anything is copied. The mapset of <b>output</b> must be the
-current mapset; a call with another mapset stops with the error that the output
+The name of the new dataset must not contain a dot; <em>t.copy</em> stops with an
+error before anything is copied. The mapset of <b>output</b> must be the current
+mapset; a call with another mapset stops with the error that the output
 dataset must be in the current mapset.
 
 <p>
-An existing <b>output</b> without <b>--overwrite</b> stops with the error that
-the dataset is already in the database. With <b>--overwrite</b>, the old dataset
-is replaced and its maps are unregistered from it. They stay in the mapset and
-in the temporal database with their time stamps, as the second example shows.
+An existing <b>output</b> without <b>--overwrite</b> stops with the error that the
+dataset is already in the database. With <b>--overwrite</b>, the old dataset is
+replaced and its maps are unregistered from it. They stay in the mapset and in
+the temporal database with their time stamps, as the second example shows.
 
 <p>
-A dataset without maps is not copied. <em>t.copy</em> warns that there is
-nothing to copy, creates no new dataset and ends without an error.
+A dataset without maps is not copied. <em>t.copy</em> warns that there is nothing to
+copy, creates no new dataset and ends without an error.
 
 <p>
 If all maps of the original are in the current mapset, <b>-c</b> copies nothing.
-The call stops with the error that
-a map is already in the temporal database; with <b>--overwrite</b> it succeeds
-and the copy refers to the maps of the original.
+The call stops with the error that a map is already in the temporal database;
+with <b>--overwrite</b> it succeeds and the copy refers to the maps of the original.
 
 <p>
-A dataset that does not exist stops <em>t.copy</em> with an error such as
-<code>Space time dataset &lt;nope&gt; of type &lt;strds&gt; not found</code>. A
-dataset of another type is not found either: give <b>type=str3ds</b> or
-<b>type=stvds</b> for 3D raster and vector datasets.
+A dataset that does not exist stops <em>t.copy</em> with an error such as <code>Space time
+dataset &lt;nope&gt; of type &lt;strds&gt; not found</code>. A dataset of another type is not
+found either: give <b>type=str3ds</b> or <b>type=stvds</b> for 3D raster and vector
+datasets.
 
 <h2>EXAMPLES</h2>
 
 <h3>Copy a dataset and share its maps</h3>
 
-The dataset <code>rain</code> holds three daily maps and has the semantic type
-<code>sum</code>. The first command copies it to <code>rain_copy</code>.
-<em>t.list</em> then shows both datasets with three maps each and the same
-semantic type, and <em>t.rast.list</em> lists the maps of the copy.
-<em>t.info</em> shows with <b>-g</b> that the map <code>rain_2</code> belongs to
+The dataset <code>rain</code> holds three daily maps and has the semantic type <code>sum</code>.
+The first command copies it to <code>rain_copy</code>. <em>t.list</em> then shows both datasets
+with three maps each and the same semantic type, and <em>t.rast.list</em> lists the
+maps of the copy. <em>t.info</em> shows with <b>-g</b> that the map <code>rain_2</code> belongs to
 both datasets.
 
 <p>Command line:</p>
@@ -162,15 +156,13 @@ registered_datasets=rain@PERMANENT,rain_copy@PERMANENT
 
 <h3>Replace an existing dataset</h3>
 
-The dataset <code>old</code> holds the map <code>old_1</code>. Copying
-<code>rain</code> to <code>old</code> without <b>--overwrite</b> fails because
-<code>old</code> exists, so the example uses <b>--overwrite</b>. The warning
-that <em>t.copy</em> prints on the standard error says that all maps of
-<code>old</code> are unregistered. Afterwards the first listing shows
-<code>old</code> with the three maps of <code>rain</code>, next to
-<code>rain</code> and <code>rain_copy</code>. The second listing still finds
-<code>old_1</code> with its time stamp: the map stays in the mapset and in the
-temporal database, but belongs to no dataset.
+The dataset <code>old</code> holds the map <code>old_1</code>. Copying <code>rain</code> to <code>old</code> without
+<b>--overwrite</b> fails because <code>old</code> exists, so the example uses <b>--overwrite</b>.
+The warning that <em>t.copy</em> prints on the standard error says that all maps of
+<code>old</code> are unregistered. Afterwards the first listing shows <code>old</code> with the three
+maps of <code>rain</code>, next to <code>rain</code> and <code>rain_copy</code>. The second listing still finds
+<code>old_1</code> with its time stamp: the map stays in the mapset and in the temporal
+database, but belongs to no dataset.
 
 <p>
 This example continues with the data of the previous one.
@@ -219,9 +211,9 @@ rain_3|2026-06-03 00:00:00
 
 <h3>Copy a 3D raster or a vector dataset</h3>
 
-The option <b>type</b> gives the type of the dataset, here a space time 3D
-raster dataset <code>soil</code> and a space time vector dataset
-<code>gauges</code>. The copies hold the maps of the originals.
+The option <b>type</b> gives the type of the dataset, here a space time 3D raster
+dataset <code>soil</code> and a space time vector dataset <code>gauges</code>. The copies hold the
+maps of the originals.
 
 <p>Command line:</p>
 
@@ -298,20 +290,17 @@ gauges_1|2026-03-01 00:00:00
 
 <h3>Copy a dataset of another mapset</h3>
 
-The example creates the mapset <code>analysis</code> and switches to it. The
-dataset <code>rain</code> stays in the mapset <code>PERMANENT</code>; this
-mapset is in the search path of the new mapset, so <em>t.copy</em> finds the
-dataset without naming the mapset. The first command copies the dataset to
-<code>rain_linked</code> without <b>-c</b>: the maps of the copy are still the
-maps of <code>PERMANENT</code>, as the column <code>mapset</code> shows. The
-second command copies the dataset with <b>-c</b> to <code>rain_own</code>: the
-copy holds new maps with the same names in the mapset <code>analysis</code>, and
-the maps of <code>rain</code> in <code>PERMANENT</code> are as they were.
-<em>g.list</em> shows the new maps in <code>analysis</code>. The third command
-repeats the call with <b>--overwrite</b>: it fails, because the maps
-<code>rain_1</code> to <code>rain_3</code> exist in <code>analysis</code> now.
-After <em>g.remove</em> has removed them, the call with <b>--overwrite</b>
-replaces <code>rain_own</code> and copies the maps again.
+The example creates the mapset <code>analysis</code> and switches to it. The dataset
+<code>rain</code> stays in the mapset <code>PERMANENT</code>; this mapset is in the search path of
+the new mapset, so <em>t.copy</em> finds the dataset without naming the mapset. The
+first command copies the dataset to <code>rain_linked</code> without <b>-c</b>: the maps of
+the copy are still the maps of <code>PERMANENT</code>, as the column <code>mapset</code> shows. The
+second command copies the dataset with <b>-c</b> to <code>rain_own</code>: the copy holds new
+maps with the same names in the mapset <code>analysis</code>, and the maps of <code>rain</code> in
+<code>PERMANENT</code> are as they were. <em>g.list</em> shows the new maps in <code>analysis</code>. The
+third command repeats the call with <b>--overwrite</b>: it fails, because the maps
+<code>rain_1</code> to <code>rain_3</code> exist in <code>analysis</code> now. After <em>g.remove</em> has removed them,
+the call with <b>--overwrite</b> replaces <code>rain_own</code> and copies the maps again.
 
 <p>
 This example continues with the data of the first one.
@@ -434,26 +423,15 @@ rain_3|analysis
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.copy.html">g.copy</a>,
-<a href="g.list.html">g.list</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="g.region.html">g.region</a>,
+<em><a href="g.copy.html">g.copy</a>, <a href="g.list.html">g.list</a>, <a href="g.mapset.html">g.mapset</a>,
+<a href="g.mapsets.html">g.mapsets</a>, <a href="g.region.html">g.region</a>,
 <a href="g.remove.html">g.remove</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.rast.extract.html">t.rast.extract</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast3d.extract.html">t.rast3d.extract</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.remove.html">t.remove</a>,
-<a href="t.vect.extract.html">t.vect.extract</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
+<a href="t.rast.extract.html">t.rast.extract</a>, <a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.rast3d.extract.html">t.rast3d.extract</a>, <a href="t.rast3d.list.html">t.rast3d.list</a>,
+<a href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>,
+<a href="t.vect.extract.html">t.vect.extract</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

@@ -1,68 +1,71 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.accumulate</em> adds up the maps of a space time raster dataset over
-time, cell by cell, in cycles: a running sum of temperature above a threshold
+<em>t.rast.accumulate</em> adds up the maps of a space time raster dataset over time,
+cell by cell, in cycles: a running sum of temperature above a threshold
 (growing degree days), of a mean, or of the other indices described below. The
-sum restarts at the beginning of every cycle, for example every year. The result
-is a new space time raster dataset with one accumulated map per granule. The
-accumulation of one granule is done by <em><a
-href="r.series.accumulate.html">r.series.accumulate</a></em>, which gets the
-maps of the granule as input and the result of the granule before as its
-<b>basemap</b>. The result can be examined with <em><a
-href="t.rast.accdetect.html">t.rast.accdetect</a></em>, which detects
-accumulation patterns in it. See the <a href="temporalintro.html">introduction
-to temporal data processing</a> for space time datasets.
+sum restarts at the beginning of every cycle, for example every year. The
+result is a new space time raster dataset with one accumulated map per
+granule. The accumulation of one granule is done by
+<em><a href="r.series.accumulate.html">r.series.accumulate</a></em>, which gets the maps of the
+granule as input and the result of the granule before as its <b>basemap</b>. The
+result can be examined with <em><a href="t.rast.accdetect.html">t.rast.accdetect</a></em>, which
+detects accumulation patterns in it. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
 
 <h3>Time, cycles and granules</h3>
 
-The accumulation runs over the time from <b>start</b> to <b>stop</b>. This time
-is cut into cycles of the length <b>cycle</b>, and every cycle into granules of
-the length <b>granularity</b>. The first cycle begins at <b>start</b>. At the
-beginning of every cycle the sum starts from zero again.
+The accumulation runs over the time from <b>start</b> to <b>stop</b>. This time is
+cut into cycles of the length <b>cycle</b>, and every cycle into granules of the
+length <b>granularity</b>. The first cycle begins at <b>start</b>. At the beginning
+of every cycle the sum starts from zero again.
 
 <ul>
 <li><b>start</b> is the beginning of the first cycle and is required. With absolute
-time it is a date such as <code>2026-03-01</code>; with relative time it is an
-integer in the unit of the dataset.</li>
-<li><b>stop</b> ends the accumulation. A cycle that reaches beyond <b>stop</b> ends
-at <b>stop</b>, and a map that starts at <b>stop</b> or later is not used.
-Without <b>stop</b>, the run ends with the input dataset; a map that is a time
-instant at the end of the dataset is processed as well.</li>
-<li><b>cycle</b> is the length of a cycle, such as <code>12 months</code> or <code>3
-days</code>, and is required. With relative time it is an integer.</li>
+time it is a date such as <code>2026-03-01</code>; with relative time it is an integer
+in the unit of the dataset.</li>
+<li><b>stop</b> ends the accumulation. A cycle that reaches beyond <b>stop</b> ends at
+<b>stop</b>, and a map that starts at <b>stop</b> or later is not used. Without
+<b>stop</b>, the run ends with the input dataset; a map that is a time instant
+at the end of the dataset is processed as well.</li>
+<li><b>cycle</b> is the length of a cycle, such as <code>12 months</code> or <code>3 days</code>, and is
+required. With relative time it is an integer.</li>
 <li><b>offset</b> is a time that is skipped between the end of a cycle and the
-beginning of the next one. Maps that start in the skipped time are not used.
-Without <b>offset</b>, a cycle begins where the cycle before ended.</li>
+beginning of the next one. Maps that start in the skipped time are not
+used. Without <b>offset</b>, a cycle begins where the cycle before ended.</li>
 <li><b>granularity</b> is the length of a granule. In every granule, the maps that
-belong to it are accumulated into one result map. The default is <code>1
-day</code> with absolute time. With relative time there is no usable default:
-give <b>granularity</b> as an integer, such as <code>granularity=1</code>.</li>
+belong to it are accumulated into one result map. The default is <code>1 day</code>
+with absolute time. With relative time there is no usable default: give
+<b>granularity</b> as an integer, such as <code>granularity=1</code>.</li>
 </ul>
 
+<p>
 Cycles and offsets in months or years are counted from <b>start</b>, and a month
 step that ends behind the last day of a shorter month ends on that day. Monthly
 cycles from 2001-01-31 therefore start on 2001-02-28 and 2001-03-31; the
 granules of a cycle are counted from its start in the same way. If only one of
-<b>cycle</b> and <b>offset</b> is in months or years, such as a cycle in months
-with an offset in days, each cycle starts one offset after the end of the cycle
+<b>cycle</b> and <b>offset</b> is in months or years, such as a cycle in months with
+an offset in days, each cycle starts one offset after the end of the cycle
 before.
 
+<p>
 With absolute time, a <b>start</b> that does not lie on the beginning of the
-<b>granularity</b> is moved to it: with <code>granularity="1 months"</code>, the
-start <code>2026-03-02</code> becomes <code>2026-03-01</code>. The tool warns
-and names both times. The cycles count from the moved start. <em><a
-href="t.rast.accdetect.html">t.rast.accdetect</a></em> does not move its start;
-for the same cycles, give it the moved start.
+<b>granularity</b> is moved to it: with <code>granularity="1 months"</code>, the start
+<code>2026-03-02</code> becomes <code>2026-03-01</code>. The tool warns and names both times. The
+cycles count from the moved start. <em><a href="t.rast.accdetect.html">t.rast.accdetect</a></em>
+does not move its start; for the same cycles, give it the moved start.
 
+<p>
 The maps of a granule are found by their temporal relation to the granule. The
 maps that have the time of the granule are used. If there are none, the maps
 that lie inside the granule are used; otherwise the maps that overlap the
 granule at its start or at its end, and last the maps that cover the whole
-granule. A map is used for the first of these relations that has any map, so the
-maps of different relations are never mixed. A granule without a map gets no
-result map; the next granule with maps goes on from the last result of the
+granule. A map is used for the first of these relations that has any map, so
+the maps of different relations are never mixed. A granule without a map gets
+no result map; the next granule with maps goes on from the last result of the
 cycle.
 
+<p>
 The option <b>-r</b> reverses the direction of the accumulation within every
 cycle: the granules are accumulated from the last to the first, so the map of
 the last granule holds the result of one step and the map of the first granule
@@ -71,49 +74,48 @@ the sum of all.
 <h3>Method and limits</h3>
 
 The option <b>method</b> selects the index that is added up. The input maps of a
-granule are reduced to their mean <code>avg</code> and their largest value
-<code>max</code>; with one map per granule both are the value of the map. With
-the limits <code>lower</code> and <code>upper</code> of the granule, which are
-described below, the methods compute the increment of a granule:
+granule are reduced to their mean <code>avg</code> and their largest value <code>max</code>; with
+one map per granule both are the value of the map. With the limits <code>lower</code>
+and <code>upper</code> of the granule, which are described below, the methods compute the
+increment of a granule:
 
 <ul>
-<li><code>mean</code> (the default) adds <code>avg</code>. The limits do not enter
-the sum, but a lower limit that is not below the upper limit stops the run for
-every method.</li>
-<li><code>gdd</code>, growing degree days, adds <code>avg - lower</code>, but not
-less than 0.</li>
-<li><code>bedd</code>, biologically effective degree days, adds <code>min(avg,
-upper) - lower</code>, but not less than 0. This is the only method that uses
-the upper limit.</li>
-<li><code>huglin</code>, the Huglin heliothermal index, adds <code>(avg + max) / 2 -
-lower</code>, but not less than 0.</li>
+<li><code>mean</code> (the default) adds <code>avg</code>. The limits do not enter the sum, but a
+lower limit that is not below the upper limit stops the run for every
+method.</li>
+<li><code>gdd</code>, growing degree days, adds <code>avg - lower</code>, but not less than 0.</li>
+<li><code>bedd</code>, biologically effective degree days, adds <code>min(avg, upper) - lower</code>,
+but not less than 0. This is the only method that uses the upper limit.</li>
+<li><code>huglin</code>, the Huglin heliothermal index, adds <code>(avg + max) / 2 - lower</code>, but
+not less than 0.</li>
 </ul>
 
+<p>
 The lower limit and the upper limit of a granule come from the options
 <b>lower</b> and <b>upper</b>, which name space time raster datasets, or from
-<b>limits</b>. The option <b>limits</b> takes two numbers,
-<code>lower,upper</code>, such as <code>limits=10,30</code>. It is required,
-also for the method <code>mean</code>, and is used for all cells in every
-granule for which no map of <b>lower</b> or <b>upper</b> is found. The upper
-limit must be above the lower limit; <em>t.rast.accumulate</em> refuses
-<b>limits</b> that do not rise before any map is made. The option <b>upper</b>
-works only together with <b>lower</b>, and both datasets must have the same
-temporal type as the input dataset.
+<b>limits</b>. The option <b>limits</b> takes two numbers, <code>lower,upper</code>, such as
+<code>limits=10,30</code>. It is required, also for the method <code>mean</code>, and is used for all
+cells in every granule for which no map of <b>lower</b> or <b>upper</b> is found. The
+upper limit must be above the lower limit; <em>t.rast.accumulate</em> refuses
+<b>limits</b> that do not rise before any map is made. The option <b>upper</b> works
+only together with <b>lower</b>, and both datasets must have the same temporal
+type as the input dataset.
 
-The map of <b>lower</b> or <b>upper</b> for a granule is looked up by the
-relation of the granule to the maps of the dataset: first a map with the time of
-the granule (<code>equals</code>), then a map that covers the granule
-(<code>during</code>), then a map that overlaps the beginning of the granule
-(<code>overlaps</code>) or its end (<code>overlapped</code>), and last a map
-inside the granule (<code>contains</code>). The first map of the first relation
-that has any map is used. A granule without such a map takes the number from
-<b>limits</b>.
+<p>
+The map of <b>lower</b> or <b>upper</b> for a granule is looked up by the relation of
+the granule to the maps of the dataset: first a map with the time of the
+granule (<code>equals</code>), then a map that covers the granule (<code>during</code>), then a map
+that overlaps the beginning of the granule (<code>overlaps</code>) or its end
+(<code>overlapped</code>), and last a map inside the granule (<code>contains</code>). The first map
+of the first relation that has any map is used. A granule without such a map
+takes the number from <b>limits</b>.
 
+<p>
 The options <b>scale</b> and <b>shift</b> transform the values of the input maps
-before they are accumulated, <code>new = old * scale + shift</code>; they are
-passed to <em>r.series.accumulate</em>. Without them, the values are used as
-they are.
+before they are accumulated, <code>new = old * scale + shift</code>; they are passed to
+<em>r.series.accumulate</em>. Without them, the values are used as they are.
 
+<p>
 A cell without a value (NULL) in the first granule of a cycle stays NULL in
 every later granule of that cycle, because there is no earlier sum to add the
 later values to. A NULL cell in a later granule keeps the sum of the granules
@@ -123,78 +125,79 @@ before it.
 
 The option <b>output</b> names the new space time raster dataset. It is created
 in the current mapset. The option <b>basename</b> is the beginning of the names
-of the result maps and is required. The tool appends a suffix, which the option
-<b>suffix</b> selects:
+of the result maps and is required. The tool appends a suffix, which the
+option <b>suffix</b> selects:
 
 <ul>
-<li><code>gran</code> (the default) appends the start of the granule, with the
-resolution of the granularity of the input dataset, such as
-<code>_2026_03_01</code> or <code>_2026_06_01_12</code>. With relative time it
-appends a number.</li>
-<li><code>time</code> appends the start of the granule with the whole time of the
-day, such as <code>_2026_06_01T00_00_00</code>.</li>
-<li><code>num</code> appends a number of five digits, such as <code>_00001</code>.
-The numbers count the result maps in the order of the computation, over all
-cycles.</li>
+<li><code>gran</code> (the default) appends the start of the granule, with the resolution of
+the granularity of the input dataset, such as <code>_2026_03_01</code> or
+<code>_2026_06_01_12</code>. With relative time it appends a number.</li>
+<li><code>time</code> appends the start of the granule with the whole time of the day, such
+as <code>_2026_06_01T00_00_00</code>.</li>
+<li><code>num</code> appends a number of five digits, such as <code>_00001</code>. The numbers count
+the result maps in the order of the computation, over all cycles.</li>
 </ul>
 
-Every result map has the time of its granule. A result map that has no cell with
-a value is empty. The flag <b>-n</b> registers the empty maps in the output
+<p>
+Every result map has the time of its granule. A result map that has no cell
+with a value is empty. The flag <b>-n</b> registers the empty maps in the output
 dataset; without it, they are removed.
 
 <h2>NOTES</h2>
 
-<em>t.rast.accumulate</em> reads datasets of other mapsets: <b>input</b>,
-<b>lower</b> and <b>upper</b> can be given with a mapset,
-<code>input=ones@PERMANENT</code>, or without one, when the mapset is in the
-search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The output
-dataset and its maps are always created in the current mapset. The last example
-shows this.
+<em>t.rast.accumulate</em> reads datasets of other mapsets: <b>input</b>, <b>lower</b> and
+<b>upper</b> can be given with a mapset, <code>input=ones@PERMANENT</code>, or without one,
+when the mapset is in the search path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The
+output dataset and its maps are always created in the current mapset. The last
+example shows this.
 
+<p>
 An existing output dataset stops the run before any computation, unless
-<b>--overwrite</b> is set. A name with a dot is refused for a new dataset before
-any map is made.
+<b>--overwrite</b> is set.
+A name with a dot is refused for a new dataset before any map is made.
 
+<p>
 If no map with values is computed, the tool warns and ends without creating the
-output dataset. This happens when the cycles lie before or after the data or in
-a gap, when a <b>stop</b> is not after the <b>start</b> (such as a relative stop
-of 0), and when every computed map is empty and <b>-n</b> is not set. With
-<b>--overwrite</b>, an output dataset that exists is removed in this case, and
-the tool warns again that it did so. The maps of the removed dataset stay as
-maps, except for maps that have the name of a new result map, which the
-computation replaces and then removes. This also holds for a map that another
-dataset holds: with <b>--overwrite</b> and an empty result, such a map is
-replaced by an empty map and removed, and the other dataset loses it. The
-seventh example shows an empty result.
+output dataset. This happens when the cycles lie before or after the data or
+in a gap, when a <b>stop</b> is not after the <b>start</b> (such as a relative stop of
+0), and when every computed map is empty and <b>-n</b> is not set. With
+<b>--overwrite</b>, an output dataset that exists is removed in this case, and the
+tool warns again that it did so. The maps of the removed dataset stay as maps,
+except for maps that have the name of a new result map, which the computation
+replaces and then removes. This also holds for a map that another dataset
+holds: with <b>--overwrite</b> and an empty result, such a map is replaced by an
+empty map and removed, and the other dataset loses it. The seventh example
+shows an empty result.
 
+<p>
 A cycle in which no map starts is skipped. An empty input dataset ends with a
 warning and creates no output.
 
-With relative time, the unit of the dataset is the unit of <b>start</b>,
-<b>stop</b>, <b>cycle</b>, <b>offset</b> and <b>granularity</b>; they are
-integers without a unit.
+<p>
+With relative time, the unit of the dataset is the unit of <b>start</b>, <b>stop</b>,
+<b>cycle</b>, <b>offset</b> and <b>granularity</b>; they are integers without a unit.
 
 <h2>EXAMPLES</h2>
 
 <h3>Accumulate the daily temperature</h3>
 
-The dataset <code>temperature</code> has six daily maps from 1 to 6 March 2026
-on a region of three cells in one row. The map of day <code>n</code> holds the
-value of the day plus the column number minus one, so the cells of a map differ
-by one. The values of the first cell are 4, 12, 14, 8, 16 and 20, those of the
-last cell two more.
+The dataset <code>temperature</code> has six daily maps from 1 to 6 March 2026 on a region
+of three cells in one row. The map of day <code>n</code> holds the value of the day plus
+the column number minus one, so the cells of a map differ by one. The values
+of the first cell are 4, 12, 14, 8, 16 and 20, those of the last cell two more.
 
+<p>
 The first block accumulates growing degree days above 10 with one cycle of six
 days. The increment of a day is its value minus 10, but not below 0, so the
 first cell adds 0, 2, 4, 0, 6 and 10: its sums are 0, 2, 6, 6, 12 and 22. The
 last cell adds 0, 4, 6, 0, 8 and 12 and ends with 30. The listing shows the
-smallest and the largest value of each result map, the values of the first and
-the last cell. The names of the maps end with the date of the granule. The upper
-limit 30 is required but not used by the method <code>gdd</code>.
+smallest and the largest value of each result map, the values of the first
+and the last cell. The names of the maps end with the date of the granule. The
+upper limit 30 is required but not used by the method <code>gdd</code>.
 
-The second block leaves out <b>method</b>. The default is <code>mean</code>,
-which adds the values themselves: the sums of the first cell are 4, 16, 30, 38,
-54 and 74.
+<p>
+The second block leaves out <b>method</b>. The default is <code>mean</code>, which adds the
+values themselves: the sums of the first cell are 4, 16, 30, 38, 54 and 74.
 
 <p>Command line:</p>
 
@@ -312,21 +315,21 @@ mean_2026_03_06|74.0|86.0
 
 <h3>Choose the method</h3>
 
-The dataset <code>readings</code> has two maps per day for three days from 1
-June 2026, registered at an interval of 12 hours: a value by day and one by
-night. Each map has the same value in all cells. The values of the days are 24
-and 8, 30 and 14, 50 and 20. With the granularity of one day, every granule
-holds the two maps of its day, inside it, and their mean is used: 16, 22 and 35.
-The largest values are 24, 30 and 50.
+The dataset <code>readings</code> has two maps per day for three days from 1 June 2026,
+registered at an interval of 12 hours: a value by day and one by night. Each
+map has the same value in all cells. The values of the days are 24 and 8, 30
+and 14, 50 and 20. With the granularity of one day, every granule holds the
+two maps of its day, inside it, and their mean is used: 16, 22 and 35. The
+largest values are 24, 30 and 50.
 
-Each block uses another method with the limits 10 and 30 and one cycle of three
-days. The method <code>mean</code> adds the means: 16, 38 and 73. The method
-<code>gdd</code> adds the mean minus 10: 6, 12 and 25, so the sums are 6, 18 and
-43. The method <code>bedd</code> caps the mean at the upper limit 30 first, so
-the third day adds only 20 and the sum is 38; this is the one method that uses
-the upper limit. The method <code>huglin</code> takes the mean of
-<code>avg</code> and <code>max</code>, minus 10: 10, 16 and 32.5, so the sums
-are 10, 26 and 58.5.
+<p>
+Each block uses another method with the limits 10 and 30 and one cycle of
+three days. The method <code>mean</code> adds the means: 16, 38 and 73. The method <code>gdd</code>
+adds the mean minus 10: 6, 12 and 25, so the sums are 6, 18 and 43. The method
+<code>bedd</code> caps the mean at the upper limit 30 first, so the third day adds only
+20 and the sum is 38; this is the one method that uses the upper limit. The
+method <code>huglin</code> takes the mean of <code>avg</code> and <code>max</code>, minus 10: 10,
+16 and 32.5, so the sums are 10, 26 and 58.5.
 
 <p>Command line:</p>
 
@@ -490,18 +493,19 @@ huglin_2026_06_03_00|2026-06-03 00:00:00|58.5
 
 <h3>Restart the accumulation in cycles</h3>
 
-The dataset <code>ones</code> has eight daily maps from 1 to 8 March 2026 with
-the value 1 in all cells. With the method <code>mean</code>, the sum counts the
-days of a cycle, so the cycles are easy to see.
+The dataset <code>ones</code> has eight daily maps from 1 to 8 March 2026 with the value 1
+in all cells. With the method <code>mean</code>, the sum counts the days of a cycle, so
+the cycles are easy to see.
 
+<p>
 The first block uses cycles of three days: the sum counts 1, 2, 3 and starts
-again on 4 March and on 7 March; the last cycle holds two days. The second block
-adds <b>offset</b> of one day. The cycle from 1 to 3 March is followed by a
-skipped day, 4 March, which has no result map; the second cycle runs from 5 to 7
-March, and 8 March falls into the offset after the second cycle. The third block
-sets <b>stop</b> to 6 March: the second cycle ends at the stop and holds the
-days 4 and 5, because the map of 6 March starts at the stop. The fourth block
-uses the flag <b>-r</b> with cycles of four days. The sums run backwards in
+again on 4 March and on 7 March; the last cycle holds two days. The second
+block adds <b>offset</b> of one day. The cycle from 1 to 3 March is followed by a
+skipped day, 4 March, which has no result map; the second cycle runs from 5 to
+7 March, and 8 March falls into the offset after the second cycle. The third
+block sets <b>stop</b> to 6 March: the second cycle ends at the stop and holds
+the days 4 and 5, because the map of 6 March starts at the stop. The fourth
+block uses the flag <b>-r</b> with cycles of four days. The sums run backwards in
 time: the first day of a cycle has the largest sum, 4, and the last day has 1.
 
 <p>Command line:</p>
@@ -688,11 +692,11 @@ reverse_2026_03_08|1.0
 
 <h3>Scale and shift the input values</h3>
 
-<b>scale</b> and <b>shift</b> transform the values of the input maps before they
-are accumulated, <code>new = old * scale + shift</code>. The input is the
-dataset <code>ones</code> from the previous example. With <code>scale=2</code>
-and <code>shift=0.5</code>, every day adds 2.5, so the sums of a cycle of four
-days are 2.5, 5, 7.5 and 10, and the cycle starts again at 2.5.
+<b>scale</b> and <b>shift</b> transform the values of the input maps before they are
+accumulated, <code>new = old * scale + shift</code>. The input is the dataset <code>ones</code> from
+the previous example. With <code>scale=2</code> and <code>shift=0.5</code>, every day adds 2.5, so the
+sums of a cycle of four days are 2.5, 5, 7.5 and 10, and the cycle starts again
+at 2.5.
 
 <p>Command line:</p>
 
@@ -744,22 +748,22 @@ scaled_2026_03_08|10.0
 
 <h3>Take the limits from datasets</h3>
 
-The dataset <code>warm</code> has six daily maps from 1 to 6 March 2026 with the
-values 14, 20, 26, 32, 22 and 12. The datasets <code>low</code> and
-<code>high</code> hold the lower and the upper limit for the first three days
-only: 10, 12 and 14 for the lower, 30, 25 and 20 for the upper limit. The first
-block uses both datasets with the method <code>bedd</code>. For the first three
-days the limits come from the datasets, so the increments are 14 - 10 = 4, 20 -
-12 = 8 and 26 capped at 20, minus 14 = 6; the sums are 4, 12 and 18. For the
-last three days there are no maps in the datasets, so <b>limits</b> applies: 32
-is capped at 30 and gives 20, 22 gives 12, 12 gives 2; the sums are 38, 50 and
-52.
+The dataset <code>warm</code> has six daily maps from 1 to 6 March 2026 with the values
+14, 20, 26, 32, 22 and 12. The datasets <code>low</code> and <code>high</code> hold the lower and
+the upper limit for the first three days only: 10, 12 and 14 for the lower,
+30, 25 and 20 for the upper limit. The first block uses both datasets with the
+method <code>bedd</code>. For the first three days the limits come from the datasets, so
+the increments are 14 - 10 = 4, 20 - 12 = 8 and 26 capped at 20, minus 14 = 6;
+the sums are 4, 12 and 18. For the last three days there are no maps in the
+datasets, so <b>limits</b> applies: 32 is capped at 30 and gives 20, 22 gives 12,
+12 gives 2; the sums are 38, 50 and 52.
 
-The second block gives only <b>lower</b>. The upper limit comes from
-<b>limits</b> for all days, here 28: the sums are 4, 12, 24 (the third day adds
-26 - 14), and then 42, 54 and 56, because 32 is capped at 28. The third block
-uses no dataset; <b>limits</b> applies to all days and the sums are 4, 14, 30,
-50, 62 and 64.
+<p>
+The second block gives only <b>lower</b>. The upper limit comes from <b>limits</b>
+for all days, here 28: the sums are 4, 12, 24 (the third day adds 26 - 14),
+and then 42, 54 and 56, because 32 is capped at 28. The third block uses no
+dataset; <b>limits</b> applies to all days and the sums are 4, 14, 30, 50, 62
+and 64.
 
 <p>Command line:</p>
 
@@ -940,17 +944,18 @@ limits_2026_03_06|64.0
 
 <h3>Choose the granularity and the names of the maps</h3>
 
-The granularity sets the length of the granules. On the dataset
-<code>ones</code>, the granularity of two days puts two maps into each granule.
-Their mean is 1, so one cycle of eight days gives four result maps with the sums
-1, 2, 3 and 4, each with the time of two days.
+The granularity sets the length of the granules. On the dataset <code>ones</code>, the
+granularity of two days puts two maps into each granule. Their mean is 1, so
+one cycle of eight days gives four result maps with the sums 1, 2, 3 and 4,
+each with the time of two days.
 
-On the dataset <code>readings</code>, the granularity of 12 hours gives one
-granule for each map. The default suffix <code>gran</code> follows the
-resolution of the input dataset, which has intervals of 12 hours, so the names
-end with the date and the hour. The option <b>suffix</b> selects another form:
-<code>time</code> adds the whole time of the day, and <code>num</code> adds a
-number of five digits that counts the maps in the order of the computation.
+<p>
+On the dataset <code>readings</code>, the granularity of 12 hours gives one granule for
+each map. The default suffix <code>gran</code> follows the resolution of the input
+dataset, which has intervals of 12 hours, so the names end with the date and the
+hour. The option <b>suffix</b> selects another form: <code>time</code> adds the whole time of
+the day, and <code>num</code> adds a number of five digits that counts the maps in the
+order of the computation.
 
 <p>Command line:</p>
 
@@ -1117,26 +1122,29 @@ half_00006
 
 <h3>Keep or remove empty maps</h3>
 
-The dataset <code>gappy</code> has four daily maps. The first one has no value
-in any cell, the second the value 3 everywhere. The third has no value in the
-first cell, the fourth none in the second cell; the other cells hold 3. Cycles
-of two days start on 1 and 3 March.
+The dataset <code>gappy</code> has four daily maps. The first one has no value in any cell,
+the second the value 3 everywhere. The third has no value in the first cell,
+the fourth none in the second cell; the other cells hold 3. Cycles of two days
+start on 1 and 3 March.
 
+<p>
 In the first cycle the first map is empty, so every cell is NULL in the first
-step and stays NULL in the second one. Both result maps of the cycle are empty.
-Without <b>-n</b> they are removed; the dataset <code>gaps_dropped</code> has
-two maps. With <b>-n</b>, the dataset <code>gaps_kept</code> registers all four
-maps, the empty ones with <code>None</code> as smallest and largest value.
+step and stays NULL in the second one. Both result maps of the cycle are
+empty. Without <b>-n</b> they are removed; the dataset <code>gaps_dropped</code> has two
+maps. With <b>-n</b>, the dataset <code>gaps_kept</code> registers all four maps, the empty
+ones with <code>None</code> as smallest and largest value.
 
+<p>
 In the second cycle the first cell is NULL in the first step and stays NULL in
 the second one. The second cell is NULL in the second step and keeps the sum of
-the first step, 3. The last cell holds 3 and 6. The <code>r.stats</code> blocks
-list the cells of the two maps of the second cycle.
+the first step, 3. The last cell holds 3 and 6. The <code>r.stats</code> blocks list the
+cells of the two maps of the second cycle.
 
-An empty result is warned about and creates no dataset. The last block runs the
-same computation once more with <b>--overwrite</b> and the <b>stop</b> 3 March,
-which leaves only the empty first cycle. The tool warns that no map with values
-was computed and removes the existing dataset <code>gaps_dropped</code>; the
+<p>
+An empty result is warned about and creates no dataset. The last block runs
+the same computation once more with <b>--overwrite</b> and the <b>stop</b> 3 March,
+which leaves only the empty first cycle. The tool warns that no map with
+values was computed and removes the existing dataset <code>gaps_dropped</code>; the
 listing of the datasets whose names start with <code>gaps</code> shows that
 <code>gaps_dropped</code> is gone and <code>gaps_kept</code> is still there.
 
@@ -1287,14 +1295,14 @@ gaps_kept
 
 <h3>Accumulate with relative time</h3>
 
-The dataset <code>model</code> has four steps of one hour with the values 2, 3,
-4 and 5. With relative time, <b>start</b>, <b>stop</b>, <b>cycle</b>,
-<b>offset</b> and <b>granularity</b> are integers in the unit of the dataset,
-here hours. The first block uses cycles of two steps with the method
-<code>gdd</code> and the lower limit 0, so the increments are the values
-themselves: the sums are 2 and 5, then 4 and 9 after the restart. The names of
-the maps end with a number.
+The dataset <code>model</code> has four steps of one hour with the values 2, 3, 4 and 5. With
+relative time, <b>start</b>, <b>stop</b>, <b>cycle</b>, <b>offset</b> and <b>granularity</b>
+are integers in the unit of the dataset, here hours. The first block uses
+cycles of two steps with the method <code>gdd</code> and the lower limit 0, so the
+increments are the values themselves: the sums are 2 and 5, then 4 and 9 after
+the restart. The names of the maps end with a number.
 
+<p>
 The second block adds <b>offset</b> of one step. The first cycle holds the steps
 from 0 to 2, the step from 2 to 3 is skipped, and the second cycle starts at 3:
 the maps are <code>2</code>, <code>5</code> and <code>5</code>.
@@ -1401,22 +1409,24 @@ offset_00003|3|4|5.0
 
 <h3>Cycles of months</h3>
 
-The dataset <code>pulses</code> has six time instants with the value 1 near the
-ends of months in 2001: on 31 January, 27 and 28 February, 30 and 31 March and 1
-April. With the method <code>mean</code> the sum counts the maps of a cycle.
+The dataset <code>pulses</code> has six time instants with the value 1 near the ends of
+months in 2001: on 31 January, 27 and 28 February, 30 and 31 March and 1 April.
+With the method <code>mean</code> the sum counts the maps of a cycle.
 
-The first block uses monthly cycles from 31 January with the granularity of one
-day. A month step that ends behind the last day of a shorter month ends on that
-day, so the second cycle starts on 28 February and the third on 31 March. The
-sums are 1, 2 for each cycle. The granules without a map between the instants
-have no result map.
+<p>
+The first block uses monthly cycles from 31 January with the granularity of
+one day. A month step that ends behind the last day of a shorter month ends on
+that day, so the second cycle starts on 28 February and the third on 31
+March. The sums are 1, 2 for each cycle. The granules without a map between
+the instants have no result map.
 
+<p>
 The second block uses cycles of two months with the granularity of one month,
 from 31 January. A start inside a month is moved to the first day of the
 granularity, here 1 January, and the tool warns. The first cycle holds January
 and February: the January granule holds one map, the February granule two, and
-the mean of each is 1, so the sums are 1 and 2. The second cycle begins on 1
-March and has the sums 1 and 2.
+the mean of each is 1, so the sums are 1 and 2. The second cycle begins on
+1 March and has the sums 1 and 2.
 
 <p>Command line:</p>
 
@@ -1519,13 +1529,12 @@ months_2001_04_01|2001-04-01 00:00:00|2001-05-01 00:00:00|2.0
 <h3>Use datasets of another mapset</h3>
 
 The input and the limit datasets can lie in another mapset, but the output is
-created in the current one. The example creates the mapset <code>other</code>
-and switches to it; the datasets <code>warm</code>, <code>low</code> and
-<code>high</code> stay in <code>PERMANENT</code> and are named with their
-mapset. A new mapset takes its region from the default region, so the example
-sets the region first. The result is the same as in the fifth example with both
-limit datasets: the sums 4, 12, 18, 38, 50 and 52. The first block shows that
-the maps are in <code>other</code>, the second that the dataset is.
+created in the current one. The example creates the mapset <code>other</code> and
+switches to it; the datasets <code>warm</code>, <code>low</code> and <code>high</code> stay in <code>PERMANENT</code> and
+are named with their mapset. A new mapset takes its region from the default
+region, so the example sets the region first. The result is the same as in the
+fifth example with both limit datasets: the sums 4, 12, 18, 38, 50 and 52. The
+first block shows that the maps are in <code>other</code>, the second that the dataset is.
 
 <p>Command line:</p>
 
@@ -1597,25 +1606,19 @@ warm_other|other
 <h2>REFERENCES</h2>
 
 <ul>
-<li> Jones, G.V., Duff, A.A., Hall, A., Myers, J.W., 2010.
-     Spatial Analysis of Climate in Winegrape Growing Regions in the
-     Western United States. Am. J. Enol. Vitic. 61, 313-326.</li>
+<li>Jones, G.V., Duff, A.A., Hall, A., Myers, J.W., 2010. Spatial Analysis
+of Climate in Winegrape Growing Regions in the Western United States.
+Am. J. Enol. Vitic. 61, 313-326.</li>
 </ul>
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="r.series.accumulate.html">r.series.accumulate</a>,
-<a href="r.stats.html">r.stats</a>,
-<a href="t.list.html">t.list</a>,
+<em><a href="g.mapsets.html">g.mapsets</a>, <a href="r.series.accumulate.html">r.series.accumulate</a>,
+<a href="r.stats.html">r.stats</a>, <a href="t.list.html">t.list</a>,
 <a href="t.rast.accdetect.html">t.rast.accdetect</a>,
-<a href="t.rast.aggregate.html">t.rast.aggregate</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>,
-<a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="t.rast.aggregate.html">t.rast.aggregate</a>, <a href="t.rast.list.html">t.rast.list</a>,
+<a href="t.rast.mapcalc.html">t.rast.mapcalc</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

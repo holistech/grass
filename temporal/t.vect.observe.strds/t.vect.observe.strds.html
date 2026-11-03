@@ -1,115 +1,119 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.vect.observe.strds</em> observes the values of one or several space time
-raster datasets (STRDS) at the positions of the points of a vector map. For
-every raster map of the dataset it reads the value under each point and stores
-it in a column. The result is a new space time vector dataset (STVDS) with one
+<em>t.vect.observe.strds</em> observes the values of one or several space time raster
+datasets (STRDS) at the positions of the points of a vector map. For every
+raster map of the dataset it reads the value under each point and stores it in
+a column. The result is a new space time vector dataset (STVDS) with one
 vector map and as many layers as the raster dataset has maps: layer 1 holds the
-values of the first map, layer 2 those of the second map, and so on. Every layer
-is registered in the new dataset with the time of its raster map. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
-<em><a href="t.vect.what.strds.html">t.vect.what.strds</a></em> does the
-opposite: it samples at the positions of the maps of a vector dataset and writes
-the values into the table of each vector map.
-<em><a href="t.rast.what.html">t.rast.what</a></em> prints the values at points
-instead of storing them. The values are read with
+values of the first map, layer 2 those of the second map, and so on. Every
+layer is registered in the new dataset with the time of its raster map. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. <em><a href="t.vect.what.strds.html">t.vect.what.strds</a></em> does the opposite: it
+samples at the positions of the maps of a vector dataset and writes the values
+into the table of each vector map. <em><a href="t.rast.what.html">t.rast.what</a></em> prints the
+values at points instead of storing them. The values are read with
 <em><a href="v.what.rast.html">v.what.rast</a></em>.
+
 <p>
 The option <b>input</b> is the vector map with the points; it can be in another
-mapset. The option <b>strds</b> names one or several space time raster
-datasets, separated by commas. The option <b>columns</b> names the columns that
-get the sampled values, one name for each dataset in the order of
-<b>strds</b>; the numbers of names and datasets must be equal. A column of a
-CELL (integer) raster map is of type INTEGER, the column of any other raster map
-of type DOUBLE PRECISION.
+mapset. The option <b>strds</b> names one or several space time raster datasets,
+separated by commas. The option <b>columns</b> names the columns that get the
+sampled values, one name for each dataset in the order of <b>strds</b>; the numbers
+of names and datasets must be equal. A column of a CELL (integer) raster map is
+of type INTEGER, the column of any other raster map of type DOUBLE PRECISION.
+
 <p>
 The output is made of two parts, both in the current mapset:
+
 <ul>
-<li>the option <b>vector_output</b> names the new vector map. It is a copy of
-the input in which every point has the same category in each layer. Layer 1 is
+<li>the option <b>vector_output</b> names the new vector map. It is a copy of the
+input in which every point has the same category in each layer. Layer 1 is
 linked to a copy of the table of the input, which gets the new columns in
 addition to the columns that it has; it keeps the layer name of the input.
-Every further layer has a new table <code>&lt;vector_output&gt;_&lt;layer&gt;</code>
-with the columns <code>cat</code> and the new columns;</li>
-<li>the option <b>output</b> names the new space time vector dataset. It takes
-the temporal type (absolute or relative time, with its unit) and the semantic
+Every further layer has a new table <code>&lt;vector_output&gt;_&lt;layer&gt;</code> with the
+columns <code>cat</code> and the new columns;</li>
+<li>the option <b>output</b> names the new space time vector dataset. It takes the
+temporal type (absolute or relative time, with its unit) and the semantic
 type of the first dataset of <b>strds</b>. Its maps are the layers
-<code>&lt;vector_output&gt;:&lt;layer&gt;</code>, each with the start and end
-time of its granule.</li>
+<code>&lt;vector_output&gt;:&lt;layer&gt;</code>, each with the start and end time of its granule.</li>
 </ul>
+
 <p>
 With one dataset, a granule is a map of the dataset. With several datasets, the
 granules are the maps of the first dataset, and the run observes a granule only
 if every other dataset has a map with the same time; a granule for which one
 dataset has no map is left out. If a dataset has several maps with that time,
 only one of them is used. The datasets must have the same temporal type,
-and the first dataset needs maps with intervals. All datasets are sampled as
-they are, over their whole temporal extent.
+and the first dataset needs maps with intervals. All datasets are sampled
+as they are, over their whole temporal extent.
+
 <p>
 Points are sampled in the current computational region (see
-<em><a href="g.region.html">g.region</a></em>): a point outside the region, or
-on a cell without a value, gets a NULL in the column.
+<em><a href="g.region.html">g.region</a></em>): a point outside the region, or on a cell without a
+value, gets a NULL in the column.
+
 <p>
 The option <b>where</b> takes an SQL condition on the table of layer 1 of the
 input and selects the points to observe. The points that it does not select are
 not in the output map, in none of its layers.
+
 <p>
-Use <em><a href="t.vect.db.select.html">t.vect.db.select</a></em> or
-<em><a href="v.db.select.html">v.db.select</a></em> to print the values of the
-new layers.
+Use <em><a href="t.vect.db.select.html">t.vect.db.select</a></em> or <em><a href="v.db.select.html">v.db.select</a></em>
+to print the values of the new layers.
 
 <h2>NOTES</h2>
 
-The condition <b>where</b> works on the table of layer 1, so the module stops
-with an error before it writes anything if the input map has other layers
-besides layer 1, with categories or with a table. A condition that
-<em><a href="v.extract.html">v.extract</a></em> refuses stops the module with
-the message <code>Unable to select the points of &lt;name&gt; with where</code>,
-again before anything is written.
+The condition <b>where</b> works on the table of layer 1, so the module stops with
+an error before it writes anything if the input map has other layers besides
+layer 1, with categories or with a table. A condition that <em><a href="v.extract.html">v.extract</a></em>
+refuses stops the module with the message <code>Unable to select the points of &lt;name&gt;
+with where</code>, again before anything is written.
+
 <p>
 If a column named in <b>columns</b> exists in the table of a layer of the input
 map, the module stops with an error that names the column and advises the
-overwrite flag. With <b>--overwrite</b> it keeps the column and replaces its
-values with the sampled ones, but a point that is not sampled (a point outside
-the region) keeps its old value; a point on a cell without a value gets a NULL.
-A name that differs from such a column only in upper and lower case
-(<code>Altitude</code> for <code>altitude</code>) is refused, with and without
-<b>--overwrite</b>, before the output map is made, with a message that names
-both spellings.
+overwrite flag. With <b>--overwrite</b> it keeps the column and replaces its values
+with the sampled ones, but a point that is not sampled (a point outside the
+region) keeps its old value; a point on a cell without a value gets a NULL.
+A name that differs from such a column only in upper and lower case (<code>Altitude</code>
+for <code>altitude</code>) is refused, with and without <b>--overwrite</b>, before the output
+map is made, with a message that names both spellings.
+
 <p>
 If a run fails with an error message, the module removes the vector map and the
 space time vector dataset that it made, so nothing is left behind. The
-exception is a <b>where</b> that selects no point, see below. With <b>--overwrite</b> the
-previous output map and dataset of the same names have already been replaced
-when the run fails, so they are gone as well and are not restored. Without
-<b>--overwrite</b> an existing output is refused before anything is made and
-stays as it was. To keep a result, give the new run another name.
+exception is a <b>where</b> that selects no point, see below. With
+<b>--overwrite</b> the previous output map and dataset of the same names have
+already been replaced when the run fails, so they are gone as well and are not
+restored. Without
+<b>--overwrite</b> an existing output is refused before anything is made and stays
+as it was. To keep a result, give the new run another name.
+
 <p>
 If <b>where</b> selects no point, the module ends with a Python error
-(<code>KeyError: 1</code>) and leaves the empty output vector map behind; it
-makes no space time vector dataset. Remove the map with
-<em><a href="g.remove.html">g.remove</a></em>, or check the condition on the
-table of the input with <em><a href="v.db.select.html">v.db.select</a></em>
-first. The second block of the example "Observe a selection of the points"
-shows it.
+(<code>KeyError: 1</code>) and leaves the empty output vector map behind; it makes no
+space time vector dataset. Remove the map with <em><a href="g.remove.html">g.remove</a></em>, or
+check the condition on the table of the input with
+<em><a href="v.db.select.html">v.db.select</a></em> first. The second block of the example
+"Observe a selection of the points" shows it.
+
 <p>
 If several datasets are given and no map of the first dataset has a map with
-the same time in every other dataset, the module ends without a message and with
-the return code 0. It makes an empty space time vector dataset and a vector map
-that has only layer 1. Check the result with
-<em><a href="t.info.html">t.info</a></em> if the datasets may not share a
-granule. The third block of the example "Observe several raster datasets" shows
-it.
+the same time in every other dataset, the module ends without a message and
+with the return code 0. It makes an empty space time vector dataset and a vector
+map that has only layer 1. Check the result with <em><a href="t.info.html">t.info</a></em> if the
+datasets may not share a granule. The third block of the example "Observe
+several raster datasets" shows it.
+
 <p>
 The module stops with an error, among others, for these reasons:
+
 <ul>
-<li>the numbers of <b>columns</b> and datasets differ: <code>The number of
-columns must be equal to the number of space time raster datasets</code>;</li>
-<li>a dataset has no maps: <code>Space time raster dataset &lt;name@mapset&gt;
-is empty</code>;</li>
-<li>the datasets have different temporal types: <code>Temporal type of space
-time raster datasets must be equal</code>;</li>
+<li>the numbers of <b>columns</b> and datasets differ: <code>The number of columns must be
+equal to the number of space time raster datasets</code>;</li>
+<li>a dataset has no maps: <code>Space time raster dataset &lt;name@mapset&gt; is empty</code>;</li>
+<li>the datasets have different temporal types: <code>Temporal type of space time
+raster datasets must be equal</code>;</li>
 <li>with several datasets, the first dataset has maps that are time instances:
 <code>The temporal map type of the sample dataset must be interval</code>;</li>
 <li>a raster map of a dataset does not exist any more.</li>
@@ -119,25 +123,27 @@ time raster datasets must be equal</code>;</li>
 
 <h3>Observe a raster dataset at points</h3>
 
-The region has 3 by 3 cells. The raster map <code>temperature_k</code> (k from 1
-to 3, one map for each day from 1 March 2026) holds <code>10 * k</code> plus the
-number of the cell, counted from 1 in the upper left corner row by row: 11 to 19
-in the first map, 21 to 29 in the second, 31 to 39 in the third. The input map
-<code>stations</code> has five points; the column <code>altitude</code> is their
-only attribute, and their categories are 1 to 5. The first four lie in the
-middle of the cells 1, 3, 5 and 7, the fifth outside the region.
+The region has 3 by 3 cells. The raster map <code>temperature_k</code> (k from 1 to 3, one
+map for each day from 1 March 2026) holds <code>10 * k</code> plus the number of the cell,
+counted from 1 in the upper left corner row by row: 11 to 19 in the first map,
+21 to 29 in the second, 31 to 39 in the third. The input map <code>stations</code> has five
+points; the column <code>altitude</code> is their only attribute, and their categories are
+1 to 5. The first four lie in the middle of the cells 1, 3, 5 and 7, the fifth
+outside the region.
+
 <p>
-The run observes the dataset <code>temperature</code>, so the output has three
-layers with one day each. The first block runs the module and shows the temporal
+The run observes the dataset <code>temperature</code>, so the output has three layers
+with one day each. The first block runs the module and shows the temporal
 properties of the new dataset, which holds 15 points (five in each of the three
-layers), and its maps. The layers have the column <code>temp</code> and, in
-layer 1, the columns of <code>stations</code> in addition: the points in the
-cells 1, 3, 5 and 7 read 11, 13, 15 and 17 in the first layer, 21, 23, 25 and 27
-in the second, 31, 33, 35 and 37 in the third. The fifth point has no value. The
+layers), and its maps. The layers have the column <code>temp</code>
+and, in layer 1, the columns of <code>stations</code> in addition: the points in the cells
+1, 3, 5 and 7 read 11, 13, 15 and 17 in the first layer, 21, 23, 25 and 27 in
+the second, 31, 33, 35 and 37 in the third. The fifth point has no value. The
 second block shows the tables of the layers. The third block shows how the
-layers are linked to their tables: layer 1 keeps the layer name
-<code>stations</code> of the input and uses the table <code>obs_points</code>,
-the others have the table <code>obs_points_&lt;layer&gt;</code>.
+layers are linked to their tables: layer 1 keeps the layer name <code>stations</code> of
+the input and uses the table <code>obs_points</code>, the others have the table
+<code>obs_points_&lt;layer&gt;</code>.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -303,32 +309,28 @@ for line in tools.v_db_connect(map="obs_points", flags="g").text.splitlines():
 
 <h3>Observe several raster datasets</h3>
 
-The second input is the dataset <code>humidity</code> from the maps
-<code>humidity_2</code> and <code>humidity_3</code>, which are valid on the
-second and the third day. Their values are <code>k + 0.5 * n</code> for
-<code>humidity_k</code> and the cell number <code>n</code>, except that the cell
-number 7 is NULL. The run needs one column for each dataset, so
-<code>columns=temp,hum</code> gives the values of <code>temperature</code> to
-<code>temp</code> and those of <code>humidity</code> to <code>hum</code>. The
-granules are the maps of <code>temperature</code> for which
-<code>humidity</code> has a map with the same time: the first day has no
-humidity, so it is left out and the output has two layers, the second and the
-third day. The point in the cell 7 reads a NULL in <code>hum</code>, and the
-fifth point outside the region a NULL in both columns. The second block shows the
-column types: <code>temp</code> follows the integer maps of
-<code>temperature</code>, <code>hum</code> the floating point maps of
-<code>humidity</code>.
+The second input is the dataset <code>humidity</code> from the maps <code>humidity_2</code> and
+<code>humidity_3</code>, which are valid on the second and the third day. Their values are
+<code>k + 0.5 * n</code> for <code>humidity_k</code> and the cell number <code>n</code>, except that the cell
+number 7 is NULL. The run needs one column for each dataset, so <code>columns=temp,hum</code>
+gives the values of <code>temperature</code> to <code>temp</code> and those of <code>humidity</code> to <code>hum</code>.
+The granules are the maps of <code>temperature</code> for which <code>humidity</code> has a map with
+the same time: the first day has no humidity, so it is left out and the output
+has two layers, the second and the third day. The point in the cell 7 reads a
+NULL in <code>hum</code>, and the fifth point outside the region a NULL in both columns.
+The second block shows the column types: <code>temp</code> follows the integer maps of
+<code>temperature</code>, <code>hum</code> the floating point maps of <code>humidity</code>.
+
 <p>
-The third block adds the dataset <code>late</code> with one map from noon of the
-first day to noon of the second day. No map of <code>late</code> has the time of
-a map of <code>temperature</code>, so no granule is left: the module ends
-without a message and the new dataset <code>none</code> has no map
-(<code>number_of_maps=0</code>); the vector map <code>none_points</code>
-exists, with layer 1 only. The fourth block adds the dataset
-<code>twice</code> with the two maps <code>twice_a</code> (the value 1) and
-<code>twice_b</code> (the value 2) for the first day. The column
-<code>two</code> gets the value of one of them, here 1, for the points in the
-region; the other map is not used.
+The third block adds the dataset <code>late</code> with one map from noon of the first day
+to noon of the second day. No map of <code>late</code> has the time of a map of
+<code>temperature</code>, so no granule is left: the module ends without a message and
+the new dataset <code>none</code> has no map (<code>number_of_maps=0</code>); the vector map
+<code>none_points</code> exists, with layer 1 only. The fourth block adds the dataset
+<code>twice</code> with the two maps <code>twice_a</code> (the value 1) and <code>twice_b</code> (the value 2)
+for the first day. The column <code>two</code> gets the value of one of them, here 1, for
+the points in the region; the other map is not used.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -525,15 +527,16 @@ cat|x|y|altitude|temp|two
 
 <h3>Observe a selection of the points</h3>
 
-<b>where</b> selects points of <code>stations</code> by their attributes:
-<code>altitude &gt;= 300</code> keeps the points with the categories 3, 4 and 5.
-The output map has only these points, in every layer, with the categories they
-have in the input. The values are those of the example above. The layer 1 of the
-output keeps the layer name <code>stations</code>.
+<b>where</b> selects points of <code>stations</code> by their attributes: <code>altitude &gt;= 300</code>
+keeps the points with the categories 3, 4 and 5. The output map has only these
+points, in every layer, with the categories they have in the input. The values
+are those of the example above. The layer 1 of the output keeps the layer name
+<code>stations</code>.
+
 <p>
 The second block uses a condition that selects no point. The module ends with a
-Python error, <code>KeyError: 1</code>, and the empty vector map
-<code>nowhere_points</code> stays.
+Python error, <code>KeyError: 1</code>, and the empty vector map <code>nowhere_points</code> stays.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -631,14 +634,14 @@ nowhere_points
 
 <h3>Use the name of a column that the input has</h3>
 
-The column <code>altitude</code> exists in the table of <code>stations</code>.
-The first block shows that the module refuses it and prints the error. With
-<b>--overwrite</b> (second block) the module writes the sampled values into the
-existing column of layer 1 and the layers 2 and 3 get a column with that name.
-The fifth point lies outside the region, is not sampled and keeps the altitude
-500. The third block shows that <code>Altitude</code> is refused, with
-<b>--overwrite</b> too, because it differs from <code>altitude</code> only in
-the case of a letter.
+The column <code>altitude</code> exists in the table of <code>stations</code>. The first block shows
+that the module refuses it and prints the error. With <b>--overwrite</b> (second
+block) the module writes the sampled values into the existing column of layer 1
+and the layers 2 and 3 get a column with that name. The fifth point lies outside
+the region, is not sampled and keeps the altitude 500. The third block shows
+that <code>Altitude</code> is refused, with <b>--overwrite</b> too, because it differs from
+<code>altitude</code> only in the case of a letter.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -771,12 +774,12 @@ t.vect.observe.strds failed
 
 <h3>Observe a dataset with relative time</h3>
 
-The dataset <code>model</code> has relative time with the unit hours:
-<code>step_1</code> from 0 to 1 and <code>step_2</code> from 1 to 2, with the
-values <code>100 * k + col()</code> for <code>step_k</code>. The points in the
-columns 1, 3, 2 and 1 read 201, 203, 202 and 201 in layer 2. The output dataset
-has relative time with the same unit, and its layers have the times of the maps
-as numbers.
+The dataset <code>model</code> has relative time with the unit hours: <code>step_1</code> from 0 to 1
+and <code>step_2</code> from 1 to 2, with the values <code>100 * k + col()</code> for <code>step_k</code>. The
+points in the columns 1, 3, 2 and 1 read 201, 203, 202 and 201 in layer 2. The
+output dataset has relative time with the same unit, and its layers have the
+times of the maps as numbers.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -854,11 +857,11 @@ cat|step
 <h3>Observe data of another mapset</h3>
 
 The input map and the raster dataset may be in another mapset: the names with
-the mapset, <code>stations@PERMANENT</code> and
-<code>temperature@PERMANENT</code>, select them. The output map and dataset are
-made in the current mapset, here the new mapset <code>analysis</code>. A new
-mapset has its own region, so the example sets the region again before the
-points are sampled.
+the mapset, <code>stations@PERMANENT</code> and <code>temperature@PERMANENT</code>, select them. The
+output map and dataset are made in the current mapset, here the new mapset
+<code>analysis</code>. A new mapset has its own region, so the example sets the region
+again before the points are sampled.
+
 <p>Command line:</p>
 
 <div class="code"><pre>
@@ -915,21 +918,13 @@ cat|temp
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.region.html">g.region</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.what.html">t.rast.what</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.vect.db.select.html">t.vect.db.select</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
-<a href="t.vect.what.strds.html">t.vect.what.strds</a>,
-<a href="v.db.select.html">v.db.select</a>,
-<a href="v.extract.html">v.extract</a>,
+<em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>, <a href="t.rast.what.html">t.rast.what</a>,
+<a href="t.register.html">t.register</a>, <a href="t.vect.db.select.html">t.vect.db.select</a>,
+<a href="t.vect.list.html">t.vect.list</a>, <a href="t.vect.what.strds.html">t.vect.what.strds</a>,
+<a href="v.db.select.html">v.db.select</a>, <a href="v.extract.html">v.extract</a>,
 <a href="v.what.rast.html">v.what.rast</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

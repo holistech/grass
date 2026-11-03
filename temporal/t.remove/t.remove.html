@@ -1,91 +1,87 @@
 <h2>DESCRIPTION</h2>
 
 <em>t.remove</em> removes space time datasets from the temporal database of the
-current mapset. A space time dataset (STRDS, STR3DS or STVDS) is a collection of
-time stamped maps; see the <a href="temporalintro.html">introduction to temporal
-data processing</a> for an overview. <em>t.remove</em> is the counterpart of
-<em><a href="t.create.html">t.create</a></em>. By default it removes only the
-dataset and leaves its maps alone: they stay in the mapset and, with their time
-stamps, in the temporal database, as <em><a href="t.list.html">t.list</a></em>
+current mapset. A space time dataset (STRDS, STR3DS or STVDS) is a collection
+of time stamped maps; see the
+<a href="temporalintro.html">introduction to temporal data processing</a> for an overview.
+<em>t.remove</em> is the counterpart of <em><a href="t.create.html">t.create</a></em>. By default it
+removes only the dataset and leaves its maps alone: they stay in the mapset
+and, with their time stamps, in the temporal database, as <em><a href="t.list.html">t.list</a></em>
 with <b>type</b> <code>raster</code> shows.
 
 <p>
 The datasets are named with <b>inputs</b>, a comma separated list, or with
 <b>file</b>, a text file that holds one name per line. Empty lines in the file
 are skipped and blanks around a name are ignored. A name may carry its mapset
-(<code>rain@PERMANENT</code>). The options <b>inputs</b> and <b>file</b> exclude
-each other, and one of them is required.
+(<code>rain@PERMANENT</code>). The options <b>inputs</b> and <b>file</b> exclude each other,
+and one of them is required.
 
 <p>
-The option <b>type</b> gives the type of all datasets of the call:
-<code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A
-dataset is found by its type and name, so the call refuses a name that belongs
-to a dataset of another type.
+The option <b>type</b> gives the type of all datasets of the call: <code>strds</code>
+(the default), <code>str3ds</code> or <code>stvds</code>. A dataset is found by its type and name,
+so the call refuses a name that belongs to a dataset of another type.
 
 <p>
-Nothing is removed without the flag <b>-f</b> (force). Without it,
-<em>t.remove</em> only reports, as messages on the standard error, which
-datasets it would remove and, with <b>-r</b> or <b>-d</b>, the names of their
-maps, and ends with the message "Nothing removed. You must use the force flag
-(-f) to actually remove them." With <b>-f</b>, the flags choose how far the
-removal goes:
+Nothing is removed without the flag <b>-f</b> (force). Without it, <em>t.remove</em>
+only reports, as messages on the standard error, which datasets it would
+remove and, with <b>-r</b> or <b>-d</b>, the names of their maps, and ends with
+the message "Nothing removed. You must use the force flag (-f) to actually
+remove them." With <b>-f</b>, the flags choose how far the removal goes:
 
 <ul>
 <li>no further flag: the datasets are removed and their maps are left as they
 are;</li>
-<li><b>-r</b> (recursive): the datasets are removed and their maps are
-unregistered from the temporal database. The maps stay in the mapset, but are no
-longer known to the temporal database and belong to no dataset;</li>
-<li><b>-d</b> (delete): as <b>-r</b>, and the maps are also deleted from the
-mapset, with <em>g.remove</em>: raster maps for <code>strds</code>, 3D raster
-maps for <code>str3ds</code> and vector maps for <code>stvds</code>. <b>-d</b>
-alone does what <b>-r</b> and <b>-d</b> together do. A vector map with several
-layers is deleted once.</li>
+<li><b>-r</b> (recursive): the datasets are removed and their maps are unregistered
+from the temporal database. The maps stay in the mapset, but are no longer
+known to the temporal database and belong to no dataset;</li>
+<li><b>-d</b> (delete): as <b>-r</b>, and the maps are also deleted from the mapset,
+with <em>g.remove</em>: raster maps for <code>strds</code>, 3D raster maps for <code>str3ds</code> and
+vector maps for <code>stvds</code>. <b>-d</b> alone does what <b>-r</b> and <b>-d</b> together
+do. A vector map with several layers is deleted once.</li>
 </ul>
 
 <p>
-Only maps of the current mapset are deleted, because GRASS writes to the current
-mapset only. For each registered map of another mapset, <em>t.remove</em> with
-<b>-d</b> warns that the map is not removed, and still removes the dataset.
+Only maps of the current mapset are deleted, because GRASS writes to the
+current mapset only. For each registered map of another mapset, <em>t.remove</em>
+with <b>-d</b> warns that the map is not removed, and still removes the dataset.
 
 <p>
-A map can be registered in several datasets. With <b>-r</b> or <b>-d</b>, a map
-is taken out of every dataset that holds it. A dataset that is not removed and
+A map can be registered in several datasets. With <b>-r</b> or <b>-d</b>, a map is
+taken out of every dataset that holds it. A dataset that is not removed and
 loses maps this way gets its number of maps, time and spatial extent and the
-other metadata computed again from the maps that are left; <em><a
-href="t.info.html">t.info</a></em> shows the new values.
+other metadata computed again from the maps that are left; <em><a href="t.info.html">t.info</a></em>
+shows the new values.
 
 <h2>NOTES</h2>
 
 All datasets of a call are opened before the first one is removed. A name that
-does not exist stops the run with an error before anything has changed, so that
-a call with an unknown name after valid ones removes none of them. The same
-holds for a call with both or neither of <b>inputs</b> and <b>file</b>, for
-which the errors are "inputs= and file= are mutually exclusive" and "inputs= or
-file= must be specified". A missing <b>file</b> is reported as an error with the
-file name.
+does not exist stops the run with an error before anything has changed, so
+that a call with an unknown name after valid ones removes none of them. The
+same holds for a call with both or neither of <b>inputs</b> and <b>file</b>, for
+which the errors are "inputs= and file= are mutually exclusive" and
+"inputs= or file= must be specified". A missing <b>file</b> is reported as an
+error with the file name.
 
 <p>
-Removing a dataset twice fails the second time with the error that the dataset
-does not exist, because the first call removed it.
+Removing a dataset twice fails the second time with the error that the
+dataset does not exist, because the first call removed it.
 
 <p>
 A dataset is found by its type. A call with the wrong <b>type</b> for the name,
-such as the default <code>strds</code> for a space time 3D raster dataset, stops
-with an error like <code>Space time dataset &lt;soil&gt; of type &lt;strds&gt;
-not found</code>; give <b>type=str3ds</b>.
+such as the default <code>strds</code> for a space time 3D raster dataset, stops with an
+error like <code>Space time dataset &lt;soil&gt; of type &lt;strds&gt; not found</code>; give
+<b>type=str3ds</b>.
 
 <h2>EXAMPLES</h2>
 
 <h3>Remove a dataset and keep its maps</h3>
 
-Two space time raster datasets hold five maps in all: <code>rain</code> has
-three daily maps, <code>snow</code> two. <em>t.list</em> shows both datasets
-and, with <b>type</b> <code>raster</code>, all five maps with their time stamps.
-After <code>t.remove -f inputs=rain</code>, the second command lists three
-results: first the datasets, where only <code>snow</code> is left, then the
-registered maps, where all five are still found, and last the maps named
-<code>rain_*</code> in the mapset, found with <em>g.list</em>.
+Two space time raster datasets hold five maps in all: <code>rain</code> has three daily
+maps, <code>snow</code> two. <em>t.list</em> shows both datasets and, with <b>type</b> <code>raster</code>,
+all five maps with their time stamps. After <code>t.remove -f inputs=rain</code>, the
+second command lists three results: first the datasets, where only <code>snow</code> is
+left, then the registered maps, where all five are still found, and last the
+maps named <code>rain_*</code> in the mapset, found with <em>g.list</em>.
 
 <p>Command line:</p>
 
@@ -193,11 +189,11 @@ rain_3
 
 <h3>Look before removing</h3>
 
-Without <b>-f</b>, <em>t.remove</em> removes nothing, whatever the other flags
-are. It names the dataset and, with <b>-d</b>, the maps it would delete in
-messages on the standard error, which are not shown here. The result is the same
-as before: the first line shows that the dataset <code>snow</code> still holds
-two maps, and the others list the maps of the mapset.
+Without <b>-f</b>, <em>t.remove</em> removes nothing, whatever the other flags are. It
+names the dataset and, with <b>-d</b>, the maps it would delete in messages on
+the standard error, which are not shown here. The result is the same as before:
+the first line shows that the dataset <code>snow</code> still holds two maps, and the
+others list the maps of the mapset.
 
 <p>Command line:</p>
 
@@ -229,11 +225,10 @@ snow_2
 
 <h3>Unregister the maps with -r</h3>
 
-<em>t.remove</em> with <b>-r</b> and <b>-f</b> removes <code>snow</code> and
-unregisters its maps. They disappear from the list of raster maps of the
-temporal database, which shows only the three maps of <code>rain</code>, removed
-without <b>-r</b> above. They stay in the mapset: the last two lines come from
-<em>g.list</em>.
+<em>t.remove</em> with <b>-r</b> and <b>-f</b> removes <code>snow</code> and unregisters its maps.
+They disappear from the list of raster maps of the temporal database, which
+shows only the three maps of <code>rain</code>, removed without <b>-r</b> above. They stay
+in the mapset: the last two lines come from <em>g.list</em>.
 
 <p>Command line:</p>
 
@@ -270,10 +265,9 @@ snow_2
 <h3>Delete the maps with -d and take names from a file</h3>
 
 Two new datasets are named in a file, one name per line, with an empty line
-between the names, and removed together with their maps. Afterwards
-<em>t.list</em> shows that only the maps of <code>rain</code> are still
-registered, and <em>g.list</em> that the mapset holds only the maps of
-<code>rain</code> and <code>snow</code>.
+between the names, and removed together with their maps. Afterwards <em>t.list</em>
+shows that only the maps of <code>rain</code> are still registered, and <em>g.list</em> that the
+mapset holds only the maps of <code>rain</code> and <code>snow</code>.
 
 <p>Command line:</p>
 
@@ -362,11 +356,10 @@ snow_2
 
 <h3>Maps that belong to two datasets</h3>
 
-The map <code>shared_2</code> is registered in <code>first</code> and in
-<code>second</code>. Removing <code>first</code> with <b>-r</b> unregisters its
-maps from <code>second</code> too. <code>second</code> stays, and
-<em>t.info</em> shows that it has only one map left, <code>shared_3</code>, with
-its start and end time computed from that map.
+The map <code>shared_2</code> is registered in <code>first</code> and in <code>second</code>. Removing <code>first</code>
+with <b>-r</b> unregisters its maps from <code>second</code> too. <code>second</code> stays, and
+<em>t.info</em> shows that it has only one map left, <code>shared_3</code>, with its start and
+end time computed from that map.
 
 <p>Command line:</p>
 
@@ -431,11 +424,11 @@ shared_3|PERMANENT|2026-08-03 00:00:00|2026-08-04 00:00:00
 
 <h3>Remove datasets of other types</h3>
 
-With <b>type</b>, <em>t.remove</em> works on space time 3D raster datasets and
-on space time vector datasets. <b>-d</b> then deletes 3D raster maps or vector
-maps. Here, a dataset of each type is created and removed with its maps. A copy
-of each map, registered in no dataset, shows that <em>g.list</em> lists the maps
-before the removal and only the copies after it.
+With <b>type</b>, <em>t.remove</em> works on space time 3D raster datasets and on space
+time vector datasets. <b>-d</b> then deletes 3D raster maps or vector maps. Here,
+a dataset of each type is created and removed with its maps. A copy of
+each map, registered in no dataset, shows that <em>g.list</em> lists the maps before
+the removal and only the copies after it.
 
 <p>Command line:</p>
 
@@ -560,10 +553,9 @@ gauges_copy
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.remove.html">g.remove</a>, <a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>, <a
-href="t.register.html">t.register</a>, <a href="temporalintro.html">temporal
-data processing</a></em>
+<em><a href="g.remove.html">g.remove</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.list.html">t.list</a>, <a href="t.register.html">t.register</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

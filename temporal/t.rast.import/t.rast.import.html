@@ -1,141 +1,141 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.import</em> imports an archive that
-<em><a href="t.rast.export.html">t.rast.export</a></em> wrote: it unpacks the
-archive, imports the raster maps and registers them in a new space time raster
-dataset with the times of the archive. The archive moves a dataset from another
-project or computer into the current project. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets. The tool for space time vector datasets is
-<em><a href="t.vect.import.html">t.vect.import</a></em>;
-<em>t.rast.import</em> refuses the archive of a vector dataset.
+<em>t.rast.import</em> imports an archive that <em><a href="t.rast.export.html">t.rast.export</a></em>
+wrote: it unpacks the archive, imports the raster maps and registers them in a
+new space time raster dataset with the times of the archive. The archive moves
+a dataset from another project or computer into the current project. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. The tool for space time vector datasets is
+<em><a href="t.vect.import.html">t.vect.import</a></em>; <em>t.rast.import</em> refuses the archive of a
+vector dataset.
+
 <p>
 The option <b>input</b> names the archive, and <b>output</b> the new space time
 raster dataset, which is made in the current mapset. The compression of the
-archive (<code>bzip2</code>, <code>gzip</code> or none) and the format of the
-maps in it (<code>GTiff</code>, <code>AAIGrid</code> or <code>pack</code>) are
-found out from the archive. The maps of a <code>GTiff</code> or
-<code>AAIGrid</code> archive are imported with
-<em><a href="r.in.gdal.html">r.in.gdal</a></em>, those of a <code>pack</code>
-archive with <em><a href="r.unpack.html">r.unpack</a></em>. The temporal type,
-the unit of relative time, the semantic type of the dataset, the times of the
-maps and their semantic labels come from the archive, too. The options
-<b>title</b> and <b>description</b> set the title and the description of the
-new dataset.
+archive (<code>bzip2</code>, <code>gzip</code> or none) and the format of the maps in it (<code>GTiff</code>,
+<code>AAIGrid</code> or <code>pack</code>) are found out from the archive. The maps of a <code>GTiff</code> or
+<code>AAIGrid</code> archive are imported with <em><a href="r.in.gdal.html">r.in.gdal</a></em>, those of a
+<code>pack</code> archive with <em><a href="r.unpack.html">r.unpack</a></em>. The temporal type, the
+unit of relative time, the semantic type of the dataset, the times of the maps
+and their semantic labels come from the archive, too. The options <b>title</b> and
+<b>description</b> set the title and the description of the new dataset.
 
 <h3>Names of the maps</h3>
 
 Without <b>basename</b>, each map keeps the name it has in the archive. The
-option <b>basename</b> names the maps <code>basename_1</code>,
-<code>basename_2</code> and so on, with a numerical suffix in the order of the
-maps in the archive. The suffix has as many digits as the number of maps,
-padded with zeros: a dataset of ten maps gets <code>basename_01</code> to
-<code>basename_10</code> (see the last example). This is the way to import a dataset into the project it
-was exported from, where the names of the archive are taken. A map of the same
-name in the current mapset is refused (see the notes).
+option <b>basename</b> names the maps <code>basename_1</code>, <code>basename_2</code> and so on, with
+a numerical suffix in the order of the maps in the archive. The suffix has as
+many digits as the number of maps, padded with zeros: a dataset of ten maps
+gets <code>basename_01</code> to <code>basename_10</code> (see the last example). This is the way
+to import a dataset into the project it was exported from, where the names of
+the archive are taken. A map of the same name in the current mapset is
+refused (see the notes).
 
 <h3>Projection and new projects</h3>
 
-The option <b>project</b> makes a new project with the coordinate reference
-system of the archive in the GRASS database of the session and imports into it.
-The project must not exist yet. When the import is over, the session is in the
+The option <b>project</b> makes a new project with the coordinate reference system
+of the archive in the GRASS database of the session and imports into it. The
+project must not exist yet. When the import is over, the session is in the
 project and mapset it was in before. The flag <b>-c</b> makes the project and
 imports nothing; the archive is needed even then, because the new project takes
 its coordinate reference system from it. An archive made in a project without a
-coordinate reference system (the project <code>XY</code>) makes a project
-without one.
+coordinate reference system (the project <code>XY</code>) makes a project without one.
+
 <p>
 Without <b>project</b>, the maps are imported into the current project. The
 import compares the coordinate reference system of the archive with that of the
-project and refuses a difference. The flag <b>-o</b> assumes that the archive
-has the coordinate reference system of the current project and skips this
-check. In a project without a coordinate reference system, <b>-o</b> is needed
-for GeoTIFF archives as well, because a GeoTIFF file made there holds none; the
-examples import AAIGrid and <code>pack</code> archives there without it. An
-import with <b>project</b> needs no <b>-o</b>.
+project and refuses a difference. The flag <b>-o</b> assumes that the archive has
+the coordinate reference system of the current project and skips this check.
+In a project without a coordinate reference system, <b>-o</b> is needed for
+GeoTIFF archives as well, because a GeoTIFF file made there holds none; the
+examples import AAIGrid and <code>pack</code> archives there without it. An import with
+<b>project</b> needs no <b>-o</b>.
+
 <p>
-The flag <b>-e</b> extends the extent of the project to the maps of a
-<code>GTiff</code> or <code>AAIGrid</code> archive: it makes the default region
-and the current region of the project cover the imported maps. With
-<b>project</b>, the flag is always on for these formats, so the new project has
-the extent of the maps. The maps of a <code>pack</code> archive do not change
-the region, with or without <b>-e</b> (see the notes); a new project then keeps
-its default region.
+The flag <b>-e</b> extends the extent of the project to the maps of a <code>GTiff</code> or
+<code>AAIGrid</code> archive: it makes the default region and the current region of the
+project cover the imported maps. With <b>project</b>, the flag is always on for
+these formats, so the new project has the extent of the maps. The maps of a
+<code>pack</code> archive do not change the region, with or without <b>-e</b> (see the
+notes); a new project then keeps its default region.
 
 <h3>Files and region</h3>
 
-The option <b>directory</b> names the directory that the archive is extracted
-to. It must exist, and the extracted files stay in it. By default, the tool
-uses a temporary directory. The flag <b>-l</b> links the raster maps to the
-GeoTIFF or ASCII grid files with <em><a href="r.external.html">r.external</a></em> instead of
-importing the cells with <em><a href="r.in.gdal.html">r.in.gdal</a></em>. The maps then read their cells from
-the extracted files, so with <b>-l</b> choose a <b>directory</b> that you keep.
-The option <b>memory</b> is the cache size in MB for raster rows (default 300)
-that <em>r.in.gdal</em> uses; <em>r.external</em> has none, so <b>-l</b>
-ignores it.
+The option <b>directory</b> names the directory that the archive is extracted to.
+It must exist, and the extracted files stay in it. By default, the tool uses a
+temporary directory. The flag <b>-l</b> links the raster maps to the GeoTIFF or
+ASCII grid files with <em><a href="r.external.html">r.external</a></em> instead of
+importing the cells with <em><a href="r.in.gdal.html">r.in.gdal</a></em>. The maps then read their
+cells from the extracted files, so with <b>-l</b> choose a <b>directory</b> that you
+keep. The option <b>memory</b> is the cache size in MB for raster rows (default
+300) that <em>r.in.gdal</em> uses; <em>r.external</em> has none, so <b>-l</b> ignores it.
+
 <p>
 The flag <b>-r</b> sets the current computational region to the region of the
 last map that was imported. Without it, the region stays as it is.
+
 <p>
-An existing dataset <b>output</b> is refused unless <b>--overwrite</b> is
-given. With <b>--overwrite</b>, the dataset is made again from the archive and
-maps of the same names are replaced.
+An existing dataset <b>output</b> is refused unless <b>--overwrite</b> is given.
+With <b>--overwrite</b>, the dataset is made again from the archive and maps of
+the same names are replaced.
 
 <h2>NOTES</h2>
 
-The maps of a <code>pack</code> archive are unpacked with
-<em><a href="r.unpack.html">r.unpack</a></em>, which does not extend the
-region: <b>-e</b> has no effect, the region stays as it is, and with
-<b>project</b> the new project keeps its default region, one cell from (0, 0)
-to (1, 1) for a project without a coordinate reference system. Use <b>-r</b>
-to set the region from the maps of a <code>pack</code> archive, or
-<em><a href="g.region.html">g.region</a></em> afterwards. The example with the
-semantic labels shows the missing extension.
+The maps of a <code>pack</code> archive are unpacked with <em><a href="r.unpack.html">r.unpack</a></em>,
+which does not extend the region: <b>-e</b> has no effect, the region stays as it
+is, and with <b>project</b> the new project keeps its default region, one cell
+from (0, 0) to (1, 1) for a project without a coordinate reference system. Use
+<b>-r</b> to set the region from the maps of a <code>pack</code> archive, or
+<em><a href="g.region.html">g.region</a></em> afterwards. The example with the semantic labels
+shows the missing extension.
+
 <p>
 A map that the archive names <code>name@mapset</code>, which
-<em><a href="t.rast.export.html">t.rast.export</a></em> writes for maps of one
-name from several mapsets, is imported as <code>name_mapset</code>; every
-character of the mapset other than a letter, a digit or an underscore becomes
-an underscore, so <code>dup@my.set</code> is imported as
-<code>dup_my_set</code>. If two maps of the archive would get one name this
-way, for example <code>dup@other</code> and a map <code>dup_other</code>, the
-import stops before the first map is imported; with <b>basename</b> the maps are
-numbered instead. An archive that lists a map more than once, as older exports
-wrote it for maps of one name from several mapsets, is refused before the first
-map is imported; a new export of the dataset names the maps with their mapset.
+<em><a href="t.rast.export.html">t.rast.export</a></em> writes for maps of one name from several
+mapsets, is imported as <code>name_mapset</code>; every character of the mapset other
+than a letter, a digit or an underscore becomes an underscore, so
+<code>dup@my.set</code> is imported as <code>dup_my_set</code>. If two maps of the archive would get
+one name this way, for example <code>dup@other</code> and a map <code>dup_other</code>, the import
+stops before the first map is imported; with <b>basename</b> the maps are
+numbered instead.
+An archive that lists a map more than once, as older exports wrote it for
+maps of one name from several mapsets, is refused before the first map is
+imported; a new export of the dataset names the maps with their mapset.
+
 <p>
 The name of the new dataset may not contain a dot. The tool checks this before
 it makes anything, so a refused name leaves no new project behind.
+
 <p>
 The dataset and the maps are made in the current mapset. A map of the same
 name in another mapset is no clash, as the example with the semantic labels
 shows. In a dataset with relative time, the unit of the archive is kept.
+
 <p>
 The tool checks the archive and the names before it imports the first map,
 so a refusal does not leave part of the maps behind:
+
 <ul>
-<li><code>Space time strds dataset ... is already in the database. Use the
-overwrite flag.</code> for an existing dataset;</li>
-<li><code>... exists. To overwrite, use the --overwrite flag</code> for an
-existing map of the current mapset;</li>
-<li><code>Space time raster dataset archive ... not found</code> and
-<code>Extraction directory ... not found</code> for a missing archive or
-<b>directory</b>;</li>
-<li><code>The archive file is of wrong space time dataset type</code> for an
-archive of vector maps;</li>
-<li><code>Number of maps mismatch in init and list file.</code> if
-<code>number_of_maps</code> in "init.txt" differs from the number of maps in
-"list.txt";</li>
-<li><code>Unable to create location ...</code> for a <b>project</b> that
-exists.</li>
+<li><code>Space time strds dataset ... is already in the database. Use the overwrite
+flag.</code> for an existing dataset;</li>
+<li><code>... exists. To overwrite, use the --overwrite flag</code> for an existing map of
+the current mapset;</li>
+<li><code>Space time raster dataset archive ... not found</code> and <code>Extraction directory
+... not found</code> for a missing archive or <b>directory</b>;</li>
+<li><code>The archive file is of wrong space time dataset type</code> for an archive of
+vector maps;</li>
+<li><code>Number of maps mismatch in init and list file.</code> if <code>number_of_maps</code> in
+"init.txt" differs from the number of maps in "list.txt";</li>
+<li><code>Unable to create location ...</code> for a <b>project</b> that exists.</li>
 </ul>
+
 <p>
 An archive whose coordinate reference system differs from that of the project
-is refused with <code>Projection information does not match.
-Aborting.</code>. A GeoTIFF archive in a project without a coordinate
-reference system is refused with <code>Unable to import/link raster map
-...</code>. <b>-o</b> cures both, if the coordinate reference systems are the
-same.
+is refused with <code>Projection information does not match. Aborting.</code>. A GeoTIFF
+archive in a project without a coordinate reference system is refused with
+<code>Unable to import/link raster map ...</code>. <b>-o</b> cures both, if the coordinate
+reference systems are the same.
+
 <p>
 Blank lines in "list.txt" and "init.txt" are skipped, so an archive edited
 by hand may contain them. A line of "init.txt" without an equals sign stops
@@ -144,29 +144,28 @@ sign.
 
 <h2>EXAMPLES</h2>
 
-The examples run in a project called <code>temporal_examples</code>, which has
-no coordinate reference system; where a command names this project, use the
-name of your own project.
+The examples run in a project called <code>temporal_examples</code>, which has no
+coordinate reference system; where a command names this project, use the name
+of your own project.
 
 <h3>Import an archive under new names</h3>
 
-The dataset <code>temperature</code> has four maps of daily mean air
-temperature for the days from 1 to 4 March 2026. The maps have three columns
-and two rows, and their values are the column number plus the offset 0, 3, 6
-and 9. The first block creates it.
+The dataset <code>temperature</code> has four maps of daily mean air temperature for the
+days from 1 to 4 March 2026. The maps have three columns and two rows, and
+their values are the column number plus the offset 0, 3, 6 and 9. The first
+block creates it.
+
 <p>
 The second block writes the archive <code>temperature.tar.bz2</code> with
-<em><a href="t.rast.export.html">t.rast.export</a></em> and imports it into the same project. The maps of the
-archive carry the names of the maps that exist already, so <b>basename</b>
-names the new maps <code>imported_1</code> to <code>imported_4</code>. The flag
-<b>-o</b> is needed in the project of the examples, which has no coordinate
-reference system, because the GeoTIFF files hold none. <b>title</b> and
-<b>description</b> are set, and <b>memory</b> limits the cache of
-<em>r.in.gdal</em> to 100 MB. The commands print the new dataset and the
-minimum and the maximum of its maps, which are those of the exported maps (the
-map <code>imported_n</code> holds the values from 3n - 2 to 3n), and the title
-and the description of the dataset from
-<em>t.info</em>.
+<em><a href="t.rast.export.html">t.rast.export</a></em> and imports it into the same project. The
+maps of the archive carry the names of the maps that exist already, so
+<b>basename</b> names the new maps <code>imported_1</code> to <code>imported_4</code>. The flag <b>-o</b>
+is needed in the project of the examples, which has no coordinate reference
+system, because the GeoTIFF files hold none. <b>title</b> and <b>description</b> are
+set, and <b>memory</b> limits the cache of <em>r.in.gdal</em> to 100 MB. The commands
+print the new dataset and the minimum and the maximum of its maps, which are
+those of the exported maps (the map <code>imported_n</code> holds the values from 3n - 2
+to 3n), and the title and the description of the dataset from <em>t.info</em>.
 
 <p>Command line:</p>
 
@@ -274,13 +273,12 @@ imported_4@PERMANENT|10|12
 
 <h3>Link the files instead of importing the cells</h3>
 
-With <b>-l</b>, the maps are linked to the GeoTIFF files with
-<em>r.external</em>: the cells stay in the files, which <b>directory</b> names
-and the tool leaves there. The directory <code>files</code> has to exist. The
-commands list the GeoTIFF files in it, print the type of the first map,
-<code>GDAL-link</code> for a linked map, and its minimum and maximum, which are
-those of the exported map (1 and 3). The maps read their cells from the files,
-so the files must stay where they are.
+With <b>-l</b>, the maps are linked to the GeoTIFF files with <em>r.external</em>: the
+cells stay in the files, which <b>directory</b> names and the tool leaves there.
+The directory <code>files</code> has to exist. The commands list the GeoTIFF files in it,
+print the type of the first map, <code>GDAL-link</code> for a linked map, and its
+minimum and maximum, which are those of the exported map (1 and 3). The maps
+read their cells from the files, so the files must stay where they are.
 
 <p>Command line:</p>
 
@@ -391,8 +389,8 @@ e=3
 
 <h3>Create a project and extend its region</h3>
 
-The flag <b>-c</b> makes the project and imports nothing. The default region of
-a new project without a coordinate reference system is one cell from (0, 0) to
+The flag <b>-c</b> makes the project and imports nothing. The default region of a
+new project without a coordinate reference system is one cell from (0, 0) to
 (1, 1). The second import into it uses <b>-e</b>, so the default region and the
 current region grow to the extent of the maps, 3 columns and 2 rows.
 
@@ -504,18 +502,18 @@ e=3
 
 <h3>Import a dataset with relative time and semantic labels</h3>
 
-The dataset <code>sentinel</code> has relative time in days and four maps of 10
-days each. The maps alternate between the red band (semantic label
-<code>S2_B4</code>) and the near infrared band (<code>S2_B8</code>). The
-archive is in the <code>pack</code> format and needs no GDAL driver. The import
-goes to the new mapset <code>archive</code>; the maps keep their names, because
-the mapset has none of them, and the dataset keeps the unit, the times and the
-labels.
+The dataset <code>sentinel</code> has relative time in days and four maps of 10 days
+each. The maps alternate between the red band (semantic label <code>S2_B4</code>) and
+the near infrared band (<code>S2_B8</code>). The archive is in the <code>pack</code> format and
+needs no GDAL driver. The import goes to the new mapset <code>archive</code>; the maps
+keep their names, because the mapset has none of them, and the dataset keeps
+the unit, the times and the labels.
+
 <p>
 The last block imports the archive a second time with <b>-e</b> under another
-<b>basename</b>. The new mapset has the region of one cell, and the region is
-the same before and after, although the maps have 2 rows and 3 columns:
-<b>-e</b> does nothing for a <code>pack</code> archive.
+<b>basename</b>. The new mapset has the region of one cell, and the region is the
+same before and after, although the maps have 2 rows and 3 columns: <b>-e</b>
+does nothing for a <code>pack</code> archive.
 
 <p>Command line:</p>
 
@@ -646,8 +644,8 @@ e=1
 
 <h3>Replace a dataset with an ASCII grid archive</h3>
 
-The archive in the format <code>AAIGrid</code> holds the maps as Arc/Info ASCII
-Grid files, which carry no coordinate reference system; the import needs no
+The archive in the format <code>AAIGrid</code> holds the maps as Arc/Info ASCII Grid
+files, which carry no coordinate reference system; the import needs no
 <b>-o</b> for them in the project of the examples. Importing the same archive
 again under the same names needs <b>--overwrite</b>, which replaces the dataset
 and its maps. The commands list the dataset after the second import. The last
@@ -736,10 +734,9 @@ maptype=GDAL-link
 
 <h3>Numbers of the new maps</h3>
 
-The dataset <code>long</code> has ten maps. With <b>basename</b>, the suffix has
-two digits because there are ten maps, so the new maps are
-<code>part_01</code> to <code>part_10</code>. With fewer than ten maps, as in
-the first example, the suffix is a single digit.
+The dataset <code>long</code> has ten maps. With <b>basename</b>, the suffix has two digits
+because there are ten maps, so the new maps are <code>part_01</code> to <code>part_10</code>. With
+fewer than ten maps, as in the first example, the suffix is a single digit.
 
 <p>Command line:</p>
 
@@ -811,17 +808,11 @@ part_10
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="r.external.html">r.external</a>,
-<a href="r.in.gdal.html">r.in.gdal</a>,
-<a href="r.unpack.html">r.unpack</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.export.html">t.rast.export</a>,
+<em><a href="g.region.html">g.region</a>, <a href="r.external.html">r.external</a>,
+<a href="r.in.gdal.html">r.in.gdal</a>, <a href="r.unpack.html">r.unpack</a>,
+<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.rast.export.html">t.rast.export</a>,
 <a href="t.vect.import.html">t.vect.import</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

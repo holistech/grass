@@ -13,6 +13,7 @@ datasets.
 
 The option <b>type</b> chooses what is listed. It takes one or more of these
 values, separated by commas; the default is <code>strds</code>:
+
 <ul>
 <li><code>strds</code>, <code>str3ds</code> and <code>stvds</code>: space time raster, 3D raster and vector
 datasets;</li>
@@ -20,23 +21,28 @@ datasets;</li>
 listed whether or not it is registered in a dataset, but it must be
 registered in the temporal database with <em><a href="t.register.html">t.register</a></em>.</li>
 </ul>
+
 <p>
 Space time datasets and maps cannot be listed together: <code>type=strds,raster</code>
 stops with an error.
+
 <p>
 The option <b>temporaltype</b> chooses the temporal types: <code>absolute</code> for
 datasets and maps with calendar time, <code>relative</code> for those with a number of
 time units. The default is <code>absolute,relative</code>, both.
+
 <p>
 The option <b>where</b> takes an SQL condition on the columns of the listing,
 such as <code>number_of_maps &gt; 2</code> or <code>semantic_label IS NOT NULL</code>. A condition like
 <code>name LIKE 'precip%'</code> lists by a pattern in the name, as the option <b>pattern</b>
 of <em><a href="g.list.html">g.list</a></em> does. A condition with a syntax error stops with an
 error that starts with "Invalid where condition".
+
 <p>
 The option <b>mapset</b> chooses the mapsets whose temporal databases are read.
 Without it, these are the mapsets of the search path (see
 <em><a href="g.mapsets.html">g.mapsets</a></em>). It takes one or more names, separated by commas:
+
 <ul>
 <li><code>mapset=.</code> is the current mapset;</li>
 <li><code>mapset=*</code> is every mapset of the project, whether or not it is in the
@@ -44,6 +50,7 @@ search path;</li>
 <li><code>mapset=name1,name2</code> are exactly the named mapsets, also those outside the
 search path.</li>
 </ul>
+
 <p>
 Quote <code>*</code> in the shell: <code>mapset='*'</code>.
 
@@ -52,6 +59,7 @@ Quote <code>*</code> in the shell: <code>mapset='*'</code>.
 The option <b>columns</b> chooses the columns that are printed for each dataset
 or map, separated by commas. The default is <code>id</code>, except for <code>format=json</code>,
 where it is <code>all</code>. The columns are, with the types they apply to:
+
 <ul>
 <li><code>id</code>, the name of the dataset or map with its mapset, such as
 <code>rain@PERMANENT</code>; <code>name</code> and <code>mapset</code>, the two parts of it;</li>
@@ -77,11 +85,13 @@ temporal database and the time of its creation;</li>
 <li><code>type</code>, the type of the listed objects, one of the values of <b>type</b>;</li>
 <li><code>all</code>, every column that the table of the temporal database has for the type.</li>
 </ul>
+
 <p>
 A column that the listed type does not have, such as <code>number_of_maps</code> for
 <code>type=raster</code>, stops with the error "Column 'number_of_maps' is not available
 for the requested dataset type". With several types, <code>all</code> lists only the
 columns that all of them have.
+
 <p>
 The value <code>all</code> shows more than the other columns: for a space time raster
 dataset also <code>temporal_type</code>, <code>modification_time</code>, the extent <code>bottom</code> and
@@ -93,6 +103,7 @@ the smallest and largest minimum and maximum of the values of its maps
 time has the column <code>unit</code>. The example "Inspect all columns of a type" lists
 the names of the columns for every type and shows these values for two
 datasets.
+
 <p>
 The column <code>type</code> is always the last column, in every format, even if
 <b>columns</b> names it elsewhere, as in <code>columns=type,name</code>. It is added by
@@ -113,6 +124,7 @@ mapset.
 <h3>Output</h3>
 
 The option <b>format</b> chooses the form of the output:
+
 <ul>
 <li><code>plain</code> (the default) prints one line per dataset or map with the columns
 separated by a vertical bar <code>|</code>. A missing value is printed as <code>None</code>. The
@@ -128,15 +140,18 @@ It needs exactly one type and one column; <code>columns=all</code> is not accept
 column names, a missing value is <code>null</code>, numbers are numbers (also the
 relative times), and times with absolute time are text.</li>
 </ul>
+
 <p>
 The flag <b>-c</b> prints the column names as the first line of a <code>plain</code> listing.
 The format <code>csv</code> always prints them. <code>line</code> refuses <b>-c</b>, and so does <code>json</code>,
 which names the values in every object.
+
 <p>
 The option <b>separator</b> replaces the separator of the formats <code>plain</code>,
 <code>csv</code> and <code>line</code>. It takes a single character or one of the names <code>pipe</code>,
 <code>comma</code>, <code>space</code>, <code>tab</code> and <code>newline</code>. The format <code>csv</code> accepts only one
 character, and <code>json</code> refuses the option.
+
 <p>
 The option <b>output</b> writes the listing to a file instead of the standard
 output; <code>output=-</code> is the standard output. <b>--overwrite</b> lets <em>t.list</em>
@@ -150,6 +165,7 @@ column names and <code>json</code> prints an empty list <code>[]</code>. With <b
 the column names in this case, too. The column names are those of a listing
 with rows, with <code>type</code> last when the type is a part of the listing. The example
 "Inspect all columns of a type" uses this to list the names of all columns.
+
 <p>
 If none of the requested mapsets has a temporal database, <em>t.list</em> prints the
 message "No temporal database found in the requested mapset(s). No datasets to
@@ -157,17 +173,20 @@ list." (format <code>plain</code>) or <code>[]</code> (format <code>json</code>)
 <em>t.list</em> does not create a temporal database for it. The current mapset needs
 no temporal database of its own to list the datasets of other accessible
 mapsets.
+
 <p>
 Datasets are listed from the mapsets of the search path or from the mapsets
 named by <b>mapset</b>; the name of a dataset or map in the listing carries its
 mapset, so datasets of the same name in different mapsets can be told apart.
 The last example shows this.
+
 <p>
 A condition in <b>where</b> that SQL refuses is reported as an error, and
 <em>t.list</em> then writes no <b>output</b> file and leaves an existing one as it was.
 When <b>where</b> matches nothing, <em>t.list</em> still writes <b>output</b>: an empty file
 for <code>plain</code> and <code>line</code>, the line with the column names for <code>csv</code> and <code>[]</code> for
 <code>json</code>.
+
 <p>
 Space time raster datasets have the column <code>number_of_semantic_labels</code>. A
 temporal database created before this column was added to the database views
@@ -187,6 +206,7 @@ dataset <code>rain</code> has two maps of daily precipitation sums in June 2026;
 semantic type is <code>sum</code>. The dataset <code>model</code> has relative time and two model
 steps of 6 hours. The default listing prints the <code>id</code> of the datasets with
 absolute time, sorted by name, and then those with relative time.
+
 <p>
 The second block adds the flag <b>-c</b>, which puts the column name <code>id</code> before
 the datasets.
@@ -314,11 +334,13 @@ Two more datasets are made: the space time 3D raster dataset <code>soil</code> a
 space time vector dataset <code>gauges</code>. The first block lists all three dataset
 types with the columns <code>name</code> and <code>number_of_maps</code>. The <code>type</code> is added as the
 last column, and the datasets are grouped by type within the temporal type.
+
 <p>
 The second block lists the space time raster datasets with more columns and
 the column names. The granularity of the dataset <code>model</code> is the number 6, the
 unit of its relative time (hours) is not a column. The end of <code>temperature</code> is
 the end of its last map.
+
 <p>
 The third block names <code>type</code> first, but it is printed last.
 
@@ -700,6 +722,7 @@ model,2
 With <code>columns=all</code>, the flag <b>-c</b> and a condition that no dataset meets, the
 listing consists of the column names of the type alone. The first block does it
 for every type; the columns of the temporal database differ by type.
+
 <p>
 The second block lists some of the further columns of the datasets
 <code>temperature</code> and <code>model</code> with the format <code>json</code>, whose default columns are
@@ -800,6 +823,7 @@ database, no matter if they are in a dataset. The map <code>lonely</code> is reg
 with <em><a href="t.register.html">t.register</a></em> without a dataset, as a time instance. The
 first block lists it with the maps of <code>rain</code>, sorted by start time. A map with
 a time instance has no end time, which <code>plain</code> prints as <code>None</code>.
+
 <p>
 Two further maps carry the semantic labels <code>S2_B4</code> and <code>S2_B8</code> and form the
 dataset <code>sentinel</code>. The second block lists the maps with a label, sorted by the
@@ -933,6 +957,7 @@ The example creates the mapset <code>analysis</code> with the dataset <code>wind
 to it. The first block lists the space time raster datasets of the search path
 (the current mapset <code>analysis</code> and <code>PERMANENT</code>), the second only those of the
 current mapset (<code>mapset=.</code>).
+
 <p>
 <em>g.mapsets</em> then removes <code>PERMANENT</code> from the search path. A listing without
 <b>mapset</b> shows only <code>wind</code>, but <code>mapset=PERMANENT</code> still lists the datasets

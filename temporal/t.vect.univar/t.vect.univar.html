@@ -1,143 +1,149 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.vect.univar</em> calculates univariate statistics of an attribute column
-for each vector map registered in a space time vector dataset and prints one
-line of statistics per map, ordered by start time. It runs
-<em><a href="v.univar.html">v.univar</a></em> for every map, so the statistics
-are those of <em>v.univar</em>: they are taken from the values of the column in
-the attribute table of the map, which are read through the categories of the
-features. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets. Space time raster datasets have their own tool,
-<em><a href="t.rast.univar.html">t.rast.univar</a></em>, space time 3D raster
-datasets <em><a href="t.rast3d.univar.html">t.rast3d.univar</a></em>.
+<em>t.vect.univar</em> calculates univariate statistics of an attribute column for
+each vector map registered in a space time vector dataset and prints one line
+of statistics per map, ordered by start time. It runs <em><a href="v.univar.html">v.univar</a></em>
+for every map, so the statistics are those of <em>v.univar</em>: they are taken from
+the values of the column in the attribute table of the map, which are read
+through the categories of the features. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Space time raster datasets have their own tool,
+<em><a href="t.rast.univar.html">t.rast.univar</a></em>, space time 3D raster datasets
+<em><a href="t.rast3d.univar.html">t.rast3d.univar</a></em>.
+
 <p>
 The option <b>input</b> names the space time vector dataset, and the option
 <b>column</b> the numeric attribute column, which has to exist in the table of
 every selected map. Each line of the output starts with three columns that name
 the map:
+
 <ul>
-<li><code>id</code>, the name of the map with its mapset, such as
-<code>gauges_1@PERMANENT</code>;</li>
-<li><code>start</code> and <code>end</code>, the start and end time of the map;
-the end of a map registered as a time instance is <code>None</code>.</li>
+<li><code>id</code>, the name of the map with its mapset, such as <code>gauges_1@PERMANENT</code>;</li>
+<li><code>start</code> and <code>end</code>, the start and end time of the map; the end of a map
+registered as a time instance is <code>None</code>.</li>
 </ul>
+
 <p>
 Three columns count the features:
+
 <ul>
 <li><code>n</code>, the number of values the statistics are taken from;</li>
-<li><code>nmissing</code>, the number of features without a selected row in the
-attribute table. The condition <b>where</b> leaves rows out, so the features
-whose row it does not select are counted here;</li>
-<li><code>nnull</code>, the number of features whose value in the column is
-NULL. A NULL is not a value: it takes no part in the statistics and not in
-<code>n</code>.</li>
+<li><code>nmissing</code>, the number of features without a selected row in the attribute
+table. The condition <b>where</b> leaves rows out, so the features whose row it
+does not select are counted here;</li>
+<li><code>nnull</code>, the number of features whose value in the column is NULL. A NULL is
+not a value: it takes no part in the statistics and not in <code>n</code>.</li>
 </ul>
+
 <p>
-The statistics follow. They are empty if the map has no value to take them from
-(<code>n</code> is 0):
+The statistics follow. They are empty if the map has no value to take them
+from (<code>n</code> is 0):
+
 <ul>
-<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and
-the largest value and their difference;</li>
-<li><code>mean</code> and <code>mean_abs</code>, the mean of the values and the
-mean of their absolute values;</li>
-<li><code>population_stddev</code> and <code>population_variance</code>: the
-variance is the sum of the squared deviations from the mean divided by
-<code>n</code> (the population variance), the standard deviation is its square
-root;</li>
-<li><code>population_coeff_variation</code>, the population standard deviation
-divided by the absolute value of the mean, so that it stays positive for a
-negative mean (the values -1 and -3 have the mean -2, the standard deviation 1
-and the coefficient 0.5). Unlike <code>coeff_var</code> of
-<em>t.rast.univar</em> it is not given in percent;</li>
-<li><code>sample_stddev</code> and <code>sample_variance</code>: the sum of the
-squared deviations divided by <code>n - 1</code>, and its square root;</li>
-<li><code>kurtosis</code>, the mean of the fourth powers of the deviations
-divided by the fourth power of <code>sample_stddev</code>, minus 3, so that it
-is 0 for a normal distribution;</li>
-<li><code>skewness</code>, the mean of the third powers of the deviations
-divided by the third power of <code>sample_stddev</code>. It is 0 for values
-that are symmetric around the mean.</li>
+<li><code>min</code>, <code>max</code> and <code>range</code>, the smallest and the largest value and their
+difference;</li>
+<li><code>mean</code> and <code>mean_abs</code>, the mean of the values and the mean of their
+absolute values;</li>
+<li><code>population_stddev</code> and <code>population_variance</code>: the variance is the sum of
+the squared deviations from the mean divided by <code>n</code> (the population
+variance), the standard deviation is its square root;</li>
+<li><code>population_coeff_variation</code>, the population standard deviation divided by
+the absolute value of the mean, so that it stays positive for a negative
+mean (the values -1 and -3 have the mean -2, the standard deviation 1 and the
+coefficient 0.5). Unlike <code>coeff_var</code> of <em>t.rast.univar</em> it is not given in
+percent;</li>
+<li><code>sample_stddev</code> and <code>sample_variance</code>: the sum of the squared deviations
+divided by <code>n - 1</code>, and its square root;</li>
+<li><code>kurtosis</code>, the mean of the fourth powers of the deviations divided by the
+fourth power of <code>sample_stddev</code>, minus 3, so that it is 0 for a normal
+distribution;</li>
+<li><code>skewness</code>, the mean of the third powers of the deviations divided by the
+third power of <code>sample_stddev</code>. It is 0 for values that are symmetric around
+the mean.</li>
 </ul>
+
 <p>
-The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>,
-<code>median</code>, <code>third_quartile</code> and the 90th percentile
-<code>percentile_90</code>; the percentile cannot be changed.
-<em>v.univar</em> finds a percentile p in the sorted values: it takes the value
-at position <code>n * p / 100 - 0.5</code> with the fractional part dropped,
+The flag <b>-e</b> adds the extended statistics <code>first_quartile</code>, <code>median</code>,
+<code>third_quartile</code> and the 90th percentile <code>percentile_90</code>; the percentile cannot
+be changed. <em>v.univar</em> finds a percentile p in the sorted values: it takes the
+value at position <code>n * p / 100 - 0.5</code> with the fractional part dropped,
 counting from 0, so with four values the 90th percentile is the largest. The
-quartiles follow the same rule with p = 25 and p = 75. The median is the middle
-value, or the mean of the two middle values when <code>n</code> is even. The
+quartiles follow the same rule with p = 25 and p = 75. The median is the
+middle value, or the mean of the two middle values when <code>n</code> is even. The
 extended statistics need values: for a map without values they are empty, too.
+
 <p>
-The option <b>type</b> chooses the features that are read: <code>point</code>
-(the default), <code>line</code>, <code>boundary</code>, <code>centroid</code>
-or <code>area</code>. A feature has to have a category in the layer, and its
-category links it to a row of the table. With <code>point</code> and
-<code>centroid</code>, the statistics are all those above. With the other
-types, the output has the columns up to <code>range</code> and no more, also with
-<b>-e</b> (see NOTES). The type <code>area</code> reads the categories of the
-centroids of the areas, which is the way to get the attribute of an area. A
-type that the map has no features of gives a line with <code>n</code> 0 and no
-statistics, as a map of lines does with the default <code>point</code>.
+The option <b>type</b> chooses the features that are read: <code>point</code> (the default),
+<code>line</code>, <code>boundary</code>, <code>centroid</code> or <code>area</code>. A feature has to have a category in
+the layer, and its category links it to a row of the table. With <code>point</code> and
+<code>centroid</code>, the statistics are all those above. With the other types, the
+output has the columns up to <code>range</code> and no more, also with <b>-e</b> (see
+NOTES).
+The type <code>area</code> reads the categories of the centroids of the areas, which is
+the way to get the attribute of an area. A type that the map has no features
+of gives a line with <code>n</code> 0 and no statistics, as a map of lines does with the
+default <code>point</code>.
+
 <p>
 The option <b>layer</b> is the layer of the vector map whose table holds the
 column. It applies to the maps that are registered without a layer; a map
-registered with a layer, as <code>mast_1:2</code> for layer 2, is always read
-from that layer. The default is layer 1.
+registered with a layer, as <code>mast_1:2</code> for layer 2, is always read from that
+layer. The default is layer 1.
+
 <p>
 Two options select what is counted, and they can be combined:
+
 <ul>
-<li>the option <b>twhere</b> takes an SQL condition on the registered maps of
-the dataset and selects the maps, for instance on <code>start_time</code> or
-<code>name</code>;</li>
+<li>the option <b>twhere</b> takes an SQL condition on the registered maps of the
+dataset and selects the maps, for instance on <code>start_time</code> or <code>name</code>;</li>
 <li>the option <b>where</b> takes an SQL condition on the table of each map and
 selects the rows whose features are counted.</li>
 </ul>
+
 <p>
-The option <b>output</b> writes the statistics to a file instead of the
-standard output; <code>output=-</code> is the standard output. An existing file
-is replaced only with <b>--overwrite</b>. The option <b>separator</b> sets the
-character between the columns, the vertical bar <code>|</code> by default; it
-takes a single character or a name such as <code>comma</code>. The flag
-<b>-u</b> leaves out the line with the column names.
+The option <b>output</b> writes the statistics to a file instead of the standard
+output; <code>output=-</code> is the standard output. An existing file is replaced only
+with <b>--overwrite</b>. The option <b>separator</b> sets the character between the
+columns, the vertical bar <code>|</code> by default; it takes a single character or a
+name such as <code>comma</code>. The flag <b>-u</b> leaves out the line with the column
+names.
 
 <h2>NOTES</h2>
 
-A NULL value is counted in <code>nnull</code> and is not part of the
-statistics, neither of the extended ones. With <b>where</b>, a feature whose
-row the condition does not select is counted in <code>nmissing</code>, a NULL
-included: the condition <code>speed &gt; 2</code> is not true for a NULL.
+A NULL value is counted in <code>nnull</code> and is not part of the statistics, neither
+of the extended ones. With <b>where</b>, a feature whose row the condition does
+not select is counted in <code>nmissing</code>, a NULL included: the condition
+<code>speed &gt; 2</code> is not true for a NULL.
+
 <p>
-In a dataset with relative time, <code>start</code> and <code>end</code> are
-numbers of the time unit of the dataset, printed without the unit: a map
-registered from 0 to 6 hours shows <code>0</code> and <code>6</code>, as the
-first example shows.
+In a dataset with relative time, <code>start</code> and <code>end</code> are numbers of the time
+unit of the dataset, printed without the unit: a map registered from 0 to 6
+hours shows <code>0</code> and <code>6</code>, as the first example shows.
+
 <p>
-<em>t.vect.univar</em> only reads, so it works on a dataset of another mapset
-as well. The name with the mapset (<code>input=gauges@PERMANENT</code>) selects
-it. A name without a mapset means the current mapset: the mapsets of the search
-path (see <em><a href="g.mapsets.html">g.mapsets</a></em>) are not searched,
-unlike in <em>t.rast.univar</em>, and the dataset is reported as not found. The
-last example shows this.
+<em>t.vect.univar</em> only reads, so it works on a dataset of another mapset as
+well. The name with the mapset (<code>input=gauges@PERMANENT</code>) selects it. A name
+without a mapset means the current mapset: the mapsets of the search path (see
+<em><a href="g.mapsets.html">g.mapsets</a></em>) are not searched, unlike in <em>t.rast.univar</em>, and
+the dataset is reported as not found. The last example shows this.
+
 <p>
-If <b>twhere</b> selects no map, or the dataset has no map,
-<em>t.vect.univar</em> stops with the message that the space time vector
-dataset is empty. A dataset that does not exist stops it with the message that
-it was not found.
+If <b>twhere</b> selects no map, or the dataset has no map, <em>t.vect.univar</em> stops
+with the message that the space time vector dataset is empty. A dataset that
+does not exist stops it with the message that it was not found.
+
 <p>
-If <em>v.univar</em> fails on a map, for instance because the column does not
-exist in the table of the map, because the layer does not exist, or because
-<b>where</b> is no valid condition, <em>t.vect.univar</em> stops with the
-message <code>Error running v.univar on</code> followed by the map and the
-message of <em>v.univar</em>. A <b>twhere</b> that the database cannot parse
-stops the tool with the message <code>Invalid twhere condition</code> followed
-by the condition and the message of the database.
+If <em>v.univar</em> fails on a map, for instance because the column does not exist in
+the table of the map, because the layer does not exist, or because <b>where</b> is
+no valid condition, <em>t.vect.univar</em> stops with the message <code>Error running
+v.univar on</code> followed by the map and the message of <em>v.univar</em>. A <b>twhere</b>
+that the database cannot parse stops the tool with the message <code>Invalid twhere
+condition</code> followed by the condition and the message of the database.
+
 <p>
-<b>-e</b> is accepted for the types <code>line</code>, <code>boundary</code>
-and <code>area</code>, and <em>v.univar</em> warns that the extended statistics
-exist only for points and centroids, as the example of the type
-<code>area</code> shows.
+<b>-e</b> is accepted for the types <code>line</code>, <code>boundary</code> and <code>area</code>, and <em>v.univar</em>
+warns that the extended statistics exist only for points and centroids, as the
+example of the type <code>area</code> shows.
 
 <h2>EXAMPLES</h2>
 
@@ -146,31 +152,33 @@ exist only for points and centroids, as the example of the type
 The points of the maps lie in the cells of the region, which has 4 by 4
 cells. Three maps with two numeric columns: <code>speed</code>, the wind speed, and
 <code>gust</code>, which is <code>speed + 1</code>.
+
 <ul>
 <li><code>gauges_1</code> has the speeds 1, 2, 3 and 4;</li>
-<li><code>gauges_2</code> has 2, 4, 6 and 8, and a fifth point without a speed:
-the empty fields of the input become NULL values;</li>
+<li><code>gauges_2</code> has 2, 4, 6 and 8, and a fifth point without a speed: the empty
+fields of the input become NULL values;</li>
 <li><code>gauges_3</code> has 10, 10, 10 and 40.</li>
 </ul>
+
 <p>
 The maps are registered as daily intervals starting on 1 March 2026. The
 statistics follow by hand from the values. For <code>gauges_1</code> the mean is
 10 / 4 = 2.5, and the deviations from the mean are -1.5, -0.5, 0.5 and 1.5,
 whose squares add up to 5. The population variance is 5 / 4 = 1.25, the sample
 variance 5 / 3 = 1.6667, and the population coefficient of variation
-<code>sqrt(1.25) / 2.5</code> = 0.4472. The values are symmetric, so the
-skewness is 0; the kurtosis is <code>10.25 / 4 / (5 / 3)^2 - 3</code> =
--2.0775. <code>gauges_2</code> has twice the values, so four times the
-variances, and the same coefficient of variation, skewness and kurtosis; its
-fifth point is counted in <code>nnull</code>, not in <code>n</code>.
-<code>gauges_3</code> is skewed: the mean is 17.5, the deviations are -7.5,
--7.5, -7.5 and 22.5, the sample variance 225, and the skewness
+<code>sqrt(1.25) / 2.5</code> = 0.4472. The values are symmetric, so the skewness is 0;
+the kurtosis is <code>10.25 / 4 / (5 / 3)^2 - 3</code> = -2.0775. <code>gauges_2</code> has twice
+the values, so four times the variances, and the same coefficient of
+variation, skewness and kurtosis; its fifth point is counted in <code>nnull</code>, not
+in <code>n</code>. <code>gauges_3</code> is skewed: the mean is 17.5, the deviations are -7.5, -7.5,
+-7.5 and 22.5, the sample variance 225, and the skewness
 <code>(10125 / 4) / 15^3</code> = 0.75.
+
 <p>
-The second block makes the dataset <code>steps</code> with relative time: two
-maps of 6 hours each. Their <code>start</code> and <code>end</code> are numbers
-of hours. It shows the columns <code>id</code>, <code>n</code> to
-<code>range</code> only.
+The second block makes the dataset <code>steps</code> with relative time: two maps of 6
+hours each. Their <code>start</code> and <code>end</code> are numbers of hours. It shows the columns
+<code>id</code>, <code>n</code> to <code>range</code> only.
+
 <p>
 The third block makes the region smaller, so that it holds only the first
 point of each map, and runs the command of the first block again: the numbers
@@ -352,17 +360,17 @@ gauges_3@PERMANENT|4|0|0|10|40|30
 
 <h3>Choose the attribute and calculate extended statistics</h3>
 
-The option <b>column</b> chooses the attribute. <code>gust</code> is
-<code>speed + 1</code>, so every value is 1 larger: the minimum, the maximum,
-the mean and the quartiles move by 1, while the range, the variances, the
-kurtosis and the skewness stay the same; the coefficient of variation falls,
-because the mean grows. The flag <b>-e</b> adds the quartiles and the 90th
-percentile. For <code>gauges_1</code> the sorted values are 2, 3, 4 and 5. The
-first quartile is at position <code>4 * 25 / 100 - 0.5</code> = 0.5, which
-becomes 0 (the value 2), the third quartile at position 2.5, which becomes 2
-(the value 4), and the 90th percentile at position 3.1, which becomes 3 (the
-value 5). The median is the mean of the two middle values 3 and 4. The NULL of
-<code>gauges_2</code> is left out: its sorted values are 3, 5, 7 and 9.
+The option <b>column</b> chooses the attribute. <code>gust</code> is <code>speed + 1</code>, so every
+value is 1 larger: the minimum, the maximum, the mean and the quartiles move
+by 1, while the range, the variances, the kurtosis and the skewness stay the
+same; the coefficient of variation falls, because the mean grows. The flag
+<b>-e</b> adds the quartiles and the 90th percentile. For <code>gauges_1</code> the sorted
+values are 2, 3, 4 and 5. The first quartile is at position
+<code>4 * 25 / 100 - 0.5</code> = 0.5, which becomes 0 (the value 2), the third quartile
+at position 2.5, which becomes 2 (the value 4), and the 90th percentile at
+position 3.1, which becomes 3 (the value 5). The median is the mean of the
+two middle values 3 and 4. The NULL of <code>gauges_2</code> is left out: its sorted
+values are 3, 5, 7 and 9.
 
 <p>Command line:</p>
 
@@ -393,19 +401,17 @@ gauges_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|4|0|0|11|41|30|18.5|1
 <h3>Select maps and features</h3>
 
 The option <b>twhere</b> selects maps by their registered times, and the option
-<b>where</b> the features of each map by their attributes. The columns
-<code>id</code>, <code>n</code> to <code>range</code> are shown.
+<b>where</b> the features of each map by their attributes. The columns <code>id</code>, <code>n</code>
+to <code>range</code> are shown.
+
 <ol>
-<li><code>where="speed &gt; 2"</code> counts only the points faster than 2 in
-every map. In <code>gauges_1</code> these are 3 and 4, so <code>n</code> is 2
-and the 2 other points are counted in <code>nmissing</code>.
-<code>gauges_2</code> keeps 4, 6 and 8; the points with the speeds 2 and NULL
-are missing, because the row of a NULL is not selected by the condition, so
-<code>nnull</code> is 0 here. <code>gauges_3</code> keeps all of its
-points.</li>
-<li><code>twhere="start_time &gt;= '2026-03-02'"</code> selects the maps
-<code>gauges_2</code> and <code>gauges_3</code> and counts all their
-points.</li>
+<li><code>where="speed &gt; 2"</code> counts only the points faster than 2 in every map. In
+<code>gauges_1</code> these are 3 and 4, so <code>n</code> is 2 and the 2 other points are
+counted in <code>nmissing</code>. <code>gauges_2</code> keeps 4, 6 and 8; the points with the
+speeds 2 and NULL are missing, because the row of a NULL is not selected by
+the condition, so <code>nnull</code> is 0 here. <code>gauges_3</code> keeps all of its points.</li>
+<li><code>twhere="start_time &gt;= '2026-03-02'"</code> selects the maps <code>gauges_2</code> and
+<code>gauges_3</code> and counts all their points.</li>
 <li>Both options work together: of the maps that start on 2 March or later,
 only the points above 2 are counted.</li>
 </ol>
@@ -491,22 +497,21 @@ gauges_3@PERMANENT|4|0|0|10|40|30
 
 <h3>Statistics of lines and areas</h3>
 
-The map <code>plots</code> has two lines with the categories 1 and 2, two
-squares and the centroids of the squares with the categories 3 and 4. Its table
-has the column <code>value</code>, 10 times the category: 10, 20, 30 and 40. It
-is registered as one map of the dataset <code>plotset</code>. The option
-<b>type</b> decides which features are read:
+The map <code>plots</code> has two lines with the categories 1 and 2, two squares and
+the centroids of the squares with the categories 3 and 4. Its table has the
+column <code>value</code>, 10 times the category: 10, 20, 30 and 40. It is registered as
+one map of the dataset <code>plotset</code>. The option <b>type</b> decides which features
+are read:
+
 <ol>
 <li><code>line</code> reads the two lines: the values 10 and 20.</li>
-<li><code>area</code> reads the categories of the centroids of the areas: 30
-and 40. The output ends with <code>range</code> for both types, also with the
-flag <b>-e</b>; the second block shows the warning of <em>v.univar</em> on the
-error output.</li>
-<li><code>centroid</code> reads the same centroids, and prints all statistics:
-with the values 30 and 40 the mean is 35, the deviations are -5 and 5, so the
+<li><code>area</code> reads the categories of the centroids of the areas: 30 and 40. The
+output ends with <code>range</code> for both types, also with the flag <b>-e</b>; the
+second block shows the warning of <em>v.univar</em> on the error output.</li>
+<li><code>centroid</code> reads the same centroids, and prints all statistics: with the
+values 30 and 40 the mean is 35, the deviations are -5 and 5, so the
 population variance is 25 and the sample variance 50.</li>
-<li><code>boundary</code> finds no feature with a category: a line without
-statistics.</li>
+<li><code>boundary</code> finds no feature with a category: a line without statistics.</li>
 <li>The default <code>point</code> finds no point: the same.</li>
 </ol>
 
@@ -705,17 +710,16 @@ plots@PERMANENT|0|0|0|||
 <h3>Read the table of another layer</h3>
 
 A vector map can have several layers, each with its own table. The maps
-<code>mast_1</code> and <code>mast_2</code> have three points with the
-categories 1 to 3 in the layers 1 and 2. The column <code>speed</code> of the
-layer 1 holds 1, 2 and 3, the column of the layer 2 (the wind speed higher up)
-11, 12 and 13. The dataset <code>masts</code> registers <code>mast_1</code> as
-<code>mast_1:2</code>, for layer 2, and <code>mast_2</code> without a layer.
+<code>mast_1</code> and <code>mast_2</code> have three points with the categories 1 to 3 in the
+layers 1 and 2. The column <code>speed</code> of the layer 1 holds 1, 2 and 3, the column
+of the layer 2 (the wind speed higher up) 11, 12 and 13. The dataset <code>masts</code>
+registers <code>mast_1</code> as <code>mast_1:2</code>, for layer 2, and <code>mast_2</code> without a layer.
+
 <ol>
-<li>With the default layer 1, <code>mast_1</code> is read from its registered
-layer 2 (11 to 13), and <code>mast_2</code> from layer 1 (1 to 3).</li>
+<li>With the default layer 1, <code>mast_1</code> is read from its registered layer 2
+(11 to 13), and <code>mast_2</code> from layer 1 (1 to 3).</li>
 <li>With <code>layer=2</code>, both maps are read from layer 2.</li>
-<li>With <code>layer=1</code>, the registered layer of <code>mast_1</code>
-still wins.</li>
+<li>With <code>layer=1</code>, the registered layer of <code>mast_1</code> still wins.</li>
 </ol>
 
 <p>Command line:</p>
@@ -848,11 +852,10 @@ mast_2@PERMANENT|3|0|0|1|3|2
 <h3>Choose the output format</h3>
 
 The option <b>separator</b> sets another separator between the columns, and the
-flag <b>-u</b> leaves out the line with the column names, for instance to
-append the lines to a table that has them already. With
-<code>separator=comma</code> and the option <b>output</b>, the statistics go to
-a file instead of the standard output; the second block of each tab prints the
-file.
+flag <b>-u</b> leaves out the line with the column names, for instance to append
+the lines to a table that has them already. With <code>separator=comma</code> and the
+option <b>output</b>, the statistics go to a file instead of the standard output;
+the second block of each tab prints the file.
 
 <p>Command line:</p>
 
@@ -913,14 +916,12 @@ gauges_3@PERMANENT,2026-03-03 00:00:00,2026-03-04 00:00:00,4,0,0,10,40,30,17.5,1
 
 <h3>Use a dataset of another mapset</h3>
 
-<em>t.vect.univar</em> reads a dataset of another mapset. The example creates
-the mapset <code>analysis</code> and switches to it; the dataset
-<code>gauges</code> stays in the mapset <code>PERMANENT</code> and is named with
-its mapset. A name without a mapset means the current mapset, whatever the
-search path of <em>g.mapsets</em> holds: in the
-second block, <code>PERMANENT</code> is in the search path of
-<code>analysis</code>, but <code>input=gauges</code> is refused. The second
-block prints the line of the error message.
+<em>t.vect.univar</em> reads a dataset of another mapset. The example creates the
+mapset <code>analysis</code> and switches to it; the dataset <code>gauges</code> stays in the mapset
+<code>PERMANENT</code> and is named with its mapset. A name without a mapset means the
+current mapset, whatever the search path of <em>g.mapsets</em> holds: in the second
+block, <code>PERMANENT</code> is in the search path of <code>analysis</code>, but <code>input=gauges</code> is
+refused. The second block prints the line of the error message.
 
 <p>Command line:</p>
 
@@ -977,17 +978,11 @@ ERROR: Space time vector dataset &lt;gauges@analysis&gt; not found
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.univar.html">t.rast.univar</a>,
-<a href="t.rast3d.univar.html">t.rast3d.univar</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
+<em><a href="g.mapsets.html">g.mapsets</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.univar.html">t.rast.univar</a>, <a href="t.rast3d.univar.html">t.rast3d.univar</a>,
+<a href="t.register.html">t.register</a>, <a href="t.vect.list.html">t.vect.list</a>,
 <a href="v.univar.html">v.univar</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

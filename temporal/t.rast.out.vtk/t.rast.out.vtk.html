@@ -1,94 +1,93 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.out.vtk</em> writes each raster map of a space time raster dataset
-into a VTK legacy file, one file per map. The files are ASCII text; a program
-that reads VTK, such as <a href="https://www.paraview.org">ParaView</a>, can
-show them one after the other as a time series. The tool runs
-<em><a href="r.out.vtk.html">r.out.vtk</a></em> for every map. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets. The tool that writes a dataset into one archive for
-another GRASS project is
-<em><a href="t.rast.export.html">t.rast.export</a></em>.
+<em>t.rast.out.vtk</em> writes each raster map of a space time raster dataset into a
+VTK legacy file, one file per map. The files are ASCII text; a program that
+reads VTK, such as <a href="https://www.paraview.org">ParaView</a>, can show them one
+after the other as a time series. The tool runs <em><a href="r.out.vtk.html">r.out.vtk</a></em> for
+every map. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. The tool that writes a dataset into one archive for another GRASS
+project is <em><a href="t.rast.export.html">t.rast.export</a></em>.
+
 <p>
-The option <b>input</b> names the space time raster dataset, and
-<b>directory</b> the directory that receives the files. The directory must
-exist; the tool does not make it. A relative <b>directory</b> is taken from the
-current directory.
+The option <b>input</b> names the space time raster dataset, and <b>directory</b> the
+directory that receives the files. The directory must exist; the tool does not
+make it. A relative <b>directory</b> is taken from the current directory.
 
 <h3>Select the maps</h3>
 
 The option <b>where</b> takes an SQL condition on the columns of the registered
-maps, such as <code>start_time &gt;= '2026-03-02'</code>, and writes only the
-maps it selects. Without <b>where</b>, all maps are written. The maps are
-written in the order of their start time. <b>where</b> is ignored with the flag
-<b>-g</b>.
+maps, such as <code>start_time &gt;= '2026-03-02'</code>, and writes only the maps it selects.
+Without <b>where</b>, all maps are written. The maps are written in the order of
+their start time. <b>where</b> is ignored with the flag <b>-g</b>.
+
 <p>
 The flag <b>-g</b> writes the files for equidistant steps of the granularity of
 the dataset. A time step in which no map is registered, a gap, gets a file in
 which every cell has the <b>null</b> value. The files of a dataset without gaps
-are the same with and without <b>-g</b>. A dataset with gaps gets more files
-with <b>-g</b>, one for each missing step.
+are the same with and without <b>-g</b>. A dataset with gaps gets more files with
+<b>-g</b>, one for each missing step.
 
 <h3>Names of the files</h3>
 
-The files are numbered from <code>000000</code> in the order of the maps, and
-the number has six digits. The file name is the number, an underscore, the name
-of the dataset without its mapset and the suffix <code>.vtk</code>, such as
-<code>000002_temperature.vtk</code>. The numbering starts at
-<code>000000</code> again for every call and counts only the written files, so
-a selection with <b>where</b> is numbered without holes. An existing file is
-refused unless the flag <b>--overwrite</b> is given.
+The files are numbered from <code>000000</code> in the order of the maps, and the number
+has six digits. The file name is the number, an underscore, the name of the
+dataset without its mapset and the suffix <code>.vtk</code>, such as
+<code>000002_temperature.vtk</code>. The numbering starts at <code>000000</code> again for every call
+and counts only the written files, so a selection with <b>where</b> is numbered
+without holes. An existing file is refused unless the flag <b>--overwrite</b> is
+given.
 
 <h3>Content of the files</h3>
 
-<em>r.out.vtk</em> writes the cells of the current computational region, so the
-files of one call have the grid of the region at the time of the call. The first
-four lines of a file are <code># vtk DataFile Version 3.0</code>, the
-title <code>GRASS 8 Export</code>, the word <code>ASCII</code> and the dataset
-type. The following lines give the number of points in each direction, the
-spacing, the origin and the number of values; the values follow in rows after
-the line <code>LOOKUP_TABLE default</code>. The name of the scalar in the line
-that starts with <code>SCALARS</code> is the name of the dataset and the number
-of the process that ran the tool, so it differs from call to call.
+<em>r.out.vtk</em> writes the cells of the current computational region, so the files
+of one call have the grid of the region at the time of the call. The first four
+lines of a file are <code># vtk DataFile Version 3.0</code>, the title
+<code>GRASS 8 Export</code>, the word <code>ASCII</code> and the dataset type. The following lines
+give the number of points in each direction, the spacing, the origin and the
+number of values; the values follow in rows after the line
+<code>LOOKUP_TABLE default</code>. The name of the scalar in the line that starts with
+<code>SCALARS</code> is the name of the dataset and the number of the process that ran
+the tool, so it differs from call to call.
+
 <ul>
 <li>Without <b>elevation</b> the file holds the cells as a grid of cells
-(<code>DATASET STRUCTURED_POINTS</code> and <code>CELL_DATA</code>): the grid
-has one point more than cells in each direction and starts at the south-west
-corner of the region.</li>
+(<code>DATASET STRUCTURED_POINTS</code> and <code>CELL_DATA</code>): the grid has one point more
+than cells in each direction and starts at the south-west corner of the
+region.</li>
 <li>With the flag <b>-p</b> the file holds point data instead
-(<code>POINT_DATA</code>): one point at the centre of each cell, so the grid
-has as many points as the region has cells and starts at the centre of the
+(<code>POINT_DATA</code>): one point at the centre of each cell, so the grid has as
+many points as the region has cells and starts at the centre of the
 south-west cell.</li>
 <li>The option <b>elevation</b> names a raster map that gives the height of each
-cell. The file then holds a surface (<code>DATASET POLYDATA</code>): a list of
-points, one at the centre of each cell with the value of the elevation map as
-height, the quadrilaterals between four neighbouring points, and the values of
-the dataset map at the points. The flag <b>-p</b> changes nothing for a file
-with <b>elevation</b>.</li>
-<li>The option <b>null</b> sets the value that is written for a cell without
-data. It is <code>-99999.99</code> by default. The value applies to files with
-and without <b>elevation</b>.</li>
-<li>The flag <b>-c</b> corrects the coordinates of the grid: the origin is moved
-by the centre of the default region of the project, which
-<code>g.region -d</code> shows, so that the coordinates of a project with large
-coordinate values become small numbers. Use <b>-c</b> for all files that are
-shown together, and only for data of one project, as the default region differs
-between projects.</li>
+cell. The file then holds a surface (<code>DATASET POLYDATA</code>): a list of points,
+one at the centre of each cell with the value of the elevation map as height,
+the quadrilaterals between four neighbouring points, and the values of the
+dataset map at the points. The flag <b>-p</b> changes nothing for a file with <b>elevation</b>.</li>
+<li>The option <b>null</b> sets the value that is written for a cell without data. It
+is <code>-99999.99</code> by default. The value applies to files with and without
+<b>elevation</b>.</li>
+<li>The flag <b>-c</b> corrects the coordinates of the grid: the origin is moved by
+the centre of the default region of the project, which <code>g.region -d</code> shows,
+so that the coordinates of a project with large coordinate values become
+small numbers. Use <b>-c</b> for all files that are shown together, and only
+for data of one project, as the default region differs between projects.</li>
 </ul>
 
 <h2>NOTES</h2>
 
 The tool copies every map under a temporary name to make the scalars of all
-files have the same name, and exports the copy. The copy and, with <b>-g</b>,
-the map without data are removed in every case, also if the export stops with
-an error.
+files have the same name, and exports the copy. The copy and, with <b>-g</b>, the
+map without data are removed in every case, also if the export stops with an
+error.
+
 <p>
-The tool stops with "Export directory <code>name</code> not found." if
-<b>directory</b> does not exist or is a file. A <b>where</b> condition with a
-syntax error stops the tool with an error that contains "Invalid where
-condition", and no file is written. A file that exists already stops the tool
-with "Unable to export raster map" and leaves the file as it was (see the sixth
-example).
+The tool stops with "Export directory <code>name</code> not found." if <b>directory</b> does
+not exist or is a file. A <b>where</b> condition with a syntax error stops the
+tool with an error that contains "Invalid where condition", and no file is
+written. A file that exists already stops the tool with "Unable to export
+raster map" and leaves the file as it was (see the sixth example).
+
 <p>
 A dataset with relative time is written like one with absolute time, and a
 dataset of another mapset is named with its mapset. The last example shows
@@ -98,22 +97,22 @@ both.
 
 <h3>Write one VTK file per map</h3>
 
-The dataset <code>temperature</code> has three maps of two rows and three
-columns. The cell value of <code>temperature_1</code> is
-<code>10 * row + column</code>, so it is 11, 12, 13 in the northern row and 21,
-22, 23 in the southern one. <code>temperature_2</code> is the same plus 100.
-<code>temperature_4</code> has the value 1.5 in the first column and no data in
-the others. The first two maps are the days 1 and 2 of March 2026, and the third
-is the day 4, so there is no map for the day 3.
+The dataset <code>temperature</code> has three maps of two rows and three columns. The
+cell value of <code>temperature_1</code> is <code>10 * row + column</code>, so it is 11, 12, 13 in
+the northern row and 21, 22, 23 in the southern one. <code>temperature_2</code> is the
+same plus 100. <code>temperature_4</code> has the value 1.5 in the first column and no
+data in the others. The first two maps are the days 1 and 2 of March 2026, and
+the third is the day 4, so there is no map for the day 3.
+
 <p>
 The first block creates the dataset. The second block makes the directory
-<code>vtk</code> and writes the files into it. The tool makes one file for each
-of the three maps, numbered in the order of time. The first eight lines of the
-first file are the version, the title, the format, the dataset type and the
-grid: 4 by 3 points around 3 by 2 cells with the spacing 1 and the origin in the south-west corner of the region. The last two
-lines hold the values, row by row, the southern row first. The line that starts
-with <code>SCALARS</code> is left out because it holds the number of the
-process.
+<code>vtk</code> and writes the files into it. The tool makes one file for each of the
+three maps, numbered in the order of time. The first eight lines of the first
+file are the version, the title, the format, the dataset type and the grid: 4
+by 3 points around 3 by 2 cells with the spacing 1 and the origin in the
+south-west corner of the region. The last two lines hold the values, row by
+row, the southern row first. The line that starts with <code>SCALARS</code> is left out
+because it holds the number of the process.
 
 <p>Command line:</p>
 
@@ -210,14 +209,12 @@ CELL_DATA 6
 
 <h3>Select maps and set the value of cells without data</h3>
 
-<b>where</b> selects the maps <code>temperature_2</code> and
-<code>temperature_4</code>, those that start on or after 2 March. They are
-written into the new directory <code>selected</code> and numbered
-<code>000000</code> and <code>000001</code>, although they are the second and
-third map of the dataset. <b>null</b> sets <code>-9999</code> for the cells
-without data, so the last two cells in each row of <code>temperature_4</code>
-hold <code>-9999</code> and the first one holds 1.5. The values are written with
-twelve decimal places.
+<b>where</b> selects the maps <code>temperature_2</code> and <code>temperature_4</code>, those that start
+on or after 2 March. They are written into the new directory <code>selected</code> and
+numbered <code>000000</code> and <code>000001</code>, although they are the second and third map of
+the dataset. <b>null</b> sets <code>-9999</code> for the cells without data, so the last two
+cells in each row of <code>temperature_4</code> hold <code>-9999</code> and the first one holds 1.5.
+The values are written with twelve decimal places.
 
 <p>Command line:</p>
 
@@ -261,11 +258,11 @@ print("\n".join(line.rstrip() for line in lines[-2:]))
 <h3>Write a file for each time step with the granularity</h3>
 
 The dataset has the granularity of one day, and there is no map on 3 March. The
-flag <b>-g</b> writes a file for every day: four files instead of three. The
-file <code>000002_temperature.vtk</code> is the gap on 3 March; all its cells
-have the <b>null</b> value. The call also has a <b>where</b> condition that
-would select two maps, but <b>-g</b> ignores it: all four files are written. The
-last two lines of the gap file are shown.
+flag <b>-g</b> writes a file for every day: four files instead of three. The file
+<code>000002_temperature.vtk</code> is the gap on 3 March; all its cells have the <b>null</b>
+value. The call also has a <b>where</b> condition that would select two maps, but
+<b>-g</b> ignores it: all four files are written. The last two lines of the gap
+file are shown.
 
 <p>Command line:</p>
 
@@ -313,19 +310,19 @@ print("\n".join(line.rstrip() for line in lines[-2:]))
 
 <h3>Draw the maps as a surface</h3>
 
-The map <code>elevation</code> has the value <code>100 * row + column</code>:
-101, 102, 103 in the northern row and 201, 202, 203 in the southern one. With
-<b>elevation</b> the files hold a surface (<code>DATASET POLYDATA</code>)
-instead of a grid of cells: six points, one at the centre of each cell with the
-elevation as the third coordinate, listed from the southern row, and two
-quadrilaterals (<code>POLYGONS 2 10</code>) between them. Each quadrilateral
-lists four point numbers, counted from 0. The values follow with
-<code>POINT_DATA</code>. The example writes the first map only, the one with the
-values 11 to 23.
+The map <code>elevation</code> has the value <code>100 * row + column</code>: 101, 102, 103 in the
+northern row and 201, 202, 203 in the southern one. With <b>elevation</b> the
+files hold a surface (<code>DATASET POLYDATA</code>) instead of a grid of cells: six
+points, one at the centre of each cell with the elevation as the third
+coordinate, listed from the southern row, and two quadrilaterals (<code>POLYGONS 2
+10</code>) between them. Each quadrilateral lists four point numbers, counted from 0.
+The values follow with <code>POINT_DATA</code>. The example writes the first map only, the
+one with the values 11 to 23.
+
 <p>
 The second block repeats the call with <b>-p</b> into another directory and
-compares the files without the <code>SCALARS</code> line: they are the same,
-because <b>-p</b> changes nothing for a surface.
+compares the files without the <code>SCALARS</code> line: they are the same, because <b>-p</b>
+changes nothing for a surface.
 
 <p>Command line:</p>
 
@@ -430,18 +427,19 @@ same
 
 The region moves to the coordinates 1000 to 1003 and 2000 to 2002, as in a
 project with a projected coordinate system, and the call writes the first map
-four times: without flag, with <b>-p</b>, with <b>-c</b> and with both. Each
-call prints the lines 5 to 8 of the first file, which hold the number of points,
-the spacing, the origin and the kind of data.
+four times: without flag, with <b>-p</b>, with <b>-c</b> and with both. Each call
+prints the lines 5 to 8 of the first file, which hold the number of points, the
+spacing, the origin and the kind of data.
+
 <p>
 Without a flag the file holds cells: 4 by 3 points and the origin in the
 south-west corner, 1000 and 2000. With <b>-p</b> it holds points: 3 by 2 points
 and the origin at the centre of the south-west cell, 1000.5 and 2000.5. The
 default region of a new project is the square from 0 to 1, so its centre is
-0.5; the values below depend on it (<code>g.region -d -p</code> shows the
-default region of another project).
-<b>-c</b> moves the origin by this value: 999.5 and 1999.5 for the cells, and
-1000 and 2000 for the points. The last block sets the region back.
+0.5; the values below depend on it (<code>g.region -d -p</code> shows the default region
+of another project).
+<b>-c</b> moves the origin by this value: 999.5 and 1999.5 for the cells, and 1000
+and 2000 for the points. The last block sets the region back.
 
 <p>Command line:</p>
 
@@ -535,9 +533,9 @@ POINT_DATA 6
 
 <h3>Replace existing files</h3>
 
-The directory <code>vtk</code> from the first example holds the files already. A
-second call without <b>--overwrite</b> is refused: the message names the file,
-and the tool stops with "Unable to export raster map" and a temporary name that
+The directory <code>vtk</code> from the first example holds the files already. A second
+call without <b>--overwrite</b> is refused: the message names the file, and the
+tool stops with "Unable to export raster map" and a temporary name that
 differs from call to call, so only the line about the file is shown. The file
 is as it was. The call with <b>--overwrite</b> replaces the files.
 
@@ -578,11 +576,10 @@ ERROR: option &lt;output&gt;: &lt;000000_temperature.vtk&gt; exists. To overwrit
 
 <h3>Write a dataset of another mapset with relative time</h3>
 
-The dataset <code>model</code> has relative time and two maps in the mapset
-<code>PERMANENT</code>. The example switches to the mapset
-<code>analysis</code>, which has the default region, so it sets the region of
-the maps again. The call names the dataset with its mapset. The files are
-numbered as for absolute time.
+The dataset <code>model</code> has relative time and two maps in the mapset <code>PERMANENT</code>. The
+example switches to the mapset <code>analysis</code>, which has the default region, so it
+sets the region of the maps again. The call names the dataset with its mapset.
+The files are numbered as for absolute time.
 
 <p>Command line:</p>
 
@@ -632,15 +629,10 @@ print("\n".join(sorted(path.name for path in Path("model").iterdir())))
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r.out.vtk.html">r.out.vtk</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.rast.export.html">t.rast.export</a>,
+<em><a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>, <a href="r.out.vtk.html">r.out.vtk</a>,
+<a href="t.create.html">t.create</a>, <a href="t.rast.export.html">t.rast.export</a>,
 <a href="t.register.html">t.register</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

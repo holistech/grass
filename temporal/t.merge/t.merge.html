@@ -2,72 +2,69 @@
 
 <em>t.merge</em> registers the maps of several space time datasets in one output
 dataset: the output holds the maps of all inputs, and the inputs stay as they
-are. See the <a href="temporalintro.html">introduction to temporal data
-processing</a> for an overview. Only the registration is merged.
-<em>t.merge</em> copies no map and changes no time stamp; every map keeps the
-time it has in the temporal database.
+are. See the <a href="temporalintro.html">introduction to temporal data processing</a> for
+an overview. Only the registration is merged. <em>t.merge</em> copies no map and
+changes no time stamp; every map keeps the time it has in the temporal
+database.
 
 <p>
 The option <b>inputs</b> names the datasets to merge, separated by commas, and
-<b>output</b> names the dataset that receives their maps. Both are required. The
-option <b>type</b> gives the type of all datasets of the call:
-<code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A
-dataset is found by its type and name, so a name that belongs to a dataset of
-another type is not found.
+<b>output</b> names the dataset that receives their maps. Both are required.
+The option <b>type</b> gives the type of all datasets of the call: <code>strds</code>
+(the default), <code>str3ds</code> or <code>stvds</code>. A dataset is found by its type and name,
+so a name that belongs to a dataset of another type is not found.
 
 <p>
 A map that is a member of several inputs is registered once in the output.
 Registering a map in the output does not unregister it from the input, so the
-map then belongs to all of these datasets, which
-<em><a href="t.info.html">t.info</a></em> shows for the map under
-<code>Registered datasets</code>. The output takes the start and end time, the
-granularity and the range of values from all registered maps (see the first
-example).
+map then belongs to all of these datasets, which <em><a href="t.info.html">t.info</a></em> shows
+for the map under <code>Registered datasets</code>. The output takes the start and end
+time, the granularity and the range of values from all registered maps (see
+the first example).
 
 <h3>The output dataset</h3>
 
 A new output dataset gets the temporal type of the inputs, the title and the
-description <code>Merged space time dataset</code> and the semantic type
-<code>mean</code>.
+description <code>Merged space time dataset</code> and the semantic type <code>mean</code>.
 
 <p>
 An output that exists already is refused, unless the flag <b>--overwrite</b> is
-given. With <b>--overwrite</b>, the maps of the inputs are added to the maps
-that the output holds; nothing is removed from the output and the maps it holds
+given. With <b>--overwrite</b>, the maps of the inputs are added to the maps that
+the output holds; nothing is removed from the output and the maps it holds
 already are not registered again. The output may also be one of the inputs,
 which adds nothing for that input.
 
 <h3>Temporal type</h3>
 
-All inputs must have the same temporal type, absolute or relative. The type of
-the output is that of the inputs (see the third example). With relative time,
-the inputs must also share the time unit of their maps.
+All inputs must have the same temporal type, absolute or relative. The
+type of the output is that of the inputs (see the third example). With
+relative time, the inputs must also share the time unit of their maps.
 
 <h3>Mapsets</h3>
 
 The output belongs to the current mapset. An input name without a mapset is
-looked for in the current mapset only, also if another mapset of the search path
-has a dataset of that name; name such a dataset with its mapset
+looked for in the current mapset only, also if another mapset of the search
+path has a dataset of that name; name such a dataset with its mapset
 (<code>temperature@climate</code>). The maps of an input of another mapset are
 registered in the output, in the current mapset.
 
 <h2>NOTES</h2>
 
-An output in another mapset is refused with the error "Output space time dataset
-<code>&lt;name@mapset&gt;</code> must be located in this mapset". An existing
-output without <b>--overwrite</b> is refused with an error like "Unable to merge
-maps into space time raster dataset <code>&lt;out@PERMANENT&gt;</code> please use
-the overwrite flag." (raster stands for the type of the maps: raster, raster3d
-or vector).
+An output in another mapset is refused with the error "Output space time
+dataset <code>&lt;name@mapset&gt;</code> must be located in this mapset". An existing output
+without <b>--overwrite</b> is refused with an error like "Unable to merge maps
+into space time raster dataset <code>&lt;out@PERMANENT&gt;</code> please use the overwrite
+flag." (raster stands for the type of the maps: raster, raster3d or vector).
 
 <p>
 Refusals and what they leave behind:
+
 <ul>
 <li>A name that is not a dataset of the given type stops the run with the error
-"Space time dataset <code>&lt;name&gt;</code> of type
-<code>&lt;strds&gt;</code> not found", and no output is created.</li>
-<li>Datasets of different temporal types stop the run with the error "Space time
-datasets to merge must have the same temporal type", and no output is
+"Space time dataset <code>&lt;name&gt;</code> of type <code>&lt;strds&gt;</code> not found", and no output is
+created.</li>
+<li>Datasets of different temporal types stop the run with the error "Space
+time datasets to merge must have the same temporal type", and no output is
 created.</li>
 <li>Two datasets of relative time in different units, such as hours and years,
 cannot be merged. The error begins with "Relative time units of space time
@@ -80,22 +77,19 @@ removed again.</li>
 
 <h3>Merge datasets that share a map</h3>
 
-The dataset <code>early</code> holds the maps <code>m_1</code> to
-<code>m_3</code>, one per day from 2026-06-01. The dataset <code>late</code>
-holds <code>m_4</code> and <code>m_5</code> for the next two days and, as a
-third member, <code>m_3</code>, which is registered in <code>early</code>
-already. Registering a map by its name alone gives it the time it has in the
-temporal database. <code>t.rast.list</code> shows that <code>late</code> starts
-with <code>m_3</code>.
+The dataset <code>early</code> holds the maps <code>m_1</code> to <code>m_3</code>, one per day from
+2026-06-01. The dataset <code>late</code> holds <code>m_4</code> and <code>m_5</code> for the next two days and,
+as a third member, <code>m_3</code>, which is registered in <code>early</code> already. Registering
+a map by its name alone gives it the time it has in the temporal database.
+<code>t.rast.list</code> shows that <code>late</code> starts with <code>m_3</code>.
 
 <p>
-The second block merges them into the new dataset <code>season</code>, which
-holds five maps, not six: <code>m_3</code> is registered once. Its time is from
-2026-06-01 to 2026-06-06, the granularity is one day, and the values range from
-1 to 5. The datasets <code>early</code> and <code>late</code> keep three maps
-each. The new dataset has the title <code>Merged space time dataset</code> and
-the semantic type <code>mean</code>, and the map <code>m_3</code> now belongs to
-all three datasets.
+The second block merges them into the new dataset <code>season</code>, which holds five
+maps, not six: <code>m_3</code> is registered once. Its time is from 2026-06-01 to
+2026-06-06, the granularity is one day, and the values range from 1 to 5. The
+datasets <code>early</code> and <code>late</code> keep three maps each. The new dataset has the
+title <code>Merged space time dataset</code> and the semantic type <code>mean</code>, and the map
+<code>m_3</code> now belongs to all three datasets.
 
 <p>Command line:</p>
 
@@ -235,11 +229,10 @@ number_of_maps=5
 <h3>Add maps to an existing dataset</h3>
 
 The output <code>season</code> exists from the previous example. A call without
-<b>--overwrite</b> would be refused. With it, the maps of <code>extra</code> are
-added to the five maps <code>season</code> holds. In the second call the output
-is also an input, together with <code>early</code>, whose maps
-<code>season</code> holds already: nothing is registered twice, and
-<code>season</code> keeps six maps.
+<b>--overwrite</b> would be refused. With it, the maps of <code>extra</code> are added to
+the five maps <code>season</code> holds. In the second call the output is also an
+input, together with <code>early</code>, whose maps <code>season</code> holds already: nothing is
+registered twice, and <code>season</code> keeps six maps.
 
 <p>Command line:</p>
 
@@ -295,11 +288,11 @@ number_of_maps=6
 
 <h3>Merge datasets of relative time</h3>
 
-Two model runs have relative time in hours: <code>run1</code> covers the hours 0
-to 3, <code>run2</code> the hours 3 to 5. The merged dataset has relative time
-as well, the unit <code>hours</code> and the times 0 to 5. The maps are new ones;
-a map has one temporal type, so the maps of the first example cannot join a
-dataset of relative time.
+Two model runs have relative time in hours: <code>run1</code> covers the hours 0 to 3,
+<code>run2</code> the hours 3 to 5. The merged dataset has relative time as well, the
+unit <code>hours</code> and the times 0 to 5. The maps are new ones; a map has one
+temporal type, so the maps of the first example cannot join a dataset of
+relative time.
 
 <p>Command line:</p>
 
@@ -399,11 +392,10 @@ number_of_maps=5
 
 <h3>Merge vector datasets</h3>
 
-With <b>type</b> <code>stvds</code>, <em>t.merge</em> merges space time vector
-datasets. The datasets <code>gauges_a</code> and <code>gauges_b</code> each hold
-one point map, one for each day. Datasets of type <code>str3ds</code> are merged
-the same way. The merged dataset <code>gauges</code> has two maps and two
-points.
+With <b>type</b> <code>stvds</code>, <em>t.merge</em> merges space time vector datasets. The
+datasets <code>gauges_a</code> and <code>gauges_b</code> each hold one point map, one for each day.
+Datasets of type <code>str3ds</code> are merged the same way. The merged dataset
+<code>gauges</code> has two maps and two points.
 
 <p>Command line:</p>
 
@@ -479,12 +471,10 @@ number_of_maps=2
 
 <h2>SEE ALSO</h2>
 
-<em><a href="g.mapsets.html">g.mapsets</a>, <a href="t.copy.html">t.copy</a>,
-<a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a
-href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>, <a
-href="t.support.html">t.support</a>, <a
-href="t.unregister.html">t.unregister</a>, <a
-href="temporalintro.html">temporal data processing</a></em>
+<em><a href="g.mapsets.html">g.mapsets</a>, <a href="t.copy.html">t.copy</a>, <a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>, <a href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>,
+<a href="t.support.html">t.support</a>, <a href="t.unregister.html">t.unregister</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

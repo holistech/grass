@@ -1,22 +1,21 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.unregister</em> unregisters maps from a space time dataset or from the
-temporal database. A space time dataset (STRDS, STR3DS or STVDS) is a
-collection of time stamped maps; see the <a href="temporalintro.html">
-introduction to temporal data processing</a> for an overview.
-<em>t.unregister</em> is the counterpart of <em><a
-href="t.register.html">t.register</a></em>. It never deletes a map from the
-mapset: only the registration and, without <b>input</b>, the time stamp in the
-temporal database go away. To remove a dataset, use <em><a
-href="t.remove.html">t.remove</a></em>.
+<em>t.unregister</em> unregisters maps from a space time dataset or from the temporal
+database. A space time dataset (STRDS, STR3DS or STVDS) is a collection of
+time stamped maps; see the
+<a href="temporalintro.html">introduction to temporal data processing</a> for an overview.
+<em>t.unregister</em> is the counterpart of <em><a href="t.register.html">t.register</a></em>. It never
+deletes a map from the mapset: only the registration and, without <b>input</b>,
+the time stamp in the temporal database go away. To remove a dataset, use
+<em><a href="t.remove.html">t.remove</a></em>.
 
 <p>
-The maps are named with <b>maps</b>, a comma separated list, or with
-<b>file</b>, a text file that holds one map name per line. Empty lines in the
-file are skipped. A name without mapset belongs to the current mapset; a name
-may carry its mapset (<code>rain_1@PERMANENT</code>). The options <b>maps</b>
-and <b>file</b> exclude each other, and one of them is required; an empty
-<b>maps</b> counts as missing.
+The maps are named with <b>maps</b>, a comma separated list, or with <b>file</b>, a
+text file that holds one map name per line. Empty lines in the file are
+skipped. A name without mapset belongs to the current mapset; a name may
+carry its mapset (<code>rain_1@PERMANENT</code>). The options <b>maps</b> and <b>file</b>
+exclude each other, and one of them is required; an empty <b>maps</b> counts as
+missing.
 
 <p>
 The option <b>input</b> decides where the maps are unregistered from:
@@ -24,71 +23,68 @@ The option <b>input</b> decides where the maps are unregistered from:
 <ul>
 <li>with <b>input</b>, a space time dataset: the maps are unregistered from this
 dataset only. They keep their time stamps in the temporal database and stay
-registered in every other dataset that holds them. This is the way to take a map
-out of one dataset without affecting the others;</li>
+registered in every other dataset that holds them. This is the way to take
+a map out of one dataset without affecting the others;</li>
 <li>without <b>input</b>: the maps are unregistered from the temporal database.
 Their time stamps are removed, and every dataset that held a map loses it.</li>
 </ul>
 
 <p>
-Whichever way is used, each dataset that loses maps gets its number of maps, its
-time and spatial extent and the other metadata computed again from the maps that
-are left; <em><a href="t.info.html">t.info</a></em> shows the new values. A
-dataset that loses all its maps stays and holds zero maps.
+Whichever way is used, each dataset that loses maps gets its number of maps,
+its time and spatial extent and the other metadata computed again from the
+maps that are left; <em><a href="t.info.html">t.info</a></em> shows the new values. A dataset that
+loses all its maps stays and holds zero maps.
 
 <p>
-The option <b>type</b> gives the type of all maps of the call:
-<code>raster</code> (the default), <code>raster_3d</code> or
-<code>vector</code>. It also selects the type of <b>input</b>: a call with
-<code>raster</code> maps needs a space time raster dataset, one with
-<code>raster_3d</code> maps a space time 3D raster dataset, and one with
-<code>vector</code> maps a space time vector dataset. A map is found by its type
-and name, so a name that belongs to a map of another type is not found. A layer
-of a vector map is a map of its own for the temporal database and is named
-<code>map:layer</code>; the name of the vector map alone is another map.
+The option <b>type</b> gives the type of all maps of the call: <code>raster</code> (the
+default), <code>raster_3d</code> or <code>vector</code>. It also selects the type of <b>input</b>: a
+call with <code>raster</code> maps needs a space time raster dataset, one with <code>raster_3d</code>
+maps a space time 3D raster dataset, and one with <code>vector</code> maps a space time
+vector dataset. A map is found by its type and name, so a name that belongs to
+a map of another type is not found. A layer of a vector map is a map of its
+own for the temporal database and is named <code>map:layer</code>; the name of the vector
+map alone is another map.
 
 <h2>NOTES</h2>
 
-All checks of the options come first. A call with both or neither of
-<b>maps</b> and <b>file</b> stops with the error "maps= and file= are mutually
-exclusive" or "maps= or file= must be specified", and a missing <b>file</b>
-with the error <code>File &lt;name&gt; not found</code>. A dataset <b>input</b> that does
-not exist, or exists with another type than the one <b>type</b> selects, stops
-the run with the error <code>Space time dataset &lt;name&gt; of type
-&lt;raster&gt; not found</code>; the type in the message is the value of
-<b>type</b>. In none of these cases a map has been changed.
+All checks of the options come first. A call with both or neither of <b>maps</b>
+and <b>file</b> stops with the error "maps= and file= are mutually exclusive" or
+"maps= or file= must be specified", and a missing <b>file</b> with the error
+<code>File &lt;name&gt; not found</code>. A dataset <b>input</b> that does not exist, or exists
+with another type than the one <b>type</b> selects, stops the run with the error
+<code>Space time dataset &lt;name&gt; of type &lt;raster&gt; not found</code>; the type in the
+message is the value of <b>type</b>. In none of these cases a map has been
+changed.
 
 <p>
-A map that cannot be unregistered is a warning, not an error, and the other maps
-of the call are still unregistered:
+A map that cannot be unregistered is a warning, not an error, and the other
+maps of the call are still unregistered:
 
 <ul>
 <li>without <b>input</b>, a map that is not in the temporal database gives the
-warning <code>Unable to find raster map &lt;rain_9@PERMANENT&gt; in temporal
-database</code> (with the type and the full name of the map);</li>
-<li>with <b>input</b>, the same warning is given for such a map, and a map that
-is in the temporal database but not registered in the dataset gives
+warning <code>Unable to find raster map &lt;rain_9@PERMANENT&gt; in temporal database</code>
+(with the type and the full name of the map);</li>
+<li>with <b>input</b>, the same warning is given for such a map, and a map that is
+in the temporal database but not registered in the dataset gives
 <code>Map &lt;rain_1@PERMANENT&gt; is not registered in space time dataset
 &lt;rain@PERMANENT&gt;</code>. The map stays as it is.</li>
 </ul>
 
 <p>
 The dataset types of the maps and of <b>input</b> must fit. A 3D raster map is
-not found as <code>raster</code>, and a call with <code>type=vector</code> does
-not find a space time raster dataset.
+not found as <code>raster</code>, and a call with <code>type=vector</code> does not find a space
+time raster dataset.
 
 <h2>EXAMPLES</h2>
 
 <h3>Unregister maps from one dataset</h3>
 
-The dataset <code>rain</code> holds three daily maps; <code>wet</code> holds the
-second and the third of them, which keep their time stamps.
-<em>t.unregister</em> with <b>input</b> <code>rain</code> takes
-<code>rain_3</code> out of <code>rain</code> only. <em>t.list</em> shows that
-<code>rain</code> has two maps and <code>wet</code> still two, and
-<em>t.info</em> that the end of <code>rain</code> moved from the fourth to the
-third of June, computed from <code>rain_1</code> and <code>rain_2</code>. The
-third command lists the registered raster maps: the time stamps of all three are
+The dataset <code>rain</code> holds three daily maps; <code>wet</code> holds the second and the
+third of them, which keep their time stamps. <em>t.unregister</em> with <b>input</b>
+<code>rain</code> takes <code>rain_3</code> out of <code>rain</code> only. <em>t.list</em> shows that <code>rain</code> has two
+maps and <code>wet</code> still two, and <em>t.info</em> that the end of <code>rain</code> moved from the
+fourth to the third of June, computed from <code>rain_1</code> and <code>rain_2</code>. The third
+command lists the registered raster maps: the time stamps of all three are
 still there.
 
 <p>Command line:</p>
@@ -160,12 +156,11 @@ rain_3|2026-06-03 00:00:00
 
 <h3>Unregister maps from the temporal database</h3>
 
-Without <b>input</b>, the maps leave the temporal database and every dataset
-that holds them. Here <code>rain_2</code> and <code>rain_3</code> are
-unregistered. <code>rain</code> keeps only <code>rain_1</code>, <code>wet</code>
-loses both its maps and stays as an empty dataset, and only <code>rain_1</code>
-has a time stamp left. The maps themselves are still in the mapset, as
-<em>g.list</em> shows.
+Without <b>input</b>, the maps leave the temporal database and every dataset that
+holds them. Here <code>rain_2</code> and <code>rain_3</code> are unregistered. <code>rain</code> keeps only
+<code>rain_1</code>, <code>wet</code> loses both its maps and stays as an empty dataset, and only
+<code>rain_1</code> has a time stamp left. The maps themselves are still in the mapset,
+as <em>g.list</em> shows.
 
 <p>Command line:</p>
 
@@ -205,11 +200,11 @@ rain_3
 
 <h3>Take the map names from a file</h3>
 
-The file <code>dry.txt</code> names two of the three maps of the new dataset
-<code>dry</code>, with an empty line between the names. First, <b>file</b> is
-combined with <b>input</b>: the two maps leave <code>dry</code>, which keeps one
-map, but all three maps keep their time stamps. Then the same file without
-<b>input</b> removes the time stamps of the two maps.
+The file <code>dry.txt</code> names two of the three maps of the new dataset <code>dry</code>, with
+an empty line between the names. First, <b>file</b> is combined with <b>input</b>:
+the two maps leave <code>dry</code>, which keeps one map, but all three maps keep their
+time stamps. Then the same file without <b>input</b> removes the time stamps of
+the two maps.
 
 <p>Command line:</p>
 
@@ -284,8 +279,8 @@ dry_3
 <h3>Datasets of relative time</h3>
 
 Maps of a dataset with relative time are unregistered in the same way. The
-dataset <code>model</code> holds three maps of one hour each, from hour 0 to
-hour 3. After the first map has left it, the dataset starts at hour 1.
+dataset <code>model</code> holds three maps of one hour each, from hour 0 to hour 3.
+After the first map has left it, the dataset starts at hour 1.
 
 <p>Command line:</p>
 
@@ -348,12 +343,11 @@ number_of_maps=2
 
 <h3>Unregister 3D raster maps and vector maps</h3>
 
-With <b>type</b>, the maps are 3D raster maps or vector maps, and <b>input</b>
-is a space time 3D raster dataset or a space time vector dataset. The 3D raster
-map <code>soil_1</code> leaves its dataset <code>soil</code> and keeps its time
-stamp. The vector map <code>gauges_1</code> is unregistered from the temporal
-database, so that it is no longer registered in <code>gauges</code> and has no
-time stamp.
+With <b>type</b>, the maps are 3D raster maps or vector maps, and <b>input</b> is a
+space time 3D raster dataset or a space time vector dataset. The 3D raster map
+<code>soil_1</code> leaves its dataset <code>soil</code> and keeps its time stamp. The vector map
+<code>gauges_1</code> is unregistered from the temporal database, so that it is no longer
+registered in <code>gauges</code> and has no time stamp.
 
 <p>Command line:</p>
 
@@ -446,10 +440,9 @@ gauges_2
 
 <h2>SEE ALSO</h2>
 
-<em><a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a
-href="t.list.html">t.list</a>, <a href="t.register.html">t.register</a>, <a
-href="t.remove.html">t.remove</a>, <a href="temporalintro.html">temporal data
-processing</a></em>
+<em><a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>,
+<a href="t.register.html">t.register</a>, <a href="t.remove.html">t.remove</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

@@ -1,75 +1,78 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.contour</em> computes the contour lines of each raster map
-registered in a space time raster dataset and registers them as vector maps in
-a new space time vector dataset. It runs
-<em><a href="r.contour.html">r.contour</a></em> for every map, so the contour
-lines are those of <em>r.contour</em>. Each new vector map gets the start and
+<em>t.rast.contour</em> computes the contour lines of each raster map registered in
+a space time raster dataset and registers them as vector maps in a new space
+time vector dataset. It runs <em><a href="r.contour.html">r.contour</a></em> for every map, so the
+contour lines are those of <em>r.contour</em>. Each new vector map gets the start and
 end time of the raster map it was computed from. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets.
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets.
+
 <p>
 The option <b>input</b> names the space time raster dataset, the option
 <b>output</b> the new space time vector dataset. The new dataset takes the
 temporal type, the semantic type, the title and the description of the input
 dataset. The option <b>where</b> takes an SQL condition on the registered maps
-and selects the maps to process, for instance by their
-<code>start_time</code>; without it, all maps are processed.
+and selects the maps to process, for instance by their <code>start_time</code>; without
+it, all maps are processed.
+
 <p>
 Either <b>levels</b> or <b>step</b> sets the contour levels:
+
 <ul>
-<li><b>levels</b> takes a list of levels, separated by commas. A level outside
-the values of a map gives no line in that map.</li>
+<li><b>levels</b> takes a list of levels, separated by commas. A level outside the
+values of a map gives no line in that map.</li>
 <li><b>step</b> sets the distance between two levels. The levels are the
 multiples of <b>step</b> that lie within the smallest and the largest value of
 each map, so maps with different values get different levels; in the first
-example, <b>step</b> <code>2</code> gives the even numbers within the values
-of each map.</li>
+example, <b>step</b> <code>2</code> gives the even numbers within the values of each map.</li>
 <li><b>minlevel</b> and <b>maxlevel</b> limit the levels of a step. With
 <b>minlevel</b>, the levels start at <b>minlevel</b> and follow in steps of
 <b>step</b>, instead of being multiples of <b>step</b>. Only the levels from
-<b>minlevel</b> up to <b>maxlevel</b>, both included, that lie within the
-values of a map are used. <b>maxlevel</b> is a level only if it lies on this
-grid of levels. The limits apply to every map of the dataset: a map whose
-values lie wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> gets
-no level.</li>
+<b>minlevel</b> up to <b>maxlevel</b>, both included, that lie within the values
+of a map are used. <b>maxlevel</b> is a level only if it lies on this grid of
+levels. The limits apply to every map of the dataset: a map whose values lie
+wholly below <b>minlevel</b> or wholly above <b>maxlevel</b> gets no level.</li>
 </ul>
+
 <p>
-If both <b>levels</b> and <b>step</b> are given, <em>r.contour</em> uses the
-list and ignores the step. A level equal to the smallest value of a map gives
-no line.
+If both <b>levels</b> and <b>step</b> are given, <em>r.contour</em> uses the list and
+ignores the step. A level equal to the smallest value of a map gives no line.
+
 <p>
 The option <b>cut</b> leaves out the contour lines with fewer points than the
 given number. The default <code>0</code> keeps all lines.
+
 <p>
-Each new vector map has an attribute table with the column <code>level</code>,
-the contour level of its lines;
-<em><a href="t.vect.db.select.html">t.vect.db.select</a></em> prints these
-tables for the whole dataset. The flag <b>-t</b> creates the vector maps
+Each new vector map has an attribute table with the column <code>level</code>, the
+contour level of its lines; <em><a href="t.vect.db.select.html">t.vect.db.select</a></em> prints
+these tables for the whole dataset. The flag <b>-t</b> creates the vector maps
 without attribute tables.
+
 <p>
-The option <b>nprocs</b> sets the number of <em>r.contour</em> runs at the
-same time, <code>1</code> by default. More than one run at a time works only
-with <b>-t</b>: without it, <em>t.rast.contour</em> sets <b>nprocs</b> to
-<code>1</code> and warns, because the attribute tables cannot be created in parallel.
+The option <b>nprocs</b> sets the number of <em>r.contour</em> runs at the same time,
+<code>1</code> by default. More than one run at a time works only with <b>-t</b>: without
+it, <em>t.rast.contour</em> sets <b>nprocs</b> to <code>1</code> and warns, because the attribute
+tables cannot be created in parallel.
+
 <p>
 The new vector maps are named after the option <b>basename</b>, followed by an
 underscore and a suffix that the option <b>suffix</b> chooses:
+
 <ul>
-<li><code>gran</code> (the default) takes the start time of the raster map,
-cut to the granularity of the input dataset: <code>2026_07_01</code> in a
-dataset of days. A dataset of a single time instance has no granularity;
-<code>gran</code> then takes the full start time, as <code>time</code>
-does.</li>
-<li><code>time</code> takes the full start time:
-<code>2026_07_01T00_00_00</code>.</li>
-<li><code>num</code> numbers the selected maps from 1, with five digits:
-<code>00001</code>. <code>num%03</code> gives three digits:
-<code>001</code>.</li>
+<li><code>gran</code> (the default) takes the start time of the raster map, cut to the
+granularity of the input dataset: <code>2026_07_01</code> in a dataset of days. A
+dataset of a single time instance has no granularity; <code>gran</code> then takes the
+full start time, as <code>time</code> does.</li>
+<li><code>time</code> takes the full start time: <code>2026_07_01T00_00_00</code>.</li>
+<li><code>num</code> numbers the selected maps from 1, with five digits: <code>00001</code>.
+<code>num%03</code> gives three digits: <code>001</code>.</li>
 </ul>
+
 <p>
 In a dataset with relative time, each suffix gives the number, because a
 relative time has no calendar date.
+
 <p>
 A raster map can give a vector map without lines, for instance when no level
 lies within its values or when the map has no values. Such an empty vector map
@@ -85,62 +88,64 @@ shows. Null cells, also the cells outside a raster mask, count as cells
 outside the region: a line ends at them in the same way. A raster mask on a
 rectangle therefore gives the same lines as the region of that rectangle, as
 the last example shows as well; only a closed line or a line with saddles at
-its ends within about one cell of the border can differ (see
-<em>r.contour</em>).
+its ends within about one cell of the border can differ (see <em>r.contour</em>).
+
 <p>
-If <b>where</b> selects no map, <em>t.rast.contour</em> warns that the space
-time raster dataset is empty and creates no output dataset.
+If <b>where</b> selects no map, <em>t.rast.contour</em> warns that the space time raster
+dataset is empty and creates no output dataset.
+
 <p>
-If neither <b>levels</b> nor <b>step</b> is given, <em>t.rast.contour</em>
-stops with the error "Either <code>&lt;levels&gt;</code> or
-<code>&lt;step&gt;</code> option must be specified"; <em>r.contour</em>
-refuses a <b>step</b> of <code>0</code> with "This step value is not allowed". In both
-cases no dataset is created. An unknown <b>suffix</b> is refused before
-anything is written, for instance with "Invalid suffix
-<code>&lt;gram&gt;</code>, use gran, time, num or num%NN" for
-<code>suffix=gram</code>. An SQL error in <b>where</b> stops the tool with a
+If neither <b>levels</b> nor <b>step</b> is given, <em>t.rast.contour</em> stops with the
+error "Either <code>&lt;levels&gt;</code> or <code>&lt;step&gt;</code> option must be specified"; <em>r.contour</em>
+refuses a <b>step</b> of <code>0</code> with "This step value is not allowed". In both cases
+no dataset is created. An unknown <b>suffix</b> is refused before anything is
+written, for instance with "Invalid suffix <code>&lt;gram&gt;</code>, use gran, time, num or
+num%NN" for <code>suffix=gram</code>. An SQL error in <b>where</b> stops the tool with a
 message that begins with "Invalid where condition".
+
 <p>
-An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>;
-the vector maps of the same names are then replaced as well.
+An existing <b>output</b> dataset is replaced only with <b>--overwrite</b>; the
+vector maps of the same names are then replaced as well.
+
 <p>
 The input dataset can be in another mapset of the project; the name with the
-mapset (<code>input=tmax@PERMANENT</code>) selects it. The new vector maps and
-the new dataset are always created in the current mapset, as the last example
-shows.
+mapset (<code>input=tmax@PERMANENT</code>) selects it. The new vector maps and the new
+dataset are always created in the current mapset, as the last example shows.
 
 <h2>EXAMPLES</h2>
 
 <h3>Contour lines at a regular step</h3>
 
-The dataset <code>tmax</code> holds the daily maximum air temperature of three
-hot days in July over a city, on a region of 20 by 20 cells. In the
-countryside the temperature is 21 degrees; towards the centre of the city at
-(10, 10), it rises by 1 degree per cell. The expression
-<code>sqrt((x() - 10)^2 + (y() - 10)^2)</code> is the distance of a cell
-centre from the city centre. The peak at the centre grows from 24 degrees on
-the first day to 27 and 30 degrees. No cell centre lies exactly at (10, 10);
-the nearest ones are 0.71 cells away, so the highest values of the maps are
-23.29, 26.29 and 29.29. A contour line of the level L is a circle around the
-city centre with the radius peak - L.
+The dataset <code>tmax</code> holds the daily maximum air temperature of three hot days
+in July over a city, on a region of 20 by 20 cells. In the countryside the
+temperature is 21 degrees; towards the centre of the city at (10, 10), it
+rises by 1 degree per cell. The expression
+<code>sqrt((x() - 10)^2 + (y() - 10)^2)</code> is the distance of a cell centre from the
+city centre. The peak at the centre grows from 24 degrees on the first day to
+27 and 30 degrees. No cell centre lies exactly at (10, 10); the nearest ones
+are 0.71 cells away, so the highest values of the maps are 23.29, 26.29 and
+29.29. A contour line of the level L is a circle around the city centre with
+the radius peak - L.
+
 <p>
 With <b>step</b> <code>2</code>, the levels are the even numbers between the smallest and
 the largest value of each map:
+
 <ul>
 <li>the first day (21 to 23.29) has one line, at 22 degrees;</li>
 <li>the second day (21 to 26.29) has three, at 22, 24 and 26 degrees;</li>
 <li>the third day (21 to 29.29) has four, at 22, 24, 26 and 28 degrees.</li>
 </ul>
+
 <p>
 The first block computes the contour lines and lists the new vector maps with
-their number of lines. The default suffix <code>gran</code> names the maps
-after the day. The second block prints the levels from the attribute tables
-with <em>t.vect.db.select</em>. The third block shows with
-<em><a href="t.info.html">t.info</a></em> that the new dataset
-<code>isotherms</code> has the time, the semantic type <code>max</code>, the
-title and the description of the input dataset, and 1 + 3 + 4 = 8 lines. <em>r.contour</em> writes 3D lines at
-the height of their level, so the top and the bottom of the dataset are the
-highest and the lowest level, 28 and 22.
+their number of lines. The default suffix <code>gran</code> names the maps after the day.
+The second block prints the levels from the attribute tables with
+<em>t.vect.db.select</em>. The third block shows with <em><a href="t.info.html">t.info</a></em> that the
+new dataset <code>isotherms</code> has the time, the semantic type <code>max</code>, the title and
+the description of the input dataset, and 1 + 3 + 4 = 8 lines. <em>r.contour</em>
+writes 3D lines at the height of their level, so the top and the bottom of
+the dataset are the highest and the lowest level, 28 and 22.
 
 <p>Command line:</p>
 
@@ -347,10 +352,10 @@ print(tools.t_info(type="stvds", input="isotherms").stdout, end="")
 <h3>Draw the contour lines over the raster map</h3>
 
 The figure shows the map of the third day with its contour lines and their
-levels as labels. <em>d.rast</em> draws the raster map, <em>d.vect</em> the
-contour lines with the column <code>level</code> of the attribute table as
-label, and <em>d.legend</em> the colour scale of the temperature, labelled
-every 2 degrees (<b>label_step</b>) without decimals (<b>digits</b>).
+levels as labels. <em>d.rast</em> draws the raster map, <em>d.vect</em> the contour lines
+with the column <code>level</code> of the attribute table as label, and <em>d.legend</em> the
+colour scale of the temperature, labelled every 2 degrees (<b>label_step</b>)
+without decimals (<b>digits</b>).
 
 <p>Command line:</p>
 
@@ -382,21 +387,22 @@ tools.d_mon(stop="cairo")
 
 <p>
 <img src="t_rast_contour_lines.png" alt="Contour lines of the maximum temperature">
+
 <p>
 <em>Figure: Contour lines at 22, 24, 26 and 28 degrees, labelled with their
-level, over the maximum temperature of the third day,
-<code>tmax_3</code>.</em>
+level, over the maximum temperature of the third day, <code>tmax_3</code>.</em>
 
 <h3>Contour lines at chosen levels</h3>
 
-With <b>levels</b> <code>25,28</code>, the second day (up to 26.29 degrees)
-has one line, at 25 degrees, and the third day two, at 25 and 28 degrees. The
-first day stays below 25 degrees, so its vector map has no line:
-<em>t.rast.contour</em> removes it and registers two maps.
+With <b>levels</b> <code>25,28</code>, the second day (up to 26.29 degrees) has one line, at
+25 degrees, and the third day two, at 25 and 28 degrees. The first day stays
+below 25 degrees, so its vector map has no line: <em>t.rast.contour</em> removes it
+and registers two maps.
+
 <p>
-In the second block, the flag <b>-n</b> keeps the empty map of the first day,
-and <b>--overwrite</b> replaces the dataset <code>heat</code> of the first
-block together with its vector maps.
+In the second block, the flag <b>-n</b> keeps the empty map of the first day, and
+<b>--overwrite</b> replaces the dataset <code>heat</code> of the first block together with
+its vector maps.
 
 <p>Command line:</p>
 
@@ -458,28 +464,29 @@ heat_2026_07_03|2026-07-03 00:00:00|2
 
 <h3>Contour lines in a range of levels</h3>
 
-<b>minlevel</b> and <b>maxlevel</b> limit the levels of a step. With
-<b>step</b> <code>1</code>, <b>minlevel</b> <code>22</code> and
-<b>maxlevel</b> <code>24</code>, the second and the third day have lines at
-22, 23 and 24 degrees. The first day reaches only 23.29 degrees, so its
-levels end at 23.
+<b>minlevel</b> and <b>maxlevel</b> limit the levels of a step. With <b>step</b> <code>1</code>,
+<b>minlevel</b> <code>22</code> and <b>maxlevel</b> <code>24</code>, the second and the third day have
+lines at 22, 23 and 24 degrees. The first day reaches only 23.29 degrees, so
+its levels end at 23.
+
 <p>
-The second block shows that <b>maxlevel</b> is a limit, not a level, when it
-does not lie on the grid of <b>minlevel</b> and <b>step</b>: with
-<b>maxlevel</b> <code>23.5</code>, the second and the third day have lines at
-22 and 23 degrees. The condition in <b>where</b> leaves out the first day.
+The second block shows that <b>maxlevel</b> is a limit, not a level, when it does
+not lie on the grid of <b>minlevel</b> and <b>step</b>: with <b>maxlevel</b> <code>23.5</code>,
+the second and the third day have lines at 22 and 23 degrees. The condition
+in <b>where</b> leaves out the first day.
+
 <p>
 The third and the fourth block show maps whose values lie outside the limits;
 such a map gets no level and so no line:
+
 <ul>
-<li>With <b>minlevel</b> <code>24</code> and <b>maxlevel</b> <code>26</code>,
-the values of the first day (21 to 23.29) lie wholly below <b>minlevel</b>.
-Its vector map is empty and is not registered; the second and the third day
-have three lines each, at 24, 25 and 26 degrees.</li>
-<li>With <b>minlevel</b> <code>18</code> and <b>maxlevel</b> <code>20</code>,
-the values of every day lie wholly above <b>maxlevel</b>, so no day has a
-line. With <b>-n</b>, the three empty vector maps are registered all the
-same.</li>
+<li>With <b>minlevel</b> <code>24</code> and <b>maxlevel</b> <code>26</code>, the values of the first day
+(21 to 23.29) lie wholly below <b>minlevel</b>. Its vector map is empty and is
+not registered; the second and the third day have three lines each, at 24,
+25 and 26 degrees.</li>
+<li>With <b>minlevel</b> <code>18</code> and <b>maxlevel</b> <code>20</code>, the values of every day lie
+wholly above <b>maxlevel</b>, so no day has a line. With <b>-n</b>, the three
+empty vector maps are registered all the same.</li>
 </ul>
 
 <p>Command line:</p>
@@ -624,15 +631,14 @@ above_2026_07_03|0
 <h3>Leave out short contour lines</h3>
 
 The first block prints the line at 26 degrees of the second day, from the
-dataset <code>isotherms</code> of the first example.
-<em><a href="v.out.ascii.html">v.out.ascii</a></em> starts a line with
-<code>L</code>, the number of its points and the number of its categories:
-the small circle around the centre has only 9 points.
+dataset <code>isotherms</code> of the first example. <em><a href="v.out.ascii.html">v.out.ascii</a></em>
+starts a line with <code>L</code>, the number of its points and the number of its
+categories: the small circle around the centre has only 9 points.
+
 <p>
-With <b>cut</b> <code>10</code>, the lines with fewer than 10 points are left out. The
-second day keeps its two other lines, at 22 and 24 degrees; the first and the
-third day keep all their lines, because none of them has fewer than 10
-points.
+With <b>cut</b> <code>10</code>, the lines with fewer than 10 points are left out. The second
+day keeps its two other lines, at 22 and 24 degrees; the first and the third
+day keep all their lines, because none of them has fewer than 10 points.
 
 <p>Command line:</p>
 
@@ -686,17 +692,17 @@ long_2026_07_03|4
 
 <h3>Choose the names of the new maps</h3>
 
-The option <b>suffix</b> chooses how the new maps are named after
-<b>basename</b>:
+The option <b>suffix</b> chooses how the new maps are named after <b>basename</b>:
+
 <ol>
 <li><code>time</code> takes the full start time of each raster map.</li>
-<li><code>num%03</code> numbers the maps with three digits. The condition in
-<b>where</b> selects the second and the third day, and the numbers count the
-selected maps from 1.</li>
+<li><code>num%03</code> numbers the maps with three digits. The condition in <b>where</b>
+selects the second and the third day, and the numbers count the selected
+maps from 1.</li>
 <li>In a dataset with relative time, the suffix is always a number. The
-dataset <code>forecast</code> holds a forecast of the second and the third
-day, as days 1 and 2 after the start of a model run; the default suffix
-<code>gran</code> numbers the maps.</li>
+dataset <code>forecast</code> holds a forecast of the second and the third day, as
+days 1 and 2 after the start of a model run; the default suffix <code>gran</code>
+numbers the maps.</li>
 </ol>
 
 <p>Command line:</p>
@@ -814,11 +820,10 @@ forecast_isotherm_00002|2|3|4
 
 <h3>Compute the contour lines in parallel</h3>
 
-With the flag <b>-t</b>, the vector maps get no attribute table, and
-<b>nprocs</b> can run several <em>r.contour</em> processes at the same time;
-here three, one for each map. The lines are the same as in the first example.
-<em>v.info</em> shows that the map of the third day is linked to no attribute
-table.
+With the flag <b>-t</b>, the vector maps get no attribute table, and <b>nprocs</b>
+can run several <em>r.contour</em> processes at the same time; here three, one for
+each map. The lines are the same as in the first example. <em>v.info</em> shows that
+the map of the third day is linked to no attribute table.
 
 <p>Command line:</p>
 
@@ -857,16 +862,18 @@ num_dblinks=0
 
 <h3>Use a dataset of another mapset</h3>
 
-The example creates the mapset <code>analysis</code> and switches to it. The
-dataset <code>tmax</code> stays in the mapset <code>PERMANENT</code> and is
-named with its mapset; the new dataset <code>west</code> and its vector maps
-are created in <code>analysis</code>, as the column <code>id</code> shows.
+The example creates the mapset <code>analysis</code> and switches to it. The dataset
+<code>tmax</code> stays in the mapset <code>PERMANENT</code> and is named with its mapset; the new
+dataset <code>west</code> and its vector maps are created in <code>analysis</code>, as the column
+<code>id</code> shows.
+
 <p>
 The region of the new mapset is set to the western half of the maps, so the
 circles become half circles that end at x = 9.5, the centre of the eastern
 cells of the region. A closed circle has one node, as the 8 lines with 8
 nodes of the first example show; a half circle has two, one at each end, so
 the third day has four lines with eight nodes.
+
 <p>
 The second block restricts the area to the same western half with a raster
 mask instead, on the full region. The cells outside the mask are null cells,
@@ -939,23 +946,13 @@ masked_2026_07_03@analysis|4|8|9.5
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="d.legend.html">d.legend</a>,
-<a href="d.rast.html">d.rast</a>,
-<a href="d.vect.html">d.vect</a>,
-<a href="g.mapset.html">g.mapset</a>,
-<a href="g.region.html">g.region</a>,
-<a href="r.contour.html">r.contour</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.to.vect.html">t.rast.to.vect</a>,
-<a href="t.register.html">t.register</a>,
-<a href="t.vect.db.select.html">t.vect.db.select</a>,
-<a href="t.vect.list.html">t.vect.list</a>,
-<a href="v.info.html">v.info</a>,
-<a href="v.out.ascii.html">v.out.ascii</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<em><a href="d.legend.html">d.legend</a>, <a href="d.rast.html">d.rast</a>, <a href="d.vect.html">d.vect</a>,
+<a href="g.mapset.html">g.mapset</a>, <a href="g.region.html">g.region</a>,
+<a href="r.contour.html">r.contour</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.to.vect.html">t.rast.to.vect</a>, <a href="t.register.html">t.register</a>,
+<a href="t.vect.db.select.html">t.vect.db.select</a>, <a href="t.vect.list.html">t.vect.list</a>,
+<a href="v.info.html">v.info</a>, <a href="v.out.ascii.html">v.out.ascii</a>,
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

@@ -1,140 +1,128 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.topology</em> reports the temporal topology of a space time dataset
-(STRDS, STR3DS or STVDS; see the <a href="temporalintro.html">introduction to
-temporal data processing</a>): whether the maps follow each other without
-overlap, how many maps are time points or intervals, how many gaps lie between
-them, and which temporal relation holds between which maps. It tells whether a
-dataset has a valid topology and where it has not. The dataset is read only;
-<em>t.topology</em> changes nothing.
+<em>t.topology</em> reports the temporal topology of a space time dataset (STRDS,
+STR3DS or STVDS; see the
+<a href="temporalintro.html">introduction to temporal data processing</a>): whether the
+maps follow each other without overlap, how many maps are time points or
+intervals, how many gaps lie between them, and which temporal relation holds
+between which maps. It tells whether a dataset has a valid topology and
+where it has not. The dataset is read only; <em>t.topology</em> changes nothing.
 
 <p>
-The option <b>input</b> names the dataset and <b>type</b> its type:
-<code>strds</code> (the default), <code>str3ds</code> or <code>stvds</code>. A
-dataset is found by its type and name, so a name that belongs to a dataset of
-another type is not found. The option <b>where</b> is an SQL condition on the
-table of the registered maps, for example <code>start_time &gt;=
-'2026-06-02'</code> or <code>name != 'c'</code>; <em>t.topology</em> then looks
+The option <b>input</b> names the dataset and <b>type</b> its type: <code>strds</code> (the
+default), <code>str3ds</code> or <code>stvds</code>. A dataset is found by its type and name, so a
+name that belongs to a dataset of another type is not found. The option
+<b>where</b> is an SQL condition on the table of the registered maps, for
+example <code>start_time &gt;= '2026-06-02'</code> or <code>name != 'c'</code>; <em>t.topology</em> then looks
 at the selected maps only. It uses the time of the maps and of the dataset in
 absolute and in relative time alike.
 
 <p>
-Without a flag <em>t.topology</em> prints a summary in three parts. The first
-part, <b>Basic information</b>, shows the same lines as the basic information of
-<em><a href="t.info.html">t.info</a></em>. The second part, <b>Temporal
-topology</b>, has these lines:
+Without a flag <em>t.topology</em> prints a summary in three parts. The first part,
+<b>Basic information</b>, shows the same lines as the basic information of
+<em><a href="t.info.html">t.info</a></em>.
+The second part, <b>Temporal topology</b>, has these lines:
 
 <ul>
-<li><code>Is subset of dataset</code> is <code>True</code> if <b>where</b> is
-given and <code>False</code> otherwise, also if the condition selects all
-maps.</li>
-<li><code>Temporal topology is</code> is <code>valid</code> if no two of the
-maps are equal, overlap, or lie in each other. A pair that touches
-(<code>Follows</code>, <code>Precedes</code>) or has a gap between them is
-allowed, as are time points. It is <code>invalid</code> if a pair of maps breaks
-the rule; the next part tells which relations. No maps break no rule, so the
-topology of an empty selection is <code>valid</code>.</li>
-<li><code>Number of points</code> counts the maps that have a start time only
-and <code>Number of intervals</code> those that have a start and an end time.
+<li><code>Is subset of dataset</code> is <code>True</code> if <b>where</b> is given and <code>False</code>
+otherwise, also if the condition selects all maps.</li>
+<li><code>Temporal topology is</code> is <code>valid</code> if no two of the maps are equal, overlap,
+or lie in each other. A pair that touches (<code>Follows</code>, <code>Precedes</code>) or has a
+gap between them is allowed, as are time points. It is <code>invalid</code> if a
+pair of maps breaks the rule; the next part tells which relations. No maps
+break no rule, so the topology of an empty selection is <code>valid</code>.</li>
+<li><code>Number of points</code> counts the maps that have a start time only and
+<code>Number of intervals</code> those that have a start and an end time.
 <code>Invalid time stamps</code> counts the maps without a start time.</li>
-<li><code>Number of gaps</code> counts the neighbours in the order of the start
-times of which the later one starts after the earlier one has ended.</li>
-<li><code>Granularity</code> is the time step of the maps, for example
-<code>1 day</code>. In relative time it is a number without a unit. It is
-<code>None</code> if there are no maps.</li>
+<li><code>Number of gaps</code> counts the neighbours in the order of the start times of
+which the later one starts after the earlier one has ended.</li>
+<li><code>Granularity</code> is the time step of the maps, for example <code>1 day</code>. In relative
+time it is a number without a unit. It is <code>None</code> if there are no maps.</li>
 </ul>
 
 <p>
 The third part, <b>Topological relations</b>, counts the pairs of maps by their
 temporal relation. Each pair counts twice, once for each map as the point of
-view: a pair that touches counts as one <code>Follows</code> and one
-<code>Precedes</code>, a pair of maps with the same times as two
-<code>Equal</code>. A pair that does not touch and does not overlap, because
-there is a gap, is not counted. The counts are:
+view: a pair that touches counts as one <code>Follows</code> and one <code>Precedes</code>, a pair
+of maps with the same times as two <code>Equal</code>. A pair that does not touch and
+does not overlap, because there is a gap, is not counted. The counts are:
 
 <ul>
 <li><code>Equal</code>: the maps have the same start and end time.</li>
-<li><code>Follows</code> and <code>Precedes</code>: the end of one map is the
-start of the other.</li>
-<li><code>Overlaps</code> and <code>Overlapped</code>: the maps share a part of
-their time, but neither lies in the other.</li>
-<li><code>During</code> and <code>Contains</code>: one map lies in the
-other.</li>
-<li><code>Starts</code> and <code>Started</code>: the maps start together and
-the first ends earlier; <code>Finishes</code> and <code>Finished</code>: the
-maps end together and the first starts later. A pair of this kind is counted as
-<code>During</code> and <code>Contains</code>, too.</li>
+<li><code>Follows</code> and <code>Precedes</code>: the end of one map is the start of the other.</li>
+<li><code>Overlaps</code> and <code>Overlapped</code>: the maps share a part of their time, but
+neither lies in the other.</li>
+<li><code>During</code> and <code>Contains</code>: one map lies in the other.</li>
+<li><code>Starts</code> and <code>Started</code>: the maps start together and the first ends earlier;
+<code>Finishes</code> and <code>Finished</code>: the maps end together and the first starts later.
+A pair of this kind is counted as <code>During</code> and <code>Contains</code>, too.</li>
 </ul>
 
+<p>
 Without maps the part has no count lines.
 
 <p>
-The flag <b>-m</b> prints, instead of the summary, an entry for each selected
-map in the order of the start times, with the basic information, the time, the
-spatial extent and the metadata of the map. Its section <b>Temporal
-Topology</b> has a line for the next and the previous map in time
-(<code>Next</code>, <code>Previous</code>) and one line for each temporal
-relation that holds for the map, with the identifiers of the other maps. A
-relation line reads from the map to the maps it names: <code>Overlaps: b</code>
-in the entry of the map <code>a</code> says that <code>a</code> overlaps
-<code>b</code>. Only maps of the selection are named. The flag <b>-s</b> does the
-same and adds the spatial relations of the map to the other maps:
-<code>Equivalent</code>, <code>Cover</code>, <code>Covered</code>,
-<code>Overlap</code>, <code>In</code>, <code>Contain</code> and
-<code>Meet</code>. With <b>-s</b> a map is listed with another one only if the
-two maps are related in time and in space; a map that has no spatial relation to
-a map is not listed with its temporal relation either. The spatial relations of
-a STRDS are computed from the 2D extent of its maps (west, east, south, north),
-those of a STR3DS and a STVDS from the 3D extent (with bottom and top).
-<b>-s</b> prints the same as <b>-m</b> and <b>-s</b> together. Both flags print
-no summary.
+The flag <b>-m</b> prints, instead of the summary, an entry for each selected map
+in the order of the start times, with the basic information, the time, the
+spatial extent and the metadata of the map. Its section <b>Temporal Topology</b>
+has a line for the next and the previous map in time (<code>Next</code>, <code>Previous</code>) and
+one line for each temporal relation that holds for the map, with the identifiers
+of the other maps. A relation line reads from the map to the maps it names:
+<code>Overlaps: b</code> in the entry of the map <code>a</code> says that <code>a</code> overlaps <code>b</code>. Only maps
+of the selection are named. The flag <b>-s</b> does the same and adds the spatial
+relations of the map to the other maps: <code>Equivalent</code>, <code>Cover</code>, <code>Covered</code>,
+<code>Overlap</code>, <code>In</code>, <code>Contain</code> and <code>Meet</code>. With <b>-s</b> a map is listed with another
+one only if the two maps are related in time and in space; a map that has no
+spatial relation to a map is not listed with its temporal relation either. The
+spatial relations of a STRDS are computed from the 2D extent of its maps (west,
+east, south, north), those of a STR3DS and a STVDS from the 3D extent (with
+bottom and top). <b>-s</b> prints the same as <b>-m</b> and <b>-s</b> together. Both
+flags print no summary.
 
 <h2>NOTES</h2>
 
-A map that has an end time before its start time cannot be registered, but a
-database that was edited by hand can hold one. <em>t.topology</em> warns about
-each such map with its identifier and treats it as a map without time: it has no
+A map that has an end time before its start time cannot be registered, but
+a database that was edited by hand can hold one. <em>t.topology</em> warns about each
+such map with its identifier and treats it as a map without time: it has no
 relations, the other maps are related as if it were not there, and the
-granularity leaves it out. A map without a start time comes last in the listing
-of <b>-m</b> and <b>-s</b>. <em>t.topology</em> ends without an error in both
-cases.
+granularity leaves it out. A map without a start time comes last in the
+listing of <b>-m</b> and <b>-s</b>. <em>t.topology</em> ends without an error in
+both cases.
 
 <p>
-An empty dataset or a <b>where</b> condition that selects no map is not an
-error. The summary shows the topology as <code>valid</code>, zero counts, the
-granularity <code>None</code> and no count lines for the relations.
+An empty dataset or a <b>where</b> condition that selects no map is not an error.
+The summary shows the topology as <code>valid</code>, zero counts, the granularity
+<code>None</code> and no count lines for the relations.
 
 <p>
-A <b>where</b> condition with a syntax error stops <em>t.topology</em> with the
-error <code>Invalid where condition &lt;...&gt;</code> and the message of the
-database.
+A <b>where</b> condition with a syntax error stops <em>t.topology</em> with the error
+<code>Invalid where condition &lt;...&gt;</code> and the message of the database.
 
 <p>
-The times in <b>where</b> are compared as text in absolute time:
-<code>start_time &gt;= '2026-06-02'</code> selects as expected, whereas
-<code>start_time = '2026-06-02'</code> selects nothing, because the stored value
-is <code>2026-06-02 00:00:00</code>. Select a single map by <code>name =
-'...'</code>.
+The times in <b>where</b> are compared as text in absolute time: <code>start_time &gt;=
+'2026-06-02'</code> selects as expected, whereas <code>start_time = '2026-06-02'</code> selects
+nothing, because the stored value is <code>2026-06-02 00:00:00</code>. Select a single map
+by <code>name = '...'</code>.
 
 <p>
-A dataset that does not exist stops <em>t.topology</em> with an error such as
-<code>Space time dataset &lt;nope&gt; of type &lt;strds&gt; not found</code>.
+A dataset that does not exist stops <em>t.topology</em> with an error such as <code>Space
+time dataset &lt;nope&gt; of type &lt;strds&gt; not found</code>.
 
 <p>
-Datasets of relative time and of the other types work in the same way; the last
-example shows a relative time dataset and a vector dataset. A dataset of another
-mapset of the search path is found by its name, and <code>name@mapset</code>
-names it explicitly.
+Datasets of relative time and of the other types work in the same way; the
+last example shows a relative time dataset and a vector dataset. A dataset of
+another mapset of the search path is found by its name, and <code>name@mapset</code> names
+it explicitly.
 
 <h2>EXAMPLES</h2>
 
 <h3>Check a dataset whose maps follow each other</h3>
 
-The dataset <code>days</code> holds four maps of one day each, one after the
-other. The summary shows the topology as valid, four intervals, no gap and the
-granularity <code>1 day</code>. Three pairs of neighbours touch, which are
-counted as three <code>Follows</code> and three <code>Precedes</code>. The box
-above the summary is the basic information of the dataset.
+The dataset <code>days</code> holds four maps of one day each, one after the other.
+The summary shows the topology as valid, four intervals, no gap and the
+granularity <code>1 day</code>. Three pairs of neighbours touch, which are counted as
+three <code>Follows</code> and three <code>Precedes</code>. The box above the summary is the basic
+information of the dataset.
 
 <p>Command line:</p>
 
@@ -237,13 +225,11 @@ print(tools.t_topology(input="days").stdout, end="")
 
 <h3>Find overlaps, equal times and gaps</h3>
 
-The dataset <code>mixed</code> has the map <code>a</code> from 1 June to 3 June,
-the maps <code>b</code> and <code>c</code> with the same times from 2 June to 4
-June, and the map <code>d</code> from 6 June to 7 June. The map <code>a</code>
-overlaps <code>b</code> and <code>c</code>, which <code>Overlaps</code> and
-<code>Overlapped</code> count as two pairs each. <code>b</code> and
-<code>c</code> are equal; the one pair is counted twice, as <code>Equal:
-2</code>. The gap before <code>d</code> is the one gap. The topology is invalid
+The dataset <code>mixed</code> has the map <code>a</code> from 1 June to 3 June, the maps <code>b</code> and
+<code>c</code> with the same times from 2 June to 4 June, and the map <code>d</code> from 6 June to
+7 June. The map <code>a</code> overlaps <code>b</code> and <code>c</code>, which <code>Overlaps</code> and <code>Overlapped</code>
+count as two pairs each. <code>b</code> and <code>c</code> are equal; the one pair is counted twice,
+as <code>Equal: 2</code>. The gap before <code>d</code> is the one gap. The topology is invalid
 because of the overlaps and the equal maps.
 
 <p>Command line:</p>
@@ -339,10 +325,10 @@ print(tools.t_topology(input="mixed").stdout, end="")
 
 <h3>Check a part of a dataset</h3>
 
-The condition selects the maps <code>a</code> and <code>d</code> of the dataset
-<code>mixed</code>. The two maps do not touch, so no relation is counted, the
-one gap between them remains, and the topology of the selection is valid. The
-line <code>Is subset of dataset</code> is <code>True</code>.
+The condition selects the maps <code>a</code> and <code>d</code> of the dataset <code>mixed</code>. The two
+maps do not touch, so no relation is counted, the one gap between them
+remains, and the topology of the selection is valid. The line <code>Is subset of
+dataset</code> is <code>True</code>.
 
 <p>Command line:</p>
 
@@ -425,16 +411,14 @@ print(result.stdout, end="")
 
 <h3>List the relations of each map</h3>
 
-With <b>-m</b>, <em>t.topology</em> prints the information of each map instead
-of the summary. The listing is long, so the first block of each tab keeps only
-the lines with the identifier of the map and with its neighbours and relations,
-for the maps <code>a</code>, <code>b</code> and <code>d</code>; <code>c</code> is
-left out with <b>where</b>, because it has the same start time as <code>b</code>,
-and maps with the same start time have no fixed order. <code>a</code> is
-followed by <code>b</code>, which it overlaps, and <code>b</code> is followed by
-<code>d</code>, after a gap. The second block selects the single map
-<code>a</code> and prints the whole entry: without other maps in the selection it
-has no neighbours and no relations.
+With <b>-m</b>, <em>t.topology</em> prints the information of each map instead of the
+summary. The listing is long, so the first block of each tab keeps only the
+lines with the identifier of the map and with its neighbours and relations, for
+the maps <code>a</code>, <code>b</code> and <code>d</code>; <code>c</code> is left out with <b>where</b>, because it has the
+same start time as <code>b</code>, and maps with the same start time have no fixed order.
+<code>a</code> is followed by <code>b</code>, which it overlaps, and <code>b</code> is followed by <code>d</code>, after a
+gap. The second block selects the single map <code>a</code> and prints the whole entry:
+without other maps in the selection it has no neighbours and no relations.
 
 <p>Command line:</p>
 
@@ -556,19 +540,15 @@ print(result.stdout, end="")
 
 <h3>Include the spatial relations</h3>
 
-The dataset <code>scenes</code> holds three maps of one day each, one after the
-other: <code>big</code> covers 0 to 4 in both directions, <code>small</code>
-lies inside it, and <code>far</code> lies at 4 to 8 and has no common area with
-<code>small</code>. The maps get the extent of the region that is current when
-they are created. The first block lists the temporal relations with <b>-m</b>:
-<code>big</code> precedes <code>small</code>, which precedes <code>far</code>.
-The second block adds the spatial ones with <b>-s</b>: <code>big</code>
-contains <code>small</code> and <code>small</code> is in <code>big</code>.
-<code>far</code> and <code>small</code> are related in time but disjoint in
-space, so the listing of <b>-s</b> has no <code>Follows</code> line for
-<code>far</code> and no <code>Precedes</code> line naming <code>far</code> for
-<code>small</code>; only the chain of <code>Next</code> and <code>Previous</code>
-stays.
+The dataset <code>scenes</code> holds three maps of one day each, one after the other:
+<code>big</code> covers 0 to 4 in both directions, <code>small</code> lies inside it, and <code>far</code> lies
+at 4 to 8 and has no common area with <code>small</code>. The maps get the extent of the
+region that is current when they are created. The first block lists the temporal
+relations with <b>-m</b>: <code>big</code> precedes <code>small</code>, which precedes <code>far</code>. The second
+block adds the spatial ones with <b>-s</b>: <code>big</code> contains <code>small</code> and <code>small</code> is
+in <code>big</code>. <code>far</code> and <code>small</code> are related in time but disjoint in space, so the
+listing of <b>-s</b> has no <code>Follows</code> line for <code>far</code> and no <code>Precedes</code> line naming
+<code>far</code> for <code>small</code>; only the chain of <code>Next</code> and <code>Previous</code> stays.
 
 <p>Command line:</p>
 
@@ -662,14 +642,12 @@ print_lines(tools.t_topology(input="scenes", flags="s"), SPATIAL)
 
 <h3>Relative time and vector datasets</h3>
 
-The dataset <code>model</code> has relative time in hours. The maps
-<code>s1</code> from 0 to 2 and <code>s2</code> from 1 to 3 overlap, and
-<code>s3</code> from 6 to 7 lies after a gap. The summary counts the overlap and
-the gap, and the granularity is the number <code>1</code> without a unit. The
-dataset <code>gauges</code> is a vector dataset; its maps <code>g1</code> and
-<code>g2</code> follow each other and have the same point.
-<b>type=stvds</b> selects the type, and <b>-s</b> lists the two maps as
-spatially equivalent.
+The dataset <code>model</code> has relative time in hours. The maps <code>s1</code> from 0 to 2
+and <code>s2</code> from 1 to 3 overlap, and <code>s3</code> from 6 to 7 lies after a gap. The summary
+counts the overlap and the gap, and the granularity is the number <code>1</code> without
+a unit. The dataset <code>gauges</code> is a vector dataset; its maps <code>g1</code> and <code>g2</code> follow
+each other and have the same point. <b>type=stvds</b> selects the type, and <b>-s</b>
+lists the two maps as spatially equivalent.
 
 <p>Command line:</p>
 
@@ -812,15 +790,10 @@ print_lines(tools.t_topology(type="stvds", input="gauges", flags="s"), SPATIAL)
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.region.html">g.region</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.rast.list.html">t.rast.list</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="g.region.html">g.region</a>, <a href="t.create.html">t.create</a>, <a href="t.info.html">t.info</a>,
+<a href="t.rast.list.html">t.rast.list</a>, <a href="t.register.html">t.register</a>,
 <a href="t.vect.list.html">t.vect.list</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 

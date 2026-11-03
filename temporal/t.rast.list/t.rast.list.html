@@ -1,39 +1,35 @@
 <h2>DESCRIPTION</h2>
 
-<em>t.rast.list</em> lists the raster maps that are registered in a space time
-raster dataset, with the metadata that the temporal database holds for each
-map. It reads the temporal database; the maps themselves are not opened. The
-listing is the usual step after <em><a href="t.info.html">t.info</a></em> has
-shown the dataset as a whole and before a tool such as
-<em><a href="t.rast.univar.html">t.rast.univar</a></em> or the map algebra
-works on its maps. See the
-<a href="temporalintro.html">introduction to temporal data processing</a> for
-space time datasets. Space time 3D raster datasets have their own tool,
-<em><a href="t.rast3d.list.html">t.rast3d.list</a></em>, space time vector
-datasets <em><a href="t.vect.list.html">t.vect.list</a></em>, and
-<em><a href="t.list.html">t.list</a></em> lists the datasets themselves.
+<em>t.rast.list</em> lists the raster maps that are registered in a space time raster
+dataset, with the metadata that the temporal database holds for each map. It
+reads the temporal database; the maps themselves are not opened. The
+listing is the usual step after <em><a href="t.info.html">t.info</a></em> has shown the dataset as
+a whole and before a tool such as <em><a href="t.rast.univar.html">t.rast.univar</a></em> or the
+map algebra works on its maps. See the
+<a href="temporalintro.html">introduction to temporal data processing</a> for space time
+datasets. Space time 3D raster datasets have their own tool,
+<em><a href="t.rast3d.list.html">t.rast3d.list</a></em>, space time vector datasets
+<em><a href="t.vect.list.html">t.vect.list</a></em>, and <em><a href="t.list.html">t.list</a></em> lists the datasets
+themselves.
 
 <h3>Select the maps</h3>
 
 The option <b>input</b> names the space time raster dataset. A semantic label
-after the name, <code>input=name.label</code>, keeps only the maps with this
-label; the name and the label are separated by a single dot. Labels are given
-to maps by <em><a href="r.semantic.label.html">r.semantic.label</a></em> or
-when the maps are registered with
-<em><a href="t.register.html">t.register</a></em>.
+after the name, <code>input=name.label</code>, keeps only the maps with this label; the
+name and the label are separated by a single dot. Labels are given to maps by
+<em><a href="r.semantic.label.html">r.semantic.label</a></em> or when the maps are registered
+with <em><a href="t.register.html">t.register</a></em>.
+
 <p>
-The option <b>where</b> takes an SQL condition on the columns of the
-registered maps, such as <code>max &gt; 5</code>,
-<code>name = 'temperature_1'</code> or
-<code>start_time &gt;= '2026-03-02'</code>. Times are compared as text, so a
-time with a clock part needs the whole text:
-<code>start_time = '2026-03-02'</code> selects nothing, because the stored
-value is <code>2026-03-02 00:00:00</code>. Use <code>&gt;=</code> and
-<code>&lt;</code> for a day, or <code>name</code> for a single map. The
-function <code>strftime()</code> of SQLite selects recurring times, such as one
-day of the month or one month of the year. A condition with a syntax error
-stops with an error that starts with "Invalid where condition". With the
-methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code>, the
+The option <b>where</b> takes an SQL condition on the columns of the registered
+maps, such as <code>max &gt; 5</code>, <code>name = 'temperature_1'</code> or
+<code>start_time &gt;= '2026-03-02'</code>. Times are compared as text, so a time with a
+clock part needs the whole text: <code>start_time = '2026-03-02'</code> selects nothing,
+because the stored value is <code>2026-03-02 00:00:00</code>. Use <code>&gt;=</code> and <code>&lt;</code> for a day,
+or <code>name</code> for a single map. The function <code>strftime()</code> of SQLite selects
+recurring times, such as one day of the month or one month of the year. A
+condition with a syntax error stops with an error that starts with "Invalid
+where condition". With the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code>, the
 condition selects the maps before the lengths and distances are counted, so
 the distances start at 0 with the first selected map.
 
@@ -41,181 +37,180 @@ the distances start at 0 with the first selected map.
 
 The option <b>columns</b> chooses the columns that are printed for each map,
 separated by commas. The columns are:
+
 <ul>
 <li><code>id</code>, the name of the map with its mapset, such as
-<code>temperature_1@PERMANENT</code>; <code>name</code> and
-<code>mapset</code>, the two parts of it;</li>
-<li><code>semantic_label</code>, the semantic label of the map,
-<code>None</code> for a map without one;</li>
-<li><code>temporal_type</code>, <code>absolute</code> or
-<code>relative</code>;</li>
-<li><code>start_time</code> and <code>end_time</code>, the time of the map. The
-end time of a map registered as a time instant is <code>None</code>. With
-relative time, they are numbers in the unit of the dataset, printed without
-the unit;</li>
-<li><code>creator</code> and <code>creation_time</code>, the user who created
-the entry of the map in the temporal database and the time of its
-creation;</li>
-<li><code>north</code>, <code>south</code>, <code>west</code> and
-<code>east</code>, the spatial extent of the map; <code>nsres</code> and
-<code>ewres</code>, its cell sizes; <code>cols</code>, <code>rows</code> and
-<code>number_of_cells</code>, its size in cells;</li>
-<li><code>min</code> and <code>max</code>, the smallest and the largest value of
-the map, as stored in the temporal database;</li>
-<li><code>interval_length</code> and <code>distance_from_begin</code>, the
-length of the time interval of the map and the distance of its start from the
-start of the first listed map. They exist for the methods <code>delta</code>,
-<code>deltagaps</code> and <code>gran</code> only (see below). With absolute
-time they are numbers of days, with relative time numbers of the time unit of
-the dataset.</li>
+<code>temperature_1@PERMANENT</code>; <code>name</code> and <code>mapset</code>, the two parts of it;</li>
+<li><code>semantic_label</code>, the semantic label of the map, <code>None</code> for a map without
+one;</li>
+<li><code>temporal_type</code>, <code>absolute</code> or <code>relative</code>;</li>
+<li><code>start_time</code> and <code>end_time</code>, the time of the map. The end time of a map
+registered as a time instant is <code>None</code>. With relative time, they are numbers
+in the unit of the dataset, printed without the unit;</li>
+<li><code>creator</code> and <code>creation_time</code>, the user who created the entry of the map in
+the temporal database and the time of its creation;</li>
+<li><code>north</code>, <code>south</code>, <code>west</code> and <code>east</code>, the spatial extent of the map;
+<code>nsres</code> and <code>ewres</code>, its cell sizes; <code>cols</code>, <code>rows</code> and <code>number_of_cells</code>,
+its size in cells;</li>
+<li><code>min</code> and <code>max</code>, the smallest and the largest value of the map, as stored in
+the temporal database;</li>
+<li><code>interval_length</code> and <code>distance_from_begin</code>, the length of the time interval
+of the map and the distance of its start from the start of the first listed
+map. They exist for the methods <code>delta</code>, <code>deltagaps</code> and <code>gran</code> only (see
+below). With absolute time they are numbers of days, with relative time
+numbers of the time unit of the dataset.</li>
 </ul>
+
 <p>
 The option <b>order</b> sorts the maps by one or more columns, separated by
-commas; the possible columns are those of the list above up to
-<code>max</code>. The default is <code>start_time</code>. The order is
-ascending, and the option takes names of columns only, no sort direction. The
-option works with the method <code>list</code> only.
+commas; the possible columns are those of the list above up to <code>max</code>. The
+default is <code>start_time</code>. The order is ascending, and the option takes names of
+columns only, no sort direction. The option works with the method <code>list</code> only.
 
 <h3>Methods</h3>
 
-The option <b>method</b> chooses what is listed. The default is
-<code>list</code>.
+The option <b>method</b> chooses what is listed. The default is <code>list</code>.
+
 <ul>
-<li><code>list</code> prints one line per registered map with the columns of
-<b>columns</b>. Without <b>columns</b>, these are <code>name</code>,
-<code>mapset</code>, <code>start_time</code> and <code>end_time</code>; with
-<code>format=line</code>, the column <code>id</code>. It supports all columns
-except <code>interval_length</code> and <code>distance_from_begin</code>, and
-it is the only method that <b>order</b> applies to.</li>
-<li><code>delta</code> prints the maps ordered by start time with the length of
-their intervals and their distance from the first map. Without
-<b>columns</b>, the columns are <code>id</code>, <code>name</code>,
-<code>mapset</code>, <code>start_time</code>, <code>end_time</code>,
-<code>interval_length</code> and <code>distance_from_begin</code>. The length
-of a time instant is <code>None</code>. <code>delta</code> supports only these
-columns.</li>
-<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal
-gap between two maps. A gap line has <code>None</code> as <code>id</code>,
-<code>name</code> and <code>mapset</code>; its times are the end of the map
-before and the start of the map after the gap, and its length is the length of
-the gap. Maps that follow each other directly leave no gap.</li>
-<li><code>gran</code> samples the maps by a granule and prints one line per
-granule, with the columns of <code>delta</code>. The times and the length are
-those of the granule, not of the map, so a map that is longer than the granule
-is listed once for each granule it covers. A granule without a map has
-<code>None</code> as <code>id</code>, <code>name</code> and
-<code>mapset</code>. When more than one map meets a granule, the line names the map with the earliest start of the first of these groups that is not empty: maps that are equal to the granule, maps that contain it, maps that start inside it and end after it, maps that start before it and end inside it, and maps that lie inside it. <code>gran</code> refuses a dataset without maps.</li>
-<li><code>cols</code> and <code>comma</code> are the old names of the formats
-<code>plain</code> and <code>line</code>. <code>cols</code> is the same as
-<code>list</code>, and <code>comma</code> is <code>list</code> with
-<code>format=line</code>. Prefer the option <b>format</b>.</li>
+<li><code>list</code> prints one line per registered map with the columns of <b>columns</b>.
+Without <b>columns</b>, these are <code>name</code>, <code>mapset</code>, <code>start_time</code> and
+<code>end_time</code>; with <code>format=line</code>, the column <code>id</code>. It supports all columns
+except <code>interval_length</code> and <code>distance_from_begin</code>, and it is the only
+method that <b>order</b> applies to.</li>
+<li><code>delta</code> prints the maps ordered by start time with the length of their
+intervals and their distance from the first map. Without <b>columns</b>, the
+columns are <code>id</code>, <code>name</code>, <code>mapset</code>, <code>start_time</code>, <code>end_time</code>,
+<code>interval_length</code> and <code>distance_from_begin</code>. The length of a time instant is
+<code>None</code>. <code>delta</code> supports only these columns.</li>
+<li><code>deltagaps</code> is <code>delta</code> with a line for every temporal gap between two maps.
+A gap line has <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>; its times are the end of
+the map before and the start of the map after the gap, and its length is the
+length of the gap. Maps that follow each other directly leave no gap.</li>
+<li><code>gran</code> samples the maps by a granule and prints one line per granule, with the
+columns of <code>delta</code>. The times and the length are those of the granule, not of
+the map, so a map that is longer than the granule is listed once for each
+granule it covers. A granule without a map has <code>None</code> as <code>id</code>, <code>name</code> and
+<code>mapset</code>. When more than one map meets a granule, the line names the map with
+the earliest start of the first of these groups that is not empty: maps that
+are equal to the granule, maps that contain it, maps that start inside it and
+end after it, maps that start before it and end inside it, and maps that lie
+inside it. <code>gran</code> refuses a dataset without maps.</li>
+<li><code>cols</code> and <code>comma</code> are the old names of the formats <code>plain</code> and <code>line</code>.
+<code>cols</code> is the same as <code>list</code>, and <code>comma</code> is <code>list</code> with <code>format=line</code>.
+Prefer the option <b>format</b>.</li>
 </ul>
+
 <p>
-The option <b>granule</b> is the granule of the method <code>gran</code>. For
-absolute time it is a text with a number and a time unit, such as
-<code>"2 months"</code>. For relative time, leave it out (see the notes).
-Without it, the granularity of the dataset is used. The first
-granule starts with the first map; each later start is counted in whole
-granules from this start. A step of months or years that ends behind the last
-day of a shorter month ends on that day: with a granule of one month and a
-first map from 31 January, the granules start on 31 January, 28 February, 31
-March and 30 April. The other methods ignore <b>granule</b>.
+The option <b>granule</b> is the granule of the method <code>gran</code>. For absolute
+time it is a text with a number and a time unit, such as <code>"2 months"</code>. For
+relative time, leave it out (see the notes). Without it, the granularity of the
+dataset is used. The first granule starts with the first map; each later start
+is counted in whole granules from this start. A step of months or years that
+ends behind the last day of a shorter month ends on that day: with a granule of
+one month and a first map from 31 January, the granules start on 31 January, 28
+February, 31 March and 30 April. The other methods ignore <b>granule</b>.
 
 <h3>Output</h3>
 
 The option <b>format</b> chooses the form of the output:
+
 <ul>
-<li><code>plain</code> (the default) prints one line per map with the columns
-separated by a vertical bar <code>|</code>, and the column names as the first
-line;</li>
-<li><code>line</code> prints the values of one column in one line, separated by
-commas. It takes one column only; the default column is <code>id</code>, so the
-line is a list of maps that other tools accept as input;</li>
-<li><code>csv</code> prints comma separated values, with the column names as the
-first line. Text is enclosed in double quotes and numbers are not. A missing
-value (<code>None</code>) is an empty text;</li>
-<li><code>json</code> prints an object with the key <code>data</code>, a list
-with one object per map, and the key <code>metadata</code> with the list
-<code>column_names</code>. A missing value is <code>null</code>, numbers are
-numbers, and times with absolute time are text;</li>
-<li><code>yaml</code> prints the same structure as YAML. It needs the PyYAML
-package.</li>
+<li><code>plain</code> (the default) prints one line per map with the columns separated by
+a vertical bar <code>|</code>, and the column names as the first line;</li>
+<li><code>line</code> prints the values of one column in one line, separated by commas. It
+takes one column only; the default column is <code>id</code>, so the line is a list of
+maps that other tools accept as input;</li>
+<li><code>csv</code> prints comma separated values, with the column names as the first
+line. Text is enclosed in double quotes and numbers are not. A missing value
+(<code>None</code>) is an empty text;</li>
+<li><code>json</code> prints an object with the key <code>data</code>, a list with one object per
+map, and the key <code>metadata</code> with the list <code>column_names</code>. A missing value is
+<code>null</code>, numbers are numbers, and times with absolute time are text;</li>
+<li><code>yaml</code> prints the same structure as YAML. It needs the PyYAML package.</li>
 </ul>
+
 <p>
 The flag <b>-u</b> suppresses the line with the column names in the formats
-<code>plain</code> and <code>csv</code>. The formats <code>json</code> and
-<code>yaml</code> always name the columns and refuse <b>-u</b>.
+<code>plain</code> and <code>csv</code>. The formats <code>json</code> and <code>yaml</code> always name the columns and
+refuse <b>-u</b>.
+
 <p>
-The option <b>separator</b> replaces the separator of the formats
-<code>plain</code>, <code>csv</code> and <code>line</code>. It is a single
-character or a name such as <code>pipe</code>, <code>comma</code> or
-<code>tab</code>. The format <code>csv</code> accepts one character only, and
-<code>json</code> and <code>yaml</code> refuse <b>separator</b>. The option
-<b>output</b> writes the listing to a file instead of the standard output.
+The option <b>separator</b> replaces the separator of the formats <code>plain</code>, <code>csv</code>
+and <code>line</code>. It is a single character or a name such as <code>pipe</code>, <code>comma</code> or
+<code>tab</code>. The format <code>csv</code> accepts one character only, and <code>json</code> and <code>yaml</code>
+refuse <b>separator</b>. The option <b>output</b> writes the listing to a file
+instead of the standard output.
 
 <h2>NOTES</h2>
 
 If no map is listed, the result depends on the method and the format. With the
-method <code>list</code> and the formats <code>plain</code> and
-<code>line</code>, <em>t.rast.list</em> stops with the error "Nothing found in
-the database for space time dataset <code>&lt;name@mapset&gt;</code> (type:
-strds)", followed by "Dataset is empty" for a dataset without maps and by
+method <code>list</code> and the formats <code>plain</code> and <code>line</code>, <em>t.rast.list</em> stops with the
+error "Nothing found in the database for space time dataset <code>&lt;name@mapset&gt;</code>
+(type: strds)", followed by "Dataset is empty" for a dataset without maps and by
 "Dataset is empty or where clause is too constrained or incorrect" when
-<b>where</b> is given. With the format <code>json</code>, <code>data</code> is
-an empty list. The methods <code>delta</code> and <code>deltagaps</code> print the line with the column names only, both for a dataset without maps and when <b>where</b> selects nothing. The method <code>gran</code> does the same when <b>where</b> selects nothing in a dataset that has a granularity, but stops for a dataset without maps with the error "Dataset is empty". A dataset with a single map that is a time instant has no granularity, and <code>gran</code> without <b>granule</b> stops for it with the error "Wrong granularity: "None"", whatever <b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>, or use <code>delta</code>.
+<b>where</b> is given. With the format <code>json</code>, <code>data</code> is an empty list. The methods
+<code>delta</code> and <code>deltagaps</code> print the line with the column names only, both for a
+dataset without maps and when <b>where</b> selects nothing. The method <code>gran</code> does
+the same when <b>where</b> selects nothing in a dataset that has a granularity, but
+stops for a dataset without maps with the error "Dataset is empty". A dataset
+with a single map that is a time instant has no granularity, and <code>gran</code> without
+<b>granule</b> stops for it with the error "Wrong granularity: "None"", whatever
+<b>where</b> selects. Give a <b>granule</b>, such as <code>"1 day"</code>, or use <code>delta</code>.
+
 <p>
-A map without a start time is listed by <code>delta</code> and
-<code>deltagaps</code> with <code>None</code> in all time columns, and
-<em>t.rast.list</em> warns about it. The distances count from the first map that
-has a start time.
+A map without a start time is listed by <code>delta</code> and <code>deltagaps</code> with <code>None</code>
+in all time columns, and <em>t.rast.list</em> warns about it. The distances count from
+the first map that has a start time.
+
 <p>
-The first example shows the format of a dataset with absolute time, the dataset
-<code>model</code> in the fifth example the format of one with relative time:
+The first example shows the format of a dataset with absolute time, the
+dataset <code>model</code> in the fifth example the format of one with relative time:
 the times are numbers of the time unit of the dataset, printed without the
-unit. The method <code>gran</code> works with relative time without
-<b>granule</b>. Given a <b>granule</b> for a dataset with relative time, it
-fails: a number ends with a Python error (<code>TypeError</code>) and a text
-with a unit such as <code>"6 hours"</code> with the error "Wrong granularity".
-Leave <b>granule</b> out; the granularity of the dataset is used.
+unit. The method <code>gran</code> works with relative time without <b>granule</b>. Given
+a <b>granule</b> for a dataset with relative time, it fails: a number ends with a
+Python error (<code>TypeError</code>) and a text with a unit such as <code>"6 hours"</code> with the
+error "Wrong granularity". Leave <b>granule</b> out; the granularity of the
+dataset is used.
+
 <p>
-The option <b>output</b> takes the name of a file. The name <code>-</code> is
-not the standard output here: it writes a file with this name, as the last
-block of the "Choose the output format" example shows. To print the listing,
-leave out <b>output</b>; to keep it in a file, give a file name other than
-<code>-</code>.
+The option <b>output</b> takes the name of a file. The name <code>-</code> is not the
+standard output here: it writes a file with this name, as the last block of
+the "Choose the output format" example shows. To print the listing, leave out
+<b>output</b>; to keep it in a file, give a file name other than <code>-</code>.
+
 <p>
-<em>t.rast.list</em> only reads, so it works on a dataset of another mapset as
-well. The name with the mapset (<code>input=temperature@PERMANENT</code>)
-selects it; a name without a mapset is searched in the mapsets of the search
-path (see <em><a href="g.mapsets.html">g.mapsets</a></em>). The last example
-shows this.
+<em>t.rast.list</em> only reads, so it works on a dataset of another mapset as well.
+The name with the mapset (<code>input=temperature@PERMANENT</code>) selects it; a name
+without a mapset is searched in the mapsets of the search path (see
+<em><a href="g.mapsets.html">g.mapsets</a></em>). The last example shows this.
+
 <p>
 Combinations that cannot work are refused with a message that names the
-options: <b>order</b> with <code>delta</code>, <code>deltagaps</code> or
-<code>gran</code>; a column of the temporal database with these methods and
-<code>interval_length</code> or <code>distance_from_begin</code> with
-<code>list</code>; more than one column with <code>format=line</code>;
-<b>-u</b> or <b>separator</b> with <code>json</code> or <code>yaml</code>; a
-separator of more than one character with <code>csv</code>. A granule of absolute time
-without a time unit (<code>"2"</code>) or with an unknown unit
-(<code>"3 foo"</code>) is refused with the error "Wrong granularity".
+options: <b>order</b> with <code>delta</code>, <code>deltagaps</code> or <code>gran</code>; a column of the
+temporal database with these methods and <code>interval_length</code> or
+<code>distance_from_begin</code> with <code>list</code>; more than one column with <code>format=line</code>;
+<b>-u</b> or <b>separator</b> with <code>json</code> or <code>yaml</code>; a separator of more than one
+character with <code>csv</code>. A granule of absolute time without a time unit (<code>"2"</code>)
+or with an unknown unit (<code>"3 foo"</code>) is refused with the error "Wrong
+granularity".
 
 <h2>EXAMPLES</h2>
 
 <h3>List the maps of a dataset</h3>
 
-The dataset <code>temperature</code> has four maps of daily mean air
-temperature for the days from 1 to 4 March 2026. Each map has three columns and
-two rows; the values are the column number plus an offset, so the smallest and
-largest value of <code>temperature_1</code> are 1 and 3. The offsets 0, 6, 3
-and 9 make the third map colder than the second one.
+The dataset <code>temperature</code> has four maps of daily mean air temperature for the
+days from 1 to 4 March 2026. Each map has three columns and two rows; the
+values are the column number plus an offset, so the smallest and largest
+value of <code>temperature_1</code> are 1 and 3. The offsets 0, 6, 3 and 9 make the
+third map colder than the second one.
+
 <p>
 The first block lists the maps with the default columns. The second block adds
 the flag <b>-u</b>, which suppresses the line with the column names. The third
-block names the columns, among them the smallest and largest value of each map.
-The fourth block lists all columns of the first map except
-<code>creator</code> and <code>creation_time</code>, which differ from user to
-user and from day to day. The map has no semantic label.
+block names the columns, among them the smallest and largest value of each
+map. The fourth block lists all columns of the first map except <code>creator</code> and
+<code>creation_time</code>, which differ from user to user and from day to day. The map
+has no semantic label.
 
 <p>Command line:</p>
 
@@ -348,22 +343,23 @@ temperature_1@PERMANENT|temperature_1|None|PERMANENT|absolute|2026-03-01 00:00:0
 
 <h3>Select and sort the maps</h3>
 
-The maps of <code>temperature</code> are sorted by start time. The option
-<b>order</b> sorts by another column; the first block sorts by
-<code>max</code>, so the colder third map comes before the second one.
+The maps of <code>temperature</code> are sorted by start time. The option <b>order</b>
+sorts by another column; the first block sorts by <code>max</code>, so the colder third
+map comes before the second one.
+
 <p>
-The option <b>where</b> selects the maps. The second block selects the maps
-that start from 2 March on and before 4 March, so the second and the third map.
-The third block combines a condition on the smallest value with <b>order</b>.
-The fourth block uses <code>strftime()</code> to select the maps that start on
-the 1st or the 4th day of the month, a recurring selection that works the same
-way for one month of every year.
+The option <b>where</b> selects the maps. The second block selects the maps that
+start from 2 March on and before 4 March, so the second and the third map. The
+third block combines a condition on the smallest value with <b>order</b>. The
+fourth block uses <code>strftime()</code> to select the maps that start on the 1st or the
+4th day of the month, a recurring selection that works the same way for one
+month of every year.
+
 <p>
-The last block shows a trap: a time compared with <code>=</code> must be the
-whole text <code>2026-03-02 00:00:00</code>, and the short form selects no map.
-The format <code>json</code> shows the empty result, <code>data</code> is an
-empty list; the formats <code>plain</code> and <code>line</code> stop with an
-error here.
+The last block shows a trap: a time compared with <code>=</code> must be the whole text
+<code>2026-03-02 00:00:00</code>, and the short form selects no map. The format <code>json</code>
+shows the empty result, <code>data</code> is an empty list; the formats <code>plain</code> and
+<code>line</code> stop with an error here.
 
 <p>Command line:</p>
 
@@ -496,11 +492,10 @@ print(result.text)
 
 <h3>Select maps by semantic label</h3>
 
-The dataset <code>sentinel</code> has two scenes, on 1 and 11 June 2026, each
-with a red band (<code>S2_B4</code>) and a near infrared band
-(<code>S2_B8</code>). The maps are registered at an instant, without an end, so
-their <code>end_time</code> is <code>None</code>. The name of the dataset
-followed by a dot and a label, <code>sentinel.S2_B8</code>, lists the maps with
+The dataset <code>sentinel</code> has two scenes, on 1 and 11 June 2026, each with a red
+band (<code>S2_B4</code>) and a near infrared band (<code>S2_B8</code>). The maps are registered at
+an instant, without an end, so their <code>end_time</code> is <code>None</code>. The name of the
+dataset followed by a dot and a label, <code>sentinel.S2_B8</code>, lists the maps with
 this label. The second block adds <b>where</b> to the selection by label.
 
 <p>Command line:</p>
@@ -573,16 +568,15 @@ red_2|S2_B4|2026-06-11 10:30:00
 
 <h3>Choose the output format</h3>
 
-All blocks list the dataset <code>temperature</code>. The first block prints
-the maps as a list of ids in one line, the form that other tools accept as
-input; the second block does the same with the names only and with another
-separator. The third and fourth block print CSV with and without the line of
-column names; text is quoted and numbers are not. The fifth block replaces the
+All blocks list the dataset <code>temperature</code>. The first block prints the maps as
+a list of ids in one line, the form that other tools accept as input; the
+second block does the same with the names only and with another separator.
+The third and fourth block print CSV with and without the line of column
+names; text is quoted and numbers are not. The fifth block replaces the
 separator of the plain format. The sixth block prints JSON, which the Python
-tab reads from <code>result.json</code> and prints name and <code>max</code> of
-each map. The seventh block writes the listing to a file and prints the file.
-The eighth block shows that <code>output=-</code> writes a file named
-<code>-</code>.
+tab reads from <code>result.json</code> and prints name and <code>max</code> of each map. The
+seventh block writes the listing to a file and prints the file. The eighth
+block shows that <code>output=-</code> writes a file named <code>-</code>.
 
 <p>Command line:</p>
 
@@ -776,16 +770,16 @@ temperature_4
 
 <h3>Intervals, distances and gaps</h3>
 
-The dataset <code>rain</code> has two daily maps, registered with a start and an
-end: <code>rain_1</code> for 1 June 2026 and <code>rain_3</code> for 3 June, so
-2 June is a gap. The method <code>delta</code> prints the length of each map and
-its distance from the first map in days; it skips the gap. The method
-<code>deltagaps</code> adds a line for the gap with <code>None</code> as
-<code>id</code>, <code>name</code> and <code>mapset</code>, and its length. The
-CSV form of this table shows <code>None</code> as an empty text.
+The dataset <code>rain</code> has two daily maps, registered with a start and an end:
+<code>rain_1</code> for 1 June 2026 and <code>rain_3</code> for 3 June, so 2 June is a gap. The
+method <code>delta</code> prints the length of each map and its distance from the first
+map in days; it skips the gap. The method <code>deltagaps</code> adds a line for the gap
+with <code>None</code> as <code>id</code>, <code>name</code> and <code>mapset</code>, and its length. The CSV form of this
+table shows <code>None</code> as an empty text.
+
 <p>
-The dataset <code>model</code> has relative time: three model steps of 6 hours.
-Its times, lengths and distances are numbers of hours, printed without the unit.
+The dataset <code>model</code> has relative time: three model steps of 6 hours. Its times,
+lengths and distances are numbers of hours, printed without the unit.
 
 <p>Command line:</p>
 
@@ -915,15 +909,15 @@ step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
 
 <h3>Sample the maps by a granule</h3>
 
-The dataset <code>monthly</code> has four maps that start on the last day of a
-month and end on the last day of the next one, from 31 January. The first block
-lists them. The method <code>gran</code> with a granule of one month prints one
-line per month granule: the granules start on 31 January, 28 February, 31 March
-and 30 April, as each start is counted in months from 31 January and cut to the
-last day of a shorter month. With a granule of two months, each line covers two
+The dataset <code>monthly</code> has four maps that start on the last day of a month
+and end on the last day of the next one, from 31 January. The first block
+lists them. The method <code>gran</code> with a granule of one month prints one line per
+month granule: the granules start on 31 January, 28 February, 31 March and 30
+April, as each start is counted in months from 31 January and cut to the last
+day of a shorter month. With a granule of two months, each line covers two
 maps and names the first of them. The last block samples the relative dataset
-<code>model</code> of the previous example without a granule, so it uses the
-granularity of the dataset, 6 hours.
+<code>model</code> of the previous example without a granule, so it uses the granularity
+of the dataset, 6 hours.
 
 <p>Command line:</p>
 
@@ -1038,11 +1032,10 @@ step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
 <h3>Use a dataset of another mapset</h3>
 
 <em>t.rast.list</em> reads a dataset of another mapset. The example creates the
-mapset <code>other</code> and switches to it; the dataset
-<code>temperature</code> stays in the mapset <code>PERMANENT</code> and is named
-with its mapset. In the second block, <em>g.mapsets</em> shows that
-<code>PERMANENT</code> is in the search path of the new mapset, so the name
-<code>temperature</code> without a mapset finds the same dataset.
+mapset <code>other</code> and switches to it; the dataset <code>temperature</code> stays in the
+mapset <code>PERMANENT</code> and is named with its mapset. In the second block,
+<em>g.mapsets</em> shows that <code>PERMANENT</code> is in the search path of the new mapset, so
+the name <code>temperature</code> without a mapset finds the same dataset.
 
 <p>Command line:</p>
 
@@ -1105,19 +1098,12 @@ temperature_4@PERMANENT|2026-03-04 00:00:00
 
 <h2>SEE ALSO</h2>
 
-<em>
-<a href="g.list.html">g.list</a>,
-<a href="g.mapsets.html">g.mapsets</a>,
-<a href="r.semantic.label.html">r.semantic.label</a>,
-<a href="t.create.html">t.create</a>,
-<a href="t.info.html">t.info</a>,
-<a href="t.list.html">t.list</a>,
-<a href="t.rast.univar.html">t.rast.univar</a>,
-<a href="t.rast3d.list.html">t.rast3d.list</a>,
-<a href="t.register.html">t.register</a>,
+<em><a href="g.list.html">g.list</a>, <a href="g.mapsets.html">g.mapsets</a>,
+<a href="r.semantic.label.html">r.semantic.label</a>, <a href="t.create.html">t.create</a>,
+<a href="t.info.html">t.info</a>, <a href="t.list.html">t.list</a>, <a href="t.rast.univar.html">t.rast.univar</a>,
+<a href="t.rast3d.list.html">t.rast3d.list</a>, <a href="t.register.html">t.register</a>,
 <a href="t.vect.list.html">t.vect.list</a>,
-<a href="temporalintro.html">temporal data processing</a>
-</em>
+<a href="temporalintro.html">temporal data processing</a></em>
 
 <h2>AUTHOR</h2>
 
