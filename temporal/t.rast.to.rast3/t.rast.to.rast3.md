@@ -19,24 +19,24 @@ it, is the thickness of a layer. For maps with an interval, the tool cuts the
 time from the start of the first map to the end of the last map into steps of
 this size and makes one layer for each step. A step that a map covers gets that
 map. A map that is longer than the granularity covers several steps and is
-copied into each of them; the second example shows a map of two days in two
+copied into each of them; the third example shows a map of two days in two
 layers. A step in which no map is registered, a gap of the dataset, becomes a
 layer without values (null cells). The layers run from the bottom upwards in
 the order of time. A time instant has no end; it gets one layer that starts at
 its time, so the cube of a dataset of time instants reaches one granularity
-beyond its time stamp, as the seventh example shows.
+beyond its time stamp, as the eighth example shows.
 
 **Horizontal extent and resolution.** The cube covers the current
 computational region. Its resolution in the horizontal plane is the 3D
 resolution of the region, **res3** of *[g.region](g.region.md)*, not the 2D
-resolution **res**; the last example sets a coarser **res3**. The tool sets the
+resolution **res**; the sixth example sets a coarser **res3**. The tool sets the
 vertical extent of the cube itself, from the dataset, in a temporary region
 and leaves the current region as it is.
 
 **Data type.** All maps of the dataset must have the same data type, `CELL`,
 `FCELL` or `DCELL`. The cube has `DCELL` for maps of type `CELL` and for maps
 of type `DCELL`, `FCELL` for maps of type `FCELL`. The layers of gaps have the
-same type. A dataset with maps of different types is refused, as the eighth
+same type. A dataset with maps of different types is refused, as the ninth
 example shows.
 
 **Vertical axis.** The bottom of the cube, its resolution and its vertical
@@ -66,7 +66,7 @@ temporal type of the dataset and the start and end time of the dataset as its
 time stamp. For a dataset of time instants, the end is the time of the last
 instant. *[t.info](t.info.md)* with `type=raster_3d` shows it. To convert only
 some maps, select them into a dataset of their own with
-*[t.rast.extract](t.rast.extract.md)*, as the sixth example shows.
+*[t.rast.extract](t.rast.extract.md)*, as the seventh example shows.
 
 ## NOTES
 
@@ -78,7 +78,7 @@ The tool refuses to run in these cases and writes a message:
   not found".
 - The cube exists and **--overwrite** is not given: "`<name>` exists. To
   overwrite, use the --overwrite flag". With **--overwrite** the tool replaces
-  the cube and its entry in the temporal database; the third example shows it.
+  the cube and its entry in the temporal database; the fourth example shows it.
 - The maps have different data types: "Input maps have to be from the same
   type. CELL, FCELL or DCELL!", followed by "Unable to create 3D raster map
   `<name>`".
@@ -96,12 +96,189 @@ when it is done, also when it stops with a message.
 
 Every layer has the thickness of the granularity. A dataset of long maps with
 one short map or one short gap has a small granularity and so a cube with many
-layers: the layers of the second example are one day thick although one map
+layers: the layers of the third example are one day thick although one map
 is two days long.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_to_rast3`, sets the computational region to
+North Carolina with cells of 1 km, also in 3D (**res3**, the resolution the
+cube uses), and stacks a series of monthly air temperatures into a cube. The
+later examples work in this mapset. They show how the tool builds the time
+axis and the layers, which takes small maps: a window of 3 columns and 2 rows
+of 1 km cells in North Carolina, so that the cells of a cube fit on the page.
+The maps are made with *r.mapcalc*; their values are generated for the
+examples and are not measurements.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_to_rast3 -->
+
 <!-- markdownlint-disable MD046 -->
+
+### Stack monthly air temperatures into a cube
+
+The series `temperature_monthly` holds the monthly mean air temperature of 2020
+over North Carolina in degrees Celsius, generated from the elevation model:
+cooler in the mountains, warmest in July. The first block makes the mapset, the
+region and the twelve maps, registers them as monthly intervals, and makes the
+cube `temperature_cube`. The second block prints the properties of the 3D map
+that *r3.info* reports with **-g**. The cube has the 839 columns and 335 rows
+of the region and twelve layers, one for each month. It starts at month 1441
+(January 2020, `(2020 - 1900) * 12 + 1`), each layer is one month thick, and
+the vertical unit is `months`. The data type is `DCELL` like the maps.
+
+The third block prints the time stamp of the cube from the temporal database.
+The last block sets the region to the lowest layer of the cube, the month
+January, and prints the smallest and the largest value of the cube there with
+*r3.univar*, then the same for the layer of July, month 1447. The layers lie
+in the order of time, the earliest at the bottom. By the formula of the
+generated series, January is the coldest and July the warmest month.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=t_rast_to_rast3
+    g.region raster=elev_state_500m res=1000 res3=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.to.rast3 input=temperature_monthly output=temperature_cube
+    ```
+
+    ```sh
+    r3.info -g temperature_cube | grep -E "^(bottom|top|tbres|rows|cols|depths|datatype|vertical_units)="
+    ```
+
+    ```text
+    bottom=1441
+    top=1453
+    tbres=1
+    rows=335
+    cols=839
+    depths=12
+    datatype="DCELL"
+    vertical_units="months"
+    ```
+
+    ```sh
+    t.info -g type=raster_3d input=temperature_cube | grep -E "^(temporal_type|start_time|end_time)="
+    ```
+
+    ```text
+    temporal_type=absolute
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    ```
+
+    ```sh
+    for layer in 1441 1447; do
+        g.region raster_3d=temperature_cube b=$layer t=$((layer + 1))
+        r3.univar -g map=temperature_cube | grep -E "^(min|max)="
+    done
+    ```
+
+    ```text
+    min=-7
+    max=7.5
+    min=13.9
+    max=28.4
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import Tools
+
+    tools = Tools()
+
+
+    def print_keys(result, *keys):
+        for key in keys:
+            print(f"{key}={result.keyval[key]}")
+
+
+    tools.g_mapset(flags="c", mapset="t_rast_to_rast3")
+    tools.g_region(raster="elev_state_500m", res=1000, res3=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
+    tools.t_create(
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
+    )
+    tools.t_register(
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
+    tools.t_rast_to_rast3(input="temperature_monthly", output="temperature_cube")
+    ```
+
+    ```python
+    print_keys(
+        tools.r3_info(map="temperature_cube", flags="g"),
+        "bottom",
+        "top",
+        "tbres",
+        "rows",
+        "cols",
+        "depths",
+        "datatype",
+        "vertical_units",
+    )
+    ```
+
+    ```text
+    bottom=1441
+    top=1453
+    tbres=1
+    rows=335
+    cols=839
+    depths=12
+    datatype="DCELL"
+    vertical_units="months"
+    ```
+
+    ```python
+    result = tools.t_info(type="raster_3d", input="temperature_cube", flags="g")
+    print_keys(result, "temporal_type", "start_time", "end_time")
+    ```
+
+    ```text
+    temporal_type=absolute
+    start_time='2020-01-01 00:00:00'
+    end_time='2021-01-01 00:00:00'
+    ```
+
+    ```python
+    for layer in (1441, 1447):
+        tools.g_region(raster_3d="temperature_cube", b=layer, t=layer + 1)
+        print_keys(tools.r3_univar(map="temperature_cube", flags="g"), "min", "max")
+    ```
+
+    ```text
+    min=-7
+    max=7.5
+    min=13.9
+    max=28.4
+    ```
 
 ### Stack the maps of a dataset
 
@@ -122,7 +299,7 @@ first, north row first, then those of the second layer and the third.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     r.mapcalc expression="day_1 = 10 * row() + col()"
     r.mapcalc expression="day_2 = 100 + 10 * row() + col()"
     r.mapcalc expression="day_3 = 200 + 10 * row() + col()"
@@ -168,21 +345,11 @@ first, north row first, then those of the second layer and the third.
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import Tools
-
-    tools = Tools()
-
-
-    def print_keys(result, *keys):
-        for key in keys:
-            print(f"{key}={result.keyval[key]}")
-
-
     def print_layers(result):
         print("\n".join(line.rstrip() for line in result.text.splitlines()))
 
 
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     for step in range(3):
         tools.r_mapcalc(expression=f"day_{step + 1} = {100 * step} + 10 * row() + col()")
     tools.t_create(output="daily", title="Daily", description="Three daily maps")
@@ -246,13 +413,14 @@ The dataset `cover` holds a map of one day (March 1) and a map of two days
 is one day, so the cube has four layers. The first layer is the first map. The
 second, the gap, has no values, the cells show as `*`. The map of two days is
 in the third and the fourth layer. The cube has the type `FCELL` of the maps.
-The last block lists the raster maps: besides the maps of the examples there is
-no temporary map, the tool removed the one it made for the gap.
+The last block lists the raster maps of the mapset except the temperatures of
+the first example: besides the maps of the examples there is no temporary map,
+the tool removed the one it made for the gap.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     r.mapcalc expression="cover_1 = float(10 * row() + col())"
     r.mapcalc expression="cover_2 = float(120 + 10 * row() + col())"
     t.create output=cover title="Cover" description="A gap and a long map"
@@ -281,7 +449,7 @@ no temporary map, the tool removed the one it made for the gap.
     ```
 
     ```sh
-    g.list type=raster
+    g.list type=raster exclude="temperature_*" mapset=.
     ```
 
     ```text
@@ -295,7 +463,7 @@ no temporary map, the tool removed the one it made for the gap.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     tools.r_mapcalc(expression="cover_1 = float(10 * row() + col())")
     tools.r_mapcalc(expression="cover_2 = float(120 + 10 * row() + col())")
     tools.t_create(output="cover", title="Cover", description="A gap and a long map")
@@ -331,7 +499,7 @@ no temporary map, the tool removed the one it made for the gap.
     ```
 
     ```python
-    print(tools.g_list(type="raster").text)
+    print(tools.g_list(type="raster", exclude="temperature_*", mapset=".").text)
     ```
 
     ```text
@@ -352,7 +520,7 @@ replace it. The new cube has no gap: its second layer is the new map.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     r.mapcalc expression="cover_gap = float(50 + 10 * row() + col())"
     t.register input=cover maps=cover_gap start=2026-03-02 end=2026-03-03
     t.rast.to.rast3 input=cover output=cover_cube --overwrite
@@ -374,7 +542,7 @@ replace it. The new cube has no gap: its second layer is the new map.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     tools.r_mapcalc(expression="cover_gap = float(50 + 10 * row() + col())")
     tools.t_register(input="cover", maps="cover_gap", start="2026-03-02", end="2026-03-03")
     tools.t_rast_to_rast3(input="cover", output="cover_cube", overwrite=True)
@@ -405,7 +573,7 @@ cube starts at year 126 and has the unit `years`.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     for name in hourly monthly yearly; do
         r.mapcalc expression="${name}_1 = 1"
         r.mapcalc expression="${name}_2 = 2"
@@ -445,7 +613,7 @@ cube starts at year 126 and has the unit `years`.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     starts = {
         "hourly": ("2026-03-01 12:00:00", "12 hours"),
         "monthly": ("2026-03-01", "1 month"),
@@ -508,7 +676,7 @@ the time stamp of the cube in the temporal database.
 === "Command line"
 
     ```sh
-    g.region n=4 s=0 e=4 w=0 res=1 res3=2
+    g.region n=204000 s=200000 e=604000 w=600000 res=1000 res3=2000
     r.mapcalc expression="model_1 = 1"
     r.mapcalc expression="model_2 = 2"
     t.create output=model temporaltype=relative title="Model" description="Two steps"
@@ -520,8 +688,8 @@ the time stamp of the cube in the temporal database.
     ```text
     bottom=10
     top=20
-    nsres=2
-    ewres=2
+    nsres=2000
+    ewres=2000
     tbres=5
     rows=2
     cols=2
@@ -543,7 +711,7 @@ the time stamp of the cube in the temporal database.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=4, s=0, e=4, w=0, res=1, res3=2)
+    tools.g_region(n=204000, s=200000, e=604000, w=600000, res=1000, res3=2000)
     tools.r_mapcalc(expression="model_1 = 1")
     tools.r_mapcalc(expression="model_2 = 2")
     tools.t_create(
@@ -579,8 +747,8 @@ the time stamp of the cube in the temporal database.
     depths=2
     rows=2
     cols=2
-    nsres=2
-    ewres=2
+    nsres=2000
+    ewres=2000
     vertical_units="hours"
     ```
 
@@ -601,12 +769,12 @@ the time stamp of the cube in the temporal database.
 *t.rast.extract* selects the maps of `daily` that start on or after March 2
 into the dataset `daily_late`. The cube of the subset starts at day 46081 and
 has two layers, the maps of March 2 and March 3, and its time stamp starts on
-March 2. This example continues with the dataset `daily` of the first example.
+March 2. This example continues with the dataset `daily` of the second example.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     t.rast.extract input=daily output=daily_late where="start_time >= '2026-03-02'"
     t.rast.to.rast3 input=daily_late output=late_cube
     r3.info -g late_cube | grep -E "^(bottom|top|depths)="
@@ -624,7 +792,7 @@ March 2. This example continues with the dataset `daily` of the first example.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     tools.t_rast_extract(
         input="daily", output="daily_late", where="start_time >= '2026-03-02'"
     )
@@ -656,7 +824,7 @@ day before the top of the cube.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     for step in 1 2 3; do
         r.mapcalc expression="instant_$step = $step"
     done
@@ -678,7 +846,7 @@ day before the top of the cube.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     for step in range(1, 4):
         tools.r_mapcalc(expression=f"instant_{step} = {step}")
     tools.t_create(output="instants", title="Instants", description="Three time instants")
@@ -714,7 +882,7 @@ lines of the call.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1 res3=1
+    g.region n=202000 s=200000 e=603000 w=600000 res=1000 res3=1000
     r.mapcalc expression="mixed_1 = float(1)"
     r.mapcalc expression="mixed_2 = double(2)"
     t.create output=mixed title="Mixed" description="Two data types"
@@ -736,7 +904,7 @@ lines of the call.
     ```python
     from grass.tools import ToolError
 
-    tools.g_region(n=2, s=0, e=3, w=0, res=1, res3=1)
+    tools.g_region(n=202000, s=200000, e=603000, w=600000, res=1000, res3=1000)
     tools.r_mapcalc(expression="mixed_1 = float(1)")
     tools.r_mapcalc(expression="mixed_2 = double(2)")
     tools.t_create(output="mixed", title="Mixed", description="Two data types")
