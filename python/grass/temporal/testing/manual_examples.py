@@ -508,17 +508,23 @@ def normalize(text: str, context: NormalizeContext) -> str:
     return _REGISTER.sub(rf"\g<1>{FIXED_REGISTER}", text)
 
 
-# The examples work on small regions (at most 20 x 20 cells, a rule of the
-# manuals), so the limit is not a speed check; it stops a hanging command, such
-# as one waiting for input. The Python tab gets the sum for all its blocks.
-# pytest-timeout, with the limit of timeout_for, can end a long test first.
+# The examples run in the region of the North Carolina sample dataset at 1 km
+# (839 x 335 cells), so the limit is not a speed check; it stops a hanging
+# command, such as one waiting for input. The Python tab gets the sum for all
+# its blocks. pytest-timeout, with the limit of timeout_for, can end a long
+# test first.
 BLOCK_SECONDS = 120
 
 # What a block of a manual may take on average, for the time limit of the test
-# of a whole tab. Measured 2026-11-02 with a probe manual of 40 expressions of
-# t.rast.algebra on three maps of 4 x 4 cells, each block one t.rast.algebra
-# and one t.rast.list: 1.01 s per block alone, 1.34 s with 24 copies of the
-# probe under pytest -n auto on 24 cores. Three times 1.34, rounded up.
+# of a whole tab. Measured 2026-11-03 with pytest -q -n auto --durations=0 on
+# temporal/tests/temporal_manual_examples_test.py (24 cores, all tabs in
+# parallel, 210 tests in 211 s) and the runnable blocks of the slowest tabs:
+# t.rast.algebra-shell 112 blocks in 180 s (1.61 s per block), t.select-shell
+# 76 in 95 s (1.25 s), t.vect.algebra-shell 61 in 81 s (1.33 s),
+# t.rast3d.algebra-shell 50 in 80 s (1.59 s). Only these tabs have more than 60
+# blocks, so only they reach beyond MINIMUM_TEST_SECONDS; short tabs take up to
+# 4 s per block (t.rast.import-shell, 10 blocks in 39 s), far below the minimum.
+# Three times the largest value, 1.61, rounded up.
 SECONDS_PER_BLOCK = 5
 # The limit that pyproject.toml gives every test; no manual gets less. A test
 # in temporal/tests checks that the two agree.

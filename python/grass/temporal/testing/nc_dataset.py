@@ -243,7 +243,8 @@ USED_DATA: dict[str, str] = {
 class MissingDataset(AssertionError):
     """The North Carolina dataset was not found
 
-    An AssertionError, so that pytest reports the test as failed.
+    An AssertionError, so that pytest reports the test as failed or, when it
+    is raised in a fixture, as an error; neither is a skip.
     """
 
 
