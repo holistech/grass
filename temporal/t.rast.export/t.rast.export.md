@@ -54,11 +54,11 @@ warning for the `pack` format, which has no use for them.
   Without **nodata**, a GeoTIFF file of an integer map without **type** gets
   the value `maximum + 1` of the map, and the smallest of the types `Byte`,
   `UInt16`, `UInt32` and `Int32` that holds the values of the map and this
-  value: a map of the values 5 and NULL becomes a `Byte` file with the nodata
-  value 6. For a map of integer cells with **nodata** and without **type**, the
-  tool takes the smallest of the types `Byte`, `UInt16`, `Int16`, `UInt32` and
-  `Int32` that holds the values of the map and the nodata value: a map of the
-  values 5 and NULL with `nodata=-77` becomes an `Int16` file. **nodata** also
+  value: a map of the values up to 350 and NULL becomes a `UInt16` file with
+  the nodata value 351. For a map of integer cells with **nodata** and without
+  **type**, the tool takes the smallest of the types `Byte`, `UInt16`, `Int16`,
+  `UInt32` and `Int32` that holds the values of the map and the nodata value: a
+  map of the same values with `nodata=-77` becomes an `Int16` file. **nodata** also
   applies to `AAIGrid`: it is the value of the cells without data in the header
   and in the rows of the file.
 - **createopt** passes creation options to the GDAL driver, written as
@@ -133,83 +133,100 @@ the type it picks; the tool then stops with "Unable to export raster map".
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_export` and sets the computational region
+to North Carolina with cells of 1 km, then narrows it to a part of the coast
+near Wilmington; the later examples work in this mapset and region.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_export -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Export a dataset as a GeoTIFF archive
 
-The dataset `temperature` has four maps of daily mean air temperature for the
-days from 1 to 4 March 2026. The maps have three columns and two rows, and
-their values are the column number plus the offset 0, 3, 6 and 9.
+The dataset `precipitation_monthly` has twelve maps of the monthly precipitation
+sum in 2020, in whole millimetres. Each map is an interval of one month. The
+maps are generated, not measured: *[v.surf.idw](v.surf.idw.md)* interpolates
+the monthly means of the 136 climate stations in `precip_30ynormals` (columns
+`jan` to `dec`), and an assumed factor between 0.8 and 1.7 for each month turns
+them into the sums of a wet year. Cells outside North Carolina are NULL.
 
-The first block creates the dataset. The second exports it with the default
-format and compression: a GeoTIFF file and a color rules file for each map,
-packed into a bzip2 compressed archive. `tar -tf` lists the files. The maps
-come first in the order of their start time, then the five text files. The
-third block shows what `list.txt` and `init.txt` say about the dataset. The
-extent in `init.txt` is that of the maps, and `proj.txt` shows that the project
-of the examples has no coordinate reference system.
+The first block creates the dataset and then narrows the region to eight by
+four cells on the coast near Wilmington. GeoTIFF and ASCII grid files cover
+the current region, so the archives stay small. The second block exports the
+dataset with the default format and compression: a GeoTIFF file and a color
+rules file for each of the twelve maps, packed into a bzip2 compressed
+archive. `tar -tf` lists 29 entries, of which the block shows the first four
+and the last five. The maps come first in the order of their start time, then
+the five text files. The third block shows the first three lines of `list.txt`
+and all of `init.txt`. The extent in `init.txt` is that of the maps, North
+Carolina, not that of the narrowed region.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col()"
-    r.mapcalc expression="temperature_2 = col() + 3"
-    r.mapcalc expression="temperature_3 = col() + 6"
-    r.mapcalc expression="temperature_4 = col() + 9"
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
-        start=2026-03-01 increment="1 day"
+    g.mapset -c mapset=t_rast_export
+    g.region raster=elev_state_500m res=1000 -a
+    month=1
+    for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+        jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
+    done
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    g.region n=48000 s=44000 w=715000 e=723000 res=1000
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=temperature output=temperature.tar.bz2
-    tar -tf temperature.tar.bz2
+    t.rast.export input=precipitation_monthly output=precipitation.tar.bz2
+    tar -tf precipitation.tar.bz2 | sed -n 1,4p
+    tar -tf precipitation.tar.bz2 | tail -5
+    tar -tf precipitation.tar.bz2 | wc -l
     ```
 
     ```text
-    temperature_1.tif
-    temperature_1.color
-    temperature_2.tif
-    temperature_2.color
-    temperature_3.tif
-    temperature_3.color
-    temperature_4.tif
-    temperature_4.color
+    precipitation_monthly_2020_01.tif
+    precipitation_monthly_2020_01.color
+    precipitation_monthly_2020_02.tif
+    precipitation_monthly_2020_02.color
     list.txt
     proj.txt
     init.txt
     readme.txt
     metadata.txt
+    29
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    tar -xOf temperature.tar.bz2 list.txt
-    tar -xOf temperature.tar.bz2 init.txt
-    tar -xOf temperature.tar.bz2 proj.txt
+    tar -xOf precipitation.tar.bz2 list.txt | sed -n 1,3p
+    tar -xOf precipitation.tar.bz2 init.txt
     ```
 
     ```text
-    temperature_1|2026-03-01 00:00:00|2026-03-02 00:00:00|None
-    temperature_2|2026-03-02 00:00:00|2026-03-03 00:00:00|None
-    temperature_3|2026-03-03 00:00:00|2026-03-04 00:00:00|None
-    temperature_4|2026-03-04 00:00:00|2026-03-05 00:00:00|None
+    precipitation_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|None
+    precipitation_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|None
+    precipitation_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|None
     stds_type=strds
     format=GTiff
     temporal_type=absolute
     semantic_type=mean
-    number_of_maps=4
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
-    XY location (unprojected)
+    number_of_maps=12
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     ```
 
 === "Python (grass.tools)"
@@ -220,21 +237,33 @@ of the examples has no coordinate reference system.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for number, offset in enumerate((0, 3, 6, 9), start=1):
-        tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast_export")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+    factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=1):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+        )
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
     tools.t_create(
-        output="temperature",
-        title="Air temperature",
-        description="Daily mean air temperature",
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
     )
     tools.t_register(
-        input="temperature",
-        maps="temperature_1,temperature_2,temperature_3,temperature_4",
-        start="2026-03-01",
-        increment="1 day",
+        input="precipitation_monthly",
+        maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
+    tools.g_region(n=48000, s=44000, w=715000, e=723000, res=1000)
 
 
     def read_member(archive, member):
@@ -245,55 +274,54 @@ of the examples has no coordinate reference system.
     <!-- example: requires=gdal:GTiff -->
 
     ```python
-    tools.t_rast_export(input="temperature", output="temperature.tar.bz2")
-    with tarfile.open("temperature.tar.bz2") as tar:
-        print("\n".join(tar.getnames()))
+    tools.t_rast_export(input="precipitation_monthly", output="precipitation.tar.bz2")
+    with tarfile.open("precipitation.tar.bz2") as tar:
+        names = tar.getnames()
+    print("\n".join(names[:4]))
+    print("\n".join(names[-5:]))
+    print(len(names))
     ```
 
     ```text
-    temperature_1.tif
-    temperature_1.color
-    temperature_2.tif
-    temperature_2.color
-    temperature_3.tif
-    temperature_3.color
-    temperature_4.tif
-    temperature_4.color
+    precipitation_monthly_2020_01.tif
+    precipitation_monthly_2020_01.color
+    precipitation_monthly_2020_02.tif
+    precipitation_monthly_2020_02.color
     list.txt
     proj.txt
     init.txt
     readme.txt
     metadata.txt
+    29
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```python
-    for member in ("list.txt", "init.txt", "proj.txt"):
-        print(read_member("temperature.tar.bz2", member), end="")
+    list_txt = read_member("precipitation.tar.bz2", "list.txt")
+    print("".join(list_txt.splitlines(True)[:3]), end="")
+    print(read_member("precipitation.tar.bz2", "init.txt"), end="")
     ```
 
     ```text
-    temperature_1|2026-03-01 00:00:00|2026-03-02 00:00:00|None
-    temperature_2|2026-03-02 00:00:00|2026-03-03 00:00:00|None
-    temperature_3|2026-03-03 00:00:00|2026-03-04 00:00:00|None
-    temperature_4|2026-03-04 00:00:00|2026-03-05 00:00:00|None
+    precipitation_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|None
+    precipitation_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|None
+    precipitation_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|None
     stds_type=strds
     format=GTiff
     temporal_type=absolute
     semantic_type=mean
-    number_of_maps=4
-    north=2.0
-    south=0.0
-    east=3.0
-    west=0.0
-    XY location (unprojected)
+    number_of_maps=12
+    north=319000.0
+    south=-16000.0
+    east=963000.0
+    west=124000.0
     ```
 
 ### Export the maps of a time window
 
-**where** selects the maps of 3 and 4 March, and **directory** names the
-working directory `work`. The archive holds the files of two maps, and
+**where** selects the maps of November and December, and **directory** names
+the working directory `work`. The archive holds the files of two maps, and
 `number_of_maps` in `init.txt` counts two. The tool exports and packs in a
 temporary subdirectory of `work` and removes it, so the last command finds
 `work` empty: the archive is in the current directory, where **output** puts
@@ -308,18 +336,18 @@ it.
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=temperature output=later.tar.bz2 directory=work \
-        where="start_time >= '2026-03-03'"
+    t.rast.export input=precipitation_monthly output=later.tar.bz2 directory=work \
+        where="start_time >= '2020-11-01'"
     tar -tf later.tar.bz2
     tar -xOf later.tar.bz2 init.txt | grep number_of_maps
     ls -A work | wc -l
     ```
 
     ```text
-    temperature_3.tif
-    temperature_3.color
-    temperature_4.tif
-    temperature_4.color
+    precipitation_monthly_2020_11.tif
+    precipitation_monthly_2020_11.color
+    precipitation_monthly_2020_12.tif
+    precipitation_monthly_2020_12.color
     list.txt
     proj.txt
     init.txt
@@ -341,10 +369,10 @@ it.
 
     ```python
     tools.t_rast_export(
-        input="temperature",
+        input="precipitation_monthly",
         output="later.tar.bz2",
         directory="work",
-        where="start_time >= '2026-03-03'",
+        where="start_time >= '2020-11-01'",
     )
     with tarfile.open("later.tar.bz2") as tar:
         print("\n".join(tar.getnames()))
@@ -354,10 +382,10 @@ it.
     ```
 
     ```text
-    temperature_3.tif
-    temperature_3.color
-    temperature_4.tif
-    temperature_4.color
+    precipitation_monthly_2020_11.tif
+    precipitation_monthly_2020_11.color
+    precipitation_monthly_2020_12.tif
+    precipitation_monthly_2020_12.color
     list.txt
     proj.txt
     init.txt
@@ -369,12 +397,13 @@ it.
 
 ### Choose the compression
 
-The loop exports the dataset three times into the archive `all.tar`, which
-**--overwrite** replaces each time. It prints the compression, what the first
-two bytes of the file say about it and the number of files in the archive. A
-gzip file starts with the bytes `1f8b` and a bzip2 file with `425a` (the
-letters `BZ`); a plain tar archive has neither. All three hold the same 13
-files, and `tar` reads them without being told the compression.
+The loop exports the maps of the first quarter three times into the archive
+`all.tar`, which **--overwrite** replaces each time. It prints the
+compression, what the first two bytes of the file say about it and the number
+of files in the archive. A gzip file starts with the bytes `1f8b` and a bzip2
+file with `425a` (the letters `BZ`); a plain tar archive has neither. All three
+hold the same 11 files, the two files of three maps and the five text files,
+and `tar` reads them without being told the compression.
 
 === "Command line"
 
@@ -382,8 +411,8 @@ files, and `tar` reads them without being told the compression.
 
     ```sh
     for compression in no gzip bzip2; do
-        t.rast.export input=temperature output=all.tar \
-            compression=$compression --overwrite
+        t.rast.export input=precipitation_monthly output=all.tar \
+            compression=$compression where="start_time < '2020-04-01'" --overwrite
         magic=$(od -An -tx1 -N2 all.tar | tr -d ' ')
         case $magic in
             1f8b) kind=gzip ;;
@@ -395,9 +424,9 @@ files, and `tar` reads them without being told the compression.
     ```
 
     ```text
-    no: plain tar, 13 files
-    gzip: gzip, 13 files
-    bzip2: bzip2, 13 files
+    no: plain tar, 11 files
+    gzip: gzip, 11 files
+    bzip2: bzip2, 11 files
     ```
 
 === "Python (grass.tools)"
@@ -407,9 +436,10 @@ files, and `tar` reads them without being told the compression.
     ```python
     for compression in ("no", "gzip", "bzip2"):
         tools.t_rast_export(
-            input="temperature",
+            input="precipitation_monthly",
             output="all.tar",
             compression=compression,
+            where="start_time < '2020-04-01'",
             overwrite=True,
         )
         kinds = {"1f8b": "gzip", "425a": "bzip2"}
@@ -419,200 +449,202 @@ files, and `tar` reads them without being told the compression.
     ```
 
     ```text
-    no: plain tar, 13 files
-    gzip: gzip, 13 files
-    bzip2: bzip2, 13 files
+    no: plain tar, 11 files
+    gzip: gzip, 11 files
+    bzip2: bzip2, 11 files
     ```
 
 ### Set the data type and the nodata value
 
-The dataset `land` has two maps of the value 5 and 8 in the third column and
-NULL in the other two. The first block exports it without options and reads
-the data type and the nodata value of the first GeoTIFF file with
-*gdalinfo*. The maps are integer maps, so the tool takes `maximum + 1` as the
-nodata value, 6, and `Byte` as the smallest type that holds 5 and 6.
+The three blocks export the map of November, whose cells hold up to 350 mm
+over the whole of North Carolina and are NULL over the sea. Each block reads
+the output of `gdalinfo -json` for the GeoTIFF file and prints its data type
+and nodata value. The first block exports without options. The map has integer
+cells, so the tool takes the largest value of the whole map plus one as the
+nodata value, 351, and `UInt16` as the smallest type that holds 350 and 351; a
+`Byte` holds only up to 255. The 8 by 4 cells of the region hold at most 132
+mm, but the maximum of the whole map counts.
 
-The second block adds `nodata=-77`. A `Byte` cannot hold -77, so the tool
-takes `Int16`. The third block sets the type itself and passes a creation
-option and a metadata tag to the GeoTIFF driver: the file is compressed with
-`DEFLATE` and carries the tag `TAG=hello`.
+The second block adds `nodata=-77`. Neither `Byte` nor `UInt16` can hold -77,
+so the tool takes `Int16`. The third block sets the type itself and passes a
+creation option and a metadata tag to the GeoTIFF driver: the file is
+compressed with `DEFLATE` and carries the tag `TAG=hello`; this block also
+prints the compression and the tag.
 
 === "Command line"
 
-    ```sh
-    r.mapcalc expression="land_1 = if(col() == 3, 5, null())"
-    r.mapcalc expression="land_2 = if(col() == 3, 8, null())"
-    t.create output=land title="Land use" description="Land use classes"
-    t.register -i input=land maps=land_1,land_2 \
-        start=2026-03-01 increment="1 day"
-    ```
-
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=land output=land_default.tar compression=no
-    tar -xf land_default.tar land_1.tif
-    gdalinfo land_1.tif | grep -E "Type=|NoData"
+    t.rast.export input=precipitation_monthly output=november_default.tar \
+        compression=no where="start_time >= '2020-11-01' and start_time < '2020-12-01'"
+    tar -xf november_default.tar precipitation_monthly_2020_11.tif
+    gdalinfo -json precipitation_monthly_2020_11.tif | python3 -c "import json, sys; i = json.load(sys.stdin); b = i['bands'][0]; print(b['type'], b['noDataValue'])"
     ```
 
     ```text
-    Band 1 Block=3x2 Type=Byte, ColorInterp=Gray
-      NoData Value=6
+    UInt16 351
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=land output=land_nodata.tar compression=no nodata=-77
-    tar -xf land_nodata.tar land_1.tif
-    gdalinfo land_1.tif | grep -E "Type=|NoData"
+    t.rast.export input=precipitation_monthly output=november_nodata.tar \
+        compression=no where="start_time >= '2020-11-01' and start_time < '2020-12-01'" nodata=-77
+    tar -xf november_nodata.tar precipitation_monthly_2020_11.tif
+    gdalinfo -json precipitation_monthly_2020_11.tif | python3 -c "import json, sys; i = json.load(sys.stdin); b = i['bands'][0]; print(b['type'], b['noDataValue'])"
     ```
 
     ```text
-    Band 1 Block=3x2 Type=Int16, ColorInterp=Gray
-      NoData Value=-77
+    Int16 -77
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```sh
-    t.rast.export input=land output=land_options.tar compression=no \
+    t.rast.export input=precipitation_monthly output=november_options.tar \
+        compression=no where="start_time >= '2020-11-01' and start_time < '2020-12-01'" \
         type=Int16 nodata=-77 createopt="COMPRESS=DEFLATE" metaopt="TAG=hello"
-    tar -xf land_options.tar land_1.tif
-    gdalinfo land_1.tif | grep -E "Type=|NoData|COMPRESSION|TAG=hello"
+    tar -xf november_options.tar precipitation_monthly_2020_11.tif
+    gdalinfo -json precipitation_monthly_2020_11.tif | python3 -c "import json, sys; i = json.load(sys.stdin); b = i['bands'][0]; print(b['type'], b['noDataValue'], i['metadata']['IMAGE_STRUCTURE']['COMPRESSION'], i['metadata']['']['TAG'])"
     ```
 
     ```text
-      TAG=hello
-      COMPRESSION=DEFLATE
-    Band 1 Block=3x2 Type=Int16, ColorInterp=Gray
-      NoData Value=-77
+    Int16 -77 DEFLATE hello
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    import re
+    import json
     import subprocess
 
-    tools.r_mapcalc(expression="land_1 = if(col() == 3, 5, null())")
-    tools.r_mapcalc(expression="land_2 = if(col() == 3, 8, null())")
-    tools.t_create(output="land", title="Land use", description="Land use classes")
-    tools.t_register(
-        input="land",
-        maps="land_1,land_2",
-        start="2026-03-01",
-        increment="1 day",
-        flags="i",
-    )
 
-
-    def print_gdalinfo(archive, member, pattern):
+    def gdal_info(archive, member):
         with tarfile.open(archive) as tar:
             tar.extract(member, filter="data")
-        info = subprocess.run(
-            ["gdalinfo", member], capture_output=True, text=True, check=True
-        ).stdout
-        print("\n".join(line for line in info.splitlines() if re.search(pattern, line)))
+        result = subprocess.run(
+            ["gdalinfo", "-json", member], capture_output=True, text=True, check=True
+        )
+        return json.loads(result.stdout)
     ```
 
     <!-- example: requires=gdal:GTiff -->
 
     ```python
-    tools.t_rast_export(input="land", output="land_default.tar", compression="no")
-    print_gdalinfo("land_default.tar", "land_1.tif", "Type=|NoData")
-    ```
-
-    ```text
-    Band 1 Block=3x2 Type=Byte, ColorInterp=Gray
-      NoData Value=6
-    ```
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```python
+    november = "start_time >= '2020-11-01' and start_time < '2020-12-01'"
     tools.t_rast_export(
-        input="land", output="land_nodata.tar", compression="no", nodata=-77
-    )
-    print_gdalinfo("land_nodata.tar", "land_1.tif", "Type=|NoData")
-    ```
-
-    ```text
-    Band 1 Block=3x2 Type=Int16, ColorInterp=Gray
-      NoData Value=-77
-    ```
-
-    <!-- example: requires=gdal:GTiff -->
-
-    ```python
-    tools.t_rast_export(
-        input="land",
-        output="land_options.tar",
+        input="precipitation_monthly",
+        output="november_default.tar",
         compression="no",
+        where=november,
+    )
+    info = gdal_info("november_default.tar", "precipitation_monthly_2020_11.tif")
+    band = info["bands"][0]
+    print(band["type"], band["noDataValue"])
+    ```
+
+    ```text
+    UInt16 351
+    ```
+
+    <!-- example: requires=gdal:GTiff -->
+
+    ```python
+    tools.t_rast_export(
+        input="precipitation_monthly",
+        output="november_nodata.tar",
+        compression="no",
+        where=november,
+        nodata=-77,
+    )
+    info = gdal_info("november_nodata.tar", "precipitation_monthly_2020_11.tif")
+    band = info["bands"][0]
+    print(band["type"], band["noDataValue"])
+    ```
+
+    ```text
+    Int16 -77
+    ```
+
+    <!-- example: requires=gdal:GTiff -->
+
+    ```python
+    tools.t_rast_export(
+        input="precipitation_monthly",
+        output="november_options.tar",
+        compression="no",
+        where=november,
         type="Int16",
         nodata=-77,
         createopt="COMPRESS=DEFLATE",
         metaopt="TAG=hello",
     )
-    print_gdalinfo("land_options.tar", "land_1.tif", "Type=|NoData|COMPRESSION|TAG=hello")
+    info = gdal_info("november_options.tar", "precipitation_monthly_2020_11.tif")
+    band = info["bands"][0]
+    metadata = info["metadata"]
+    print(
+        band["type"],
+        band["noDataValue"],
+        metadata["IMAGE_STRUCTURE"]["COMPRESSION"],
+        metadata[""]["TAG"],
+    )
     ```
 
     ```text
-      TAG=hello
-      COMPRESSION=DEFLATE
-    Band 1 Block=3x2 Type=Int16, ColorInterp=Gray
-      NoData Value=-77
+    Int16 -77 DEFLATE hello
     ```
 
 ### Export as an ASCII grid or in the GRASS pack format
 
-With `format=AAIGrid`, the maps of `land` are written as Arc/Info ASCII Grid
-files. `nodata=-77` is the value of the NULL cells in the header and in the
-two rows of the file: the first two columns are -77, the third is 5.
+With `format=AAIGrid`, the map of November is written as an Arc/Info ASCII Grid
+file. `nodata=-77` is the value of the NULL cells in the header and in the
+four rows of the file: the sea cells are -77, the land cells on the coast hold
+132 mm.
 
-With `format=pack`, each map is one `.pack` file and there are no `.color`
-files. *r.pack* has no use for the options **type**, **nodata**, **createopt**
-and **metaopt**, so the tool skips them with a warning.
+With `format=pack`, the map is one `.pack` file and there is no `.color` file.
+*r.pack* has no use for the options **type**, **nodata**, **createopt** and
+**metaopt**, so the tool skips them with a warning.
 
 === "Command line"
 
     <!-- example: requires=gdal:AAIGrid -->
 
     ```sh
-    t.rast.export input=land output=land_ascii.tar compression=no \
-        format=AAIGrid nodata=-77
-    tar -tf land_ascii.tar
-    tar -xOf land_ascii.tar land_1.asc
+    t.rast.export input=precipitation_monthly output=november_ascii.tar \
+        compression=no where="start_time >= '2020-11-01' and start_time < '2020-12-01'" format=AAIGrid nodata=-77
+    tar -tf november_ascii.tar
+    tar -xOf november_ascii.tar precipitation_monthly_2020_11.asc
     ```
 
     ```text
-    land_1.asc
-    land_1.color
-    land_2.asc
-    land_2.color
+    precipitation_monthly_2020_11.asc
+    precipitation_monthly_2020_11.color
     list.txt
     proj.txt
     init.txt
     readme.txt
     metadata.txt
-    ncols        3
-    nrows        2
-    xllcorner    0.000000000000
-    yllcorner    0.000000000000
-    cellsize     1.000000000000
+    ncols        8
+    nrows        4
+    xllcorner    715000.000000000000
+    yllcorner    44000.000000000000
+    cellsize     1000.000000000000
     NODATA_value -77
-    -77 -77 5 
-    -77 -77 5 
+    132 132 132 -77 -77 -77 -77 -77 
+    132 132 -77 -77 -77 -77 -77 -77 
+    132 132 -77 -77 -77 -77 -77 -77 
+    132 -77 -77 -77 -77 -77 -77 -77 
     ```
 
     ```sh
-    t.rast.export input=land output=land_pack.tar compression=no format=pack
-    tar -tf land_pack.tar
+    t.rast.export input=precipitation_monthly output=november_pack.tar \
+        compression=no where="start_time >= '2020-11-01' and start_time < '2020-12-01'" format=pack
+    tar -tf november_pack.tar
     ```
 
     ```text
-    land_1.pack
-    land_2.pack
+    precipitation_monthly_2020_11.pack
     list.txt
     proj.txt
     init.txt
@@ -626,48 +658,52 @@ and **metaopt**, so the tool skips them with a warning.
 
     ```python
     tools.t_rast_export(
-        input="land",
-        output="land_ascii.tar",
+        input="precipitation_monthly",
+        output="november_ascii.tar",
         compression="no",
+        where=november,
         format="AAIGrid",
         nodata=-77,
     )
-    with tarfile.open("land_ascii.tar") as tar:
+    with tarfile.open("november_ascii.tar") as tar:
         print("\n".join(tar.getnames()))
-    print(read_member("land_ascii.tar", "land_1.asc"), end="")
+    print(read_member("november_ascii.tar", "precipitation_monthly_2020_11.asc"), end="")
     ```
 
     ```text
-    land_1.asc
-    land_1.color
-    land_2.asc
-    land_2.color
+    precipitation_monthly_2020_11.asc
+    precipitation_monthly_2020_11.color
     list.txt
     proj.txt
     init.txt
     readme.txt
     metadata.txt
-    ncols        3
-    nrows        2
-    xllcorner    0.000000000000
-    yllcorner    0.000000000000
-    cellsize     1.000000000000
+    ncols        8
+    nrows        4
+    xllcorner    715000.000000000000
+    yllcorner    44000.000000000000
+    cellsize     1000.000000000000
     NODATA_value -77
-    -77 -77 5 
-    -77 -77 5 
+    132 132 132 -77 -77 -77 -77 -77 
+    132 132 -77 -77 -77 -77 -77 -77 
+    132 132 -77 -77 -77 -77 -77 -77 
+    132 -77 -77 -77 -77 -77 -77 -77 
     ```
 
     ```python
     tools.t_rast_export(
-        input="land", output="land_pack.tar", compression="no", format="pack"
+        input="precipitation_monthly",
+        output="november_pack.tar",
+        compression="no",
+        where=november,
+        format="pack",
     )
-    with tarfile.open("land_pack.tar") as tar:
+    with tarfile.open("november_pack.tar") as tar:
         print("\n".join(tar.getnames()))
     ```
 
     ```text
-    land_1.pack
-    land_2.pack
+    precipitation_monthly_2020_11.pack
     list.txt
     proj.txt
     init.txt
@@ -678,37 +714,41 @@ and **metaopt**, so the tool skips them with a warning.
 ### Export with a smaller region
 
 GeoTIFF and ASCII grid files cover the current region, a `pack` file the
-whole map. The first block narrows the region to the first two columns and
-exports `land` in all three formats. The GeoTIFF file is 2 by 2 cells, the
-ASCII grid has two columns, and the packed map still has its three columns
-and two rows. `init.txt` still gives the extent of the maps, east 3.0. The
-last command resets the region.
+whole map. The first block narrows the region to the first four columns and
+exports the map of November in all three formats. The GeoTIFF file is 4 by 4
+cells (its `size` is `[4, 4]`), the ASCII grid has four columns, and the
+packed map still has its 839 columns and 335 rows. `init.txt` still gives the
+extent of the maps, east 963000 and west 124000. The last command resets the
+region.
 
 === "Command line"
 
     <!-- example: requires=gdal:AAIGrid -->
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
-    t.rast.export input=land output=cut_tif.tar compression=no
-    t.rast.export input=land output=cut_asc.tar compression=no format=AAIGrid
-    t.rast.export input=land output=cut_pack.tar compression=no format=pack
-    tar -xf cut_tif.tar land_1.tif
-    gdalinfo land_1.tif | grep "Size is"
-    tar -xOf cut_asc.tar land_1.asc | head -2
-    tar -xOf cut_pack.tar land_1.pack | tar -xOf - land_1/cellhd | grep -E "^(cols|rows)"
+    g.region n=48000 s=44000 w=715000 e=719000 res=1000
+    t.rast.export input=precipitation_monthly output=cut_tif.tar compression=no \
+        where="start_time >= '2020-11-01' and start_time < '2020-12-01'"
+    t.rast.export input=precipitation_monthly output=cut_asc.tar compression=no \
+        where="start_time >= '2020-11-01' and start_time < '2020-12-01'" format=AAIGrid
+    t.rast.export input=precipitation_monthly output=cut_pack.tar compression=no \
+        where="start_time >= '2020-11-01' and start_time < '2020-12-01'" format=pack
+    tar -xf cut_tif.tar precipitation_monthly_2020_11.tif
+    gdalinfo -json precipitation_monthly_2020_11.tif | python3 -c "import json, sys; i = json.load(sys.stdin); b = i['bands'][0]; print(i['size'], b['type'], b['noDataValue'])"
+    tar -xOf cut_asc.tar precipitation_monthly_2020_11.asc | sed -n 1,2p
+    tar -xOf cut_pack.tar precipitation_monthly_2020_11.pack | tar -xOf - precipitation_monthly_2020_11/cellhd | grep -E "^(cols|rows)"
     tar -xOf cut_tif.tar init.txt | grep -E "^(east|west)="
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.region n=48000 s=44000 w=715000 e=723000 res=1000
     ```
 
     ```text
-    Size is 2, 2
-    ncols        2
-    nrows        2
-    cols:       3
-    rows:       2
-    east=3.0
-    west=0.0
+    [4, 4] UInt16 351
+    ncols        4
+    nrows        4
+    cols:       839
+    rows:       335
+    east=963000.0
+    west=124000.0
     ```
 
 === "Python (grass.tools)"
@@ -716,33 +756,44 @@ last command resets the region.
     <!-- example: requires=gdal:AAIGrid -->
 
     ```python
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
-    tools.t_rast_export(input="land", output="cut_tif.tar", compression="no")
-    tools.t_rast_export(
-        input="land", output="cut_asc.tar", compression="no", format="AAIGrid"
-    )
-    tools.t_rast_export(
-        input="land", output="cut_pack.tar", compression="no", format="pack"
-    )
-    print_gdalinfo("cut_tif.tar", "land_1.tif", "Size is")
-    print("".join(read_member("cut_asc.tar", "land_1.asc").splitlines(True)[:2]), end="")
+    tools.g_region(n=48000, s=44000, w=715000, e=719000, res=1000)
+    for output, file_format in (
+        ("cut_tif.tar", "GTiff"),
+        ("cut_asc.tar", "AAIGrid"),
+        ("cut_pack.tar", "pack"),
+    ):
+        tools.t_rast_export(
+            input="precipitation_monthly",
+            output=output,
+            compression="no",
+            where=november,
+            format=file_format,
+        )
+    info = gdal_info("cut_tif.tar", "precipitation_monthly_2020_11.tif")
+    band = info["bands"][0]
+    print(info["size"], band["type"], band["noDataValue"])
+    ascii_grid = read_member("cut_asc.tar", "precipitation_monthly_2020_11.asc")
+    print("".join(ascii_grid.splitlines(True)[:2]), end="")
     with tarfile.open("cut_pack.tar") as outer:
-        with tarfile.open(fileobj=outer.extractfile("land_1.pack"), mode="r:") as inner:
-            header = inner.extractfile("land_1/cellhd").read().decode()
+        with tarfile.open(
+            fileobj=outer.extractfile("precipitation_monthly_2020_11.pack"), mode="r:"
+        ) as inner:
+            header = inner.extractfile("precipitation_monthly_2020_11/cellhd").read()
+    header = header.decode()
     print("\n".join(line for line in header.splitlines() if line[:4] in ("cols", "rows")))
     init = read_member("cut_tif.tar", "init.txt")
     print("\n".join(line for line in init.splitlines() if line[:4] in ("east", "west")))
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_region(n=48000, s=44000, w=715000, e=723000, res=1000)
     ```
 
     ```text
-    Size is 2, 2
-    ncols        2
-    nrows        2
-    cols:       3
-    rows:       2
-    east=3.0
-    west=0.0
+    [4, 4] UInt16 351
+    ncols        4
+    nrows        4
+    cols:       839
+    rows:       335
+    east=963000.0
+    west=124000.0
     ```
 
 <!-- markdownlint-enable MD046 -->
