@@ -16,7 +16,7 @@ for 2D maps in the same words; this page differs in the options that
 The option **input** names the space time 3D raster dataset. Each line of the
 output starts with three columns that name the map:
 
-- `id`, the name of the map with its mapset, such as `soil_1@PERMANENT`;
+- `id`, the name of the map with its mapset, such as `temperature_profile_2020_01@t_rast3d_univar`;
 - `start` and `end`, the start and end time of the map; the end of a map
   registered as a time instance is `None`.
 
@@ -117,14 +117,14 @@ unit of the dataset, printed without the unit: a map registered from 0 to 6
 hours shows `0` and `6`, as the first example shows.
 
 *t.rast3d.univar* only reads, so it works on a dataset of another mapset as
-well. The name with the mapset (`input=soil@PERMANENT`) selects it; a name
-without a mapset is searched in the mapsets of the search path (see
-*[g.mapsets](g.mapsets.md)*). The last example shows this.
+well. The name with the mapset (`input=temperature_profile@t_rast3d_univar`)
+selects it; a name without a mapset is searched in the mapsets of the search
+path (see *[g.mapsets](g.mapsets.md)*). The last example shows this.
 
 The 3D raster mask set with *[r3.mask](r3.mask.md)* has no effect on the
 statistics: *r3.univar* does not read it and counts the cells that the mask
 would exclude. To leave cells out, set them to null in the maps themselves, for
-instance with *[r3.mapcalc](r3.mapcalc.md)* and `if(layers == 2, null(), soil)`,
+instance with *[r3.mapcalc](r3.mapcalc.md)* and `if(layers == 2, null(), temperature_profile_2020_07)`,
 or read the lines of the zones that are wanted (see **zones** and the example
 with the layers).
 
@@ -143,25 +143,33 @@ refused by the parser.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast3d_univar` and sets the 3D computational
+region to North Carolina with cells of 1 km and three layers of 1000 m, from 0
+to 3000 m; the later examples work in this mapset and region, except the cubes,
+which set a region of their own, and the last, which creates a second mapset. The
+horizontal resolution `res` alone leaves the 3D resolution at the 500 m of the
+elevation model, so the region sets **res3** as well.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast3d_univar -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Statistics of each map of a dataset
 
-The region has two rows, three columns and two layers of the size 1, so each
-map has 12 cells. The helper map `voxel_number` numbers the cells from 1 to
-12, layer by layer from the bottom and row by row within a layer, so each map
-is simple to follow:
-
-- `soil_1` holds -2, -1, 0, 1, 2, 3 in the lower layer and 4 to 9 in the upper
-  layer;
-- `soil_2` holds the numbers 1 to 12;
-- `soil_3` holds `voxel_number + 3` for the cells 1, 2, 4, 5, 7, 8, 10 and 11,
-  that is 4, 5, 7, 8, 10, 11, 13 and 14, and nothing in the eastern column, as
-  if a sensor had failed there.
-
-The maps are registered as daily intervals starting on 1 March 2026.
+The dataset `temperature_profile` holds twelve 3D maps of the monthly mean air
+temperature in 2020 in whole degrees Celsius. They are generated, not
+measured: the temperature follows a yearly cycle with its maximum in July,
+falls by 0.0065 degrees per metre of height (`z()` is the height of the centre
+of a layer: 500, 1500 and 2500 m) and by 0.01 degrees per kilometre to the
+north. `round()` in *r3.mapcalc* rounds the values to whole degrees, which
+keeps the mean, the variance and the sums the same on every platform. Each map
+covers all 839 \* 335 \* 3 = 843,195 cells of the region, so no cell is null.
+The maps are registered as intervals of one month, starting on 1 January 2020.
 *t.rast3d.univar* processes two maps at the same time here (**nprocs**); the
-output does not depend on it.
+output does not depend on it. The condition in **where** keeps the first three
+months.
 
 The second block makes the dataset `model` with relative time: two model
 steps of 6 hours each, with the constant values 1 and 2. Their `start` and
@@ -170,39 +178,43 @@ steps of 6 hours each, with the constant values 1 and 2. Their `start` and
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 t=2 b=0 res=1 res3=1 tbres=1
-    r3.mapcalc expression="voxel_number = (depth() - 1) * 6 + (row() - 1) * 3 + col()"
-    r3.mapcalc expression="soil_1 = voxel_number - 3"
-    r3.mapcalc expression="soil_2 = voxel_number"
-    r3.mapcalc expression="soil_3 = if(col() == 3, null(), voxel_number + 3)"
-    t.create type=str3ds output=soil title="Soil" \
-        description="Soil temperature in degrees Celsius"
-    t.register -i type=raster_3d input=soil \
-        maps=soil_1,soil_2,soil_3 start=2026-03-01 increment="1 day"
-    t.rast3d.univar input=soil nprocs=2
+    g.mapset -c mapset=t_rast3d_univar
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_profile_2020_$(printf %02d $month) = round(16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * z()" \
+            "- 0.00001 * (y() - 160000))"
+    done | r3.mapcalc file=-
+    t.create type=str3ds output=temperature_profile title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m"
+    t.register -i type=raster_3d input=temperature_profile \
+        maps=$(g.list type=raster_3d pattern="temperature_profile_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast3d.univar input=temperature_profile nprocs=2 \
+        where="start_time < '2020-04-01'"
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_1@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00|12|0|-2|9|11|3.5|4|3.45205252953466|11.9166666666667|98.6300722724189|42|48
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
-    soil_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|8|4|4|14|10|9|9|3.39116499156263|11.5|37.6796110173626|72|72
+    temperature_profile_2020_01@t_rast3d_univar|2020-01-01 00:00:00|2020-02-01 00:00:00|843195|0|-12|5|17|-3.61492537313433|5.53134328358209|5.4020427423754|29.1820657904507|-149.437185689163|-3048087|4664001
+    temperature_profile_2020_02@t_rast3d_univar|2020-02-01 00:00:00|2020-03-01 00:00:00|843195|0|-11|5|16|-2.76318407960199|5.24278606965174|5.40127475380717|29.1737689661147|-195.472852991581|-2329903|4420691
+    temperature_profile_2020_03@t_rast3d_univar|2020-03-01 00:00:00|2020-04-01 00:00:00|843195|0|-8|9|17|0.680597014925373|4.65074626865672|5.40024613791268|29.1626583500408|793.457217631907|573876|3921486
     ```
 
     ```sh
-    r3.mapcalc expression="step_1 = 1"
-    r3.mapcalc expression="step_2 = 2"
+    r3.mapcalc expression="model_step_1 = 1"
+    r3.mapcalc expression="model_step_2 = 2"
     t.create type=str3ds output=model temporaltype=relative title="Model" \
         description="Model output per step of 6 hours"
-    t.register -i type=raster_3d input=model maps=step_1,step_2 \
+    t.register -i type=raster_3d input=model maps=model_step_1,model_step_2 \
         start=0 increment=6 unit=hours
     t.rast3d.univar input=model
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    step_1@PERMANENT|0|6|12|0|1|1|0|1|1|0|0|0|12|12
-    step_2@PERMANENT|6|12|12|0|2|2|0|2|2|0|0|0|24|24
+    model_step_1@t_rast3d_univar|0|6|843195|0|1|1|0|1|1|0|0|0|843195|843195
+    model_step_2@t_rast3d_univar|6|12|843195|0|2|2|0|2|2|0|0|0|1686390|1686390
     ```
 
 === "Python (grass.tools)"
@@ -211,40 +223,55 @@ steps of 6 hours each, with the constant values 1 and 2. Their `start` and
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, t=2, b=0, res=1, res3=1, tbres=1)
-    tools.r3_mapcalc(
-        expression="voxel_number = (depth() - 1) * 6 + (row() - 1) * 3 + col()"
+    tools.g_mapset(flags="c", mapset="t_rast3d_univar")
+    tools.g_region(
+        raster="elev_state_500m",
+        res=1000,
+        res3=1000,
+        t=3000,
+        b=0,
+        tbres=1000,
+        flags="a",
     )
-    tools.r3_mapcalc(expression="soil_1 = voxel_number - 3")
-    tools.r3_mapcalc(expression="soil_2 = voxel_number")
-    tools.r3_mapcalc(expression="soil_3 = if(col() == 3, null(), voxel_number + 3)")
+    months = range(1, 13)
+    tools.r3_mapcalc(
+        expression="\n".join(
+            f"temperature_profile_2020_{month:02d} = round(16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * z()"
+            " - 0.00001 * (y() - 160000))"
+            for month in months
+        )
+    )
     tools.t_create(
         type="str3ds",
-        output="soil",
-        title="Soil",
-        description="Soil temperature in degrees Celsius",
+        output="temperature_profile",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius, 0 to 3000 m",
     )
     tools.t_register(
         type="raster_3d",
-        input="soil",
-        maps="soil_1,soil_2,soil_3",
-        start="2026-03-01",
-        increment="1 day",
+        input="temperature_profile",
+        maps=",".join(f"temperature_profile_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
-    print(tools.t_rast3d_univar(input="soil", nprocs=2).text)
+    result = tools.t_rast3d_univar(
+        input="temperature_profile", nprocs=2, where="start_time < '2020-04-01'"
+    )
+    print(result.text)
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_1@PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00|12|0|-2|9|11|3.5|4|3.45205252953466|11.9166666666667|98.6300722724189|42|48
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
-    soil_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|8|4|4|14|10|9|9|3.39116499156263|11.5|37.6796110173626|72|72
+    temperature_profile_2020_01@t_rast3d_univar|2020-01-01 00:00:00|2020-02-01 00:00:00|843195|0|-12|5|17|-3.61492537313433|5.53134328358209|5.4020427423754|29.1820657904507|-149.437185689163|-3048087|4664001
+    temperature_profile_2020_02@t_rast3d_univar|2020-02-01 00:00:00|2020-03-01 00:00:00|843195|0|-11|5|16|-2.76318407960199|5.24278606965174|5.40127475380717|29.1737689661147|-195.472852991581|-2329903|4420691
+    temperature_profile_2020_03@t_rast3d_univar|2020-03-01 00:00:00|2020-04-01 00:00:00|843195|0|-8|9|17|0.680597014925373|4.65074626865672|5.40024613791268|29.1626583500408|793.457217631907|573876|3921486
     ```
 
     ```python
-    tools.r3_mapcalc(expression="step_1 = 1")
-    tools.r3_mapcalc(expression="step_2 = 2")
+    tools.r3_mapcalc(expression="model_step_1 = 1")
+    tools.r3_mapcalc(expression="model_step_2 = 2")
     tools.t_create(
         type="str3ds",
         output="model",
@@ -255,7 +282,7 @@ steps of 6 hours each, with the constant values 1 and 2. Their `start` and
     tools.t_register(
         type="raster_3d",
         input="model",
-        maps="step_1,step_2",
+        maps="model_step_1,model_step_2",
         start=0,
         increment=6,
         unit="hours",
@@ -266,67 +293,73 @@ steps of 6 hours each, with the constant values 1 and 2. Their `start` and
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    step_1@PERMANENT|0|6|12|0|1|1|0|1|1|0|0|0|12|12
-    step_2@PERMANENT|6|12|12|0|2|2|0|2|2|0|0|0|24|24
+    model_step_1@t_rast3d_univar|0|6|843195|0|1|1|0|1|1|0|0|0|843195|843195
+    model_step_2@t_rast3d_univar|6|12|843195|0|2|2|0|2|2|0|0|0|1686390|1686390
     ```
-
-The output reads line by line:
-
-- `soil_2` has twelve values, 1 to 12: the mean is 78 / 12 = 6.5, the range
-  12 - 1 = 11. The squared deviations from the mean add up to 143, so the
-  variance is 143 / 12 = 11.9166..., the standard deviation its square root
-  3.4520..., and the coefficient of variation `100 * 3.4520 / 6.5` = 53.10...
-- `soil_1` holds the same values minus 3, so range, variance and standard
-  deviation are those of `soil_2`. Its values add up to 42 and give the mean
-  3.5, while their absolute values add up to 48 and give `mean_of_abs` 4.
-- `soil_3` has eight non-null cells and four null cells; its mean is
-  72 / 8 = 9.
 
 ### Calculate extended statistics and percentiles
 
 The flag **-e** adds the quartiles, the median and the 90th percentile. The
-twelve values 1 to 12 of `soil_2` give the first quartile at position
-`12 * 25 / 100 - 0.5` = 2.5, which becomes 2 (the value 3), the third quartile
-at position 8.5, which becomes 8 (the value 9), and the 90th percentile at
-position 10.3, which becomes 10 (the value 11). The median is the mean of the
-two middle values 6 and 7.
+first command takes the July map of `temperature_profile`, which has an odd
+number of cells. The first quartile is at position
+`843195 * 25 / 100 - 0.5` = 210798.25, which becomes 210798 (the value 12), the
+third quartile at position 632395.75, which becomes 632395 (the value 23). The
+option **percentile** replaces the 90th percentile by the listed ones: the
+10th percentile is at position 84319 (the value 10), the 95th at position
+801034.75, which becomes 801034 (the value 25). The 50th percentile and the
+median are both the middle value 17, at position 421597: with an odd number of
+cells, the median is a value of the map, too.
 
-The option **percentile** replaces the 90th percentile by the listed ones.
-For `soil_2`, the 10th percentile is at position 0.7 (the value 1), the 50th
-at position 5.5 (the value 6) and the 95th at position 10.9 (the value 11).
-The 50th percentile 6 is not the median 6.5: the median takes the mean of the
-two middle values, the percentile one value. The option **where** keeps
-`soil_2` in the first command and `soil_3`, which starts on the third of
-March, in the second command.
+The second command takes the statistics in the lower two layers only, by
+setting the top of the region to 2000 m: the 281,065 cells of the upper layer
+are not counted, `non_null_cells` is 562,130, and the number of cells is even.
+The lower layer holds the values 22 to 25 and the middle layer 16 to 19, as the
+zones below show. The two middle values, at the positions 281064 and 281065,
+are 19 and 22, so the median is their mean 20.5, while the 50th percentile is
+the value 19 at position 281064. The median is not even a value that occurs in
+the map. The third command resets the region and takes the December map, with
+the default percentile.
 
 === "Command line"
 
     ```sh
-    t.rast3d.univar -e input=soil percentile=10,50,95 \
-        where="name = 'soil_2'"
+    t.rast3d.univar -e input=temperature_profile percentile=10,50,95 \
+        where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78|3|6.5|9|1|6|11
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650|12|17|23|10|17|25
     ```
 
     ```sh
-    t.rast3d.univar -e input=soil where="start_time >= '2026-03-03'"
+    g.region t=2000
+    t.rast3d.univar -e input=temperature_profile percentile=10,50,95 \
+        where="name = 'temperature_profile_2020_07'"
+    ```
+
+    ```text
+    id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|562130|0|16|25|9|20.5223880597015|20.5223880597015|3.37620386027356|11.3987525061261|16.4513206282421|11536250|11536250|17|20.5|24|16|19|25
+    ```
+
+    ```sh
+    g.region t=3000
+    t.rast3d.univar -e input=temperature_profile where="start_time >= '2020-12-01'"
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
-    soil_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|8|4|4|14|10|9|9|3.39116499156263|11.5|37.6796110173626|72|72|5|9|11|13
+    temperature_profile_2020_12@t_rast3d_univar|2020-12-01 00:00:00|2021-01-01 00:00:00|843195|0|-10|7|17|-1.66965174129353|4.87960199004975|5.40060107011404|29.1664919185169|-323.456738704684|-1407842|4114456|-7|-2|4|6
     ```
 
 === "Python (grass.tools)"
 
     ```python
     result = tools.t_rast3d_univar(
-        input="soil",
+        input="temperature_profile",
         percentile=[10, 50, 95],
-        where="name = 'soil_2'",
+        where="name = 'temperature_profile_2020_07'",
         flags="e",
     )
     print(result.text)
@@ -334,82 +367,116 @@ March, in the second command.
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78|3|6.5|9|1|6|11
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650|12|17|23|10|17|25
     ```
 
     ```python
+    tools.g_region(t=2000)
     result = tools.t_rast3d_univar(
-        input="soil", where="start_time >= '2026-03-03'", flags="e"
+        input="temperature_profile",
+        percentile=[10, 50, 95],
+        where="name = 'temperature_profile_2020_07'",
+        flags="e",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_10|percentile_50|percentile_95
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|562130|0|16|25|9|20.5223880597015|20.5223880597015|3.37620386027356|11.3987525061261|16.4513206282421|11536250|11536250|17|20.5|24|16|19|25
+    ```
+
+    ```python
+    tools.g_region(t=3000)
+    result = tools.t_rast3d_univar(
+        input="temperature_profile", where="start_time >= '2020-12-01'", flags="e"
     )
     print(result.text)
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs|first_quartile|median|third_quartile|percentile_90
-    soil_3@PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00|8|4|4|14|10|9|9|3.39116499156263|11.5|37.6796110173626|72|72|5|9|11|13
+    temperature_profile_2020_12@t_rast3d_univar|2020-12-01 00:00:00|2021-01-01 00:00:00|843195|0|-10|7|17|-1.66965174129353|4.87960199004975|5.40060107011404|29.1664919185169|-323.456738704684|-1407842|4114456|-7|-2|4|6
     ```
 
 ### Statistics per zone
 
-The 3D map `layers` holds the number of the layer: 1 in the lower and 2 in
-the upper layer. With **zones**, each map gets one line per zone. For `soil_2`,
-the lower layer holds 1 to 6 with the mean 3.5, the upper layer 7 to 12 with
-the mean 9.5. The zone map has no category labels, so `label` is empty. With
-**format** `json`, each zone is an object of its own, and the category label
-has the name `zone_label`; it is the empty text here, not `null`.
+The 3D map `layers` holds the number of the layer: 1 in the lower layer
+(0 to 1000 m), 2 in the middle and 3 in the upper layer. With **zones**, each
+map gets one line per zone. Every zone has 839 \* 335 = 281,065 cells. In July,
+the mean falls by about 6.5 degrees from layer to layer, as the assumed
+0.0065 degrees per metre say, and the layers do not overlap: the lower layer
+holds 22 to 25, the middle layer 16 to 19 and the upper layer 9 to 12. The zone
+map has no category labels, so `label` is empty. With **format** `json`, each
+zone is an object of its own, and the category label has the name
+`zone_label`; it is the empty text here, not `null`.
 
 === "Command line"
 
     ```sh
     r3.mapcalc expression="layers = depth()"
-    t.rast3d.univar input=soil zones=layers where="name = 'soil_2'"
+    t.rast3d.univar input=temperature_profile zones=layers \
+        where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
     id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|1||6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|2||6|0|7|12|5|9.5|9.5|1.70782512765993|2.91666666666667|17.9771066069467|57|57
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1||281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2||281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3||281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
     ```
 
     ```sh
-    t.rast3d.univar input=soil zones=layers format=json \
-        where="name = 'soil_2'" | grep -E '"(zone|zone_label|mean)"'
+    t.rast3d.univar input=temperature_profile zones=layers format=json \
+        where="name = 'temperature_profile_2020_07'" | grep -E '"(zone|zone_label|mean)"'
     ```
 
     ```text
             "zone": 1,
             "zone_label": "",
-            "mean": 3.5,
+            "mean": 23.746268656716417,
             "zone": 2,
             "zone_label": "",
-            "mean": 9.5,
+            "mean": 17.29850746268657,
+            "zone": 3,
+            "zone_label": "",
+            "mean": 10.746268656716419,
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.r3_mapcalc(expression="layers = depth()")
-    result = tools.t_rast3d_univar(input="soil", zones="layers", where="name = 'soil_2'")
+    result = tools.t_rast3d_univar(
+        input="temperature_profile",
+        zones="layers",
+        where="name = 'temperature_profile_2020_07'",
+    )
     print(result.text)
     ```
 
     ```text
     id|start|end|zone|label|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|1||6|0|1|6|5|3.5|3.5|1.70782512765993|2.91666666666667|48.7950036474267|21|21
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|2||6|0|7|12|5|9.5|9.5|1.70782512765993|2.91666666666667|17.9771066069467|57|57
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|1||281065|0|22|25|3|23.7462686567164|23.7462686567164|0.997658206989149|0.995321897972803|4.20132620165135|6674245|6674245
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|2||281065|0|16|19|3|17.2985074626866|17.2985074626866|1.00765614505185|1.01537090666075|5.82510454861724|4862005|4862005
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|3||281065|0|9|12|3|10.7462686567164|10.7462686567164|0.997658206989156|0.995321897972817|9.28376387059353|3020400|3020400
     ```
 
     ```python
     result = tools.t_rast3d_univar(
-        input="soil", zones="layers", format="json", where="name = 'soil_2'"
+        input="temperature_profile",
+        zones="layers",
+        format="json",
+        where="name = 'temperature_profile_2020_07'",
     )
     for stats in result.json:
         print(f"zone {stats['zone']} ({stats['zone_label']!r}): mean {stats['mean']}")
     ```
 
     ```text
-    zone 1 (''): mean 3.5
-    zone 2 (''): mean 9.5
+    zone 1 (''): mean 23.746268656716417
+    zone 2 (''): mean 17.29850746268657
+    zone 3 (''): mean 10.746268656716419
     ```
 
 ### Choose the output format
@@ -417,72 +484,72 @@ has the name `zone_label`; it is the empty text here, not `null`.
 The option **separator** sets another separator, and the flag **-s** leaves
 out the line with the column names, for instance to append the lines to a
 table that has them already. With **format** `csv`, the columns are separated
-by commas, and the option **output** writes the statistics to a file. With
-**format** `json`, *t.rast3d.univar* prints a list with one object per map;
-here for `soil_2` with the extended statistics and two percentiles. The key
-`semantic_label` is `null`. In Python, the attribute `json` of the result
-holds this list, and the example prints the mean, the median and the
-percentiles from it.
+by commas, and the option **output** writes the statistics to a file. These
+commands show the first two months. With **format** `json`,
+*t.rast3d.univar* prints a list with one object per map; here for the July
+map with the extended statistics and two percentiles. The key `semantic_label`
+is `null`. In Python, the attribute `json` of the result holds this list, and
+the example prints the mean, the median and the percentiles from it.
 
 === "Command line"
 
     ```sh
-    t.rast3d.univar -s input=soil separator=";"
+    t.rast3d.univar -s input=temperature_profile separator=";" \
+        where="start_time < '2020-03-01'"
     ```
 
     ```text
-    soil_1@PERMANENT;2026-03-01 00:00:00;2026-03-02 00:00:00;12;0;-2;9;11;3.5;4;3.45205252953466;11.9166666666667;98.6300722724189;42;48
-    soil_2@PERMANENT;2026-03-02 00:00:00;2026-03-03 00:00:00;12;0;1;12;11;6.5;6.5;3.45205252953466;11.9166666666667;53.1085004543794;78;78
-    soil_3@PERMANENT;2026-03-03 00:00:00;2026-03-04 00:00:00;8;4;4;14;10;9;9;3.39116499156263;11.5;37.6796110173626;72;72
+    temperature_profile_2020_01@t_rast3d_univar;2020-01-01 00:00:00;2020-02-01 00:00:00;843195;0;-12;5;17;-3.61492537313433;5.53134328358209;5.4020427423754;29.1820657904507;-149.437185689163;-3048087;4664001
+    temperature_profile_2020_02@t_rast3d_univar;2020-02-01 00:00:00;2020-03-01 00:00:00;843195;0;-11;5;16;-2.76318407960199;5.24278606965174;5.40127475380717;29.1737689661147;-195.472852991581;-2329903;4420691
     ```
 
     ```sh
-    t.rast3d.univar input=soil format=csv output=soil.csv
-    cat soil.csv
+    t.rast3d.univar input=temperature_profile format=csv output=profile.csv \
+        where="start_time < '2020-03-01'"
+    cat profile.csv
     ```
 
     ```text
     id,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
-    soil_1@PERMANENT,2026-03-01 00:00:00,2026-03-02 00:00:00,12,0,-2,9,11,3.5,4,3.45205252953466,11.9166666666667,98.6300722724189,42,48
-    soil_2@PERMANENT,2026-03-02 00:00:00,2026-03-03 00:00:00,12,0,1,12,11,6.5,6.5,3.45205252953466,11.9166666666667,53.1085004543794,78,78
-    soil_3@PERMANENT,2026-03-03 00:00:00,2026-03-04 00:00:00,8,4,4,14,10,9,9,3.39116499156263,11.5,37.6796110173626,72,72
+    temperature_profile_2020_01@t_rast3d_univar,2020-01-01 00:00:00,2020-02-01 00:00:00,843195,0,-12,5,17,-3.61492537313433,5.53134328358209,5.4020427423754,29.1820657904507,-149.437185689163,-3048087,4664001
+    temperature_profile_2020_02@t_rast3d_univar,2020-02-01 00:00:00,2020-03-01 00:00:00,843195,0,-11,5,16,-2.76318407960199,5.24278606965174,5.40127475380717,29.1737689661147,-195.472852991581,-2329903,4420691
     ```
 
     ```sh
-    t.rast3d.univar -e input=soil format=json percentile=50,90 \
-        where="name = 'soil_2'"
+    t.rast3d.univar -e input=temperature_profile format=json percentile=50,90 \
+        where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
     [
         {
-            "id": "soil_2@PERMANENT",
+            "id": "temperature_profile_2020_07@t_rast3d_univar",
             "semantic_label": null,
-            "start": "2026-03-02 00:00:00",
-            "end": "2026-03-03 00:00:00",
-            "n": 12,
+            "start": "2020-07-01 00:00:00",
+            "end": "2020-08-01 00:00:00",
+            "n": 843195,
             "null_cells": 0,
-            "cells": 12,
-            "min": 1,
-            "max": 12,
-            "range": 11,
-            "mean": 6.5,
-            "mean_of_abs": 6.5,
-            "stddev": 3.452052529534663,
-            "variance": 11.916666666666666,
-            "coeff_var": 53.108500454379424,
-            "sum": 78,
-            "first_quartile": 3,
-            "median": 6.5,
-            "third_quartile": 9,
+            "cells": 843195,
+            "min": 9,
+            "max": 25,
+            "range": 16,
+            "mean": 17.263681592039802,
+            "mean_of_abs": 17.263681592039802,
+            "stddev": 5.400859004655521,
+            "variance": 29.169277988168627,
+            "coeff_var": 31.284514695555032,
+            "sum": 14556650,
+            "first_quartile": 12,
+            "median": 17,
+            "third_quartile": 23,
             "percentiles": [
                 {
                     "percentile": 50,
-                    "value": 6
+                    "value": 17
                 },
                 {
                     "percentile": 90,
-                    "value": 11
+                    "value": 24
                 }
             ]
         }
@@ -492,36 +559,44 @@ percentiles from it.
 === "Python (grass.tools)"
 
     ```python
-    result = tools.t_rast3d_univar(input="soil", separator=";", flags="s")
+    result = tools.t_rast3d_univar(
+        input="temperature_profile",
+        separator=";",
+        where="start_time < '2020-03-01'",
+        flags="s",
+    )
     print(result.text)
     ```
 
     ```text
-    soil_1@PERMANENT;2026-03-01 00:00:00;2026-03-02 00:00:00;12;0;-2;9;11;3.5;4;3.45205252953466;11.9166666666667;98.6300722724189;42;48
-    soil_2@PERMANENT;2026-03-02 00:00:00;2026-03-03 00:00:00;12;0;1;12;11;6.5;6.5;3.45205252953466;11.9166666666667;53.1085004543794;78;78
-    soil_3@PERMANENT;2026-03-03 00:00:00;2026-03-04 00:00:00;8;4;4;14;10;9;9;3.39116499156263;11.5;37.6796110173626;72;72
+    temperature_profile_2020_01@t_rast3d_univar;2020-01-01 00:00:00;2020-02-01 00:00:00;843195;0;-12;5;17;-3.61492537313433;5.53134328358209;5.4020427423754;29.1820657904507;-149.437185689163;-3048087;4664001
+    temperature_profile_2020_02@t_rast3d_univar;2020-02-01 00:00:00;2020-03-01 00:00:00;843195;0;-11;5;16;-2.76318407960199;5.24278606965174;5.40127475380717;29.1737689661147;-195.472852991581;-2329903;4420691
     ```
 
     ```python
     from pathlib import Path
 
-    tools.t_rast3d_univar(input="soil", format="csv", output="soil.csv")
-    print(Path("soil.csv").read_text(), end="")
+    tools.t_rast3d_univar(
+        input="temperature_profile",
+        format="csv",
+        output="profile.csv",
+        where="start_time < '2020-03-01'",
+    )
+    print(Path("profile.csv").read_text(), end="")
     ```
 
     ```text
     id,start,end,non_null_cells,null_cells,min,max,range,mean,mean_of_abs,stddev,variance,coeff_var,sum,sum_abs
-    soil_1@PERMANENT,2026-03-01 00:00:00,2026-03-02 00:00:00,12,0,-2,9,11,3.5,4,3.45205252953466,11.9166666666667,98.6300722724189,42,48
-    soil_2@PERMANENT,2026-03-02 00:00:00,2026-03-03 00:00:00,12,0,1,12,11,6.5,6.5,3.45205252953466,11.9166666666667,53.1085004543794,78,78
-    soil_3@PERMANENT,2026-03-03 00:00:00,2026-03-04 00:00:00,8,4,4,14,10,9,9,3.39116499156263,11.5,37.6796110173626,72,72
+    temperature_profile_2020_01@t_rast3d_univar,2020-01-01 00:00:00,2020-02-01 00:00:00,843195,0,-12,5,17,-3.61492537313433,5.53134328358209,5.4020427423754,29.1820657904507,-149.437185689163,-3048087,4664001
+    temperature_profile_2020_02@t_rast3d_univar,2020-02-01 00:00:00,2020-03-01 00:00:00,843195,0,-11,5,16,-2.76318407960199,5.24278606965174,5.40127475380717,29.1737689661147,-195.472852991581,-2329903,4420691
     ```
 
     ```python
     result = tools.t_rast3d_univar(
-        input="soil",
+        input="temperature_profile",
         format="json",
         percentile=[50, 90],
-        where="name = 'soil_2'",
+        where="name = 'temperature_profile_2020_07'",
         flags="e",
     )
     for stats in result.json:
@@ -533,13 +608,15 @@ percentiles from it.
     ```
 
     ```text
-    soil_2@PERMANENT: mean 6.5, median 6.5, percentiles {50: 6, 90: 11}
+    temperature_profile_2020_07@t_rast3d_univar: mean 17.263681592039802, median 17, percentiles {50: 17, 90: 24}
     ```
 
 ### Maps with extents of their own
 
 The dataset `cubes` holds four maps with constant values on cubes of their
-own; the current region is the cube from (0, 0, 0) to (4, 4, 4) with 64 cells:
+own. The current region is the cube with 64 cells from (200000, 100000, 0) to
+(204000, 104000, 4000), with cells of 1000 m. Each cube is set with *g.region*,
+in kilometres from the corner of this region, the same in all three directions:
 
 - `cube_1` covers the cube from (-1, -1, -1) to (5, 5, 5) and so the whole
   region;
@@ -570,23 +647,25 @@ text.
     for cube in "cube_1 -1 5 10" "cube_2 1 3 20" \
         "cube_3 2 6 30" "cube_4 10 12 40"; do
         set -- $cube
-        g.region s=$2 n=$3 w=$2 e=$3 b=$2 t=$3 res=1 res3=1
+        g.region w=$((200000 + $2 * 1000)) e=$((200000 + $3 * 1000)) \
+            s=$((100000 + $2 * 1000)) n=$((100000 + $3 * 1000)) \
+            b=$(($2 * 1000)) t=$(($3 * 1000)) res=1000 res3=1000
         r3.mapcalc expression="$1 = $4"
     done
     t.create type=str3ds output=cubes title="Cubes" \
         description="Cubes with extents of their own"
     t.register -i type=raster_3d input=cubes \
         maps=cube_1,cube_2,cube_3,cube_4 start=2026-07-01 increment="1 day"
-    g.region s=0 n=4 w=0 e=4 b=0 t=4 res=1 res3=1
+    g.region w=200000 e=204000 s=100000 n=104000 b=0 t=4000 res=1000 res3=1000
     t.rast3d.univar input=cubes | cut -d"|" -f1,4-6
     ```
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
-    cube_4@PERMANENT|0|64|nan
+    cube_1@t_rast3d_univar|64|0|10
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
+    cube_4@t_rast3d_univar|0|64|nan
     ```
 
     ```sh
@@ -595,9 +674,9 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
+    cube_1@t_rast3d_univar|64|0|10
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
     ```
 
     ```sh
@@ -606,7 +685,7 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
+    cube_1@t_rast3d_univar|64|0|10
     ```
 
     ```sh
@@ -615,7 +694,7 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_2@PERMANENT|8|56|20
+    cube_2@t_rast3d_univar|8|56|20
     ```
 
     ```sh
@@ -625,8 +704,8 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
     ```
 
     ```sh
@@ -650,7 +729,16 @@ text.
         ("cube_3", 2, 6, 30),
         ("cube_4", 10, 12, 40),
     ):
-        tools.g_region(s=low, n=high, w=low, e=high, b=low, t=high, res=1, res3=1)
+        tools.g_region(
+            w=200000 + low * 1000,
+            e=200000 + high * 1000,
+            s=100000 + low * 1000,
+            n=100000 + high * 1000,
+            b=low * 1000,
+            t=high * 1000,
+            res=1000,
+            res3=1000,
+        )
         tools.r3_mapcalc(expression=f"{name} = {value}")
     tools.t_create(
         type="str3ds",
@@ -666,7 +754,7 @@ text.
         increment="1 day",
         flags="i",
     )
-    tools.g_region(s=0, n=4, w=0, e=4, b=0, t=4, res=1, res3=1)
+    tools.g_region(w=200000, e=204000, s=100000, n=104000, b=0, t=4000, res=1000, res3=1000)
 
 
     def print_columns(result):
@@ -680,10 +768,10 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
-    cube_4@PERMANENT|0|64|nan
+    cube_1@t_rast3d_univar|64|0|10
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
+    cube_4@t_rast3d_univar|0|64|nan
     ```
 
     ```python
@@ -692,9 +780,9 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
+    cube_1@t_rast3d_univar|64|0|10
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
     ```
 
     ```python
@@ -703,7 +791,7 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_1@PERMANENT|64|0|10
+    cube_1@t_rast3d_univar|64|0|10
     ```
 
     ```python
@@ -712,7 +800,7 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_2@PERMANENT|8|56|20
+    cube_2@t_rast3d_univar|8|56|20
     ```
 
     ```python
@@ -724,8 +812,8 @@ text.
 
     ```text
     id|non_null_cells|null_cells|min
-    cube_2@PERMANENT|8|56|20
-    cube_3@PERMANENT|8|56|30
+    cube_2@t_rast3d_univar|8|56|20
+    cube_3@t_rast3d_univar|8|56|30
     ```
 
     ```python
@@ -744,60 +832,78 @@ text.
 ### Use a dataset of another mapset
 
 *t.rast3d.univar* reads a dataset of another mapset. The example creates the
-mapset `analysis` and switches to it; the dataset `soil` stays in the mapset
-`PERMANENT` and is named with its mapset. The region of the new mapset is set
-to the one of the maps. In the second block, *g.mapsets* shows that
-`PERMANENT` is in the search path of the new mapset, so the name `soil` without
-a mapset finds the same dataset.
+mapset `t_rast3d_univar_2` and switches to it; the dataset `temperature_profile`
+stays in the mapset `t_rast3d_univar` and is named with its mapset. The region
+of the new mapset is set like the one of the first example, and *g.mapsets* adds
+`t_rast3d_univar` to the search path. In the second block, *g.mapsets* shows
+the search path, and the name `temperature_profile` without a mapset finds the
+same dataset.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=analysis
-    g.region n=2 s=0 e=3 w=0 t=2 b=0 res=1 res3=1 tbres=1
-    t.rast3d.univar input=soil@PERMANENT where="name = 'soil_2'"
+    g.mapset -c mapset=t_rast3d_univar_2
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
+    g.mapsets mapset=t_rast3d_univar operation=add
+    t.rast3d.univar input=temperature_profile@t_rast3d_univar \
+        where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
     ```
 
     ```sh
     g.mapsets -p
-    t.rast3d.univar input=soil where="name = 'soil_2'"
+    t.rast3d.univar input=temperature_profile \
+        where="name = 'temperature_profile_2020_07'"
     ```
 
     ```text
-    analysis PERMANENT
+    t_rast3d_univar_2 PERMANENT t_rast3d_univar
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="analysis", flags="c")
-    tools.g_region(n=2, s=0, e=3, w=0, t=2, b=0, res=1, res3=1, tbres=1)
-    result = tools.t_rast3d_univar(input="soil@PERMANENT", where="name = 'soil_2'")
+    tools.g_mapset(flags="c", mapset="t_rast3d_univar_2")
+    tools.g_region(
+        raster="elev_state_500m",
+        res=1000,
+        res3=1000,
+        t=3000,
+        b=0,
+        tbres=1000,
+        flags="a",
+    )
+    tools.g_mapsets(mapset="t_rast3d_univar", operation="add")
+    result = tools.t_rast3d_univar(
+        input="temperature_profile@t_rast3d_univar",
+        where="name = 'temperature_profile_2020_07'",
+    )
     print(result.text)
     ```
 
     ```text
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
     ```
 
     ```python
     print(tools.g_mapsets(flags="p").text)
-    result = tools.t_rast3d_univar(input="soil", where="name = 'soil_2'")
+    result = tools.t_rast3d_univar(
+        input="temperature_profile", where="name = 'temperature_profile_2020_07'"
+    )
     print(result.text)
     ```
 
     ```text
-    analysis PERMANENT
+    t_rast3d_univar_2 PERMANENT t_rast3d_univar
     id|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    soil_2@PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00|12|0|1|12|11|6.5|6.5|3.45205252953466|11.9166666666667|53.1085004543794|78|78
+    temperature_profile_2020_07@t_rast3d_univar|2020-07-01 00:00:00|2020-08-01 00:00:00|843195|0|9|25|16|17.2636815920398|17.2636815920398|5.40085900465552|29.1692779881686|31.284514695555|14556650|14556650
     ```
 
 <!-- markdownlint-enable MD046 -->
