@@ -82,6 +82,15 @@ registered.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_create` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.create* only creates datasets, so the one example with maps uses
+small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_create -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Create a space time raster dataset
@@ -92,6 +101,8 @@ maps are amounts, so the semantic type is `sum`.
 === "Command line"
 
     ```sh
+    g.mapset -c mapset=t_create
+    g.region raster=elev_state_500m res=1000 -a
     t.create output=precipitation type=strds temporaltype=absolute \
         semantictype=sum title="Daily precipitation" \
         description="Daily precipitation sums in millimeters"
@@ -103,6 +114,8 @@ maps are amounts, so the semantic type is `sum`.
     from grass.tools import Tools
 
     tools = Tools()
+    tools.g_mapset(flags="c", mapset="t_create")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     tools.t_create(
         output="precipitation",
         type="strds",
@@ -129,9 +142,9 @@ attribute `stdout` of the result holds the text as the tool printed it.
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ precipitation@PERMANENT
+     | Id: ........................ precipitation@t_create
      | Name: ...................... precipitation
-     | Mapset: .................... PERMANENT
+     | Mapset: .................... t_create
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -187,9 +200,9 @@ attribute `stdout` of the result holds the text as the tool printed it.
      +-------------------- Space Time Raster Dataset -----------------------------+
      |                                                                            |
      +-------------------- Basic information -------------------------------------+
-     | Id: ........................ precipitation@PERMANENT
+     | Id: ........................ precipitation@t_create
      | Name: ...................... precipitation
-     | Mapset: .................... PERMANENT
+     | Mapset: .................... t_create
      | Creator: ................... user
      | Temporal type: ............. absolute
      | Creation time: ............. 2026-11-01 12:00:00
@@ -378,7 +391,8 @@ types; the column `type` comes last.
 
 ### Replace a dataset with --overwrite
 
-Two small raster maps are registered as daily intervals in the dataset
+Two raster maps of North Carolina, with 4.5 and 0.5 millimeters of rain in
+every cell, are registered as daily intervals in the dataset
 `precipitation` of the first example. *t.create* with **--overwrite** then
 replaces the dataset with a new, empty one. The maps are no longer part of
 it, but they stay in the temporal database with their time stamps, as
@@ -387,18 +401,17 @@ it, but they stay in the temporal database with their time stamps, as
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
-    r.mapcalc expression="rain_1 = 4.5"
-    r.mapcalc expression="rain_2 = 0.5"
-    t.register -i input=precipitation maps=rain_1,rain_2 \
+    r.mapcalc expression="rain_june_1 = 4.5"
+    r.mapcalc expression="rain_june_2 = 0.5"
+    t.register -i input=precipitation maps=rain_june_1,rain_june_2 \
         start=2026-06-01 increment="1 day"
     t.rast.list input=precipitation
     ```
 
     ```text
     name|mapset|start_time|end_time
-    rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00
-    rain_2|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00
+    rain_june_1|t_create|2026-06-01 00:00:00|2026-06-02 00:00:00
+    rain_june_2|t_create|2026-06-02 00:00:00|2026-06-03 00:00:00
     ```
 
     ```sh
@@ -412,19 +425,18 @@ it, but they stay in the temporal database with their time stamps, as
     ```text
     number_of_maps=None
     name|start_time|end_time
-    rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00
-    rain_2|2026-06-02 00:00:00|2026-06-03 00:00:00
+    rain_june_1|2026-06-01 00:00:00|2026-06-02 00:00:00
+    rain_june_2|2026-06-02 00:00:00|2026-06-03 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
-    tools.r_mapcalc(expression="rain_1 = 4.5")
-    tools.r_mapcalc(expression="rain_2 = 0.5")
+    tools.r_mapcalc(expression="rain_june_1 = 4.5")
+    tools.r_mapcalc(expression="rain_june_2 = 0.5")
     tools.t_register(
         input="precipitation",
-        maps="rain_1,rain_2",
+        maps="rain_june_1,rain_june_2",
         start="2026-06-01",
         increment="1 day",
         flags="i",
@@ -434,8 +446,8 @@ it, but they stay in the temporal database with their time stamps, as
 
     ```text
     name|mapset|start_time|end_time
-    rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00
-    rain_2|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00
+    rain_june_1|t_create|2026-06-01 00:00:00|2026-06-02 00:00:00
+    rain_june_2|t_create|2026-06-02 00:00:00|2026-06-03 00:00:00
     ```
 
     ```python
@@ -455,8 +467,8 @@ it, but they stay in the temporal database with their time stamps, as
     ```text
     number_of_maps=None
     name|start_time|end_time
-    rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00
-    rain_2|2026-06-02 00:00:00|2026-06-03 00:00:00
+    rain_june_1|2026-06-01 00:00:00|2026-06-02 00:00:00
+    rain_june_2|2026-06-02 00:00:00|2026-06-03 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
