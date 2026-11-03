@@ -541,14 +541,24 @@ manual of [t.rast.algebra](t.rast.algebra.md).
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast3d_algebra` and sets the computational
+region to North Carolina with cells of 1 km and, with `res3=1000`, `t=2000`,
+`b=0` and `tbres=1000`, two layers of 1000 m, so that every 3D raster map has
+two layers. The later examples work in this mapset and region unless they
+say otherwise. The temporal algebra works with the times of the maps, so the
+maps hold small constant values in all voxels.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast3d_algebra -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Compute with every map of a dataset
 
 The dataset `A` has four daily maps for 1 to 4 March 2026. Each map has the
-same value in all cells: 1, 2, 3 and 4. The region from *g.region* is two by
-two cells wide and, with `t=2`, `b=0` and `tbres=1`, two layers high, so a map
-has eight voxels and its smallest and largest values are equal.
+same value in all voxels: 1, 2, 3 and 4, so the smallest and the largest value
+of a map are equal.
 
 The expression `C = A * 2` creates the dataset `C` and doubles each map of
 `A`. The new maps are named `c_0` to `c_3` after **basename**, counted from 0,
@@ -559,7 +569,8 @@ are 2, 4, 6 and 8.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=2 b=0 res=1 res3=1 tbres=1
+    g.mapset -c mapset=t_rast3d_algebra
+    g.region raster=elev_state_500m res=1000 res3=1000 t=2000 b=0 tbres=1000 -a
     for step in 1 2 3 4; do
         r3.mapcalc expression="a_$step = $step"
     done
@@ -597,7 +608,16 @@ are 2, 4, 6 and 8.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=2, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+    tools.g_mapset(flags="c", mapset="t_rast3d_algebra")
+    tools.g_region(
+        raster="elev_state_500m",
+        res=1000,
+        res3=1000,
+        t=2000,
+        b=0,
+        tbres=1000,
+        flags="a",
+    )
     for step in range(1, 5):
         tools.r3_mapcalc(expression=f"a_{step} = {step}")
     tools.t_create(
@@ -808,8 +828,9 @@ the map of `B` contains: 13, 13, 27 and 27, with the same times. This is item
 ### Spatially related maps and empty maps
 
 The dataset `P` has three daily maps with the values 100, 200 and 300 for 1 to
-3 March. The map `p_2` is created in a region that lies at the columns 10 to
-12, far from the region of the other maps; the region is set back afterwards.
+3 March. The map `p_2` is created in a window of 10 by 10 cells that lies
+east of the region and has no cell in common with it; the region is set back
+afterwards.
 
 The expression `A + P` is computed in the current region. The maps of the
 second day do not overlap in space, so the result for that day has no data in
@@ -827,9 +848,10 @@ and **-s**, see the last example of the catalog.
 
     ```sh
     r3.mapcalc expression="p_1 = 100"
-    g.region n=2 s=0 e=12 w=10 t=2 b=0 res=1 res3=1 tbres=1
+    g.region n=319000 s=309000 e=1010000 w=1000000 res=1000 res3=1000 \
+        t=2000 b=0 tbres=1000
     r3.mapcalc expression="p_2 = 200"
-    g.region n=2 s=0 e=2 w=0 t=2 b=0 res=1 res3=1 tbres=1
+    g.region raster=elev_state_500m res=1000 res3=1000 t=2000 b=0 tbres=1000 -a
     r3.mapcalc expression="p_3 = 300"
     t.create type=str3ds output=P title="Patches" \
         description="Three daily maps, the second one far away"
@@ -872,9 +894,27 @@ and **-s**, see the last example of the catalog.
 
     ```python
     tools.r3_mapcalc(expression="p_1 = 100")
-    tools.g_region(n=2, s=0, e=12, w=10, t=2, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(
+        n=319000,
+        s=309000,
+        e=1010000,
+        w=1000000,
+        res=1000,
+        res3=1000,
+        t=2000,
+        b=0,
+        tbres=1000,
+    )
     tools.r3_mapcalc(expression="p_2 = 200")
-    tools.g_region(n=2, s=0, e=2, w=0, t=2, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(
+        raster="elev_state_500m",
+        res=1000,
+        res3=1000,
+        t=2000,
+        b=0,
+        tbres=1000,
+        flags="a",
+    )
     tools.r3_mapcalc(expression="p_3 = 300")
     tools.t_create(
         type="str3ds",
