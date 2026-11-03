@@ -24,7 +24,7 @@ or <code>vector</code>. The dataset has to be of the matching kind (<code>strds<
 <code>stvds</code>), otherwise <em>t.register</em> does not find it.
 
 <p>
-A map is named with or without its mapset (<code>prec_1@PERMANENT</code> or <code>prec_1</code>).
+A map is named with or without its mapset (<code>precipitation_1@t_register</code> or <code>precipitation_1</code>).
 Without a mapset, <em>t.register</em> looks for the map in the mapsets of the search
 path. A map that is not found ends the run before any map is registered. Maps
 of other mapsets can be registered in a dataset of the current mapset, but the
@@ -204,25 +204,35 @@ name of a map, and the map is not found.
 
 <h2>EXAMPLES</h2>
 
+The examples run in the North Carolina sample dataset <code>nc_spm_08_grass7</code> from
+the <a href="https://grass.osgeo.org/download/data/">GRASS sample data</a>. The first
+example creates the mapset <code>t_register</code> and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. <em>t.register</em> changes times only, so the maps hold small constant
+values.
+
 <h3>Register maps as consecutive intervals</h3>
 
-Three maps of monthly precipitation sums, <code>prec_1</code> to <code>prec_3</code> with the values
-100, 200 and 300, become the intervals January, February and March 2001 of the
-dataset <code>precipitation</code>. The flag <b>-i</b> makes each map end where the next one
-starts. The type of the maps is <code>raster</code>, the default. <em>t.rast.list</em> shows the
-times in the dataset, and <em>r.timestamp</em> shows that the first map carries its
-time itself.
+Three maps of monthly precipitation sums over North Carolina,
+<code>precipitation_1</code> to <code>precipitation_3</code> with the values 100, 200 and 300
+millimetres in every cell, become the intervals January, February and March
+2001 of the dataset <code>precipitation</code>. The flag <b>-i</b> makes each map end where
+the next one starts. The type of the maps is <code>raster</code>, the default.
+<em>t.rast.list</em> shows the times in the dataset, and <em>r.timestamp</em> shows that the
+first map carries its time itself.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=3 w=0 res=1
+g.mapset -c mapset=t_register
+g.region raster=elev_state_500m res=1000 -a
 for number in 1 2 3; do
-    r.mapcalc expression="prec_$number = 100 * $number"
+    r.mapcalc expression="precipitation_$number = 100 * $number"
 done
 t.create output=precipitation title="Precipitation" \
     description="Monthly precipitation sums"
-t.register -i input=precipitation maps=prec_1,prec_2,prec_3 \
+t.register -i input=precipitation \
+    maps=precipitation_1,precipitation_2,precipitation_3 \
     start=2001-01-01 increment="1 months"
 </pre></div>
 
@@ -232,13 +242,13 @@ t.rast.list input=precipitation
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
+precipitation_3|t_register|2001-03-01 00:00:00|2001-04-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
-r.timestamp map=prec_1
+r.timestamp map=precipitation_1
 </pre></div>
 
 <div class="code"><pre>
@@ -251,9 +261,10 @@ r.timestamp map=prec_1
 from grass.tools import Tools
 
 tools = Tools()
-tools.g_region(n=2, s=0, e=3, w=0, res=1)
+tools.g_mapset(flags="c", mapset="t_register")
+tools.g_region(raster="elev_state_500m", res=1000, flags="a")
 for number in range(1, 4):
-    tools.r_mapcalc(expression=f"prec_{number} = 100 * {number}")
+    tools.r_mapcalc(expression=f"precipitation_{number} = 100 * {number}")
 tools.t_create(
     output="precipitation",
     title="Precipitation",
@@ -261,7 +272,7 @@ tools.t_create(
 )
 tools.t_register(
     input="precipitation",
-    maps="prec_1,prec_2,prec_3",
+    maps="precipitation_1,precipitation_2,precipitation_3",
     start="2001-01-01",
     increment="1 months",
     flags="i",
@@ -274,13 +285,13 @@ print(tools.t_rast_list(input="precipitation").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
+precipitation_3|t_register|2001-03-01 00:00:00|2001-04-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
-print(tools.r_timestamp(map="prec_1").text)
+print(tools.r_timestamp(map="precipitation_1").text)
 </pre></div>
 
 <div class="code"><pre>
@@ -311,8 +322,8 @@ t.rast.list input=gauges
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-02 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-02 00:00:00|None
 </pre></div>
 
 <div class="code"><pre>
@@ -346,8 +357,8 @@ print(tools.t_rast_list(input="gauges").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-02 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-02 00:00:00|None
 </pre></div>
 
 <div class="code"><pre>
@@ -372,24 +383,24 @@ map_time=interval
 <h3>Use a registered map in a second dataset, or change its time</h3>
 
 A map that is registered already is entered into another dataset by its name
-alone: <code>first_half</code> takes <code>prec_1</code> and <code>prec_2</code> with the times they have in
-the temporal database. A second registration with <b>start</b> does not change the
-time of <code>gauge_2</code>: <em>t.register</em> warns and keeps May 2. Only with
-<b>--overwrite</b> (the argument <code>overwrite=True</code> in Python) does the map get the
-new time, May 10.
+alone: <code>first_half</code> takes <code>precipitation_1</code> and <code>precipitation_2</code> with the
+times they have in the temporal database. A second registration with <b>start</b>
+does not change the time of <code>gauge_2</code>: <em>t.register</em> warns and keeps May 2. Only
+with <b>--overwrite</b> (the argument <code>overwrite=True</code> in Python) does the map get
+the new time, May 10.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
 t.create output=first_half title="First half" description="Two months"
-t.register input=first_half maps=prec_1,prec_2
+t.register input=first_half maps=precipitation_1,precipitation_2
 t.rast.list input=first_half
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -399,8 +410,8 @@ t.rast.list input=gauges
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-02 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-02 00:00:00|None
 </pre></div>
 
 <div class="code"><pre>
@@ -410,22 +421,22 @@ t.rast.list input=gauges
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-10 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-10 00:00:00|None
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 tools.t_create(output="first_half", title="First half", description="Two months")
-tools.t_register(input="first_half", maps="prec_1,prec_2")
+tools.t_register(input="first_half", maps="precipitation_1,precipitation_2")
 print(tools.t_rast_list(input="first_half").text)
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -435,8 +446,8 @@ print(tools.t_rast_list(input="gauges").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-02 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-02 00:00:00|None
 </pre></div>
 
 <div class="code"><pre>
@@ -446,8 +457,8 @@ print(tools.t_rast_list(input="gauges").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-gauge_1|PERMANENT|2001-05-01 00:00:00|None
-gauge_2|PERMANENT|2001-05-10 00:00:00|None
+gauge_1|t_register|2001-05-01 00:00:00|None
+gauge_2|t_register|2001-05-10 00:00:00|None
 </pre></div>
 
 <h3>Monthly series that start at the end of a month</h3>
@@ -474,10 +485,10 @@ t.rast.list input=jan31
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
-month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
-month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
-month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+month_1|t_register|2001-01-31 00:00:00|2001-02-28 00:00:00
+month_2|t_register|2001-02-28 00:00:00|2001-03-31 00:00:00
+month_3|t_register|2001-03-31 00:00:00|2001-04-30 00:00:00
+month_4|t_register|2001-04-30 00:00:00|2001-05-31 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -517,10 +528,10 @@ print(tools.t_rast_list(input="jan31").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
-month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
-month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
-month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+month_1|t_register|2001-01-31 00:00:00|2001-02-28 00:00:00
+month_2|t_register|2001-02-28 00:00:00|2001-03-31 00:00:00
+month_3|t_register|2001-03-31 00:00:00|2001-04-30 00:00:00
+month_4|t_register|2001-04-30 00:00:00|2001-05-31 00:00:00
 </pre></div>
 
 <div class="code"><pre>
@@ -586,8 +597,8 @@ scene_3|2001-07-01 00:00:00|None|S2_8
 
 <div class="code"><pre>
 cat &gt; scenes_b.txt &lt;&lt;EOF
-scene_4@PERMANENT,2002-01-01,2002-02-01
-scene_5@PERMANENT,2002-02-01,2002-03-01
+scene_4@t_register,2002-01-01,2002-02-01
+scene_5@t_register,2002-02-01,2002-03-01
 EOF
 t.register input=scenes file=scenes_b.txt separator=comma
 t.rast.list input=scenes columns=name,start_time,end_time
@@ -603,7 +614,7 @@ scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
-g.list type=raster pattern="scene_[678]" &gt; scenes_c.txt
+g.list type=raster pattern="scene_[678]" mapset=. &gt; scenes_c.txt
 t.register -i input=scenes file=scenes_c.txt start="2003-01-01 06:00" \
     increment="12 hours"
 t.rast.list input=scenes columns=name,start_time,end_time
@@ -658,7 +669,7 @@ scene_3|2001-07-01 00:00:00|None|S2_8
 
 <div class="code"><pre>
 Path("scenes_b.txt").write_text(
-    "scene_4@PERMANENT,2002-01-01,2002-02-01\nscene_5@PERMANENT,2002-02-01,2002-03-01\n"
+    "scene_4@t_register,2002-01-01,2002-02-01\nscene_5@t_register,2002-02-01,2002-03-01\n"
 )
 tools.t_register(input="scenes", file="scenes_b.txt", separator="comma")
 print(tools.t_rast_list(input="scenes", columns="name,start_time,end_time").text)
@@ -674,7 +685,7 @@ scene_5|2002-02-01 00:00:00|2002-03-01 00:00:00
 </pre></div>
 
 <div class="code"><pre>
-names = tools.g_list(type="raster", pattern="scene_[678]").stdout
+names = tools.g_list(type="raster", pattern="scene_[678]", mapset=".").stdout
 Path("scenes_c.txt").write_text(names)
 tools.t_register(
     input="scenes",
@@ -712,7 +723,7 @@ number_of_maps=8
 <h3>Register maps with relative time</h3>
 
 A dataset with relative time counts in a unit, which <b>unit</b> names. The maps
-<code>step_1</code> to <code>step_3</code> are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
+<code>runoff_1</code> to <code>runoff_3</code> are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
 more maps come from a file whose times are integers in the same unit; the third
 column of a line is an integer, so it is an end time. The unit has to be the one
 of the dataset.
@@ -721,26 +732,26 @@ of the dataset.
 
 <div class="code"><pre>
 for number in 1 2 3 4 5; do
-    r.mapcalc expression="step_$number = $number"
+    r.mapcalc expression="runoff_$number = $number"
 done
 t.create output=model temporaltype=relative title="Model" \
     description="Model output per step"
-t.register -i input=model maps=step_1,step_2,step_3 start=0 increment=1 \
+t.register -i input=model maps=runoff_1,runoff_2,runoff_3 start=0 increment=1 \
     unit=hours
 t.rast.list input=model
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-step_1|PERMANENT|0|1
-step_2|PERMANENT|1|2
-step_3|PERMANENT|2|3
+runoff_1|t_register|0|1
+runoff_2|t_register|1|2
+runoff_3|t_register|2|3
 </pre></div>
 
 <div class="code"><pre>
 cat &gt; steps.txt &lt;&lt;EOF
-step_4|10|12
-step_5|12|15
+runoff_4|10|12
+runoff_5|12|15
 EOF
 t.register input=model file=steps.txt unit=hours
 t.rast.list input=model
@@ -748,18 +759,18 @@ t.rast.list input=model
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-step_1|PERMANENT|0|1
-step_2|PERMANENT|1|2
-step_3|PERMANENT|2|3
-step_4|PERMANENT|10|12
-step_5|PERMANENT|12|15
+runoff_1|t_register|0|1
+runoff_2|t_register|1|2
+runoff_3|t_register|2|3
+runoff_4|t_register|10|12
+runoff_5|t_register|12|15
 </pre></div>
 
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
 for number in range(1, 6):
-    tools.r_mapcalc(expression=f"step_{number} = {number}")
+    tools.r_mapcalc(expression=f"runoff_{number} = {number}")
 tools.t_create(
     output="model",
     temporaltype="relative",
@@ -768,7 +779,7 @@ tools.t_create(
 )
 tools.t_register(
     input="model",
-    maps="step_1,step_2,step_3",
+    maps="runoff_1,runoff_2,runoff_3",
     start=0,
     increment=1,
     unit="hours",
@@ -779,24 +790,24 @@ print(tools.t_rast_list(input="model").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-step_1|PERMANENT|0|1
-step_2|PERMANENT|1|2
-step_3|PERMANENT|2|3
+runoff_1|t_register|0|1
+runoff_2|t_register|1|2
+runoff_3|t_register|2|3
 </pre></div>
 
 <div class="code"><pre>
-Path("steps.txt").write_text("step_4|10|12\nstep_5|12|15\n")
+Path("steps.txt").write_text("runoff_4|10|12\nrunoff_5|12|15\n")
 tools.t_register(input="model", file="steps.txt", unit="hours")
 print(tools.t_rast_list(input="model").text)
 </pre></div>
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-step_1|PERMANENT|0|1
-step_2|PERMANENT|1|2
-step_3|PERMANENT|2|3
-step_4|PERMANENT|10|12
-step_5|PERMANENT|12|15
+runoff_1|t_register|0|1
+runoff_2|t_register|1|2
+runoff_3|t_register|2|3
+runoff_4|t_register|10|12
+runoff_5|t_register|12|15
 </pre></div>
 
 <h3>Register maps without a dataset, or with a time stamp of the map</h3>
@@ -835,8 +846,8 @@ t.rast.list input=stamped
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
-stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+stamped_1|t_register|2001-09-01 00:00:00|2001-10-01 00:00:00
+stamped_2|t_register|2001-10-01 00:00:00|2001-11-01 00:00:00
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -875,37 +886,41 @@ print(tools.t_rast_list(input="stamped").text)
 
 <div class="code"><pre>
 name|mapset|start_time|end_time
-stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
-stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+stamped_1|t_register|2001-09-01 00:00:00|2001-10-01 00:00:00
+stamped_2|t_register|2001-10-01 00:00:00|2001-11-01 00:00:00
 </pre></div>
 
 <h3>Register layers of a vector map</h3>
 
 A vector map can stand for a series if each time step is a layer. The map
-<code>stations</code> has two points and the layers 1 to 3 with the same categories. With
+<code>wind_stations</code> has two points in North Carolina, with a wind speed in metres per
+second, and the layers 1 to 3 with the same categories. With
 <code>type=vector</code> and the notation <code>map:layer</code>, each layer is registered as a day of
 the dataset <code>daily</code>.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-v.in.ascii input=- output=stations_import separator=comma \
-    columns="x double precision, y double precision, speed double precision" &lt;&lt;EOF
-0.5,0.5,3.0
-2.5,1.5,5.0
+v.in.ascii input=- output=wind_stations_import separator=comma \
+    columns="x double precision, y double precision, wind_speed double precision" \
+    &lt;&lt;EOF
+640000,220000,3.0
+780000,150000,5.0
 EOF
-v.category input=stations_import output=stations option=transfer layer=1,2,3
+v.category input=wind_stations_import output=wind_stations \
+    option=transfer layer=1,2,3
 t.create type=stvds output=daily title="Daily" description="Layers as days"
-t.register -i type=vector input=daily maps=stations:1,stations:2,stations:3 \
+t.register -i type=vector input=daily \
+    maps=wind_stations:1,wind_stations:2,wind_stations:3 \
     start=2001-03-01 increment="1 days"
 t.vect.list input=daily columns=name,layer,start_time,end_time
 </pre></div>
 
 <div class="code"><pre>
 name|layer|start_time|end_time
-stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
-stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
-stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+wind_stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+wind_stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+wind_stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
 </pre></div>
 
 <p>Python (grass.tools):</p>
@@ -914,13 +929,16 @@ stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
 from io import StringIO
 
 tools.v_in_ascii(
-    input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
-    output="stations_import",
+    input=StringIO("640000,220000,3.0\n780000,150000,5.0\n"),
+    output="wind_stations_import",
     separator="comma",
-    columns="x double precision, y double precision, speed double precision",
+    columns="x double precision, y double precision, wind_speed double precision",
 )
 tools.v_category(
-    input="stations_import", output="stations", option="transfer", layer="1,2,3"
+    input="wind_stations_import",
+    output="wind_stations",
+    option="transfer",
+    layer="1,2,3",
 )
 tools.t_create(
     type="stvds", output="daily", title="Daily", description="Layers as days"
@@ -928,7 +946,7 @@ tools.t_create(
 tools.t_register(
     type="vector",
     input="daily",
-    maps="stations:1,stations:2,stations:3",
+    maps="wind_stations:1,wind_stations:2,wind_stations:3",
     start="2001-03-01",
     increment="1 days",
     flags="i",
@@ -938,21 +956,21 @@ print(tools.t_vect_list(input="daily", columns="name,layer,start_time,end_time")
 
 <div class="code"><pre>
 name|layer|start_time|end_time
-stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
-stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
-stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+wind_stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+wind_stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+wind_stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
 </pre></div>
 
 <h3>Register 3D raster maps</h3>
 
 The 3D raster maps <code>soil_1</code> and <code>soil_2</code> are registered with <code>type=raster_3d</code>
 in a space time 3D raster dataset. The region needs a top, a bottom and the 3D
-resolutions.
+resolutions; the call adds them to the region of the first example.
 
 <p>Command line:</p>
 
 <div class="code"><pre>
-g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+g.region t=3 b=0 res3=1000 tbres=1
 r3.mapcalc expression="soil_1 = depth()"
 r3.mapcalc expression="soil_2 = depth() + 10"
 t.create type=str3ds output=soil title="Soil" \
@@ -971,7 +989,7 @@ soil_2|2001-03-02 00:00:00|2001-03-03 00:00:00
 <p>Python (grass.tools):</p>
 
 <div class="code"><pre>
-tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+tools.g_region(t=3, b=0, res3=1000, tbres=1)
 tools.r3_mapcalc(expression="soil_1 = depth()")
 tools.r3_mapcalc(expression="soil_2 = depth() + 10")
 tools.t_create(

@@ -22,7 +22,7 @@ and **file** exclude each other, and one of them is required. The option
 or `vector`. The dataset has to be of the matching kind (`strds`, `str3ds` or
 `stvds`), otherwise *t.register* does not find it.
 
-A map is named with or without its mapset (`prec_1@PERMANENT` or `prec_1`).
+A map is named with or without its mapset (`precipitation_1@t_register` or `precipitation_1`).
 Without a mapset, *t.register* looks for the map in the mapsets of the search
 path. A map that is not found ends the run before any map is registered. Maps
 of other mapsets can be registered in a dataset of the current mapset, but the
@@ -182,27 +182,39 @@ name of a map, and the map is not found.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_register` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.register* changes times only, so the maps hold small constant
+values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_register -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Register maps as consecutive intervals
 
-Three maps of monthly precipitation sums, `prec_1` to `prec_3` with the values
-100, 200 and 300, become the intervals January, February and March 2001 of the
-dataset `precipitation`. The flag **-i** makes each map end where the next one
-starts. The type of the maps is `raster`, the default. *t.rast.list* shows the
-times in the dataset, and *r.timestamp* shows that the first map carries its
-time itself.
+Three maps of monthly precipitation sums over North Carolina,
+`precipitation_1` to `precipitation_3` with the values 100, 200 and 300
+millimetres in every cell, become the intervals January, February and March
+2001 of the dataset `precipitation`. The flag **-i** makes each map end where
+the next one starts. The type of the maps is `raster`, the default.
+*t.rast.list* shows the times in the dataset, and *r.timestamp* shows that the
+first map carries its time itself.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
+    g.mapset -c mapset=t_register
+    g.region raster=elev_state_500m res=1000 -a
     for number in 1 2 3; do
-        r.mapcalc expression="prec_$number = 100 * $number"
+        r.mapcalc expression="precipitation_$number = 100 * $number"
     done
     t.create output=precipitation title="Precipitation" \
         description="Monthly precipitation sums"
-    t.register -i input=precipitation maps=prec_1,prec_2,prec_3 \
+    t.register -i input=precipitation \
+        maps=precipitation_1,precipitation_2,precipitation_3 \
         start=2001-01-01 increment="1 months"
     ```
 
@@ -212,13 +224,13 @@ time itself.
 
     ```text
     name|mapset|start_time|end_time
-    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-    prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+    precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+    precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
+    precipitation_3|t_register|2001-03-01 00:00:00|2001-04-01 00:00:00
     ```
 
     ```sh
-    r.timestamp map=prec_1
+    r.timestamp map=precipitation_1
     ```
 
     ```text
@@ -231,9 +243,10 @@ time itself.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
+    tools.g_mapset(flags="c", mapset="t_register")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     for number in range(1, 4):
-        tools.r_mapcalc(expression=f"prec_{number} = 100 * {number}")
+        tools.r_mapcalc(expression=f"precipitation_{number} = 100 * {number}")
     tools.t_create(
         output="precipitation",
         title="Precipitation",
@@ -241,7 +254,7 @@ time itself.
     )
     tools.t_register(
         input="precipitation",
-        maps="prec_1,prec_2,prec_3",
+        maps="precipitation_1,precipitation_2,precipitation_3",
         start="2001-01-01",
         increment="1 months",
         flags="i",
@@ -254,13 +267,13 @@ time itself.
 
     ```text
     name|mapset|start_time|end_time
-    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
-    prec_3|PERMANENT|2001-03-01 00:00:00|2001-04-01 00:00:00
+    precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+    precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
+    precipitation_3|t_register|2001-03-01 00:00:00|2001-04-01 00:00:00
     ```
 
     ```python
-    print(tools.r_timestamp(map="prec_1").text)
+    print(tools.r_timestamp(map="precipitation_1").text)
     ```
 
     ```text
@@ -291,8 +304,8 @@ intervals (`map_time=interval`), and the dataset starts and ends with them.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-02 00:00:00|None
     ```
 
     ```sh
@@ -326,8 +339,8 @@ intervals (`map_time=interval`), and the dataset starts and ends with them.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-02 00:00:00|None
     ```
 
     ```python
@@ -352,24 +365,24 @@ intervals (`map_time=interval`), and the dataset starts and ends with them.
 ### Use a registered map in a second dataset, or change its time
 
 A map that is registered already is entered into another dataset by its name
-alone: `first_half` takes `prec_1` and `prec_2` with the times they have in
-the temporal database. A second registration with **start** does not change the
-time of `gauge_2`: *t.register* warns and keeps May 2. Only with
-**--overwrite** (the argument `overwrite=True` in Python) does the map get the
-new time, May 10.
+alone: `first_half` takes `precipitation_1` and `precipitation_2` with the
+times they have in the temporal database. A second registration with **start**
+does not change the time of `gauge_2`: *t.register* warns and keeps May 2. Only
+with **--overwrite** (the argument `overwrite=True` in Python) does the map get
+the new time, May 10.
 
 === "Command line"
 
     ```sh
     t.create output=first_half title="First half" description="Two months"
-    t.register input=first_half maps=prec_1,prec_2
+    t.register input=first_half maps=precipitation_1,precipitation_2
     t.rast.list input=first_half
     ```
 
     ```text
     name|mapset|start_time|end_time
-    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+    precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
     ```
 
     ```sh
@@ -379,8 +392,8 @@ new time, May 10.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-02 00:00:00|None
     ```
 
     ```sh
@@ -390,22 +403,22 @@ new time, May 10.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-10 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-10 00:00:00|None
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_create(output="first_half", title="First half", description="Two months")
-    tools.t_register(input="first_half", maps="prec_1,prec_2")
+    tools.t_register(input="first_half", maps="precipitation_1,precipitation_2")
     print(tools.t_rast_list(input="first_half").text)
     ```
 
     ```text
     name|mapset|start_time|end_time
-    prec_1|PERMANENT|2001-01-01 00:00:00|2001-02-01 00:00:00
-    prec_2|PERMANENT|2001-02-01 00:00:00|2001-03-01 00:00:00
+    precipitation_1|t_register|2001-01-01 00:00:00|2001-02-01 00:00:00
+    precipitation_2|t_register|2001-02-01 00:00:00|2001-03-01 00:00:00
     ```
 
     ```python
@@ -415,8 +428,8 @@ new time, May 10.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-02 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-02 00:00:00|None
     ```
 
     ```python
@@ -426,8 +439,8 @@ new time, May 10.
 
     ```text
     name|mapset|start_time|end_time
-    gauge_1|PERMANENT|2001-05-01 00:00:00|None
-    gauge_2|PERMANENT|2001-05-10 00:00:00|None
+    gauge_1|t_register|2001-05-01 00:00:00|None
+    gauge_2|t_register|2001-05-10 00:00:00|None
     ```
 
 ### Monthly series that start at the end of a month
@@ -454,10 +467,10 @@ long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
 
     ```text
     name|mapset|start_time|end_time
-    month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
-    month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
-    month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
-    month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+    month_1|t_register|2001-01-31 00:00:00|2001-02-28 00:00:00
+    month_2|t_register|2001-02-28 00:00:00|2001-03-31 00:00:00
+    month_3|t_register|2001-03-31 00:00:00|2001-04-30 00:00:00
+    month_4|t_register|2001-04-30 00:00:00|2001-05-31 00:00:00
     ```
 
     ```sh
@@ -497,10 +510,10 @@ long, so the granularity of `jan31` is `1 day`. The maps `month_5` to
 
     ```text
     name|mapset|start_time|end_time
-    month_1|PERMANENT|2001-01-31 00:00:00|2001-02-28 00:00:00
-    month_2|PERMANENT|2001-02-28 00:00:00|2001-03-31 00:00:00
-    month_3|PERMANENT|2001-03-31 00:00:00|2001-04-30 00:00:00
-    month_4|PERMANENT|2001-04-30 00:00:00|2001-05-31 00:00:00
+    month_1|t_register|2001-01-31 00:00:00|2001-02-28 00:00:00
+    month_2|t_register|2001-02-28 00:00:00|2001-03-31 00:00:00
+    month_3|t_register|2001-03-31 00:00:00|2001-04-30 00:00:00
+    month_4|t_register|2001-04-30 00:00:00|2001-05-31 00:00:00
     ```
 
     ```python
@@ -566,8 +579,8 @@ a mix of intervals and instances.
 
     ```sh
     cat > scenes_b.txt <<EOF
-    scene_4@PERMANENT,2002-01-01,2002-02-01
-    scene_5@PERMANENT,2002-02-01,2002-03-01
+    scene_4@t_register,2002-01-01,2002-02-01
+    scene_5@t_register,2002-02-01,2002-03-01
     EOF
     t.register input=scenes file=scenes_b.txt separator=comma
     t.rast.list input=scenes columns=name,start_time,end_time
@@ -583,7 +596,7 @@ a mix of intervals and instances.
     ```
 
     ```sh
-    g.list type=raster pattern="scene_[678]" > scenes_c.txt
+    g.list type=raster pattern="scene_[678]" mapset=. > scenes_c.txt
     t.register -i input=scenes file=scenes_c.txt start="2003-01-01 06:00" \
         increment="12 hours"
     t.rast.list input=scenes columns=name,start_time,end_time
@@ -638,7 +651,7 @@ a mix of intervals and instances.
 
     ```python
     Path("scenes_b.txt").write_text(
-        "scene_4@PERMANENT,2002-01-01,2002-02-01\nscene_5@PERMANENT,2002-02-01,2002-03-01\n"
+        "scene_4@t_register,2002-01-01,2002-02-01\nscene_5@t_register,2002-02-01,2002-03-01\n"
     )
     tools.t_register(input="scenes", file="scenes_b.txt", separator="comma")
     print(tools.t_rast_list(input="scenes", columns="name,start_time,end_time").text)
@@ -654,7 +667,7 @@ a mix of intervals and instances.
     ```
 
     ```python
-    names = tools.g_list(type="raster", pattern="scene_[678]").stdout
+    names = tools.g_list(type="raster", pattern="scene_[678]", mapset=".").stdout
     Path("scenes_c.txt").write_text(names)
     tools.t_register(
         input="scenes",
@@ -692,7 +705,7 @@ a mix of intervals and instances.
 ### Register maps with relative time
 
 A dataset with relative time counts in a unit, which **unit** names. The maps
-`step_1` to `step_3` are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
+`runoff_1` to `runoff_3` are the intervals 0 to 1, 1 to 2 and 2 to 3 hours. Two
 more maps come from a file whose times are integers in the same unit; the third
 column of a line is an integer, so it is an end time. The unit has to be the one
 of the dataset.
@@ -701,26 +714,26 @@ of the dataset.
 
     ```sh
     for number in 1 2 3 4 5; do
-        r.mapcalc expression="step_$number = $number"
+        r.mapcalc expression="runoff_$number = $number"
     done
     t.create output=model temporaltype=relative title="Model" \
         description="Model output per step"
-    t.register -i input=model maps=step_1,step_2,step_3 start=0 increment=1 \
+    t.register -i input=model maps=runoff_1,runoff_2,runoff_3 start=0 increment=1 \
         unit=hours
     t.rast.list input=model
     ```
 
     ```text
     name|mapset|start_time|end_time
-    step_1|PERMANENT|0|1
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
+    runoff_1|t_register|0|1
+    runoff_2|t_register|1|2
+    runoff_3|t_register|2|3
     ```
 
     ```sh
     cat > steps.txt <<EOF
-    step_4|10|12
-    step_5|12|15
+    runoff_4|10|12
+    runoff_5|12|15
     EOF
     t.register input=model file=steps.txt unit=hours
     t.rast.list input=model
@@ -728,18 +741,18 @@ of the dataset.
 
     ```text
     name|mapset|start_time|end_time
-    step_1|PERMANENT|0|1
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
-    step_4|PERMANENT|10|12
-    step_5|PERMANENT|12|15
+    runoff_1|t_register|0|1
+    runoff_2|t_register|1|2
+    runoff_3|t_register|2|3
+    runoff_4|t_register|10|12
+    runoff_5|t_register|12|15
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for number in range(1, 6):
-        tools.r_mapcalc(expression=f"step_{number} = {number}")
+        tools.r_mapcalc(expression=f"runoff_{number} = {number}")
     tools.t_create(
         output="model",
         temporaltype="relative",
@@ -748,7 +761,7 @@ of the dataset.
     )
     tools.t_register(
         input="model",
-        maps="step_1,step_2,step_3",
+        maps="runoff_1,runoff_2,runoff_3",
         start=0,
         increment=1,
         unit="hours",
@@ -759,24 +772,24 @@ of the dataset.
 
     ```text
     name|mapset|start_time|end_time
-    step_1|PERMANENT|0|1
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
+    runoff_1|t_register|0|1
+    runoff_2|t_register|1|2
+    runoff_3|t_register|2|3
     ```
 
     ```python
-    Path("steps.txt").write_text("step_4|10|12\nstep_5|12|15\n")
+    Path("steps.txt").write_text("runoff_4|10|12\nrunoff_5|12|15\n")
     tools.t_register(input="model", file="steps.txt", unit="hours")
     print(tools.t_rast_list(input="model").text)
     ```
 
     ```text
     name|mapset|start_time|end_time
-    step_1|PERMANENT|0|1
-    step_2|PERMANENT|1|2
-    step_3|PERMANENT|2|3
-    step_4|PERMANENT|10|12
-    step_5|PERMANENT|12|15
+    runoff_1|t_register|0|1
+    runoff_2|t_register|1|2
+    runoff_3|t_register|2|3
+    runoff_4|t_register|10|12
+    runoff_5|t_register|12|15
     ```
 
 ### Register maps without a dataset, or with a time stamp of the map
@@ -815,8 +828,8 @@ it takes the time from the maps.
 
     ```text
     name|mapset|start_time|end_time
-    stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
-    stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+    stamped_1|t_register|2001-09-01 00:00:00|2001-10-01 00:00:00
+    stamped_2|t_register|2001-10-01 00:00:00|2001-11-01 00:00:00
     ```
 
 === "Python (grass.tools)"
@@ -855,37 +868,41 @@ it takes the time from the maps.
 
     ```text
     name|mapset|start_time|end_time
-    stamped_1|PERMANENT|2001-09-01 00:00:00|2001-10-01 00:00:00
-    stamped_2|PERMANENT|2001-10-01 00:00:00|2001-11-01 00:00:00
+    stamped_1|t_register|2001-09-01 00:00:00|2001-10-01 00:00:00
+    stamped_2|t_register|2001-10-01 00:00:00|2001-11-01 00:00:00
     ```
 
 ### Register layers of a vector map
 
 A vector map can stand for a series if each time step is a layer. The map
-`stations` has two points and the layers 1 to 3 with the same categories. With
+`wind_stations` has two points in North Carolina, with a wind speed in metres per
+second, and the layers 1 to 3 with the same categories. With
 `type=vector` and the notation `map:layer`, each layer is registered as a day of
 the dataset `daily`.
 
 === "Command line"
 
     ```sh
-    v.in.ascii input=- output=stations_import separator=comma \
-        columns="x double precision, y double precision, speed double precision" <<EOF
-    0.5,0.5,3.0
-    2.5,1.5,5.0
+    v.in.ascii input=- output=wind_stations_import separator=comma \
+        columns="x double precision, y double precision, wind_speed double precision" \
+        <<EOF
+    640000,220000,3.0
+    780000,150000,5.0
     EOF
-    v.category input=stations_import output=stations option=transfer layer=1,2,3
+    v.category input=wind_stations_import output=wind_stations \
+        option=transfer layer=1,2,3
     t.create type=stvds output=daily title="Daily" description="Layers as days"
-    t.register -i type=vector input=daily maps=stations:1,stations:2,stations:3 \
+    t.register -i type=vector input=daily \
+        maps=wind_stations:1,wind_stations:2,wind_stations:3 \
         start=2001-03-01 increment="1 days"
     t.vect.list input=daily columns=name,layer,start_time,end_time
     ```
 
     ```text
     name|layer|start_time|end_time
-    stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
-    stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
-    stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+    wind_stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    wind_stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    wind_stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
     ```
 
 === "Python (grass.tools)"
@@ -894,13 +911,16 @@ the dataset `daily`.
     from io import StringIO
 
     tools.v_in_ascii(
-        input=StringIO("0.5,0.5,3.0\n2.5,1.5,5.0\n"),
-        output="stations_import",
+        input=StringIO("640000,220000,3.0\n780000,150000,5.0\n"),
+        output="wind_stations_import",
         separator="comma",
-        columns="x double precision, y double precision, speed double precision",
+        columns="x double precision, y double precision, wind_speed double precision",
     )
     tools.v_category(
-        input="stations_import", output="stations", option="transfer", layer="1,2,3"
+        input="wind_stations_import",
+        output="wind_stations",
+        option="transfer",
+        layer="1,2,3",
     )
     tools.t_create(
         type="stvds", output="daily", title="Daily", description="Layers as days"
@@ -908,7 +928,7 @@ the dataset `daily`.
     tools.t_register(
         type="vector",
         input="daily",
-        maps="stations:1,stations:2,stations:3",
+        maps="wind_stations:1,wind_stations:2,wind_stations:3",
         start="2001-03-01",
         increment="1 days",
         flags="i",
@@ -918,21 +938,21 @@ the dataset `daily`.
 
     ```text
     name|layer|start_time|end_time
-    stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
-    stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
-    stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
+    wind_stations|1|2001-03-01 00:00:00|2001-03-02 00:00:00
+    wind_stations|2|2001-03-02 00:00:00|2001-03-03 00:00:00
+    wind_stations|3|2001-03-03 00:00:00|2001-03-04 00:00:00
     ```
 
 ### Register 3D raster maps
 
 The 3D raster maps `soil_1` and `soil_2` are registered with `type=raster_3d`
 in a space time 3D raster dataset. The region needs a top, a bottom and the 3D
-resolutions.
+resolutions; the call adds them to the region of the first example.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.region t=3 b=0 res3=1000 tbres=1
     r3.mapcalc expression="soil_1 = depth()"
     r3.mapcalc expression="soil_2 = depth() + 10"
     t.create type=str3ds output=soil title="Soil" \
@@ -951,7 +971,7 @@ resolutions.
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_region(t=3, b=0, res3=1000, tbres=1)
     tools.r3_mapcalc(expression="soil_1 = depth()")
     tools.r3_mapcalc(expression="soil_2 = depth() + 10")
     tools.t_create(
