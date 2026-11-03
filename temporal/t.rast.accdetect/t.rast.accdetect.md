@@ -118,7 +118,7 @@ The option **suffix** selects the suffix:
 
 The new datasets and maps are created in the current mapset. The last example
 reads an input dataset of another mapset by giving the name with the mapset,
-`input=gdd@PERMANENT`.
+`input=gdd@t_rast_accdetect`.
 
 An existing **occurrence** or **indicator** dataset stops the run before any
 computation, unless **--overwrite** is set. A name with a dot is refused for a
@@ -137,7 +137,7 @@ empty and **-n** is not set. With **--overwrite**, an output dataset that
 exists is removed in this case, and the tool warns again that it did so. The
 maps of the removed dataset stay as maps, except for maps that have the name
 of a new map, which the computation replaces and then removes. The first
-example leaves out the empty maps and the second one registers them. An empty
+two examples leave out the empty maps and the third one registers them. An empty
 input dataset ends with a warning and creates no output.
 
 Wrong input stops the tool with a message before anything is written:
@@ -167,15 +167,245 @@ With relative time, the unit of the dataset is the unit of **start**, **stop**,
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_accdetect` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region, and the last one in a second mapset. The first example applies the
+tool to a heat sum; the others use small constant values, so that the sums and
+the stretches of time can be recomputed by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_accdetect -->
+
 <!-- markdownlint-disable MD046 -->
 
-### Find the accumulated values in a range
+### Find the development stage of a crop
 
-The dataset `temperature` has eight daily maps from 1 to 8 March 2026 on a
-region of three cells in one row. Each map holds the value of a cell as
-`base + 2 * (column - 1)`. The base is 12, 14, 16 and 18 on the days 1 to 4, and
-the same again on the days 5 to 8, so the data hold two cycles of four days. The
-cells of a map differ by two.
+A crop or an insect develops through a stage while the heat sum lies between two
+values. The first block builds the monthly mean air temperature of 2020 in
+degree Celsius over North Carolina, 12 maps with a computed pattern: warmer in
+summer, colder with height and a little colder towards the north. The dataset
+is generated, not measured. The block then accumulates the heat sum above
+10 degree Celsius with *[t.rast.accumulate](t.rast.accumulate.md)*, with one
+cycle of 12 months. Its default granularity is one day, so the granularity of
+one month is given; every month then adds its mean minus 10, when that is
+positive, and the unit of the sum is degree months (about 30 degree days).
+The tool *[t.rast.what](t.rast.what.md)* prints the temperature and the sum of
+every month for three cells: in the Mountains (1407 m), in the Piedmont near
+Raleigh (115 m) and on the coast (0 m), from left to right.
+
+The second block detects the stage between 20 and 60 degree months, which is
+about 600 to 1800 degree days. The bounds themselves are not in the range. The
+maps of the **occurrence** dataset hold, in the cells in the range, the days
+from 1 January to the start of the map, such as 152 for 1 June; the maps of
+January to April have no cell in the range and are left out. The listing shows
+that every map has one value. The **indicator** marks the first month of the
+stage with 1, the months in between with 2 and the last month with 3. The
+Piedmont cell is in the range from June to August (27.1, 42.7 and 57.4 degree
+months) and has 1, 2 and 3. The coast cell passes the range in two months (33.9
+and 51.4), has 1 and 3, and the cell in the Mountains never reaches 20.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=t_rast_accdetect
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    ```
+
+    ```sh
+    t.rast.accumulate input=temperature_monthly output=heat_sum \
+        basename=heat_sum start=2020-01-01 cycle="12 months" \
+        granularity="1 month" limits=10,30 method=gdd
+    t.rast.what strds=temperature_monthly \
+        coordinates=371500,317500,638500,220500,777500,100500 layout=col
+    t.rast.what strds=heat_sum \
+        coordinates=371500,317500,638500,220500,777500,100500 layout=col
+    ```
+
+    ```text
+    2020-01-01 00:00:00|2020-02-01 00:00:00|-4.7|4.7|6.7
+    2020-02-01 00:00:00|2020-03-01 00:00:00|-3.8|5.6|7.5
+    2020-03-01 00:00:00|2020-04-01 00:00:00|-0.4|9|10.9
+    2020-04-01 00:00:00|2020-05-01 00:00:00|4.7|14.1|16
+    2020-05-01 00:00:00|2020-06-01 00:00:00|10|19.4|21.4
+    2020-06-01 00:00:00|2020-07-01 00:00:00|14.3|23.6|25.6
+    2020-07-01 00:00:00|2020-08-01 00:00:00|16.2|25.6|27.5
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15.4|24.7|26.7
+    2020-09-01 00:00:00|2020-10-01 00:00:00|11.9|21.3|23.3
+    2020-10-01 00:00:00|2020-11-01 00:00:00|6.9|16.2|18.2
+    2020-11-01 00:00:00|2020-12-01 00:00:00|1.5|10.9|12.8
+    2020-12-01 00:00:00|2021-01-01 00:00:00|-2.7|6.7|8.6
+    2020-01-01 00:00:00|2020-02-01 00:00:00|0|0|0
+    2020-02-01 00:00:00|2020-03-01 00:00:00|0|0|0
+    2020-03-01 00:00:00|2020-04-01 00:00:00|0|0|0.9
+    2020-04-01 00:00:00|2020-05-01 00:00:00|0|4.1|6.9
+    2020-05-01 00:00:00|2020-06-01 00:00:00|0|13.5|18.3
+    2020-06-01 00:00:00|2020-07-01 00:00:00|4.3|27.1|33.9
+    2020-07-01 00:00:00|2020-08-01 00:00:00|10.5|42.7|51.4
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15.9|57.4|68.1
+    2020-09-01 00:00:00|2020-10-01 00:00:00|17.8|68.7|81.4
+    2020-10-01 00:00:00|2020-11-01 00:00:00|17.8|74.9|89.6
+    2020-11-01 00:00:00|2020-12-01 00:00:00|17.8|75.8|92.4
+    2020-12-01 00:00:00|2021-01-01 00:00:00|17.8|75.8|92.4
+    ```
+
+    ```sh
+    t.rast.accdetect input=heat_sum occurrence=stage indicator=stage_ind \
+        basename=stage start=2020-01-01 cycle="12 months" range=20,60
+    t.rast.list input=stage columns=name,start_time,min,max
+    t.rast.what strds=stage_ind \
+        coordinates=371500,317500,638500,220500,777500,100500 layout=col
+    ```
+
+    ```text
+    name|start_time|min|max
+    stage_2020_05|2020-05-01 00:00:00|121.0|121.0
+    stage_2020_06|2020-06-01 00:00:00|152.0|152.0
+    stage_2020_07|2020-07-01 00:00:00|182.0|182.0
+    stage_2020_08|2020-08-01 00:00:00|213.0|213.0
+    stage_2020_09|2020-09-01 00:00:00|244.0|244.0
+    stage_2020_10|2020-10-01 00:00:00|274.0|274.0
+    stage_2020_11|2020-11-01 00:00:00|305.0|305.0
+    stage_2020_12|2020-12-01 00:00:00|335.0|335.0
+    2020-05-01 00:00:00|2020-06-01 00:00:00|*|*|*
+    2020-06-01 00:00:00|2020-07-01 00:00:00|*|1|1
+    2020-07-01 00:00:00|2020-08-01 00:00:00|*|2|3
+    2020-08-01 00:00:00|2020-09-01 00:00:00|*|3|*
+    2020-09-01 00:00:00|2020-10-01 00:00:00|*|*|*
+    2020-10-01 00:00:00|2020-11-01 00:00:00|*|*|*
+    2020-11-01 00:00:00|2020-12-01 00:00:00|*|*|*
+    2020-12-01 00:00:00|2021-01-01 00:00:00|*|*|*
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import Tools
+
+    tools = Tools()
+    sites = [371500, 317500, 638500, 220500, 777500, 100500]
+    tools.g_mapset(flags="c", mapset="t_rast_accdetect")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
+    tools.t_create(
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
+    )
+    tools.t_register(
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
+    ```
+
+    ```python
+    tools.t_rast_accumulate(
+        input="temperature_monthly",
+        output="heat_sum",
+        basename="heat_sum",
+        start="2020-01-01",
+        cycle="12 months",
+        granularity="1 month",
+        limits=[10, 30],
+        method="gdd",
+    )
+    print(
+        tools.t_rast_what(strds="temperature_monthly", coordinates=sites, layout="col").text
+    )
+    print(tools.t_rast_what(strds="heat_sum", coordinates=sites, layout="col").text)
+    ```
+
+    ```text
+    2020-01-01 00:00:00|2020-02-01 00:00:00|-4.7|4.7|6.7
+    2020-02-01 00:00:00|2020-03-01 00:00:00|-3.8|5.6|7.5
+    2020-03-01 00:00:00|2020-04-01 00:00:00|-0.4|9|10.9
+    2020-04-01 00:00:00|2020-05-01 00:00:00|4.7|14.1|16
+    2020-05-01 00:00:00|2020-06-01 00:00:00|10|19.4|21.4
+    2020-06-01 00:00:00|2020-07-01 00:00:00|14.3|23.6|25.6
+    2020-07-01 00:00:00|2020-08-01 00:00:00|16.2|25.6|27.5
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15.4|24.7|26.7
+    2020-09-01 00:00:00|2020-10-01 00:00:00|11.9|21.3|23.3
+    2020-10-01 00:00:00|2020-11-01 00:00:00|6.9|16.2|18.2
+    2020-11-01 00:00:00|2020-12-01 00:00:00|1.5|10.9|12.8
+    2020-12-01 00:00:00|2021-01-01 00:00:00|-2.7|6.7|8.6
+    2020-01-01 00:00:00|2020-02-01 00:00:00|0|0|0
+    2020-02-01 00:00:00|2020-03-01 00:00:00|0|0|0
+    2020-03-01 00:00:00|2020-04-01 00:00:00|0|0|0.9
+    2020-04-01 00:00:00|2020-05-01 00:00:00|0|4.1|6.9
+    2020-05-01 00:00:00|2020-06-01 00:00:00|0|13.5|18.3
+    2020-06-01 00:00:00|2020-07-01 00:00:00|4.3|27.1|33.9
+    2020-07-01 00:00:00|2020-08-01 00:00:00|10.5|42.7|51.4
+    2020-08-01 00:00:00|2020-09-01 00:00:00|15.9|57.4|68.1
+    2020-09-01 00:00:00|2020-10-01 00:00:00|17.8|68.7|81.4
+    2020-10-01 00:00:00|2020-11-01 00:00:00|17.8|74.9|89.6
+    2020-11-01 00:00:00|2020-12-01 00:00:00|17.8|75.8|92.4
+    2020-12-01 00:00:00|2021-01-01 00:00:00|17.8|75.8|92.4
+    ```
+
+    ```python
+    tools.t_rast_accdetect(
+        input="heat_sum",
+        occurrence="stage",
+        indicator="stage_ind",
+        basename="stage",
+        start="2020-01-01",
+        cycle="12 months",
+        range=[20, 60],
+    )
+    print(tools.t_rast_list(input="stage", columns="name,start_time,min,max").text)
+    print(tools.t_rast_what(strds="stage_ind", coordinates=sites, layout="col").text)
+    ```
+
+    ```text
+    name|start_time|min|max
+    stage_2020_05|2020-05-01 00:00:00|121.0|121.0
+    stage_2020_06|2020-06-01 00:00:00|152.0|152.0
+    stage_2020_07|2020-07-01 00:00:00|182.0|182.0
+    stage_2020_08|2020-08-01 00:00:00|213.0|213.0
+    stage_2020_09|2020-09-01 00:00:00|244.0|244.0
+    stage_2020_10|2020-10-01 00:00:00|274.0|274.0
+    stage_2020_11|2020-11-01 00:00:00|305.0|305.0
+    stage_2020_12|2020-12-01 00:00:00|335.0|335.0
+    2020-05-01 00:00:00|2020-06-01 00:00:00|*|*|*
+    2020-06-01 00:00:00|2020-07-01 00:00:00|*|1|1
+    2020-07-01 00:00:00|2020-08-01 00:00:00|*|2|3
+    2020-08-01 00:00:00|2020-09-01 00:00:00|*|3|*
+    2020-09-01 00:00:00|2020-10-01 00:00:00|*|*|*
+    2020-10-01 00:00:00|2020-11-01 00:00:00|*|*|*
+    2020-11-01 00:00:00|2020-12-01 00:00:00|*|*|*
+    2020-12-01 00:00:00|2021-01-01 00:00:00|*|*|*
+    ```
+
+### Follow the sums cell by cell
+
+The next examples are time logic. The dataset `temperature_daily` has eight
+daily maps from 1 to 8 March 2026 in degree Celsius. Each map holds the value
+`base + 2 * (min(column, 3) - 1)` in a cell, so the first three cells of the
+northern row, the ones that the listings show, differ by two, and all cells
+further east have the value of the third. The base is 12, 14, 16 and 18 on the
+days 1 to 4, and the same again on the days 5 to 8, so the data hold two cycles
+of four days.
 
 The first block accumulates growing degree days above 10 with
 *[t.rast.accumulate](t.rast.accumulate.md)*, with one cycle of four days. The
@@ -183,7 +413,7 @@ increment of a day is its value minus 10, so the sums of the first cell are 2,
 6, 12 and 20, those of the second cell 4, 10, 18 and 28, and those of the third
 cell 6, 14, 24 and 36, in each cycle. The tool
 *[t.rast.what](t.rast.what.md)* prints, for each map, the values of the three
-cells from west to east.
+cells from west to east, given by the coordinates of their centers.
 
 The second block detects the sums in the range from 8 to 25 with the same
 cycle. The **occurrence** dataset holds the days since the beginning of the
@@ -200,19 +430,18 @@ so this map gets the end value 3.
 === "Command line"
 
     ```sh
-    g.region n=1 s=0 e=3 w=0 res=1
     for step in 1 2 3 4 5 6 7 8; do
         base=$(( 12 + 2 * ((step - 1) % 4) ))
-        r.mapcalc expression="temperature_$step = $base + 2 * (col() - 1)"
+        r.mapcalc expression="temperature_daily_2026_03_0$step = $base + 2 * (min(col(), 3) - 1)"
     done
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4,temperature_5,temperature_6,temperature_7,temperature_8 \
+    t.create output=temperature_daily title="Air temperature" \
+        description="Daily mean air temperature in degree Celsius"
+    t.register -i input=temperature_daily \
+        maps=$(g.list type=raster pattern="temperature_daily_*" mapset=. separator=comma) \
         start=2026-03-01 increment="1 day"
-    t.rast.accumulate input=temperature output=gdd basename=gdd \
+    t.rast.accumulate input=temperature_daily output=gdd basename=gdd \
         start=2026-03-01 cycle="4 days" limits=10,30 method=gdd
-    t.rast.what strds=gdd coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=gdd coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -229,8 +458,8 @@ so this map gets the end value 3.
     ```sh
     t.rast.accdetect input=gdd occurrence=occ indicator=ind basename=occ \
         start=2026-03-01 cycle="4 days" range=8,25
-    t.rast.what strds=occ coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
-    t.rast.what strds=ind coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=occ coordinates=124500,318500,125500,318500,126500,318500 layout=col
+    t.rast.what strds=ind coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -251,30 +480,29 @@ so this map gets the end value 3.
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import Tools
-
-    tools = Tools()
-    points = [0.5, 0.5, 1.5, 0.5, 2.5, 0.5]
-    tools.g_region(n=1, s=0, e=3, w=0, res=1)
+    points = [124500, 318500, 125500, 318500, 126500, 318500]
     maps = []
     for step in range(1, 9):
         base = 12 + 2 * ((step - 1) % 4)
-        tools.r_mapcalc(expression=f"temperature_{step} = {base} + 2 * (col() - 1)")
-        maps.append(f"temperature_{step}")
+        tools.r_mapcalc(
+            expression=f"temperature_daily_2026_03_{step:02d}"
+            f" = {base} + 2 * (min(col(), 3) - 1)"
+        )
+        maps.append(f"temperature_daily_2026_03_{step:02d}")
     tools.t_create(
-        output="temperature",
+        output="temperature_daily",
         title="Air temperature",
-        description="Daily mean air temperature",
+        description="Daily mean air temperature in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
+        input="temperature_daily",
         maps=",".join(maps),
         start="2026-03-01",
         increment="1 day",
         flags="i",
     )
     tools.t_rast_accumulate(
-        input="temperature",
+        input="temperature_daily",
         output="gdd",
         basename="gdd",
         start="2026-03-01",
@@ -342,7 +570,7 @@ the one of the previous example with the new values.
         basename=occ_all start=2026-03-01 cycle="4 days" range=8,25 \
         staend=10,20,30 suffix=num%02
     t.rast.list input=occ_all columns=name,start_time,min,max
-    t.rast.what strds=ind_all coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=ind_all coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -421,9 +649,9 @@ cycle: 0 for the first day of the cycle.
 === "Command line"
 
     ```sh
-    t.rast.accumulate -r input=temperature output=gdd_back basename=gdd_back \
+    t.rast.accumulate -r input=temperature_daily output=gdd_back basename=gdd_back \
         start=2026-03-01 cycle="4 days" limits=10,30 method=gdd
-    t.rast.what strds=gdd_back coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=gdd_back coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -441,8 +669,8 @@ cycle: 0 for the first day of the cycle.
     t.rast.accdetect -r input=gdd_back occurrence=occ_back \
         indicator=ind_back basename=occ_back start=2026-03-01 \
         cycle="4 days" range=8,25
-    t.rast.what strds=occ_back coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
-    t.rast.what strds=ind_back coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=occ_back coordinates=124500,318500,125500,318500,126500,318500 layout=col
+    t.rast.what strds=ind_back coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -468,7 +696,7 @@ cycle: 0 for the first day of the cycle.
 
     ```python
     tools.t_rast_accumulate(
-        input="temperature",
+        input="temperature_daily",
         output="gdd_back",
         basename="gdd_back",
         start="2026-03-01",
@@ -538,13 +766,13 @@ none from 7 March on.
 === "Command line"
 
     ```sh
-    t.rast.accumulate input=temperature output=gdd_skip basename=gdd_skip \
+    t.rast.accumulate input=temperature_daily output=gdd_skip basename=gdd_skip \
         start=2026-03-01 stop=2026-03-07 cycle="3 days" offset="1 day" \
         limits=10,30 method=gdd
     t.rast.accdetect input=gdd_skip occurrence=occ_skip basename=occ_skip \
         start=2026-03-01 stop=2026-03-07 cycle="3 days" offset="1 day" \
         range=8,25
-    t.rast.what strds=occ_skip coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=occ_skip coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -557,7 +785,7 @@ none from 7 March on.
 
     ```python
     tools.t_rast_accumulate(
-        input="temperature",
+        input="temperature_daily",
         output="gdd_skip",
         basename="gdd_skip",
         start="2026-03-01",
@@ -596,10 +824,10 @@ all of them, and the maps of the second cycle lie within the map of `lower`,
 so the lower bound is 15 there. The maps of the first cycle have no map of
 `lower`, and take the lower bound 8 from **range**; the upper bound 25 of
 **range** is not used. The bounds are not part of the range: the sum 20 of the
-first cell is not below 20 and does not count. Compared with
-the first example, the first cycle loses the sums 20 and 24, and the second
-cycle all sums but 18, which is above 15: only the second cell on 7 March is
-left there.
+first cell is not below 20 and does not count. Compared with the detection of
+the range from 8 to 25, the first cycle loses the sums 20 and 24, and the
+second cycle all sums but 18, which is above 15: only the second cell on 7
+March is left there.
 
 The second block shows a map within the time of an input map. The dataset
 `upper_noon` has one map with the value 20 from 6:00 to 18:00 on 3 March. It
@@ -621,7 +849,7 @@ maps take the upper bound 25 from **range**. The sum 24 of the third cell on
     t.rast.accdetect input=gdd minimum=lower maximum=upper \
         occurrence=occ_bounds basename=occ_bounds start=2026-03-01 \
         cycle="4 days" range=8,25
-    t.rast.what strds=occ_bounds coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=occ_bounds coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -638,7 +866,7 @@ maps take the upper bound 25 from **range**. The sum 24 of the third cell on
         start="2026-03-03 06:00:00" end="2026-03-03 18:00:00"
     t.rast.accdetect input=gdd maximum=upper_short occurrence=occ_noon \
         basename=occ_noon start=2026-03-01 cycle="4 days" range=8,25
-    t.rast.what strds=occ_noon coordinates=0.5,0.5,1.5,0.5,2.5,0.5 layout=col
+    t.rast.what strds=occ_noon coordinates=124500,318500,125500,318500,126500,318500 layout=col
     ```
 
     ```text
@@ -724,38 +952,41 @@ maps take the upper bound 25 from **range**. The sum 24 of the third cell on
 
 ### Detect in a dataset of another mapset
 
-The new mapset `second` has no dataset of its own and its own region, which
-the first command sets as in the first example. The input `gdd@PERMANENT` names
-the dataset of the mapset `PERMANENT`; the new maps and the new dataset are
-created in `second`, as the column `mapset` shows.
+The new mapset `t_rast_accdetect_2` has no dataset of its own and starts with
+the default region of the sample dataset, so the second command sets the region
+as before. The example adds the mapset `t_rast_accdetect` to the search path of
+mapsets and names the input `gdd@t_rast_accdetect`; the new maps and the new
+dataset are created in `t_rast_accdetect_2`, as the column `mapset` shows.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=second
-    g.region n=1 s=0 e=3 w=0 res=1
-    t.rast.accdetect input=gdd@PERMANENT occurrence=occ_copy \
+    g.mapset -c mapset=t_rast_accdetect_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_accdetect operation=add
+    t.rast.accdetect input=gdd@t_rast_accdetect occurrence=occ_copy \
         basename=occ_copy start=2026-03-01 cycle="4 days" range=8,25
     t.rast.list input=occ_copy columns=name,mapset,start_time
     ```
 
     ```text
     name|mapset|start_time
-    occ_copy_2026_03_02|second|2026-03-02 00:00:00
-    occ_copy_2026_03_03|second|2026-03-03 00:00:00
-    occ_copy_2026_03_04|second|2026-03-04 00:00:00
-    occ_copy_2026_03_06|second|2026-03-06 00:00:00
-    occ_copy_2026_03_07|second|2026-03-07 00:00:00
-    occ_copy_2026_03_08|second|2026-03-08 00:00:00
+    occ_copy_2026_03_02|t_rast_accdetect_2|2026-03-02 00:00:00
+    occ_copy_2026_03_03|t_rast_accdetect_2|2026-03-03 00:00:00
+    occ_copy_2026_03_04|t_rast_accdetect_2|2026-03-04 00:00:00
+    occ_copy_2026_03_06|t_rast_accdetect_2|2026-03-06 00:00:00
+    occ_copy_2026_03_07|t_rast_accdetect_2|2026-03-07 00:00:00
+    occ_copy_2026_03_08|t_rast_accdetect_2|2026-03-08 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(flags="c", mapset="second")
-    tools.g_region(n=1, s=0, e=3, w=0, res=1)
+    tools.g_mapset(flags="c", mapset="t_rast_accdetect_2")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_accdetect", operation="add")
     tools.t_rast_accdetect(
-        input="gdd@PERMANENT",
+        input="gdd@t_rast_accdetect",
         occurrence="occ_copy",
         basename="occ_copy",
         start="2026-03-01",
@@ -767,12 +998,12 @@ created in `second`, as the column `mapset` shows.
 
     ```text
     name|mapset|start_time
-    occ_copy_2026_03_02|second|2026-03-02 00:00:00
-    occ_copy_2026_03_03|second|2026-03-03 00:00:00
-    occ_copy_2026_03_04|second|2026-03-04 00:00:00
-    occ_copy_2026_03_06|second|2026-03-06 00:00:00
-    occ_copy_2026_03_07|second|2026-03-07 00:00:00
-    occ_copy_2026_03_08|second|2026-03-08 00:00:00
+    occ_copy_2026_03_02|t_rast_accdetect_2|2026-03-02 00:00:00
+    occ_copy_2026_03_03|t_rast_accdetect_2|2026-03-03 00:00:00
+    occ_copy_2026_03_04|t_rast_accdetect_2|2026-03-04 00:00:00
+    occ_copy_2026_03_06|t_rast_accdetect_2|2026-03-06 00:00:00
+    occ_copy_2026_03_07|t_rast_accdetect_2|2026-03-07 00:00:00
+    occ_copy_2026_03_08|t_rast_accdetect_2|2026-03-08 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
