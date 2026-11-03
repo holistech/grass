@@ -21,14 +21,14 @@ granules three maps. The new map gets the start and the end time of its step.
 The `n` maps of a gap lie at the positions `i / (n + 1)` of the way from the
 predecessor to the successor, so in each cell the value of map `i` is
 `v0 + i * (v1 - v0) / (n + 1)`, where `v0` and `v1` are the values of the
-predecessor and the successor. In the first example, the gap between the
+predecessor and the successor. In the second example, the gap between the
 values 30 and 70 holds three maps with the values 40, 50 and 60.
 
 The option **input** names the space time raster dataset. The option **where**
 takes an SQL condition on the registered maps and selects the maps in which the
 tool looks for gaps, for instance by their `start_time`; without it, all maps
 are used. Only a gap between two selected maps is found, so a condition limits
-the gaps that are filled, as the third example shows.
+the gaps that are filled, as the fourth example shows.
 
 The option **basename** names the new maps: a suffix, separated from the
 basename by an underscore, makes each name unique. The option **suffix**
@@ -41,10 +41,10 @@ chooses the suffix:
   gives two digits: `05_01`. The first number is the number of the entries of
   the selected dataset (maps and gaps) plus the number of the gap, counted from
   1; it is the same for all maps of one gap. The second number counts the maps
-  of the gap from 1. The fourth example shows this.
+  of the gap from 1. The fifth example shows this.
 
 A dataset with relative time has no calendar dates; its maps are named with
-numbers, as the fourth example shows with the suffix `num%02`.
+numbers, as the fifth example shows with the suffix `num%02`.
 
 The option **nprocs** sets the number of *r.series.interp* runs at the same
 time, `1` by default. The gaps are interpolated independently of each other, so
@@ -86,14 +86,213 @@ parser refuses it.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_gapfill` and sets the computational region
+to North Carolina with cells of 1 km; the later examples work in this mapset
+and region. The first example fills a gap in a series of generated monthly
+air temperatures. The later examples show how gaps are found, cut and named;
+they use maps with small constant values, so that the filled values can be
+checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_gapfill -->
+
 <!-- markdownlint-disable MD046 -->
+
+### Fill a missing month in a temperature series
+
+The dataset `temperature_monthly` should hold the monthly mean air temperature
+of 2020 in degrees Celsius, rounded to tenths, but the map of April is missing.
+The maps are generated from the elevation model `elev_state_500m`: 16.5 degrees
+at sea level and the northing 160 km, an annual cycle of plus and minus 10.5
+degrees with its maximum in July, 6.5 degrees less for every 1000 m of
+elevation, and 1 degree more for every 100 km to the south. The map
+`temperature_recipe_2020_04` is the April map that this recipe gives; it is not
+registered and serves for the comparison at the end.
+
+The first block makes the series without April and lists its gap: one month,
+the row with `None`. The second block fills it. *t.rast.gapfill* interpolates
+linearly between the maps of March and May, so each cell of the new map is the
+mean of its two values. The listing shows the new map between them. The third
+block compares the filled map with the recipe map: in every cell the two
+differ by 0.1 to 0.2 degrees, rounded to tenths. By hand, the mean of the
+annual-cycle terms of March and May is `10.5 * (-0.588 + 0.407) / 2`, which is
+-0.95 degrees, while April has `10.5 * cos(-96 degrees)`, which is -1.10
+degrees, so the straight line lies 0.15 degrees above the curve of the annual
+cycle.
+
+=== "Command line"
+
+    ```sh
+    g.mapset -c mapset=t_rast_gapfill
+    g.region raster=elev_state_500m res=1000 -a
+    for month in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        name=temperature_monthly
+        test $month = 4 && name=temperature_recipe
+        echo "${name}_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=temperature_monthly_2020_01,temperature_monthly_2020_02,temperature_monthly_2020_03 \
+        start=2020-01-01 increment="1 month"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_2020_*" exclude="temperature_monthly_2020_0[123]" mapset=. separator=comma) \
+        start=2020-05-01 increment="1 month"
+    t.rast.list input=temperature_monthly method=deltagaps columns=name,start_time,end_time
+    ```
+
+    ```text
+    name|start_time|end_time
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00
+    None|2020-04-01 00:00:00|2020-05-01 00:00:00
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00
+    ```
+
+    ```sh
+    t.rast.gapfill input=temperature_monthly basename=temperature_filled
+    t.rast.list input=temperature_monthly columns=name,start_time,end_time,min,max
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+    temperature_filled_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.5|17.0
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
+    ```
+
+    ```sh
+    r.mapcalc expression="temperature_difference = round(abs(temperature_filled_2020_04 - temperature_recipe_2020_04) * 10) / 10.0"
+    r.info -r map=temperature_difference
+    ```
+
+    ```text
+    min=0.1
+    max=0.2
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    from grass.tools import Tools
+
+    tools = Tools()
+    tools.g_mapset(flags="c", mapset="t_rast_gapfill")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_{'recipe' if month == 4 else 'monthly'}_2020_{month:02d}"
+            f" = round((16.5 + 10.5 * cos(30 * ({month} - 7.2))"
+            " - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
+    tools.t_create(
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
+    )
+    for months_part, start in (
+        ([1, 2, 3], "2020-01-01"),
+        ([5, 6, 7, 8, 9, 10, 11, 12], "2020-05-01"),
+    ):
+        tools.t_register(
+            input="temperature_monthly",
+            maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months_part),
+            start=start,
+            increment="1 month",
+            flags="i",
+        )
+    print(
+        tools.t_rast_list(
+            input="temperature_monthly",
+            method="deltagaps",
+            columns="name,start_time,end_time",
+        ).text
+    )
+    ```
+
+    ```text
+    name|start_time|end_time
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00
+    None|2020-04-01 00:00:00|2020-05-01 00:00:00
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00
+    ```
+
+    ```python
+    tools.t_rast_gapfill(input="temperature_monthly", basename="temperature_filled")
+    print(
+        tools.t_rast_list(
+            input="temperature_monthly", columns="name,start_time,end_time,min,max"
+        ).text
+    )
+    ```
+
+    ```text
+    name|start_time|end_time|min|max
+    temperature_monthly_2020_01|2020-01-01 00:00:00|2020-02-01 00:00:00|-7.0|7.5
+    temperature_monthly_2020_02|2020-02-01 00:00:00|2020-03-01 00:00:00|-6.1|8.4
+    temperature_monthly_2020_03|2020-03-01 00:00:00|2020-04-01 00:00:00|-2.7|11.8
+    temperature_filled_2020_04|2020-04-01 00:00:00|2020-05-01 00:00:00|2.5|17.0
+    temperature_monthly_2020_05|2020-05-01 00:00:00|2020-06-01 00:00:00|7.7|22.2
+    temperature_monthly_2020_06|2020-06-01 00:00:00|2020-07-01 00:00:00|12.0|26.5
+    temperature_monthly_2020_07|2020-07-01 00:00:00|2020-08-01 00:00:00|13.9|28.4
+    temperature_monthly_2020_08|2020-08-01 00:00:00|2020-09-01 00:00:00|13.1|27.6
+    temperature_monthly_2020_09|2020-09-01 00:00:00|2020-10-01 00:00:00|9.6|24.2
+    temperature_monthly_2020_10|2020-10-01 00:00:00|2020-11-01 00:00:00|4.6|19.1
+    temperature_monthly_2020_11|2020-11-01 00:00:00|2020-12-01 00:00:00|-0.8|13.7
+    temperature_monthly_2020_12|2020-12-01 00:00:00|2021-01-01 00:00:00|-5.0|9.5
+    ```
+
+    ```python
+    tools.r_mapcalc(
+        expression="temperature_difference = round(abs(temperature_filled_2020_04"
+        " - temperature_recipe_2020_04) * 10) / 10.0"
+    )
+    print(tools.r_info(map="temperature_difference", flags="r").text)
+    ```
+
+    ```text
+    min=0.1
+    max=0.2
+    ```
 
 ### Fill the gaps of a dataset
 
-The dataset `rain` holds three daily maps of 2 rows and 3 columns. The value of
-a cell is the level of the map plus the number of its column: the levels are 10
-for June 1, 30 for June 3 and 70 for June 7, so the maps have the values 11 to
-13, 31 to 33 and 71 to 73. The maps of June 2 and of June 4 to 6 are missing.
+The dataset `rain` holds three daily maps with a constant value in every cell:
+the levels are 10 for June 1, 30 for June 3 and 70 for June 7, in millimetres
+of rain. The maps of June 2 and of June 4 to 6 are missing.
 
 The first block lists the dataset with its gaps: one of a day, one of three
 days. The second block fills them with the default **suffix**, which names the
@@ -105,24 +304,23 @@ three maps at one quarter, one half and three quarters of the way from 30 to
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="rain_1 = 10.0 + col()"
-    r.mapcalc expression="rain_2 = 30.0 + col()"
-    r.mapcalc expression="rain_3 = 70.0 + col()"
-    t.create output=rain title="Rain" description="Daily rain with gaps"
-    t.register input=rain maps=rain_1 start=2026-06-01 end=2026-06-02
-    t.register input=rain maps=rain_2 start=2026-06-03 end=2026-06-04
-    t.register input=rain maps=rain_3 start=2026-06-07 end=2026-06-08
+    r.mapcalc expression="rain_2026_06_01 = 10.0"
+    r.mapcalc expression="rain_2026_06_03 = 30.0"
+    r.mapcalc expression="rain_2026_06_07 = 70.0"
+    t.create output=rain title="Rain" description="Daily rain in mm with gaps"
+    t.register input=rain maps=rain_2026_06_01 start=2026-06-01 end=2026-06-02
+    t.register input=rain maps=rain_2026_06_03 start=2026-06-03 end=2026-06-04
+    t.register input=rain maps=rain_2026_06_07 start=2026-06-07 end=2026-06-08
     t.rast.list input=rain method=deltagaps
     ```
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_01@t_rast_gapfill|rain_2026_06_01|t_rast_gapfill|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_2@PERMANENT|rain_2|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_03@t_rast_gapfill|rain_2026_06_03|t_rast_gapfill|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     None|None|None|2026-06-04 00:00:00|2026-06-07 00:00:00|3.0|3.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
+    rain_2026_06_07@t_rast_gapfill|rain_2026_06_07|t_rast_gapfill|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
     ```
 
     ```sh
@@ -132,13 +330,13 @@ three maps at one quarter, one half and three quarters of the way from 30 to
 
     ```text
     name|start_time|end_time|min|max
-    rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00|11.0|13.0
-    filled_2026_06_02|2026-06-02 00:00:00|2026-06-03 00:00:00|21.0|23.0
-    rain_2|2026-06-03 00:00:00|2026-06-04 00:00:00|31.0|33.0
-    filled_2026_06_04|2026-06-04 00:00:00|2026-06-05 00:00:00|41.0|43.0
-    filled_2026_06_05|2026-06-05 00:00:00|2026-06-06 00:00:00|51.0|53.0
-    filled_2026_06_06|2026-06-06 00:00:00|2026-06-07 00:00:00|61.0|63.0
-    rain_3|2026-06-07 00:00:00|2026-06-08 00:00:00|71.0|73.0
+    rain_2026_06_01|2026-06-01 00:00:00|2026-06-02 00:00:00|10.0|10.0
+    filled_2026_06_02|2026-06-02 00:00:00|2026-06-03 00:00:00|20.0|20.0
+    rain_2026_06_03|2026-06-03 00:00:00|2026-06-04 00:00:00|30.0|30.0
+    filled_2026_06_04|2026-06-04 00:00:00|2026-06-05 00:00:00|40.0|40.0
+    filled_2026_06_05|2026-06-05 00:00:00|2026-06-06 00:00:00|50.0|50.0
+    filled_2026_06_06|2026-06-06 00:00:00|2026-06-07 00:00:00|60.0|60.0
+    rain_2026_06_07|2026-06-07 00:00:00|2026-06-08 00:00:00|70.0|70.0
     ```
 
     ```sh
@@ -147,38 +345,40 @@ three maps at one quarter, one half and three quarters of the way from 30 to
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    filled_2026_06_02@PERMANENT|filled_2026_06_02|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_2@PERMANENT|rain_2|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
-    filled_2026_06_04@PERMANENT|filled_2026_06_04|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
-    filled_2026_06_05@PERMANENT|filled_2026_06_05|PERMANENT|2026-06-05 00:00:00|2026-06-06 00:00:00|1.0|4.0
-    filled_2026_06_06@PERMANENT|filled_2026_06_06|PERMANENT|2026-06-06 00:00:00|2026-06-07 00:00:00|1.0|5.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
+    rain_2026_06_01@t_rast_gapfill|rain_2026_06_01|t_rast_gapfill|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    filled_2026_06_02@t_rast_gapfill|filled_2026_06_02|t_rast_gapfill|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    rain_2026_06_03@t_rast_gapfill|rain_2026_06_03|t_rast_gapfill|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    filled_2026_06_04@t_rast_gapfill|filled_2026_06_04|t_rast_gapfill|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+    filled_2026_06_05@t_rast_gapfill|filled_2026_06_05|t_rast_gapfill|2026-06-05 00:00:00|2026-06-06 00:00:00|1.0|4.0
+    filled_2026_06_06@t_rast_gapfill|filled_2026_06_06|t_rast_gapfill|2026-06-06 00:00:00|2026-06-07 00:00:00|1.0|5.0
+    rain_2026_06_07@t_rast_gapfill|rain_2026_06_07|t_rast_gapfill|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from grass.tools import Tools
-
-    tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for number, level in ((1, 10), (2, 30), (3, 70)):
-        tools.r_mapcalc(expression=f"rain_{number} = {level}.0 + col()")
-    tools.t_create(output="rain", title="Rain", description="Daily rain with gaps")
-    tools.t_register(input="rain", maps="rain_1", start="2026-06-01", end="2026-06-02")
-    tools.t_register(input="rain", maps="rain_2", start="2026-06-03", end="2026-06-04")
-    tools.t_register(input="rain", maps="rain_3", start="2026-06-07", end="2026-06-08")
+    for day, level in ((1, 10), (3, 30), (7, 70)):
+        tools.r_mapcalc(expression=f"rain_2026_06_{day:02d} = {level}.0")
+    tools.t_create(output="rain", title="Rain", description="Daily rain in mm with gaps")
+    tools.t_register(
+        input="rain", maps="rain_2026_06_01", start="2026-06-01", end="2026-06-02"
+    )
+    tools.t_register(
+        input="rain", maps="rain_2026_06_03", start="2026-06-03", end="2026-06-04"
+    )
+    tools.t_register(
+        input="rain", maps="rain_2026_06_07", start="2026-06-07", end="2026-06-08"
+    )
     print(tools.t_rast_list(input="rain", method="deltagaps").text)
     ```
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_01@t_rast_gapfill|rain_2026_06_01|t_rast_gapfill|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_2@PERMANENT|rain_2|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_03@t_rast_gapfill|rain_2026_06_03|t_rast_gapfill|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     None|None|None|2026-06-04 00:00:00|2026-06-07 00:00:00|3.0|3.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
+    rain_2026_06_07@t_rast_gapfill|rain_2026_06_07|t_rast_gapfill|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
     ```
 
     ```python
@@ -188,13 +388,13 @@ three maps at one quarter, one half and three quarters of the way from 30 to
 
     ```text
     name|start_time|end_time|min|max
-    rain_1|2026-06-01 00:00:00|2026-06-02 00:00:00|11.0|13.0
-    filled_2026_06_02|2026-06-02 00:00:00|2026-06-03 00:00:00|21.0|23.0
-    rain_2|2026-06-03 00:00:00|2026-06-04 00:00:00|31.0|33.0
-    filled_2026_06_04|2026-06-04 00:00:00|2026-06-05 00:00:00|41.0|43.0
-    filled_2026_06_05|2026-06-05 00:00:00|2026-06-06 00:00:00|51.0|53.0
-    filled_2026_06_06|2026-06-06 00:00:00|2026-06-07 00:00:00|61.0|63.0
-    rain_3|2026-06-07 00:00:00|2026-06-08 00:00:00|71.0|73.0
+    rain_2026_06_01|2026-06-01 00:00:00|2026-06-02 00:00:00|10.0|10.0
+    filled_2026_06_02|2026-06-02 00:00:00|2026-06-03 00:00:00|20.0|20.0
+    rain_2026_06_03|2026-06-03 00:00:00|2026-06-04 00:00:00|30.0|30.0
+    filled_2026_06_04|2026-06-04 00:00:00|2026-06-05 00:00:00|40.0|40.0
+    filled_2026_06_05|2026-06-05 00:00:00|2026-06-06 00:00:00|50.0|50.0
+    filled_2026_06_06|2026-06-06 00:00:00|2026-06-07 00:00:00|60.0|60.0
+    rain_2026_06_07|2026-06-07 00:00:00|2026-06-08 00:00:00|70.0|70.0
     ```
 
     ```python
@@ -203,21 +403,21 @@ three maps at one quarter, one half and three quarters of the way from 30 to
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    filled_2026_06_02@PERMANENT|filled_2026_06_02|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_2@PERMANENT|rain_2|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
-    filled_2026_06_04@PERMANENT|filled_2026_06_04|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
-    filled_2026_06_05@PERMANENT|filled_2026_06_05|PERMANENT|2026-06-05 00:00:00|2026-06-06 00:00:00|1.0|4.0
-    filled_2026_06_06@PERMANENT|filled_2026_06_06|PERMANENT|2026-06-06 00:00:00|2026-06-07 00:00:00|1.0|5.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
+    rain_2026_06_01@t_rast_gapfill|rain_2026_06_01|t_rast_gapfill|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    filled_2026_06_02@t_rast_gapfill|filled_2026_06_02|t_rast_gapfill|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    rain_2026_06_03@t_rast_gapfill|rain_2026_06_03|t_rast_gapfill|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    filled_2026_06_04@t_rast_gapfill|filled_2026_06_04|t_rast_gapfill|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+    filled_2026_06_05@t_rast_gapfill|filled_2026_06_05|t_rast_gapfill|2026-06-05 00:00:00|2026-06-06 00:00:00|1.0|4.0
+    filled_2026_06_06@t_rast_gapfill|filled_2026_06_06|t_rast_gapfill|2026-06-06 00:00:00|2026-06-07 00:00:00|1.0|5.0
+    rain_2026_06_07@t_rast_gapfill|rain_2026_06_07|t_rast_gapfill|2026-06-07 00:00:00|2026-06-08 00:00:00|1.0|6.0
     ```
 
 ### Draw the filled maps
 
 The figure shows the seven maps of the dataset `rain` in time order, with the
-four maps that *t.rast.gapfill* made in the first example marked. *r.colors*
+four maps that *t.rast.gapfill* made in the second example marked. *r.colors*
 gives all maps the same colour table, `viridis`, over their common range from
-11 to 73, so the colour of a map follows its level: it grows from the dark map
+10 to 70, so the colour of a map follows its level: it grows from the dark map
 of June 1 to the bright map of June 7 in equal steps over the gaps. *d.frame*
 makes one frame for each map and each label, *d.rast* draws a map and *d.text*
 writes a label.
@@ -225,7 +425,7 @@ writes a label.
 === "Command line"
 
     ```sh
-    maps=rain_1,filled_2026_06_02,rain_2,filled_2026_06_04,filled_2026_06_05,filled_2026_06_06,rain_3
+    maps=rain_2026_06_01,filled_2026_06_02,rain_2026_06_03,filled_2026_06_04,filled_2026_06_05,filled_2026_06_06,rain_2026_06_07
     r.colors map=$maps color=viridis
     d.mon start=cairo output=t_rast_gapfill_filled.png width=700 height=170
     day=1
@@ -248,7 +448,10 @@ writes a label.
 === "Python (grass.tools)"
 
     ```python
-    maps = "rain_1,filled_2026_06_02,rain_2,filled_2026_06_04,filled_2026_06_05,filled_2026_06_06,rain_3"
+    maps = (
+        "rain_2026_06_01,filled_2026_06_02,rain_2026_06_03,filled_2026_06_04,"
+        "filled_2026_06_05,filled_2026_06_06,rain_2026_06_07"
+    )
     tools.r_colors(map=maps, color="viridis")
     tools.d_mon(start="cairo", output="t_rast_gapfill_filled.png", width=700, height=170)
     for day, name in enumerate(maps.split(","), start=1):
@@ -272,7 +475,7 @@ level 10 of June 1 to the level 70 of June 7.*
 
 ### Fill only some gaps and name the maps by time
 
-The dataset `wet` holds the same three maps as the first example, under new
+The dataset `wet` holds the same three maps as the second example, under new
 names, so its gaps are the same. The option **where** keeps the maps that start
 on or after June 3, which are the maps of June 3 and June 7. The gap between
 them, from June 4 to June 6, is filled; the gap of June 2 lies before the
@@ -283,13 +486,13 @@ the same time; the result is the same as with one.
 === "Command line"
 
     ```sh
-    r.mapcalc expression="wet_1 = 10.0 + col()"
-    r.mapcalc expression="wet_2 = 30.0 + col()"
-    r.mapcalc expression="wet_3 = 70.0 + col()"
-    t.create output=wet title="Wet" description="Daily rain with gaps"
-    t.register input=wet maps=wet_1 start=2026-06-01 end=2026-06-02
-    t.register input=wet maps=wet_2 start=2026-06-03 end=2026-06-04
-    t.register input=wet maps=wet_3 start=2026-06-07 end=2026-06-08
+    r.mapcalc expression="wet_2026_06_01 = 10.0"
+    r.mapcalc expression="wet_2026_06_03 = 30.0"
+    r.mapcalc expression="wet_2026_06_07 = 70.0"
+    t.create output=wet title="Wet" description="Daily rain in mm with gaps"
+    t.register input=wet maps=wet_2026_06_01 start=2026-06-01 end=2026-06-02
+    t.register input=wet maps=wet_2026_06_03 start=2026-06-03 end=2026-06-04
+    t.register input=wet maps=wet_2026_06_07 start=2026-06-07 end=2026-06-08
     t.rast.gapfill input=wet basename=late suffix=time nprocs=2 \
         where="start_time >= '2026-06-03'"
     t.rast.list input=wet columns=name,start_time,min,max
@@ -297,23 +500,29 @@ the same time; the result is the same as with one.
 
     ```text
     name|start_time|min|max
-    wet_1|2026-06-01 00:00:00|11.0|13.0
-    wet_2|2026-06-03 00:00:00|31.0|33.0
-    late_2026_06_04T00_00_00|2026-06-04 00:00:00|41.0|43.0
-    late_2026_06_05T00_00_00|2026-06-05 00:00:00|51.0|53.0
-    late_2026_06_06T00_00_00|2026-06-06 00:00:00|61.0|63.0
-    wet_3|2026-06-07 00:00:00|71.0|73.0
+    wet_2026_06_01|2026-06-01 00:00:00|10.0|10.0
+    wet_2026_06_03|2026-06-03 00:00:00|30.0|30.0
+    late_2026_06_04T00_00_00|2026-06-04 00:00:00|40.0|40.0
+    late_2026_06_05T00_00_00|2026-06-05 00:00:00|50.0|50.0
+    late_2026_06_06T00_00_00|2026-06-06 00:00:00|60.0|60.0
+    wet_2026_06_07|2026-06-07 00:00:00|70.0|70.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for number, level in ((1, 10), (2, 30), (3, 70)):
-        tools.r_mapcalc(expression=f"wet_{number} = {level}.0 + col()")
-    tools.t_create(output="wet", title="Wet", description="Daily rain with gaps")
-    tools.t_register(input="wet", maps="wet_1", start="2026-06-01", end="2026-06-02")
-    tools.t_register(input="wet", maps="wet_2", start="2026-06-03", end="2026-06-04")
-    tools.t_register(input="wet", maps="wet_3", start="2026-06-07", end="2026-06-08")
+    for day, level in ((1, 10), (3, 30), (7, 70)):
+        tools.r_mapcalc(expression=f"wet_2026_06_{day:02d} = {level}.0")
+    tools.t_create(output="wet", title="Wet", description="Daily rain in mm with gaps")
+    tools.t_register(
+        input="wet", maps="wet_2026_06_01", start="2026-06-01", end="2026-06-02"
+    )
+    tools.t_register(
+        input="wet", maps="wet_2026_06_03", start="2026-06-03", end="2026-06-04"
+    )
+    tools.t_register(
+        input="wet", maps="wet_2026_06_07", start="2026-06-07", end="2026-06-08"
+    )
     tools.t_rast_gapfill(
         input="wet",
         basename="late",
@@ -326,12 +535,12 @@ the same time; the result is the same as with one.
 
     ```text
     name|start_time|min|max
-    wet_1|2026-06-01 00:00:00|11.0|13.0
-    wet_2|2026-06-03 00:00:00|31.0|33.0
-    late_2026_06_04T00_00_00|2026-06-04 00:00:00|41.0|43.0
-    late_2026_06_05T00_00_00|2026-06-05 00:00:00|51.0|53.0
-    late_2026_06_06T00_00_00|2026-06-06 00:00:00|61.0|63.0
-    wet_3|2026-06-07 00:00:00|71.0|73.0
+    wet_2026_06_01|2026-06-01 00:00:00|10.0|10.0
+    wet_2026_06_03|2026-06-03 00:00:00|30.0|30.0
+    late_2026_06_04T00_00_00|2026-06-04 00:00:00|40.0|40.0
+    late_2026_06_05T00_00_00|2026-06-05 00:00:00|50.0|50.0
+    late_2026_06_06T00_00_00|2026-06-06 00:00:00|60.0|60.0
+    wet_2026_06_07|2026-06-07 00:00:00|70.0|70.0
     ```
 
 ### Fill the gaps of a dataset with relative time
@@ -349,52 +558,52 @@ the first number is 4 + 1 = 5, the second counts the two new maps. With
 === "Command line"
 
     ```sh
-    r.mapcalc expression="step_1 = 100"
-    r.mapcalc expression="step_2 = 200"
-    r.mapcalc expression="step_3 = 500"
+    r.mapcalc expression="runoff_hour_0 = 100"
+    r.mapcalc expression="runoff_hour_1 = 200"
+    r.mapcalc expression="runoff_hour_4 = 500"
     t.create output=model temporaltype=relative title="Model" \
         description="Model output per hour"
-    t.register input=model maps=step_1 start=0 end=1 unit=hours
-    t.register input=model maps=step_2 start=1 end=2 unit=hours
-    t.register input=model maps=step_3 start=4 end=5 unit=hours
+    t.register input=model maps=runoff_hour_0 start=0 end=1 unit=hours
+    t.register input=model maps=runoff_hour_1 start=1 end=2 unit=hours
+    t.register input=model maps=runoff_hour_4 start=4 end=5 unit=hours
     t.rast.gapfill input=model basename=interp suffix=num%02
     t.rast.list input=model columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    step_1|0|1|100.0|100.0
-    step_2|1|2|200.0|200.0
+    runoff_hour_0|0|1|100.0|100.0
+    runoff_hour_1|1|2|200.0|200.0
     interp_05_01|2|3|300.0|300.0
     interp_05_02|3|4|400.0|400.0
-    step_3|4|5|500.0|500.0
+    runoff_hour_4|4|5|500.0|500.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for number, value in ((1, 100), (2, 200), (3, 500)):
-        tools.r_mapcalc(expression=f"step_{number} = {value}")
+    for hour, value in ((0, 100), (1, 200), (4, 500)):
+        tools.r_mapcalc(expression=f"runoff_hour_{hour} = {value}")
     tools.t_create(
         output="model",
         temporaltype="relative",
         title="Model",
         description="Model output per hour",
     )
-    tools.t_register(input="model", maps="step_1", start=0, end=1, unit="hours")
-    tools.t_register(input="model", maps="step_2", start=1, end=2, unit="hours")
-    tools.t_register(input="model", maps="step_3", start=4, end=5, unit="hours")
+    tools.t_register(input="model", maps="runoff_hour_0", start=0, end=1, unit="hours")
+    tools.t_register(input="model", maps="runoff_hour_1", start=1, end=2, unit="hours")
+    tools.t_register(input="model", maps="runoff_hour_4", start=4, end=5, unit="hours")
     tools.t_rast_gapfill(input="model", basename="interp", suffix="num%02")
     print(tools.t_rast_list(input="model", columns="name,start_time,end_time,min,max").text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    step_1|0|1|100.0|100.0
-    step_2|1|2|200.0|200.0
+    runoff_hour_0|0|1|100.0|100.0
+    runoff_hour_1|1|2|200.0|200.0
     interp_05_01|2|3|300.0|300.0
     interp_05_02|3|4|400.0|400.0
-    step_3|4|5|500.0|500.0
+    runoff_hour_4|4|5|500.0|500.0
     ```
 
 <!-- markdownlint-enable MD046 -->
