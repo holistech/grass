@@ -21,7 +21,7 @@ name and the label are separated by a single dot. Labels are given to maps by
 with *[t.register](t.register.md)*.
 
 The option **where** takes an SQL condition on the columns of the registered
-maps, such as `max > 5`, `name = 'temperature_1'` or
+maps, such as `max > 5`, `name = 'temperature_2026_03_01'` or
 `start_time >= '2026-03-02'`. Times are compared as text, so a time with a
 clock part needs the whole text: `start_time = '2026-03-02'` selects nothing,
 because the stored value is `2026-03-02 00:00:00`. Use `>=` and `<` for a day,
@@ -38,7 +38,7 @@ The option **columns** chooses the columns that are printed for each map,
 separated by commas. The columns are:
 
 - `id`, the name of the map with its mapset, such as
-  `temperature_1@PERMANENT`; `name` and `mapset`, the two parts of it;
+  `temperature_2026_03_01@t_rast_list`; `name` and `mapset`, the two parts of it;
 - `semantic_label`, the semantic label of the map, `None` for a map without
   one;
 - `temporal_type`, `absolute` or `relative`;
@@ -165,7 +165,7 @@ the "Choose the output format" example shows. To print the listing, leave out
 **output**; to keep it in a file, give a file name other than `-`.
 
 *t.rast.list* only reads, so it works on a dataset of another mapset as well.
-The name with the mapset (`input=temperature@PERMANENT`) selects it; a name
+The name with the mapset (`input=temperature@t_rast_list`) selects it; a name
 without a mapset is searched in the mapsets of the search path (see
 *[g.mapsets](g.mapsets.md)*). The last example shows this.
 
@@ -180,45 +180,59 @@ granularity".
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_list` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.rast.list* reads the temporal database only, so the maps hold small
+integer values in two halves: the first 167 rows, counted from the north, hold
+the low value of the map, the remaining rows the high value, and the smallest
+and the largest value of a map are these two values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_list -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### List the maps of a dataset
 
-The dataset `temperature` has four maps of daily mean air temperature for the
-days from 1 to 4 March 2026. Each map has three columns and two rows; the
-values are the column number plus an offset, so the smallest and largest
-value of `temperature_1` are 1 and 3. The offsets 0, 6, 3 and 9 make the
-third map colder than the second one.
+The dataset `temperature` has four maps of daily mean air temperature over
+North Carolina for the days from 1 to 4 March 2026. The northern half of each
+map holds the low value and the southern half the high value, in degrees
+Celsius: 1 and 3, 7 and 9, 4 and 6, 10 and 12. The smallest and largest value
+of `temperature_2026_03_01` are therefore 1 and 3, and the third map is colder
+than the second one.
 
 The first block lists the maps with the default columns. The second block adds
 the flag **-u**, which suppresses the line with the column names. The third
 block names the columns, among them the smallest and largest value of each
 map. The fourth block lists all columns of the first map except `creator` and
 `creation_time`, which differ from user to user and from day to day. The map
-has no semantic label.
+has no semantic label, and its extent is the computational region of 839 by
+335 cells of 1000 m.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col()"
-    r.mapcalc expression="temperature_2 = col() + 6"
-    r.mapcalc expression="temperature_3 = col() + 3"
-    r.mapcalc expression="temperature_4 = col() + 9"
+    g.mapset -c mapset=t_rast_list
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="temperature_2026_03_01 = if(row() <= 167, 1, 3)"
+    r.mapcalc expression="temperature_2026_03_02 = if(row() <= 167, 7, 9)"
+    r.mapcalc expression="temperature_2026_03_03 = if(row() <= 167, 4, 6)"
+    r.mapcalc expression="temperature_2026_03_04 = if(row() <= 167, 10, 12)"
     t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
+        description="Daily mean air temperature in degree Celsius"
     t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4 \
+        maps=temperature_2026_03_01,temperature_2026_03_02,temperature_2026_03_03,temperature_2026_03_04 \
         start=2026-03-01 increment="1 day"
     t.rast.list input=temperature
     ```
 
     ```text
     name|mapset|start_time|end_time
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_2026_03_01|t_rast_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2026_03_02|t_rast_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_2026_03_03|t_rast_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_2026_03_04|t_rast_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```sh
@@ -226,10 +240,10 @@ has no semantic label.
     ```
 
     ```text
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_2026_03_01|t_rast_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2026_03_02|t_rast_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_2026_03_03|t_rast_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_2026_03_04|t_rast_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```sh
@@ -238,20 +252,20 @@ has no semantic label.
 
     ```text
     name|start_time|min|max
-    temperature_1|2026-03-01 00:00:00|1.0|3.0
-    temperature_2|2026-03-02 00:00:00|7.0|9.0
-    temperature_3|2026-03-03 00:00:00|4.0|6.0
-    temperature_4|2026-03-04 00:00:00|10.0|12.0
+    temperature_2026_03_01|2026-03-01 00:00:00|1.0|3.0
+    temperature_2026_03_02|2026-03-02 00:00:00|7.0|9.0
+    temperature_2026_03_03|2026-03-03 00:00:00|4.0|6.0
+    temperature_2026_03_04|2026-03-04 00:00:00|10.0|12.0
     ```
 
     ```sh
-    t.rast.list input=temperature where="name = 'temperature_1'" \
+    t.rast.list input=temperature where="name = 'temperature_2026_03_01'" \
         columns=id,name,semantic_label,mapset,temporal_type,start_time,end_time,north,south,west,east,nsres,ewres,cols,rows,number_of_cells,min,max
     ```
 
     ```text
     id|name|semantic_label|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|cols|rows|number_of_cells|min|max
-    temperature_1@PERMANENT|temperature_1|None|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|3|2|6|1.0|3.0
+    temperature_2026_03_01@t_rast_list|temperature_2026_03_01|None|t_rast_list|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|319000.0|-16000.0|124000.0|963000.0|1000.0|1000.0|839|335|281065|1.0|3.0
     ```
 
 === "Python (grass.tools)"
@@ -260,17 +274,19 @@ has no semantic label.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    for number, offset in enumerate((0, 6, 3, 9), start=1):
-        tools.r_mapcalc(expression=f"temperature_{number} = col() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast_list")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    for day, (low, high) in enumerate(((1, 3), (7, 9), (4, 6), (10, 12)), start=1):
+        expression = f"temperature_2026_03_0{day} = if(row() <= 167, {low}, {high})"
+        tools.r_mapcalc(expression=expression)
     tools.t_create(
         output="temperature",
         title="Air temperature",
-        description="Daily mean air temperature",
+        description="Daily mean air temperature in degree Celsius",
     )
     tools.t_register(
         input="temperature",
-        maps="temperature_1,temperature_2,temperature_3,temperature_4",
+        maps="temperature_2026_03_01,temperature_2026_03_02,temperature_2026_03_03,temperature_2026_03_04",
         start="2026-03-01",
         increment="1 day",
         flags="i",
@@ -280,10 +296,10 @@ has no semantic label.
 
     ```text
     name|mapset|start_time|end_time
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_2026_03_01|t_rast_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2026_03_02|t_rast_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_2026_03_03|t_rast_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_2026_03_04|t_rast_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```python
@@ -291,10 +307,10 @@ has no semantic label.
     ```
 
     ```text
-    temperature_1|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    temperature_2|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    temperature_3|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    temperature_4|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    temperature_2026_03_01|t_rast_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    temperature_2026_03_02|t_rast_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    temperature_2026_03_03|t_rast_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    temperature_2026_03_04|t_rast_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```python
@@ -303,16 +319,16 @@ has no semantic label.
 
     ```text
     name|start_time|min|max
-    temperature_1|2026-03-01 00:00:00|1.0|3.0
-    temperature_2|2026-03-02 00:00:00|7.0|9.0
-    temperature_3|2026-03-03 00:00:00|4.0|6.0
-    temperature_4|2026-03-04 00:00:00|10.0|12.0
+    temperature_2026_03_01|2026-03-01 00:00:00|1.0|3.0
+    temperature_2026_03_02|2026-03-02 00:00:00|7.0|9.0
+    temperature_2026_03_03|2026-03-03 00:00:00|4.0|6.0
+    temperature_2026_03_04|2026-03-04 00:00:00|10.0|12.0
     ```
 
     ```python
     result = tools.t_rast_list(
         input="temperature",
-        where="name = 'temperature_1'",
+        where="name = 'temperature_2026_03_01'",
         columns=(
             "id,name,semantic_label,mapset,temporal_type,start_time,end_time,"
             "north,south,west,east,nsres,ewres,cols,rows,number_of_cells,min,max"
@@ -323,7 +339,7 @@ has no semantic label.
 
     ```text
     id|name|semantic_label|mapset|temporal_type|start_time|end_time|north|south|west|east|nsres|ewres|cols|rows|number_of_cells|min|max
-    temperature_1@PERMANENT|temperature_1|None|PERMANENT|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|2.0|0.0|0.0|3.0|1.0|1.0|3|2|6|1.0|3.0
+    temperature_2026_03_01@t_rast_list|temperature_2026_03_01|None|t_rast_list|absolute|2026-03-01 00:00:00|2026-03-02 00:00:00|319000.0|-16000.0|124000.0|963000.0|1000.0|1000.0|839|335|281065|1.0|3.0
     ```
 
 ### Select and sort the maps
@@ -352,10 +368,10 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|max
-    temperature_1|3.0
-    temperature_3|6.0
-    temperature_2|9.0
-    temperature_4|12.0
+    temperature_2026_03_01|3.0
+    temperature_2026_03_03|6.0
+    temperature_2026_03_02|9.0
+    temperature_2026_03_04|12.0
     ```
 
     ```sh
@@ -365,8 +381,8 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|start_time
-    temperature_2|2026-03-02 00:00:00
-    temperature_3|2026-03-03 00:00:00
+    temperature_2026_03_02|2026-03-02 00:00:00
+    temperature_2026_03_03|2026-03-03 00:00:00
     ```
 
     ```sh
@@ -375,9 +391,9 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|min|max
-    temperature_3|4.0|6.0
-    temperature_2|7.0|9.0
-    temperature_4|10.0|12.0
+    temperature_2026_03_03|4.0|6.0
+    temperature_2026_03_02|7.0|9.0
+    temperature_2026_03_04|10.0|12.0
     ```
 
     ```sh
@@ -387,8 +403,8 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|start_time
-    temperature_1|2026-03-01 00:00:00
-    temperature_4|2026-03-04 00:00:00
+    temperature_2026_03_01|2026-03-01 00:00:00
+    temperature_2026_03_04|2026-03-04 00:00:00
     ```
 
     ```sh
@@ -409,10 +425,10 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|max
-    temperature_1|3.0
-    temperature_3|6.0
-    temperature_2|9.0
-    temperature_4|12.0
+    temperature_2026_03_01|3.0
+    temperature_2026_03_03|6.0
+    temperature_2026_03_02|9.0
+    temperature_2026_03_04|12.0
     ```
 
     ```python
@@ -426,8 +442,8 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|start_time
-    temperature_2|2026-03-02 00:00:00
-    temperature_3|2026-03-03 00:00:00
+    temperature_2026_03_02|2026-03-02 00:00:00
+    temperature_2026_03_03|2026-03-03 00:00:00
     ```
 
     ```python
@@ -439,9 +455,9 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|min|max
-    temperature_3|4.0|6.0
-    temperature_2|7.0|9.0
-    temperature_4|10.0|12.0
+    temperature_2026_03_03|4.0|6.0
+    temperature_2026_03_02|7.0|9.0
+    temperature_2026_03_04|10.0|12.0
     ```
 
     ```python
@@ -455,8 +471,8 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 
     ```text
     name|start_time
-    temperature_1|2026-03-01 00:00:00
-    temperature_4|2026-03-04 00:00:00
+    temperature_2026_03_01|2026-03-01 00:00:00
+    temperature_2026_03_04|2026-03-04 00:00:00
     ```
 
     ```python
@@ -476,31 +492,36 @@ shows the empty result, `data` is an empty list; the formats `plain` and
 ### Select maps by semantic label
 
 The dataset `sentinel` has two scenes, on 1 and 11 June 2026, each with a red
-band (`S2_B4`) and a near infrared band (`S2_B8`). The maps are registered at
-an instant, without an end, so their `end_time` is `None`. The name of the
-dataset followed by a dot and a label, `sentinel.S2_B8`, lists the maps with
-this label. The second block adds **where** to the selection by label.
+band (`S2_B4`) and a near infrared band (`S2_B8`) of constant reflectance. The
+maps are registered at an instant, without an end, so their `end_time` is
+`None`. The name of the dataset followed by a dot and a label,
+`sentinel.S2_B8`, lists the maps with this label. The second block adds
+**where** to the selection by label.
 
 === "Command line"
 
     ```sh
-    for scene in 1 2; do
-        r.mapcalc expression="red_$scene = 0.0$((scene + 4))"
-        r.mapcalc expression="nir_$scene = 0.$((scene + 2))5"
-        r.support map=red_$scene semantic_label=S2_B4
-        r.support map=nir_$scene semantic_label=S2_B8
+    r.mapcalc expression="red_2026_06_01 = 0.05"
+    r.mapcalc expression="red_2026_06_11 = 0.06"
+    r.mapcalc expression="nir_2026_06_01 = 0.35"
+    r.mapcalc expression="nir_2026_06_11 = 0.45"
+    for date in 2026_06_01 2026_06_11; do
+        r.support map=red_$date semantic_label=S2_B4
+        r.support map=nir_$date semantic_label=S2_B8
     done
     t.create output=sentinel title="Reflectance" \
         description="Red and near infrared"
-    t.register input=sentinel maps=red_1,nir_1 start="2026-06-01 10:30:00"
-    t.register input=sentinel maps=red_2,nir_2 start="2026-06-11 10:30:00"
+    t.register input=sentinel maps=red_2026_06_01,nir_2026_06_01 \
+        start="2026-06-01 10:30:00"
+    t.register input=sentinel maps=red_2026_06_11,nir_2026_06_11 \
+        start="2026-06-11 10:30:00"
     t.rast.list input=sentinel.S2_B8
     ```
 
     ```text
     name|mapset|start_time|end_time
-    nir_1|PERMANENT|2026-06-01 10:30:00|None
-    nir_2|PERMANENT|2026-06-11 10:30:00|None
+    nir_2026_06_01|t_rast_list|2026-06-01 10:30:00|None
+    nir_2026_06_11|t_rast_list|2026-06-11 10:30:00|None
     ```
 
     ```sh
@@ -510,29 +531,39 @@ this label. The second block adds **where** to the selection by label.
 
     ```text
     name|semantic_label|start_time
-    red_2|S2_B4|2026-06-11 10:30:00
+    red_2026_06_11|S2_B4|2026-06-11 10:30:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for scene in (1, 2):
-        tools.r_mapcalc(expression=f"red_{scene} = 0.0{scene + 4}")
-        tools.r_mapcalc(expression=f"nir_{scene} = 0.{scene + 2}5")
-        tools.r_support(map=f"red_{scene}", semantic_label="S2_B4")
-        tools.r_support(map=f"nir_{scene}", semantic_label="S2_B8")
+    tools.r_mapcalc(expression="red_2026_06_01 = 0.05")
+    tools.r_mapcalc(expression="red_2026_06_11 = 0.06")
+    tools.r_mapcalc(expression="nir_2026_06_01 = 0.35")
+    tools.r_mapcalc(expression="nir_2026_06_11 = 0.45")
+    for date in ("2026_06_01", "2026_06_11"):
+        tools.r_support(map=f"red_{date}", semantic_label="S2_B4")
+        tools.r_support(map=f"nir_{date}", semantic_label="S2_B8")
     tools.t_create(
         output="sentinel", title="Reflectance", description="Red and near infrared"
     )
-    tools.t_register(input="sentinel", maps="red_1,nir_1", start="2026-06-01 10:30:00")
-    tools.t_register(input="sentinel", maps="red_2,nir_2", start="2026-06-11 10:30:00")
+    tools.t_register(
+        input="sentinel",
+        maps="red_2026_06_01,nir_2026_06_01",
+        start="2026-06-01 10:30:00",
+    )
+    tools.t_register(
+        input="sentinel",
+        maps="red_2026_06_11,nir_2026_06_11",
+        start="2026-06-11 10:30:00",
+    )
     print(tools.t_rast_list(input="sentinel.S2_B8").text)
     ```
 
     ```text
     name|mapset|start_time|end_time
-    nir_1|PERMANENT|2026-06-01 10:30:00|None
-    nir_2|PERMANENT|2026-06-11 10:30:00|None
+    nir_2026_06_01|t_rast_list|2026-06-01 10:30:00|None
+    nir_2026_06_11|t_rast_list|2026-06-11 10:30:00|None
     ```
 
     ```python
@@ -546,7 +577,7 @@ this label. The second block adds **where** to the selection by label.
 
     ```text
     name|semantic_label|start_time
-    red_2|S2_B4|2026-06-11 10:30:00
+    red_2026_06_11|S2_B4|2026-06-11 10:30:00
     ```
 
 ### Choose the output format
@@ -568,7 +599,7 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    temperature_1@PERMANENT,temperature_2@PERMANENT,temperature_3@PERMANENT,temperature_4@PERMANENT
+    temperature_2026_03_01@t_rast_list,temperature_2026_03_02@t_rast_list,temperature_2026_03_03@t_rast_list,temperature_2026_03_04@t_rast_list
     ```
 
     ```sh
@@ -576,7 +607,7 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    temperature_1 | temperature_2 | temperature_3 | temperature_4
+    temperature_2026_03_01 | temperature_2026_03_02 | temperature_2026_03_03 | temperature_2026_03_04
     ```
 
     ```sh
@@ -585,10 +616,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     "name","min","max"
-    "temperature_1",1.0,3.0
-    "temperature_2",7.0,9.0
-    "temperature_3",4.0,6.0
-    "temperature_4",10.0,12.0
+    "temperature_2026_03_01",1.0,3.0
+    "temperature_2026_03_02",7.0,9.0
+    "temperature_2026_03_03",4.0,6.0
+    "temperature_2026_03_04",10.0,12.0
     ```
 
     ```sh
@@ -596,10 +627,10 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    "temperature_1",1.0,3.0
-    "temperature_2",7.0,9.0
-    "temperature_3",4.0,6.0
-    "temperature_4",10.0,12.0
+    "temperature_2026_03_01",1.0,3.0
+    "temperature_2026_03_02",7.0,9.0
+    "temperature_2026_03_03",4.0,6.0
+    "temperature_2026_03_04",10.0,12.0
     ```
 
     ```sh
@@ -608,10 +639,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name;min;max
-    temperature_1;1.0;3.0
-    temperature_2;7.0;9.0
-    temperature_3;4.0;6.0
-    temperature_4;10.0;12.0
+    temperature_2026_03_01;1.0;3.0
+    temperature_2026_03_02;7.0;9.0
+    temperature_2026_03_03;4.0;6.0
+    temperature_2026_03_04;10.0;12.0
     ```
 
     ```sh
@@ -620,7 +651,7 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    {"data": [{"name": "temperature_1", "max": 3.0}, {"name": "temperature_2", "max": 9.0}, {"name": "temperature_3", "max": 6.0}, {"name": "temperature_4", "max": 12.0}], "metadata": {"column_names": ["name", "max"]}}
+    {"data": [{"name": "temperature_2026_03_01", "max": 3.0}, {"name": "temperature_2026_03_02", "max": 9.0}, {"name": "temperature_2026_03_03", "max": 6.0}, {"name": "temperature_2026_03_04", "max": 12.0}], "metadata": {"column_names": ["name", "max"]}}
     ```
 
     ```sh
@@ -630,10 +661,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name|max
-    temperature_1|3.0
-    temperature_2|9.0
-    temperature_3|6.0
-    temperature_4|12.0
+    temperature_2026_03_01|3.0
+    temperature_2026_03_02|9.0
+    temperature_2026_03_03|6.0
+    temperature_2026_03_04|12.0
     ```
 
     ```sh
@@ -643,10 +674,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name
-    temperature_1
-    temperature_2
-    temperature_3
-    temperature_4
+    temperature_2026_03_01
+    temperature_2026_03_02
+    temperature_2026_03_03
+    temperature_2026_03_04
     ```
 
 === "Python (grass.tools)"
@@ -658,7 +689,7 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    temperature_1@PERMANENT,temperature_2@PERMANENT,temperature_3@PERMANENT,temperature_4@PERMANENT
+    temperature_2026_03_01@t_rast_list,temperature_2026_03_02@t_rast_list,temperature_2026_03_03@t_rast_list,temperature_2026_03_04@t_rast_list
     ```
 
     ```python
@@ -669,7 +700,7 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    temperature_1 | temperature_2 | temperature_3 | temperature_4
+    temperature_2026_03_01 | temperature_2026_03_02 | temperature_2026_03_03 | temperature_2026_03_04
     ```
 
     ```python
@@ -679,10 +710,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     "name","min","max"
-    "temperature_1",1.0,3.0
-    "temperature_2",7.0,9.0
-    "temperature_3",4.0,6.0
-    "temperature_4",10.0,12.0
+    "temperature_2026_03_01",1.0,3.0
+    "temperature_2026_03_02",7.0,9.0
+    "temperature_2026_03_03",4.0,6.0
+    "temperature_2026_03_04",10.0,12.0
     ```
 
     ```python
@@ -693,10 +724,10 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    "temperature_1",1.0,3.0
-    "temperature_2",7.0,9.0
-    "temperature_3",4.0,6.0
-    "temperature_4",10.0,12.0
+    "temperature_2026_03_01",1.0,3.0
+    "temperature_2026_03_02",7.0,9.0
+    "temperature_2026_03_03",4.0,6.0
+    "temperature_2026_03_04",10.0,12.0
     ```
 
     ```python
@@ -706,10 +737,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name;min;max
-    temperature_1;1.0;3.0
-    temperature_2;7.0;9.0
-    temperature_3;4.0;6.0
-    temperature_4;10.0;12.0
+    temperature_2026_03_01;1.0;3.0
+    temperature_2026_03_02;7.0;9.0
+    temperature_2026_03_03;4.0;6.0
+    temperature_2026_03_04;10.0;12.0
     ```
 
     ```python
@@ -719,10 +750,10 @@ block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    temperature_1 3.0
-    temperature_2 9.0
-    temperature_3 6.0
-    temperature_4 12.0
+    temperature_2026_03_01 3.0
+    temperature_2026_03_02 9.0
+    temperature_2026_03_03 6.0
+    temperature_2026_03_04 12.0
     ```
 
     ```python
@@ -732,10 +763,10 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name|max
-    temperature_1|3.0
-    temperature_2|9.0
-    temperature_3|6.0
-    temperature_4|12.0
+    temperature_2026_03_01|3.0
+    temperature_2026_03_02|9.0
+    temperature_2026_03_03|6.0
+    temperature_2026_03_04|12.0
     ```
 
     ```python
@@ -745,20 +776,20 @@ block shows that `output=-` writes a file named `-`.
 
     ```text
     name
-    temperature_1
-    temperature_2
-    temperature_3
-    temperature_4
+    temperature_2026_03_01
+    temperature_2026_03_02
+    temperature_2026_03_03
+    temperature_2026_03_04
     ```
 
 ### Intervals, distances and gaps
 
 The dataset `rain` has two daily maps, registered with a start and an end:
-`rain_1` for 1 June 2026 and `rain_3` for 3 June, so 2 June is a gap. The
-method `delta` prints the length of each map and its distance from the first
-map in days; it skips the gap. The method `deltagaps` adds a line for the gap
-with `None` as `id`, `name` and `mapset`, and its length. The CSV form of this
-table shows `None` as an empty text.
+`rain_2026_06_01` for 1 June 2026 and `rain_2026_06_03` for 3 June, so 2 June
+is a gap. The method `delta` prints the length of each map and its distance
+from the first map in days; it skips the gap. The method `deltagaps` adds a
+line for the gap with `None` as `id`, `name` and `mapset`, and its length.
+The CSV form of this table shows `None` as an empty text.
 
 The dataset `model` has relative time: three model steps of 6 hours. Its times,
 lengths and distances are numbers of hours, printed without the unit.
@@ -766,18 +797,19 @@ lengths and distances are numbers of hours, printed without the unit.
 === "Command line"
 
     ```sh
-    r.mapcalc expression="rain_1 = 4"
-    r.mapcalc expression="rain_3 = 2"
-    t.create output=rain title="Rain" description="Daily rain with a gap"
-    t.register input=rain maps=rain_1 start=2026-06-01 end=2026-06-02
-    t.register input=rain maps=rain_3 start=2026-06-03 end=2026-06-04
+    r.mapcalc expression="rain_2026_06_01 = 4"
+    r.mapcalc expression="rain_2026_06_03 = 2"
+    t.create output=rain title="Rain" \
+        description="Daily rain in mm with a gap"
+    t.register input=rain maps=rain_2026_06_01 start=2026-06-01 end=2026-06-02
+    t.register input=rain maps=rain_2026_06_03 start=2026-06-03 end=2026-06-04
     t.rast.list input=rain method=delta
     ```
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_01@t_rast_list|rain_2026_06_01|t_rast_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_03@t_rast_list|rain_2026_06_03|t_rast_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```sh
@@ -786,9 +818,9 @@ lengths and distances are numbers of hours, printed without the unit.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_01@t_rast_list|rain_2026_06_01|t_rast_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_03@t_rast_list|rain_2026_06_03|t_rast_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```sh
@@ -797,44 +829,48 @@ lengths and distances are numbers of hours, printed without the unit.
 
     ```text
     "id","interval_length"
-    "rain_1@PERMANENT",1.0
+    "rain_2026_06_01@t_rast_list",1.0
     "",1.0
-    "rain_3@PERMANENT",1.0
+    "rain_2026_06_03@t_rast_list",1.0
     ```
 
     ```sh
     for step in 1 2 3; do
-        r.mapcalc expression="step_$step = $step"
+        r.mapcalc expression="runoff_$step = $step"
     done
     t.create output=model temporaltype=relative title="Model" \
-        description="Model output per step of 6 hours"
-    t.register -i input=model maps=step_1,step_2,step_3 \
+        description="Simulated runoff in mm per model step of 6 hours"
+    t.register -i input=model maps=runoff_1,runoff_2,runoff_3 \
         start=0 increment=6 unit=hours
     t.rast.list input=model method=delta
     ```
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    runoff_1@t_rast_list|runoff_1|t_rast_list|0|6|6|0
+    runoff_2@t_rast_list|runoff_2|t_rast_list|6|12|6|6
+    runoff_3@t_rast_list|runoff_3|t_rast_list|12|18|6|12
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="rain_1 = 4")
-    tools.r_mapcalc(expression="rain_3 = 2")
-    tools.t_create(output="rain", title="Rain", description="Daily rain with a gap")
-    tools.t_register(input="rain", maps="rain_1", start="2026-06-01", end="2026-06-02")
-    tools.t_register(input="rain", maps="rain_3", start="2026-06-03", end="2026-06-04")
+    tools.r_mapcalc(expression="rain_2026_06_01 = 4")
+    tools.r_mapcalc(expression="rain_2026_06_03 = 2")
+    tools.t_create(output="rain", title="Rain", description="Daily rain in mm with a gap")
+    tools.t_register(
+        input="rain", maps="rain_2026_06_01", start="2026-06-01", end="2026-06-02"
+    )
+    tools.t_register(
+        input="rain", maps="rain_2026_06_03", start="2026-06-03", end="2026-06-04"
+    )
     print(tools.t_rast_list(input="rain", method="delta").text)
     ```
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_01@t_rast_list|rain_2026_06_01|t_rast_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_03@t_rast_list|rain_2026_06_03|t_rast_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```python
@@ -843,9 +879,9 @@ lengths and distances are numbers of hours, printed without the unit.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    rain_1@PERMANENT|rain_1|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    rain_2026_06_01@t_rast_list|rain_2026_06_01|t_rast_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    rain_3@PERMANENT|rain_3|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    rain_2026_06_03@t_rast_list|rain_2026_06_03|t_rast_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```python
@@ -857,23 +893,23 @@ lengths and distances are numbers of hours, printed without the unit.
 
     ```text
     "id","interval_length"
-    "rain_1@PERMANENT",1.0
+    "rain_2026_06_01@t_rast_list",1.0
     "",1.0
-    "rain_3@PERMANENT",1.0
+    "rain_2026_06_03@t_rast_list",1.0
     ```
 
     ```python
     for step in (1, 2, 3):
-        tools.r_mapcalc(expression=f"step_{step} = {step}")
+        tools.r_mapcalc(expression=f"runoff_{step} = {step}")
     tools.t_create(
         output="model",
         temporaltype="relative",
         title="Model",
-        description="Model output per step of 6 hours",
+        description="Simulated runoff in mm per model step of 6 hours",
     )
     tools.t_register(
         input="model",
-        maps="step_1,step_2,step_3",
+        maps="runoff_1,runoff_2,runoff_3",
         start=0,
         increment=6,
         unit="hours",
@@ -884,9 +920,9 @@ lengths and distances are numbers of hours, printed without the unit.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    runoff_1@t_rast_list|runoff_1|t_rast_list|0|6|6|0
+    runoff_2@t_rast_list|runoff_2|t_rast_list|6|12|6|6
+    runoff_3@t_rast_list|runoff_3|t_rast_list|12|18|6|12
     ```
 
 ### Sample the maps by a granule
@@ -904,21 +940,24 @@ of the dataset, 6 hours.
 === "Command line"
 
     ```sh
-    for month in 1 2 3 4; do
-        r.mapcalc expression="month_$month = $month"
-    done
-    t.create output=monthly title="Monthly" description="Monthly maps"
-    t.register -i input=monthly maps=month_1,month_2,month_3,month_4 \
+    r.mapcalc expression="precipitation_month_1 = 80"
+    r.mapcalc expression="precipitation_month_2 = 95"
+    r.mapcalc expression="precipitation_month_3 = 110"
+    r.mapcalc expression="precipitation_month_4 = 90"
+    t.create output=monthly title="Monthly" \
+        description="Monthly precipitation in mm"
+    t.register -i input=monthly \
+        maps=precipitation_month_1,precipitation_month_2,precipitation_month_3,precipitation_month_4 \
         start=2026-01-31 increment="1 month"
     t.rast.list input=monthly
     ```
 
     ```text
     name|mapset|start_time|end_time
-    month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
-    month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
-    month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
-    month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+    precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-02-28 00:00:00
+    precipitation_month_2|t_rast_list|2026-02-28 00:00:00|2026-03-31 00:00:00
+    precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-04-30 00:00:00
+    precipitation_month_4|t_rast_list|2026-04-30 00:00:00|2026-05-31 00:00:00
     ```
 
     ```sh
@@ -927,10 +966,10 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
-    month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
-    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
-    month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    precipitation_month_1@t_rast_list|precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    precipitation_month_2@t_rast_list|precipitation_month_2|t_rast_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    precipitation_month_3@t_rast_list|precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    precipitation_month_4@t_rast_list|precipitation_month_4|t_rast_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
     ```
 
     ```sh
@@ -939,8 +978,8 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
-    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+    precipitation_month_1@t_rast_list|precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+    precipitation_month_3@t_rast_list|precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
     ```
 
     ```sh
@@ -949,20 +988,25 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    runoff_1@t_rast_list|runoff_1|t_rast_list|0|6|6|0
+    runoff_2@t_rast_list|runoff_2|t_rast_list|6|12|6|6
+    runoff_3@t_rast_list|runoff_3|t_rast_list|12|18|6|12
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    for month in (1, 2, 3, 4):
-        tools.r_mapcalc(expression=f"month_{month} = {month}")
-    tools.t_create(output="monthly", title="Monthly", description="Monthly maps")
+    for month, value in enumerate((80, 95, 110, 90), start=1):
+        tools.r_mapcalc(expression=f"precipitation_month_{month} = {value}")
+    tools.t_create(
+        output="monthly", title="Monthly", description="Monthly precipitation in mm"
+    )
     tools.t_register(
         input="monthly",
-        maps="month_1,month_2,month_3,month_4",
+        maps=(
+            "precipitation_month_1,precipitation_month_2,"
+            "precipitation_month_3,precipitation_month_4"
+        ),
         start="2026-01-31",
         increment="1 month",
         flags="i",
@@ -972,10 +1016,10 @@ of the dataset, 6 hours.
 
     ```text
     name|mapset|start_time|end_time
-    month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00
-    month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00
-    month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00
-    month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00
+    precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-02-28 00:00:00
+    precipitation_month_2|t_rast_list|2026-02-28 00:00:00|2026-03-31 00:00:00
+    precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-04-30 00:00:00
+    precipitation_month_4|t_rast_list|2026-04-30 00:00:00|2026-05-31 00:00:00
     ```
 
     ```python
@@ -984,10 +1028,10 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
-    month_2@PERMANENT|month_2|PERMANENT|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
-    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
-    month_4@PERMANENT|month_4|PERMANENT|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
+    precipitation_month_1@t_rast_list|precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-02-28 00:00:00|28.0|0.0
+    precipitation_month_2@t_rast_list|precipitation_month_2|t_rast_list|2026-02-28 00:00:00|2026-03-31 00:00:00|31.0|28.0
+    precipitation_month_3@t_rast_list|precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-04-30 00:00:00|30.0|59.0
+    precipitation_month_4@t_rast_list|precipitation_month_4|t_rast_list|2026-04-30 00:00:00|2026-05-31 00:00:00|31.0|89.0
     ```
 
     ```python
@@ -996,8 +1040,8 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    month_1@PERMANENT|month_1|PERMANENT|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
-    month_3@PERMANENT|month_3|PERMANENT|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
+    precipitation_month_1@t_rast_list|precipitation_month_1|t_rast_list|2026-01-31 00:00:00|2026-03-31 00:00:00|59.0|0.0
+    precipitation_month_3@t_rast_list|precipitation_month_3|t_rast_list|2026-03-31 00:00:00|2026-05-31 00:00:00|61.0|59.0
     ```
 
     ```python
@@ -1006,76 +1050,81 @@ of the dataset, 6 hours.
 
     ```text
     id|name|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|PERMANENT|12|18|6|12
+    runoff_1@t_rast_list|runoff_1|t_rast_list|0|6|6|0
+    runoff_2@t_rast_list|runoff_2|t_rast_list|6|12|6|6
+    runoff_3@t_rast_list|runoff_3|t_rast_list|12|18|6|12
     ```
 
 ### Use a dataset of another mapset
 
 *t.rast.list* reads a dataset of another mapset. The example creates the
-mapset `other` and switches to it; the dataset `temperature` stays in the
-mapset `PERMANENT` and is named with its mapset. In the second block,
-*g.mapsets* shows that `PERMANENT` is in the search path of the new mapset, so
-the name `temperature` without a mapset finds the same dataset.
+mapset `t_rast_list_2` and switches to it; the dataset `temperature` stays in
+the mapset `t_rast_list` and is named with its mapset. In the second block,
+*g.mapsets* adds `t_rast_list` to the search path of the new mapset and prints
+the search path, so the name `temperature` without a mapset finds the same
+dataset.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    t.rast.list input=temperature@PERMANENT columns=id,start_time
+    g.mapset -c mapset=t_rast_list_2
+    g.region raster=elev_state_500m res=1000 -a
+    t.rast.list input=temperature@t_rast_list columns=id,start_time
     ```
 
     ```text
     id|start_time
-    temperature_1@PERMANENT|2026-03-01 00:00:00
-    temperature_2@PERMANENT|2026-03-02 00:00:00
-    temperature_3@PERMANENT|2026-03-03 00:00:00
-    temperature_4@PERMANENT|2026-03-04 00:00:00
+    temperature_2026_03_01@t_rast_list|2026-03-01 00:00:00
+    temperature_2026_03_02@t_rast_list|2026-03-02 00:00:00
+    temperature_2026_03_03@t_rast_list|2026-03-03 00:00:00
+    temperature_2026_03_04@t_rast_list|2026-03-04 00:00:00
     ```
 
     ```sh
+    g.mapsets mapset=t_rast_list operation=add
     g.mapsets -p
     t.rast.list input=temperature columns=id,start_time
     ```
 
     ```text
-    other PERMANENT
+    t_rast_list_2 PERMANENT t_rast_list
     id|start_time
-    temperature_1@PERMANENT|2026-03-01 00:00:00
-    temperature_2@PERMANENT|2026-03-02 00:00:00
-    temperature_3@PERMANENT|2026-03-03 00:00:00
-    temperature_4@PERMANENT|2026-03-04 00:00:00
+    temperature_2026_03_01@t_rast_list|2026-03-01 00:00:00
+    temperature_2026_03_02@t_rast_list|2026-03-02 00:00:00
+    temperature_2026_03_03@t_rast_list|2026-03-03 00:00:00
+    temperature_2026_03_04@t_rast_list|2026-03-04 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="other", flags="c")
-    result = tools.t_rast_list(input="temperature@PERMANENT", columns="id,start_time")
+    tools.g_mapset(mapset="t_rast_list_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    result = tools.t_rast_list(input="temperature@t_rast_list", columns="id,start_time")
     print(result.text)
     ```
 
     ```text
     id|start_time
-    temperature_1@PERMANENT|2026-03-01 00:00:00
-    temperature_2@PERMANENT|2026-03-02 00:00:00
-    temperature_3@PERMANENT|2026-03-03 00:00:00
-    temperature_4@PERMANENT|2026-03-04 00:00:00
+    temperature_2026_03_01@t_rast_list|2026-03-01 00:00:00
+    temperature_2026_03_02@t_rast_list|2026-03-02 00:00:00
+    temperature_2026_03_03@t_rast_list|2026-03-03 00:00:00
+    temperature_2026_03_04@t_rast_list|2026-03-04 00:00:00
     ```
 
     ```python
+    tools.g_mapsets(mapset="t_rast_list", operation="add")
     print(tools.g_mapsets(flags="p").text)
     print(tools.t_rast_list(input="temperature", columns="id,start_time").text)
     ```
 
     ```text
-    other PERMANENT
+    t_rast_list_2 PERMANENT t_rast_list
     id|start_time
-    temperature_1@PERMANENT|2026-03-01 00:00:00
-    temperature_2@PERMANENT|2026-03-02 00:00:00
-    temperature_3@PERMANENT|2026-03-03 00:00:00
-    temperature_4@PERMANENT|2026-03-04 00:00:00
+    temperature_2026_03_01@t_rast_list|2026-03-01 00:00:00
+    temperature_2026_03_02@t_rast_list|2026-03-02 00:00:00
+    temperature_2026_03_03@t_rast_list|2026-03-03 00:00:00
+    temperature_2026_03_04@t_rast_list|2026-03-04 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
