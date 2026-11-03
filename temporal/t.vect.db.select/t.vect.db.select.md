@@ -657,12 +657,11 @@ two stations. Its times are numbers.
 
 The dataset `plots` has two maps for 1 and 2 March 2026. Each has two points
 with the categories 1 and 2 in layer 1 and in layer 2. The points lie in the
-southwest of North Carolina: the points of `plots_k` are `k` km east of the
-position (300000, 100000) and 1 and 2 km north of it. The table of layer 1 has
-the column `count` with the values 1 and 2, the table of layer 2 the values 101
-and 102. The maps are registered
-without a layer, so the first block prints layer 1 and the second block, with
-**layer** set to 2, prints layer 2.
+computational region south of the state: the points of `plots_k` are `k` km east
+of the position (300000, 100000) and 1 and 2 km north of it. The table of layer
+1 has the column `count` with the values 1 and 2, the table of layer 2 the
+values 101 and 102. The maps are registered without a layer, so the first block
+prints layer 1 and the second block, with **layer** set to 2, prints layer 2.
 
 The dataset `both` registers the two layers of `plots_1` as `plots_1:1` and
 `plots_1:2`. The third block prints both, and a **layer** option does not change
