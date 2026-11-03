@@ -119,8 +119,9 @@ A dot in the name of the new dataset is refused, for instance for
 space time dataset: a dot is not allowed".
 
 The input dataset can be in another mapset of the project; the name with the
-mapset (`input=temp@PERMANENT`) selects it. The new maps and the new dataset
-are always created in the current mapset.
+mapset (`input=temperature_monthly@t_rast_aggregate`) selects it; the last
+example adds that mapset to the search path with *g.mapsets* first. The new
+maps and the new dataset are always created in the current mapset.
 
 If no map is related to any granule, the tool warns, names the granularity and
 the sampling, and creates no dataset; it ends without an error. With monthly
@@ -157,63 +158,64 @@ Mondays.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_aggregate` and sets the computational
+region to North Carolina with cells of 1 km; the later examples work in this
+mapset and region, except the last, which creates a second mapset with the
+same region. The examples that show how granules and sampling work use
+maps with small constant values, so that the results can be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_aggregate -->
+
 <!-- markdownlint-disable MD046 -->
 
-### Aggregate to monthly averages
+### Aggregate monthly means to seasons
 
-The dataset `temp` holds nine maps of air temperature on a region of 5 by 4
-cells, three in each of January, February and March 2026, at the 1st, the 11th
-and the 21st of the month. Every map is a time instant. The value of a cell is
-its column number, 1 to 5, plus 0, 2 and 4 in January, 10, 12 and 14 in
-February, and 20, 22 and 24 in March.
+The dataset `temperature_monthly` holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model `elev_state_500m`: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month.
 
-With **granularity** `1 months`, each month is a granule that contains its
-three maps, and **method** `average` gives, in each cell, the column number
-plus 2, 12 and 22. The first block creates the data, aggregates, and lists
-the new maps with their granules and with the smallest and largest value of
-each map: 3 and 7 in January, 13 and 17 in February, 23 and 27 in March. The
-second block prints the statistics of the new maps with
-*[t.rast.univar](t.rast.univar.md)*. The mean of the cells is the mean of the
-columns, 3, plus 2, 12 and 22, so 5, 15 and 25.
+The **where** condition selects the maps from March to November, and
+**granularity** `3 months` makes the granules March to May, June to August and
+September to November: spring, summer and autumn. The first granule starts on
+March 1, the start of the first selected map. **method** `average` gives, in
+each cell, the mean of the three monthly maps of a season. The list shows the
+new maps with their granules and their smallest and largest value. In summer
+the warmest cell has 26.5, 28.4 and 27.6 degrees in June, July and August, so
+its mean is 27.5 degrees. Autumn is warmer than spring, because the annual
+cycle (`cos(30 * (month - 7.2))`) has its maximum a little after the July
+map.
 
 === "Command line"
 
     ```sh
-    g.region n=4 s=0 e=5 w=0 res=1
-    for map in "temp_1 0" "temp_2 2" "temp_3 4" "temp_4 10" "temp_5 12" \
-        "temp_6 14" "temp_7 20" "temp_8 22" "temp_9 24"; do
-        set -- $map
-        r.mapcalc expression="$1 = col() + $2"
-    done
-    t.create output=temp title="Air temperature" \
-        description="Three readings per month"
-    t.register input=temp maps=temp_1,temp_2,temp_3 \
-        start=2026-01-01 increment="10 days"
-    t.register input=temp maps=temp_4,temp_5,temp_6 \
-        start=2026-02-01 increment="10 days"
-    t.register input=temp maps=temp_7,temp_8,temp_9 \
-        start=2026-03-01 increment="10 days"
-    t.rast.aggregate input=temp output=monthly basename=monthly \
-        granularity="1 months" method=average
-    t.rast.list input=monthly columns=name,start_time,end_time,min,max
+    g.mapset -c mapset=t_rast_aggregate
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.aggregate input=temperature_monthly output=temperature_season \
+        basename=temperature_season granularity="3 months" method=average \
+        where="start_time >= '2020-03-01' and start_time < '2020-12-01'"
+    t.rast.list input=temperature_season columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    monthly_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00|3.0|7.0
-    monthly_2026_02|2026-02-01 00:00:00|2026-03-01 00:00:00|13.0|17.0
-    monthly_2026_03|2026-03-01 00:00:00|2026-04-01 00:00:00|23.0|27.0
-    ```
-
-    ```sh
-    t.rast.univar input=monthly
-    ```
-
-    ```text
-    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    monthly_2026_01@PERMANENT||2026-01-01 00:00:00|2026-02-01 00:00:00|20|0|3|7|4|5|5|1.4142135623731|2|28.2842712474619|100|100
-    monthly_2026_02@PERMANENT||2026-02-01 00:00:00|2026-03-01 00:00:00|20|0|13|17|4|15|15|1.4142135623731|2|9.42809041582064|300|300
-    monthly_2026_03@PERMANENT||2026-03-01 00:00:00|2026-04-01 00:00:00|20|0|23|27|4|25|25|1.4142135623731|2|5.65685424949238|500|500
+    temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+    temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
     ```
 
 === "Python (grass.tools)"
@@ -222,573 +224,655 @@ columns, 3, plus 2, 12 and 22, so 5, 15 and 25.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=4, s=0, e=5, w=0, res=1)
-    offsets = {1: 0, 2: 2, 3: 4, 4: 10, 5: 12, 6: 14, 7: 20, 8: 22, 9: 24}
-    for number, offset in offsets.items():
-        tools.r_mapcalc(expression=f"temp_{number} = col() + {offset}")
+    tools.g_mapset(flags="c", mapset="t_rast_aggregate")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temp", title="Air temperature", description="Three readings per month"
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
-    for maps, start in (
-        ("temp_1,temp_2,temp_3", "2026-01-01"),
-        ("temp_4,temp_5,temp_6", "2026-02-01"),
-        ("temp_7,temp_8,temp_9", "2026-03-01"),
-    ):
-        tools.t_register(input="temp", maps=maps, start=start, increment="10 days")
+    tools.t_register(
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
     tools.t_rast_aggregate(
-        input="temp",
-        output="monthly",
-        basename="monthly",
-        granularity="1 months",
+        input="temperature_monthly",
+        output="temperature_season",
+        basename="temperature_season",
+        granularity="3 months",
         method="average",
+        where="start_time >= '2020-03-01' and start_time < '2020-12-01'",
     )
-    print(
-        tools.t_rast_list(input="monthly", columns="name,start_time,end_time,min,max").text
-    )
+    columns = "name,start_time,end_time,min,max"
+    print(tools.t_rast_list(input="temperature_season", columns=columns).text)
     ```
 
     ```text
     name|start_time|end_time|min|max
-    monthly_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00|3.0|7.0
-    monthly_2026_02|2026-02-01 00:00:00|2026-03-01 00:00:00|13.0|17.0
-    monthly_2026_03|2026-03-01 00:00:00|2026-04-01 00:00:00|23.0|27.0
-    ```
-
-    ```python
-    print(tools.t_rast_univar(input="monthly").text)
-    ```
-
-    ```text
-    id|semantic_label|start|end|non_null_cells|null_cells|min|max|range|mean|mean_of_abs|stddev|variance|coeff_var|sum|sum_abs
-    monthly_2026_01@PERMANENT||2026-01-01 00:00:00|2026-02-01 00:00:00|20|0|3|7|4|5|5|1.4142135623731|2|28.2842712474619|100|100
-    monthly_2026_02@PERMANENT||2026-02-01 00:00:00|2026-03-01 00:00:00|20|0|13|17|4|15|15|1.4142135623731|2|9.42809041582064|300|300
-    monthly_2026_03@PERMANENT||2026-03-01 00:00:00|2026-04-01 00:00:00|20|0|23|27|4|25|25|1.4142135623731|2|5.65685424949238|500|500
+    temperature_season_2020_03|2020-03-01 00:00:00|2020-06-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_season_2020_06|2020-06-01 00:00:00|2020-09-01 00:00:00|13.0|27.5
+    temperature_season_2020_09|2020-09-01 00:00:00|2020-12-01 00:00:00|4.466666666666666|19.0
     ```
 
 ### Compare the maps before and after
 
-The figure shows the nine maps of `temp` in three rows, one row per month, and
-at the right of each row the monthly average of that month, from the previous
-example. All maps share one colour table, from the smallest value 1 to the
-largest value 29, so the same colour means the same temperature in all twelve
-maps. *r.colors* sets the table, *d.frame* makes one frame per map, *d.rast*
-draws the map and *d.text* names it.
+The figure shows the three monthly maps of summer, June, July and August, and
+below them their mean from the previous example, each with the border of North
+Carolina from the vector map `nc_state`. *[t.rast.colors](t.rast.colors.md)*
+gives the maps of both datasets the colour table `celsius`, which fixes a
+colour for each temperature, so the same colour means the same temperature in
+all four maps. *d.frame* makes one frame per map, *d.rast* draws the map,
+*d.vect* the border and *d.text* the name; *d.legend* draws the legend in a
+frame of its own.
 
 === "Command line"
 
     ```sh
-    for maps in temp_1,temp_2,temp_3,temp_4,temp_5,temp_6,temp_7,temp_8,temp_9 \
-        monthly_2026_01,monthly_2026_02,monthly_2026_03; do
-        r.colors map=$maps rules=- <<EOF
-    1 68:1:84
-    15 33:145:140
-    29 253:231:37
-    EOF
+    t.rast.colors input=temperature_monthly color=celsius
+    t.rast.colors input=temperature_season color=celsius
+    d.mon start=cairo output=t_rast_aggregate_summer.png width=600 height=600
+    row=0
+    for map in "temperature_monthly_2020_06 June" \
+        "temperature_monthly_2020_07 July" \
+        "temperature_monthly_2020_08 August" \
+        "temperature_season_2020_06 summer"; do
+        set -- $map
+        top=$((100 - 25 * row))
+        d.frame -c frame=map_$row at=$((top - 25)),$top,0,80
+        d.rast map=$1
+        d.vect map=nc_state type=boundary color=black
+        d.text text=$2 at=2,8 size=14 color=black
+        row=$((row + 1))
     done
-    d.mon start=cairo output=t_rast_aggregate_months.png width=600 height=400
-    for month in 01 02 03; do
-        row=$((10#$month - 1))
-        top=$((99 - 33 * row))
-        col=0
-        for map in temp_$((3 * row + 1)) temp_$((3 * row + 2)) \
-            temp_$((3 * row + 3)) monthly_2026_$month; do
-            d.frame -c frame=f_${row}_$col at=$((top - 31)),$top,$((25 * col + 1)),$((25 * col + 24))
-            d.rast map=$map
-            d.text text=$map at=5,5 size=12 color=white
-            col=$((col + 1))
-        done
-    done
+    d.frame -c frame=legend at=0,100,80,100
+    d.legend raster=temperature_season_2020_06 range=10,30 at=10,90,10,35 \
+        label_step=5 digits=0 title="deg C"
     d.mon stop=cairo
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    from io import StringIO
-
-    rules = "1 68:1:84\n15 33:145:140\n29 253:231:37\n"
-    for maps in (
-        "temp_1,temp_2,temp_3,temp_4,temp_5,temp_6,temp_7,temp_8,temp_9",
-        "monthly_2026_01,monthly_2026_02,monthly_2026_03",
+    tools.t_rast_colors(input="temperature_monthly", color="celsius")
+    tools.t_rast_colors(input="temperature_season", color="celsius")
+    tools.d_mon(start="cairo", output="t_rast_aggregate_summer.png", width=600, height=600)
+    for row, (name, label) in enumerate(
+        (
+            ("temperature_monthly_2020_06", "June"),
+            ("temperature_monthly_2020_07", "July"),
+            ("temperature_monthly_2020_08", "August"),
+            ("temperature_season_2020_06", "summer"),
+        )
     ):
-        tools.r_colors(map=maps, rules=StringIO(rules))
-    tools.d_mon(start="cairo", output="t_rast_aggregate_months.png", width=600, height=400)
-    for row, month in enumerate(("01", "02", "03")):
-        top = 99 - 33 * row
-        names = [f"temp_{3 * row + step}" for step in (1, 2, 3)]
-        for col, name in enumerate(names + [f"monthly_2026_{month}"]):
-            tools.d_frame(
-                flags="c",
-                frame=f"f_{row}_{col}",
-                at=[top - 31, top, 25 * col + 1, 25 * col + 24],
-            )
-            tools.d_rast(map=name)
-            tools.d_text(text=name, at=[5, 5], size=12, color="white")
+        top = 100 - 25 * row
+        tools.d_frame(flags="c", frame=f"map_{row}", at=[top - 25, top, 0, 80])
+        tools.d_rast(map=name)
+        tools.d_vect(map="nc_state", type="boundary", color="black")
+        tools.d_text(text=label, at=[2, 8], size=14, color="black")
+    tools.d_frame(flags="c", frame="legend", at=[0, 100, 80, 100])
+    tools.d_legend(
+        raster="temperature_season_2020_06",
+        range=[10, 30],
+        at=[10, 90, 10, 35],
+        label_step=5,
+        digits=0,
+        title="deg C",
+    )
     tools.d_mon(stop="cairo")
     ```
 
-![Maps of air temperature and their monthly averages](t_rast_aggregate_months.png)
+![Monthly and summer mean air temperature in North Carolina](t_rast_aggregate_summer.png)
 
-*Figure: The three maps of each month, from January at the top to March at the
-bottom, and their monthly average at the right.*
+*Figure: Mean air temperature of June, July and August 2020 and, at the
+bottom, their mean for the summer.*
 
 ### Choose the method and the names of the new maps
 
-Three more aggregations of `temp`, each with a different **method**, a
-different **suffix** and, in the second block, an **offset**. The output lists
-the maps with their granules and the smallest and the largest value.
+Three more aggregations, each with a different **method**, a different
+**suffix** and, in the second block, an **offset**. The output lists the new
+maps with their granules and their smallest and largest value.
 
-1. **method** `maximum` with **suffix** `time` names the maps with the full
-   start time. The largest value of a cell in January is its column number
-   plus 4, so the maps hold 5 to 9 in January, 15 to 19 in February and 25 to
-   29 in March.
-2. **method** `minimum` with **suffix** `num%03` and **offset** `10` numbers
-   the maps with three digits, counting from 1 plus the offset: 11, 12 and 13.
-   The smallest value of a cell is its column number plus 0, 10 and 20, so
-   the maps hold 1 to 5, 11 to 15 and 21 to 25.
-3. **granularity** `2 months` with **method** `sum` makes granules of two
-   months, January and February, and March and April. The sum of the six maps
-   of the first granule in a cell is six times its column number plus 42, so
-   the first map holds 48 to 72; the three maps of March sum to three times
-   the column number plus 66, so the second map holds 69 to 81.
+1. **method** `maximum` with **suffix** `time` gives, in each cell, the
+   temperature of the warmest month of each season and names the maps with
+   the full start time. In summer, this is July: 13.9 to 28.4 degrees.
+2. **method** `minimum` with **suffix** `num%03` and **offset** `10` gives the
+   temperature of the coldest month and numbers the maps with three digits,
+   counting from 1 plus the offset: 11, 12 and 13. In spring, this is March,
+   in autumn November.
+3. The third block creates the dataset `precipitation_monthly`, monthly
+   precipitation sums in whole millimetres that are generated from the 30-year
+   normals, not measured: the monthly normal of the climate stations of
+   `precip_30ynormals` (the columns `jan` to `dec`), interpolated with
+   *v.surf.idw*, times an assumed factor for each month of a wet year 2020.
+   **granularity** `2 months` with **method** `sum` gives the precipitation of
+   January and February, March and April, and so on. The monthly sums are
+   whole numbers, and so are their sums, so the statistics of
+   *[t.rast.univar](t.rast.univar.md)* do not depend on the order in which the
+   cells are added up; the block shows the smallest, the largest and the mean
+   value of each new map.
 
 === "Command line"
 
     ```sh
-    t.rast.aggregate input=temp output=top basename=top \
-        granularity="1 months" method=maximum suffix=time
-    t.rast.list input=top columns=name,start_time,min,max
+    t.rast.aggregate input=temperature_monthly output=temperature_warmest \
+        basename=temperature_warmest granularity="3 months" method=maximum \
+        suffix=time where="start_time >= '2020-03-01' and start_time < '2020-12-01'"
+    t.rast.list input=temperature_warmest columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    top_2026_01_01T00_00_00|2026-01-01 00:00:00|5.0|9.0
-    top_2026_02_01T00_00_00|2026-02-01 00:00:00|15.0|19.0
-    top_2026_03_01T00_00_00|2026-03-01 00:00:00|25.0|29.0
+    temperature_warmest_2020_03_01T00_00_00|2020-03-01 00:00:00|7.7|22.2
+    temperature_warmest_2020_06_01T00_00_00|2020-06-01 00:00:00|13.9|28.4
+    temperature_warmest_2020_09_01T00_00_00|2020-09-01 00:00:00|9.6|24.2
     ```
 
     ```sh
-    t.rast.aggregate input=temp output=bottom basename=bottom \
-        granularity="1 months" method=minimum suffix=num%03 offset=10
-    t.rast.list input=bottom columns=name,start_time,min,max
+    t.rast.aggregate input=temperature_monthly output=temperature_coldest \
+        basename=temperature_coldest granularity="3 months" method=minimum \
+        suffix=num%03 offset=10 \
+        where="start_time >= '2020-03-01' and start_time < '2020-12-01'"
+    t.rast.list input=temperature_coldest columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    bottom_011|2026-01-01 00:00:00|1.0|5.0
-    bottom_012|2026-02-01 00:00:00|11.0|15.0
-    bottom_013|2026-03-01 00:00:00|21.0|25.0
+    temperature_coldest_011|2020-03-01 00:00:00|-2.7|11.8
+    temperature_coldest_012|2020-06-01 00:00:00|12.0|26.5
+    temperature_coldest_013|2020-09-01 00:00:00|-0.8|13.7
     ```
 
     ```sh
-    t.rast.aggregate input=temp output=bimonthly basename=bimonthly \
-        granularity="2 months" method=sum
-    t.rast.list input=bimonthly columns=name,start_time,end_time,min,max
+    month=1
+    for entry in jan:1.2 feb:1.7 mar:0.9 apr:1.3 may:1.6 jun:0.9 \
+        jul:1.1 aug:1.5 sep:0.8 oct:1.0 nov:1.6 dec:0.9; do
+        name=$(printf %02d $month)
+        v.surf.idw input=precip_30ynormals column=${entry%:*} \
+            output=precipitation_normal_$name npoints=12 power=2
+        r.mapcalc expression="precipitation_monthly_2020_$name = if(isnull(elev_state_500m), null(), round(${entry#*:} * precipitation_normal_$name))"
+        month=$((month + 1))
+    done
+    t.create output=precipitation_monthly title="Precipitation" \
+        description="Monthly precipitation sum 2020 in mm"
+    t.register -i input=precipitation_monthly \
+        maps=$(g.list type=raster pattern="precipitation_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.aggregate input=precipitation_monthly output=precipitation_bimonthly \
+        basename=precipitation_bimonthly granularity="2 months" method=sum
+    t.rast.univar input=precipitation_bimonthly | cut -d"|" -f1,7,8,10
     ```
 
     ```text
-    name|start_time|end_time|min|max
-    bimonthly_2026_01|2026-01-01 00:00:00|2026-03-01 00:00:00|48.0|72.0
-    bimonthly_2026_03|2026-03-01 00:00:00|2026-05-01 00:00:00|69.0|81.0
+    id|min|max|mean
+    precipitation_bimonthly_2020_01@t_rast_aggregate|232|558|296.33885217799
+    precipitation_bimonthly_2020_03@t_rast_aggregate|184|443|220.397210297285
+    precipitation_bimonthly_2020_05@t_rast_aggregate|217|501|273.625771050974
+    precipitation_bimonthly_2020_07@t_rast_aggregate|210|514|330.528944630848
+    precipitation_bimonthly_2020_09@t_rast_aggregate|120|303|188.309797658642
+    precipitation_bimonthly_2020_11@t_rast_aggregate|174|518|219.85562848896
     ```
 
 === "Python (grass.tools)"
 
     ```python
+    seasons = "start_time >= '2020-03-01' and start_time < '2020-12-01'"
     tools.t_rast_aggregate(
-        input="temp",
-        output="top",
-        basename="top",
-        granularity="1 months",
+        input="temperature_monthly",
+        output="temperature_warmest",
+        basename="temperature_warmest",
+        granularity="3 months",
         method="maximum",
         suffix="time",
+        where=seasons,
     )
-    print(tools.t_rast_list(input="top", columns="name,start_time,min,max").text)
+    columns = "name,start_time,min,max"
+    print(tools.t_rast_list(input="temperature_warmest", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    top_2026_01_01T00_00_00|2026-01-01 00:00:00|5.0|9.0
-    top_2026_02_01T00_00_00|2026-02-01 00:00:00|15.0|19.0
-    top_2026_03_01T00_00_00|2026-03-01 00:00:00|25.0|29.0
+    temperature_warmest_2020_03_01T00_00_00|2020-03-01 00:00:00|7.7|22.2
+    temperature_warmest_2020_06_01T00_00_00|2020-06-01 00:00:00|13.9|28.4
+    temperature_warmest_2020_09_01T00_00_00|2020-09-01 00:00:00|9.6|24.2
     ```
 
     ```python
     tools.t_rast_aggregate(
-        input="temp",
-        output="bottom",
-        basename="bottom",
-        granularity="1 months",
+        input="temperature_monthly",
+        output="temperature_coldest",
+        basename="temperature_coldest",
+        granularity="3 months",
         method="minimum",
         suffix="num%03",
         offset=10,
+        where=seasons,
     )
-    print(tools.t_rast_list(input="bottom", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="temperature_coldest", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    bottom_011|2026-01-01 00:00:00|1.0|5.0
-    bottom_012|2026-02-01 00:00:00|11.0|15.0
-    bottom_013|2026-03-01 00:00:00|21.0|25.0
+    temperature_coldest_011|2020-03-01 00:00:00|-2.7|11.8
+    temperature_coldest_012|2020-06-01 00:00:00|12.0|26.5
+    temperature_coldest_013|2020-09-01 00:00:00|-0.8|13.7
     ```
 
     ```python
+    factors = {"jan": 1.2, "feb": 1.7, "mar": 0.9, "apr": 1.3, "may": 1.6, "jun": 0.9}
+    factors |= {"jul": 1.1, "aug": 1.5, "sep": 0.8, "oct": 1.0, "nov": 1.6, "dec": 0.9}
+    for month, (column, factor) in enumerate(factors.items(), start=1):
+        normal = f"precipitation_normal_{month:02d}"
+        tools.v_surf_idw(
+            input="precip_30ynormals", column=column, output=normal, npoints=12, power=2
+        )
+        tools.r_mapcalc(
+            expression=f"precipitation_monthly_2020_{month:02d} ="
+            f" if(isnull(elev_state_500m), null(), round({factor} * {normal}))"
+        )
+    tools.t_create(
+        output="precipitation_monthly",
+        title="Precipitation",
+        description="Monthly precipitation sum 2020 in mm",
+    )
+    tools.t_register(
+        input="precipitation_monthly",
+        maps=",".join(f"precipitation_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
     tools.t_rast_aggregate(
-        input="temp",
-        output="bimonthly",
-        basename="bimonthly",
+        input="precipitation_monthly",
+        output="precipitation_bimonthly",
+        basename="precipitation_bimonthly",
         granularity="2 months",
         method="sum",
     )
-    print(
-        tools.t_rast_list(
-            input="bimonthly", columns="name,start_time,end_time,min,max"
-        ).text
-    )
+    for line in tools.t_rast_univar(input="precipitation_bimonthly").text.splitlines():
+        fields = line.split("|")
+        print("|".join(fields[index] for index in (0, 6, 7, 9)))
     ```
 
     ```text
-    name|start_time|end_time|min|max
-    bimonthly_2026_01|2026-01-01 00:00:00|2026-03-01 00:00:00|48.0|72.0
-    bimonthly_2026_03|2026-03-01 00:00:00|2026-05-01 00:00:00|69.0|81.0
+    id|min|max|mean
+    precipitation_bimonthly_2020_01@t_rast_aggregate|232|558|296.33885217799
+    precipitation_bimonthly_2020_03@t_rast_aggregate|184|443|220.397210297285
+    precipitation_bimonthly_2020_05@t_rast_aggregate|217|501|273.625771050974
+    precipitation_bimonthly_2020_07@t_rast_aggregate|210|514|330.528944630848
+    precipitation_bimonthly_2020_09@t_rast_aggregate|120|303|188.309797658642
+    precipitation_bimonthly_2020_11@t_rast_aggregate|174|518|219.85562848896
     ```
 
 ### Where the first granule starts
 
-The dataset `clock` holds three time instants on 14 January 2026, a Wednesday, at
-12:30:45, 12:31:10 and 12:31:35, with the values 1, 2 and 3. The first block
-aggregates it with six granularities, from years to minutes, and lists the new
-maps of each. The first granule starts at the beginning of the unit of the
-granularity: `2026-01-01` for years, `2026-01-01` for months, `2026-01-12`
-(the Monday) for weeks, `2026-01-14` for days, `12:00:00` for hours and
-`12:30:00` for minutes. With minutes, the first instant (12:30:45) lies in
-the granule from 12:30 and the other two (12:31:10 and 12:31:35) in the granule
-from 12:31, so there are two granules.
+The dataset `gusts` holds three readings of the wind gust speed, 1, 2 and 3
+m/s in every cell, as time instants on 14 January 2026, a Wednesday, at
+12:30:45, 12:31:10 and 12:31:35. The first two blocks aggregate it with six
+granularities, from years to minutes, and list the new maps of each. The
+first granule starts at the beginning of the unit of the granularity:
+`2026-01-01` for years, `2026-01-01` for months, `2026-01-12` (the Monday) for
+weeks, `2026-01-14` for days, `12:00:00` for hours and `12:30:00` for minutes.
+With minutes, the first instant (12:30:45) lies in the granule from 12:30 and
+the other two (12:31:10 and 12:31:35) in the granule from 12:31, so there are
+two granules. **method** `maximum` gives the strongest gust of each granule.
 
-The second block shows the trap of the weeks. The dataset `early` holds one
-map at 3 January 2026, a Saturday, which has the weekday number 5 and lies on
-the 3rd, a day not greater than 5. The tool warns that no map is related to any
-granule, because the first granule starts after the map, and creates no
-dataset, as the list of the datasets shows; with `7 days`, the granule starts
-on the day of the map.
+The third block shows the trap of the weeks. The dataset `frost` holds one
+map of a night frost at 3 January 2026, a Saturday, which has the weekday
+number 5 and lies on the 3rd, a day not greater than 5. The tool warns that no
+map is related to any granule, because the first granule starts after the
+map, and creates no dataset, as the list of the datasets shows; with
+`7 days`, the granule starts on the day of the map.
 
 === "Command line"
 
     ```sh
-    r.mapcalc expression="clock_1 = 1"
-    r.mapcalc expression="clock_2 = 2"
-    r.mapcalc expression="clock_3 = 3"
-    t.create output=clock title="Clock" description="Three instants"
-    t.register input=clock maps=clock_1,clock_2,clock_3 \
+    r.mapcalc expression="gust_1 = 1"
+    r.mapcalc expression="gust_2 = 2"
+    r.mapcalc expression="gust_3 = 3"
+    t.create output=gusts title="Wind gusts" \
+        description="Wind gust speed in m/s at three instants"
+    t.register input=gusts maps=gust_1,gust_2,gust_3 \
         start="2026-01-14 12:30:45" increment="25 seconds"
-    for unit in years months weeks days hours minutes; do
-        t.rast.aggregate input=clock output=by_$unit basename=by_$unit \
-            granularity="1 $unit" method=sum
-        t.rast.list input=by_$unit columns=name,start_time,end_time
+    for unit in years months weeks; do
+        t.rast.aggregate input=gusts output=gusts_$unit basename=gusts_$unit \
+            granularity="1 $unit" method=maximum
+        t.rast.list input=gusts_$unit columns=name,start_time,end_time
     done
     ```
 
     ```text
     name|start_time|end_time
-    by_years_2026|2026-01-01 00:00:00|2027-01-01 00:00:00
+    gusts_years_2026|2026-01-01 00:00:00|2027-01-01 00:00:00
     name|start_time|end_time
-    by_months_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00
+    gusts_months_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00
     name|start_time|end_time
-    by_weeks_2026_01_12|2026-01-12 00:00:00|2026-01-19 00:00:00
-    name|start_time|end_time
-    by_days_2026_01_14|2026-01-14 00:00:00|2026-01-15 00:00:00
-    name|start_time|end_time
-    by_hours_2026_01_14_12|2026-01-14 12:00:00|2026-01-14 13:00:00
-    name|start_time|end_time
-    by_minutes_2026_01_14_12_30|2026-01-14 12:30:00|2026-01-14 12:31:00
-    by_minutes_2026_01_14_12_31|2026-01-14 12:31:00|2026-01-14 12:32:00
+    gusts_weeks_2026_01_12|2026-01-12 00:00:00|2026-01-19 00:00:00
     ```
 
     ```sh
-    r.mapcalc expression="early_1 = 1"
-    t.create output=early title="Early" description="One map in a first week"
-    t.register input=early maps=early_1 start=2026-01-03
-    t.rast.aggregate input=early output=early_weeks basename=early_weeks \
-        granularity="1 weeks" method=sum
-    t.rast.aggregate input=early output=early_days basename=early_days \
-        granularity="7 days" method=sum
-    t.rast.list input=early_days columns=name,start_time,end_time
-    t.list type=strds columns=name
+    for unit in days hours minutes; do
+        t.rast.aggregate input=gusts output=gusts_$unit basename=gusts_$unit \
+            granularity="1 $unit" method=maximum
+        t.rast.list input=gusts_$unit columns=name,start_time,end_time
+    done
     ```
 
     ```text
     name|start_time|end_time
-    early_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
-    bimonthly
-    bottom
-    by_days
-    by_hours
-    by_minutes
-    by_months
-    by_weeks
-    by_years
-    clock
-    early
-    early_days
-    monthly
-    temp
-    top
+    gusts_days_2026_01_14|2026-01-14 00:00:00|2026-01-15 00:00:00
+    name|start_time|end_time
+    gusts_hours_2026_01_14_12|2026-01-14 12:00:00|2026-01-14 13:00:00
+    name|start_time|end_time
+    gusts_minutes_2026_01_14_12_30|2026-01-14 12:30:00|2026-01-14 12:31:00
+    gusts_minutes_2026_01_14_12_31|2026-01-14 12:31:00|2026-01-14 12:32:00
+    ```
+
+    ```sh
+    r.mapcalc expression="frost_1 = 1"
+    t.create output=frost title="Frost" description="One night frost in a first week"
+    t.register input=frost maps=frost_1 start=2026-01-03
+    t.rast.aggregate input=frost output=frost_weeks basename=frost_weeks \
+        granularity="1 weeks" method=sum
+    t.rast.aggregate input=frost output=frost_days basename=frost_days \
+        granularity="7 days" method=sum
+    t.rast.list input=frost_days columns=name,start_time,end_time
+    t.list type=strds columns=name where="name LIKE 'frost%'"
+    ```
+
+    ```text
+    name|start_time|end_time
+    frost_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
+    frost
+    frost_days
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for number in (1, 2, 3):
-        tools.r_mapcalc(expression=f"clock_{number} = {number}")
-    tools.t_create(output="clock", title="Clock", description="Three instants")
+        tools.r_mapcalc(expression=f"gust_{number} = {number}")
+    tools.t_create(
+        output="gusts",
+        title="Wind gusts",
+        description="Wind gust speed in m/s at three instants",
+    )
     tools.t_register(
-        input="clock",
-        maps="clock_1,clock_2,clock_3",
+        input="gusts",
+        maps="gust_1,gust_2,gust_3",
         start="2026-01-14 12:30:45",
         increment="25 seconds",
     )
-    for unit in ("years", "months", "weeks", "days", "hours", "minutes"):
+    for unit in ("years", "months", "weeks"):
         tools.t_rast_aggregate(
-            input="clock",
-            output=f"by_{unit}",
-            basename=f"by_{unit}",
+            input="gusts",
+            output=f"gusts_{unit}",
+            basename=f"gusts_{unit}",
             granularity=f"1 {unit}",
-            method="sum",
+            method="maximum",
         )
         print(
-            tools.t_rast_list(input=f"by_{unit}", columns="name,start_time,end_time").text
+            tools.t_rast_list(
+                input=f"gusts_{unit}", columns="name,start_time,end_time"
+            ).text
         )
     ```
 
     ```text
     name|start_time|end_time
-    by_years_2026|2026-01-01 00:00:00|2027-01-01 00:00:00
+    gusts_years_2026|2026-01-01 00:00:00|2027-01-01 00:00:00
     name|start_time|end_time
-    by_months_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00
+    gusts_months_2026_01|2026-01-01 00:00:00|2026-02-01 00:00:00
     name|start_time|end_time
-    by_weeks_2026_01_12|2026-01-12 00:00:00|2026-01-19 00:00:00
-    name|start_time|end_time
-    by_days_2026_01_14|2026-01-14 00:00:00|2026-01-15 00:00:00
-    name|start_time|end_time
-    by_hours_2026_01_14_12|2026-01-14 12:00:00|2026-01-14 13:00:00
-    name|start_time|end_time
-    by_minutes_2026_01_14_12_30|2026-01-14 12:30:00|2026-01-14 12:31:00
-    by_minutes_2026_01_14_12_31|2026-01-14 12:31:00|2026-01-14 12:32:00
+    gusts_weeks_2026_01_12|2026-01-12 00:00:00|2026-01-19 00:00:00
     ```
 
     ```python
-    tools.r_mapcalc(expression="early_1 = 1")
-    tools.t_create(output="early", title="Early", description="One map in a first week")
-    tools.t_register(input="early", maps="early_1", start="2026-01-03")
+    for unit in ("days", "hours", "minutes"):
+        tools.t_rast_aggregate(
+            input="gusts",
+            output=f"gusts_{unit}",
+            basename=f"gusts_{unit}",
+            granularity=f"1 {unit}",
+            method="maximum",
+        )
+        print(
+            tools.t_rast_list(
+                input=f"gusts_{unit}", columns="name,start_time,end_time"
+            ).text
+        )
+    ```
+
+    ```text
+    name|start_time|end_time
+    gusts_days_2026_01_14|2026-01-14 00:00:00|2026-01-15 00:00:00
+    name|start_time|end_time
+    gusts_hours_2026_01_14_12|2026-01-14 12:00:00|2026-01-14 13:00:00
+    name|start_time|end_time
+    gusts_minutes_2026_01_14_12_30|2026-01-14 12:30:00|2026-01-14 12:31:00
+    gusts_minutes_2026_01_14_12_31|2026-01-14 12:31:00|2026-01-14 12:32:00
+    ```
+
+    ```python
+    tools.r_mapcalc(expression="frost_1 = 1")
+    tools.t_create(
+        output="frost", title="Frost", description="One night frost in a first week"
+    )
+    tools.t_register(input="frost", maps="frost_1", start="2026-01-03")
     tools.t_rast_aggregate(
-        input="early",
-        output="early_weeks",
-        basename="early_weeks",
+        input="frost",
+        output="frost_weeks",
+        basename="frost_weeks",
         granularity="1 weeks",
         method="sum",
     )
     tools.t_rast_aggregate(
-        input="early",
-        output="early_days",
-        basename="early_days",
+        input="frost",
+        output="frost_days",
+        basename="frost_days",
         granularity="7 days",
         method="sum",
     )
-    print(tools.t_rast_list(input="early_days", columns="name,start_time,end_time").text)
-    print(tools.t_list(type="strds", columns="name").text)
+    print(tools.t_rast_list(input="frost_days", columns="name,start_time,end_time").text)
+    print(tools.t_list(type="strds", columns="name", where="name LIKE 'frost%'").text)
     ```
 
     ```text
     name|start_time|end_time
-    early_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
-    bimonthly
-    bottom
-    by_days
-    by_hours
-    by_minutes
-    by_months
-    by_weeks
-    by_years
-    clock
-    early
-    early_days
-    monthly
-    temp
-    top
+    frost_days_2026_01_03|2026-01-03 00:00:00|2026-01-10 00:00:00
+    frost
+    frost_days
     ```
 
 ### Choose the maps of a granule
 
-The dataset `periods` holds four maps of ten days each, `p_1` to `p_4`, with
-the values 1 to 4 in every cell. The maps follow each other: `p_1` runs from
-21 to 31 January, `p_2` from 31 January to 10 February, `p_3` from 10 to
-20 February and `p_4` from 20 February to 2 March. Two maps cross the border of
-a month.
+The dataset `dekads` holds four sums of precipitation over ten days,
+`rain_dekad_1` to `rain_dekad_4`, with 1 to 4 mm in every cell. The maps
+follow each other: `rain_dekad_1` runs from 21 to 31 January, `rain_dekad_2`
+from 31 January to 10 February, `rain_dekad_3` from 10 to 20 February and
+`rain_dekad_4` from 20 February to 2 March. Two maps cross the border of a
+month.
 
-With the default **sampling** `contains` and monthly granules, only `p_1`
-lies within January and only `p_3` within February: each granule has a single
-map and copies it, so the new maps hold 1 and 3. With `contains,overlaps`, the
-granule January also takes `p_2`, because the granule starts before the map
-and ends within it, and the granule February takes `p_4`; the sums are 1 + 2 =
-3 and 3 + 4 = 7. The third block adds **where**, which leaves out the maps
-that start before February: only `p_3` and `p_4` are left, and the first
-granule starts on 1 February, the beginning of the month of `p_3`. The fourth
-block aggregates the three monthly maps of the first example: each has the
-start and the end of a granule, so **sampling** `equal` relates it to that
+With the default **sampling** `contains` and monthly granules, only
+`rain_dekad_1` lies within January and only `rain_dekad_3` within February:
+each granule has a single map and copies it, so the new maps hold 1 and 3.
+With `contains,overlaps`, the granule January also takes `rain_dekad_2`,
+because the granule starts before the map and ends within it, and the granule
+February takes `rain_dekad_4`; the sums are 1 + 2 = 3 and 3 + 4 = 7. The third
+block adds **where**, which leaves out the maps that start before February:
+only `rain_dekad_3` and `rain_dekad_4` are left, and the first granule starts
+on 1 February, the beginning of the month of `rain_dekad_3`. The fourth block
+aggregates the seasonal means of the first example: each has the start and the
+end of a granule of `3 months`, so **sampling** `equal` relates it to that
 granule, and the granule copies it.
 
 === "Command line"
 
     ```sh
     for number in 1 2 3 4; do
-        r.mapcalc expression="p_$number = $number"
+        r.mapcalc expression="rain_dekad_$number = $number"
     done
-    t.create output=periods title="Periods" description="Ten day periods"
-    t.register input=periods maps=p_1 start=2026-01-21 end=2026-01-31
-    t.register input=periods maps=p_2 start=2026-01-31 end=2026-02-10
-    t.register input=periods maps=p_3 start=2026-02-10 end=2026-02-20
-    t.register input=periods maps=p_4 start=2026-02-20 end=2026-03-02
-    t.rast.aggregate input=periods output=contained basename=contained \
+    t.create output=dekads title="Precipitation" \
+        description="Precipitation sum in mm over ten days"
+    t.register input=dekads maps=rain_dekad_1 start=2026-01-21 end=2026-01-31
+    t.register input=dekads maps=rain_dekad_2 start=2026-01-31 end=2026-02-10
+    t.register input=dekads maps=rain_dekad_3 start=2026-02-10 end=2026-02-20
+    t.register input=dekads maps=rain_dekad_4 start=2026-02-20 end=2026-03-02
+    t.rast.aggregate input=dekads output=rain_contained basename=rain_contained \
         granularity="1 months" method=sum
-    t.rast.list input=contained columns=name,start_time,min,max
+    t.rast.list input=rain_contained columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    contained_2026_01|2026-01-01 00:00:00|1.0|1.0
-    contained_2026_02|2026-02-01 00:00:00|3.0|3.0
+    rain_contained_2026_01|2026-01-01 00:00:00|1.0|1.0
+    rain_contained_2026_02|2026-02-01 00:00:00|3.0|3.0
     ```
 
     ```sh
-    t.rast.aggregate input=periods output=touched basename=touched \
+    t.rast.aggregate input=dekads output=rain_touched basename=rain_touched \
         granularity="1 months" method=sum sampling=contains,overlaps
-    t.rast.list input=touched columns=name,start_time,min,max
+    t.rast.list input=rain_touched columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    touched_2026_01|2026-01-01 00:00:00|3.0|3.0
-    touched_2026_02|2026-02-01 00:00:00|7.0|7.0
+    rain_touched_2026_01|2026-01-01 00:00:00|3.0|3.0
+    rain_touched_2026_02|2026-02-01 00:00:00|7.0|7.0
     ```
 
     ```sh
-    t.rast.aggregate input=periods output=february basename=february \
+    t.rast.aggregate input=dekads output=rain_february basename=rain_february \
         granularity="1 months" method=sum sampling=contains,overlaps \
         where="start_time >= '2026-02-01'"
-    t.rast.list input=february columns=name,start_time,min,max
+    t.rast.list input=rain_february columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    february_2026_02|2026-02-01 00:00:00|7.0|7.0
+    rain_february_2026_02|2026-02-01 00:00:00|7.0|7.0
     ```
 
     ```sh
-    t.rast.aggregate input=monthly output=copied basename=copied \
-        granularity="1 months" method=sum sampling=equal
-    t.rast.list input=copied columns=name,start_time,min,max
+    t.rast.aggregate input=temperature_season output=temperature_copied \
+        basename=temperature_copied granularity="3 months" sampling=equal
+    t.rast.list input=temperature_copied columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    copied_2026_01|2026-01-01 00:00:00|3.0|7.0
-    copied_2026_02|2026-02-01 00:00:00|13.0|17.0
-    copied_2026_03|2026-03-01 00:00:00|23.0|27.0
+    temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
+    temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for number in (1, 2, 3, 4):
-        tools.r_mapcalc(expression=f"p_{number} = {number}")
-    tools.t_create(output="periods", title="Periods", description="Ten day periods")
+        tools.r_mapcalc(expression=f"rain_dekad_{number} = {number}")
+    tools.t_create(
+        output="dekads",
+        title="Precipitation",
+        description="Precipitation sum in mm over ten days",
+    )
     for number, start, end in (
         (1, "2026-01-21", "2026-01-31"),
         (2, "2026-01-31", "2026-02-10"),
         (3, "2026-02-10", "2026-02-20"),
         (4, "2026-02-20", "2026-03-02"),
     ):
-        tools.t_register(input="periods", maps=f"p_{number}", start=start, end=end)
+        tools.t_register(input="dekads", maps=f"rain_dekad_{number}", start=start, end=end)
     tools.t_rast_aggregate(
-        input="periods",
-        output="contained",
-        basename="contained",
+        input="dekads",
+        output="rain_contained",
+        basename="rain_contained",
         granularity="1 months",
         method="sum",
     )
-    print(tools.t_rast_list(input="contained", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="rain_contained", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    contained_2026_01|2026-01-01 00:00:00|1.0|1.0
-    contained_2026_02|2026-02-01 00:00:00|3.0|3.0
+    rain_contained_2026_01|2026-01-01 00:00:00|1.0|1.0
+    rain_contained_2026_02|2026-02-01 00:00:00|3.0|3.0
     ```
 
     ```python
     tools.t_rast_aggregate(
-        input="periods",
-        output="touched",
-        basename="touched",
+        input="dekads",
+        output="rain_touched",
+        basename="rain_touched",
         granularity="1 months",
         method="sum",
         sampling="contains,overlaps",
     )
-    print(tools.t_rast_list(input="touched", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="rain_touched", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    touched_2026_01|2026-01-01 00:00:00|3.0|3.0
-    touched_2026_02|2026-02-01 00:00:00|7.0|7.0
+    rain_touched_2026_01|2026-01-01 00:00:00|3.0|3.0
+    rain_touched_2026_02|2026-02-01 00:00:00|7.0|7.0
     ```
 
     ```python
     tools.t_rast_aggregate(
-        input="periods",
-        output="february",
-        basename="february",
+        input="dekads",
+        output="rain_february",
+        basename="rain_february",
         granularity="1 months",
         method="sum",
         sampling="contains,overlaps",
         where="start_time >= '2026-02-01'",
     )
-    print(tools.t_rast_list(input="february", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="rain_february", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    february_2026_02|2026-02-01 00:00:00|7.0|7.0
+    rain_february_2026_02|2026-02-01 00:00:00|7.0|7.0
     ```
 
     ```python
     tools.t_rast_aggregate(
-        input="monthly",
-        output="copied",
-        basename="copied",
-        granularity="1 months",
-        method="sum",
+        input="temperature_season",
+        output="temperature_copied",
+        basename="temperature_copied",
+        granularity="3 months",
         sampling="equal",
     )
-    print(tools.t_rast_list(input="copied", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="temperature_copied", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    copied_2026_01|2026-01-01 00:00:00|3.0|7.0
-    copied_2026_02|2026-02-01 00:00:00|13.0|17.0
-    copied_2026_03|2026-03-01 00:00:00|23.0|27.0
+    temperature_copied_2020_03|2020-03-01 00:00:00|2.466666666666667|16.966666666666665
+    temperature_copied_2020_06|2020-06-01 00:00:00|13.0|27.5
+    temperature_copied_2020_09|2020-09-01 00:00:00|4.466666666666666|19.0
     ```
 
 ### Null cells and empty granules
 
-The dataset `gappy` holds five maps. In January, `g_1` has the column number
-as value and `g_2` the column number plus 2, except in column 1, where it is
-null. February has two maps with only null cells, `g_3` and `g_4`; March has
-`g_5`, again the column number. The January average skips the null cell:
-column 1 holds 1, taken from `g_1` alone, and the other columns hold the
-column number plus 1, so the smallest value is 1 and the largest 6.
+The dataset `radar` holds five maps of daily precipitation from a weather
+radar. In January, `radar_1` has 4 mm in every cell and `radar_2` has 6 mm,
+except west of the easting 500 km, where the radar failed and the cells are
+null. In February the radar failed on both days: `radar_3` and `radar_4` have
+only null cells. March has `radar_5` with 5 mm. The January average skips the
+null cells: west of 500 km it holds 4 mm, taken from `radar_1` alone, and east
+of it (4 + 6) / 2 = 5 mm, so the smallest value is 4 and the largest 5.
 
 Without **-n**, February gives no map, because all its cells are null, so the
 dataset has two maps. The second block aggregates again with **-n**; the
@@ -799,247 +883,281 @@ list shows as `None`.
 === "Command line"
 
     ```sh
-    r.mapcalc expression="g_1 = col()"
-    r.mapcalc expression="g_2 = if(col() == 1, null(), col() + 2)"
-    r.mapcalc expression="g_3 = null()"
-    r.mapcalc expression="g_4 = null()"
-    r.mapcalc expression="g_5 = col()"
-    t.create output=gappy title="Gappy" description="Maps with null cells"
-    t.register input=gappy maps=g_1,g_2 start=2026-01-01 increment="10 days"
-    t.register input=gappy maps=g_3,g_4 start=2026-02-01 increment="10 days"
-    t.register input=gappy maps=g_5 start=2026-03-01
-    t.rast.aggregate input=gappy output=gappy_monthly basename=gappy \
+    r.mapcalc expression="radar_1 = 4"
+    r.mapcalc expression="radar_2 = if(x() < 500000, null(), 6)"
+    r.mapcalc expression="radar_3 = null()"
+    r.mapcalc expression="radar_4 = null()"
+    r.mapcalc expression="radar_5 = 5"
+    t.create output=radar title="Precipitation" \
+        description="Daily precipitation in mm from a weather radar"
+    t.register input=radar maps=radar_1,radar_2 start=2026-01-01 increment="10 days"
+    t.register input=radar maps=radar_3,radar_4 start=2026-02-01 increment="10 days"
+    t.register input=radar maps=radar_5 start=2026-03-01
+    t.rast.aggregate input=radar output=radar_monthly basename=radar \
         granularity="1 months" method=average
-    t.rast.list input=gappy_monthly columns=name,start_time,min,max
+    t.rast.list input=radar_monthly columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    gappy_2026_01|2026-01-01 00:00:00|1.0|6.0
-    gappy_2026_03|2026-03-01 00:00:00|1.0|5.0
+    radar_2026_01|2026-01-01 00:00:00|4.0|5.0
+    radar_2026_03|2026-03-01 00:00:00|5.0|5.0
     ```
 
     ```sh
-    t.rast.aggregate -n input=gappy output=gappy_monthly basename=gappy \
+    t.rast.aggregate -n input=radar output=radar_monthly basename=radar \
         granularity="1 months" method=average --overwrite
-    t.rast.list input=gappy_monthly columns=name,start_time,min,max
+    t.rast.list input=radar_monthly columns=name,start_time,min,max
     ```
 
     ```text
     name|start_time|min|max
-    gappy_2026_01|2026-01-01 00:00:00|1.0|6.0
-    gappy_2026_02|2026-02-01 00:00:00|None|None
-    gappy_2026_03|2026-03-01 00:00:00|1.0|5.0
+    radar_2026_01|2026-01-01 00:00:00|4.0|5.0
+    radar_2026_02|2026-02-01 00:00:00|None|None
+    radar_2026_03|2026-03-01 00:00:00|5.0|5.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="g_1 = col()")
-    tools.r_mapcalc(expression="g_2 = if(col() == 1, null(), col() + 2)")
-    tools.r_mapcalc(expression="g_3 = null()")
-    tools.r_mapcalc(expression="g_4 = null()")
-    tools.r_mapcalc(expression="g_5 = col()")
-    tools.t_create(output="gappy", title="Gappy", description="Maps with null cells")
+    tools.r_mapcalc(expression="radar_1 = 4")
+    tools.r_mapcalc(expression="radar_2 = if(x() < 500000, null(), 6)")
+    tools.r_mapcalc(expression="radar_3 = null()")
+    tools.r_mapcalc(expression="radar_4 = null()")
+    tools.r_mapcalc(expression="radar_5 = 5")
+    tools.t_create(
+        output="radar",
+        title="Precipitation",
+        description="Daily precipitation in mm from a weather radar",
+    )
     for maps, start in (
-        ("g_1,g_2", "2026-01-01"),
-        ("g_3,g_4", "2026-02-01"),
+        ("radar_1,radar_2", "2026-01-01"),
+        ("radar_3,radar_4", "2026-02-01"),
     ):
-        tools.t_register(input="gappy", maps=maps, start=start, increment="10 days")
-    tools.t_register(input="gappy", maps="g_5", start="2026-03-01")
+        tools.t_register(input="radar", maps=maps, start=start, increment="10 days")
+    tools.t_register(input="radar", maps="radar_5", start="2026-03-01")
     tools.t_rast_aggregate(
-        input="gappy",
-        output="gappy_monthly",
-        basename="gappy",
+        input="radar",
+        output="radar_monthly",
+        basename="radar",
         granularity="1 months",
         method="average",
     )
-    print(tools.t_rast_list(input="gappy_monthly", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="radar_monthly", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    gappy_2026_01|2026-01-01 00:00:00|1.0|6.0
-    gappy_2026_03|2026-03-01 00:00:00|1.0|5.0
+    radar_2026_01|2026-01-01 00:00:00|4.0|5.0
+    radar_2026_03|2026-03-01 00:00:00|5.0|5.0
     ```
 
     ```python
     tools.t_rast_aggregate(
-        input="gappy",
-        output="gappy_monthly",
-        basename="gappy",
+        input="radar",
+        output="radar_monthly",
+        basename="radar",
         granularity="1 months",
         method="average",
         flags="n",
         overwrite=True,
     )
-    print(tools.t_rast_list(input="gappy_monthly", columns="name,start_time,min,max").text)
+    print(tools.t_rast_list(input="radar_monthly", columns=columns).text)
     ```
 
     ```text
     name|start_time|min|max
-    gappy_2026_01|2026-01-01 00:00:00|1.0|6.0
-    gappy_2026_02|2026-02-01 00:00:00|None|None
-    gappy_2026_03|2026-03-01 00:00:00|1.0|5.0
+    radar_2026_01|2026-01-01 00:00:00|4.0|5.0
+    radar_2026_02|2026-02-01 00:00:00|None|None
+    radar_2026_03|2026-03-01 00:00:00|5.0|5.0
     ```
 
 ### Aggregate relative time
 
-The dataset `model` holds four maps `step_1` to `step_4` with the values 1 to 4,
-one for each hour, from 0 to 4. With the integer **granularity** `2`, the
-granules are two hours long, in the unit of the dataset, and the sums are
-1 + 2 = 3 and 3 + 4 = 7. In relative time every **suffix** gives the number of
-the granule, so the new maps are numbered with five digits.
+The dataset `runoff` holds the simulated runoff of a model, four maps
+`runoff_1` to `runoff_4` with 1 to 4 mm, one for each hour, from 0 to 4. With
+the integer **granularity** `2`, the granules are two hours long, in the unit of
+the dataset, and the sums are 1 + 2 = 3 and 3 + 4 = 7. In relative time every
+**suffix** gives the number of the granule, so the new maps are numbered with
+five digits.
 
 === "Command line"
 
     ```sh
     for number in 1 2 3 4; do
-        r.mapcalc expression="step_$number = $number"
+        r.mapcalc expression="runoff_$number = $number"
     done
-    t.create output=model temporaltype=relative title="Model" \
-        description="Model output per step"
-    t.register -i input=model maps=step_1,step_2,step_3,step_4 \
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register -i input=runoff maps=runoff_1,runoff_2,runoff_3,runoff_4 \
         start=0 increment=1 unit=hours
-    t.rast.aggregate input=model output=pairs basename=pair \
+    t.rast.aggregate input=runoff output=runoff_2h basename=runoff_2h \
         granularity=2 method=sum
-    t.rast.list input=pairs columns=name,start_time,end_time,min,max
+    t.rast.list input=runoff_2h columns=name,start_time,end_time,min,max
     ```
 
     ```text
     name|start_time|end_time|min|max
-    pair_00001|0|2|3.0|3.0
-    pair_00002|2|4|7.0|7.0
+    runoff_2h_00001|0|2|3.0|3.0
+    runoff_2h_00002|2|4|7.0|7.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
     for number in (1, 2, 3, 4):
-        tools.r_mapcalc(expression=f"step_{number} = {number}")
+        tools.r_mapcalc(expression=f"runoff_{number} = {number}")
     tools.t_create(
-        output="model",
+        output="runoff",
         temporaltype="relative",
-        title="Model",
-        description="Model output per step",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
     tools.t_register(
-        input="model",
-        maps="step_1,step_2,step_3,step_4",
+        input="runoff",
+        maps="runoff_1,runoff_2,runoff_3,runoff_4",
         start=0,
         increment=1,
         unit="hours",
         flags="i",
     )
     tools.t_rast_aggregate(
-        input="model", output="pairs", basename="pair", granularity=2, method="sum"
+        input="runoff",
+        output="runoff_2h",
+        basename="runoff_2h",
+        granularity=2,
+        method="sum",
     )
-    print(tools.t_rast_list(input="pairs", columns="name,start_time,end_time,min,max").text)
+    print(
+        tools.t_rast_list(
+            input="runoff_2h", columns="name,start_time,end_time,min,max"
+        ).text
+    )
     ```
 
     ```text
     name|start_time|end_time|min|max
-    pair_00001|0|2|3.0|3.0
-    pair_00002|2|4|7.0|7.0
+    runoff_2h_00001|0|2|3.0|3.0
+    runoff_2h_00002|2|4|7.0|7.0
     ```
 
 ### Many maps in a granule and parallel granules
 
-The three maps of a month exceed **file_limit** `2`, so the tool runs
-*r.series* with the flag **-z** and warns once for each granule; the message
-goes to the error output and is not shown here. **nprocs** `3` aggregates the
-three months at the same time. The result does not change: the sums of the
-three maps of a month are three times the column number plus 6, 36 and 66, so
-9 to 21, 39 to 51 and 69 to 81.
+The two maps of a granule of the bimonthly precipitation sums of the third
+example exceed **file_limit** `1`, so the tool runs *r.series* with the flag
+**-z** and warns once for each granule; the message goes to the error output
+and is not shown here. **nprocs** `3` aggregates three granules at the same
+time. The result does not change: the smallest, the largest and the mean value
+of each map are those of the third example.
 
 === "Command line"
 
     ```sh
-    t.rast.aggregate input=temp output=monthly_sum basename=monthly_sum \
-        granularity="1 months" method=sum nprocs=3 file_limit=2
-    t.rast.list input=monthly_sum columns=name,start_time,min,max
+    t.rast.aggregate input=precipitation_monthly output=precipitation_parallel \
+        basename=precipitation_parallel granularity="2 months" method=sum \
+        nprocs=3 file_limit=1
+    t.rast.univar input=precipitation_parallel | cut -d"|" -f1,7,8,10
     ```
 
     ```text
-    name|start_time|min|max
-    monthly_sum_2026_01|2026-01-01 00:00:00|9.0|21.0
-    monthly_sum_2026_02|2026-02-01 00:00:00|39.0|51.0
-    monthly_sum_2026_03|2026-03-01 00:00:00|69.0|81.0
+    id|min|max|mean
+    precipitation_parallel_2020_01@t_rast_aggregate|232|558|296.33885217799
+    precipitation_parallel_2020_03@t_rast_aggregate|184|443|220.397210297285
+    precipitation_parallel_2020_05@t_rast_aggregate|217|501|273.625771050974
+    precipitation_parallel_2020_07@t_rast_aggregate|210|514|330.528944630848
+    precipitation_parallel_2020_09@t_rast_aggregate|120|303|188.309797658642
+    precipitation_parallel_2020_11@t_rast_aggregate|174|518|219.85562848896
     ```
 
 === "Python (grass.tools)"
 
     ```python
     tools.t_rast_aggregate(
-        input="temp",
-        output="monthly_sum",
-        basename="monthly_sum",
-        granularity="1 months",
+        input="precipitation_monthly",
+        output="precipitation_parallel",
+        basename="precipitation_parallel",
+        granularity="2 months",
         method="sum",
         nprocs=3,
-        file_limit=2,
+        file_limit=1,
     )
-    print(tools.t_rast_list(input="monthly_sum", columns="name,start_time,min,max").text)
+    for line in tools.t_rast_univar(input="precipitation_parallel").text.splitlines():
+        fields = line.split("|")
+        print("|".join(fields[index] for index in (0, 6, 7, 9)))
     ```
 
     ```text
-    name|start_time|min|max
-    monthly_sum_2026_01|2026-01-01 00:00:00|9.0|21.0
-    monthly_sum_2026_02|2026-02-01 00:00:00|39.0|51.0
-    monthly_sum_2026_03|2026-03-01 00:00:00|69.0|81.0
+    id|min|max|mean
+    precipitation_parallel_2020_01@t_rast_aggregate|232|558|296.33885217799
+    precipitation_parallel_2020_03@t_rast_aggregate|184|443|220.397210297285
+    precipitation_parallel_2020_05@t_rast_aggregate|217|501|273.625771050974
+    precipitation_parallel_2020_07@t_rast_aggregate|210|514|330.528944630848
+    precipitation_parallel_2020_09@t_rast_aggregate|120|303|188.309797658642
+    precipitation_parallel_2020_11@t_rast_aggregate|174|518|219.85562848896
     ```
 
 ### Aggregate a dataset of another mapset
 
-The new mapset `second` has its own region and no dataset of its own. The input
-`temp@PERMANENT` names the dataset of the mapset `PERMANENT`; the new maps and
-the new dataset are created in `second`, as the column `mapset` shows.
+The new mapset `t_rast_aggregate_2` has no dataset of its own. A new mapset
+starts with the default region of the dataset, cells of 500 m, so the example
+sets the region of the first example again. *g.mapsets* adds the mapset
+`t_rast_aggregate` to the search path, and the input
+`temperature_monthly@t_rast_aggregate` names the dataset of the first example
+there; **granularity** `1 years` gives the annual mean of 2020. The new map
+and the new dataset are created in `t_rast_aggregate_2`, as the column
+`mapset` shows.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=second
-    t.rast.aggregate input=temp@PERMANENT output=monthly_copy \
-        basename=monthly_copy granularity="1 months" method=average
-    t.rast.list input=monthly_copy columns=name,mapset,start_time
+    g.mapset -c mapset=t_rast_aggregate_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_aggregate operation=add
+    t.rast.aggregate input=temperature_monthly@t_rast_aggregate \
+        output=temperature_annual basename=temperature_annual \
+        granularity="1 years" method=average
+    t.rast.list input=temperature_annual columns=name,mapset,start_time,end_time
     ```
 
     ```text
-    name|mapset|start_time
-    monthly_copy_2026_01|second|2026-01-01 00:00:00
-    monthly_copy_2026_02|second|2026-02-01 00:00:00
-    monthly_copy_2026_03|second|2026-03-01 00:00:00
+    name|mapset|start_time|end_time
+    temperature_annual_2020|t_rast_aggregate_2|2020-01-01 00:00:00|2021-01-01 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(flags="c", mapset="second")
+    tools.g_mapset(flags="c", mapset="t_rast_aggregate_2")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_aggregate", operation="add")
     tools.t_rast_aggregate(
-        input="temp@PERMANENT",
-        output="monthly_copy",
-        basename="monthly_copy",
-        granularity="1 months",
+        input="temperature_monthly@t_rast_aggregate",
+        output="temperature_annual",
+        basename="temperature_annual",
+        granularity="1 years",
         method="average",
     )
-    print(tools.t_rast_list(input="monthly_copy", columns="name,mapset,start_time").text)
+    print(
+        tools.t_rast_list(
+            input="temperature_annual", columns="name,mapset,start_time,end_time"
+        ).text
+    )
     ```
 
     ```text
-    name|mapset|start_time
-    monthly_copy_2026_01|second|2026-01-01 00:00:00
-    monthly_copy_2026_02|second|2026-02-01 00:00:00
-    monthly_copy_2026_03|second|2026-03-01 00:00:00
+    name|mapset|start_time|end_time
+    temperature_annual_2020|t_rast_aggregate_2|2020-01-01 00:00:00|2021-01-01 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
 
 ## SEE ALSO
 
-*[g.region](g.region.md), [r.mask](r.mask.md), [r.series](r.series.md),
-[t.info](t.info.md), [t.rast.aggregate.ds](t.rast.aggregate.ds.md),
-[t.rast.extract](t.rast.extract.md), [t.rast.list](t.rast.list.md),
-[t.rast.univar](t.rast.univar.md),
+*[g.mapsets](g.mapsets.md), [g.region](g.region.md), [r.mask](r.mask.md),
+[r.series](r.series.md), [t.info](t.info.md),
+[t.rast.aggregate.ds](t.rast.aggregate.ds.md),
+[t.rast.colors](t.rast.colors.md), [t.rast.extract](t.rast.extract.md),
+[t.rast.list](t.rast.list.md), [t.rast.univar](t.rast.univar.md),
 [temporal data processing](temporalintro.md)*
 
 ## AUTHOR
