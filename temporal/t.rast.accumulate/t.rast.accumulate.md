@@ -131,10 +131,10 @@ dataset; without it, they are removed.
 ## NOTES
 
 *t.rast.accumulate* reads datasets of other mapsets: **input**, **lower** and
-**upper** can be given with a mapset, `input=ones@PERMANENT`, or without one,
-when the mapset is in the search path (see *[g.mapsets](g.mapsets.md)*). The
-output dataset and its maps are always created in the current mapset. The last
-example shows this.
+**upper** can be given with a mapset, `input=ones@t_rast_accumulate`, or
+without one, when the mapset is in the search path (see
+*[g.mapsets](g.mapsets.md)*). The output dataset and its maps are always
+created in the current mapset. The last example shows this.
 
 An existing output dataset stops the run before any computation, unless
 **--overwrite** is set.
@@ -149,7 +149,7 @@ tool warns again that it did so. The maps of the removed dataset stay as maps,
 except for maps that have the name of a new result map, which the computation
 replaces and then removes. This also holds for a map that another dataset
 holds: with **--overwrite** and an empty result, such a map is replaced by an
-empty map and removed, and the other dataset loses it. The seventh example
+empty map and removed, and the other dataset loses it. The eighth example
 shows an empty result.
 
 A cycle in which no map starts is skipped. An empty input dataset ends with a
@@ -160,70 +160,101 @@ With relative time, the unit of the dataset is the unit of **start**, **stop**,
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_accumulate` and sets the computational
+region to North Carolina with cells of 1 km; the later examples work in this
+mapset and region, except the last, which creates a second mapset with the
+same region. The first example is an application: the heat sum of a year from
+monthly air temperatures. The other examples use maps with small constant
+values, so that the sums of the cycles can be checked by hand.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_accumulate -->
+
 <!-- markdownlint-disable MD046 -->
 
-### Accumulate the daily temperature
+### Accumulate the heat of a year
 
-The dataset `temperature` has six daily maps from 1 to 6 March 2026 on a region
-of three cells in one row. The map of day `n` holds the value of the day plus
-the column number minus one, so the cells of a map differ by one. The values
-of the first cell are 4, 12, 14, 8, 16 and 20, those of the last cell two more.
+The dataset `temperature_monthly` has twelve maps, one for each month of 2020,
+of the monthly mean air temperature over North Carolina in degrees Celsius,
+rounded to tenths. The maps are generated, not measured: 16.5 degrees at sea
+level and the northing 160 km, an annual cycle of plus and minus 10.5 degrees
+with its maximum in July, 6.5 degrees less for every 1000 m of elevation, and
+1 degree more for every 100 km to the south. Cells outside North Carolina have
+no value.
 
-The first block accumulates growing degree days above 10 with one cycle of six
-days. The increment of a day is its value minus 10, but not below 0, so the
-first cell adds 0, 2, 4, 0, 6 and 10: its sums are 0, 2, 6, 6, 12 and 22. The
-last cell adds 0, 4, 6, 0, 8 and 12 and ends with 30. The listing shows the
-smallest and the largest value of each result map, the values of the first
-and the last cell. The names of the maps end with the date of the granule. The
-upper limit 30 is required but not used by the method `gdd`.
+The growing degree days of a grapevine count the heat above a base temperature
+of 10 degrees Celsius. The block below accumulates them with the method `gdd`
+in one cycle of twelve months, with the granularity of one month. A month adds
+the mean temperature of the month minus 10, but not less than 0, and the sum
+starts at zero on 1 January. The upper limit 30 is required but not used by
+the method `gdd`. The monthly maps hold one value for a whole month, so the
+increments are in degrees Celsius times months; a factor of about 30 turns
+them into degree days. The listing shows the smallest and the largest value
+of each result map: at the end of the year the smallest sum is 9.0 and the
+largest 100.4, about 3000 degree days. The largest sum grows from March to
+November and stays at 100.4 in December. The sums of tenths are floating point
+numbers, shown as the tool computes them, so some have more digits than the
+temperatures.
 
-The second block leaves out **method**. The default is `mean`, which adds the
-values themselves: the sums of the first cell are 4, 16, 30, 38, 54 and 74.
+The second block accumulates the growing season only: **start** 1 April and
+**stop** 1 November end the run, and one cycle of seven months restarts the sum
+on 1 April. The maps of the months before April and from November are not
+used, so the result has seven maps.
 
 === "Command line"
 
     ```sh
-    g.region n=1 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = 4 + col() - 1"
-    r.mapcalc expression="temperature_2 = 12 + col() - 1"
-    r.mapcalc expression="temperature_3 = 14 + col() - 1"
-    r.mapcalc expression="temperature_4 = 8 + col() - 1"
-    r.mapcalc expression="temperature_5 = 16 + col() - 1"
-    r.mapcalc expression="temperature_6 = 20 + col() - 1"
-    t.create output=temperature title="Air temperature" \
-        description="Daily mean air temperature"
-    t.register -i input=temperature \
-        maps=temperature_1,temperature_2,temperature_3,temperature_4,temperature_5,temperature_6 \
-        start=2026-03-01 increment="1 day"
-    t.rast.accumulate input=temperature output=temperature_gdd basename=gdd \
-        start=2026-03-01 cycle="6 days" limits=10,30 method=gdd
-    t.rast.list input=temperature_gdd columns=name,start_time,end_time,min,max
+    g.mapset -c mapset=t_rast_accumulate
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
+    t.rast.accumulate input=temperature_monthly output=heat_sum \
+        basename=heat_sum start=2020-01-01 cycle="12 months" \
+        granularity="1 month" limits=10,30 method=gdd
+    t.rast.list input=heat_sum columns=name,start_time,min,max
     ```
 
     ```text
-    name|start_time|end_time|min|max
-    gdd_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|0.0
-    gdd_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|4.0
-    gdd_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|10.0
-    gdd_2026_03_04|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0|10.0
-    gdd_2026_03_05|2026-03-05 00:00:00|2026-03-06 00:00:00|12.0|18.0
-    gdd_2026_03_06|2026-03-06 00:00:00|2026-03-07 00:00:00|22.0|30.0
+    name|start_time|min|max
+    heat_sum_2020_01|2020-01-01 00:00:00|0.0|0.0
+    heat_sum_2020_02|2020-02-01 00:00:00|0.0|0.0
+    heat_sum_2020_03|2020-03-01 00:00:00|0.0|1.8000000000000007
+    heat_sum_2020_04|2020-04-01 00:00:00|0.0|8.7
+    heat_sum_2020_05|2020-05-01 00:00:00|0.0|20.9
+    heat_sum_2020_06|2020-06-01 00:00:00|2.0|37.4
+    heat_sum_2020_07|2020-07-01 00:00:00|5.9|55.8
+    heat_sum_2020_08|2020-08-01 00:00:00|9.0|73.4
+    heat_sum_2020_09|2020-09-01 00:00:00|9.0|87.60000000000001
+    heat_sum_2020_10|2020-10-01 00:00:00|9.0|96.70000000000002
+    heat_sum_2020_11|2020-11-01 00:00:00|9.0|100.40000000000002
+    heat_sum_2020_12|2020-12-01 00:00:00|9.0|100.40000000000002
     ```
 
     ```sh
-    t.rast.accumulate input=temperature output=temperature_mean basename=mean \
-        start=2026-03-01 cycle="6 days" limits=10,30
-    t.rast.list input=temperature_mean columns=name,min,max
+    t.rast.accumulate input=temperature_monthly output=heat_season \
+        basename=heat_season start=2020-04-01 stop=2020-11-01 \
+        cycle="7 months" granularity="1 month" limits=10,30 method=gdd
+    t.rast.list input=heat_season columns=name,start_time,min,max
     ```
 
     ```text
-    name|min|max
-    mean_2026_03_01|4.0|6.0
-    mean_2026_03_02|16.0|20.0
-    mean_2026_03_03|30.0|36.0
-    mean_2026_03_04|38.0|46.0
-    mean_2026_03_05|54.0|64.0
-    mean_2026_03_06|74.0|86.0
+    name|start_time|min|max
+    heat_season_2020_04|2020-04-01 00:00:00|0.0|6.899999999999999
+    heat_season_2020_05|2020-05-01 00:00:00|0.0|19.099999999999998
+    heat_season_2020_06|2020-06-01 00:00:00|2.0|35.599999999999994
+    heat_season_2020_07|2020-07-01 00:00:00|5.9|53.99999999999999
+    heat_season_2020_08|2020-08-01 00:00:00|9.0|71.6
+    heat_season_2020_09|2020-09-01 00:00:00|9.0|85.8
+    heat_season_2020_10|2020-10-01 00:00:00|9.0|94.9
     ```
 
 === "Python (grass.tools)"
@@ -232,24 +263,163 @@ values themselves: the sums of the first cell are 4, 16, 30, 38, 54 and 74.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=1, s=0, e=3, w=0, res=1)
-    for number, value in enumerate((4, 12, 14, 8, 16, 20), start=1):
-        tools.r_mapcalc(expression=f"temperature_{number} = {value} + col() - 1")
+    tools.g_mapset(flags="c", mapset="t_rast_accumulate")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature",
+        output="temperature_monthly",
         title="Air temperature",
-        description="Daily mean air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
-        maps=",".join(f"temperature_{number}" for number in range(1, 7)),
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
+        flags="i",
+    )
+    tools.t_rast_accumulate(
+        input="temperature_monthly",
+        output="heat_sum",
+        basename="heat_sum",
+        start="2020-01-01",
+        cycle="12 months",
+        granularity="1 month",
+        limits="10,30",
+        method="gdd",
+    )
+    print(tools.t_rast_list(input="heat_sum", columns="name,start_time,min,max").text)
+    ```
+
+    ```text
+    name|start_time|min|max
+    heat_sum_2020_01|2020-01-01 00:00:00|0.0|0.0
+    heat_sum_2020_02|2020-02-01 00:00:00|0.0|0.0
+    heat_sum_2020_03|2020-03-01 00:00:00|0.0|1.8000000000000007
+    heat_sum_2020_04|2020-04-01 00:00:00|0.0|8.7
+    heat_sum_2020_05|2020-05-01 00:00:00|0.0|20.9
+    heat_sum_2020_06|2020-06-01 00:00:00|2.0|37.4
+    heat_sum_2020_07|2020-07-01 00:00:00|5.9|55.8
+    heat_sum_2020_08|2020-08-01 00:00:00|9.0|73.4
+    heat_sum_2020_09|2020-09-01 00:00:00|9.0|87.60000000000001
+    heat_sum_2020_10|2020-10-01 00:00:00|9.0|96.70000000000002
+    heat_sum_2020_11|2020-11-01 00:00:00|9.0|100.40000000000002
+    heat_sum_2020_12|2020-12-01 00:00:00|9.0|100.40000000000002
+    ```
+
+    ```python
+    tools.t_rast_accumulate(
+        input="temperature_monthly",
+        output="heat_season",
+        basename="heat_season",
+        start="2020-04-01",
+        stop="2020-11-01",
+        cycle="7 months",
+        granularity="1 month",
+        limits="10,30",
+        method="gdd",
+    )
+    print(tools.t_rast_list(input="heat_season", columns="name,start_time,min,max").text)
+    ```
+
+    ```text
+    name|start_time|min|max
+    heat_season_2020_04|2020-04-01 00:00:00|0.0|6.899999999999999
+    heat_season_2020_05|2020-05-01 00:00:00|0.0|19.099999999999998
+    heat_season_2020_06|2020-06-01 00:00:00|2.0|35.599999999999994
+    heat_season_2020_07|2020-07-01 00:00:00|5.9|53.99999999999999
+    heat_season_2020_08|2020-08-01 00:00:00|9.0|71.6
+    heat_season_2020_09|2020-09-01 00:00:00|9.0|85.8
+    heat_season_2020_10|2020-10-01 00:00:00|9.0|94.9
+    ```
+
+### Accumulate the daily temperature
+
+The dataset `temperature_daily` has six daily maps from 1 to 6 March 2026 with
+the same value in all cells: 4, 12, 14, 8, 16 and 20 degrees Celsius.
+
+The first block accumulates growing degree days above 10 with one cycle of six
+days. The increment of a day is its value minus 10, but not below 0, so the
+increments are 0, 2, 4, 0, 6 and 10 and the sums 0, 2, 6, 6, 12 and 22. The
+listing shows the largest value of each result map, which is the value of every
+cell. The names of the maps end with the date of the granule. The upper limit
+30 is required but not used by the method `gdd`.
+
+The second block leaves out **method**. The default is `mean`, which adds the
+values themselves: the sums are 4, 16, 30, 38, 54 and 74.
+
+=== "Command line"
+
+    ```sh
+    i=0
+    for value in 4 12 14 8 16 20; do
+        i=$((i + 1))
+        r.mapcalc expression="temperature_daily_$i = $value"
+    done
+    t.create output=temperature_daily title="Air temperature" \
+        description="Daily mean air temperature in degree Celsius"
+    t.register -i input=temperature_daily \
+        maps=temperature_daily_1,temperature_daily_2,temperature_daily_3,temperature_daily_4,temperature_daily_5,temperature_daily_6 \
+        start=2026-03-01 increment="1 day"
+    t.rast.accumulate input=temperature_daily output=temperature_daily_gdd \
+        basename=gdd start=2026-03-01 cycle="6 days" limits=10,30 method=gdd
+    t.rast.list input=temperature_daily_gdd columns=name,start_time,end_time,max
+    ```
+
+    ```text
+    name|start_time|end_time|max
+    gdd_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0
+    gdd_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0
+    gdd_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0
+    gdd_2026_03_04|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0
+    gdd_2026_03_05|2026-03-05 00:00:00|2026-03-06 00:00:00|12.0
+    gdd_2026_03_06|2026-03-06 00:00:00|2026-03-07 00:00:00|22.0
+    ```
+
+    ```sh
+    t.rast.accumulate input=temperature_daily output=temperature_daily_mean \
+        basename=mean start=2026-03-01 cycle="6 days" limits=10,30
+    t.rast.list input=temperature_daily_mean columns=name,max
+    ```
+
+    ```text
+    name|max
+    mean_2026_03_01|4.0
+    mean_2026_03_02|16.0
+    mean_2026_03_03|30.0
+    mean_2026_03_04|38.0
+    mean_2026_03_05|54.0
+    mean_2026_03_06|74.0
+    ```
+
+=== "Python (grass.tools)"
+
+    ```python
+    for number, value in enumerate((4, 12, 14, 8, 16, 20), start=1):
+        tools.r_mapcalc(expression=f"temperature_daily_{number} = {value}")
+    tools.t_create(
+        output="temperature_daily",
+        title="Air temperature",
+        description="Daily mean air temperature in degree Celsius",
+    )
+    tools.t_register(
+        input="temperature_daily",
+        maps=",".join(f"temperature_daily_{number}" for number in range(1, 7)),
         start="2026-03-01",
         increment="1 day",
         flags="i",
     )
     tools.t_rast_accumulate(
-        input="temperature",
-        output="temperature_gdd",
+        input="temperature_daily",
+        output="temperature_daily_gdd",
         basename="gdd",
         start="2026-03-01",
         cycle="6 days",
@@ -257,41 +427,41 @@ values themselves: the sums of the first cell are 4, 16, 30, 38, 54 and 74.
         method="gdd",
     )
     result = tools.t_rast_list(
-        input="temperature_gdd", columns="name,start_time,end_time,min,max"
+        input="temperature_daily_gdd", columns="name,start_time,end_time,max"
     )
     print(result.text)
     ```
 
     ```text
-    name|start_time|end_time|min|max
-    gdd_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0|0.0
-    gdd_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0|4.0
-    gdd_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0|10.0
-    gdd_2026_03_04|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0|10.0
-    gdd_2026_03_05|2026-03-05 00:00:00|2026-03-06 00:00:00|12.0|18.0
-    gdd_2026_03_06|2026-03-06 00:00:00|2026-03-07 00:00:00|22.0|30.0
+    name|start_time|end_time|max
+    gdd_2026_03_01|2026-03-01 00:00:00|2026-03-02 00:00:00|0.0
+    gdd_2026_03_02|2026-03-02 00:00:00|2026-03-03 00:00:00|2.0
+    gdd_2026_03_03|2026-03-03 00:00:00|2026-03-04 00:00:00|6.0
+    gdd_2026_03_04|2026-03-04 00:00:00|2026-03-05 00:00:00|6.0
+    gdd_2026_03_05|2026-03-05 00:00:00|2026-03-06 00:00:00|12.0
+    gdd_2026_03_06|2026-03-06 00:00:00|2026-03-07 00:00:00|22.0
     ```
 
     ```python
     tools.t_rast_accumulate(
-        input="temperature",
-        output="temperature_mean",
+        input="temperature_daily",
+        output="temperature_daily_mean",
         basename="mean",
         start="2026-03-01",
         cycle="6 days",
         limits="10,30",
     )
-    print(tools.t_rast_list(input="temperature_mean", columns="name,min,max").text)
+    print(tools.t_rast_list(input="temperature_daily_mean", columns="name,max").text)
     ```
 
     ```text
-    name|min|max
-    mean_2026_03_01|4.0|6.0
-    mean_2026_03_02|16.0|20.0
-    mean_2026_03_03|30.0|36.0
-    mean_2026_03_04|38.0|46.0
-    mean_2026_03_05|54.0|64.0
-    mean_2026_03_06|74.0|86.0
+    name|max
+    mean_2026_03_01|4.0
+    mean_2026_03_02|16.0
+    mean_2026_03_03|30.0
+    mean_2026_03_04|38.0
+    mean_2026_03_05|54.0
+    mean_2026_03_06|74.0
     ```
 
 ### Choose the method
@@ -1100,9 +1270,9 @@ order of the computation.
 ### Keep or remove empty maps
 
 The dataset `gappy` has four daily maps. The first one has no value in any cell,
-the second the value 3 everywhere. The third has no value in the first cell,
-the fourth none in the second cell; the other cells hold 3. Cycles of two days
-start on 1 and 3 March.
+the second the value 3 everywhere. The third has no value in the west third
+of the region (columns 1 to 280), the fourth none in the middle third (columns
+281 to 560); the other cells hold 3. Cycles of two days start on 1 and 3 March.
 
 In the first cycle the first map is empty, so every cell is NULL in the first
 step and stays NULL in the second one. Both result maps of the cycle are
@@ -1110,10 +1280,12 @@ empty. Without **-n** they are removed; the dataset `gaps_dropped` has two
 maps. With **-n**, the dataset `gaps_kept` registers all four maps, the empty
 ones with `None` as smallest and largest value.
 
-In the second cycle the first cell is NULL in the first step and stays NULL in
-the second one. The second cell is NULL in the second step and keeps the sum of
-the first step, 3. The last cell holds 3 and 6. The `r.stats` blocks list the
-cells of the two maps of the second cycle.
+In the second cycle the west third is NULL in the first step and stays NULL in
+the second one. The middle third is NULL in the second step and keeps the sum
+of the first step, 3. The east third holds 3 and 6. The `r.stats` blocks count
+the cells of each value in the two maps of the second cycle. The thirds hold
+93,800, 93,800 and 93,465 cells (280, 280 and 279 columns of 335 rows), so the
+first map has 93,800 cells without a value and 187,265 cells with the value 3.
 
 An empty result is warned about and creates no dataset. The last block runs
 the same computation once more with **--overwrite** and the **stop** 3 March,
@@ -1127,8 +1299,8 @@ listing of the datasets whose names start with `gaps` shows that
     ```sh
     r.mapcalc expression="gap_1 = null()"
     r.mapcalc expression="gap_2 = 3"
-    r.mapcalc expression="gap_3 = if(col() == 1, null(), 3)"
-    r.mapcalc expression="gap_4 = if(col() == 2, null(), 3)"
+    r.mapcalc expression="gap_3 = if(col() <= 280, null(), 3)"
+    r.mapcalc expression="gap_4 = if(col() > 280 && col() <= 560, null(), 3)"
     t.create output=gappy title="Gappy" description="Maps with NULL cells"
     t.register -i input=gappy maps=gap_1,gap_2,gap_3,gap_4 \
         start=2026-03-01 increment="1 day"
@@ -1158,24 +1330,24 @@ listing of the datasets whose names start with `gaps` shows that
     ```
 
     ```sh
-    r.stats -1 input=dropped_2026_03_03 null_value=NULL
-    r.stats -1 input=dropped_2026_03_04 null_value=NULL
+    r.stats -ci input=dropped_2026_03_03 null_value=NULL
+    r.stats -ci input=dropped_2026_03_04 null_value=NULL
     ```
 
     ```text
-    NULL
-    3
-    3
-    NULL
-    3
-    6
+    3 187265
+    NULL 93800
+    3 93800
+    6 93465
+    NULL 93800
     ```
 
     ```sh
     t.rast.accumulate --overwrite input=gappy output=gaps_dropped \
         basename=dropped start=2026-03-01 stop=2026-03-03 cycle="2 days" \
         limits=10,30
-    t.list type=strds columns=name where="name like 'gaps%'"
+    t.list type=strds columns=name mapset=. \
+        where="name like 'gaps%'"
     ```
 
     ```text
@@ -1187,8 +1359,8 @@ listing of the datasets whose names start with `gaps` shows that
     ```python
     tools.r_mapcalc(expression="gap_1 = null()")
     tools.r_mapcalc(expression="gap_2 = 3")
-    tools.r_mapcalc(expression="gap_3 = if(col() == 1, null(), 3)")
-    tools.r_mapcalc(expression="gap_4 = if(col() == 2, null(), 3)")
+    tools.r_mapcalc(expression="gap_3 = if(col() <= 280, null(), 3)")
+    tools.r_mapcalc(expression="gap_4 = if(col() > 280 && col() <= 560, null(), 3)")
     tools.t_create(output="gappy", title="Gappy", description="Maps with NULL cells")
     tools.t_register(
         input="gappy",
@@ -1237,16 +1409,15 @@ listing of the datasets whose names start with `gaps` shows that
 
     ```python
     for name in ("dropped_2026_03_03", "dropped_2026_03_04"):
-        print(tools.r_stats(input=name, flags="1", null_value="NULL").text)
+        print(tools.r_stats(input=name, flags="ci", null_value="NULL").text)
     ```
 
     ```text
-    NULL
-    3
-    3
-    NULL
-    3
-    6
+    3 187265
+    NULL 93800
+    3 93800
+    6 93465
+    NULL 93800
     ```
 
     ```python
@@ -1260,7 +1431,10 @@ listing of the datasets whose names start with `gaps` shows that
         limits="10,30",
         overwrite=True,
     )
-    print(tools.t_list(type="strds", columns="name", where="name like 'gaps%'").text)
+    result = tools.t_list(
+        type="strds", columns="name", mapset=".", where="name like 'gaps%'"
+    )
+    print(result.text)
     ```
 
     ```text
@@ -1500,53 +1674,59 @@ the mean of each is 1, so the sums are 1 and 2. The second cycle begins on
 ### Use datasets of another mapset
 
 The input and the limit datasets can lie in another mapset, but the output is
-created in the current one. The example creates the mapset `other` and
-switches to it; the datasets `warm`, `low` and `high` stay in `PERMANENT` and
-are named with their mapset. A new mapset takes its region from the default
-region, so the example sets the region first. The result is the same as in the
-fifth example with both limit datasets: the sums 4, 12, 18, 38, 50 and 52. The
-first block shows that the maps are in `other`, the second that the dataset is.
+created in the current one. The example creates the mapset
+`t_rast_accumulate_2` and switches to it; the datasets `warm`, `low` and `high`
+stay in `t_rast_accumulate` and are named with their mapset. A new mapset takes
+its region from the default region of the dataset, cells of 500 m, so the
+example sets the region of the first example again. *g.mapsets* adds the mapset
+`t_rast_accumulate` to the search path. The result is the same as in the sixth
+example with both limit datasets: the sums 4, 12, 18, 38, 50 and 52. The first
+block shows that the maps are in `t_rast_accumulate_2`, the second that the
+dataset is.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    g.region n=1 s=0 e=3 w=0 res=1
-    t.rast.accumulate input=warm@PERMANENT output=warm_other basename=other \
-        lower=low@PERMANENT upper=high@PERMANENT start=2026-03-01 \
-        cycle="6 days" limits=10,30 method=bedd
+    g.mapset -c mapset=t_rast_accumulate_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_rast_accumulate operation=add
+    t.rast.accumulate input=warm@t_rast_accumulate output=warm_other \
+        basename=other lower=low@t_rast_accumulate \
+        upper=high@t_rast_accumulate start=2026-03-01 cycle="6 days" \
+        limits=10,30 method=bedd
     t.rast.list input=warm_other columns=name,mapset,max
     ```
 
     ```text
     name|mapset|max
-    other_2026_03_01|other|4.0
-    other_2026_03_02|other|12.0
-    other_2026_03_03|other|18.0
-    other_2026_03_04|other|38.0
-    other_2026_03_05|other|50.0
-    other_2026_03_06|other|52.0
+    other_2026_03_01|t_rast_accumulate_2|4.0
+    other_2026_03_02|t_rast_accumulate_2|12.0
+    other_2026_03_03|t_rast_accumulate_2|18.0
+    other_2026_03_04|t_rast_accumulate_2|38.0
+    other_2026_03_05|t_rast_accumulate_2|50.0
+    other_2026_03_06|t_rast_accumulate_2|52.0
     ```
 
     ```sh
-    t.list type=strds columns=name,mapset where="name = 'warm_other'"
+    t.list type=strds columns=name,mapset mapset=. where="name = 'warm_other'"
     ```
 
     ```text
-    warm_other|other
+    warm_other|t_rast_accumulate_2
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="other", flags="c")
-    tools.g_region(n=1, s=0, e=3, w=0, res=1)
+    tools.g_mapset(mapset="t_rast_accumulate_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_rast_accumulate", operation="add")
     tools.t_rast_accumulate(
-        input="warm@PERMANENT",
+        input="warm@t_rast_accumulate",
         output="warm_other",
         basename="other",
-        lower="low@PERMANENT",
-        upper="high@PERMANENT",
+        lower="low@t_rast_accumulate",
+        upper="high@t_rast_accumulate",
         start="2026-03-01",
         cycle="6 days",
         limits="10,30",
@@ -1557,21 +1737,23 @@ first block shows that the maps are in `other`, the second that the dataset is.
 
     ```text
     name|mapset|max
-    other_2026_03_01|other|4.0
-    other_2026_03_02|other|12.0
-    other_2026_03_03|other|18.0
-    other_2026_03_04|other|38.0
-    other_2026_03_05|other|50.0
-    other_2026_03_06|other|52.0
+    other_2026_03_01|t_rast_accumulate_2|4.0
+    other_2026_03_02|t_rast_accumulate_2|12.0
+    other_2026_03_03|t_rast_accumulate_2|18.0
+    other_2026_03_04|t_rast_accumulate_2|38.0
+    other_2026_03_05|t_rast_accumulate_2|50.0
+    other_2026_03_06|t_rast_accumulate_2|52.0
     ```
 
     ```python
-    result = tools.t_list(type="strds", columns="name,mapset", where="name = 'warm_other'")
+    result = tools.t_list(
+        type="strds", columns="name,mapset", mapset=".", where="name = 'warm_other'"
+    )
     print(result.text)
     ```
 
     ```text
-    warm_other|other
+    warm_other|t_rast_accumulate_2
     ```
 
 <!-- markdownlint-enable MD046 -->
