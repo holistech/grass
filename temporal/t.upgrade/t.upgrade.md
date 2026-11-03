@@ -77,25 +77,36 @@ as before after the call.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_upgrade` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.upgrade* changes the temporal database of the current mapset only,
+so it never touches the database of another mapset of the dataset. The maps
+hold small constant values, as only the database matters here.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_upgrade -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Check a database of the current version and renew its views
 
-The region has 2 rows and 3 columns. The dataset `temperature` has absolute
-time with two daily maps from 1 March 2026, and the dataset `model` has relative
-time with two maps of one hour. The first block shows the version of the
-database, `tgis_db_version='3'`, and the second block lists the datasets with
-their number of maps and of semantic labels, which are 0. *t.upgrade* then
-reports that the database is up-to-date and creates its views again. Nothing is
-printed on standard output. The last two blocks show that the version and the
-datasets are as before.
+The dataset `temperature` has absolute time with two daily maps from 1 March
+2026, which hold the daily mean air temperature of 8 and 9 degrees Celsius in
+every cell. The dataset `model` has relative time with two maps of one hour. The
+first block shows the version of the database, `tgis_db_version='3'`, and the
+second block lists the datasets with their number of maps and of semantic
+labels, which are 0. *t.upgrade* then reports that the database is up-to-date
+and creates its views again. Nothing is printed on standard output. The last two
+blocks show that the version and the datasets are as before.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=3 w=0 res=1
-    r.mapcalc expression="temperature_1 = col()"
-    r.mapcalc expression="temperature_2 = col() + 3"
+    g.mapset -c mapset=t_upgrade
+    g.region raster=elev_state_500m res=1000 -a
+    r.mapcalc expression="temperature_1 = 8"
+    r.mapcalc expression="temperature_2 = 9"
     r.mapcalc expression="step_1 = 1"
     r.mapcalc expression="step_2 = 2"
     t.create output=temperature title="Air temperature" \
@@ -148,9 +159,10 @@ datasets are as before.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=3, w=0, res=1)
-    tools.r_mapcalc(expression="temperature_1 = col()")
-    tools.r_mapcalc(expression="temperature_2 = col() + 3")
+    tools.g_mapset(flags="c", mapset="t_upgrade")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.r_mapcalc(expression="temperature_1 = 8")
+    tools.r_mapcalc(expression="temperature_2 = 9")
     tools.r_mapcalc(expression="step_1 = 1")
     tools.r_mapcalc(expression="step_2 = 2")
     tools.t_create(
