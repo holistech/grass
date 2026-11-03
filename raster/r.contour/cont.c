@@ -78,13 +78,30 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
     struct line_cats *Cats;
     int outside; /* 1 if line is exiting the surface; 0 otherwise */
     struct cell current;
-    int p1, p2; /* indexes to end points of cell edges */
+    int p1, p2;     /* indexes to end points of cell edges */
+    int min_points; /* fewest points of a line that is written */
 
     Points = Vect_new_line_struct();
     Cats = Vect_new_cats_struct();
 
     nrow = Cell.rows;
     ncol = Cell.cols;
+
+    /* A traced line has a single point where the level touches the surface
+       only around a node: when every crossing on the edges around a node
+       lies closer to it than the coordinates can tell apart, getpoint()
+       adds the node once. This happens at a node whose neighbors all lie on
+       one side of the level and whose value is the level (displaceMatrix()
+       moves the value 0 by nothing and other values by so little that the
+       points become one at large coordinates) or differs from it by a few
+       units in the last place, also at small coordinates (seen 2026-11-03
+       with tests/r_contour_single_point_test.py). Lines do not run through
+       cells with a null node, so nodes of the level that no cell of the
+       surface joins, as on a staircase of null cells, are such points too.
+       A single point is no line, and Vect_break_lines() in main.c ends
+       r.contour on it ("Intersection with points is not yet supported"), so
+       it is never written, whatever cut says. */
+    min_points = (n_cut > 2) ? n_cut : 2;
 
     /* A line runs through cells of four nodes, which needs two rows and two
        columns. With fewer there is no cell and no line. */
@@ -182,7 +199,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         newedge(&current);
                         outside = getnewcell(&current, nrow, ncol, z, square);
                     }
-                    if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
+                    if (Points->n_points >= min_points) {
                         Vect_reset_cats(Cats);
                         Vect_cat_set(Cats, 1, n + 1);
                         Vect_write_line(&Map, GV_LINE, Points, Cats);
@@ -252,7 +269,7 @@ void contour(double levels[], int nlevels, struct Map_info Map, DCELL **z,
                         Vect_reset_line(Points);
                         continue;
                     }
-                    if ((n_cut <= 0) || ((Points->n_points) >= n_cut)) {
+                    if (Points->n_points >= min_points) {
                         Vect_reset_cats(Cats);
                         Vect_cat_set(Cats, 1, n + 1);
                         Vect_write_line(&Map, GV_LINE, Points, Cats);
