@@ -33,9 +33,9 @@ distances are counted, so the distances start at 0 with the first selected map.
 The option **columns** chooses the columns that are printed for each map,
 separated by commas. The columns are:
 
-- `id`, the name of the map with its mapset, such as `survey_1@PERMANENT`; for
-  a map that is registered with a layer, the layer follows the name after a
-  colon, such as `gauge:2@PERMANENT`. `name` and `mapset` are the two parts of
+- `id`, the name of the map with its mapset, such as `survey_1@t_vect_list`;
+  for a map that is registered with a layer, the layer follows the name after a
+  colon, such as `gauge:2@t_vect_list`. `name` and `mapset` are the two parts of
   it, without the layer;
 - `layer`, the layer of the map that is registered, `None` for a map that is
   registered without a layer. Several layers of one map are registered one by
@@ -168,7 +168,7 @@ the third example shows. To print the listing, leave out **output**; to keep it
 in a file, give a file name other than `-`.
 
 *t.vect.list* only reads, so it works on a dataset of another mapset as well.
-The name with the mapset (`input=survey@PERMANENT`) selects it; a name without
+The name with the mapset (`input=survey@t_vect_list`) selects it; a name without
 a mapset is searched in the mapsets of the search path (see
 *[g.mapsets](g.mapsets.md)*). The last example shows this.
 
@@ -182,18 +182,32 @@ of more than one character with `csv`.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_vect_list` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. *t.vect.list* reads the temporal database, so the maps are copies of
+stream gauges of the dataset or small sketches in its coordinate system, and
+the datasets carry times of 2026 and 1997 to 2003.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_vect_list -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### List the maps of a dataset
 
 The dataset `survey` has four vector maps on the days from 1 to 4 March 2026.
-The first map has three points at (1, 1), (2, 3) and (5, 2). The second map has
-two lines: one from (0, 0) to (4, 0) and one from (0, 1) to (0, 3). The third
-map is a square from (0, 0) to (2, 2): one boundary that closes on itself, and
-a centroid in the middle. The fourth map is a square from (0, 0) to (4, 4) with
-a centroid at (3, 3) and a smaller ring from (1, 1) to (2, 2) inside, which has
-no centroid. A space time vector dataset has the type `stvds`, and its maps are
-registered with the type `vector`.
+The first map has three points: the stream gauges 149 to 151 of `usgsgages`,
+which *v.extract* copies into the mapset. The other three maps are sketches that
+*v.in.ascii* reads from the standard input. Their coordinates are metres in the
+project, and the sketches lie in the southwest of North Carolina, north and east
+of the point (300000, 100000); the numbers below are distances from this point
+in kilometres. The second map has two lines: one from (0, 0) to (4, 0) and one
+from (0, 1) to (0, 3). The third map is a square from (0, 0) to (2, 2): one
+boundary that closes on itself, and a centroid in the middle. The fourth map is
+a square from (0, 0) to (4, 4) with a centroid at (3, 3) and a smaller ring from
+(1, 1) to (2, 2) inside, which has no centroid. A space time vector dataset has
+the type `stvds`, and its maps are registered with the type `vector`.
 
 The first block lists the maps with the default columns. The second block adds
 the flag **-u**, which suppresses the line with the column names, and names the
@@ -212,50 +226,48 @@ of the fourth map: its bounding box is the outer square.
 === "Command line"
 
     ```sh
-    v.in.ascii -n input=- output=survey_1 format=point separator=comma <<EOF
-    1,1
-    2,3
-    5,2
-    EOF
+    g.mapset -c mapset=t_vect_list
+    g.region raster=elev_state_500m res=1000 -a
+    v.extract input=usgsgages output=survey_1 where="cat >= 149 and cat <= 151"
     v.in.ascii input=- output=survey_2 format=standard <<EOF
     VERTI:
     L 2 1
-     0 0
-     4 0
+     300000 100000
+     304000 100000
      1 1
     L 2 1
-     0 1
-     0 3
+     300000 101000
+     300000 103000
      2 1
     EOF
     v.in.ascii input=- output=survey_3 format=standard <<EOF
     VERTI:
     B 5
-     0 0
-     2 0
-     2 2
-     0 2
-     0 0
+     300000 100000
+     302000 100000
+     302000 102000
+     300000 102000
+     300000 100000
     C 1 1
-     1 1
+     301000 101000
      1 1
     EOF
     v.in.ascii input=- output=survey_4 format=standard <<EOF
     VERTI:
     B 5
-     0 0
-     4 0
-     4 4
-     0 4
-     0 0
+     300000 100000
+     304000 100000
+     304000 104000
+     300000 104000
+     300000 100000
     B 5
-     1 1
-     1 2
-     2 2
-     2 1
-     1 1
+     301000 101000
+     301000 102000
+     302000 102000
+     302000 101000
+     301000 101000
     C 1 1
-     3 3
+     303000 103000
      1 1
     EOF
     t.create type=stvds output=survey title="Survey" \
@@ -268,10 +280,10 @@ of the fourth map: its bounding box is the outer square.
 
     ```text
     name|layer|mapset|start_time|end_time
-    survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    survey_1|None|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    survey_2|None|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    survey_3|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    survey_4|None|t_vect_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```sh
@@ -279,10 +291,10 @@ of the fourth map: its bounding box is the outer square.
     ```
 
     ```text
-    survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    survey_1|None|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    survey_2|None|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    survey_3|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    survey_4|None|t_vect_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```sh
@@ -317,7 +329,7 @@ of the fourth map: its bounding box is the outer square.
 
     ```text
     id|temporal_type|north|south|west|east
-    survey_4@PERMANENT|absolute|4.0|0.0|0.0|4.0
+    survey_4@t_vect_list|absolute|104000.0|100000.0|300000.0|304000.0
     ```
 
 === "Python (grass.tools)"
@@ -328,21 +340,25 @@ of the fourth map: its bounding box is the outer square.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.v_in_ascii(
-        input=StringIO("1,1\n2,3\n5,2\n"),
-        output="survey_1",
-        format="point",
-        separator="comma",
-        flags="n",
+    tools.g_mapset(flags="c", mapset="t_vect_list")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.v_extract(input="usgsgages", output="survey_1", where="cat >= 149 and cat <= 151")
+    lines = (
+        "VERTI:\nL 2 1\n 300000 100000\n 304000 100000\n 1 1\n"
+        "L 2 1\n 300000 101000\n 300000 103000\n 2 1\n"
     )
-    lines = "VERTI:\nL 2 1\n 0 0\n 4 0\n 1 1\nL 2 1\n 0 1\n 0 3\n 2 1\n"
     tools.v_in_ascii(input=StringIO(lines), output="survey_2", format="standard")
-    square = "VERTI:\nB 5\n 0 0\n 2 0\n 2 2\n 0 2\n 0 0\nC 1 1\n 1 1\n 1 1\n"
+    square = (
+        "VERTI:\nB 5\n 300000 100000\n 302000 100000\n 302000 102000\n"
+        " 300000 102000\n 300000 100000\nC 1 1\n 301000 101000\n 1 1\n"
+    )
     tools.v_in_ascii(input=StringIO(square), output="survey_3", format="standard")
     rings = (
-        "VERTI:\nB 5\n 0 0\n 4 0\n 4 4\n 0 4\n 0 0\n"
-        "B 5\n 1 1\n 1 2\n 2 2\n 2 1\n 1 1\n"
-        "C 1 1\n 3 3\n 1 1\n"
+        "VERTI:\nB 5\n 300000 100000\n 304000 100000\n 304000 104000\n"
+        " 300000 104000\n 300000 100000\n"
+        "B 5\n 301000 101000\n 301000 102000\n 302000 102000\n"
+        " 302000 101000\n 301000 101000\n"
+        "C 1 1\n 303000 103000\n 1 1\n"
     )
     tools.v_in_ascii(input=StringIO(rings), output="survey_4", format="standard")
     tools.t_create(
@@ -364,10 +380,10 @@ of the fourth map: its bounding box is the outer square.
 
     ```text
     name|layer|mapset|start_time|end_time
-    survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    survey_1|None|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    survey_2|None|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    survey_3|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    survey_4|None|t_vect_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```python
@@ -375,10 +391,10 @@ of the fourth map: its bounding box is the outer square.
     ```
 
     ```text
-    survey_1|None|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    survey_2|None|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    survey_3|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
-    survey_4|None|PERMANENT|2026-03-04 00:00:00|2026-03-05 00:00:00
+    survey_1|None|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    survey_2|None|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    survey_3|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
+    survey_4|None|t_vect_list|2026-03-04 00:00:00|2026-03-05 00:00:00
     ```
 
     ```python
@@ -423,7 +439,7 @@ of the fourth map: its bounding box is the outer square.
 
     ```text
     id|temporal_type|north|south|west|east
-    survey_4@PERMANENT|absolute|4.0|0.0|0.0|4.0
+    survey_4@t_vect_list|absolute|104000.0|100000.0|300000.0|304000.0
     ```
 
 ### Select and sort the maps
@@ -620,7 +636,7 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+    survey_1@t_vect_list,survey_2@t_vect_list,survey_3@t_vect_list,survey_4@t_vect_list
     ```
 
     ```sh
@@ -628,7 +644,7 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+    survey_1@t_vect_list,survey_2@t_vect_list,survey_3@t_vect_list,survey_4@t_vect_list
     ```
 
     ```sh
@@ -718,7 +734,7 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+    survey_1@t_vect_list,survey_2@t_vect_list,survey_3@t_vect_list,survey_4@t_vect_list
     ```
 
     ```python
@@ -726,7 +742,7 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
     ```
 
     ```text
-    survey_1@PERMANENT,survey_2@PERMANENT,survey_3@PERMANENT,survey_4@PERMANENT
+    survey_1@t_vect_list,survey_2@t_vect_list,survey_3@t_vect_list,survey_4@t_vect_list
     ```
 
     ```python
@@ -821,9 +837,10 @@ prints the file. The ninth block shows that `output=-` writes a file named `-`.
 
 ### Maps with layers
 
-The map `gauge` has three points, which have a category in each of the layers 1,
-2 and 3. A layer of a map is registered by its own, as `gauge:3`, and is a map
-of the dataset with its own time. The dataset `layered` holds the layer 3 of
+The map `gauge` has three points, the stream gauges 149 to 151 of `usgsgages`,
+which have a category in each of the layers 1, 2 and 3. A layer of a map is
+registered by its own, as `gauge:3`, and is a map of the dataset with its own
+time. The dataset `layered` holds the layer 3 of
 `gauge` on 1 March, its layer 1 on 2 March, and the map `plain_1`, which has no
 layer, on 3 March; the order in time differs from the order of the layers.
 
@@ -836,17 +853,10 @@ as text, and `null` for the map without one.
 === "Command line"
 
     ```sh
-    v.in.ascii input=- output=gauge_import format=point separator=comma \
-        columns="x double precision, y double precision, cat integer" \
-        x=1 y=2 z=0 cat=3 <<EOF
-    1,1,1
-    3,4,2
-    2,2,3
-    EOF
+    v.extract input=usgsgages output=gauge_import \
+        where="cat >= 149 and cat <= 151"
     v.category input=gauge_import output=gauge option=transfer layer=1,2,3
-    v.in.ascii -n input=- output=plain_1 format=point separator=comma <<EOF
-    1,1
-    EOF
+    v.extract input=usgsgages output=plain_1 where="cat = 149"
     t.create type=stvds output=layered title="Layers" \
         description="Layers of one map in the order of time"
     t.register type=vector input=layered maps=gauge:3 \
@@ -860,9 +870,9 @@ as text, and `null` for the map without one.
 
     ```text
     name|layer|mapset|start_time|end_time
-    gauge|3|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    gauge|1|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    plain_1|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    gauge|3|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    gauge|1|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    plain_1|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
     ```
 
     ```sh
@@ -871,9 +881,9 @@ as text, and `null` for the map without one.
 
     ```text
     id|name|layer
-    gauge:3@PERMANENT|gauge|3
-    gauge:1@PERMANENT|gauge|1
-    plain_1@PERMANENT|plain_1|None
+    gauge:3@t_vect_list|gauge|3
+    gauge:1@t_vect_list|gauge|1
+    plain_1@t_vect_list|plain_1|None
     ```
 
     ```sh
@@ -882,7 +892,7 @@ as text, and `null` for the map without one.
 
     ```text
     id|layer
-    gauge:3@PERMANENT|3
+    gauge:3@t_vect_list|3
     ```
 
     ```sh
@@ -908,25 +918,11 @@ as text, and `null` for the map without one.
 === "Python (grass.tools)"
 
     ```python
-    tools.v_in_ascii(
-        input=StringIO("1,1,1\n3,4,2\n2,2,3\n"),
-        output="gauge_import",
-        format="point",
-        separator="comma",
-        columns="x double precision, y double precision, cat integer",
-        x=1,
-        y=2,
-        z=0,
-        cat=3,
+    tools.v_extract(
+        input="usgsgages", output="gauge_import", where="cat >= 149 and cat <= 151"
     )
     tools.v_category(input="gauge_import", output="gauge", option="transfer", layer="1,2,3")
-    tools.v_in_ascii(
-        input=StringIO("1,1\n"),
-        output="plain_1",
-        format="point",
-        separator="comma",
-        flags="n",
-    )
+    tools.v_extract(input="usgsgages", output="plain_1", where="cat = 149")
     tools.t_create(
         type="stvds",
         output="layered",
@@ -944,9 +940,9 @@ as text, and `null` for the map without one.
 
     ```text
     name|layer|mapset|start_time|end_time
-    gauge|3|PERMANENT|2026-03-01 00:00:00|2026-03-02 00:00:00
-    gauge|1|PERMANENT|2026-03-02 00:00:00|2026-03-03 00:00:00
-    plain_1|None|PERMANENT|2026-03-03 00:00:00|2026-03-04 00:00:00
+    gauge|3|t_vect_list|2026-03-01 00:00:00|2026-03-02 00:00:00
+    gauge|1|t_vect_list|2026-03-02 00:00:00|2026-03-03 00:00:00
+    plain_1|None|t_vect_list|2026-03-03 00:00:00|2026-03-04 00:00:00
     ```
 
     ```python
@@ -956,9 +952,9 @@ as text, and `null` for the map without one.
 
     ```text
     id|name|layer
-    gauge:3@PERMANENT|gauge|3
-    gauge:1@PERMANENT|gauge|1
-    plain_1@PERMANENT|plain_1|None
+    gauge:3@t_vect_list|gauge|3
+    gauge:1@t_vect_list|gauge|1
+    plain_1@t_vect_list|plain_1|None
     ```
 
     ```python
@@ -968,7 +964,7 @@ as text, and `null` for the map without one.
 
     ```text
     id|layer
-    gauge:3@PERMANENT|3
+    gauge:3@t_vect_list|3
     ```
 
     ```python
@@ -1019,9 +1015,7 @@ as its length: 1, then 5.
     ```sh
     for name in fire_1 fire_3 step_1 step_2 step_3 sighting_1 sighting_2 \
             coast_1997 coast_1998 coast_2003; do
-        v.in.ascii -n input=- output=$name format=point separator=comma <<EOF
-    1,1
-    EOF
+        v.extract input=usgsgages output=$name where="cat = 149"
     done
     t.create type=stvds output=fires title="Fires" \
         description="Daily fires with a gap"
@@ -1034,8 +1028,8 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    fire_1@t_vect_list|fire_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    fire_3@t_vect_list|fire_3|None|t_vect_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```sh
@@ -1044,9 +1038,9 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    fire_1@t_vect_list|fire_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    fire_3@t_vect_list|fire_3|None|t_vect_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```sh
@@ -1055,9 +1049,9 @@ as its length: 1, then 5.
 
     ```text
     "id","interval_length"
-    "fire_1@PERMANENT",1.0
+    "fire_1@t_vect_list",1.0
     "",1.0
-    "fire_3@PERMANENT",1.0
+    "fire_3@t_vect_list",1.0
     ```
 
     ```sh
@@ -1079,9 +1073,9 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+    step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
+    step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
+    step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
     ```
 
     ```sh
@@ -1094,8 +1088,8 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    sighting_1@PERMANENT|sighting_1|None|PERMANENT|2026-06-01 00:00:00|None|None|0.0
-    sighting_2@PERMANENT|sighting_2|None|PERMANENT|2026-06-03 00:00:00|None|None|2.0
+    sighting_1@t_vect_list|sighting_1|None|t_vect_list|2026-06-01 00:00:00|None|None|0.0
+    sighting_2@t_vect_list|sighting_2|None|t_vect_list|2026-06-03 00:00:00|None|None|2.0
     ```
 
     ```sh
@@ -1110,11 +1104,11 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    coast_1997@PERMANENT|coast_1997|None|PERMANENT|1997|None|None|0
+    coast_1997@t_vect_list|coast_1997|None|t_vect_list|1997|None|None|0
     None|None|None|None|1997|1998|1|0
-    coast_1998@PERMANENT|coast_1998|None|PERMANENT|1998|None|None|1
+    coast_1998@t_vect_list|coast_1998|None|t_vect_list|1998|None|None|1
     None|None|None|None|1998|2003|5|1
-    coast_2003@PERMANENT|coast_2003|None|PERMANENT|2003|None|None|6
+    coast_2003@t_vect_list|coast_2003|None|t_vect_list|2003|None|None|6
     ```
 
 === "Python (grass.tools)"
@@ -1132,13 +1126,7 @@ as its length: 1, then 5.
         "coast_1998",
         "coast_2003",
     ):
-        tools.v_in_ascii(
-            input=StringIO("1,1\n"),
-            output=name,
-            format="point",
-            separator="comma",
-            flags="n",
-        )
+        tools.v_extract(input="usgsgages", output=name, where="cat = 149")
     tools.t_create(
         type="stvds",
         output="fires",
@@ -1156,8 +1144,8 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    fire_1@t_vect_list|fire_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    fire_3@t_vect_list|fire_3|None|t_vect_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```python
@@ -1166,9 +1154,9 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    fire_1@PERMANENT|fire_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    fire_1@t_vect_list|fire_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
     None|None|None|None|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
-    fire_3@PERMANENT|fire_3|None|PERMANENT|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
+    fire_3@t_vect_list|fire_3|None|t_vect_list|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
     ```
 
     ```python
@@ -1180,9 +1168,9 @@ as its length: 1, then 5.
 
     ```text
     "id","interval_length"
-    "fire_1@PERMANENT",1.0
+    "fire_1@t_vect_list",1.0
     "",1.0
-    "fire_3@PERMANENT",1.0
+    "fire_3@t_vect_list",1.0
     ```
 
     ```python
@@ -1222,9 +1210,9 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+    step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
+    step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
+    step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
     ```
 
     ```python
@@ -1245,8 +1233,8 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    sighting_1@PERMANENT|sighting_1|None|PERMANENT|2026-06-01 00:00:00|None|None|0.0
-    sighting_2@PERMANENT|sighting_2|None|PERMANENT|2026-06-03 00:00:00|None|None|2.0
+    sighting_1@t_vect_list|sighting_1|None|t_vect_list|2026-06-01 00:00:00|None|None|0.0
+    sighting_2@t_vect_list|sighting_2|None|t_vect_list|2026-06-03 00:00:00|None|None|2.0
     ```
 
     ```python
@@ -1266,11 +1254,11 @@ as its length: 1, then 5.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    coast_1997@PERMANENT|coast_1997|None|PERMANENT|1997|None|None|0
+    coast_1997@t_vect_list|coast_1997|None|t_vect_list|1997|None|None|0
     None|None|None|None|1997|1998|1|0
-    coast_1998@PERMANENT|coast_1998|None|PERMANENT|1998|None|None|1
+    coast_1998@t_vect_list|coast_1998|None|t_vect_list|1998|None|None|1
     None|None|None|None|1998|2003|5|1
-    coast_2003@PERMANENT|coast_2003|None|PERMANENT|2003|None|None|6
+    coast_2003@t_vect_list|coast_2003|None|t_vect_list|2003|None|None|6
     ```
 
 ### Sample the maps by the granularity
@@ -1296,9 +1284,7 @@ shell block prints the message instead of failing.
 
     ```sh
     for name in well_1 well_2 lone_1 nest_a nest_b; do
-        v.in.ascii -n input=- output=$name format=point separator=comma <<EOF
-    1,1
-    EOF
+        v.extract input=usgsgages output=$name where="cat = 149"
     done
     t.create type=stvds output=wells title="Wells" \
         description="One map of two days and one of one day"
@@ -1319,10 +1305,10 @@ shell block prints the message instead of failing.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    well_1@PERMANENT|well_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    well_1@PERMANENT|well_1|None|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
     None|None|None|None|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
-    well_2@PERMANENT|well_2|None|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+    well_2@t_vect_list|well_2|None|t_vect_list|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
     ```
 
     ```sh
@@ -1331,9 +1317,9 @@ shell block prints the message instead of failing.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+    step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
+    step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
+    step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
     ```
 
     ```sh
@@ -1370,13 +1356,7 @@ shell block prints the message instead of failing.
 
     ```python
     for name in ("well_1", "well_2", "lone_1", "nest_a", "nest_b"):
-        tools.v_in_ascii(
-            input=StringIO("1,1\n"),
-            output=name,
-            format="point",
-            separator="comma",
-            flags="n",
-        )
+        tools.v_extract(input="usgsgages", output=name, where="cat = 149")
     tools.t_create(
         type="stvds",
         output="wells",
@@ -1403,10 +1383,10 @@ shell block prints the message instead of failing.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    well_1@PERMANENT|well_1|None|PERMANENT|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
-    well_1@PERMANENT|well_1|None|PERMANENT|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-01 00:00:00|2026-06-02 00:00:00|1.0|0.0
+    well_1@t_vect_list|well_1|None|t_vect_list|2026-06-02 00:00:00|2026-06-03 00:00:00|1.0|1.0
     None|None|None|None|2026-06-03 00:00:00|2026-06-04 00:00:00|1.0|2.0
-    well_2@PERMANENT|well_2|None|PERMANENT|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
+    well_2@t_vect_list|well_2|None|t_vect_list|2026-06-04 00:00:00|2026-06-05 00:00:00|1.0|3.0
     ```
 
     ```python
@@ -1415,9 +1395,9 @@ shell block prints the message instead of failing.
 
     ```text
     id|name|layer|mapset|start_time|end_time|interval_length|distance_from_begin
-    step_1@PERMANENT|step_1|None|PERMANENT|0|6|6|0
-    step_2@PERMANENT|step_2|None|PERMANENT|6|12|6|6
-    step_3@PERMANENT|step_3|None|PERMANENT|12|18|6|12
+    step_1@t_vect_list|step_1|None|t_vect_list|0|6|6|0
+    step_2@t_vect_list|step_2|None|t_vect_list|6|12|6|6
+    step_3@t_vect_list|step_3|None|t_vect_list|12|18|6|12
     ```
 
     ```python
@@ -1468,24 +1448,27 @@ shell block prints the message instead of failing.
 ### Use a dataset of another mapset
 
 *t.vect.list* reads a dataset of another mapset. The example creates the mapset
-`other` and switches to it; the dataset `survey` stays in the mapset
-`PERMANENT` and is named with its mapset. In the second block, *g.mapsets*
-shows that `PERMANENT` is in the search path of the new mapset, so the name
-`survey` without a mapset finds the same dataset.
+`t_vect_list_2` and switches to it, with the region of the first example; the
+dataset `survey` stays in the mapset `t_vect_list`. The first block adds that
+mapset to the search path of the new mapset with *g.mapsets* and names the
+dataset with its mapset. In the second block, *g.mapsets* shows the search
+path, so the name `survey` without a mapset finds the same dataset.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=other
-    t.vect.list input=survey@PERMANENT columns=id,start_time
+    g.mapset -c mapset=t_vect_list_2
+    g.region raster=elev_state_500m res=1000 -a
+    g.mapsets mapset=t_vect_list operation=add
+    t.vect.list input=survey@t_vect_list columns=id,start_time
     ```
 
     ```text
     id|start_time
-    survey_1@PERMANENT|2026-03-01 00:00:00
-    survey_2@PERMANENT|2026-03-02 00:00:00
-    survey_3@PERMANENT|2026-03-03 00:00:00
-    survey_4@PERMANENT|2026-03-04 00:00:00
+    survey_1@t_vect_list|2026-03-01 00:00:00
+    survey_2@t_vect_list|2026-03-02 00:00:00
+    survey_3@t_vect_list|2026-03-03 00:00:00
+    survey_4@t_vect_list|2026-03-04 00:00:00
     ```
 
     ```sh
@@ -1494,28 +1477,30 @@ shows that `PERMANENT` is in the search path of the new mapset, so the name
     ```
 
     ```text
-    other PERMANENT
+    t_vect_list_2 PERMANENT t_vect_list
     id|start_time
-    survey_1@PERMANENT|2026-03-01 00:00:00
-    survey_2@PERMANENT|2026-03-02 00:00:00
-    survey_3@PERMANENT|2026-03-03 00:00:00
-    survey_4@PERMANENT|2026-03-04 00:00:00
+    survey_1@t_vect_list|2026-03-01 00:00:00
+    survey_2@t_vect_list|2026-03-02 00:00:00
+    survey_3@t_vect_list|2026-03-03 00:00:00
+    survey_4@t_vect_list|2026-03-04 00:00:00
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="other", flags="c")
-    result = tools.t_vect_list(input="survey@PERMANENT", columns="id,start_time")
+    tools.g_mapset(mapset="t_vect_list_2", flags="c")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.g_mapsets(mapset="t_vect_list", operation="add")
+    result = tools.t_vect_list(input="survey@t_vect_list", columns="id,start_time")
     print(result.text)
     ```
 
     ```text
     id|start_time
-    survey_1@PERMANENT|2026-03-01 00:00:00
-    survey_2@PERMANENT|2026-03-02 00:00:00
-    survey_3@PERMANENT|2026-03-03 00:00:00
-    survey_4@PERMANENT|2026-03-04 00:00:00
+    survey_1@t_vect_list|2026-03-01 00:00:00
+    survey_2@t_vect_list|2026-03-02 00:00:00
+    survey_3@t_vect_list|2026-03-03 00:00:00
+    survey_4@t_vect_list|2026-03-04 00:00:00
     ```
 
     ```python
@@ -1524,12 +1509,12 @@ shows that `PERMANENT` is in the search path of the new mapset, so the name
     ```
 
     ```text
-    other PERMANENT
+    t_vect_list_2 PERMANENT t_vect_list
     id|start_time
-    survey_1@PERMANENT|2026-03-01 00:00:00
-    survey_2@PERMANENT|2026-03-02 00:00:00
-    survey_3@PERMANENT|2026-03-03 00:00:00
-    survey_4@PERMANENT|2026-03-04 00:00:00
+    survey_1@t_vect_list|2026-03-01 00:00:00
+    survey_2@t_vect_list|2026-03-02 00:00:00
+    survey_3@t_vect_list|2026-03-03 00:00:00
+    survey_4@t_vect_list|2026-03-04 00:00:00
     ```
 
 <!-- markdownlint-enable MD046 -->
