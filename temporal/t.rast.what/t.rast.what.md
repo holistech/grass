@@ -114,47 +114,69 @@ the unit. The seventh example shows it.
 
 ## EXAMPLES
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_rast_what` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region. The series are generated from the elevation model, they are not
+measurements: the locations are real climate stations of the dataset, but the
+values at them come from a formula and say nothing about the climate there.
+The last example uses maps with small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_rast_what -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Sample a dataset at coordinates
 
-The first example creates a space time raster dataset `temperature` with three
-daily maps on a region of 3 by 3 cells of size 1, and samples it at two
-locations given as **coordinates**. The map `thu` holds `10 * row + col` in
-each cell, counted from the north-west corner, so the cell in the first row
-and the first column holds 11 and the cell in the third row and the third
-column holds 33. The map `fri` adds 100 and has no value in the middle column,
-and `sat` adds 200. The location `0.5,2.5` lies in the cell with the value 11
-and `2.5,0.5` in the cell with the value 33. The tool writes the default
+The dataset `temperature_monthly` holds twelve maps of the monthly mean air
+temperature in 2020, in degrees Celsius rounded to tenths. They are generated
+from the elevation model `elev_state_500m`: 16.5 degrees at sea level and the
+northing 160 km, an annual cycle of plus and minus 10.5 degrees with its
+maximum in July, 6.5 degrees less for every 1000 m of elevation, and 1 degree
+more for every 100 km to the south. Each map is an interval of one month.
+
+The tool samples it at two locations given as **coordinates**, in the
+coordinates of the dataset (meters): `500657,183601` is the position of the
+climate station 310090, rounded to the meter, and `169208,171737` that of the
+station 310184. The formula uses the elevation of the 1 km cell, about 170 m
+at the first and 547 m at the second location. The option **where** keeps the
+table short, it selects the first three months. The tool writes the default
 layout `row`, a line for each location and map, with a header from **-n**. The
 option **nprocs** lets two processes sample the maps; the table is the same as
-with one.
+with one. In these months the second location is colder than the first one,
+because the formula lowers the temperature with the elevation.
 
 === "Command line"
 
     ```sh
-    g.region n=3 s=0 e=3 w=0 res=1
-    r.mapcalc expression="thu = row() * 10 + col()"
-    r.mapcalc expression="fri = if(col() == 2, null(), row() * 10 + col() + 100)"
-    r.mapcalc expression="sat = row() * 10 + col() + 200"
-    t.create output=temperature title="Temperature" \
-        description="Daily temperature"
-    t.register -i input=temperature maps=thu,fri,sat \
-        start=2026-03-05 increment="1 day"
+    g.mapset -c mapset=t_rast_what
+    g.region raster=elev_state_500m res=1000 -a
+    for month in $(seq 12); do
+        echo "temperature_monthly_2020_$(printf %02d $month) = round((16.5" \
+            "+ 10.5 * cos(30 * ($month - 7.2)) - 0.0065 * elev_state_500m" \
+            "- 0.00001 * (y() - 160000)) * 10) / 10.0"
+    done | r.mapcalc file=-
+    t.create output=temperature_monthly title="Air temperature" \
+        description="Monthly mean air temperature 2020 in degree Celsius"
+    t.register -i input=temperature_monthly \
+        maps=$(g.list type=raster pattern="temperature_monthly_*" mapset=. separator=comma) \
+        start=2020-01-01 increment="1 month"
     ```
 
     ```sh
-    t.rast.what strds=temperature coordinates=0.5,2.5,2.5,0.5 -n nprocs=2
+    t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+        where="start_time < '2020-04-01'" -n nprocs=2
     ```
 
     ```text
     x|y|start|end|value
-    0.5000000000|2.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    0.5000000000|2.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    0.5000000000|2.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    2.5000000000|0.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    2.5000000000|0.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    2.5000000000|0.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|233
+    500657.0000000000|183601.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    500657.0000000000|183601.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    500657.0000000000|183601.0000000000|2020-03-01 00:00:00|2020-04-01 00:00:00|9
+    169208.0000000000|171737.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    169208.0000000000|171737.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+    169208.0000000000|171737.0000000000|2020-03-01 00:00:00|2020-04-01 00:00:00|6.7
     ```
 
 === "Python (grass.tools)"
@@ -163,89 +185,109 @@ with one.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=3, s=0, e=3, w=0, res=1)
-    tools.r_mapcalc(expression="thu = row() * 10 + col()")
-    tools.r_mapcalc(expression="fri = if(col() == 2, null(), row() * 10 + col() + 100)")
-    tools.r_mapcalc(expression="sat = row() * 10 + col() + 200")
+    tools.g_mapset(flags="c", mapset="t_rast_what")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    months = range(1, 13)
+    tools.r_mapcalc(
+        expression="\n".join(
+            f"temperature_monthly_2020_{month:02d} = round((16.5"
+            f" + 10.5 * cos(30 * ({month} - 7.2)) - 0.0065 * elev_state_500m"
+            " - 0.00001 * (y() - 160000)) * 10) / 10.0"
+            for month in months
+        )
+    )
     tools.t_create(
-        output="temperature", title="Temperature", description="Daily temperature"
+        output="temperature_monthly",
+        title="Air temperature",
+        description="Monthly mean air temperature 2020 in degree Celsius",
     )
     tools.t_register(
-        input="temperature",
-        maps="thu,fri,sat",
-        start="2026-03-05",
-        increment="1 day",
+        input="temperature_monthly",
+        maps=",".join(f"temperature_monthly_2020_{month:02d}" for month in months),
+        start="2020-01-01",
+        increment="1 month",
         flags="i",
     )
     ```
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature", coordinates="0.5,2.5,2.5,0.5", flags="n", nprocs=2
+        strds="temperature_monthly",
+        coordinates="500657,183601,169208,171737",
+        where="start_time < '2020-04-01'",
+        flags="n",
+        nprocs=2,
     )
     print(result.text)
     ```
 
     ```text
     x|y|start|end|value
-    0.5000000000|2.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    0.5000000000|2.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    0.5000000000|2.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    2.5000000000|0.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    2.5000000000|0.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    2.5000000000|0.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|233
+    500657.0000000000|183601.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    500657.0000000000|183601.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    500657.0000000000|183601.0000000000|2020-03-01 00:00:00|2020-04-01 00:00:00|9
+    169208.0000000000|171737.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    169208.0000000000|171737.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+    169208.0000000000|171737.0000000000|2020-03-01 00:00:00|2020-04-01 00:00:00|6.7
     ```
 
 ### Choose the layout
 
-The same two locations in the layouts `col` and `timerow`. In the layout `col`
-each line is a map and each column a location, whose title is its coordinates.
-In the layout `timerow` each line is a location and each column a map, whose
-title is its start and end time.
+The same two locations and months in the layouts `col` and `timerow`. In the
+layout `col` each line is a map and each column a location, whose title is its
+coordinates. In the layout `timerow` each line is a location and each column a
+map, whose title is its start and end time.
 
 === "Command line"
 
     ```sh
-    t.rast.what strds=temperature coordinates=0.5,2.5,2.5,0.5 layout=col -n
+    t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+        where="start_time < '2020-04-01'" layout=col -n
     ```
 
     ```text
-    start|end|0.5000000000,2.5000000000|2.5000000000,0.5000000000
-    2026-03-05 00:00:00|2026-03-06 00:00:00|11|33
-    2026-03-06 00:00:00|2026-03-07 00:00:00|111|133
-    2026-03-07 00:00:00|2026-03-08 00:00:00|211|233
+    start|end|500657.0000000000,183601.0000000000|169208.0000000000,171737.0000000000
+    2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4
+    2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2
+    2020-03-01 00:00:00|2020-04-01 00:00:00|9|6.7
     ```
 
     ```sh
-    t.rast.what strds=temperature coordinates=0.5,2.5,2.5,0.5 layout=timerow -n
+    t.rast.what strds=temperature_monthly coordinates=500657,183601,169208,171737 \
+        where="start_time < '2020-04-01'" layout=timerow -n
     ```
 
     ```text
-    x|y|2026-03-05 00:00:00;2026-03-06 00:00:00|2026-03-06 00:00:00;2026-03-07 00:00:00|2026-03-07 00:00:00;2026-03-08 00:00:00
-    0.5|2.5|11|111|211
-    2.5|0.5|33|133|233
+    x|y|2020-01-01 00:00:00;2020-02-01 00:00:00|2020-02-01 00:00:00;2020-03-01 00:00:00|2020-03-01 00:00:00;2020-04-01 00:00:00
+    500657|183601|4.7|5.6|9
+    169208|171737|2.4|3.2|6.7
     ```
 
 === "Python (grass.tools)"
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature", coordinates="0.5,2.5,2.5,0.5", layout="col", flags="n"
+        strds="temperature_monthly",
+        coordinates="500657,183601,169208,171737",
+        where="start_time < '2020-04-01'",
+        layout="col",
+        flags="n",
     )
     print(result.text)
     ```
 
     ```text
-    start|end|0.5000000000,2.5000000000|2.5000000000,0.5000000000
-    2026-03-05 00:00:00|2026-03-06 00:00:00|11|33
-    2026-03-06 00:00:00|2026-03-07 00:00:00|111|133
-    2026-03-07 00:00:00|2026-03-08 00:00:00|211|233
+    start|end|500657.0000000000,183601.0000000000|169208.0000000000,171737.0000000000
+    2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4
+    2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2
+    2020-03-01 00:00:00|2020-04-01 00:00:00|9|6.7
     ```
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature",
-        coordinates="0.5,2.5,2.5,0.5",
+        strds="temperature_monthly",
+        coordinates="500657,183601,169208,171737",
+        where="start_time < '2020-04-01'",
         layout="timerow",
         flags="n",
     )
@@ -253,56 +295,56 @@ title is its start and end time.
     ```
 
     ```text
-    x|y|2026-03-05 00:00:00;2026-03-06 00:00:00|2026-03-06 00:00:00;2026-03-07 00:00:00|2026-03-07 00:00:00;2026-03-08 00:00:00
-    0.5|2.5|11|111|211
-    2.5|0.5|33|133|233
+    x|y|2020-01-01 00:00:00;2020-02-01 00:00:00|2020-02-01 00:00:00;2020-03-01 00:00:00|2020-03-01 00:00:00;2020-04-01 00:00:00
+    500657|183601|4.7|5.6|9
+    169208|171737|2.4|3.2|6.7
     ```
 
 ### Sample the points of a vector map
 
 The option **points** takes the locations from a vector map. The flag **-v**
-adds the category of each point. The map `stations` has three points with the
-categories 7, 8 and 9, in the cells with the values 11, 33 and 22. The cell
-at the third point has no value in the map `fri`; the table shows the default
-`*`. The first block uses the layout `row`, the second the layout `col`, where
-the category is the first part of the title of a column.
+adds the category of each point. The map `stations` holds the places of three
+climate stations of `precip_30ynormals`, rounded to whole meters, with the
+categories 1, 2 and 18. The station with the category 18 lies on the Outer
+Banks, on a cell where the elevation model has no value in this region, so the
+generated series has no value there either: the table shows the default `*` in
+every month. The first block uses the layout `row`, the second the layout `col`,
+where the category is the first part of the title of a column.
 
 === "Command line"
 
     ```sh
     v.in.ascii input=- output=stations separator=pipe x=1 y=2 cat=3 <<EOF
-    0.5|2.5|7
-    2.5|0.5|8
-    1.5|1.5|9
+    500657|183601|1
+    169208|171737|2
+    917005|169684|18
     EOF
     ```
 
     ```sh
-    t.rast.what strds=temperature points=stations -n -v
+    t.rast.what strds=temperature_monthly points=stations \
+        where="start_time < '2020-03-01'" -n -v
     ```
 
     ```text
     cat|x|y|start|end|value
-    7|0.5000000000|2.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    7|0.5000000000|2.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    7|0.5000000000|2.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    8|2.5000000000|0.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    8|2.5000000000|0.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    8|2.5000000000|0.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|233
-    9|1.5000000000|1.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|22
-    9|1.5000000000|1.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|*
-    9|1.5000000000|1.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|222
+    1|500657.0000000000|183601.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    1|500657.0000000000|183601.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    2|169208.0000000000|171737.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    2|169208.0000000000|171737.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+    18|917005.0000000000|169684.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|*
+    18|917005.0000000000|169684.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|*
     ```
 
     ```sh
-    t.rast.what strds=temperature points=stations layout=col -n -v
+    t.rast.what strds=temperature_monthly points=stations \
+        where="start_time < '2020-03-01'" layout=col -n -v
     ```
 
     ```text
-    start|end|7,0.5000000000,2.5000000000|8,2.5000000000,0.5000000000|9,1.5000000000,1.5000000000
-    2026-03-05 00:00:00|2026-03-06 00:00:00|11|33|22
-    2026-03-06 00:00:00|2026-03-07 00:00:00|111|133|*
-    2026-03-07 00:00:00|2026-03-08 00:00:00|211|233|222
+    start|end|1,500657.0000000000,183601.0000000000|2,169208.0000000000,171737.0000000000|18,917005.0000000000,169684.0000000000
+    2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4|*
+    2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2|*
     ```
 
 === "Python (grass.tools)"
@@ -311,7 +353,7 @@ the category is the first part of the title of a column.
     from io import StringIO
 
     tools.v_in_ascii(
-        input=StringIO("0.5|2.5|7\n2.5|0.5|8\n1.5|1.5|9\n"),
+        input=StringIO("500657|183601|1\n169208|171737|2\n917005|169684|18\n"),
         output="stations",
         separator="pipe",
         x=1,
@@ -321,75 +363,82 @@ the category is the first part of the title of a column.
     ```
 
     ```python
-    result = tools.t_rast_what(strds="temperature", points="stations", flags="nv")
-    print(result.text)
-    ```
-
-    ```text
-    cat|x|y|start|end|value
-    7|0.5000000000|2.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    7|0.5000000000|2.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    7|0.5000000000|2.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    8|2.5000000000|0.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    8|2.5000000000|0.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    8|2.5000000000|0.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|233
-    9|1.5000000000|1.5000000000|2026-03-05 00:00:00|2026-03-06 00:00:00|22
-    9|1.5000000000|1.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|*
-    9|1.5000000000|1.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|222
-    ```
-
-    ```python
     result = tools.t_rast_what(
-        strds="temperature", points="stations", layout="col", flags="nv"
+        strds="temperature_monthly",
+        points="stations",
+        where="start_time < '2020-03-01'",
+        flags="nv",
     )
     print(result.text)
     ```
 
     ```text
-    start|end|7,0.5000000000,2.5000000000|8,2.5000000000,0.5000000000|9,1.5000000000,1.5000000000
-    2026-03-05 00:00:00|2026-03-06 00:00:00|11|33|22
-    2026-03-06 00:00:00|2026-03-07 00:00:00|111|133|*
-    2026-03-07 00:00:00|2026-03-08 00:00:00|211|233|222
+    cat|x|y|start|end|value
+    1|500657.0000000000|183601.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    1|500657.0000000000|183601.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    2|169208.0000000000|171737.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    2|169208.0000000000|171737.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
+    18|917005.0000000000|169684.0000000000|2020-01-01 00:00:00|2020-02-01 00:00:00|*
+    18|917005.0000000000|169684.0000000000|2020-02-01 00:00:00|2020-03-01 00:00:00|*
+    ```
+
+    ```python
+    result = tools.t_rast_what(
+        strds="temperature_monthly",
+        points="stations",
+        where="start_time < '2020-03-01'",
+        layout="col",
+        flags="nv",
+    )
+    print(result.text)
+    ```
+
+    ```text
+    start|end|1,500657.0000000000,183601.0000000000|2,169208.0000000000,171737.0000000000|18,917005.0000000000,169684.0000000000
+    2020-01-01 00:00:00|2020-02-01 00:00:00|4.7|2.4|*
+    2020-02-01 00:00:00|2020-03-01 00:00:00|5.6|3.2|*
     ```
 
 ### Select and order the maps
 
 The option **where** samples only the maps that match a condition: the maps
-`fri` and `sat` start on or after 2026-03-06. The option **order** sorts the
-maps; sorted by `name`, they come in the alphabetical order `fri`, `sat`,
-`thu` instead of the order of their start times, and so do the columns of the
-layout `timerow`, whose titles show the start and end time of each map.
+from November on. The option **order** sorts the maps; the summer maps, sorted
+by `max`, the largest value of each map, come in the order of their largest
+value, June, August and July, instead of the order of their start times, and so
+do the columns of the layout `timerow`, whose titles show the start and end
+time of each map.
 
 === "Command line"
 
     ```sh
-    t.rast.what strds=temperature coordinates=1.5,1.5 \
-        where="start_time >= '2026-03-06'" -n
+    t.rast.what strds=temperature_monthly coordinates=500657,183601 \
+        where="start_time >= '2020-11-01'" -n
     ```
 
     ```text
     x|y|start|end|value
-    1.5000000000|1.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|*
-    1.5000000000|1.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|222
+    500657.0000000000|183601.0000000000|2020-11-01 00:00:00|2020-12-01 00:00:00|10.9
+    500657.0000000000|183601.0000000000|2020-12-01 00:00:00|2021-01-01 00:00:00|6.7
     ```
 
     ```sh
-    t.rast.what strds=temperature coordinates=1.5,1.5 order=name \
-        layout=timerow -n
+    t.rast.what strds=temperature_monthly coordinates=500657,183601 \
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'" \
+        order=max layout=timerow -n
     ```
 
     ```text
-    x|y|2026-03-06 00:00:00;2026-03-07 00:00:00|2026-03-07 00:00:00;2026-03-08 00:00:00|2026-03-05 00:00:00;2026-03-06 00:00:00
-    1.5|1.5|*|222|22
+    x|y|2020-06-01 00:00:00;2020-07-01 00:00:00|2020-08-01 00:00:00;2020-09-01 00:00:00|2020-07-01 00:00:00;2020-08-01 00:00:00
+    500657|183601|23.7|24.8|25.6
     ```
 
 === "Python (grass.tools)"
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature",
-        coordinates="1.5,1.5",
-        where="start_time >= '2026-03-06'",
+        strds="temperature_monthly",
+        coordinates="500657,183601",
+        where="start_time >= '2020-11-01'",
         flags="n",
     )
     print(result.text)
@@ -397,15 +446,16 @@ layout `timerow`, whose titles show the start and end time of each map.
 
     ```text
     x|y|start|end|value
-    1.5000000000|1.5000000000|2026-03-06 00:00:00|2026-03-07 00:00:00|*
-    1.5000000000|1.5000000000|2026-03-07 00:00:00|2026-03-08 00:00:00|222
+    500657.0000000000|183601.0000000000|2020-11-01 00:00:00|2020-12-01 00:00:00|10.9
+    500657.0000000000|183601.0000000000|2020-12-01 00:00:00|2021-01-01 00:00:00|6.7
     ```
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature",
-        coordinates="1.5,1.5",
-        order="name",
+        strds="temperature_monthly",
+        coordinates="500657,183601",
+        where="start_time >= '2020-06-01' and start_time < '2020-09-01'",
+        order="max",
         layout="timerow",
         flags="n",
     )
@@ -413,48 +463,52 @@ layout `timerow`, whose titles show the start and end time of each map.
     ```
 
     ```text
-    x|y|2026-03-06 00:00:00;2026-03-07 00:00:00|2026-03-07 00:00:00;2026-03-08 00:00:00|2026-03-05 00:00:00;2026-03-06 00:00:00
-    1.5|1.5|*|222|22
+    x|y|2020-06-01 00:00:00;2020-07-01 00:00:00|2020-08-01 00:00:00;2020-09-01 00:00:00|2020-07-01 00:00:00;2020-08-01 00:00:00
+    500657|183601|23.7|24.8|25.6
     ```
 
 ### Write a file with another separator and null value
 
-The locations `1.5,1.5` and `100,100` give null values: the middle cell of the
-map `fri` has no value, and the second location lies outside the region. The
-option **null_value** writes `NA` instead of `*`, the option **separator**
-makes the table comma separated, and the option **output** writes it to a file
-instead of stdout, so that the call prints nothing. In the layout `col`, a
-semicolon separates the coordinates in the title of a location column,
-because the comma separates the columns.
+Of the three locations the first is the station 310090 of the first example,
+the second is the station on the Outer Banks of the third example, and the third,
+`100,100`, lies outside the region. The last two give null values in every
+map. The option **null_value** writes `NA` instead of `*`, the option
+**separator** makes the table comma separated, and the option **output** writes
+it to a file instead of stdout, so that the call prints nothing. In the layout
+`col`, a semicolon separates the coordinates in the title of a location
+column, because the comma separates the columns.
 
 === "Command line"
 
     ```sh
-    t.rast.what strds=temperature coordinates=1.5,1.5,100,100 \
+    t.rast.what strds=temperature_monthly \
+        coordinates=500657,183601,917005,169684,100,100 \
+        where="start_time < '2020-03-01'" \
         separator=comma null_value=NA output=result.csv -n
     cat result.csv
     ```
 
     ```text
     x,y,start,end,value
-    1.5000000000,1.5000000000,2026-03-05 00:00:00,2026-03-06 00:00:00,22
-    1.5000000000,1.5000000000,2026-03-06 00:00:00,2026-03-07 00:00:00,NA
-    1.5000000000,1.5000000000,2026-03-07 00:00:00,2026-03-08 00:00:00,222
-    100.0000000000,100.0000000000,2026-03-05 00:00:00,2026-03-06 00:00:00,NA
-    100.0000000000,100.0000000000,2026-03-06 00:00:00,2026-03-07 00:00:00,NA
-    100.0000000000,100.0000000000,2026-03-07 00:00:00,2026-03-08 00:00:00,NA
+    500657.0000000000,183601.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,4.7
+    500657.0000000000,183601.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,5.6
+    917005.0000000000,169684.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+    917005.0000000000,169684.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+    100.0000000000,100.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+    100.0000000000,100.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
     ```
 
     ```sh
-    t.rast.what strds=temperature coordinates=1.5,1.5,100,100 \
+    t.rast.what strds=temperature_monthly \
+        coordinates=500657,183601,917005,169684,100,100 \
+        where="start_time < '2020-03-01'" \
         separator=comma null_value=NA layout=col -n
     ```
 
     ```text
-    start,end,1.5000000000;1.5000000000,100.0000000000;100.0000000000
-    2026-03-05 00:00:00,2026-03-06 00:00:00,22,NA
-    2026-03-06 00:00:00,2026-03-07 00:00:00,NA,NA
-    2026-03-07 00:00:00,2026-03-08 00:00:00,222,NA
+    start,end,500657.0000000000;183601.0000000000,917005.0000000000;169684.0000000000,100.0000000000;100.0000000000
+    2020-01-01 00:00:00,2020-02-01 00:00:00,4.7,NA,NA
+    2020-02-01 00:00:00,2020-03-01 00:00:00,5.6,NA,NA
     ```
 
 === "Python (grass.tools)"
@@ -463,8 +517,9 @@ because the comma separates the columns.
     from pathlib import Path
 
     tools.t_rast_what(
-        strds="temperature",
-        coordinates="1.5,1.5,100,100",
+        strds="temperature_monthly",
+        coordinates="500657,183601,917005,169684,100,100",
+        where="start_time < '2020-03-01'",
         separator="comma",
         null_value="NA",
         output="result.csv",
@@ -475,18 +530,19 @@ because the comma separates the columns.
 
     ```text
     x,y,start,end,value
-    1.5000000000,1.5000000000,2026-03-05 00:00:00,2026-03-06 00:00:00,22
-    1.5000000000,1.5000000000,2026-03-06 00:00:00,2026-03-07 00:00:00,NA
-    1.5000000000,1.5000000000,2026-03-07 00:00:00,2026-03-08 00:00:00,222
-    100.0000000000,100.0000000000,2026-03-05 00:00:00,2026-03-06 00:00:00,NA
-    100.0000000000,100.0000000000,2026-03-06 00:00:00,2026-03-07 00:00:00,NA
-    100.0000000000,100.0000000000,2026-03-07 00:00:00,2026-03-08 00:00:00,NA
+    500657.0000000000,183601.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,4.7
+    500657.0000000000,183601.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,5.6
+    917005.0000000000,169684.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+    917005.0000000000,169684.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
+    100.0000000000,100.0000000000,2020-01-01 00:00:00,2020-02-01 00:00:00,NA
+    100.0000000000,100.0000000000,2020-02-01 00:00:00,2020-03-01 00:00:00,NA
     ```
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature",
-        coordinates="1.5,1.5,100,100",
+        strds="temperature_monthly",
+        coordinates="500657,183601,917005,169684,100,100",
+        where="start_time < '2020-03-01'",
         separator="comma",
         null_value="NA",
         layout="col",
@@ -496,107 +552,112 @@ because the comma separates the columns.
     ```
 
     ```text
-    start,end,1.5000000000;1.5000000000,100.0000000000;100.0000000000
-    2026-03-05 00:00:00,2026-03-06 00:00:00,22,NA
-    2026-03-06 00:00:00,2026-03-07 00:00:00,NA,NA
-    2026-03-07 00:00:00,2026-03-08 00:00:00,222,NA
+    start,end,500657.0000000000;183601.0000000000,917005.0000000000;169684.0000000000,100.0000000000;100.0000000000
+    2020-01-01 00:00:00,2020-02-01 00:00:00,4.7,NA,NA
+    2020-02-01 00:00:00,2020-03-01 00:00:00,5.6,NA,NA
     ```
 
 ### Read the locations from stdin
 
 The flag **-i** reads the locations from stdin: a line has the east and the
-north coordinate and optionally a name, separated by blanks. The name of the
-location appears in the column `site` of the layout `row`. The call gives
-no **coordinates** and no **points**.
+north coordinate and optionally a name, separated by blanks. Here the name is
+the number of the climate station. It appears in the column `site` of the layout
+`row`. The call gives no **coordinates** and no **points**.
 
 === "Command line"
 
     ```sh
-    printf '0.5 2.5 north\n2.5 0.5 south\n' | t.rast.what -i strds=temperature -n
+    printf '500657 183601 310090\n169208 171737 310184\n' |
+        t.rast.what -i strds=temperature_monthly \
+        where="start_time < '2020-03-01'" -n
     ```
 
     ```text
     x|y|site|start|end|value
-    0.5000000000|2.5000000000|north|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    0.5000000000|2.5000000000|north|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    0.5000000000|2.5000000000|north|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    2.5000000000|0.5000000000|south|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    2.5000000000|0.5000000000|south|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    2.5000000000|0.5000000000|south|2026-03-07 00:00:00|2026-03-08 00:00:00|233
+    500657.0000000000|183601.0000000000|310090|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    500657.0000000000|183601.0000000000|310090|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    169208.0000000000|171737.0000000000|310184|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    169208.0000000000|171737.0000000000|310184|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
     ```
 
 === "Python (grass.tools)"
 
     ```python
     result = tools.t_rast_what(
-        strds="temperature",
+        strds="temperature_monthly",
         flags="in",
-        stdin=StringIO("0.5 2.5 north\n2.5 0.5 south\n"),
+        where="start_time < '2020-03-01'",
+        stdin=StringIO("500657 183601 310090\n169208 171737 310184\n"),
     )
     print(result.text)
     ```
 
     ```text
     x|y|site|start|end|value
-    0.5000000000|2.5000000000|north|2026-03-05 00:00:00|2026-03-06 00:00:00|11
-    0.5000000000|2.5000000000|north|2026-03-06 00:00:00|2026-03-07 00:00:00|111
-    0.5000000000|2.5000000000|north|2026-03-07 00:00:00|2026-03-08 00:00:00|211
-    2.5000000000|0.5000000000|south|2026-03-05 00:00:00|2026-03-06 00:00:00|33
-    2.5000000000|0.5000000000|south|2026-03-06 00:00:00|2026-03-07 00:00:00|133
-    2.5000000000|0.5000000000|south|2026-03-07 00:00:00|2026-03-08 00:00:00|233
+    500657.0000000000|183601.0000000000|310090|2020-01-01 00:00:00|2020-02-01 00:00:00|4.7
+    500657.0000000000|183601.0000000000|310090|2020-02-01 00:00:00|2020-03-01 00:00:00|5.6
+    169208.0000000000|171737.0000000000|310184|2020-01-01 00:00:00|2020-02-01 00:00:00|2.4
+    169208.0000000000|171737.0000000000|310184|2020-02-01 00:00:00|2020-03-01 00:00:00|3.2
     ```
 
 ### Sample a dataset with relative time
 
 A dataset with relative time shows the start and end of a map as numbers. The
-dataset `model` has two maps of one hour each, starting at 0; the maps hold the
-values 1 and 2.
+dataset `runoff` has two maps of one hour each, starting at 0; the maps hold the
+constant values 1 and 2, in millimeters of simulated runoff, over the whole
+region.
 
 === "Command line"
 
     ```sh
-    r.mapcalc expression="step_1 = 1"
-    r.mapcalc expression="step_2 = 2"
-    t.create output=model temporaltype=relative title="Model" \
-        description="Model output per step"
-    t.register -i input=model maps=step_1,step_2 start=0 increment=1 unit=hours
+    for step in 1 2; do
+        r.mapcalc expression="runoff_$step = $step"
+    done
+    t.create output=runoff temporaltype=relative title="Runoff" \
+        description="Simulated runoff in mm per model hour"
+    t.register -i input=runoff maps=runoff_1,runoff_2 start=0 increment=1 unit=hours
     ```
 
     ```sh
-    t.rast.what strds=model coordinates=0.5,0.5 -n
+    t.rast.what strds=runoff coordinates=500657,183601 -n
     ```
 
     ```text
     x|y|start|end|value
-    0.5000000000|0.5000000000|0|1|1
-    0.5000000000|0.5000000000|1|2|2
+    500657.0000000000|183601.0000000000|0|1|1
+    500657.0000000000|183601.0000000000|1|2|2
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.r_mapcalc(expression="step_1 = 1")
-    tools.r_mapcalc(expression="step_2 = 2")
+    for step in (1, 2):
+        tools.r_mapcalc(expression=f"runoff_{step} = {step}")
     tools.t_create(
-        output="model",
+        output="runoff",
         temporaltype="relative",
-        title="Model",
-        description="Model output per step",
+        title="Runoff",
+        description="Simulated runoff in mm per model hour",
     )
     tools.t_register(
-        input="model", maps="step_1,step_2", start=0, increment=1, unit="hours", flags="i"
+        input="runoff",
+        maps="runoff_1,runoff_2",
+        start=0,
+        increment=1,
+        unit="hours",
+        flags="i",
     )
     ```
 
     ```python
-    result = tools.t_rast_what(strds="model", coordinates="0.5,0.5", flags="n")
+    result = tools.t_rast_what(strds="runoff", coordinates="500657,183601", flags="n")
     print(result.text)
     ```
 
     ```text
     x|y|start|end|value
-    0.5000000000|0.5000000000|0|1|1
-    0.5000000000|0.5000000000|1|2|2
+    500657.0000000000|183601.0000000000|0|1|1
+    500657.0000000000|183601.0000000000|1|2|2
     ```
 
 <!-- markdownlint-enable MD046 -->
