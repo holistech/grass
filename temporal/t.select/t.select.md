@@ -41,7 +41,7 @@ named after the result dataset: the dataset `C` in `C = A {:,during,r} B`
 contains the maps `C_1`, `C_2` and so on. Existing maps with these names are
 only overwritten with the **--overwrite** flag. Maps whose extent is not
 changed are registered in the result dataset without being copied; a map of
-another mapset keeps its mapset in the result (`a2@PERMANENT`). An expression
+another mapset keeps its mapset in the result (`a2@t_select`). An expression
 that selects no map creates an empty space time dataset.
 
 ### Options
@@ -427,14 +427,14 @@ during the temporal extent of single map 'event'
 The result dataset and the copies of retimed maps are always created in the
 current mapset. A selected map that keeps its time is registered as it is,
 also when it belongs to another mapset: the result of the example with the
-mapset `paper` holds `a2@PERMANENT`, and no map of that name exists in
-`paper`. A name without a mapset in the expression refers to the current
+mapset `t_select_2` holds `a2@t_select`, and no map of that name exists in
+`t_select_2`. A name without a mapset in the expression refers to the current
 mapset only, so `X` does not find a dataset `X` of another mapset; write
 `X@mapset`.
 
 An expression that selects no map creates an empty space time dataset, for
 vector maps also, with **-c** and without. The empty dataset has the map count
-0 in *[t.info](t.info.md)*, as the example with the mapset `paper` shows.
+0 in *[t.info](t.info.md)*, as the example with the mapset `t_select_2` shows.
 
 Datasets of relative time are selected like those of absolute time, with the
 same relations and operators. The result has the temporal type of the input
@@ -762,11 +762,20 @@ builds on the datasets of the first. The first five show the options of the
 tool with both interfaces; the ones after them are a catalog of expressions,
 which run on the command line only and show the maps each expression selects.
 
+The examples run in the North Carolina sample dataset `nc_spm_08_grass7` from
+the [GRASS sample data](https://grass.osgeo.org/download/data/). The first
+example creates the mapset `t_select` and sets the computational region to
+North Carolina with cells of 1 km; the later examples work in this mapset and
+region unless they say otherwise. *t.select* works with the times of the
+maps, so the maps hold small constant values.
+
+<!-- example-project: dataset=nc_spm_08_grass7 mapset=t_select -->
+
 <!-- markdownlint-disable MD046 -->
 
 ### Select the maps of a dataset by their time
 
-The first example creates four datasets of constant maps in a small region.
+The first example creates four datasets of constant maps over North Carolina.
 Every time below is a day of January 2001: a map from day 6 to 11 starts at
 00:00 of 6 January and ends at 00:00 of 11 January, so `a1` from day 1 to 6
 ends where `a2` starts. The value of each map is the number in its name.
@@ -786,7 +795,8 @@ three maps. The maps are registered in the result datasets, not copied.
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 e=2 w=0 res=1
+    g.mapset -c mapset=t_select
+    g.region raster=elev_state_500m res=1000 -a
     for dataset in A B C W; do
         t.create output=$dataset title="Dataset $dataset" \
             description="Maps of dataset $dataset"
@@ -862,7 +872,8 @@ three maps. The maps are registered in the result datasets, not copied.
     from grass.tools import Tools
 
     tools = Tools()
-    tools.g_region(n=2, s=0, e=2, w=0, res=1)
+    tools.g_mapset(flags="c", mapset="t_select")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
     datasets = {
         "A": [("a1", 1, 6), ("a2", 6, 11), ("a3", 11, 16), ("a4", 16, 21)],
         "B": [
@@ -956,11 +967,11 @@ exists.
     ```text
     {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
      'processes': [{'flags': [],
-                    'inputs': [('raster', ('a2@PERMANENT', 'plan_1'))],
+                    'inputs': [('raster', ('a2@t_select', 'plan_1'))],
                     'name': 'g.copy',
                     'outputs': []},
                    {'flags': [],
-                    'inputs': [('raster', ('a3@PERMANENT', 'plan_2'))],
+                    'inputs': [('raster', ('a3@t_select', 'plan_2'))],
                     'name': 'g.copy',
                     'outputs': []}],
      'register': [('plan_1', '2001-01-03 00:00:00', '2001-01-19 00:00:00'),
@@ -969,16 +980,16 @@ exists.
     ```
 
     ```sh
-    t.list type=strds
+    t.list type=strds mapset=.
     ```
 
     ```text
-    A@PERMANENT
-    B@PERMANENT
-    C@PERMANENT
-    W@PERMANENT
-    other_time@PERMANENT
-    same_time@PERMANENT
+    A@t_select
+    B@t_select
+    C@t_select
+    W@t_select
+    other_time@t_select
+    same_time@t_select
     ```
 
     ```sh
@@ -999,11 +1010,11 @@ exists.
     ```text
     {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
      'processes': [{'flags': ['overwrite'],
-                    'inputs': [('raster', ('a2@PERMANENT', 'plan_1'))],
+                    'inputs': [('raster', ('a2@t_select', 'plan_1'))],
                     'name': 'g.copy',
                     'outputs': []},
                    {'flags': ['overwrite'],
-                    'inputs': [('raster', ('a3@PERMANENT', 'plan_2'))],
+                    'inputs': [('raster', ('a3@t_select', 'plan_2'))],
                     'name': 'g.copy',
                     'outputs': []}],
      'register': [('plan_1', '2001-01-03 00:00:00', '2001-01-19 00:00:00'),
@@ -1020,11 +1031,11 @@ exists.
     ```text
     {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
      'processes': [{'flags': [],
-                    'inputs': [('raster', ('a2@PERMANENT', 'plan_1'))],
+                    'inputs': [('raster', ('a2@t_select', 'plan_1'))],
                     'name': 'g.copy',
                     'outputs': []},
                    {'flags': [],
-                    'inputs': [('raster', ('a3@PERMANENT', 'plan_2'))],
+                    'inputs': [('raster', ('a3@t_select', 'plan_2'))],
                     'name': 'g.copy',
                     'outputs': []}],
      'register': [('plan_1', '2001-01-03 00:00:00', '2001-01-19 00:00:00'),
@@ -1033,16 +1044,16 @@ exists.
     ```
 
     ```python
-    print(tools.t_list(type="strds").text)
+    print(tools.t_list(type="strds", mapset=".").text)
     ```
 
     ```text
-    A@PERMANENT
-    B@PERMANENT
-    C@PERMANENT
-    W@PERMANENT
-    other_time@PERMANENT
-    same_time@PERMANENT
+    A@t_select
+    B@t_select
+    C@t_select
+    W@t_select
+    other_time@t_select
+    same_time@t_select
     ```
 
     ```python
@@ -1065,11 +1076,11 @@ exists.
     ```text
     {'STDS': {'name': 'plan', 'stdstype': 'strds', 'temporal_type': 'absolute'},
      'processes': [{'flags': ['overwrite'],
-                    'inputs': [('raster', ('a2@PERMANENT', 'plan_1'))],
+                    'inputs': [('raster', ('a2@t_select', 'plan_1'))],
                     'name': 'g.copy',
                     'outputs': []},
                    {'flags': ['overwrite'],
-                    'inputs': [('raster', ('a3@PERMANENT', 'plan_2'))],
+                    'inputs': [('raster', ('a3@t_select', 'plan_2'))],
                     'name': 'g.copy',
                     'outputs': []}],
      'register': [('plan_1', '2001-01-03 00:00:00', '2001-01-19 00:00:00'),
@@ -1143,92 +1154,104 @@ of `b4`. The map of `a4` with the time of `b6` is in both results.
 
 ### Select only maps that are also related in space
 
-Without **-s** only the time decides. The dataset `tiles` has two maps with
-the time of `a2`, the day 6 to 11. The map `west` has the extent of the maps
-of `A` (0 to 2 in both directions), the map `east` covers the columns from 3
-to 5, so it has no point in common with them. Both maps are selected by time;
-with **-s** only `west` is. The listings are ordered by name because both
-maps have the same start time.
+Without **-s** only the time decides. The dataset `window` has one map,
+`window_west`, from day 6 to 11, the time of `a2`; it covers the western half
+of the region, from 124 to 543 km in x. The dataset `tiles` has two maps with
+the same time: `tile_west` covers the same half, `tile_east` the eastern half
+from 544 to 963 km, so it has no point in common with `window_west`. Both
+maps are selected by time; with **-s** only `tile_west` is. The listings are
+ordered by name because both maps have the same start time. The last step of
+each block sets the region of the first example again.
 
 === "Command line"
 
     ```sh
-    g.region n=2 s=0 w=0 e=2 res=1
-    r.mapcalc expression="west = 1"
-    g.region n=2 s=0 w=3 e=5 res=1
-    r.mapcalc expression="east = 2"
-    g.region n=2 s=0 w=0 e=2 res=1
+    g.region n=319000 s=-16000 w=124000 e=543000 res=1000
+    r.mapcalc expression="window_west = 1"
+    r.mapcalc expression="tile_west = 1"
+    g.region n=319000 s=-16000 w=544000 e=963000 res=1000
+    r.mapcalc expression="tile_east = 2"
+    g.region raster=elev_state_500m res=1000 -a
+    t.create output=window title="Window" description="One map over the west"
+    t.register input=window maps=window_west start=2001-01-06 end=2001-01-11
     t.create output=tiles title="Tiles" description="Two tiles at the time of a2"
-    t.register input=tiles maps=west,east start=2001-01-06 end=2001-01-11
+    t.register input=tiles maps=tile_west,tile_east start=2001-01-06 end=2001-01-11
     ```
 
     ```sh
-    t.select expression="by_time = tiles : A"
-    t.rast.list input=by_time columns=name,start_time,end_time,east,west order=name
+    t.select expression="by_time = tiles : window"
+    t.rast.list input=by_time columns=name,start_time,end_time,west,east order=name
     ```
 
     ```text
-    name|start_time|end_time|east|west
-    east|2001-01-06 00:00:00|2001-01-11 00:00:00|5.0|3.0
-    west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
+    name|start_time|end_time|west|east
+    tile_east|2001-01-06 00:00:00|2001-01-11 00:00:00|544000.0|963000.0
+    tile_west|2001-01-06 00:00:00|2001-01-11 00:00:00|124000.0|543000.0
     ```
 
     ```sh
-    t.select -s expression="by_space = tiles : A"
-    t.rast.list input=by_space columns=name,start_time,end_time,east,west order=name
+    t.select -s expression="by_space = tiles : window"
+    t.rast.list input=by_space columns=name,start_time,end_time,west,east order=name
     ```
 
     ```text
-    name|start_time|end_time|east|west
-    west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
+    name|start_time|end_time|west|east
+    tile_west|2001-01-06 00:00:00|2001-01-11 00:00:00|124000.0|543000.0
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_region(n=2, s=0, w=0, e=2, res=1)
-    tools.r_mapcalc(expression="west = 1")
-    tools.g_region(n=2, s=0, w=3, e=5, res=1)
-    tools.r_mapcalc(expression="east = 2")
-    tools.g_region(n=2, s=0, w=0, e=2, res=1)
+    tools.g_region(n=319000, s=-16000, w=124000, e=543000, res=1000)
+    tools.r_mapcalc(expression="window_west = 1")
+    tools.r_mapcalc(expression="tile_west = 1")
+    tools.g_region(n=319000, s=-16000, w=544000, e=963000, res=1000)
+    tools.r_mapcalc(expression="tile_east = 2")
+    tools.g_region(raster="elev_state_500m", res=1000, flags="a")
+    tools.t_create(output="window", title="Window", description="One map over the west")
+    tools.t_register(
+        input="window", maps="window_west", start="2001-01-06", end="2001-01-11"
+    )
     tools.t_create(output="tiles", title="Tiles", description="Two tiles at the time of a2")
-    tools.t_register(input="tiles", maps="west,east", start="2001-01-06", end="2001-01-11")
+    tools.t_register(
+        input="tiles", maps="tile_west,tile_east", start="2001-01-06", end="2001-01-11"
+    )
     ```
 
     ```python
-    tools.t_select(expression="by_time = tiles : A")
+    tools.t_select(expression="by_time = tiles : window")
     print(
         tools.t_rast_list(
-            input="by_time", columns="name,start_time,end_time,east,west", order="name"
+            input="by_time", columns="name,start_time,end_time,west,east", order="name"
         ).text
     )
     ```
 
     ```text
-    name|start_time|end_time|east|west
-    east|2001-01-06 00:00:00|2001-01-11 00:00:00|5.0|3.0
-    west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
+    name|start_time|end_time|west|east
+    tile_east|2001-01-06 00:00:00|2001-01-11 00:00:00|544000.0|963000.0
+    tile_west|2001-01-06 00:00:00|2001-01-11 00:00:00|124000.0|543000.0
     ```
 
     ```python
-    tools.t_select(expression="by_space = tiles : A", flags="s")
+    tools.t_select(expression="by_space = tiles : window", flags="s")
     print(
         tools.t_rast_list(
-            input="by_space", columns="name,start_time,end_time,east,west", order="name"
+            input="by_space", columns="name,start_time,end_time,west,east", order="name"
         ).text
     )
     ```
 
     ```text
-    name|start_time|end_time|east|west
-    west|2001-01-06 00:00:00|2001-01-11 00:00:00|2.0|0.0
+    name|start_time|end_time|west|east
+    tile_west|2001-01-06 00:00:00|2001-01-11 00:00:00|124000.0|543000.0
     ```
 
 ### Select 3D raster and vector maps and use other mapsets
 
-The option **type** names the type of the datasets. The new mapset `paper`
-has a dataset `A` of 3D raster maps and a dataset `B` of vector maps, so the
-names differ from the raster datasets in `PERMANENT`. `soil_1`, `soil_2` and
+The option **type** names the type of the datasets. The new mapset `t_select_2`
+has a dataset `A` of 3D raster maps and a dataset `B` of vector maps, with the
+names of two raster datasets of `t_select`. `soil_1`, `soil_2` and
 `soil_3` last from 2 to 5, 5 to 8 and 8 to 11 January, the vector maps `g_1`
 and `g_2` from 1 to 6 and 6 to 11 January.
 
@@ -1239,15 +1262,15 @@ with `g_2`, and `soil_2` lies across both vector maps. The second selects
 vector maps with **type=stvds**: `g_1` ends where `g_2` starts, so it precedes
 it. No vector map contains another, so the third selection is empty, and still
 creates an empty dataset with no map, with **-c** and without. The last one
-selects in the raster datasets of `PERMANENT`, named with their mapset; the
-result is in the current mapset and registers the map of `PERMANENT` itself,
-not a copy.
+selects in the raster datasets of `t_select`, named with their mapset, which
+the example adds to the search path with *g.mapsets*; the result is in the
+current mapset and registers the map of `t_select` itself, not a copy.
 
 === "Command line"
 
     ```sh
-    g.mapset -c mapset=paper
-    g.region n=2 s=0 e=2 w=0 t=3 b=0 res=1 res3=1 tbres=1
+    g.mapset -c mapset=t_select_2
+    g.region raster=elev_state_500m res=1000 res3=1000 t=3000 b=0 tbres=1000 -a
     for i in 1 2 3; do
         r3.mapcalc expression="soil_$i = $i"
     done
@@ -1296,24 +1319,27 @@ not a copy.
     ```
 
     ```sh
-    t.select expression="main = A@PERMANENT : B@PERMANENT"
+    g.mapsets mapset=t_select operation=add
+    t.select expression="main = A@t_select : B@t_select"
     t.rast.list input=main columns=id,start_time,end_time
     ```
 
     ```text
     id|start_time|end_time
-    a2@PERMANENT|2001-01-06 00:00:00|2001-01-11 00:00:00
+    a2@t_select|2001-01-06 00:00:00|2001-01-11 00:00:00
     ```
 
     ```sh
-    g.mapset mapset=PERMANENT
+    g.mapset mapset=t_select
     ```
 
 === "Python (grass.tools)"
 
     ```python
-    tools.g_mapset(mapset="paper", flags="c")
-    tools.g_region(n=2, s=0, e=2, w=0, t=3, b=0, res=1, res3=1, tbres=1)
+    tools.g_mapset(mapset="t_select_2", flags="c")
+    tools.g_region(
+        raster="elev_state_500m", res=1000, res3=1000, t=3000, b=0, tbres=1000, flags="a"
+    )
     for i in (1, 2, 3):
         tools.r3_mapcalc(expression=f"soil_{i} = {i}")
     for i in (1, 2):
@@ -1376,17 +1402,18 @@ not a copy.
     ```
 
     ```python
-    tools.t_select(expression="main = A@PERMANENT : B@PERMANENT")
+    tools.g_mapsets(mapset="t_select", operation="add")
+    tools.t_select(expression="main = A@t_select : B@t_select")
     print(tools.t_rast_list(input="main", columns="id,start_time,end_time").text)
     ```
 
     ```text
     id|start_time|end_time
-    a2@PERMANENT|2001-01-06 00:00:00|2001-01-11 00:00:00
+    a2@t_select|2001-01-06 00:00:00|2001-01-11 00:00:00
     ```
 
     ```python
-    tools.g_mapset(mapset="PERMANENT")
+    tools.g_mapset(mapset="t_select")
     ```
 
 ### Select by one temporal relation
